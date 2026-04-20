@@ -1,0 +1,28 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: do {
+# CHECK: print(i);
+# CHECK: } while
+# CHECK: return 0;
+# CHECK: Syntax check: OK
+#
+# AST description:
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=i type=int
+      IntLiteral value=0
+    DoWhileStmt
+      BlockStmt
+        ExprStmt
+          CallExpr name=print
+            VarRef name=i
+        AssignmentStmt target=i
+          BinaryOp op=+
+            VarRef name=i
+            IntLiteral value=1
+      BinaryOp op=<
+        VarRef name=i
+        IntLiteral value=5
+    ReturnStmt
+      IntLiteral value=0

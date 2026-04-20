@@ -1,0 +1,25 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: struct Point {
+# CHECK: int x;
+# CHECK: int y;
+# CHECK: };
+# CHECK: int main() {
+# CHECK: Point p;
+# CHECK: p.x = 10;
+# CHECK: p.y = 20;
+# CHECK: return 0;
+#
+# AST: StructDecl with StructField as full visitable nodes
+StructDecl name=Point
+  StructField name=x type=int
+  StructField name=y type=int
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=p type=Point
+    AssignmentStmt target=p.x
+      IntLiteral value=10
+    AssignmentStmt target=p.y
+      IntLiteral value=20
+    ReturnStmt
+      IntLiteral value=0

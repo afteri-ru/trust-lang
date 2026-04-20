@@ -1,0 +1,32 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: while_simple_cond:
+# CHECK: if (!(i < 5)) goto while_simple_end;
+# CHECK: while_simple_body:
+# CHECK: print(i);
+# CHECK: goto while_simple_cond;
+# CHECK: while_simple_end:;
+# CHECK: return 0;
+# CHECK: Syntax check: OK
+#
+# AST description:
+# Тест простого while цикла без else блока - базовая предпроверка
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=i type=int
+      IntLiteral value=0
+    WhileStmt
+      BinaryOp op=<
+        VarRef name=i
+        IntLiteral value=5
+      BlockStmt
+        ExprStmt
+          CallExpr name=print
+            VarRef name=i
+        AssignmentStmt target=i
+          BinaryOp op=+
+            VarRef name=i
+            IntLiteral value=1
+    ReturnStmt
+      IntLiteral value=0

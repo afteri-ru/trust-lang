@@ -1,0 +1,67 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: // break/continue без метки - внутренний цикл
+# CHECK: // break с меткой outer - выход из внешнего цикла
+# CHECK: // continue с меткой outer - переход к внешнему циклу
+# CHECK: Syntax check: OK
+#
+# AST description:
+# Тест вложенных while циклов с break/continue на разных уровнях
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=i type=int
+      IntLiteral value=0
+    VarDecl name=j type=int
+      IntLiteral value=0
+    WhileStmt label=outer
+      BinaryOp op=<
+        VarRef name=i
+        IntLiteral value=3
+      BlockStmt
+        AssignmentStmt target=j
+          IntLiteral value=0
+        # Вложенный while без метки
+        WhileStmt
+          BinaryOp op=<
+            VarRef name=j
+            IntLiteral value=5
+          BlockStmt
+            # break без метки - выход из внутреннего цикла
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=2
+              ThenBlock
+                BreakStmt
+            # continue без метки - следующая итерация внутреннего
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=3
+              ThenBlock
+                ContinueStmt
+            AssignmentStmt target=j
+              BinaryOp op=+
+                VarRef name=j
+                IntLiteral value=1
+        # break с меткой outer - выход из внешнего цикла
+        IfStmt
+          BinaryOp op==
+            VarRef name=i
+            IntLiteral value=2
+          ThenBlock
+            BreakStmt label=outer
+        # continue с меткой outer - переход к внешнему циклу
+        IfStmt
+          BinaryOp op==
+            VarRef name=i
+            IntLiteral value=1
+          ThenBlock
+            ContinueStmt label=outer
+        AssignmentStmt target=i
+          BinaryOp op=+
+            VarRef name=i
+            IntLiteral value=1
+    ReturnStmt
+      IntLiteral value=0

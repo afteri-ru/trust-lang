@@ -1,0 +1,46 @@
+# RUN: %trans %s > %t.cpp
+# DISABLE COMPILATION DUE TO LONG TIME RUNNING %cxx -fsyntax-only -std=c++17 -I%S/../contrib/libtorch/include -I%S/../contrib/libtorch/include/torch/csrc/api/include %t.cpp > %t.log 2>&1
+# CHECK: torch::Tensor arr = torch::tensor({0, 0, 0}, torch::kInt32);
+# CHECK: arr[0] = 42;
+# CHECK: torch::Tensor nums = torch::tensor({1, 2, 3}, torch::kInt32);
+# CHECK: nums[0]
+# CHECK: torch::Tensor matrix = torch::tensor({{1, 2}, {3, 4}}, torch::kInt32);
+# CHECK: matrix[0][1]
+#
+# NOTE: torch/torch.h header is auto-included when ArrayInit/ArrayAccess is detected
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=arr type=int
+      ArrayInit
+        IntLiteral value=0
+        IntLiteral value=0
+        IntLiteral value=0
+    AssignmentStmt target=arr[0]
+      IntLiteral value=42
+    VarDecl name=nums type=int
+      ArrayInit
+        IntLiteral value=1
+        IntLiteral value=2
+        IntLiteral value=3
+    ExprStmt
+      CallExpr name=print
+        ArrayAccess
+          VarRef name=nums
+          IntLiteral value=0
+    VarDecl name=matrix type=int
+      ArrayInit
+        ArrayInit
+          IntLiteral value=1
+          IntLiteral value=2
+        ArrayInit
+          IntLiteral value=3
+          IntLiteral value=4
+    ExprStmt
+      CallExpr name=print
+        ArrayAccess
+          ArrayAccess
+            VarRef name=matrix
+            IntLiteral value=0
+          IntLiteral value=1
+    ReturnStmt
+      IntLiteral value=0

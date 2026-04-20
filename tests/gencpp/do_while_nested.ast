@@ -1,0 +1,71 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: do {
+# CHECK: } while
+# CHECK: Syntax check: OK
+#
+# AST description:
+# Тест вложенных do-while и смешанных циклов (while внутри do-while, do-while внутри while)
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=i type=int
+      IntLiteral value=0
+    VarDecl name=j type=int
+      IntLiteral value=0
+    VarDecl name=found type=bool
+      IntLiteral value=0
+    # do-while с меткой, внутри while
+    DoWhileStmt label=outer_loop
+      BlockStmt
+        AssignmentStmt target=j
+          IntLiteral value=0
+        # while внутрь do-while
+        WhileStmt label=inner_loop
+          BinaryOp op=<
+            VarRef name=j
+            IntLiteral value=5
+          BlockStmt
+            # break без метки - выход из inner while
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=2
+              ThenBlock
+                BreakStmt
+            # continue с меткой outer - переход к началу do-while
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=3
+              ThenBlock
+                ContinueStmt label=outer_loop
+            AssignmentStmt target=j
+              BinaryOp op=+
+                VarRef name=j
+                IntLiteral value=1
+        AssignmentStmt target=i
+          BinaryOp op=+
+            VarRef name=i
+            IntLiteral value=1
+      BinaryOp op=<
+        VarRef name=i
+        IntLiteral value=3
+    # while с do-while внутри
+    WhileStmt
+      BinaryOp op==
+        VarRef name=found
+        IntLiteral value=0
+      BlockStmt
+        DoWhileStmt
+          BlockStmt
+            ExprStmt
+              CallExpr name=print
+                StringLiteral value="scanning"
+            AssignmentStmt target=found
+              IntLiteral value=1
+          BinaryOp op=<
+            VarRef name=i
+            IntLiteral value=10
+    ReturnStmt
+      IntLiteral value=0

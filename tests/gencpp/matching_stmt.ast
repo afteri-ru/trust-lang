@@ -1,0 +1,29 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: template<typename T, typename U>
+# CHECK: bool test_matching(const T& val, const U& pattern);
+# CHECK: if (test_matching(x, 1)) {
+# CHECK: } else if (test_matching(x, 2)) {
+# CHECK: } else {
+#
+# AST description:
+FuncDecl name=test_matching ret=void
+  BlockStmt
+    VarDecl name=x type=int
+      IntLiteral value=42
+    MatchingStmt
+      VarRef name=x
+      MatchingCase
+        IntLiteral value=1
+        ExprStmt
+          CallExpr name=print
+            StringLiteral value="one"
+      MatchingCase
+        IntLiteral value=2
+        ExprStmt
+          CallExpr name=print
+            StringLiteral value="two"
+      MatchingElseBlock
+        ExprStmt
+          CallExpr name=print
+            StringLiteral value="other"

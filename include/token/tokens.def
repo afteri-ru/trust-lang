@@ -1,0 +1,209 @@
+// tokens.def
+//
+// Format: TOKEN(NAME, VALUE, FLAGS)
+//
+// VALUE:
+//   0     - reserved for EOF (END only)
+//   AUTO  - assigned and locked in tokens.lock
+//   N     - explicit value (checked for conflicts)
+//
+// FLAGS:
+//   FLEX_LEXEME  - returned by Flex lexer
+//   BISON_TOKEN  - participates in Bison grammar
+//   Expr         - expression AST node
+//   Stmt         - statement / codegen AST node
+//   Decl         - declaration AST node
+//   Root         - root AST node
+//
+// NAMING:
+//   UPPER_CASE   - must have FLEX_LEXEME
+//   CamelCase    - Bison nonterminal and/or AST node
+//   lower_case   - BISON_TOKEN only
+//
+// CONSTRAINTS:
+//   - Each TOKEN(...) is strictly one line
+//   - Only // comments supported
+//   - Char tokens '+' '-' '(' are used in parser.y as ASCII literals, not declared here
+
+// [1] EOF - must be 0 (Bison/yacc standard)
+TOKEN(END,        0,     FLEX_LEXEME | BISON_TOKEN)
+
+// [2] Lexer: tokens NOT passed to Bison (Flex only)
+
+// String literals
+TOKEN(STRWIDE,    AUTO,  FLEX_LEXEME)
+TOKEN(STRCHAR,    AUTO,  FLEX_LEXEME)
+TOKEN(STRWIDE_RAW, AUTO,  FLEX_LEXEME)
+TOKEN(STRCHAR_RAW, AUTO,  FLEX_LEXEME)
+
+// EMBED / EVAL
+TOKEN(EMBED,      AUTO,  FLEX_LEXEME)
+TOKEN(EVAL,       AUTO,  FLEX_LEXEME)
+
+// Macro arguments (internal)
+TOKEN(MACRO_ARGNAME, AUTO,  FLEX_LEXEME)
+TOKEN(MACRO_ARGPOS,  AUTO,  FLEX_LEXEME)
+TOKEN(MACRO_ARGUMENT, AUTO,  FLEX_LEXEME)
+TOKEN(MACRO_ARGCOUNT,   AUTO,  FLEX_LEXEME)
+
+// Macro operations
+TOKEN(MACRO_CONCAT,    AUTO,  FLEX_LEXEME)
+TOKEN(MACRO_TOSTR,     AUTO,  FLEX_LEXEME)
+TOKEN(MACRO_DEL,       AUTO,  FLEX_LEXEME)
+TOKEN(MACRO_SEQ,       AUTO,  FLEX_LEXEME)
+TOKEN(MACRO_STR,       AUTO,  FLEX_LEXEME)
+TOKEN(MACRO_EXPR_BEGIN, AUTO, FLEX_LEXEME)
+TOKEN(MACRO_EXPR_END,   AUTO, FLEX_LEXEME)
+
+// Macro namespaces
+TOKEN(MACRO_NAMESPACE, AUTO,  FLEX_LEXEME)
+
+// Documentation
+TOKEN(DOC_BEFORE,      AUTO,  FLEX_LEXEME)
+TOKEN(DOC_AFTER,       AUTO,  FLEX_LEXEME)
+
+// Operators (internal classification)
+TOKEN(OPERATOR_DIV,    AUTO,  FLEX_LEXEME)
+TOKEN(OP_MATH,         AUTO,  FLEX_LEXEME)
+TOKEN(OP_COMPARE,      AUTO,  FLEX_LEXEME)
+TOKEN(OP_LOGICAL,      AUTO,  FLEX_LEXEME)
+TOKEN(OPERATOR_AND,    AUTO,  FLEX_LEXEME)
+TOKEN(OPERATOR_PTR,    AUTO,  FLEX_LEXEME)
+TOKEN(OPERATOR_DUCK,   AUTO,  FLEX_LEXEME)
+TOKEN(OPERATOR_ANGLE_EQ, AUTO, FLEX_LEXEME)
+TOKEN(OP_BITWISE,      AUTO,  FLEX_LEXEME)
+
+// Integer operations
+TOKEN(INT_PLUS,        AUTO,  FLEX_LEXEME)
+TOKEN(INT_MINUS,       AUTO,  FLEX_LEXEME)
+TOKEN(INT_REPEAT,      AUTO,  FLEX_LEXEME)
+
+// Try blocks
+TOKEN(TRY_ALL_BEGIN,   AUTO,  FLEX_LEXEME)
+TOKEN(TRY_ALL_END,     AUTO,  FLEX_LEXEME)
+TOKEN(TRY_PLUS_BEGIN,  AUTO,  FLEX_LEXEME)
+TOKEN(TRY_PLUS_END,    AUTO,  FLEX_LEXEME)
+TOKEN(TRY_MINUS_BEGIN,  AUTO,  FLEX_LEXEME)
+TOKEN(TRY_MINUS_END,    AUTO,  FLEX_LEXEME)
+
+// Interrupts
+TOKEN(AWAIT,           AUTO,  FLEX_LEXEME)
+TOKEN(YIELD,           AUTO,  FLEX_LEXEME)
+TOKEN(YIELD_BEGIN,     AUTO,  FLEX_LEXEME)
+TOKEN(YIELD_END,       AUTO,  FLEX_LEXEME)
+TOKEN(WHEN_ALL,        AUTO,  FLEX_LEXEME)
+TOKEN(WHEN_ANY,        AUTO,  FLEX_LEXEME)
+
+// Iterators
+TOKEN(ITERATOR,        AUTO,  FLEX_LEXEME)
+TOKEN(ITERATOR_QQ,     AUTO,  FLEX_LEXEME)
+
+// References
+TOKEN(TAKE_CONST,      AUTO,  FLEX_LEXEME)
+TOKEN(WITH,            AUTO,  FLEX_LEXEME)
+TOKEN(ESCAPE,          AUTO,  FLEX_LEXEME)
+
+// [3] Lexer + Bison: terminals passed from lexer to parser
+
+// Names and identifiers
+TOKEN(NAME,            AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(MANGLED,         AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(LOCAL,           AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(NATIVE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(MODULE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
+
+// Literals
+TOKEN(NUMBER,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(INTEGER,         AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(COMPLEX,         AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(RATIONAL,        AUTO,  FLEX_LEXEME | BISON_TOKEN)
+
+// Macros
+TOKEN(MACRO,           AUTO,  FLEX_LEXEME | BISON_TOKEN)
+
+// Arguments
+TOKEN(ARGUMENT,        AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(ARGS,             AUTO,  FLEX_LEXEME | BISON_TOKEN)
+
+// Namespaces
+TOKEN(NAMESPACE,       AUTO,  FLEX_LEXEME | BISON_TOKEN)
+
+// Control symbols
+TOKEN(ELLIPSIS,        AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(RANGE,           AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(REPEAT,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(FOLLOW,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(MATCHING,        AUTO,  FLEX_LEXEME | BISON_TOKEN)
+
+// Creation and assignment
+TOKEN(CREATE_NEW,      AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(CREATE_USE,      AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(APPEND,           AUTO,  FLEX_LEXEME | BISON_TOKEN)
+
+// Additional terminals
+TOKEN(PURE_NEW,        AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(PURE_USE,        AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(SWAP,            AUTO,  FLEX_LEXEME | BISON_TOKEN)
+
+// Attributes and extensions
+TOKEN(ATTRIBUTE,       AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(PARENT,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(NEWLANG,         AUTO,  FLEX_LEXEME | BISON_TOKEN)
+
+// [4] Bison only: nonterminals without AST (none currently)
+
+// [5] Bison + AST: grammar nodes linked to AST
+
+// Root nodes
+TOKEN(Program,        999,   Root)
+
+// Expression nodes (BISON_TOKEN + Expr)
+TOKEN(IntLiteral,     AUTO,  BISON_TOKEN | Expr)
+TOKEN(StringLiteral,  AUTO,  BISON_TOKEN | Expr)
+TOKEN(BinaryOp,       AUTO,  BISON_TOKEN | Expr)
+TOKEN(VarRef,         AUTO,  BISON_TOKEN | Expr)
+TOKEN(CallExpr,       AUTO,  BISON_TOKEN | Expr)
+
+// Statement nodes (BISON_TOKEN + Stmt)
+TOKEN(IfStmt,         AUTO,  BISON_TOKEN | Stmt)
+TOKEN(WhileStmt,      AUTO,  BISON_TOKEN | Stmt)
+TOKEN(ReturnStmt,     AUTO,  BISON_TOKEN | Stmt)
+TOKEN(AssignmentStmt, AUTO,  BISON_TOKEN | Stmt)
+
+// Declaration nodes (BISON_TOKEN + Decl)
+TOKEN(FuncDecl,       AUTO,  BISON_TOKEN | Decl)
+TOKEN(VarDecl,        AUTO,  BISON_TOKEN | Decl)
+TOKEN(ParamDecl,      AUTO,  BISON_TOKEN | Decl)
+
+// [6] AST only: codegen helper nodes (Stmt/Expr/Decl, no Bison)
+
+// Expression nodes (Expr only)
+TOKEN(EnumLiteral,    AUTO,  Expr)
+TOKEN(MemberAccess,   AUTO,  Expr)
+TOKEN(ArrayAccess,    AUTO,  Expr)
+TOKEN(ArrayInit,      AUTO,  Expr)
+TOKEN(CastExpr,       AUTO,  Expr)
+TOKEN(RefMakeExpr,    AUTO,  Expr)
+TOKEN(RefTakeExpr,    AUTO,  Expr)
+
+// Statement nodes (Stmt only)
+TOKEN(ExprStmt,       AUTO,  Stmt)
+TOKEN(BlockStmt,      AUTO,  Stmt)
+TOKEN(ThenBlock,      AUTO,  Stmt)
+TOKEN(ElseBlock,      AUTO,  Stmt)
+TOKEN(DoWhileStmt,    AUTO,  Stmt)
+TOKEN(WhileElseBlock, AUTO,  Stmt)
+TOKEN(BreakStmt,      AUTO,  Stmt)
+TOKEN(ContinueStmt,   AUTO,  Stmt)
+TOKEN(TryCatchStmt,   AUTO,  Stmt)
+TOKEN(CatchBlock,     AUTO,  Stmt)
+TOKEN(ThrowStmt,      AUTO,  Stmt)
+TOKEN(MatchingStmt,   AUTO,  Stmt)
+TOKEN(MatchingCase,   AUTO,  Stmt)
+TOKEN(MatchingElseBlock, AUTO, Stmt)
+
+// Declaration nodes (Decl only)
+TOKEN(EnumDecl,       AUTO,  Decl)
+TOKEN(EnumMember,     AUTO,  Decl)
+TOKEN(StructDecl,     AUTO,  Decl)
+TOKEN(StructField,    AUTO,  Decl)

@@ -1,0 +1,72 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: Syntax check: OK
+#
+# AST description:
+# Тест смешанных вложенных циклов: while внутри do-while, continue к внешнему do-while
+# Проверяем переход continue к внешней метке do-while из внутреннего while
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=i type=int
+      IntLiteral value=0
+    VarDecl name=j type=int
+      IntLiteral value=0
+    # Внешний do-while с меткой outer
+    DoWhileStmt label=outer
+      BlockStmt
+        AssignmentStmt target=j
+          IntLiteral value=0
+        # Внутренний while с меткой inner
+        WhileStmt label=inner
+          BinaryOp op=<
+            VarRef name=j
+            IntLiteral value=5
+          BlockStmt
+            # break без метки - выход из inner while
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=1
+              ThenBlock
+                BreakStmt
+            # continue с меткой outer - переход к началу внешнего do-while
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=2
+              ThenBlock
+                ContinueStmt label=outer
+            # continue к inner while - к условию внутреннего
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=3
+              ThenBlock
+                ContinueStmt label=inner
+            # break с меткой outer - выход из внешнего do-while
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=4
+              ThenBlock
+                BreakStmt label=outer
+            ExprStmt
+              CallExpr name=print
+                VarRef name=j
+            AssignmentStmt target=j
+              BinaryOp op=+
+                VarRef name=j
+                IntLiteral value=1
+        ExprStmt
+          CallExpr name=print
+            StringLiteral value="outer iteration"
+        AssignmentStmt target=i
+          BinaryOp op=+
+            VarRef name=i
+            IntLiteral value=1
+      BinaryOp op=<
+        VarRef name=i
+        IntLiteral value=3
+    ReturnStmt
+      IntLiteral value=0

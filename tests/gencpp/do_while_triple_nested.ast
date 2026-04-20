@@ -1,0 +1,89 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: Syntax check: OK
+#
+# AST description:
+# Тест трёх уровней вложенности do-while с break/continue по меткам
+# Уровень 1: outer, Уровень 2: middle, Уровень 3: inner
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=i type=int
+      IntLiteral value=0
+    VarDecl name=j type=int
+      IntLiteral value=0
+    VarDecl name=k type=int
+      IntLiteral value=0
+    # Уровень 1: do-while с меткой outer
+    DoWhileStmt label=outer
+      BlockStmt
+        AssignmentStmt target=j
+          IntLiteral value=0
+        # Уровень 2: do-while с меткой middle
+        DoWhileStmt label=middle
+          BlockStmt
+            AssignmentStmt target=k
+              IntLiteral value=0
+            # Уровень 3: do-while с меткой inner
+            DoWhileStmt label=inner
+              BlockStmt
+                # break без метки - выход из inner
+                IfStmt
+                  BinaryOp op==
+                    VarRef name=k
+                    IntLiteral value=1
+                  ThenBlock
+                    BreakStmt
+                # continue с меткой inner - к условию inner
+                IfStmt
+                  BinaryOp op==
+                    VarRef name=k
+                    IntLiteral value=2
+                  ThenBlock
+                    ContinueStmt label=inner
+                # break с меткой middle - выход из middle
+                IfStmt
+                  BinaryOp op==
+                    VarRef name=k
+                    IntLiteral value=3
+                  ThenBlock
+                    BreakStmt label=middle
+                # continue с меткой outer - к началу внешнего
+                IfStmt
+                  BinaryOp op==
+                    VarRef name=k
+                    IntLiteral value=4
+                  ThenBlock
+                    ContinueStmt label=outer
+                ExprStmt
+                  CallExpr name=print
+                    VarRef name=k
+                AssignmentStmt target=k
+                  BinaryOp op=+
+                    VarRef name=k
+                    IntLiteral value=1
+              BinaryOp op=<
+                VarRef name=k
+                IntLiteral value=5
+            ExprStmt
+              CallExpr name=print
+                StringLiteral value="middle"
+            AssignmentStmt target=j
+              BinaryOp op=+
+                VarRef name=j
+                IntLiteral value=1
+          BinaryOp op=<
+            VarRef name=j
+            IntLiteral value=3
+        ExprStmt
+          CallExpr name=print
+            StringLiteral value="outer"
+        AssignmentStmt target=i
+          BinaryOp op=+
+            VarRef name=i
+            IntLiteral value=1
+      BinaryOp op=<
+        VarRef name=i
+        IntLiteral value=2
+    ReturnStmt
+      IntLiteral value=0

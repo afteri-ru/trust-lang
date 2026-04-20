@@ -1,0 +1,9 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: throw "error";
+#
+# AST description:
+FuncDecl name=test_throw ret=void
+  BlockStmt
+    ThrowStmt
+      StringLiteral value="error"

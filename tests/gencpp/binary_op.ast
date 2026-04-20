@@ -1,0 +1,30 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int add(int a, int b) {
+# CHECK: return a + b;
+# CHECK: int main() {
+# CHECK: int x = 10;
+# CHECK: int y = x * 3;
+# CHECK: return x + y;
+#
+# AST description:
+FuncDecl name=add ret=int
+  ParamDecl name=a type=int
+  ParamDecl name=b type=int
+  BlockStmt
+    ReturnStmt
+      BinaryOp op=+
+        VarRef name=a
+        VarRef name=b
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=x type=int
+      IntLiteral value=10
+    VarDecl name=y type=int
+      BinaryOp op=*
+        VarRef name=x
+        IntLiteral value=3
+    ReturnStmt
+      BinaryOp op=+
+        VarRef name=x
+        VarRef name=y

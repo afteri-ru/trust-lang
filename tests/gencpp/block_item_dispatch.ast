@@ -1,0 +1,19 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: int x = 5;
+# CHECK: int y = 10;
+# CHECK: x = 42;
+# CHECK: return 0;
+#
+# AST: BlockItem unified dispatch (Decl and Stmt in same block)
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=x type=int
+      IntLiteral value=5
+    VarDecl name=y type=int
+      IntLiteral value=10
+    AssignmentStmt target=x
+      IntLiteral value=42
+    ReturnStmt
+      IntLiteral value=0

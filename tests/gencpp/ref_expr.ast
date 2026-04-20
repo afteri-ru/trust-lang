@@ -1,0 +1,21 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: int ref = ref_make(x);
+# CHECK: int val = ref_take(ref);
+# CHECK: return 0;
+#
+# Test RefMakeExpr and RefTakeExpr
+# ref_make/ref_take stubs are generated automatically
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=x
+      IntLiteral value=42
+    VarDecl name=ref
+      RefMakeExpr
+        VarRef name=x
+    VarDecl name=val
+      RefTakeExpr
+        VarRef name=ref
+    ReturnStmt
+      IntLiteral value=0

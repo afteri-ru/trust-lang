@@ -1,0 +1,41 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: do {
+# CHECK: goto
+# CHECK: goto
+# CHECK: } while
+# CHECK: Syntax check: OK
+#
+# AST description:
+# Тест do-while с break и continue внутри цикла
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=i type=int
+      IntLiteral value=0
+    DoWhileStmt label=loop
+      BlockStmt
+        IfStmt
+          BinaryOp op==
+            VarRef name=i
+            IntLiteral value=3
+          ThenBlock
+            BreakStmt label=loop
+        IfStmt
+          BinaryOp op==
+            VarRef name=i
+            IntLiteral value=1
+          ThenBlock
+            ContinueStmt label=loop
+        ExprStmt
+          CallExpr name=print
+            VarRef name=i
+        AssignmentStmt target=i
+          BinaryOp op=+
+            VarRef name=i
+            IntLiteral value=1
+      BinaryOp op=<
+        VarRef name=i
+        IntLiteral value=5
+    ReturnStmt
+      IntLiteral value=0

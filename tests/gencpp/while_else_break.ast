@@ -1,0 +1,61 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: else:;
+# CHECK: Syntax check: OK
+#
+# AST description:
+# Тест while с else блоком, содержащим break и continue
+# Проверяем корректную генерацию кода для ветки else
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=x type=int
+      IntLiteral value=10
+    VarDecl name=y type=int
+      IntLiteral value=0
+    # While с else - break и continue внутри while тела
+    WhileStmt label=main_loop
+      BinaryOp op=>
+        VarRef name=x
+        IntLiteral value=0
+      BlockStmt
+        ExprStmt
+          CallExpr name=print
+            VarRef name=x
+        # break при x == 5 - выход из всего цикла
+        IfStmt
+          BinaryOp op==
+            VarRef name=x
+            IntLiteral value=5
+          ThenBlock
+            BreakStmt label=main_loop
+        # continue при x == 8 - к проверке условия
+        IfStmt
+          BinaryOp op==
+            VarRef name=x
+            IntLiteral value=8
+          ThenBlock
+            ContinueStmt label=main_loop
+        AssignmentStmt target=x
+          BinaryOp op=-
+            VarRef name=x
+            IntLiteral value=1
+      WhileElseBlock
+        ExprStmt
+          CallExpr name=print
+            StringLiteral value="done"
+        # Вложенный while внутри else блока
+        WhileStmt
+          BinaryOp op=<
+            VarRef name=y
+            IntLiteral value=3
+          BlockStmt
+            ExprStmt
+              CallExpr name=print
+                StringLiteral value="cleanup"
+            AssignmentStmt target=y
+              BinaryOp op=+
+                VarRef name=y
+                IntLiteral value=1
+    ReturnStmt
+      IntLiteral value=0

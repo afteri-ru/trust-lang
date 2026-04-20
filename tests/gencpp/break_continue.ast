@@ -1,0 +1,38 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: if (!(i < 10)) goto
+# CHECK: do {
+# CHECK: goto
+# CHECK: goto
+# CHECK: Syntax check: OK
+#
+# AST description:
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=i type=int
+      IntLiteral value=0
+    WhileStmt label=myloop
+      BinaryOp op=<
+        VarRef name=i
+        IntLiteral value=10
+      BlockStmt
+        AssignmentStmt target=i
+          BinaryOp op=+
+            VarRef name=i
+            IntLiteral value=1
+        IfStmt
+          BinaryOp op=<
+            VarRef name=i
+            IntLiteral value=3
+          ThenBlock
+            ContinueStmt label=myloop
+          ElseBlock
+            IfStmt
+              BinaryOp op=<
+                VarRef name=i
+                IntLiteral value=7
+              ThenBlock
+                BreakStmt label=myloop
+    ReturnStmt
+      IntLiteral value=0

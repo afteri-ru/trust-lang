@@ -1,0 +1,57 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: Syntax check: OK
+#
+# AST description:
+# Тест чисто вложенных do-while циклов (do-while внутри do-while)
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=i type=int
+      IntLiteral value=0
+    VarDecl name=j type=int
+      IntLiteral value=0
+    # Внешний do-while с меткой
+    DoWhileStmt label=outer
+      BlockStmt
+        AssignmentStmt target=j
+          IntLiteral value=0
+        # Внутренний do-while без метки
+        DoWhileStmt label=inner
+          BlockStmt
+            # break без метки - выход из inner
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=2
+              ThenBlock
+                BreakStmt
+            # continue с меткой outer - к внешнему do-while
+            IfStmt
+              BinaryOp op==
+                VarRef name=j
+                IntLiteral value=3
+              ThenBlock
+                ContinueStmt label=outer
+            ExprStmt
+              CallExpr name=print
+                StringLiteral value="inner"
+            AssignmentStmt target=j
+              BinaryOp op=+
+                VarRef name=j
+                IntLiteral value=1
+          BinaryOp op=<
+            VarRef name=j
+            IntLiteral value=4
+        ExprStmt
+          CallExpr name=print
+            StringLiteral value="outer"
+        AssignmentStmt target=i
+          BinaryOp op=+
+            VarRef name=i
+            IntLiteral value=1
+      BinaryOp op=<
+        VarRef name=i
+        IntLiteral value=2
+    ReturnStmt
+      IntLiteral value=0

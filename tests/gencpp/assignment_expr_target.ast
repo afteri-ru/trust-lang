@@ -1,0 +1,16 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: int x = 10;
+# CHECK: x = 42;
+# CHECK: return 0;
+#
+# AST: AssignmentStmt with VarRef target (Expr* target)
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=x type=int
+      IntLiteral value=10
+    AssignmentStmt target=x
+      IntLiteral value=42
+    ReturnStmt
+      IntLiteral value=0

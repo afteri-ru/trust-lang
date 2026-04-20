@@ -1,0 +1,20 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: int main() {
+# CHECK: int x = 10;
+# CHECK: std::string msg = "hello";
+# CHECK: print(msg);
+# CHECK: return 0;
+#
+# AST description (one line per node, indent = depth):
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=x type=int
+      IntLiteral value=10
+    VarDecl name=msg type=string
+      StringLiteral value="hello"
+    ExprStmt
+      CallExpr name=print
+        VarRef name=msg
+    ReturnStmt
+      IntLiteral value=0

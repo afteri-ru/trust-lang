@@ -1,0 +1,16 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: try {
+# CHECK: } catch (std::string e) {
+#
+# AST description:
+FuncDecl name=test_try_catch ret=void
+  BlockStmt
+    TryCatchStmt
+      ExprStmt
+        CallExpr name=print
+          StringLiteral value="trying"
+      CatchBlock type=string name=e
+        ExprStmt
+          CallExpr name=print
+            VarRef name=e

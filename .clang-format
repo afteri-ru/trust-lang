@@ -1,0 +1,14 @@
+---
+Language:        Cpp
+
+ColumnLimit:     160
+IndentWidth:     4
+TabWidth:        4
+UseTab:          Never
+IncludeBlocks: Preserve
+SortIncludes: Never
+IndentPPDirectives: None
+
+AllowShortFunctionsOnASingleLine:  InlineOnly
+AlwaysBreakTemplateDeclarations: Yes
+AlignEscapedNewlines: Left

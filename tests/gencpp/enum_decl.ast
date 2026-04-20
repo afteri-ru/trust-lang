@@ -1,0 +1,23 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: enum class Color { Red = 1, Green, Blue };
+# CHECK: int main();
+# CHECK: int main() {
+# CHECK: Color c = Color::Red;
+# CHECK: print(c);
+# CHECK: return 0;
+#
+# AST: EnumDecl with EnumMember as full visitable nodes
+EnumDecl name=Color
+  EnumMember name=Red value=1
+  EnumMember name=Green
+  EnumMember name=Blue
+FuncDecl name=main ret=int
+  BlockStmt
+    VarDecl name=c type=Color
+      EnumLiteral enum=Color member=Red
+    ExprStmt
+      CallExpr name=print
+        VarRef name=c
+    ReturnStmt
+      IntLiteral value=0

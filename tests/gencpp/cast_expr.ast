@@ -1,0 +1,19 @@
+# RUN: %trans %s > %t.cpp
+# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# CHECK: static_cast<bool>
+# CHECK: static_cast<int>
+#
+FuncDecl name=main ret=int
+  BlockStmt
+    ExprStmt
+      CallExpr name=print
+        CastExpr type=bool
+          IntLiteral value=1
+    ExprStmt
+      CallExpr name=print
+        CastExpr type=int
+          BinaryOp op=+
+            IntLiteral value=5
+            IntLiteral value=3
+    ReturnStmt
+      IntLiteral value=0
