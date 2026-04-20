@@ -6,14 +6,14 @@
 - Transform tasks into verifiable success criteria before writing code.
 - For multi-step tasks, state a brief plan with verification points.
 
-## 2. Plan Large Tasks Explicitly
+## 2. Clearly Plan Large Tasks
 
-**Document step-by-step plans for large tasks or complex refactoring under SCCS.**
+**Document step-by-step plans for large tasks or complex refactorings.**
 
-- Create a dedicated plan file in version control before starting work.
-- Track successful completion of each step in the plan file.
-- Reference the plan file in SCCS commits when delivering results.
-- After all planned tasks are confirmed complete, remove the plan file in a final commit with a brief summary of outcomes.
+- Create a TASKS.md file before starting complex work.
+- Track the successful completion of each step in the plan file.
+- Refer to plan items when presenting results.
+- After confirming completion of all planned tasks, delete the plan file with a brief description of the results achieved.
 
 ## 3. Simplicity First
 
