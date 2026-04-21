@@ -7,18 +7,9 @@ config.suffixes = ['.ast']
 config.test_source_root = os.path.dirname(__file__)
 config.test_exec_root = os.path.join(config.test_source_root, 'Output')
 
-# Path to gencpp_from_ast binary
-# When run via CMake, the binary is in build/gencpp_from_ast
-_build_dir = os.path.abspath(os.path.join(config.test_source_root, '..', '..', 'build'))
-_gencpp_cli = os.path.join(_build_dir, 'gencpp_from_ast')
-
-# Normalize path
-_gencpp_cli = os.path.normpath(_gencpp_cli)
-
-lit_config.note(f"Using gencpp_from_ast: {_gencpp_cli}")
-
-config.substitutions.append(('%trans', _gencpp_cli))
-
-# C++ compiler for syntax checking
-_cxx = os.environ.get('CXX', 'g++')
-config.substitutions.append(('%cxx', _cxx))
+# Load CMake-generated settings from lit.site.cfg.py if it exists
+lit_cfg_py = os.path.join(config.test_source_root, 'lit.site.cfg.py')
+if os.path.exists(lit_cfg_py):
+    lit_config.load_config(config, lit_cfg_py)
+else:
+    lit_config.fatal(f"lit.site.cfg.py not found at {lit_cfg_py}")

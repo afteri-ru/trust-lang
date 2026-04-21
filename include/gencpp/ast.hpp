@@ -1,7 +1,8 @@
 #pragma once
 
-#include "token/token.hpp"
-#include "gencpp/types.hpp"
+#include "parser/token.hpp"
+#include "parser/token_info.hpp"
+#include "types/type_info.hpp"
 #include "gencpp/ast_visitor.hpp"
 #include <memory>
 #include <optional>
@@ -61,7 +62,20 @@ struct TypeResolution {
 // Base AST node
 struct AstNodeBase : public AstVisitable {
     SourceLoc loc;
+    std::optional<TokenInfo> source;
+
+    void set_source(const TokenInfo &ti) {
+        source = ti;
+        loc = ti.range.begin;
+    }
+
+    ParserToken::Kind token_kind() const override {
+        return source ? source->kind : ParserToken::Kind::END;
+    }
 };
+
+using AstNodePtr = std::unique_ptr<AstNodeBase>;
+using AstNodeSequence = std::vector<AstNodePtr>;
 
 // AstTypeTraits — wraps ParserToken for AST node type operations
 struct AstTypeTraits {
@@ -278,7 +292,7 @@ struct ExprStmt : public Stmt {
     ParserToken::Kind token_kind() const override { return ParserToken::Kind::ExprStmt; }
 };
 
-using BlockItem = std::unique_ptr<AstVisitable>;
+using BlockItem = std::unique_ptr<AstNodeBase>;
 using BlockBody = std::vector<BlockItem>;
 
 struct BlockStmt : public Stmt {

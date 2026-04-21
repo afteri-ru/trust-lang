@@ -1,5 +1,5 @@
 # RUN: %trans %s > %t.cpp
-# RUN: %cxx -fsyntax-only -std=c++17 %t.cpp > %t.log 2>&1
+# RUN: %cxx -fsyntax-only %t.cpp > %t.log 2>&1
 # CHECK: int main() {
 # CHECK: do {
 # CHECK: goto

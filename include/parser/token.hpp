@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <array>
 #include <string_view>
+#include <vector>
+#include "diag/location.hpp"
 
 namespace trust {
 
@@ -44,7 +46,7 @@ enum class TokenCategory : int {
 // Element count via X-macro pattern
 #define TK(name, val, flags) +1
 static constexpr std::size_t _ALL_COUNT = 0
-#include "token/token.gen.all"
+#include "parser/token.gen.all"
 ;
 #undef TK
 
@@ -54,7 +56,7 @@ static constexpr std::size_t _ALL_COUNT = 0
 struct ParserToken {
     enum class Kind : int {
         #define TK(name, val, flags) name = val,
-        #include "token/token.gen.all"
+        #include "parser/token.gen.all"
         #undef TK
     };
 
@@ -62,7 +64,7 @@ struct ParserToken {
     [[nodiscard]] static constexpr std::string_view name(Kind k) noexcept {
         switch (k) {
         #define TCASE(name) case Kind::name: return #name;
-        #include "token/token.gen.name_all"
+        #include "parser/token.gen.name_all"
         #undef TCASE
         }
         return "<unknown>";
@@ -72,7 +74,7 @@ struct ParserToken {
     [[nodiscard]] static constexpr TokenFlag flags(Kind k) noexcept {
         switch (k) {
         #define FCASE(name, fl) case Kind::name: return fl;
-        #include "token/token.gen.flags_all"
+        #include "parser/token.gen.flags_all"
         #undef FCASE
         }
         return TokenFlag{};
@@ -101,7 +103,7 @@ struct ParserToken {
     /** Static array of all tokens, for range-based for via ParserToken::all(). */
     static constexpr std::array<Kind, _ALL_COUNT> _all = {{
         #define TK(name, val, flags) Kind::name,
-        #include "token/token.gen.all"
+        #include "parser/token.gen.all"
         #undef TK
     }};
 
@@ -111,7 +113,7 @@ struct ParserToken {
     /** Lookup token by name (constexpr). Returns pointer to Kind or nullptr. */
     [[nodiscard]] static constexpr const Kind* from_name(std::string_view s) noexcept {
         #define LOOKUP(name) if (s == #name) { static constexpr auto _k = Kind::name; return &_k; }
-        #include "token/token.gen.lookup_all"
+        #include "parser/token.gen.lookup_all"
         #undef LOOKUP
         return nullptr;
     }
@@ -133,16 +135,28 @@ struct ParserToken {
 
 // Compile-time checks: ParserToken::Kind values match tokens.def
 #define TK(name, val, flags) static_assert(static_cast<int>(ParserToken::Kind::name) == val, #name);
-#include "token/token.gen.all"
+#include "parser/token.gen.all"
 #undef TK
 
 // Hash sync check: flex.gen.h and token.gen.hash must match
-#include "token/token.gen.hash"
+#include "parser/token.gen.hash"
 #if defined(FLEX_DEFINES_TOKENS_HASH)
 static_assert(
     __builtin_strcmp(FLEX_DEFINES_TOKENS_HASH, TOKENS_DEF_HASH) == 0,
     "[trust::TokenGen] flex.gen.h and token.gen.hash are out of sync!");
 #endif
+
+/** Lexeme: token kind + position. Text stored as std::string_view into base buffer.
+ *  Used by both Flex lexer and Bison parser as the unified token representation. */
+struct Lexeme : std::string_view {
+    ParserToken::Kind kind{ParserToken::Kind::END};
+    SourceLoc pos{};
+    Lexeme() = default;
+    Lexeme(ParserToken::Kind k, std::string_view v, SourceLoc p)
+        : std::string_view(v), kind(k), pos(p) {}
+};
+
+using LexemeSequence = std::vector<Lexeme>;
 
 } // namespace trust
 

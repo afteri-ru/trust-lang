@@ -23,7 +23,6 @@
 // CONSTRAINTS:
 //   - Each TOKEN(...) is strictly one line
 //   - Only // comments supported
-//   - Char tokens '+' '-' '(' are used in parser.y as ASCII literals, not declared here
 
 // [1] EOF - must be 0 (Bison/yacc standard)
 TOKEN(END,        0,     FLEX_LEXEME | BISON_TOKEN)
@@ -31,8 +30,8 @@ TOKEN(END,        0,     FLEX_LEXEME | BISON_TOKEN)
 // [2] Lexer: tokens NOT passed to Bison (Flex only)
 
 // String literals
-TOKEN(STRWIDE,    AUTO,  FLEX_LEXEME)
-TOKEN(STRCHAR,    AUTO,  FLEX_LEXEME)
+TOKEN(STRWIDE,    AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(STRCHAR,    AUTO,  FLEX_LEXEME | BISON_TOKEN)
 TOKEN(STRWIDE_RAW, AUTO,  FLEX_LEXEME)
 TOKEN(STRCHAR_RAW, AUTO,  FLEX_LEXEME)
 
@@ -102,6 +101,35 @@ TOKEN(ITERATOR_QQ,     AUTO,  FLEX_LEXEME)
 TOKEN(TAKE_CONST,      AUTO,  FLEX_LEXEME)
 TOKEN(WITH,            AUTO,  FLEX_LEXEME)
 TOKEN(ESCAPE,          AUTO,  FLEX_LEXEME)
+
+// Single-character tokens (punctuation and operators)
+TOKEN(LPAREN,          AUTO,  FLEX_LEXEME | BISON_TOKEN)  // (
+TOKEN(RPAREN,          AUTO,  FLEX_LEXEME | BISON_TOKEN)  // )
+TOKEN(LBRACE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)  // {
+TOKEN(RBRACE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)  // }
+TOKEN(LBRACKET,        AUTO,  FLEX_LEXEME | BISON_TOKEN)  // [
+TOKEN(RBRACKET,        AUTO,  FLEX_LEXEME | BISON_TOKEN)  // ]
+TOKEN(LANGLE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)  // <
+TOKEN(RANGLE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)  // >
+TOKEN(SEMICOLON,       AUTO,  FLEX_LEXEME | BISON_TOKEN)  // ;
+TOKEN(COMMA,           AUTO,  FLEX_LEXEME | BISON_TOKEN)  // ,
+TOKEN(COLON,           AUTO,  FLEX_LEXEME | BISON_TOKEN)  // :
+TOKEN(DOT,             AUTO,  FLEX_LEXEME | BISON_TOKEN)  // .
+TOKEN(ASSIGN,          AUTO,  FLEX_LEXEME | BISON_TOKEN)  // =
+TOKEN(PLUS,            AUTO,  FLEX_LEXEME | BISON_TOKEN)  // +
+TOKEN(MINUS,           AUTO,  FLEX_LEXEME | BISON_TOKEN)  // -
+TOKEN(STAR,            AUTO,  FLEX_LEXEME | BISON_TOKEN)  // *
+TOKEN(SLASH,           AUTO,  FLEX_LEXEME | BISON_TOKEN)  // /
+TOKEN(PERCENT,         AUTO,  FLEX_LEXEME | BISON_TOKEN)  // %
+TOKEN(AMPERSAND,       AUTO,  FLEX_LEXEME | BISON_TOKEN)  // &
+TOKEN(PIPE,            AUTO,  FLEX_LEXEME | BISON_TOKEN)  // |
+TOKEN(CARET,           AUTO,  FLEX_LEXEME | BISON_TOKEN)  // ^
+TOKEN(TILDE,           AUTO,  FLEX_LEXEME | BISON_TOKEN)  // ~
+TOKEN(BANG,            AUTO,  FLEX_LEXEME | BISON_TOKEN)  // !
+TOKEN(QUESTION,        AUTO,  FLEX_LEXEME | BISON_TOKEN)  // ?
+TOKEN(AT,              AUTO,  FLEX_LEXEME | BISON_TOKEN)  // @
+TOKEN(DOLLAR,          AUTO,  FLEX_LEXEME | BISON_TOKEN)  // $
+TOKEN(HASH,            AUTO,  FLEX_LEXEME | BISON_TOKEN)  // #
 
 // [3] Lexer + Bison: terminals passed from lexer to parser
 

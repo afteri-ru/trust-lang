@@ -2,7 +2,6 @@
 """gen_tokens.py - Token generator.
 
 Generates files in output-dir:
-  flex.gen.h     - #define for Flex
   parser.gen.y   - %token / %nterm for Bison
   token.gen.*    - TK/XE/XS/XD/XR data for C++ X-macros
 
@@ -283,18 +282,6 @@ def cross_validate(tokens: list, lexer_path: str) -> None:
         die(f"Flex tokens in tokens.def but no TK() in lexer.l: {', '.join(sorted(missing_in_lexer))}")
 
 
-def generate_flex_h(tokens: list, tokens_hash: str) -> str:
-    lines = [
-        "/* GENERATED FILE - DO NOT EDIT */",
-        "#pragma once",
-        f'#define FLEX_DEFINES_TOKENS_HASH "{tokens_hash}"',
-        "",
-    ]
-    for t in tokens:
-        if t['mask'] & FLEX_LEXEME:
-            pad = ' ' * max(1, 18 - len(t['name']))
-            lines.append(f"#define {t['name']}{pad}{t['value']}")
-    return '\n'.join(lines) + '\n'
 
 
 def generate_parser_y(tokens: list, parser_template: str, tokens_hash: str) -> str:
@@ -401,10 +388,7 @@ def main():
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    flex_h = generate_flex_h(tokens, tokens_hash)
     flex_count = sum(1 for t in tokens if t['mask'] & FLEX_LEXEME)
-    atomic_write(os.path.join(args.output_dir, 'flex.gen.h'), flex_h)
-    print(f"[TokenGen] Written: flex.gen.h ({flex_count} lexemes)")
 
     with open(args.parser_template, 'r') as f:
         parser_src = f.read()
@@ -450,7 +434,7 @@ def main():
     root_count = sum(1 for t in tokens if t['mask'] & Root)
 
     print(f"[TokenGen] Written: token.gen.def ({token_count_all} tokens, legacy)")
-    print(f"[TokenGen]   FLEX_LEXEME  : {flex_count}")
+    print(f"[TokenGen]   FLEX_LEXEME  : {flex_count} (via ParserToken::Kind)")
     print(f"[TokenGen]   %token : {token_count}")
     print(f"[TokenGen]   %nterm : {nterm_count}")
     print(f"[TokenGen]   Expr   : {expr_count}")

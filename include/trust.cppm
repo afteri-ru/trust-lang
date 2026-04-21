@@ -1,9 +1,9 @@
 module;
 
-#include "token/token.hpp"
+#include "parser/token.hpp"
 #include "diag/location.hpp"
 #include "diag/context.hpp"
-#include "gencpp/types.hpp"
+#include "types/type_info.hpp"
 #include "gencpp/ast_visitor.hpp"
 #include "gencpp/ast.hpp"
 #include "gencpp/symbol_table.hpp"

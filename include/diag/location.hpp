@@ -5,6 +5,11 @@
 #include <cstddef>
 #include <stdexcept>
 
+#ifndef ASSERT
+#define ASSERT(...) assert(__VA_ARGS__)
+#endif
+
+
 namespace trust {
 
 struct SourceIdx {

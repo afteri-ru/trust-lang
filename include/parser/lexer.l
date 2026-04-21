@@ -1,38 +1,35 @@
 %top{
-    namespace trust { namespace internal { struct LexerContext; } }
+    #include "parser/lexer.hpp"
 }
 
 %option reentrant noyywrap nounput noinput
+%option nodefault
 %option stack
-%option extra-type="trust::internal::LexerContext *"
+%option extra-type="trust::Lexer *"
 
 %{
-  #include "flex.gen.h"
-  #include "parser.hpp"
-  #include <stdexcept>
+#include "parser/token.hpp"
+#include <stdexcept>
 
-  // YY_FATAL_ERROR вызывается flex для внутренних ошибок (выделение памяти),
-  // где yyextra/yyscanner недоступны — используем пустую позицию.
   #ifndef YY_FATAL_ERROR
-  #define YY_FATAL_ERROR(msg) throw trust::ParserError(msg, trust::SourceLoc{})
+  #define YY_FATAL_ERROR(msg) throw trust::ParserError(msg, trust::SourceLoc::invalid())
   #endif
-
-  // LEXER_ERROR — для ошибок в правилах, где есть доступ к yyscanner и позиции.
-  #define LEXER_ERROR(msg)                                                                       \
-    throw trust::ParserError(msg, trust::internal::LexerContext::GetCurrentPos(yyextra))
 
   #ifndef YY_INPUT
-  #define YY_INPUT(buf, result, max_size)                                                           \
-    do {                                                                                            \
-      (result) = static_cast<int>(::trust::internal::LexerContext::ReadInput((yyextra), (buf), (max_size))); \
-    } while (0)
+  #define YY_INPUT(buf, result, max_size) \
+    (result) = trust::Lexer::fill_buffer(yyextra, (buf), (max_size))
   #endif
 
-  #define TK(tor)     { ::trust::internal::LexerContext::MakeLexeme((yyextra), (yytext), (yyleng), ::trust::LexemeKind::tor ); return tor; }
-  #define ADV(n)      { ::trust::internal::LexerContext::AdvancePos((yyextra), (n)); }
-  #define STR_BEG(k)  { ::trust::internal::LexerContext::StrBegin((yyextra), (k), (yyleng)); }
-  #define STR_END(cl, otrim, ctrim) { ::trust::internal::LexerContext::StrEnd((yyextra), (cl), (otrim), (ctrim)); }
+  #define TK(tor)     return trust::Lexer::token(yyextra, static_cast<int>(trust::ParserToken::Kind::tor), yyleng);
+  #define ADV(n)      trust::Lexer::advance(yyextra, n);
+  #define LEXER_ERROR(msg) trust::Lexer::error(yyextra, msg);
 %}
+
+/*
+ * NOTE: Comments like [TK(NAME)] following lexer rules are NOT dead code.
+ * They are used by the token generator for consistency checks.
+ * DO NOT remove them when modifying lexer rules.
+ */
 
 %x state_COMMENT
 %x state_EMBED
@@ -70,11 +67,11 @@ mangled _${mangled_name}?$_{mangled_name}+
 
 %%
 
-"/*"        { ADV(yyleng); yy_push_state(state_COMMENT, yyscanner); }
+"/*"        { yy_push_state(state_COMMENT, yyscanner); ADV(yyleng); }
 
 <state_COMMENT>{
-  "/*"      { ADV(yyleng); yy_push_state(state_COMMENT, yyscanner); }
-  "*/"      { ADV(yyleng); yy_pop_state(yyscanner); }
+  "/*"      { yy_push_state(state_COMMENT, yyscanner); ADV(yyleng); }
+  "*/"      { yy_pop_state(yyscanner); ADV(yyleng); }
   <<EOF>>   LEXER_ERROR("lex: unterminated /* */ comment");
   (.|\n)    ADV(yyleng);
 }
@@ -95,10 +92,10 @@ mangled _${mangled_name}?$_{mangled_name}+
 "@$#"           TK(MACRO_ARGCOUNT);
 
 "/**/"     ADV(yyleng);
-"/**"      { STR_BEG(trust::LexemeKind::DOC_BEFORE); yy_push_state(state_DOC_BEFORE, yyscanner); }
+"/**"      { yy_push_state(state_DOC_BEFORE, yyscanner); } /* TK(DOC_BEFORE) - do not remove checks */
 
 <state_DOC_BEFORE>{
-  "*/"      { STR_END(yyleng, 0, 0); yy_pop_state(yyscanner); }
+  "*/"      { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(DOC_BEFORE) - do not remove checks */
   "/*"      LEXER_ERROR("Document comments cannot be nested!");
   <<EOF>>   LEXER_ERROR("lex: unterminated /** */ doc comment");
   (.|\n)    ADV(yyleng);
@@ -108,34 +105,33 @@ mangled _${mangled_name}?$_{mangled_name}+
 "##"[^\n]*  TK(DOC_BEFORE);
 "#"[^\n]*  ADV(yyleng);
 
-"{%"       { STR_BEG(trust::LexemeKind::EMBED); yy_push_state(state_EMBED, yyscanner); }
+"{%"       { yy_push_state(state_EMBED, yyscanner); } /* TK(EMBED) - do not remove checks */
 
 <state_EMBED>{
-  "%}"      { STR_END(yyleng, 0, 0); yy_pop_state(yyscanner); }
+  "%}"      { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(EMBED) - do not remove checks */
   <<EOF>>   LEXER_ERROR("lex: unterminated source code {% %}");
   (.|\n)    ADV(yyleng);
 }
 
 "@@@@"      TK(MACRO_DEL);
-"@@@"       { STR_BEG(trust::LexemeKind::MACRO_STR); yy_push_state(state_MACRO_STR, yyscanner); }
+"@@@"       { yy_push_state(state_MACRO_STR, yyscanner); } /* TK(MACRO_STR) - do not remove checks */
 "@@"        TK(MACRO_SEQ);
 
 <state_MACRO_STR>{
-  "@@@"     { STR_END(yyleng, 0, 0); yy_pop_state(yyscanner); }
+  "@@@"     { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(MACRO_STR) - do not remove checks */
   [^@\n]+   ADV(yyleng);
   @\n       ADV(yyleng);
   @@\n      ADV(yyleng);
   @         ADV(yyleng);
   @@        ADV(yyleng);
   \n        ADV(yyleng);
-  .         ADV(yyleng);
   <<EOF>>   LEXER_ERROR("lex: unterminated macro str @@@ ... @@@");
 }
 
-\"        { STR_BEG(trust::LexemeKind::STRWIDE); yy_push_state(state_STRWIDE, yyscanner); }
+\"        { yy_push_state(state_STRWIDE, yyscanner); } /* TK(STRWIDE) - do not remove checks */
 
 <state_STRWIDE>{
-  \"        { STR_END(yyleng, 1, 1); yy_pop_state(yyscanner); }
+  \"        { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(STRWIDE) - do not remove checks */
   \\(.|\n)  ADV(yyleng);
   [^\\\n\"]+ ADV(yyleng);
   \n        LEXER_ERROR("Unterminated string constant");
@@ -143,48 +139,45 @@ mangled _${mangled_name}?$_{mangled_name}+
   <<EOF>>   LEXER_ERROR("lex: unterminated \" string");
 }
 
-'         { STR_BEG(trust::LexemeKind::STRCHAR); yy_push_state(state_STRCHAR, yyscanner); }
+'         { yy_push_state(state_STRCHAR, yyscanner); } /* TK(STRCHAR) - do not remove checks */
 
 <state_STRCHAR>{
-  '         { STR_END(yyleng, 1, 1); yy_pop_state(yyscanner); }
+  '         { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(STRCHAR) - do not remove checks */
   \\(.|\n)  ADV(yyleng);
   [^\\\n']+ ADV(yyleng);
   \n        LEXER_ERROR("Unterminated string constant");
   .         ADV(yyleng);
 }
 
-"r\""     { STR_BEG(trust::LexemeKind::STRWIDE_RAW); yy_push_state(state_STRWIDE_RAW, yyscanner); }
+"r\""     { yy_push_state(state_STRWIDE_RAW, yyscanner); } /* TK(STRWIDE_RAW) - do not remove checks */
 
 <state_STRWIDE_RAW>{
-  \"        { STR_END(yyleng, 2, 1); yy_pop_state(yyscanner); }
-  \\(.|\n)  ADV(yyleng);
+  \"        { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(STRWIDE_RAW) - do not remove checks */
   [^\\\n\"]+ ADV(yyleng);
   \n        LEXER_ERROR("Unterminated raw string constant");
   .         ADV(yyleng);
   <<EOF>>   LEXER_ERROR("lex: unterminated r\" string");
 }
 
-"r'"      { STR_BEG(trust::LexemeKind::STRCHAR_RAW); yy_push_state(state_STRCHAR_RAW, yyscanner); }
+"r'"      { yy_push_state(state_STRCHAR_RAW, yyscanner); } /* TK(STRCHAR_RAW) - do not remove checks */
 
 <state_STRCHAR_RAW>{
-  '         { STR_END(yyleng, 2, 1); yy_pop_state(yyscanner); }
+  '         { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(STRCHAR_RAW) - do not remove checks */
   \n        LEXER_ERROR("Unterminated raw char constant");
   .         ADV(yyleng);
   <<EOF>>   LEXER_ERROR("lex: unterminated r' string");
 }
 
-"`"       { STR_BEG(trust::LexemeKind::EVAL); yy_push_state(state_EVAL, yyscanner); }
+"`"       { yy_push_state(state_EVAL, yyscanner); } /* TK(EVAL) - do not remove checks */
 
 <state_EVAL>{
-  "`"       { STR_END(yyleng, 1, 1); yy_pop_state(yyscanner); }
+  "`"       { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(EVAL) - do not remove checks */
   \\(.|\n)  ADV(yyleng);
-  [^\\\n\"]+ ADV(yyleng);
+  [^\\\n`]+ ADV(yyleng);
   \n        LEXER_ERROR("Unterminated eval string");
   .         ADV(yyleng);
   <<EOF>>   LEXER_ERROR("lex: unterminated eval string");
 }
-
-     /*   "-1j-0.2"   "1.333+0.e10j"    */
 
 -?{number}[-+]{number}j  TK(COMPLEX);
 -?{number}[-+]{number}i  TK(COMPLEX);
@@ -218,7 +211,6 @@ ${name}"^"? TK(LOCAL);
 "==>"       TK(MATCHING);
 "===>"      TK(MATCHING);
 
-        /* Creating and assigning */
 "::="       TK(CREATE_NEW);
 ":="        TK(CREATE_USE);
 "[]="       TK(APPEND);
@@ -239,27 +231,24 @@ ${name}"^"? TK(LOCAL);
 
 "$\\\\"     TK(MACRO);
 
-"@\\"       TK(ESCAPE);
+"@\\\\"       TK(ESCAPE);
 
-"@["        { STR_BEG(trust::LexemeKind::ATTRIBUTE); yy_push_state(state_ATTRIBUTE, yyscanner); }
+"@["        { yy_push_state(state_ATTRIBUTE, yyscanner); } /* TK(ATTRIBUTE) - do not remove checks */
 
 <state_ATTRIBUTE>{
-  "]@"       { STR_END(yyleng, 0, 0); yy_pop_state(yyscanner); }
+  "]@"       { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(ATTRIBUTE) - do not remove checks */
   <<EOF>>    LEXER_ERROR("lex: unterminated @[ ... ]@ attribute");
   (.|\n)     ADV(yyleng);
 }
 
-        /* AST */
 "{@"        TK(MACRO_EXPR_BEGIN);
 "@}"        TK(MACRO_EXPR_END);
 
-        /* Interruptions */
 "++"        TK(INT_PLUS);
 "--"        TK(INT_MINUS);
 "-+"        TK(INT_REPEAT);
 "+-"        TK(INT_REPEAT);
 
-        /* Blocks */
 "{*"        TK(TRY_ALL_BEGIN);
 "*}"        TK(TRY_ALL_END);
 "{+"        TK(TRY_PLUS_BEGIN);
@@ -280,7 +269,6 @@ ${name}"^"? TK(LOCAL);
 "^^"        TK(OP_LOGICAL);
 "&&"        TK(OPERATOR_AND);
 
-    /* Links and dereference */
 "&"[0-9]+"^"?   TK(OPERATOR_PTR);
 "&^"        TK(OPERATOR_PTR);
 "&&^"       TK(OPERATOR_PTR);
@@ -292,7 +280,6 @@ ${name}"^"? TK(LOCAL);
 "*^"        TK(TAKE_CONST);
 "**"        TK(WITH);
 
-    /* Bitwise operators */
 ".>."        TK(OP_BITWISE);
 ".<."        TK(OP_BITWISE);
 ".>>."       TK(OP_BITWISE);
@@ -305,7 +292,6 @@ ${name}"^"? TK(LOCAL);
 "~~~"       TK(OPERATOR_DUCK);
 "!~~"       TK(OP_COMPARE);
 "~~"        TK(OPERATOR_DUCK);
-"!~"        TK(OP_COMPARE);
 "==="       TK(OP_COMPARE);
 "=="        TK(OP_COMPARE);
 "!=="       TK(OP_COMPARE);
@@ -314,7 +300,6 @@ ${name}"^"? TK(LOCAL);
 "<="        TK(OP_COMPARE);
 ">="        TK(OPERATOR_ANGLE_EQ);
 
-    /* Async  */
 "[*]"       TK(AWAIT);
 "[++]"      TK(YIELD);
 "[++"       TK(YIELD_BEGIN);
@@ -329,7 +314,35 @@ ${name}"^"? TK(LOCAL);
 
 [ \t\n]+   ADV(yyleng);
 
-.           { ::trust::internal::LexerContext::MakeLexeme((yyextra), (yytext), (yyleng), static_cast<trust::LexemeKind>(*yytext)); return *yytext; }
+"("         TK(LPAREN);
+")"         TK(RPAREN);
+"{"         TK(LBRACE);
+"}"         TK(RBRACE);
+"["         TK(LBRACKET);
+"]"         TK(RBRACKET);
+"<"         TK(LANGLE);
+">"         TK(RANGLE);
+";"         TK(SEMICOLON);
+","         TK(COMMA);
+":"         TK(COLON);
+"."         TK(DOT);
+"="         TK(ASSIGN);
+"+"         TK(PLUS);
+"-"         TK(MINUS);
+"*"         TK(STAR);
+"/"         TK(SLASH);
+"%"         TK(PERCENT);
+"&"         TK(AMPERSAND);
+"|"         TK(PIPE);
+"^"         TK(CARET);
+"~"         TK(TILDE);
+"!"         TK(BANG);
+"?"         TK(QUESTION);
+"@"         TK(AT);
+"$"         TK(DOLLAR);
+"#"         TK(HASH);
+
+.           { LEXER_ERROR("lex: unrecognized character"); }
 
 <<EOF>>   return 0;
 

@@ -1,5 +1,5 @@
 # RUN: %trans %s > %t.cpp
-# DISABLE COMPILATION DUE TO LONG TIME RUNNING %cxx -fsyntax-only -std=c++17 -I%S/../contrib/libtorch/include -I%S/../contrib/libtorch/include/torch/csrc/api/include %t.cpp > %t.log 2>&1
+# RUN: %cxx_torch_pch -fsyntax-only %t.cpp
 # CHECK: torch::Tensor arr = torch::tensor({0, 0, 0}, torch::kInt32);
 # CHECK: arr[0] = 42;
 # CHECK: torch::Tensor nums = torch::tensor({1, 2, 3}, torch::kInt32);

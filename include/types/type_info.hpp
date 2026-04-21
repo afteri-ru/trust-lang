@@ -1,6 +1,5 @@
 #pragma once
 
-#include "diag/location.hpp"
 #include <string>
 #include <stdexcept>
 
