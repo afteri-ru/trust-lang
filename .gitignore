@@ -37,6 +37,7 @@ build/
 .cache
 .clangd
 .history/
+.cursorrules
 **/.obsidian/
 **/.vs/
 *.autosave

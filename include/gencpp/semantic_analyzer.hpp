@@ -16,8 +16,7 @@ namespace trust {
 // Errors are reported via DiagnosticEngine so analysis can continue.
 class SemanticAnalyzer : public AstVisitor {
   public:
-    SemanticAnalyzer(TypeResolution &type_res, SymbolTable &sym_table, Context &ctx)
-        : type_res_(type_res), sym_table_(sym_table), ctx_(ctx) {}
+    SemanticAnalyzer(TypeResolution &type_res, SymbolTable &sym_table, Context &ctx) : type_res_(type_res), sym_table_(sym_table), ctx_(ctx) {}
 
     void analyze(const Program *program);
 
@@ -57,6 +56,7 @@ class SemanticAnalyzer : public AstVisitor {
     void visit(const CastExpr *node) override;
     void visit(const RefMakeExpr *node) override;
     void visit(const RefTakeExpr *node) override;
+    void visit(const EmbedExpr *node) override;
     void visit(const WhileElseBlock *node) override;
     void visit(const BreakStmt *node) override;
     void visit(const ContinueStmt *node) override;

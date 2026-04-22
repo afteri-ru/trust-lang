@@ -20,8 +20,9 @@
     (result) = trust::Lexer::fill_buffer(yyextra, (buf), (max_size))
   #endif
 
-  #define TK(tor)     return trust::Lexer::token(yyextra, static_cast<int>(trust::ParserToken::Kind::tor), yyleng);
-  #define ADV(n)      trust::Lexer::advance(yyextra, n);
+  #define TK(tor, ...)  trust::Lexer::token(yyextra, static_cast<int>(trust::ParserToken::Kind::tor), yyleng __VA_OPT__(,) __VA_ARGS__);\
+                        return static_cast<int>(trust::ParserToken::Kind::tor)
+  #define ADV(n, ...)   trust::Lexer::advance(yyextra, n __VA_OPT__(,) __VA_ARGS__);
   #define LEXER_ERROR(msg) trust::Lexer::error(yyextra, msg);
 %}
 
@@ -92,10 +93,10 @@ mangled _${mangled_name}?$_{mangled_name}+
 "@$#"           TK(MACRO_ARGCOUNT);
 
 "/**/"     ADV(yyleng);
-"/**"      { yy_push_state(state_DOC_BEFORE, yyscanner); } /* TK(DOC_BEFORE) - do not remove checks */
+"/**"      { yy_push_state(state_DOC_BEFORE, yyscanner); ADV(yyleng, true);} /* TK(DOC_BEFORE) - do not remove checks */
 
 <state_DOC_BEFORE>{
-  "*/"      { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(DOC_BEFORE) - do not remove checks */
+  "*/"      { yy_pop_state(yyscanner); return TK(DOC_BEFORE, 2, 2); }
   "/*"      LEXER_ERROR("Document comments cannot be nested!");
   <<EOF>>   LEXER_ERROR("lex: unterminated /** */ doc comment");
   (.|\n)    ADV(yyleng);
@@ -105,20 +106,20 @@ mangled _${mangled_name}?$_{mangled_name}+
 "##"[^\n]*  TK(DOC_BEFORE);
 "#"[^\n]*  ADV(yyleng);
 
-"{%"       { yy_push_state(state_EMBED, yyscanner); } /* TK(EMBED) - do not remove checks */
+"{%"       { yy_push_state(state_EMBED, yyscanner); ADV(yyleng, true); } /* TK(EMBED) - do not remove checks */
 
 <state_EMBED>{
-  "%}"      { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(EMBED) - do not remove checks */
+  "%}"      { yy_pop_state(yyscanner); return TK(EMBED, 2,2); }
   <<EOF>>   LEXER_ERROR("lex: unterminated source code {% %}");
   (.|\n)    ADV(yyleng);
 }
 
 "@@@@"      TK(MACRO_DEL);
-"@@@"       { yy_push_state(state_MACRO_STR, yyscanner); } /* TK(MACRO_STR) - do not remove checks */
+"@@@"       { yy_push_state(state_MACRO_STR, yyscanner); ADV(yyleng, true); } /* TK(MACRO_STR) - do not remove checks */
 "@@"        TK(MACRO_SEQ);
 
 <state_MACRO_STR>{
-  "@@@"     { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(MACRO_STR) - do not remove checks */
+  "@@@"     { yy_pop_state(yyscanner); return TK(MACRO_STR, 3, 3); }
   [^@\n]+   ADV(yyleng);
   @\n       ADV(yyleng);
   @@\n      ADV(yyleng);
@@ -128,10 +129,10 @@ mangled _${mangled_name}?$_{mangled_name}+
   <<EOF>>   LEXER_ERROR("lex: unterminated macro str @@@ ... @@@");
 }
 
-\"        { yy_push_state(state_STRWIDE, yyscanner); } /* TK(STRWIDE) - do not remove checks */
+\"        { yy_push_state(state_STRWIDE, yyscanner); ADV(yyleng, true); } /* TK(STRWIDE) - do not remove checks */
 
 <state_STRWIDE>{
-  \"        { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(STRWIDE) - do not remove checks */
+  \"        { yy_pop_state(yyscanner); return TK(STRWIDE, 1, 1); }
   \\(.|\n)  ADV(yyleng);
   [^\\\n\"]+ ADV(yyleng);
   \n        LEXER_ERROR("Unterminated string constant");
@@ -139,39 +140,39 @@ mangled _${mangled_name}?$_{mangled_name}+
   <<EOF>>   LEXER_ERROR("lex: unterminated \" string");
 }
 
-'         { yy_push_state(state_STRCHAR, yyscanner); } /* TK(STRCHAR) - do not remove checks */
+'         { yy_push_state(state_STRCHAR, yyscanner); ADV(yyleng, true); } /* TK(STRCHAR) - do not remove checks */
 
 <state_STRCHAR>{
-  '         { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(STRCHAR) - do not remove checks */
+  '         { yy_pop_state(yyscanner); return TK(STRCHAR, 1, 1); }
   \\(.|\n)  ADV(yyleng);
   [^\\\n']+ ADV(yyleng);
   \n        LEXER_ERROR("Unterminated string constant");
   .         ADV(yyleng);
 }
 
-"r\""     { yy_push_state(state_STRWIDE_RAW, yyscanner); } /* TK(STRWIDE_RAW) - do not remove checks */
+"r\""     { yy_push_state(state_STRWIDE_RAW, yyscanner); ADV(yyleng, true); } /* TK(STRWIDE_RAW) - do not remove checks */
 
 <state_STRWIDE_RAW>{
-  \"        { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(STRWIDE_RAW) - do not remove checks */
+  \"        { yy_pop_state(yyscanner); return TK(STRWIDE_RAW, 1, 1); }
   [^\\\n\"]+ ADV(yyleng);
   \n        LEXER_ERROR("Unterminated raw string constant");
   .         ADV(yyleng);
   <<EOF>>   LEXER_ERROR("lex: unterminated r\" string");
 }
 
-"r'"      { yy_push_state(state_STRCHAR_RAW, yyscanner); } /* TK(STRCHAR_RAW) - do not remove checks */
+"r'"      { yy_push_state(state_STRCHAR_RAW, yyscanner); ADV(yyleng, true); } /* TK(STRCHAR_RAW) - do not remove checks */
 
 <state_STRCHAR_RAW>{
-  '         { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(STRCHAR_RAW) - do not remove checks */
+  '         { yy_pop_state(yyscanner); return TK(STRCHAR_RAW, 1, 1); }
   \n        LEXER_ERROR("Unterminated raw char constant");
   .         ADV(yyleng);
   <<EOF>>   LEXER_ERROR("lex: unterminated r' string");
 }
 
-"`"       { yy_push_state(state_EVAL, yyscanner); } /* TK(EVAL) - do not remove checks */
+"`"       { yy_push_state(state_EVAL, yyscanner); ADV(yyleng, true); } /* TK(EVAL) - do not remove checks */
 
 <state_EVAL>{
-  "`"       { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(EVAL) - do not remove checks */
+  "`"       { yy_pop_state(yyscanner); return TK(EVAL, 1, 1); }
   \\(.|\n)  ADV(yyleng);
   [^\\\n`]+ ADV(yyleng);
   \n        LEXER_ERROR("Unterminated eval string");
@@ -233,10 +234,10 @@ ${name}"^"? TK(LOCAL);
 
 "@\\\\"       TK(ESCAPE);
 
-"@["        { yy_push_state(state_ATTRIBUTE, yyscanner); } /* TK(ATTRIBUTE) - do not remove checks */
+"@["        { yy_push_state(state_ATTRIBUTE, yyscanner); ADV(yyleng); yyextra->content_start = yyextra->offset; } /* TK(ATTRIBUTE) - do not remove checks */
 
 <state_ATTRIBUTE>{
-  "]@"       { yy_pop_state(yyscanner); ADV(yyleng); } /* TK(ATTRIBUTE) - do not remove checks */
+  "]@"       { yy_pop_state(yyscanner); return TK(ATTRIBUTE, 2, 2); }
   <<EOF>>    LEXER_ERROR("lex: unterminated @[ ... ]@ attribute");
   (.|\n)     ADV(yyleng);
 }

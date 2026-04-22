@@ -68,6 +68,7 @@
 | `ArrayAccess` | — | массив, индекс |
 | `ArrayInit` | `type=T` (опц.) | `Expr*` |
 | `CastExpr` | `type=X` | `Expr` |
+| `EmbedExpr` | `value="X"` | — |
 
 ## Примеры
 

@@ -22,6 +22,8 @@ class AstBuilder {
 
     std::unique_ptr<StringLiteral> string_literal(std::string v) { return std::make_unique<StringLiteral>(std::move(v)); }
 
+    std::unique_ptr<StringLiteral> string_literal(TokenInfo ti) { return std::make_unique<StringLiteral>(std::move(ti.text)); }
+
     std::unique_ptr<VarRef> var_ref(std::string name) { return std::make_unique<VarRef>(std::move(name)); }
 
     std::unique_ptr<BinaryOp> binary_op(BinOp op, std::unique_ptr<Expr> l, std::unique_ptr<Expr> r) {
@@ -64,15 +66,16 @@ class AstBuilder {
 
     std::unique_ptr<RefTakeExpr> ref_take(std::unique_ptr<Expr> arg) { return std::make_unique<RefTakeExpr>(std::move(arg)); }
 
+    // Embed expression — raw C++ code embedded as string
+    std::unique_ptr<EmbedExpr> embed_expr(std::string v) { return std::make_unique<EmbedExpr>(std::move(v)); }
+
     // ============================
     // Statement factories
     // ============================
 
     // VarDecl — overloaded: inferred type, explicit TypeInfo, explicit TypeKind
     // Builder without type — type_explicitly_set = false, type will be inferred from init
-    std::unique_ptr<VarDecl> var_decl(std::string name, std::unique_ptr<Expr> init) {
-        return std::make_unique<VarDecl>(std::move(name), std::move(init));
-    }
+    std::unique_ptr<VarDecl> var_decl(std::string name, std::unique_ptr<Expr> init) { return std::make_unique<VarDecl>(std::move(name), std::move(init)); }
 
     // With explicit TypeInfo — type_explicitly_set = true
     std::unique_ptr<VarDecl> var_decl(std::string name, TypeInfo type, std::unique_ptr<Expr> init) {
@@ -105,9 +108,7 @@ class AstBuilder {
     }
 
     // WhileStmt — overloaded: without else, with else
-    std::unique_ptr<WhileStmt> while_stmt(std::unique_ptr<Expr> cond, BlockBody body) {
-        return std::make_unique<WhileStmt>(std::move(cond), std::move(body));
-    }
+    std::unique_ptr<WhileStmt> while_stmt(std::unique_ptr<Expr> cond, BlockBody body) { return std::make_unique<WhileStmt>(std::move(cond), std::move(body)); }
 
     std::unique_ptr<WhileStmt> while_stmt(std::unique_ptr<Expr> cond, BlockBody body, BlockBody else_body) {
         return std::make_unique<WhileStmt>(std::move(cond), std::move(body), std::move(else_body));
@@ -194,7 +195,11 @@ class AstBuilder {
             std::unique_ptr<Expr> init = nullptr;
             if (!fdefault.empty()) {
                 if (!fdefault.empty() && fdefault[0] == '"') {
-                    init = std::make_unique<StringLiteral>(fdefault.substr(1, fdefault.size() - 2));
+                    {
+                        auto s = fdefault.substr(1, fdefault.size() - 2);
+                        auto n = std::make_unique<StringLiteral>(std::move(s));
+                        init = std::move(n);
+                    }
                 } else {
                     try {
                         init = std::make_unique<IntLiteral>(std::stoi(fdefault));

@@ -9,6 +9,7 @@ project(transpiler LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ── Common paths ──
 set(PROJECT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -39,6 +40,34 @@ else()
 endif()
 message(STATUS "═══════════════════════════════════════════════════")
 
+# ── CLI options generation ──
+configure_file(
+    include/cli/options.h.in
+    ${CMAKE_BINARY_DIR}/include/cli/options.h
+    @ONLY
+)
+
+# ── LIT configuration ──
+configure_file(
+    tests/lit.cfg.py.in
+    ${CMAKE_BINARY_DIR}/tests/lit.cfg.py
+    @ONLY
+)
+
+# ── LIT output symlinks (source tree → build tree) ──
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/Output/gencpp/Output)
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/Output/cli/Output)
+file(CREATE_LINK
+    ${CMAKE_BINARY_DIR}/tests/Output/gencpp/Output
+    ${CMAKE_SOURCE_DIR}/tests/gencpp/Output
+    SYMBOLIC
+)
+file(CREATE_LINK
+    ${CMAKE_BINARY_DIR}/tests/Output/cli/Output
+    ${CMAKE_SOURCE_DIR}/tests/cli/Output
+    SYMBOLIC
+)
+
 # ── Interface target for common includes ──
 add_library(trust_include_dirs INTERFACE)
 target_include_directories(trust_include_dirs INTERFACE ${PROJECT_INCLUDE_DIR})
@@ -58,31 +87,50 @@ add_subdirectory(include/gencpp)
 add_subdirectory(include/precompiled)
 add_subdirectory(include/cli)
 
+# ── Unit tests ──
+add_subdirectory(unittest/cli)
+
 # ── Aggregate test targets ──
 add_custom_target(run_unit_tests
     COMMAND $<TARGET_FILE:diag_unit_tests>
     COMMAND $<TARGET_FILE:parser_unit_tests>
     COMMAND $<TARGET_FILE:gencpp_unit_tests>
-    DEPENDS diag_unit_tests parser_unit_tests gencpp_unit_tests
+    COMMAND $<TARGET_FILE:cli_unit_tests>
+    DEPENDS diag_unit_tests parser_unit_tests gencpp_unit_tests cli_unit_tests
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running all unit tests"
     USES_TERMINAL
 )
 
-add_custom_target(run_lit_tests
-    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/tests/gencpp
+# ── LIT test targets (per-module) ──
+add_custom_target(run_lit_gencpp
+    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_BINARY_DIR}/tests/gencpp
     DEPENDS gencpp_from_ast torch_pch_target
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running all LIT tests"
+    COMMENT "Running LIT tests (gencpp)"
     USES_TERMINAL
+)
+
+add_custom_target(run_lit_cli
+    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_BINARY_DIR}/tests/cli
+    DEPENDS trust_cli
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Running LIT tests (cli)"
+    USES_TERMINAL
+)
+
+# ── All LIT tests ──
+add_custom_target(run_lit_tests
+    DEPENDS run_lit_gencpp run_lit_cli
+    COMMENT "Running all LIT tests"
 )
 
 add_custom_target(run_tests
     COMMAND $<TARGET_FILE:diag_unit_tests>
     COMMAND $<TARGET_FILE:parser_unit_tests>
     COMMAND $<TARGET_FILE:gencpp_unit_tests>
-    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/tests/gencpp
-    DEPENDS diag_unit_tests parser_unit_tests gencpp_unit_tests gencpp_from_ast torch_pch_target
+    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_BINARY_DIR}/tests
+    DEPENDS diag_unit_tests parser_unit_tests gencpp_unit_tests gencpp_from_ast torch_pch_target trust_cli
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running all tests (unit + lit)"
     USES_TERMINAL

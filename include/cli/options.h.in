@@ -1,0 +1,3 @@
+#pragma once
+
+#define TRUST_DEFAULT_COMPILER "@CMAKE_CXX_COMPILER@"

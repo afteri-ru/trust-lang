@@ -1,0 +1,18 @@
+// RUN: %trust %s -o %t.cpp --emit-cpp 2>&1
+// RUN: %cxx %t.cpp -o %t_bin -lstdc++ 2>&1
+// RUN: %t_bin | %FileCheck %s
+// RUN: %trust %s -o %t2_bin 2>&1
+// RUN: %t2_bin | %FileCheck %s --check-prefix=CHECK
+
+{%
+#include <stdio.h>
+%}
+
+{%
+int main(int, char*[]) {
+    printf("Hello, world!\n");
+    return 0;
+}
+%}
+
+// CHECK: Hello, world!

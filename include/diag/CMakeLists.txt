@@ -8,9 +8,9 @@ endif()
 
 # ── Библиотека diag_lib ─────────────────────────────────────────────────
 add_library(diag_lib STATIC
-    context.cpp
-    diag.cpp
-    options.cpp
+    ${CMAKE_SOURCE_DIR}/src/diag/context.cpp
+    ${CMAKE_SOURCE_DIR}/src/diag/diag.cpp
+    ${CMAKE_SOURCE_DIR}/src/diag/options.cpp
 )
 
 target_include_directories(diag_lib PUBLIC

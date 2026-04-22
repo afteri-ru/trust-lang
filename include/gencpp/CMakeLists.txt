@@ -48,10 +48,4 @@ add_custom_target(run_gencpp_unittest
     USES_TERMINAL
 )
 
-# ── Generate LIT test configuration from CMake project settings ──
-configure_file(
-    ${CMAKE_SOURCE_DIR}/tests/gencpp/lit.site.cfg.py.in
-    ${CMAKE_SOURCE_DIR}/tests/gencpp/lit.site.cfg.py
-    @ONLY
-)
 

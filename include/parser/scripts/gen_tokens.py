@@ -245,7 +245,7 @@ def validate_tokens(tokens: list, locked: dict, lock_path: str) -> None:
             warn(f"Token '{lname}' removed from tokens.def but still in lock.")
 
 
-_TK_RE = re.compile(r'\bTK\(([A-Za-z_][A-Za-z0-9_]*)\)')
+_TK_RE = re.compile(r'\bTK\w*\(([A-Za-z_][A-Za-z0-9_]*)')
 _LEXER_KIND_RE = re.compile(r'\bLexemeKind::([A-Za-z_][A-Za-z0-9_]*)\b')
 _LEXER_ONLY_TOKENS = frozenset({'END'})
 

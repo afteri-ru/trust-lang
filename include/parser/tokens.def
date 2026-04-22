@@ -136,6 +136,7 @@ TOKEN(HASH,            AUTO,  FLEX_LEXEME | BISON_TOKEN)  // #
 // Names and identifiers
 TOKEN(NAME,            AUTO,  FLEX_LEXEME | BISON_TOKEN)
 TOKEN(MANGLED,         AUTO,  FLEX_LEXEME | BISON_TOKEN)
+TOKEN(Ident,           AUTO,  BISON_TOKEN | Expr)
 TOKEN(LOCAL,           AUTO,  FLEX_LEXEME | BISON_TOKEN)
 TOKEN(NATIVE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
 TOKEN(MODULE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
@@ -185,12 +186,13 @@ TOKEN(NEWLANG,         AUTO,  FLEX_LEXEME | BISON_TOKEN)
 // Root nodes
 TOKEN(Program,        999,   Root)
 
-// Expression nodes (BISON_TOKEN + Expr)
+// Expression nodes (MMProc creates EmbedExpr, Bison handles the rest)
 TOKEN(IntLiteral,     AUTO,  BISON_TOKEN | Expr)
 TOKEN(StringLiteral,  AUTO,  BISON_TOKEN | Expr)
 TOKEN(BinaryOp,       AUTO,  BISON_TOKEN | Expr)
 TOKEN(VarRef,         AUTO,  BISON_TOKEN | Expr)
 TOKEN(CallExpr,       AUTO,  BISON_TOKEN | Expr)
+TOKEN(EmbedExpr,      AUTO,  BISON_TOKEN | Expr)
 
 // Statement nodes (BISON_TOKEN + Stmt)
 TOKEN(IfStmt,         AUTO,  BISON_TOKEN | Stmt)

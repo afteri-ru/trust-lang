@@ -38,6 +38,7 @@ class ArrayInit;
 class CastExpr;
 class RefMakeExpr;
 class RefTakeExpr;
+class EmbedExpr;
 
 struct AstVisitor {
     virtual ~AstVisitor() = default;
@@ -81,5 +82,6 @@ struct AstVisitor {
     virtual void visit(const CastExpr *node) = 0;
     virtual void visit(const RefMakeExpr *node) = 0;
     virtual void visit(const RefTakeExpr *node) = 0;
+    virtual void visit(const EmbedExpr *node) = 0;
 };
 } // namespace trust

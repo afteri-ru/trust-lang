@@ -68,23 +68,28 @@ set(ALL_PARSER_GEN_OUTPUTS
 
 add_custom_target(parser_lib_target ALL DEPENDS ${ALL_PARSER_GEN_OUTPUTS})
 
-# ── INTERFACE библиотека (заголовки) ─────────────────────────────────
-add_library(parser_lib INTERFACE)
-target_include_directories(parser_lib INTERFACE
+# ── Parser library (заголовки + mmproc + lexer) ─────────────────────────────────
+add_library(parser_lib STATIC
+    ${CMAKE_SOURCE_DIR}/src/parser/mmproc.cpp
+    ${GEN_DIR}/lex.yy.cpp
+)
+target_include_directories(parser_lib PUBLIC
     "${PARSER_SRC}/.."
     "${GEN_DIR}/.."
 )
-target_link_libraries(parser_lib INTERFACE diag_lib)
+target_link_libraries(parser_lib PUBLIC diag_lib)
 add_dependencies(parser_lib parser_lib_target)
+target_link_trust_includes(parser_lib)
 
 # ── Parser unit tests ──
 add_executable(parser_unit_tests
     ${CMAKE_SOURCE_DIR}/unittest/parser/token_gen_test.cpp
     ${CMAKE_SOURCE_DIR}/unittest/parser/lexer_test.cpp
     ${CMAKE_SOURCE_DIR}/unittest/parser/lexer_integration_test.cpp
+    ${CMAKE_SOURCE_DIR}/unittest/parser/mmproc_test.cpp
     ${GEN_DIR}/lex.yy.cpp
 )
-target_link_libraries(parser_unit_tests PRIVATE parser_lib GTest::gtest GTest::gtest_main)
+target_link_libraries(parser_unit_tests PRIVATE parser_lib gencpp_lib GTest::gtest GTest::gtest_main)
 target_include_directories(parser_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/unittest/parser)
 target_link_trust_includes(parser_unit_tests)
 

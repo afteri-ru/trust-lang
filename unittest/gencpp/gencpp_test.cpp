@@ -14,11 +14,13 @@ static std::unique_ptr<Context> make_context() {
     return ctx;
 }
 
-static std::unique_ptr<Program> parse_program(const std::string& input, Context& ctx) {
+static std::unique_ptr<Program> parse_program(const std::string &input, Context &ctx) {
     auto nodes = parse_ast_format(input, ctx);
-    if (!nodes.has_value()) return nullptr;
-    std::vector<ParsedNode*> roots;
-    for (auto& r : *nodes) roots.push_back(r.get());
+    if (!nodes.has_value())
+        return nullptr;
+    std::vector<ParsedNode *> roots;
+    for (auto &r : *nodes)
+        roots.push_back(r.get());
     return build_ast_from_roots(roots, ctx);
 }
 
@@ -110,8 +112,8 @@ TEST(GencppTest, FuncWithParams) {
     auto program = parse_program(input, *ctx);
     ASSERT_NE(program, nullptr);
 
-    auto *func = dynamic_cast<const FuncDecl*>(program->items[0].get());
-    ASSERT_NE(func, nullptr);
+    ASSERT_TRUE(program->items[0]->is<FuncDecl>());
+    auto *func = program->items[0]->as<FuncDecl>();
     EXPECT_EQ(func->params.size(), 2);
     EXPECT_EQ(func->params[0]->name, "a");
     EXPECT_EQ(func->params[1]->name, "b");

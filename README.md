@@ -1,9 +1,9 @@
-# TrustLang — доверенный язык программирования
+# TrustLang — A Trusted Programming Language
 
-TrustLang - доверенный язык программирования, который реализует концепцию гарантий безопасной разработки программного обеспечения на уровне синтаксиса языка с сохранением совместимости с кодом на С++.
+TrustLang is a high-level general-purpose programming language focused on safety (trusted) development. It provides memory management without using a garbage collector and detects memory management errors and data race conditions at compile time. The language is implemented as a transpiler to C++, supports deep integration with the C/C++ ecosystem, including mutual function calls, native code embedding, and direct use of the C++ standard library.
 
-синтаксис языка не использует ключевые словов, а построен на строгих правилах не допускающих неоднозначностей.
-Это дает возмжность  
+The basic syntax of TrustLang is based on strict rules without using keywords, and its extension is implemented through preprocessor macros, which are part of the AST, have limited scope, and are safe to use. The language also has built-in tensor computations using LibTorch and rational numbers with unlimited precision. Static and dynamic typing are supported, named and optional function parameters. Object identifiers allow simultaneous use of file-level modular code organization and regular namespaces.
+
 
 ## Язык коммуникации и комментарии
 
@@ -13,68 +13,17 @@ TrustLang - доверенный язык программирования, ко
 - Разработка ведется с помощью LLM, поэтому файлы README в каталогах играют роль начальных источников информации для AI агентов.
 - **Запрещено читать, писать или выполнять поиск** в каталоге `docs/`, так как он **не является частью кодовой базы**. 
 
-## Подпроекты и зависимости
+## Подпроекты
 
-| Подпроект | Описание | Зависимости |
-|-----------|----------|-------------|
-| `diag` | Библиотека диагностики и опций — вывод сообщений, форматирование, CLI-аргументы | — |
-| `token` | Библиотека токенизации — единый набор токенов для Flex/Bison/AST | `diag` |
-| `gencpp` | Ядро транспайлера: AST, семантический анализ, генератор C++ | `token`, `diag` |
+| Подпроект | Описание |
+|-----------|----------|
+| `diag` | Диагностика — сообщения, форматирование, source manager, CLI-опции |
+| `parser` | Токенизация (Flex) и парсинг (Bison), генерация токенов из `tokens.def`, MMProc, AST |
+| `types` | Система типов — `TypeKind`, `TypeInfo`, совместимость, user-defined типы |
+| `gencpp` | Транспайлер — AST-ноды, семантический анализ, symbol table, AST-оптимизации, генерация C++ |
+| `runtime` | Среда выполнения и стандартная библиотека — type-erased контейнеры, исключения, подсчёт ссылок, builtin-функции (`print`, `len`, `assert`, математика, коллекции) |
+| `cli` | Командная строка — драйвер полного pipeline (lex → parse → analyze → optimize → codegen) |
+| `jit` | JIT-компиляция — LLVM ORC JIT, разрешение символов, память выполнения |
+| `lsp` | Language Server — autocomplete, go-to-definition, hover-диагностика, форматирование |
+| `repl` | Интерактивная оболочка — read-eval-print, автодополнение, инкрементальная JIT |
 
-### contrib/
-
-Внешние зависимости и сторонние библиотеки.
-
-## Сборка и запуск
-
-### Базовые команды
-
-```bash
-cmake -B build              # сконфигурировать
-cmake --build build         # собрать все цели
-```
-
-### Цели сборки (CMake targets)
-
-#### Модульные цели
-
-| Модуль | Unit-тесты (запуск) | LIT-тесты (запуск) |
-|--------|---------------------|-------------------|
-| **diag** | `diag_test` | — |
-| **token** | `token_test` | — |
-| **gencpp** | `gencpp_unit_test` | `gencpp_lit_test` |
-
-```bash
-# Собрать и запустить unit-тесты gencpp
-cmake --build build --target gencpp_unit_test
-
-# Собрать и запустить LIT-тесты gencpp
-cmake --build build --target gencpp_lit_test
-
-# Собрать и запустить все тесты gencpp (unit + LIT)
-cmake --build build --target gencpp_all_tests_run
-```
-
-#### Агрегированные цели (весь проект)
-
-| Цель | Описание |
-|------|----------|
-| `all_libs` | Сборка всех библиотек |
-| `all_unit_tests` | Сборка и запуск всех unit-тестов |
-| `all_tests` | Запуск всех тестов (unit + LIT) |
-
-```bash
-# Собрать все библиотеки
-cmake --build build --target all_libs
-
-# Запустить все unit-тесты
-cmake --build build --target all_unit_tests
-
-# Запустить все тесты (unit + LIT)
-cmake --build build --target all_tests
-```
-
-### Очистка
-
-```bash
-rm -rf build                # полная очистка артефактов сборки

@@ -22,4 +22,3 @@ Autocomplete, go-to-definition, hover-диагностика, форматиро
 - `diag` — диагностика
 - `types` — система типов
 - `gencpp` — AST-структуры
-- `driver` — конвейер компиляции

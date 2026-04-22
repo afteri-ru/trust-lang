@@ -29,7 +29,7 @@ class CppGenerator : public AstVisitor {
     // Set the TypeResolution from semantic analysis (optional, for type-aware generation)
     void set_type_resolution(std::shared_ptr<TypeResolution> tr) { type_res_ = std::move(tr); }
 
-    std::string generate(const Program *program);
+    std::string generate(const Program *program, std::string *binding_header = nullptr, const char *binding_guard = nullptr);
 
     void visit(const Program *node) override;
     void visit(const FuncDecl *node) override;
@@ -72,6 +72,9 @@ class CppGenerator : public AstVisitor {
     void visit(const RefMakeExpr *node) override;
     void visit(const RefTakeExpr *node) override;
 
+    // Embed expression
+    void visit(const EmbedExpr *node) override;
+
     // New: loop control and while-else
     void visit(const WhileElseBlock *node) override;
     void visit(const BreakStmt *node) override;
@@ -102,7 +105,7 @@ class CppGenerator : public AstVisitor {
 
     struct LoopLabels {
         std::string body_label;
-        std::string cont_label;  // continue target
+        std::string cont_label; // continue target
         std::string end_label;
     };
 
