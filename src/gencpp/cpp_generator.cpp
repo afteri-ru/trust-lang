@@ -6,6 +6,171 @@
 
 using namespace trust;
 
+// --- TypeUsageCollector — collects all TypeKind values used in the program ---
+struct TypeUsageCollector : AstVisitor {
+    std::unordered_set<TypeKind> used_types;
+
+    void dispatch_block(const BlockItem &item) {
+        if (!item)
+            return;
+        item->accept(this);
+    }
+
+    void visit(const Program *n) override {
+        for (const auto &i : n->items)
+            i->accept(this);
+    }
+    void visit(const FuncDecl *n) override {
+        used_types.insert(n->return_type.kind);
+        for (const auto &p : n->params)
+            used_types.insert(p->param_type.kind);
+        if (n->body)
+            n->body->accept(this);
+    }
+    void visit(const VarDecl *n) override {
+        used_types.insert(n->type_info().kind);
+        if (n->init)
+            n->init->accept(this);
+    }
+    void visit(const BlockStmt *n) override {
+        for (const auto &it : n->body)
+            dispatch_block(it);
+    }
+    void visit(const IfStmt *n) override {
+        if (n->condition)
+            n->condition->accept(this);
+        for (const auto &it : n->then_body)
+            dispatch_block(it);
+        if (n->else_if)
+            n->else_if->accept(this);
+        if (n->else_block)
+            n->else_block->accept(this);
+    }
+    void visit(const WhileStmt *n) override {
+        if (n->condition)
+            n->condition->accept(this);
+        for (const auto &it : n->body)
+            dispatch_block(it);
+        if (!n->else_body.empty()) {
+            for (const auto &it : n->else_body)
+                dispatch_block(it);
+        }
+    }
+    void visit(const DoWhileStmt *n) override {
+        for (const auto &it : n->body)
+            dispatch_block(it);
+        if (n->condition)
+            n->condition->accept(this);
+    }
+    void visit(const TryCatchStmt *n) override {
+        for (const auto &it : n->try_body)
+            dispatch_block(it);
+        if (n->catch_block)
+            visit(n->catch_block.get());
+    }
+    void visit(const CatchBlock *n) override {
+        for (const auto &it : n->body)
+            dispatch_block(it);
+    }
+    void visit(const MatchingStmt *n) override {
+        if (n->expression)
+            n->expression->accept(this);
+        for (const auto &c : n->cases)
+            c->accept(this);
+        for (const auto &it : n->else_body)
+            dispatch_block(it);
+    }
+    void visit(const MatchingCase *n) override {
+        if (n->pattern)
+            n->pattern->accept(this);
+        for (const auto &it : n->body)
+            dispatch_block(it);
+    }
+    void visit(const AssignmentStmt *n) override {
+        if (n->target)
+            n->target->accept(this);
+        if (n->value)
+            n->value->accept(this);
+    }
+    void visit(const ReturnStmt *n) override {
+        if (n->value)
+            n->value->accept(this);
+    }
+    void visit(const ExprStmt *n) override {
+        if (n->expr)
+            n->expr->accept(this);
+    }
+    void visit(const ThrowStmt *n) override {
+        if (n->value)
+            n->value->accept(this);
+    }
+    void visit(const BreakStmt *) override {}
+    void visit(const ContinueStmt *) override {}
+    void visit(const WhileElseBlock *n) override {
+        for (const auto &it : n->body)
+            dispatch_block(it);
+    }
+    void visit(const BinaryOp *n) override {
+        if (n->left)
+            n->left->accept(this);
+        if (n->right)
+            n->right->accept(this);
+    }
+    void visit(const CallExpr *n) override {
+        for (const auto &a : n->args)
+            if (a)
+                a->accept(this);
+    }
+    void visit(const MemberAccess *n) override {
+        if (n->object)
+            n->object->accept(this);
+    }
+    void visit(const ArrayAccess *n) override {
+        if (n->array)
+            n->array->accept(this);
+        if (n->index)
+            n->index->accept(this);
+    }
+    void visit(const ArrayInit *n) override {
+        used_types.insert(n->element_type);
+        for (const auto &e : n->elements)
+            if (e)
+                e->accept(this);
+    }
+    void visit(const CastExpr *n) override {
+        used_types.insert(n->target_type.kind);
+        if (n->expr)
+            n->expr->accept(this);
+    }
+    void visit(const RefMakeExpr *n) override {
+        if (n->arg)
+            n->arg->accept(this);
+    }
+    void visit(const RefTakeExpr *n) override {
+        if (n->arg)
+            n->arg->accept(this);
+    }
+    void visit(const EnumDecl *) override {}
+    void visit(const EnumMember *) override {}
+    void visit(const StructDecl *n) override {
+        for (const auto &f : n->fields)
+            used_types.insert(f->type.kind);
+    }
+    void visit(const StructField *) override {}
+    void visit(const VarRef *) override {}
+    void visit(const IntLiteral *) override {}
+    void visit(const StringLiteral *) override {}
+    void visit(const EnumLiteral *) override {}
+    void visit(const EmbedExpr *) override {}
+    void visit(const ParamDecl *) override {}
+};
+
+static std::vector<TypeKind> collect_used_types(const Program *program) {
+    TypeUsageCollector collector;
+    const_cast<Program *>(program)->accept(&collector);
+    return std::vector<TypeKind>(collector.used_types.begin(), collector.used_types.end());
+}
+
 // --- Feature-based conditional header generation via NodeCollector visitor ---
 
 struct FeatureConfig {
@@ -278,7 +443,15 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
         out_ << "    return os << static_cast<std::underlying_type_t<T>>(e);\n";
         out_ << "}\n\n";
 
-        // Conditional headers based on collected node types
+        // Collect headers from type requirements
+        auto used_types = collect_used_types(program);
+        auto &registry = TypeRequirementsRegistry::instance();
+        auto type_headers = registry.collect_headers(used_types);
+        for (const auto &hdr : type_headers) {
+            out_ << "#include " << hdr << "\n";
+        }
+
+        // Conditional headers based on collected node types (AST-level triggers)
         auto node_types = collect_node_types(program);
         std::unordered_set<const char *> inserted;
         for (const auto &f : FEATURES) {

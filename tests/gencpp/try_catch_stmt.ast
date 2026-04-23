@@ -10,7 +10,7 @@ FuncDecl name=test_try_catch ret=void
       ExprStmt
         CallExpr name=print
           StringLiteral value="trying"
-      CatchBlock type=string name=e
+      CatchBlock type=String name=e
         ExprStmt
           CallExpr name=print
             VarRef name=e

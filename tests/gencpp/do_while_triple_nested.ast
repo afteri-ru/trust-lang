@@ -6,13 +6,13 @@
 # AST description:
 # Тест трёх уровней вложенности do-while с break/continue по меткам
 # Уровень 1: outer, Уровень 2: middle, Уровень 3: inner
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=i type=int
+    VarDecl name=i type=Int
       IntLiteral value=0
-    VarDecl name=j type=int
+    VarDecl name=j type=Int
       IntLiteral value=0
-    VarDecl name=k type=int
+    VarDecl name=k type=Int
       IntLiteral value=0
     # Уровень 1: do-while с меткой outer
     DoWhileStmt label=outer

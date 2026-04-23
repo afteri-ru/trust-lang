@@ -11,6 +11,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# ── Torch option ──
+option(WITH_TORCH "Enable libtorch support (builds libtensor_cpu.so)" ON)
+
 # ── Common paths ──
 set(PROJECT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -60,7 +63,7 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/Output/cli/Output)
 file(CREATE_LINK
     ${CMAKE_BINARY_DIR}/tests/Output/gencpp/Output
     ${CMAKE_SOURCE_DIR}/tests/gencpp/Output
-    SYMBOLIC
+     SYMBOLIC
 )
 file(CREATE_LINK
     ${CMAKE_BINARY_DIR}/tests/Output/cli/Output
@@ -82,30 +85,26 @@ endfunction()
 add_subdirectory(include/trust)
 add_subdirectory(include/diag)
 add_subdirectory(include/types)
+add_subdirectory(include/runtime)
 add_subdirectory(include/parser)
 add_subdirectory(include/gencpp)
 add_subdirectory(include/precompiled)
 add_subdirectory(include/cli)
 
 # ── Unit tests ──
-add_subdirectory(unittest/cli)
-
-# ── Aggregate test targets ──
-add_custom_target(run_unit_tests
-    COMMAND $<TARGET_FILE:diag_unit_tests>
-    COMMAND $<TARGET_FILE:parser_unit_tests>
-    COMMAND $<TARGET_FILE:gencpp_unit_tests>
-    COMMAND $<TARGET_FILE:cli_unit_tests>
-    DEPENDS diag_unit_tests parser_unit_tests gencpp_unit_tests cli_unit_tests
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running all unit tests"
-    USES_TERMINAL
-)
+add_subdirectory(unittest)
 
 # ── LIT test targets (per-module) ──
+# torch_pch_target is optional (only available when WITH_TORCH=ON)
+if(WITH_TORCH)
+    set(TORCH_PCH_DEP torch_pch_target)
+else()
+    set(TORCH_PCH_DEP "")
+endif()
+
 add_custom_target(run_lit_gencpp
     COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_BINARY_DIR}/tests/gencpp
-    DEPENDS gencpp_from_ast torch_pch_target
+    DEPENDS gencpp_from_ast ${TORCH_PCH_DEP}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running LIT tests (gencpp)"
     USES_TERMINAL
@@ -126,12 +125,6 @@ add_custom_target(run_lit_tests
 )
 
 add_custom_target(run_tests
-    COMMAND $<TARGET_FILE:diag_unit_tests>
-    COMMAND $<TARGET_FILE:parser_unit_tests>
-    COMMAND $<TARGET_FILE:gencpp_unit_tests>
-    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_BINARY_DIR}/tests
-    DEPENDS diag_unit_tests parser_unit_tests gencpp_unit_tests gencpp_from_ast torch_pch_target trust_cli
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS run_unit_tests run_lit_tests
     COMMENT "Running all tests (unit + lit)"
-    USES_TERMINAL
 )

@@ -7,11 +7,11 @@
 # AST description:
 # Тест while с else блоком, содержащим break и continue
 # Проверяем корректную генерацию кода для ветки else
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=x type=int
+    VarDecl name=x type=Int
       IntLiteral value=10
-    VarDecl name=y type=int
+    VarDecl name=y type=Int
       IntLiteral value=0
     # While с else - break и continue внутри while тела
     WhileStmt label=main_loop

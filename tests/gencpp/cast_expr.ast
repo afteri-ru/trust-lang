@@ -3,15 +3,15 @@
 # CHECK: static_cast<bool>
 # CHECK: static_cast<int>
 #
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
     ExprStmt
       CallExpr name=print
-        CastExpr type=bool
+        CastExpr type=Bool
           IntLiteral value=1
     ExprStmt
       CallExpr name=print
-        CastExpr type=int
+        CastExpr type=Int
           BinaryOp op=+
             IntLiteral value=5
             IntLiteral value=3

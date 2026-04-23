@@ -6,14 +6,14 @@
 
 namespace trust {
 
-// Helper: run lexer on input stored in Context, catch ParserError or return false
+// Helper: run lexer on input stored in Context, catch SyntaxError or return false
 static bool RunLexerAndCatchError(const std::string &input, std::string &out_what, int &out_pos) {
     Context ctx;
     SourceIdx idx = ctx.add_source("<test>", input);
     try {
         Lexer::tokenize(ctx, idx);
         return false; // no error
-    } catch (const ParserError &e) {
+    } catch (const SyntaxError &e) {
         out_what = e.what();
         out_pos = static_cast<int>(e.location.offset());
         return true;

@@ -10,9 +10,9 @@
 # CHECK: return 0;
 #
 # AST description:
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=x type=int
+    VarDecl name=x type=Int
       IntLiteral value=10
     IfStmt
       BinaryOp op=>

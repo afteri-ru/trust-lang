@@ -25,27 +25,4 @@ add_executable(gencpp_from_ast ${CMAKE_SOURCE_DIR}/tests/gencpp/gencpp_from_ast.
 target_trust_module(gencpp_from_ast)
 target_link_libraries(gencpp_from_ast PRIVATE gencpp_lib gencpp_test_lib)
 
-# ── gencpp: Unit tests ──
-add_executable(gencpp_unit_tests
-    ${CMAKE_SOURCE_DIR}/unittest/gencpp/ast_nodes_test.cpp
-    ${CMAKE_SOURCE_DIR}/unittest/gencpp/ast_parsing_test.cpp
-    ${CMAKE_SOURCE_DIR}/unittest/gencpp/ast_printing_test.cpp
-    ${CMAKE_SOURCE_DIR}/unittest/gencpp/cpp_generator_test.cpp
-    ${CMAKE_SOURCE_DIR}/unittest/gencpp/gencpp_test.cpp
-    ${CMAKE_SOURCE_DIR}/unittest/gencpp/loop_control_test.cpp
-    ${CMAKE_SOURCE_DIR}/unittest/gencpp/semantic_analyzer_test.cpp
-)
-target_trust_module(gencpp_unit_tests)
-target_link_libraries(gencpp_unit_tests PRIVATE gencpp_lib gencpp_test_lib GTest::gtest GTest::gtest_main)
-target_include_directories(gencpp_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/unittest/gencpp ${CMAKE_SOURCE_DIR}/tests/gencpp)
-target_link_trust_includes(gencpp_unit_tests)
-
-add_custom_target(run_gencpp_unittest
-    COMMAND $<TARGET_FILE:gencpp_unit_tests>
-    DEPENDS gencpp_unit_tests
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running gencpp unit tests..."
-    USES_TERMINAL
-)
-
 

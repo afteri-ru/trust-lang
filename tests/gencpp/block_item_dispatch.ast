@@ -7,11 +7,11 @@
 # CHECK: return 0;
 #
 # AST: BlockItem unified dispatch (Decl and Stmt in same block)
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=x type=int
+    VarDecl name=x type=Int
       IntLiteral value=5
-    VarDecl name=y type=int
+    VarDecl name=y type=Int
       IntLiteral value=10
     AssignmentStmt target=x
       IntLiteral value=42

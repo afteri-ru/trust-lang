@@ -1,6 +1,6 @@
 # Task files
 .TASKS
-TASKS.md
+TASK.md
 
 # CMake build
 **/CMakeFiles/

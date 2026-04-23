@@ -6,11 +6,11 @@
 # AST description:
 # Тест смешанных вложенных циклов: while внутри do-while, continue к внешнему do-while
 # Проверяем переход continue к внешней метке do-while из внутреннего while
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=i type=int
+    VarDecl name=i type=Int
       IntLiteral value=0
-    VarDecl name=j type=int
+    VarDecl name=j type=Int
       IntLiteral value=0
     # Внешний do-while с меткой outer
     DoWhileStmt label=outer

@@ -7,11 +7,11 @@
 # CHECK: return 0;
 #
 # AST description (one line per node, indent = depth):
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=x type=int
+    VarDecl name=x type=Int
       IntLiteral value=10
-    VarDecl name=msg type=string
+    VarDecl name=msg type=String
       StringLiteral value="hello"
     ExprStmt
       CallExpr name=print

@@ -81,22 +81,3 @@ target_link_libraries(parser_lib PUBLIC diag_lib)
 add_dependencies(parser_lib parser_lib_target)
 target_link_trust_includes(parser_lib)
 
-# ── Parser unit tests ──
-add_executable(parser_unit_tests
-    ${CMAKE_SOURCE_DIR}/unittest/parser/token_gen_test.cpp
-    ${CMAKE_SOURCE_DIR}/unittest/parser/lexer_test.cpp
-    ${CMAKE_SOURCE_DIR}/unittest/parser/lexer_integration_test.cpp
-    ${CMAKE_SOURCE_DIR}/unittest/parser/mmproc_test.cpp
-    ${GEN_DIR}/lex.yy.cpp
-)
-target_link_libraries(parser_unit_tests PRIVATE parser_lib gencpp_lib GTest::gtest GTest::gtest_main)
-target_include_directories(parser_unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/unittest/parser)
-target_link_trust_includes(parser_unit_tests)
-
-add_custom_target(run_parser_unittest
-    COMMAND $<TARGET_FILE:parser_unit_tests>
-    DEPENDS parser_unit_tests
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running parser unit tests..."
-    USES_TERMINAL
-)

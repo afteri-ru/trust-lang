@@ -12,7 +12,7 @@ EnumDecl name=Color
   EnumMember name=Red value=1
   EnumMember name=Green
   EnumMember name=Blue
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
     VarDecl name=c type=Color
       EnumLiteral enum=Color member=Red

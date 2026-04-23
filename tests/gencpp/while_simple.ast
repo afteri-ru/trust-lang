@@ -12,9 +12,9 @@
 #
 # AST description:
 # Тест простого while цикла без else блока - базовая предпроверка
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=i type=int
+    VarDecl name=i type=Int
       IntLiteral value=0
     WhileStmt
       BinaryOp op=<

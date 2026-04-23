@@ -7,7 +7,7 @@
 #
 # Test RefMakeExpr and RefTakeExpr
 # ref_make/ref_take stubs are generated automatically
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
     VarDecl name=x
       IntLiteral value=42

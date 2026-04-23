@@ -1,11 +1,11 @@
 # RUN: %trans %s > %t.cpp
 # CHECK: int x = std::to_string(42);
 # CHECK: int y = x;
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=x type=int
+    VarDecl name=x type=Int
       EmbedExpr value=std::to_string(42)
-    VarDecl name=y type=int
+    VarDecl name=y type=Int
       EmbedExpr value=x
     ReturnStmt
       IntLiteral value=0

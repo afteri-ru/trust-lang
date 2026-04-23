@@ -5,8 +5,8 @@
 // Test shared library generation (-l) with default binding header
 // RUN: %trust %s -l -o %t_shared.so 2>&1
 // RUN: test -f %t_shared.so
-// RUN: test -f %t.h
-// RUN: %FileCheck %s --check-prefix=HEADER --input-file %t.h
+// RUN: test -f %t_shared.h
+// RUN: %FileCheck %s --check-prefix=HEADER --input-file %t_shared.h
 
 // Test static library generation (-a) with specific binding header
 // RUN: %trust %s -a -o %t_static.a --binding-header=%t_static.h 2>&1

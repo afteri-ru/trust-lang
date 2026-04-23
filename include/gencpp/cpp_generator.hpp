@@ -2,6 +2,7 @@
 
 #include "gencpp/ast.hpp"
 #include "gencpp/ast_visitor.hpp"
+#include "types/type_info.hpp"
 #include <memory>
 #include <sstream>
 #include <string>
@@ -9,12 +10,6 @@
 #include <unordered_map>
 
 namespace trust {
-
-enum class OutputFormat {
-    Traditional, // #include-based (default)
-    Cpp20Module, // export module (C++20)
-    Cpp23Module, // export module (C++23, with improvements)
-};
 
 struct GeneratorOptions {
     OutputFormat format = OutputFormat::Traditional;

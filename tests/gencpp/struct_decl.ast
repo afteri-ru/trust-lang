@@ -12,9 +12,9 @@
 #
 # AST: StructDecl with StructField as full visitable nodes
 StructDecl name=Point
-  StructField name=x type=int
-  StructField name=y type=int
-FuncDecl name=main ret=int
+  StructField name=x type=Int
+  StructField name=y type=Int
+FuncDecl name=main ret=Int
   BlockStmt
     VarDecl name=p type=Point
     AssignmentStmt target=p.x

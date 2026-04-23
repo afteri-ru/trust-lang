@@ -9,9 +9,9 @@
 #
 # AST description:
 # Тест do-while с break и continue внутри цикла
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=i type=int
+    VarDecl name=i type=Int
       IntLiteral value=0
     DoWhileStmt label=loop
       BlockStmt

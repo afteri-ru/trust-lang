@@ -160,18 +160,6 @@ static bool has_attr(const ParsedNode *n, const std::string &key) {
     return false;
 }
 
-static auto parse_type_internal(const std::string &s, const std::string &context) -> std::expected<TypeInfo, std::string> {
-    TypeInfo ti = TypeInfo::parse(s);
-    if (ti.is_user()) {
-        if (s == "usertype")
-            return std::unexpected(context + ": invalid type 'usertype'");
-    } else if (ti.to_string() == "int" && s != "int") {
-        if (s != "string" && s != "void" && s != "bool")
-            return std::unexpected(context + ": unknown type '" + s + "'");
-    }
-    return ti;
-}
-
 // Internal builder functions with std::expected
 static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const ParsedNode *n, Context &ctx);
 static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const ParsedNode *n, Context &ctx);
@@ -349,10 +337,8 @@ static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const Parsed
         std::vector<std::unique_ptr<Expr>> elems;
         TypeKind elem_type = TypeKind::Int;
         if (has_attr(n, "type")) {
-            auto ti = parse_type_internal(get_attr(n, "type"), AstTypeTraits::to_string(tk));
-            if (!ti.has_value())
-                return std::unexpected(ti.error());
-            elem_type = ti->kind;
+            auto ti = TypeInfo::parse(get_attr(n, "type"));
+            elem_type = ti.kind;
         }
         for (auto &c : n->children) {
             auto e = build_expr(c.get(), ctx);
@@ -413,9 +399,7 @@ static std::unique_ptr<CatchBlock> build_catch_block(const ParsedNode *n, Contex
         return nullptr;
     if (!has_attr(n, "type") || !has_attr(n, "name"))
         return nullptr;
-    auto type = parse_type_internal(get_attr(n, "type"), "CatchBlock");
-    if (!type.has_value())
-        return nullptr;
+    auto type = TypeInfo::parse(get_attr(n, "type"));
     std::string name = get_attr(n, "name");
     BlockBody body;
     for (auto &c : n->children) {
@@ -423,7 +407,7 @@ static std::unique_ptr<CatchBlock> build_catch_block(const ParsedNode *n, Contex
         if (item.has_value())
             body.push_back(std::move(*item));
     }
-    return std::make_unique<CatchBlock>(*type, std::move(name), std::move(body));
+    return std::make_unique<CatchBlock>(type, std::move(name), std::move(body));
 }
 
 static std::unique_ptr<MatchingCase> build_matching_case(const ParsedNode *n, Context &ctx) {
@@ -702,9 +686,7 @@ static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const Parsed
         if (!has_attr(n, "ret"))
             return std::unexpected(AstTypeTraits::to_string(tk) + ": missing required attribute 'ret'");
         std::string name = get_attr(n, "name");
-        auto ret_ti = parse_type_internal(get_attr(n, "ret"), "FuncDecl");
-        if (!ret_ti.has_value())
-            return std::unexpected(ret_ti.error());
+        auto ret_ti = TypeInfo::parse(get_attr(n, "ret"));
         std::vector<std::unique_ptr<ParamDecl>> params;
         std::unique_ptr<BlockStmt> body_ptr = nullptr;
         for (auto &c : n->children) {
@@ -719,7 +701,7 @@ static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const Parsed
                 body_ptr->loc = c->loc;
             }
         }
-        auto result = std::make_unique<FuncDecl>(name, std::move(*ret_ti), std::move(params), std::move(body_ptr));
+        auto result = std::make_unique<FuncDecl>(name, ret_ti, std::move(params), std::move(body_ptr));
         result->loc = n->loc;
         return result;
     }

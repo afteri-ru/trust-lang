@@ -9,7 +9,7 @@
 # AST description:
 FuncDecl name=test_matching ret=void
   BlockStmt
-    VarDecl name=x type=int
+    VarDecl name=x type=Int
       IntLiteral value=42
     MatchingStmt
       VarRef name=x

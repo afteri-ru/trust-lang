@@ -3,12 +3,6 @@
 #include <cassert>
 #include <cstdint>
 #include <cstddef>
-#include <stdexcept>
-
-#ifndef ASSERT
-#define ASSERT(...) assert(__VA_ARGS__)
-#endif
-
 
 namespace trust {
 
@@ -16,8 +10,8 @@ struct SourceIdx {
     int raw = -1;
 
     static constexpr SourceIdx make(int i) { return {i}; }
-    static constexpr SourceIdx none()      { return {-1}; }
-    constexpr bool isValid() const         { return raw >= 0; }
+    static constexpr SourceIdx none() { return {-1}; }
+    constexpr bool isValid() const { return raw >= 0; }
 };
 
 // Упакованная позиция: (source_idx + 1) << OFFSET_BITS | offset.
@@ -31,13 +25,11 @@ struct SourceLoc {
 
     static SourceLoc invalid() { return {0}; }
 
-    static constexpr SourceLoc make(SourceIdx idx, int offset) {
-        return {((idx.raw + 1) << SOURCE_SHIFT) | offset};
-    }
+    static constexpr SourceLoc make(SourceIdx idx, int offset) { return {((idx.raw + 1) << SOURCE_SHIFT) | offset}; }
 
-    constexpr bool isValid() const          { return packed != 0; }
-    constexpr SourceIdx source_idx() const  { return SourceIdx::make((packed >> SOURCE_SHIFT) - 1); }
-    constexpr int offset() const            { return packed & MAX_OFFSET; }
+    constexpr bool isValid() const { return packed != 0; }
+    constexpr SourceIdx source_idx() const { return SourceIdx::make((packed >> SOURCE_SHIFT) - 1); }
+    constexpr int offset() const { return packed & MAX_OFFSET; }
     constexpr SourceLoc inc(size_t size) const {
         assert(offset() + size < MAX_OFFSET);
         return SourceLoc{packed + static_cast<int>(size)};
@@ -58,14 +50,6 @@ struct SourceRange {
 
     static SourceRange point(trust::SourceLoc loc) { return {loc, loc}; }
     bool is_point() const { return begin.packed == end.packed; }
-};
-
-class ParserError : public std::runtime_error {
-public:
-    SourceLoc location;
-
-    explicit ParserError(const char* msg, SourceLoc loc = {})
-        : std::runtime_error(msg), location(loc) {}
 };
 
 } // namespace trust

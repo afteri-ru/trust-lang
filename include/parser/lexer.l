@@ -12,7 +12,7 @@
 #include <stdexcept>
 
   #ifndef YY_FATAL_ERROR
-  #define YY_FATAL_ERROR(msg) throw trust::ParserError(msg, trust::SourceLoc::invalid())
+  #define YY_FATAL_ERROR(msg) throw trust::SyntaxError(msg, trust::SourceLoc::invalid())
   #endif
 
   #ifndef YY_INPUT

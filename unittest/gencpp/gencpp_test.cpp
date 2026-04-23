@@ -1,6 +1,7 @@
 import trust;
 
 #include "ast_format_parser.hpp"
+#include "types/type_info.hpp"
 
 #include <gtest/gtest.h>
 #include <sstream>
@@ -176,4 +177,87 @@ TEST(GencppTest, ElseIfChain) {
     std::string code = gen.generate(program.get());
     EXPECT_FALSE(code.empty());
     EXPECT_NE(code.find("else if"), std::string::npos);
+}
+
+// ============================================================================
+// TypeRequirements Tests
+// ============================================================================
+
+TEST(TypeRequirementsTest, BuiltinIntHasNoRequirements) {
+    auto &reg = TypeRequirementsRegistry::instance();
+    const auto &req = reg.get(TypeKind::Int);
+    EXPECT_TRUE(req.headers.empty());
+    EXPECT_TRUE(req.link_libs.empty());
+    EXPECT_EQ(req.min_format, OutputFormat::Traditional);
+}
+
+TEST(TypeRequirementsTest, StringHasNoAutoHeaders) {
+    // Headers are not in X-macro; they must be registered explicitly
+    auto &reg = TypeRequirementsRegistry::instance();
+    const auto &req = reg.get(TypeKind::String);
+    EXPECT_TRUE(req.headers.empty());
+    EXPECT_EQ(req.min_format, OutputFormat::Traditional);
+}
+
+TEST(TypeRequirementsTest, ExpectedRequiresCpp23Module) {
+    auto &reg = TypeRequirementsRegistry::instance();
+    const auto &req = reg.get(TypeKind::Expected);
+    EXPECT_TRUE(req.headers.empty()); // headers not in X-macro
+    EXPECT_EQ(req.min_format, OutputFormat::Cpp23Module);
+}
+
+TEST(TypeRequirementsTest, CustomRegistration) {
+    auto &reg = TypeRequirementsRegistry::instance();
+    TypeRequirements custom_req;
+    custom_req.headers = {"<custom.h>", "<another.h>"};
+    custom_req.link_libs = {"mylib"};
+    custom_req.min_format = OutputFormat::Cpp20Module;
+    reg.register_type(TypeKind::UserType, custom_req);
+
+    const auto &retrieved = reg.get(TypeKind::UserType);
+    ASSERT_EQ(retrieved.headers.size(), 2);
+    EXPECT_EQ(retrieved.headers[0], "<custom.h>");
+    EXPECT_EQ(retrieved.headers[1], "<another.h>");
+    EXPECT_EQ(retrieved.link_libs[0], "mylib");
+    EXPECT_EQ(retrieved.min_format, OutputFormat::Cpp20Module);
+}
+
+TEST(TypeRequirementsTest, CollectHeadersFromUsedTypes) {
+    // Register a type with headers
+    TypeRequirements str_req(TypeKind::UserType, OutputFormat::Traditional, {"<string>"});
+    auto &reg = TypeRequirementsRegistry::instance();
+    reg.register_type(TypeKind::UserType, str_req);
+
+    std::vector<TypeKind> used = {TypeKind::Int, TypeKind::UserType, TypeKind::Bool};
+    auto headers = reg.collect_headers(used);
+    ASSERT_EQ(headers.size(), 1);
+    EXPECT_EQ(headers[0], "<string>");
+}
+
+TEST(TypeRequirementsTest, CollectLinkLibs) {
+    TypeRequirements req(TypeKind::UserType, OutputFormat::Traditional, {}, {"pthread", "dl"});
+    auto &reg = TypeRequirementsRegistry::instance();
+    reg.register_type(TypeKind::UserType, req);
+
+    std::vector<TypeKind> used = {TypeKind::Int, TypeKind::UserType};
+    auto libs = reg.collect_link_libs(used);
+    ASSERT_EQ(libs.size(), 2);
+    EXPECT_EQ(libs[0], "pthread");
+    EXPECT_EQ(libs[1], "dl");
+}
+
+TEST(TypeRequirementsTest, FormatCompatibility) {
+    auto &reg = TypeRequirementsRegistry::instance();
+    EXPECT_TRUE(reg.is_format_compatible(TypeKind::Int, OutputFormat::Traditional));
+    EXPECT_TRUE(reg.is_format_compatible(TypeKind::Expected, OutputFormat::Cpp23Module));
+    // Expected requires Cpp23Module, so Traditional is not compatible
+    EXPECT_FALSE(reg.is_format_compatible(TypeKind::Expected, OutputFormat::Traditional));
+}
+
+TEST(TypeRequirementsTest, TypeInfoRequirements) {
+    TypeInfo int_ti = TypeInfo::builtin(TypeKind::Int);
+    TypeInfo str_ti = TypeInfo::builtin(TypeKind::String);
+
+    EXPECT_TRUE(int_ti.requirements().headers.empty());
+    EXPECT_TRUE(str_ti.requirements().headers.empty()); // headers must be registered explicitly
 }

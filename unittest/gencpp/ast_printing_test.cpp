@@ -13,52 +13,55 @@ using namespace trust;
 // ============================================================================
 
 class AstPrintingTest : public ::testing::Test {
-protected:
+  protected:
     Context ctx;
 };
 
 // Test: Print AstPrintingTest::PrintVarDecl round-trip
 TEST_F(AstPrintingTest, PrintVarDecl) {
-    std::string input = "VarDecl name=x type=int\n"
+    std::string input = "VarDecl name=x type=Int\n"
                         "  IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    std::vector<ParsedNode *> root_ptrs;
+    for (auto &r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     std::string output = print_ast(program.get());
     EXPECT_NE(output.find("VarDecl"), std::string::npos);
     EXPECT_NE(output.find("name=x"), std::string::npos);
-    EXPECT_NE(output.find("type=int"), std::string::npos);
+    EXPECT_NE(output.find("type=Int"), std::string::npos);
 }
 
 // Test: Print AstPrintingTest::FuncDecl round-trip
 TEST_F(AstPrintingTest, PrintFuncDecl) {
-    std::string input = "FuncDecl name=main ret=int\n"
+    std::string input = "FuncDecl name=main ret=Int\n"
                         "  BlockStmt\n"
                         "    ReturnStmt\n"
                         "      IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    std::vector<ParsedNode *> root_ptrs;
+    for (auto &r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     std::string output = print_ast(program.get());
     EXPECT_NE(output.find("FuncDecl"), std::string::npos);
     EXPECT_NE(output.find("name=main"), std::string::npos);
-    EXPECT_NE(output.find("ret=int"), std::string::npos);
+    EXPECT_NE(output.find("ret=Int"), std::string::npos);
 }
 
 // Test: Print empty program
 TEST_F(AstPrintingTest, PrintEmptyProgram) {
-    std::string input = "FuncDecl name=main ret=void\n"
+    std::string input = "FuncDecl name=main ret=None\n"
                         "  BlockStmt\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    std::vector<ParsedNode *> root_ptrs;
+    for (auto &r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     std::string output = print_ast(program.get());
@@ -74,17 +77,18 @@ TEST_F(AstPrintingTest, PrintNullProgram) {
 
 // Test: Round-trip - parse, build, print, parse again
 TEST_F(AstPrintingTest, RoundTrip) {
-    std::string input = "FuncDecl name=main ret=int\n"
+    std::string input = "FuncDecl name=main ret=Int\n"
                         "  BlockStmt\n"
-                        "    VarDecl name=x type=int\n"
+                        "    VarDecl name=x type=Int\n"
                         "      IntLiteral value=10\n"
                         "    ReturnStmt\n"
                         "      VarRef name=x\n";
 
     // First pass
     auto nodes1 = parse_ast_format(input, ctx);
-    std::vector<ParsedNode*> roots1;
-    for (auto& r : *nodes1) roots1.push_back(r.get());
+    std::vector<ParsedNode *> roots1;
+    for (auto &r : *nodes1)
+        roots1.push_back(r.get());
     auto program1 = build_ast_from_roots(roots1, ctx);
 
     // Print
@@ -99,8 +103,9 @@ TEST_F(AstPrintingTest, RoundTrip) {
     // Second pass - parse the FuncDecl part only
     Context ctx2;
     auto nodes2 = parse_ast_format(func_part, ctx2);
-    std::vector<ParsedNode*> roots2;
-    for (auto& r : *nodes2) roots2.push_back(r.get());
+    std::vector<ParsedNode *> roots2;
+    for (auto &r : *nodes2)
+        roots2.push_back(r.get());
     auto program2 = build_ast_from_roots(roots2, ctx2);
 
     // Compare
@@ -110,16 +115,17 @@ TEST_F(AstPrintingTest, RoundTrip) {
 
 // Test: Print AstPrintingTest::BinaryOp
 TEST_F(AstPrintingTest, PrintBinaryOp) {
-    std::string input = "FuncDecl name=main ret=int\n"
+    std::string input = "FuncDecl name=main ret=Int\n"
                         "  BlockStmt\n"
                         "    ReturnStmt\n"
-                        "      BinaryOp op=+ type=int\n"
+                        "      BinaryOp op=+\n"
                         "        IntLiteral value=1\n"
                         "        IntLiteral value=2\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    std::vector<ParsedNode *> root_ptrs;
+    for (auto &r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     std::string output = print_ast(program.get());
@@ -129,7 +135,7 @@ TEST_F(AstPrintingTest, PrintBinaryOp) {
 
 // Test: Print AstPrintingTest::IfStmt
 TEST_F(AstPrintingTest, PrintIfStmt) {
-    std::string input = "FuncDecl name=main ret=int\n"
+    std::string input = "FuncDecl name=main ret=Int\n"
                         "  BlockStmt\n"
                         "    IfStmt\n"
                         "      VarRef name=x\n"
@@ -141,8 +147,9 @@ TEST_F(AstPrintingTest, PrintIfStmt) {
                         "          IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    std::vector<ParsedNode *> root_ptrs;
+    for (auto &r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     std::string output = print_ast(program.get());
@@ -153,15 +160,16 @@ TEST_F(AstPrintingTest, PrintIfStmt) {
 
 // Test: Print AstPrintingTest::CallExpr
 TEST_F(AstPrintingTest, PrintCallExpr) {
-    std::string input = "FuncDecl name=main ret=int\n"
+    std::string input = "FuncDecl name=main ret=Int\n"
                         "  BlockStmt\n"
                         "    ExprStmt\n"
                         "      CallExpr name=print\n"
                         "        StringLiteral value=\"hello\"\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    std::vector<ParsedNode *> root_ptrs;
+    for (auto &r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     std::string output = print_ast(program.get());

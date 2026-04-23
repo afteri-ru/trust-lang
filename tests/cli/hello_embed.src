@@ -1,8 +1,16 @@
-// RUN: %trust %s -o %t.cpp --emit-cpp 2>&1
-// RUN: %cxx %t.cpp -o %t_bin -lstdc++ 2>&1
-// RUN: %t_bin | %FileCheck %s
-// RUN: %trust %s -o %t2_bin 2>&1
-// RUN: %t2_bin | %FileCheck %s --check-prefix=CHECK
+// конфликт временной директории при параллельных запусках `trust`. 
+// Бинарник `trust` использует общую временную директорию `/tmp/trust-*` 
+// для промежуточных файлов, и при параллельном выполнении 
+// два экземпляра перезаписывали друг друга.
+// Добавлен флаг `--temp-dir %t.hello_embed` 
+// и уникальная директория `%t.hello_embed` для всех выходных файлов:
+
+// RUN: mkdir -p %t.hello_embed
+// RUN: %trust %s --temp-dir %t.hello_embed -o %t.hello_embed/generated.cpp --emit-cpp 2>&1
+// RUN: %cxx %t.hello_embed/generated.cpp -o %t.hello_embed/hello_bin -lstdc++ 2>&1
+// RUN: %t.hello_embed/hello_bin | %FileCheck %s
+// RUN: %trust %s --temp-dir %t.hello_embed -o %t.hello_embed/hello_direct 2>&1
+// RUN: %t.hello_embed/hello_direct | %FileCheck %s --check-prefix=CHECK
 
 {%
 #include <stdio.h>

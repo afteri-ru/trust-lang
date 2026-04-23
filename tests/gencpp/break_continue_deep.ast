@@ -5,15 +5,15 @@
 #
 # AST description:
 # Тест глубокой вложенности (3 уровня) с break/continue по меткам
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=i type=int
+    VarDecl name=i type=Int
       IntLiteral value=0
-    VarDecl name=j type=int
+    VarDecl name=j type=Int
       IntLiteral value=0
-    VarDecl name=k type=int
+    VarDecl name=k type=Int
       IntLiteral value=0
-    VarDecl name=result type=int
+    VarDecl name=result type=Int
       IntLiteral value=0
     # Уровень 1: while с меткой outer
     WhileStmt label=outer

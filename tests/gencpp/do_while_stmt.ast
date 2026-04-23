@@ -8,9 +8,9 @@
 # CHECK: Syntax check: OK
 #
 # AST description:
-FuncDecl name=main ret=int
+FuncDecl name=main ret=Int
   BlockStmt
-    VarDecl name=i type=int
+    VarDecl name=i type=Int
       IntLiteral value=0
     DoWhileStmt
       BlockStmt

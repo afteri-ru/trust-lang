@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include "diag/context.hpp"
+#include "diag/error.hpp"
 #include "diag/location.hpp"
 #include "parser/token.hpp"
 
@@ -59,11 +60,11 @@ struct Lexer {
 
     static SourceLoc current_loc(const Lexer *e) { return SourceLoc::make(e->src_idx, e->offset); }
 
-    [[noreturn]] static void error(const Lexer *e, const char *msg) { throw ParserError(msg, current_loc(e)); }
+    [[noreturn]] static void error(const Lexer *e, const char *msg) { throw SyntaxError(msg, current_loc(e)); }
 
     /** Tokenize input stored in Context at the given source index.
      *  Returns a LexemeSequence containing all tokens (excluding END token).
-     *  Throws ParserError on lexer errors. */
+     *  Throws SyntaxError on lexer errors. */
     static LexemeSequence tokenize(Context &ctx, SourceIdx src_idx, int offset = 0);
 };
 
