@@ -1,4 +1,5 @@
 #include "parser/mmproc.hpp"
+#include "gencpp/ast.hpp"
 #include "diag/diag.hpp"
 #include <stdexcept>
 #include <format>
@@ -155,7 +156,6 @@ static bool is_concatenatable_token(ParserToken::Kind k) noexcept {
 
 static bool is_unimplemented_token(ParserToken::Kind k) noexcept {
     switch (k) {
-        // MACRO not implemented
     case ParserToken::Kind::MACRO:
     case ParserToken::Kind::MACRO_ARGCOUNT:
     case ParserToken::Kind::MACRO_ARGNAME:
@@ -169,7 +169,6 @@ static bool is_unimplemented_token(ParserToken::Kind k) noexcept {
     case ParserToken::Kind::MACRO_SEQ:
     case ParserToken::Kind::MACRO_STR:
     case ParserToken::Kind::MACRO_TOSTR:
-    //
     case ParserToken::Kind::MODULE:
         return true;
     default:
@@ -182,7 +181,7 @@ static bool is_namespace(ParserToken::Kind k) noexcept {
 }
 
 static bool is_id_start(ParserToken::Kind k) noexcept {
-    return k == ParserToken::Kind::NAME || k == ParserToken::Kind::NAME || k == ParserToken::Kind::LOCAL || k == ParserToken::Kind::NATIVE;
+    return k == ParserToken::Kind::NAME || k == ParserToken::Kind::LOCAL || k == ParserToken::Kind::NATIVE;
 }
 
 static bool is_id_continuation(ParserToken::Kind k) noexcept {
@@ -207,7 +206,7 @@ static AstNodePtr make_text_node(std::string text, SourceRange range) {
     auto node = std::make_unique<TextNode>(std::move(text));
     node->set_source(TokenInfo(K, range, node->source->text));
     return node;
-} // namespace trust
+}
 
 static AstNodePtr make_concatenatable_node(ParserToken::Kind kind, std::string text, SourceRange range) {
     if (is_embed_token(kind)) {
@@ -215,7 +214,6 @@ static AstNodePtr make_concatenatable_node(ParserToken::Kind kind, std::string t
         node->set_source(TokenInfo(ParserToken::Kind::EmbedExpr, range, node->value()));
         return node;
     }
-    // string token: apply unescape for non-raw strings
     bool is_raw = (kind == ParserToken::Kind::STRWIDE_RAW || kind == ParserToken::Kind::STRCHAR_RAW);
     if (!is_raw) {
         text = MMProcessor::unescape(text);
@@ -234,14 +232,12 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
     while (i < lexemes.size()) {
         const Lexeme &lex = lexemes[i];
 
-        // Report error for unsupported tokens
         if (is_unimplemented_token(lex.kind)) {
             ctx.diag().report(lex.pos, Severity::Error, "unimplemented token '{}' — macro/module processing is not implemented", ParserToken::name(lex.kind));
             ++i;
             continue;
         }
 
-        // Concatenate sequential tokens of the same type (strings, embed)
         if (is_concatenatable_token(lex.kind)) {
             std::string text(lex.data(), lex.size());
             SourceRange range{lex.pos, lex.pos};
@@ -259,7 +255,6 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
             continue;
         }
 
-        // MANGLED → Ident
         if (lex.kind == ParserToken::Kind::MANGLED) {
             std::string text(lex.data(), lex.size());
             SourceRange range{lex.pos, lex.pos};
@@ -268,7 +263,6 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
             continue;
         }
 
-        // Composite identifier: [NAMESPACE] (NAME|LOCAL|NATIVE) [NAMESPACE NAME]* [LOCAL|NATIVE]
         if (is_id_start(lex.kind) || is_namespace(lex.kind)) {
             std::string text;
             SourceRange range{lex.pos, lex.pos};
@@ -276,14 +270,12 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
 
             std::size_t j = i;
 
-            // Optional leading NAMESPACE
             if (is_namespace(lexemes[j].kind)) {
                 text.append(lexemes[j].data(), lexemes[j].size());
                 range.end = lexemes[j].pos;
                 ++j;
             }
 
-            // Main fragment: NAME, LOCAL or NATIVE
             if (j < lexemes.size() && is_id_start(lexemes[j].kind)) {
                 text.append(lexemes[j].data(), lexemes[j].size());
                 range.end = lexemes[j].pos;
@@ -291,7 +283,6 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
                 ++j;
             }
 
-            // Continue: NAMESPACE + NAME
             while (j < lexemes.size() && is_namespace(lexemes[j].kind)) {
                 std::size_t ns_pos = j;
                 ++j;
@@ -305,7 +296,6 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
                 }
             }
 
-            // Optional terminator: LOCAL or NATIVE
             if (j < lexemes.size() && is_id_terminator(lexemes[j].kind)) {
                 text.append(lexemes[j].data(), lexemes[j].size());
                 range.end = lexemes[j].pos;
@@ -313,7 +303,6 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
             }
 
             if (!has_main_part) {
-                // Only NAMESPACE without content — remains as NAMESPACE node
                 std::string ns_text(lexemes[i].data(), lexemes[i].size());
                 SourceRange ns_range{lexemes[i].pos, lexemes[i].pos};
                 result.push_back(make_text_node<ParserToken::Kind::NAMESPACE>(std::move(ns_text), ns_range));
@@ -326,11 +315,26 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
             continue;
         }
 
-        // Regular token — pass through
         ++i;
     }
 
     return result;
+}
+
+// --- Parser helper functions (called from Bison grammar) ---
+
+AstNodePtr make_int_literal_node(int value, ParserToken::Kind kind, std::string text, SourceLoc loc) {
+    auto node = std::make_unique<IntLiteral>(value);
+    node->source = TokenInfo(kind, {loc, loc}, std::move(text));
+    node->loc = loc;
+    return node;
+}
+
+AstNodePtr make_string_literal_node(std::string text, ParserToken::Kind kind, SourceLoc loc) {
+    auto node = std::make_unique<StringLiteral>(std::move(text));
+    node->source = TokenInfo(kind, {loc, loc}, node->value());
+    node->loc = loc;
+    return node;
 }
 
 } // namespace trust

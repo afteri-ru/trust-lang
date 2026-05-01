@@ -4,49 +4,11 @@
 #include "parser/token_info.hpp"
 #include "types/types.hpp"
 #include "gencpp/ast_visitor.hpp"
-#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 namespace trust {
-
-// --- Forward declarations ---
-struct Expr;
-struct Stmt;
-struct Decl;
-
-// --- Base interface ---
-struct AstVisitable {
-    virtual ~AstVisitable() = default;
-    virtual void accept(AstVisitor *v) const = 0;
-};
-
-// --- Base AST node ---
-struct AstNodeBase : AstVisitable {
-    SourceLoc loc;
-    std::optional<TokenInfo> source;
-    virtual ~AstNodeBase() = default;
-    virtual ParserToken::Kind token_kind() const = 0;
-    void set_source(const TokenInfo &ti);
-
-    template <typename T>
-    [[nodiscard]] bool is() const noexcept {
-        return token_kind() == T::static_token_kind();
-    }
-    template <typename T>
-    [[nodiscard]] T *as() noexcept {
-        return is<T>() ? static_cast<T *>(this) : nullptr;
-    }
-    template <typename T>
-    [[nodiscard]] const T *as() const noexcept {
-        return is<T>() ? static_cast<const T *>(this) : nullptr;
-    }
-};
-
-using AstNodePtr = std::unique_ptr<AstNodeBase>;
-using AstNodeSequence = std::vector<AstNodePtr>;
 
 // --- CRTP base: inherits from category tag (Expr/Stmt/Decl) so it can override token_kind() ---
 template <typename Derived, ParserToken::Kind Kind, typename CategoryBase = AstNodeBase>

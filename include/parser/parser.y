@@ -11,23 +11,14 @@
 
 %parse-param { const trust::LexemeSequence& ts }
 %parse-param { std::size_t& pos }
-%parse-param { trust::AstNodes& out }
+%parse-param { trust::AstNodeSequence& out }
 %parse-param { std::string& err }
 
 %lex-param { const trust::LexemeSequence& ts }
 %lex-param { std::size_t& pos }
 
 %code requires {
-  #include <vector>
-  #include <memory>
-  #include <string>
-  #include "diag/location.hpp"
-  #include "parser/token.hpp"
-  namespace trust {
-    struct AstNodeBase;
-    using AstNodePtr = std::unique_ptr<AstNodeBase>;
-    using AstNodes = std::vector<AstNodePtr>;
-  } // namespace trust
+  #include "parser/token_info.hpp"
 }
 
 %code {
@@ -51,46 +42,34 @@ separator: SEMICOLON
 
 /* Литералы — создаём конкретные AST-ноды с заполненным source */
 digits_literal: INTEGER
-              {
-                  auto node = std::make_unique<IntLiteral>(0);
-                  node->set_source($1->kind, std::string($1->data(), $1->size()), $1->pos);
-                  out.push_back(std::move(node));
+              {                
+                  out.push_back(make_int_literal_node(0, $1->kind, std::string($1->data(), $1->size()), $1->pos));
                   $$ = $1;
               }
               | NUMBER
               {
-                  auto node = std::make_unique<IntLiteral>(0);
-                  node->set_source($1->kind, std::string($1->data(), $1->size()), $1->pos);
-                  out.push_back(std::move(node));
+                  out.push_back(make_int_literal_node(0, $1->kind, std::string($1->data(), $1->size()), $1->pos));
                   $$ = $1;
               }
               | COMPLEX
               {
-                  auto node = std::make_unique<IntLiteral>(0);
-                  node->set_source($1->kind, std::string($1->data(), $1->size()), $1->pos);
-                  out.push_back(std::move(node));
+                  out.push_back(make_int_literal_node(0, $1->kind, std::string($1->data(), $1->size()), $1->pos));
                   $$ = $1;
               }
               | RATIONAL
               {
-                  auto node = std::make_unique<IntLiteral>(0);
-                  node->set_source($1->kind, std::string($1->data(), $1->size()), $1->pos);
-                  out.push_back(std::move(node));
+                  out.push_back(make_int_literal_node(0, $1->kind, std::string($1->data(), $1->size()), $1->pos));
                   $$ = $1;
               }
 
 string_literal: STRWIDE
               {
-                  auto node = std::make_unique<StringLiteral>(std::string($1->data(), $1->size()));
-                  node->set_source($1->kind, std::string($1->data(), $1->size()), $1->pos);
-                  out.push_back(std::move(node));
+                  out.push_back(make_string_literal_node(std::string($1->data(), $1->size()), $1->kind, $1->pos));
                   $$ = $1;
               }
               | STRCHAR
               {
-                  auto node = std::make_unique<StringLiteral>(std::string($1->data(), $1->size()));
-                  node->set_source($1->kind, std::string($1->data(), $1->size()), $1->pos);
-                  out.push_back(std::move(node));
+                  out.push_back(make_string_literal_node(std::string($1->data(), $1->size()), $1->kind, $1->pos));
                   $$ = $1;
               }
 
