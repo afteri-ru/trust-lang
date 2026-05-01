@@ -7,11 +7,11 @@
 #
 # AST description:
 # Тест while с блоком else и вложенными конструкциями
-FuncDecl name=main ret=Int
+FuncDecl name=main ret=Int32
   BlockStmt
-    VarDecl name=x type=Int
+    VarDecl name=x type=Int32
       IntLiteral value=10
-    VarDecl name=counter type=Int
+    VarDecl name=counter type=Int32
       IntLiteral value=0
     # While с else блоком, внутри которого вложенный while
     WhileStmt label=main_loop

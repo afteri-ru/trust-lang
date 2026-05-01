@@ -12,8 +12,9 @@ struct FuncSignature {
     TypeInfo return_type;
     std::vector<TypeInfo> param_types;
     TypeInfo lookup_param(size_t i) const {
-        if (i >= param_types.size())
-            return TypeInfo::builtin(TypeKind::Void);
+        if (i >= param_types.size()) {
+            return make_builtin_type(TypeKind::Void);
+        }
         return param_types[i];
     }
 };
@@ -45,31 +46,33 @@ class SymbolTable {
         scopes_.back()[name] = std::move(type);
     }
 
-    std::expected<TypeInfo, std::string> lookup_var(const std::string &name, SourceLoc loc) const {
+    TypeInfo lookup_var(const std::string &name, SourceLoc loc) const {
         // Search from innermost to outermost scope
         for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it) {
             auto vit = it->find(name);
             if (vit != it->end())
                 return vit->second;
         }
-        return std::unexpected("Unknown variable: " + name);
+        (void)loc;
+        return make_builtin_type(TypeKind::Void);
     }
 
-    std::expected<void, std::string> check_assignment(const std::string &target, TypeInfo expr_type, SourceLoc loc) {
-        auto var_type_result = lookup_var(target, loc);
-        if (!var_type_result.has_value()) {
-            return std::unexpected(var_type_result.error());
+    std::string check_assignment(const std::string &target, TypeInfo expr_type, SourceLoc loc) {
+        std::string err;
+        auto var_type = lookup_var(target, loc);
+        if (var_type.id == TypeKind::Void) {
+            // variable not found — error already set
+            return "Unknown variable: " + target;
         }
-        TypeInfo var_type = var_type_result.value();
-        if (var_type != expr_type && var_type.kind != TypeKind::Void && expr_type.kind != TypeKind::Void) {
+        if (var_type.id != expr_type.id && var_type.id != TypeKind::Void && expr_type.id != TypeKind::Void) {
             // Allow int <-> bool implicit conversion (common in many languages)
-            bool is_numeric = (var_type.kind == TypeKind::Int || var_type.kind == TypeKind::Bool);
-            bool is_numeric_expr = (expr_type.kind == TypeKind::Int || expr_type.kind == TypeKind::Bool);
+            bool is_numeric = (var_type.id == TypeKind::Int32 || var_type.id == TypeKind::Bool);
+            bool is_numeric_expr = (expr_type.id == TypeKind::Int32 || expr_type.id == TypeKind::Bool);
             if (!(is_numeric && is_numeric_expr)) {
-                return std::unexpected("Cannot assign " + expr_type.to_string() + " to " + var_type.to_string());
+                return "Cannot assign " + expr_type.cpp_name + " to " + var_type.cpp_name;
             }
         }
-        return {};
+        return err;
     }
 
   private:

@@ -5,10 +5,23 @@
 set(TRUST_PCM_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(TRUST_PCM "${TRUST_PCM_DIR}/trust.pcm")
 set(TRUST_PCM_OBJ "${TRUST_PCM_DIR}/trust_module.o")
-set(TRUST_CPPM "${CMAKE_CURRENT_SOURCE_DIR}/../trust.cppm")
+set(TRUST_CPPM "${PROJECT_SOURCE_DIR}/include/trust.cppm")
 
 set(TRUST_MODULE_HEADERS
+    types/types.hpp
     types/type_info.hpp
+    types/forward.hpp
+    types/value.hpp
+    types/numbers.hpp
+    types/integers.hpp
+    types/strings.hpp
+    types/templates.hpp
+
+    types/rational.hpp
+    types/tensors.hpp
+
+    stdlib/buildin.hpp
+
     gencpp/ast_visitor.hpp
     gencpp/ast.hpp
     gencpp/symbol_table.hpp
@@ -20,8 +33,11 @@ set(TRUST_MODULE_HEADERS
 )
 list(TRANSFORM TRUST_MODULE_HEADERS PREPEND "${PROJECT_INCLUDE_DIR}/")
 
-# Generated parser output files — must be listed in DEPENDS so CMake knows
-# these are produced by another target's custom_command
+set(TRUST_MODULE_GENERATED_HEADERS
+    ${CMAKE_BINARY_DIR}/include/trust/version.h
+)
+
+# Generated parser output files
 set(TRUST_PARSER_GEN_DIR "${CMAKE_BINARY_DIR}/include/parser")
 set(TRUST_PARSER_GEN_OUTPUTS
     "${TRUST_PARSER_GEN_DIR}/token.gen.hash"
@@ -42,15 +58,13 @@ set(TRUST_COMPILE_OPTIONS
 )
 
 # Step 1: Precompile module to PCM
-# Note: DEPENDS only on files that exist at configure time;
-# add_dependencies on parser_lib_target handles build-ordering
 add_custom_command(
     OUTPUT "${TRUST_PCM}"
     COMMAND ${CMAKE_CXX_COMPILER} ${TRUST_COMPILE_OPTIONS}
             -x c++-module --precompile
             ${TRUST_CPPM}
             -o ${TRUST_PCM}
-    DEPENDS ${TRUST_CPPM} ${TRUST_MODULE_HEADERS} ${TRUST_PARSER_GEN_OUTPUTS}
+    DEPENDS ${TRUST_CPPM} ${TRUST_MODULE_HEADERS} ${TRUST_MODULE_GENERATED_HEADERS} ${TRUST_PARSER_GEN_OUTPUTS}
     COMMENT "Precompiling C++${CMAKE_CXX_STANDARD} module -> ${TRUST_PCM}"
     VERBATIM
 )

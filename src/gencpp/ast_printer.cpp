@@ -91,7 +91,7 @@ struct AstPrinter : public AstVisitor {
     }
     void visit(const VarDecl *n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(),
-             {{"name", n->name}, {"type", n->type_info().to_string()}, {"inferred", n->needs_type_inference() ? "true" : "false"}});
+             {{"name", n->name}, {"type", n->type_info().cpp_name}, {"inferred", n->needs_type_inference() ? "true" : "false"}});
         up();
         if (n->init)
             n->init->accept(this);
@@ -160,9 +160,7 @@ struct AstPrinter : public AstVisitor {
         }
         down();
     }
-    void visit(const ParamDecl *n) override {
-        emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->param_type.to_string()}});
-    }
+    void visit(const ParamDecl *n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->param_type.cpp_name}}); }
     void visit(const WhileStmt *n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
@@ -237,17 +235,17 @@ struct AstPrinter : public AstVisitor {
         down();
     }
     void visit(const CatchBlock *n) override {
-        emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"type", n->exception_type.to_string()}, {"name", n->var_name}});
+        emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"type", n->exception_type.cpp_name}, {"name", n->var_name}});
         up();
         for (const auto &bitem : n->body)
             dispatch_block_item(bitem);
         down();
     }
     void visit(const FuncDecl *n) override {
-        emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"ret", n->return_type.to_string()}});
+        emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"ret", n->return_type.cpp_name}});
         up();
         for (auto &p : n->params)
-            emit(AstTypeTraits::to_string(ParserToken::Kind::ParamDecl).c_str(), {{"name", p->name}, {"type", p->param_type.to_string()}});
+            emit(AstTypeTraits::to_string(ParserToken::Kind::ParamDecl).c_str(), {{"name", p->name}, {"type", p->param_type.cpp_name}});
         if (n->body)
             n->body->accept(this);
         down();
@@ -284,12 +282,12 @@ struct AstPrinter : public AstVisitor {
         up();
         for (auto &f : n->fields) {
             if (f->init) {
-                emit(AstTypeTraits::to_string(ParserToken::Kind::StructField).c_str(), {{"name", f->name}, {"type", f->type.to_string()}});
+                emit(AstTypeTraits::to_string(ParserToken::Kind::StructField).c_str(), {{"name", f->name}, {"type", f->type.cpp_name}});
                 up();
                 f->init->accept(this);
                 down();
             } else {
-                emit(AstTypeTraits::to_string(ParserToken::Kind::StructField).c_str(), {{"name", f->name}, {"type", f->type.to_string()}});
+                emit(AstTypeTraits::to_string(ParserToken::Kind::StructField).c_str(), {{"name", f->name}, {"type", f->type.cpp_name}});
             }
         }
         for (auto &m : n->methods) {
@@ -300,12 +298,12 @@ struct AstPrinter : public AstVisitor {
     }
     void visit(const StructField *n) override {
         if (n->init) {
-            emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->type.to_string()}});
+            emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->type.cpp_name}});
             up();
             n->init->accept(this);
             down();
         } else {
-            emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->type.to_string()}});
+            emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->type.cpp_name}});
         }
     }
     void visit(const EnumLiteral *n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"enum", n->enum_name}, {"member", n->member_name}}); }
@@ -326,7 +324,7 @@ struct AstPrinter : public AstVisitor {
         down();
     }
     void visit(const ArrayInit *n) override {
-        emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"type", TypeInfo::builtin(n->element_type).to_string()}});
+        emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"type", make_builtin_type(n->element_type).cpp_name}});
         up();
         for (auto &e : n->elements)
             if (e)
@@ -334,7 +332,7 @@ struct AstPrinter : public AstVisitor {
         down();
     }
     void visit(const CastExpr *n) override {
-        emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"type", n->target_type.to_string()}});
+        emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"type", n->target_type.cpp_name}});
         up();
         if (n->expr)
             n->expr->accept(this);

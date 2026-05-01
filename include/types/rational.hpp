@@ -1,13 +1,14 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <string>
-#include <string_view>
+
+#include "types/forward.hpp"
+#include "types/value.hpp"
 
 namespace trust {
 
-class Rational {
+class Rational : public SimpleValue<Rational, TypeKind::Rational> {
   public:
     Rational() noexcept;
     ~Rational() noexcept;
@@ -47,6 +48,17 @@ class Rational {
 
     friend Rational operator+(const Rational &r) noexcept;
     friend Rational operator-(const Rational &r) noexcept;
+
+    //     Value& convert_to(TypeKind, Value& dest) const override {
+    //         (void)dest;
+    //         throw std::invalid_argument("Use Types::convert() instead");
+    //     }
+
+    std::string to_string(bool wi) const override {
+        std::string pfx = wi ? "[Rational] " : "";
+        return pfx; // + std::to_string(num_) + "/" + std::to_string(den_);
+    }
+    static void _register(Types &t);
 
   private:
     class Impl;

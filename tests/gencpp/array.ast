@@ -8,16 +8,16 @@
 # CHECK: matrix[0][1]
 #
 # NOTE: torch/torch.h header is auto-included when ArrayInit/ArrayAccess is detected
-FuncDecl name=main ret=Int
+FuncDecl name=main ret=Int32
   BlockStmt
-    VarDecl name=arr type=Int
+    VarDecl name=arr type=Int32
       ArrayInit
         IntLiteral value=0
         IntLiteral value=0
         IntLiteral value=0
     AssignmentStmt target=arr[0]
       IntLiteral value=42
-    VarDecl name=nums type=Int
+    VarDecl name=nums type=Int32
       ArrayInit
         IntLiteral value=1
         IntLiteral value=2
@@ -27,7 +27,7 @@ FuncDecl name=main ret=Int
         ArrayAccess
           VarRef name=nums
           IntLiteral value=0
-    VarDecl name=matrix type=Int
+    VarDecl name=matrix type=Int32
       ArrayInit
         ArrayInit
           IntLiteral value=1

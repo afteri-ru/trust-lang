@@ -23,8 +23,12 @@ static std::string Message(std::string_view file, int line, std::format_string<A
 #define ASSERT(...) assert(__VA_ARGS__)
 #endif
 
+#ifndef FAULT_AS
+#define FAULT_AS(exception_type, ...) throw exception_type(Message(__FILE__, __LINE__, __VA_ARGS__))
+#endif
+
 #ifndef FAULT
-#define FAULT(...) throw std::runtime_error(Message(__FILE__, __LINE__, __VA_ARGS__))
+#define FAULT(...) FAULT_AS(std::runtime_error, __VA_ARGS__)
 #endif
 
 class SyntaxError : public std::runtime_error {
@@ -45,9 +49,5 @@ class ParseError : public std::runtime_error {
     explicit ParseError(std::string const &msg) : std::runtime_error(msg) {}
     explicit ParseError(const char *msg) : std::runtime_error(msg) {}
 };
-
-#ifndef FAULT_AS
-#define FAULT_AS(exception_type, ...) throw exception_type(Message(__FILE__, __LINE__, __VA_ARGS__))
-#endif
 
 } // namespace trust

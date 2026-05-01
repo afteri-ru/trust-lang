@@ -1,84 +1,65 @@
-# unittest/CMakeLists.txt - единый исполняемый файл для всех юнит-тестов
+# unittest/CMakeLists.txt — единый исполняемый файл для всех юнит-тестов
 
-# ── Парсер: генерация лексера (нужен для тестов) ──
-set(PARSER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../include/parser")
 set(GEN_DIR "${CMAKE_BINARY_DIR}/include/parser")
 
-# ── Все исходники тестов ──
+# ── All test sources ──
 set(TEST_SOURCES
-    # Diag
+    unittest.cpp
     diag/diag_test.cpp
     diag/options_test.cpp
-    # Parser
     parser/lexer_test.cpp
     parser/lexer_integration_test.cpp
     parser/mmproc_test.cpp
     parser/token_gen_test.cpp
-    # Gencpp
-    gencpp/ast_nodes_test.cpp
-    gencpp/ast_parsing_test.cpp
-    gencpp/ast_printing_test.cpp
-    gencpp/cpp_generator_test.cpp
-    gencpp/gencpp_test.cpp
-    gencpp/loop_control_test.cpp
-    gencpp/semantic_analyzer_test.cpp
-    # Cli
     cli/cli_test.cpp
     cli/cliopt_test.cpp
-    # Types
-    types/type_info_traits_test.cpp
-    # Runtime
+    types/registry_test.cpp
+    types/alias_test.cpp
+    types/cast_test.cpp
+    types/numbers_test.cpp
+    types/integers_test.cpp
     runtime/rational_test.cpp
-    runtime/var_test.cpp
-    runtime/trusted_cpp_test.cpp
+    stdlib/name_utils_test.cpp
+    stdlib/api_comparator_test.cpp
+    dap/integration_test.cpp
 )
 
-# ── Tensor tests (appended when WITH_TORCH=ON) ──
+# Tensor tests (require WITH_TORCH)
 if(WITH_TORCH)
-    list(APPEND TEST_SOURCES
-        runtime/tensor_test.cpp
-        ${CMAKE_SOURCE_DIR}/src/runtime/tensor.cpp
-    )
+    list(APPEND TEST_SOURCES runtime/tensor_test.cpp)
 endif()
 
-# ── Добавляем сгенерированный лексер ──
+# ── Add generated lexer ──
 list(APPEND TEST_SOURCES ${GEN_DIR}/lex.yy.cpp)
 
 add_executable(unit_tests ${TEST_SOURCES})
 
-# ── Связываем все библиотеки ──
+# ── Torch configuration for unit_tests ──
+if(WITH_TORCH)
+    target_compile_definitions(unit_tests PRIVATE TRUST_HAS_TORCH)
+    target_include_directories(unit_tests PRIVATE ${LIBTORCH_INCLUDE_DIRS})
+    target_link_directories(unit_tests PRIVATE ${LIBTORCH_LIB_DIRS})
+    target_link_libraries(unit_tests PRIVATE torch c10 torch_cpu)
+    target_compile_options(unit_tests PRIVATE -frtti)
+    target_sources(unit_tests PRIVATE ${PROJECT_SOURCE_DIR}/src/runtime/tensor.cpp)
+endif()
+
+# ── Link all libraries ──
 target_link_libraries(unit_tests PRIVATE
     gencpp_lib
-    gencpp_test_lib
     diag_lib
     parser_lib
-    runtime_lib
     types_lib
     cli_lib
+    stdlib_lib
+    dap_lib
     GTest::gtest
-    GTest::gtest_main
 )
 
 target_include_directories(unit_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_BINARY_DIR}/include
-    ${CMAKE_SOURCE_DIR}/tests/gencpp
-)
-
-# ── Attach runtime module (PCM from include/runtime) ──
-set(_runtime_pcm_path "${CMAKE_BINARY_DIR}/include/runtime/trust.runtime.pcm")
-set(_runtime_pcm_obj "${CMAKE_BINARY_DIR}/include/runtime/trust.runtime_module.o")
-target_sources(unit_tests PRIVATE ${_runtime_pcm_obj})
-set_source_files_properties(${_runtime_pcm_obj} PROPERTIES
-    EXTERNAL_OBJECT true
-    GENERATED true
-)
-
-add_dependencies(unit_tests parser_lib_target runtime_pcm_target_all trust_pcm_target_all gencpp_test_lib)
-target_compile_options(unit_tests PRIVATE
-    -Wno-unused-result
-    -fmodule-file=trust.runtime=${_runtime_pcm_path}
-    -fmodule-file=trust=${CMAKE_BINARY_DIR}/include/trust/trust.pcm
+    ${PROJECT_SOURCE_DIR}/tests/gencpp
 )
 
 # ── Attach trust module object ──
@@ -89,45 +70,25 @@ set_source_files_properties(${_trust_pcm_obj} PROPERTIES
     GENERATED true
 )
 
-# ── Torch includes for unit tests (needed for Tensor in Obj) ──
-if(WITH_TORCH)
-    target_include_directories(unit_tests PRIVATE
-        ${CMAKE_SOURCE_DIR}/contrib/libtorch/include
-        ${CMAKE_SOURCE_DIR}/contrib/libtorch/include/torch/csrc/api/include
-    )
+add_dependencies(unit_tests parser_lib_target trust_pcm_target_all dap_lib)
 
-    target_link_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/contrib/libtorch/lib)
-    target_link_libraries(unit_tests PRIVATE torch c10 torch_cpu)
-    target_compile_definitions(unit_tests PRIVATE TRUST_HAS_TORCH)
+target_compile_options(unit_tests PRIVATE
+    -Wno-unused-result
+    -fmodule-file=trust=${CMAKE_BINARY_DIR}/include/trust/trust.pcm
+)
 
-    add_dependencies(unit_tests torch_pch_target)
+# ── Symlink tensor plugin for runtime loading ──
+add_custom_command(TARGET unit_tests POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_BINARY_DIR}/libtensor_cpu.so
+        ${CMAKE_CURRENT_BINARY_DIR}/libtensor_cpu.so
+    COMMENT "Creating symlink for libtensor_cpu.so"
+)
 
-    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/runtime/tensor_test.cpp PROPERTIES
-        COMPILE_OPTIONS "-include;${CMAKE_SOURCE_DIR}/include/precompiled/torch_pch.hpp"
-    )
-    set_source_files_properties(${CMAKE_SOURCE_DIR}/src/runtime/tensor.cpp PROPERTIES
-        COMPILE_OPTIONS "-include;${CMAKE_SOURCE_DIR}/include/precompiled/torch_pch.hpp"
-    )
-    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/runtime/var_test.cpp PROPERTIES
-        COMPILE_OPTIONS "-include;${CMAKE_SOURCE_DIR}/include/precompiled/torch_pch.hpp"
-    )
-
-    # Plugin path for tests
-    target_compile_definitions(unit_tests PRIVATE
-        TRUST_PLUGIN_DIR="${CMAKE_BINARY_DIR}/plugins"
-    )
-endif()
-
-# ── Общесистемный custom target ──
-if(WITH_TORCH)
-    set(UNIT_TEST_DEPS unit_tests tensor_cpu)
-else()
-    set(UNIT_TEST_DEPS unit_tests)
-endif()
-
+# ── Run unit tests target ──
 add_custom_target(run_unit_tests
-    COMMAND $<TARGET_FILE:unit_tests>
-    DEPENDS ${UNIT_TEST_DEPS}
+    COMMAND $<TARGET_FILE:unit_tests> --gtest_brief=1
+    DEPENDS unit_tests
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Running all unit tests"
     USES_TERMINAL

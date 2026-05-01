@@ -26,7 +26,7 @@ class AstErrorTest : public ::testing::Test {
 // ============================================================================
 
 TEST_F(AstTest, BuildVarDecl) {
-    std::string input = "VarDecl name=x type=Int\n"
+    std::string input = "VarDecl name=x type=Int32\n"
                         "  IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
@@ -49,7 +49,7 @@ TEST_F(AstTest, BuildVarDecl) {
 }
 
 TEST_F(AstTest, BuildFuncDecl) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    ReturnStmt\n"
                         "      IntLiteral value=0\n";
@@ -71,7 +71,7 @@ TEST_F(AstTest, BuildFuncDecl) {
 }
 
 TEST_F(AstTest, BuildStmtWrapsInMain) {
-    std::string input = "VarDecl name=x type=Int\n"
+    std::string input = "VarDecl name=x type=Int32\n"
                         "  IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
@@ -85,8 +85,8 @@ TEST_F(AstTest, BuildStmtWrapsInMain) {
 }
 
 TEST_F(AstTest, BuildFuncDeclWithParams) {
-    std::string input = "FuncDecl name=foo ret=Int\n"
-                        "  ParamDecl name=a type=Int\n"
+    std::string input = "FuncDecl name=foo ret=Int32\n"
+                        "  ParamDecl name=a type=Int32\n"
                         "  ParamDecl name=b type=String\n"
                         "  BlockStmt\n"
                         "    ReturnStmt\n"
@@ -108,7 +108,7 @@ TEST_F(AstTest, BuildFuncDeclWithParams) {
 }
 
 TEST_F(AstTest, BuildBinaryOp) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    ReturnStmt\n"
                         "      BinaryOp op=+\n"
@@ -131,7 +131,7 @@ TEST_F(AstTest, BuildBinaryOp) {
 }
 
 TEST_F(AstTest, BuildIfStmtWithElseIf) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    IfStmt\n"
                         "      VarRef name=x\n"
@@ -181,7 +181,7 @@ TEST_F(AstTest, VarDeclUserType) {
 }
 
 TEST_F(AstTest, VarRefUserType) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    ReturnStmt\n"
                         "      VarRef name=x type=MyEnum\n";
@@ -202,7 +202,7 @@ TEST_F(AstTest, VarRefUserType) {
 // ============================================================================
 
 TEST_F(AstErrorTest, VarDeclMissingName) {
-    std::string input = "VarDecl type=Int\n"
+    std::string input = "VarDecl type=Int32\n"
                         "  IntLiteral value=42\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
@@ -228,7 +228,8 @@ TEST_F(AstTest, VarDeclMissingTypeInferred) {
     ASSERT_TRUE(program->items[0]->is<VarDecl>());
     auto *var_decl = program->items[0]->as<VarDecl>();
     EXPECT_EQ(var_decl->name, "x");
-    EXPECT_EQ(var_decl->type_info().kind, TypeKind::Int);
+    // No explicit type — AST node has default TypeKind::Void (inferred at semantic analysis)
+    EXPECT_EQ(var_decl->type_info().kind, TypeKind::Void);
 }
 
 TEST_F(AstErrorTest, FuncDeclMissingName) {
@@ -245,7 +246,7 @@ TEST_F(AstErrorTest, FuncDeclMissingName) {
 }
 
 TEST_F(AstErrorTest, IntLiteralInvalidValue) {
-    std::string input = "VarDecl name=x type=Int\n"
+    std::string input = "VarDecl name=x type=Int32\n"
                         "  IntLiteral value=not_a_number\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
@@ -296,7 +297,7 @@ TEST_F(AstErrorTest, BinaryOpMissingChildren) {
 }
 
 TEST_F(AstErrorTest, VarRefMissingName) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    ReturnStmt\n"
                         "      VarRef\n";
@@ -336,8 +337,8 @@ TEST_F(AstErrorTest, CallExprMissingName) {
 }
 
 TEST_F(AstErrorTest, ParamDeclMissingName) {
-    std::string input = "FuncDecl name=main ret=Int\n"
-                        "  ParamDecl type=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
+                        "  ParamDecl type=Int32\n"
                         "  BlockStmt\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
@@ -349,7 +350,7 @@ TEST_F(AstErrorTest, ParamDeclMissingName) {
 }
 
 TEST_F(AstErrorTest, ParamDeclMissingType) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  ParamDecl name=x\n"
                         "  BlockStmt\n";
     auto result = parse_ast_format(input, ctx);
@@ -374,7 +375,7 @@ TEST_F(AstErrorTest, UnknownStmtType) {
 }
 
 TEST_F(AstErrorTest, IntLiteralOutOfRange) {
-    std::string input = "VarDecl name=x type=Int\n"
+    std::string input = "VarDecl name=x type=Int32\n"
                         "  IntLiteral value=99999999999999999999\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
@@ -390,9 +391,9 @@ TEST_F(AstErrorTest, IntLiteralOutOfRange) {
 // ============================================================================
 
 TEST_F(AstTest, BlockItemUnifiedDispatch) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
-                        "    VarDecl name=x type=Int\n"
+                        "    VarDecl name=x type=Int32\n"
                         "      IntLiteral value=10\n"
                         "    ReturnStmt\n";
     auto nodes = parse_ast_format(input, ctx);
@@ -445,8 +446,8 @@ TEST_F(AstTest, EnumMemberAsFullNode) {
 
 TEST_F(AstTest, StructFieldAsFullNode) {
     std::string input = "StructDecl name=Point\n"
-                        "  StructField name=x type=Int\n"
-                        "  StructField name=y type=Int\n";
+                        "  StructField name=x type=Int32\n"
+                        "  StructField name=y type=Int32\n";
     auto nodes = parse_ast_format(input, ctx);
 
     std::vector<ParsedNode *> root_ptrs;
@@ -466,12 +467,12 @@ TEST_F(AstTest, StructFieldAsFullNode) {
 }
 
 TEST_F(AstTest, CatchBlockAsFullNode) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    TryCatchStmt\n"
                         "      ThrowStmt\n"
                         "        IntLiteral value=1\n"
-                        "      CatchBlock type=Int name=e\n"
+                        "      CatchBlock type=Int32 name=e\n"
                         "        ReturnStmt\n"
                         "          IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
@@ -498,7 +499,7 @@ TEST_F(AstTest, CatchBlockAsFullNode) {
 }
 
 TEST_F(AstTest, MatchingCaseAsFullNode) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    MatchingStmt\n"
                         "      VarRef name=x\n"
@@ -531,7 +532,7 @@ TEST_F(AstTest, MatchingCaseAsFullNode) {
 // ============================================================================
 
 TEST_F(AstTest, AssignmentStmtWithVarRefTarget) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    AssignmentStmt target=x\n"
                         "      IntLiteral value=42\n";
@@ -553,7 +554,7 @@ TEST_F(AstTest, AssignmentStmtWithVarRefTarget) {
 }
 
 TEST_F(AstTest, AssignmentStmtCodeGen) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    AssignmentStmt target=x\n"
                         "      IntLiteral value=42\n";
@@ -575,7 +576,7 @@ TEST_F(AstTest, AssignmentStmtCodeGen) {
 // ============================================================================
 
 TEST_F(AstTest, BuildWhileStmt) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    WhileStmt\n"
                         "      VarRef name=x\n"
@@ -598,7 +599,7 @@ TEST_F(AstTest, BuildWhileStmt) {
 }
 
 TEST_F(AstTest, BuildDoWhileStmt) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    DoWhileStmt\n"
                         "      ReturnStmt\n"
@@ -620,9 +621,9 @@ TEST_F(AstTest, BuildDoWhileStmt) {
 }
 
 TEST_F(AstTest, BuildArrayInit) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
-                        "    VarDecl name=arr type=Int\n"
+                        "    VarDecl name=arr type=Int32\n"
                         "      ArrayInit\n"
                         "        IntLiteral value=1\n"
                         "        IntLiteral value=2\n"
@@ -639,10 +640,10 @@ TEST_F(AstTest, BuildArrayInit) {
 }
 
 TEST_F(AstTest, BuildCastExpr) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
-                        "    VarDecl name=val type=Int\n"
-                        "      CastExpr type=Int\n"
+                        "    VarDecl name=val type=Int32\n"
+                        "      CastExpr type=Int32\n"
                         "        IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
@@ -656,7 +657,7 @@ TEST_F(AstTest, BuildCastExpr) {
 }
 
 TEST_F(AstTest, BuildMemberAccess) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    VarDecl name=p type=Point\n"
                         "      MemberAccess field=x\n"

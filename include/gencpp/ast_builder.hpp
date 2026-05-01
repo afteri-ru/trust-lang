@@ -48,7 +48,7 @@ class AstBuilder {
         return std::make_unique<ArrayAccess>(std::move(arr), std::move(idx));
     }
 
-    std::unique_ptr<ArrayInit> array_init(std::vector<std::unique_ptr<Expr>> elems, TypeKind elem_type = TypeKind::Int) {
+    std::unique_ptr<ArrayInit> array_init(std::vector<std::unique_ptr<Expr>> elems, TypeKind elem_type = TypeKind::Int32) {
         return std::make_unique<ArrayInit>(std::move(elems), elem_type);
     }
 
@@ -58,7 +58,7 @@ class AstBuilder {
     }
 
     std::unique_ptr<CastExpr> cast_expr(std::unique_ptr<Expr> e, TypeKind target_type) {
-        return std::make_unique<CastExpr>(std::move(e), TypeInfo::builtin(target_type));
+        return std::make_unique<CastExpr>(std::move(e), make_builtin_type(target_type));
     }
 
     // Ref expressions
@@ -84,7 +84,7 @@ class AstBuilder {
 
     // With explicit TypeKind — type_explicitly_set = true
     std::unique_ptr<VarDecl> var_decl(std::string name, TypeKind type, std::unique_ptr<Expr> init) {
-        return std::make_unique<VarDecl>(std::move(name), TypeInfo::builtin(type), std::move(init));
+        return std::make_unique<VarDecl>(std::move(name), make_builtin_type(type), std::move(init));
     }
 
     std::unique_ptr<AssignmentStmt> assign(std::unique_ptr<Expr> target, std::unique_ptr<Expr> value) {
@@ -124,7 +124,7 @@ class AstBuilder {
     }
 
     std::unique_ptr<CatchBlock> catch_block(TypeKind type, std::string name, BlockBody body) {
-        return std::make_unique<CatchBlock>(TypeInfo::builtin(type), std::move(name), std::move(body));
+        return std::make_unique<CatchBlock>(make_builtin_type(type), std::move(name), std::move(body));
     }
 
     std::unique_ptr<EnumMember> enum_member(std::string name, std::unique_ptr<int> value = nullptr) {
@@ -163,7 +163,7 @@ class AstBuilder {
 
     std::unique_ptr<ParamDecl> param(std::string name, TypeInfo type) { return std::make_unique<ParamDecl>(std::move(name), std::move(type)); }
 
-    std::unique_ptr<ParamDecl> param(std::string name, TypeKind type) { return std::make_unique<ParamDecl>(std::move(name), TypeInfo::builtin(type)); }
+    std::unique_ptr<ParamDecl> param(std::string name, TypeKind type) { return std::make_unique<ParamDecl>(std::move(name), make_builtin_type(type)); }
 
     std::unique_ptr<FuncDecl> function(std::string name, TypeInfo return_type, std::vector<std::unique_ptr<ParamDecl>> params, BlockBody body) {
         auto blk = std::make_unique<BlockStmt>(std::move(body));
@@ -207,7 +207,7 @@ class AstBuilder {
                     }
                 }
             }
-            struct_fields.push_back(std::make_unique<StructField>(std::move(fname), TypeInfo::parse(ftype), std::move(init)));
+            struct_fields.push_back(std::make_unique<StructField>(std::move(fname), Types::instance().get(Types::instance().find(ftype)), std::move(init)));
         }
         return std::make_unique<StructDecl>(std::move(name), std::move(struct_fields), std::move(methods));
     }

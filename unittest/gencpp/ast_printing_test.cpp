@@ -19,7 +19,7 @@ class AstPrintingTest : public ::testing::Test {
 
 // Test: Print AstPrintingTest::PrintVarDecl round-trip
 TEST_F(AstPrintingTest, PrintVarDecl) {
-    std::string input = "VarDecl name=x type=Int\n"
+    std::string input = "VarDecl name=x type=Int32\n"
                         "  IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
@@ -31,12 +31,12 @@ TEST_F(AstPrintingTest, PrintVarDecl) {
     std::string output = print_ast(program.get());
     EXPECT_NE(output.find("VarDecl"), std::string::npos);
     EXPECT_NE(output.find("name=x"), std::string::npos);
-    EXPECT_NE(output.find("type=Int"), std::string::npos);
+    EXPECT_NE(output.find("type=Int32"), std::string::npos);
 }
 
 // Test: Print AstPrintingTest::FuncDecl round-trip
 TEST_F(AstPrintingTest, PrintFuncDecl) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    ReturnStmt\n"
                         "      IntLiteral value=0\n";
@@ -50,7 +50,7 @@ TEST_F(AstPrintingTest, PrintFuncDecl) {
     std::string output = print_ast(program.get());
     EXPECT_NE(output.find("FuncDecl"), std::string::npos);
     EXPECT_NE(output.find("name=main"), std::string::npos);
-    EXPECT_NE(output.find("ret=Int"), std::string::npos);
+    EXPECT_NE(output.find("ret=Int32"), std::string::npos);
 }
 
 // Test: Print empty program
@@ -77,9 +77,9 @@ TEST_F(AstPrintingTest, PrintNullProgram) {
 
 // Test: Round-trip - parse, build, print, parse again
 TEST_F(AstPrintingTest, RoundTrip) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
-                        "    VarDecl name=x type=Int\n"
+                        "    VarDecl name=x type=Int32\n"
                         "      IntLiteral value=10\n"
                         "    ReturnStmt\n"
                         "      VarRef name=x\n";
@@ -115,7 +115,7 @@ TEST_F(AstPrintingTest, RoundTrip) {
 
 // Test: Print AstPrintingTest::BinaryOp
 TEST_F(AstPrintingTest, PrintBinaryOp) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    ReturnStmt\n"
                         "      BinaryOp op=+\n"
@@ -135,7 +135,7 @@ TEST_F(AstPrintingTest, PrintBinaryOp) {
 
 // Test: Print AstPrintingTest::IfStmt
 TEST_F(AstPrintingTest, PrintIfStmt) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    IfStmt\n"
                         "      VarRef name=x\n"
@@ -160,7 +160,7 @@ TEST_F(AstPrintingTest, PrintIfStmt) {
 
 // Test: Print AstPrintingTest::CallExpr
 TEST_F(AstPrintingTest, PrintCallExpr) {
-    std::string input = "FuncDecl name=main ret=Int\n"
+    std::string input = "FuncDecl name=main ret=Int32\n"
                         "  BlockStmt\n"
                         "    ExprStmt\n"
                         "      CallExpr name=print\n"

@@ -7,9 +7,9 @@
 # CHECK: } else {
 #
 # AST description:
-FuncDecl name=test_matching ret=void
+FuncDecl name=test_matching ret=Void
   BlockStmt
-    VarDecl name=x type=Int
+    VarDecl name=x type=Int32
       IntLiteral value=42
     MatchingStmt
       VarRef name=x

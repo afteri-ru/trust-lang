@@ -7,11 +7,11 @@
 #
 # AST description:
 # Тест вложенных do-while и смешанных циклов (while внутри do-while, do-while внутри while)
-FuncDecl name=main ret=Int
+FuncDecl name=main ret=Int32
   BlockStmt
-    VarDecl name=i type=Int
+    VarDecl name=i type=Int32
       IntLiteral value=0
-    VarDecl name=j type=Int
+    VarDecl name=j type=Int32
       IntLiteral value=0
     VarDecl name=found type=Bool
       IntLiteral value=0

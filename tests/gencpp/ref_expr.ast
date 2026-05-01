@@ -7,14 +7,14 @@
 #
 # Test RefMakeExpr and RefTakeExpr
 # ref_make/ref_take stubs are generated automatically
-FuncDecl name=main ret=Int
+FuncDecl name=main ret=Int32
   BlockStmt
-    VarDecl name=x
+    VarDecl name=x type=Int32
       IntLiteral value=42
-    VarDecl name=ref
+    VarDecl name=ref type=Int32
       RefMakeExpr
         VarRef name=x
-    VarDecl name=val
+    VarDecl name=val type=Int32
       RefTakeExpr
         VarRef name=ref
     ReturnStmt

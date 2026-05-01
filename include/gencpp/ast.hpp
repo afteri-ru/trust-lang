@@ -2,7 +2,7 @@
 
 #include "parser/token.hpp"
 #include "parser/token_info.hpp"
-#include "types/type_info.hpp"
+#include "types/types.hpp"
 #include "gencpp/ast_visitor.hpp"
 #include <memory>
 #include <optional>
@@ -63,6 +63,11 @@ struct TypeResolution {
     std::optional<TypeInfo> get_type(const Expr *e) const;
     bool has_type(const Expr *e) const;
 };
+
+// --- TypeInfo helpers for gencpp (replaces old TypeInfo::builtin/user) ---
+inline TypeInfo make_builtin_type(TypeKind k) {
+    return TypeInfo(k, std::string(type_kind_name(k)));
+}
 
 // --- Type Traits ---
 struct AstTypeTraits {
@@ -216,7 +221,8 @@ struct WhileStmt : AstNodeImpl<WhileStmt, ParserToken::Kind::WhileStmt, Stmt> {
     std::unique_ptr<Expr> condition;
     BlockBody body;
     BlockBody else_body;
-    WhileStmt(std::unique_ptr<Expr> cond, BlockBody b, BlockBody eb = BlockBody{});
+    WhileStmt(std::unique_ptr<Expr> cond, BlockBody b, BlockBody eb);
+    WhileStmt(std::unique_ptr<Expr> cond, BlockBody b);
 };
 
 struct DoWhileStmt : AstNodeImpl<DoWhileStmt, ParserToken::Kind::DoWhileStmt, Stmt> {

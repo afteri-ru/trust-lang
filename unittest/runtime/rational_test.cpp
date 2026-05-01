@@ -1,4 +1,4 @@
-#include "runtime/rational.hpp"
+#include "types/rational.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
 #include <limits>

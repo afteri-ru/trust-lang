@@ -1,17 +1,17 @@
 # RUN: %trans %s > %t.cpp
 # RUN: %cxx -fsyntax-only %t.cpp > %t.log 2>&1
 # CHECK: int main() {
-# CHECK: int x = 10;
+# CHECK: int32_t x = 10;
 # CHECK: std::string msg = "hello";
 # CHECK: print(msg);
 # CHECK: return 0;
 #
 # AST description (one line per node, indent = depth):
-FuncDecl name=main ret=Int
+FuncDecl name=main ret=Int32
   BlockStmt
-    VarDecl name=x type=Int
+    VarDecl name=x type=Int32
       IntLiteral value=10
-    VarDecl name=msg type=String
+    VarDecl name=msg type=StrChar
       StringLiteral value="hello"
     ExprStmt
       CallExpr name=print

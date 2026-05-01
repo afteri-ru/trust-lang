@@ -72,6 +72,30 @@
 - Tests MUST never be silently skipped — missing test infrastructure (GTest, lit, python3, etc.) is a BUILD FAILURE, not a silent skip.
 - Do not delete generated/output files unless asked.
 
+### 9. Fragment-Only File Changes
+
+**Modify files only by replacing or adding fragments. Never rewrite entire files.**
+
+- Use `replace_in_file` for all edits to existing files.
+- Use `write_to_file` only when creating a new file or when changes are so extensive that fragment replacement would be more error-prone.
+- Never overwrite a file in full for a local patch.
+
+### 10. Architecture From ARCH.md Only
+
+**Do not read header or source files to analyze architecture.**
+
+- The `ARCH.md` file in each component's directory is the sole source of architectural information.
+- Read individual source/header files only when the task explicitly requires it or when modifying that specific file.
+- Do not scan the project for "understanding" — read ARCH.md first.
+
+### 11. Keep ARCH.md Synchronized
+
+**ARCH.md must always reflect the actual implementation.**
+
+- If a code change reveals a discrepancy between ARCH.md and the code — stop and report it.
+- Update ARCH.md in the same change set as the code modification.
+- Mismatch between documentation and implementation is treated as a bug.
+
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation.

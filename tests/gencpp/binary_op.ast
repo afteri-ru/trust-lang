@@ -8,19 +8,19 @@
 # CHECK: return x + y;
 #
 # AST description:
-FuncDecl name=add ret=Int
-  ParamDecl name=a type=Int
-  ParamDecl name=b type=Int
+FuncDecl name=add ret=Int32
+  ParamDecl name=a type=Int32
+  ParamDecl name=b type=Int32
   BlockStmt
     ReturnStmt
       BinaryOp op=+
         VarRef name=a
         VarRef name=b
-FuncDecl name=main ret=Int
+FuncDecl name=main ret=Int32
   BlockStmt
-    VarDecl name=x type=Int
+    VarDecl name=x type=Int32
       IntLiteral value=10
-    VarDecl name=y type=Int
+    VarDecl name=y type=Int32
       BinaryOp op=*
         VarRef name=x
         IntLiteral value=3

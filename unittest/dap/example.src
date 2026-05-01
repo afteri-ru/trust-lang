@@ -1,0 +1,6 @@
+create x = 10
+create y = 20
+create z = 0
+z = x + y
+create result = z * 2
+call printf("Result: %d\n", result) 

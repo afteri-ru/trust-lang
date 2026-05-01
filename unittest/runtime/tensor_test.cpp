@@ -1,65 +1,138 @@
+#include "types/tensors.hpp"
+#include "types/types.hpp"
 #include "runtime/tensor.hpp"
-#include "runtime/var.hpp"
 #include <gtest/gtest.h>
 #include <stdexcept>
 
 using namespace trust;
 
-class TensorTest : public ::testing::Test {
+class TensorTypeTest : public ::testing::Test {
   protected:
-    void SetUp() override { ensure_tensor_runtime_loaded(); }
+    void SetUp() override {
+        if (!ensure_tensor_runtime_loaded()) {
+            GTEST_SKIP() << "libtensor_cpu.so not found";
+        }
+    }
 };
 
-TEST_F(TensorTest, CreateFromVar) {
+// Test Tensor type registration
+TEST_F(TensorTypeTest, TensorRegistered) {
+    auto &types = Types::instance();
+    auto kind = types.find("DenseTensor");
+    EXPECT_EQ(kind, TypeKind::DenseTensor);
+}
+
+TEST_F(TensorTypeTest, SparseTensorRegistered) {
+    auto &types = Types::instance();
+    auto kind = types.find("SparseTensor");
+    EXPECT_EQ(kind, TypeKind::SparseTensor);
+}
+
+// Test Tensor to_string
+TEST_F(TensorTypeTest, TensorToString) {
+    Tensor t;
+    EXPECT_EQ(t.to_string(false), "Tensor{}");
+    EXPECT_EQ(t.to_string(true), "[Tensor] Tensor{}");
+}
+
+TEST_F(TensorTypeTest, SparseTensorToString) {
+    SparseTensor t;
+    EXPECT_EQ(t.to_string(false), "SparseTensor{}");
+    EXPECT_EQ(t.to_string(true), "[SparseTensor] SparseTensor{}");
+}
+
+// Test TensorHandle
+TEST_F(TensorTypeTest, TensorHandleEmpty) {
+    TensorHandle h;
+    EXPECT_FALSE(static_cast<bool>(h));
+    EXPECT_FALSE(h.is<at::Tensor>());
+    EXPECT_EQ(h.get<at::Tensor>(), nullptr);
+}
+
+// Test TorchTensor creation and operations
+TEST_F(TensorTypeTest, TorchTensorCreation) {
     auto tensor = torch::ones({2, 3});
-    Var o(Tensor{std::make_shared<at::Tensor>(tensor)});
+    TorchTensor tt(tensor);
 
-    TorchTensor t = TorchTensor::from_var(o);
-    EXPECT_EQ(t.native().sizes().vec(), (std::vector<int64_t>{2, 3}));
-    EXPECT_TRUE(torch::all(t.native() == 1).item<bool>());
+    EXPECT_EQ(tt.native().sizes().vec(), (std::vector<int64_t>{2, 3}));
+    EXPECT_TRUE(torch::all(tt.native() == 1).item<bool>());
 }
 
-TEST_F(TensorTest, RoundTripVar) {
+TEST_F(TensorTypeTest, TorchTensorRoundTrip) {
     auto tensor = torch::randn({4, 5});
-    Var o(Tensor{std::make_shared<at::Tensor>(tensor)});
+    TorchTensor tt1(tensor);
 
-    TorchTensor t = TorchTensor::from_var(o);
-    Var out(t.as_var_handle());
+    TensorHandle handle = tt1.as_var_handle();
+    EXPECT_TRUE(static_cast<bool>(handle));
 
-    EXPECT_TRUE(out.is<Tensor>());
-    TorchTensor t2 = TorchTensor::from_var(out);
-    EXPECT_EQ(t2.native().sizes().vec(), (std::vector<int64_t>{4, 5}));
+    TorchTensor tt2(handle);
+    EXPECT_EQ(tt2.native().sizes().vec(), (std::vector<int64_t>{4, 5}));
 }
 
-TEST_F(TensorTest, NativeAccess) {
+TEST_F(TensorTypeTest, TorchTensorNativeAccess) {
     auto tensor = torch::arange(0, 6).reshape({2, 3});
-    auto handle = Tensor{std::make_shared<at::Tensor>(tensor)};
-    Var o(handle);
+    TorchTensor tt(tensor);
 
-    TorchTensor t = TorchTensor::from_var(o);
-    auto sum = t.native().sum().item<double>();
+    auto sum = tt.native().sum().item<double>();
     EXPECT_DOUBLE_EQ(sum, 0.0 + 1.0 + 2.0 + 3.0 + 4.0 + 5.0);
 }
 
-TEST_F(TensorTest, TensorMultiply) {
+TEST_F(TensorTypeTest, TorchTensorMatrixMultiply) {
     auto a = torch::ones({2, 3});
     auto b = torch::ones({3, 4});
-    Var oa(Tensor{std::make_shared<at::Tensor>(a)});
-    Var ob(Tensor{std::make_shared<at::Tensor>(b * 2)});
 
-    TorchTensor ta = TorchTensor::from_var(oa);
-    TorchTensor tb = TorchTensor::from_var(ob);
+    TorchTensor ta(a);
+    TorchTensor tb(b * 2);
 
     auto result = torch::matmul(ta.native(), tb.native());
     EXPECT_EQ(result.sizes().vec(), (std::vector<int64_t>{2, 4}));
     EXPECT_TRUE(torch::all(result == 6).item<bool>());
 }
 
-TEST_F(TensorTest, PluginAutoLoaded) {
-    ASSERT_NO_THROW(ensure_tensor_runtime_loaded());
+// Test TensorHandle with shared_ptr
+TEST_F(TensorTypeTest, TensorHandleWithSharedPtr) {
+    auto tensor = std::make_shared<at::Tensor>(torch::zeros({3, 3}));
+    TensorHandle handle(tensor);
+
+    EXPECT_TRUE(static_cast<bool>(handle));
+    EXPECT_TRUE(handle.is<at::Tensor>());
+    EXPECT_NE(handle.get<at::Tensor>(), nullptr);
+
+    // Modify through handle
+    auto *ptr = handle.get<at::Tensor>();
+    *ptr = torch::ones({3, 3});
+
+    TorchTensor tt(handle);
+    EXPECT_TRUE(torch::all(tt.native() == 1).item<bool>());
 }
 
-TEST_F(TensorTest, FromNonTensorVarThrows) {
-    Var o(42);
-    EXPECT_THROW(TorchTensor::from_var(o), std::runtime_error);
+// Test TensorHandle swap
+TEST_F(TensorTypeTest, TensorHandleSwap) {
+    auto t1 = std::make_shared<at::Tensor>(torch::zeros({2, 2}));
+    auto t2 = std::make_shared<at::Tensor>(torch::ones({3, 3}));
+
+    TensorHandle h1(t1);
+    TensorHandle h2(t2);
+
+    swap(h1, h2);
+
+    EXPECT_EQ(h1.get<at::Tensor>()->sizes().vec(), (std::vector<int64_t>{3, 3}));
+    EXPECT_EQ(h2.get<at::Tensor>()->sizes().vec(), (std::vector<int64_t>{2, 2}));
+}
+
+// Test Tensor set on handle
+TEST_F(TensorTypeTest, TensorHandleSet) {
+    auto t1 = std::make_shared<at::Tensor>(torch::zeros({2, 2}));
+    auto t2 = std::make_shared<at::Tensor>(torch::ones({4, 4}));
+
+    TensorHandle h(t1);
+    EXPECT_EQ(h.get<at::Tensor>()->sizes().vec(), (std::vector<int64_t>{2, 2}));
+
+    h.set<at::Tensor>(t2);
+    EXPECT_EQ(h.get<at::Tensor>()->sizes().vec(), (std::vector<int64_t>{4, 4}));
+}
+
+// Test PluginAutoLoaded
+TEST_F(TensorTypeTest, PluginAutoLoaded) {
+    ASSERT_NO_THROW(ensure_tensor_runtime_loaded());
 }

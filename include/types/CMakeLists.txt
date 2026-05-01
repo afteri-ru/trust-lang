@@ -1,14 +1,18 @@
 # include/types/CMakeLists.txt
 # Types library — type system definitions
 
-if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    message(STATUS "[types] Inheriting from parent: compiler=${CMAKE_CXX_COMPILER}, standard=${CMAKE_CXX_STANDARD}")
-endif()
-
 add_library(types_lib STATIC
-    ${CMAKE_SOURCE_DIR}/src/types/type_info.cpp
+    ${PROJECT_SOURCE_DIR}/src/types/types.cpp
+    ${PROJECT_SOURCE_DIR}/src/types/convert.cpp
+    ${PROJECT_SOURCE_DIR}/src/types/numbers.cpp
+    ${PROJECT_SOURCE_DIR}/src/types/integers.cpp
+    ${PROJECT_SOURCE_DIR}/src/types/strings.cpp
+    ${PROJECT_SOURCE_DIR}/src/types/templates.cpp
+    ${PROJECT_SOURCE_DIR}/src/types/tensors.cpp
+    ${PROJECT_SOURCE_DIR}/src/types/rational.cpp
 )
 
-target_include_directories(types_lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/..
-)
+target_link_libraries(types_lib PUBLIC diag_lib gmp_interface trust_include_dirs)
+
+# Generate stdlib headers before building types_lib
+add_dependencies(types_lib stdlib_run)

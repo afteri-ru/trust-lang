@@ -1,5 +1,4 @@
 #include "gencpp/ast.hpp"
-#include "types/type_info.hpp"
 #include <stdexcept>
 #include <format>
 
@@ -104,6 +103,8 @@ WhileElseBlock::WhileElseBlock(BlockBody b) : body(std::move(b)) {
 }
 WhileStmt::WhileStmt(std::unique_ptr<Expr> cond, BlockBody b, BlockBody eb) : condition(std::move(cond)), body(std::move(b)), else_body(std::move(eb)) {
 }
+WhileStmt::WhileStmt(std::unique_ptr<Expr> cond, BlockBody b) : condition(std::move(cond)), body(std::move(b)) {
+}
 DoWhileStmt::DoWhileStmt(BlockBody b, std::unique_ptr<Expr> cond) : body(std::move(b)), condition(std::move(cond)) {
 }
 BreakStmt::BreakStmt() = default;
@@ -147,7 +148,7 @@ bool VarDecl::needs_type_inference() const {
 ParamDecl::ParamDecl(std::string n, TypeInfo t) : name(std::move(n)), param_type(std::move(t)) {
 }
 FuncDecl::FuncDecl(std::string n, TypeKind rt, std::vector<std::unique_ptr<ParamDecl>> p, std::unique_ptr<BlockStmt> b)
-    : name(std::move(n)), return_type(TypeInfo::builtin(rt)), params(std::move(p)), body(std::move(b)) {
+    : name(std::move(n)), return_type(make_builtin_type(rt)), params(std::move(p)), body(std::move(b)) {
 }
 FuncDecl::FuncDecl(std::string n, TypeInfo rt, std::vector<std::unique_ptr<ParamDecl>> p, std::unique_ptr<BlockStmt> b)
     : name(std::move(n)), return_type(std::move(rt)), params(std::move(p)), body(std::move(b)) {

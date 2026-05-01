@@ -2,7 +2,6 @@
 
 #include "gencpp/ast.hpp"
 #include "gencpp/ast_visitor.hpp"
-#include "types/type_info.hpp"
 #include <memory>
 #include <sstream>
 #include <string>
@@ -12,7 +11,7 @@
 namespace trust {
 
 struct GeneratorOptions {
-    OutputFormat format = OutputFormat::Traditional;
+    LanguageVersion format = LanguageVersion::C;
     std::string module_name = "transpiled";
     std::vector<std::string> extra_imports; // modules to import
 };

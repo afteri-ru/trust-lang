@@ -3,7 +3,7 @@ module;
 #include "parser/token.hpp"
 #include "diag/location.hpp"
 #include "diag/context.hpp"
-#include "types/type_info.hpp"
+#include "types/types.hpp"
 #include "gencpp/ast_visitor.hpp"
 #include "gencpp/ast.hpp"
 #include "gencpp/symbol_table.hpp"
@@ -48,7 +48,6 @@ using ::trust::FuncSignature;
 using ::trust::GeneratorOptions;
 using ::trust::IntLiteral;
 using ::trust::MMProcessor;
-using ::trust::OutputFormat;
 using ::trust::ParamDecl;
 using ::trust::print_ast;
 using ::trust::Program;

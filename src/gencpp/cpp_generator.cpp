@@ -6,7 +6,7 @@
 
 using namespace trust;
 
-// --- TypeUsageCollector — collects all TypeKind values used in the program ---
+// --- TypeUsageCollector ---
 struct TypeUsageCollector : AstVisitor {
     std::unordered_set<TypeKind> used_types;
 
@@ -15,20 +15,19 @@ struct TypeUsageCollector : AstVisitor {
             return;
         item->accept(this);
     }
-
     void visit(const Program *n) override {
         for (const auto &i : n->items)
             i->accept(this);
     }
     void visit(const FuncDecl *n) override {
-        used_types.insert(n->return_type.kind);
+        used_types.insert(n->return_type.id);
         for (const auto &p : n->params)
-            used_types.insert(p->param_type.kind);
+            used_types.insert(p->param_type.id);
         if (n->body)
             n->body->accept(this);
     }
     void visit(const VarDecl *n) override {
-        used_types.insert(n->type_info().kind);
+        used_types.insert(n->type_info().id);
         if (n->init)
             n->init->accept(this);
     }
@@ -51,10 +50,9 @@ struct TypeUsageCollector : AstVisitor {
             n->condition->accept(this);
         for (const auto &it : n->body)
             dispatch_block(it);
-        if (!n->else_body.empty()) {
+        if (!n->else_body.empty())
             for (const auto &it : n->else_body)
                 dispatch_block(it);
-        }
     }
     void visit(const DoWhileStmt *n) override {
         for (const auto &it : n->body)
@@ -138,7 +136,7 @@ struct TypeUsageCollector : AstVisitor {
                 e->accept(this);
     }
     void visit(const CastExpr *n) override {
-        used_types.insert(n->target_type.kind);
+        used_types.insert(n->target_type.id);
         if (n->expr)
             n->expr->accept(this);
     }
@@ -154,7 +152,7 @@ struct TypeUsageCollector : AstVisitor {
     void visit(const EnumMember *) override {}
     void visit(const StructDecl *n) override {
         for (const auto &f : n->fields)
-            used_types.insert(f->type.kind);
+            used_types.insert(f->type.id);
     }
     void visit(const StructField *) override {}
     void visit(const VarRef *) override {}
@@ -171,8 +169,6 @@ static std::vector<TypeKind> collect_used_types(const Program *program) {
     return std::vector<TypeKind>(collector.used_types.begin(), collector.used_types.end());
 }
 
-// --- Feature-based conditional header generation via NodeCollector visitor ---
-
 struct FeatureConfig {
     ParserToken::Kind trigger;
     const char *text;
@@ -188,7 +184,6 @@ static const FeatureConfig FEATURES[] = {
     {ParserToken::Kind::MatchingStmt, "template<typename T, typename U>\nbool test_matching(const T& val, const U& pattern);\n\n"},
 };
 
-// NodeCollector — unified visitor that collects all token_kind occurrences in AST
 struct NodeCollector : AstVisitor {
     std::unordered_set<ParserToken::Kind> types;
 
@@ -197,7 +192,6 @@ struct NodeCollector : AstVisitor {
             return;
         item->accept(this);
     }
-
     void visit(const Program *n) override {
         for (const auto &i : n->items)
             i->accept(this);
@@ -225,10 +219,9 @@ struct NodeCollector : AstVisitor {
             n->condition->accept(this);
         for (const auto &it : n->body)
             dispatch_block(it);
-        if (!n->else_body.empty()) {
+        if (!n->else_body.empty())
             for (const auto &it : n->else_body)
                 dispatch_block(it);
-        }
     }
     void visit(const DoWhileStmt *n) override {
         for (const auto &it : n->body)
@@ -250,9 +243,8 @@ struct NodeCollector : AstVisitor {
         types.insert(n->token_kind());
         if (n->expression)
             n->expression->accept(this);
-        for (const auto &c : n->cases) {
+        for (const auto &c : n->cases)
             c->accept(this);
-        }
         for (const auto &it : n->else_body)
             dispatch_block(it);
     }
@@ -324,8 +316,6 @@ struct NodeCollector : AstVisitor {
         types.insert(n->token_kind());
         if (n->array)
             n->array->accept(this);
-        if (n->index)
-            n->index->accept(this);
     }
     void visit(const ArrayInit *n) override {
         types.insert(n->token_kind());
@@ -368,7 +358,7 @@ static std::unordered_set<ParserToken::Kind> collect_node_types(const Program *p
 
 static std::string torch_dtype_str(TypeKind t) {
     switch (t) {
-    case TypeKind::Int:
+    case TypeKind::Int32:
         return "torch::kInt32";
     case TypeKind::Bool:
         return "torch::kBool";
@@ -383,20 +373,18 @@ CppGenerator::CppGenerator(GeneratorOptions opts) : indent_level_(0), opts_(std:
 TypeKind CppGenerator::get_expr_type(const Expr *e) const {
     if (e && type_res_) {
         auto ti = type_res_->get_type(e);
-        if (ti.has_value()) {
-            return ti->kind;
-        }
+        if (ti.has_value())
+            return ti->id;
     }
-    // Fallback: for literal nodes we know the type statically
     if (e) {
         if (e->is<IntLiteral>())
-            return TypeKind::Int;
+            return TypeKind::Int32;
         if (e->is<StringLiteral>())
-            return TypeKind::String;
+            return TypeKind::StrChar;
         if (const auto *cast = e->as<CastExpr>())
-            return cast->target_type.kind;
+            return cast->target_type.id;
     }
-    return TypeKind::Int;
+    return TypeKind::Int32;
 }
 
 std::string CppGenerator::generate(const Program *program, std::string *binding_header, const char *binding_guard) {
@@ -404,14 +392,10 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
     out_.clear();
     indent_level_ = 0;
 
-    // Generate binding header if requested
     if (binding_header && binding_guard) {
         std::ostringstream hdr;
         hdr << "/* Auto-generated binding header */\n";
-        hdr << "#ifndef " << binding_guard << "\n";
-        hdr << "#define " << binding_guard << "\n";
-        hdr << "\n";
-
+        hdr << "#ifndef " << binding_guard << "\n#define " << binding_guard << "\n\n";
         for (const auto &item : program->items) {
             if (auto *func = dynamic_cast<const FuncDecl *>(item.get())) {
                 hdr << type_to_cpp(func->return_type) << " " << func->name << "(";
@@ -425,71 +409,48 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
                 hdr << ");\n";
             }
         }
-
-        hdr << "\n";
-        hdr << "#endif /* " << binding_guard << " */\n";
+        hdr << "\n#endif /* " << binding_guard << " */\n";
         *binding_header = hdr.str();
     }
 
-    // For Traditional format: includes first
-    if (opts_.format == OutputFormat::Traditional) {
-        out_ << "#include <iostream>\n";
-        out_ << "#include <string>\n";
-        out_ << "#include <type_traits>\n";
-        out_ << "\n";
-        out_ << "// Enable streaming for enum class types\n";
+    if (opts_.format == LanguageVersion::C) {
+        out_ << "#include <iostream>\n#include <string>\n#include <type_traits>\n\n";
         out_ << "template<typename T, typename = std::enable_if_t<std::is_enum_v<T>>>\n";
-        out_ << "std::ostream& operator<<(std::ostream& os, T e) {\n";
-        out_ << "    return os << static_cast<std::underlying_type_t<T>>(e);\n";
-        out_ << "}\n\n";
+        out_ << "std::ostream& operator<<(std::ostream& os, T e) { return os << static_cast<std::underlying_type_t<T>>(e); }\n\n";
 
-        // Collect headers from type requirements
         auto used_types = collect_used_types(program);
-        auto &registry = TypeRequirementsRegistry::instance();
-        auto type_headers = registry.collect_headers(used_types);
-        for (const auto &hdr : type_headers) {
-            out_ << "#include " << hdr << "\n";
+        for (auto tk : used_types) {
+            auto name = type_kind_name(tk);
+            (void)name;
         }
 
-        // Conditional headers based on collected node types (AST-level triggers)
         auto node_types = collect_node_types(program);
         std::unordered_set<const char *> inserted;
         for (const auto &f : FEATURES) {
-            if (node_types.count(f.trigger)) {
-                if (inserted.insert(f.text).second) {
-                    out_ << f.text;
-                }
-            }
+            if (node_types.count(f.trigger) && inserted.insert(f.text).second)
+                out_ << f.text;
         }
-
-        out_ << "\n";
-        out_ << "template<typename T> void print(T&& t) { std::cout << std::forward<T>(t) << std::endl; }\n\n";
+        out_ << "\ntemplate<typename T> void print(T&& t) { std::cout << std::forward<T>(t) << std::endl; }\n\n";
     }
 
-    // Type definitions (enum/struct) --- emitted in visit(Program) before other items
-    // (visit(Program*) skips StructDecl/EnumDecl since they are emitted here)
     if (program) {
         for (const auto &item : program->items) {
             ParserToken::Kind tk = item->token_kind();
-            if (tk == ParserToken::Kind::StructDecl || tk == ParserToken::Kind::EnumDecl) {
+            if (tk == ParserToken::Kind::StructDecl || tk == ParserToken::Kind::EnumDecl)
                 item->accept(this);
-            }
         }
     }
 
-    // For module formats: write module preamble after type definitions
-    if (opts_.format == OutputFormat::Cpp20Module || opts_.format == OutputFormat::Cpp23Module) {
+    if (opts_.format == LanguageVersion::ModuleCPP20 || opts_.format == LanguageVersion::ModuleCPP23) {
         write_module_preamble();
     }
 
-    // Forward declarations of functions
     if (program) {
         for (const auto &item : program->items) {
             if (item->token_kind() == ParserToken::Kind::FuncDecl) {
                 auto *fd = static_cast<const FuncDecl *>(item.get());
-                if (opts_.format == OutputFormat::Cpp20Module || opts_.format == OutputFormat::Cpp23Module) {
+                if (opts_.format == LanguageVersion::ModuleCPP20 || opts_.format == LanguageVersion::ModuleCPP23)
                     out_ << "export ";
-                }
                 out_ << type_to_cpp(fd->return_type) << " " << fd->name << "(";
                 for (size_t i = 0; i < fd->params.size(); ++i) {
                     out_ << type_to_cpp(fd->params[i]->param_type) << " " << fd->params[i]->name;
@@ -502,63 +463,24 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
     }
     out_ << "\n";
 
-    // Main content: accept all items (skip types already emitted above)
     if (program) {
         for (const auto &item : program->items) {
             ParserToken::Kind tk = item->token_kind();
-            if (tk != ParserToken::Kind::StructDecl && tk != ParserToken::Kind::EnumDecl) {
+            if (tk != ParserToken::Kind::StructDecl && tk != ParserToken::Kind::EnumDecl)
                 item->accept(this);
-            }
         }
     }
     return out_.str();
 }
 
 void CppGenerator::write_module_preamble() {
-    if (opts_.format == OutputFormat::Cpp23Module) {
-        // C++23: use import for standard library headers (P2069R7)
-        // Module declaration first
-        out_ << "module;\n";
-        out_ << "#include <iostream>\n";
-        out_ << "#include <string>\n";
-        out_ << "#include <forward>\n";
-        out_ << "#include <format>\n";
-        // Also demonstrate C++23 import capability for named modules
+    out_ << "module;\n#include <iostream>\n#include <string>\n#include <forward>\n#include <format>\n\n";
+    out_ << "export module " << opts_.module_name << ";\n\n";
+    for (const auto &imp : opts_.extra_imports)
+        out_ << "import " << imp << ";\n";
+    if (!opts_.extra_imports.empty())
         out_ << "\n";
-        out_ << "export module " << opts_.module_name << ";\n";
-        out_ << "\n";
-        // C++23: can use `import std;` instead of individual headers
-        // (when std module is available)
-        out_ << "// C++23: import std;  // replaces all standard headers above\n\n";
-        // Extra imports
-        for (const auto &imp : opts_.extra_imports) {
-            out_ << "import " << imp << ";\n";
-        }
-        if (!opts_.extra_imports.empty()) {
-            out_ << "\n";
-        }
-        out_ << "export template<typename T> void print(T&& t) { std::cout << std::forward<T>(t) << std::endl; }\n\n";
-    } else {
-        // C++20: Global module fragment for includes
-        out_ << "module;\n";
-        out_ << "#include <iostream>\n";
-        out_ << "#include <string>\n";
-        out_ << "#include <forward>\n";
-        out_ << "#include <format>\n";
-        out_ << "\n";
-        // Module declaration
-        out_ << "export module " << opts_.module_name << ";\n";
-        out_ << "\n";
-        // Include extra imports
-        for (const auto &imp : opts_.extra_imports) {
-            out_ << "import " << imp << ";\n";
-        }
-        if (!opts_.extra_imports.empty()) {
-            out_ << "\n";
-        }
-        // Print template function --- exported
-        out_ << "export template<typename T> void print(T&& t) { std::cout << std::forward<T>(t) << std::endl; }\n\n";
-    }
+    out_ << "export template<typename T> void print(T&& t) { std::cout << std::forward<T>(t) << std::endl; }\n\n";
 }
 
 void CppGenerator::dispatch_block_item(const BlockItem &item) {
@@ -568,19 +490,16 @@ void CppGenerator::dispatch_block_item(const BlockItem &item) {
 }
 
 void CppGenerator::visit(const Program *node) {
-    // Types are already emitted in generate(), skip them here
     for (const auto &item : node->items) {
         ParserToken::Kind tk = item->token_kind();
-        if (tk != ParserToken::Kind::StructDecl && tk != ParserToken::Kind::EnumDecl) {
+        if (tk != ParserToken::Kind::StructDecl && tk != ParserToken::Kind::EnumDecl)
             item->accept(this);
-        }
     }
 }
 
 void CppGenerator::visit(const FuncDecl *node) {
-    if (opts_.format == OutputFormat::Cpp20Module || opts_.format == OutputFormat::Cpp23Module) {
+    if (opts_.format == LanguageVersion::ModuleCPP20 || opts_.format == LanguageVersion::ModuleCPP23)
         out_ << "export ";
-    }
     out_ << type_to_cpp(node->return_type) << " " << node->name << "(";
     for (size_t i = 0; i < node->params.size(); ++i) {
         visit(node->params[i].get());
@@ -589,10 +508,9 @@ void CppGenerator::visit(const FuncDecl *node) {
     }
     out_ << ") {\n";
     indent_level_++;
-    if (node->body) {
+    if (node->body)
         for (const auto &bitem : node->body->body)
             dispatch_block_item(bitem);
-    }
     indent_level_--;
     out_ << "}\n\n";
 }
@@ -601,50 +519,31 @@ void CppGenerator::visit(const WhileStmt *node) {
     std::string loop_id = unique_label();
     std::string cond_label = loop_id + "_cond";
     std::string body_label = loop_id + "_body";
-    std::string else_label = loop_id + "_else";
     std::string end_label = loop_id + "_end";
 
     if (!node->else_body.empty()) {
-        // While with else: check condition first, goto body if true, goto else if false
-        // Continue should go back to condition check
         current_loop_labels_.push_back({body_label, cond_label, end_label});
-
         indent();
         out_ << cond_label << ":\n";
         indent();
         out_ << "if (!(";
         if (node->condition)
             node->condition->accept(this);
-        out_ << ")) goto " << else_label << ";\n";
-        indent();
-        out_ << "goto " << body_label << ";\n";
-        indent();
-        out_ << else_label << ":;\n";
-        indent_level_++;
-        for (const auto &bitem : node->else_body)
-            dispatch_block_item(bitem);
-        indent_level_--;
-        indent();
-        out_ << "goto " << end_label << ";\n";
+        out_ << ")) goto " << end_label << ";\n";
+
         indent();
         out_ << body_label << ":\n";
         indent_level_++;
-        indent();
-        out_ << "do {\n";
         for (const auto &bitem : node->body)
             dispatch_block_item(bitem);
         indent_level_--;
         indent();
-        out_ << "} while (";
-        if (node->condition)
-            node->condition->accept(this);
-        out_ << ");\n";
+        out_ << "goto " << cond_label << ";\n";
+
         indent();
         out_ << end_label << ":;\n";
     } else {
-        // Simple while without else
         current_loop_labels_.push_back({body_label, cond_label, end_label});
-
         indent();
         out_ << cond_label << ":\n";
         indent();
@@ -663,7 +562,6 @@ void CppGenerator::visit(const WhileStmt *node) {
         indent();
         out_ << end_label << ":;\n";
     }
-
     current_loop_labels_.pop_back();
 }
 
@@ -674,7 +572,6 @@ void CppGenerator::visit(const DoWhileStmt *node) {
     std::string end_label = loop_id + "_end";
 
     current_loop_labels_.push_back({body_label, cont_label, end_label});
-
     indent();
     out_ << body_label << ":\n";
     indent_level_++;
@@ -692,7 +589,6 @@ void CppGenerator::visit(const DoWhileStmt *node) {
     out_ << ");\n";
     indent();
     out_ << end_label << ":;\n";
-
     current_loop_labels_.pop_back();
 }
 
@@ -705,9 +601,8 @@ void CppGenerator::visit(const TryCatchStmt *node) {
     indent_level_--;
     indent();
     out_ << "} ";
-    if (node->catch_block) {
+    if (node->catch_block)
         this->visit(node->catch_block.get());
-    }
 }
 
 void CppGenerator::visit(const CatchBlock *node) {
@@ -755,7 +650,6 @@ void CppGenerator::build_matching_chain(Expr *expr, const std::vector<std::uniqu
         }
         return;
     }
-
     auto &current_case = cases[idx];
     if (is_first)
         indent();
@@ -772,12 +666,6 @@ void CppGenerator::build_matching_chain(Expr *expr, const std::vector<std::uniqu
     indent_level_--;
     indent();
     out_ << "}";
-
-    if (idx + 1 < cases.size() || !else_body.empty()) {
-        // More cases or else body --> continue chain
-    } else {
-        out_ << "\n";
-    }
     build_matching_chain(expr, cases, else_body, idx + 1, false);
 }
 
@@ -800,7 +688,7 @@ void CppGenerator::visit(const VarDecl *node) {
     if (is_array) {
         out_ << "torch::Tensor " << node->name << " = torch::tensor(";
         node->init->accept(this);
-        out_ << ", " << torch_dtype_str(node->type_info().kind) << ");\n";
+        out_ << ", " << torch_dtype_str(node->type_info().id) << ");\n";
     } else if (node->init) {
         out_ << type_to_cpp(node->type_info()) << " " << node->name << " = ";
         node->init->accept(this);
@@ -896,21 +784,18 @@ void CppGenerator::visit(const IntLiteral *node) {
 void CppGenerator::visit(const StringLiteral *node) {
     out_ << "\"" << MMProcessor::escape(node->value()) << "\"";
 }
-
 void CppGenerator::visit(const EnumMember *node) {
     (void)node;
 }
 
 void CppGenerator::visit(const EnumDecl *node) {
-    if (opts_.format == OutputFormat::Cpp20Module || opts_.format == OutputFormat::Cpp23Module) {
+    if (opts_.format == LanguageVersion::ModuleCPP20 || opts_.format == LanguageVersion::ModuleCPP23)
         out_ << "export ";
-    }
     out_ << "enum class " << node->name << " { ";
     for (size_t i = 0; i < node->members.size(); ++i) {
         out_ << node->members[i]->name;
-        if (node->members[i]->value) {
+        if (node->members[i]->value)
             out_ << " = " << *node->members[i]->value;
-        }
         if (i + 1 < node->members.size())
             out_ << ", ";
     }
@@ -922,9 +807,8 @@ void CppGenerator::visit(const StructField *node) {
 }
 
 void CppGenerator::visit(const StructDecl *node) {
-    if (opts_.format == OutputFormat::Cpp20Module || opts_.format == OutputFormat::Cpp23Module) {
+    if (opts_.format == LanguageVersion::ModuleCPP20 || opts_.format == LanguageVersion::ModuleCPP23)
         out_ << "export ";
-    }
     out_ << "struct " << node->name << " {\n";
     indent_level_++;
     for (const auto &field : node->fields) {
@@ -947,10 +831,9 @@ void CppGenerator::visit(const StructDecl *node) {
             }
             out_ << ") {\n";
             indent_level_++;
-            if (fd->body) {
+            if (fd->body)
                 for (const auto &bitem : fd->body->body)
                     dispatch_block_item(bitem);
-            }
             indent_level_--;
             indent();
             out_ << "}\n\n";
@@ -997,33 +880,29 @@ void CppGenerator::visit(const RefMakeExpr *node) {
     node->arg->accept(this);
     out_ << ")";
 }
-
 void CppGenerator::visit(const RefTakeExpr *node) {
     out_ << "ref_take(";
     node->arg->accept(this);
     out_ << ")";
 }
-
 void CppGenerator::visit(const EmbedExpr *node) {
     out_ << node->value();
 }
 
 void CppGenerator::visit(const BreakStmt *node) {
     indent();
-    if (!current_loop_labels_.empty()) {
+    if (!current_loop_labels_.empty())
         out_ << "goto " << current_loop_labels_.back().end_label << ";\n";
-    } else {
+    else
         out_ << "break;\n";
-    }
 }
 
 void CppGenerator::visit(const ContinueStmt *node) {
     indent();
-    if (!current_loop_labels_.empty()) {
+    if (!current_loop_labels_.empty())
         out_ << "goto " << current_loop_labels_.back().cont_label << ";\n";
-    } else {
+    else
         out_ << "continue;\n";
-    }
 }
 
 void CppGenerator::visit(const WhileElseBlock *node) {
@@ -1043,7 +922,6 @@ void CppGenerator::indent() {
 std::string CppGenerator::bin_op_to_str(BinOp op) const {
     return MMProcessor::bin_op_to_string(op);
 }
-
 std::string CppGenerator::type_to_cpp(TypeInfo t) const {
-    return t.to_cpp();
+    return t.cpp_name;
 }

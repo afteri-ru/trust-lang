@@ -61,9 +61,11 @@ $RECYCLE.BIN/
 # Generated LIT config
 tests/gencpp/lit.site.cfg.py
 
-# Generated parser files
+# Generated files
 **/syntax_help*.cpp
 **/parsetab.py
+tests/lit.cfg.py
+include/trust/version.h
 
 # Tar archives
 *.tar.xz

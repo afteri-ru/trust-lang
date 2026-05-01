@@ -569,7 +569,7 @@ fn dynamic_dispatch(value: &dyn Display) {
 }
 
 // impl Trait как opaque return type
-fn make_adder(x: i32) -> impl Fn(i32) -> i32 {
+fn makeadder(x: i32) -> impl Fn(i32) -> i32 {
     move |y| x + y
 }
 

@@ -1,4 +1,4 @@
-#include "runtime/rational.hpp"
+#include "types/rational.hpp"
 
 #include <cassert>
 #include <cmath>

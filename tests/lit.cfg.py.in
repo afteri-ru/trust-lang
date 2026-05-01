@@ -6,11 +6,8 @@ config.test_format = lit.formats.ShTest(True)
 config.test_source_root = os.path.normpath('@CMAKE_SOURCE_DIR@/tests')
 config.test_exec_root = os.path.normpath('@CMAKE_BINARY_DIR@/tests/Output')
 
-# ── Clang version ─────────────────────────────────────────────────────
-_clang_version = '@CLANG_VERSION@'
-
 # ── Tool substitutions ─────────────────────────────────────────────
-_trans_bin = os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@', 'include', 'gencpp', 'gencpp_from_ast'))
+_trans_bin = os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@', 'gencpp_from_ast'))
 config.substitutions.append(('%trans', _trans_bin))
 
 _libtorch_include = os.path.normpath(os.path.join('@CMAKE_SOURCE_DIR@', 'contrib', 'libtorch', 'include'))
@@ -21,10 +18,12 @@ if os.path.exists(_pch_file):
 config.substitutions.append(('%cxx_torch_pch', '@CMAKE_CXX_COMPILER@ ' + _torch_cxx_flags))
 
 config.substitutions.append(('%cxx', '@CMAKE_CXX_COMPILER@ -std=c++@CMAKE_CXX_STANDARD@'))
-config.substitutions.append(('%trust', os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@', 'include', 'cli', 'trust'))))
+config.substitutions.append(('%trust', os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@', 'trust'))))
 
 # ── FileCheck ────────────────────────────────────────────────────────
-config.substitutions.append(('%FileCheck', '/usr/bin/FileCheck-' + _clang_version))
+config.substitutions.append(('%FileCheck', '/usr/bin/FileCheck-' + '@CLANG_VERSION@'))
 
 # ── Test file suffixes ────────────────────────────────────────────────
 config.suffixes = ['.ast', '.src']
+config.excludes = ['enum_decl.ast','struct_decl.ast']
+

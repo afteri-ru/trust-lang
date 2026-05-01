@@ -1,0 +1,103 @@
+{
+  "name": "trust-lang",
+  "publisher": "trust-lang",
+  "displayName": "Trust Lang",
+  "description": "Language support and debugger for Trust language programs transpiled to C++.",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": ["Programming Languages", "Debuggers"],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onDebug",
+    "onLanguage:trust"
+  ],
+  "keywords": [
+    "trust",
+    "debugger",
+    "dap",
+    "lsp",
+    "c++",
+    "transpiler"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/afteri-ru/trust-lang"
+  },
+  "license": "MIT",
+  "contributes": {
+    "commands": [
+      {
+        "command": "trust.build",
+        "title": "Trust: Build"
+      },
+      {
+        "command": "trust.stop",
+        "title": "Trust: Stop"
+      }
+    ],
+    "configuration": {
+      "title": "Trust Lang",
+      "properties": {
+        "trust.compilerPath": {
+          "type": "string",
+          "default": "trust",
+          "description": "Executable name or path for the Trust compiler."
+        },
+        "trust.dapPath": {
+          "type": "string",
+          "default": "trust-dap",
+          "description": "Executable name or path for the Trust Debug Adapter Protocol server."
+        },
+        "trust.lspPath": {
+          "type": "string",
+          "default": "trust-lsp",
+          "description": "Executable name or path for the Trust Language Server."
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "trust",
+        "aliases": ["Trust", "trust"],
+        "extensions": [".src"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "trust",
+        "scopeName": "source.trust",
+        "path": "./syntaxes/trust.tmLanguage.json"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "trust",
+        "label": "Trust Debug",
+        "languages": ["trust"],
+        "configurationAttributes": {
+          "launch": {
+            "required": ["program"],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "Path to the compiled Trust program (ELF binary).",
+                "default": "${workspaceFolder}/.trust/example"
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "trust",
+            "request": "launch",
+            "name": "Trust Debug",
+            "program": "${workspaceFolder}/.trust/example"
+          }
+        ]
+      }
+    ]
+  }
+}

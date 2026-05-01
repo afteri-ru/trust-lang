@@ -1,13 +1,6 @@
 # include/runtime/CMakeLists.txt
 # C++20 module infrastructure (trust.runtime module)
 
-if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    message(STATUS "[runtime] Inheriting from parent: compiler=${CMAKE_CXX_COMPILER}, standard=${CMAKE_CXX_STANDARD}")
-endif()
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GMP REQUIRED gmp)
-
 # ── PCM build configuration ──
 set(RUNTIME_PCM_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(RUNTIME_PCM "${RUNTIME_PCM_DIR}/trust.runtime.pcm")
@@ -15,16 +8,18 @@ set(RUNTIME_PCM_OBJ "${RUNTIME_PCM_DIR}/trust.runtime_module.o")
 set(RUNTIME_CPPM "${CMAKE_CURRENT_SOURCE_DIR}/../runtime.cppm")
 
 set(RUNTIME_MODULE_HEADERS
-    runtime/rational.hpp
-    runtime/var.hpp
+    types/rational.hpp
 )
 list(TRANSFORM RUNTIME_MODULE_HEADERS PREPEND "${PROJECT_INCLUDE_DIR}/")
+
+# Resolve GMP include dirs from gmp_interface target
+get_target_property(_gmp_includes gmp_interface INTERFACE_INCLUDE_DIRECTORIES)
 
 set(RUNTIME_COMPILE_OPTIONS
     -std=c++${CMAKE_CXX_STANDARD}
     -I${PROJECT_INCLUDE_DIR}
     -I${RUNTIME_PCM_DIR}
-    -I${GMP_INCLUDE_DIRS}
+    -I${_gmp_includes}
 )
 
 # Step 1: Precompile module to PCM
@@ -55,45 +50,26 @@ add_custom_command(
 add_custom_target(runtime_pcm_target_all ALL DEPENDS ${RUNTIME_PCM_OBJ})
 
 # ── Library: runtime_lib (torch-independent, static) ──
-# POSITION_INDEPENDENT_CODE is needed because runtime_lib is linked into tensor_cpu.so
 add_library(runtime_lib STATIC
-    ${CMAKE_SOURCE_DIR}/src/runtime/rational.cpp
-    ${CMAKE_SOURCE_DIR}/src/runtime/var_conversions.cpp
+    ${PROJECT_SOURCE_DIR}/src/runtime/rational.cpp
 )
 set_target_properties(runtime_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-target_include_directories(runtime_lib PUBLIC
-    ${PROJECT_INCLUDE_DIR}
-    ${GMP_INCLUDE_DIRS}
-)
-
-target_link_directories(runtime_lib PUBLIC ${GMP_LIBRARY_DIRS})
-
-target_link_libraries(runtime_lib PUBLIC
-    types_lib
-    ${GMP_LIBRARIES}
-)
-
-add_dependencies(runtime_lib runtime_pcm_target_all)
+target_link_libraries(runtime_lib PUBLIC types_lib gmp_interface trust_include_dirs)
 
 # ── Library: tensor_cpu (torch-dependent, shared plugin) ──
 if(WITH_TORCH)
     add_library(tensor_cpu SHARED
-        ${CMAKE_SOURCE_DIR}/src/runtime/tensor.cpp
-    )
-
-    set(RUNTIME_TORCH_INCLUDE_DIRS
-        ${CMAKE_SOURCE_DIR}/contrib/libtorch/include
-        ${CMAKE_SOURCE_DIR}/contrib/libtorch/include/torch/csrc/api/include
+        ${PROJECT_SOURCE_DIR}/src/runtime/tensor.cpp
     )
 
     target_include_directories(tensor_cpu PUBLIC
         ${PROJECT_INCLUDE_DIR}
-        ${RUNTIME_TORCH_INCLUDE_DIRS}
+        ${LIBTORCH_INCLUDE_DIRS}
     )
 
     target_link_directories(tensor_cpu PUBLIC
-        ${CMAKE_SOURCE_DIR}/contrib/libtorch/lib
+        ${LIBTORCH_LIB_DIRS}
     )
 
     target_link_libraries(tensor_cpu PUBLIC
@@ -106,19 +82,13 @@ if(WITH_TORCH)
     set_target_properties(tensor_cpu PROPERTIES
         CXX_VISIBILITY_PRESET hidden
         VISIBILITY_INLINES_HIDDEN ON
-        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/plugins"
     )
 
-    # Define plugin directory for development builds
     target_compile_definitions(tensor_cpu PRIVATE
-        TRUST_PLUGIN_DIR="${CMAKE_BINARY_DIR}/plugins"
+        TRUST_PLUGIN_DIR="${CMAKE_BINARY_DIR}"
     )
 
     add_dependencies(tensor_cpu runtime_pcm_target_all)
-
-    message(STATUS "[runtime] WITH_TORCH=ON  →  libtensor_cpu.so will be built")
-else()
-    message(STATUS "[runtime] WITH_TORCH=OFF  →  libtensor_cpu.so will NOT be built")
 endif()
 
 # ── Function to attach runtime module to a target ──

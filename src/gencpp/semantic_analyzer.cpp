@@ -92,10 +92,12 @@ void SemanticAnalyzer::visit(const VarDecl *node) {
         auto init_type = type_res_.get_type(node->init.get());
         if (init_type.has_value()) {
             resolved_type = init_type.value();
+            // Patch the AST node with inferred type for code generation
+            const_cast<VarDecl *>(node)->var_type = resolved_type;
         } else {
             // Could not determine type of initializer — report error
             report_error(node->loc, "Cannot infer type for variable '" + node->name + "' from initializer expression");
-            resolved_type = TypeInfo::builtin(TypeKind::Int); // fallback
+            resolved_type = make_builtin_type(TypeKind::Int32); // fallback
         }
     } else {
         // Type explicitly specified — use it
@@ -129,8 +131,8 @@ void SemanticAnalyzer::visit(const AssignmentStmt *node) {
                 return;
             }
             auto result = sym_table_.check_assignment(var_ref->name, expr_type.value(), var_ref->loc);
-            if (!result.has_value()) {
-                report_error(var_ref->loc, result.error());
+            if (!result.empty()) {
+                report_error(var_ref->loc, result);
             }
         }
     }
@@ -156,10 +158,10 @@ void SemanticAnalyzer::visit(const CallExpr *node) {
     } else {
         // Unknown function — could be a builtin like print
         if (node->name == "print") {
-            type_res_.set_type(node, TypeInfo::builtin(TypeKind::Void));
+            type_res_.set_type(node, make_builtin_type(TypeKind::Void));
         } else {
             report_error(node->loc, "Unknown function '" + node->name + "'");
-            type_res_.set_type(node, TypeInfo::builtin(TypeKind::Void));
+            type_res_.set_type(node, make_builtin_type(TypeKind::Void));
         }
     }
 }
@@ -173,7 +175,7 @@ void SemanticAnalyzer::visit(const ExprStmt *node) {
 void SemanticAnalyzer::visit(const IfStmt *node) {
     if (node->condition) {
         node->condition->accept(this);
-        type_res_.set_type(node->condition.get(), TypeInfo::builtin(TypeKind::Bool));
+        type_res_.set_type(node->condition.get(), make_builtin_type(TypeKind::Bool));
     }
 
     // Enter new scope for then block
@@ -286,20 +288,20 @@ void SemanticAnalyzer::visit(const MatchingCase *node) {
 void SemanticAnalyzer::visit(const VarRef *node) {
     // Resolve type from SymbolTable — report error if unknown
     auto result = sym_table_.lookup_var(node->name, node->loc);
-    if (!result.has_value()) {
-        report_error(node->loc, result.error());
-        type_res_.set_type(node, TypeInfo::builtin(TypeKind::Int)); // fallback for continued analysis
+    if (result.id == TypeKind::Void) {
+        report_error(node->loc, "Unknown variable: " + node->name);
+        type_res_.set_type(node, make_builtin_type(TypeKind::Int32)); // fallback for continued analysis
         return;
     }
-    type_res_.set_type(node, result.value());
+    type_res_.set_type(node, result);
 }
 
 void SemanticAnalyzer::visit(const IntLiteral *node) {
-    type_res_.set_type(node, TypeInfo::builtin(TypeKind::Int));
+    type_res_.set_type(node, make_builtin_type(TypeKind::Int32));
 }
 
 void SemanticAnalyzer::visit(const StringLiteral *node) {
-    type_res_.set_type(node, TypeInfo::builtin(TypeKind::String));
+    type_res_.set_type(node, make_builtin_type(TypeKind::StrChar));
 }
 
 void SemanticAnalyzer::visit(const BinaryOp *node) {
@@ -320,7 +322,7 @@ void SemanticAnalyzer::visit(const BinaryOp *node) {
     case BinOp::Ge:
     case BinOp::And:
     case BinOp::Or:
-        result_type = TypeInfo::builtin(TypeKind::Bool);
+        result_type = make_builtin_type(TypeKind::Bool);
         break;
     default:
         // Arithmetic: use left operand's type
@@ -330,7 +332,7 @@ void SemanticAnalyzer::visit(const BinaryOp *node) {
                 result_type = left_type.value();
             } else {
                 report_error(node->loc, "Cannot determine type of left operand in binary expression");
-                result_type = TypeInfo::builtin(TypeKind::Int); // fallback
+                result_type = make_builtin_type(TypeKind::Int32); // fallback
             }
         }
         break;
@@ -372,8 +374,8 @@ void SemanticAnalyzer::visit(const StructField *node) {
 }
 
 void SemanticAnalyzer::visit(const EnumLiteral *node) {
-    // Type is the enum type (UserType)
-    type_res_.set_type(node, TypeInfo::user(node->enum_name));
+    // Type is the enum type looked up in Types registry
+    type_res_.set_type(node, Types::instance().get(Types::instance().find(node->enum_name)));
 }
 
 void SemanticAnalyzer::visit(const MemberAccess *node) {
@@ -382,7 +384,7 @@ void SemanticAnalyzer::visit(const MemberAccess *node) {
     }
     // Type resolution for field access requires StructDecl info
     // For now, default to int (would need struct field type lookup)
-    type_res_.set_type(node, TypeInfo::builtin(TypeKind::Int));
+    type_res_.set_type(node, make_builtin_type(TypeKind::Int32));
 }
 
 void SemanticAnalyzer::visit(const ArrayAccess *node) {
@@ -392,7 +394,7 @@ void SemanticAnalyzer::visit(const ArrayAccess *node) {
         node->index->accept(this);
 
     // Array element access: for torch::Tensor arrays, element type is inferred
-    type_res_.set_type(node, TypeInfo::builtin(TypeKind::Int));
+    type_res_.set_type(node, make_builtin_type(TypeKind::Int32));
 }
 
 void SemanticAnalyzer::visit(const ArrayInit *node) {
@@ -402,7 +404,7 @@ void SemanticAnalyzer::visit(const ArrayInit *node) {
             elem->accept(this);
     }
     // ArrayInit itself has a tensor type
-    type_res_.set_type(node, TypeInfo::builtin(TypeKind::Int));
+    type_res_.set_type(node, make_builtin_type(TypeKind::Int32));
 }
 
 void SemanticAnalyzer::visit(const CastExpr *node) {
@@ -440,5 +442,5 @@ void SemanticAnalyzer::visit(const EmbedExpr *node) {
 }
 
 void SemanticAnalyzer::report_error(SourceLoc loc, const std::string &msg) {
-    ctx_.diag().report(loc, Severity::Error, "{}", msg);
+    ctx_.diag().report(SourceRange{loc}, Severity::Error, msg);
 }
