@@ -83,7 +83,7 @@ add_custom_command(
 )
 
 add_custom_target(trust_pcm_target_all ALL DEPENDS ${TRUST_PCM_OBJ})
-add_dependencies(trust_pcm_target_all parser_lib_target)
+add_dependencies(trust_pcm_target_all parser_lib)
 
 # ── Function to attach trust module to a target ──
 function(target_trust_module target)

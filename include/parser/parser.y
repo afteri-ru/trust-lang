@@ -46,8 +46,8 @@
 %% /*** Grammar Rules ***/
 
 /* Разделитель — поглощается, не попадает в AST */
-separator: ';'
-         | separator ';'
+separator: SEMICOLON
+         | separator SEMICOLON
 
 /* Литералы — создаём конкретные AST-ноды с заполненным source */
 digits_literal: INTEGER
@@ -86,28 +86,10 @@ string_literal: STRWIDE
                   out.push_back(std::move(node));
                   $$ = $1;
               }
-              | STRWIDE STRWIDE
-              {
-                  std::string text($1->data(), $1->size());
-                  text.append($2->data(), $2->size());
-                  auto node = std::make_unique<StringLiteral>(text);
-                  node->set_source($1->kind, text, $1->pos);
-                  out.push_back(std::move(node));
-                  $$ = $1;
-              }
               | STRCHAR
               {
                   auto node = std::make_unique<StringLiteral>(std::string($1->data(), $1->size()));
                   node->set_source($1->kind, std::string($1->data(), $1->size()), $1->pos);
-                  out.push_back(std::move(node));
-                  $$ = $1;
-              }
-              | STRCHAR STRCHAR
-              {
-                  std::string text($1->data(), $1->size());
-                  text.append($2->data(), $2->size());
-                  auto node = std::make_unique<StringLiteral>(text);
-                  node->set_source($1->kind, text, $1->pos);
                   out.push_back(std::move(node));
                   $$ = $1;
               }

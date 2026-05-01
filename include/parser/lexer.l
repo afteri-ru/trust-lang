@@ -242,8 +242,10 @@ ${name}"^"? TK(LOCAL);
   (.|\n)     ADV(yyleng);
 }
 
-"{@"        TK(MACRO_EXPR_BEGIN);
-"@}"        TK(MACRO_EXPR_END);
+"@{"        TK(MACRO_EXPR_BEGIN);
+"}@"        TK(MACRO_EXPR_END);
+"@<>"       TK(TEMPLATE_BEGIN);
+">@"        TK(TEMPLATE_END);
 
 "++"        TK(INT_PLUS);
 "--"        TK(INT_MINUS);

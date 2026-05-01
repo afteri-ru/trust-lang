@@ -42,28 +42,44 @@ add_custom_command(
         "${CMAKE_CURRENT_SOURCE_DIR}/scripts/tokens.lock"
         "${CMAKE_CURRENT_SOURCE_DIR}/parser.y"
         "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen_tokens.py"
-        "${GEN_DIR}/lex.yy.cpp"
-        "${GEN_DIR}/flex.gen.h"
     COMMENT "[TokenGen] Generating tokens from tokens.def..."
     VERBATIM
 )
 
-add_custom_target(parser_lib_target ALL
+# ── Bison: generate parser from parser.gen.y ──
+add_custom_command(
+    OUTPUT "${GEN_DIR}/parser.tab.cpp" "${GEN_DIR}/parser.tab.hh"
+    COMMAND ${BISON_EXECUTABLE}
+        --report=all
+        --defines=${GEN_DIR}/parser.tab.hh
+        --output=${GEN_DIR}/parser.tab.cpp
+        "${GEN_DIR}/parser.gen.y"
+    DEPENDS
+        "${GEN_DIR}/parser.gen.y"
+    COMMENT "[Bison] Generating parser from parser.gen.y..."
+    VERBATIM
+)
+
+# ── Generated files target ──
+add_custom_target(parser_generated ALL
     DEPENDS
         "${GEN_DIR}/lex.yy.cpp"
         "${GEN_DIR}/flex.gen.h"
         ${TOKEN_GEN_OUTPUTS}
+        "${GEN_DIR}/parser.tab.cpp"
+        "${GEN_DIR}/parser.tab.hh"
 )
 
 # ── Parser library ──
 add_library(parser_lib STATIC
     ${PROJECT_SOURCE_DIR}/src/parser/mmproc.cpp
     ${GEN_DIR}/lex.yy.cpp
+    ${GEN_DIR}/parser.tab.cpp
 )
 target_link_libraries(parser_lib PUBLIC diag_lib)
 target_include_directories(parser_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_BINARY_DIR}/..
 )
-add_dependencies(parser_lib parser_lib_target)
+add_dependencies(parser_lib parser_generated)
 

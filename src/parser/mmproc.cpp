@@ -153,8 +153,28 @@ static bool is_concatenatable_token(ParserToken::Kind k) noexcept {
     return is_string_token(k) || is_embed_token(k);
 }
 
-static bool is_unsupported_token(ParserToken::Kind k) noexcept {
-    return k == ParserToken::Kind::MACRO || k == ParserToken::Kind::MODULE;
+static bool is_unimplemented_token(ParserToken::Kind k) noexcept {
+    switch (k) {
+        // MACRO not implemented
+    case ParserToken::Kind::MACRO:
+    case ParserToken::Kind::MACRO_ARGCOUNT:
+    case ParserToken::Kind::MACRO_ARGNAME:
+    case ParserToken::Kind::MACRO_ARGPOS:
+    case ParserToken::Kind::MACRO_ARGUMENT:
+    case ParserToken::Kind::MACRO_CONCAT:
+    case ParserToken::Kind::MACRO_DEL:
+    case ParserToken::Kind::MACRO_EXPR_BEGIN:
+    case ParserToken::Kind::MACRO_EXPR_END:
+    case ParserToken::Kind::MACRO_NAMESPACE:
+    case ParserToken::Kind::MACRO_SEQ:
+    case ParserToken::Kind::MACRO_STR:
+    case ParserToken::Kind::MACRO_TOSTR:
+    //
+    case ParserToken::Kind::MODULE:
+        return true;
+    default:
+        return false;
+    }
 }
 
 static bool is_namespace(ParserToken::Kind k) noexcept {
@@ -162,7 +182,7 @@ static bool is_namespace(ParserToken::Kind k) noexcept {
 }
 
 static bool is_id_start(ParserToken::Kind k) noexcept {
-    return k == ParserToken::Kind::NAME || k == ParserToken::Kind::LOCAL || k == ParserToken::Kind::NATIVE;
+    return k == ParserToken::Kind::NAME || k == ParserToken::Kind::NAME || k == ParserToken::Kind::LOCAL || k == ParserToken::Kind::NATIVE;
 }
 
 static bool is_id_continuation(ParserToken::Kind k) noexcept {
@@ -187,7 +207,7 @@ static AstNodePtr make_text_node(std::string text, SourceRange range) {
     auto node = std::make_unique<TextNode>(std::move(text));
     node->set_source(TokenInfo(K, range, node->source->text));
     return node;
-}
+} // namespace trust
 
 static AstNodePtr make_concatenatable_node(ParserToken::Kind kind, std::string text, SourceRange range) {
     if (is_embed_token(kind)) {
@@ -215,8 +235,8 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
         const Lexeme &lex = lexemes[i];
 
         // Report error for unsupported tokens
-        if (is_unsupported_token(lex.kind)) {
-            ctx.diag().report(lex.pos, Severity::Error, "unsupported token '{}' — macro/module processing is not implemented", ParserToken::name(lex.kind));
+        if (is_unimplemented_token(lex.kind)) {
+            ctx.diag().report(lex.pos, Severity::Error, "unimplemented token '{}' — macro/module processing is not implemented", ParserToken::name(lex.kind));
             ++i;
             continue;
         }

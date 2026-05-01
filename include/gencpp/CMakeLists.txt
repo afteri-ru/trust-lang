@@ -9,7 +9,7 @@ add_library(gencpp_lib STATIC
     ${PROJECT_SOURCE_DIR}/src/gencpp/semantic_analyzer.cpp
 )
 target_link_libraries(gencpp_lib PUBLIC parser_lib types_lib trust_include_dirs)
-add_dependencies(gencpp_lib parser_lib_target)
+add_dependencies(gencpp_lib parser_lib)
 
 # ── gencpp: Test AST format parser library (test-only) ──
 # DISABLED: ast_format_parser.cpp uses std::expected API incompatible with clang-22

@@ -228,7 +228,7 @@ TEST(LexerTokens, FlexLexemeCount) {
         if (ParserToken::is_flex_lexeme(k))
             ++count;
     }
-    EXPECT_EQ(count, 104) << "Expected exact count of FLEX_LEXEME tokens";
+    EXPECT_EQ(count, 106) << "Expected exact count of FLEX_LEXEME tokens";
 }
 
 // No duplicates in all token names

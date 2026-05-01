@@ -70,7 +70,7 @@ set_source_files_properties(${_trust_pcm_obj} PROPERTIES
     GENERATED true
 )
 
-add_dependencies(unit_tests parser_lib_target trust_pcm_target_all dap_lib)
+add_dependencies(unit_tests parser_lib trust_pcm_target_all dap_lib)
 
 target_compile_options(unit_tests PRIVATE
     -Wno-unused-result
