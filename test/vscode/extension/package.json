@@ -1,0 +1,12 @@
+{
+  "name": "trust-lang-extension-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Unit tests for Trust Lang VSCode extension",
+  "scripts": {
+    "test": "jest --config jest.config.js"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

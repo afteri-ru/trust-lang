@@ -1,64 +1,67 @@
 #pragma once
 
 #include "diag/location.hpp"
+#include "utils/error.hpp"
 #include "parser/token.hpp"
+#include <cstddef>
 #include <string>
 #include <memory>
-#include <optional>
 
 namespace trust {
+
+// Forward declaration and pointer type
+struct TokenInfo;
+
+/// Bison attempts to copy `unique_ptr` when automatically wrapping values ​​during shift/reduce operations.
+/// Used `shared_ptr` for make TokenPtr copyable for Bison.
+using TokenPtr = std::shared_ptr<TokenInfo>;
+using TokenSequence = std::vector<TokenPtr>;
 
 /// TokenInfo — данные токена из парсера (владеет текстом, хранит диапазон).
 struct TokenInfo {
     ParserToken::Kind kind{ParserToken::Kind::END};
-    SourceRange range{};
     std::string text;
+    SourceRange range{};
+
+    TokenPtr m_name_or_class; ///< The name or class of the token, if the term has a name or class
+
+    TokenPtr m_ref; ///< Type of reference before the variable (valid references or its creation operator)
+    TokenPtr m_namespace;
+    TokenSequence m_types;
+    TokenSequence m_dims;
+    TokenSequence m_attrs;
+    bool m_is_call{false};  ///< Call as function flag (brackets used )
+    bool m_is_const{false}; ///< Immutability (non changeability) feature
+    // bool m_is_take;
+
+    TokenPtr m_docs; ///< The current namespace in the source file when this term is used
+
+    /// child nodes AST
+    TokenPtr m_left;
+    TokenPtr m_right;
+    TokenSequence m_sequence;
 
     TokenInfo() = default;
 
-    TokenInfo(ParserToken::Kind k, SourceRange r, std::string t) : kind(k), range(std::move(r)), text(std::move(t)) {}
+    TokenInfo(const Lexeme &lex) : kind(lex.kind), text(lex) {
+        ASSERT(lex.pos.isValid() && lex.size() < lex.pos.offset());
+        range = {lex.pos.dec(lex.size()), lex.pos};
+    }
+    TokenInfo(ParserToken::Kind k, std::string t, SourceRange r) : kind(k), text(std::move(t)), range(std::move(r)) {}
 
     [[nodiscard]] bool empty() const noexcept { return kind == ParserToken::Kind::END; }
-};
 
-// --- Forward declarations ---
-struct Expr;
-struct Stmt;
-struct Decl;
-class AstVisitor;
+    /// Factory: create a TokenPtr from a Lexeme
+    [[nodiscard]] static TokenPtr make(const Lexeme &lex) { return std::make_shared<TokenInfo>(lex); }
 
-// --- Base interface ---
-struct AstVisitable {
-    virtual ~AstVisitable() = default;
-    virtual void accept(AstVisitor *v) const = 0;
-};
-
-// --- Base AST node ---
-struct AstNodeBase : AstVisitable {
-    SourceLoc loc;
-    std::optional<TokenInfo> source;
-    virtual ~AstNodeBase() = default;
-    virtual ParserToken::Kind token_kind() const = 0;
-    void set_source(const TokenInfo &ti);
-
-    template <typename T>
-    [[nodiscard]] bool is() const noexcept {
-        return token_kind() == T::static_token_kind();
+    /// Factory: create a TokenPtr from Kind, range, and text
+    [[nodiscard]] static TokenPtr make(ParserToken::Kind k, std::string t, SourceRange r = {}) {
+        return std::make_shared<TokenInfo>(k, std::move(t), std::move(r));
     }
-    template <typename T>
-    [[nodiscard]] T *as() noexcept {
-        return is<T>() ? static_cast<T *>(this) : nullptr;
-    }
-    template <typename T>
-    [[nodiscard]] const T *as() const noexcept {
-        return is<T>() ? static_cast<const T *>(this) : nullptr;
-    }
+
+    [[nodiscard]] bool is_block() { return kind == ParserToken::Kind::block || kind == ParserToken::Kind::sequence || kind == ParserToken::Kind::BlockStmt; }
+
+    [[nodiscard]] static std::string dump(const TokenInfo *ptr, size_t indent = 0);
 };
-
-using AstNodePtr = std::unique_ptr<AstNodeBase>;
-using AstNodeSequence = std::vector<AstNodePtr>;
-
-AstNodePtr make_int_literal_node(int value, ParserToken::Kind kind, std::string text, SourceLoc loc);
-AstNodePtr make_string_literal_node(std::string text, ParserToken::Kind kind, SourceLoc loc);
 
 } // namespace trust

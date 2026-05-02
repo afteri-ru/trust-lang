@@ -5,7 +5,7 @@
 #include <variant>
 
 #include "stdlib/buildin.hpp"
-#include "diag/error.hpp"
+#include "utils/error.hpp"
 
 namespace trust {
 

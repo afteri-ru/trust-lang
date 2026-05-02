@@ -116,6 +116,6 @@ int main() {
 mkdir build && cd build
 cmake ..
 cmake --build .
-./unittest   # Запуск тестов
+./test/unit   # Запуск тестов
 ./demo       # Демонстрация
 ```

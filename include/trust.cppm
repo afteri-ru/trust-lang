@@ -53,7 +53,7 @@ using ::trust::print_ast;
 using ::trust::Program;
 using ::trust::SemanticAnalyzer;
 using ::trust::Severity;
-using ::trust::SourceIdx;
+using ::trust::FileIdx;
 using ::trust::SourceLoc;
 using ::trust::SourceRange;
 using ::trust::Stmt;

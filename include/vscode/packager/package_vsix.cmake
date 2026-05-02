@@ -1,24 +1,26 @@
 # Helper script to package VS Code extension as .vsix file
 # Usage: cmake -P cmake/package_vsix.cmake
-# Required variables: VSIX_SOURCE_DIR, VSIX_OUTPUT_DIR, VSIX_OUTPUT_FILE
-# Optional variables: VSIX_ID, VSIX_VERSION, VSIX_PUBLISHER, VSIX_DISPLAY_NAME, VSIX_DESCRIPTION, VSIX_LANGUAGE, VSIX_TEMPLATE_DIR
+# Required variables: VSIX_SOURCE_DIR, VSIX_OUTPUT_DIR, VSIX_OUTPUT_FILE, VSIX_ID, VSIX_VERSION, VSIX_PUBLISHER, VSIX_DISPLAY_NAME, VSIX_DESCRIPTION
+# Optional variables: VSIX_LANGUAGE, VSIX_TEMPLATE_DIR
 
-# Default values
+# Required variables — fail early if not set
 if(NOT DEFINED VSIX_ID)
-    set(VSIX_ID "trust-lang")
+    message(FATAL_ERROR "VSIX_ID is not defined")
 endif()
 if(NOT DEFINED VSIX_VERSION)
-    set(VSIX_VERSION "1.0.0")
+    message(FATAL_ERROR "VSIX_VERSION is not defined")
 endif()
 if(NOT DEFINED VSIX_PUBLISHER)
-    set(VSIX_PUBLISHER "trust-lang")
+    message(FATAL_ERROR "VSIX_PUBLISHER is not defined")
 endif()
 if(NOT DEFINED VSIX_DISPLAY_NAME)
-    set(VSIX_DISPLAY_NAME "Trust Lang")
+    message(FATAL_ERROR "VSIX_DISPLAY_NAME is not defined")
 endif()
 if(NOT DEFINED VSIX_DESCRIPTION)
-    set(VSIX_DESCRIPTION "Language support and debugger for Trust language programs transpiled to C++")
+    message(FATAL_ERROR "VSIX_DESCRIPTION is not defined")
 endif()
+
+# Optional defaults
 if(NOT DEFINED VSIX_LANGUAGE)
     set(VSIX_LANGUAGE "en-US")
 endif()

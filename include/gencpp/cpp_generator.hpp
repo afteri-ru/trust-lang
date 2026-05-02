@@ -83,8 +83,8 @@ class CppGenerator : public AstVisitor {
     void indent();
     void dispatch_block_item(const BlockItem &item);
     void visit_if_stmt(const IfStmt *node, bool is_primary);
-    [[nodiscard]] std::string bin_op_to_str(BinOp op) const;
-    [[nodiscard]] std::string type_to_cpp(TypeInfo t) const;
+
+    [[nodiscard]] std::string type_to_cpp(TypeInfo t) const { return t.cpp_name; }
 
     // Get resolved type for an expression node (falls back to node->type() if not set)
     [[nodiscard]] TypeKind get_expr_type(const Expr *e) const;

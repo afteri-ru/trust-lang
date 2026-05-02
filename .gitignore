@@ -1,6 +1,11 @@
-# Task files
+# CLine workflow
 .TASKS
 TASK.md
+
+
+# npm
+**/node_modules/
+
 
 # CMake build
 **/CMakeFiles/
@@ -32,7 +37,12 @@ build/
 *.dll
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+# The AI â€â€deleted the configured tasks several times.
+# After which it decided to leave them in the repository so as not to recreate them each time.
+!.vscode/tasks.json
+
 .idea/
 .cache
 .clangd
@@ -66,6 +76,7 @@ tests/gencpp/lit.site.cfg.py
 **/parsetab.py
 tests/lit.cfg.py
 include/trust/version.h
+**/.trust
 
 # Tar archives
 *.tar.xz

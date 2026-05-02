@@ -3,10 +3,11 @@
 
 # ── Library ──
 add_library(diag_lib STATIC
-    ${PROJECT_SOURCE_DIR}/src/diag/context.cpp
-    ${PROJECT_SOURCE_DIR}/src/diag/diag.cpp
-    ${PROJECT_SOURCE_DIR}/src/diag/options.cpp
+    ${PROJECT_SOURCE_DIR}/diag/context.cpp
+    ${PROJECT_SOURCE_DIR}/diag/diag.cpp
+    ${PROJECT_SOURCE_DIR}/diag/mapping.cpp
+    ${PROJECT_SOURCE_DIR}/diag/options.cpp
 )
 
-target_link_libraries(diag_lib PUBLIC trust_include_dirs)
+target_link_libraries(diag_lib PUBLIC trust_include_dirs msgpack-c-static)
 

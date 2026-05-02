@@ -1,7 +1,7 @@
 #ifndef TYPES_TYPES_HPP
 #define TYPES_TYPES_HPP
 
-#include "diag/error.hpp"
+#include "utils/error.hpp"
 #include "stdlib/category.hpp"
 #include "stdlib/buildin.hpp"
 #include "types/type_info.hpp"

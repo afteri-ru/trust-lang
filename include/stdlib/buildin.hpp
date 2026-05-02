@@ -2,7 +2,7 @@
 #define TYPES_TYPE_KINDS_HPP
 
 #include "stdlib/category.hpp"
-#include "diag/error.hpp"
+#include "utils/error.hpp"
 
 #include <cstdint>
 #include <string_view>

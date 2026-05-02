@@ -23,7 +23,7 @@
       "patterns": [
         {
           "name": "keyword.control.trust",
-          "match": "\\b(create|call)\\b"
+          "match": "\\b(create|print)\\b"
         }
       ]
     },

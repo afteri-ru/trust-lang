@@ -1,3 +1,4 @@
+#include "gencpp/ast.hpp"
 #include "gencpp/cpp_generator.hpp"
 #include "parser/mmproc.hpp"
 #include <vector>
@@ -770,7 +771,7 @@ void CppGenerator::visit(const CallExpr *node) {
 void CppGenerator::visit(const BinaryOp *node) {
     out_ << "(";
     node->left->accept(this);
-    out_ << " " << bin_op_to_str(node->op) << " ";
+    out_ << " " << bin_op_to_string(node->op) << " ";
     node->right->accept(this);
     out_ << ")";
 }
@@ -917,11 +918,4 @@ std::string CppGenerator::unique_label() {
 void CppGenerator::indent() {
     for (int i = 0; i < indent_level_; ++i)
         out_ << "    ";
-}
-
-std::string CppGenerator::bin_op_to_str(BinOp op) const {
-    return MMProcessor::bin_op_to_string(op);
-}
-std::string CppGenerator::type_to_cpp(TypeInfo t) const {
-    return t.cpp_name;
 }

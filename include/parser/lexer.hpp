@@ -5,15 +5,33 @@
 #include <string>
 #include <vector>
 #include "diag/context.hpp"
-#include "diag/error.hpp"
+#include "utils/error.hpp"
 #include "diag/location.hpp"
 #include "parser/token.hpp"
 
 namespace trust {
 
+class SyntaxError : public std::runtime_error {
+  public:
+    SourceLoc location;
+    explicit SyntaxError(const char *msg, SourceLoc loc = {}) : std::runtime_error(msg), location(loc) {}
+};
+
+class ConversionError : public std::runtime_error {
+  public:
+    explicit ConversionError(std::string const &msg) : std::runtime_error(msg) {}
+    explicit ConversionError(const char *msg) : std::runtime_error(msg) {}
+};
+
+class ParseError : public std::runtime_error {
+  public:
+    explicit ParseError(std::string const &msg) : std::runtime_error(msg) {}
+    explicit ParseError(const char *msg) : std::runtime_error(msg) {}
+};
+
 struct Lexer {
     Context *ctx;
-    SourceIdx src_idx;
+    FileIdx src_idx;
     int offset = 0;
     int content_start = 0; // начало контента для stateful токенов
 
@@ -53,19 +71,19 @@ struct Lexer {
         }
         auto source = e->ctx->source(e->src_idx);
         std::string_view text(source.data() + token_start + skip_start, len - skip_start - skip_end);
-        SourceLoc pos = SourceLoc::make(e->src_idx, token_start);
+        SourceLoc pos(e->src_idx, token_start);
         e->result.emplace_back(static_cast<ParserToken::Kind>(kind), text, pos);
         return kind;
     }
 
-    static SourceLoc current_loc(const Lexer *e) { return SourceLoc::make(e->src_idx, e->offset); }
+    static SourceLoc current_loc(const Lexer *e) { return SourceLoc(e->src_idx, e->offset); }
 
     [[noreturn]] static void error(const Lexer *e, const char *msg) { throw SyntaxError(msg, current_loc(e)); }
 
     /** Tokenize input stored in Context at the given source index.
      *  Returns a LexemeSequence containing all tokens (excluding END token).
      *  Throws SyntaxError on lexer errors. */
-    static LexemeSequence tokenize(Context &ctx, SourceIdx src_idx, int offset = 0);
+    static LexemeSequence tokenize(Context &ctx, FileIdx src_idx, int offset = 0);
 };
 
 } // namespace trust
@@ -86,8 +104,8 @@ extern int yylex_destroy(yy_fwd_yyscan_t);
 
 namespace trust {
 
-inline LexemeSequence Lexer::tokenize(Context &ctx, SourceIdx src_idx, int offset) {
-    Lexer lexer_self{&ctx, src_idx, offset};
+inline LexemeSequence Lexer::tokenize(Context &ctx, FileIdx src_idx, int offset) {
+    Lexer lexer_self{&ctx, src_idx, offset, 0, {}};
 
     yy_fwd_yyscan_t scanner{};
     if (yylex_init(&scanner) != 0)

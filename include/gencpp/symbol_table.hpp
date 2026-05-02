@@ -1,5 +1,6 @@
 #pragma once
 
+#include "diag/location.hpp"
 #include "gencpp/ast.hpp"
 #include <expected>
 #include <string>
@@ -46,7 +47,7 @@ class SymbolTable {
         scopes_.back()[name] = std::move(type);
     }
 
-    TypeInfo lookup_var(const std::string &name, SourceLoc loc) const {
+    TypeInfo lookup_var(const std::string &name, SourceRange loc) const {
         // Search from innermost to outermost scope
         for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it) {
             auto vit = it->find(name);
@@ -57,7 +58,7 @@ class SymbolTable {
         return make_builtin_type(TypeKind::Void);
     }
 
-    std::string check_assignment(const std::string &target, TypeInfo expr_type, SourceLoc loc) {
+    std::string check_assignment(const std::string &target, TypeInfo expr_type, SourceRange loc) {
         std::string err;
         auto var_type = lookup_var(target, loc);
         if (var_type.id == TypeKind::Void) {

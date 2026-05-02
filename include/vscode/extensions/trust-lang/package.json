@@ -1,9 +1,9 @@
 {
   "name": "trust-lang",
-  "publisher": "trust-lang",
+  "publisher": "rsashka",
   "displayName": "Trust Lang",
   "description": "Language support and debugger for Trust language programs transpiled to C++.",
-  "version": "1.0.0",
+  "version": "0.5.0",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -11,8 +11,12 @@
   "main": "./extension.js",
   "activationEvents": [
     "onDebug",
-    "onLanguage:trust"
+    "onLanguage:trust",
+    "workspaceContains:**/*.src"
   ],
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  },
   "keywords": [
     "trust",
     "debugger",
@@ -29,31 +33,91 @@
   "contributes": {
     "commands": [
       {
-        "command": "trust.build",
-        "title": "Trust: Build"
+        "command": "trust.openCppFile",
+        "title": "Trust: Open Generated C++ File"
       },
       {
-        "command": "trust.stop",
-        "title": "Trust: Stop"
+        "command": "trust.resetDapPath",
+        "title": "Trust: Reset DAP Path to Default"
+      },
+      {
+        "command": "trust.resetLspPath",
+        "title": "Trust: Reset LSP Path to Default"
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorLangId == trust",
+          "command": "trust.openCppFile",
+          "group": "trust@1"
+        }
+      ],
+      "debug/toolBar": [
+        {
+          "command": "trust.openCppFile",
+          "group": "trust",
+          "when": "debugType == 'trust'"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "trust.resetDapPath",
+          "when": "config.trust.dapPath != null"
+        },
+        {
+          "command": "trust.resetLspPath",
+          "when": "config.trust.lspPath != null"
+        }
+      ]
+    },
     "configuration": {
       "title": "Trust Lang",
       "properties": {
         "trust.compilerPath": {
           "type": "string",
           "default": "trust",
-          "description": "Executable name or path for the Trust compiler."
+          "description": "Executable name or path for the Trust compiler (trust)."
         },
         "trust.dapPath": {
           "type": "string",
-          "default": "trust-dap",
+          "default": "",
           "description": "Executable name or path for the Trust Debug Adapter Protocol server."
         },
         "trust.lspPath": {
           "type": "string",
-          "default": "trust-lsp",
+          "default": "",
           "description": "Executable name or path for the Trust Language Server."
+        },
+        "trust.cppCompilerPath": {
+          "type": "string",
+          "default": "clang++-22",
+          "description": "C++ compiler executable name or full path for compiling transpiled files."
+        },
+        "trust.cppCompilerOptions": {
+          "type": "string",
+          "default": "-std=c++23 -g3 -O0",
+          "description": "Additional compiler options for C++ compilation."
+        },
+        "trust.tempDir": {
+          "type": "string",
+          "default": ".trust",
+          "description": "Temporary directory for intermediate files (relative to workspace root)."
+        },
+        "trust.lldbServerPath": {
+          "type": "string",
+          "default": "lldb-server",
+          "description": "Path to lldb-server. Used by the debug adapter."
+        },
+        "trust.traceDAP": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detailed DAP protocol tracing to the Trust Lang output channel."
+        },
+        "trust.traceLSP": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable detailed LSP protocol tracing to the Trust Lang output channel."
         }
       }
     },
@@ -63,6 +127,21 @@
         "aliases": ["Trust", "trust"],
         "extensions": [".src"],
         "configuration": "./language-configuration.json"
+      }
+    ],
+    "breakpoints": [
+      {"language": "trust"}
+    ],
+    "taskDefinitions": [
+      {
+        "type": "trust",
+        "required": ["sourceFile"],
+        "properties": {
+          "sourceFile": {
+            "type": "string",
+            "description": "Path to the Trust source file to transpile and run."
+          }
+        }
       }
     ],
     "grammars": [
@@ -77,14 +156,35 @@
         "type": "trust",
         "label": "Trust Debug",
         "languages": ["trust"],
+        "breakpoints": [{"language": "trust"}],
         "configurationAttributes": {
           "launch": {
-            "required": ["program"],
+            "required": ["sourceFile"],
             "properties": {
-              "program": {
+              "sourceFile": {
                 "type": "string",
-                "description": "Path to the compiled Trust program (ELF binary).",
-                "default": "${workspaceFolder}/.trust/example"
+                "description": "Path to the Trust source file (.src) to debug.",
+                "default": "${file}"
+              },
+              "cppFile": {
+                "type": "string",
+                "description": "Path to the transpiled C++ source file.",
+                "default": "${workspaceFolder}/.trust/${fileBasenameNoExtension}.cpp"
+              },
+              "targetFile": {
+                "type": "string",
+                "description": "Path to the compiled ELF binary.",
+                "default": "${workspaceFolder}/.trust/${fileBasenameNoExtension}"
+              },
+              "lldbServerPath": {
+                "type": "string",
+                "description": "Path to lldb-server.",
+                "default": ""
+              },
+              "mapFile": {
+                "type": "string",
+                "description": "Path to .map file with source mappings (optional).",
+                "default": ""
               }
             }
           }
@@ -93,8 +193,12 @@
           {
             "type": "trust",
             "request": "launch",
-            "name": "Trust Debug",
-            "program": "${workspaceFolder}/.trust/example"
+            "name": "Trust Debug (current file)",
+            "sourceFile": "${file}",
+            "cppFile": "${workspaceFolder}/${config:trust.tempDir}/${fileBasenameNoExtension}.cpp",
+            "targetFile": "${workspaceFolder}/${config:trust.tempDir}/${fileBasenameNoExtension}",
+            "lldbServerPath": "",
+            "mapFile": ""
           }
         ]
       }

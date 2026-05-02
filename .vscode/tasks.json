@@ -1,0 +1,36 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cmake: configure + build",
+            "type": "shell",
+            "command": "cmake -B build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && cmake --build build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "test: all (unit + lit + debug + vscode)",
+            "type": "shell",
+            "command": "cmake --build build --target run_tests",
+            "group": "test",
+            "dependsOn": ["cmake: configure + build"]
+        },
+        {
+            "label": "test: unit_tests only",
+            "type": "shell",
+            "command": "cmake --build build --target run_unit_tests",
+            "group": "test",
+            "dependsOn": ["cmake: configure + build"]
+        },
+        {
+            "label": "test: direct unit_tests with filter",
+            "type": "shell",
+            "command": "./build/unit_tests --gtest_shuffle --gtest_filter=*",
+            "group": "test",
+            "dependsOn": ["cmake: configure + build"]
+        },
+   ]
+}

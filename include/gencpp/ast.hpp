@@ -10,6 +10,107 @@
 
 namespace trust {
 
+// --- Forward declarations ---
+struct Expr;
+struct Stmt;
+struct Decl;
+class AstVisitor;
+
+// --- Base interface ---
+struct AstVisitable {
+    virtual ~AstVisitable() = default;
+    virtual void accept(AstVisitor *v) const = 0;
+};
+
+// --- Base AST node ---
+struct AstNodeBase : AstVisitable {
+    // SourceLoc loc;
+    TokenPtr source;
+    virtual ~AstNodeBase() = default;
+    virtual ParserToken::Kind token_kind() const = 0;
+
+    template <typename T>
+    [[nodiscard]] bool is() const noexcept {
+        return token_kind() == T::static_token_kind();
+    }
+    template <typename T>
+    [[nodiscard]] T *as() noexcept {
+        return is<T>() ? static_cast<T *>(this) : nullptr;
+    }
+    template <typename T>
+    [[nodiscard]] const T *as() const noexcept {
+        return is<T>() ? static_cast<const T *>(this) : nullptr;
+    }
+};
+
+using AstNodePtr = std::unique_ptr<AstNodeBase>;
+using AstNodeSequence = std::vector<AstNodePtr>;
+
+AstNodePtr make_int_literal_node(int value, ParserToken::Kind kind, std::string text, SourceLoc loc);
+AstNodePtr make_string_literal_node(std::string text, ParserToken::Kind kind, SourceLoc loc);
+
+// --- Enums ---
+enum class BinOp { Add, Sub, Mul, Div, Eq, Ne, Lt, Le, Gt, Ge, And, Or };
+// --- BinOp conversions ---
+
+static std::string bin_op_to_string(BinOp op) {
+    switch (op) {
+    case BinOp::Add:
+        return "+";
+    case BinOp::Sub:
+        return "-";
+    case BinOp::Mul:
+        return "*";
+    case BinOp::Div:
+        return "/";
+    case BinOp::Eq:
+        return "==";
+    case BinOp::Ne:
+        return "!=";
+    case BinOp::Lt:
+        return "<";
+    case BinOp::Le:
+        return "<=";
+    case BinOp::Gt:
+        return ">";
+    case BinOp::Ge:
+        return ">=";
+    case BinOp::And:
+        return "and";
+    case BinOp::Or:
+        return "or";
+    }
+    throw std::invalid_argument(std::format("Unknown BinOp: '{}'", static_cast<int>(op)));
+}
+
+static BinOp bin_op_from_string(const std::string &s) {
+    if (s == "+")
+        return BinOp::Add;
+    if (s == "-")
+        return BinOp::Sub;
+    if (s == "*")
+        return BinOp::Mul;
+    if (s == "/")
+        return BinOp::Div;
+    if (s == "==")
+        return BinOp::Eq;
+    if (s == "!=")
+        return BinOp::Ne;
+    if (s == "<")
+        return BinOp::Lt;
+    if (s == "<=")
+        return BinOp::Le;
+    if (s == ">")
+        return BinOp::Gt;
+    if (s == ">=")
+        return BinOp::Ge;
+    if (s == "and")
+        return BinOp::And;
+    if (s == "or")
+        return BinOp::Or;
+    throw std::invalid_argument("Unknown BinOp: '" + s + "'");
+}
+
 // --- CRTP base: inherits from category tag (Expr/Stmt/Decl) so it can override token_kind() ---
 template <typename Derived, ParserToken::Kind Kind, typename CategoryBase = AstNodeBase>
 struct AstNodeImpl : CategoryBase {
@@ -52,9 +153,6 @@ struct AstTypeTraits {
     [[nodiscard]] static std::string to_string(ParserToken::Kind t);
     [[nodiscard]] static ParserToken::Kind from_string(const std::string &s);
 };
-
-// --- Enums ---
-enum class BinOp { Add, Sub, Mul, Div, Eq, Ne, Lt, Le, Gt, Ge, And, Or };
 
 // --- Type aliases ---
 using BlockItem = std::unique_ptr<AstNodeBase>;

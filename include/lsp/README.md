@@ -12,9 +12,9 @@ Autocomplete, go-to-definition, hover-диагностика, форматиро
 
 ## Компоненты
 
-- **error_codes.hpp** — Error-коды для LSP протокола (ErrorCode, ErrorCategory, ErrorInfo)
-  - Категории: Lex, Parse, Type, Semantic, CodeGen, Internal
-  - Маппинг кодов в строки (E001, E100...) и Severity
+- **trust_lsp.h** — основной LSP-сервер (обработчики методов, кеширование source map)
+- **lsp_protocol.h** — парсинг/сериализация JSON-RPC 2.0, Content-Length транспорт
+- **transpile.h** — in-process транспиляция Trust → C++ + source map
 
 ## Зависимости
 

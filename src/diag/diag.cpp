@@ -59,7 +59,7 @@ void DiagnosticEngine::output(SourceRange range, Severity sev, std::string_view 
 
     // Путь с локацией: печатаем file:line:col, строку кода и caret-подчёркивание.
     if (range.begin.isValid() && m_ctx) {
-        auto src_idx = range.begin.source_idx();
+        auto src_idx = range.begin.fileIdx();
         auto origin = m_ctx->source(src_idx);
         auto fname = m_ctx->filename(src_idx);
 

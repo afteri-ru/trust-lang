@@ -2,10 +2,9 @@
 # C++20 module infrastructure (trust module)
 
 # ── PCM build configuration ──
-set(TRUST_PCM_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-set(TRUST_PCM "${TRUST_PCM_DIR}/trust.pcm")
-set(TRUST_PCM_OBJ "${TRUST_PCM_DIR}/trust_module.o")
-set(TRUST_CPPM "${PROJECT_SOURCE_DIR}/include/trust.cppm")
+set(TRUST_PCM "${CMAKE_CURRENT_BINARY_DIR}/trust.pcm")
+set(TRUST_PCM_OBJ "${CMAKE_CURRENT_BINARY_DIR}/trust_module.o")
+set(TRUST_CPPM "${PROJECT_INCLUDE_DIR}/trust.cppm")
 
 set(TRUST_MODULE_HEADERS
     types/types.hpp
@@ -53,7 +52,8 @@ set(TRUST_PARSER_GEN_OUTPUTS
 set(TRUST_COMPILE_OPTIONS
     -std=c++${CMAKE_CXX_STANDARD}
     -I${PROJECT_INCLUDE_DIR}
-    -I${TRUST_PCM_DIR}
+    -I${TRUST_PARSER_GEN_DIR}
+    -I${CMAKE_CURRENT_BINARY_DIR}
     -I${CMAKE_BINARY_DIR}/include
 )
 

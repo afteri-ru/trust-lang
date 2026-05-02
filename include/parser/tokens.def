@@ -80,6 +80,10 @@ TOKEN(INT_PLUS,        AUTO,  FLEX_LEXEME)
 TOKEN(INT_MINUS,       AUTO,  FLEX_LEXEME)
 TOKEN(INT_REPEAT,      AUTO,  FLEX_LEXEME)
 
+// Blocks
+TOKEN(block,        AUTO,  BISON_TOKEN)
+TOKEN(sequence,     AUTO,  BISON_TOKEN)
+
 // Try blocks
 TOKEN(TRY_ALL_BEGIN,   AUTO,  FLEX_LEXEME)
 TOKEN(TRY_ALL_END,     AUTO,  FLEX_LEXEME)
@@ -139,7 +143,6 @@ TOKEN(HASH,            AUTO,  FLEX_LEXEME | BISON_TOKEN)  // #
 // Names and identifiers
 TOKEN(NAME,            AUTO,  FLEX_LEXEME | BISON_TOKEN)
 TOKEN(MANGLED,         AUTO,  FLEX_LEXEME | BISON_TOKEN)
-TOKEN(Ident,           AUTO,  BISON_TOKEN | Expr)
 TOKEN(LOCAL,           AUTO,  FLEX_LEXEME | BISON_TOKEN)
 TOKEN(NATIVE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
 TOKEN(MODULE,          AUTO,  FLEX_LEXEME | BISON_TOKEN)
@@ -189,24 +192,25 @@ TOKEN(NEWLANG,         AUTO,  FLEX_LEXEME | BISON_TOKEN)
 // Root nodes
 TOKEN(Program,        999,   Root)
 
-// Expression nodes (MMProc creates EmbedExpr, Bison handles the rest)
-TOKEN(IntLiteral,     AUTO,  BISON_TOKEN | Expr)
-TOKEN(StringLiteral,  AUTO,  BISON_TOKEN | Expr)
-TOKEN(BinaryOp,       AUTO,  BISON_TOKEN | Expr)
-TOKEN(VarRef,         AUTO,  BISON_TOKEN | Expr)
-TOKEN(CallExpr,       AUTO,  BISON_TOKEN | Expr)
-TOKEN(EmbedExpr,      AUTO,  BISON_TOKEN | Expr)
+// Expression nodes
+TOKEN(Ident,           AUTO,  Expr)
+TOKEN(IntLiteral,     AUTO,  Expr)
+TOKEN(StringLiteral,  AUTO,  Expr)
+TOKEN(BinaryOp,       AUTO,  Expr)
+TOKEN(VarRef,         AUTO,  Expr)
+TOKEN(CallExpr,       AUTO,  Expr)
+TOKEN(EmbedExpr,      AUTO,  Expr)
 
-// Statement nodes (BISON_TOKEN + Stmt)
-TOKEN(IfStmt,         AUTO,  BISON_TOKEN | Stmt)
-TOKEN(WhileStmt,      AUTO,  BISON_TOKEN | Stmt)
-TOKEN(ReturnStmt,     AUTO,  BISON_TOKEN | Stmt)
-TOKEN(AssignmentStmt, AUTO,  BISON_TOKEN | Stmt)
+// Statement nodes (Stmt)
+TOKEN(IfStmt,         AUTO,  Stmt)
+TOKEN(WhileStmt,      AUTO,  Stmt)
+TOKEN(ReturnStmt,     AUTO,  Stmt)
+TOKEN(AssignmentStmt, AUTO,  Stmt)
 
-// Declaration nodes (BISON_TOKEN + Decl)
-TOKEN(FuncDecl,       AUTO,  BISON_TOKEN | Decl)
-TOKEN(VarDecl,        AUTO,  BISON_TOKEN | Decl)
-TOKEN(ParamDecl,      AUTO,  BISON_TOKEN | Decl)
+// Declaration nodes (Decl)
+TOKEN(FuncDecl,       AUTO,  Decl)
+TOKEN(VarDecl,        AUTO,  Decl)
+TOKEN(ParamDecl,      AUTO,  Decl)
 
 // [6] AST only: codegen helper nodes (Stmt/Expr/Decl, no Bison)
 
@@ -220,8 +224,8 @@ TOKEN(RefMakeExpr,    AUTO,  Expr)
 TOKEN(RefTakeExpr,    AUTO,  Expr)
 
 // Statement nodes (Stmt only)
-TOKEN(ExprStmt,       AUTO,  Stmt)
-TOKEN(BlockStmt,      AUTO,  Stmt)
+TOKEN(ExprStmt,       AUTO,  BISON_TOKEN | Stmt)
+TOKEN(BlockStmt,      AUTO,  BISON_TOKEN | Stmt)
 TOKEN(ThenBlock,      AUTO,  Stmt)
 TOKEN(ElseBlock,      AUTO,  Stmt)
 TOKEN(DoWhileStmt,    AUTO,  Stmt)

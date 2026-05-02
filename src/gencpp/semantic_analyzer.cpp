@@ -1,4 +1,5 @@
 #include "gencpp/semantic_analyzer.hpp"
+#include "diag/location.hpp"
 #include <stdexcept>
 #include <sstream>
 
@@ -96,7 +97,7 @@ void SemanticAnalyzer::visit(const VarDecl *node) {
             const_cast<VarDecl *>(node)->var_type = resolved_type;
         } else {
             // Could not determine type of initializer — report error
-            report_error(node->loc, "Cannot infer type for variable '" + node->name + "' from initializer expression");
+            report_error(node->source->range, "Cannot infer type for variable '" + node->name + "' from initializer expression");
             resolved_type = make_builtin_type(TypeKind::Int32); // fallback
         }
     } else {
@@ -127,12 +128,12 @@ void SemanticAnalyzer::visit(const AssignmentStmt *node) {
         if (auto *var_ref = node->target->as<VarRef>()) {
             auto expr_type = type_res_.get_type(node->value.get());
             if (!expr_type.has_value()) {
-                report_error(node->loc, "Cannot determine type of assignment value");
+                report_error(node->source->range, "Cannot determine type of assignment value");
                 return;
             }
-            auto result = sym_table_.check_assignment(var_ref->name, expr_type.value(), var_ref->loc);
+            auto result = sym_table_.check_assignment(var_ref->name, expr_type.value(), var_ref->source->range);
             if (!result.empty()) {
-                report_error(var_ref->loc, result);
+                report_error(var_ref->source->range, result);
             }
         }
     }
@@ -160,7 +161,7 @@ void SemanticAnalyzer::visit(const CallExpr *node) {
         if (node->name == "print") {
             type_res_.set_type(node, make_builtin_type(TypeKind::Void));
         } else {
-            report_error(node->loc, "Unknown function '" + node->name + "'");
+            report_error(node->source->range, "Unknown function '" + node->name + "'");
             type_res_.set_type(node, make_builtin_type(TypeKind::Void));
         }
     }
@@ -287,9 +288,9 @@ void SemanticAnalyzer::visit(const MatchingCase *node) {
 
 void SemanticAnalyzer::visit(const VarRef *node) {
     // Resolve type from SymbolTable — report error if unknown
-    auto result = sym_table_.lookup_var(node->name, node->loc);
+    auto result = sym_table_.lookup_var(node->name, node->source->range);
     if (result.id == TypeKind::Void) {
-        report_error(node->loc, "Unknown variable: " + node->name);
+        report_error(node->source->range, "Unknown variable: " + node->name);
         type_res_.set_type(node, make_builtin_type(TypeKind::Int32)); // fallback for continued analysis
         return;
     }
@@ -331,7 +332,7 @@ void SemanticAnalyzer::visit(const BinaryOp *node) {
             if (left_type.has_value()) {
                 result_type = left_type.value();
             } else {
-                report_error(node->loc, "Cannot determine type of left operand in binary expression");
+                report_error(node->source->range, "Cannot determine type of left operand in binary expression");
                 result_type = make_builtin_type(TypeKind::Int32); // fallback
             }
         }
@@ -441,6 +442,6 @@ void SemanticAnalyzer::visit(const EmbedExpr *node) {
     (void)node;
 }
 
-void SemanticAnalyzer::report_error(SourceLoc loc, const std::string &msg) {
-    ctx_.diag().report(SourceRange{loc}, Severity::Error, msg);
+void SemanticAnalyzer::report_error(SourceRange loc, const std::string &msg) {
+    ctx_.diag().report(loc, Severity::Error, msg);
 }

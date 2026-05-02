@@ -1,0 +1,6 @@
+# Пример программы для тестирования транспайлера
+create x = 10;
+create y = 20;
+create z = x + y;
+create result = z * 2;
+print result;

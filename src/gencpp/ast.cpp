@@ -1,4 +1,5 @@
 #include "gencpp/ast.hpp"
+#include "parser/token_info.hpp"
 #include <stdexcept>
 #include <format>
 
@@ -22,15 +23,6 @@ bool TypeResolution::has_type(const Expr *e) const {
 }
 
 // ============================================================================
-// AstNodeBase
-// ============================================================================
-
-void AstNodeBase::set_source(const TokenInfo &ti) {
-    source = ti;
-    loc = ti.range.begin;
-}
-
-// ============================================================================
 // AstTypeTraits
 // ============================================================================
 
@@ -50,7 +42,7 @@ ParserToken::Kind AstTypeTraits::from_string(const std::string &s) {
 IntLiteral::IntLiteral(int v) : value(v) {
 }
 StringLiteral::StringLiteral(std::string v) {
-    source = TokenInfo(ParserToken::Kind::StringLiteral, {}, std::move(v));
+    source = TokenInfo::make(ParserToken::Kind::StringLiteral, std::move(v));
 }
 const std::string &StringLiteral::value() const {
     static const std::string empty{};
@@ -63,7 +55,7 @@ VarRef::VarRef(std::string n) : name(std::move(n)) {
 CallExpr::CallExpr(std::string n, std::vector<std::unique_ptr<Expr>> a) : name(std::move(n)), args(std::move(a)) {
 }
 EmbedExpr::EmbedExpr(std::string v) {
-    source = TokenInfo(ParserToken::Kind::EmbedExpr, {}, std::move(v));
+    source = TokenInfo::make(ParserToken::Kind::EmbedExpr, std::move(v));
 }
 const std::string &EmbedExpr::value() const {
     static const std::string empty{};

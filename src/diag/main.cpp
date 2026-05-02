@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     std::cout << "=== Diag Demo ===\n";
 
     Context ctx;
-    SourceIdx src = ctx.add_source("demo.cpp",
+    FileIdx src = ctx.add_source("demo.cpp",
         "int main() {\n"
         "    int x = foo();\n"
         "    return 0;\n"
@@ -22,8 +22,8 @@ int main(int argc, char* argv[]) {
 
     auto line_start = ctx.loc_from_line(src, 2);
     int foo_offset = line_start.offset() + 12;
-    auto foo_begin = SourceLoc::make(src, foo_offset);
-    auto foo_end = SourceLoc::make(src, foo_offset + 3);
+    auto foo_begin = ctx.makeLoc(src, foo_offset);
+    auto foo_end = ctx.makeLoc(src, foo_offset + 3);
     ctx.diag().report({foo_begin, foo_end}, Severity::Warning, "unused variable '{}'", "foo");
     ctx.diag().report({foo_begin, foo_end}, Severity::Error, "unexpected token '{}'", "foo");
     ctx.diag().report(foo_begin, Severity::Note, "did you mean '{}'?", "bar");

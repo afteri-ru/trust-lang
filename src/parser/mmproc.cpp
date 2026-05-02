@@ -1,8 +1,9 @@
-#include "parser/mmproc.hpp"
-#include "gencpp/ast.hpp"
 #include "diag/diag.hpp"
+#include "parser/mmproc.hpp"
+#include "parser/token_info.hpp"
 #include <stdexcept>
 #include <format>
+#include <string>
 
 namespace trust {
 
@@ -80,66 +81,6 @@ std::string MMProcessor::unescape(const std::string &s) {
     return out;
 }
 
-// --- BinOp conversions ---
-
-std::string MMProcessor::bin_op_to_string(BinOp op) {
-    switch (op) {
-    case BinOp::Add:
-        return "+";
-    case BinOp::Sub:
-        return "-";
-    case BinOp::Mul:
-        return "*";
-    case BinOp::Div:
-        return "/";
-    case BinOp::Eq:
-        return "==";
-    case BinOp::Ne:
-        return "!=";
-    case BinOp::Lt:
-        return "<";
-    case BinOp::Le:
-        return "<=";
-    case BinOp::Gt:
-        return ">";
-    case BinOp::Ge:
-        return ">=";
-    case BinOp::And:
-        return "and";
-    case BinOp::Or:
-        return "or";
-    }
-    throw std::invalid_argument(std::format("Unknown BinOp: '{}'", static_cast<int>(op)));
-}
-
-BinOp MMProcessor::bin_op_from_string(const std::string &s) {
-    if (s == "+")
-        return BinOp::Add;
-    if (s == "-")
-        return BinOp::Sub;
-    if (s == "*")
-        return BinOp::Mul;
-    if (s == "/")
-        return BinOp::Div;
-    if (s == "==")
-        return BinOp::Eq;
-    if (s == "!=")
-        return BinOp::Ne;
-    if (s == "<")
-        return BinOp::Lt;
-    if (s == "<=")
-        return BinOp::Le;
-    if (s == ">")
-        return BinOp::Gt;
-    if (s == ">=")
-        return BinOp::Ge;
-    if (s == "and")
-        return BinOp::And;
-    if (s == "or")
-        return BinOp::Or;
-    throw std::invalid_argument("Unknown BinOp: '" + s + "'");
-}
-
 // --- Kind classification ---
 
 static bool is_string_token(ParserToken::Kind k) noexcept {
@@ -152,6 +93,15 @@ static bool is_embed_token(ParserToken::Kind k) noexcept {
 
 static bool is_concatenatable_token(ParserToken::Kind k) noexcept {
     return is_string_token(k) || is_embed_token(k);
+}
+
+// Helper: create TokenPtr with concatenated text and range
+static TokenPtr make_concatenatable_token(ParserToken::Kind kind, std::string text, SourceRange range) {
+    bool is_raw = (kind == ParserToken::Kind::STRWIDE_RAW || kind == ParserToken::Kind::STRCHAR_RAW);
+    if (!is_raw) {
+        text = MMProcessor::unescape(text);
+    }
+    return TokenInfo::make(kind, std::move(text), std::move(range));
 }
 
 static bool is_unimplemented_token(ParserToken::Kind k) noexcept {
@@ -192,41 +142,10 @@ static bool is_id_terminator(ParserToken::Kind k) noexcept {
     return k == ParserToken::Kind::LOCAL || k == ParserToken::Kind::NATIVE;
 }
 
-// --- Node helpers ---
-
-template <ParserToken::Kind K>
-static AstNodePtr make_text_node(std::string text, SourceRange range) {
-    struct TextNode : public AstNodeBase {
-        explicit TextNode(std::string v) { source = TokenInfo(K, {}, std::move(v)); }
-        void accept(AstVisitor *) const override {}
-        ParserToken::Kind token_kind() const override { return K; }
-        static constexpr ParserToken::Kind static_token_kind() { return K; }
-    };
-
-    auto node = std::make_unique<TextNode>(std::move(text));
-    node->set_source(TokenInfo(K, range, node->source->text));
-    return node;
-}
-
-static AstNodePtr make_concatenatable_node(ParserToken::Kind kind, std::string text, SourceRange range) {
-    if (is_embed_token(kind)) {
-        auto node = std::make_unique<EmbedExpr>(std::move(text));
-        node->set_source(TokenInfo(ParserToken::Kind::EmbedExpr, range, node->value()));
-        return node;
-    }
-    bool is_raw = (kind == ParserToken::Kind::STRWIDE_RAW || kind == ParserToken::Kind::STRCHAR_RAW);
-    if (!is_raw) {
-        text = MMProcessor::unescape(text);
-    }
-    auto node = std::make_unique<StringLiteral>(std::move(text));
-    node->set_source(TokenInfo(kind, range, node->value()));
-    return node;
-}
-
 // --- Process ---
 
-AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes) {
-    AstNodeSequence result;
+TokenSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes) {
+    TokenSequence result;
     std::size_t i = 0;
 
     while (i < lexemes.size()) {
@@ -250,7 +169,7 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
                 ++j;
             }
 
-            result.push_back(make_concatenatable_node(kind, std::move(text), range));
+            result.push_back(make_concatenatable_token(kind, std::move(text), range));
             i = j;
             continue;
         }
@@ -258,7 +177,7 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
         if (lex.kind == ParserToken::Kind::MANGLED) {
             std::string text(lex.data(), lex.size());
             SourceRange range{lex.pos, lex.pos};
-            result.push_back(make_text_node<ParserToken::Kind::Ident>(std::move(text), range));
+            result.push_back(TokenInfo::make(ParserToken::Kind::Ident, std::move(text), range));
             ++i;
             continue;
         }
@@ -305,36 +224,26 @@ AstNodeSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes
             if (!has_main_part) {
                 std::string ns_text(lexemes[i].data(), lexemes[i].size());
                 SourceRange ns_range{lexemes[i].pos, lexemes[i].pos};
-                result.push_back(make_text_node<ParserToken::Kind::NAMESPACE>(std::move(ns_text), ns_range));
+                result.push_back(TokenInfo::make(ParserToken::Kind::NAMESPACE, std::move(ns_text), ns_range));
                 ++i;
                 continue;
             }
 
-            result.push_back(make_text_node<ParserToken::Kind::Ident>(std::move(text), range));
+            result.push_back(TokenInfo::make(ParserToken::Kind::Ident, std::move(text), range));
             i = j;
             continue;
+        }
+
+        // Regular tokens: just convert Lexeme to TokenInfo
+        if (!is_unimplemented_token(lex.kind) && !is_concatenatable_token(lex.kind) && lex.kind != ParserToken::Kind::MANGLED && !is_id_start(lex.kind) &&
+            !is_namespace(lex.kind)) {
+            result.push_back(TokenInfo::make(lex));
         }
 
         ++i;
     }
 
     return result;
-}
-
-// --- Parser helper functions (called from Bison grammar) ---
-
-AstNodePtr make_int_literal_node(int value, ParserToken::Kind kind, std::string text, SourceLoc loc) {
-    auto node = std::make_unique<IntLiteral>(value);
-    node->source = TokenInfo(kind, {loc, loc}, std::move(text));
-    node->loc = loc;
-    return node;
-}
-
-AstNodePtr make_string_literal_node(std::string text, ParserToken::Kind kind, SourceLoc loc) {
-    auto node = std::make_unique<StringLiteral>(std::move(text));
-    node->source = TokenInfo(kind, {loc, loc}, node->value());
-    node->loc = loc;
-    return node;
 }
 
 } // namespace trust

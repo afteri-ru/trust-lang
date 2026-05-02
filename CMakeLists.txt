@@ -1,31 +1,84 @@
+# ═══════════════════════════════════════════════════════════════════════
+#  Build System Rules
+# ═══════════════════════════════════════════════════════════════════════
+#
+#  1. Source file paths
+#     ┌ src/ files   →  ${PROJECT_SOURCE_DIR}/<component>/<file>.cpp
+#     │                  (PROJECT_SOURCE_DIR = ${CMAKE_SOURCE_DIR}/src)
+#     ├ non-src files →  ${CMAKE_SOURCE_DIR}/<path>/<file>.cpp
+#     │                  (tests/, contrib/, etc.)
+#     └ Generated     →  ${CMAKE_BINARY_DIR}/<path>/<file>.cpp
+#     NO relative paths with ".." in source file lists.
+#
+#  2. Header directories
+#     ┌ Project headers →  trust_include_dirs INTERFACE target
+#     │                    (adds ${PROJECT_INCLUDE_DIR} = include/)
+#     └ Component-local →  target_include_directories(<lib> PUBLIC/PRIVATE ...)
+#
+#  3. Libraries (static)
+#     name: <component>_lib
+#     type: STATIC
+#     visibility: PUBLIC propagates upstream, PRIVATE for impl details
+#
+#  4. Executables (tools)
+#     name: prefixed by purpose (trust_cli, stdlib, gencpp_from_ast, ...)
+#     CMAKE_RUNTIME_OUTPUT_DIRECTORY = ${CMAKE_BINARY_DIR} (all binaries flat).
+#
+#  5. Test categories
+#     ┌ unit/  — C++ unit tests (single executable: unit_tests)
+#     │           Sources under test/unit/, registered in test/unit/CMakeLists.txt.
+#     ├ lit/   — LIT integration tests (lit.cfg.py.in → lit.cfg.py)
+#     │           Sources under test/lit/, registered in test/lit/CMakeLists.txt.
+#     └ vscode/ — VSCode extension unit & integration tests
+#                 (run by jest/node, registered in test/vscode/CMakeLists.txt).
+#
+#  6. Debug executables (simple_integration / lldb_debuggee)
+#     ─ Declared locally in test/unit/debug/CMakeLists.txt.
+#     ─ Each gets a custom target `run_<name>` to invoke with correct args.
+#     ─ All `run_*` targets collected into `run_debug_tests` / `run_tests`.
+#     To run a single utility:  cmake --build . --target run_<name>
+#
+#  7. Generated files
+#     custom_command + custom_target + add_dependencies for ordering.
+#
+#  8. C++20 modules
+#     Separate PCM build via custom_command.
+#     target_trust_module() / target_runtime_module() to attach.
+#
+#  9. Component CMakeLists.txt
+#     Each component has exactly one CMakeLists.txt file, located
+#     at include/<component>/CMakeLists.txt. This file defines the static
+#     library and/or executables for the component. The src/<component>/
+#     directory contains only .cpp implementation files, but does not
+#     contain its own CMakeLists.txt file.
+#     This rule applies only to project COMPONENTS (include/*/). Test
+#     directories (test/*) are not components and may have their own
+#     CMakeLists.txt layout.
+#
+# 10. VSCode tasks.json
+#     The project root must always contain an up-to-date .vscode/tasks.json.
+#     Required tasks:
+#     - Project build (cmake: configure + build)
+#       Combine configure and build in a single command (generator: Unix Makefiles,
+#       build dir: build/).
+#     - All tests (test: all) — unit + lit + debug + vscode
+#     - Direct execution of unit_tests with shuffle and filter
+#     There may be more tasks, but these three tasks must be present.
+#
+# ═══════════════════════════════════════════════════════════════════════
+
 cmake_minimum_required(VERSION 3.28)
-
-# ── Version & git hash ──
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" PROJECT_VERSION_RAW)
-string(STRIP "${PROJECT_VERSION_RAW}" PROJECT_VERSION)
-
-string(REPLACE "." ";" VERSION_PARTS "${PROJECT_VERSION}")
-list(GET VERSION_PARTS 0 TRUST_VERSION_MAJOR)
-list(GET VERSION_PARTS 1 TRUST_VERSION_MINOR)
-list(GET VERSION_PARTS 2 TRUST_VERSION_PATCH)
-
-set(TRUST_VERSION "${PROJECT_VERSION}")
-
-execute_process(
-    COMMAND git rev-parse --short HEAD
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    OUTPUT_VARIABLE TRUST_GIT_HASH
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
-set(TRUST_VERSION_FULL "${TRUST_VERSION}-${TRUST_GIT_HASH}")
 
 # ── Compilers ──
 set(CLANG_VERSION 22)
 set(CMAKE_C_COMPILER clang-${CLANG_VERSION} CACHE FILEPATH "" FORCE)
 set(CMAKE_CXX_COMPILER clang++-${CLANG_VERSION} CACHE FILEPATH "" FORCE)
 
-project(transpiler LANGUAGES C CXX)
+project(trust-lang LANGUAGES C CXX)
+
+# ── Common paths ──
+set(PROJECT_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
+set(PROJECT_SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
 
 # ── Global settings ──
 set(CMAKE_CXX_STANDARD 23)
@@ -40,9 +93,6 @@ add_compile_options(-Wswitch -Werror)
 # ── Options ──
 option(WITH_TORCH "Enable libtorch support (builds libtensor_cpu.so)" OFF)
 
-# ── Common paths ──
-set(PROJECT_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
 if(WITH_TORCH)
     set(LIBTORCH_ROOT "${CMAKE_SOURCE_DIR}/contrib/libtorch")
     set(LIBTORCH_INCLUDE_DIRS
@@ -52,28 +102,13 @@ if(WITH_TORCH)
     set(LIBTORCH_LIB_DIRS ${LIBTORCH_ROOT}/lib)
 endif()
 
-# ── Required tools ──
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
-find_package(GTest REQUIRED)
-find_program(FLEX_EXECUTABLE flex REQUIRED)
-find_program(BISON_EXECUTABLE bison REQUIRED)
-find_program(LIT_EXECUTABLE NAMES lit REQUIRED)
+# ── Module path ──
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# ── Required libraries ──
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GMP REQUIRED gmp)
-
-find_package(nlohmann_json REQUIRED)
-
-# ── LLVM/Clang (for stdlib) ──
-list(APPEND CMAKE_PREFIX_PATH "/usr/lib/llvm-22/lib/cmake")
-find_package(LLVM REQUIRED CONFIG)
-find_package(Clang REQUIRED CONFIG)
-
-# ── GMP interface target ──
-add_library(gmp_interface INTERFACE)
-target_include_directories(gmp_interface INTERFACE ${GMP_INCLUDE_DIRS})
-target_link_libraries(gmp_interface INTERFACE ${GMP_LIBRARIES})
+# ── Modules ──
+include(version)
+include(dependencies)
+include(generate_files)
 
 # ── Configuration display ──
 message(STATUS "═══════════════════════════════════════════════════")
@@ -92,104 +127,51 @@ message(STATUS "  LLVM:         ${LLVM_VERSION}")
 message(STATUS "  Version:      ${TRUST_VERSION_FULL}")
 message(STATUS "═══════════════════════════════════════════════════")
 
-# ── Generate files ──
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/trust/version.h.in.cmake
-    ${CMAKE_BINARY_DIR}/include/trust/version.h
-    @ONLY
-)
-
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/cli/options.h.in
-    ${CMAKE_BINARY_DIR}/include/cli/options.h
-    @ONLY
-)
-add_custom_target(generate_options_h
-    DEPENDS "${CMAKE_BINARY_DIR}/include/cli/options.h"
-)
-
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests/lit.cfg.py.in
-    ${CMAKE_BINARY_DIR}/tests/lit.cfg.py
-    @ONLY
-)
-add_custom_target(generate_lit_cfg_py
-    DEPENDS "${CMAKE_BINARY_DIR}/tests/lit.cfg.py"
-)
-
-# ── LIT output symlinks ──
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/Output/gencpp/Output)
-file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/Output/cli/Output)
-file(CREATE_LINK
-    ${CMAKE_BINARY_DIR}/tests/Output/gencpp/Output
-    ${CMAKE_SOURCE_DIR}/tests/gencpp/Output
-    SYMBOLIC
-)
-file(CREATE_LINK
-    ${CMAKE_BINARY_DIR}/tests/Output/cli/Output
-    ${CMAKE_SOURCE_DIR}/tests/cli/Output
-    SYMBOLIC
-)
-file(CREATE_LINK
-    ${CMAKE_BINARY_DIR}/tests/lit.cfg.py
-    ${CMAKE_SOURCE_DIR}/tests/lit.cfg.py
-    SYMBOLIC
-)
-
 # ── Interface targets ──
 add_library(trust_include_dirs INTERFACE)
 target_include_directories(trust_include_dirs INTERFACE ${PROJECT_INCLUDE_DIR})
 
 # ── Subdirectories ──
 add_subdirectory(include/trust)
-add_subdirectory(include/dap)
 
 if(WITH_TORCH)
     add_subdirectory(include/precompiled)
 endif()
 
 add_subdirectory(include/diag)
+add_subdirectory(include/parser)
 add_subdirectory(include/stdlib)
 add_subdirectory(include/types)
-add_subdirectory(include/parser)
 add_subdirectory(include/gencpp)
 add_subdirectory(include/cli)
 add_dependencies(trust_cli generate_options_h)
 add_subdirectory(include/runtime)
+add_subdirectory(include/debug)
+add_subdirectory(include/lsp)
 add_subdirectory(include/vscode)
 
 # ── Unit tests ──
-add_subdirectory(unittest)
+add_subdirectory(test/unit)
 
-# ── LIT test targets ──
-if(WITH_TORCH)
-    set(TORCH_PCH_DEP torch_pch_target)
-else()
-    set(TORCH_PCH_DEP "")
-endif()
+# ── LIT tests ──
+add_subdirectory(test/lit)
 
-add_custom_target(run_lit_gencpp
-    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/tests/gencpp
-    DEPENDS gencpp_from_ast ${TORCH_PCH_DEP} generate_lit_cfg_py
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running LIT tests (gencpp)"
-    USES_TERMINAL
-)
+# ── Общие пути для тестовых данных ──
+# Определены здесь, чтобы быть доступными во всех test-поддиректориях
+set(TEST_DATA_DIR "${CMAKE_BINARY_DIR}/test_data" CACHE INTERNAL "Test data directory")
+set(TEST_SRC      "${CMAKE_SOURCE_DIR}/test/unit/debug/simple_example.src" CACHE INTERNAL "Trust source file")
+set(TEST_CPP      "${TEST_DATA_DIR}/.trust/simple_example.cpp" CACHE INTERNAL "Transpiled C++ file")
+set(TEST_MAP      "${TEST_DATA_DIR}/.trust/simple_example.map" CACHE INTERNAL "Source map file")
+set(TEST_BINARY   "${TEST_DATA_DIR}/simple_example" CACHE INTERNAL "Compiled ELF binary")
 
-add_custom_target(run_lit_cli
-    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/tests/cli
-    DEPENDS trust_cli generate_lit_cfg_py
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running LIT tests (cli)"
-    USES_TERMINAL
-)
+# ── Common test data (transpile + compile) ──
+add_subdirectory(test)
 
-add_custom_target(run_lit_tests
-    DEPENDS run_lit_gencpp run_lit_cli
-    COMMENT "Running all LIT tests"
-)
+# ── VSCode extension tests ──
+add_subdirectory(test/vscode)
 
+# ── Top-level test targets ──
 add_custom_target(run_tests
-    DEPENDS run_unit_tests run_lit_tests
-    COMMENT "Running all tests (unit + lit)"
+    DEPENDS run_unit_tests run_lit_tests run_debug_tests run_vscode_tests
+    COMMENT "Run all tests (unit + lit + debug + vscode)"
 )

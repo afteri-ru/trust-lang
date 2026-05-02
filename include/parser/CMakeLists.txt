@@ -1,7 +1,7 @@
 # include/parser/CMakeLists.txt
 # Parser library — unified token definitions and interfaces
 
-set(GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+set(GEN_DIR "${CMAKE_BINARY_DIR}/include/parser")
 
 # ── Flex: generate lexer from lexer.l ──
 set(LEXER_L "${CMAKE_CURRENT_SOURCE_DIR}/lexer.l")
@@ -72,14 +72,17 @@ add_custom_target(parser_generated ALL
 
 # ── Parser library ──
 add_library(parser_lib STATIC
-    ${PROJECT_SOURCE_DIR}/src/parser/mmproc.cpp
+    ${PROJECT_SOURCE_DIR}/parser/mmproc.cpp
+    ${PROJECT_SOURCE_DIR}/parser/naming.cpp
+    ${PROJECT_SOURCE_DIR}/parser/parser.cpp
     ${GEN_DIR}/lex.yy.cpp
     ${GEN_DIR}/parser.tab.cpp
 )
 target_link_libraries(parser_lib PUBLIC diag_lib)
 target_include_directories(parser_lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/..
-    ${CMAKE_CURRENT_BINARY_DIR}/..
+    ${PROJECT_INCLUDE_DIR}
+    ${CMAKE_BINARY_DIR}/include
+    ${CMAKE_CURRENT_BINARY_DIR}
 )
 add_dependencies(parser_lib parser_generated)
 

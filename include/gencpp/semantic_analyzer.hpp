@@ -1,5 +1,6 @@
 #pragma once
 
+#include "diag/location.hpp"
 #include "gencpp/ast.hpp"
 #include "gencpp/ast_visitor.hpp"
 #include "gencpp/symbol_table.hpp"
@@ -68,6 +69,6 @@ class SemanticAnalyzer : public AstVisitor {
 
     void dispatch_block(const BlockBody &body);
     void dispatch_block_item(const BlockItem &item);
-    void report_error(SourceLoc loc, const std::string &msg);
+    void report_error(SourceRange loc, const std::string &msg);
 };
 } // namespace trust

@@ -51,7 +51,7 @@ add_custom_target(runtime_pcm_target_all ALL DEPENDS ${RUNTIME_PCM_OBJ})
 
 # ── Library: runtime_lib (torch-independent, static) ──
 add_library(runtime_lib STATIC
-    ${PROJECT_SOURCE_DIR}/src/runtime/rational.cpp
+    ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
 )
 set_target_properties(runtime_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -60,7 +60,7 @@ target_link_libraries(runtime_lib PUBLIC types_lib gmp_interface trust_include_d
 # ── Library: tensor_cpu (torch-dependent, shared plugin) ──
 if(WITH_TORCH)
     add_library(tensor_cpu SHARED
-        ${PROJECT_SOURCE_DIR}/src/runtime/tensor.cpp
+        ${PROJECT_SOURCE_DIR}/runtime/tensor.cpp
     )
 
     target_include_directories(tensor_cpu PUBLIC
