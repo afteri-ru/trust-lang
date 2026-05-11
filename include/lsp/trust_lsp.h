@@ -3,7 +3,7 @@
 
 #include "lsp/lsp_protocol.h"
 #include "lsp/transpile.h"
-#include "debug/trust_source.h"
+#include "diag/context.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -16,48 +16,68 @@
 // ── Trust LSP Server ──
 // Хранит source map + сгенерированные C++ строки для одного файла
 struct CachedSource {
-    std::unique_ptr<const trust::TrustSource> sourceMap;
-    std::vector<std::string> cppLines;
+    std::unique_ptr<trust::Context> sourceMap;
+    std::string cppOutput;
+    std::string cppFilePath;          // полный путь к .cpp файлу на диске (если tempDir задан)
+    trust::ReaderFile trustReaderIdx; // input (trust) file index
+    trust::ReaderFile cppReaderIdx;   // output (cpp) file index
 };
 
 class TrustLsp {
   public:
-    explicit TrustLsp(LspTransport &transport, const LspOptions &opts);
+    explicit TrustLsp(trust::transport::Transport& transport, const LspOptions& opts);
     ~TrustLsp() = default;
 
-    void handleRequest(const nlohmann::json &req);
-    void handleNotification(const nlohmann::json &req);
+    void handleRequest(const nlohmann::json& req);
+    void handleNotification(const nlohmann::json& req);
     bool isRunning() const { return running_; }
 
   private:
     // LSP handlers
-    void handleInitialize(const nlohmann::json &req);
-    void handleShutdown(const nlohmann::json &req);
-    void handleDidOpen(const nlohmann::json &req);
-    void handleDidClose(const nlohmann::json &req);
-    void handleDidChange(const nlohmann::json &req);
-    void handleDefinition(const nlohmann::json &req);
-    void handleHover(const nlohmann::json &req);
-    void handleDocumentLink(const nlohmann::json &req);
+    void handleInitialize(const nlohmann::json& req);
+    void handleShutdown(const nlohmann::json& req);
+    void handleDidOpen(const nlohmann::json& req);
+    void handleDidClose(const nlohmann::json& req);
+    void handleDidChange(const nlohmann::json& req);
+    void handleDefinition(const nlohmann::json& req);
+    void handleHover(const nlohmann::json& req);
+    void handleDocumentLink(const nlohmann::json& req);
+    void handleDidChangeConfiguration(const nlohmann::json& req);
 
     // Транспиляция при открытии файла (in-process)
     // Возвращает пустую строку при успехе, текст ошибки при неудаче.
-    std::string transpileSourceFile(const std::string &trustFilePath);
+    std::string transpileSourceFile(const std::string& trustFilePath);
+
+    // Вспомогательные: читают читателя и FileIdx из кеша по пути
+    // Возвращают nullptr при ошибке
+    struct CachedReader {
+        const trust::SourceMapReader* reader;
+        trust::ReaderFile trustReaderIdx; // input (trust) file index
+        trust::ReaderFile cppReaderIdx;   // output (cpp) file index
+        bool isCppRequest;                // true — запрос из C++ файла (курсор в cpp)
+    };
+    CachedReader getCachedReader(const std::string& filePath, std::string& outError);
+
+    // Универсальный построитель содержимого ховера
+    // Строит Markdown-массив с базовым кодом + Markdown-ссылками на определения,
+    // используя getWordAt() для выделения имени под курсором и поиска в NameMap.
+    nlohmann::json buildHoverContents(const trust::SourceMapReader& reader, bool isCppRequest, const trust::SourceMapReader::Location& cursorLoc,
+                                      const std::string& hoverText, const std::string& hoverLang, const std::string& trustFilePath,
+                                      const std::string& cppFilePath);
 
     // Диагностика
-    void publishDiagnostics(const std::string &uri, const std::vector<std::pair<std::string, std::string>> &errors);
+    void publishDiagnostics(const std::string& uri);
 
-    // Helpers
-    bool loadSourceMap(const std::string &trustFilePath);
-    void log(const std::string &msg) const;
+    void log(const std::string& msg) const;
 
-    LspTransport &transport_;
+    trust::transport::Transport& transport_;
     LspOptions opts_;
 
     // Cache: URI → CachedSource (для DidOpen файлов)
     std::unordered_map<std::string, CachedSource> sourceCache_;
-    std::string currentTrustFile_;
-    const trust::TrustSource *source_ = nullptr;
+
+    // Reverse cache: cppFilePath → trustFilePath (для C++ → Trust навигации)
+    std::unordered_map<std::string, std::string> cppToTrustCache_;
 
     std::atomic<bool> running_{true};
 };

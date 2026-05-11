@@ -5,11 +5,11 @@
 using namespace trust;
 
 // Helper для conversion argv
-static CliParseResult parse_args(std::vector<const char *> args) {
-    std::vector<char *> argv;
+static CliParseResult parse_args(std::vector<const char*> args) {
+    std::vector<char*> argv;
     argv.reserve(args.size());
-    for (auto &a : args)
-        argv.push_back(const_cast<char *>(a));
+    for (auto& a : args)
+        argv.push_back(const_cast<char*>(a));
     return parse_cli_args(static_cast<int>(argv.size()), argv.data());
 }
 
@@ -102,7 +102,7 @@ TEST(CliParser, UnknownShort) {
     auto r = parse_args({"trust", "-x", "input.trust"});
     // -x не распознана — должна попасть в remaining_args
     bool found = false;
-    for (auto &a : r.remaining_args)
+    for (auto& a : r.remaining_args)
         if (a == "-x")
             found = true;
     EXPECT_TRUE(found);
@@ -117,7 +117,7 @@ TEST(CliParser, CombinedFlags) {
 TEST(CliParser, DiagOptionAsRemaining) {
     auto r = parse_args({"trust", "-Wunused-var", "input.trust"});
     bool found = false;
-    for (auto &a : r.remaining_args)
+    for (auto& a : r.remaining_args)
         if (a == "-Wunused-var")
             found = true;
     EXPECT_TRUE(found);

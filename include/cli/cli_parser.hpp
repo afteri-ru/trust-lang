@@ -58,7 +58,7 @@ struct CliParseResult {
 };
 
 // Распечатать usage
-void print_usage(const char *prog);
+void print_usage(const char* prog);
 
 // Распечатать версию
 void print_version();
@@ -68,13 +68,13 @@ void print_version();
 
 // Парсинг аргументов
 // Возвращает CliParseResult с распознанными CLI-опциями и оставшимися аргументами
-CliParseResult parse_cli_args(int argc, char *argv[]);
+CliParseResult parse_cli_args(int argc, char* argv[]);
 
 // Перегрузка для span
-CliParseResult parse_cli_args(std::span<char *> argv);
+CliParseResult parse_cli_args(std::span<char*> argv);
 
 // Встроенная справка: true если --help или --version
-inline bool is_special_exit(const CliParseResult &r) {
+inline bool is_special_exit(const CliParseResult& r) {
     return r.opts.help_requested || r.opts.version_requested || r.exit_code != 0;
 }
 

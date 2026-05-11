@@ -25,7 +25,7 @@ static constexpr std::array cpp_standards{
     LanguageVersion::CPP23,
 };
 
-int main(int argc, const char **argv) {
+int main(int argc, const char** argv) {
     if (argc != 2) {
         std::cerr << "Usage: stdlib <output-dir>\n";
         return 1;
@@ -55,7 +55,7 @@ int main(int argc, const char **argv) {
     bool any_error = false;
 
     for (LanguageVersion ver : cpp_standards) {
-        const char *std_name = language_version_string(ver);
+        const char* std_name = language_version_string(ver);
 
         std::vector<std::string> args = base_args;
         args.push_back(std::string("-std=") + std_name);
@@ -70,11 +70,11 @@ int main(int argc, const char **argv) {
         }
 
         // Фильтруем результаты по паттерну
-        for (const auto &pattern_entry : comparator.get_patterns()) {
-            const std::string &pattern = pattern_entry.first;
+        for (const auto& pattern_entry : comparator.get_patterns()) {
+            const std::string& pattern = pattern_entry.first;
             std::vector<MethodInfo> filtered;
 
-            for (const auto &info : results) {
+            for (const auto& info : results) {
                 if (ApiComparator::match_pattern(info.qualified_name) == pattern) {
                     filtered.push_back(info);
                 }

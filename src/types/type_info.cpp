@@ -37,7 +37,7 @@ std::type_index type_index_for(TypeKind k) {
     return std::type_index(typeid(void));
 }
 
-std::optional<TypeKind> kind_from_type_index(const std::type_index &ti) {
+std::optional<TypeKind> kind_from_type_index(const std::type_index& ti) {
 #define CHECK_TYPEINDEX(name, cpp_type)          \
     if (ti == std::type_index(typeid(cpp_type))) \
         return TypeKind::name;
@@ -59,7 +59,7 @@ std::optional<TypeKind> kind_from_type_index(const std::type_index &ti) {
 
 // --- TypeRequirementsRegistry ---
 
-TypeRequirementsRegistry &TypeRequirementsRegistry::instance() {
+TypeRequirementsRegistry& TypeRequirementsRegistry::instance() {
     static TypeRequirementsRegistry inst;
     static bool initialized = false;
     if (!initialized) {
@@ -76,7 +76,7 @@ void TypeRequirementsRegistry::init_builtins() {
 #undef INIT_BI
 }
 
-const TypeRequirements &TypeRequirementsRegistry::get(TypeKind kind) const {
+const TypeRequirements& TypeRequirementsRegistry::get(TypeKind kind) const {
     auto it = registry_.find(kind);
     if (it != registry_.end()) {
         return it->second;
@@ -90,12 +90,12 @@ void TypeRequirementsRegistry::register_type(TypeKind kind, TypeRequirements req
     registry_[kind] = std::move(req);
 }
 
-std::vector<std::string> TypeRequirementsRegistry::collect_headers(const std::vector<TypeKind> &used_kinds) const {
+std::vector<std::string> TypeRequirementsRegistry::collect_headers(const std::vector<TypeKind>& used_kinds) const {
     std::vector<std::string> result;
     for (auto kind : used_kinds) {
         auto it = registry_.find(kind);
         if (it != registry_.end()) {
-            for (const auto &hdr : it->second.headers) {
+            for (const auto& hdr : it->second.headers) {
                 if (std::find(result.begin(), result.end(), hdr) == result.end()) {
                     result.push_back(hdr);
                 }
@@ -105,12 +105,12 @@ std::vector<std::string> TypeRequirementsRegistry::collect_headers(const std::ve
     return result;
 }
 
-std::vector<std::string> TypeRequirementsRegistry::collect_link_libs(const std::vector<TypeKind> &used_kinds) const {
+std::vector<std::string> TypeRequirementsRegistry::collect_link_libs(const std::vector<TypeKind>& used_kinds) const {
     std::vector<std::string> result;
     for (auto kind : used_kinds) {
         auto it = registry_.find(kind);
         if (it != registry_.end()) {
-            for (const auto &lib : it->second.link_libs) {
+            for (const auto& lib : it->second.link_libs) {
                 if (std::find(result.begin(), result.end(), lib) == result.end()) {
                     result.push_back(lib);
                 }
@@ -152,7 +152,7 @@ bool TypeInfo::is_user() const {
     return kind == TypeKind::UserType;
 }
 
-TypeInfo TypeInfo::parse(const std::string &s) {
+TypeInfo TypeInfo::parse(const std::string& s) {
     if (auto k = kind_from_string(s))
         return TypeInfo::builtin(*k);
     return TypeInfo::user(s);
@@ -175,15 +175,15 @@ std::string TypeInfo::to_cpp() const {
     return "auto";
 }
 
-bool TypeInfo::operator==(const TypeInfo &other) const {
+bool TypeInfo::operator==(const TypeInfo& other) const {
     return kind == other.kind && user_type_name == other.user_type_name;
 }
 
-bool TypeInfo::operator!=(const TypeInfo &other) const {
+bool TypeInfo::operator!=(const TypeInfo& other) const {
     return !(*this == other);
 }
 
-const TypeRequirements &TypeInfo::requirements() const {
+const TypeRequirements& TypeInfo::requirements() const {
     return TypeRequirementsRegistry::instance().get(kind);
 }
 

@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
 
 #ifdef BUILD_USING_MODULE
-    const char *build_mode = " as module";
+    const char* build_mode = " as module";
 #else
-    const char *build_mode = "";
+    const char* build_mode = "";
 #endif
     printf("Running main()%s from %s\n", build_mode, __FILE__);
     testing::InitGoogleTest(&argc, argv);

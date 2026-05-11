@@ -6,6 +6,7 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "diag/location.hpp"
 
@@ -19,10 +20,17 @@ enum class Severity : int {
     Fatal,
 };
 
+// ── Структура для хранения одной диагностики ──
+struct DiagnosticEntry {
+    MapperRange range;
+    Severity severity;
+    std::string message;
+};
+
 class Context;
 
 class DiagnosticEngine {
-public:
+  public:
     DiagnosticEngine() = default;
     virtual ~DiagnosticEngine() = default;
     DiagnosticEngine(const DiagnosticEngine&) = delete;
@@ -33,35 +41,37 @@ public:
     void setMinSeverity(Severity sev);
     Severity minSeverity() const;
 
-    // Вывод диагностики. Три перегрузки: строка, точка (SourceLoc), диапазон (SourceRange).
-    void report(SourceRange range, Severity sev, std::string_view msg);
+    // Вывод диагностики. Три перегрузки: строка, точка (MapperLocation), диапазон (MapperRange).
+    void report(MapperRange range, Severity sev, std::string_view msg);
 
     template <typename... Args>
-    void report(SourceLoc loc, Severity sev,
-                std::format_string<Args...> fmt, Args&&... args) {
-        report(SourceRange{loc, loc}, sev, std::format(fmt, std::forward<Args>(args)...));
+    void report(MapperLocation loc, Severity sev, std::format_string<Args...> fmt, Args&&... args) {
+        report(MapperRange{loc, loc}, sev, std::format(fmt, std::forward<Args>(args)...));
     }
 
     template <typename... Args>
-    void report(SourceRange range, Severity sev,
-                std::format_string<Args...> fmt, Args&&... args) {
+    void report(MapperRange range, Severity sev, std::format_string<Args...> fmt, Args&&... args) {
         report(range, sev, std::format(fmt, std::forward<Args>(args)...));
     }
 
     int errorCount() const;
     int warningCount() const;
 
+    // Доступ к накопленным диагностикам
+    const std::vector<DiagnosticEntry>& diagnostics() const { return m_diagnostics; }
+
     void setOutput(std::ostream* os);
     void clear();
 
-private:
-    void output(SourceRange range, Severity sev, std::string_view msg);
+  private:
+    void output(MapperRange range, Severity sev, std::string_view msg);
 
     Severity m_minSeverity = Severity::Remark;
     int m_errorCount = 0;
     int m_warningCount = 0;
     std::ostream* m_output = nullptr;
     const Context* m_ctx = nullptr;
+    std::vector<DiagnosticEntry> m_diagnostics; // накопленные диагностики
 };
 
 } // namespace trust

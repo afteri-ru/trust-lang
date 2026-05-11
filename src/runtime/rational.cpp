@@ -35,19 +35,19 @@ struct BigNum {
         SetFromString(str);
     }
 
-    BigNum(const BigNum &other) { mpz_init_set(value, other.value); }
+    BigNum(const BigNum& other) { mpz_init_set(value, other.value); }
 
-    BigNum(BigNum &&other) noexcept {
+    BigNum(BigNum&& other) noexcept {
         mpz_init(value);
         mpz_swap(value, other.value);
     }
 
-    BigNum &operator=(BigNum other) noexcept {
+    BigNum& operator=(BigNum other) noexcept {
         mpz_swap(value, other.value);
         return *this;
     }
 
-    BigNum &operator=(int64_t var) noexcept {
+    BigNum& operator=(int64_t var) noexcept {
         mpz_set_si(value, var);
         return *this;
     }
@@ -62,28 +62,28 @@ struct BigNum {
     double GetAsNumber() const noexcept { return mpz_get_d(value); }
 
     std::string GetAsString() const {
-        char *ptr = mpz_get_str(nullptr, 10, value);
+        char* ptr = mpz_get_str(nullptr, 10, value);
         std::string result(ptr);
         std::free(ptr);
         return result;
     }
 
-    BigNum &add(const BigNum &val) noexcept {
+    BigNum& add(const BigNum& val) noexcept {
         mpz_add(value, value, val.value);
         return *this;
     }
 
-    BigNum &sub(const BigNum &val) noexcept {
+    BigNum& sub(const BigNum& val) noexcept {
         mpz_sub(value, value, val.value);
         return *this;
     }
 
-    BigNum &mul(const BigNum &val) noexcept {
+    BigNum& mul(const BigNum& val) noexcept {
         mpz_mul(value, value, val.value);
         return *this;
     }
 
-    BigNum &div(const BigNum &val, BigNum &rem) noexcept {
+    BigNum& div(const BigNum& val, BigNum& rem) noexcept {
         mpz_fdiv_qr(value, rem.value, value, val.value);
         return *this;
     }
@@ -118,32 +118,40 @@ class Rational::Impl {
     BigNum m_numerator;
     BigNum m_denominator;
 
-    Impl() noexcept : m_numerator(0), m_denominator(1) {}
-    explicit Impl(int64_t value) noexcept : m_numerator(value), m_denominator(1) {}
+    Impl() noexcept
+    : m_numerator(0)
+    , m_denominator(1) {}
+    explicit Impl(int64_t value) noexcept
+    : m_numerator(value)
+    , m_denominator(1) {}
 };
 
 // ============================================================================
 // Rational implementation
 // ============================================================================
 
-Rational::Rational() noexcept : m_pimpl(std::make_unique<Impl>()) {
+Rational::Rational() noexcept
+: m_pimpl(std::make_unique<Impl>()) {
 }
 
-Rational::Rational(int64_t value) noexcept : m_pimpl(std::make_unique<Impl>(value)) {
+Rational::Rational(int64_t value) noexcept
+: m_pimpl(std::make_unique<Impl>(value)) {
 }
 
-Rational::Rational(std::string_view numerator, std::string_view denominator) : m_pimpl(std::make_unique<Impl>()) {
+Rational::Rational(std::string_view numerator, std::string_view denominator)
+: m_pimpl(std::make_unique<Impl>()) {
     set_(numerator, denominator);
 }
 
-Rational::Rational(const Rational &other) noexcept : m_pimpl(std::make_unique<Impl>()) {
+Rational::Rational(const Rational& other) noexcept
+: m_pimpl(std::make_unique<Impl>()) {
     m_pimpl->m_numerator = other.m_pimpl->m_numerator;
     m_pimpl->m_denominator = other.m_pimpl->m_denominator;
 }
 
-Rational::Rational(Rational &&other) noexcept = default;
+Rational::Rational(Rational&& other) noexcept = default;
 
-Rational &Rational::operator=(Rational other) noexcept {
+Rational& Rational::operator=(Rational other) noexcept {
     m_pimpl = std::move(other.m_pimpl);
     return *this;
 }
@@ -190,19 +198,19 @@ void Rational::reduce() noexcept {
     }
 }
 
-Rational &Rational::set_(int64_t value) noexcept {
+Rational& Rational::set_(int64_t value) noexcept {
     m_pimpl->m_numerator = BigNum(value);
     m_pimpl->m_denominator.SetOne();
     return *this;
 }
 
-Rational &Rational::set_(const Rational &copy) noexcept {
+Rational& Rational::set_(const Rational& copy) noexcept {
     m_pimpl->m_numerator = copy.m_pimpl->m_numerator;
     m_pimpl->m_denominator = copy.m_pimpl->m_denominator;
     return *this;
 }
 
-Rational &Rational::set_(std::string_view numerator, std::string_view denominator) {
+Rational& Rational::set_(std::string_view numerator, std::string_view denominator) {
     m_pimpl->m_numerator.SetFromString(numerator);
     m_pimpl->m_denominator.SetFromString(denominator);
     if (m_pimpl->m_denominator.isZero()) {
@@ -238,7 +246,7 @@ Rational Rational::reciprocal() const {
     return result;
 }
 
-Rational Rational::abs(const Rational &r) noexcept {
+Rational Rational::abs(const Rational& r) noexcept {
     if (r.m_pimpl->m_numerator.isNegative()) {
         Rational result;
         mpz_neg(result.m_pimpl->m_numerator.value, r.m_pimpl->m_numerator.value);
@@ -248,7 +256,7 @@ Rational Rational::abs(const Rational &r) noexcept {
     return r;
 }
 
-Rational &Rational::operator*=(const Rational &rhs) noexcept {
+Rational& Rational::operator*=(const Rational& rhs) noexcept {
     m_pimpl->m_numerator.mul(rhs.m_pimpl->m_numerator);
     m_pimpl->m_denominator.mul(rhs.m_pimpl->m_denominator);
     NormalizeSign();
@@ -256,7 +264,7 @@ Rational &Rational::operator*=(const Rational &rhs) noexcept {
     return *this;
 }
 
-Rational &Rational::operator/=(const Rational &rhs) {
+Rational& Rational::operator/=(const Rational& rhs) {
     if (rhs.m_pimpl->m_numerator.isZero()) {
         throw std::runtime_error("Division by zero");
     }
@@ -269,7 +277,7 @@ Rational &Rational::operator/=(const Rational &rhs) {
     return *this;
 }
 
-Rational &Rational::operator+=(const Rational &rhs) noexcept {
+Rational& Rational::operator+=(const Rational& rhs) noexcept {
     BigNum add_num(rhs.m_pimpl->m_numerator);
     add_num.mul(m_pimpl->m_denominator);
     m_pimpl->m_numerator.mul(rhs.m_pimpl->m_denominator);
@@ -280,7 +288,7 @@ Rational &Rational::operator+=(const Rational &rhs) noexcept {
     return *this;
 }
 
-Rational &Rational::operator-=(const Rational &rhs) noexcept {
+Rational& Rational::operator-=(const Rational& rhs) noexcept {
     BigNum sub_num(rhs.m_pimpl->m_numerator);
     sub_num.mul(m_pimpl->m_denominator);
     m_pimpl->m_numerator.mul(rhs.m_pimpl->m_denominator);
@@ -291,11 +299,11 @@ Rational &Rational::operator-=(const Rational &rhs) noexcept {
     return *this;
 }
 
-bool Rational::op_equal(const Rational &rhs) const noexcept {
+bool Rational::op_equal(const Rational& rhs) const noexcept {
     return op_compare(rhs) == 0;
 }
 
-int Rational::op_compare(const Rational &rhs) const noexcept {
+int Rational::op_compare(const Rational& rhs) const noexcept {
     BigNum left, right;
     mpz_mul(left.value, m_pimpl->m_numerator.value, rhs.m_pimpl->m_denominator.value);
     mpz_mul(right.value, rhs.m_pimpl->m_numerator.value, m_pimpl->m_denominator.value);
@@ -306,51 +314,51 @@ int Rational::op_compare(const Rational &rhs) const noexcept {
 // Free-standing operators
 // ============================================================================
 
-bool operator==(const Rational &lhs, const Rational &rhs) noexcept {
+bool operator==(const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.op_equal(rhs);
 }
 
-bool operator!=(const Rational &lhs, const Rational &rhs) noexcept {
+bool operator!=(const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.op_compare(rhs) != 0;
 }
 
-bool operator<(const Rational &lhs, const Rational &rhs) noexcept {
+bool operator<(const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.op_compare(rhs) < 0;
 }
 
-bool operator<=(const Rational &lhs, const Rational &rhs) noexcept {
+bool operator<=(const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.op_compare(rhs) <= 0;
 }
 
-bool operator>(const Rational &lhs, const Rational &rhs) noexcept {
+bool operator>(const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.op_compare(rhs) > 0;
 }
 
-bool operator>=(const Rational &lhs, const Rational &rhs) noexcept {
+bool operator>=(const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.op_compare(rhs) >= 0;
 }
 
-Rational operator+(Rational lhs, const Rational &rhs) noexcept {
+Rational operator+(Rational lhs, const Rational& rhs) noexcept {
     return lhs += rhs;
 }
 
-Rational operator-(Rational lhs, const Rational &rhs) noexcept {
+Rational operator-(Rational lhs, const Rational& rhs) noexcept {
     return lhs -= rhs;
 }
 
-Rational operator*(Rational lhs, const Rational &rhs) noexcept {
+Rational operator*(Rational lhs, const Rational& rhs) noexcept {
     return lhs *= rhs;
 }
 
-Rational operator/(Rational lhs, const Rational &rhs) {
+Rational operator/(Rational lhs, const Rational& rhs) {
     return lhs /= rhs;
 }
 
-Rational operator+(const Rational &r) noexcept {
+Rational operator+(const Rational& r) noexcept {
     return r;
 }
 
-Rational operator-(const Rational &r) noexcept {
+Rational operator-(const Rational& r) noexcept {
     Rational result;
     result.set_(r);
     mpz_neg(result.m_pimpl->m_numerator.value, result.m_pimpl->m_numerator.value);

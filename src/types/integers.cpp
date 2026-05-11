@@ -29,22 +29,22 @@ bool Integers::would_overflow_to(TypeKind t) const {
         return true;
     }
 
-    const auto &[lo, hi] = kIntegerLimits[idx];
+    const auto& [lo, hi] = kIntegerLimits[idx];
     return value_ < lo || value_ > hi;
 }
 
-Value &Integers::convert_to(TypeKind t, Value &dest) const {
+Value& Integers::convert_to(TypeKind t, Value& dest) const {
     auto cat = KindOps::category_of(t);
     if (cat == Category::Integers) {
         if (would_overflow_to(t))
             throw std::overflow_error("overflow");
         if (dest.kind() == t)
-            static_cast<Integers &>(dest) = Integers{value_, t};
+            static_cast<Integers&>(dest) = Integers{value_, t};
         return dest;
     }
     if (cat == Category::Numbers) {
         if (dest.kind() == t)
-            static_cast<Float &>(dest) = Float{static_cast<double>(value_), t};
+            static_cast<Float&>(dest) = Float{static_cast<double>(value_), t};
         return dest;
     }
     // if (cat == Category::Complex) {
@@ -55,7 +55,7 @@ Value &Integers::convert_to(TypeKind t, Value &dest) const {
     throw std::invalid_argument("cannot convert");
 }
 
-void Integers::_register(Types &t) {
+void Integers::_register(Types& t) {
     // Common type for all integer values
     t.add(TypeInfo(TypeKind::Integers, "int64_t"));
 

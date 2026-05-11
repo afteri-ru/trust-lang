@@ -1,14 +1,45 @@
 ---
-Language:        Cpp
+Language:       Cpp
+BasedOnStyle:   LLVM
 
-ColumnLimit:     160
-IndentWidth:     4
-TabWidth:        4
-UseTab:          Never
-IncludeBlocks: Preserve
-SortIncludes: Never
+ColumnLimit:    160
+IndentWidth:    4
+TabWidth:       4
+UseTab:         Never
+IncludeBlocks:  Preserve
+SortIncludes:   Never
 IndentPPDirectives: None
 
+# ── Braces (Attach: opening on same line) ──
+BreakBeforeBraces: Attach
 AllowShortFunctionsOnASingleLine:  InlineOnly
-AlwaysBreakTemplateDeclarations: Yes
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations:    Yes
 AlignEscapedNewlines: Left
+
+# ── Spacing ──
+SpaceBeforeParens: ControlStatements
+SpaceAfterTemplateKeyword: true
+SpacesInAngles: Never
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# ── Initializer lists ──
+ConstructorInitializerAllOnOneLineOrOnePerLine: false
+ConstructorInitializerIndentWidth: 0
+BreakConstructorInitializersBeforeComma: true
+BreakConstructorInitializers: BeforeColon
+
+# ── Comments ──
+AlignTrailingComments: true
+
+# ── Namespaces ──
+FixNamespaceComments: true
+NamespaceIndentation: None
+
+# ── Empty lines ──
+MaxEmptyLinesToKeep: 1
+
+# ── Standard ──
+Standard: c++20

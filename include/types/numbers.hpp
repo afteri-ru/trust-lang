@@ -14,8 +14,12 @@ class Complex;
 
 class Float : public ValueBase<Float, TypeKind::Float64> {
   public:
-    Float() : value_(0.0), real_kind_(TypeKind::Float64) {}
-    Float(double v, TypeKind real) : value_(v), real_kind_(real) {}
+    Float()
+    : value_(0.0)
+    , real_kind_(TypeKind::Float64) {}
+    Float(double v, TypeKind real)
+    : value_(v)
+    , real_kind_(real) {}
 
     TypeKind kind() const override { return real_kind_; }
     double get() const { return value_; }
@@ -25,10 +29,10 @@ class Float : public ValueBase<Float, TypeKind::Float64> {
     bool would_overflow_to(TypeKind t) const;
     bool would_overflow_to_int(TypeKind t) const;
 
-    Value &convert_to(TypeKind t, Value &dest) const override;
+    Value& convert_to(TypeKind t, Value& dest) const override;
 
     std::string to_string(bool with_type_info) const override { return format_label(with_type_info, value_name(real_kind_), std::to_string(value_)); }
-    static void _register(Types &t);
+    static void _register(Types& t);
 
   private:
     double value_;

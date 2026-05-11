@@ -5,29 +5,29 @@
 
 using namespace trust;
 
-void SemanticAnalyzer::analyze(const Program *program) {
+void SemanticAnalyzer::analyze(const Program* program) {
     if (!program)
         return;
 
     // --- Pass 1: Collect top-level declarations ---
-    for (const auto &item : program->items) {
+    for (const auto& item : program->items) {
         switch (item->token_kind()) {
         case ParserToken::Kind::FuncDecl: {
-            auto *fd = static_cast<const FuncDecl *>(item.get());
+            auto* fd = static_cast<const FuncDecl*>(item.get());
             FuncSignature sig{fd->return_type, {}};
-            for (const auto &p : fd->params) {
+            for (const auto& p : fd->params) {
                 sig.param_types.push_back(p->param_type);
             }
             sym_table_.declare_function(fd->name, sig);
             break;
         }
         case ParserToken::Kind::EnumDecl: {
-            auto *ed = static_cast<const EnumDecl *>(item.get());
+            auto* ed = static_cast<const EnumDecl*>(item.get());
             (void)ed;
             break;
         }
         case ParserToken::Kind::StructDecl: {
-            auto *sd = static_cast<const StructDecl *>(item.get());
+            auto* sd = static_cast<const StructDecl*>(item.get());
             (void)sd;
             break;
         }
@@ -37,18 +37,18 @@ void SemanticAnalyzer::analyze(const Program *program) {
     }
 
     // --- Pass 2: Visit all items (resolve expression types) ---
-    for (const auto &item : program->items) {
+    for (const auto& item : program->items) {
         item->accept(this);
     }
 }
 
-void SemanticAnalyzer::dispatch_block(const BlockBody &body) {
-    for (const auto &item : body) {
+void SemanticAnalyzer::dispatch_block(const BlockBody& body) {
+    for (const auto& item : body) {
         dispatch_block_item(item);
     }
 }
 
-void SemanticAnalyzer::dispatch_block_item(const BlockItem &item) {
+void SemanticAnalyzer::dispatch_block_item(const BlockItem& item) {
     if (!item)
         return;
     item->accept(this);
@@ -56,18 +56,18 @@ void SemanticAnalyzer::dispatch_block_item(const BlockItem &item) {
 
 // --- Visit implementations ---
 
-void SemanticAnalyzer::visit(const Program *node) {
-    for (const auto &item : node->items) {
+void SemanticAnalyzer::visit(const Program* node) {
+    for (const auto& item : node->items) {
         item->accept(this);
     }
 }
 
-void SemanticAnalyzer::visit(const FuncDecl *node) {
+void SemanticAnalyzer::visit(const FuncDecl* node) {
     // Enter new scope for function body
     sym_table_.push_scope();
 
     // Declare parameters in local scope
-    for (const auto &p : node->params) {
+    for (const auto& p : node->params) {
         sym_table_.declare_var(p->name, p->param_type);
     }
 
@@ -80,11 +80,11 @@ void SemanticAnalyzer::visit(const FuncDecl *node) {
     sym_table_.pop_scope();
 }
 
-void SemanticAnalyzer::visit(const ParamDecl *node) {
+void SemanticAnalyzer::visit(const ParamDecl* node) {
     (void)node; // Parameters handled in FuncDecl visit
 }
 
-void SemanticAnalyzer::visit(const VarDecl *node) {
+void SemanticAnalyzer::visit(const VarDecl* node) {
     TypeInfo resolved_type;
 
     if (node->needs_type_inference() && node->init) {
@@ -94,7 +94,7 @@ void SemanticAnalyzer::visit(const VarDecl *node) {
         if (init_type.has_value()) {
             resolved_type = init_type.value();
             // Patch the AST node with inferred type for code generation
-            const_cast<VarDecl *>(node)->var_type = resolved_type;
+            const_cast<VarDecl*>(node)->var_type = resolved_type;
         } else {
             // Could not determine type of initializer — report error
             report_error(node->source->range, "Cannot infer type for variable '" + node->name + "' from initializer expression");
@@ -112,7 +112,7 @@ void SemanticAnalyzer::visit(const VarDecl *node) {
     sym_table_.declare_var(node->name, resolved_type);
 }
 
-void SemanticAnalyzer::visit(const AssignmentStmt *node) {
+void SemanticAnalyzer::visit(const AssignmentStmt* node) {
     // Visit value first to resolve its type
     if (node->value) {
         node->value->accept(this);
@@ -125,7 +125,7 @@ void SemanticAnalyzer::visit(const AssignmentStmt *node) {
 
     // Type checking for simple variable assignment
     if (node->target) {
-        if (auto *var_ref = node->target->as<VarRef>()) {
+        if (auto* var_ref = node->target->as<VarRef>()) {
             auto expr_type = type_res_.get_type(node->value.get());
             if (!expr_type.has_value()) {
                 report_error(node->source->range, "Cannot determine type of assignment value");
@@ -139,22 +139,22 @@ void SemanticAnalyzer::visit(const AssignmentStmt *node) {
     }
 }
 
-void SemanticAnalyzer::visit(const ReturnStmt *node) {
+void SemanticAnalyzer::visit(const ReturnStmt* node) {
     if (node->value) {
         node->value->accept(this);
     }
     // ReturnStmt is not an Expr, so we don't store its type in TypeResolution
 }
 
-void SemanticAnalyzer::visit(const CallExpr *node) {
+void SemanticAnalyzer::visit(const CallExpr* node) {
     // Visit arguments
-    for (const auto &arg : node->args) {
+    for (const auto& arg : node->args) {
         if (arg)
             arg->accept(this);
     }
 
     // Resolve function return type from SymbolTable
-    if (const FuncSignature *sig = sym_table_.lookup_function(node->name)) {
+    if (const FuncSignature* sig = sym_table_.lookup_function(node->name)) {
         type_res_.set_type(node, sig->return_type);
     } else {
         // Unknown function — could be a builtin like print
@@ -167,13 +167,13 @@ void SemanticAnalyzer::visit(const CallExpr *node) {
     }
 }
 
-void SemanticAnalyzer::visit(const ExprStmt *node) {
+void SemanticAnalyzer::visit(const ExprStmt* node) {
     if (node->expr) {
         node->expr->accept(this);
     }
 }
 
-void SemanticAnalyzer::visit(const IfStmt *node) {
+void SemanticAnalyzer::visit(const IfStmt* node) {
     if (node->condition) {
         node->condition->accept(this);
         type_res_.set_type(node->condition.get(), make_builtin_type(TypeKind::Bool));
@@ -193,7 +193,7 @@ void SemanticAnalyzer::visit(const IfStmt *node) {
     }
 }
 
-void SemanticAnalyzer::visit(const WhileStmt *node) {
+void SemanticAnalyzer::visit(const WhileStmt* node) {
     if (node->condition) {
         node->condition->accept(this);
     }
@@ -209,7 +209,7 @@ void SemanticAnalyzer::visit(const WhileStmt *node) {
     }
 }
 
-void SemanticAnalyzer::visit(const DoWhileStmt *node) {
+void SemanticAnalyzer::visit(const DoWhileStmt* node) {
     sym_table_.push_scope();
     dispatch_block(node->body);
     sym_table_.pop_scope();
@@ -219,25 +219,25 @@ void SemanticAnalyzer::visit(const DoWhileStmt *node) {
     }
 }
 
-void SemanticAnalyzer::visit(const WhileElseBlock *node) {
+void SemanticAnalyzer::visit(const WhileElseBlock* node) {
     sym_table_.push_scope();
     dispatch_block(node->body);
     sym_table_.pop_scope();
 }
 
-void SemanticAnalyzer::visit(const BreakStmt *node) {
+void SemanticAnalyzer::visit(const BreakStmt* node) {
     (void)node;
     // Break is valid anywhere a loop or switch could be
     // Contextual validation happens during codegen
 }
 
-void SemanticAnalyzer::visit(const ContinueStmt *node) {
+void SemanticAnalyzer::visit(const ContinueStmt* node) {
     (void)node;
     // Continue is valid only within loops
     // Contextual validation happens during codegen
 }
 
-void SemanticAnalyzer::visit(const TryCatchStmt *node) {
+void SemanticAnalyzer::visit(const TryCatchStmt* node) {
     sym_table_.push_scope();
     dispatch_block(node->try_body);
     sym_table_.pop_scope();
@@ -251,42 +251,42 @@ void SemanticAnalyzer::visit(const TryCatchStmt *node) {
     }
 }
 
-void SemanticAnalyzer::visit(const CatchBlock *node) {
+void SemanticAnalyzer::visit(const CatchBlock* node) {
     // Block-level dispatch handled in TryCatchStmt
     (void)node;
 }
 
-void SemanticAnalyzer::visit(const ThrowStmt *node) {
+void SemanticAnalyzer::visit(const ThrowStmt* node) {
     if (node->value) {
         node->value->accept(this);
     }
 }
 
-void SemanticAnalyzer::visit(const MatchingStmt *node) {
+void SemanticAnalyzer::visit(const MatchingStmt* node) {
     if (node->expression) {
         node->expression->accept(this);
     }
 
-    for (const auto &c : node->cases) {
+    for (const auto& c : node->cases) {
         if (c)
             c->accept(this);
     }
 
-    for (const auto &item : node->else_body) {
+    for (const auto& item : node->else_body) {
         dispatch_block_item(item);
     }
 }
 
-void SemanticAnalyzer::visit(const MatchingCase *node) {
+void SemanticAnalyzer::visit(const MatchingCase* node) {
     if (node->pattern) {
         node->pattern->accept(this);
     }
-    for (const auto &item : node->body) {
+    for (const auto& item : node->body) {
         dispatch_block_item(item);
     }
 }
 
-void SemanticAnalyzer::visit(const VarRef *node) {
+void SemanticAnalyzer::visit(const VarRef* node) {
     // Resolve type from SymbolTable — report error if unknown
     auto result = sym_table_.lookup_var(node->name, node->source->range);
     if (result.id == TypeKind::Void) {
@@ -297,15 +297,15 @@ void SemanticAnalyzer::visit(const VarRef *node) {
     type_res_.set_type(node, result);
 }
 
-void SemanticAnalyzer::visit(const IntLiteral *node) {
+void SemanticAnalyzer::visit(const IntLiteral* node) {
     type_res_.set_type(node, make_builtin_type(TypeKind::Int32));
 }
 
-void SemanticAnalyzer::visit(const StringLiteral *node) {
+void SemanticAnalyzer::visit(const StringLiteral* node) {
     type_res_.set_type(node, make_builtin_type(TypeKind::StrChar));
 }
 
-void SemanticAnalyzer::visit(const BinaryOp *node) {
+void SemanticAnalyzer::visit(const BinaryOp* node) {
     // Visit operands first
     if (node->left)
         node->left->accept(this);
@@ -341,45 +341,45 @@ void SemanticAnalyzer::visit(const BinaryOp *node) {
     type_res_.set_type(node, result_type);
 }
 
-void SemanticAnalyzer::visit(const BlockStmt *node) {
+void SemanticAnalyzer::visit(const BlockStmt* node) {
     sym_table_.push_scope();
     dispatch_block(node->body);
     sym_table_.pop_scope();
 }
 
-void SemanticAnalyzer::visit(const EnumDecl *node) {
+void SemanticAnalyzer::visit(const EnumDecl* node) {
     // Enum types are resolved as UserType by name
     (void)node;
 }
 
-void SemanticAnalyzer::visit(const EnumMember *node) {
+void SemanticAnalyzer::visit(const EnumMember* node) {
     (void)node;
 }
 
-void SemanticAnalyzer::visit(const StructDecl *node) {
+void SemanticAnalyzer::visit(const StructDecl* node) {
     // Struct types are resolved as UserType by name
-    for (const auto &field : node->fields) {
+    for (const auto& field : node->fields) {
         // Visit default init expression if any
         if (field->init) {
             field->init->accept(this);
         }
     }
     // Visit methods
-    for (const auto &method : node->methods) {
+    for (const auto& method : node->methods) {
         method->accept(this);
     }
 }
 
-void SemanticAnalyzer::visit(const StructField *node) {
+void SemanticAnalyzer::visit(const StructField* node) {
     (void)node; // Fields handled in StructDecl
 }
 
-void SemanticAnalyzer::visit(const EnumLiteral *node) {
+void SemanticAnalyzer::visit(const EnumLiteral* node) {
     // Type is the enum type looked up in Types registry
     type_res_.set_type(node, Types::instance().get(Types::instance().find(node->enum_name)));
 }
 
-void SemanticAnalyzer::visit(const MemberAccess *node) {
+void SemanticAnalyzer::visit(const MemberAccess* node) {
     if (node->object) {
         node->object->accept(this);
     }
@@ -388,7 +388,7 @@ void SemanticAnalyzer::visit(const MemberAccess *node) {
     type_res_.set_type(node, make_builtin_type(TypeKind::Int32));
 }
 
-void SemanticAnalyzer::visit(const ArrayAccess *node) {
+void SemanticAnalyzer::visit(const ArrayAccess* node) {
     if (node->array)
         node->array->accept(this);
     if (node->index)
@@ -398,9 +398,9 @@ void SemanticAnalyzer::visit(const ArrayAccess *node) {
     type_res_.set_type(node, make_builtin_type(TypeKind::Int32));
 }
 
-void SemanticAnalyzer::visit(const ArrayInit *node) {
+void SemanticAnalyzer::visit(const ArrayInit* node) {
     // Visit elements
-    for (const auto &elem : node->elements) {
+    for (const auto& elem : node->elements) {
         if (elem)
             elem->accept(this);
     }
@@ -408,14 +408,14 @@ void SemanticAnalyzer::visit(const ArrayInit *node) {
     type_res_.set_type(node, make_builtin_type(TypeKind::Int32));
 }
 
-void SemanticAnalyzer::visit(const CastExpr *node) {
+void SemanticAnalyzer::visit(const CastExpr* node) {
     if (node->expr) {
         node->expr->accept(this);
     }
     type_res_.set_type(node, node->target_type);
 }
 
-void SemanticAnalyzer::visit(const RefMakeExpr *node) {
+void SemanticAnalyzer::visit(const RefMakeExpr* node) {
     if (node->arg) {
         node->arg->accept(this);
     }
@@ -426,7 +426,7 @@ void SemanticAnalyzer::visit(const RefMakeExpr *node) {
     }
 }
 
-void SemanticAnalyzer::visit(const RefTakeExpr *node) {
+void SemanticAnalyzer::visit(const RefTakeExpr* node) {
     if (node->arg) {
         node->arg->accept(this);
     }
@@ -437,11 +437,11 @@ void SemanticAnalyzer::visit(const RefTakeExpr *node) {
     }
 }
 
-void SemanticAnalyzer::visit(const EmbedExpr *node) {
+void SemanticAnalyzer::visit(const EmbedExpr* node) {
     // EmbedExpr contains raw code, no type resolution needed
     (void)node;
 }
 
-void SemanticAnalyzer::report_error(SourceRange loc, const std::string &msg) {
+void SemanticAnalyzer::report_error(MapperRange loc, const std::string& msg) {
     ctx_.diag().report(loc, Severity::Error, msg);
 }

@@ -19,14 +19,14 @@ class Tensor : public SimpleValue<Tensor, TypeKind::DenseTensor> {
   public:
     Tensor() = default;
     std::string to_string(bool with_type_info) const override { return format_label(with_type_info, "Tensor", "Tensor{}"); }
-    static void _register(Types &t);
+    static void _register(Types& t);
 };
 
 class SparseTensor : public SimpleValue<SparseTensor, TypeKind::SparseTensor> {
   public:
     SparseTensor() = default;
     std::string to_string(bool with_type_info) const override { return format_label(with_type_info, "SparseTensor", "SparseTensor{}"); }
-    static void _register(Types &t);
+    static void _register(Types& t);
 };
 
 /**
@@ -41,7 +41,8 @@ class TensorHandle {
 
     /** Construct from a typed shared_ptr. */
     template <typename T>
-    explicit TensorHandle(std::shared_ptr<T> ptr) : m_storage(std::move(ptr)) {}
+    explicit TensorHandle(std::shared_ptr<T> ptr)
+    : m_storage(std::move(ptr)) {}
 
     /** Check if the stored tensor is of type T. */
     template <typename T>
@@ -54,9 +55,9 @@ class TensorHandle {
 
     /** Get typed pointer to the stored tensor. */
     template <typename T>
-    [[nodiscard]] T *get() const noexcept {
+    [[nodiscard]] T* get() const noexcept {
         if (m_storage) {
-            return static_cast<T *>(m_storage.get());
+            return static_cast<T*>(m_storage.get());
         }
         return nullptr;
     }
@@ -68,7 +69,7 @@ class TensorHandle {
     }
 
     /** Swap two handles. */
-    friend void swap(TensorHandle &a, TensorHandle &b) noexcept {
+    friend void swap(TensorHandle& a, TensorHandle& b) noexcept {
         using std::swap;
         swap(a.m_storage, b.m_storage);
     }

@@ -13,7 +13,7 @@ using namespace trust;
 // ============================================================================
 
 class AstParsingTest : public ::testing::Test {
-protected:
+  protected:
     Context ctx;
 };
 
@@ -57,7 +57,8 @@ TEST_F(AstParsingTest, ParseFuncDeclWithParams) {
     EXPECT_EQ((*result)[0]->kind, ParserToken::Kind::FuncDecl);
     size_t param_count = 0;
     for (auto& child : (*result)[0]->children) {
-        if (child->kind == ParserToken::Kind::ParamDecl) param_count++;
+        if (child->kind == ParserToken::Kind::ParamDecl)
+            param_count++;
     }
     EXPECT_EQ(param_count, 2);
 }
@@ -187,7 +188,8 @@ TEST_F(AstParsingTest, ParseAllBinaryOperators) {
     const char* ops[] = {"+", "-", "*", "/", "==", "!=", "<", "<=", ">", ">=", "and", "or"};
 
     for (const char* op : ops) {
-        std::string input = "BinaryOp op=" + std::string(op) + " type=int\n"
+        std::string input = "BinaryOp op=" + std::string(op) +
+                            " type=int\n"
                             "  IntLiteral value=1\n"
                             "  IntLiteral value=2\n";
         auto result = parse_ast_format(input, ctx);
@@ -202,7 +204,8 @@ TEST_F(AstParsingTest, ParseAllTypes) {
     const char* types[] = {"int", "string", "void", "bool"};
 
     for (const char* t : types) {
-        std::string input = "VarDecl name=x type=" + std::string(t) + "\n"
+        std::string input = "VarDecl name=x type=" + std::string(t) +
+                            "\n"
                             "  IntLiteral value=0\n";
         auto result = parse_ast_format(input, ctx);
         ASSERT_TRUE(result.has_value());

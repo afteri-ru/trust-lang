@@ -4,7 +4,7 @@
 
 namespace trust {
 
-void String::_register(Types &t) {
+void String::_register(Types& t) {
     t.add(TypeInfo(TypeKind::StrChar, "std::string"));
     t.add(TypeInfo(TypeKind::StrWide, "std::wstring"));
     t.add(TypeInfo(TypeKind::Strings, "std::string"));

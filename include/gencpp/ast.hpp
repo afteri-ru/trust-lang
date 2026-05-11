@@ -1,5 +1,6 @@
 #pragma once
 
+#include "diag/location.hpp"
 #include "parser/token.hpp"
 #include "parser/token_info.hpp"
 #include "types/types.hpp"
@@ -19,12 +20,12 @@ class AstVisitor;
 // --- Base interface ---
 struct AstVisitable {
     virtual ~AstVisitable() = default;
-    virtual void accept(AstVisitor *v) const = 0;
+    virtual void accept(AstVisitor* v) const = 0;
 };
 
 // --- Base AST node ---
 struct AstNodeBase : AstVisitable {
-    // SourceLoc loc;
+    // Location loc;
     TokenPtr source;
     virtual ~AstNodeBase() = default;
     virtual ParserToken::Kind token_kind() const = 0;
@@ -34,20 +35,21 @@ struct AstNodeBase : AstVisitable {
         return token_kind() == T::static_token_kind();
     }
     template <typename T>
-    [[nodiscard]] T *as() noexcept {
-        return is<T>() ? static_cast<T *>(this) : nullptr;
+    [[nodiscard]] T* as() noexcept {
+        return is<T>() ? static_cast<T*>(this) : nullptr;
     }
     template <typename T>
-    [[nodiscard]] const T *as() const noexcept {
-        return is<T>() ? static_cast<const T *>(this) : nullptr;
+    [[nodiscard]] const T* as() const noexcept {
+        return is<T>() ? static_cast<const T*>(this) : nullptr;
     }
 };
 
+using AstNode = AstNodeBase;
 using AstNodePtr = std::unique_ptr<AstNodeBase>;
 using AstNodeSequence = std::vector<AstNodePtr>;
 
-AstNodePtr make_int_literal_node(int value, ParserToken::Kind kind, std::string text, SourceLoc loc);
-AstNodePtr make_string_literal_node(std::string text, ParserToken::Kind kind, SourceLoc loc);
+AstNodePtr make_int_literal_node(int value, ParserToken::Kind kind, std::string text, MapperLocation loc);
+AstNodePtr make_string_literal_node(std::string text, ParserToken::Kind kind, MapperLocation loc);
 
 // --- Enums ---
 enum class BinOp { Add, Sub, Mul, Div, Eq, Ne, Lt, Le, Gt, Ge, And, Or };
@@ -83,7 +85,7 @@ static std::string bin_op_to_string(BinOp op) {
     throw std::invalid_argument(std::format("Unknown BinOp: '{}'", static_cast<int>(op)));
 }
 
-static BinOp bin_op_from_string(const std::string &s) {
+static BinOp bin_op_from_string(const std::string& s) {
     if (s == "+")
         return BinOp::Add;
     if (s == "-")
@@ -114,17 +116,17 @@ static BinOp bin_op_from_string(const std::string &s) {
 // --- CRTP base: inherits from category tag (Expr/Stmt/Decl) so it can override token_kind() ---
 template <typename Derived, ParserToken::Kind Kind, typename CategoryBase = AstNodeBase>
 struct AstNodeImpl : CategoryBase {
-    void accept(AstVisitor *v) const override { v->visit(static_cast<const Derived *>(this)); }
+    void accept(AstVisitor* v) const override { v->visit(static_cast<const Derived*>(this)); }
     static constexpr ParserToken::Kind static_token_kind() noexcept { return Kind; }
     ParserToken::Kind token_kind() const override { return Kind; }
 };
 
 // --- Type Resolution ---
 struct TypeResolution {
-    std::unordered_map<const Expr *, TypeInfo> expr_types;
-    void set_type(const Expr *e, TypeInfo ti);
-    std::optional<TypeInfo> get_type(const Expr *e) const;
-    bool has_type(const Expr *e) const;
+    std::unordered_map<const Expr*, TypeInfo> expr_types;
+    void set_type(const Expr* e, TypeInfo ti);
+    std::optional<TypeInfo> get_type(const Expr* e) const;
+    bool has_type(const Expr* e) const;
 };
 
 // --- TypeInfo helpers for gencpp (replaces old TypeInfo::builtin/user) ---
@@ -151,7 +153,7 @@ struct AstTypeTraits {
         return TokenCategory::None;
     }
     [[nodiscard]] static std::string to_string(ParserToken::Kind t);
-    [[nodiscard]] static ParserToken::Kind from_string(const std::string &s);
+    [[nodiscard]] static ParserToken::Kind from_string(const std::string& s);
 };
 
 // --- Type aliases ---
@@ -171,7 +173,7 @@ struct IntLiteral : AstNodeImpl<IntLiteral, ParserToken::Kind::IntLiteral, Expr>
 
 struct StringLiteral : AstNodeImpl<StringLiteral, ParserToken::Kind::StringLiteral, Expr> {
     explicit StringLiteral(std::string v);
-    [[nodiscard]] const std::string &value() const;
+    [[nodiscard]] const std::string& value() const;
 };
 
 struct BinaryOp : AstNodeImpl<BinaryOp, ParserToken::Kind::BinaryOp, Expr> {
@@ -194,7 +196,7 @@ struct CallExpr : AstNodeImpl<CallExpr, ParserToken::Kind::CallExpr, Expr> {
 
 struct EmbedExpr : AstNodeImpl<EmbedExpr, ParserToken::Kind::EmbedExpr, Expr> {
     explicit EmbedExpr(std::string v);
-    [[nodiscard]] const std::string &value() const;
+    [[nodiscard]] const std::string& value() const;
 };
 
 struct EnumLiteral : AstNodeImpl<EnumLiteral, ParserToken::Kind::EnumLiteral, Expr> {

@@ -21,9 +21,12 @@ class Ident : public std::string {
   public:
     using std::string::string;
     Ident() = default;
-    Ident(const std::string &s) : std::string(s) {}
-    Ident(std::string_view s) : std::string(s) {}
-    Ident(const char *s) : std::string(s) {}
+    Ident(const std::string& s)
+    : std::string(s) {}
+    Ident(std::string_view s)
+    : std::string(s) {}
+    Ident(const char* s)
+    : std::string(s) {}
 
     // ── Тип имени ──
     bool is_simple() const noexcept;

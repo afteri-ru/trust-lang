@@ -6,14 +6,14 @@ namespace trust {
 
 constexpr std::string_view kVersion = "0.1.0";
 
-void print_usage(const char *prog) {
+void print_usage(const char* prog) {
     std::cout << "Usage: " << prog << " <input.trust> [options]\n"
               << "\n"
               << "Options:\n";
 
     const int max_width = 20;
     for (int i = 0; i < NumCliOptions; ++i) {
-        auto &m = all_cli_opts[i];
+        auto& m = all_cli_opts[i];
         if (m.kind == CliOptKind::Positional)
             continue;
 
@@ -48,7 +48,7 @@ void print_usage(const char *prog) {
     std::cout << "\n"
               << "Positional arguments:\n";
     for (int i = 0; i < NumCliOptions; ++i) {
-        auto &m = all_cli_opts[i];
+        auto& m = all_cli_opts[i];
         if (m.kind == CliOptKind::Positional) {
             std::cout << "  <" << m.name << ">" << m.description << "\n";
         }
@@ -62,7 +62,7 @@ void print_version() {
 std::vector<std::string> get_all_cli_option_names() {
     std::vector<std::string> result;
     for (int i = 0; i < NumCliOptions; ++i) {
-        auto &m = all_cli_opts[i];
+        auto& m = all_cli_opts[i];
         if (!m.long_name.empty())
             result.push_back("--" + std::string(m.long_name));
         if (!m.short_name.empty())
@@ -71,7 +71,7 @@ std::vector<std::string> get_all_cli_option_names() {
     return result;
 }
 
-static void apply_cli_opt(CliOptions &opts, CliOpt opt) {
+static void apply_cli_opt(CliOptions& opts, CliOpt opt) {
     switch (opt) {
     case CliOpt::Help:
         opts.help_requested = true;
@@ -119,7 +119,7 @@ static void apply_cli_opt(CliOptions &opts, CliOpt opt) {
     }
 }
 
-static void set_comp_option(CliOptions &opts, CliOpt opt, std::string_view value) {
+static void set_comp_option(CliOptions& opts, CliOpt opt, std::string_view value) {
     switch (opt) {
     case CliOpt::TempDir:
         opts.temp_dir = std::string(value);
@@ -135,11 +135,11 @@ static void set_comp_option(CliOptions &opts, CliOpt opt, std::string_view value
     }
 }
 
-static void set_output_file(CliOptions &opts, std::string_view value) {
+static void set_output_file(CliOptions& opts, std::string_view value) {
     opts.output_file = std::string(value);
 }
 
-CliParseResult parse_cli_args(int argc, char *argv[]) {
+CliParseResult parse_cli_args(int argc, char* argv[]) {
     CliParseResult result;
     // Set default compiler from CMake config
     result.opts.compiler = TRUST_DEFAULT_COMPILER;
@@ -278,7 +278,7 @@ CliParseResult parse_cli_args(int argc, char *argv[]) {
     return result;
 }
 
-CliParseResult parse_cli_args(std::span<char *> argv) {
+CliParseResult parse_cli_args(std::span<char*> argv) {
     if (argv.empty())
         return {};
     return parse_cli_args(static_cast<int>(argv.size()), argv.data());

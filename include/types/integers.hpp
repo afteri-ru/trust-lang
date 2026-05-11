@@ -17,8 +17,12 @@ class Complex;
 
 class Integers : public ValueBase<Integers, TypeKind::Integers> {
   public:
-    Integers() : value_(0), real_kind_(TypeKind::Int64) {}
-    Integers(int64_t v, TypeKind real) : value_(v), real_kind_(real) {}
+    Integers()
+    : value_(0)
+    , real_kind_(TypeKind::Int64) {}
+    Integers(int64_t v, TypeKind real)
+    : value_(v)
+    , real_kind_(real) {}
 
     TypeKind kind() const override { return real_kind_; }
     int64_t get() const { return value_; }
@@ -27,10 +31,10 @@ class Integers : public ValueBase<Integers, TypeKind::Integers> {
 
     bool would_overflow_to(TypeKind t) const;
 
-    Value &convert_to(TypeKind t, Value &dest) const override;
+    Value& convert_to(TypeKind t, Value& dest) const override;
 
     std::string to_string(bool with_type_info) const override { return format_label(with_type_info, value_name(real_kind_), std::to_string(value_)); }
-    static void _register(Types &t);
+    static void _register(Types& t);
 
   private:
     int64_t value_;

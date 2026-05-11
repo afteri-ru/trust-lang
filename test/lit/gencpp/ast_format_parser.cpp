@@ -24,18 +24,18 @@ static std::expected<T, std::string> make_error(std::string msg) {
 // Parses type name string into TypeInfo by looking up in Types registry.
 // For user-defined types (enums, structs) not in the registry, registers them via find_or_add_user.
 static TypeInfo parse_type_info(std::string_view type_str) {
-    auto &types = Types::instance();
+    auto& types = Types::instance();
     return types.get(types.find(type_str));
 }
 
-static int count_indent(const std::string &s) {
+static int count_indent(const std::string& s) {
     int n = 0;
-    while (n < (int)s.size() && (s[n] == ' ' || s[n] == '\t'))
+    while (n < static_cast<int>(s.size()) && (s[n] == ' ' || s[n] == '\t'))
         n++;
     return n;
 }
 
-static std::string trim(const std::string &s) {
+static std::string trim(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     if (start == std::string::npos)
         return "";
@@ -43,21 +43,21 @@ static std::string trim(const std::string &s) {
     return s.substr(start, end - start + 1);
 }
 
-static int offset_for_line_index(const std::string &text, int line_idx) {
+static int offset_for_line_index(const std::string& text, int line_idx) {
     if (line_idx <= 0)
         return 0;
     int line = 0;
-    for (int i = 0; i < (int)text.size(); i++) {
+    for (int i = 0; i < static_cast<int>(text.size()); i++) {
         if (text[i] == '\n') {
             line++;
             if (line == line_idx)
                 return i + 1;
         }
     }
-    return (int)text.size();
+    return static_cast<int>(text.size());
 }
 
-std::pair<std::string, std::string> parse_attr(const std::string &token) {
+std::pair<std::string, std::string> parse_attr(const std::string& token) {
     if (token.size() >= 3 && token[0] == 'o' && token[1] == 'p' && token[2] == '=') {
         std::string op_val = token.substr(3);
         if (op_val == "=")
@@ -78,8 +78,8 @@ std::pair<std::string, std::string> parse_attr(const std::string &token) {
 }
 
 // Internal parse with error propagation
-static std::unique_ptr<ParsedNode> parse_nodes(std::vector<std::string> &lines, const std::string &text, FileIdx src, size_t &pos, int parent_indent,
-                                               std::string &error_msg) {
+static std::unique_ptr<ParsedNode> parse_nodes(std::vector<std::string>& lines, const std::string& text, MapperFile src, size_t& pos, int parent_indent,
+                                               std::string& error_msg) {
     if (pos >= lines.size())
         return nullptr;
     while (pos < lines.size()) {
@@ -95,10 +95,10 @@ static std::unique_ptr<ParsedNode> parse_nodes(std::vector<std::string> &lines, 
     if (indent <= parent_indent && pos > 0)
         return nullptr;
 
-    int offset = offset_for_line_index(text, (int)pos);
+    int offset = offset_for_line_index(text, static_cast<int>(pos));
     // Игнорируем неопределённый Context — parse_nodes вызывается только после parse_ast_format, где Context доступен.
     // Здесь loc не используется напрямую, только для совместимости.
-    SourceLoc loc{(src.raw << SourceLoc::FILEIDX_SHIFT) | offset};
+    MapperLocation loc = MapperLocation::makeLoc(src, offset);
 
     std::istringstream iss(trim(lines[pos]));
     auto node = std::make_unique<ParsedNode>();
@@ -107,7 +107,7 @@ static std::unique_ptr<ParsedNode> parse_nodes(std::vector<std::string> &lines, 
 
     try {
         node->kind = AstTypeTraits::from_string(type_str);
-    } catch (const std::invalid_argument &) {
+    } catch (const std::invalid_argument&) {
         error_msg = "Unknown node type: '" + type_str + "'";
         return nullptr;
     }
@@ -137,8 +137,8 @@ static std::unique_ptr<ParsedNode> parse_nodes(std::vector<std::string> &lines, 
     return node;
 }
 
-std::expected<std::vector<std::unique_ptr<ParsedNode>>, std::string> parse_ast_format(const std::string &text, Context &ctx) {
-    FileIdx src = ctx.add_source("__ast_input__", text, false);
+std::expected<std::vector<std::unique_ptr<ParsedNode>>, std::string> parse_ast_format(const std::string& text, Context& ctx) {
+    MapperFile src = ctx.add_source("__ast_input__", text, false);
 
     std::istringstream is(text);
     std::vector<std::string> lines;
@@ -163,34 +163,34 @@ std::expected<std::vector<std::unique_ptr<ParsedNode>>, std::string> parse_ast_f
 
 // --- Builder (internal with std::expected) ---
 
-static std::string get_attr(const ParsedNode *n, const std::string &key) {
+static std::string get_attr(const ParsedNode* n, const std::string& key) {
     if (!n)
         return "";
-    for (auto &[k, v] : n->attrs)
+    for (auto& [k, v] : n->attrs)
         if (k == key)
             return v;
     return "";
 }
 
-static bool has_attr(const ParsedNode *n, const std::string &key) {
+static bool has_attr(const ParsedNode* n, const std::string& key) {
     if (!n)
         return false;
-    for (auto &[k, v] : n->attrs)
+    for (auto& [k, v] : n->attrs)
         if (k == key)
             return true;
     return false;
 }
 
 // Internal builder functions with std::expected
-static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const ParsedNode *n, Context &ctx);
-static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const ParsedNode *n, Context &ctx);
-static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const ParsedNode *n, Context &ctx);
-static std::optional<BlockItem> build_block_item(const ParsedNode *n, Context &ctx);
+static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const ParsedNode* n, Context& ctx);
+static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const ParsedNode* n, Context& ctx);
+static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const ParsedNode* n, Context& ctx);
+static std::optional<BlockItem> build_block_item(const ParsedNode* n, Context& ctx);
 // build_catch_block and build_matching_case are defined above
 
-static BlockBody build_block_body(const ParsedNode *n, Context &ctx) {
+static BlockBody build_block_body(const ParsedNode* n, Context& ctx) {
     BlockBody body;
-    for (auto &c : n->children) {
+    for (auto& c : n->children) {
         auto item = build_block_item(c.get(), ctx);
         if (item)
             body.push_back(std::move(*item));
@@ -198,7 +198,7 @@ static BlockBody build_block_body(const ParsedNode *n, Context &ctx) {
     return body;
 }
 
-static std::optional<BlockItem> build_block_item(const ParsedNode *n, Context &ctx) {
+static std::optional<BlockItem> build_block_item(const ParsedNode* n, Context& ctx) {
     if (!n)
         return std::nullopt;
     TokenCategory cat = AstTypeTraits::node_category(n->kind);
@@ -218,7 +218,7 @@ static std::optional<BlockItem> build_block_item(const ParsedNode *n, Context &c
     return std::nullopt;
 }
 
-static std::unique_ptr<Expr> build_assignment_target(const std::string &target_str, Context &ctx) {
+static std::unique_ptr<Expr> build_assignment_target(const std::string& target_str, Context& ctx) {
     auto bracket_pos = target_str.find('[');
     if (bracket_pos != std::string::npos) {
         auto dot_pos = target_str.find('.');
@@ -252,7 +252,7 @@ static std::unique_ptr<Expr> build_assignment_target(const std::string &target_s
     return std::make_unique<VarRef>(target_str);
 }
 
-static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const ParsedNode *n, Context &ctx) {
+static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const ParsedNode* n, Context& ctx) {
     if (!n)
         return std::unexpected("null expression node");
     auto tk = n->kind;
@@ -265,9 +265,9 @@ static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const Parsed
             auto result = std::make_unique<IntLiteral>(std::stoi(v));
 
             return result;
-        } catch (const std::invalid_argument &) {
+        } catch (const std::invalid_argument&) {
             return std::unexpected("IntLiteral: invalid integer '" + v + "'");
-        } catch (const std::out_of_range &) {
+        } catch (const std::out_of_range&) {
             return std::unexpected("IntLiteral: out of range '" + v + "'");
         }
     }
@@ -310,7 +310,7 @@ static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const Parsed
         if (!has_attr(n, "name"))
             return std::unexpected(AstTypeTraits::to_string(tk) + ": missing required attribute 'name'");
         std::vector<std::unique_ptr<Expr>> args;
-        for (auto &c : n->children) {
+        for (auto& c : n->children) {
             auto arg = build_expr(c.get(), ctx);
             if (!arg.has_value())
                 return std::unexpected(arg.error());
@@ -361,7 +361,7 @@ static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const Parsed
             auto ti = parse_type_info(get_attr(n, "type"));
             elem_type = ti.id;
         }
-        for (auto &c : n->children) {
+        for (auto& c : n->children) {
             auto e = build_expr(c.get(), ctx);
             if (!e.has_value())
                 return e;
@@ -415,7 +415,7 @@ static std::expected<std::unique_ptr<Expr>, std::string> build_expr(const Parsed
 }
 
 // build_catch_block and build_matching_case - defined after build_expr/build_block_item
-static std::unique_ptr<CatchBlock> build_catch_block(const ParsedNode *n, Context &ctx) {
+static std::unique_ptr<CatchBlock> build_catch_block(const ParsedNode* n, Context& ctx) {
     if (!n || n->kind != ParserToken::Kind::CatchBlock)
         return nullptr;
     if (!has_attr(n, "type") || !has_attr(n, "name"))
@@ -423,7 +423,7 @@ static std::unique_ptr<CatchBlock> build_catch_block(const ParsedNode *n, Contex
     auto type = parse_type_info(get_attr(n, "type"));
     std::string name = get_attr(n, "name");
     BlockBody body;
-    for (auto &c : n->children) {
+    for (auto& c : n->children) {
         auto item = build_block_item(c.get(), ctx);
         if (item.has_value())
             body.push_back(std::move(*item));
@@ -431,7 +431,7 @@ static std::unique_ptr<CatchBlock> build_catch_block(const ParsedNode *n, Contex
     return std::make_unique<CatchBlock>(type, std::move(name), std::move(body));
 }
 
-static std::unique_ptr<MatchingCase> build_matching_case(const ParsedNode *n, Context &ctx) {
+static std::unique_ptr<MatchingCase> build_matching_case(const ParsedNode* n, Context& ctx) {
     if (!n || n->kind != ParserToken::Kind::MatchingCase)
         return nullptr;
     std::unique_ptr<Expr> pattern = nullptr;
@@ -450,7 +450,7 @@ static std::unique_ptr<MatchingCase> build_matching_case(const ParsedNode *n, Co
     return std::make_unique<MatchingCase>(std::move(pattern), std::move(body));
 }
 
-static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const ParsedNode *n, Context &ctx) {
+static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const ParsedNode* n, Context& ctx) {
     if (!n)
         return std::unexpected("null statement node");
     auto tk = n->kind;
@@ -511,7 +511,7 @@ static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const Parsed
         BlockBody then_body;
         while (i < n->children.size() && n->children[i]->kind != ParserToken::Kind::ElseBlock) {
             if (n->children[i]->kind == ParserToken::Kind::ThenBlock) {
-                for (auto &c : n->children[i]->children) {
+                for (auto& c : n->children[i]->children) {
                     auto item = build_block_item(c.get(), ctx);
                     if (item.has_value())
                         then_body.push_back(std::move(*item));
@@ -526,15 +526,15 @@ static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const Parsed
         std::unique_ptr<IfStmt> else_if;
         std::unique_ptr<BlockStmt> else_block;
         if (i < n->children.size() && n->children[i]->kind == ParserToken::Kind::ElseBlock) {
-            auto &else_blk = n->children[i];
+            auto& else_blk = n->children[i];
             if (else_blk->children.size() == 1 && else_blk->children[0]->kind == ParserToken::Kind::IfStmt) {
                 auto elif_node = build_stmt(else_blk->children[0].get(), ctx);
                 if (!elif_node)
                     return elif_node;
-                else_if = std::unique_ptr<IfStmt>(static_cast<IfStmt *>(elif_node->release()));
+                else_if = std::unique_ptr<IfStmt>(static_cast<IfStmt*>(elif_node->release()));
             } else {
                 BlockBody else_nodes;
-                for (auto &c : else_blk->children) {
+                for (auto& c : else_blk->children) {
                     auto item = build_block_item(c.get(), ctx);
                     if (item.has_value())
                         else_nodes.push_back(std::move(*item));
@@ -562,7 +562,7 @@ static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const Parsed
         BlockBody else_body;
         for (; i < n->children.size(); ++i) {
             if (n->children[i]->kind == ParserToken::Kind::WhileElseBlock) {
-                for (auto &c : n->children[i]->children) {
+                for (auto& c : n->children[i]->children) {
                     auto item = build_block_item(c.get(), ctx);
                     if (item.has_value())
                         else_body.push_back(std::move(*item));
@@ -642,7 +642,7 @@ static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const Parsed
             if (n->children[i]->kind == ParserToken::Kind::MatchingCase) {
                 cases.push_back(build_matching_case(n->children[i].get(), ctx));
             } else if (n->children[i]->kind == ParserToken::Kind::MatchingElseBlock) {
-                for (auto &c : n->children[i]->children) {
+                for (auto& c : n->children[i]->children) {
                     auto item = build_block_item(c.get(), ctx);
                     if (item.has_value())
                         else_body.push_back(std::move(*item));
@@ -672,7 +672,7 @@ static std::expected<std::unique_ptr<Stmt>, std::string> build_stmt(const Parsed
     return std::unexpected("Unknown Stmt type: " + AstTypeTraits::to_string(tk));
 }
 
-static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const ParsedNode *n, Context &ctx) {
+static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const ParsedNode* n, Context& ctx) {
     if (!n)
         return std::unexpected("null declaration node");
     auto tk = n->kind;
@@ -707,7 +707,7 @@ static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const Parsed
         auto ret_ti = parse_type_info(get_attr(n, "ret"));
         std::vector<std::unique_ptr<ParamDecl>> params;
         std::unique_ptr<BlockStmt> body_ptr = nullptr;
-        for (auto &c : n->children) {
+        for (auto& c : n->children) {
             if (c->kind == ParserToken::Kind::ParamDecl) {
                 if (!has_attr(c.get(), "name") || !has_attr(c.get(), "type"))
                     return std::unexpected(AstTypeTraits::to_string(c->kind) + ": missing 'name'/'type'");
@@ -725,7 +725,7 @@ static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const Parsed
         if (!has_attr(n, "name"))
             return std::unexpected(AstTypeTraits::to_string(tk) + ": missing required attribute 'name'");
         std::vector<std::unique_ptr<EnumMember>> members;
-        for (auto &c : n->children) {
+        for (auto& c : n->children) {
             if (c->kind == ParserToken::Kind::EnumMember) {
                 if (!has_attr(c.get(), "name"))
                     return std::unexpected(AstTypeTraits::to_string(c->kind) + ": missing 'name'");
@@ -764,7 +764,7 @@ static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const Parsed
             return std::unexpected(AstTypeTraits::to_string(tk) + ": missing required attribute 'name'");
         std::vector<std::unique_ptr<StructField>> fields;
         std::vector<std::unique_ptr<Decl>> method_items;
-        for (auto &c : n->children) {
+        for (auto& c : n->children) {
             if (c->kind == ParserToken::Kind::StructField) {
                 if (!has_attr(c.get(), "name"))
                     return std::unexpected(AstTypeTraits::to_string(c->kind) + ": missing 'name'");
@@ -772,7 +772,7 @@ static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const Parsed
                     return std::unexpected(AstTypeTraits::to_string(c->kind) + ": missing 'type'");
                 TypeInfo tf = parse_type_info(get_attr(c.get(), "type"));
                 std::unique_ptr<Expr> init = nullptr;
-                for (auto &cc : c->children) {
+                for (auto& cc : c->children) {
                     if (cc->is_expr()) {
                         auto e = build_expr(cc.get(), ctx);
                         if (!e.has_value())
@@ -782,7 +782,7 @@ static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const Parsed
                         auto vd = build_decl(cc.get(), ctx);
                         if (!vd.has_value())
                             return std::unexpected(vd.error());
-                        if (auto *v = vd->get()->as<VarDecl>())
+                        if (auto* v = vd->get()->as<VarDecl>())
                             init = std::move(v->init);
                     }
                 }
@@ -806,7 +806,7 @@ static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const Parsed
             return std::unexpected(AstTypeTraits::to_string(tk) + ": missing required attribute 'type'");
         TypeInfo tf = parse_type_info(get_attr(n, "type"));
         std::unique_ptr<Expr> init = nullptr;
-        for (auto &c : n->children) {
+        for (auto& c : n->children) {
             if (c->is_expr()) {
                 auto e = build_expr(c.get(), ctx);
                 if (!e.has_value())
@@ -823,31 +823,31 @@ static std::expected<std::unique_ptr<Decl>, std::string> build_decl(const Parsed
 
 // --- Public API wrappers ---
 
-std::unique_ptr<Expr> build_expression(const ParsedNode *n, Context &ctx) {
+std::unique_ptr<Expr> build_expression(const ParsedNode* n, Context& ctx) {
     auto r = build_expr(n, ctx);
     if (r.has_value())
         return std::move(*r);
     return nullptr;
 }
 
-std::unique_ptr<Stmt> build_statement(const ParsedNode *n, Context &ctx) {
+std::unique_ptr<Stmt> build_statement(const ParsedNode* n, Context& ctx) {
     auto r = build_stmt(n, ctx);
     if (r.has_value())
         return std::move(*r);
     return nullptr;
 }
 
-std::unique_ptr<Decl> build_declaration(const ParsedNode *n, Context &ctx) {
+std::unique_ptr<Decl> build_declaration(const ParsedNode* n, Context& ctx) {
     auto r = build_decl(n, ctx);
     if (r.has_value())
         return std::move(*r);
     return nullptr;
 }
 
-std::unique_ptr<Program> build_ast_from_roots(const std::vector<ParsedNode *> &roots, Context &ctx) {
+std::unique_ptr<Program> build_ast_from_roots(const std::vector<ParsedNode*>& roots, Context& ctx) {
     std::vector<std::unique_ptr<Decl>> items;
     std::vector<BlockItem> stmt_body;
-    for (auto *node : roots) {
+    for (auto* node : roots) {
         auto cat = AstTypeTraits::node_category(node->kind);
         if (cat == TokenCategory::Decl || cat == TokenCategory::Root) {
             auto decl = build_declaration(node, ctx);

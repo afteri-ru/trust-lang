@@ -6,7 +6,7 @@ namespace trust {
 
 namespace detail {
 
-Any convert_integer(const Integers &src, TypeKind target) {
+Any convert_integer(const Integers& src, TypeKind target) {
     auto cat = KindOps::category_of(target);
     if (cat == Category::Integers) {
         if (src.would_overflow_to(target))
@@ -20,7 +20,7 @@ Any convert_integer(const Integers &src, TypeKind target) {
     throw std::invalid_argument("cannot convert");
 }
 
-Any convert_float(const Float &src, TypeKind target) {
+Any convert_float(const Float& src, TypeKind target) {
     auto cat = KindOps::category_of(target);
     if (cat == Category::Numbers) {
         if (src.would_overflow_to(target))
@@ -56,11 +56,11 @@ Any convert_float(const Float &src, TypeKind target) {
 
 } // namespace detail
 
-Any runtime_convert(const Any &val, TypeKind target) {
+Any runtime_convert(const Any& val, TypeKind target) {
     if (target == TypeKind::Void)
         return Void{};
     return std::visit(
-        [&](auto &&v) -> Any {
+        [&](auto&& v) -> Any {
             using T = std::decay_t<decltype(v)>;
             if constexpr (std::is_same_v<T, Void>)
                 return Void{};
@@ -76,8 +76,8 @@ Any runtime_convert(const Any &val, TypeKind target) {
         val);
 }
 
-std::string stringify_value(const Any &val, bool wi) {
-    return std::visit([&](auto &&v) -> std::string { return v.to_string(wi); }, val);
+std::string stringify_value(const Any& val, bool wi) {
+    return std::visit([&](auto&& v) -> std::string { return v.to_string(wi); }, val);
 }
 
 } // namespace trust

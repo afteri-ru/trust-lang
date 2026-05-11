@@ -34,7 +34,8 @@ class Sync {
     template <typename>
     friend class Locker;
 
-    explicit Sync(V v) : data(std::move(v)) {}
+    explicit Sync(V v)
+    : data(std::move(v)) {}
 
     virtual ~Sync() = default;
 
@@ -42,10 +43,10 @@ class Sync {
     V data;
 
     [[nodiscard]]
-    virtual bool try_lock(const SyncTimeoutType &timeout = SyncTimeoutDeadlock) = 0;
+    virtual bool try_lock(const SyncTimeoutType& timeout = SyncTimeoutDeadlock) = 0;
 
     [[nodiscard]]
-    virtual bool try_lock_const(const SyncTimeoutType &timeout = SyncTimeoutDeadlock) = 0;
+    virtual bool try_lock_const(const SyncTimeoutType& timeout = SyncTimeoutDeadlock) = 0;
 
     virtual void unlock() = 0;
 
@@ -59,7 +60,9 @@ class Sync {
 template <typename V>
 class SyncSingleThread : public Sync<V> {
   public:
-    explicit SyncSingleThread(V v) : Sync<V>(std::move(v)), m_thread_id(std::this_thread::get_id()) {}
+    explicit SyncSingleThread(V v)
+    : Sync<V>(std::move(v))
+    , m_thread_id(std::this_thread::get_id()) {}
 
   protected:
     const std::thread::id m_thread_id;
@@ -70,7 +73,7 @@ class SyncSingleThread : public Sync<V> {
         }
     }
 
-    bool try_lock(const SyncTimeoutType &timeout) override {
+    bool try_lock(const SyncTimeoutType& timeout) override {
         check_thread();
         if (timeout != SyncTimeoutDeadlock) {
             FAULT("Timeout is not applicable for this object type!");
@@ -80,7 +83,7 @@ class SyncSingleThread : public Sync<V> {
 
     void unlock() override { check_thread(); }
 
-    bool try_lock_const(const SyncTimeoutType &timeout) override {
+    bool try_lock_const(const SyncTimeoutType& timeout) override {
         check_thread();
         if (timeout != SyncTimeoutDeadlock) {
             FAULT("Timeout is not applicable for this object type!");
@@ -98,12 +101,13 @@ class SyncSingleThread : public Sync<V> {
 template <typename V>
 class SyncTimedMutex : public Sync<V> {
   public:
-    explicit SyncTimedMutex(V v) : Sync<V>(std::move(v)) {}
+    explicit SyncTimedMutex(V v)
+    : Sync<V>(std::move(v)) {}
 
   protected:
-    bool try_lock(const SyncTimeoutType &timeout) override { return m_mutex.try_lock_for(timeout); }
+    bool try_lock(const SyncTimeoutType& timeout) override { return m_mutex.try_lock_for(timeout); }
     void unlock() override { m_mutex.unlock(); }
-    bool try_lock_const(const SyncTimeoutType &timeout) override { return m_mutex.try_lock_for(timeout); }
+    bool try_lock_const(const SyncTimeoutType& timeout) override { return m_mutex.try_lock_for(timeout); }
     void unlock_const() override { m_mutex.unlock(); }
 
   private:
@@ -117,12 +121,13 @@ class SyncTimedMutex : public Sync<V> {
 template <typename V>
 class SyncTimedShared : public Sync<V> {
   public:
-    explicit SyncTimedShared(V v) : Sync<V>(std::move(v)) {}
+    explicit SyncTimedShared(V v)
+    : Sync<V>(std::move(v)) {}
 
   protected:
-    bool try_lock(const SyncTimeoutType &timeout) override { return m_mutex.try_lock_for(timeout); }
+    bool try_lock(const SyncTimeoutType& timeout) override { return m_mutex.try_lock_for(timeout); }
     void unlock() override { m_mutex.unlock(); }
-    bool try_lock_const(const SyncTimeoutType &timeout) override { return m_mutex.try_lock_shared_for(timeout); }
+    bool try_lock_const(const SyncTimeoutType& timeout) override { return m_mutex.try_lock_shared_for(timeout); }
     void unlock_const() override { m_mutex.unlock_shared(); }
 
   private:
@@ -140,8 +145,9 @@ class SyncTimedShared : public Sync<V> {
 template <typename V>
 class Locker {
   public:
-    Locker(std::shared_ptr<Sync<V>> sync, bool read_only, const SyncTimeoutType &timeout = SyncTimeoutDeadlock)
-        : sync_(std::move(sync)), read_only_(read_only) {
+    Locker(std::shared_ptr<Sync<V>> sync, bool read_only, const SyncTimeoutType& timeout = SyncTimeoutDeadlock)
+    : sync_(std::move(sync))
+    , read_only_(read_only) {
         if (!sync_) {
             FAULT("Object missing (null pointer exception)");
         }
@@ -162,13 +168,17 @@ class Locker {
     }
 
     // Non-copyable
-    Locker(const Locker &) = delete;
-    Locker &operator=(const Locker &) = delete;
+    Locker(const Locker&) = delete;
+    Locker& operator=(const Locker&) = delete;
 
     // Movable
-    Locker(Locker &&other) noexcept : sync_(std::move(other.sync_)), read_only_(other.read_only_) { other.sync_ = nullptr; }
+    Locker(Locker&& other) noexcept
+    : sync_(std::move(other.sync_))
+    , read_only_(other.read_only_) {
+        other.sync_ = nullptr;
+    }
 
-    Locker &operator=(Locker &&other) noexcept {
+    Locker& operator=(Locker&& other) noexcept {
         if (this != &other) {
             if (sync_) {
                 if (read_only_) {
@@ -184,10 +194,10 @@ class Locker {
         return *this;
     }
 
-    V &operator*() { return sync_->data; }
-    const V &operator*() const { return sync_->data; }
-    V *operator->() { return &sync_->data; }
-    const V *operator->() const { return &sync_->data; }
+    V& operator*() { return sync_->data; }
+    const V& operator*() const { return sync_->data; }
+    V* operator->() { return &sync_->data; }
+    const V* operator->() const { return &sync_->data; }
 
     /// Returns true if this Locker holds a valid lock (hasn't been moved from)
     [[nodiscard]] explicit operator bool() const noexcept { return sync_ != nullptr; }
@@ -212,63 +222,66 @@ class Shared {
     using WeakType = std::weak_ptr<DataType>;
     using SharedType = std::shared_ptr<DataType>;
 
-    Shared() : ptr_(nullptr) {}
+    Shared()
+    : ptr_(nullptr) {}
 
-    explicit Shared(const V &val) : ptr_(std::make_shared<DataType>(val)) {}
+    explicit Shared(const V& val)
+    : ptr_(std::make_shared<DataType>(val)) {}
 
-    explicit Shared(V &&val) : ptr_(std::make_shared<DataType>(std::move(val))) {}
+    explicit Shared(V&& val)
+    : ptr_(std::make_shared<DataType>(std::move(val))) {}
 
-    Shared(const Shared &other) = default;
-    Shared &operator=(const Shared &other) = default;
+    Shared(const Shared& other) = default;
+    Shared& operator=(const Shared& other) = default;
 
-    Shared(Shared &&other) noexcept = default;
-    Shared &operator=(Shared &&other) noexcept = default;
+    Shared(Shared&& other) noexcept = default;
+    Shared& operator=(Shared&& other) noexcept = default;
 
-    static Locker<V> make_auto(const SharedType &shared, bool read_only, const SyncTimeoutType &timeout = SyncTimeoutDeadlock) {
+    static Locker<V> make_auto(const SharedType& shared, bool read_only, const SyncTimeoutType& timeout = SyncTimeoutDeadlock) {
         return Locker<V>(shared, read_only, timeout);
     }
 
     [[nodiscard]]
-    Locker<V> lock(const SyncTimeoutType &timeout = SyncTimeoutDeadlock) {
+    Locker<V> lock(const SyncTimeoutType& timeout = SyncTimeoutDeadlock) {
         return make_auto(ptr_, false, timeout);
     }
 
     [[nodiscard]]
-    Locker<V> lock_const(const SyncTimeoutType &timeout = SyncTimeoutDeadlock) {
+    Locker<V> lock_const(const SyncTimeoutType& timeout = SyncTimeoutDeadlock) {
         return make_auto(ptr_, true, timeout);
     }
 
     /// Non-blocking lock attempt
     [[nodiscard]]
-    std::optional<Locker<V>> try_lock(const SyncTimeoutType &timeout = SyncTimeoutNoWait) {
+    std::optional<Locker<V>> try_lock(const SyncTimeoutType& timeout = SyncTimeoutNoWait) {
         if (!ptr_)
             return std::nullopt;
         try {
             return Locker<V>(ptr_, false, timeout);
-        } catch (const std::runtime_error &) {
+        } catch (const std::runtime_error&) {
             return std::nullopt;
         }
     }
 
     /// Non-blocking const lock attempt
     [[nodiscard]]
-    std::optional<Locker<V>> try_lock_const(const SyncTimeoutType &timeout = SyncTimeoutNoWait) {
+    std::optional<Locker<V>> try_lock_const(const SyncTimeoutType& timeout = SyncTimeoutNoWait) {
         if (!ptr_)
             return std::nullopt;
         try {
             return Locker<V>(ptr_, true, timeout);
-        } catch (const std::runtime_error &) {
+        } catch (const std::runtime_error&) {
             return std::nullopt;
         }
     }
 
-    Shared &set(const V &value, const SyncTimeoutType &timeout = SyncTimeoutDeadlock) {
+    Shared& set(const V& value, const SyncTimeoutType& timeout = SyncTimeoutDeadlock) {
         auto guard_lock = lock(timeout);
         *guard_lock = value;
         return *this;
     }
 
-    Shared &set(V &&value, const SyncTimeoutType &timeout = SyncTimeoutDeadlock) {
+    Shared& set(V&& value, const SyncTimeoutType& timeout = SyncTimeoutDeadlock) {
         auto guard_lock = lock(timeout);
         *guard_lock = std::move(value);
         return *this;
@@ -309,32 +322,38 @@ class Weak {
     using WeakType = typename T::WeakType;
     using SharedType = typename T::SharedType;
 
-    Weak() : weak_ptr_() {}
+    Weak()
+    : weak_ptr_() {}
 
-    explicit Weak(const T &ptr) : weak_ptr_(ptr.get_shared()) {}
+    explicit Weak(const T& ptr)
+    : weak_ptr_(ptr.get_shared()) {}
 
-    Weak(const Weak &other) : weak_ptr_(other.weak_ptr_) {}
+    Weak(const Weak& other)
+    : weak_ptr_(other.weak_ptr_) {}
 
-    Weak &operator=(const Weak &other) {
+    Weak& operator=(const Weak& other) {
         weak_ptr_ = other.weak_ptr_;
         return *this;
     }
 
-    Weak(Weak &&other) noexcept : weak_ptr_(std::move(other.weak_ptr_)) { other.weak_ptr_.reset(); }
+    Weak(Weak&& other) noexcept
+    : weak_ptr_(std::move(other.weak_ptr_)) {
+        other.weak_ptr_.reset();
+    }
 
-    Weak &operator=(Weak &&other) noexcept {
+    Weak& operator=(Weak&& other) noexcept {
         weak_ptr_ = std::move(other.weak_ptr_);
         other.weak_ptr_.reset();
         return *this;
     }
 
-    Weak &operator=(const T &ptr) {
+    Weak& operator=(const T& ptr) {
         weak_ptr_ = ptr.get_shared();
         return *this;
     }
 
     [[nodiscard]]
-    Locker<ValueType> lock(const SyncTimeoutType &timeout = SyncTimeoutDeadlock) const {
+    Locker<ValueType> lock(const SyncTimeoutType& timeout = SyncTimeoutDeadlock) const {
         SharedType shared = weak_ptr_.lock();
         if (!shared) {
             FAULT("Weak pointer has expired (lock() returned null)");
@@ -343,7 +362,7 @@ class Weak {
     }
 
     [[nodiscard]]
-    Locker<ValueType> lock_const(const SyncTimeoutType &timeout = SyncTimeoutDeadlock) const {
+    Locker<ValueType> lock_const(const SyncTimeoutType& timeout = SyncTimeoutDeadlock) const {
         SharedType shared = weak_ptr_.lock();
         if (!shared) {
             FAULT("Weak pointer has expired (lock() returned null)");
@@ -353,37 +372,37 @@ class Weak {
 
     /// Non-blocking lock attempt — returns nullopt if expired or lock failed
     [[nodiscard]]
-    std::optional<Locker<ValueType>> try_lock(const SyncTimeoutType &timeout = SyncTimeoutNoWait) const {
+    std::optional<Locker<ValueType>> try_lock(const SyncTimeoutType& timeout = SyncTimeoutNoWait) const {
         SharedType shared = weak_ptr_.lock();
         if (!shared)
             return std::nullopt;
         try {
             return T::make_auto(shared, false, timeout);
-        } catch (const std::runtime_error &) {
+        } catch (const std::runtime_error&) {
             return std::nullopt;
         }
     }
 
     /// Non-blocking const lock attempt — returns nullopt if expired or lock failed
     [[nodiscard]]
-    std::optional<Locker<ValueType>> try_lock_const(const SyncTimeoutType &timeout = SyncTimeoutNoWait) const {
+    std::optional<Locker<ValueType>> try_lock_const(const SyncTimeoutType& timeout = SyncTimeoutNoWait) const {
         SharedType shared = weak_ptr_.lock();
         if (!shared)
             return std::nullopt;
         try {
             return T::make_auto(shared, true, timeout);
-        } catch (const std::runtime_error &) {
+        } catch (const std::runtime_error&) {
             return std::nullopt;
         }
     }
 
-    Weak &set(const ValueType &value, const SyncTimeoutType &timeout = SyncTimeoutDeadlock) {
+    Weak& set(const ValueType& value, const SyncTimeoutType& timeout = SyncTimeoutDeadlock) {
         auto guard_lock = lock(timeout);
         *guard_lock = value;
         return *this;
     }
 
-    Weak &set(ValueType &&value, const SyncTimeoutType &timeout = SyncTimeoutDeadlock) {
+    Weak& set(ValueType&& value, const SyncTimeoutType& timeout = SyncTimeoutDeadlock) {
         auto guard_lock = lock(timeout);
         *guard_lock = std::move(value);
         return *this;

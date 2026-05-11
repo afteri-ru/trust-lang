@@ -10,15 +10,19 @@ namespace trust {
 
 class String : public ValueBase<String, TypeKind::StrChar> {
   public:
-    String() : value_(""), real_kind_(TypeKind::StrChar) {}
-    String(std::string v, TypeKind real) : value_(std::move(v)), real_kind_(real) {}
+    String()
+    : value_("")
+    , real_kind_(TypeKind::StrChar) {}
+    String(std::string v, TypeKind real)
+    : value_(std::move(v))
+    , real_kind_(real) {}
 
     TypeKind kind() const override { return real_kind_; }
-    const std::string &get() const { return value_; }
+    const std::string& get() const { return value_; }
     void set(std::string v) { value_ = std::move(v); }
     TypeKind real_kind() const { return real_kind_; }
 
-    Value &convert_to(TypeKind, Value &dest) const override {
+    Value& convert_to(TypeKind, Value& dest) const override {
         (void)dest;
         throw std::invalid_argument("Use Types::convert() instead");
     }
@@ -30,7 +34,7 @@ class String : public ValueBase<String, TypeKind::StrChar> {
         }
         return val;
     }
-    static void _register(Types &t);
+    static void _register(Types& t);
 
   private:
     std::string value_;

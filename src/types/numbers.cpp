@@ -61,20 +61,20 @@ bool would_overflow_from_float(double value, TypeKind target) {
     return would_overflow_from_float_impl(value, target);
 }
 
-Value &Float::convert_to(TypeKind t, Value &dest) const {
+Value& Float::convert_to(TypeKind t, Value& dest) const {
     auto cat = KindOps::category_of(t);
     if (cat == Category::Numbers) {
         if (would_overflow_to(t))
             throw std::overflow_error("overflow");
         if (dest.kind() == t)
-            static_cast<Float &>(dest) = Float{value_, t};
+            static_cast<Float&>(dest) = Float{value_, t};
         return dest;
     }
     if (cat == Category::Integers) {
         if (would_overflow_to_int(t))
             throw std::overflow_error("overflow");
         if (dest.kind() == t)
-            static_cast<Integers &>(dest) = Integers{static_cast<int64_t>(value_), t};
+            static_cast<Integers&>(dest) = Integers{static_cast<int64_t>(value_), t};
         return dest;
     }
     // if (cat == Category::Complex) {
@@ -85,7 +85,7 @@ Value &Float::convert_to(TypeKind t, Value &dest) const {
     throw std::invalid_argument("cannot convert");
 }
 
-void Float::_register(Types &t) {
+void Float::_register(Types& t) {
     t.add(TypeInfo(TypeKind::Float64, "double"));
     t.add(TypeInfo(TypeKind::Float32, "float"));
 

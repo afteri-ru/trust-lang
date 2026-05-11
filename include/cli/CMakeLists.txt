@@ -16,3 +16,7 @@ target_include_directories(cli_lib PRIVATE ${CMAKE_BINARY_DIR}/include)
 add_executable(trust_cli ${PROJECT_SOURCE_DIR}/cli/main.cpp)
 target_link_libraries(trust_cli PRIVATE cli_lib trust_include_dirs)
 set_target_properties(trust_cli PROPERTIES OUTPUT_NAME trust)
+
+# generate_options_h должен быть собран до trust_cli — заголовочный файл с опциями
+# генерируется в include/cli/options.h.in.cmake → ${CMAKE_BINARY_DIR}/include/cli/options.h
+add_dependencies(trust_cli generate_options_h)

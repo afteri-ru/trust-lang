@@ -13,31 +13,37 @@ namespace trust {
 
 class SyntaxError : public std::runtime_error {
   public:
-    SourceLoc location;
-    explicit SyntaxError(const char *msg, SourceLoc loc = {}) : std::runtime_error(msg), location(loc) {}
+    MapperLocation location;
+    explicit SyntaxError(const char* msg, MapperLocation loc = {})
+    : std::runtime_error(msg)
+    , location(loc) {}
 };
 
 class ConversionError : public std::runtime_error {
   public:
-    explicit ConversionError(std::string const &msg) : std::runtime_error(msg) {}
-    explicit ConversionError(const char *msg) : std::runtime_error(msg) {}
+    explicit ConversionError(std::string const& msg)
+    : std::runtime_error(msg) {}
+    explicit ConversionError(const char* msg)
+    : std::runtime_error(msg) {}
 };
 
 class ParseError : public std::runtime_error {
   public:
-    explicit ParseError(std::string const &msg) : std::runtime_error(msg) {}
-    explicit ParseError(const char *msg) : std::runtime_error(msg) {}
+    explicit ParseError(std::string const& msg)
+    : std::runtime_error(msg) {}
+    explicit ParseError(const char* msg)
+    : std::runtime_error(msg) {}
 };
 
 struct Lexer {
-    Context *ctx;
-    FileIdx src_idx;
+    Context* ctx;
+    MapperFile src_idx;
     int offset = 0;
     int content_start = 0; // начало контента для stateful токенов
 
     std::vector<Lexeme> result;
 
-    static int fill_buffer(const Lexer *e, char *buf, int max_size) {
+    static int fill_buffer(const Lexer* e, char* buf, int max_size) {
         ASSERT(e);
         auto source = e->ctx->source(e->src_idx);
         if (e->offset >= static_cast<int>(source.size()))
@@ -47,7 +53,7 @@ struct Lexer {
         return n;
     }
 
-    static void advance(Lexer *e, int n, bool start_state = false) {
+    static void advance(Lexer* e, int n, bool start_state = false) {
         ASSERT(e);
         e->offset += n;
         if (start_state) {
@@ -55,7 +61,7 @@ struct Lexer {
         }
     }
 
-    static int token(Lexer *e, int kind, unsigned len, unsigned skip_start = 0, unsigned skip_end = 0) {
+    static int token(Lexer* e, int kind, unsigned len, unsigned skip_start = 0, unsigned skip_end = 0) {
         ASSERT(e);
         int token_start;
         if (skip_start || skip_end) { // stateful lexeme
@@ -71,32 +77,33 @@ struct Lexer {
         }
         auto source = e->ctx->source(e->src_idx);
         std::string_view text(source.data() + token_start + skip_start, len - skip_start - skip_end);
-        SourceLoc pos(e->src_idx, token_start);
+        // pos = 1-based end offset токена: (0-based token_start + len) + 1
+        MapperLocation pos = MapperLocation::makeLoc(e->src_idx, token_start + len + 1);
         e->result.emplace_back(static_cast<ParserToken::Kind>(kind), text, pos);
         return kind;
     }
 
-    static SourceLoc current_loc(const Lexer *e) { return SourceLoc(e->src_idx, e->offset); }
+    static MapperLocation current_loc(const Lexer* e) { return MapperLocation::makeLoc(e->src_idx, e->offset); }
 
-    [[noreturn]] static void error(const Lexer *e, const char *msg) { throw SyntaxError(msg, current_loc(e)); }
+    [[noreturn]] static void error(const Lexer* e, const char* msg) { throw SyntaxError(msg, current_loc(e)); }
 
     /** Tokenize input stored in Context at the given source index.
      *  Returns a LexemeSequence containing all tokens (excluding END token).
      *  Throws SyntaxError on lexer errors. */
-    static LexemeSequence tokenize(Context &ctx, FileIdx src_idx, int offset = 0);
+    static LexemeSequence tokenize(Context& ctx, MapperFile src_idx, int offset = 0);
 };
 
 } // namespace trust
 
 /* Forward declarations for Flex API — avoids circular dependency with flex.gen.h */
-typedef void *yy_fwd_yyscan_t;
-typedef struct yy_buffer_state *yy_fwd_YY_BUFFER_STATE;
+typedef void* yy_fwd_yyscan_t;
+typedef struct yy_buffer_state* yy_fwd_YY_BUFFER_STATE;
 extern "C" {
-extern int yylex_init(yy_fwd_yyscan_t *);
-extern void yyset_extra(trust::Lexer *, yy_fwd_yyscan_t);
-extern yy_fwd_YY_BUFFER_STATE yy_scan_bytes(const char *, int, yy_fwd_yyscan_t);
+extern int yylex_init(yy_fwd_yyscan_t*);
+extern void yyset_extra(trust::Lexer*, yy_fwd_yyscan_t);
+extern yy_fwd_YY_BUFFER_STATE yy_scan_bytes(const char*, int, yy_fwd_yyscan_t);
 extern int yylex(yy_fwd_yyscan_t);
-extern char *yyget_text(yy_fwd_yyscan_t);
+extern char* yyget_text(yy_fwd_yyscan_t);
 extern int yyget_leng(yy_fwd_yyscan_t);
 extern void yy_delete_buffer(yy_fwd_YY_BUFFER_STATE, yy_fwd_yyscan_t);
 extern int yylex_destroy(yy_fwd_yyscan_t);
@@ -104,7 +111,7 @@ extern int yylex_destroy(yy_fwd_yyscan_t);
 
 namespace trust {
 
-inline LexemeSequence Lexer::tokenize(Context &ctx, FileIdx src_idx, int offset) {
+inline LexemeSequence Lexer::tokenize(Context& ctx, MapperFile src_idx, int offset) {
     Lexer lexer_self{&ctx, src_idx, offset, 0, {}};
 
     yy_fwd_yyscan_t scanner{};

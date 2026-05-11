@@ -35,10 +35,7 @@ inline std::filesystem::path resolveTempDir(std::string_view baseDir = {}, bool 
         std::error_code ec;
         fs::create_directories(result, ec);
         if (ec || !fs::is_directory(result)) {
-            throw fs::filesystem_error(
-                "failed to create temp directory",
-                result,
-                ec ? ec : std::make_error_code(std::errc::io_error));
+            throw fs::filesystem_error("failed to create temp directory", result, ec ? ec : std::make_error_code(std::errc::io_error));
         }
     }
 

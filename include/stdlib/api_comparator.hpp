@@ -21,31 +21,31 @@ class ApiComparator {
 
     // Добавить записи для указанной версии.
     // Возвращает false, если обнаружена несовместимость с базовой версией.
-    bool add_version(const std::string &pattern, LanguageVersion version, const std::vector<MethodInfo> &methods);
+    bool add_version(const std::string& pattern, LanguageVersion version, const std::vector<MethodInfo>& methods);
 
     // Проверить полную совместимость всех паттернов
     bool check_compatibility() const;
 
     // Получить данные для конкретного паттерна
-    const std::map<uint8_t, std::vector<MethodInfo>> *get_versions(const std::string &pattern) const;
+    const std::map<uint8_t, std::vector<MethodInfo>>* get_versions(const std::string& pattern) const;
 
     // Получить базовую версию для паттерна
-    uint8_t get_base_version(const std::string &pattern) const;
+    uint8_t get_base_version(const std::string& pattern) const;
 
     // Сопоставить квалифицированное имя с паттерном поиска
-    static std::string match_pattern(const std::string &qualified_name);
+    static std::string match_pattern(const std::string& qualified_name);
 
     // Преобразует glob-паттерн в безопасное имя файла
-    static std::string pattern_to_filename(const std::string &pattern);
+    static std::string pattern_to_filename(const std::string& pattern);
 
     // Получить имя версии для вывода (c++11, c++17, ...)
-    static const char *version_name(LanguageVersion ver);
+    static const char* version_name(LanguageVersion ver);
 
     // Получить суффикс версии для имён файлов
     static std::string version_suffix(LanguageVersion ver);
 
     // Получить все известные паттерны
-    const std::map<std::string, std::string> &get_patterns() const;
+    const std::map<std::string, std::string>& get_patterns() const;
 
   private:
     // pattern -> (version -> vector<MethodInfo>)

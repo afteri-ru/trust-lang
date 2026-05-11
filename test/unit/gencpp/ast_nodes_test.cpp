@@ -30,8 +30,8 @@ TEST_F(AstTest, BuildVarDecl) {
                         "  IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
@@ -39,12 +39,12 @@ TEST_F(AstTest, BuildVarDecl) {
     ASSERT_EQ(program->items.size(), 1);
 
     ASSERT_TRUE(program->items[0]->is<VarDecl>());
-    auto *var_decl = program->items[0]->as<VarDecl>();
+    auto* var_decl = program->items[0]->as<VarDecl>();
     EXPECT_EQ(var_decl->name, "x");
     EXPECT_EQ(var_decl->type_info().kind, TypeKind::Int);
     ASSERT_NE(var_decl->init, nullptr);
 
-    auto *int_lit = var_decl->init->as<IntLiteral>();
+    auto* int_lit = var_decl->init->as<IntLiteral>();
     EXPECT_EQ(int_lit->value, 42);
 }
 
@@ -55,8 +55,8 @@ TEST_F(AstTest, BuildFuncDecl) {
                         "      IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
@@ -64,7 +64,7 @@ TEST_F(AstTest, BuildFuncDecl) {
     ASSERT_EQ(program->items.size(), 1);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
+    auto* func = program->items[0]->as<FuncDecl>();
     EXPECT_EQ(func->name, "main");
     EXPECT_EQ(func->return_type, TypeInfo::builtin(TypeKind::Int));
     ASSERT_NE(func->body, nullptr);
@@ -75,8 +75,8 @@ TEST_F(AstTest, BuildStmtWrapsInMain) {
                         "  IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
@@ -93,13 +93,13 @@ TEST_F(AstTest, BuildFuncDeclWithParams) {
                         "      IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
+    auto* func = program->items[0]->as<FuncDecl>();
     EXPECT_EQ(func->params.size(), 2);
     EXPECT_EQ(func->params[0]->name, "a");
     EXPECT_EQ(func->params[0]->param_type.kind, TypeKind::Int);
@@ -116,15 +116,15 @@ TEST_F(AstTest, BuildBinaryOp) {
                         "        IntLiteral value=2\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
-    auto *func = program->items[0]->as<FuncDecl>();
-    auto *block = func->body.get();
-    auto *ret = block->body[0]->as<ReturnStmt>();
-    auto *binop = ret->value->as<BinaryOp>();
+    auto* func = program->items[0]->as<FuncDecl>();
+    auto* block = func->body.get();
+    auto* ret = block->body[0]->as<ReturnStmt>();
+    auto* binop = ret->value->as<BinaryOp>();
     EXPECT_NE(binop, nullptr);
     EXPECT_EQ(binop->op, BinOp::Add);
     EXPECT_EQ(binop->op, BinOp::Add);
@@ -149,14 +149,14 @@ TEST_F(AstTest, BuildIfStmtWithElseIf) {
                         "              IntLiteral value=3\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
-    auto *func = program->items[0]->as<FuncDecl>();
-    auto *block = func->body.get();
-    auto *ifstmt = block->body[0]->as<IfStmt>();
+    auto* func = program->items[0]->as<FuncDecl>();
+    auto* block = func->body.get();
+    auto* ifstmt = block->body[0]->as<IfStmt>();
     EXPECT_NE(ifstmt, nullptr);
     ASSERT_NE(ifstmt->else_if, nullptr);
     EXPECT_EQ(ifstmt->else_block, nullptr);
@@ -167,15 +167,15 @@ TEST_F(AstTest, VarDeclUserType) {
                         "  IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
 
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
     ASSERT_EQ(program->items.size(), 1);
     ASSERT_TRUE(program->items[0]->is<VarDecl>());
-    auto *var_decl = program->items[0]->as<VarDecl>();
+    auto* var_decl = program->items[0]->as<VarDecl>();
     EXPECT_EQ(var_decl->name, "x");
     EXPECT_EQ(var_decl->type_info().to_string(), "unknown");
 }
@@ -187,14 +187,14 @@ TEST_F(AstTest, VarRefUserType) {
                         "      VarRef name=x type=MyEnum\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
 
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
+    auto* func = program->items[0]->as<FuncDecl>();
 }
 
 // ============================================================================
@@ -206,8 +206,8 @@ TEST_F(AstErrorTest, VarDeclMissingName) {
                         "  IntLiteral value=42\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     EXPECT_EQ(program->items.size(), 0);
@@ -218,15 +218,15 @@ TEST_F(AstTest, VarDeclMissingTypeInferred) {
                         "  IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
 
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
     ASSERT_EQ(program->items.size(), 1);
     ASSERT_TRUE(program->items[0]->is<VarDecl>());
-    auto *var_decl = program->items[0]->as<VarDecl>();
+    auto* var_decl = program->items[0]->as<VarDecl>();
     EXPECT_EQ(var_decl->name, "x");
     // No explicit type — AST node has default TypeKind::Void (inferred at semantic analysis)
     EXPECT_EQ(var_decl->type_info().kind, TypeKind::Void);
@@ -237,8 +237,8 @@ TEST_F(AstErrorTest, FuncDeclMissingName) {
                         "  BlockStmt\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     // FuncDecl without name builds but body is empty
@@ -250,8 +250,8 @@ TEST_F(AstErrorTest, IntLiteralInvalidValue) {
                         "  IntLiteral value=not_a_number\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
@@ -263,8 +263,8 @@ TEST_F(AstErrorTest, BinaryOpMissingOp) {
                         "  IntLiteral value=2\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     EXPECT_EQ(program->items.size(), 0);
@@ -276,8 +276,8 @@ TEST_F(AstErrorTest, BinaryOpInvalidOp) {
                         "  IntLiteral value=2\n";
     auto nodes = parse_ast_format(input, ctx);
     ASSERT_TRUE(nodes.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
@@ -289,8 +289,8 @@ TEST_F(AstErrorTest, BinaryOpMissingChildren) {
                         "  IntLiteral value=1\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     EXPECT_EQ(program->items.size(), 0);
@@ -303,8 +303,8 @@ TEST_F(AstErrorTest, VarRefMissingName) {
                         "      VarRef\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     // Builder silently produces FuncDecl with empty body
@@ -317,8 +317,8 @@ TEST_F(AstErrorTest, AssignmentStmtMissingTarget) {
                         "  IntLiteral value=42\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_EQ(program->items.size(), 0);
@@ -329,8 +329,8 @@ TEST_F(AstErrorTest, CallExprMissingName) {
                         "  IntLiteral value=42\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     EXPECT_EQ(program->items.size(), 0);
@@ -342,8 +342,8 @@ TEST_F(AstErrorTest, ParamDeclMissingName) {
                         "  BlockStmt\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     EXPECT_EQ(program->items.size(), 0);
@@ -355,8 +355,8 @@ TEST_F(AstErrorTest, ParamDeclMissingType) {
                         "  BlockStmt\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     EXPECT_EQ(program->items.size(), 0);
@@ -379,8 +379,8 @@ TEST_F(AstErrorTest, IntLiteralOutOfRange) {
                         "  IntLiteral value=99999999999999999999\n";
     auto result = parse_ast_format(input, ctx);
     ASSERT_TRUE(result.has_value());
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *result)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *result)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     EXPECT_EQ(program->items.size(), 0);
@@ -398,20 +398,20 @@ TEST_F(AstTest, BlockItemUnifiedDispatch) {
                         "    ReturnStmt\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
-    auto *block = func->body.get();
+    auto* func = program->items[0]->as<FuncDecl>();
+    auto* block = func->body.get();
     ASSERT_GE(block->body.size(), 2);
 
     ASSERT_TRUE(block->body[0]->is<VarDecl>());
-    auto *decl_item = block->body[0]->as<VarDecl>();
+    auto* decl_item = block->body[0]->as<VarDecl>();
     ASSERT_TRUE(block->body[1]->is<ReturnStmt>());
-    auto *stmt_item = block->body[1]->as<ReturnStmt>();
+    auto* stmt_item = block->body[1]->as<ReturnStmt>();
 
     EXPECT_EQ(AstTypeTraits::node_category(block->body[0]->token_kind()), TokenCategory::Decl);
     EXPECT_EQ(AstTypeTraits::node_category(block->body[1]->token_kind()), TokenCategory::Stmt);
@@ -427,16 +427,16 @@ TEST_F(AstTest, EnumMemberAsFullNode) {
                         "  EnumMember name=Green\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<EnumDecl>());
-    auto *enum_decl = program->items[0]->as<EnumDecl>();
+    auto* enum_decl = program->items[0]->as<EnumDecl>();
     ASSERT_EQ(enum_decl->members.size(), 2);
 
-    auto *member = enum_decl->members[0].get();
+    auto* member = enum_decl->members[0].get();
     EXPECT_EQ(member->token_kind(), ParserToken::Kind::EnumMember);
     EXPECT_EQ(AstTypeTraits::node_category(member->token_kind()), TokenCategory::Decl);
     EXPECT_EQ(member->name, "Red");
@@ -450,16 +450,16 @@ TEST_F(AstTest, StructFieldAsFullNode) {
                         "  StructField name=y type=Int32\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<StructDecl>());
-    auto *struct_decl = program->items[0]->as<StructDecl>();
+    auto* struct_decl = program->items[0]->as<StructDecl>();
     ASSERT_EQ(struct_decl->fields.size(), 2);
 
-    auto *field = struct_decl->fields[0].get();
+    auto* field = struct_decl->fields[0].get();
     EXPECT_EQ(field->token_kind(), ParserToken::Kind::StructField);
     EXPECT_EQ(AstTypeTraits::node_category(field->token_kind()), TokenCategory::Decl);
     EXPECT_EQ(field->name, "x");
@@ -477,22 +477,22 @@ TEST_F(AstTest, CatchBlockAsFullNode) {
                         "          IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
+    auto* func = program->items[0]->as<FuncDecl>();
 
-    auto *block = func->body.get();
+    auto* block = func->body.get();
     ASSERT_EQ(block->body.size(), 1);
 
     ASSERT_TRUE(block->body[0]->is<TryCatchStmt>());
-    auto *try_catch = block->body[0]->as<TryCatchStmt>();
+    auto* try_catch = block->body[0]->as<TryCatchStmt>();
     ASSERT_NE(try_catch->catch_block, nullptr);
 
-    auto *catch_block = try_catch->catch_block.get();
+    auto* catch_block = try_catch->catch_block.get();
     EXPECT_EQ(catch_block->token_kind(), ParserToken::Kind::CatchBlock);
     EXPECT_EQ(AstTypeTraits::node_category(catch_block->token_kind()), TokenCategory::Stmt);
     EXPECT_EQ(catch_block->var_name, "e");
@@ -509,20 +509,20 @@ TEST_F(AstTest, MatchingCaseAsFullNode) {
                         "          IntLiteral value=1\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
+    auto* func = program->items[0]->as<FuncDecl>();
 
-    auto *block = func->body.get();
-    auto *matching = block->body[0]->as<MatchingStmt>();
+    auto* block = func->body.get();
+    auto* matching = block->body[0]->as<MatchingStmt>();
     EXPECT_NE(matching, nullptr);
     ASSERT_EQ(matching->cases.size(), 1);
 
-    auto *mc = matching->cases[0].get();
+    auto* mc = matching->cases[0].get();
     EXPECT_EQ(mc->token_kind(), ParserToken::Kind::MatchingCase);
     EXPECT_EQ(AstTypeTraits::node_category(mc->token_kind()), TokenCategory::Stmt);
 }
@@ -538,17 +538,17 @@ TEST_F(AstTest, AssignmentStmtWithVarRefTarget) {
                         "      IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
-    auto *func = program->items[0]->as<FuncDecl>();
-    auto *block = func->body.get();
-    auto *assign = block->body[0]->as<AssignmentStmt>();
+    auto* func = program->items[0]->as<FuncDecl>();
+    auto* block = func->body.get();
+    auto* assign = block->body[0]->as<AssignmentStmt>();
     EXPECT_NE(assign, nullptr);
 
-    auto *vr = assign->target->as<VarRef>();
+    auto* vr = assign->target->as<VarRef>();
     EXPECT_NE(vr, nullptr);
     EXPECT_EQ(vr->name, "x");
 }
@@ -560,8 +560,8 @@ TEST_F(AstTest, AssignmentStmtCodeGen) {
                         "      IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
@@ -584,16 +584,16 @@ TEST_F(AstTest, BuildWhileStmt) {
                         "        IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
-    auto *block = func->body.get();
+    auto* func = program->items[0]->as<FuncDecl>();
+    auto* block = func->body.get();
     ASSERT_GE(block->body.size(), 1);
-    auto *while_stmt = block->body[0]->as<WhileStmt>();
+    auto* while_stmt = block->body[0]->as<WhileStmt>();
     EXPECT_NE(while_stmt, nullptr);
     EXPECT_EQ(while_stmt->token_kind(), ParserToken::Kind::WhileStmt);
 }
@@ -607,15 +607,15 @@ TEST_F(AstTest, BuildDoWhileStmt) {
                         "      VarRef name=x\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
-    auto *block = func->body.get();
-    auto *do_while = block->body[0]->as<DoWhileStmt>();
+    auto* func = program->items[0]->as<FuncDecl>();
+    auto* block = func->body.get();
+    auto* do_while = block->body[0]->as<DoWhileStmt>();
     EXPECT_NE(do_while, nullptr);
     EXPECT_EQ(do_while->token_kind(), ParserToken::Kind::DoWhileStmt);
 }
@@ -630,13 +630,13 @@ TEST_F(AstTest, BuildArrayInit) {
                         "        IntLiteral value=3\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
+    auto* func = program->items[0]->as<FuncDecl>();
 }
 
 TEST_F(AstTest, BuildCastExpr) {
@@ -647,13 +647,13 @@ TEST_F(AstTest, BuildCastExpr) {
                         "        IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
+    auto* func = program->items[0]->as<FuncDecl>();
 }
 
 TEST_F(AstTest, BuildMemberAccess) {
@@ -664,11 +664,11 @@ TEST_F(AstTest, BuildMemberAccess) {
                         "        VarRef name=obj\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
+    auto* func = program->items[0]->as<FuncDecl>();
 }

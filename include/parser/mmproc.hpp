@@ -24,13 +24,13 @@ struct MMProcessor {
      *  @param lexemes последовательность лексем от Flex
      *  @return TokenSequence для передачи в Bison-парсер
      */
-    static TokenSequence process(Context &ctx, const LexemeSequence &lexemes);
+    static TokenSequence process(Context& ctx, const LexemeSequence& lexemes);
 
     /** Экранировать спецсимволы в строке для вывода C++ */
-    [[nodiscard]] static std::string escape(const std::string &s);
+    [[nodiscard]] static std::string escape(const std::string& s);
 
     /** Преобразовать escape-последовательности в реальные символы */
-    [[nodiscard]] static std::string unescape(const std::string &s);
+    [[nodiscard]] static std::string unescape(const std::string& s);
 
     // /** Преобразовать BinOp в строковое представление */
     // [[nodiscard]] static std::string bin_op_to_string(BinOp op);

@@ -15,30 +15,30 @@ namespace trust {
 // ─────────────────────────────────────────────────────────────
 // Проверка внутреннего имени — делегирует в name_utils
 // ─────────────────────────────────────────────────────────────
-bool MethodAnalyzer::is_internal_name(const std::string &qualified_name) {
+bool MethodAnalyzer::is_internal_name(const std::string& qualified_name) {
     return trust::is_internal_name(qualified_name);
 }
 
 // ─────────────────────────────────────────────────────────────
 // Классификация объявления
 // ─────────────────────────────────────────────────────────────
-DeclCategory MethodAnalyzer::classify(const clang::NamedDecl *decl) {
+DeclCategory MethodAnalyzer::classify(const clang::NamedDecl* decl) {
     if (!decl)
         return DeclCategory::Unknown;
 
     if (llvm::dyn_cast<clang::ClassTemplateDecl>(decl))
         return DeclCategory::ClassTemplate;
 
-    if (const auto *ftd = llvm::dyn_cast<clang::FunctionTemplateDecl>(decl)) {
+    if (const auto* ftd = llvm::dyn_cast<clang::FunctionTemplateDecl>(decl)) {
         // Пропускаем deduction guides — они не являются обычными функциями
-        if (const auto *templated = ftd->getTemplatedDecl()) {
+        if (const auto* templated = ftd->getTemplatedDecl()) {
             if (llvm::isa<clang::CXXDeductionGuideDecl>(templated))
                 return DeclCategory::Unknown;
         }
         return DeclCategory::FunctionTemplate;
     }
 
-    if (const auto *md = llvm::dyn_cast<clang::CXXMethodDecl>(decl)) {
+    if (const auto* md = llvm::dyn_cast<clang::CXXMethodDecl>(decl)) {
         // Пропускаем конструкторы, деструкторы и deduction guides — они не являются обычными методами
         if (llvm::isa<clang::CXXConstructorDecl>(md))
             return DeclCategory::Unknown;
@@ -66,7 +66,7 @@ DeclCategory MethodAnalyzer::classify(const clang::NamedDecl *decl) {
 // ─────────────────────────────────────────────────────────────
 // Получить тип возвращаемого значения
 // ─────────────────────────────────────────────────────────────
-std::string MethodAnalyzer::get_return_type(const clang::FunctionDecl *fd) {
+std::string MethodAnalyzer::get_return_type(const clang::FunctionDecl* fd) {
     if (!fd)
         return {};
 
@@ -82,14 +82,14 @@ std::string MethodAnalyzer::get_return_type(const clang::FunctionDecl *fd) {
 // ─────────────────────────────────────────────────────────────
 // Получить типы параметров
 // ─────────────────────────────────────────────────────────────
-std::vector<std::string> MethodAnalyzer::get_param_types(const clang::FunctionDecl *fd) {
+std::vector<std::string> MethodAnalyzer::get_param_types(const clang::FunctionDecl* fd) {
     if (!fd)
         return {};
 
     std::vector<std::string> types;
     auto printingPolicy = clang::PrintingPolicy(fd->getLangOpts());
 
-    for (const auto *param : fd->parameters()) {
+    for (const auto* param : fd->parameters()) {
         if (param) {
             clang::QualType paramType = param->getType();
             std::string buf;
@@ -105,7 +105,7 @@ std::vector<std::string> MethodAnalyzer::get_param_types(const clang::FunctionDe
 // ─────────────────────────────────────────────────────────────
 // Построить нормализованную сигнатуру для сравнения
 // ─────────────────────────────────────────────────────────────
-std::string MethodAnalyzer::build_normalized_signature(const MethodInfo &info) {
+std::string MethodAnalyzer::build_normalized_signature(const MethodInfo& info) {
     std::string sig = info.return_type + "(";
     for (size_t i = 0; i < info.param_types.size(); ++i) {
         if (i > 0)
@@ -123,7 +123,7 @@ std::string MethodAnalyzer::build_normalized_signature(const MethodInfo &info) {
 // ─────────────────────────────────────────────────────────────
 // Основной метод анализа
 // ─────────────────────────────────────────────────────────────
-std::optional<MethodInfo> MethodAnalyzer::analyze(const clang::NamedDecl *decl) {
+std::optional<MethodInfo> MethodAnalyzer::analyze(const clang::NamedDecl* decl) {
     if (!decl)
         return std::nullopt;
 
@@ -143,14 +143,14 @@ std::optional<MethodInfo> MethodAnalyzer::analyze(const clang::NamedDecl *decl) 
     info.category = classify(decl);
 
     // Извлечение информации для функций и методов
-    if (const auto *fd = llvm::dyn_cast<clang::FunctionDecl>(decl)) {
+    if (const auto* fd = llvm::dyn_cast<clang::FunctionDecl>(decl)) {
         info.return_type = get_return_type(fd);
         info.param_types = get_param_types(fd);
         info.is_template = llvm::isa<clang::FunctionTemplateDecl>(decl) || fd->isTemplateDecl();
     }
 
     // Специфика для методов
-    if (const auto *md = llvm::dyn_cast<clang::CXXMethodDecl>(decl)) {
+    if (const auto* md = llvm::dyn_cast<clang::CXXMethodDecl>(decl)) {
         info.is_const = md->isConst();
         info.is_static = md->isStatic();
         info.is_template = md->isTemplateDecl();
@@ -162,7 +162,7 @@ std::optional<MethodInfo> MethodAnalyzer::analyze(const clang::NamedDecl *decl) 
     }
 
     // Для TypeAlias извлекаем underlying type
-    if (const auto *tad = llvm::dyn_cast<clang::TypeAliasDecl>(decl)) {
+    if (const auto* tad = llvm::dyn_cast<clang::TypeAliasDecl>(decl)) {
         clang::QualType underlyingType = tad->getUnderlyingType();
         if (!underlyingType.isNull()) {
             std::string buf;
@@ -173,8 +173,8 @@ std::optional<MethodInfo> MethodAnalyzer::analyze(const clang::NamedDecl *decl) 
     }
 
     // Для TypeAliasTemplate (using template) извлекаем underlying type из шаблонного объявления
-    if (const auto *tatd = llvm::dyn_cast<clang::TypeAliasTemplateDecl>(decl)) {
-        if (const auto *tad = tatd->getTemplatedDecl()) {
+    if (const auto* tatd = llvm::dyn_cast<clang::TypeAliasTemplateDecl>(decl)) {
+        if (const auto* tad = tatd->getTemplatedDecl()) {
             clang::QualType underlyingType = tad->getUnderlyingType();
             if (!underlyingType.isNull()) {
                 std::string buf;

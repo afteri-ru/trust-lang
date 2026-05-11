@@ -76,7 +76,7 @@ TEST(ApiComparatorAddVersionTest, RejectsDescendingOrder) {
 TEST(ApiComparatorGetPatternsTest, ReturnsRegisteredPatterns) {
     ApiComparator comp;
     // Patterns come from get_search_patterns() — test that the method works
-    const auto &patterns = comp.get_patterns();
+    const auto& patterns = comp.get_patterns();
     // Should return the map from trust_stdlib.cpp
     EXPECT_FALSE(patterns.empty());
 }

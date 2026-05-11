@@ -11,8 +11,7 @@ TEST(TokenGen, EnumTraits) {
     static_assert(std::is_scoped_enum_v<ParserToken::Kind>, "ParserToken::Kind must be scoped enum");
     static_assert(std::is_scoped_enum_v<TokenFlag>, "TokenFlag must be scoped enum");
     static_assert(std::is_scoped_enum_v<TokenCategory>, "TokenCategory must be scoped enum");
-    static_assert(std::is_same_v<std::underlying_type_t<ParserToken::Kind>, int>,
-                  "ParserToken::Kind underlying = int");
+    static_assert(std::is_same_v<std::underlying_type_t<ParserToken::Kind>, int>, "ParserToken::Kind underlying = int");
     static_assert((TokenFlag::FLEX_LEXEME | TokenFlag::BISON_TOKEN) != TokenFlag{}, "TokenFlag | operator works");
     static_assert((TokenFlag::FLEX_LEXEME & TokenFlag::BISON_TOKEN) == TokenFlag{}, "TokenFlag & operator works");
     SUCCEED();
@@ -43,8 +42,7 @@ TEST(TokenGen, CoreInvariants) {
 
 TEST(TokenGen, NamesNotUnknown) {
     for (auto k : ParserToken::all()) {
-        EXPECT_NE(ParserToken::name(k), "<unknown>")
-            << "ParserToken::Kind " << static_cast<int>(k) << " has name '<unknown>'";
+        EXPECT_NE(ParserToken::name(k), "<unknown>") << "ParserToken::Kind " << static_cast<int>(k) << " has name '<unknown>'";
     }
 }
 
@@ -62,10 +60,14 @@ TEST(TokenGen, AstCounts) {
     std::size_t expr_count = 0, stmt_count = 0, decl_count = 0, root_count = 0;
 
     for (auto k : ParserToken::all()) {
-        if (ParserToken::is_expr(k)) ++expr_count;
-        if (ParserToken::is_stmt(k)) ++stmt_count;
-        if (ParserToken::is_decl(k)) ++decl_count;
-        if (ParserToken::is_root(k)) ++root_count;
+        if (ParserToken::is_expr(k))
+            ++expr_count;
+        if (ParserToken::is_stmt(k))
+            ++stmt_count;
+        if (ParserToken::is_decl(k))
+            ++decl_count;
+        if (ParserToken::is_root(k))
+            ++root_count;
     }
 
     EXPECT_EQ(root_count, 1) << "Exactly one Root node";
@@ -78,7 +80,8 @@ TEST(TokenGen, AutoRange) {
     int min_auto = INT32_MAX;
     for (auto k : ParserToken::all()) {
         int v = static_cast<int>(k);
-        if (v > 0 && v < min_auto) min_auto = v;
+        if (v > 0 && v < min_auto)
+            min_auto = v;
     }
     EXPECT_GE(min_auto, 256) << "AUTO values >= 256";
 }
@@ -139,10 +142,14 @@ TEST(TokenGen, AstNoOverlap) {
     for (auto k : ParserToken::all()) {
         int flags = static_cast<int>(ParserToken::flags(k));
         int ast_count = 0;
-        if (flags & static_cast<int>(TokenFlag::Expr)) ++ast_count;
-        if (flags & static_cast<int>(TokenFlag::Stmt)) ++ast_count;
-        if (flags & static_cast<int>(TokenFlag::Decl)) ++ast_count;
-        if (flags & static_cast<int>(TokenFlag::Root)) ++ast_count;
+        if (flags & static_cast<int>(TokenFlag::Expr))
+            ++ast_count;
+        if (flags & static_cast<int>(TokenFlag::Stmt))
+            ++ast_count;
+        if (flags & static_cast<int>(TokenFlag::Decl))
+            ++ast_count;
+        if (flags & static_cast<int>(TokenFlag::Root))
+            ++ast_count;
         EXPECT_LE(ast_count, 1) << ParserToken::name(k).data() << " has " << ast_count << " AST flags";
     }
 }

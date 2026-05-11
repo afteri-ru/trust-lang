@@ -99,11 +99,11 @@ struct ParserToken {
 #undef TK
     }};
 
-    [[nodiscard]] static constexpr const auto &all() noexcept { return _all; }
+    [[nodiscard]] static constexpr const auto& all() noexcept { return _all; }
     [[nodiscard]] static constexpr std::size_t all_size() noexcept { return _ALL_COUNT; }
 
     /** Lookup token by name (constexpr). Returns pointer to Kind or nullptr. */
-    [[nodiscard]] static constexpr const Kind *from_name(std::string_view s) noexcept {
+    [[nodiscard]] static constexpr const Kind* from_name(std::string_view s) noexcept {
 #define LOOKUP(name)                           \
     if (s == #name) {                          \
         static constexpr auto _k = Kind::name; \
@@ -115,7 +115,7 @@ struct ParserToken {
     }
 
     // Lookup token by numeric value
-    [[nodiscard]] static constexpr const Kind *from_value(int v) noexcept {
+    [[nodiscard]] static constexpr const Kind* from_value(int v) noexcept {
         for (std::size_t i = 0; i < _all.size(); ++i) {
             if (static_cast<int>(_all[i]) == v)
                 return &_all[i];
@@ -125,7 +125,7 @@ struct ParserToken {
 
     // Name by numeric value
     [[nodiscard]] static constexpr std::string_view name_by_value(int v) noexcept {
-        if (auto *pk = from_value(v))
+        if (auto* pk = from_value(v))
             return name(*pk);
         return "<unknown>";
     }
@@ -146,9 +146,12 @@ static_assert(__builtin_strcmp(FLEX_DEFINES_TOKENS_HASH, TOKENS_DEF_HASH) == 0, 
  *  Used by both Flex lexer and Bison parser as the unified token representation. */
 struct Lexeme : std::string_view {
     ParserToken::Kind kind{ParserToken::Kind::END};
-    SourceLoc pos{};
+    MapperLocation pos{};
     Lexeme() = default;
-    Lexeme(ParserToken::Kind k, std::string_view v, SourceLoc p) : std::string_view(v), kind(k), pos(p) {}
+    Lexeme(ParserToken::Kind k, std::string_view v, MapperLocation p)
+    : std::string_view(v)
+    , kind(k)
+    , pos(p) {}
 };
 
 using LexemeSequence = std::vector<Lexeme>;

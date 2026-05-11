@@ -13,17 +13,43 @@
  */
 
 const mockExistsSync = jest.fn().mockReturnValue(true);
+const mockMkdirSync = jest.fn();
 jest.mock('fs', () => {
     const actual = jest.requireActual('fs');
     return {
         ...actual,
-        existsSync: mockExistsSync
+        existsSync: mockExistsSync,
+        mkdirSync: mockMkdirSync
+    };
+});
+
+// Mock execSync to avoid real command execution in tests
+jest.mock('child_process', () => {
+    const actual = jest.requireActual('child_process');
+    return {
+        ...actual,
+        execSync: jest.fn().mockReturnValue('')
+    };
+});
+
+// Mock buildForDebug to avoid real file system and process execution
+jest.mock('extension-utils', () => {
+    const actual = jest.requireActual('extension-utils');
+    return {
+        ...actual,
+        buildForDebug: jest.fn().mockResolvedValue({
+            success: true,
+            cppFile: '/test/workspace/.trust/test.cpp',
+            targetFile: '/test/workspace/.trust/test'
+        }),
+        transpileSource: jest.fn().mockReturnValue({ success: true, cppFile: '/test/workspace/.trust/test.cpp' }),
+        compileCpp: jest.fn().mockReturnValue({ success: true, targetFile: '/test/workspace/.trust/test' })
     };
 });
 
 const vscode = require('vscode');
 const extension = require('extension');
-const { TrustDebugAdapterDescriptorFactory } = require('dap-adapter');
+const { TrustDebugAdapterDescriptorFactory, TrustDebugAdapterTracker, getTraceChannel, writeTrace, resetTraceChannel } = require('dap-adapter');
 const fs = require('fs');
 
 beforeEach(() => {
@@ -40,6 +66,8 @@ beforeEach(() => {
     // Reset output channels
     vscode.window._outputChannels = [];
     vscode.window._statusBarItems = [];
+    // Reset trace channel in dap-adapter module
+    resetTraceChannel();
 });
 
 describe('activate(): command registration', () => {
@@ -94,7 +122,7 @@ describe('TrustDebugAdapterDescriptorFactory', () => {
         expect(exe.args).toEqual(['a', 'b']);
     });
 
-    test('creates DebugAdapterExecutable with project-dir and lldb-server', () => {
+    test('creates DebugAdapterExecutable with project-dir only', () => {
         const config = vscode.workspace.getConfiguration('trust');
         const origGet = config.get.bind(config);
         jest.spyOn(config, 'get').mockImplementation((key, defaultValue) => {
@@ -105,8 +133,7 @@ describe('TrustDebugAdapterDescriptorFactory', () => {
         const factory = new TrustDebugAdapterDescriptorFactory();
         const session = {
             configuration: {
-                projectDir: '/ws',
-                lldbServerPath: '/usr/bin/lldb-server'
+                projectDir: '/ws'
             }
         };
 
@@ -114,9 +141,8 @@ describe('TrustDebugAdapterDescriptorFactory', () => {
         expect(executable.command).toBe('trust-dap');
         expect(executable.args).toContain('--project-dir');
         expect(executable.args).toContain('/ws');
-        expect(executable.args).toContain('--lldb-server');
-        expect(executable.args).toContain('/usr/bin/lldb-server');
-        // Старые CLI-аргументы больше не передаются
+        // Никакие другие CLI-аргументы не передаются
+        expect(executable.args).not.toContain('--gdb');
         expect(executable.args).not.toContain('--source');
         expect(executable.args).not.toContain('--cpp');
         expect(executable.args).not.toContain('--target');
@@ -140,7 +166,7 @@ describe('TrustDebugAdapterDescriptorFactory', () => {
         // projectDir берется из workspaceFolder ("/test/workspace")
         expect(executable.args).toContain('--project-dir');
         expect(executable.args).toContain('/test/workspace');
-        expect(executable.args).not.toContain('--lldb-server');
+        expect(executable.args).not.toContain('--gdb');
 
         config.get.mockRestore();
     });
@@ -183,10 +209,9 @@ describe('resolveDebugConfiguration', () => {
         // Should get back configuration with resolved variables from defaults
         expect(result).toBeDefined();
         expect(result.sourceFile).toBe('/test/workspace/test.src');
-        // cppFile, targetFile, mapFile should remain as provided (empty)
-        expect(result.cppFile).toBe('');
-        expect(result.targetFile).toBe('');
-        expect(result.mapFile).toBe('');
+        // cppFile and targetFile are filled by buildForDebug mock
+        expect(result.cppFile).toBe('/test/workspace/.trust/test.cpp');
+        expect(result.targetFile).toBe('/test/workspace/.trust/test');
     });
 
     test('generates default config when no configuration provided', async () => {
@@ -681,6 +706,168 @@ describe('Diagnostics: LSP path errors', () => {
         expect(lspStatusBars[0].text).toContain('$(error)');
 
         config.get.mockRestore();
+    });
+});
+
+describe('TrustBuildTask', () => {
+    const { TrustBuildTask } = extension;
+
+    test('buildTaskType is trust-build', () => {
+        expect(TrustBuildTask.buildTaskType).toBe('trust-build');
+    });
+
+    test('getBuildCppTask creates Task with correct type and name', () => {
+        const ws = { uri: { fsPath: '/test/workspace' } };
+        const task = TrustBuildTask.getBuildCppTask('/test/workspace/test.src', ws);
+        expect(task.definition.type).toBe('trust-build');
+        expect(task.name).toBe('Trust: Transpile .src');
+        expect(task.source).toBe('trust');
+        expect(task.group).toBe(vscode.TaskGroup.Build);
+    });
+
+    test('getCompileTask creates Task with correct type and name', () => {
+        const ws = { uri: { fsPath: '/test/workspace' } };
+        const task = TrustBuildTask.getCompileTask('/test/workspace/test.src', ws);
+        expect(task.definition.type).toBe('trust-build');
+        expect(task.name).toBe('Trust: Compile .cpp');
+        expect(task.source).toBe('trust');
+        expect(task.group).toBe(vscode.TaskGroup.Build);
+    });
+
+    test('getBuildAllTask creates Task with correct type and name', () => {
+        const ws = { uri: { fsPath: '/test/workspace' } };
+        const task = TrustBuildTask.getBuildAllTask('/test/workspace/test.src', ws);
+        expect(task.definition.type).toBe('trust-build');
+        expect(task.name).toBe('Trust: Build all');
+        expect(task.source).toBe('trust');
+        expect(task.group).toBe(vscode.TaskGroup.Build);
+    });
+
+    test('getBuildCppTask creates CustomExecution', () => {
+        const ws = { uri: { fsPath: '/test/workspace' } };
+        const task = TrustBuildTask.getBuildCppTask('/test/workspace/test.src', ws);
+        expect(task.execution).toBeInstanceOf(vscode.CustomExecution);
+    });
+
+    test('getCompileTask creates CustomExecution', () => {
+        const ws = { uri: { fsPath: '/test/workspace' } };
+        const task = TrustBuildTask.getCompileTask('/test/workspace/test.src', ws);
+        expect(task.execution).toBeInstanceOf(vscode.CustomExecution);
+    });
+
+    test('getBuildAllTask creates CustomExecution', () => {
+        const ws = { uri: { fsPath: '/test/workspace' } };
+        const task = TrustBuildTask.getBuildAllTask('/test/workspace/test.src', ws);
+        expect(task.execution).toBeInstanceOf(vscode.CustomExecution);
+    });
+});
+
+describe('Diagnostics: DAP path errors (binary not found)', () => {
+    test('throws when dapPath binary does not exist', () => {
+        const config = vscode.workspace.getConfiguration('trust');
+        const origGet = config.get.bind(config);
+        jest.spyOn(config, 'get').mockImplementation((key, defaultValue) => {
+            if (key === 'dapPath') return '/nonexistent/trust-dap';
+            return origGet(key, defaultValue);
+        });
+
+        // existsSync returns true by default, mock it to return false for this path
+        mockExistsSync.mockReturnValue(false);
+
+        const showErrorSpy = jest.spyOn(vscode.window, 'showErrorMessage');
+        const factory = new TrustDebugAdapterDescriptorFactory();
+
+        expect(() => {
+            factory.createDebugAdapterDescriptor({ configuration: {} });
+        }).toThrow('binary not found');
+
+        expect(showErrorSpy).toHaveBeenCalledWith(
+            expect.stringContaining('binary not found')
+        );
+
+        showErrorSpy.mockRestore();
+        config.get.mockRestore();
+    });
+});
+
+describe('TrustDebugAdapterTracker', () => {
+    beforeEach(() => {
+        vscode.window._outputChannels = [];
+    });
+
+    test('logs request messages onWillReceiveMessage', () => {
+        const tracker = new TrustDebugAdapterTracker();
+        tracker.onWillReceiveMessage({
+            type: 'request',
+            command: 'initialize',
+            seq: 42,
+            arguments: { clientID: 'vscode' }
+        });
+
+        const channel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang');
+        expect(channel).toBeDefined();
+    });
+
+    test('logs response messages onDidSendMessage', () => {
+        const tracker = new TrustDebugAdapterTracker();
+        tracker.onDidSendMessage({
+            type: 'response',
+            command: 'initialize',
+            request_seq: 42,
+            success: true,
+            body: { supportsConfigurationDoneRequest: true }
+        });
+
+        const channel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang');
+        expect(channel).toBeDefined();
+    });
+
+    test('logs event messages onDidSendMessage', () => {
+        const tracker = new TrustDebugAdapterTracker();
+        tracker.onDidSendMessage({
+            type: 'event',
+            event: 'stopped',
+            body: { reason: 'breakpoint', threadId: 1 }
+        });
+
+        const channel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang');
+        expect(channel).toBeDefined();
+    });
+
+    test('logs errors onError', () => {
+        const tracker = new TrustDebugAdapterTracker();
+        const error = new Error('DebugAdapterExecutable not constructed');
+        const showSpy = jest.spyOn(vscode.window, 'showErrorMessage');
+
+        tracker.onError(error);
+
+        // Ошибки всегда выводятся в канал
+        const channel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang');
+        expect(channel).toBeDefined();
+        expect(channel.content).toContain('[DAP-ERR]');
+        expect(channel.content).toContain('DebugAdapterExecutable not constructed');
+    });
+
+    test('logs session start and stop events', () => {
+        const tracker = new TrustDebugAdapterTracker();
+        tracker.onWillStartSession();
+        tracker.onWillStopSession();
+
+        const channel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang');
+        expect(channel).toBeDefined();
+        expect(channel.content).toContain('[DAP-SESSION] Session starting');
+        expect(channel.content).toContain('[DAP-SESSION] Session stopped');
+    });
+
+    test('handles null/undefined messages gracefully', () => {
+        const tracker = new TrustDebugAdapterTracker();
+        // Should not throw
+        tracker.onWillReceiveMessage(null);
+        tracker.onWillReceiveMessage(undefined);
+        tracker.onDidSendMessage(null);
+        tracker.onDidSendMessage(undefined);
+        tracker.onError(null);
+        tracker.onError(undefined);
     });
 });
 

@@ -2,6 +2,7 @@
 # Find required tools, libraries and create utility targets
 
 # ── Required tools ──
+find_package(ZLIB REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_package(GTest REQUIRED)
 find_program(FLEX_EXECUTABLE flex REQUIRED)
@@ -29,6 +30,7 @@ add_library(msgpack-c-static STATIC IMPORTED)
 set_target_properties(msgpack-c-static PROPERTIES
     IMPORTED_LOCATION "${MSGPACK_STATIC_LIB}"
     INTERFACE_INCLUDE_DIRECTORIES "${MSGPACK_INCLUDE_DIRS}"
+    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${MSGPACK_INCLUDE_DIRS}"
 )
 
 # ── LLVM/Clang (for stdlib) ──
@@ -42,5 +44,5 @@ set(LLDB_LIBRARIES "/usr/lib/llvm-${CLANG_VERSION}/lib/liblldb.so")
 
 # ── GMP interface target ──
 add_library(gmp_interface INTERFACE)
-target_include_directories(gmp_interface INTERFACE ${GMP_INCLUDE_DIRS})
+target_include_directories(gmp_interface SYSTEM INTERFACE ${GMP_INCLUDE_DIRS})
 target_link_libraries(gmp_interface INTERFACE ${GMP_LIBRARIES})

@@ -84,5 +84,10 @@ target_include_directories(parser_lib PUBLIC
     ${CMAKE_BINARY_DIR}/include
     ${CMAKE_CURRENT_BINARY_DIR}
 )
+set_source_files_properties(
+    ${GEN_DIR}/lex.yy.cpp
+    ${GEN_DIR}/parser.tab.cpp
+    PROPERTIES COMPILE_OPTIONS "-Wno-old-style-cast"
+)
 add_dependencies(parser_lib parser_generated)
 

@@ -19,7 +19,8 @@ add_library(stdlib_lib STATIC
 
 target_compile_definitions(stdlib_lib PRIVATE ${LLVM_DEFINITIONS})
 
-target_include_directories(stdlib_lib PUBLIC ${PROJECT_INCLUDE_DIR} ${LLVM_INCLUDE_DIRS})
+target_include_directories(stdlib_lib PUBLIC ${PROJECT_INCLUDE_DIR})
+target_include_directories(stdlib_lib SYSTEM PUBLIC ${LLVM_INCLUDE_DIRS})
 
 target_link_libraries(stdlib_lib PUBLIC clang-cpp LLVM)
 

@@ -9,7 +9,7 @@
 using namespace trust;
 
 class LoopControlTest : public ::testing::Test {
-protected:
+  protected:
     Context ctx;
 };
 
@@ -21,7 +21,8 @@ TEST_F(LoopControlTest, BreakStmt) {
                         "      BreakStmt\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -34,7 +35,8 @@ TEST_F(LoopControlTest, ContinueStmt) {
                         "      ContinueStmt\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -50,7 +52,8 @@ TEST_F(LoopControlTest, WhileElseBlock) {
                         "          IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -63,7 +66,8 @@ TEST_F(LoopControlTest, DoWhileBreak) {
                         "      VarRef name=x\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -78,7 +82,8 @@ TEST_F(LoopControlTest, NestedWhileBreak) {
                         "        BreakStmt\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -93,7 +98,8 @@ TEST_F(LoopControlTest, NestedDoWhileBreak) {
                         "      VarRef name=outer\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -108,7 +114,8 @@ TEST_F(LoopControlTest, ContinueOuterDowhile) {
                         "      VarRef name=outer\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -124,7 +131,8 @@ TEST_F(LoopControlTest, WhileElseBreak) {
                         "          IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -142,7 +150,8 @@ TEST_F(LoopControlTest, WhileElseNested) {
                         "          IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -158,7 +167,8 @@ TEST_F(LoopControlTest, DoWhileNested) {
                         "      VarRef name=outer\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -175,7 +185,8 @@ TEST_F(LoopControlTest, BreakContinueDeep) {
                         "      VarRef name=top\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -192,7 +203,8 @@ TEST_F(LoopControlTest, DoWhileNestedPure) {
                         "      VarRef name=top\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -210,7 +222,8 @@ TEST_F(LoopControlTest, DoWhileTripleNested) {
                         "      VarRef name=top\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -224,7 +237,8 @@ TEST_F(LoopControlTest, DoWhileBreakContinue) {
                         "      VarRef name=x\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }
@@ -236,7 +250,8 @@ TEST_F(LoopControlTest, ArrayDispatch) {
                         "    IntLiteral value=2\n";
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> root_ptrs;
-    for (auto& r : *nodes) root_ptrs.push_back(r.get());
+    for (auto& r : *nodes)
+        root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
     ASSERT_NE(program, nullptr);
 }

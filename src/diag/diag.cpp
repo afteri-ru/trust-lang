@@ -16,8 +16,9 @@ Severity DiagnosticEngine::minSeverity() const {
     return m_minSeverity;
 }
 
-void DiagnosticEngine::report(SourceRange range, Severity sev, std::string_view msg) {
-    if (sev < m_minSeverity) return;
+void DiagnosticEngine::report(MapperRange range, Severity sev, std::string_view msg) {
+    if (sev < m_minSeverity)
+        return;
     output(range, sev, std::string(msg));
 }
 
@@ -36,24 +37,35 @@ void DiagnosticEngine::setOutput(std::ostream* os) {
 void DiagnosticEngine::clear() {
     m_errorCount = 0;
     m_warningCount = 0;
+    m_diagnostics.clear();
 }
 
 // severityToString — маппинг enum → строка. Должен соответствовать порядку Severity.
 static const char* severityToString(Severity sev) {
     switch (sev) {
-        case Severity::Remark:  return "remark";
-        case Severity::Note:    return "note";
-        case Severity::Warning: return "warning";
-        case Severity::Error:   return "error";
-        case Severity::Fatal:   return "fatal";
+    case Severity::Remark:
+        return "remark";
+    case Severity::Note:
+        return "note";
+    case Severity::Warning:
+        return "warning";
+    case Severity::Error:
+        return "error";
+    case Severity::Fatal:
+        return "fatal";
     }
     return "unknown";
 }
 
-void DiagnosticEngine::output(SourceRange range, Severity sev, std::string_view msg) {
+void DiagnosticEngine::output(MapperRange range, Severity sev, std::string_view msg) {
     // Счётчики увеличиваются до фильтрации — это корректно, т.к. фильтрация на уровне report().
-    if (sev == Severity::Error) m_errorCount++;
-    if (sev == Severity::Warning) m_warningCount++;
+    if (sev == Severity::Error)
+        m_errorCount++;
+    if (sev == Severity::Warning)
+        m_warningCount++;
+
+    // Сохраняем диагностику для последующего извлечения
+    m_diagnostics.push_back({range, sev, std::string(msg)});
 
     std::ostream& out = m_output ? *m_output : std::cerr;
 
@@ -64,18 +76,19 @@ void DiagnosticEngine::output(SourceRange range, Severity sev, std::string_view 
         auto fname = m_ctx->filename(src_idx);
 
         auto begin_lc = m_ctx->line_column(range.begin);
-        out << fname << ":" << begin_lc.line << ":" << begin_lc.column << ": "
-            << severityToString(sev) << ": " << msg << "\n";
+        out << fname << ":" << begin_lc.line << ":" << begin_lc.column << ": " << severityToString(sev) << ": " << msg << "\n";
 
         const auto data = origin.data();
         const auto size = origin.size();
         const auto offset = range.begin.offset();
 
-        if (offset < static_cast<int>(size) && offset > 0) {
+        if (offset < static_cast<uint32_t>(size) && offset > 0) {
             const char* line_start = data + offset - 1;
-            while (line_start > data && line_start[-1] != '\n') --line_start;
+            while (line_start > data && line_start[-1] != '\n')
+                --line_start;
             const char* line_end = line_start;
-            while (*line_end && *line_end != '\n') ++line_end;
+            while (*line_end && *line_end != '\n')
+                ++line_end;
 
             std::string_view line_text(line_start, line_end - line_start);
             out << "  " << line_text << "\n";
@@ -86,7 +99,7 @@ void DiagnosticEngine::output(SourceRange range, Severity sev, std::string_view 
                 auto end_lc = m_ctx->line_column(range.end);
                 if (end_lc.line == begin_lc.line) {
                     int start_spaces = begin_lc.column - 1;
-                    int underline_len = std::max(1, end_lc.column - begin_lc.column);
+                    int underline_len = std::max<int>(1, static_cast<int>(end_lc.column - begin_lc.column));
                     out << "  " << std::string(start_spaces, ' ') << "^";
                     if (underline_len > 1) {
                         out << std::string(underline_len - 1, '~');
@@ -101,7 +114,7 @@ void DiagnosticEngine::output(SourceRange range, Severity sev, std::string_view 
         } else {
             out << "  ^\n";
         }
-    // Без валидной локации — только severity: message.
+        // Без валидной локации — только severity: message.
     } else {
         out << severityToString(sev) << ": " << msg << "\n";
     }

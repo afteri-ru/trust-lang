@@ -42,15 +42,15 @@ TEST(LexerTokens, NoFlexLexemeHasAstFlag) {
 
 // Single-character tokens: verify they match ASCII
 TEST(LexerTokens, SingleCharTokens) {
-    std::set<std::pair<char, const char *>> expected = {
+    std::set<std::pair<char, const char*>> expected = {
         {'(', "LPAREN"}, {')', "RPAREN"},    {'{', "LBRACE"},   {'}', "RBRACE"},  {'[', "LBRACKET"},  {']', "RBRACKET"}, {'<', "LANGLE"},
         {'>', "RANGLE"}, {';', "SEMICOLON"}, {',', "COMMA"},    {':', "COLON"},   {'.', "DOT"},       {'=', "ASSIGN"},   {'+', "PLUS"},
         {'-', "MINUS"},  {'*', "STAR"},      {'/', "SLASH"},    {'%', "PERCENT"}, {'&', "AMPERSAND"}, {'|', "PIPE"},     {'^', "CARET"},
         {'~', "TILDE"},  {'!', "BANG"},      {'?', "QUESTION"}, {'@', "AT"},      {'$', "DOLLAR"},    {'#', "HASH"},
     };
 
-    for (const auto &[ch, name] : expected) {
-        auto *k = ParserToken::from_name(name);
+    for (const auto& [ch, name] : expected) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing single-char token: " << name;
         EXPECT_EQ(ParserToken::name_by_value(static_cast<int>(*k)), name);
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k)) << "Single-char token " << name << " must be FLEX_LEXEME";
@@ -59,7 +59,7 @@ TEST(LexerTokens, SingleCharTokens) {
 
 // EOF token
 TEST(LexerTokens, EofToken) {
-    auto *k = ParserToken::from_name("END");
+    auto* k = ParserToken::from_name("END");
     ASSERT_NE(k, nullptr);
     EXPECT_EQ(static_cast<int>(*k), 0);
     EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
@@ -68,9 +68,9 @@ TEST(LexerTokens, EofToken) {
 
 // String literal tokens
 TEST(LexerTokens, StringLiteralTokens) {
-    const char *names[] = {"STRWIDE", "STRCHAR", "STRWIDE_RAW", "STRCHAR_RAW"};
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    const char* names[] = {"STRWIDE", "STRCHAR", "STRWIDE_RAW", "STRCHAR_RAW"};
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k)) << name << " must be FLEX_LEXEME";
     }
@@ -78,9 +78,9 @@ TEST(LexerTokens, StringLiteralTokens) {
 
 // Number tokens
 TEST(LexerTokens, NumberTokens) {
-    const char *names[] = {"NUMBER", "INTEGER", "COMPLEX", "RATIONAL"};
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    const char* names[] = {"NUMBER", "INTEGER", "COMPLEX", "RATIONAL"};
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k)) << name << " must be FLEX_LEXEME";
         EXPECT_TRUE(ParserToken::is_bison_token(*k)) << name << " must be BISON_TOKEN";
@@ -89,9 +89,9 @@ TEST(LexerTokens, NumberTokens) {
 
 // Name tokens
 TEST(LexerTokens, NameTokens) {
-    const char *names[] = {"NAME", "MANGLED", "LOCAL", "NATIVE", "MODULE", "MACRO"};
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    const char* names[] = {"NAME", "MANGLED", "LOCAL", "NATIVE", "MODULE", "MACRO"};
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
         EXPECT_TRUE(ParserToken::is_bison_token(*k));
@@ -100,12 +100,12 @@ TEST(LexerTokens, NameTokens) {
 
 // Macro tokens
 TEST(LexerTokens, MacroTokens) {
-    const char *names[] = {
+    const char* names[] = {
         "MACRO_ARGNAME", "MACRO_ARGPOS", "MACRO_ARGUMENT", "MACRO_ARGCOUNT",   "MACRO_CONCAT",   "MACRO_TOSTR",
         "MACRO_DEL",     "MACRO_SEQ",    "MACRO_STR",      "MACRO_EXPR_BEGIN", "MACRO_EXPR_END", "MACRO_NAMESPACE",
     };
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k)) << name << " must be FLEX_LEXEME";
     }
@@ -113,11 +113,11 @@ TEST(LexerTokens, MacroTokens) {
 
 // Operator tokens
 TEST(LexerTokens, OperatorTokens) {
-    const char *names[] = {
+    const char* names[] = {
         "OPERATOR_DIV", "OP_MATH", "OP_COMPARE", "OP_LOGICAL", "OPERATOR_AND", "OPERATOR_PTR", "OPERATOR_DUCK", "OPERATOR_ANGLE_EQ", "OP_BITWISE",
     };
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
     }
@@ -125,9 +125,9 @@ TEST(LexerTokens, OperatorTokens) {
 
 // Integer operation tokens
 TEST(LexerTokens, IntOpTokens) {
-    const char *names[] = {"INT_PLUS", "INT_MINUS", "INT_REPEAT"};
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    const char* names[] = {"INT_PLUS", "INT_MINUS", "INT_REPEAT"};
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
     }
@@ -135,11 +135,11 @@ TEST(LexerTokens, IntOpTokens) {
 
 // Try block tokens
 TEST(LexerTokens, TryBlockTokens) {
-    const char *names[] = {
+    const char* names[] = {
         "TRY_ALL_BEGIN", "TRY_ALL_END", "TRY_PLUS_BEGIN", "TRY_PLUS_END", "TRY_MINUS_BEGIN", "TRY_MINUS_END",
     };
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
     }
@@ -147,11 +147,11 @@ TEST(LexerTokens, TryBlockTokens) {
 
 // Async/Interrupt tokens
 TEST(LexerTokens, InterruptTokens) {
-    const char *names[] = {
+    const char* names[] = {
         "AWAIT", "YIELD", "YIELD_BEGIN", "YIELD_END", "WHEN_ALL", "WHEN_ANY",
     };
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
     }
@@ -159,9 +159,9 @@ TEST(LexerTokens, InterruptTokens) {
 
 // Iterator tokens
 TEST(LexerTokens, IteratorTokens) {
-    const char *names[] = {"ITERATOR", "ITERATOR_QQ"};
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    const char* names[] = {"ITERATOR", "ITERATOR_QQ"};
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
     }
@@ -169,9 +169,9 @@ TEST(LexerTokens, IteratorTokens) {
 
 // Reference tokens
 TEST(LexerTokens, ReferenceTokens) {
-    const char *names[] = {"TAKE_CONST", "WITH", "ESCAPE"};
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    const char* names[] = {"TAKE_CONST", "WITH", "ESCAPE"};
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
     }
@@ -179,9 +179,9 @@ TEST(LexerTokens, ReferenceTokens) {
 
 // Doc tokens
 TEST(LexerTokens, DocTokens) {
-    const char *names[] = {"DOC_BEFORE", "DOC_AFTER"};
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    const char* names[] = {"DOC_BEFORE", "DOC_AFTER"};
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
     }
@@ -189,12 +189,12 @@ TEST(LexerTokens, DocTokens) {
 
 // Control tokens
 TEST(LexerTokens, ControlTokens) {
-    const char *names[] = {
+    const char* names[] = {
         "ELLIPSIS", "RANGE", "REPEAT",    "FOLLOW", "MATCHING", "CREATE_NEW", "CREATE_USE", "APPEND", "PURE_NEW",
         "PURE_USE", "SWAP",  "ATTRIBUTE", "PARENT", "NEWLANG",  "NAMESPACE",  "ARGUMENT",   "ARGS",
     };
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
         EXPECT_TRUE(ParserToken::is_bison_token(*k));
@@ -203,9 +203,9 @@ TEST(LexerTokens, ControlTokens) {
 
 // Embed/Eval tokens
 TEST(LexerTokens, EmbedEvalTokens) {
-    const char *names[] = {"EMBED", "EVAL"};
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    const char* names[] = {"EMBED", "EVAL"};
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
     }
@@ -213,9 +213,9 @@ TEST(LexerTokens, EmbedEvalTokens) {
 
 // Attribute and macro string tokens
 TEST(LexerTokens, AttributeAndMacroStrTokens) {
-    const char *names[] = {"ATTRIBUTE", "MACRO_STR"};
-    for (const char *name : names) {
-        auto *k = ParserToken::from_name(name);
+    const char* names[] = {"ATTRIBUTE", "MACRO_STR"};
+    for (const char* name : names) {
+        auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
     }

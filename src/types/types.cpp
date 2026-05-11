@@ -5,7 +5,7 @@
 
 namespace trust {
 
-void Void::_register(Types &t) {
+void Void::_register(Types& t) {
     t.add(TypeInfo(TypeKind::Void, "void"));
     t.add(TypeInfo(TypeKind::Any, "auto"));
 }

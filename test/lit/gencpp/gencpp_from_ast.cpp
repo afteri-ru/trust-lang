@@ -19,7 +19,8 @@ struct GenCppResult {
 
 class GenCpp {
   public:
-    GenCpp(trust::Context& ctx) : ctx_(ctx) {}
+    GenCpp(trust::Context& ctx)
+    : ctx_(ctx) {}
     ~GenCpp() = default;
 
     void set_program(std::unique_ptr<trust::Program> program) {
@@ -29,12 +30,14 @@ class GenCpp {
     }
 
     std::string get_ast_text() const {
-        if (!built_ || !program_) return "";
+        if (!built_ || !program_)
+            return "";
         return trust::print_ast(program_.get());
     }
 
     std::string generate_cpp_code() const {
-        if (!built_ || !program_) return "";
+        if (!built_ || !program_)
+            return "";
         trust::CppGenerator generator;
         return generator.generate(program_.get());
     }
@@ -86,7 +89,8 @@ int main(int argc, char* argv[]) {
     }
 
     std::vector<trust::ParsedNode*> root_ptrs;
-    for (auto& r : *parsed) root_ptrs.push_back(r.get());
+    for (auto& r : *parsed)
+        root_ptrs.push_back(r.get());
 
     auto program = trust::build_ast_from_roots(root_ptrs, ctx);
     if (!program) {

@@ -12,7 +12,7 @@ Source → Lexer → LexemeSequence → MMProcessor → TokenSequence → Parser
 
 - The Flex-based tokenizer breaks the source code into tokens.
 - Processes full source at once (it's not a callback to the Bison parser) and produces a `LexemeSequence` as a result.
-- The `Lexeme` is a `string_view` of a fragment of the input token string and its position in the source file (`SourceLoc`).
+- The `Lexeme` is a `string_view` of a fragment of the input token string and its position in the source file (`Location`).
 - If errors occur, the analysis stops immediately and a diagnostic message from `diag`.
 
 ### MMProcessor

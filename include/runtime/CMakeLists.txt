@@ -65,6 +65,8 @@ if(WITH_TORCH)
 
     target_include_directories(tensor_cpu PUBLIC
         ${PROJECT_INCLUDE_DIR}
+    )
+    target_include_directories(tensor_cpu SYSTEM PUBLIC
         ${LIBTORCH_INCLUDE_DIRS}
     )
 

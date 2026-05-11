@@ -4,109 +4,116 @@
 
 Модуль `diag` предоставляет инфраструктуру для:
 - хранения исходного кода (входные `.src` файлы) и буферизированного вывода (выходные `.cpp` файлы);
-- диагностики (сообщения об ошибках, предупреждениях, заметках) с привязкой к диапазоном позиций в исходном коде, которые можно пересчитаь в номер и позицию в строке;
-- маппинга позиций между входными (src) и выходными (cpp) файлами, включая маппинг имён (переменных, функций и других именованных объектов).
-- Маппинг позиций входный и выходных файлов может быть сериализирован и сохранян для исопльзвоания при отладке и напигации по коду в прамом и обратном направлении, в том числе по именам.
+- диагностики (сообщения об ошибках, предупреждениях, заметках) с привязкой к диапазоном позиций в исходном коде, которые можно пересчитать в номер и позицию в строке;
+- маппинга позиций между входными (src) и выходными (cpp) файлами, включая маппинг имён (переменных, функций и других именованных объектов) с последующей сериализацией для использования при отладке.
+
+## Структура `Location`
+
+Константы формата Location (`FILE_BITS = 11`, `OFFSET_BITS = 20`, `MAX_OFFSET`) вынесены в отдельную нешаблонную структуру `Location` для прямого доступа без инстанцирования шаблонов. Используются всеми tagged-типами (`TaggedFileIdx`, `TaggedLocation`) и клиентским кодом.
+
+Метод `FileEntry::size()` возвращает `uint32_t` для единообразия с форматом Location, с `EXPECT`-проверкой превышения `MAX_OFFSET`.
+
+## Ключевое архитектурное решение: tagged-пространства
+
+В системе существуют **два пространства** для Location:
+
+1. **Builder space** — `Context` (до `toReader()`): `FileIdx`, offset относительно **body** выходного файла (без prepend).
+2. **Reader space** — `Mapper` (после `toReader()`): `ReaderFileIdx`, offset относительно **full content** (prepend + body).
+
+Смешение этих пространств — частая ошибка, так как offset'ы имеют разный смысл (body-relative vs full-content-relative), хотя `packed`-представление идентично.
+
+**Решение**: все типы, связанные с позицией, параметризованы тегом пространства `FileIdx`:
+- `TaggedLocation<FileIdx>` — позиция в пространстве `FileIdx`
+- `Mapper<FileIdx>` — данные маппинга для пространства `FileIdx`
+- `DiagnosticEngine<FileIdx>` — диагностика для пространства `FileIdx`
+
+`Context` наследует `Mapper<FileIdx>` (builder space), `SourceMapReader` наследует `Mapper<ReaderFileIdx>` (reader space). Компилятор запрещает передачу ReaderLocation в Context API и наоборот.
 
 ## Основные компоненты
 
-### `FileIdx` / `SourceLoc` / `SourceRange`
+### `TaggedFileIdx<Tag>` / `FileIdx` / `ReaderFileIdx`
 
-- **`FileIdx`** — идентификатор файла (входного или выходного). Упакован в `int raw`:
-  - `raw = 0` — невалидный;
-  - `raw > 0`, бит `FILEIDX_BITS` (11-й) = 0 — входной: `raw = index + 1`;
-  - `raw > 0`, бит `FILEIDX_BITS` = 1 — выходной: `raw = (index + 1) | (1 << FILEIDX_BITS)`.
-  - `FileIdx::isOutput()` проверяет бит `FILEIDX_BITS` (11-й) — это отличает его от `SourceLoc`, где флаг в бите 31.
-  - Имена нормализованных входных и выходных файлов хранятся отдельно в своих массивах (`m_files`, `m_outputs`).
-  - Порядковый номер файла в массиве (счёт от единицы) — это его индекс `FileIdx`. У выходных файлов установлен бит `FILEIDX_BITS` как `OUTPUT_FLAG`.
+`TaggedFileIdx<Tag>` — шаблонный tagged-класс — единый идентификатор файла (входного или выходного). `Context` и `Mapper` используют разные tagged-типы (`FileIdx` и `ReaderFileIdx`), что предотвращает смешивание индексов на уровне типов. Упакован в `uint32_t raw`:
+- `raw = 0` — невалидный;
+- `raw > 0`, бит `FILE_BITS` (11-й) = 0 — входной: `raw = index + 1`;
+- `raw > 0`, бит `FILE_BITS` = 1 — выходной: `raw = (index + 1) | (1 << FILE_BITS)`.
+- `isOutput()` проверяет бит `FILE_BITS` (11-й).
 
-- **`SourceLoc`** — 32-битная упаковка (`int packed`):
-  - бит 31 — `OUTPUT_FLAG` (1 = выходной файл);
-  - биты 30–20 — индекс файла (1-based, 11 бит = 2047 файлов);
-  - биты 19–0 — offset (20 бит, до ~1 MB на файл);
-  - `packed = 0` — невалидная позиция.
+### `TaggedLocation<FileIdx>` — tagged-позиция
 
-- **`SourceRange`** — пара `begin`/`end` типа `SourceLoc`. `begin == end` — точечная позиция.
+Содержит `RangeType` (диапазон `{begin, end}` с `point()` и `is_point()`), операторы сравнения с `uint32_t` (через offset) и между собой (только одного тега), арифметические операторы, конструкторы (invalid, от packed, от FileIdx+offset), методы `isValid()`, `isOutput()`, `fileIdx()`, `inc()`, `dec()`, `packedValue()`.
 
-- Создание позиций выполняется через методы `Context::makeLoc(FileIdx, offset)` и `Context::makeRange(begin, end)`, которые выполняют валидацию.
+- `offset()` — **protected**, доступен только `Mapper<FileIdx>`, `Context` и друзьям. Внешний код использует операторы сравнения с числами, `fileIdx()`, `packedValue()`, `line_column()`.
 
-### `DiagnosticEngine`
-- Управляет выводом диагностических сообщений (`report`).
-- Принимает `SourceRange` (или `SourceLoc` как точку).
-- Форматирует сообщение с указанием файла, строки, колонки и кареток (включая подчёркивание диапазона).
-- Фильтрация по минимальной серьёзности (`Severity`), подсчёт ошибок/предупреждений.
+### `Mapper<FileIdx>` — шаблонный базовый класс с данными маппинга
 
-### `OutputBuffer`
-- Буфер выходного С++ файла их двух частей:
-  - `body` — последовательно добавляемые данные, трансялция Trust в C++ код.
-  - `prefix` — вспомогательные данные, которые необходимы для корреткной компиляции С++ файла (include и forward declaration), которые вставляются в самое начало без нарушения позициорирования добаленных ранее данных.
-  - `result()` возвращает `prefix + body`.
+Содержит:
+- Вложенные типы: `RangeMap` (from/to Range), `NameMap` (RangeMap + trustName + cppName)
+- Данные маппинга: `m_forward`, `m_backward`, `m_nameMappings`, `m_cppToTrustName`
+- Файловая информация: `m_inputs`, `m_outputs` (векторы `FileEntry`)
+- Методы доступа к файлам: `get_input(raw)`, `get_output(raw)` — принимают `uint32_t raw`, едины для обоих пространств
+- `filename(FileIdx)`, `source(FileIdx)` — работа с именами файлов (не зависит от пространства)
+- `line_column(Location)`, `line(Location)`, `column(Location)`, `loc_from_line(FileIdx, line)` — работают с Location, дают compile-time проверку пространства
+- `getFileHash()`, `assignMappingData()`
+- `input_count()`, `output_count()`, `file_count()`
+- LRU-кэши: `m_lc_cache` (offset → line:column), `m_loc_cache` (line → location)
 
-### `Context`
-Фасад, объединяющий все компоненты:
+### `Context` — наследует `Mapper<FileIdx>` (builder space)
 
-| Функция | Описание |
-|---|---|
-| Конструктор по умолчанию | Берёт CWD как `baseDirectory`, создаёт `SourceMapping` + `DiagnosticEngine` + `Options` |
-| `Context(basePath, tempPath)` | Нормализует `basePath` (через `fs::absolute`), все пути входных/выходных файлов приводятся к относительным от `basePath` |
-| Входные файлы | `add_source(filename, content, normalize=true)` (из памяти), `load_file` (с диска), `filename`/`source` по `FileIdx` или `SourceLoc` |
-| Выходные файлы | `add_output(filename, normalize=true)`, `output_append`, `output_prepend`, `output_result`. `filename(FileIdx)` единообразно для обоих типов |
-| Валидация источника | `validateLoc(loc)` — проверяет, что `SourceLoc` не является invalid, `FileIdx` соответствует существующему файлу, offset не превышает размер данных. При ошибке выбрасывает FAULT с описанием причины. |
-| Нормализация имён | `add_source`/`add_output` с `normalize=true` — нормализация через `normalizePath` (приведение к относительному от `baseDirectory`). С `normalize=false` — проверка, что имя содержит только `[a-zA-Z0-9_]` |
-| Создание позиций | `makeLoc(idx, offset)` — создаёт `SourceLoc` с проверкой, что offset в пределах размера данных файла |
-| Создание диапазона | `makeRange(begin, end)` — создаёт `SourceRange` с проверкой: оба `SourceLoc` валидны, принадлежат одному файлу, end.offset >= begin.offset. При ошибке — FAULT |
-| Маппинг | `addRangeMapping`, `addNameMapping`, `mapTrustToCpp`, `mapCppToTrust`, `getCppName`, `getTrustName` — делегированы в `SourceMapping` |
-| Сериализация | `packMapping` / `unpackMapping` — MessagePack через `SourceMapping::pack`/`unpack` |
-| `loc_from_line` | O(N) поиск offset по номеру строки |
-| `line_column` | O(N) конвертация offset → {line, col} с циклическим LRU-кешем на 4 элемента |
+- Создание и валидация позиций: `makeLoc()`, `makeRange()`, `validateLoc()`
+- Добавление маппингов: `addRangeMapping()`, `addNameMapping()`, `StmtBegin()`, `StmtEnd()`
+- Стековое создание маппинга: `mapStart()` (сохраняет позицию выходного файла в стеке, возвращает ключ) и `mapStop()` (завершает отображение по ключу)
+- Извлечение текста: `sourceText()`, `outputBodyText()`
+- Работа с выходными файлами: `add_output()`, `output_append()`, `output_prepend()`, `output_result()`, `output_body()`
+- Финализация: `toReader()` → `SourceMapReader`, `reader()`
+- Сериализация: `packMapping()`, `unpackMapping()`
+- Диагностика: `report()` с форматированием через `std::format`
 
-### `SourceMapping`
-Хранит два набора записей:
-- `RangeMapping` — trust-диапазон → cpp-диапазон,
-- `NameMapping` — то же + имена trust- и cpp-объектов (переменных, функций).
+### `SourceMapReader` — наследует `Mapper<ReaderFileIdx>` (reader space)
 
-Поддерживает:
-- поиск **по точке** (`mapTrustToCpp`/`mapCppToTrust`) — возвращает диапазон,
-- поиск **по точке + имени** (`getCppName`/`getTrustName`),
-- поиск **ближайшего** маппинга (`nearestTrustToCpp`/`nearestCppToTrust`),
-- сериализацию в MessagePack.
+- Factory: `fromMsgpack(data, size)`
+- Поиск маппингов: `getMapTrustToCpp()`, `getMapCppToTrust()`, `getTrustFileMappings()`, `findRangesByLine()`
+- Поиск имён: `getCppName()`, `getTrustName()`
+- Сериализация: `packRanges()`, `packNames()`, `packToMsgpack()`
+- `setFiles()`
+- Приватные методы: `unpackRanges()`, `unpackNames()`, `findRange()`
 
-### `NameRangeInfo`
-Структура: `SourceRange` + имена trust- и cpp-объекта (переменной, функции) в виде `std::string`.
+### `DiagnosticEngine<FileIdx>` — шаблонный движок диагностики
 
-### `Options`
-- Регистрация опций (через макрос `OPTIONS_LIST`),
-- задание серьёзности для каждой опции (`Severity`),
-- парсинг аргументов командной строки (`parseArgv`).
+- `report(Range, Severity, msg)` — вывод диагностики с привязкой к позиции
+- `Context` использует `DiagnosticEngine<FileIdx>` (builder space)
+- `Mapper` не использует диагностику (read-only)
 
-## Архитектурные решения
+### `FileEntry`
 
-1. **32-битный SourceLoc** — помещается в регистр, передаётся по значению. Старший бит (31) резервируется под `OUTPUT_FLAG`. 11 бит на индекс файла (2047 файлов), 20 бит на offset (~1 MB на файл).
-2. **FileIdx с битом вход/выход** — универсальный идентификатор файла, позволяет единообразно работать с входными и выходными файлами. Флаг `isOutput` для FileIdx — бит `FILEIDX_BITS` (11-й), для SourceLoc — бит 31.
-3. **Раздельные массивы входных и выходных файлов** — имена хранятся в `m_files` (входные) и `m_outputs` (выходные). Тип файла определяется по `FileIdx::isOutput()`.
-4. **Context как единственная точка входа** — упрощает использование: не нужно управлять `SourceMapping`, `DiagnosticEngine`, `Options` по отдельности.
-5. **Валидация позиций через FAULT** — `validateLoc`, `makeLoc`, `makeRange` проверяют корректность индексов, принадлежность одному файлу, non-negativity диапазона. При ошибке выбрасывают FAULT с явным сообщением причины.
-6. **Нормализация путей через `normalize`** — `add_source`/`add_output` принимают `bool normalize = true`:
-   - `normalize=true`: путь приводится к относительному от `baseDirectory` (через `normalizePath`).
-   - `normalize=false`: имя проверяется на соответствие `[a-zA-Z0-9_]+`. Используется для строковых буферов без внешних файлов.
-7. **OutputBuffer с prefix/body** — разделение на prepend- и append-части позволяет вставлять директивы `#include`, namespace и т.п. в начало файла на этапе генерации.
-8. **MessagePack для сериализации** — компактный бинарный формат, не требует внешних зависимостей (реализован в `msgpack` namespace внутри `mapping.hpp`).
-9. **LRU-кеш для `line_column`** — оптимизация под типичный паттерн доступа (последовательный обход сообщений в одном файле).
+Единая структура для входных и выходных файлов, не зависит от пространства.
 
-### Параметр `normalize` в `add_source` / `add_output`
+### Финализация выходных файлов в `toReader()`
 
-- `normalize=true` (по умолчанию) — полная нормализация пути: `fs::absolute` + `fs::relative` от `baseDirectory`. Для `load_file` нормализация всегда включена.
-- `normalize=false` — проверка имени на простой идентификатор: допускаются только латинские буквы, цифры и подчёркивание. Слеши, точки и прочие символы запрещены. Возвращает `FileIdx{0}` при несоответствии.
+`Context::toReader()` создаёт `SourceMapReader`:
+1. Для каждого выходного файла берётся `body` и prepend из `m_outputBuffers`.
+2. Все offset'ы в cpp-диапазонах пересчитываются: к каждому offset'у добавляется размер prepend.
+3. `FileEntry.source` устанавливается в `prepend + body`.
+4. Вычисляется хеш от `prepend + body`.
+5. `SourceMapReader` создаётся с копией маппингов (с пересчитанными offset'ами) и метаданных.
 
-## Юнит-тесты
+После `toReader()` все данные в reader — в reader space. `Context` продолжает работать в builder space.
 
-Юнит-тесты для модуля `diag` находятся в `test/unit/diag/context_test.cpp`. Тесты покрывают:
+### Защита на уровне типов
 
-- **Валидацию SourceLoc** — проверка корректности позиций, проверка ошибок (invalid, выход за границы, невалидный FileIdx).
-- **Создание SourceLoc** — `makeLoc` с различными корректными и некорректными параметрами.
-- **Создание SourceRange** — `makeRange` с проверкой на валидность, принадлежность одному файлу, корректность порядка offset'ов.
-- **Входные и выходные файлы** — `add_source`, `add_output`, `filename`/`source` для обоих типов файлов.
-- **Параметр `normalize`** — `add_source`/`add_output` с `normalize=true/false`; тестирование валидных имён, имён со слешами, точками и пустых имён. Проверка возврата `FileIdx{0}` при недопустимых именах.
-- **Краевые случаи** — пустые файлы, максимальный offset, невалидные FileIdx.
+Компилятор запрещает передачу Location из builder space в reader space API и наоборот. Для сравнения позиций из разных пространств используются `line()`/`column()`.
 
-Метод `filename(FileIdx)` используется единообразно для входных и выходных файлов. Метод `output_filename` удалён как дубль `filename`.
+### Остальные компоненты
+
+- **`OutputBuffer`** — хранит prepend-данные.
+- **`MapStartEntry`** — запись в стеке `m_mapStack` для `mapStart`/`mapStop`: содержит `inputRange` (ключ) и `outputBegin` (сохранённая позиция в выходном файле).
+- **`Options`** — система именованных опций.
+- **`MsgpackWriter` / `MsgpackReader`** — сериализация/десериализация в msgpack.
+
+### Юнит-тесты
+
+Юнит-тесты для модуля `diag` находятся в `test/unit/diag/context_test.cpp`, `test/unit/diag/mapping_test.cpp` и `test/unit/diag/mapping_extended_test.cpp`. Тесты покрывают tagged-типы:
+- Все тесты для `Context` используют `TaggedLocation<FileIdx>` (builder space).
+- Все тесты для `SourceMapReader` используют `TaggedLocation<ReaderFileIdx>` (reader space).
+- Сравнение offset'ов между разными пространствами запрещено на уровне типов.
+- Для сравнения позиций из разных пространств используются `line()`/`column()` или явное преобразование.

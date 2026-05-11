@@ -39,7 +39,7 @@ build/
 # IDE
 .vscode/*
 !.vscode/extensions.json
-# The AI â€â€deleted the configured tasks several times.
+# The AI deleted the configured tasks several times.
 # After which it decided to leave them in the repository so as not to recreate them each time.
 !.vscode/tasks.json
 
@@ -48,6 +48,7 @@ build/
 .clangd
 .history/
 .cursorrules
+.roo
 **/.obsidian/
 **/.vs/
 *.autosave

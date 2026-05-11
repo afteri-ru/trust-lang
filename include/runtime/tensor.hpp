@@ -20,8 +20,8 @@ class TorchTensor {
     TensorHandle as_var_handle() const;
 
     // Direct access — no indirection, all torch functions available
-    at::Tensor &native();
-    const at::Tensor &native() const;
+    at::Tensor& native();
+    const at::Tensor& native() const;
 
   private:
     TensorHandle m_handle;

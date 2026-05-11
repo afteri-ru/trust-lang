@@ -178,7 +178,7 @@ class AstBuilder {
     // Enum/Struct declarations
     std::unique_ptr<EnumDecl> enum_decl(std::string name, std::vector<std::pair<std::string, std::string>> members) {
         std::vector<std::unique_ptr<EnumMember>> enum_members;
-        for (auto &[mname, mval] : members) {
+        for (auto& [mname, mval] : members) {
             if (mval.empty()) {
                 enum_members.push_back(std::make_unique<EnumMember>(std::move(mname), nullptr));
             } else {
@@ -191,7 +191,7 @@ class AstBuilder {
     std::unique_ptr<StructDecl> struct_decl(std::string name, std::vector<std::tuple<std::string, std::string, std::string>> fields,
                                             std::vector<std::unique_ptr<Decl>> methods = {}) {
         std::vector<std::unique_ptr<StructField>> struct_fields;
-        for (auto &[fname, ftype, fdefault] : fields) {
+        for (auto& [fname, ftype, fdefault] : fields) {
             std::unique_ptr<Expr> init = nullptr;
             if (!fdefault.empty()) {
                 if (!fdefault.empty() && fdefault[0] == '"') {

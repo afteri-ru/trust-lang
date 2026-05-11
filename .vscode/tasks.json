@@ -28,7 +28,7 @@
         {
             "label": "test: direct unit_tests with filter",
             "type": "shell",
-            "command": "./build/unit_tests --gtest_shuffle --gtest_filter=*",
+            "command": "./build/unit_tests --gtest_shuffle --gtest_filter=TranspileTest*",
             "group": "test",
             "dependsOn": ["cmake: configure + build"]
         },

@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_set>
+#include <cstring>
 
 using namespace trust;
 
@@ -11,171 +12,171 @@ using namespace trust;
 struct TypeUsageCollector : AstVisitor {
     std::unordered_set<TypeKind> used_types;
 
-    void dispatch_block(const BlockItem &item) {
+    void dispatch_block(const BlockItem& item) {
         if (!item)
             return;
         item->accept(this);
     }
-    void visit(const Program *n) override {
-        for (const auto &i : n->items)
+    void visit(const Program* n) override {
+        for (const auto& i : n->items)
             i->accept(this);
     }
-    void visit(const FuncDecl *n) override {
+    void visit(const FuncDecl* n) override {
         used_types.insert(n->return_type.id);
-        for (const auto &p : n->params)
+        for (const auto& p : n->params)
             used_types.insert(p->param_type.id);
         if (n->body)
             n->body->accept(this);
     }
-    void visit(const VarDecl *n) override {
+    void visit(const VarDecl* n) override {
         used_types.insert(n->type_info().id);
         if (n->init)
             n->init->accept(this);
     }
-    void visit(const BlockStmt *n) override {
-        for (const auto &it : n->body)
+    void visit(const BlockStmt* n) override {
+        for (const auto& it : n->body)
             dispatch_block(it);
     }
-    void visit(const IfStmt *n) override {
+    void visit(const IfStmt* n) override {
         if (n->condition)
             n->condition->accept(this);
-        for (const auto &it : n->then_body)
+        for (const auto& it : n->then_body)
             dispatch_block(it);
         if (n->else_if)
             n->else_if->accept(this);
         if (n->else_block)
             n->else_block->accept(this);
     }
-    void visit(const WhileStmt *n) override {
+    void visit(const WhileStmt* n) override {
         if (n->condition)
             n->condition->accept(this);
-        for (const auto &it : n->body)
+        for (const auto& it : n->body)
             dispatch_block(it);
         if (!n->else_body.empty())
-            for (const auto &it : n->else_body)
+            for (const auto& it : n->else_body)
                 dispatch_block(it);
     }
-    void visit(const DoWhileStmt *n) override {
-        for (const auto &it : n->body)
+    void visit(const DoWhileStmt* n) override {
+        for (const auto& it : n->body)
             dispatch_block(it);
         if (n->condition)
             n->condition->accept(this);
     }
-    void visit(const TryCatchStmt *n) override {
-        for (const auto &it : n->try_body)
+    void visit(const TryCatchStmt* n) override {
+        for (const auto& it : n->try_body)
             dispatch_block(it);
         if (n->catch_block)
             visit(n->catch_block.get());
     }
-    void visit(const CatchBlock *n) override {
-        for (const auto &it : n->body)
+    void visit(const CatchBlock* n) override {
+        for (const auto& it : n->body)
             dispatch_block(it);
     }
-    void visit(const MatchingStmt *n) override {
+    void visit(const MatchingStmt* n) override {
         if (n->expression)
             n->expression->accept(this);
-        for (const auto &c : n->cases)
+        for (const auto& c : n->cases)
             c->accept(this);
-        for (const auto &it : n->else_body)
+        for (const auto& it : n->else_body)
             dispatch_block(it);
     }
-    void visit(const MatchingCase *n) override {
+    void visit(const MatchingCase* n) override {
         if (n->pattern)
             n->pattern->accept(this);
-        for (const auto &it : n->body)
+        for (const auto& it : n->body)
             dispatch_block(it);
     }
-    void visit(const AssignmentStmt *n) override {
+    void visit(const AssignmentStmt* n) override {
         if (n->target)
             n->target->accept(this);
         if (n->value)
             n->value->accept(this);
     }
-    void visit(const ReturnStmt *n) override {
+    void visit(const ReturnStmt* n) override {
         if (n->value)
             n->value->accept(this);
     }
-    void visit(const ExprStmt *n) override {
+    void visit(const ExprStmt* n) override {
         if (n->expr)
             n->expr->accept(this);
     }
-    void visit(const ThrowStmt *n) override {
+    void visit(const ThrowStmt* n) override {
         if (n->value)
             n->value->accept(this);
     }
-    void visit(const BreakStmt *) override {}
-    void visit(const ContinueStmt *) override {}
-    void visit(const WhileElseBlock *n) override {
-        for (const auto &it : n->body)
+    void visit(const BreakStmt*) override {}
+    void visit(const ContinueStmt*) override {}
+    void visit(const WhileElseBlock* n) override {
+        for (const auto& it : n->body)
             dispatch_block(it);
     }
-    void visit(const BinaryOp *n) override {
+    void visit(const BinaryOp* n) override {
         if (n->left)
             n->left->accept(this);
         if (n->right)
             n->right->accept(this);
     }
-    void visit(const CallExpr *n) override {
-        for (const auto &a : n->args)
+    void visit(const CallExpr* n) override {
+        for (const auto& a : n->args)
             if (a)
                 a->accept(this);
     }
-    void visit(const MemberAccess *n) override {
+    void visit(const MemberAccess* n) override {
         if (n->object)
             n->object->accept(this);
     }
-    void visit(const ArrayAccess *n) override {
+    void visit(const ArrayAccess* n) override {
         if (n->array)
             n->array->accept(this);
         if (n->index)
             n->index->accept(this);
     }
-    void visit(const ArrayInit *n) override {
+    void visit(const ArrayInit* n) override {
         used_types.insert(n->element_type);
-        for (const auto &e : n->elements)
+        for (const auto& e : n->elements)
             if (e)
                 e->accept(this);
     }
-    void visit(const CastExpr *n) override {
+    void visit(const CastExpr* n) override {
         used_types.insert(n->target_type.id);
         if (n->expr)
             n->expr->accept(this);
     }
-    void visit(const RefMakeExpr *n) override {
+    void visit(const RefMakeExpr* n) override {
         if (n->arg)
             n->arg->accept(this);
     }
-    void visit(const RefTakeExpr *n) override {
+    void visit(const RefTakeExpr* n) override {
         if (n->arg)
             n->arg->accept(this);
     }
-    void visit(const EnumDecl *) override {}
-    void visit(const EnumMember *) override {}
-    void visit(const StructDecl *n) override {
-        for (const auto &f : n->fields)
+    void visit(const EnumDecl*) override {}
+    void visit(const EnumMember*) override {}
+    void visit(const StructDecl* n) override {
+        for (const auto& f : n->fields)
             used_types.insert(f->type.id);
     }
-    void visit(const StructField *) override {}
-    void visit(const VarRef *) override {}
-    void visit(const IntLiteral *) override {}
-    void visit(const StringLiteral *) override {}
-    void visit(const EnumLiteral *) override {}
-    void visit(const EmbedExpr *) override {}
-    void visit(const ParamDecl *) override {}
+    void visit(const StructField*) override {}
+    void visit(const VarRef*) override {}
+    void visit(const IntLiteral*) override {}
+    void visit(const StringLiteral*) override {}
+    void visit(const EnumLiteral*) override {}
+    void visit(const EmbedExpr*) override {}
+    void visit(const ParamDecl*) override {}
 };
 
-static std::vector<TypeKind> collect_used_types(const Program *program) {
+static std::vector<TypeKind> collect_used_types(const Program* program) {
     TypeUsageCollector collector;
-    const_cast<Program *>(program)->accept(&collector);
+    const_cast<Program*>(program)->accept(&collector);
     return std::vector<TypeKind>(collector.used_types.begin(), collector.used_types.end());
 }
 
 struct FeatureConfig {
     ParserToken::Kind trigger;
-    const char *text;
+    const char* text;
 };
 
-constexpr const char *HEADER_TORCH = "#include <torch/torch.h>\n";
+constexpr const char* HEADER_TORCH = "#include <torch/torch.h>\n";
 
 static const FeatureConfig FEATURES[] = {
     {ParserToken::Kind::ArrayInit, HEADER_TORCH},
@@ -188,172 +189,174 @@ static const FeatureConfig FEATURES[] = {
 struct NodeCollector : AstVisitor {
     std::unordered_set<ParserToken::Kind> types;
 
-    void dispatch_block(const BlockItem &item) {
+    void dispatch_block(const BlockItem& item) {
         if (!item)
             return;
         item->accept(this);
     }
-    void visit(const Program *n) override {
-        for (const auto &i : n->items)
+    void visit(const Program* n) override {
+        for (const auto& i : n->items)
             i->accept(this);
     }
-    void visit(const FuncDecl *n) override {
+    void visit(const FuncDecl* n) override {
         if (n->body)
             n->body->accept(this);
     }
-    void visit(const BlockStmt *n) override {
-        for (const auto &it : n->body)
+    void visit(const BlockStmt* n) override {
+        for (const auto& it : n->body)
             dispatch_block(it);
     }
-    void visit(const IfStmt *n) override {
+    void visit(const IfStmt* n) override {
         if (n->condition)
             n->condition->accept(this);
-        for (const auto &it : n->then_body)
+        for (const auto& it : n->then_body)
             dispatch_block(it);
         if (n->else_if)
             n->else_if->accept(this);
         if (n->else_block)
             n->else_block->accept(this);
     }
-    void visit(const WhileStmt *n) override {
+    void visit(const WhileStmt* n) override {
         if (n->condition)
             n->condition->accept(this);
-        for (const auto &it : n->body)
+        for (const auto& it : n->body)
             dispatch_block(it);
         if (!n->else_body.empty())
-            for (const auto &it : n->else_body)
+            for (const auto& it : n->else_body)
                 dispatch_block(it);
     }
-    void visit(const DoWhileStmt *n) override {
-        for (const auto &it : n->body)
+    void visit(const DoWhileStmt* n) override {
+        for (const auto& it : n->body)
             dispatch_block(it);
         if (n->condition)
             n->condition->accept(this);
     }
-    void visit(const TryCatchStmt *n) override {
-        for (const auto &it : n->try_body)
+    void visit(const TryCatchStmt* n) override {
+        for (const auto& it : n->try_body)
             dispatch_block(it);
         if (n->catch_block)
             visit(n->catch_block.get());
     }
-    void visit(const CatchBlock *n) override {
-        for (const auto &it : n->body)
+    void visit(const CatchBlock* n) override {
+        for (const auto& it : n->body)
             dispatch_block(it);
     }
-    void visit(const MatchingStmt *n) override {
+    void visit(const MatchingStmt* n) override {
         types.insert(n->token_kind());
         if (n->expression)
             n->expression->accept(this);
-        for (const auto &c : n->cases)
+        for (const auto& c : n->cases)
             c->accept(this);
-        for (const auto &it : n->else_body)
+        for (const auto& it : n->else_body)
             dispatch_block(it);
     }
-    void visit(const MatchingCase *n) override {
+    void visit(const MatchingCase* n) override {
         types.insert(n->token_kind());
         if (n->pattern)
             n->pattern->accept(this);
-        for (const auto &it : n->body)
+        for (const auto& it : n->body)
             dispatch_block(it);
     }
-    void visit(const VarDecl *n) override {
+    void visit(const VarDecl* n) override {
         types.insert(n->token_kind());
         if (n->init)
             n->init->accept(this);
     }
-    void visit(const AssignmentStmt *n) override {
+    void visit(const AssignmentStmt* n) override {
         types.insert(n->token_kind());
         if (n->target)
             n->target->accept(this);
         if (n->value)
             n->value->accept(this);
     }
-    void visit(const ReturnStmt *n) override {
+    void visit(const ReturnStmt* n) override {
         types.insert(n->token_kind());
         if (n->value)
             n->value->accept(this);
     }
-    void visit(const ExprStmt *n) override {
+    void visit(const ExprStmt* n) override {
         types.insert(n->token_kind());
         if (n->expr)
             n->expr->accept(this);
     }
-    void visit(const ThrowStmt *n) override {
+    void visit(const ThrowStmt* n) override {
         types.insert(n->token_kind());
         if (n->value)
             n->value->accept(this);
     }
-    void visit(const BreakStmt *n) override {
+    void visit(const BreakStmt* n) override {
         types.insert(n->token_kind());
         (void)n;
     }
-    void visit(const ContinueStmt *n) override {
+    void visit(const ContinueStmt* n) override {
         types.insert(n->token_kind());
         (void)n;
     }
-    void visit(const WhileElseBlock *n) override {
-        for (const auto &it : n->body)
+    void visit(const WhileElseBlock* n) override {
+        for (const auto& it : n->body)
             dispatch_block(it);
     }
-    void visit(const BinaryOp *n) override {
+    void visit(const BinaryOp* n) override {
         types.insert(n->token_kind());
         if (n->left)
             n->left->accept(this);
         if (n->right)
             n->right->accept(this);
     }
-    void visit(const CallExpr *n) override {
+    void visit(const CallExpr* n) override {
         types.insert(n->token_kind());
-        for (const auto &a : n->args)
+        for (const auto& a : n->args)
             if (a)
                 a->accept(this);
     }
-    void visit(const MemberAccess *n) override {
+    void visit(const MemberAccess* n) override {
         types.insert(n->token_kind());
         if (n->object)
             n->object->accept(this);
     }
-    void visit(const ArrayAccess *n) override {
+    void visit(const ArrayAccess* n) override {
         types.insert(n->token_kind());
         if (n->array)
             n->array->accept(this);
+        if (n->index)
+            n->index->accept(this);
     }
-    void visit(const ArrayInit *n) override {
+    void visit(const ArrayInit* n) override {
         types.insert(n->token_kind());
-        for (const auto &e : n->elements)
+        for (const auto& e : n->elements)
             if (e)
                 e->accept(this);
     }
-    void visit(const CastExpr *n) override {
+    void visit(const CastExpr* n) override {
         types.insert(n->token_kind());
         if (n->expr)
             n->expr->accept(this);
     }
-    void visit(const RefMakeExpr *n) override {
+    void visit(const RefMakeExpr* n) override {
         types.insert(n->token_kind());
         if (n->arg)
             n->arg->accept(this);
     }
-    void visit(const RefTakeExpr *n) override {
+    void visit(const RefTakeExpr* n) override {
         types.insert(n->token_kind());
         if (n->arg)
             n->arg->accept(this);
     }
-    void visit(const EnumDecl *n) override { types.insert(n->token_kind()); }
-    void visit(const EnumMember *n) override { types.insert(n->token_kind()); }
-    void visit(const StructDecl *n) override { types.insert(n->token_kind()); }
-    void visit(const StructField *n) override { types.insert(n->token_kind()); }
-    void visit(const VarRef *n) override { types.insert(n->token_kind()); }
-    void visit(const IntLiteral *n) override { types.insert(n->token_kind()); }
-    void visit(const StringLiteral *n) override { types.insert(n->token_kind()); }
-    void visit(const EnumLiteral *n) override { types.insert(n->token_kind()); }
-    void visit(const EmbedExpr *n) override { types.insert(n->token_kind()); }
-    void visit(const ParamDecl *) override {}
+    void visit(const EnumDecl* n) override { types.insert(n->token_kind()); }
+    void visit(const EnumMember* n) override { types.insert(n->token_kind()); }
+    void visit(const StructDecl* n) override { types.insert(n->token_kind()); }
+    void visit(const StructField* n) override { types.insert(n->token_kind()); }
+    void visit(const VarRef* n) override { types.insert(n->token_kind()); }
+    void visit(const IntLiteral* n) override { types.insert(n->token_kind()); }
+    void visit(const StringLiteral* n) override { types.insert(n->token_kind()); }
+    void visit(const EnumLiteral* n) override { types.insert(n->token_kind()); }
+    void visit(const EmbedExpr* n) override { types.insert(n->token_kind()); }
+    void visit(const ParamDecl*) override {}
 };
 
-static std::unordered_set<ParserToken::Kind> collect_node_types(const Program *program) {
+static std::unordered_set<ParserToken::Kind> collect_node_types(const Program* program) {
     NodeCollector collector;
-    const_cast<Program *>(program)->accept(&collector);
+    const_cast<Program*>(program)->accept(&collector);
     return std::move(collector.types);
 }
 
@@ -368,10 +371,68 @@ static std::string torch_dtype_str(TypeKind t) {
     }
 }
 
-CppGenerator::CppGenerator(GeneratorOptions opts) : indent_level_(0), opts_(std::move(opts)) {
+CppGenerator::CppGenerator(GeneratorOptions opts)
+: indent_level_(0)
+, opts_(std::move(opts)) {
 }
 
-TypeKind CppGenerator::get_expr_type(const Expr *e) const {
+// ── SourceMapping helpers (используем mapStart/mapStop вместо StmtBegin/StmtEnd) ──
+
+void CppGenerator::flush_out() {
+    if (!ctx_)
+        return;
+    if (out_.tellp() > 0) {
+        ctx_->output_append(output_file_idx_, out_.str());
+        out_.str("");
+        out_.clear();
+    }
+}
+
+void CppGenerator::map_node_begin(const AstNode* node) {
+    if (!ctx_ || !node || !node->source)
+        return;
+    if (!node->source->range.begin.isValid())
+        return;
+
+    // Если уже начат маппинг для того же trust-диапазона — не дублируем
+    if (current_map_range_.has_value() && current_map_range_->begin == node->source->range.begin && current_map_range_->end == node->source->range.end)
+        return;
+
+    flush_out();
+    ctx_->mapStart(node->source->range, output_file_idx_);
+    current_map_range_ = node->source->range;
+}
+
+void CppGenerator::map_node_end() {
+    if (!ctx_)
+        return;
+    if (!current_map_range_.has_value())
+        return;
+
+    flush_out();
+    ctx_->mapStop(*current_map_range_);
+    current_map_range_.reset();
+}
+
+void CppGenerator::add_node_name(const AstNode* node, const std::string& trustName, const std::string& cppName) {
+    // Имена отображаются внутри стейтмент-маппинга (через mapStart/mapStop).
+    // Отдельные name-маппинги не требуются для корректной работы gencpp.
+    (void)node;
+    (void)trustName;
+    (void)cppName;
+}
+
+void CppGenerator::finalize_output(Context& ctx, MapperFile outputIdx) {
+    // Все маппинги уже созданы через mapStart/mapStop.
+    // Просто сбрасываем оставшийся буферизованный вывод.
+    if (out_.tellp() > 0) {
+        ctx.output_append(outputIdx, out_.str());
+        out_.str("");
+        out_.clear();
+    }
+}
+
+TypeKind CppGenerator::get_expr_type(const Expr* e) const {
     if (e && type_res_) {
         auto ti = type_res_->get_type(e);
         if (ti.has_value())
@@ -382,13 +443,13 @@ TypeKind CppGenerator::get_expr_type(const Expr *e) const {
             return TypeKind::Int32;
         if (e->is<StringLiteral>())
             return TypeKind::StrChar;
-        if (const auto *cast = e->as<CastExpr>())
+        if (const auto* cast = e->as<CastExpr>())
             return cast->target_type.id;
     }
     return TypeKind::Int32;
 }
 
-std::string CppGenerator::generate(const Program *program, std::string *binding_header, const char *binding_guard) {
+std::string CppGenerator::generate(const Program* program, std::string* binding_header, const char* binding_guard) {
     out_.str("");
     out_.clear();
     indent_level_ = 0;
@@ -397,11 +458,11 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
         std::ostringstream hdr;
         hdr << "/* Auto-generated binding header */\n";
         hdr << "#ifndef " << binding_guard << "\n#define " << binding_guard << "\n\n";
-        for (const auto &item : program->items) {
-            if (auto *func = dynamic_cast<const FuncDecl *>(item.get())) {
+        for (const auto& item : program->items) {
+            if (auto* func = dynamic_cast<const FuncDecl*>(item.get())) {
                 hdr << type_to_cpp(func->return_type) << " " << func->name << "(";
                 bool first = true;
-                for (const auto &param : func->params) {
+                for (const auto& param : func->params) {
                     if (!first)
                         hdr << ", ";
                     hdr << type_to_cpp(param->param_type) << " " << param->name;
@@ -426,8 +487,8 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
         }
 
         auto node_types = collect_node_types(program);
-        std::unordered_set<const char *> inserted;
-        for (const auto &f : FEATURES) {
+        std::unordered_set<const char*> inserted;
+        for (const auto& f : FEATURES) {
             if (node_types.count(f.trigger) && inserted.insert(f.text).second)
                 out_ << f.text;
         }
@@ -435,7 +496,7 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
     }
 
     if (program) {
-        for (const auto &item : program->items) {
+        for (const auto& item : program->items) {
             ParserToken::Kind tk = item->token_kind();
             if (tk == ParserToken::Kind::StructDecl || tk == ParserToken::Kind::EnumDecl)
                 item->accept(this);
@@ -447,9 +508,9 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
     }
 
     if (program) {
-        for (const auto &item : program->items) {
+        for (const auto& item : program->items) {
             if (item->token_kind() == ParserToken::Kind::FuncDecl) {
-                auto *fd = static_cast<const FuncDecl *>(item.get());
+                auto* fd = static_cast<const FuncDecl*>(item.get());
                 if (opts_.format == LanguageVersion::ModuleCPP20 || opts_.format == LanguageVersion::ModuleCPP23)
                     out_ << "export ";
                 out_ << type_to_cpp(fd->return_type) << " " << fd->name << "(";
@@ -465,7 +526,7 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
     out_ << "\n";
 
     if (program) {
-        for (const auto &item : program->items) {
+        for (const auto& item : program->items) {
             ParserToken::Kind tk = item->token_kind();
             if (tk != ParserToken::Kind::StructDecl && tk != ParserToken::Kind::EnumDecl)
                 item->accept(this);
@@ -477,28 +538,29 @@ std::string CppGenerator::generate(const Program *program, std::string *binding_
 void CppGenerator::write_module_preamble() {
     out_ << "module;\n#include <iostream>\n#include <string>\n#include <forward>\n#include <format>\n\n";
     out_ << "export module " << opts_.module_name << ";\n\n";
-    for (const auto &imp : opts_.extra_imports)
+    for (const auto& imp : opts_.extra_imports)
         out_ << "import " << imp << ";\n";
     if (!opts_.extra_imports.empty())
         out_ << "\n";
     out_ << "export template<typename T> void print(T&& t) { std::cout << std::forward<T>(t) << std::endl; }\n\n";
 }
 
-void CppGenerator::dispatch_block_item(const BlockItem &item) {
+void CppGenerator::dispatch_block_item(const BlockItem& item) {
     if (!item)
         return;
     item->accept(this);
 }
 
-void CppGenerator::visit(const Program *node) {
-    for (const auto &item : node->items) {
+void CppGenerator::visit(const Program* node) {
+    for (const auto& item : node->items) {
         ParserToken::Kind tk = item->token_kind();
         if (tk != ParserToken::Kind::StructDecl && tk != ParserToken::Kind::EnumDecl)
             item->accept(this);
     }
 }
 
-void CppGenerator::visit(const FuncDecl *node) {
+void CppGenerator::visit(const FuncDecl* node) {
+    add_node_name(node, node->name, node->name);
     if (opts_.format == LanguageVersion::ModuleCPP20 || opts_.format == LanguageVersion::ModuleCPP23)
         out_ << "export ";
     out_ << type_to_cpp(node->return_type) << " " << node->name << "(";
@@ -510,13 +572,13 @@ void CppGenerator::visit(const FuncDecl *node) {
     out_ << ") {\n";
     indent_level_++;
     if (node->body)
-        for (const auto &bitem : node->body->body)
+        for (const auto& bitem : node->body->body)
             dispatch_block_item(bitem);
     indent_level_--;
     out_ << "}\n\n";
 }
 
-void CppGenerator::visit(const WhileStmt *node) {
+void CppGenerator::visit(const WhileStmt* node) {
     std::string loop_id = unique_label();
     std::string cond_label = loop_id + "_cond";
     std::string body_label = loop_id + "_body";
@@ -535,7 +597,7 @@ void CppGenerator::visit(const WhileStmt *node) {
         indent();
         out_ << body_label << ":\n";
         indent_level_++;
-        for (const auto &bitem : node->body)
+        for (const auto& bitem : node->body)
             dispatch_block_item(bitem);
         indent_level_--;
         indent();
@@ -555,7 +617,7 @@ void CppGenerator::visit(const WhileStmt *node) {
         indent();
         out_ << body_label << ":\n";
         indent_level_++;
-        for (const auto &bitem : node->body)
+        for (const auto& bitem : node->body)
             dispatch_block_item(bitem);
         indent_level_--;
         indent();
@@ -566,7 +628,7 @@ void CppGenerator::visit(const WhileStmt *node) {
     current_loop_labels_.pop_back();
 }
 
-void CppGenerator::visit(const DoWhileStmt *node) {
+void CppGenerator::visit(const DoWhileStmt* node) {
     std::string loop_id = unique_label();
     std::string body_label = loop_id + "_body";
     std::string cont_label = loop_id + "_cont";
@@ -578,7 +640,7 @@ void CppGenerator::visit(const DoWhileStmt *node) {
     indent_level_++;
     indent();
     out_ << "do {\n";
-    for (const auto &bitem : node->body)
+    for (const auto& bitem : node->body)
         dispatch_block_item(bitem);
     indent();
     out_ << cont_label << ":;\n";
@@ -593,11 +655,11 @@ void CppGenerator::visit(const DoWhileStmt *node) {
     current_loop_labels_.pop_back();
 }
 
-void CppGenerator::visit(const TryCatchStmt *node) {
+void CppGenerator::visit(const TryCatchStmt* node) {
     indent();
     out_ << "try {\n";
     indent_level_++;
-    for (const auto &bitem : node->try_body)
+    for (const auto& bitem : node->try_body)
         dispatch_block_item(bitem);
     indent_level_--;
     indent();
@@ -606,17 +668,17 @@ void CppGenerator::visit(const TryCatchStmt *node) {
         this->visit(node->catch_block.get());
 }
 
-void CppGenerator::visit(const CatchBlock *node) {
+void CppGenerator::visit(const CatchBlock* node) {
     out_ << "catch (" << type_to_cpp(node->exception_type) << " " << node->var_name << ") {\n";
     indent_level_++;
-    for (const auto &bitem : node->body)
+    for (const auto& bitem : node->body)
         dispatch_block_item(bitem);
     indent_level_--;
     indent();
     out_ << "}\n";
 }
 
-void CppGenerator::visit(const ThrowStmt *node) {
+void CppGenerator::visit(const ThrowStmt* node) {
     indent();
     out_ << "throw ";
     if (node->value)
@@ -624,12 +686,12 @@ void CppGenerator::visit(const ThrowStmt *node) {
     out_ << ";\n";
 }
 
-void CppGenerator::visit(const MatchingStmt *node) {
+void CppGenerator::visit(const MatchingStmt* node) {
     indent();
     build_matching_chain(node->expression.get(), node->cases, node->else_body, 0, true);
 }
 
-void CppGenerator::build_matching_chain(Expr *expr, const std::vector<std::unique_ptr<MatchingCase>> &cases, const BlockBody &else_body, size_t idx,
+void CppGenerator::build_matching_chain(Expr* expr, const std::vector<std::unique_ptr<MatchingCase>>& cases, const BlockBody& else_body, size_t idx,
                                         bool is_first) {
     if (idx >= cases.size()) {
         if (!else_body.empty()) {
@@ -641,7 +703,7 @@ void CppGenerator::build_matching_chain(Expr *expr, const std::vector<std::uniqu
                 out_ << "{\n";
             }
             indent_level_++;
-            for (const auto &bitem : else_body)
+            for (const auto& bitem : else_body)
                 dispatch_block_item(bitem);
             indent_level_--;
             indent();
@@ -651,7 +713,7 @@ void CppGenerator::build_matching_chain(Expr *expr, const std::vector<std::uniqu
         }
         return;
     }
-    auto &current_case = cases[idx];
+    auto& current_case = cases[idx];
     if (is_first)
         indent();
     else
@@ -662,7 +724,7 @@ void CppGenerator::build_matching_chain(Expr *expr, const std::vector<std::uniqu
     current_case->pattern->accept(this);
     out_ << ")) {\n";
     indent_level_++;
-    for (const auto &bitem : current_case->body)
+    for (const auto& bitem : current_case->body)
         dispatch_block_item(bitem);
     indent_level_--;
     indent();
@@ -670,21 +732,23 @@ void CppGenerator::build_matching_chain(Expr *expr, const std::vector<std::uniqu
     build_matching_chain(expr, cases, else_body, idx + 1, false);
 }
 
-void CppGenerator::visit(const MatchingCase *node) {
+void CppGenerator::visit(const MatchingCase* node) {
     (void)node;
 }
 
-void CppGenerator::visit(const ParamDecl *node) {
+void CppGenerator::visit(const ParamDecl* node) {
     out_ << type_to_cpp(node->param_type) << " " << node->name;
 }
 
-void CppGenerator::visit(const BlockStmt *node) {
-    for (const auto &bitem : node->body)
+void CppGenerator::visit(const BlockStmt* node) {
+    for (const auto& bitem : node->body)
         dispatch_block_item(bitem);
 }
 
-void CppGenerator::visit(const VarDecl *node) {
+void CppGenerator::visit(const VarDecl* node) {
     indent();
+    map_node_begin(node);
+    add_node_name(node, node->name, node->name);
     bool is_array = node->init && node->init->token_kind() == ParserToken::Kind::ArrayInit;
     if (is_array) {
         out_ << "torch::Tensor " << node->name << " = torch::tensor(";
@@ -697,38 +761,45 @@ void CppGenerator::visit(const VarDecl *node) {
     } else {
         out_ << type_to_cpp(node->type_info()) << " " << node->name << ";\n";
     }
+    map_node_end();
 }
 
-void CppGenerator::visit(const AssignmentStmt *node) {
+void CppGenerator::visit(const AssignmentStmt* node) {
     indent();
+    map_node_begin(node);
     if (node->target)
         node->target->accept(this);
     out_ << " = ";
     node->value->accept(this);
     out_ << ";\n";
+    map_node_end();
 }
 
-void CppGenerator::visit(const ReturnStmt *node) {
+void CppGenerator::visit(const ReturnStmt* node) {
     indent();
+    map_node_begin(node);
     out_ << "return";
     if (node->value) {
         out_ << " ";
         node->value->accept(this);
     }
     out_ << ";\n";
+    map_node_end();
 }
 
-void CppGenerator::visit(const ExprStmt *node) {
+void CppGenerator::visit(const ExprStmt* node) {
     indent();
+    map_node_begin(node);
     node->expr->accept(this);
     out_ << ";\n";
+    map_node_end();
 }
 
-void CppGenerator::visit(const IfStmt *node) {
+void CppGenerator::visit(const IfStmt* node) {
     visit_if_stmt(node, true);
 }
 
-void CppGenerator::visit_if_stmt(const IfStmt *node, bool is_primary) {
+void CppGenerator::visit_if_stmt(const IfStmt* node, bool is_primary) {
     if (is_primary)
         indent();
     out_ << "if (";
@@ -736,7 +807,7 @@ void CppGenerator::visit_if_stmt(const IfStmt *node, bool is_primary) {
         node->condition->accept(this);
     out_ << ") {\n";
     indent_level_++;
-    for (const auto &bitem : node->then_body)
+    for (const auto& bitem : node->then_body)
         dispatch_block_item(bitem);
     indent_level_--;
     if (node->else_if) {
@@ -747,7 +818,7 @@ void CppGenerator::visit_if_stmt(const IfStmt *node, bool is_primary) {
         indent();
         out_ << "} else {\n";
         indent_level_++;
-        for (const auto &bitem : node->else_block->body)
+        for (const auto& bitem : node->else_block->body)
             dispatch_block_item(bitem);
         indent_level_--;
         indent();
@@ -758,7 +829,7 @@ void CppGenerator::visit_if_stmt(const IfStmt *node, bool is_primary) {
     }
 }
 
-void CppGenerator::visit(const CallExpr *node) {
+void CppGenerator::visit(const CallExpr* node) {
     out_ << node->name << "(";
     for (size_t i = 0; i < node->args.size(); ++i) {
         node->args[i]->accept(this);
@@ -768,7 +839,7 @@ void CppGenerator::visit(const CallExpr *node) {
     out_ << ")";
 }
 
-void CppGenerator::visit(const BinaryOp *node) {
+void CppGenerator::visit(const BinaryOp* node) {
     out_ << "(";
     node->left->accept(this);
     out_ << " " << bin_op_to_string(node->op) << " ";
@@ -776,20 +847,20 @@ void CppGenerator::visit(const BinaryOp *node) {
     out_ << ")";
 }
 
-void CppGenerator::visit(const VarRef *node) {
+void CppGenerator::visit(const VarRef* node) {
     out_ << node->name;
 }
-void CppGenerator::visit(const IntLiteral *node) {
+void CppGenerator::visit(const IntLiteral* node) {
     out_ << node->value;
 }
-void CppGenerator::visit(const StringLiteral *node) {
+void CppGenerator::visit(const StringLiteral* node) {
     out_ << "\"" << MMProcessor::escape(node->value()) << "\"";
 }
-void CppGenerator::visit(const EnumMember *node) {
+void CppGenerator::visit(const EnumMember* node) {
     (void)node;
 }
 
-void CppGenerator::visit(const EnumDecl *node) {
+void CppGenerator::visit(const EnumDecl* node) {
     if (opts_.format == LanguageVersion::ModuleCPP20 || opts_.format == LanguageVersion::ModuleCPP23)
         out_ << "export ";
     out_ << "enum class " << node->name << " { ";
@@ -803,16 +874,16 @@ void CppGenerator::visit(const EnumDecl *node) {
     out_ << " };\n\n";
 }
 
-void CppGenerator::visit(const StructField *node) {
+void CppGenerator::visit(const StructField* node) {
     (void)node;
 }
 
-void CppGenerator::visit(const StructDecl *node) {
+void CppGenerator::visit(const StructDecl* node) {
     if (opts_.format == LanguageVersion::ModuleCPP20 || opts_.format == LanguageVersion::ModuleCPP23)
         out_ << "export ";
     out_ << "struct " << node->name << " {\n";
     indent_level_++;
-    for (const auto &field : node->fields) {
+    for (const auto& field : node->fields) {
         indent();
         out_ << type_to_cpp(field->type) << " " << field->name;
         if (field->init) {
@@ -822,8 +893,8 @@ void CppGenerator::visit(const StructDecl *node) {
         out_ << ";\n";
     }
     out_ << "\n";
-    for (const auto &method : node->methods) {
-        if (auto *fd = static_cast<const FuncDecl *>(method.get())) {
+    for (const auto& method : node->methods) {
+        if (auto* fd = static_cast<const FuncDecl*>(method.get())) {
             out_ << type_to_cpp(fd->return_type) << " " << fd->name << "(";
             for (size_t i = 0; i < fd->params.size(); ++i) {
                 visit(fd->params[i].get());
@@ -833,7 +904,7 @@ void CppGenerator::visit(const StructDecl *node) {
             out_ << ") {\n";
             indent_level_++;
             if (fd->body)
-                for (const auto &bitem : fd->body->body)
+                for (const auto& bitem : fd->body->body)
                     dispatch_block_item(bitem);
             indent_level_--;
             indent();
@@ -844,23 +915,23 @@ void CppGenerator::visit(const StructDecl *node) {
     out_ << "};\n\n";
 }
 
-void CppGenerator::visit(const EnumLiteral *node) {
+void CppGenerator::visit(const EnumLiteral* node) {
     out_ << node->enum_name << "::" << node->member_name;
 }
 
-void CppGenerator::visit(const MemberAccess *node) {
+void CppGenerator::visit(const MemberAccess* node) {
     node->object->accept(this);
     out_ << "." << node->field;
 }
 
-void CppGenerator::visit(const ArrayAccess *node) {
+void CppGenerator::visit(const ArrayAccess* node) {
     node->array->accept(this);
     out_ << "[";
     node->index->accept(this);
     out_ << "]";
 }
 
-void CppGenerator::visit(const ArrayInit *node) {
+void CppGenerator::visit(const ArrayInit* node) {
     out_ << "{";
     for (size_t i = 0; i < node->elements.size(); ++i) {
         node->elements[i]->accept(this);
@@ -870,27 +941,27 @@ void CppGenerator::visit(const ArrayInit *node) {
     out_ << "}";
 }
 
-void CppGenerator::visit(const CastExpr *node) {
+void CppGenerator::visit(const CastExpr* node) {
     out_ << "static_cast<" << type_to_cpp(node->target_type) << ">(";
     node->expr->accept(this);
     out_ << ")";
 }
 
-void CppGenerator::visit(const RefMakeExpr *node) {
+void CppGenerator::visit(const RefMakeExpr* node) {
     out_ << "ref_make(";
     node->arg->accept(this);
     out_ << ")";
 }
-void CppGenerator::visit(const RefTakeExpr *node) {
+void CppGenerator::visit(const RefTakeExpr* node) {
     out_ << "ref_take(";
     node->arg->accept(this);
     out_ << ")";
 }
-void CppGenerator::visit(const EmbedExpr *node) {
+void CppGenerator::visit(const EmbedExpr* node) {
     out_ << node->value();
 }
 
-void CppGenerator::visit(const BreakStmt *node) {
+void CppGenerator::visit(const BreakStmt* node) {
     indent();
     if (!current_loop_labels_.empty())
         out_ << "goto " << current_loop_labels_.back().end_label << ";\n";
@@ -898,7 +969,7 @@ void CppGenerator::visit(const BreakStmt *node) {
         out_ << "break;\n";
 }
 
-void CppGenerator::visit(const ContinueStmt *node) {
+void CppGenerator::visit(const ContinueStmt* node) {
     indent();
     if (!current_loop_labels_.empty())
         out_ << "goto " << current_loop_labels_.back().cont_label << ";\n";
@@ -906,8 +977,8 @@ void CppGenerator::visit(const ContinueStmt *node) {
         out_ << "continue;\n";
 }
 
-void CppGenerator::visit(const WhileElseBlock *node) {
-    for (const auto &bitem : node->body)
+void CppGenerator::visit(const WhileElseBlock* node) {
+    for (const auto& bitem : node->body)
         dispatch_block_item(bitem);
 }
 

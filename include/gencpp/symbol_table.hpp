@@ -23,9 +23,9 @@ struct FuncSignature {
 class SymbolTable {
   public:
     // Global scope: functions are always global
-    void declare_function(const std::string &name, const FuncSignature &sig) { functions_[name] = sig; }
+    void declare_function(const std::string& name, const FuncSignature& sig) { functions_[name] = sig; }
 
-    const FuncSignature *lookup_function(const std::string &name) const {
+    const FuncSignature* lookup_function(const std::string& name) const {
         auto it = functions_.find(name);
         if (it == functions_.end())
             return nullptr;
@@ -41,13 +41,13 @@ class SymbolTable {
         scopes_.pop_back();
     }
 
-    void declare_var(const std::string &name, TypeInfo type) {
+    void declare_var(const std::string& name, TypeInfo type) {
         if (scopes_.empty())
             throw std::runtime_error("No active scope for variable");
         scopes_.back()[name] = std::move(type);
     }
 
-    TypeInfo lookup_var(const std::string &name, SourceRange loc) const {
+    TypeInfo lookup_var(const std::string& name, MapperRange loc) const {
         // Search from innermost to outermost scope
         for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it) {
             auto vit = it->find(name);
@@ -58,7 +58,7 @@ class SymbolTable {
         return make_builtin_type(TypeKind::Void);
     }
 
-    std::string check_assignment(const std::string &target, TypeInfo expr_type, SourceRange loc) {
+    std::string check_assignment(const std::string& target, TypeInfo expr_type, MapperRange loc) {
         std::string err;
         auto var_type = lookup_var(target, loc);
         if (var_type.id == TypeKind::Void) {

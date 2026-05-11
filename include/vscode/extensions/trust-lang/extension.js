@@ -2,49 +2,21 @@ console.log('[TRUST-LANG] extension.js module loaded (top-level)');
 const vscode = require('vscode');
 const path = require('path');
 const fs = require('fs');
-const { resolvePath, resolveDapVariables, updateStatusBar, updateLspStatusBar, LspStatus } = require('./extension-utils');
-const { TrustDebugAdapterDescriptorFactory } = require('./dap-adapter');
+const { resolvePath, resolveDapVariables, resolveConfigPath, resolveTempDir, computeBuildPaths, buildForDebug, updateStatusBar, updateLspStatusBar, LspStatus } = require('./extension-utils');
+const { TrustDebugAdapterDescriptorFactory, TrustDebugAdapterTracker, getTraceChannel, writeTrace, writeDiag } = require('./dap-adapter');
+const { TrustBuildTask } = require('./build-task');
 const { LanguageClient } = require('vscode-languageclient/node');
 
 let isDebugging = false;
 let lspClient = null;
 let buildStatusBar = null;
 
-// ── Output channel for tracing ──
+// ── Output channel for tracing (re-export from dap-adapter) ──
 let traceChannel = null;
 
-function getTraceChannel() {
-    if (!traceChannel) {
-        traceChannel = vscode.window.createOutputChannel('Trust Lang');
-    }
-    return traceChannel;
-}
-
-function isDapTraceEnabled() {
-    return vscode.workspace.getConfiguration('trust').get('traceDAP', false);
-}
-
+// Функция trace для совместимости с существующими вызовами (всегда пишет диагностику)
 function trace(msg) {
-    if (!isDapTraceEnabled()) return;
-    getTraceChannel().appendLine(msg);
-}
-
-function traceRequest(prefix, req) {
-    if (!isDapTraceEnabled()) return;
-    const args = req.arguments ? JSON.stringify(req.arguments, null, 2) : '(no arguments)';
-    getTraceChannel().appendLine(`[REQ] ${prefix} seq=${req.seq || '?'}: ${args}`);
-}
-
-function traceResponse(prefix, requestSeq, success, body) {
-    if (!isDapTraceEnabled()) return;
-    const bodyStr = body ? JSON.stringify(body, null, 2) : '(empty)';
-    getTraceChannel().appendLine(`[RES] ${prefix} req_seq=${requestSeq} success=${success}: ${bodyStr}`);
-}
-
-function traceEvent(prefix, eventName, body) {
-    if (!isDapTraceEnabled()) return;
-    const bodyStr = body ? JSON.stringify(body, null, 2) : '(empty)';
-    getTraceChannel().appendLine(`[EVT] ${prefix}: ${eventName} ${bodyStr}`);
+    writeDiag(msg);
 }
 
 
@@ -70,172 +42,6 @@ function registerResetCommand(context, settingKey, commandId) {
     context.subscriptions.push(cmd);
 }
 
-// ── Task Provider for building .src files ──
-class TrustBuildTaskProvider {
-    static buildSourceFileTaskName = 'Trust: Build .src file';
-    static runSourceFileTaskName = 'Trust: Run .src file';
-
-    provideTasks(token) {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || !editor.document.fileName.endsWith('.src')) {
-            return [];
-        }
-
-        const sourceFile = editor.document.fileName;
-        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        if (!workspaceFolder) return [];
-
-        const buildTask = this.createBuildTask(workspaceFolder, sourceFile);
-        const runTask = this.createRunTask(workspaceFolder, sourceFile);
-        return [buildTask, runTask];
-    }
-
-    resolveTask(task, token) {
-        return task;
-    }
-
-    createBuildTask(workspaceFolder, sourceFile) {
-        const task = new vscode.Task(
-            { type: 'trust', sourceFile: sourceFile },
-            workspaceFolder,
-            TrustBuildTaskProvider.buildSourceFileTaskName,
-            'trust',
-            new vscode.CustomExecution(async (resolvedDefinition) => {
-                return await this.runBuildTask(resolvedDefinition, workspaceFolder);
-            })
-        );
-        task.group = vscode.TaskGroup.Build;
-        task.problemMatchers = [];
-        return task;
-    }
-
-    createRunTask(workspaceFolder, sourceFile) {
-        const task = new vscode.Task(
-            { type: 'trust', sourceFile: sourceFile },
-            workspaceFolder,
-            TrustBuildTaskProvider.runSourceFileTaskName,
-            'trust',
-            new vscode.CustomExecution(async (resolvedDefinition) => {
-                return await this.runRunTask(resolvedDefinition, workspaceFolder);
-            })
-        );
-        task.group = vscode.TaskGroup.Test;
-        task.problemMatchers = [];
-        return task;
-    }
-
-    async runBuildTask(definition, workspaceFolder) {
-        const config = vscode.workspace.getConfiguration('trust');
-        const sourceFile = definition.sourceFile;
-        const baseName = path.basename(sourceFile, '.src');
-        const tempDir = config.get('tempDir', '.trust');
-        const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder.uri.fsPath, tempDir);
-
-        const cppFile = path.join(resolvedTempDir, baseName + '.cpp');
-        const mapFile = path.join(resolvedTempDir, baseName + '.map');
-
-        // Ensure temp dir exists
-        fs.mkdirSync(resolvedTempDir, { recursive: true });
-
-        // Step 1: Transpile
-        const compilerPath = config.get('compilerPath', 'trust');
-        const transpileArgs = [
-            sourceFile,
-            '--emit-cpp', cppFile,
-            '--emit-source-map', mapFile,
-            '--temp-dir', resolvedTempDir
-        ];
-
-        return await runProcess(
-            'Transpiling ' + baseName + '.src',
-            compilerPath,
-            transpileArgs,
-            workspaceFolder.uri.fsPath
-        );
-    }
-
-    async runRunTask(definition, workspaceFolder) {
-        const config = vscode.workspace.getConfiguration('trust');
-        const sourceFile = definition.sourceFile;
-        const baseName = path.basename(sourceFile, '.src');
-        const tempDir = config.get('tempDir', '.trust');
-        const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder.uri.fsPath, tempDir);
-
-        const cppFile = path.join(resolvedTempDir, baseName + '.cpp');
-        const mapFile = path.join(resolvedTempDir, baseName + '.map');
-        const binaryFile = path.join(resolvedTempDir, baseName);
-
-        fs.mkdirSync(resolvedTempDir, { recursive: true });
-
-        // Step 1: Transpile
-        const compilerPath = config.get('compilerPath', 'trust');
-        const transpileResult = await runProcess(
-            'Transpiling ' + baseName + '.src',
-            compilerPath,
-            [sourceFile, '--emit-cpp', cppFile, '--emit-source-map', mapFile, '--temp-dir', resolvedTempDir],
-            workspaceFolder.uri.fsPath
-        );
-        if (transpileResult.exitCode !== 0) return transpileResult;
-
-        // Step 2: Compile C++ to ELF
-        const cppCompilerPath = config.get('cppCompilerPath', 'clang++-22');
-        const cppCompilerOptions = (config.get('cppCompilerOptions', '-std=c++23 -g3 -O0') || '').split(/\s+/).filter(s => s);
-
-        const compileArgs = [
-            ...cppCompilerOptions,
-            '-o', binaryFile,
-            cppFile
-        ];
-
-        const compileResult = await runProcess(
-            'Compiling ' + baseName + '.cpp',
-            cppCompilerPath,
-            compileArgs,
-            workspaceFolder.uri.fsPath
-        );
-        if (compileResult.exitCode !== 0) return compileResult;
-
-        // Step 3: Run
-        return await runProcess(
-            'Running ' + baseName,
-            binaryFile,
-            [],
-            workspaceFolder.uri.fsPath
-        );
-    }
-}
-
-async function runProcess(name, command, args, cwd) {
-    const terminal = vscode.window.createTerminal({
-        name: name,
-        cwd: cwd,
-        shellPath: command,
-        shellArgs: args
-    });
-    terminal.show();
-    // CustomExecution requires a pseudoterminal; this is a simplified version.
-    // The real runProcess returns a Pseudoterminal-like object.
-    return createDummyTerminalForTask(name);
-}
-
-function createDummyTerminalForTask(name) {
-    const writeEmitter = new vscode.EventEmitter();
-    const closeEmitter = new vscode.EventEmitter();
-
-    const pty = {
-        onDidWrite: writeEmitter.event,
-        onDidClose: closeEmitter.event,
-        open: () => {
-            writeEmitter.fire(`Running ${name}...\r\n`);
-        },
-        close: () => {}
-    };
-
-    const terminal = vscode.window.createTerminal({ name: name, pty: pty });
-    terminal.show();
-    return { exitCode: 0, terminal: terminal };
-}
-
 
 function activate(context) {
     console.log('Trust Lang extension is now active');
@@ -250,17 +56,13 @@ function activate(context) {
 
     // LSP status bar
     const lspStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 9);
-    console.log('[TRUST-LSP] lspStatusBar created:', lspStatusBar ? 'exists' : 'null');
     updateLspStatusBar(null, lspStatusBar);
-    console.log('[TRUST-LSP] after updateLspStatusBar(null), text:', lspStatusBar.text);
     // Show only when a .src file is active
     const updateLspStatusBarVisibility = () => {
         const editor = vscode.window.activeTextEditor;
         if (editor && editor.document.fileName.endsWith('.src')) {
-            console.log('[TRUST-LSP] updateLspStatusBarVisibility: .src file active, calling show()');
             lspStatusBar.show();
         } else {
-            console.log('[TRUST-LSP] updateLspStatusBarVisibility: no .src file, calling hide()');
             lspStatusBar.hide();
         }
     };
@@ -288,6 +90,17 @@ function activate(context) {
     context.subscriptions.push(
         vscode.debug.registerDebugAdapterDescriptorFactory('trust', factory)
     );
+
+    // ── Register DebugAdapterTrackerFactory for DAP tracing ──
+    context.subscriptions.push(
+        vscode.debug.registerDebugAdapterTrackerFactory('trust', {
+            createDebugAdapterTracker(session) {
+                writeTrace(`[DAP-TRACKER] Creating tracker for session: ${session.name}`);
+                return new TrustDebugAdapterTracker();
+            }
+        })
+    );
+    writeTrace('[ACTIVATE] DebugAdapterTrackerFactory registered for type "trust"');
 
     // Debug session state tracking
     context.subscriptions.push(
@@ -382,43 +195,56 @@ function activate(context) {
 
     context.subscriptions.push(openCppCmd);
 
-    // ── Resolve debug configuration ──
-    // ── Provide default launch configurations ──
+    // ── Provide debug configuration (предлагаемые launch.json шаблоны) ──
     context.subscriptions.push(
         vscode.debug.registerDebugConfigurationProvider('trust', {
             provideDebugConfigurations(folder) {
                 trace('[CONFIG] provideDebugConfigurations called for folder: ' + (folder?.uri?.fsPath || '(none)'));
-                return [
-                    {
-                        type: 'trust',
-                        request: 'launch',
-                        name: 'Trust Debug (current file)',
-                        sourceFile: '${file}',
-                        cppFile: '${workspaceFolder}/${config:trust.tempDir}/${fileBasenameNoExtension}.cpp',
-                        targetFile: '${workspaceFolder}/${config:trust.tempDir}/${fileBasenameNoExtension}',
-                        lldbServerPath: '',
-                        mapFile: ''
-                    }
-                ];
+                const workspaceFolder = folder?.uri?.fsPath || '';
+                const config = vscode.workspace.getConfiguration('trust');
+                const tempDir = config.get('tempDir', '.trust');
+                const launchConfig = {
+                    type: 'trust',
+                    request: 'launch',
+                    name: 'Trust Debug (current file)',
+                    sourceFile: '${file}',
+                    cppFile: '${workspaceFolder}/' + tempDir + '/${fileBasenameNoExtension}.cpp',
+                    targetFile: '${workspaceFolder}/' + tempDir + '/${fileBasenameNoExtension}',
+                    gdbPath: ''
+                };
+                trace(`[CONFIG] Returning initial configuration: ${JSON.stringify(launchConfig)}`);
+                return [launchConfig];
             },
             async resolveDebugConfiguration(folder, debugConfiguration) {
                 trace(`[CONFIG] resolveDebugConfiguration called`);
                 trace(`[CONFIG] incoming debugConfiguration: ${JSON.stringify(debugConfiguration)}`);
 
-                // If no configuration at all, create a default one
-                if (!debugConfiguration) {
+                // If no configuration at all (F5 on .src without launch.json), create a default one
+                if (!debugConfiguration || !debugConfiguration.type) {
                     const editor = vscode.window.activeTextEditor;
-                    const fileName = editor?.document?.fileName;
-                    const baseName = fileName ? path.basename(fileName) : 'current file';
+                    const fileName = editor?.document?.fileName || '';
+                    const baseName = fileName ? path.basename(fileName, '.src') : 'program';
+                    const workspaceFolder = folder?.uri?.fsPath || '';
+                    const config = vscode.workspace.getConfiguration('trust');
+
+                    if (!fileName.endsWith('.src')) {
+                        vscode.window.showErrorMessage('Trust Debug: open a .src file and try again');
+                        trace(`[CONFIG] No .src file active, aborting`);
+                        return null;
+                    }
+
+                    // Resolve paths immediately
+                    const tempDir = config.get('tempDir', '.trust');
+                    const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder, tempDir);
+
                     debugConfiguration = {
                         type: 'trust',
                         request: 'launch',
                         name: `Trust Debug (${baseName})`,
-                        sourceFile: fileName || '${file}',
-                        cppFile: '',
-                        targetFile: '',
-                        lldbServerPath: '',
-                        mapFile: ''
+                        sourceFile: fileName,
+                        cppFile: path.join(resolvedTempDir, baseName + '.cpp'),
+                        targetFile: path.join(resolvedTempDir, baseName),
+                        gdbPath: ''
                     };
                     trace(`[CONFIG] Created default configuration: ${JSON.stringify(debugConfiguration)}`);
                 }
@@ -434,37 +260,87 @@ function activate(context) {
                 const workspaceFolder = folder?.uri?.fsPath || '';
                 const activeFile = editor.document.fileName;
 
-                if (!debugConfiguration.sourceFile) {
-                    debugConfiguration.sourceFile = activeFile;
+                // Resolve DAP variables
+                debugConfiguration.sourceFile = resolveDapVariables(debugConfiguration.sourceFile || activeFile, workspaceFolder, activeFile);
+
+                // If cppFile or targetFile are still template-like, resolve them
+                if (!debugConfiguration.cppFile || debugConfiguration.cppFile.includes('${')) {
+                    const config = vscode.workspace.getConfiguration('trust');
+                    const tempDir = config.get('tempDir', '.trust');
+                    const baseName = path.basename(activeFile, '.src');
+                    const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder, tempDir);
+                    debugConfiguration.cppFile = path.join(resolvedTempDir, baseName + '.cpp');
+                    debugConfiguration.targetFile = path.join(resolvedTempDir, baseName);
+                } else {
+                    debugConfiguration.cppFile = resolveDapVariables(debugConfiguration.cppFile, workspaceFolder, activeFile);
+                    debugConfiguration.targetFile = resolveDapVariables(debugConfiguration.targetFile, workspaceFolder, activeFile);
+                }
+                debugConfiguration.gdbPath = resolveDapVariables(debugConfiguration.gdbPath || '', workspaceFolder, activeFile);
+
+                // ── Build pipeline: transpile + compile ──
+                // NOTE: Если используется preLaunchTask в launch.json, этот блок всё равно выполняется
+                // для случая без launch.json (F5 сразу). Когда есть preLaunchTask — VSCode запускает
+                // сборку через него, но resolveDebugConfiguration всё равно вызывается.
+                // Здесь buildForDebug — fallback, если preLaunchTask не отработал.
+                trace(`[CONFIG] Starting build pipeline for: ${activeFile}`);
+                const config = vscode.workspace.getConfiguration('trust');
+
+                const buildResult = await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Trust: Building for debug...',
+                    cancellable: false
+                }, async (progress) => {
+                    progress.report({ message: 'Transpiling and compiling...' });
+                    return buildForDebug(activeFile, workspaceFolder, config);
+                });
+
+                if (!buildResult.success) {
+                    const msg = `Trust Debug: build failed.\n${buildResult.error}`;
+                    vscode.window.showErrorMessage(msg);
+                    trace(`[CONFIG] Build failed: ${buildResult.error}`);
+                    return null;
                 }
 
-                if (!debugConfiguration.cppFile) debugConfiguration.cppFile = '';
-                if (!debugConfiguration.targetFile) debugConfiguration.targetFile = '';
-                if (!debugConfiguration.lldbServerPath) debugConfiguration.lldbServerPath = '';
-                if (!debugConfiguration.mapFile) debugConfiguration.mapFile = '';
+                trace(`[CONFIG] Build succeeded: cppFile=${buildResult.cppFile}, targetFile=${buildResult.targetFile}`);
 
-                // Resolve all DAP variables
-                debugConfiguration.sourceFile = resolveDapVariables(debugConfiguration.sourceFile, workspaceFolder, activeFile);
-                debugConfiguration.cppFile = resolveDapVariables(debugConfiguration.cppFile, workspaceFolder, activeFile);
-                debugConfiguration.targetFile = resolveDapVariables(debugConfiguration.targetFile, workspaceFolder, activeFile);
-                debugConfiguration.lldbServerPath = resolveDapVariables(debugConfiguration.lldbServerPath, workspaceFolder, activeFile);
-                debugConfiguration.mapFile = resolveDapVariables(debugConfiguration.mapFile, workspaceFolder, activeFile);
+                // Заполняем конфигурацию
+                debugConfiguration.cppFile = buildResult.cppFile;
+                debugConfiguration.targetFile = buildResult.targetFile;
 
-                trace(`[CONFIG] Resolved configuration: ${JSON.stringify(debugConfiguration)}`);
-                trace(`[CONFIG] No build step (compile is separate). Using configuration as-is.`);
+                trace(`[CONFIG] Final configuration: ${JSON.stringify(debugConfiguration)}`);
+                trace(`[CONFIG] Build step completed, starting debug session`);
 
                 return debugConfiguration;
             }
         })
     );
 
+    // ── Build task provider для preLaunchTask ──
+    // Предоставляет задачи "Trust: Transpile .src", "Trust: Compile .cpp" и "Trust: Build all"
+    const buildTaskProvider = vscode.tasks.registerTaskProvider(TrustBuildTask.buildTaskType, {
+        provideTasks(token) {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !editor.document.fileName.endsWith('.src')) {
+                return [];
+            }
+            const sourceFile = editor.document.fileName;
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) return [];
+
+            const transpileTask = TrustBuildTask.getBuildCppTask(sourceFile, workspaceFolder);
+            const compileTask = TrustBuildTask.getCompileTask(sourceFile, workspaceFolder);
+            const buildAllTask = TrustBuildTask.getBuildAllTask(sourceFile, workspaceFolder);
+            return [transpileTask, compileTask, buildAllTask];
+        },
+        resolveTask(task, token) {
+            return task;
+        }
+    });
+    context.subscriptions.push(buildTaskProvider);
+
     // ── Reset commands ──
     registerResetCommand(context, 'dapPath', 'trust.resetDapPath');
     registerResetCommand(context, 'lspPath', 'trust.resetLspPath');
-
-    // ── Task Provider for build/run ──
-    const taskProvider = vscode.tasks.registerTaskProvider('trust', new TrustBuildTaskProvider());
-    context.subscriptions.push(taskProvider);
 
     // ── LSP Client (vscode-languageclient) ──
     const config = vscode.workspace.getConfiguration('trust');
@@ -486,6 +362,10 @@ function activate(context) {
         if (workspaceFolder) {
             lspArgs.push('--project-dir', workspaceFolder);
         }
+        // --temp-dir: каталог для временных транспилированных .cpp файлов
+        const tempDir = config.get('tempDir', '.trust');
+        const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder, tempDir);
+        lspArgs.push('--temp-dir', resolvedTempDir);
         // --trace если настройка включена
         if (config.get('traceLSP', false)) {
             lspArgs.push('--trace');
@@ -497,11 +377,19 @@ function activate(context) {
             options: { env: { ...process.env } }
         };
 
+        // Промежуточное ПО: оставляем documentLink как есть (с целевым URI).
+        // VSCode сам обработает клик по ссылке и откроет целевой файл.
+        const lspMiddleware = {};
+
         const clientOptions = {
-            documentSelector: [{ scheme: 'file', language: 'trust' }],
+            documentSelector: [
+                { scheme: 'file', language: 'trust' },
+                { scheme: 'file', language: 'cpp' }
+            ],
             synchronize: {
                 configurationSection: 'trust'
             },
+            middleware: lspMiddleware,
             outputChannel: lspOutputChannel,
             traceOutputChannel: vscode.window.createOutputChannel('Trust Lang LSP Trace'),
         };
@@ -567,5 +455,6 @@ function deactivate() {
 
 module.exports = {
     activate,
-    deactivate
+    deactivate,
+    TrustBuildTask
 };

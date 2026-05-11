@@ -20,7 +20,10 @@ struct TypeInfo {
     std::vector<TypeKind> param;
 
     TypeInfo() = default;
-    TypeInfo(TypeKind i, std::string_view cpp, LanguageVersion ver = LanguageVersion::CPP11) : id(i), cpp_name(cpp), min_version(ver) {}
+    TypeInfo(TypeKind i, std::string_view cpp, LanguageVersion ver = LanguageVersion::CPP11)
+    : id(i)
+    , cpp_name(cpp)
+    , min_version(ver) {}
 
     std::string to_string(bool short_mode = true);
 };

@@ -40,7 +40,7 @@ static bool is_unicode_digit(char32_t c) {
 }
 
 // Простейший UTF-8 декодер (только для проверки идентификаторов)
-static bool is_utf8_letter(const char *&p, const char *end) {
+static bool is_utf8_letter(const char*& p, const char* end) {
     if (p >= end)
         return false;
     unsigned char c = static_cast<unsigned char>(*p);
@@ -80,7 +80,7 @@ static bool is_utf8_letter(const char *&p, const char *end) {
     return is_unicode_letter(code);
 }
 
-static bool is_utf8_letter_or_digit(const char *&p, const char *end) {
+static bool is_utf8_letter_or_digit(const char*& p, const char* end) {
     if (p >= end)
         return false;
     unsigned char c = static_cast<unsigned char>(*p);
@@ -275,8 +275,8 @@ bool Ident::is_valid_simple_name(std::string_view s) noexcept {
     if (s.size() > max_name_length)
         return false;
 
-    const char *p = s.data();
-    const char *end = p + s.size();
+    const char* p = s.data();
+    const char* end = p + s.size();
 
     // Первый символ — не цифра (ASCII) и не Unicode-цифра
     if (p < end) {

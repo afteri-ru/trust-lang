@@ -6,6 +6,7 @@
 // Без LLDB: тестируется только транспортный протокол и обработка DAP.
 
 #include "debug/dap_transport.h"
+#include "utils/transport.hpp"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -15,20 +16,21 @@
 using json = nlohmann::json;
 
 // ── MockTransport: эмулирует клиента для тестов ──
-class MockTransport : public DapTransport {
+class MockTransport : public trust::transport::Transport {
   public:
-    std::string mockInput;        // сырые данные (заголовки + тело)
-    std::string capturedOutput;   // что было отправлено через send
-    size_t consumed = 0;           // сколько байт уже прочитано
+    std::string mockInput;      // сырые данные (заголовки + тело)
+    std::string capturedOutput; // что было отправлено через send
+    size_t consumed = 0;        // сколько байт уже прочитано
 
-    void setInput(const std::string &header, const std::string &body) {
+    void setInput(const std::string& header, const std::string& body) {
         mockInput = header + "\r\n" + body;
         consumed = 0;
     }
 
     // Имитирует реальный транспорт: парсит Content-Length и возвращает тело
     std::string readPacket() override {
-        if (consumed >= mockInput.size()) return {};
+        if (consumed >= mockInput.size())
+            return {};
 
         // Парсим заголовки из mockInput, начиная с consumed
         size_t pos = consumed;
@@ -37,15 +39,18 @@ class MockTransport : public DapTransport {
         while (pos < mockInput.size()) {
             // Ищем конец строки
             size_t eol = mockInput.find('\n', pos);
-            if (eol == std::string::npos) break;
+            if (eol == std::string::npos)
+                break;
 
             std::string line = mockInput.substr(pos, eol - pos);
             // Убираем \r в конце
-            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (!line.empty() && line.back() == '\r')
+                line.pop_back();
             pos = eol + 1;
 
             // Пустая строка — конец заголовков
-            if (line.empty()) break;
+            if (line.empty())
+                break;
 
             if (line.rfind("Content-Length:", 0) == 0) {
                 size_t colon = line.find(':');
@@ -68,9 +73,7 @@ class MockTransport : public DapTransport {
         return body;
     }
 
-    void send(const std::string &payload) override {
-        capturedOutput = payload;
-    }
+    void send(const std::string& payload) override { capturedOutput = payload; }
 };
 
 // ═══════════════════════════════════════════════════
@@ -202,46 +205,46 @@ TEST(DapTransportTest, SendBreakpointEvent_Unverified) {
 // ═══════════════════════════════════════════════════
 
 TEST(DapOptionsTest, DefaultInteractiveMode) {
-    const char *argv[] = {"trust-dap", nullptr};
+    const char* argv[] = {"trust-dap", nullptr};
     auto opts = parseDapOptions(1, argv);
-    EXPECT_EQ(opts.port, -1);       // interactive
+    EXPECT_EQ(opts.port, -1); // interactive
     EXPECT_FALSE(opts.help);
     EXPECT_TRUE(opts.projectDir.empty());
 }
 
 TEST(DapOptionsTest, ServerModeDefaultPort) {
-    const char *argv[] = {"trust-dap", "server", nullptr};
+    const char* argv[] = {"trust-dap", "server", nullptr};
     auto opts = parseDapOptions(2, argv);
     EXPECT_EQ(opts.port, DAP_DEFAULT_PORT);
 }
 
 TEST(DapOptionsTest, ServerModeCustomPort) {
-    const char *argv[] = {"trust-dap", "server=9999", nullptr};
+    const char* argv[] = {"trust-dap", "server=9999", nullptr};
     auto opts = parseDapOptions(2, argv);
     EXPECT_EQ(opts.port, 9999);
 }
 
 TEST(DapOptionsTest, Help) {
-    const char *argv[] = {"trust-dap", "--help", nullptr};
+    const char* argv[] = {"trust-dap", "--help", nullptr};
     auto opts = parseDapOptions(2, argv);
     EXPECT_TRUE(opts.help);
     EXPECT_EQ(opts.port, -1);
 }
 
 TEST(DapOptionsTest, ProjectDir) {
-    const char *argv[] = {"trust-dap", "--project-dir", "/my/project", nullptr};
+    const char* argv[] = {"trust-dap", "--project-dir", "/my/project", nullptr};
     auto opts = parseDapOptions(3, argv);
     EXPECT_EQ(opts.projectDir, "/my/project");
 }
 
-TEST(DapOptionsTest, LldbServer) {
-    const char *argv[] = {"trust-dap", "--lldb-server", "/usr/bin/lldb-server", nullptr};
+TEST(DapOptionsTest, GdbPath) {
+    const char* argv[] = {"trust-dap", "--gdb", "/custom/path/to/gdb", nullptr};
     auto opts = parseDapOptions(3, argv);
-    EXPECT_EQ(opts.lldbServerPath, "/usr/bin/lldb-server");
+    EXPECT_EQ(opts.gdbPath, "/custom/path/to/gdb");
 }
 
 TEST(DapOptionsTest, ServerAndProjectDir) {
-    const char *argv[] = {"trust-dap", "server=7777", "--project-dir", "/app", nullptr};
+    const char* argv[] = {"trust-dap", "server=7777", "--project-dir", "/app", nullptr};
     auto opts = parseDapOptions(4, argv);
     EXPECT_EQ(opts.port, 7777);
     EXPECT_EQ(opts.projectDir, "/app");
@@ -269,7 +272,7 @@ TEST(DapTransportTest, CreateTcpServer_InvalidPort) {
     // port 0 специально выбираем, чтобы bind мог не сработать
     // Но этот тест просто проверяет, что функция не падает
     // и не содержит UB
-    int fd = createTcpServer(0);
+    int fd = trust::transport::createTcpServer(0);
     // С port=0 bind может сработать или нет в зависимости от ОС
     // просто проверяем, что функция отработала
     if (fd >= 0) {

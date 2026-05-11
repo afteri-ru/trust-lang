@@ -23,8 +23,8 @@ TEST_F(AstPrintingTest, PrintVarDecl) {
                         "  IntLiteral value=42\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
@@ -42,8 +42,8 @@ TEST_F(AstPrintingTest, PrintFuncDecl) {
                         "      IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
@@ -59,8 +59,8 @@ TEST_F(AstPrintingTest, PrintEmptyProgram) {
                         "  BlockStmt\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
@@ -86,8 +86,8 @@ TEST_F(AstPrintingTest, RoundTrip) {
 
     // First pass
     auto nodes1 = parse_ast_format(input, ctx);
-    std::vector<ParsedNode *> roots1;
-    for (auto &r : *nodes1)
+    std::vector<ParsedNode*> roots1;
+    for (auto& r : *nodes1)
         roots1.push_back(r.get());
     auto program1 = build_ast_from_roots(roots1, ctx);
 
@@ -103,8 +103,8 @@ TEST_F(AstPrintingTest, RoundTrip) {
     // Second pass - parse the FuncDecl part only
     Context ctx2;
     auto nodes2 = parse_ast_format(func_part, ctx2);
-    std::vector<ParsedNode *> roots2;
-    for (auto &r : *nodes2)
+    std::vector<ParsedNode*> roots2;
+    for (auto& r : *nodes2)
         roots2.push_back(r.get());
     auto program2 = build_ast_from_roots(roots2, ctx2);
 
@@ -123,8 +123,8 @@ TEST_F(AstPrintingTest, PrintBinaryOp) {
                         "        IntLiteral value=2\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
@@ -147,8 +147,8 @@ TEST_F(AstPrintingTest, PrintIfStmt) {
                         "          IntLiteral value=0\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 
@@ -167,8 +167,8 @@ TEST_F(AstPrintingTest, PrintCallExpr) {
                         "        StringLiteral value=\"hello\"\n";
     auto nodes = parse_ast_format(input, ctx);
 
-    std::vector<ParsedNode *> root_ptrs;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> root_ptrs;
+    for (auto& r : *nodes)
         root_ptrs.push_back(r.get());
     auto program = build_ast_from_roots(root_ptrs, ctx);
 

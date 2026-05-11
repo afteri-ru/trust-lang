@@ -9,273 +9,168 @@
 
 ## Namespace
 
-Весь код модуля отладки находится в пространстве имён `trust`.
+- `GdbDebug`, `DapHandler`, транспортные классы — глобальное пространство имён
+- `trust::Context` — пространство имён `trust` (из `diag/`)
+- `trust::SourceMapReader` — пространство имён `trust` (из `diag/mapper.hpp`)
 
 ## Принципы
 
-Единственный класс `TrustSource` отвечает за всё, что связано с source-маппингом:
-хранение пар `(trust_file, cpp_file)`, маппинг строк и переменных, сериализацию
-(msgpack), загрузку из ELF-секции `.debug_trust_map` или внешнего `.map` файла (fallback),
-а также генерацию embed-кода. TrustSource — единая точка входа для transpiler'а (добавление данных)
-и debugger'а (чтение/трансляция).
+`trust::Context` (см. `include/diag/context.hpp` и `include/diag/ARCH.md`) — единая точка входа
+для source-маппинга: хранение пар `(trust_file, cpp_file)`, маппинг диапазонов (byte offset-based),
+имен переменных, сериализация (msgpack), нормализация путей. Context используется transpiler'ом
+(добавление данных) и debugger'ом (чтение/трансляция).
+
+Типы маппинга: `Location`, `SourceRange`, `FileIdx` (из `include/diag/location.hpp`),
+`RangeMap`, `NameMap`, `SourceMapping` (из `include/diag/mapping.hpp`).
 
 ---
 
 ## Компоненты
 
-### 1. TrustSource (`trust_source.h/.cpp`)
+### 1. trust::Context (`diag/context.hpp`, `src/diag/context.cpp`)
 
 Единый класс хранения, загрузки, сериализации и трансляции source-маппинга.
+Используется компонентами debug, lsp и diag. Детальное описание API — в `include/diag/ARCH.md`.
 
-**Структура:**
-- `FilePairEntry` — пара файлов `(trust_file, cpp_file)` + маппинги
-- `trustToCppIndex` — `std::map<LineNumber, LineNumber>` (trust_line → cpp_line) для O(log n) nearest-neighbour поиска trust→cpp
-- `trustVarMapping` — `std::map<std::string, VarMapValue>` (trust_var → {cpp_var, {trust_line, cpp_line}})
-- `cppToTrustVar` — `std::unordered_multimap<std::string, std::string>` (cpp_var → [trust_var...])
-- `cpp_line_inserted` — количество строк, добавляемое к cpp_line при вычислениях номера строки в C++ файле
-- `base_directory_` — базовый каталог для нормализации trust-путей
-- `cpp_directory_` — базовый каталог для нормализации cpp-путей
+Основные методы, используемые в debug: `mapTrustToCpp(Location)` / `mapCppToTrust(Location)`, `getCppName()` / `getTrustName()`, `getTrustFileMappings(FileIdx)`, `loc_from_line()`, `line()` / `column()` / `line_column()`, `filename()` / `source()`, `packMapping()` / `unpackMapping()`, `file_count()` / `output_count()`.
 
-**Нормализация путей:**
-Единый приватный метод `normalizePath(path, baseDir)`:
-- Если путь относительный или `baseDir` пуст — возвращает `lexically_normal()` как есть
-- Если путь абсолютный — удаляет префикс `baseDir + "/"`, оставляя относительную часть
-- Если путь не начинается с `baseDir` — ошибка `FAULT`
-- Для trust-путей `baseDir` = `base_directory_`
-- Для cpp-путей `baseDir` = `cpp_directory_`
+---
 
-Конструктор `TrustSource(basePath, cppPath)`:
-- При пустом `cppPath`: `cpp_directory_ = base_directory_ + "/.trust/"` (по умолчанию)
-- При непустом `cppPath`: нормализуется через `absolute().lexically_normal()` по общим правилам
+### 2. GdbDebug (`include/debug/gdb_debug.h`, `src/debug/gdb_debug.cpp`)
 
-**API — добавление данных (для transpiler'а):**
-```cpp
-const FilePairEntry *setFilePair(std::string_view trustFile, std::string_view cppFile);
-bool addLineMapping(LineNumber trustLine, LineNumber cppLine);
-bool addVarMapping(LineNumber trustLine, LineNumber cppLine,
-                   std::string_view trustVar, std::string_view cppVar);
-void setCppLineInserted(size_t n);
+Центральный класс взаимодействия с GDB через GDB/MI протокол (subprocess fork/exec).
+
+Возможности:
+- Создание таргета, установка брейкпоинтов (по имени и по файлу+строке)
+- Запуск процесса, StepOver, StepInto, StepOut, Continue
+- Чтение stdout процесса (console output)
+- Доступ к переменным через `-stack-list-variables`
+- Получение stack frames через `-stack-list-frames`
+- Асинхронный режим через GDB/MI async-уведомления
+- DAP-совместимая трансляция stop reason: `breakpoint-hit` → `"breakpoint"`, `end-stepping-range` → `"step"`, `signal-received` → `"exception"`
+
+Параметр конфигурации: `gdbPath` (путь к gdb, по умолчанию `"gdb"`).
+
+---
+
+### 3. DapHandler (`include/debug/dap_handler.hpp`, `src/debug/dap_handler.cpp`)
+
+Содержит класс `DapHandler`, обрабатывающий все DAP-команды. Использует `GdbDebug` для управления отладкой и `trust::SourceMapReader` для трансляции позиций между trust- и C++-файлами.
+
+Ключевые методы: `isTrustFile(path)`, `translateCppToTrust(...)`.
+
+---
+
+### 4. DAP Transport (`include/debug/dap_transport.h`, `src/debug/dap_transport.cpp`)
+
+Отвечает за DAP-транспорт: чтение/запись пакетов в формате Content-Length,
+TCP-сервер, вспомогательные функции для формирования DAP-сообщений.
+
+Классы: `DapTransport` (абстрактный базовый), `StdioTransport` (stdin/stdout, interactive-режим), `TcpTransport` (TCP-сокет, server-режим).
+
+DAP Protocol helpers: `nextDapSeq()`, `readDapPacket()`, `sendDapResponse()`, `sendDapEvent()`, `sendDapOutput()`, `sendBreakpointEvent()`.
+
+TCP server helpers: `createTcpServer(port)`, `acceptConnection(serverFd)`.
+
+CLI parsing: структура `DapOptions` (port, help, projectDir, gdbPath), `parseDapOptions()`, `printUsage()`.
+
+---
+
+### 5. trust-dap (`src/debug/trust_dap.cpp`)
+
+DAP-сервер для отладки trust-lang. Содержит класс `DapHandler`,
+который обрабатывает все DAP-команды через `GdbDebug` (GDB/MI) и `trust::SourceMapReader`
+для трансляции позиций между trust- и C++-файлами.
+
+Особенности реализации:
+- Использует `GdbDebug` вместо `TrustDebug` (LLDB) — нет зависимости от LLDB
+- Source map загружается из embedded ELF-секции `.debug_trust_map` через `SourceMapReader::fromElf()`
+- Thread `pollEvents()` обрабатывает `*stopped`/`*exit` асинхронные уведомления GDB
+- Поля класса следуют CODESTYLE (префикс `m_`)
+- Source-aware обработка: определяет тип файла (`.src` vs `.cpp`) по расширению
+
+CLI-аргументы:
+```
+trust-dap [options]
+
+By default runs in interactive mode (stdin/stdout).
+
+Options:
+  --help              Show this help
+  server[=<port>]     TCP server mode on given port (default: 4711)
+  --project-dir <path>  Project working directory (default: cwd)
+  --gdb <path>        Path to gdb binary (default: gdb)
 ```
 
-**API — утилиты для строк:**
-```cpp
-static size_t new_line_count(std::string_view s);            // подсчёт '\n' в строке
-void include_append(const std::vector<std::string> &files);  // сумма '\n' в массиве → cpp_line_inserted
-```
+Обработка DAP-команд:
+1. `initialize` — ответить с capabilities (configurationDone, breakpointLocations, functionBreakpoints, stepIn, stepOut, disassembly)
+2. `launch` — загрузить embedded source map из ELF через `SourceMapReader::fromElf()`, сохранить пути sourceFile/cppFile/targetFile, создать target, запустить процесс, запустить поток pollEvents()
+3. `configurationDone` — только ответить
+4. `setBreakpoints` — source-aware: `.src` брейкпоинты транслируются через SourceMapReader, `.cpp` — напрямую GDB
+5. `breakpointLocations` — вернуть строки файла с учётом маппинга
+6. `stackTrace` — двухоконная отладка (см. ниже)
+7. `scopes` — вернуть scope "Local"
+8. `variables` — вернуть список переменных через `GdbDebug::GetVariables()` с трансляцией имён C++ → trust
+9. `continue`, `next`, `stepIn`, `stepOut` — управление выполнением
+10. `threads` — список тредов
+11. `setExceptionBreakpoints` — заглушка
+12. `disconnect` — остановить поток pollEvents, завершить
 
-**API — трансляция строк и переменных:**
-```cpp
-std::optional<LineMapValue> nearestTrustToCpp(std::string_view trustFile, LineNumber trustLine) const;
-std::optional<LineMapValue> nearestCppToTrust(std::string_view cppFile, LineNumber cppLine) const;
-std::optional<VarMapInfo> getCppVar(std::string_view trustFile, LineNumber trustLine, std::string_view trustVar) const;
-std::optional<VarMapInfo> getTrustVar(std::string_view cppFile, LineNumber cppLine, std::string_view cppVar) const;
-```
+**Embedded source map:**
+Source map data встраивается в ELF-секцию `.debug_trust_map` на этапе компиляции C++.
+trust-dap читает эту секцию через `SourceMapReader::fromElf()`, парся ELF-заголовок
+и таблицу секций. Внешние `.map` файлы не используются.
 
-**API — сериализация (msgpack):**
-```cpp
-static std::vector<unsigned char> pack(const TrustSource &ts);
-static bool unpack(TrustSource &ts, const unsigned char *data, size_t size,
-                   std::string *error = nullptr);
-```
+**Поток pollEvents:**
+- Запускается в отдельном потоке после launch
+- Каждые 500ms вызывает `GdbDebug::WaitForEvent()`
+- При `Stop` — отправляет DAP-событие `stopped` с причиной (breakpoint/step/exception)
+- При `Exit` — отправляет `exited` + `terminated`
 
-**API — загрузка (фабричный метод):**
-```cpp
-static std::unique_ptr<const TrustSource> LoadFromBinary(
-    const std::string &binaryPath,
-    const std::string &mapPath = "");
-```
-- Пытается прочитать секцию `.debug_trust_map` из ELF-бинарника
-- Если не найдена — читает внешний `.map` файл (fallback)
-- Если ничего не найдено — возвращает nullptr
+#### Двухоконная отладка (sourceKind)
 
-**API — утилиты:**
-```cpp
-static std::string generateEmbeddedMapCode(const std::vector<unsigned char> &mapData);
-static bool writeMapFile(const std::vector<unsigned char> &mapData, const std::string &path);
-void clear();
-```
+trust-dap поддерживает отладку одновременно в двух окнах: `.src` (trust-lang исходный код) и `.cpp` (сгенерированный C++ код). 
+Переключение между окнами происходит через команду `Trust: Open Generated C++ File` (или кнопку на панели отладки).
 
-**API — доступ к данным (для тестов и отладчика):**
-```cpp
-const FilePairEntry *currentFilePair() const;
-const std::vector<FilePairEntry> &entries() const;
-```
+Механизм работы `handleStackTrace`:
+Запрос `stackTrace` принимает опциональный параметр `sourceKind`:
+- `sourceKind: "src"` (по умолчанию) — стек-трейнс показывает trust-lang файлы (`.src`) с транслированными номерами строк.
+- `sourceKind: "cpp"` — стек-трейнс показывает C++ файлы (`.cpp`) с оригинальными номерами строк от GDB без трансляции.
 
-**Формат msgpack (компактный, без имён полей, с версией):**
-```
-array 3:
-  [0] uint32 – version_major (TRUST_VERSION_MAJOR)
-  [1] uint32 – version_minor (TRUST_VERSION_MINOR)
-  [2] array  – file_entries:
-    file_entry = array 5:
-      [0] str  – trust_file (нормализованный)
-      [1] str  – cpp_file (нормализованный)
-      [2] uint – cpp_line_inserted
-      [3] array – line_pairs: [[trust_line, cpp_line], ...]
-      [4] array – var_renames: [[trust_line, cpp_line, trust_var, cpp_var], ...] или nil
-```
+Механизм работы `setBreakpoints`:
+- В `.src` файлах — точка останова транслируется через `ReaderFile::getMapTrustToCpp()` в соответствующую позицию C++ файла.
+- В `.cpp` файлах — точка останова передаётся напрямую в GDB без трансляции.
 
-Версия проекта (`major, minor` из VERSION) хранится в начале для контроля формата.
-При unpack версия читается, но не проверяется.
+Механизм работы `handleVariables`:
+Имена переменных, полученные от GDB (C++ names), транслируются в trust-lang имена через `ReaderFile::getTrustName()`.
 
-**Генерация embed-кода:**
-Эмбед-код генерируется с названием секции `.debug_trust_map` и переменной `debug_trust_map_data`.
+#### Обработка launch-запроса
 
-**Трансляция строк:** O(log n) для nearest-neighbour через `std::map::upper_bound`/`lower_bound`.
+DAP-запрос `launch` принимает следующие поля (передаются из VSCode конфигурации):
+- `sourceFile` — путь к исходному `.src` файлу (текущий файл в VSCode)
+- `cppFile` — путь к сгенерированному `.cpp` файлу
+- `targetFile` — путь к скомпилированному ELF бинарю
+- `gdbPath` — путь к GDB (опционально, переопределяет настройку расширения)
 
-**Трансляция переменных:** `getCppVar` — прямой поиск по ключу trust_var в `trustVarMapping`,
-`getTrustVar` — обратный поиск через `cppToTrustVar` (exact match по cpp_line, fallback nearest).
+Все пути должны быть переданы через DAP-запрос, а не через CLI-аргументы.
+CLI-аргументы `trust-dap` принимает только `--project-dir`
 
-### 2. TrustDebug (`trust_debug.h/.cpp`)
+---
 
-Центральный класс взаимодействия с LLDB API.
+### 6. Build pipeline (VSCode extension)
 
-**Возможности:**
-- Создание таргета, установка брейкпоинтов
-- Запуск процесса, StepOver, Continue
-- Чтение stdout процесса
-- Доступ к текущему фрейму, треду, процессу
+VSCode extension выполняет сборку автоматически при запуске отладки:
 
-**Source-маппинг:**
-- `BreakpointBySource(file, line)` — транслирует trust → C++ через source, если он задан
-- `GetVariablesBySource()` — возвращает имена переменных с трансляцией
-- `GetValueBySource(name)` / `SetValueBySource(name, value)` — доступ к переменным с трансляцией
-- Если source не задан — все операции выполняются в режиме 1:1 (имена передаются как есть)
+1. **Транспиляция** — вызов trust-lang компилятора
+2. **Компиляция C++** — вызов C++ компилятора
+3. **Запуск trust-dap** — запускает DAP сервер; пути к файлам передаются через DAP-запрос `launch`
 
-**Настройка source'а:**
-```cpp
-TrustDebug dbg;
-auto source = TrustSource::LoadFromBinary("binary.elf");
-dbg.SetSource(std::move(source));
-```
+Сборка выполняется в `resolveDebugConfiguration` с отображением прогресса через `withProgress`.
+Временные файлы (`.cpp`, ELF) создаются в каталоге из настроек vscode плагина (по умолчанию `.trust` в корне проекта).
 
-**Config:**
-```cpp
-struct Config {
-    std::string lldbServerPath;   // путь к lldb-server (пусто = системный)
-    bool asyncMode;               // асинхронный режим LLDB
-    lldb::LaunchFlags launchFlags;
-};
-```
+---
 
-### 3. Транспортный слой (`dap_transport.h/.cpp`)
-
-Отвечает за DAP-транспорт: чтение/запись пакетов в формате Content-Length, TCP-сервер,
-вспомогательные функции для формирования DAP-сообщений.
-
-**Классы:**
-
-```cpp
-class DapTransport {                // абстрактный базовый класс
-    virtual std::string readPacket() = 0;
-    virtual void send(const std::string &payload) = 0;
-};
-
-class StdioTransport : public DapTransport { // stdin/stdout (interactive-режим)
-    std::string readPacket() override;
-    void send(const std::string &payload) override;
-};
-
-class TcpTransport : public DapTransport {   // TCP-сокет (server-режим)
-    TcpTransport(int fd);                    // принимает сокет клиента
-    std::string readPacket() override;
-    void send(const std::string &payload) override;
-};
-```
-
-**DAP Protocol helpers (free functions):**
-
-```cpp
-int nextDapSeq();                              // инкрементальный seq
-json readDapPacket(DapTransport &transport);    // readPacket + JSON parse
-void sendDapResponse(...);                      // формирование response
-void sendDapEvent(...);                         // формирование event
-void sendDapOutput(...);                        // output-событие
-void sendBreakpointEvent(...);                  // breakpoint-событие
-```
-
-**TCP server helpers:**
-
-```cpp
-int createTcpServer(int port);     // socket → bind → listen (INADDR_ANY)
-int acceptConnection(int serverFd); // accept одного клиента
-```
-
-**CLI parsing:**
-
-```cpp
-struct DapOptions { int port; bool help; std::string projectDir; std::string lldbServerPath; };
-DapOptions parseDapOptions(int argc, const char *argv[]);
-void printUsage(const char *prog);
-```
-
-**Константы:**
-
-```cpp
-constexpr int DAP_DEFAULT_PORT = 4711;  // стандартный порт DAP
-```
-
-### 4. trust-dap (`trust_dap.cpp`)
-
-DAP-сервер для отладки trust-lang. Загружает TrustSource, создаёт TrustDebug,
-готовит Target и запускает процесс. Поддерживает interactive (stdin/stdout)
-и TCP-server режимы.
-
-**CLI-аргументы:**
-```
-trust-dap [--help]
-          [server[=<port>]]
-          [--project-dir <path>]
-          [--lldb-server <path>]
-```
-
-Все параметры опциональные.
-
-По умолчанию работает в interactive-режиме (stdin/stdout). Если указан `server`,
-работает как TCP-сервер на стандартном порту DAP (4711) или на указанном порту.
-
-**Пути к файлам (source, cpp, target, map)** не передаются через CLI — они приходят
-стандартным способом через аргументы DAP-запроса `launch`:
-```json
-{
-  "command": "launch",
-  "arguments": {
-    "sourceFile": "/path/to/file.src",
-    "cppFile": "/path/to/file.cpp",
-    "targetFile": "/path/to/binary.elf",
-    "mapFile": "/path/to/file.map"
-  }
-}
-```
-
-**DAP-последовательность (стандартное поведение):**
-1. `initialize` — ответить с capabilities
-2. `launch` — создать target + запустить процесс (из аргументов launch)
-3. `setBreakpoints` — применить немедленно (target уже существует)
-4. `configurationDone` — только ответить, без создания target
-5. `continue`/`next`/`stepIn`/`stepOut` — управление выполнением
-
-**Обрабатываемые DAP-команды:**
-- `initialize`, `launch`, `configurationDone` — конфигурация
-- `setBreakpoints`, `breakpointLocations` — точки останова
-- `continue`, `next`, `stepIn`, `stepOut` — управление выполнением
-- `stackTrace`, `scopes`, `variables` — состояние отладки
-- `getCppFile` — custom request: возвращает cppFile/cppLine последнего фрейма
-- `disassembly` — возвращает строки C++ файла как псевдо-инструкции
-- `disconnect` — завершение
-
-### 4. Build pipeline (VSCode task)
-
-VSCode task `trust: build and debug` выполняет:
-
-1. **Транспиляция** — вызов trust-lang компилятора, указанного в настройках плагина, превращает `.src` в `.cpp`
-2. **Компиляция C++** — вызов компилятора (например `clang++-22`), указанного в настройках плагина, собирает `.cpp` в ELF
-3. **Запуск trust-dap** — запускает DAP сервер без аргументов пути (пути передаются через DAP-запрос `launch`)
-
-Временные файлы (`.cpp`, ELF) создаются в каталоге, указанном в настройках
-(по умолчанию `.trust` в корне проекта).
-
-### 5. VSCode extension (`include/vscode/extensions/trust-lang/`)
+### 7. VSCode extension (`include/vscode/extensions/trust-lang/`)
 
 Расширение VSCode, регистрирующее:
 
@@ -283,88 +178,48 @@ VSCode task `trust: build and debug` выполняет:
 - **Debug adapter** — `trust-dap` с аргументами из настроек
 - **Build task** — `trust: build and debug`, вызываемый по F5
 - **Breakpoints** — поддержка SetBreakpoints по F9
-- **Контекстное меню** — команда `Trust: Open Generated C++ File` открывает C++ файл, соответствующий текущему .src
-  - Если debug-сессия активна — custom request `getCppFile`
-  - Если последний билд доступен — открытие C++ файла с соответствующей строкой через `lastBuildResult`
-  - Fallback: открытие C++ файла с первой строки
-  - Кнопка "Show Disassembly" в панели отладки отображает C++ код вместо ассемблера
+- **Контекстное меню** — команда `Trust: Open Generated C++ File`
+- **Pre-launch build** — автоматическая транспиляция и компиляция при запуске отладки
 
-**Поля настроек (`trust-lang.*`):**
-- `compilerPath` — путь к trust-lang компилятору
-- `compilerArgs` — аргументы trust-lang компилятора
-- `cppCompiler` — имя C++ компилятора (без пути, берётся из PATH, например `clang++-22`)
-- `tempDir` — каталог для временных файлов (по умолчанию `.trust`)
-- `dapServerPath` — путь к `trust-dap` серверу
-- `lldbServerPath` — путь к `lldb-server`
+Поля настроек (`trust.*`): `compilerPath`, `cppCompilerPath`, `cppCompilerOptions`, `tempDir`, `dapPath`, `gdbPath`, `traceDAP`.
 
-## Схема взаимодействия
+---
+
+### Схема взаимодействия
 
 ```
-VSCode  ←→  [F5] → build task (transpile → compile)
-                    ↓
-         ←→  trust-dap  ←→  TrustDebug  ←→  LLDB API  ←→  process
-                             │
-                    TrustSource (загрузка/сериализация/трансляция)
+VSCode → resolveDebugConfiguration → withProgress(transpile → compile) → trust-dap → GdbDebug → GDB/MI → process (ELF with embedded .debug_trust_map)
 ```
 
-## Типы данных
+---
 
-```cpp
-using LineNumber = int;
-using LinePair = std::pair<LineNumber, LineNumber>;
-using LineMapValue = std::pair<std::string, LineNumber>;  // <file, line>
+### Тестовые утилиты
 
-struct VarMapValue {
-    std::string cppVar;
-    LinePair lines;  // {trust_line, cpp_line}
-};
+| Цель | Описание | Зависит от GDB? |
+|------|----------|-----------------|
+| `simple_transpiler` | Транспилирует `.src` → `.cpp` + embedded source map (msgpack) | Нет |
+| `gdb_main` | Интеграционный тест GdbDebug (таргет, брейкпоинты, StepOver, переменные) | Да |
+| `gdb_debuggee` | Вспомогательный ELF-файл (debuggee) | Нет |
+| `transpile_test` | Модульный тест transpiler'а `trust::SourceMapReader` | Нет |
+| `dap_handler_test` | Unit-тесты DapHandler | Нет |
+| `dap_handler_integration` | Интеграционные тесты с real ELF | Нет (требуется prepare_test_data) |
 
-struct VarMapInfo {
-    std::pair<std::string, std::string> files; // {trust_file, cpp_file}
-    std::pair<std::string, std::string> vars;  // {trust_var, cpp_var}
-    LinePair lines;                            // {trust_line, cpp_line}
-};
-
-struct FilePairEntry {
-    std::pair<std::string, std::string> files;           // {trust_file, cpp_file}
-    std::map<LineNumber, LineNumber> trustToCppIndex;    // trust_line → cpp_line
-    std::map<std::string, VarMapValue> trustVarMapping;  // trust_var → {cpp_var, lines}
-    std::unordered_multimap<std::string, std::string> cppToTrustVar; // cpp_var → trust_var
-    size_t cpp_line_inserted = 0;
-};
-```
-
-## Portability
-
-- `TrustSource` не зависит от LLDB — может использоваться отдельно
-- Msgpack формат — единственный формат сериализации
-- Чтение ELF-секции `.debug_trust_map` — приватный статический метод, при необходимости расширяется на PE/Mach-O
-
-## Тестовые утилиты и их запуск
-
-### Исполняемые файлы (`test/unit/debug/CMakeLists.txt`)
-
-| Цель | Описание | Зависит от LLDB? |
-|------|----------|------------------|
-| `simple_transpiler` | Транспилирует `.src` → `.cpp` + embedded source map (msgpack). Принимает путь к `.src` файлу и опционально путь к временному каталогу для .cpp файлов. | Нет |
-| `lldb_main` | Интеграционный тест TrustDebug без DAP: создаёт таргет, брейкпоинты, StepOver, читает переменные. | Да |
-| `simple_integration` | Полный цикл: transpile → compile → debug через LLDB. | Да |
-| `lldb_debuggee` | Вспомогательный ELF-файл, используемый как debuggee (не тест сам по себе). | Да |
-
-### Запуск
-
-Каждый исполняемый файл имеет custom target `run_<name>` в `test/lit/CMakeLists.txt`.
-Запуск через `cmake --build . --target run_<name>`. Все цели собраны в `run_debug_tests`
-(LLDB-зависимые — только при `LLDB_FOUND=TRUE`).
-
-Агрегирующая цель верхнего уровня — `run_tests` в корневом `CMakeLists.txt`:
-```
-cmake --build . --target run_tests              # unit + lit + debug
-```
-
+Запуск: `cmake --build . --target run_<name>`. Агрегирующая цель — `run_tests`.
 Тестовый `.src` файл: `test/unit/debug/simple_example.src`.
 
-## Зависимости
+---
+
+### Сборка
+
+Библиотека `debug_lib` (static): исходники `gdb_debug.cpp`, `dap_transport.cpp`, `dap_handler.cpp`. Зависимости: `diag_lib` (PUBLIC), `msgpack-c-static` (PRIVATE), `trust_include_dirs` (PUBLIC).
+
+Исполняемый файл `trust-dap`: исходник `trust_dap.cpp`. Зависимости: `debug_lib` (PRIVATE), `nlohmann_json::nlohmann_json` (PRIVATE).
+
+---
+
+### Зависимости
 
 - **libmsgpack-c** — бинарная сериализация mapping data
-- **LLDB API** — только TrustDebug и тесты (TrustSource не зависит от LLDB)
+- **nlohmann_json** — только DAP-сервер (JSON-RPC)
+- **trust::SourceMapReader** (`diag_lib`) — source-маппинг (не зависит от отладчика)
+- **zlib** — сжатие/распаковка source map данных

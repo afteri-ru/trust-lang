@@ -21,7 +21,7 @@ using TokenSequence = std::vector<TokenPtr>;
 struct TokenInfo {
     ParserToken::Kind kind{ParserToken::Kind::END};
     std::string text;
-    SourceRange range{};
+    MapperRange range{};
 
     TokenPtr m_name_or_class; ///< The name or class of the token, if the term has a name or class
 
@@ -43,25 +43,30 @@ struct TokenInfo {
 
     TokenInfo() = default;
 
-    TokenInfo(const Lexeme &lex) : kind(lex.kind), text(lex) {
-        ASSERT(lex.pos.isValid() && lex.size() < lex.pos.offset());
+    TokenInfo(const Lexeme& lex)
+    : kind(lex.kind)
+    , text(lex) {
+        ASSERT(lex.pos.isValid() && lex.size() < lex.pos);
         range = {lex.pos.dec(lex.size()), lex.pos};
     }
-    TokenInfo(ParserToken::Kind k, std::string t, SourceRange r) : kind(k), text(std::move(t)), range(std::move(r)) {}
+    TokenInfo(ParserToken::Kind k, std::string t, MapperRange r)
+    : kind(k)
+    , text(std::move(t))
+    , range(std::move(r)) {}
 
     [[nodiscard]] bool empty() const noexcept { return kind == ParserToken::Kind::END; }
 
     /// Factory: create a TokenPtr from a Lexeme
-    [[nodiscard]] static TokenPtr make(const Lexeme &lex) { return std::make_shared<TokenInfo>(lex); }
+    [[nodiscard]] static TokenPtr make(const Lexeme& lex) { return std::make_shared<TokenInfo>(lex); }
 
     /// Factory: create a TokenPtr from Kind, range, and text
-    [[nodiscard]] static TokenPtr make(ParserToken::Kind k, std::string t, SourceRange r = {}) {
+    [[nodiscard]] static TokenPtr make(ParserToken::Kind k, std::string t, MapperRange r = {}) {
         return std::make_shared<TokenInfo>(k, std::move(t), std::move(r));
     }
 
     [[nodiscard]] bool is_block() { return kind == ParserToken::Kind::block || kind == ParserToken::Kind::sequence || kind == ParserToken::Kind::BlockStmt; }
 
-    [[nodiscard]] static std::string dump(const TokenInfo *ptr, size_t indent = 0);
+    [[nodiscard]] static std::string dump(const TokenInfo* ptr, size_t indent = 0);
 };
 
 } // namespace trust

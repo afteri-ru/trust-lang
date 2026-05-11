@@ -1,20 +1,21 @@
 # include/debug/CMakeLists.txt
-# Debug: Trust-lang debug system (source mapping + LLDB bridge)
+# Debug: Trust-lang debug system (source mapping + GDB/MI bridge)
 
-# ── Library ──
+# ── debug_lib (no LLDB dependency) ──
 add_library(debug_lib STATIC
-    ${PROJECT_SOURCE_DIR}/debug/trust_debug.cpp
-    ${PROJECT_SOURCE_DIR}/debug/trust_source.cpp
-    ${PROJECT_SOURCE_DIR}/debug/trust_msgpack.cpp
+    ${PROJECT_SOURCE_DIR}/debug/gdb_debug.cpp
     ${PROJECT_SOURCE_DIR}/debug/dap_transport.cpp
+    ${PROJECT_SOURCE_DIR}/debug/dap_handler.cpp
 )
 
 target_link_libraries(debug_lib PUBLIC
     trust_include_dirs
 )
 
+target_link_libraries(debug_lib PUBLIC
+    diag_lib
+)
 target_link_libraries(debug_lib PRIVATE
-    ${LLDB_LIBRARIES}
     msgpack-c-static
 )
 
@@ -23,7 +24,6 @@ target_include_directories(debug_lib PRIVATE ${CMAKE_BINARY_DIR}/include)
 
 target_include_directories(debug_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${LLDB_INCLUDE_DIRS}
 )
 
 # ── trust-dap: DAP server для trust-lang debugging ──
@@ -37,5 +37,6 @@ target_link_libraries(trust-dap PRIVATE
 )
 
 target_include_directories(trust-dap PRIVATE
+    ${CMAKE_BINARY_DIR}/include
     ${PROJECT_INCLUDE_DIR}
 )

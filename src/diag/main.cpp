@@ -1,6 +1,7 @@
 #include "diag/context.hpp"
 #include "diag/diag.hpp"
 #include "diag/options.hpp"
+#include "utils/backtrace.hpp"
 
 #include <iostream>
 #include <memory>
@@ -8,31 +9,29 @@
 using namespace trust;
 
 int main(int argc, char* argv[]) {
+    trust::utils::install_fault_handler();
     std::cout << "=== Diag Demo ===\n";
 
     Context ctx;
-    FileIdx src = ctx.add_source("demo.cpp",
-        "int main() {\n"
-        "    int x = foo();\n"
-        "    return 0;\n"
-        "}\n"
-    );
+    FileIdx src = ctx.add_source("demo.cpp", "int main() {\n"
+                                             "    int x = foo();\n"
+                                             "    return 0;\n"
+                                             "}\n");
     ctx.diag().setMinSeverity(Severity::Remark);
     ctx.diag().setOutput(&std::cout);
 
     auto line_start = ctx.loc_from_line(src, 2);
-    int foo_offset = line_start.offset() + 12;
+    int foo_offset = line_start + 12;
     auto foo_begin = ctx.makeLoc(src, foo_offset);
     auto foo_end = ctx.makeLoc(src, foo_offset + 3);
     ctx.diag().report({foo_begin, foo_end}, Severity::Warning, "unused variable '{}'", "foo");
     ctx.diag().report({foo_begin, foo_end}, Severity::Error, "unexpected token '{}'", "foo");
     ctx.diag().report(foo_begin, Severity::Note, "did you mean '{}'?", "bar");
 
-    auto invalid_loc = SourceLoc::invalid();
+    auto invalid_loc = Location::invalid();
     ctx.diag().report(invalid_loc, Severity::Fatal, "internal error");
 
-    std::cout << "Errors: " << ctx.diag().errorCount()
-              << ", Warnings: " << ctx.diag().warningCount() << "\n";
+    std::cout << "Errors: " << ctx.diag().errorCount() << ", Warnings: " << ctx.diag().warningCount() << "\n";
 
     std::cout << "\n=== Options Demo ===\n";
 
@@ -46,11 +45,21 @@ int main(int argc, char* argv[]) {
         std::cout << "  " << name << ": ";
         if (sev.has_value()) {
             switch (*sev) {
-                case Severity::Fatal:   std::cout << "fatal"; break;
-                case Severity::Error:   std::cout << "error"; break;
-                case Severity::Warning: std::cout << "warning"; break;
-                case Severity::Note:    std::cout << "note"; break;
-                case Severity::Remark:  std::cout << "remark"; break;
+            case Severity::Fatal:
+                std::cout << "fatal";
+                break;
+            case Severity::Error:
+                std::cout << "error";
+                break;
+            case Severity::Warning:
+                std::cout << "warning";
+                break;
+            case Severity::Note:
+                std::cout << "note";
+                break;
+            case Severity::Remark:
+                std::cout << "remark";
+                break;
             }
         } else {
             std::cout << "ignore";
@@ -62,7 +71,8 @@ int main(int argc, char* argv[]) {
     auto remaining = ctx.opts().parse_argv(args_full.subspan(1));
 
     std::cout << "Positional args:";
-    for (const char* a : remaining) std::cout << " " << a;
+    for (const char* a : remaining)
+        std::cout << " " << a;
     std::cout << '\n';
 
     std::cout << "\n=== Push/Pop Demo ===\n";
@@ -71,8 +81,7 @@ int main(int argc, char* argv[]) {
     std::cout << "  unused-var: " << (ctx.opts().severity(OptKind::UnusedVar) == Severity::Fatal ? "fatal" : "other") << '\n';
 
     ctx.opts().pop();
-    std::cout << "  unused-var after pop: "
-               << (ctx.opts().severity(OptKind::UnusedVar) == Severity::Fatal ? "fatal" : "restored") << '\n';
+    std::cout << "  unused-var after pop: " << (ctx.opts().severity(OptKind::UnusedVar) == Severity::Fatal ? "fatal" : "restored") << '\n';
 
     std::cout << "\n=== Combined: Options with Diag ===\n";
     std::cout << "Trying to set unknown option (triggers diag error):\n";

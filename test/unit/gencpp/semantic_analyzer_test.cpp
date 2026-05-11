@@ -19,7 +19,8 @@ static std::unique_ptr<Program> parse_and_build(const std::string& input) {
     Context ctx;
     auto parsed = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> roots;
-    for (auto& r : *parsed) roots.push_back(r.get());
+    for (auto& r : *parsed)
+        roots.push_back(r.get());
     return build_ast_from_roots(roots, ctx);
 }
 

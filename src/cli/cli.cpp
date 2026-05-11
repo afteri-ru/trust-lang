@@ -16,7 +16,9 @@
 
 namespace trust {
 
-Cli::Cli(CliParseResult result) : result_(std::move(result)), ctx_() {
+Cli::Cli(CliParseResult result)
+: result_(std::move(result))
+, ctx_() {
     ctx_.diag().setOutput(&std::cerr);
     ctx_.diag().setMinSeverity(result_.opts.quiet ? Severity::Error : Severity::Remark);
 }

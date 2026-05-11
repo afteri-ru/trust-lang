@@ -8,7 +8,7 @@ using namespace trust;
 TEST(CliOptOverlap, NoLongNameMatchesDiag) {
     Options opts; // Создаёт все diag-опции из OPTIONS_LIST
     for (int i = 0; i < NumCliOptions; ++i) {
-        auto &meta = all_cli_opts[i];
+        auto& meta = all_cli_opts[i];
         if (!meta.long_name.empty()) {
             EXPECT_FALSE(opts.is_registered(meta.long_name)) << "CLI --" << meta.long_name << " overlaps with diag option";
         }
@@ -19,7 +19,7 @@ TEST(CliOptOverlap, NoLongNameMatchesDiag) {
 TEST(CliOptOverlap, NoShortNameMatchesDiag) {
     Options opts;
     for (int i = 0; i < NumCliOptions; ++i) {
-        auto &meta = all_cli_opts[i];
+        auto& meta = all_cli_opts[i];
         if (!meta.short_name.empty()) {
             EXPECT_FALSE(opts.is_registered(meta.short_name)) << "CLI -" << meta.short_name << " overlaps with diag option";
         }
@@ -29,7 +29,7 @@ TEST(CliOptOverlap, NoShortNameMatchesDiag) {
 // Проверка: ни одна CLI опция не начинается с "W" (префикс diag)
 TEST(CliOptOverlap, NoCliStartsWithW) {
     for (int i = 0; i < NumCliOptions; ++i) {
-        auto &meta = all_cli_opts[i];
+        auto& meta = all_cli_opts[i];
         if (!meta.long_name.empty()) {
             EXPECT_FALSE(meta.long_name.starts_with("W") || meta.long_name.starts_with("w")) << "CLI --" << meta.long_name << " starts with 'W'";
         }
@@ -42,7 +42,7 @@ TEST(CliOptOverlap, NoCliStartsWithW) {
 // Проверка: все CLI опции имеют ненулевые метаданные
 TEST(CliOptOverlap, AllOptsHaveMeta) {
     for (int i = 0; i < NumCliOptions; ++i) {
-        auto &meta = all_cli_opts[i];
+        auto& meta = all_cli_opts[i];
         EXPECT_FALSE(meta.name.empty()) << "Opt " << i << " has empty name";
         EXPECT_FALSE(meta.description.empty()) << "Opt " << i << " has empty description";
     }

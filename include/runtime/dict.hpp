@@ -69,7 +69,7 @@ namespace detail {
 template <class P, class T>
 concept smart_ptr_to = requires(P p) {
     // минимальное требование: разыменование даёт T& (или совместимо)
-    { *p } -> std::convertible_to<T &>;
+    { *p } -> std::convertible_to<T&>;
 };
 
 template <class N>
@@ -90,12 +90,12 @@ class Dict : public std::list<std::pair<std::string, PTR>> {
     friend class Context;
 
     template <detail::dict_index_arg I>
-    inline const PairType &operator[](I index) {
+    inline const PairType& operator[](I index) {
         return at(index);
     }
 
     template <detail::dict_name_arg N>
-    inline const PairType &operator[](N &&name) {
+    inline const PairType& operator[](N&& name) {
         if constexpr (std::is_pointer_v<std::remove_reference_t<N>>) {
             return at(std::string_view{name});
         } else {
@@ -103,12 +103,12 @@ class Dict : public std::list<std::pair<std::string, PTR>> {
         }
     }
 
-    inline PairType &push_back(const PairType &p) {
+    inline PairType& push_back(const PairType& p) {
         ListType::push_back(p);
         return *at_index(-1);
     }
 
-    inline PairType &push_back(const Type value, const std::string &name = "") { return push_back(pair(value, name)); }
+    inline PairType& push_back(const Type value, const std::string& name = "") { return push_back(pair(value, name)); }
 
     //        inline PairType top() const {
     //            if (ListType::empty()) {
@@ -119,9 +119,9 @@ class Dict : public std::list<std::pair<std::string, PTR>> {
 
     static inline PairType pair(const Type value, std::string name = "") { return PairType(std::move(name), value); }
 
-    virtual PairType &at(const int64_t index) { return *at_index(index); }
+    virtual PairType& at(const int64_t index) { return *at_index(index); }
 
-    virtual const PairType &at(const int64_t index) const { return *at_index_const(index); }
+    virtual const PairType& at(const int64_t index) const { return *at_index_const(index); }
 
     [[nodiscard]] typename ListType::iterator find(std::string_view name) {
         auto iter = ListType::begin();
@@ -138,7 +138,7 @@ class Dict : public std::list<std::pair<std::string, PTR>> {
     //            return find(name);
     //        }
 
-    virtual PairType &at(std::string_view name) {
+    virtual PairType& at(std::string_view name) {
         auto iter = find(name);
         if (iter != ListType::end()) {
             return *iter;
@@ -147,9 +147,9 @@ class Dict : public std::list<std::pair<std::string, PTR>> {
     }
 
     // Backward-compatible overload.
-    virtual PairType &at(const std::string &name) { return at(std::string_view{name}); }
+    virtual PairType& at(const std::string& name) { return at(std::string_view{name}); }
 
-    virtual const std::string &name(const int64_t index) const { return at_index_const(index)->first; }
+    virtual const std::string& name(const int64_t index) const { return at_index_const(index)->first; }
 
     virtual int64_t index(std::string_view field_name) {
         typename ListType::iterator found = find(field_name);
@@ -161,7 +161,7 @@ class Dict : public std::list<std::pair<std::string, PTR>> {
 
     virtual void clear_() { ListType::clear(); }
 
-    virtual int64_t resize(int64_t new_size, const Type fill, const std::string &name = "") {
+    virtual int64_t resize(int64_t new_size, const Type fill, const std::string& name = "") {
         if (new_size >= 0) {
             // Размер положительный, просто изменить число элементов добавив или удалив последние
             ListType::resize(new_size, std::pair<std::string, Type>(name, fill));
@@ -263,7 +263,8 @@ class Dict : public std::list<std::pair<std::string, PTR>> {
     Dict(PairType arg) { push_front(arg.second, arg.first); }
 
     template <class... A>
-    inline Dict(PairType arg, A... rest) : Dict(rest...) {
+    inline Dict(PairType arg, A... rest)
+    : Dict(rest...) {
         push_front(arg.second, arg.first);
     }
 };

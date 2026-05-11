@@ -26,7 +26,7 @@ enum class LanguageVersion : uint8_t {
 };
 
 /* ── Stringification from X-macro ────────────────────── */
-constexpr const char *language_version_string(LanguageVersion v) {
+constexpr const char* language_version_string(LanguageVersion v) {
     switch (v) {
 #define X(name, str)            \
     case LanguageVersion::name: \
@@ -53,8 +53,8 @@ class Vector;
 using Any = std::variant<Void, Integers, Float, Rational, String, Tensor, SparseTensor, Vector>;
 
 // ── Runtime conversion forward declarations ──
-Any runtime_convert(const Any &val, TypeKind target);
-std::string stringify_value(const Any &val, bool wi = false);
+Any runtime_convert(const Any& val, TypeKind target);
+std::string stringify_value(const Any& val, bool wi = false);
 
 } // namespace trust
 

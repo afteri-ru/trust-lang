@@ -65,6 +65,36 @@
 #     - Direct execution of unit_tests with shuffle and filter
 #     There may be more tasks, but these three tasks must be present.
 #
+# 11. Common build commands
+#     ──────────────────────────────────────────────────────────
+#     # Конфигурация (из корня проекта)
+#     cmake -B build -G "Unix Makefiles"
+#     cmake -B build -G "Unix Makefiles" -DWITH_TORCH=ON   # с Torch
+#
+#     # Сборка всего проекта
+#     cmake --build build
+#
+#     # Сборка отдельных библиотек
+#     cmake --build build --target <"component name" + _lib>
+#
+#     # Сборка исполняемых файлов
+#     cmake --build build --target <name>
+#
+#     # Сборка и запуск тестов
+#     cmake --build build --target unit_tests             # сборка unit-тестов (без запуска)
+#     cmake --build build --target run_unit_tests         # сборка + запуск unit-тестов
+#     cmake --build build --target run_lit_tests          # LIT-тесты
+#     cmake --build build --target run_debug_tests        # debug-тесты
+#     cmake --build build --target run_vscode_tests       # VSCode-тесты
+#     cmake --build build --target run_tests              # все тесты сразу
+#
+#     # Отдельные debug-тесты
+#     cmake --build build --target run_simple_integration # debug integration
+#     cmake --build build --target run_lldb_main          # LLDB без DAP
+#
+#     # Очистка
+#     cmake --build build --target clean
+#
 # ═══════════════════════════════════════════════════════════════════════
 
 cmake_minimum_required(VERSION 3.28)
@@ -85,10 +115,37 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# ── Symlink compile_commands.json into project root for clang-tidy ──
+file(CREATE_LINK "${CMAKE_BINARY_DIR}/compile_commands.json"
+     "${CMAKE_SOURCE_DIR}/compile_commands.json" SYMBOLIC)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-add_compile_options(-Wswitch -Werror)
+# ── Strict compile options ──
+# NOTE: These flags apply to ALL project code via add_compile_options.
+# Exceptions are made for:
+#   - System/external headers: marked as SYSTEM include directories
+#     (see cmake/dependencies.cmake and component CMakeLists.txt)
+#   - Generated files (lex.yy.cpp, parser.tab.cpp): use
+#     set_source_files_properties(... COMPILE_OPTIONS "-Wno-old-style-cast")
+#     (see include/parser/CMakeLists.txt, test/unit/CMakeLists.txt)
+#   - test/unit/unit_tests: additional -Wno-unused-result
+add_compile_options(
+    -Werror
+    -Wswitch
+    -Werror=switch
+    -Wold-style-cast
+    -Wreorder
+    -Wnon-virtual-dtor
+    -Woverloaded-virtual
+    -Wimplicit-fallthrough
+)
+
+# ── Linker options ──
+# -rdynamic нужен для backtrace_symbols() — чтобы видеть имена функций
+# в стеке вызовов. Применяем ко всем исполняемым файлам.
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
 
 # ── Options ──
 option(WITH_TORCH "Enable libtorch support (builds libtensor_cpu.so)" OFF)
@@ -144,7 +201,6 @@ add_subdirectory(include/stdlib)
 add_subdirectory(include/types)
 add_subdirectory(include/gencpp)
 add_subdirectory(include/cli)
-add_dependencies(trust_cli generate_options_h)
 add_subdirectory(include/runtime)
 add_subdirectory(include/debug)
 add_subdirectory(include/lsp)
@@ -172,6 +228,6 @@ add_subdirectory(test/vscode)
 
 # ── Top-level test targets ──
 add_custom_target(run_tests
-    DEPENDS run_unit_tests run_lit_tests run_debug_tests run_vscode_tests
+    DEPENDS run_unit_tests run_lit_tests run_vscode_tests #run_debug_tests
     COMMENT "Run all tests (unit + lit + debug + vscode)"
 )

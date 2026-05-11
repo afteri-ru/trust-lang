@@ -8,21 +8,21 @@
 
 namespace trust {
 
-int yylex(ParserAST::semantic_type *yylval, TokenSequence &ts, std::size_t &pos) {
+int yylex(ParserAST::semantic_type* yylval, TokenSequence& ts, std::size_t& pos) {
     if (pos >= ts.size()) {
         return 0; // EOF
     }
-    const TokenInfo *token = ts[pos].get();
+    const TokenInfo* token = ts[pos].get();
     auto kind = token->kind;
     *yylval = ts[pos++];
     return static_cast<int>(kind);
 }
 
-void ParserAST::error(const std::string &msg) {
+void ParserAST::error(const std::string& msg) {
     // Error handling - can be extended to use diag context
 }
 
-std::string TokenInfo::dump(const TokenInfo *ptr, size_t indent) {
+std::string TokenInfo::dump(const TokenInfo* ptr, size_t indent) {
     std::string result = std::string(indent, ' ');
     if (!ptr) {
         result += "<nullptr>";

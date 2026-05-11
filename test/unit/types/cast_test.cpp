@@ -70,34 +70,34 @@
 // }
 
 TEST(CastTest, runtime_overflow_int) {
-    auto &t = trust::Types::instance();
+    auto& t = trust::Types::instance();
     trust::Integers v(INT64_MAX, trust::TypeKind::Int64);
     EXPECT_THROW(t.convert(trust::Any(v), trust::TypeKind::Int8), std::overflow_error);
 }
 
 TEST(CastTest, runtime_safe_int) {
-    auto &t = trust::Types::instance();
+    auto& t = trust::Types::instance();
     trust::Integers v(42, trust::TypeKind::Int64);
     auto result = t.convert(trust::Any(v), trust::TypeKind::Int32);
-    auto *converted = std::get_if<trust::Integers>(&result);
+    auto* converted = std::get_if<trust::Integers>(&result);
     ASSERT_NE(converted, nullptr);
     EXPECT_EQ(converted->get(), 42);
 }
 
 TEST(CastTest, runtime_int_to_float) {
-    auto &t = trust::Types::instance();
+    auto& t = trust::Types::instance();
     trust::Integers v(42, trust::TypeKind::Int64);
     auto result = t.convert(trust::Any(v), trust::TypeKind::Float64);
-    auto *converted = std::get_if<trust::Float>(&result);
+    auto* converted = std::get_if<trust::Float>(&result);
     ASSERT_NE(converted, nullptr);
     EXPECT_DOUBLE_EQ(converted->get(), 42.0);
 }
 
 TEST(CastTest, runtime_float_to_int) {
-    auto &t = trust::Types::instance();
+    auto& t = trust::Types::instance();
     trust::Float v(3.14, trust::TypeKind::Float64);
     auto result = t.convert(trust::Any(v), trust::TypeKind::Int64);
-    auto *converted = std::get_if<trust::Integers>(&result);
+    auto* converted = std::get_if<trust::Integers>(&result);
     ASSERT_NE(converted, nullptr);
     EXPECT_EQ(converted->get(), 3);
 }

@@ -104,10 +104,10 @@
           "default": ".trust",
           "description": "Temporary directory for intermediate files (relative to workspace root)."
         },
-        "trust.lldbServerPath": {
+        "trust.gdbPath": {
           "type": "string",
-          "default": "lldb-server",
-          "description": "Path to lldb-server. Used by the debug adapter."
+          "default": "gdb",
+          "description": "Path to gdb. Used by the debug adapter."
         },
         "trust.traceDAP": {
           "type": "boolean",
@@ -176,14 +176,9 @@
                 "description": "Path to the compiled ELF binary.",
                 "default": "${workspaceFolder}/.trust/${fileBasenameNoExtension}"
               },
-              "lldbServerPath": {
+              "gdbPath": {
                 "type": "string",
-                "description": "Path to lldb-server.",
-                "default": ""
-              },
-              "mapFile": {
-                "type": "string",
-                "description": "Path to .map file with source mappings (optional).",
+                "description": "Path to gdb.",
                 "default": ""
               }
             }
@@ -195,10 +190,9 @@
             "request": "launch",
             "name": "Trust Debug (current file)",
             "sourceFile": "${file}",
-            "cppFile": "${workspaceFolder}/${config:trust.tempDir}/${fileBasenameNoExtension}.cpp",
-            "targetFile": "${workspaceFolder}/${config:trust.tempDir}/${fileBasenameNoExtension}",
-            "lldbServerPath": "",
-            "mapFile": ""
+            "cppFile": "${workspaceFolder}/.trust/${fileBasenameNoExtension}.cpp",
+            "targetFile": "${workspaceFolder}/.trust/${fileBasenameNoExtension}",
+            "gdbPath": ""
           }
         ]
       }

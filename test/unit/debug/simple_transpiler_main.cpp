@@ -1,4 +1,4 @@
-#include "transpiler.h"
+#include "lsp/transpile.h"
 #include "utils/utils.hpp"
 
 #include <cassert>
@@ -9,9 +9,42 @@
 #include <vector>
 #include <filesystem>
 
+using namespace trust::lsp;
+
 namespace fs = std::filesystem;
 
-static void print_help(const char *prog) {
+// ── Вспомогательные функции для сериализации ──
+
+// Генерирует C++ код для внедрения бинарного map в секцию .debug_trust_map
+static std::string generate_embedded_map_code(const std::vector<unsigned char>& data) {
+    std::string code = "\n// Embedded source map data\n";
+    code += "#if defined(__ELF__)\n// clang-format off\n";
+    code += "__attribute__((used, section(\".debug_trust_map\")))\n";
+    code += "static const unsigned char __trust_map_data[] = {\n";
+    for (size_t i = 0; i < data.size(); ++i) {
+        if (i % 10 == 0)
+            code += "  ";
+        code += "0x" + std::format("{:02x}", data[i]);
+        if (i + 1 < data.size())
+            code += ", ";
+        if ((i + 1) % 10 == 0 && i + 1 < data.size())
+            code += "\n";
+    }
+    code += "\n};\n// clang-format on\n";
+    code += "#endif // __ELF__\n";
+    return code;
+}
+
+// Записывает бинарный map в файл
+static bool write_map_file(const std::vector<unsigned char>& data, const std::string& path) {
+    std::ofstream out(path, std::ios::binary);
+    if (!out.is_open())
+        return false;
+    out.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+    return out.good();
+}
+
+static void print_help(const char* prog) {
     std::cerr << "Usage: " << prog << " <input_file> [options]\n"
               << "Transpile a Trust source file to C++ with embedded source map.\n"
               << "\n"
@@ -31,7 +64,7 @@ static void print_help(const char *prog) {
               << "    where <rel-path> is the input file's directory relative to CWD\n";
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
     std::string src_path;
     std::string emit_cpp;
     std::string temp_dir;
@@ -118,29 +151,24 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    std::vector<std::string> trust_lines;
-    std::string line;
-    while (std::getline(infile, line)) {
-        trust_lines.push_back(line);
-    }
+    std::string trust_code((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
     infile.close();
 
-    // Transpile напрямую в TrustSource
-    // temp_dir задаёт cpp_directory_ для нормализации C++ путей
-    // basePath = директория src-файла (не сам файл)
-    trust::TrustSource source(fs::path(src_path).parent_path().string(), temp_dir);
-    source.setFilePair(src_path, cpp_path);
-    std::vector<std::string> cpp_lines = transpile(trust_lines, source);
+    // Создаём Context и транслируем
+    std::string trust_name = fs::path(src_path).filename().string();
+    std::string cpp_name = fs::path(cpp_path).filename().string();
 
-    // Pack через TrustSource (msgpack)
-    auto map_data = trust::TrustSource::pack(source);
+    trust::Context ctx;
+    auto [trustIdx, cppIdx] = transpile(trust_code, trust_name, cpp_name, ctx);
+
+    std::string cpp_result = ctx.output_result(cppIdx);
+
+    // Pack via Context serialization
+    auto map_data = ctx.toReader()->packToMsgpack();
 
     // Generate C++ with embedded map code
-    std::string cpp;
-    for (const auto &cl : cpp_lines) {
-        cpp += cl + "\n";
-    }
-    cpp += trust::TrustSource::generateEmbeddedMapCode(map_data);
+    std::string cpp = cpp_result;
+    cpp += generate_embedded_map_code(map_data);
 
     // Write C++ output
     std::ofstream outfile(cpp_path);
@@ -151,14 +179,14 @@ int main(int argc, char **argv) {
     outfile << cpp;
     outfile.close();
 
-    // Write external map file (msgpack binary) if --emit-source-map was specified
+    // Write external map file (binary) if --emit-source-map was specified
     if (!emit_source_map.empty()) {
         fs::create_directories(fs::path(emit_source_map).parent_path(), ec);
         if (ec) {
             std::cerr << "Error: Cannot create directory for " << emit_source_map << ": " << ec.message() << "\n";
             return 1;
         }
-        if (trust::TrustSource::writeMapFile(map_data, emit_source_map)) {
+        if (write_map_file(map_data, emit_source_map)) {
             std::cout << "Map file: " << emit_source_map << " (" << map_data.size() << " bytes)\n";
         } else {
             std::cerr << "Error: Cannot write map file " << emit_source_map << "\n";
@@ -167,7 +195,7 @@ int main(int argc, char **argv) {
     }
 
     std::cout << "Transpiled: " << src_path << " -> " << cpp_path << "\n";
-    std::cout << "Mappings: " << source.entries().size() << "\n";
+    std::cout << "Mappings: " << ctx.file_count() << " files\n";
 
     return 0;
 }

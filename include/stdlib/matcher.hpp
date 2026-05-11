@@ -10,7 +10,7 @@
 
 namespace trust {
 
-inline void SplitString(const ::std::string &str, char delimiter, ::std::vector<::std::string> *dest) {
+inline void SplitString(const ::std::string& str, char delimiter, ::std::vector<::std::string>* dest) {
     ::std::vector<::std::string> parsed;
     ::std::string::size_type pos = 0;
     while (true) {
@@ -32,13 +32,13 @@ inline void SplitString(const ::std::string &str, char delimiter, ::std::vector<
 // This function implements a linear-time string globbing algorithm based on
 // https://research.swtch.com/glob
 
-static bool PatternMatchesString(const std::string &name_str, const char *pattern, const char *pattern_end) {
-    const char *name = name_str.c_str();
-    const char *const name_begin = name;
-    const char *const name_end = name + name_str.size();
+static bool PatternMatchesString(const std::string& name_str, const char* pattern, const char* pattern_end) {
+    const char* name = name_str.c_str();
+    const char* const name_begin = name;
+    const char* const name_end = name + name_str.size();
 
-    const char *pattern_next = pattern;
-    const char *name_next = name;
+    const char* pattern_next = pattern;
+    const char* name_next = name;
 
     while (pattern < pattern_end || name < name_end) {
         if (pattern < pattern_end) {
@@ -78,7 +78,7 @@ static bool PatternMatchesString(const std::string &name_str, const char *patter
     return true;
 }
 
-inline bool IsGlobPattern(const std::string &pattern) {
+inline bool IsGlobPattern(const std::string& pattern) {
     return std::any_of(pattern.begin(), pattern.end(), [](const char c) { return c == '?' || c == '*'; });
 }
 
@@ -88,9 +88,9 @@ class StringMatcher {
 
     // Constructs a filter from a string of patterns separated by `:`.
 
-    explicit StringMatcher(const std::string &filter, const char separator = ';') { Create(filter, separator); }
+    explicit StringMatcher(const std::string& filter, const char separator = ';') { Create(filter, separator); }
 
-    void Create(const std::string &filter, const char separator = ';') {
+    void Create(const std::string& filter, const char separator = ';') {
         Clear();
         // By design "" filter matches "" string.
         std::vector<std::string> all_patterns;
@@ -105,8 +105,8 @@ class StringMatcher {
     // Returns true if and only if name matches at least one of the patterns in
     // the filter.
 
-    bool MatchesName(const std::string &name) const {
-        return exact_match_patterns_.count(name) > 0 || std::any_of(glob_patterns_.begin(), glob_patterns_.end(), [&name](const std::string &pattern) {
+    bool MatchesName(const std::string& name) const {
+        return exact_match_patterns_.count(name) > 0 || std::any_of(glob_patterns_.begin(), glob_patterns_.end(), [&name](const std::string& pattern) {
                    return PatternMatchesString(name, pattern.c_str(), pattern.c_str() + pattern.size());
                });
     }

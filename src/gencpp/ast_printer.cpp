@@ -12,9 +12,9 @@ struct AstPrinter : public AstVisitor {
     std::string output;
     int indent = 0;
 
-    void emit(const char *type, const std::vector<std::pair<std::string, std::string>> &attrs) {
+    void emit(const char* type, const std::vector<std::pair<std::string, std::string>>& attrs) {
         output += std::string(indent * 2, ' ') + type;
-        for (auto &[k, v] : attrs)
+        for (auto& [k, v] : attrs)
             output += " " + k + "=" + v;
         output += "\n";
     }
@@ -24,19 +24,19 @@ struct AstPrinter : public AstVisitor {
             indent--;
     }
 
-    void dispatch_block_item(const BlockItem &item) {
+    void dispatch_block_item(const BlockItem& item) {
         if (!item)
             return;
         item->accept(this);
     }
 
-    void visit(const IntLiteral *n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"value", std::to_string(n->value)}}); }
-    void visit(const StringLiteral *n) override {
+    void visit(const IntLiteral* n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"value", std::to_string(n->value)}}); }
+    void visit(const StringLiteral* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"value", "\"" + MMProcessor::escape(n->value()) + "\""}});
     }
-    void visit(const VarRef *n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}}); }
-    void visit(const BinaryOp *n) override {
-        const char *op_str = nullptr;
+    void visit(const VarRef* n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}}); }
+    void visit(const BinaryOp* n) override {
+        const char* op_str = nullptr;
         switch (n->op) {
         case BinOp::Add:
             op_str = "+";
@@ -81,15 +81,15 @@ struct AstPrinter : public AstVisitor {
         n->right->accept(this);
         down();
     }
-    void visit(const CallExpr *n) override {
+    void visit(const CallExpr* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}});
         up();
-        for (auto &a : n->args)
+        for (auto& a : n->args)
             if (a)
                 a->accept(this);
         down();
     }
-    void visit(const VarDecl *n) override {
+    void visit(const VarDecl* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(),
              {{"name", n->name}, {"type", n->type_info().cpp_name}, {"inferred", n->needs_type_inference() ? "true" : "false"}});
         up();
@@ -97,10 +97,10 @@ struct AstPrinter : public AstVisitor {
             n->init->accept(this);
         down();
     }
-    void visit(const AssignmentStmt *n) override {
+    void visit(const AssignmentStmt* n) override {
         // Print target
         std::string target_str;
-        if (auto *vr = n->target->as<VarRef>()) {
+        if (auto* vr = n->target->as<VarRef>()) {
             target_str = vr->name;
         } else {
             // For complex targets, we print a placeholder
@@ -115,35 +115,35 @@ struct AstPrinter : public AstVisitor {
             n->value->accept(this);
         down();
     }
-    void visit(const ReturnStmt *n) override {
+    void visit(const ReturnStmt* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->value)
             n->value->accept(this);
         down();
     }
-    void visit(const ExprStmt *n) override {
+    void visit(const ExprStmt* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->expr)
             n->expr->accept(this);
         down();
     }
-    void visit(const BlockStmt *n) override {
+    void visit(const BlockStmt* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
-        for (auto &bitem : n->body)
+        for (auto& bitem : n->body)
             dispatch_block_item(bitem);
         down();
     }
-    void visit(const IfStmt *n) override {
+    void visit(const IfStmt* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->condition)
             n->condition->accept(this);
         emit(AstTypeTraits::to_string(ParserToken::Kind::ThenBlock).c_str(), {});
         up();
-        for (auto &bitem : n->then_body)
+        for (auto& bitem : n->then_body)
             dispatch_block_item(bitem);
         down();
         if (n->else_if) {
@@ -154,114 +154,114 @@ struct AstPrinter : public AstVisitor {
         } else if (n->else_block) {
             emit(AstTypeTraits::to_string(ParserToken::Kind::ElseBlock).c_str(), {});
             up();
-            for (auto &bitem : n->else_block->body)
+            for (auto& bitem : n->else_block->body)
                 dispatch_block_item(bitem);
             down();
         }
         down();
     }
-    void visit(const ParamDecl *n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->param_type.cpp_name}}); }
-    void visit(const WhileStmt *n) override {
+    void visit(const ParamDecl* n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->param_type.cpp_name}}); }
+    void visit(const WhileStmt* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->condition)
             n->condition->accept(this);
-        for (const auto &bitem : n->body)
+        for (const auto& bitem : n->body)
             dispatch_block_item(bitem);
         if (!n->else_body.empty()) {
             emit(AstTypeTraits::to_string(ParserToken::Kind::WhileElseBlock).c_str(), {});
             up();
-            for (const auto &bitem : n->else_body)
+            for (const auto& bitem : n->else_body)
                 dispatch_block_item(bitem);
             down();
         }
         down();
     }
-    void visit(const DoWhileStmt *n) override {
+    void visit(const DoWhileStmt* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
-        for (const auto &bitem : n->body)
+        for (const auto& bitem : n->body)
             dispatch_block_item(bitem);
         if (n->condition)
             n->condition->accept(this);
         down();
     }
-    void visit(const TryCatchStmt *n) override {
+    void visit(const TryCatchStmt* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
-        for (const auto &bitem : n->try_body)
+        for (const auto& bitem : n->try_body)
             dispatch_block_item(bitem);
         if (n->catch_block)
             this->visit(n->catch_block.get());
         down();
     }
-    void visit(const ThrowStmt *n) override {
+    void visit(const ThrowStmt* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->value)
             n->value->accept(this);
         down();
     }
-    void visit(const MatchingStmt *n) override {
+    void visit(const MatchingStmt* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->expression)
             n->expression->accept(this);
-        for (const auto &c : n->cases) {
+        for (const auto& c : n->cases) {
             emit(AstTypeTraits::to_string(ParserToken::Kind::MatchingCase).c_str(), {});
             up();
             if (c->pattern)
                 c->pattern->accept(this);
-            for (const auto &bitem : c->body)
+            for (const auto& bitem : c->body)
                 dispatch_block_item(bitem);
             down();
         }
         if (!n->else_body.empty()) {
             emit(AstTypeTraits::to_string(ParserToken::Kind::MatchingElseBlock).c_str(), {});
             up();
-            for (const auto &bitem : n->else_body)
+            for (const auto& bitem : n->else_body)
                 dispatch_block_item(bitem);
             down();
         }
         down();
     }
-    void visit(const MatchingCase *n) override {
+    void visit(const MatchingCase* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->pattern)
             n->pattern->accept(this);
-        for (const auto &bitem : n->body)
+        for (const auto& bitem : n->body)
             dispatch_block_item(bitem);
         down();
     }
-    void visit(const CatchBlock *n) override {
+    void visit(const CatchBlock* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"type", n->exception_type.cpp_name}, {"name", n->var_name}});
         up();
-        for (const auto &bitem : n->body)
+        for (const auto& bitem : n->body)
             dispatch_block_item(bitem);
         down();
     }
-    void visit(const FuncDecl *n) override {
+    void visit(const FuncDecl* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"ret", n->return_type.cpp_name}});
         up();
-        for (auto &p : n->params)
+        for (auto& p : n->params)
             emit(AstTypeTraits::to_string(ParserToken::Kind::ParamDecl).c_str(), {{"name", p->name}, {"type", p->param_type.cpp_name}});
         if (n->body)
             n->body->accept(this);
         down();
     }
-    void visit(const Program *n) override {
+    void visit(const Program* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
-        for (auto &item : n->items) {
+        for (auto& item : n->items) {
             item->accept(this);
         }
         down();
     }
-    void visit(const EnumDecl *n) override {
+    void visit(const EnumDecl* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}});
         up();
-        for (auto &m : n->members) {
+        for (auto& m : n->members) {
             if (m->value) {
                 emit(AstTypeTraits::to_string(ParserToken::Kind::EnumMember).c_str(), {{"name", m->name}, {"value", std::to_string(*m->value)}});
             } else {
@@ -270,17 +270,17 @@ struct AstPrinter : public AstVisitor {
         }
         down();
     }
-    void visit(const EnumMember *n) override {
+    void visit(const EnumMember* n) override {
         if (n->value) {
             emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"value", std::to_string(*n->value)}});
         } else {
             emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}});
         }
     }
-    void visit(const StructDecl *n) override {
+    void visit(const StructDecl* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}});
         up();
-        for (auto &f : n->fields) {
+        for (auto& f : n->fields) {
             if (f->init) {
                 emit(AstTypeTraits::to_string(ParserToken::Kind::StructField).c_str(), {{"name", f->name}, {"type", f->type.cpp_name}});
                 up();
@@ -290,13 +290,13 @@ struct AstPrinter : public AstVisitor {
                 emit(AstTypeTraits::to_string(ParserToken::Kind::StructField).c_str(), {{"name", f->name}, {"type", f->type.cpp_name}});
             }
         }
-        for (auto &m : n->methods) {
+        for (auto& m : n->methods) {
             if (m)
                 m->accept(this);
         }
         down();
     }
-    void visit(const StructField *n) override {
+    void visit(const StructField* n) override {
         if (n->init) {
             emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->type.cpp_name}});
             up();
@@ -306,15 +306,15 @@ struct AstPrinter : public AstVisitor {
             emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"name", n->name}, {"type", n->type.cpp_name}});
         }
     }
-    void visit(const EnumLiteral *n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"enum", n->enum_name}, {"member", n->member_name}}); }
-    void visit(const MemberAccess *n) override {
+    void visit(const EnumLiteral* n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"enum", n->enum_name}, {"member", n->member_name}}); }
+    void visit(const MemberAccess* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"field", n->field}});
         up();
         if (n->object)
             n->object->accept(this);
         down();
     }
-    void visit(const ArrayAccess *n) override {
+    void visit(const ArrayAccess* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->array)
@@ -323,48 +323,48 @@ struct AstPrinter : public AstVisitor {
             n->index->accept(this);
         down();
     }
-    void visit(const ArrayInit *n) override {
+    void visit(const ArrayInit* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"type", make_builtin_type(n->element_type).cpp_name}});
         up();
-        for (auto &e : n->elements)
+        for (auto& e : n->elements)
             if (e)
                 e->accept(this);
         down();
     }
-    void visit(const CastExpr *n) override {
+    void visit(const CastExpr* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"type", n->target_type.cpp_name}});
         up();
         if (n->expr)
             n->expr->accept(this);
         down();
     }
-    void visit(const RefMakeExpr *n) override {
+    void visit(const RefMakeExpr* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->arg)
             n->arg->accept(this);
         down();
     }
-    void visit(const RefTakeExpr *n) override {
+    void visit(const RefTakeExpr* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
         if (n->arg)
             n->arg->accept(this);
         down();
     }
-    void visit(const EmbedExpr *n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"value", n->value()}}); }
-    void visit(const WhileElseBlock *n) override {
+    void visit(const EmbedExpr* n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {{"value", n->value()}}); }
+    void visit(const WhileElseBlock* n) override {
         emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {});
         up();
-        for (const auto &bitem : n->body)
+        for (const auto& bitem : n->body)
             dispatch_block_item(bitem);
         down();
     }
-    void visit(const BreakStmt *n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {}); }
-    void visit(const ContinueStmt *n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {}); }
+    void visit(const BreakStmt* n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {}); }
+    void visit(const ContinueStmt* n) override { emit(AstTypeTraits::to_string(n->token_kind()).c_str(), {}); }
 };
 
-std::string print_ast(const Program *program) {
+std::string print_ast(const Program* program) {
     if (!program)
         return "";
     AstPrinter printer;

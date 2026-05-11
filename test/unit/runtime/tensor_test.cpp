@@ -13,13 +13,13 @@ class TensorTypeTest : public ::testing::Test {
 
 // Test Tensor type registration
 TEST_F(TensorTypeTest, TensorRegistered) {
-    auto &types = Types::instance();
+    auto& types = Types::instance();
     auto kind = types.find("DenseTensor");
     EXPECT_EQ(kind, TypeKind::DenseTensor);
 }
 
 TEST_F(TensorTypeTest, SparseTensorRegistered) {
-    auto &types = Types::instance();
+    auto& types = Types::instance();
     auto kind = types.find("SparseTensor");
     EXPECT_EQ(kind, TypeKind::SparseTensor);
 }
@@ -95,7 +95,7 @@ TEST_F(TensorTypeTest, TensorHandleWithSharedPtr) {
     EXPECT_NE(handle.get<at::Tensor>(), nullptr);
 
     // Modify through handle
-    auto *ptr = handle.get<at::Tensor>();
+    auto* ptr = handle.get<at::Tensor>();
     *ptr = torch::ones({3, 3});
 
     TorchTensor tt(handle);

@@ -9,7 +9,7 @@ namespace trust {
 
 // --- escape / unescape ---
 
-std::string MMProcessor::escape(const std::string &s) {
+std::string MMProcessor::escape(const std::string& s) {
     std::string out;
     out.reserve(s.size() + 4);
     for (char c : s) {
@@ -40,7 +40,7 @@ std::string MMProcessor::escape(const std::string &s) {
     return out;
 }
 
-std::string MMProcessor::unescape(const std::string &s) {
+std::string MMProcessor::unescape(const std::string& s) {
     std::string out;
     out.reserve(s.size());
     for (size_t i = 0; i < s.size(); ++i) {
@@ -96,7 +96,7 @@ static bool is_concatenatable_token(ParserToken::Kind k) noexcept {
 }
 
 // Helper: create TokenPtr with concatenated text and range
-static TokenPtr make_concatenatable_token(ParserToken::Kind kind, std::string text, SourceRange range) {
+static TokenPtr make_concatenatable_token(ParserToken::Kind kind, std::string text, MapperRange range) {
     bool is_raw = (kind == ParserToken::Kind::STRWIDE_RAW || kind == ParserToken::Kind::STRCHAR_RAW);
     if (!is_raw) {
         text = MMProcessor::unescape(text);
@@ -144,12 +144,12 @@ static bool is_id_terminator(ParserToken::Kind k) noexcept {
 
 // --- Process ---
 
-TokenSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes) {
+TokenSequence MMProcessor::process(Context& ctx, const LexemeSequence& lexemes) {
     TokenSequence result;
     std::size_t i = 0;
 
     while (i < lexemes.size()) {
-        const Lexeme &lex = lexemes[i];
+        const Lexeme& lex = lexemes[i];
 
         if (is_unimplemented_token(lex.kind)) {
             ctx.diag().report(lex.pos, Severity::Error, "unimplemented token '{}' — macro/module processing is not implemented", ParserToken::name(lex.kind));
@@ -159,7 +159,7 @@ TokenSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes) 
 
         if (is_concatenatable_token(lex.kind)) {
             std::string text(lex.data(), lex.size());
-            SourceRange range{lex.pos, lex.pos};
+            MapperRange range{lex.pos, lex.pos};
             ParserToken::Kind kind = lex.kind;
 
             std::size_t j = i + 1;
@@ -176,7 +176,7 @@ TokenSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes) 
 
         if (lex.kind == ParserToken::Kind::MANGLED) {
             std::string text(lex.data(), lex.size());
-            SourceRange range{lex.pos, lex.pos};
+            MapperRange range{lex.pos, lex.pos};
             result.push_back(TokenInfo::make(ParserToken::Kind::Ident, std::move(text), range));
             ++i;
             continue;
@@ -184,7 +184,7 @@ TokenSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes) 
 
         if (is_id_start(lex.kind) || is_namespace(lex.kind)) {
             std::string text;
-            SourceRange range{lex.pos, lex.pos};
+            MapperRange range{lex.pos, lex.pos};
             bool has_main_part = false;
 
             std::size_t j = i;
@@ -223,7 +223,7 @@ TokenSequence MMProcessor::process(Context &ctx, const LexemeSequence &lexemes) 
 
             if (!has_main_part) {
                 std::string ns_text(lexemes[i].data(), lexemes[i].size());
-                SourceRange ns_range{lexemes[i].pos, lexemes[i].pos};
+                MapperRange ns_range{lexemes[i].pos, lexemes[i].pos};
                 result.push_back(TokenInfo::make(ParserToken::Kind::NAMESPACE, std::move(ns_text), ns_range));
                 ++i;
                 continue;

@@ -5,146 +5,53 @@
 ```
 VS Code Extension (extension.js)
     │
-    ├── TrustDebugAdapterDescriptorFactory → dap-adapter.js
-    │       │
-    │       └── DebugAdapterExecutable(trust-dap, args[])
-    │
-    ├── LanguageClient                    → vscode-languageclient/node
-    │       │
-    │       └── trust-lsp (LSP server via stdin/stdout)
-    │
-    ├── trust.openCppFile        → customRequest('stackTrace') → trust-dap
-    ├── resetDapPath             → config.update(...)
-    ├── resetLspPath             → config.update(...)
-    │
-    ├── resolveDebugConfiguration → проверяет .src файл
+    ├── TrustDebugAdapterDescriptorFactory → dap-adapter.js → DebugAdapterExecutable(trust-dap [--project-dir <dir>])
+    ├── LanguageClient → vscode-languageclient/node → trust-lsp (LSP server via stdin/stdout)
+    ├── trust.openCppFile → customRequest('stackTrace') → trust-dap
+    ├── resetDapPath / resetLspPath → config.update(...)
+    ├── resolveDebugConfiguration → build pipeline (transpile + compile) → debugConfiguration
     └── provideDebugConfigurations → шаблон для launch.json
 ```
 
-### LSP — vscode-languageclient
+## LSP — vscode-languageclient
 
-LSP-клиент реализован через пакет `vscode-languageclient` (класс `LanguageClient`).
-Он автоматически:
-- Управляет жизненным циклом LSP-сервера (запуск, остановка, перезапуск)
-- Регистрирует `providers` (definition, hover, completion и т.д.) на основе
-  возможностей, объявленных сервером в ответе `initialize`
-- Отслеживает открытие/закрытие документов (textDocument/didOpen, didClose)
-- Парсит протокол JSON-RPC 2.0 с Content-Length заголовками
-- Буферизует и диспатчит входящие сообщения
-- Предоставляет tracing/output channels
-- Управляется через `context.subscriptions` — автоматически останавливается при деактивации
+LSP-клиент реализован через пакет `vscode-languageclient`. Автоматически управляет жизненным циклом LSP-сервера, регистрирует providers на основе возможностей сервера, отслеживает открытие/закрытие документов, парсит JSON-RPC 2.0, буферизует и диспатчит сообщения.
 
-**Путь к LSP серверу** берется исключительно из настройки `trust.lspPath`.
-Если путь не задан или файл не существует — показывается `showErrorMessage` с явным сообщением,
-в `Trust Lang LSP` output channel пишется `[ERROR]`, статус-бар устанавливается в `$(error)`.
-Fallback-поиск не используется.
+Путь к LSP серверу берется из настройки `trust.lspPath`. Если путь не задан или файл не существует — показывается `showErrorMessage`.
 
-### DAP-адаптер (dap-adapter.js)
+## Build pipeline (resolveDebugConfiguration)
 
-**Путь к DAP серверу** берется исключительно из настройки `trust.dapPath`.
-Если путь не задан или файл не существует — `createDebugAdapterDescriptor()` выбрасывает
-ошибку с явным сообщением, также вызывается `vscode.window.showErrorMessage()`.
-Fallback-поиск в PATH не используется.
+VSCode extension выполняет сборку при запуске отладки (F5) через `withProgress`:
 
-Вынесен из `extension.js` в отдельный модуль для:
-- Возможности unit-тестирования без активации extension
-- Чистого разделения ответственности (DAP-логика отдельно от команд расширения)
+1. **Транспиляция** — вызов trust-lang компилятора
+2. **Компиляция C++** — вызов C++ компилятора
+3. **Запуск trust-dap** — DAP сервер с аргументом `--project-dir`
 
-Аргументы `trust-dap`:
-- `--project-dir` — корень проекта
-- `--lldb-server` — путь к lldb-server (опционально)
+Пути к файлам передаются через DAP-запрос `launch`. Временные файлы создаются в каталоге из настройки `trust.tempDir` (по умолчанию `.trust`).
 
-Параметры конфигурации отладчика (`sourceFile`, `cppFile`, `targetFile`, `mapFile`)
-передаются в launch-запросе DAP, не через CLI-аргументы.
+## DAP-адаптер (dap-adapter.js)
+
+Путь к DAP серверу берется из настройки `trust.dapPath`. Если путь не задан — выбрасывается ошибка.
+
+CLI-аргументы trust-dap: только `--project-dir`. Параметры конфигурации отладчика (`sourceFile`, `cppFile`, `targetFile`, `gdbPath`) передаются через DAP-запрос `launch`.
+
+## Build Task Provider (TrustBuildTask — preLaunchTask)
+
+Зарегистрирован task provider с типом `'trust-build'`. Предоставляет три задачи:
+1. **Trust: Transpile .src** — запускает trust-lang компилятор
+2. **Trust: Compile .cpp** — запускает C++ компилятор
+3. **Trust: Build all** — последовательно транспиляция + компиляция
+
+Параметры берутся из настроек `trust.*`. Задачи используют `vscode.CustomExecution` с псевдотерминалом.
 
 ## Тесты
 
-### Расположение
-
-- `test/vscode/extension/src/extension.test.js` — основной тестовый файл
-- `test/vscode/extension/src/extension-utils.test.js` — тесты утилит
-- `test/vscode/extension/src/__mocks__/vscode.js` — mock VS Code API
-- `test/vscode/extension/src/__mocks__/languageclient.js` — mock vscode-languageclient
-
-### Покрытие
-
-#### extension.test.js
-
-1. **activate(): command registration** — проверка регистрации команд:
-   - `trust.openCppFile`
-   - reset-команды: `resetDapPath`, `resetLspPath`
-   - DAP factory, debug session handlers, configuration provider, LSP client
-
-2. **TrustDebugAdapterDescriptorFactory** — проверка создания DAP-исполняемого файла:
-   - Полный конфиг (project-dir, lldb-server)
-   - Минимальный конфиг (только project-dir)
-   - Проверка отсутствия старых аргументов
-
-3. **resolveDebugConfiguration** — проверка провайдера конфигурации:
-   - null при отсутствии .src файла
-   - debugConfiguration при наличии .src файла
-   - Генерация дефолтного конфига
-
-4. **sendCustomRequest** — проверка DAP customRequest:
-   - Успешный запрос
-   - Ошибка сессии
-
-5. **trust.openCppFile** — проверка открытия C++ файла:
-   - Предупреждение без .src файла
-   - Успешный запрос к debug-сессии через stackTrace
-   - Fallback при ошибке сессии
-
-6. **DAP session commands** — mock DAP-команд:
-   - continue, next, stepIn, stackTrace, variables, disconnect
-   - Ошибка при неизвестной команде
-
-7. **LSP Client initialization** — проверка создания LSP-клиента с установленным `lspPath`:
-   - Создание status bar элемента
-   - Создание output/traceOutputChannel
-   - LanguageClient получает корректные serverOptions.command и clientOptions.outputChannel
-
-8. **LSP binary not found** — проверка обработки ошибки запуска LSP (start().catch):
-   - `showErrorMessage` с сообщением о неудачном старте
-   - `[ERROR]` в output channel
-   - Status bar в `$(error)`
-
-9. **LSP client configuration** — проверка регистрации обработчиков:
-   - onDidChangeState и onNotification
-   - start() вызывается на LanguageClient
-
-10. **Diagnostics: LSP path errors** — проверка диагностики путей LSP:
-    - Empty `lspPath` → ошибка "path not configured", LanguageClient не создаётся
-    - Non-empty `lspPath` → LanguageClient создаётся, start() вызывается
-    - `onDidChangeState` (running → stopped) → `[ERROR]` в output, status bar `$(error)`
-
-11. **Diagnostics: DAP path errors** — проверка диагностики путей DAP:
-    - Empty `dapPath` → throw "path not configured"
-    - Non-empty `dapPath` → DebugAdapterExecutable создаётся с command='trust-dap'
-
-#### extension-utils.test.js
-
-- resolvePath — подстановка `${workspaceFolder}`, `~`, абсолютные/относительные пути
-- resolveDapVariables — подстановка переменных: workspaceFolder, file, fileBasename, fileBasenameNoExtension, fileDirname, fileExtname
-- updateStatusBar — состояния Running (Debugging), Idle
-
-### Mock VS Code API
-
-- **workspace.getConfiguration** — возвращает MockTrustConfiguration с настройками по умолчанию
-- **debug.DebugAdapterExecutable** — класс, создающий объект { command, args }
-- **debug.registerDebugAdapterDescriptorFactory** — регистрирует фабрику
-- **debug.registerDebugConfigurationProvider** — регистрирует провайдер
-- **MockDebugSession** — имитирует debug-сессию с customRequest для команд:
-  - `continue`, `next`, `stepIn`, `stepOut`, `pause`, `disconnect` → `{ body: {} }`
-  - `variables` → `{ body: { variables: [] } }`
-  - `stackTrace` → `{ body: { stackFrames: [{ id: 0, name: 'main', source: { path: '/tmp/test.cpp' }, line: 42 }] } }`
-- **MockTextEditor** — имитирует редактор с .src файлом
-- **MockStatusBarItem** — имитирует status bar
-- **MockOutputChannel** — захватывает вывод
+Тесты находятся в `test/vscode/extension/src/`. Включают `extension.test.js` (команды, DAP, LSP, TrustBuildTask) и `extension-utils.test.js` (утилиты). Используют mock VS Code API и vscode-languageclient.
 
 ## Выводы
 
-1. **Расширение следует стандартному DAP** — все взаимодействие через стандартные DAP-команды (stackTrace, continue, next, stepIn, etc.)
-2. **Сборка вынесена** — компиляция Trust → C++ и C++ → ELF выполняется отдельно, до запуска отладки
-3. **Покрытие тестов** — 55 тестов (45 extension + 10 extension-utils)
-4. **Взаимодействие с trust-dap** через `DebugAdapterExecutable` (запуск процесса) и DAP-протокол (JSON-RPC через stdin/stdout или TCP)
-5. **LSP** — через `vscode-languageclient`, автоматическая регистрация провайдеров и управление сервером
+1. Расширение следует стандартному DAP — все взаимодействие через стандартные DAP-команды.
+2. Сборка выполняется в `resolveDebugConfiguration`.
+3. CLI-аргументы trust-dap: только `--project-dir`, все пути через DAP launch.
+4. LSP — через `vscode-languageclient`, автоматическая регистрация провайдеров.
+5. preLaunchTask — через TrustBuildTask (тип `'trust-build'`).

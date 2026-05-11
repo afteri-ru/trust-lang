@@ -27,7 +27,7 @@ if(WITH_TORCH)
 
     # Create interface target for consumers
     add_library(torch_pch INTERFACE)
-    target_include_directories(torch_pch INTERFACE ${LIBTORCH_INCLUDE_DIRS})
+    target_include_directories(torch_pch SYSTEM INTERFACE ${LIBTORCH_INCLUDE_DIRS})
     target_compile_options(torch_pch INTERFACE -include-pch ${TORCH_PCH_OUTPUT})
     add_dependencies(torch_pch torch_pch_target)
 endif()

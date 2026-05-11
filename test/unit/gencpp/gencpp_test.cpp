@@ -15,12 +15,12 @@ static std::unique_ptr<Context> make_context() {
     return ctx;
 }
 
-static std::unique_ptr<Program> parse_program(const std::string &input, Context &ctx) {
+static std::unique_ptr<Program> parse_program(const std::string& input, Context& ctx) {
     auto nodes = parse_ast_format(input, ctx);
     if (!nodes.has_value())
         return nullptr;
-    std::vector<ParsedNode *> roots;
-    for (auto &r : *nodes)
+    std::vector<ParsedNode*> roots;
+    for (auto& r : *nodes)
         roots.push_back(r.get());
     return build_ast_from_roots(roots, ctx);
 }
@@ -114,7 +114,7 @@ TEST(GencppTest, FuncWithParams) {
     ASSERT_NE(program, nullptr);
 
     ASSERT_TRUE(program->items[0]->is<FuncDecl>());
-    auto *func = program->items[0]->as<FuncDecl>();
+    auto* func = program->items[0]->as<FuncDecl>();
     EXPECT_EQ(func->params.size(), 2);
     EXPECT_EQ(func->params[0]->name, "a");
     EXPECT_EQ(func->params[1]->name, "b");
@@ -184,8 +184,8 @@ TEST(GencppTest, ElseIfChain) {
 // ============================================================================
 
 TEST(TypeRequirementsTest, BuiltinIntHasNoRequirements) {
-    auto &reg = TypeRequirementsRegistry::instance();
-    const auto &req = reg.get(TypeKind::Int);
+    auto& reg = TypeRequirementsRegistry::instance();
+    const auto& req = reg.get(TypeKind::Int);
     EXPECT_TRUE(req.headers.empty());
     EXPECT_TRUE(req.link_libs.empty());
     EXPECT_EQ(req.min_format, OutputFormat::C);
@@ -193,21 +193,21 @@ TEST(TypeRequirementsTest, BuiltinIntHasNoRequirements) {
 
 TEST(TypeRequirementsTest, StringHasNoAutoHeaders) {
     // Headers are not in X-macro; they must be registered explicitly
-    auto &reg = TypeRequirementsRegistry::instance();
-    const auto &req = reg.get(TypeKind::String);
+    auto& reg = TypeRequirementsRegistry::instance();
+    const auto& req = reg.get(TypeKind::String);
     EXPECT_TRUE(req.headers.empty());
     EXPECT_EQ(req.min_format, OutputFormat::C);
 }
 
 TEST(TypeRequirementsTest, CustomRegistration) {
-    auto &reg = TypeRequirementsRegistry::instance();
+    auto& reg = TypeRequirementsRegistry::instance();
     TypeRequirements custom_req;
     custom_req.headers = {"<custom.h>", "<another.h>"};
     custom_req.link_libs = {"mylib"};
     custom_req.min_format = OutputFormat::Cpp20Module;
     reg.register_type(TypeKind::String, custom_req);
 
-    const auto &retrieved = reg.get(TypeKind::String);
+    const auto& retrieved = reg.get(TypeKind::String);
     ASSERT_EQ(retrieved.headers.size(), 2);
     EXPECT_EQ(retrieved.headers[0], "<custom.h>");
     EXPECT_EQ(retrieved.headers[1], "<another.h>");
@@ -218,7 +218,7 @@ TEST(TypeRequirementsTest, CustomRegistration) {
 TEST(TypeRequirementsTest, CollectHeadersFromUsedTypes) {
     // Register a type with headers
     TypeRequirements str_req(TypeKind::String, OutputFormat::C, {"<string>"});
-    auto &reg = TypeRequirementsRegistry::instance();
+    auto& reg = TypeRequirementsRegistry::instance();
     reg.register_type(TypeKind::String, str_req);
 
     std::vector<TypeKind> used = {TypeKind::Int, TypeKind::String, TypeKind::Bool};
@@ -229,7 +229,7 @@ TEST(TypeRequirementsTest, CollectHeadersFromUsedTypes) {
 
 TEST(TypeRequirementsTest, CollectLinkLibs) {
     TypeRequirements req(TypeKind::String, OutputFormat::C, {}, {"pthread", "dl"});
-    auto &reg = TypeRequirementsRegistry::instance();
+    auto& reg = TypeRequirementsRegistry::instance();
     reg.register_type(TypeKind::String, req);
 
     std::vector<TypeKind> used = {TypeKind::Int, TypeKind::String};
@@ -240,7 +240,7 @@ TEST(TypeRequirementsTest, CollectLinkLibs) {
 }
 
 TEST(TypeRequirementsTest, FormatCompatibility) {
-    auto &reg = TypeRequirementsRegistry::instance();
+    auto& reg = TypeRequirementsRegistry::instance();
     EXPECT_TRUE(reg.is_format_compatible(TypeKind::Int, OutputFormat::C));
     EXPECT_TRUE(reg.is_format_compatible(TypeKind::String, OutputFormat::Cpp20Module));
     EXPECT_TRUE(reg.is_format_compatible(TypeKind::Int, OutputFormat::Cpp23Module));

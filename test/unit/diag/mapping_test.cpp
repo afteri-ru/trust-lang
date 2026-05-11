@@ -1,4 +1,8 @@
-#include "diag/mapping.hpp"
+#include "diag/context.hpp"
+#include "diag/mapper.hpp"
+
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/Support/MD5.h"
 
 #include <gtest/gtest.h>
 #include <cstring>
@@ -7,462 +11,552 @@
 
 using namespace trust;
 
-// ── helpers ──
-
-static FileIdx fi(int n) { return FileIdx{static_cast<uint32_t>(n + 1)}; }                  // input file
-static FileIdx fo(int n) { return FileIdx{static_cast<uint32_t>((n + 1) | (1 << FileIdx::FILEIDX_BITS))}; } // output file
-
-static SourceLoc loc(FileIdx idx, int offset) {
-    return SourceLoc(idx, offset);
-}
-
-static SourceLoc outLoc(FileIdx idx, int offset) {
-    return SourceLoc(idx, offset);
-}
-
-static SourceRange rng(SourceLoc b, SourceLoc e) {
-    return SourceRange{b, e};
-}
-
 // ══════════════════════════════════════════════════════════════
-//                    SourceMapping: RangeMapping
+//                    Context: RangeMapping
 // ══════════════════════════════════════════════════════════════
+//
+// ВАЖНО: findRange в reader.cpp возвращает СПРОЕЦИРОВАННЫЙ диапазон.
+// Если маппинг [10,20]→[30,40], а query_offset=12 (на 2 больше begin),
+// то возвращается [32,42] (30+2, 40+2).
+// Если query_offset==begin (delta=0), возвращается точный диапазон.
 
 TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
-    SourceMapping map;
-    FileIdx trustSrc = fi(0);   // input
-    FileIdx cppSrc   = fo(10);  // output
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("trust", std::string(200, 'a'), false);
+    MapperFile cppSrc = ctx.add_output("cpp", false);
+    ctx.output_append(cppSrc, std::string(200, ' '));
 
-    auto trustR = rng(loc(trustSrc, 10), loc(trustSrc, 20));
-    auto cppR   = rng(outLoc(cppSrc,   100), outLoc(cppSrc,   200));
+    auto trustR = ctx.makeRange(ctx.makeLoc(trustSrc, 10), ctx.makeLoc(trustSrc, 20));
+    auto cppR = ctx.makeRange(ctx.makeLoc(cppSrc, 30), ctx.makeLoc(cppSrc, 40));
+    ASSERT_TRUE(ctx.addRangeMapping(trustR, cppR));
 
-    EXPECT_TRUE(map.addRangeMapping(trustR, cppR));
+    auto reader = ctx.toReader();
 
-    // Прямой поиск: точка на BEGIN диапазона → точное совпадение
-    auto fwd = map.getMapTrustToCpp(loc(trustSrc, 10));
-    ASSERT_TRUE(fwd.has_value());
-    EXPECT_EQ(fwd->begin.packed, cppR.begin.packed);
-    EXPECT_EQ(fwd->end.packed,   cppR.end.packed);
+    // ── Forward: trust → cpp (query=12, delta=2 → проекция +2) ──
+    {
+        auto loc = static_cast<ReaderLocation>(ctx.makeLoc(trustSrc, 12));
+        auto r = reader->getMapTrustToCpp(loc);
+        ASSERT_TRUE(r.has_value());
+        EXPECT_EQ(r->begin, 32u);
+        EXPECT_EQ(r->end, 42u);
+    }
 
-    // Точка ВНУТРИ диапазона → результат сдвинут
-    fwd = map.getMapTrustToCpp(loc(trustSrc, 15));
-    ASSERT_TRUE(fwd.has_value());
-    EXPECT_EQ(fwd->begin.offset(), 105); // 100 + (15-10)
-    EXPECT_EQ(fwd->end.offset(), 205);   // 200 + (15-10)
+    // ── Backward: cpp → trust (query=35, delta=5 → проекция +5) ──
+    {
+        auto loc = static_cast<ReaderLocation>(ctx.makeLoc(cppSrc, 35));
+        auto r = reader->getMapCppToTrust(loc);
+        ASSERT_TRUE(r.has_value());
+        EXPECT_EQ(r->begin, 15u);
+        EXPECT_EQ(r->end, 25u);
+    }
 
-    // Обратный поиск (cpp → trust) по output-локации
-    auto bwd = map.getMapCppToTrust(outLoc(cppSrc, 100));
-    ASSERT_TRUE(bwd.has_value());
-    EXPECT_EQ(bwd->begin.packed, trustR.begin.packed);
-    EXPECT_EQ(bwd->end.packed,   trustR.end.packed);
+    // ── Edge: точное совпадение начала (query=10, delta=0 → проекция 0) ──
+    {
+        auto loc = static_cast<ReaderLocation>(ctx.makeLoc(trustSrc, 10));
+        auto r = reader->getMapTrustToCpp(loc);
+        ASSERT_TRUE(r.has_value());
+        EXPECT_EQ(r->begin, 30u);
+    }
 
-    // Точка внутри cpp-диапазона → сдвинутый результат
-    bwd = map.getMapCppToTrust(outLoc(cppSrc, 150));
-    ASSERT_TRUE(bwd.has_value());
-    EXPECT_EQ(bwd->begin.offset(), 60); // 10 + (150-100) = 60
-    EXPECT_EQ(bwd->end.offset(), 70);   // 20 + (150-100) = 70
-}
+    // ── Edge: точное совпадение конца (query=19, delta=9 → проекция +9) ──
+    {
+        auto loc = static_cast<ReaderLocation>(ctx.makeLoc(trustSrc, 19));
+        auto r = reader->getMapTrustToCpp(loc);
+        ASSERT_TRUE(r.has_value());
+        EXPECT_EQ(r->end, 49u);
+    }
 
-TEST(MappingTest, AddRangeMapping_PointOutside) {
-    SourceMapping map;
-    FileIdx trustSrc = fi(0);
-    FileIdx cppSrc   = fo(10);
+    // ── Out of range: до начала маппинга ──
+    {
+        auto loc = static_cast<ReaderLocation>(ctx.makeLoc(trustSrc, 5));
+        auto r = reader->getMapTrustToCpp(loc);
+        EXPECT_FALSE(r.has_value());
+    }
 
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(trustSrc, 10), loc(trustSrc, 20)),
-        rng(outLoc(cppSrc,   100), outLoc(cppSrc,   200))));
-
-    // Точка перед диапазоном
-    EXPECT_FALSE(map.getMapTrustToCpp(loc(trustSrc, 5)).has_value());
-    EXPECT_FALSE(map.getMapCppToTrust(outLoc(cppSrc,   50)).has_value());
-
-    // Точка после диапазона
-    EXPECT_FALSE(map.getMapTrustToCpp(loc(trustSrc, 25)).has_value());
-    EXPECT_FALSE(map.getMapCppToTrust(outLoc(cppSrc,   250)).has_value());
-}
-
-TEST(MappingTest, AddRangeMapping_EmptyRange) {
-    SourceMapping map;
-    FileIdx src = fi(0);
-
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(src, 10), loc(src, 10)),
-        rng(outLoc(src,   20), outLoc(src,   20))));
-
-    auto fwd = map.getMapTrustToCpp(loc(src, 10));
-    ASSERT_TRUE(fwd.has_value());
-    EXPECT_EQ(fwd->begin.offset(), 20);
-    EXPECT_EQ(fwd->end.offset(), 20);
-}
-
-TEST(MappingTest, AddRangeMapping_DifferentSources) {
-    SourceMapping map;
-    FileIdx t0 = fi(0);
-    FileIdx t1 = fi(1);
-    FileIdx c0 = fo(10);
-    FileIdx c1 = fo(11);
-
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(t0, 1), loc(t0, 5)),
-        rng(outLoc(c0, 10), outLoc(c0, 50))));
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(t1, 100), loc(t1, 200)),
-        rng(outLoc(c1, 1000), outLoc(c1, 2000))));
-
-    // Поиск изолирован по файлам
-    EXPECT_TRUE(map.getMapTrustToCpp(loc(t0, 3)).has_value());
-    EXPECT_TRUE(map.getMapCppToTrust(outLoc(c0, 30)).has_value());
-    EXPECT_FALSE(map.getMapTrustToCpp(loc(t1, 3)).has_value()); // нет в t0
-    EXPECT_FALSE(map.getMapCppToTrust(outLoc(c1, 30)).has_value());
-}
-
-TEST(MappingTest, GetMapCppToTrust_RejectsNonOutput) {
-    SourceMapping map;
-    FileIdx trustSrc = fi(0);
-    FileIdx cppSrc   = fo(10);
-
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(trustSrc, 1), loc(trustSrc, 5)),
-        rng(outLoc(cppSrc,   100), outLoc(cppSrc,   200))));
-
-    // Input-локация (не output) для cpp → не найдёт
-    // Создаём SourceLoc с тем же raw индекса (без OUTPUT_FLAG)
-    FileIdx fakeInput{(cppSrc.raw & ((1 << FileIdx::FILEIDX_BITS) - 1))}; // только индекс, без флага
-    EXPECT_FALSE(map.getMapCppToTrust(loc(fakeInput, 150)).has_value());
-    // Output-локация → найдёт
-    EXPECT_TRUE(map.getMapCppToTrust(outLoc(cppSrc, 150)).has_value());
+    // ── Out of range: после конца маппинга ──
+    {
+        auto loc = static_cast<ReaderLocation>(ctx.makeLoc(trustSrc, 25));
+        auto r = reader->getMapTrustToCpp(loc);
+        EXPECT_FALSE(r.has_value());
+    }
 }
 
 // ══════════════════════════════════════════════════════════════
-//                    SourceMapping: NameMapping
+//              Context: getCppName / getTrustName
 // ══════════════════════════════════════════════════════════════
 
-TEST(MappingTest, AddNameMapping_ForwardAndBackward) {
-    SourceMapping map;
-    FileIdx t = fi(0);
-    FileIdx c = fo(10);
+TEST(MappingTest, AddNameMapping_GetCppName_GetTrustName) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("trust", std::string(200, 'a'), false);
+    MapperFile cppSrc = ctx.add_output("cpp", false);
+    ctx.output_append(cppSrc, std::string(200, ' '));
 
-    EXPECT_TRUE(map.addNameMapping(
-        rng(loc(t, 10), loc(t, 15)),
-        rng(outLoc(c, 100), outLoc(c, 105)),
-        "x", "_x"));
+    auto trustR = ctx.makeRange(ctx.makeLoc(trustSrc, 10), ctx.makeLoc(trustSrc, 20));
+    auto cppR = ctx.makeRange(ctx.makeLoc(cppSrc, 30), ctx.makeLoc(cppSrc, 40));
+    ctx.addNameMapping(trustR, cppR, "trustName", "cppName");
 
-    // Поиск по точке на BEGIN диапазона + имени
-    auto fwd = map.getCppName(loc(t, 10), "x");
-    ASSERT_TRUE(fwd.has_value());
-    EXPECT_EQ(fwd->range.to.begin.offset(), 100);
-    EXPECT_EQ(fwd->range.to.end.offset(),   105);
-    EXPECT_EQ(fwd->trustName, "x");
-    EXPECT_EQ(fwd->cppName, "_x");
+    auto reader = ctx.toReader();
 
-    // Точка ВНУТРИ → сдвиг
-    fwd = map.getCppName(loc(t, 12), "x");
-    ASSERT_TRUE(fwd.has_value());
-    EXPECT_EQ(fwd->range.to.begin.offset(), 102); // 100 + (12-10)
-    EXPECT_EQ(fwd->range.to.end.offset(),   107); // 105 + (12-10)
+    // ── getCppName (query=12, delta=2 → проекция +2) ──
+    auto cppName = reader->getCppName(static_cast<ReaderLocation>(ctx.makeLoc(trustSrc, 12)), "trustName");
+    ASSERT_TRUE(cppName.has_value());
+    EXPECT_EQ(cppName->toName, "cppName");
+    EXPECT_EQ(cppName->rangeMap.to.begin, 32u);
+    EXPECT_EQ(cppName->rangeMap.to.end, 42u);
 
-    // Обратный поиск по output-локации
-    auto bwd = map.getTrustName(outLoc(c, 100), "_x");
-    ASSERT_TRUE(bwd.has_value());
-    EXPECT_EQ(bwd->range.from.begin.offset(), 10);
-    EXPECT_EQ(bwd->range.from.end.offset(),   15);
+    // ── getTrustName ──
+    auto trustName = reader->getTrustName(static_cast<ReaderLocation>(ctx.makeLoc(cppSrc, 35)), "cppName");
+    ASSERT_TRUE(trustName.has_value());
+    EXPECT_EQ(trustName->fromName, "trustName");
 
-    // Точка внутри со сдвигом
-    bwd = map.getTrustName(outLoc(c, 102), "_x");
-    ASSERT_TRUE(bwd.has_value());
-    EXPECT_EQ(bwd->range.from.begin.offset(), 12); // 10 + (102-100)
-    EXPECT_EQ(bwd->range.from.end.offset(),   17); // 15 + (102-100)
+    // ── Поиск по несуществующему имени ──
+    EXPECT_FALSE(reader->getCppName(static_cast<ReaderLocation>(ctx.makeLoc(trustSrc, 12)), "nonExistent").has_value());
 }
 
-TEST(MappingTest, AddNameMapping_WrongName) {
-    SourceMapping map;
-    FileIdx t = fi(0);
-    FileIdx c = fo(10);
-
-    EXPECT_TRUE(map.addNameMapping(
-        rng(loc(t, 10), loc(t, 15)),
-        rng(outLoc(c, 100), outLoc(c, 105)),
-        "x", "_x"));
-
-    EXPECT_FALSE(map.getCppName(loc(t, 12), "y").has_value());
-    EXPECT_FALSE(map.getTrustName(outLoc(c, 102), "y").has_value());
-}
-
-TEST(MappingTest, AddNameMapping_EmptyName) {
-    SourceMapping map;
-    FileIdx t = fi(0);
-    FileIdx c = fo(10);
-
-    EXPECT_TRUE(map.addNameMapping(
-        rng(loc(t, 10), loc(t, 15)),
-        rng(outLoc(c, 100), outLoc(c, 105)),
-        "", ""));
-
-    auto fwd = map.getCppName(loc(t, 10), "");
-    ASSERT_TRUE(fwd.has_value());
-    EXPECT_EQ(fwd->cppName, "");
-    EXPECT_EQ(fwd->trustName, "");
-
-    auto bwd = map.getTrustName(outLoc(c, 100), "");
-    ASSERT_TRUE(bwd.has_value());
-    EXPECT_EQ(bwd->cppName, "");
-    EXPECT_EQ(bwd->trustName, "");
-}
-
-TEST(MappingTest, AddNameMapping_MultipleNames) {
-    SourceMapping map;
-    FileIdx t = fi(0);
-    FileIdx c = fo(10);
-
-    EXPECT_TRUE(map.addNameMapping(
-        rng(loc(t,  1), loc(t,  5)),
-        rng(outLoc(c, 10), outLoc(c, 50)),
-        "a", "_a"));
-    EXPECT_TRUE(map.addNameMapping(
-        rng(loc(t, 10), loc(t, 20)),
-        rng(outLoc(c, 100), outLoc(c, 200)),
-        "b", "_b"));
-
-    auto fwd_a = map.getCppName(loc(t, 1), "a");
-    ASSERT_TRUE(fwd_a.has_value());
-    EXPECT_EQ(fwd_a->cppName, "_a");
-
-    auto fwd_b = map.getCppName(loc(t, 10), "b");
-    ASSERT_TRUE(fwd_b.has_value());
-    EXPECT_EQ(fwd_b->cppName, "_b");
-
-    auto bwd_a = map.getTrustName(outLoc(c, 10), "_a");
-    ASSERT_TRUE(bwd_a.has_value());
-    EXPECT_EQ(bwd_a->trustName, "a");
-
-    auto bwd_b = map.getTrustName(outLoc(c, 100), "_b");
-    ASSERT_TRUE(bwd_b.has_value());
-    EXPECT_EQ(bwd_b->trustName, "b");
-}
-
-TEST(MappingTest, AddNameMapping_PointOutsideNameRange) {
-    SourceMapping map;
-    FileIdx t = fi(0);
-    FileIdx c = fo(10);
-
-    EXPECT_TRUE(map.addNameMapping(
-        rng(loc(t, 10), loc(t, 20)),
-        rng(outLoc(c, 100), outLoc(c, 200)),
-        "x", "_x"));
-
-    EXPECT_FALSE(map.getCppName(loc(t, 5), "x").has_value());
-    EXPECT_FALSE(map.getCppName(loc(t, 25), "x").has_value());
-    EXPECT_FALSE(map.getTrustName(outLoc(c, 50), "_x").has_value());
-    EXPECT_FALSE(map.getTrustName(outLoc(c, 250), "_x").has_value());
+TEST(MappingTest, GetCppName_NoMapping_ReturnsNullopt) {
+    Context ctx;
+    MapperFile src = ctx.add_source("trust", std::string(200, 'a'), false);
+    auto reader = ctx.toReader();
+    auto name = reader->getCppName(static_cast<ReaderLocation>(ctx.makeLoc(src, 50)), "someName");
+    EXPECT_FALSE(name.has_value());
 }
 
 // ══════════════════════════════════════════════════════════════
-//                    Serialization
+//                 Context: findRangesByLine
 // ══════════════════════════════════════════════════════════════
 
-TEST(MappingTest, PackUnpack_Roundtrip) {
-    // Используем смещения, не требующие OUTPUT_FLAG в packed,
-    // чтобы msgpack корректно сериализовал.
-    SourceMapping map;
-    FileIdx t = fi(0);
-    FileIdx c = fo(10);
+TEST(MappingTest, FindRangesByLine) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("trust", std::string(200, '\n'), false);
+    MapperFile cppSrc = ctx.add_output("cpp", false);
+    ctx.output_append(cppSrc, std::string(200, ' '));
 
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(t, 1), loc(t, 5)),
-        rng(outLoc(c, 100), outLoc(c, 500))));
-    EXPECT_TRUE(map.addNameMapping(
-        rng(loc(t, 10), loc(t, 15)),
-        rng(outLoc(c, 1000), outLoc(c, 1500)),
-        "var", "_var"));
+    auto trustR1 = ctx.makeRange(ctx.makeLoc(trustSrc, 2), ctx.makeLoc(trustSrc, 4));
+    auto cppR1 = ctx.makeRange(ctx.makeLoc(cppSrc, 10), ctx.makeLoc(cppSrc, 20));
+    ctx.addRangeMapping(trustR1, cppR1);
 
-    std::vector<unsigned char> data = map.pack();
-    ASSERT_FALSE(data.empty());
+    auto trustR2 = ctx.makeRange(ctx.makeLoc(trustSrc, 30), ctx.makeLoc(trustSrc, 35));
+    auto cppR2 = ctx.makeRange(ctx.makeLoc(cppSrc, 50), ctx.makeLoc(cppSrc, 60));
+    ctx.addRangeMapping(trustR2, cppR2);
 
-    SourceMapping restored;
-    EXPECT_TRUE(restored.unpack(data.data(), data.size()));
+    auto reader = ctx.toReader();
 
-    // Прямой поиск по точке на BEGIN диапазона
-    auto fwd = restored.getMapTrustToCpp(loc(t, 1));
-    ASSERT_TRUE(fwd.has_value());
-    EXPECT_EQ(fwd->begin.offset(), 100);
-    EXPECT_EQ(fwd->end.offset(),   500);
+    // findRangesByLine на Reader-уровне
+    ReaderFile rTrust = reader->findFileIdx(ctx.filename(trustSrc));
+    auto ranges = reader->findRangesByLine(rTrust, 2);
+    EXPECT_EQ(ranges.size(), 1);
 
-    // Обратный поиск по output-локации
-    auto bwd = restored.getMapCppToTrust(outLoc(c, 100));
-    ASSERT_TRUE(bwd.has_value());
-    EXPECT_EQ(bwd->begin.offset(), 1);
-    EXPECT_EQ(bwd->end.offset(),   5);
-
-    // NameMapping по точке на BEGIN
-    auto nfwd = restored.getCppName(loc(t, 10), "var");
-    ASSERT_TRUE(nfwd.has_value());
-    EXPECT_EQ(nfwd->range.to.begin.offset(), 1000);
-    EXPECT_EQ(nfwd->range.to.end.offset(),   1500);
-    EXPECT_EQ(nfwd->trustName, "var");
-    EXPECT_EQ(nfwd->cppName, "_var");
-
-    auto nbwd = restored.getTrustName(outLoc(c, 1000), "_var");
-    ASSERT_TRUE(nbwd.has_value());
-    EXPECT_EQ(nbwd->range.from.begin.offset(), 10);
-    EXPECT_EQ(nbwd->range.from.end.offset(),   15);
-    EXPECT_EQ(nbwd->trustName, "var");
-    EXPECT_EQ(nbwd->cppName, "_var");
-}
-
-TEST(MappingTest, PackUnpack_Empty) {
-    SourceMapping map;
-    auto data = map.pack();
-    ASSERT_FALSE(data.empty());
-
-    SourceMapping restored;
-    EXPECT_TRUE(restored.unpack(data.data(), data.size()));
-
-    FileIdx src = fi(0);
-    EXPECT_FALSE(restored.getMapTrustToCpp(loc(src, 10)).has_value());
-    EXPECT_FALSE(restored.getMapCppToTrust(outLoc(src, 10)).has_value());
-    EXPECT_FALSE(restored.getCppName(loc(src, 10), "x").has_value());
-}
-
-TEST(MappingTest, PackUnpack_InvalidData) {
-    SourceMapping map;
-    EXPECT_FALSE(map.unpack(nullptr, 0));
-
-    unsigned char garbage[] = {0x01, 0x02, 0xFF, 0xFE};
-    EXPECT_FALSE(map.unpack(garbage, sizeof(garbage)));
-}
-
-TEST(MappingTest, PackUnpack_MultipleEntries) {
-    SourceMapping map;
-    FileIdx t0 = fi(0);
-    FileIdx t1 = fi(1);
-    FileIdx c0 = fo(10);
-    FileIdx c1 = fo(11);
-
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(t0, 1), loc(t0, 5)),
-        rng(outLoc(c0, 100), outLoc(c0, 500))));
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(t1, 10), loc(t1, 20)),
-        rng(outLoc(c1, 1000), outLoc(c1, 2000))));
-    EXPECT_TRUE(map.addNameMapping(
-        rng(loc(t0, 50), loc(t0, 55)),
-        rng(outLoc(c0, 5000), outLoc(c0, 5500)),
-        "x", "_x"));
-
-    auto data = map.pack();
-    SourceMapping restored;
-    ASSERT_TRUE(restored.unpack(data.data(), data.size()));
-
-    auto fwd0 = restored.getMapTrustToCpp(loc(t0, 1));
-    ASSERT_TRUE(fwd0.has_value());
-    EXPECT_EQ(fwd0->begin.offset(), 100);
-
-    auto fwd1 = restored.getMapTrustToCpp(loc(t1, 10));
-    ASSERT_TRUE(fwd1.has_value());
-    EXPECT_EQ(fwd1->begin.offset(), 1000);
-
-    auto n = restored.getCppName(loc(t0, 50), "x");
-    ASSERT_TRUE(n.has_value());
-    EXPECT_EQ(n->trustName, "x");
-    EXPECT_EQ(n->cppName, "_x");
+    // ── Несуществующая строка ──
+    ranges = reader->findRangesByLine(rTrust, 999);
+    EXPECT_TRUE(ranges.empty());
 }
 
 // ══════════════════════════════════════════════════════════════
-//                Edge Cases и граничные условия
+//                  Context: getTrustFileMappings
 // ══════════════════════════════════════════════════════════════
 
-TEST(MappingTest, IdenticalRanges) {
-    SourceMapping map;
-    FileIdx trustSrc = fi(0);
-    FileIdx cppSrc   = fo(10);
+TEST(MappingTest, GetTrustFileMappings) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("trust", std::string(200, 'a'), false);
+    MapperFile cppSrc = ctx.add_output("cpp", false);
+    ctx.output_append(cppSrc, std::string(200, ' '));
 
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(trustSrc, 10), loc(trustSrc, 20)),
-        rng(outLoc(cppSrc, 10), outLoc(cppSrc, 20))));
+    auto trustR1 = ctx.makeRange(ctx.makeLoc(trustSrc, 10), ctx.makeLoc(trustSrc, 20));
+    auto cppR1 = ctx.makeRange(ctx.makeLoc(cppSrc, 30), ctx.makeLoc(cppSrc, 40));
+    ctx.addRangeMapping(trustR1, cppR1);
 
-    // Точка на begin
-    auto fwd = map.getMapTrustToCpp(loc(trustSrc, 10));
-    ASSERT_TRUE(fwd.has_value());
-    EXPECT_EQ(fwd->begin.offset(), 10);
-    EXPECT_EQ(fwd->end.offset(), 20);
+    auto trustR2 = ctx.makeRange(ctx.makeLoc(trustSrc, 50), ctx.makeLoc(trustSrc, 60));
+    auto cppR2 = ctx.makeRange(ctx.makeLoc(cppSrc, 70), ctx.makeLoc(cppSrc, 80));
+    ctx.addRangeMapping(trustR2, cppR2);
 
-    auto bwd = map.getMapCppToTrust(outLoc(cppSrc, 10));
-    ASSERT_TRUE(bwd.has_value());
-    EXPECT_EQ(bwd->begin.offset(), 10);
-    EXPECT_EQ(bwd->end.offset(), 20);
+    auto reader = ctx.toReader();
+    auto mappings = reader->getTrustFileMappings(reader->findFileIdx(ctx.filename(trustSrc)));
+    EXPECT_EQ(mappings.size(), 2);
 }
 
-TEST(MappingTest, GetMapTrustToCpp_NotFound) {
-    SourceMapping map;
-    FileIdx src = fi(0);
-    EXPECT_FALSE(map.getMapTrustToCpp(loc(src, 10)).has_value());
+TEST(MappingTest, GetTrustFileMappings_Negative_NotFound) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("trust", std::string(200, 'a'), false);
+    MapperFile cppSrc = ctx.add_output("cpp", false);
+    {
+        auto trustR = ctx.makeRange(ctx.makeLoc(trustSrc, 10), ctx.makeLoc(trustSrc, 20));
+        auto cppR = ctx.makeRange(ctx.makeLoc(cppSrc, 30), ctx.makeLoc(cppSrc, 40));
+        ctx.addRangeMapping(trustR, cppR);
+    }
+
+    // Поиск для несуществующего ReaderFileIdx через Reader
+    auto reader = ctx.toReader();
+    auto mappings = reader->getTrustFileMappings(ReaderFile{});
+    EXPECT_TRUE(mappings.empty());
 }
 
-TEST(MappingTest, GetMapCppToTrust_NotFound) {
-    SourceMapping map;
-    FileIdx src = fi(0);
-    EXPECT_FALSE(map.getMapCppToTrust(outLoc(src, 10)).has_value());
+// ══════════════════════════════════════════════════════════════
+//                    Roundtrip: pack → unpack
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, MsgpackRoundtrip) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("trust", std::string(200, 'a'), false);
+    MapperFile cppSrc = ctx.add_output("cpp", false);
+    ctx.output_append(cppSrc, std::string(200, ' '));
+
+    auto trustR = ctx.makeRange(ctx.makeLoc(trustSrc, 10), ctx.makeLoc(trustSrc, 20));
+    auto cppR = ctx.makeRange(ctx.makeLoc(cppSrc, 30), ctx.makeLoc(cppSrc, 40));
+    ctx.addRangeMapping(trustR, cppR);
+
+    // ── Pack via reader → unpack ──
+    auto reader = ctx.toReader();
+    auto packed = reader->packToMsgpack();
+    auto unpacked = SourceMapReader::fromMsgpack(packed.data(), packed.size());
+    ASSERT_NE(unpacked, nullptr);
+
+    // Проверяем, что маппинг сохранился в reader (query=12, delta=2 → +2)
+    auto loc = static_cast<ReaderLocation>(ctx.makeLoc(trustSrc, 12));
+    auto r = reader->getMapTrustToCpp(loc);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(r->begin, 32u);
+    EXPECT_EQ(r->end, 42u);
+
+    // Проверяем unpacked reader
+    auto ru = unpacked->getMapTrustToCpp(loc);
+    ASSERT_TRUE(ru.has_value());
+    EXPECT_EQ(ru->begin, 32u);
+    EXPECT_EQ(ru->end, 42u);
 }
 
-TEST(MappingTest, GetCppName_NotFound) {
-    SourceMapping map;
-    FileIdx src = fi(0);
-    EXPECT_FALSE(map.getCppName(loc(src, 10), "nonexistent").has_value());
+// ══════════════════════════════════════════════════════════════
+//              Msgpack: пустой SourceMapReader
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, EmptySourceMapReader) {
+    auto reader = SourceMapReader::fromMsgpack(nullptr, 0);
+    EXPECT_EQ(reader, nullptr);
 }
 
-TEST(MappingTest, GetTrustName_NotFound) {
-    SourceMapping map;
-    FileIdx src = fi(0);
-    EXPECT_FALSE(map.getTrustName(outLoc(src, 10), "nonexistent").has_value());
+// ══════════════════════════════════════════════════════════════
+//              Context: filename через Location
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, FilenameViaLocation) {
+    Context ctx;
+    auto idx = ctx.add_source("/path/to/file.trust", "content", true);
+    auto loc = ctx.makeLoc(idx, 1);
+    auto fn = ctx.filename(loc);
+    EXPECT_FALSE(fn.empty());
 }
 
-TEST(MappingTest, GetMapTrustToCpp_RejectsOutputLoc) {
-    SourceMapping map;
-    FileIdx trustSrc = fi(0);
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(trustSrc, 1), loc(trustSrc, 5)),
-        rng(outLoc(trustSrc, 100), outLoc(trustSrc, 500))));
-    // output-локация в getMapTrustToCpp → не найдёт
-    // Создаём SourceLoc с OUTPUT_FLAG явно
-    uint32_t base = trustSrc.raw << SourceLoc::FILEIDX_SHIFT;
-    uint32_t outputFlag = SourceLoc::OUTPUT_FLAG;
-    SourceLoc outputLoc{static_cast<uint32_t>(outputFlag | base | 3)};
-    EXPECT_FALSE(map.getMapTrustToCpp(outputLoc).has_value());
+// ══════════════════════════════════════════════════════════════
+//    Context: getInput — напрямую через унаследованные методы
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, GetFile_Input) {
+    Context ctx;
+    auto idx = ctx.add_source("test", "content", false);
+    const auto& src = ctx.get_file(idx);
+    EXPECT_EQ(src.getFilename(), "test");
+    EXPECT_EQ(src.getSource(), "content");
 }
 
-TEST(MappingTest, GetMapCppToTrust_RejectsNonOutputLoc) {
-    SourceMapping map;
-    FileIdx src = fi(0);
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(src, 1), loc(src, 5)),
-        rng(outLoc(src, 100), outLoc(src, 500))));
-    // не-output-локация в getMapCppToTrust → не найдёт
-    EXPECT_FALSE(map.getMapCppToTrust(loc(src, 150)).has_value());
+TEST(MappingTest, GetFile_Output) {
+    Context ctx;
+    auto idx = ctx.add_output("test", false);
+    ctx.output_append(idx, "cpp_content");
+    const auto& out = ctx.get_file(idx);
+    EXPECT_EQ(out.getFilename(), "test");
+    EXPECT_EQ(out.getSource(), "cpp_content");
 }
 
-TEST(MappingTest, AddRangeMapping_NullRanges) {
-    SourceMapping map;
-    // Невалидные диапазоны
-    EXPECT_FALSE(map.addRangeMapping(
-        rng(SourceLoc::invalid(), SourceLoc::invalid()),
-        rng(SourceLoc::invalid(), SourceLoc::invalid())));
+TEST(MappingTest, GetFile_Invalid_ZeroIdx) {
+    Context ctx;
+    EXPECT_THROW(ctx.get_file(MapperFile{}), std::exception);
 }
 
-TEST(MappingTest, AddRangeMapping_Monotonicity) {
-    SourceMapping map;
-    FileIdx src = fi(0);
+TEST(MappingTest, GetFile_OutOfBounds_Input) {
+    Context ctx;
+    ctx.add_source("in1", "content1", false);
+    auto bad = MapperFile::make_input(5); // индекс за пределами
+    EXPECT_THROW(ctx.get_file(bad), std::exception);
+}
 
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(src, 10), loc(src, 20)),
-        rng(outLoc(src, 100), outLoc(src, 200))));
+TEST(MappingTest, GetFile_OutOfBounds_Output) {
+    Context ctx;
+    ctx.add_output("out1", false);
+    auto bad = MapperFile::make_output(10); // индекс за пределами
+    EXPECT_THROW(ctx.get_file(bad), std::exception);
+}
 
-    // Диапазон с begin < предыдущего end → нарушение монотонности
-    EXPECT_FALSE(map.addRangeMapping(
-        rng(loc(src, 20), loc(src, 25)),   // begin == предыдущего end → перекрытие
-        rng(outLoc(src, 200), outLoc(src, 250))));
+// ══════════════════════════════════════════════════════════════
+//    Context: line_column / loc_from_line — унаследовано от Mapper
+// ══════════════════════════════════════════════════════════════
+//
+// Контент: "line1\nline2\nline3"
+// 0-based:  012345 678901 234567...
+// Строка "line1\n" = 6 байт (5 букв + \n)
+// "line2" начинается на offset=7 (1-based)
+// Символ '2' в "line2" находится на offset=8 (1-based), 0-based index=7
 
-    // Неперекрывающийся диапазон с большим begin → ok
-    EXPECT_TRUE(map.addRangeMapping(
-        rng(loc(src, 21), loc(src, 30)),   // begin > предыдущего end → ok
-        rng(outLoc(src, 210), outLoc(src, 300))));
+TEST(MappingTest, LineColumn) {
+    Context ctx;
+    auto idx = ctx.add_source("f", "line1\nline2\nline3", false);
+    auto loc = ctx.makeLoc(idx, 7); // 'l' in "line2", строка 2, колонка 1
+    auto lc = ctx.line_column(loc);
+    EXPECT_EQ(lc.line, 2u);
+    EXPECT_EQ(lc.column, 1u);
+}
+
+TEST(MappingTest, LocFromLine) {
+    Context ctx;
+    auto idx = ctx.add_source("f", "line1\nline2\nline3", false);
+    auto loc = ctx.loc_from_line(idx, 2);
+    EXPECT_EQ(loc, 7u); // offset 1-based: "line1\n" is 6 chars, so line2 starts at 7
+}
+
+// ══════════════════════════════════════════════════════════════
+//              findRangesByLine для output файла
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, FindRangesByLine_OutputFile) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("trust", std::string(200, '\n'), false);
+    MapperFile cppSrc = ctx.add_output("cpp", false);
+    ctx.output_append(cppSrc, std::string(200, ' '));
+
+    ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(trustSrc, 2), ctx.makeLoc(trustSrc, 5)), ctx.makeRange(ctx.makeLoc(cppSrc, 100), ctx.makeLoc(cppSrc, 150)));
+
+    auto reader = ctx.toReader();
+
+    // Поиск на output-файле через Reader
+    ReaderFile rCpp = reader->findFileIdx(ctx.filename(cppSrc));
+    auto ranges = reader->findRangesByLine(rCpp, 3);
+    EXPECT_TRUE(ranges.empty()); // line 3 не существует
+}
+
+// ══════════════════════════════════════════════════════════════
+//   Тест с prepend'ом и множественными маппингами (комбинация)
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, PrependWithMultipleMappings) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("trust", std::string(200, 'a'), false);
+    MapperFile cppSrc = ctx.add_output("cpp", false);
+    ctx.output_append(cppSrc, std::string(200, ' '));
+    ctx.output_prepend(cppSrc, "PREFIX\n");
+
+    ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(trustSrc, 10), ctx.makeLoc(trustSrc, 20)), ctx.makeRange(ctx.makeLoc(cppSrc, 10), ctx.makeLoc(cppSrc, 20)));
+    ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(trustSrc, 50), ctx.makeLoc(trustSrc, 60)), ctx.makeRange(ctx.makeLoc(cppSrc, 50), ctx.makeLoc(cppSrc, 60)));
+
+    auto reader = ctx.toReader();
+
+    // Prepend сдвигает cpp offset'ы на 7 ("PREFIX\n" = 7 символов)
+    // Маппинг 1 в reader: trust [10,20] → cpp [17,27] (10+7=17, 20+7=27)
+    // Маппинг 2 в reader: trust [50,60] → cpp [57,67] (50+7=57, 60+7=67)
+    // query=57 (cpp), ищем в backward: cpp [57,67], query=57 (delta=0)
+    // → trust [50,60] (проекция 0)
+    {
+        auto loc = static_cast<ReaderLocation>(ctx.makeLoc(cppSrc, 57));
+        auto r = reader->getMapCppToTrust(loc);
+        ASSERT_TRUE(r.has_value());
+        EXPECT_EQ(r->begin, 50u);
+    }
+    // query=60 (cpp), ищем в backward: cpp [57,67], query=60 (delta=3)
+    // → trust [53,63] (50+3=53, 60+3=63)
+    {
+        auto loc = static_cast<ReaderLocation>(ctx.makeLoc(cppSrc, 60));
+        auto r = reader->getMapCppToTrust(loc);
+        ASSERT_TRUE(r.has_value());
+        EXPECT_EQ(r->begin, 53u);
+        EXPECT_EQ(r->end, 63u);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+//   Reader напрямую: get_input / get_output на ReaderFileIdx
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, ReaderDirectAccess) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("trust", "content1", false);
+    MapperFile cppSrc = ctx.add_output("cpp", false);
+    ctx.output_append(cppSrc, "content2");
+
+    auto reader = ctx.toReader();
+    // Reader использует ReaderFileIdx через безопасную конвертацию
+    ReaderFile rTrust = reader->findFileIdx(ctx.filename(trustSrc));
+    ReaderFile rCpp = reader->findFileIdx(ctx.filename(cppSrc));
+
+    EXPECT_EQ(reader->filename(rTrust), "trust");
+    EXPECT_EQ(reader->filename(rCpp), "cpp");
+    EXPECT_EQ(reader->source(rTrust), "content1");
+    EXPECT_EQ(reader->source(rCpp), "content2");
+
+    // get_file напрямую на Reader
+    EXPECT_EQ(reader->get_file(rTrust).getSource(), "content1");
+    EXPECT_EQ(reader->get_file(rCpp).getSource(), "content2");
+}
+
+// ══════════════════════════════════════════════════════════════
+//   Reader: toReader возвращает один и тот же указатель (кеш)
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, ToReaderCache) {
+    Context ctx;
+    ctx.add_source("t", "abc", false);
+    auto idx = ctx.add_output("c", false);
+    ctx.output_append(idx, "def");
+
+    auto* r1 = ctx.toReader();
+    auto* r2 = ctx.toReader();
+    EXPECT_EQ(r1, r2); // кеш возвращает тот же reader
+}
+
+// ══════════════════════════════════════════════════════════════
+//   Reader: getFileHash
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, Reader_GetFileHash) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("t", "abc", false);
+
+    // hash вычисляется на основе содержимого
+    auto reader = ctx.toReader();
+    uint64_t hash = reader->getFileHash(reader->findFileIdx(ctx.filename(trustSrc)));
+    uint64_t expected = llvm::MD5Hash("abc");
+    EXPECT_EQ(hash, expected);
+}
+
+// ══════════════════════════════════════════════════════════════
+//   Reader: isOutput / isInput на ReaderFileIdx
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingTest, ReaderFileIdx_IsOutput) {
+    Context ctx;
+    MapperFile trustSrc = ctx.add_source("t", "abc", false);
+    MapperFile cppSrc = ctx.add_output("c", false);
+    ctx.output_append(cppSrc, "def");
+
+    auto reader = ctx.toReader();
+    ReaderFile rTrust = reader->findFileIdx(ctx.filename(trustSrc));
+    ReaderFile rCpp = reader->findFileIdx(ctx.filename(cppSrc));
+
+    EXPECT_FALSE(rTrust.isOutput());
+    EXPECT_TRUE(rCpp.isOutput());
+}
+
+// ══════════════════════════════════════════════════════════════
+//   Reader: get_input с нулевым FileIdx (FAULT)
+// ══════════════════════════════════════════════════════════════
+
+TEST(MappingDeathTest, Reader_GetFile_Invalid_ZeroIdx) {
+    Context ctx;
+    auto cppSrc = ctx.add_output("c", false);
+    ctx.output_append(cppSrc, "def");
+    auto reader = ctx.toReader();
+    EXPECT_THROW(reader->get_file(ReaderFile{}), std::exception);
+}
+
+// ══════════════════════════════════════════════════════════════
+//              SourceMap::getText
+// ══════════════════════════════════════════════════════════════
+//
+// getText использует offset() напрямую как 0-базированный индекс в substr().
+// validateLoc в Context требует offset ∈ [1, size+1].
+// Поэтому offset 1 соответствует substr-индексу 1 (второй символ, 'b'),
+// а первый символ 'a' (substr-индекс 0) недоступен для Context, т.к. offset=0 не проходит validateLoc.
+//
+// Контент: "abcdefghij" (10 символов, a..j)
+//  0-базированный index: a=0, b=1, c=2, d=3, e=4, f=5, g=6, h=7, i=8, j=9
+//  offset → substr index: offset 1 → index 1 ('b')
+
+TEST(MappingTest, GetText_Normal_Input) {
+    Context ctx;
+    MapperFile idx = ctx.add_source("input", "abcdefghij", false);
+    // range [1,4) → substr(1, 3) = "bcd" (индексы 1,2,3 = b,c,d)
+    auto range = ctx.makeRange(ctx.makeLoc(idx, 1), ctx.makeLoc(idx, 4));
+    EXPECT_EQ(ctx.getText(range), "abc");
+}
+
+TEST(MappingTest, GetText_Normal_Output) {
+    Context ctx;
+    MapperFile idx = ctx.add_output("output", false);
+    ctx.output_append(idx, "abcdefghij");
+    auto range = ctx.makeRange(ctx.makeLoc(idx, 1), ctx.makeLoc(idx, 4));
+    EXPECT_EQ(ctx.getText(range), "abc");
+}
+
+TEST(MappingTest, GetText_FromMiddle) {
+    Context ctx;
+    MapperFile idx = ctx.add_source("input", "abcdefghij", false);
+    // range [3,8) → substr(3, 5) = "defgh" (индексы 3,4,5,6,7 = d,e,f,g,h)
+    auto range = ctx.makeRange(ctx.makeLoc(idx, 3), ctx.makeLoc(idx, 8));
+    EXPECT_EQ(ctx.getText(range), "cdefg");
+}
+
+TEST(MappingTest, GetText_EntireSuffix) {
+    Context ctx;
+    MapperFile idx = ctx.add_source("input", "abcdefghij", false);
+    // range [1,11) → substr(1, 10) = "bcdefghij" (от index 1 до конца: 9 символов b..j)
+    auto range = ctx.makeRange(ctx.makeLoc(idx, 1), ctx.makeLoc(idx, 11));
+    EXPECT_EQ(ctx.getText(range), "abcdefghij");
+}
+
+TEST(MappingTest, GetText_SingleChar) {
+    Context ctx;
+    MapperFile idx = ctx.add_source("input", "abcdefghij", false);
+    // range [5,6) → substr(5, 1) = "f" (индекс 5 = 'f')
+    auto range = ctx.makeRange(ctx.makeLoc(idx, 5), ctx.makeLoc(idx, 6));
+    EXPECT_EQ(ctx.getText(range), "e");
+}
+
+TEST(MappingTest, GetText_EmptyRange) {
+    Context ctx;
+    MapperFile idx = ctx.add_source("input", "abcdefghij", false);
+    // range [5,5) → substr(5, 0) = ""
+    auto range = ctx.makeRange(ctx.makeLoc(idx, 5), ctx.makeLoc(idx, 5));
+    EXPECT_EQ(ctx.getText(range), "");
+}
+
+TEST(MappingTest, GetText_LastChar) {
+    Context ctx;
+    MapperFile idx = ctx.add_source("input", "abcdefghij", false);
+    // Последний символ: j на 0-базированном индексе 9 → offset 9
+    // range [9,10) → substr(9, 1) = "j"
+    auto range = ctx.makeRange(ctx.makeLoc(idx, 10), ctx.makeLoc(idx, 11));
+    EXPECT_EQ(ctx.getText(range), "j");
+}
+
+// ══════════════════════════════════════════════════════════════
+//              SourceMapReader::getText
+// ══════════════════════════════════════════════════════════════
+//
+// getText доступен на SourceMap<ReaderFile> через toReader(),
+// так как getText теперь const.
+
+TEST(MappingTest, GetText_OnReader_Input) {
+    Context ctx;
+    MapperFile idx = ctx.add_source("input", "abcdefghij", false);
+    auto reader = ctx.toReader();
+    auto rFile = reader->findFileIdx(ctx.filename(idx));
+    auto loc1 = static_cast<ReaderLocation>(ctx.makeLoc(idx, 1));
+    auto loc4 = static_cast<ReaderLocation>(ctx.makeLoc(idx, 4));
+    ReaderRange range(loc1, loc4); // (1,4) → substr(0, 3) = "abc"
+    EXPECT_EQ(reader->getText(range), "abc");
+}
+
+TEST(MappingTest, GetText_OnReader_Output) {
+    Context ctx;
+    MapperFile idx = ctx.add_output("output", false);
+    ctx.output_append(idx, "abcdefghij");
+    auto reader = ctx.toReader();
+    auto rFile = reader->findFileIdx(ctx.filename(idx));
+    auto loc1 = static_cast<ReaderLocation>(ctx.makeLoc(idx, 1));
+    auto loc4 = static_cast<ReaderLocation>(ctx.makeLoc(idx, 4));
+    ReaderRange range(loc1, loc4); // (1,4) → substr(0, 3) = "abc"
+    EXPECT_EQ(reader->getText(range), "abc");
+}
+
+TEST(MappingDeathTest, GetText_InvalidRange_DefaultConstructed) {
+    Context ctx;
+    // Range с default-конструктором (begin и end == 0) — невалидный
+    MapperRange invalidRange;
+    EXPECT_THROW(ctx.getText(invalidRange), std::exception);
 }

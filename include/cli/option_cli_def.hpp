@@ -78,7 +78,7 @@ inline constexpr bool is_valid_cli_opt(CliOpt opt) noexcept {
 
 inline constexpr CliOpt cli_opt_from_short(std::string_view name) noexcept {
     for (int i = 0; i < NumCliOptions; ++i) {
-        auto &m = all_cli_opts[i];
+        auto& m = all_cli_opts[i];
         if (!m.short_name.empty() && m.short_name == name)
             return static_cast<CliOpt>(i);
     }
@@ -87,7 +87,7 @@ inline constexpr CliOpt cli_opt_from_short(std::string_view name) noexcept {
 
 inline constexpr CliOpt cli_opt_from_long(std::string_view name) noexcept {
     for (int i = 0; i < NumCliOptions; ++i) {
-        auto &m = all_cli_opts[i];
+        auto& m = all_cli_opts[i];
         if (!m.long_name.empty() && m.long_name == name)
             return static_cast<CliOpt>(i);
     }

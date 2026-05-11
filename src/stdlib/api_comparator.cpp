@@ -12,18 +12,18 @@ namespace trust {
 // ─────────────────────────────────────────────────────────────
 // Получить все известные паттерны
 // ─────────────────────────────────────────────────────────────
-const std::map<std::string, std::string> &ApiComparator::get_patterns() const {
+const std::map<std::string, std::string>& ApiComparator::get_patterns() const {
     return get_search_patterns();
 }
 
 // ─────────────────────────────────────────────────────────────
 // Лениво инициализируемый кэш StringMatcher для каждого составного ключа
 // ─────────────────────────────────────────────────────────────
-static const std::map<std::string, StringMatcher> &get_pattern_matchers() {
+static const std::map<std::string, StringMatcher>& get_pattern_matchers() {
     static std::map<std::string, StringMatcher> matchers;
     static bool initialized = false;
     if (!initialized) {
-        for (const auto &[key, _] : get_search_patterns()) {
+        for (const auto& [key, _] : get_search_patterns()) {
             matchers.emplace(key, StringMatcher(key, ','));
         }
         initialized = true;
@@ -31,12 +31,12 @@ static const std::map<std::string, StringMatcher> &get_pattern_matchers() {
     return matchers;
 }
 
-std::string ApiComparator::match_pattern(const std::string &qualified_name) {
+std::string ApiComparator::match_pattern(const std::string& qualified_name) {
     // Нормализованное имя без template args
     std::string normalized = trust::remove_template_args(qualified_name);
 
     // 1. Проверка через StringMatcher (glob + exact) для составных ключей
-    for (const auto &[key, matcher] : get_pattern_matchers()) {
+    for (const auto& [key, matcher] : get_pattern_matchers()) {
         if (matcher.MatchesName(normalized)) {
             return key;
         }
@@ -44,10 +44,10 @@ std::string ApiComparator::match_pattern(const std::string &qualified_name) {
 
     // 2. Prefix matching для методов классов (разбиваем ключ на под-паттерны)
     std::vector<std::string> parts;
-    for (const auto &[key, _] : get_search_patterns()) {
+    for (const auto& [key, _] : get_search_patterns()) {
         parts.clear();
         trust::SplitString(key, ',', &parts);
-        for (const auto &part : parts) {
+        for (const auto& part : parts) {
             std::string prefix = part + "::";
             if (!prefix.empty() && normalized.rfind(prefix, 0) == 0) {
                 return key;
@@ -58,7 +58,7 @@ std::string ApiComparator::match_pattern(const std::string &qualified_name) {
     // 3. Паттерн "::*" — свободные функции в пространствах имён
     // Например: std::swap, std::make_unique (ровно один :: в имени)
     // Также глобальные C-функции: printf, fileno (0 :: в имени)
-    for (const auto &[key, _] : get_search_patterns()) {
+    for (const auto& [key, _] : get_search_patterns()) {
         if (key == "::*") {
             size_t count = trust::count_occurrences(qualified_name, "::");
             if (count == 1) {
@@ -89,8 +89,8 @@ std::string ApiComparator::match_pattern(const std::string &qualified_name) {
 // ─────────────────────────────────────────────────────────────
 // Pattern to filename
 // ─────────────────────────────────────────────────────────────
-std::string ApiComparator::pattern_to_filename(const std::string &pattern) {
-    const auto &patterns = get_search_patterns();
+std::string ApiComparator::pattern_to_filename(const std::string& pattern) {
+    const auto& patterns = get_search_patterns();
     auto it = patterns.find(pattern);
     if (it != patterns.end()) {
         return it->second;
@@ -101,7 +101,7 @@ std::string ApiComparator::pattern_to_filename(const std::string &pattern) {
 // ─────────────────────────────────────────────────────────────
 // Имя версии для вывода
 // ─────────────────────────────────────────────────────────────
-const char *ApiComparator::version_name(LanguageVersion ver) {
+const char* ApiComparator::version_name(LanguageVersion ver) {
     return language_version_string(ver);
 }
 
@@ -115,7 +115,7 @@ std::string ApiComparator::version_suffix(LanguageVersion ver) {
 // ─────────────────────────────────────────────────────────────
 // Получить данные для паттерна
 // ─────────────────────────────────────────────────────────────
-const std::map<uint8_t, std::vector<MethodInfo>> *ApiComparator::get_versions(const std::string &pattern) const {
+const std::map<uint8_t, std::vector<MethodInfo>>* ApiComparator::get_versions(const std::string& pattern) const {
     auto it = data_.find(pattern);
     if (it != data_.end() && !it->second.empty()) {
         return &it->second;
@@ -126,7 +126,7 @@ const std::map<uint8_t, std::vector<MethodInfo>> *ApiComparator::get_versions(co
 // ─────────────────────────────────────────────────────────────
 // Получить базовую версию
 // ─────────────────────────────────────────────────────────────
-uint8_t ApiComparator::get_base_version(const std::string &pattern) const {
+uint8_t ApiComparator::get_base_version(const std::string& pattern) const {
     auto it = base_version_.find(pattern);
     if (it != base_version_.end()) {
         return it->second;
@@ -137,12 +137,12 @@ uint8_t ApiComparator::get_base_version(const std::string &pattern) const {
 // ─────────────────────────────────────────────────────────────
 // Добавить записи для версии с проверкой совместимости
 // ─────────────────────────────────────────────────────────────
-bool ApiComparator::add_version(const std::string &pattern, LanguageVersion version, const std::vector<MethodInfo> &methods) {
+bool ApiComparator::add_version(const std::string& pattern, LanguageVersion version, const std::vector<MethodInfo>& methods) {
     uint8_t ver_num = static_cast<uint8_t>(version);
-    const char *ver_name = version_name(version);
+    const char* ver_name = version_name(version);
 
     // Проверка: версия должна быть больше всех уже добавленных
-    auto &ver_map = data_[pattern];
+    auto& ver_map = data_[pattern];
     if (!ver_map.empty()) {
         uint8_t max_ver = ver_map.rbegin()->first;
         if (ver_num < max_ver) {
@@ -159,23 +159,23 @@ bool ApiComparator::add_version(const std::string &pattern, LanguageVersion vers
 
     // Сравниваем с базовой версией
     uint8_t base_ver = base_version_[pattern];
-    const auto &base_methods = data_[pattern][base_ver];
+    const auto& base_methods = data_[pattern][base_ver];
 
     // Создаём карту базовых методов: qualified_name -> normalized_signature
     std::map<std::string, std::string> base_map;
-    for (const auto &info : base_methods) {
+    for (const auto& info : base_methods) {
         base_map[info.qualified_name] = info.normalized_signature;
     }
 
     // Создаём карту текущей версии
     std::map<std::string, std::string> current_map;
-    for (const auto &info : methods) {
+    for (const auto& info : methods) {
         current_map[info.qualified_name] = info.normalized_signature;
     }
 
     // Проверяем: все методы из базы должны присутствовать
     bool has_error = false;
-    for (const auto &[name, base_sig] : base_map) {
+    for (const auto& [name, base_sig] : base_map) {
         // Проверяем, попадает ли имя под какой-либо ignore pattern
         if (trust::matches_ignore_pattern(name))
             continue;
@@ -202,19 +202,19 @@ bool ApiComparator::add_version(const std::string &pattern, LanguageVersion vers
 // Проверить полную совместимость
 // ─────────────────────────────────────────────────────────────
 bool ApiComparator::check_compatibility() const {
-    for (const auto &[pattern, ver_map] : data_) {
+    for (const auto& [pattern, ver_map] : data_) {
         if (ver_map.empty())
             continue;
 
-        const auto &base_methods = ver_map.begin()->second;
+        const auto& base_methods = ver_map.begin()->second;
 
         std::map<std::string, std::string> base_map;
-        for (const auto &info : base_methods) {
+        for (const auto& info : base_methods) {
             base_map[info.qualified_name] = info.normalized_signature;
         }
 
         for (auto vit = std::next(ver_map.begin()); vit != ver_map.end(); ++vit) {
-            for (const auto &info : vit->second) {
+            for (const auto& info : vit->second) {
                 auto it = base_map.find(info.qualified_name);
                 if (it == base_map.end()) {
                     // Новый метод — это нормально

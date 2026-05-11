@@ -5,7 +5,7 @@ find_program(NODE npx)
 
 # ── VSCode extension unit tests ──
 add_custom_target(run_vscode_unit_tests
-    COMMAND timeout --kill-after=10 120 npx jest --config ${CMAKE_CURRENT_SOURCE_DIR}/extension/jest.config.js
+    COMMAND "${CMAKE_SOURCE_DIR}/test/wrapper/failed.sh" "run_vscode_unit_tests" timeout --kill-after=10 120 npx jest --config ${CMAKE_CURRENT_SOURCE_DIR}/extension/jest.config.js
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/extension
     COMMENT "Running VSCode extension unit tests (timeout: 120s)"
     USES_TERMINAL
@@ -17,7 +17,7 @@ add_custom_target(run_vscode_unit_tests
 #   --debuggee-path simple_example (скомпилированный ELF)
 add_custom_target(run_vscode_dap_tests
     DEPENDS trust-dap simple_compile
-    COMMAND timeout --kill-after=10 60 node ${CMAKE_CURRENT_SOURCE_DIR}/integration/dap-protocol.test.js
+    COMMAND "${CMAKE_SOURCE_DIR}/test/wrapper/failed.sh" "run_vscode_dap_tests" timeout --kill-after=10 60 node ${CMAKE_CURRENT_SOURCE_DIR}/integration/dap-protocol.test.js
             --dap-path ${CMAKE_BINARY_DIR}/trust-dap
             --src "${TEST_SRC}"
             --cpp "${TEST_CPP}"
@@ -32,8 +32,8 @@ add_custom_target(run_vscode_dap_tests
 # Использует заранее подготовленные test_data:
 #   --src simple_example.src (source map строится in-process, без внешнего компилятора)
 add_custom_target(run_vscode_lsp_tests
-    DEPENDS trust-lsp
-    COMMAND timeout --kill-after=10 60 node ${CMAKE_CURRENT_SOURCE_DIR}/integration/lsp-protocol.test.js
+    DEPENDS trust-lsp prepare_test_data
+    COMMAND "${CMAKE_SOURCE_DIR}/test/wrapper/failed.sh" "run_vscode_lsp_tests" timeout --kill-after=10 60 node ${CMAKE_CURRENT_SOURCE_DIR}/integration/lsp-protocol.test.js
             --lsp-path ${CMAKE_BINARY_DIR}/trust-lsp
             --src "${TEST_SRC}"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/integration
@@ -42,11 +42,9 @@ add_custom_target(run_vscode_lsp_tests
 )
 
 # ── Aggregated targets ──
-# Интеграционные DAP тесты отключены (trust-dap требует настройки debug-окружения).
-# Для запуска: cmake --build build --target run_vscode_dap
 add_custom_target(run_vscode_integration_tests
-    DEPENDS run_vscode_lsp_tests
-    COMMENT "Running all VSCode integration tests (DAP disabled)"
+    DEPENDS run_vscode_lsp_tests run_vscode_dap_tests
+    COMMENT "Running all VSCode integration tests (LSP + DAP)"
 )
 
 add_custom_target(run_vscode_tests
@@ -57,7 +55,7 @@ add_custom_target(run_vscode_tests
 # ── Individual protocol targets ──
 add_custom_target(run_vscode_dap
     DEPENDS run_vscode_dap_tests
-    COMMENT "Shorthand: run DAP integration tests (not in default chain)"
+    COMMENT "Shorthand: run DAP integration tests"
 )
 
 add_custom_target(run_vscode_lsp

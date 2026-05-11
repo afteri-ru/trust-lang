@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils/backtrace.hpp"
+
 #include <cassert>
 #include <exception>
 #include <format>
@@ -8,7 +10,7 @@
 namespace trust::utils {
 
 template <typename... Args>
-static std::string Message(std::string_view file, int line, std::format_string<Args...> fmt, Args &&...args) {
+static std::string Message(std::string_view file, int line, std::format_string<Args...> fmt, Args&&... args) {
     std::string_view fname = file;
     if (auto pos = file.rfind('/'); pos != std::string_view::npos) {
         fname = file.substr(pos + 1);
@@ -25,6 +27,17 @@ static std::string Message(std::string_view file, int line, std::format_string<A
 #ifndef FAULT
 #define FAULT(...) FAULT_AS(std::runtime_error, __VA_ARGS__)
 #endif
+
+// clang-format off
+#ifndef EXPECT
+#define EXPECT(expr)  do { \
+    if (!static_cast<bool>(expr)) { \
+        auto _trust_bt_ = trust::utils::backtrace_string(3); \
+        FAULT("EXPECTED: '{}'\n{}", #expr, _trust_bt_); \
+    } \
+} while (0)
+#endif
+// clang-format on
 
 #ifndef ASSERT
 #define ASSERT(...) assert(__VA_ARGS__)

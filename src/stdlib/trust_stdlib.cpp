@@ -25,7 +25,7 @@ namespace trust {
 // ─────────────────────────────────────────────────────────────
 // Паттерны поиска
 // ─────────────────────────────────────────────────────────────
-static const std::map<std::string, std::string> &all_search_patterns() {
+static const std::map<std::string, std::string>& all_search_patterns() {
     static const std::map<std::string, std::string> patterns{
         //{"::*", "functions"},
         {"::printf,abs,ato*,rand*,f*", "functions"},
@@ -41,14 +41,14 @@ static const std::map<std::string, std::string> &all_search_patterns() {
     return patterns;
 }
 
-const std::map<std::string, std::string> &get_search_patterns() {
+const std::map<std::string, std::string>& get_search_patterns() {
     return all_search_patterns();
 }
 
 // ─────────────────────────────────────────────────────────────
 // Игнорируемые паттерны
 // ─────────────────────────────────────────────────────────────
-const std::set<std::string> &get_ignore_patterns() {
+const std::set<std::string>& get_ignore_patterns() {
     static const std::set<std::string> removed = {
         // удалено в C++20
         "std::unexpected",
@@ -113,7 +113,7 @@ const std::vector<std::string> full_iterators = {"iterator", "const_iterator", "
 const std::vector<std::string> unordered_iterators = {"iterator", "const_iterator"};
 
 // Конфигурация итераторов по паттернам
-static const std::map<std::string, ContainerIteratorConfig> &container_iterator_configs() {
+static const std::map<std::string, ContainerIteratorConfig>& container_iterator_configs() {
     static const std::map<std::string, ContainerIteratorConfig> configs{
         {"std::vector", {full_iterators}}, {"std::list", {full_iterators}}, {"std::deque", {full_iterators}},
         {"std::array", {full_iterators}},  {"std::*map", {full_iterators}}, {"std::*set", {full_iterators}},
@@ -121,8 +121,8 @@ static const std::map<std::string, ContainerIteratorConfig> &container_iterator_
     return configs;
 }
 
-const ContainerIteratorConfig *get_container_iterator_config(const std::string &pattern) {
-    const auto &configs = container_iterator_configs();
+const ContainerIteratorConfig* get_container_iterator_config(const std::string& pattern) {
+    const auto& configs = container_iterator_configs();
     auto it = configs.find(pattern);
     if (it != configs.end()) {
         return &it->second;

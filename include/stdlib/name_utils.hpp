@@ -11,22 +11,22 @@
 namespace trust {
 
 // Извлечь короткое имя: push_back из std::vector::push_back
-std::string short_name(const std::string &qualified);
+std::string short_name(const std::string& qualified);
 
 // Извлечь родительский класс/namespace: std::vector из std::vector::push_back
-std::string class_name(const std::string &qualified);
+std::string class_name(const std::string& qualified);
 
 // Убрать шаблонные аргументы: std::vector<_Tp, _Alloc> -> std::vector
-std::string remove_template_args(const std::string &name);
+std::string remove_template_args(const std::string& name);
 
 // Проверить, является ли имя внутренним (любой компонент начинается с '_')
-bool is_internal_name(const std::string &qualified);
+bool is_internal_name(const std::string& qualified);
 
 // Проверить, попадает ли имя под какой-либо ignore pattern
-bool matches_ignore_pattern(const std::string &name);
+bool matches_ignore_pattern(const std::string& name);
 
 // Посчитать вхождения подстроки (вспомогательная функция)
-size_t count_occurrences(const std::string &str, const std::string &sub);
+size_t count_occurrences(const std::string& str, const std::string& sub);
 
 } // namespace trust
 

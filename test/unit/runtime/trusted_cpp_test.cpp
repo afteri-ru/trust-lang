@@ -86,7 +86,7 @@ TEST_F(TrustedCppTest, SyncSingleThreadDifferentThread) {
         try {
             auto locker = Locker<int>(sync, false);
             (void)locker;
-        } catch (const std::runtime_error &e) {
+        } catch (const std::runtime_error& e) {
             std::lock_guard<std::mutex> lock(error_mutex);
             error_msg = e.what();
         }
@@ -140,7 +140,7 @@ TEST_F(TrustedCppTest, SyncTimedMutexThreadSafety) {
         threads.emplace_back(worker);
     }
 
-    for (auto &t : threads) {
+    for (auto& t : threads) {
         t.join();
     }
 
@@ -193,7 +193,7 @@ TEST_F(TrustedCppTest, SyncTimedSharedConcurrentReads) {
         threads.emplace_back(reader);
     }
 
-    for (auto &t : threads) {
+    for (auto& t : threads) {
         t.join();
     }
 
@@ -582,7 +582,7 @@ TEST_F(TrustedCppTest, SharedThreadSafetyTimedMutex) {
         threads.emplace_back(worker);
     }
 
-    for (auto &t : threads) {
+    for (auto& t : threads) {
         t.join();
     }
 
@@ -622,7 +622,7 @@ TEST_F(TrustedCppTest, SharedThreadSafetyTimedShared) {
         threads.emplace_back(reader);
     }
 
-    for (auto &t : threads) {
+    for (auto& t : threads) {
         t.join();
     }
 

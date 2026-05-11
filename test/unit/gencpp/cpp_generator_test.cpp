@@ -16,14 +16,16 @@ static std::unique_ptr<Program> parse_program(const std::string& input) {
     Context ctx;
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> roots;
-    for (auto& r : *nodes) roots.push_back(r.get());
+    for (auto& r : *nodes)
+        roots.push_back(r.get());
     return build_ast_from_roots(roots, ctx);
 }
 
 static std::unique_ptr<Program> parse_program(const std::string& input, Context& ctx) {
     auto nodes = parse_ast_format(input, ctx);
     std::vector<ParsedNode*> roots;
-    for (auto& r : *nodes) roots.push_back(r.get());
+    for (auto& r : *nodes)
+        roots.push_back(r.get());
     return build_ast_from_roots(roots, ctx);
 }
 
@@ -137,11 +139,8 @@ static const ModuleTestParams module_params[] = {
     {OutputFormat::Cpp23Module, "my_cpp23_module", "export module my_cpp23_module", "import std;", "Cpp23"},
 };
 
-INSTANTIATE_TEST_SUITE_P(ModuleFormats, CppModuleTest,
-                         testing::ValuesIn(module_params),
-                         [](const testing::TestParamInfo<ModuleTestParams>& info) {
-                             return info.param.name_suffix;
-                         });
+INSTANTIATE_TEST_SUITE_P(ModuleFormats, CppModuleTest, testing::ValuesIn(module_params),
+                         [](const testing::TestParamInfo<ModuleTestParams>& info) { return info.param.name_suffix; });
 
 TEST(CppModuleTest, EnumAndStruct) {
     std::string input = "EnumDecl name=Color\n"

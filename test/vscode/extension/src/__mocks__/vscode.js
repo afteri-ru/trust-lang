@@ -111,7 +111,7 @@ class MockTrustConfiguration {
             cppCompilerPath: 'clang++-22',
             cppCompilerOptions: '-std=c++23 -g3 -O0',
             tempDir: '.trust',
-            lldbServerPath: '',
+            gdbPath: '',
             traceDAP: false,
             traceLSP: false
         };
@@ -123,6 +123,8 @@ class MockTrustConfiguration {
         this.settings[key] = value;
     }
 }
+
+const ProgressLocation = { Notification: 1, Window: 2 };
 
 const window = {
     _statusBarItems: [],
@@ -144,7 +146,8 @@ const window = {
     showTextDocument: (doc, options) => Promise.resolve({
         revealRange: (range, mode) => {}
     }),
-    onDidChangeActiveTextEditor: () => ({ dispose: () => {} })
+    onDidChangeActiveTextEditor: () => ({ dispose: () => {} }),
+    withProgress: (options, task) => task({ report: () => {} })
 };
 
 class DebugAdapterExecutable {
@@ -156,9 +159,14 @@ class DebugAdapterExecutable {
 
 const debug = {
     _lastConfigProvider: null,
+    _lastTrackerFactory: null,
     registerDebugAdapterDescriptorFactory: (type, factory) => ({
         dispose: () => {}
     }),
+    registerDebugAdapterTrackerFactory: (type, factory) => {
+        debug._lastTrackerFactory = factory;
+        return { dispose: () => { debug._lastTrackerFactory = null; } };
+    },
     registerDebugConfigurationProvider: (type, provider) => {
         debug._lastConfigProvider = provider;
         return {
@@ -201,6 +209,28 @@ const Range = class {
     }
 };
 
+class CustomExecution {
+    constructor(callback) {
+        this.callback = callback;
+    }
+}
+
+const TaskGroup = {
+    Build: { isDefault: false, id: 'build' }
+};
+
+class Task {
+    constructor(definition, scope, name, source, execution) {
+        this.definition = definition;
+        this.scope = scope;
+        this.name = name;
+        this.source = source;
+        this.execution = execution;
+        this.group = null;
+        this.problemMatchers = [];
+    }
+}
+
 module.exports = {
     StatusBarAlignment,
     ViewColumn,
@@ -214,6 +244,10 @@ module.exports = {
     Range,
     DebugAdapterExecutable,
     tasks,
+    ProgressLocation,
+    CustomExecution,
+    TaskGroup,
+    Task,
     // Test helpers
     registeredCommands,
     // Mock classes

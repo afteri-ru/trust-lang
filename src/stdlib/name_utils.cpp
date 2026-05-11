@@ -7,7 +7,7 @@ namespace trust {
 // ─────────────────────────────────────────────────────────────
 // short_name — извлекает последний компонент после "::"
 // ─────────────────────────────────────────────────────────────
-std::string short_name(const std::string &qualified) {
+std::string short_name(const std::string& qualified) {
     auto pos = qualified.rfind("::");
     return (pos != std::string::npos) ? qualified.substr(pos + 2) : qualified;
 }
@@ -15,7 +15,7 @@ std::string short_name(const std::string &qualified) {
 // ─────────────────────────────────────────────────────────────
 // class_name — извлекает родительский класс/namespace
 // ─────────────────────────────────────────────────────────────
-std::string class_name(const std::string &qualified) {
+std::string class_name(const std::string& qualified) {
     auto pos = qualified.rfind("::");
     if (pos == std::string::npos)
         return qualified;
@@ -25,7 +25,7 @@ std::string class_name(const std::string &qualified) {
 // ─────────────────────────────────────────────────────────────
 // remove_template_args — убирает всё между '<' и '>'
 // ─────────────────────────────────────────────────────────────
-std::string remove_template_args(const std::string &name) {
+std::string remove_template_args(const std::string& name) {
     std::string result;
     int depth = 0;
     for (char c : name) {
@@ -46,7 +46,7 @@ std::string remove_template_args(const std::string &name) {
 // ─────────────────────────────────────────────────────────────
 // is_internal_name — проверка, что любой компонент начинается с '_'
 // ─────────────────────────────────────────────────────────────
-bool is_internal_name(const std::string &qualified) {
+bool is_internal_name(const std::string& qualified) {
     size_t start = 0;
     while (true) {
         auto pos = qualified.find("::", start);
@@ -63,9 +63,9 @@ bool is_internal_name(const std::string &qualified) {
 // ─────────────────────────────────────────────────────────────
 // matches_ignore_pattern — единая проверка игнор-паттернов
 // ─────────────────────────────────────────────────────────────
-bool matches_ignore_pattern(const std::string &name) {
-    const auto &ignore_patterns = get_ignore_patterns();
-    for (const auto &pattern : ignore_patterns) {
+bool matches_ignore_pattern(const std::string& name) {
+    const auto& ignore_patterns = get_ignore_patterns();
+    for (const auto& pattern : ignore_patterns) {
         if (PatternMatchesString(name, pattern.data(), pattern.data() + pattern.size())) {
             return true;
         }
@@ -80,7 +80,7 @@ bool matches_ignore_pattern(const std::string &name) {
 // ─────────────────────────────────────────────────────────────
 // count_occurrences — количество вхождений подстроки
 // ─────────────────────────────────────────────────────────────
-size_t count_occurrences(const std::string &str, const std::string &sub) {
+size_t count_occurrences(const std::string& str, const std::string& sub) {
     size_t count = 0;
     size_t pos = 0;
     while ((pos = str.find(sub, pos)) != std::string::npos) {

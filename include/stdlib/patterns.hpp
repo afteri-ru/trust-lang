@@ -13,10 +13,10 @@
 namespace trust {
 
 // Карта: шаблон поиска -> имя файла для результатов
-const std::map<std::string, std::string> &get_search_patterns();
+const std::map<std::string, std::string>& get_search_patterns();
 
 // Список игнорируемых паттернов (deprecated, removed, internal)
-const std::set<std::string> &get_ignore_patterns();
+const std::set<std::string>& get_ignore_patterns();
 
 // Информация об итераторах для конкретного паттерна контейнера
 struct ContainerIteratorConfig {
@@ -25,7 +25,7 @@ struct ContainerIteratorConfig {
 
 // Получить конфигурацию итераторов для паттерна контейнера
 // Возвращает nullptr, если паттерн не является контейнером
-const ContainerIteratorConfig *get_container_iterator_config(const std::string &pattern);
+const ContainerIteratorConfig* get_container_iterator_config(const std::string& pattern);
 
 } // namespace trust
 

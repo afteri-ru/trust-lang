@@ -117,12 +117,14 @@ struct type_meta_t {
     static constexpr uint16_t kTrivialCopyPos = 14;
     static constexpr uint16_t kUserDefinedPos = 15;
 
-    constexpr type_meta_t() : value(0) {}
+    constexpr type_meta_t()
+    : value(0) {}
     constexpr type_meta_t(type_alias_t a, bool tc, bool ud)
-        : value(static_cast<uint16_t>(static_cast<uint16_t>(a) << (kReserveLoWidth + kReserveHiWidth)) |
-                static_cast<uint16_t>(tc ? 1u : 0u) << kTrivialCopyPos | static_cast<uint16_t>(ud ? 1u : 0u) << kUserDefinedPos) {}
+    : value(static_cast<uint16_t>(static_cast<uint16_t>(a) << (kReserveLoWidth + kReserveHiWidth)) | static_cast<uint16_t>(tc ? 1u : 0u) << kTrivialCopyPos |
+            static_cast<uint16_t>(ud ? 1u : 0u) << kUserDefinedPos) {}
 
-    explicit constexpr type_meta_t(uint16_t v) : value(v) {}
+    explicit constexpr type_meta_t(uint16_t v)
+    : value(v) {}
 
     constexpr type_alias_t alias() const { return static_cast<type_alias_t>((value >> (kReserveLoWidth + kReserveHiWidth)) & 0x7); }
     constexpr bool trivial_copy() const { return (value >> kTrivialCopyPos) & 1; }
@@ -247,9 +249,15 @@ struct type_class_t {
     type_category_t category;
     type_group_t group;
 
-    constexpr type_class_t() : category(0), group(0) {}
-    constexpr type_class_t(Category c, type_group_t g) : category(static_cast<type_category_t>(c)), group(g) {}
-    constexpr type_class_t(type_category_t c, type_group_t g) : category(c), group(g) {}
+    constexpr type_class_t()
+    : category(0)
+    , group(0) {}
+    constexpr type_class_t(Category c, type_group_t g)
+    : category(static_cast<type_category_t>(c))
+    , group(g) {}
+    constexpr type_class_t(type_category_t c, type_group_t g)
+    : category(c)
+    , group(g) {}
 
     constexpr bool operator==(type_class_t o) const { return category == o.category && group == o.group; }
     constexpr bool operator!=(type_class_t o) const { return !(*this == o); }

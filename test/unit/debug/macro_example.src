@@ -1,0 +1,28 @@
+# Example: macro with if/then and if/then/else
+macro Init create x = 10;
+create a = 1;
+Init;
+create b = 2;
+Init;
+print a b x;
+
+create val = 5;
+
+# if/then with direct print
+if val then print "positive";
+
+print "\n";
+
+# if/then/else with direct print
+if 0 then print "yes" else print "no";
+
+print "\n";
+
+# Expected after transpile:
+# int cpp_a = 1; int cpp_x = 10; int cpp_b = 2; int cpp_x = 10;
+# std::cout << cpp_a << cpp_b << cpp_x;
+# int cpp_val = 5;
+# if (static_cast<bool>(cpp_val)) { std::cout << "positive"; }
+# std::cout << "\n";
+# if (static_cast<bool>(0)) { std::cout << "yes"; } else { std::cout << "no"; }
+# std::cout << "\n";
