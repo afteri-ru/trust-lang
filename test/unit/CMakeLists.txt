@@ -9,14 +9,15 @@ set(TEST_SOURCES
     diag/mapping_test.cpp
     diag/mapping_extended_test.cpp
     diag/save_and_read_test.cpp
+    ast/attr_test.cpp
     parser/lexer_test.cpp
     parser/lexer_integration_test.cpp
     parser/mmproc_test.cpp
     parser/naming_test.cpp
     parser/parser_test.cpp
     #  parser/token_gen_test.cpp
-    # cli/cli_test.cpp
-    # cli/cliopt_test.cpp
+    pipeline/pipeline_test.cpp
+    # pipeline/pipelineopt_test.cpp
     types/registry_test.cpp
     types/alias_test.cpp
     types/cast_test.cpp
@@ -32,7 +33,7 @@ set(TEST_SOURCES
     lsp/trust_lsp_test.cpp
     utils/cache_test.cpp
     utils/strings_test.cpp
-    gencpp_map_test.cpp
+    # gencpp_map_test.cpp
 
     # Generated lexer
     "${CMAKE_BINARY_DIR}/include/parser/lex.yy.cpp"
@@ -58,14 +59,16 @@ endif()
 
 # ── Link all libraries ──
 target_link_libraries(unit_tests PRIVATE
-    gencpp_lib
+    # gencpp_lib
+    ast_lib
     diag_lib
     parser_lib
     types_lib
-    cli_lib
+    pipeline_lib
     stdlib_lib
     debug_lib
     lsp_lib
+    CLI11::CLI11
     GTest::gtest
 )
 
@@ -78,7 +81,7 @@ target_include_directories(unit_tests PRIVATE
     ${CMAKE_BINARY_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/test/lit/gencpp
+    # ${CMAKE_SOURCE_DIR}/test/lit/gencpp
 )
 target_include_directories(unit_tests SYSTEM PRIVATE
     ${MSGPACK_INCLUDE_DIRS}

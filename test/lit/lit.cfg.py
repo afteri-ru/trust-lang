@@ -1,1 +1,0 @@
-/home/rsashka/SOURCE/afteri/trust-lang/build/test/lit/lit.cfg.py

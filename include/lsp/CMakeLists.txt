@@ -17,7 +17,7 @@ target_link_libraries(lsp_lib PRIVATE
     nlohmann_json::nlohmann_json
 )
 
-# Для доступа к trust/version.h (генерируется в build/include)
+# Для доступа к trust/version.h (генерируется в _build/include)
 target_include_directories(lsp_lib PRIVATE ${CMAKE_BINARY_DIR}/include)
 
 target_include_directories(lsp_lib PUBLIC

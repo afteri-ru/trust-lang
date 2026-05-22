@@ -60,7 +60,7 @@
 #     Required tasks:
 #     - Project build (cmake: configure + build)
 #       Combine configure and build in a single command (generator: Unix Makefiles,
-#       build dir: build/).
+#       build dir: _build/).
 #     - All tests (test: all) — unit + lit + debug + vscode
 #     - Direct execution of unit_tests with shuffle and filter
 #     There may be more tasks, but these three tasks must be present.
@@ -68,32 +68,32 @@
 # 11. Common build commands
 #     ──────────────────────────────────────────────────────────
 #     # Конфигурация (из корня проекта)
-#     cmake -B build -G "Unix Makefiles"
-#     cmake -B build -G "Unix Makefiles" -DWITH_TORCH=ON   # с Torch
+#     cmake -B _build -G "Unix Makefiles"
+#     cmake -B _build -G "Unix Makefiles" -DWITH_TORCH=ON   # с Torch
 #
 #     # Сборка всего проекта
-#     cmake --build build
+#     cmake --build _build
 #
 #     # Сборка отдельных библиотек
-#     cmake --build build --target <"component name" + _lib>
+#     cmake --build _build --target <"component name" + _lib>
 #
 #     # Сборка исполняемых файлов
-#     cmake --build build --target <name>
+#     cmake --build _build --target <name>
 #
 #     # Сборка и запуск тестов
-#     cmake --build build --target unit_tests             # сборка unit-тестов (без запуска)
-#     cmake --build build --target run_unit_tests         # сборка + запуск unit-тестов
-#     cmake --build build --target run_lit_tests          # LIT-тесты
-#     cmake --build build --target run_debug_tests        # debug-тесты
-#     cmake --build build --target run_vscode_tests       # VSCode-тесты
-#     cmake --build build --target run_tests              # все тесты сразу
+#     cmake --build _build --target unit_tests             # сборка unit-тестов (без запуска)
+#     cmake --build _build --target run_unit_tests         # сборка + запуск unit-тестов
+#     cmake --build _build --target run_lit_tests          # LIT-тесты
+#     cmake --build _build --target run_debug_tests        # debug-тесты
+#     cmake --build _build --target run_vscode_tests       # VSCode-тесты
+#     cmake --build _build --target run_tests              # все тесты сразу
 #
 #     # Отдельные debug-тесты
-#     cmake --build build --target run_simple_integration # debug integration
-#     cmake --build build --target run_lldb_main          # LLDB без DAP
+#     cmake --build _build --target run_simple_integration # debug integration
+#     cmake --build _build --target run_lldb_main          # LLDB без DAP
 #
 #     # Очистка
-#     cmake --build build --target clean
+#     cmake --build _build --target clean
 #
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -196,11 +196,12 @@ if(WITH_TORCH)
 endif()
 
 add_subdirectory(include/diag)
+add_subdirectory(include/ast)
 add_subdirectory(include/parser)
 add_subdirectory(include/stdlib)
 add_subdirectory(include/types)
-add_subdirectory(include/gencpp)
-add_subdirectory(include/cli)
+# add_subdirectory(include/gencpp)
+add_subdirectory(include/pipeline)
 add_subdirectory(include/runtime)
 add_subdirectory(include/debug)
 add_subdirectory(include/lsp)

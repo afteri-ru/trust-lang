@@ -83,13 +83,15 @@ TEST(LexerErrorPosition, UnterminatedEval) {
     EXPECT_GE(pos, 0);
 }
 
-// Тест ошибки: незавершённый атрибут @[ ]@
+// @[ больше не переводит лексер в exclusive state, поэтому
+// @[attr — корректная последовательность: ATTR_BEGIN + NAME("attr")
 TEST(LexerErrorPosition, UnterminatedAttribute) {
-    std::string what;
-    int pos = -1;
-    EXPECT_TRUE(RunLexerAndCatchError("@[attr", what, pos));
-    EXPECT_NE(what.find("@[ ... ]@"), std::string::npos);
-    EXPECT_GE(pos, 0);
+    Context ctx;
+    auto idx = ctx.add_source("<test>", "@[attr");
+    auto lexemes = Lexer::tokenize(ctx, idx);
+    ASSERT_GE(lexemes.size(), 2);
+    EXPECT_EQ(lexemes[0].kind, ParserToken::Kind::ATTR);
+    EXPECT_EQ(lexemes[1].kind, ParserToken::Kind::NAME);
 }
 
 // Тест нормального токенизирования
@@ -165,7 +167,7 @@ TEST(LexerNormal, MacroTokens) {
         EXPECT_EQ(lexemes[1].kind, ParserToken::Kind::MACRO_CONCAT);
         EXPECT_EQ(lexemes[2].kind, ParserToken::Kind::MACRO_TOSTR);
         EXPECT_EQ(lexemes[3].kind, ParserToken::Kind::MACRO);
-        EXPECT_EQ(lexemes[4].kind, ParserToken::Kind::MACRO_NAMESPACE);
+        EXPECT_EQ(lexemes[4].kind, ParserToken::Kind::MACRO_PATTERN);
     }
 }
 
@@ -224,9 +226,11 @@ TEST(LexerMultilineTokens, Attribute) {
     Context ctx;
     auto idx = ctx.add_source("<test>", "@[attr]@");
     auto lexemes = Lexer::tokenize(ctx, idx);
-    ASSERT_GE(lexemes.size(), 1);
-    EXPECT_EQ(lexemes[0].kind, ParserToken::Kind::ATTRIBUTE);
-    EXPECT_EQ(lexemes[0], "attr");
+    ASSERT_EQ(lexemes.size(), 3);
+    EXPECT_EQ(lexemes[0].kind, ParserToken::Kind::ATTR);
+    EXPECT_EQ(lexemes[1].kind, ParserToken::Kind::NAME);
+    EXPECT_EQ(lexemes[1], "attr");
+    EXPECT_EQ(lexemes[2].kind, ParserToken::Kind::ATTR_COMPLETE);
 }
 
 TEST(LexerMultilineTokens, MacroStr) {
@@ -398,7 +402,7 @@ TEST(LexerMultilineComments, DocCommentWithNewlines) {
 }
 
 // ============================================================
-// Multiline EMBED/EVAL/ATTRIBUTE/MACRO_STR с новыми строками
+// Multiline EMBED/EVAL/ATTR_BEGIN/ATTR_END/MACRO_STR с новыми строками
 // ============================================================
 
 TEST(LexerMultilineTokens, EmbedMultiline) {
@@ -421,7 +425,7 @@ TEST(LexerMultilineTokens, AttributeMultiline) {
     auto idx = ctx.add_source("<test>", "@[\nattr\n]@");
     auto lexemes = Lexer::tokenize(ctx, idx);
     ASSERT_GE(lexemes.size(), 1);
-    EXPECT_EQ(lexemes[0].kind, ParserToken::Kind::ATTRIBUTE);
+    EXPECT_EQ(lexemes[0].kind, ParserToken::Kind::ATTR);
 }
 
 TEST(LexerMultilineTokens, MacroStrMultiline) {

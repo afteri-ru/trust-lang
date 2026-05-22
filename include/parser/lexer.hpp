@@ -7,7 +7,7 @@
 #include "diag/context.hpp"
 #include "utils/error.hpp"
 #include "diag/location.hpp"
-#include "parser/token.hpp"
+#include "ast/token.hpp"
 
 namespace trust {
 

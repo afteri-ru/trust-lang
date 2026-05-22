@@ -1,20 +1,20 @@
 #include "parser/parser.hpp"
 #include "parser.tab.hh"
-#include "parser/token.hpp"
-#include "parser/token_info.hpp"
+#include "ast/token.hpp"
+#include "ast/token_info.hpp"
 #include "stdlib/buildin.hpp"
 #include <cstddef>
 #include <string>
 
 namespace trust {
 
-int yylex(ParserAST::semantic_type* yylval, TokenSequence& ts, std::size_t& pos) {
-    if (pos >= ts.size()) {
+int yylex(ParserAST::semantic_type* yylval, ParserContext& pc) {
+    if (pc.pos >= pc.ts.size()) {
         return 0; // EOF
     }
-    const TokenInfo* token = ts[pos].get();
+    const TokenInfo* token = pc.ts[pc.pos].get();
     auto kind = token->kind;
-    *yylval = ts[pos++];
+    *yylval = pc.ts[pc.pos++];
     return static_cast<int>(kind);
 }
 

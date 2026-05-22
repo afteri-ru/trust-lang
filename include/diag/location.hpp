@@ -174,30 +174,12 @@ struct TaggedLocation {
         return loc.offset() - val;
     }
 
-    friend constexpr bool operator==(const Location& a, const Location& b) {
-        EXPECT(a.fileIdx() == b.fileIdx());
-        return a.packed == b.packed;
-    }
-    friend constexpr bool operator!=(const Location& a, const Location& b) {
-        EXPECT(a.fileIdx() == b.fileIdx());
-        return !(a == b);
-    }
-    friend constexpr bool operator<(const Location& a, const Location& b) {
-        EXPECT(a.fileIdx() == b.fileIdx());
-        return a.packed < b.packed;
-    }
-    friend constexpr bool operator>(const Location& a, const Location& b) {
-        EXPECT(a.fileIdx() == b.fileIdx());
-        return a.packed > b.packed;
-    }
-    friend constexpr bool operator<=(const Location& a, const Location& b) {
-        EXPECT(a.fileIdx() == b.fileIdx());
-        return a.packed <= b.packed;
-    }
-    friend constexpr bool operator>=(const Location& a, const Location& b) {
-        EXPECT(a.fileIdx() == b.fileIdx());
-        return a.packed >= b.packed;
-    }
+    friend constexpr bool operator==(const Location& a, const Location& b) { return a.packed == b.packed; }
+    friend constexpr bool operator!=(const Location& a, const Location& b) { return !(a == b); }
+    friend constexpr bool operator<(const Location& a, const Location& b) { return a.packed < b.packed; }
+    friend constexpr bool operator>(const Location& a, const Location& b) { return a.packed > b.packed; }
+    friend constexpr bool operator<=(const Location& a, const Location& b) { return a.packed <= b.packed; }
+    friend constexpr bool operator>=(const Location& a, const Location& b) { return a.packed >= b.packed; }
 
     // Вложенный тип диапазона, параметризованный тем же тегом
     struct RangeType {

@@ -12,7 +12,7 @@
 ## Сборка
 
 ```bash
-mkdir build && cd build
+mkdir _build && cd _build
 cmake ..
 cmake --build .
 ./test/unit

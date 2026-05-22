@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+# TaskResume Hook
+# 
+# Executes when a task is resumed after being interrupted.
+# 
+# Input: { 
+#   taskId, 
+#   taskResume: { 
+#     taskMetadata: { taskId: string, ulid: string },
+#     previousState: { lastMessageTs: string, messageCount: string, conversationHistoryDeleted: string }
+#   }, 
+#   clineVersion, timestamp, ... 
+# }
+# Output: { cancel: boolean, contextModification?: string, errorMessage?: string }
+# 
+# Use cases:
+# - Check for changes since task was paused
+# - Refresh context with latest project state
+# - Notify that work is resuming
+#
+# ВНИМАНИЕ: Примеры использования в этом файле являются эталонными.
+# Реализация должна строго соответствовать примерам.
+# Не удаляйте примеры использования!
+#
+# Example to use:
+#
+# Read JSON input from stdin
+#INPUT=$(cat)
+# Parse input using jq (or fallback to basic parsing)
+#if command -v jq &> /dev/null; then
+#  TASK_ID=$(echo "$INPUT" | jq -r '.taskResume.taskMetadata.taskId')
+#  MSG_COUNT=$(echo "$INPUT" | jq -r '.taskResume.previousState.messageCount')
+#else
+#  TASK_ID="<taskId>"
+#  MSG_COUNT="0"
+#fi
+#
+# echo "[TaskResume] Resuming task: $TASK_ID (previous messages: $MSG_COUNT)" >&2
+#
+# Return result
+# echo '{"cancel":false,"contextModification":"","errorMessage":""}'
+#
+# ===============================================================================
+#
+# Actions for tasklog:
+# 1. If .tasklog/<taskId>.md exists — log resume event
+# 2. If no task file exists — act like TaskStart (create from scratch)
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
+
+INPUT=$(cat)
+
+# Извлекаем taskId из .taskResume.taskMetadata.taskId (как в примере)
+TASK_ID=$(extract_task_id "$INPUT" '.taskResume.taskMetadata.taskId') || {
+  jq -n '{"cancel":true,"contextModification":"","errorMessage":"TaskResume: failed to extract taskId from input"}'
+  exit 0
+}
+
+NOW_MS=$(date +%s%3N)
+NOW_ISO=$(timestamp_to_iso "$NOW_MS") || {
+  jq -n '{"cancel":true,"contextModification":"","errorMessage":"TaskResume: failed to format timestamp"}'
+  exit 0
+}
+
+MSG_COUNT=$(echo "$INPUT" | jq -r '.taskResume.previousState.messageCount')
+
+TASK_FILE="${TASKLOG_DIR}/${TASK_ID}.md"
+TMP_FILE="${TASKLOG_DIR}/${TASK_ID}.tmp"
+
+if [ -f "$TASK_FILE" ]; then
+  # Task file exists — log resume event via safe_append_to_tasklog
+  {
+    echo ""
+    echo ""
+    echo "${NOW_ISO} TaskResume prevMessages=${MSG_COUNT}"
+    echo ""
+  } | safe_append_to_tasklog "$TASK_FILE" "$TMP_FILE"
+else
+  # No task file — create from scratch (same format as TaskStart)
+  {
+    echo ""
+    echo "${NOW_ISO} plan taskId=${TASK_ID}"
+    echo ""
+    echo "Task resumed (initial task description not available)"
+    echo ""
+  } | safe_append_to_tasklog "$TASK_FILE" "$TMP_FILE"
+fi
+
+# echo '{"cancel":false,"contextModification":"","errorMessage":""}'

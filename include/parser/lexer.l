@@ -8,7 +8,7 @@
 %option extra-type="trust::Lexer *"
 
 %{
-#include "parser/token.hpp"
+#include "ast/token.hpp"
 #include <stdexcept>
 
   #ifndef YY_FATAL_ERROR
@@ -41,7 +41,7 @@
 %x state_STRWIDE_RAW
 %x state_STRCHAR_RAW
 %x state_DOC_BEFORE
-%x state_ATTRIBUTE
+%x state_OPERATOR
 
 
 alpha   [A-Za-z]
@@ -215,8 +215,6 @@ ${name}"^"? TK(LOCAL);
 "::="       TK(CREATE_NEW);
 ":="        TK(CREATE_USE);
 "[]="       TK(APPEND);
-"::-"       TK(PURE_NEW);
-":-"        TK(PURE_USE);
 ":=:"       TK(SWAP);
 
 "::"        TK(NAMESPACE);
@@ -224,22 +222,36 @@ ${name}"^"? TK(LOCAL);
 "$^"        TK(ARGS);
 "$$"        TK(PARENT);
 "\\$"       TK(NEWLANG);
+
+"\\\\\\"    TK(MODULE);
 "\\\\"      TK(MODULE);
+"$\\\\"     TK(MODULE);
 
 "@::"       TK(MACRO_NAMESPACE);
-"@$$"       TK(MACRO_NAMESPACE);
 "$::"       TK(MACRO_NAMESPACE);
+"@$$"       TK(MACRO_PATTERN);
 
-"$\\\\"     TK(MACRO);
 
 "@\\\\"       TK(ESCAPE);
 
-"@["        { yy_push_state(state_ATTRIBUTE, yyscanner); ADV(yyleng); yyextra->content_start = yyextra->offset; } /* TK(ATTRIBUTE) - do not remove checks */
+"@["        TK(ATTR);
+"]@"        TK(ATTR_COMPLETE);
 
-<state_ATTRIBUTE>{
-  "]@"       { yy_pop_state(yyscanner); return TK(ATTRIBUTE, 2, 2); }
-  <<EOF>>    LEXER_ERROR("lex: unterminated @[ ... ]@ attribute");
-  (.|\n)     ADV(yyleng);
+"@\""       { yy_push_state(state_OPERATOR, yyscanner); ADV(yyleng, true);
+              yyextra->content_start = yyextra->offset; }
+
+<state_OPERATOR>{
+  "\"@"     { yy_pop_state(yyscanner); return TK(OPERATOR, 2, 2); }
+  {ualpha}  LEXER_ERROR("lex: operator cannot contain letters");
+  [0-9]     { if (yyextra->content_start == yyextra->offset - yyleng) {
+                LEXER_ERROR("lex: operator cannot start with digit");
+              } else {
+                ADV(yyleng);
+              } }
+  [_.;:]    LEXER_ERROR("lex: operator cannot contain '_', '.', ';', ':'");
+  \n        LEXER_ERROR("lex: unterminated OPERATOR @\"...\"@");
+  .         ADV(yyleng);
+  <<EOF>>   LEXER_ERROR("lex: unterminated OPERATOR @\"...\"@");
 }
 
 "@{"        TK(MACRO_EXPR_BEGIN);
@@ -315,7 +327,7 @@ ${name}"^"? TK(LOCAL);
 "?!"        TK(ITERATOR_QQ);
 "!?"        TK(ITERATOR_QQ);
 
-[ \t\n]+   ADV(yyleng);
+[ \t\r\n]+   ADV(yyleng);
 
 "("         TK(LPAREN);
 ")"         TK(RPAREN);
@@ -345,7 +357,7 @@ ${name}"^"? TK(LOCAL);
 "$"         TK(DOLLAR);
 "#"         TK(HASH);
 
-.           { LEXER_ERROR("lex: unrecognized character"); }
+.           LEXER_ERROR("lex: unexpected character");
 
 <<EOF>>   return 0;
 

@@ -126,21 +126,40 @@ MapperFile Context::add_source(std::string filename, std::string content, bool n
 }
 
 MapperFile Context::load_file(std::string path) {
+    if (m_inputs.empty()) {
+        // Первый вызов — загружаем главный файл
+        fs::path p = fs::absolute(fs::path(path));
+        m_baseDirectory = p.parent_path().generic_string();
+        std::string norm = p.filename().generic_string();
+
+        std::ifstream ifs(p, std::ios::in | std::ios::binary);
+        if (!ifs)
+            FAULT("Main file '{}' not found!", p.generic_string());
+        std::ostringstream ss;
+        ss << ifs.rdbuf();
+        auto content = ss.str();
+        m_inputs.emplace_back(std::move(norm), std::move(content));
+        m_reader.reset();
+        return MapperFile::make_input(0);
+    }
+
+    // Последующие вызовы — загружаем модуль
     std::string norm = normalizePath(path);
     for (uint32_t i = 0; i < m_inputs.size(); ++i) {
         if (m_inputs[i].getFilename() == norm)
-            FAULT("File {} already loaded as index {}!", m_inputs[i].getFilename(), i);
+            FAULT("Module file {} already loaded as index {}!", m_inputs[i].getFilename(), i);
     }
     std::ifstream ifs(norm, std::ios::in | std::ios::binary);
     if (!ifs) {
         ifs.open(path, std::ios::in | std::ios::binary);
         if (!ifs)
-            FAULT("File '{}' not found!", norm);
+            FAULT("Module file '{}' not found!", norm);
     }
     std::ostringstream ss;
     ss << ifs.rdbuf();
     auto content = ss.str();
     m_inputs.emplace_back(std::move(norm), std::move(content));
+    m_reader.reset();
     return MapperFile::make_input(static_cast<uint32_t>(m_inputs.size()) - 1u);
 }
 
@@ -275,11 +294,22 @@ DiagnosticEngine& Context::diag() {
 Options& Context::opts() {
     return *m_opts;
 }
+AttrPool& Context::attrs() {
+    if (!m_attr_pool) {
+        m_attr_pool = std::make_unique<AttrPool>();
+        register_builtin_attrs(*m_attr_pool);
+    }
+    return *m_attr_pool;
+}
 const DiagnosticEngine& Context::diag() const {
     return *m_diag;
 }
 const Options& Context::opts() const {
     return *m_opts;
+}
+const AttrPool& Context::attrs() const {
+    EXPECT(m_attr_pool != nullptr);
+    return *m_attr_pool;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -331,8 +361,10 @@ bool Context::addMacroMapping(MapperRange bodyRange, MapperRange defRange) {
         FAULT("defRange must be an input file");
 
     uint32_t key = bodyRange.begin.packed;
+    // Пропускаем дубликаты — они возникают при рекурсивном раскрытии макросов,
+    // когда вложенный макрос уже зарегистрировал маппинг для того же токена.
     if (m_macroForward.find(key) != m_macroForward.end())
-        FAULT("duplicate macro mapping key");
+        return true;
 
     m_macroForward[key] = RangeMap{bodyRange, defRange};
     m_reader.reset();

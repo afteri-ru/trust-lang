@@ -1,8 +1,8 @@
 #pragma once
 
 #include "diag/location.hpp"
-#include "parser/token.hpp"
-#include "parser/token_info.hpp"
+#include "ast/token.hpp"
+#include "ast/token_info.hpp"
 #include "types/types.hpp"
 #include "gencpp/ast_visitor.hpp"
 #include <optional>

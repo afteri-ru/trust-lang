@@ -1,5 +1,5 @@
-#include "parser/token.hpp"
-#include "parser/token_info.hpp"
+#include "ast/token.hpp"
+#include "ast/token_info.hpp"
 #include "diag/context.hpp"
 #include <gtest/gtest.h>
 #include <string>
@@ -14,7 +14,9 @@ static TokenSequence RunParser(const TokenSequence& input) {
     TokenSequence out;
     std::size_t pos = 0;
     TokenSequence mutable_input(input.begin(), input.end());
-    ParserAST parser(mutable_input, pos, out, nullptr);
+    Context ctx;
+    ParserContext pc(mutable_input, pos, out, ctx);
+    ParserAST parser(pc);
     int result = parser.parse();
     (void)result;
     return out;

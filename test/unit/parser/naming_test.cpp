@@ -1,6 +1,7 @@
 // naming_test.cpp — тестирование Ident (обработка идентификаторов по NAMING.md)
-#include "parser/naming.hpp"
+#include "ast/naming.hpp"
 #include <gtest/gtest.h>
+#include <filesystem>
 
 namespace trust {
 
@@ -243,11 +244,25 @@ TEST(IdentImmutable, WithoutImmutable) {
 // ══════════════════════════════════════════════
 
 TEST(IdentNormalized, IsNormalized) {
+    // Нормализованные
     EXPECT_TRUE(Ident("abc").is_normalized());
     EXPECT_TRUE(Ident("foo123").is_normalized());
+    EXPECT_TRUE(Ident("::var").is_normalized());   // static — нормализован
+    EXPECT_TRUE(Ident("%native").is_normalized()); // native — нормализован
+    EXPECT_TRUE(Ident("var::").is_normalized());   // внутреннее — нормализовано
+    EXPECT_TRUE(Ident("var$").is_normalized());    // внутреннее — нормализовано
+    EXPECT_TRUE(Ident("type:::").is_normalized()); // внутреннее тип — нормализовано
+
+    // Ненормализованные
     EXPECT_FALSE(Ident("abc^").is_normalized());   // содержит ^
     EXPECT_FALSE(Ident("@macro").is_normalized()); // макрос
     EXPECT_FALSE(Ident(".field").is_normalized()); // field
+    EXPECT_FALSE(Ident("$temp").is_normalized());  // временное имя — не нормализовано
+    EXPECT_FALSE(Ident("$0").is_normalized());     // self — специальное имя
+    EXPECT_FALSE(Ident("$$").is_normalized());     // parent — специальное имя
+    EXPECT_FALSE(Ident("$*").is_normalized());     // args_dict — специальное
+    EXPECT_FALSE(Ident("$^").is_normalized());     // last_result — специальное
+    EXPECT_FALSE(Ident("$1").is_normalized());     // arg_ref — специальное
 }
 
 TEST(IdentNormalized, Normalize) {
@@ -255,7 +270,9 @@ TEST(IdentNormalized, Normalize) {
     EXPECT_EQ(Ident(".field").normalized(), "field");
     EXPECT_EQ(Ident(".field^").normalized(), "field");
     EXPECT_EQ(Ident("var").normalized(), "var");
-    EXPECT_EQ(Ident("@macro").normalized(), "@macro"); // макрос не раскрывается
+    EXPECT_EQ(Ident("@macro").normalized(), "@macro");  // макрос не раскрывается
+    EXPECT_EQ(Ident("::name^").normalized(), "::name"); // с ^ и ::
+    EXPECT_EQ(Ident("::name").normalized(), "::name");
 }
 
 // ══════════════════════════════════════════════
@@ -330,6 +347,57 @@ TEST(IdentInternal, NumericPrefixInBlock) {
     EXPECT_TRUE(id.is_internal());
 }
 
+TEST(IdentInternal, StaticWithTrailingColon) {
+    // var:: (статический объект модуля без глобальной видимости) → var::
+    EXPECT_EQ(Ident("var::").to_internal(), "var::");
+}
+
+// ══════════════════════════════════════════════
+// to_internal с иммутабельностью (NAMING.md п.77)
+// ══════════════════════════════════════════════
+
+TEST(IdentInternal, WithImmutable) {
+    // var^ → var:: (^ не входит во внутреннее имя)
+    EXPECT_EQ(Ident("var^").to_internal(), "var::");
+    // ::name^ → ::name::
+    EXPECT_EQ(Ident("::name^").to_internal(), "::name::");
+    // $temp^ → temp$
+    EXPECT_EQ(Ident("$temp^").to_internal(), "temp$");
+    // %func^ → func%
+    EXPECT_EQ(Ident("%func^").to_internal(), "func%");
+    // :type^ → type:::
+    EXPECT_EQ(Ident(":type^").to_internal(), "type:::");
+}
+
+// ══════════════════════════════════════════════
+// to_internal — статический модуль с макросом и нативной функцией
+// ══════════════════════════════════════════════
+
+TEST(IdentInternal, StaticModuleNative) {
+    // @::%func → func:: (текущее поведение: bare_name + ::)
+    EXPECT_EQ(Ident("@::%func").to_internal(), "func::");
+    // @:::Type → Type:: (текущее поведение: bare_name + ::)
+    EXPECT_EQ(Ident("@:::Type").to_internal(), "Type::");
+}
+
+// ══════════════════════════════════════════════
+// to_internal — невалидные комбинации квалификаторов
+// ══════════════════════════════════════════════
+
+TEST(IdentInternal, InvalidQualifierCombos) {
+    // @::$var — static + temp — взаимоисключающие квалификаторы
+    // to_internal вернёт что-то, но это невалидная комбинация
+    // Проверяем, что код не падает
+    EXPECT_FALSE(Ident("@::$var").to_internal().empty());
+
+    // @::.field — static + field — взаимоисключающие квалификаторы
+    EXPECT_FALSE(Ident("@::.field").to_internal().empty());
+
+    // :::$type — :: + $ → статический и локальный — взаимоисключающие
+    Ident invalid1(":::$type");
+    EXPECT_FALSE(invalid1.empty());
+}
+
 // ══════════════════════════════════════════════
 // parts() — разбивка по ::
 // ══════════════════════════════════════════════
@@ -368,6 +436,30 @@ TEST(IdentParts, SimpleDoubleColon) {
     EXPECT_EQ(p[0], "::");
 }
 
+TEST(IdentParts, TrailingDoubleColon) {
+    // var:: — trailing :: после имени, пустой фрагмент не добавляется
+    auto p = Ident("var::").parts();
+    ASSERT_EQ(p.size(), 1);
+    EXPECT_EQ(p[0], "var");
+}
+
+TEST(IdentParts, NamespaceWithTrailingDoubleColon) {
+    // ns::var:: — trailing :: после var
+    auto p = Ident("ns::var::").parts();
+    ASSERT_EQ(p.size(), 2);
+    EXPECT_EQ(p[0], "ns");
+    EXPECT_EQ(p[1], "var");
+}
+
+TEST(IdentParts, GlobalWithTrailingDoubleColon) {
+    // ::ns::var:: — глобальный префикс с trailing ::
+    auto p = Ident("::ns::var::").parts();
+    ASSERT_EQ(p.size(), 3);
+    EXPECT_EQ(p[0], "::");
+    EXPECT_EQ(p[1], "ns");
+    EXPECT_EQ(p[2], "var");
+}
+
 TEST(IdentParts, Empty) {
     auto p = Ident("").parts();
     EXPECT_TRUE(p.empty());
@@ -383,13 +475,23 @@ TEST(IdentMangle, MainModule) {
 }
 
 TEST(IdentMangle, NamedModule) {
-    // var:: → _$dir_file$_$var$$
-    EXPECT_EQ(Ident("var::").mangle("\\dir\\file"), "_$dir_file$_var$$");
+    // var:: → _$dir$file$_var$$  (\ → $)
+    EXPECT_EQ(Ident("var::").mangle("\\dir\\file"), "_$dir$file$_var$$");
 }
 
 TEST(IdentMangle, TempInMainModule) {
     // var$ → _$$_var$
     EXPECT_EQ(Ident("var$").mangle(""), "_$$_var$");
+}
+
+TEST(IdentMangle, ModuleWithBackslash) {
+    // var:: → _$dir$file$_var$$  (проверка что \ → $)
+    EXPECT_EQ(Ident("var::").mangle("\\dir"), "_$dir$_var$$");
+}
+
+TEST(IdentMangle, ModuleWithBackslashNested) {
+    // var:: → _$dir$sub$file$_var$$
+    EXPECT_EQ(Ident("var::").mangle("\\dir\\sub\\file"), "_$dir$sub$file$_var$$");
 }
 
 TEST(IdentMangle, TypeInNamedModule) {
@@ -414,8 +516,10 @@ TEST(IdentDemangle, MainModule) {
 }
 
 TEST(IdentDemangle, NamedModule) {
-    // _$dir_file$_$var$$ → var::
+    // _$dir_file$_var$$ → var:: (обратная совместимость с _)
     EXPECT_EQ(Ident::demangle("_$dir_file$_var$$"), "var::");
+    // _$dir$file$_var$$ → var:: (новый формат с $)
+    EXPECT_EQ(Ident::demangle("_$dir$file$_var$$"), "var::");
 }
 
 TEST(IdentDemangle, Type) {
@@ -431,6 +535,10 @@ TEST(IdentDemangle, NoPrefix) {
     // Без префикса — возвращаем как есть
     EXPECT_EQ(Ident::demangle("var"), "var");
 }
+
+// ══════════════════════════════════════════════
+// Манглинг / Деманглинг — полный roundtrip
+// ══════════════════════════════════════════════
 
 TEST(IdentDemangleMangleRoundtrip, Simple) {
     Ident original("var::");
@@ -455,6 +563,14 @@ TEST(IdentDemangleMangleRoundtrip, Global) {
 
 TEST(IdentDemangleMangleRoundtrip, Native) {
     Ident original("func%");
+    Ident mangled = original.mangle("\\mod");
+    Ident demangled = Ident::demangle(mangled);
+    EXPECT_EQ(demangled, original);
+}
+
+TEST(IdentDemangleMangleRoundtrip, NamespaceStatic) {
+    // ns::var:: — статический объект в namespace
+    Ident original("ns::var::");
     Ident mangled = original.mangle("\\mod");
     Ident demangled = Ident::demangle(mangled);
     EXPECT_EQ(demangled, original);
@@ -503,10 +619,253 @@ TEST(IdentEdgeCase, UnicodeName) {
 }
 
 // ══════════════════════════════════════════════
+// Негативные тесты для is_simple
+// ══════════════════════════════════════════════
+
+TEST(IdentKind, SimpleNegativeForSpecial) {
+    EXPECT_FALSE(Ident("$0").is_simple()); // self
+    EXPECT_FALSE(Ident("$$").is_simple()); // parent
+    EXPECT_FALSE(Ident("$*").is_simple()); // args_dict
+    EXPECT_FALSE(Ident("$^").is_simple()); // last_result
+    EXPECT_FALSE(Ident("$1").is_simple()); // arg_ref
+}
+
+TEST(IdentKind, SimpleNegativeForQualified) {
+    EXPECT_FALSE(Ident("@macro").is_simple()); // макрос
+    EXPECT_FALSE(Ident("$temp").is_simple());  // временное
+    EXPECT_FALSE(Ident(":Type").is_simple());  // тип
+    EXPECT_FALSE(Ident(".field").is_simple()); // field
+    EXPECT_FALSE(Ident("\\mod").is_simple());  // модуль
+    EXPECT_FALSE(Ident("%nat").is_simple());   // нативная
+}
+
+TEST(IdentKind, SimpleNegativeForInternal) {
+    EXPECT_FALSE(Ident("var$").is_simple());    // внутреннее временное
+    EXPECT_FALSE(Ident("var::").is_simple());   // внутреннее статическое
+    EXPECT_FALSE(Ident("var%").is_simple());    // внутреннее нативное
+    EXPECT_FALSE(Ident("type:::").is_simple()); // внутреннее тип
+}
+
+// ══════════════════════════════════════════════
+// Негативные тесты для is_qualified
+// ══════════════════════════════════════════════
+
+TEST(IdentKind, QualifiedNegativeForSpecial) {
+    EXPECT_FALSE(Ident("$0").is_qualified()); // self
+    EXPECT_FALSE(Ident("$$").is_qualified()); // parent
+    EXPECT_FALSE(Ident("$*").is_qualified()); // args_dict
+    EXPECT_FALSE(Ident("$^").is_qualified()); // last_result
+}
+
+TEST(IdentKind, QualifiedNegativeForSimple) {
+    EXPECT_FALSE(Ident("abc").is_qualified());
+    EXPECT_FALSE(Ident("_foo").is_qualified());
+    EXPECT_FALSE(Ident("a123").is_qualified());
+}
+
+// Внутренние имена, содержащие ::, являются квалифицированными (is_static → true)
+TEST(IdentKind, QualifiedForInternal) {
+    EXPECT_TRUE(Ident("var::").is_qualified());     // внутреннее с :: — квалифицированное
+    EXPECT_TRUE(Ident("ns::var::").is_qualified()); // namespace + static — квалифицированное
+}
+
+TEST(IdentKind, QualifiedNegativeForInternalNoColon) {
+    EXPECT_FALSE(Ident("var$").is_qualified()); // внутреннее без :: — не квалифицированное
+    EXPECT_FALSE(Ident("var%").is_qualified()); // внутреннее без :: — не квалифицированное
+}
+
+// ══════════════════════════════════════════════
+// Дополнительные тесты для is_internal
+// ══════════════════════════════════════════════
+
+TEST(IdentKind, InternalExtra) {
+    EXPECT_FALSE(Ident("").is_internal());
+    EXPECT_FALSE(Ident("var").is_internal());
+    EXPECT_FALSE(Ident("var^").is_internal());       // ^ не делает имя внутренним
+    EXPECT_FALSE(Ident("$var").is_internal());       // $var — квалифицированное, не внутреннее
+    EXPECT_TRUE(Ident("ns::var::").is_internal());   // namespace + static
+    EXPECT_TRUE(Ident("::ns::func%").is_internal()); // global + native
+    EXPECT_FALSE(Ident("var^^").is_internal());      // ^^ — не внутреннее
+}
+
+// ══════════════════════════════════════════════
+// bare_name тесты — текущее поведение реализации
+// ══════════════════════════════════════════════
+
+TEST(IdentBareName, InternalNames) {
+    // bare_name() не удаляет trailing ::, $, % и ::: — это ожидаемое текущее поведение
+    EXPECT_EQ(Ident("var::").bare_name(), "var::");         // internal static
+    EXPECT_EQ(Ident("var$").bare_name(), "var$");           // internal temp
+    EXPECT_EQ(Ident("var%").bare_name(), "var%");           // internal native
+    EXPECT_EQ(Ident("type:::").bare_name(), "type:::");     // internal type
+    EXPECT_EQ(Ident("::var::").bare_name(), "var::");       // global static
+    EXPECT_EQ(Ident("ns::func%").bare_name(), "ns::func%"); // namespace + native — ::func% после пропуска ведущих квалификаторов
+}
+
+TEST(IdentBareName, SpecialNames) {
+    // bare_name() сначала убирает ^ в конце, затем пропускает квалификаторы.
+    // $0 → убирает $, остаётся "0"
+    EXPECT_EQ(Ident("$0").bare_name(), "0");
+    // $$ → оба $ являются квалификаторами, bare_name = "" (пусто)
+    EXPECT_EQ(Ident("$$").bare_name(), "");
+    // $* → убирает $, остаётся "*"
+    EXPECT_EQ(Ident("$*").bare_name(), "*");
+    // $^ → сначала убирает ^ в конце (end-1 == ^), остаётся $, затем $ убирается как квалификатор → ""
+    EXPECT_EQ(Ident("$^").bare_name(), "");
+    // $1 → убирает $, остаётся "1"
+    EXPECT_EQ(Ident("$1").bare_name(), "1");
+}
+
+// ══════════════════════════════════════════════
+// module_name_to_path — относительные модули
+// ══════════════════════════════════════════════
+
+TEST(IdentModuleNameToPath, RelativeModule) {
+    auto p = Ident::module_name_to_path("\\dir\\mod", "/base", "/sys");
+    EXPECT_EQ(p, std::filesystem::path("/base/dir/mod"));
+}
+
+TEST(IdentModuleNameToPath, RelativeSimple) {
+    auto p = Ident::module_name_to_path("\\mod", "/base", "/sys");
+    EXPECT_EQ(p, std::filesystem::path("/base/mod"));
+}
+
+TEST(IdentModuleNameToPath, RelativeDeep) {
+    auto p = Ident::module_name_to_path("\\a\\b\\c\\d", "/root", "/sys");
+    EXPECT_EQ(p, std::filesystem::path("/root/a/b/c/d"));
+}
+
+TEST(IdentModuleNameToPath, RelativeUnderscore) {
+    auto p = Ident::module_name_to_path("\\my_module\\sub_mod", "/base", "/sys");
+    EXPECT_EQ(p, std::filesystem::path("/base/my_module/sub_mod"));
+}
+
+TEST(IdentModuleNameToPath, RelativeOnlySlash) {
+    auto p = Ident::module_name_to_path("\\", "/base", "/sys");
+    EXPECT_EQ(p, std::filesystem::absolute("/base"));
+}
+
+TEST(IdentModuleNameToPath, RelativeEmpty) {
+    auto p = Ident::module_name_to_path("", "/base", "/sys");
+    EXPECT_TRUE(p.empty());
+}
+
+// ══════════════════════════════════════════════
+// module_name_to_path — абсолютные модули
+// ══════════════════════════════════════════════
+
+TEST(IdentModuleNameToPath, AbsoluteModule) {
+    auto p = Ident::module_name_to_path("\\\\abs\\mod", "/base", "/sys");
+    EXPECT_EQ(p, std::filesystem::path("/abs/mod"));
+}
+
+TEST(IdentModuleNameToPath, AbsoluteDeep) {
+    auto p = Ident::module_name_to_path("\\\\root\\a\\b\\c", "/base", "/sys");
+    EXPECT_EQ(p, std::filesystem::path("/root/a/b/c"));
+}
+
+TEST(IdentModuleNameToPath, AbsoluteOnlyTwoSlashes) {
+    auto p = Ident::module_name_to_path("\\\\", "/base", "/sys");
+    EXPECT_EQ(p, std::filesystem::path("/"));
+}
+
+// ══════════════════════════════════════════════
+// module_name_to_path — системные модули (\\\)
+// ══════════════════════════════════════════════
+
+TEST(IdentModuleNameToPath, SysModule) {
+    auto p = Ident::module_name_to_path("\\\\\\sys\\mod", "/base", "/opt/trust");
+    EXPECT_EQ(p, std::filesystem::path("/opt/trust/sys/mod"));
+}
+
+TEST(IdentModuleNameToPath, SysModuleDefault) {
+    // sys_dir по умолчанию "/"
+    auto p = Ident::module_name_to_path("\\\\\\sys\\mod", "/base");
+    EXPECT_EQ(p, std::filesystem::path("/sys/mod"));
+}
+
+TEST(IdentModuleNameToPath, SysModuleOnlyThreeSlashes) {
+    auto p = Ident::module_name_to_path("\\\\\\", "/base", "/sys");
+    EXPECT_EQ(p, std::filesystem::absolute("/sys"));
+}
+
+// ══════════════════════════════════════════════
+// path_to_module_name — относительные пути
+// ══════════════════════════════════════════════
+
+TEST(IdentPathToModuleName, RelativeInside) {
+    Ident m = Ident::path_to_module_name("/base/dir/mod", "/base");
+    EXPECT_EQ(m, "\\dir\\mod");
+}
+
+TEST(IdentPathToModuleName, RelativeSimple) {
+    Ident m = Ident::path_to_module_name("/base/mod", "/base");
+    EXPECT_EQ(m, "\\mod");
+}
+
+TEST(IdentPathToModuleName, RelativeDeep) {
+    Ident m = Ident::path_to_module_name("/root/a/b/c", "/root");
+    EXPECT_EQ(m, "\\a\\b\\c");
+}
+
+TEST(IdentPathToModuleName, RelativeUnderscore) {
+    Ident m = Ident::path_to_module_name("/base/my_module/sub_mod", "/base");
+    EXPECT_EQ(m, "\\my_module\\sub_mod");
+}
+
+// ══════════════════════════════════════════════
+// path_to_module_name — абсолютные пути (вне base_dir)
+// ══════════════════════════════════════════════
+
+TEST(IdentPathToModuleName, AbsoluteOutside) {
+    Ident m = Ident::path_to_module_name("/other/mod", "/base");
+    EXPECT_EQ(m, "\\\\other\\mod");
+}
+
+TEST(IdentPathToModuleName, AbsoluteOutsideDeep) {
+    Ident m = Ident::path_to_module_name("/outside/a/b/c", "/base");
+    EXPECT_EQ(m, "\\\\outside\\a\\b\\c");
+}
+
+TEST(IdentPathToModuleName, AbsoluteOutsideNoBase) {
+    // Если base_dir = "/", то /other/mod это внутри? нет, /other/mod находится внутри /
+    // Тогда lexically_relative от "/" вернёт "other/mod"
+    Ident m = Ident::path_to_module_name("/other/mod", "/");
+    EXPECT_EQ(m, "\\other\\mod");
+}
+
+TEST(IdentPathToModuleName, EmptyPath) {
+    Ident m = Ident::path_to_module_name("", "/base");
+    EXPECT_TRUE(m.empty());
+}
+
+// ══════════════════════════════════════════════
+// Roundtrip — module_name_to_path затем path_to_module_name
+// ══════════════════════════════════════════════
+
+TEST(IdentModuleRoundtrip, Relative) {
+    auto p = Ident::module_name_to_path("\\a\\b\\c", "/root", "/sys");
+    Ident m = Ident::path_to_module_name(p, "/root");
+    EXPECT_EQ(m, "\\a\\b\\c");
+}
+
+TEST(IdentModuleRoundtrip, Absolute) {
+    auto p = Ident::module_name_to_path("\\\\x\\y\\z", "/root", "/sys");
+    Ident m = Ident::path_to_module_name(p, "/root");
+    EXPECT_EQ(m, "\\\\x\\y\\z");
+}
+
+TEST(IdentModuleRoundtrip, RelativeSimple) {
+    auto p = Ident::module_name_to_path("\\module", "/base", "/sys");
+    Ident m = Ident::path_to_module_name(p, "/base");
+    EXPECT_EQ(m, "\\module");
+}
+
+// ══════════════════════════════════════════════
 // Противоречия и замечания к NAMING.md
 // ══════════════════════════════════════════════
 //
-// 1. NAMING.md говорит: "последний символ должен быть "$" или ":""
+// 1. NAMING.md говорит: "последний символ должен быть "$" или ":"
 //    — НО не упоминает "%". Исправлено: добавлен "%".
 //
 // 2. NAMING.md не описывает числовой префикс для блоков (например, 1::var::)
@@ -517,5 +876,12 @@ TEST(IdentEdgeCase, UnicodeName) {
 //
 // 4. В NAMING.md пример: `::%func() := {};   # ::func%`
 //    — to_internal() для "::%func" возвращает "::func%", что соответствует.
+//
+// 5. Символ иммутабельности ^ не входит во внутреннее имя (NAMING.md п.77).
+//    — to_internal() теперь корректно удаляет ^ через without_immutable().
+//
+// 6. bare_name() не удаляет trailing ::, $, %, ::: — это особенность текущей
+//    реализации. Для внутренних имён bare_name() следует использовать с учётом
+//    этого ограничения.
 
 } // namespace trust

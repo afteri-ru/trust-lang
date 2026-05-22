@@ -10,23 +10,23 @@
 /* %define api.value.automove */
 %define parse.error detailed
 
-%parse-param { trust::TokenSequence& ts }
-%parse-param { std::size_t& pos }
-%parse-param { trust::TokenSequence& out }
-%parse-param { trust::DiagnosticEngine* diag }
+%parse-param { trust::ParserContext& pc }
 
-%lex-param { trust::TokenSequence& ts }
-%lex-param { std::size_t& pos }
+%lex-param { trust::ParserContext& pc }
 
 %code requires {
   #include "diag/diag.hpp"
-  #include "parser/token_info.hpp"
+  #include "ast/token_info.hpp"
+  #include "ast/attr_parser.hpp"
+  #include "diag/context.hpp"
+  #include "utils/error.hpp"
+  #include "parser/parser.hpp"
 }
 
 %code {
   #include "parser/parser.hpp"
   namespace trust {
-    int yylex(ParserAST::semantic_type* yylval, TokenSequence& ts, std::size_t& pos);
+    int yylex(ParserAST::semantic_type* yylval, ParserContext& pc);
   } // namespace trust
 }
 
@@ -37,23 +37,47 @@
 
 %% /*** Grammar Rules ***/
 
+/* Атрибут — разбирает содержимое @[...]@ */
+attr: ATTR {
+    EXPECT($1 != nullptr);
+    EXPECT(!$1->m_sequence.empty());
+    auto parsed = parse_attr(pc.ctx.attrs(), $1->m_sequence, pc.ctx.diag());
+    if (parsed.has_value()) {
+        pc.pending_attrs.push_back(parsed->m_id);
+    }
+    $$ = std::move($1);
+}
+
+/* Несколько атрибутов перед токеном */
+attr_groups: /* empty */
+           | attr_groups attr
+
 /* Разделитель — поглощается, не попадает в AST */
 separator: SEMICOLON
          | separator SEMICOLON
 
 /* Литералы — создаём конкретные AST-ноды с заполненным source */
-digits_literal: INTEGER { $$ = $1;}
-              | NUMBER { $$ = $1;}
-              | COMPLEX { $$ = $1;}
-              | RATIONAL { $$ = $1;}
+literal: INTEGER { $$ = $1;}
+       | NUMBER { $$ = $1;}
+       | COMPLEX { $$ = $1;}
+       | RATIONAL { $$ = $1;}
+       | STRWIDE { $$ = $1;}
+       | STRCHAR { $$ = $1;}
 
-string_literal: STRWIDE { $$ = $1;}
-              | STRCHAR { $$ = $1;}
 
-
-/* stmt — либо литерал, либо разделитель */
-stmt: digits_literal { $$ = $1;}
-    | string_literal { $$ = $1;}
+/* Инструкция */
+stmt: attr_groups literal {
+        $$ = $literal;
+        for (auto id : pc.pending_attrs) $$->add_attr(id);
+        pc.pending_attrs.clear();
+    }
+    | attr_groups SEMICOLON {
+        $$ = TokenInfo::make(ParserToken::Kind::END, "", {});
+        if (!pc.pending_attrs.empty()) {
+            pc.ctx.diag().report(MapperRange{}, Severity::Warning, "attribute(s) before ';' have no target");
+            pc.pending_attrs.clear();
+        }
+    }
 
 /* Последовательность операторов */
 sequence: stmt 
@@ -68,7 +92,7 @@ sequence: stmt
         }
 
 ast: /* empty */
-   | sequence { out.push_back(std::move($sequence));}
+   | sequence { pc.out.push_back(std::move($sequence));}
    /* | sequence separator { out.push_back(std::move($sequence));} */
 
 %% /*** Additional Code ***/

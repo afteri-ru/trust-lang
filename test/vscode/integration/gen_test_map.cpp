@@ -2,7 +2,7 @@
  * gen_test_map.cpp — Generates binary .map files for LSP integration tests.
  *
  * Build & run:
- *   cmake --build build --target gen_test_map
+ *   cmake --build _build --target gen_test_map
  *   ./gen_test_map <trust_file> <cpp_file> <output_map>
  */
 

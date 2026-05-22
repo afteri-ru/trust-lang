@@ -8,12 +8,12 @@ configure_file(
 )
 
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/cli/options.h.in
-    ${CMAKE_BINARY_DIR}/include/cli/options.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/pipeline/options.h.in
+    ${CMAKE_BINARY_DIR}/include/pipeline/options.h
     @ONLY
 )
 add_custom_target(generate_options_h
-    DEPENDS "${CMAKE_BINARY_DIR}/include/cli/options.h"
+    DEPENDS "${CMAKE_BINARY_DIR}/include/pipeline/options.h"
 )
 
 configure_file(

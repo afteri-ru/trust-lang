@@ -15,6 +15,9 @@ pkg_check_modules(GMP REQUIRED gmp)
 
 find_package(nlohmann_json REQUIRED)
 
+# ── CLI11 (для парсинга аргументов командной строки) ──
+find_package(CLI11 REQUIRED)
+
 # ── msgpack-c (для бинарного source mapping) — статическая линковка ──
 pkg_check_modules(MSGPACK REQUIRED msgpack-c)
 find_library(MSGPACK_STATIC_LIB

@@ -1,5 +1,5 @@
 // lexer_test.cpp - validates lexer token generation using GTest.
-#include "parser/token.hpp"
+#include "ast/token.hpp"
 #include <gtest/gtest.h>
 #include <set>
 #include <string>
@@ -89,25 +89,29 @@ TEST(LexerTokens, NumberTokens) {
 
 // Name tokens
 TEST(LexerTokens, NameTokens) {
-    const char* names[] = {"NAME", "MANGLED", "LOCAL", "NATIVE", "MODULE", "MACRO"};
+    const char* names[] = {"NAME", "MANGLED", "LOCAL", "NATIVE", "MODULE"};
     for (const char* name : names) {
         auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
-        EXPECT_TRUE(ParserToken::is_flex_lexeme(*k));
-        EXPECT_TRUE(ParserToken::is_bison_token(*k));
+        EXPECT_TRUE(ParserToken::is_flex_lexeme(*k)) << name;
+        EXPECT_TRUE(ParserToken::is_bison_token(*k)) << name;
     }
 }
 
 // Macro tokens
 TEST(LexerTokens, MacroTokens) {
+    // clang-format off
     const char* names[] = {
-        "MACRO_ARGNAME", "MACRO_ARGPOS", "MACRO_ARGUMENT", "MACRO_ARGCOUNT",   "MACRO_CONCAT",   "MACRO_TOSTR",
-        "MACRO_DEL",     "MACRO_SEQ",    "MACRO_STR",      "MACRO_EXPR_BEGIN", "MACRO_EXPR_END", "MACRO_NAMESPACE",
+        "MACRO_ARGNAME", "MACRO_ARGPOS", "MACRO_ARGUMENT",   "MACRO_ARGCOUNT", "MACRO_CONCAT",    
+        "MACRO_TOSTR", "MACRO_DEL", "MACRO_SEQ",     "MACRO_STR",    "MACRO_EXPR_BEGIN", "MACRO_EXPR_END", 
+        "MACRO_NAMESPACE", "MACRO"
     };
+    // clang-format on
     for (const char* name : names) {
         auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
         EXPECT_TRUE(ParserToken::is_flex_lexeme(*k)) << name << " must be FLEX_LEXEME";
+        EXPECT_FALSE(ParserToken::is_bison_token(*k)) << name;
     }
 }
 
@@ -190,8 +194,8 @@ TEST(LexerTokens, DocTokens) {
 // Control tokens
 TEST(LexerTokens, ControlTokens) {
     const char* names[] = {
-        "ELLIPSIS", "RANGE", "REPEAT",    "FOLLOW", "MATCHING", "CREATE_NEW", "CREATE_USE", "APPEND", "PURE_NEW",
-        "PURE_USE", "SWAP",  "ATTRIBUTE", "PARENT", "NEWLANG",  "NAMESPACE",  "ARGUMENT",   "ARGS",
+        "ELLIPSIS", "RANGE", "REPEAT", "FOLLOW",  "MATCHING",  "CREATE_NEW", "CREATE_USE", "APPEND",
+        "SWAP",     "ATTR",  "PARENT", "NEWLANG", "NAMESPACE", "ARGUMENT",   "ARGS",
     };
     for (const char* name : names) {
         auto* k = ParserToken::from_name(name);
@@ -213,7 +217,7 @@ TEST(LexerTokens, EmbedEvalTokens) {
 
 // Attribute and macro string tokens
 TEST(LexerTokens, AttributeAndMacroStrTokens) {
-    const char* names[] = {"ATTRIBUTE", "MACRO_STR"};
+    const char* names[] = {"ATTR", "ATTR_COMPLETE", "MACRO_STR"};
     for (const char* name : names) {
         auto* k = ParserToken::from_name(name);
         ASSERT_NE(k, nullptr) << "Missing: " << name;
@@ -228,7 +232,7 @@ TEST(LexerTokens, FlexLexemeCount) {
         if (ParserToken::is_flex_lexeme(k))
             ++count;
     }
-    EXPECT_EQ(count, 106) << "Expected exact count of FLEX_LEXEME tokens";
+    EXPECT_EQ(count, 107) << "Expected exact count of FLEX_LEXEME tokens";
 }
 
 // No duplicates in all token names

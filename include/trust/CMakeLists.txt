@@ -21,14 +21,14 @@ set(TRUST_MODULE_HEADERS
 
     stdlib/buildin.hpp
 
-    gencpp/ast_visitor.hpp
-    gencpp/ast.hpp
-    gencpp/symbol_table.hpp
-    gencpp/ast_builder.hpp
-    gencpp/ast_validator.hpp
-    gencpp/ast_printer.hpp
-    gencpp/cpp_generator.hpp
-    gencpp/semantic_analyzer.hpp
+    # gencpp/ast_visitor.hpp
+    # gencpp/ast.hpp
+    # gencpp/symbol_table.hpp
+    # gencpp/ast_builder.hpp
+    # gencpp/ast_validator.hpp
+    # gencpp/ast_printer.hpp
+    # gencpp/cpp_generator.hpp
+    # gencpp/semantic_analyzer.hpp
 )
 list(TRANSFORM TRUST_MODULE_HEADERS PREPEND "${PROJECT_INCLUDE_DIR}/")
 
@@ -36,17 +36,10 @@ set(TRUST_MODULE_GENERATED_HEADERS
     ${CMAKE_BINARY_DIR}/include/trust/version.h
 )
 
-# Generated parser output files
+# Generated parser output files (flex only; ast-generated files come via parser_generated)
 set(TRUST_PARSER_GEN_DIR "${CMAKE_BINARY_DIR}/include/parser")
 set(TRUST_PARSER_GEN_OUTPUTS
-    "${TRUST_PARSER_GEN_DIR}/token.gen.hash"
-    "${TRUST_PARSER_GEN_DIR}/token.gen.all"
-    "${TRUST_PARSER_GEN_DIR}/token.gen.name_all"
-    "${TRUST_PARSER_GEN_DIR}/token.gen.flags_all"
-    "${TRUST_PARSER_GEN_DIR}/token.gen.lookup_all"
     "${TRUST_PARSER_GEN_DIR}/flex.gen.h"
-    "${TRUST_PARSER_GEN_DIR}/token.gen.def"
-    "${TRUST_PARSER_GEN_DIR}/parser.gen.y"
 )
 
 set(TRUST_COMPILE_OPTIONS
@@ -64,7 +57,7 @@ add_custom_command(
             -x c++-module --precompile
             ${TRUST_CPPM}
             -o ${TRUST_PCM}
-    DEPENDS ${TRUST_CPPM} ${TRUST_MODULE_HEADERS} ${TRUST_MODULE_GENERATED_HEADERS} ${TRUST_PARSER_GEN_OUTPUTS}
+    DEPENDS ${TRUST_CPPM} ${TRUST_MODULE_HEADERS} ${TRUST_MODULE_GENERATED_HEADERS} ${TRUST_PARSER_GEN_OUTPUTS} parser_generated
     COMMENT "Precompiling C++${CMAKE_CXX_STANDARD} module -> ${TRUST_PCM}"
     VERBATIM
 )

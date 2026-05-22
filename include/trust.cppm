@@ -1,7 +1,7 @@
 module;
 
 #include "diag/location.hpp"
-#include "parser/token.hpp"
+#include "ast/token.hpp"
 #include "diag/context.hpp"
 #include "types/types.hpp"
 #include "gencpp/ast_visitor.hpp"

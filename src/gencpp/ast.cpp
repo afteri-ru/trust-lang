@@ -1,5 +1,5 @@
 #include "gencpp/ast.hpp"
-#include "parser/token_info.hpp"
+#include "ast/token_info.hpp"
 #include <stdexcept>
 #include <format>
 

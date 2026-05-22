@@ -16,6 +16,8 @@
 #include "diag/mapper.hpp"
 #include "diag/options.hpp"
 #include "trust/version.h"
+#include "ast/attr_pool.hpp"
+#include "ast/attr_builtin.hpp"
 
 namespace trust {
 
@@ -50,7 +52,15 @@ class Context : public SourceMap<MapperFile> {
     // Возвращает FileIdx или {0} при ошибке.
     [[nodiscard]] MapperFile add_source(std::string filename, std::string content, bool normalize = true);
 
-    // Читает файл с диска. path нормализуется.
+    // Загружает файл с диска.
+    // При первом вызове (если ещё не загружено ни одного файла):
+    //   - устанавливает m_baseDirectory в каталог path
+    //   - нормализует имя файла как относительное от нового baseDir
+    //   - файл становится главным (m_inputs[0])
+    // При последующих вызовах:
+    //   - нормализует path относительно существующего m_baseDirectory
+    //   - проверяет на дубликат (FAULT если уже загружен)
+    //   - файл регистрируется как модуль (m_inputs[N])
     [[nodiscard]] MapperFile load_file(std::string path);
 
     uint32_t file_count() const { return m_inputs.size(); }
@@ -120,8 +130,10 @@ class Context : public SourceMap<MapperFile> {
     // ── Доступ к компонентам (const и non-const перегрузки) ──
     DiagnosticEngine& diag();
     Options& opts();
+    AttrPool& attrs();
     const DiagnosticEngine& diag() const;
     const Options& opts() const;
+    const AttrPool& attrs() const;
 
     // ── Поиск FileIdx по пути с нормализацией ──
     // Нормализует путь через baseDirectory и ищет среди входных файлов.
@@ -164,6 +176,7 @@ class Context : public SourceMap<MapperFile> {
     mutable std::unique_ptr<SourceMapReader> m_reader;
     std::unique_ptr<DiagnosticEngine> m_diag;
     std::optional<Options> m_opts;
+    mutable std::unique_ptr<AttrPool> m_attr_pool;
     std::string m_baseDirectory;
     std::string m_tempDirectory;
 

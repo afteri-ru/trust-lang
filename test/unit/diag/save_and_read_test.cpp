@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 // ═══════════════════════════════════════════════════════════════
 
 TEST(SaveAndReadTest, SaveOutputThenReadFromDisk) {
-    // Используем TEST_DATA_DIR (build/test_data/) для временных файлов
+    // Используем TEST_DATA_DIR (_build/test_data/) для временных файлов
     fs::path dataDir = fs::path(TEST_DATA_DIR) / "save_read_test";
     fs::create_directories(dataDir);
     std::string outputPath = (dataDir / "output.cpp").generic_string();

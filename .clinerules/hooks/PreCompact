@@ -1,0 +1,113 @@
+#!/bin/bash
+#
+# PreCompact Hook
+# 
+# Executes before conversation context is compacted (to free up token space).
+# 
+# Input: { 
+#   taskId, 
+#   preCompact: { 
+#     taskId: string,
+#     ulid: string,
+#     contextSize: number,
+#     compactionStrategy: string,
+#     previousApiReqIndex: number,
+#     tokensIn: number,
+#     tokensOut: number,
+#     tokensInCache: number,
+#     tokensOutCache: number,
+#     deletedRangeStart: number,
+#     deletedRangeEnd: number,
+#     contextJsonPath: string,
+#     contextRawPath: string
+#   }, 
+#   ... 
+# }
+# Output: { cancel: boolean, contextModification?: string, errorMessage?: string }
+# 
+# Use cases:
+# - Archive important conversation parts
+# - Log compaction events
+# - Add summary before context is lost
+#
+# ВНИМАНИЕ: Примеры использования в этом файле являются эталонными.
+# Реализация должна строго соответствовать примерам.
+# Не удаляйте примеры использования!
+#
+# Example to use:
+#
+# Read JSON input from stdin
+#INPUT=$(cat)
+#
+# Parse input using jq (or fallback to basic parsing)
+#if command -v jq &> /dev/null; then
+#  CONTEXT_SIZE=$(echo "$INPUT" | jq -r '.preCompact.contextSize')
+#  STRATEGY=$(echo "$INPUT" | jq -r '.preCompact.compactionStrategy')
+#  TOKENS_IN=$(echo "$INPUT" | jq -r '.preCompact.tokensIn')
+#  TOKENS_OUT=$(echo "$INPUT" | jq -r '.preCompact.tokensOut')
+#else
+#  CONTEXT_SIZE="<size>"
+#  STRATEGY="<strategy>"
+#  TOKENS_IN="<tokens>"
+#  TOKENS_OUT="<tokens>"
+#fi
+#
+#echo "[PreCompact] About to compact conversation (contextSize: $CONTEXT_SIZE, strategy: $STRATEGY, tokensIn: $TOKENS_IN, tokensOut: $TOKENS_OUT)" >&2
+#
+# Return result
+#echo '{"cancel":false,"contextModification":"","errorMessage":""}'
+#
+#
+# ================================================================
+#
+# Actions for tasklog:
+#
+# Actions:
+# 1. Parse compaction statistics from JSON input
+# 2. Log to .tasklog/<taskId>.md with available metrics
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
+
+INPUT=$(cat)
+
+TASK_ID=$(extract_task_id "$INPUT" '.taskId') || {
+  jq -n '{"cancel":false,"contextModification":"","errorMessage":"PreCompact: failed to extract taskId"}'
+  exit 0
+}
+
+NOW_MS=$(date +%s%3N)
+NOW_ISO=$(timestamp_to_iso "$NOW_MS") || {
+  jq -n '{"cancel":false,"contextModification":"","errorMessage":"PreCompact: failed to format timestamp"}'
+  exit 0
+}
+
+CONTEXT_SIZE=$(echo "$INPUT" | jq -r '.preCompact.contextSize')
+STRATEGY=$(echo "$INPUT" | jq -r '.preCompact.compactionStrategy')
+TOKENS_IN=$(echo "$INPUT" | jq -r '.preCompact.tokensIn')
+TOKENS_OUT=$(echo "$INPUT" | jq -r '.preCompact.tokensOut')
+TOKENS_IN_CACHE=$(echo "$INPUT" | jq -r '.preCompact.tokensInCache')
+TOKENS_OUT_CACHE=$(echo "$INPUT" | jq -r '.preCompact.tokensOutCache')
+
+# Build log line with available fields
+LOG_FIELDS=""
+[ -n "$TOKENS_IN" ] && LOG_FIELDS="${LOG_FIELDS} tokensIn=${TOKENS_IN}"
+[ -n "$TOKENS_OUT" ] && LOG_FIELDS="${LOG_FIELDS} tokensOut=${TOKENS_OUT}"
+[ -n "$TOKENS_IN_CACHE" ] && LOG_FIELDS="${LOG_FIELDS} tokensInCache=${TOKENS_IN_CACHE}"
+[ -n "$TOKENS_OUT_CACHE" ] && LOG_FIELDS="${LOG_FIELDS} tokensOutCache=${TOKENS_OUT_CACHE}"
+[ -n "$CONTEXT_SIZE" ] && LOG_FIELDS="${LOG_FIELDS} contextSize=${CONTEXT_SIZE}"
+[ -n "$STRATEGY" ] && LOG_FIELDS="${LOG_FIELDS} strategy=${STRATEGY}"
+
+# Get path to task file
+TASK_FILE="${TASKLOG_DIR}/${TASK_ID}.md"
+TMP_FILE="${TASKLOG_DIR}/${TASK_ID}.tmp"
+
+# Log compaction event via safe_append_to_tasklog
+{
+  echo ""
+  echo ""
+  echo "${NOW_ISO} PreCompact${LOG_FIELDS}"
+  echo ""
+} | safe_append_to_tasklog "$TASK_FILE" "$TMP_FILE"
+
+# echo '{"cancel":false,"contextModification":"","errorMessage":""}'

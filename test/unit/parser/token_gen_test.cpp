@@ -1,5 +1,5 @@
 // token_gen_test.cpp - validates token generation correctness using GTest.
-#include "parser/token.hpp"
+#include "ast/token.hpp"
 #include <gtest/gtest.h>
 #include <string_view>
 #include <cstdint>

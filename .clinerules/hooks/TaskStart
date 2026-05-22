@@ -18,35 +18,122 @@
 # - Add context about environment or project state
 # - Check prerequisites before starting
 # - Notify external systems (Slack, issue trackers, etc.)
-
+#
+# ВНИМАНИЕ: Примеры использования в этом файле являются эталонными.
+# Реализация должна строго соответствовать примерам.
+# Не удаляйте примеры использования!
+#
+# Example to use:
+#
 # Read JSON input from stdin
-INPUT=$(cat)
-TASKS_RULES=$(cat .clinerules/TASKS.md)
-
+#INPUT=$(cat)
+#
 # Parse input using jq (or fallback to basic parsing)
-if command -v jq &> /dev/null; then
-  TASK=$(echo "$INPUT" | jq -r '.taskStart.taskMetadata.initialTask')
-  TASK_ID=$(echo "$INPUT" | jq -r '.taskId')
-  TIMESTAMP=$(echo "$INPUT" | jq -r '.timestamp')
-else
-  # Fallback if jq is not available
-  TASK="<task>"
-  TASK_ID="<taskId>"
-  TIMESTAMP=$(date +%s%3N)
+#if command -v jq &> /dev/null; then
+#  TASK=$(echo "$INPUT" | jq -r '.taskStart.taskMetadata.initialTask')
+#  TASK_ID=$(echo "$INPUT" | jq -r '.taskId')
+#  TIMESTAMP=$(echo "$INPUT" | jq -r '.timestamp')
+#else
+#  # Fallback if jq is not available
+#  TASK="<task>"
+#  TASK_ID="<taskId>"
+#  TIMESTAMP=$(date +%s%3N)
+#fi
+#
+# Example: Log task start
+#echo "[TaskStart] Task started: $TASK" >&2
+#echo "[TaskStart] Task ID: $TASK_ID" >&2
+#
+# Example: Add context to the task
+#TIMESTAMP_ISO=$(date -u -d @"$((TIMESTAMP/1000))" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
+#CONTEXT_MOD="Note: Task started at $TIMESTAMP_ISO"
+#
+# Return result as JSON (use jq to safely encode the variable, with a simple fallback)
+#if command -v jq &> /dev/null; then
+#  jq -n --arg ctx "$CONTEXT_MOD" '{"cancel":false,"contextModification":$ctx,"errorMessage":""}'
+#else
+#  ESCAPED_MOD=$(printf '%s' "$CONTEXT_MOD" | sed 's/\\/\\\\/g; s/"/\\"/g')
+#  echo '{"cancel":false,"contextModification":"'"$ESCAPED_MOD"'","errorMessage":""}'
+#fi
+#
+#
+# ================================================================
+#
+# Actions for tasklog:
+# 1. Create .tasklog/<taskId>.md with ISO8601 timestamp
+# 2. Read TASK.md, substitute <taskId>.md with real taskId, return as contextModification
+
+TASKLOG_DIR="${TASKLOG_DIR:-.tasklog}"
+
+# Проверка наличия error.md перед началом работы
+if [ -f "${TASKLOG_DIR}/error.md" ]; then
+  ERROR_CONTENT=$(cat "${TASKLOG_DIR}/error.md")
+  jq -n --arg err "$ERROR_CONTENT" \
+    '{"cancel":true,"contextModification":"","errorMessage":"Предыдущая ошибка: \($err)"}'
+  exit 0
 fi
 
-# Example: Log task start
-echo "[TaskStart] Task started: $TASK" >&2
-echo "[TaskStart] Task ID: $TASK_ID" >&2
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
 
-# Example: Add context to the task
-TIMESTAMP_ISO=$(date -u -d @"$((TIMESTAMP/1000))" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
-CONTEXT_MOD="Note: Task started at $TIMESTAMP_ISO"
+INPUT=$(cat)
 
-# Return result as JSON (use jq to safely encode the variable, with a simple fallback)
-if command -v jq &> /dev/null; then
-  jq -n --arg ctx "$TASKS_RULES $CONTEXT_MOD" '{"cancel":false,"contextModification":$ctx,"errorMessage":""}'
+TASK_ID=$(extract_task_id "$INPUT" '.taskId') || {
+  jq -n '{"cancel":true,"contextModification":"","errorMessage":"TaskStart: failed to extract taskId from input"}'
+  exit 0
+}
+
+TIMESTAMP_ISO=$(timestamp_to_iso "$TASK_ID") || {
+  jq -n '{"cancel":true,"contextModification":"","errorMessage":"TaskStart: failed to format timestamp"}'
+  exit 0
+}
+
+# Ensure tasklog directory exists
+mkdir -p "${TASKLOG_DIR}"
+
+TIMESTAMP_SEC=$((TASK_ID/1000))
+DATE_DISPLAY=$(LC_ALL=C date -u -d @"$TIMESTAMP_SEC" +"%Y-%m-%d %H:%M:%S UTC")
+if [ -z "$DATE_DISPLAY" ]; then
+  jq -n '{"cancel":true,"contextModification":"","errorMessage":"TaskStart: failed to format date display"}'
+  exit 0
+fi
+
+# Get path to task file
+TASK_FILE="${TASKLOG_DIR}/${TASK_ID}.md"
+
+# Create task file with header
+cat > "$TASK_FILE" << TASKEOF
+${TIMESTAMP_ISO} plan taskId=${TASK_ID}
+
+TASKEOF
+
+# Read TASK.md and substitute <taskid>.md with real task file name
+TASK_MD_PATH="$(cd "$(dirname "$0")/.." && pwd)/TASK.md"
+TASK_MD_CONTENT=""
+if [ -f "$TASK_MD_PATH" ]; then
+  TASK_MD_CONTENT=$(cat "$TASK_MD_PATH" | sed "s/<taskid>\.md/${TASK_ID}.md/g; s/<taskId>\.md/${TASK_ID}.md/g")
 else
-  ESCAPED_MOD=$(printf '%s' "$TASKS_RULES \n$CONTEXT_MOD" | sed 's/\\/\\\\/g; s/"/\\"/g')
-  echo '{"cancel":false,"contextModification":"'"$ESCAPED_MOD"'","errorMessage":""}'
+  jq -n '{"cancel":true,"contextModification":"","errorMessage":"TaskStart: TASK.md not found"}'
+  exit 0
+fi
+
+# Build context modification with TASK.md content as code block
+CONTEXT_MOD=$(printf 'Note: Task started at %s' "$DATE_DISPLAY")
+
+# Wrap TASK.md content in a markdown code block for safe embedding
+CONTEXT_MOD="\`\`\`
+${TASK_MD_CONTENT}
+
+---
+
+${CONTEXT_MOD}
+\`\`\`"
+
+# Use jq for safe JSON encoding (escape special chars, newlines, etc.)
+# Fallback: manual sed encoding if jq unavailable
+if command -v jq &> /dev/null; then
+  jq -n --arg ctx "$CONTEXT_MOD" '{"cancel":false,"contextModification":$ctx,"errorMessage":""}'
+else
+  ESCAPED_CTX=$(printf '%s' "$CONTEXT_MOD" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g')
+  echo '{"cancel":false,"contextModification":"'"$ESCAPED_CTX"'","errorMessage":""}'
 fi

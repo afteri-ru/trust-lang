@@ -4,7 +4,7 @@
         {
             "label": "cmake: configure + build",
             "type": "shell",
-            "command": "cmake -B build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && cmake --build build",
+            "command": "cmake -B _build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && cmake --build _build",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -14,21 +14,21 @@
         {
             "label": "test: all (unit + lit + debug + vscode)",
             "type": "shell",
-            "command": "cmake --build build --target run_tests",
+            "command": "cmake --build _build --target run_tests",
             "group": "test",
             "dependsOn": ["cmake: configure + build"]
         },
         {
             "label": "test: unit_tests only",
             "type": "shell",
-            "command": "cmake --build build --target run_unit_tests",
+            "command": "cmake --build _build --target run_unit_tests",
             "group": "test",
             "dependsOn": ["cmake: configure + build"]
         },
         {
             "label": "test: direct unit_tests with filter",
             "type": "shell",
-            "command": "./build/unit_tests --gtest_shuffle --gtest_filter=TranspileTest*",
+            "command": "./_build/unit_tests --gtest_shuffle --gtest_filter=TranspileTest*",
             "group": "test",
             "dependsOn": ["cmake: configure + build"]
         },

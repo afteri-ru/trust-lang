@@ -18,28 +18,80 @@
 # - Generate reports or summaries
 # - Notify stakeholders
 # - Trigger CI/CD pipelines
-
+#
+# ВНИМАНИЕ: Примеры использования в этом файле являются эталонными.
+# Реализация должна строго соответствовать примерам.
+# Не удаляйте примеры использования!
+#
+# Example to use:
+#
 # Read JSON input from stdin
+#INPUT=$(cat)
+#
+# Parse input using jq (or fallback to basic parsing)
+#if command -v jq &> /dev/null; then
+#  TASK_ID=$(echo "$INPUT" | jq -r '.taskComplete.taskMetadata.taskId')
+#  RESULT=$(echo "$INPUT" | jq -r '.taskComplete.taskMetadata.result')
+#else
+#  TASK_ID="<taskId>"
+#  RESULT="<result>"
+#fi
+#
+#echo "[TaskComplete] Task completed: $TASK_ID (result: $RESULT)" >&2
+#
+# Return result
+#echo '{"cancel":false,"contextModification":"","errorMessage":""}'
+#
+# ================================================================
+#
+# Actions for tasklog:
+# 1. Compute duration from taskId (taskId = Unix timestamp ms of task start)
+# 2. Append completion event with result to .tasklog/<taskId>.md
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
+
 INPUT=$(cat)
 
-# Parse input using jq (or fallback to basic parsing)
-if command -v jq &> /dev/null; then
-  TASK_ID=$(echo "$INPUT" | jq -r '.taskComplete.taskMetadata.taskId')
-  RESULT=$(echo "$INPUT" | jq -r '.taskComplete.taskMetadata.result')
-else
-  TASK_ID="<taskId>"
-  RESULT="<result>"
-fi
+# Извлекаем taskId из .taskComplete.taskMetadata.taskId (как в примере)
+TASK_ID=$(extract_task_id "$INPUT" '.taskComplete.taskMetadata.taskId') || {
+  jq -n '{"cancel":true,"contextModification":"","errorMessage":"TaskComplete: failed to extract taskId from input"}'
+  exit 0
+}
 
-echo "[TaskComplete] Task completed: $TASK_ID (result: $RESULT)" >&2
+RESULT=$(echo "$INPUT" | jq -r '.taskComplete.taskMetadata.result')
+COMMAND=$(echo "$INPUT" | jq -r '.taskComplete.taskMetadata.command')
 
-# Move TASK.md to .TASKS/ archive if it exists
-TASK_FILE="TASK.md"
-TASKS_DIR=".TASKS"
-if [ -f "$TASK_FILE" ]; then
-  mkdir -p "$TASKS_DIR"
-  TIMESTAMP=$(date +%Y-%m-%d_%H%M)
-  mv "$TASK_FILE" "$TASKS_DIR/TASK-${TIMESTAMP}.md"
-  echo "[TaskComplete] Archived $TASK_FILE -> $TASKS_DIR/TASK-${TIMESTAMP}.md" >&2
-fi
+# Вычисляем текущее время для длительности и времени завершения
+NOW_MS=$(date +%s%3N)
+NOW_ISO=$(timestamp_to_iso "$NOW_MS")
 
+# Вычисляем длительность: start=TASK_ID (время старта), end=NOW_MS (текущее время)
+diff_ms=$((NOW_MS - TASK_ID))
+sec=$((diff_ms / 1000))
+min=$((sec / 60))
+rem_sec=$((sec % 60))
+DURATION_STR=$(printf "%dm %02ds" "$min" "$rem_sec")
+
+# Get path to task file
+TASK_FILE="${TASKLOG_DIR}/${TASK_ID}.md"
+TMP_FILE="${TASKLOG_DIR}/${TASK_ID}.tmp"
+
+# Append completion to task file via safe_append_to_tasklog
+{
+  echo ""
+  echo "${NOW_ISO} TaskComplete taskId=${TASK_ID} ${DURATION_STR}"
+  echo ""
+  if [ -n "$RESULT" ]; then
+    echo "$RESULT"
+  fi
+  if [ -n "$COMMAND" ]; then
+    echo ""
+    echo "Command: $COMMAND"
+  fi
+} | safe_append_to_tasklog "$TASK_FILE" "$TMP_FILE"
+
+# Task завершена — удаляем снепшот
+rm -f "$TMP_FILE"
+
+# echo '{"cancel":false,"contextModification":"","errorMessage":""}'

@@ -12,5 +12,5 @@ add_library(diag_lib STATIC
 )
 
 target_include_directories(diag_lib SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_link_libraries(diag_lib PUBLIC trust_include_dirs msgpack-c-static LLVMSupport ZLIB::ZLIB)
+target_link_libraries(diag_lib PUBLIC trust_include_dirs ast_lib msgpack-c-static LLVMSupport ZLIB::ZLIB)
 
