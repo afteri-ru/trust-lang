@@ -38,8 +38,9 @@ CLI-аргументы trust-dap: только `--project-dir`. Параметр
 ## Build Task Provider (TrustBuildTask — preLaunchTask)
 
 Зарегистрирован task provider с типом `'trust-build'`. Предоставляет три задачи:
+
 1. **Trust: Transpile .src** — запускает trust-lang компилятор
-2. **Trust: Compile .cpp** — запускает C++ компилятор
+2. **Trust: Compile .cppt** — запускает C++ компилятор
 3. **Trust: Build all** — последовательно транспиляция + компиляция
 
 Параметры берутся из настроек `trust.*`. Задачи используют `vscode.CustomExecution` с псевдотерминалом.

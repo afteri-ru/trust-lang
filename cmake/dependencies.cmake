@@ -49,3 +49,9 @@ set(LLDB_LIBRARIES "/usr/lib/llvm-${CLANG_VERSION}/lib/liblldb.so")
 add_library(gmp_interface INTERFACE)
 target_include_directories(gmp_interface SYSTEM INTERFACE ${GMP_INCLUDE_DIRS})
 target_link_libraries(gmp_interface INTERFACE ${GMP_LIBRARIES})
+
+# ── Z3 (optional SMT solver for formal verification) ──
+if(WITH_SOLVER)
+    find_package(Z3 REQUIRED)
+    message(STATUS "Z3: ${Z3_VERSION_STRING} at ${Z3_INCLUDE_DIR}")
+endif()

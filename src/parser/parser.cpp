@@ -2,7 +2,7 @@
 #include "parser.tab.hh"
 #include "ast/token.hpp"
 #include "ast/token_info.hpp"
-#include "stdlib/buildin.hpp"
+#include "types/buildin.hpp"
 #include <cstddef>
 #include <string>
 

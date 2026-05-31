@@ -1,0 +1,12 @@
+# RUN: %trust -q --emit-tokens %s > %t.out && %FileCheck %s <%t.out
+@@ call($x, ...) @@ ::= @@ @$x [ @$... ] @@;
+
+@call( func, a, b, c );
+# CHECK: func	NAME
+# CHECK: [	LBRACKET
+# CHECK: a	NAME
+# CHECK: ,	COMMA
+# CHECK: b	NAME
+# CHECK: ,	COMMA
+# CHECK: c	NAME
+# CHECK: ]	RBRACKET

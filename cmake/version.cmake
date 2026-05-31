@@ -19,3 +19,5 @@ execute_process(
 )
 
 set(TRUST_VERSION_FULL "${TRUST_VERSION}-${TRUST_GIT_HASH}")
+
+string(TIMESTAMP TRUST_DATE_BUILD "%Y-%m-%d")

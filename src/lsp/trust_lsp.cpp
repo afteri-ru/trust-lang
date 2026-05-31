@@ -1,13 +1,12 @@
 #include "lsp/trust_lsp.h"
 #include "trust/version.h"
+#include "utils/file_io.hpp"
 #include "utils/uri.hpp"
 #include "utils/utils.hpp"
 
 #include <algorithm>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <utility>
 
@@ -228,8 +227,9 @@ void TrustLsp::handleShutdown(const json& req) {
     cppToTrustCache_.clear();
 }
 
-// Проверка, является ли файл Trust-исходником (расширение .src или .trust)
-// Перемещено в SourceMapReader::isTrustFileExt
+// Проверка, является ли файл Trust-исходником (расширение .src).
+// .trust — бинарный скомпилированный модуль, не является исходным файлом.
+// Функция перемещена в SourceMapReader::isTrustFileExt
 
 void TrustLsp::handleDidOpen(const json& req) {
     json params = req.value("params", json());
@@ -259,12 +259,9 @@ void TrustLsp::handleDidOpen(const json& req) {
         if (reader) {
             uint64_t cachedHash = reader->getFileHash(it->second.trustReaderIdx);
             // Читаем файл и вычисляем хеш текущего содержимого
-            std::ifstream file(filePath);
-            if (file.is_open()) {
-                std::stringstream buf;
-                buf << file.rdbuf();
-                std::string currentCode = buf.str();
-                trust::FileEntry temp(filePath, currentCode);
+            auto currentCode = trust::utils::FileIO::read<std::vector<char>>(filePath);
+            if (currentCode) {
+                trust::FileEntry temp(filePath, std::string(currentCode->data(), currentCode->size()));
                 uint64_t currentHash = temp.getHash();
                 if (cachedHash == currentHash) {
                     log("  hash matches, skipping transpilation");
@@ -598,21 +595,20 @@ void TrustLsp::handleDidChangeConfiguration(const json& req) {
     }
 }
 
-// ── In-process транспиляция .trust → C++ + source map ──
+// ── In-process транспиляция .src → C++ + source map ──
 
 std::string TrustLsp::transpileSourceFile(const std::string& trustFilePath) {
     log("transpiling (in-process): " + trustFilePath);
 
     // Читаем содержимое файла
-    std::ifstream file(trustFilePath);
-    if (!file.is_open()) {
+    auto trustCodeOpt = trust::utils::FileIO::read<std::vector<char>>(trustFilePath);
+    if (!trustCodeOpt) {
         std::string err = "cannot open file: " + trustFilePath;
         log(err);
         return err;
     }
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    std::string trustCode = buffer.str();
+    std::string trustCodeStr(trustCodeOpt->data(), trustCodeOpt->size());
+    std::string_view trustCode = trustCodeStr;
 
     // Создаём Context (projectDir или "." по умолчанию)
     auto ctx = std::make_unique<trust::Context>(opts_.projectDir.empty() ? "." : opts_.projectDir);
@@ -630,10 +626,10 @@ std::string TrustLsp::transpileSourceFile(const std::string& trustFilePath) {
         if (ec) {
             log("failed to create temp dir " + opts_.tempDir + ": " + ec.message());
         }
-        cppFileName = (dir / trustPath.stem()).string() + ".cpp";
+        cppFileName = (dir / trustPath.stem()).string() + ".cppt";
         saveToDisk = true;
     } else {
-        cppFileName = trustPath.filename().string() + ".cpp";
+        cppFileName = trustPath.filename().string() + ".cppt";
     }
 
     // Транспилируем напрямую в созданный Context
@@ -643,15 +639,13 @@ std::string TrustLsp::transpileSourceFile(const std::string& trustFilePath) {
     trust::ReaderFile trustReaderIdx = trust::ReaderFile::from(trustIdx);
     trust::ReaderFile cppReaderIdx = trust::ReaderFile::from(cppIdx);
 
-    // Сохраняем C++ код на диск, если tempDir задан
+    // Сохраняем C++ код на диск (расширение .cppt), если tempDir задан
     if (saveToDisk) {
         std::string_view cppBody = ctx->output_body(cppIdx);
-        std::ofstream out(cppFileName);
-        if (out) {
-            out << cppBody;
-            log("  saved cpp to: " + cppFileName);
-        } else {
+        if (!trust::utils::FileIO::write(cppFileName, cppBody)) {
             log("warning: could not write to " + cppFileName);
+        } else {
+            log("  saved cpp to: " + cppFileName);
         }
     }
 

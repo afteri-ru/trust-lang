@@ -30,6 +30,7 @@ VSCode Extension (extension.js)
 ### transpile() (lsp/transpile.h)
 
 `transpile()` возвращает пару индексов (trustIdx, cppIdx), используя `Context` (из diag) для:
+
 - регистрации входного файла (`add_source`)
 - записи в выходной файл (`output_append`)
 - построения маппинга trust↔cpp (`mapStart`/`mapStop`)
@@ -113,7 +114,7 @@ Convenience-методы для LSP: `lspToLocation(idx, line, character)` (0-ba
 | `textDocument/didOpen` | In-process транспиляция .src файла, кеширование source map |
 | `textDocument/didChange` | Re-transpile при изменении содержимого |
 | `textDocument/didClose` | Очистить кеш source map |
-| `textDocument/definition` | trust_line → {uri: .cpp, range: cpp_line} (F12). Поддерживает макро-маппинг |
+| `textDocument/definition` | trust_line → {uri: .cppt, range: cpp_line} (F12). Поддерживает макро-маппинг |
 | `textDocument/hover` | Показать Markdown-массив: C++/trust код + ссылки на определения |
 | `textDocument/inlayHint` (LSP 3.17) | Показать "→ cpp:N" после каждой trust-строки |
 | `textDocument/documentLink` | Сделать каждую trust-строку ссылкой на C++ |
@@ -126,10 +127,9 @@ Server capabilities: `textDocumentSync: 1`, `definitionProvider`, `hoverProvider
 
 ## Хранимые данные (CachedSource)
 
-Структура `CachedSource`: `sourceMap` (Context после transpile), `cppOutput` (сгенерированный C++ код), `cppFilePath` (полный путь к .cpp), `trustReaderIdx`/`cppReaderIdx` (индексы в reader space).
+Структура `CachedSource`: `sourceMap` (Context после transpile), `cppOutput` (сгенерированный C++ код), `cppFilePath` (полный путь к .cppt), `trustReaderIdx`/`cppReaderIdx` (индексы в reader space).
 
 ## Не трогает
 
 - `src/debug/` — DAP не изменяется
-- `src/gencpp/` — transpiler не изменяется
 - `src/parser/` — парсер не изменяется

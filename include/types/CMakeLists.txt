@@ -14,5 +14,3 @@ add_library(types_lib STATIC
 
 target_link_libraries(types_lib PUBLIC diag_lib gmp_interface trust_include_dirs)
 
-# Generate stdlib headers before building types_lib
-add_dependencies(types_lib stdlib_run)

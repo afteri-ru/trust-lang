@@ -21,4 +21,3 @@ Autocomplete, go-to-definition, hover-диагностика, форматиро
 - `parser` — токенизация и парсинг
 - `diag` — диагностика
 - `types` — система типов
-- `gencpp` — AST-структуры

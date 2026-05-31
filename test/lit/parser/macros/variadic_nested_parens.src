@@ -1,0 +1,20 @@
+# RUN: %trust -q --emit-tokens %s > %t.out && %FileCheck %s <%t.out
+@@ if( ... ) @@ ::= @@ [ @$... ] --> @@;
+
+@if( (a > 0, b < 0), c, d );
+# CHECK: [	LBRACKET
+# CHECK: (	LPAREN
+# CHECK: a	NAME
+# CHECK: >	RANGLE
+# CHECK: 0	INTEGER
+# CHECK: ,	COMMA
+# CHECK: b	NAME
+# CHECK: <	LANGLE
+# CHECK: 0	INTEGER
+# CHECK: )	RPAREN
+# CHECK: ,	COMMA
+# CHECK: c	NAME
+# CHECK: ,	COMMA
+# CHECK: d	NAME
+# CHECK: ]	RBRACKET
+# CHECK: -->	FOLLOW

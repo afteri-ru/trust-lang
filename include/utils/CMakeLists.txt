@@ -10,6 +10,7 @@ generate_component_docs(utils
         error.hpp
         cache.hpp
         strings.hpp
+        elf.hpp
     PROJECT_BRIEF "Общие вспомогательные утилиты"
     NO_LIBRARY
 )

@@ -5,9 +5,9 @@
 #include <climits>
 #include <string>
 
-#include "stdlib/category.hpp"
+#include "types/category.hpp"
 #include "types/forward.hpp"
-#include "stdlib/buildin.hpp"
+#include "types/buildin.hpp"
 #include "types/value.hpp"
 
 namespace trust {

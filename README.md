@@ -20,7 +20,6 @@ The basic syntax of TrustLang is based on strict rules without using keywords, a
 | `diag` | Диагностика — сообщения, форматирование, source manager, CLI-опции |
 | `parser` | Токенизация (Flex) и парсинг (Bison), генерация токенов из `tokens.def`, MMProc, AST |
 | `types` | Система типов — `TypeKind`, `TypeInfo`, совместимость, user-defined типы |
-| `gencpp` | Транспайлер — AST-ноды, семантический анализ, symbol table, AST-оптимизации, генерация C++ |
 | `runtime` | Среда выполнения и стандартная библиотека — type-erased контейнеры, исключения, подсчёт ссылок, builtin-функции (`print`, `len`, `assert`, математика, коллекции) |
 | `cli` | Командная строка — драйвер полного pipeline (lex → parse → analyze → optimize → codegen) |
 | `jit` | JIT-компиляция — LLVM ORC JIT, разрешение символов, память выполнения |

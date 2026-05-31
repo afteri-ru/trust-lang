@@ -13,6 +13,7 @@ namespace trust {
 
 // Forward declarations
 class AttrPool;
+class AttrPoolView;
 struct TokenInfo;
 
 /// Bison attempts to copy `unique_ptr` when automatically wrapping values ​​during shift/reduce operations.
@@ -67,11 +68,14 @@ struct TokenInfo {
     /// Add multiple attribute IDs (batch optimal registration via AttrPool)
     void add_attrs(AttrPool& pool, std::vector<AttrId> ids, bool create_set = true);
 
-    /// Check if this token has a specific attribute
+    /// Check if this token has a specific attribute by ID (no set resolution, O(n)).
     [[nodiscard]] bool has_attr(AttrId id) const { return std::find(m_attrs.begin(), m_attrs.end(), id) != m_attrs.end(); }
 
-    /// Check if this token has a built-in attribute by kind (O(n) on m_attrs, but each check is O(1))
-    [[nodiscard]] bool has_attr(const AttrPool& pool, BuiltinAttrKind kind) const;
+    /// Check if this token has a specific singleton AttrId, resolving sets (O(n * resolve)).
+    [[nodiscard]] bool has_attr(const AttrPoolView& pool, AttrId target) const;
+
+    /// Check if this token has an attribute by name (delegates to has_attr(pool, AttrId)).
+    [[nodiscard]] bool has_attr(const AttrPoolView& pool, std::string_view name) const;
 
     /// Factory: create a TokenPtr from a Lexeme
     [[nodiscard]] static TokenPtr make(const Lexeme& lex) { return std::make_shared<TokenInfo>(lex); }

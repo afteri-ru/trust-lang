@@ -2,8 +2,8 @@
 #define TYPES_TYPES_HPP
 
 #include "utils/error.hpp"
-#include "stdlib/category.hpp"
-#include "stdlib/buildin.hpp"
+#include "types/category.hpp"
+#include "types/buildin.hpp"
 #include "types/type_info.hpp"
 #include "types/forward.hpp"
 #include "types/value.hpp"

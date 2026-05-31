@@ -26,13 +26,16 @@ TEST(DapHandlerTest, IsTrustFileExt_TrueForSrc) {
     EXPECT_TRUE(trust::SourceMapReader::isTrustFileExt("file.src"));
 }
 
-TEST(DapHandlerTest, IsTrustFileExt_TrueForTrust) {
-    EXPECT_TRUE(trust::SourceMapReader::isTrustFileExt("/path/to/file.trust"));
-    EXPECT_TRUE(trust::SourceMapReader::isTrustFileExt("file.trust"));
+TEST(DapHandlerTest, IsTrustFileExt_FalseForTrust) {
+    // .trust — бинарный скомпилированный модуль, не исходный файл
+    EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("/path/to/file.trust"));
+    EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("file.trust"));
 }
 
 TEST(DapHandlerTest, IsTrustFileExt_FalseForCpp) {
     EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("file.cpp"));
+    EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("file.cppt"));
+    EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("file.hppt"));
     EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("file.h"));
     EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt(""));
 }

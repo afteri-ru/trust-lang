@@ -64,11 +64,20 @@
 - Never ignore, override, or remove a comment that states an explicit requirement.
 - If a comment contradicts your intended change, stop and reconsider.
 
+
+### 8. Using Git is prohibited.
+
+**Making any changes to Git, or modifying or reorganizing Git data in any way, is strictly prohibited.**
+
+- In extreme cases, temporarily storing changes (stashed) is permitted only when investigating regressions during testing or if code analysis is inconclusive. 
+- However, all changes must then be merged into the main code. Any other actions with Git or its history are strictly prohibited!
+
+
 ---
 
 ## Quality Assurance
 
-### 8. Follow CODESTYLE
+### 9. Follow CODESTYLE
 
 **All code must follow [CODESTYLE.md](CODESTYLE.md) — naming conventions, formatting, prohibited and required patterns.**
 
@@ -77,7 +86,7 @@
 - Run `clang-format` before committing.
 - Run `clang-tidy` and fix all warnings.
 
-### 9. Tests Are Non-Negotiable
+### 10. Tests Are Non-Negotiable
 
 **Every change needs test coverage. Never disable or skip tests.**
 
@@ -87,7 +96,7 @@
 - Tests **MUST** never be silently skipped — missing test infrastructure (GTest, lit, python3, etc.) is a **BUILD FAILURE, not a silent skip or GTEST_SKIP()**.
 - Do not delete generated/output files unless asked.
 
-### 10. Architecture From `ARCH.md` Only
+### 11. Architecture From `ARCH.md` Only
 
 **Do not read header or source files to analyze architecture.**
 
@@ -95,7 +104,7 @@
 - Read individual source/header files only when the task explicitly requires it or when modifying that specific file.
 - Do not scan the project for "understanding" — read `ARCH.md` or `README.md` first.
 
-### 11. Keep file `ARCH.md` Synchronized
+### 12. Keep file `ARCH.md` Synchronized
 
 **`ARCH.md` must always reflect the actual implementation.**
 

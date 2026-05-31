@@ -287,10 +287,13 @@ class SourceMapReader : public SourceMap<ReaderFile> {
     //  High-level convenience методы (упрощение клиентского кода)
     // ══════════════════════════════════════════════════════════════
 
-    /// Проверяет расширение файла: .src или .trust
+    /// Проверяет расширение файла: .src (исходный файл TrustLang).
+    /// .trust — бинарный скомпилированный модуль — не является исходным файлом.
     [[nodiscard]] static bool isTrustFileExt(const std::string& path) noexcept;
 
-    /// Проверяет расширение файла: .cpp, .hpp или .h
+    /// Проверяет расширение сгенерированного C++ файла: .cppt или .hppt
+    /// (результат транспиляции .src файлов). Не путать с собственными .cpp/.hpp
+    /// файлами компилятора — они не проходят через SourceMap.
     [[nodiscard]] static bool isCppFileExt(const std::string& path) noexcept;
 
     /// Поиск FileIdx по пути с fallback на basename.

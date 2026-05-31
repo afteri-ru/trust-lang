@@ -54,13 +54,14 @@ add_library(parser_lib STATIC
 )
 target_link_libraries(parser_lib PUBLIC ast_lib diag_lib)
 target_include_directories(parser_lib PUBLIC
-    ${PROJECT_INCLUDE_DIR}
     ${CMAKE_BINARY_DIR}/include
+    ${PROJECT_INCLUDE_DIR}
     ${GEN_DIR}
 )
 set_source_files_properties(
+    ${PROJECT_SOURCE_DIR}/parser/mmproc.cpp
     ${GEN_DIR}/lex.yy.cpp
     ${GEN_DIR}/parser.tab.cpp
-    PROPERTIES COMPILE_OPTIONS "-Wno-old-style-cast"
+    PROPERTIES COMPILE_OPTIONS "-Wno-old-style-cast;-Wno-c23-extensions"
 )
 add_dependencies(parser_lib parser_generated ast_generated)

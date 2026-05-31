@@ -42,6 +42,8 @@ ParseResult parse_args(int argc, char* argv[]) {
     app.add_flag("--emit-ast", [&](int64_t) { set_emit_flag(result.opts, EmitFlags::AST); }, "Print AST after parsing");
     app.add_flag("--emit-cpp", [&](int64_t) { set_emit_flag(result.opts, EmitFlags::Cpp); }, "Emit C++ source file");
     app.add_flag("--emit-module", [&](int64_t) { set_emit_flag(result.opts, EmitFlags::Module); }, "Emit C++ module file");
+    app.add_flag("--emit-lexemes", [&](int64_t) { set_emit_flag(result.opts, EmitFlags::LexemesOnly); }, "Stop after lexing, output lexemes only");
+    app.add_flag("--emit-macros", [&](int64_t) { set_emit_flag(result.opts, EmitFlags::Macros); }, "Print tokens after macro expansion");
     app.add_flag("-c", result.opts.compile_to_object, "Compile to object file (.o)");
     app.add_flag("-a,--static-lib", result.opts.compile_to_static_lib, "Compile to static library (.a)");
     app.add_flag("-l,--shared-lib", result.opts.compile_to_shared_lib, "Compile to shared library (.so)");
@@ -78,6 +80,12 @@ ParseResult parse_args(int argc, char* argv[]) {
             result.opts.binding_header_explicitly_set = true;
         },
         "Disable binding header generation");
+
+    // ── DSL option ──
+    // --dsl[=FILE]: если без аргумента — отключить DSL, если с аргументом — загрузить из файла
+    auto* dsl_opt = app.add_option("--dsl", result.opts.dsl_file, "Use custom DSL file (--dsl=FILE, or --dsl to disable default DSL)");
+    dsl_opt->expected(0, 1);
+    dsl_opt->type_name("[FILE]");
 
     // ── Парсинг ──
     try {
@@ -117,6 +125,13 @@ ParseResult parse_args(int argc, char* argv[]) {
     if (binding_opt->count() > 0) {
         result.opts.gen_binding_header = true;
         result.opts.binding_header_explicitly_set = true;
+    }
+
+    // --dsl (с опциональным значением)
+    if (dsl_opt->count() > 0) {
+        // --dsl без аргумента = отключить DSL
+        if (result.opts.dsl_file.empty())
+            result.opts.dsl_disabled = true;
     }
 
     // Auto-enable binding header for library builds (only if not explicitly disabled)

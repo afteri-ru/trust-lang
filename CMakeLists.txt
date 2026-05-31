@@ -149,6 +149,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
 
 # ── Options ──
 option(WITH_TORCH "Enable libtorch support (builds libtensor_cpu.so)" OFF)
+option(WITH_SOLVER "Enable SMT solver (Z3) for formal verification" OFF)
 
 if(WITH_TORCH)
     set(LIBTORCH_ROOT "${CMAKE_SOURCE_DIR}/contrib/libtorch")
@@ -200,8 +201,8 @@ add_subdirectory(include/ast)
 add_subdirectory(include/parser)
 add_subdirectory(include/stdlib)
 add_subdirectory(include/types)
-# add_subdirectory(include/gencpp)
 add_subdirectory(include/pipeline)
+add_subdirectory(include/solver)
 add_subdirectory(include/runtime)
 add_subdirectory(include/debug)
 add_subdirectory(include/lsp)

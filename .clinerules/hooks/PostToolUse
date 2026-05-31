@@ -104,6 +104,31 @@ if [[ "$TOOL" == "plan_mode_respond" ]] ; then # && [[ "$SUCCESS" == "true" ]]; 
       suffix=$((suffix + 1))
     done
     cp "$TASK_FILE" "$plan_file"
+
+    # Read AGENTS.md from project root
+    AGENTS_MD_PATH="$(cd "$(dirname "$0")/../.." && pwd)/AGENTS.md"
+    AGENTS_MD_CONTENT=""
+    if [ -f "$AGENTS_MD_PATH" ]; then
+      AGENTS_MD_CONTENT=$(cat "$AGENTS_MD_PATH")
+    else
+      jq -n '{"cancel":true,"contextModification":"","errorMessage":"TaskStart: AGENTS.md not found"}'
+      exit 0
+    fi
+
+    # Wrap AGENTS.md and TASK.md content in a markdown code block for safe embedding
+    CONTEXT_MOD="\`\`\`
+    ${AGENTS_MD_CONTENT}
+    \`\`\`"
+  
+    # Use jq for safe JSON encoding (escape special chars, newlines, etc.)
+    # Fallback: manual sed encoding if jq unavailable
+    if command -v jq &> /dev/null; then
+      jq -n --arg ctx "$CONTEXT_MOD" '{"cancel":false,"contextModification":$ctx,"errorMessage":""}'
+    else
+      ESCAPED_CTX=$(printf '%s' "$CONTEXT_MOD" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g')
+      echo '{"cancel":false,"contextModification":"'"$ESCAPED_CTX"'","errorMessage":""}'
+    fi
+
   fi
 fi
 

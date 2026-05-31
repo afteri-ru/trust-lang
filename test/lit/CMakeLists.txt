@@ -1,15 +1,16 @@
 # test/lit/CMakeLists.txt
 # LIT test symlinks, custom targets and aggregated test targets
 
-# ── LIT output symlinks (only needed for out-of-source builds) ──
+# ── LIT output symlinks (one per test subdirectory) ──
 if(NOT CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
-    # file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit/Output/gencpp/Output)
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit/Output/pipeline/Output)
-    file(CREATE_LINK
-        ${CMAKE_BINARY_DIR}/test/lit/Output/pipeline/Output
-        ${CMAKE_SOURCE_DIR}/test/lit/pipeline/Output
-        SYMBOLIC
-    )
+    foreach(_subdir parser/dsl parser/macros pipeline)
+        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit/Output/${_subdir}/Output)
+        file(CREATE_LINK
+            ${CMAKE_BINARY_DIR}/test/lit/Output/${_subdir}/Output
+            ${CMAKE_SOURCE_DIR}/test/lit/${_subdir}/Output
+            SYMBOLIC
+        )
+    endforeach()
     file(CREATE_LINK
         ${CMAKE_BINARY_DIR}/test/lit/lit.cfg.py
         ${CMAKE_SOURCE_DIR}/test/lit/lit.cfg.py
@@ -24,15 +25,6 @@ else()
     set(TORCH_PCH_DEP "")
 endif()
 
-# DISABLED: gencpp LIT tests
-# add_custom_target(run_lit_gencpp
-#     COMMAND "${CMAKE_SOURCE_DIR}/test/wrapper/failed.sh" "run_lit_gencpp" timeout --kill-after=10 300 ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/test/lit/gencpp
-#     DEPENDS gencpp_from_ast ${TORCH_PCH_DEP} generate_lit_cfg_py
-#     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-#     COMMENT "Running LIT tests (gencpp, timeout: 300s)"
-#     USES_TERMINAL
-# )
-
 # add_custom_target(run_lit_pipeline
 #     COMMAND timeout --kill-after=10 120 ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/test/lit/cli
 #     DEPENDS pipeline_lib generate_lit_cfg_py
@@ -42,7 +34,6 @@ endif()
 # )
 
 add_custom_target(run_lit_tests
-    # DEPENDS run_lit_gencpp
     COMMENT "Running all LIT tests"
 )
 

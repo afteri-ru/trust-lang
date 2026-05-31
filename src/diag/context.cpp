@@ -1,6 +1,7 @@
 #include "diag/context.hpp"
 #include "diag/mapper.hpp"
 #include "utils/error.hpp"
+#include "utils/file_io.hpp"
 
 #include "llvm/Support/MD5.h"
 
@@ -132,13 +133,10 @@ MapperFile Context::load_file(std::string path) {
         m_baseDirectory = p.parent_path().generic_string();
         std::string norm = p.filename().generic_string();
 
-        std::ifstream ifs(p, std::ios::in | std::ios::binary);
-        if (!ifs)
+        auto content = utils::FileIO::read<std::vector<char>>(p.generic_string());
+        if (!content)
             FAULT("Main file '{}' not found!", p.generic_string());
-        std::ostringstream ss;
-        ss << ifs.rdbuf();
-        auto content = ss.str();
-        m_inputs.emplace_back(std::move(norm), std::move(content));
+        m_inputs.emplace_back(std::move(norm), std::string(content->data(), content->size()));
         m_reader.reset();
         return MapperFile::make_input(0);
     }
@@ -149,16 +147,13 @@ MapperFile Context::load_file(std::string path) {
         if (m_inputs[i].getFilename() == norm)
             FAULT("Module file {} already loaded as index {}!", m_inputs[i].getFilename(), i);
     }
-    std::ifstream ifs(norm, std::ios::in | std::ios::binary);
-    if (!ifs) {
-        ifs.open(path, std::ios::in | std::ios::binary);
-        if (!ifs)
+    auto content = utils::FileIO::read<std::vector<char>>(norm);
+    if (!content) {
+        content = utils::FileIO::read<std::vector<char>>(path);
+        if (!content)
             FAULT("Module file '{}' not found!", norm);
     }
-    std::ostringstream ss;
-    ss << ifs.rdbuf();
-    auto content = ss.str();
-    m_inputs.emplace_back(std::move(norm), std::move(content));
+    m_inputs.emplace_back(std::move(norm), std::string(content->data(), content->size()));
     m_reader.reset();
     return MapperFile::make_input(static_cast<uint32_t>(m_inputs.size()) - 1u);
 }
@@ -253,13 +248,11 @@ bool Context::save_output(std::string_view outputDir) {
 
         // Пишем файл
         {
-            std::ofstream ofs(outPath, std::ios::out | std::ios::binary | std::ios::trunc);
-            if (!ofs) {
+            if (!utils::FileIO::write(outPath.generic_string(), content)) {
                 FAULT("save_output: cannot open output file '{}' for writing", outPath.generic_string());
                 allOk = false;
                 continue;
             }
-            ofs.write(content.data(), static_cast<std::streamsize>(content.size()));
         }
     }
 
@@ -297,6 +290,7 @@ Options& Context::opts() {
 AttrPool& Context::attrs() {
     if (!m_attr_pool) {
         m_attr_pool = std::make_unique<AttrPool>();
+        m_attr_pool->set_context(*this);
         register_builtin_attrs(*m_attr_pool);
     }
     return *m_attr_pool;
@@ -307,7 +301,7 @@ const DiagnosticEngine& Context::diag() const {
 const Options& Context::opts() const {
     return *m_opts;
 }
-const AttrPool& Context::attrs() const {
+const AttrPoolView& Context::attrs() const {
     EXPECT(m_attr_pool != nullptr);
     return *m_attr_pool;
 }

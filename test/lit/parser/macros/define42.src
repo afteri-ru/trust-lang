@@ -1,0 +1,8 @@
+# RUN: %trust -q --emit-lexemes %s > %t.out && %FileCheck %s <%t.out
+@@ test @@ ::= 42;
+# CHECK: @@	MACRO_SEQ
+# CHECK-NEXT: test	NAME
+# CHECK-NEXT: @@	MACRO_SEQ
+# CHECK-NEXT: ::=	CREATE_NEW
+# CHECK-NEXT: 42	INTEGER
+# CHECK-NEXT: ;	SEMICOLON

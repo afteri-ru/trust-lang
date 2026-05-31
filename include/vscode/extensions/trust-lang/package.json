@@ -29,7 +29,7 @@
     "type": "git",
     "url": "https://github.com/afteri-ru/trust-lang"
   },
-  "license": "MIT",
+  "license": "LGPL",
   "contributes": {
     "commands": [
       {
@@ -144,11 +144,23 @@
         }
       }
     ],
+    "themes": [
+      {
+        "label": "Trust Language",
+        "uiTheme": "vs-dark",
+        "path": "./syntaxes/trust-color-theme.json"
+      }
+    ],
     "grammars": [
       {
         "language": "trust",
         "scopeName": "source.trust",
         "path": "./syntaxes/trust.tmLanguage.json"
+      },
+      {
+        "scopeName": "markdown.trust.codeblock",
+        "path": "./syntaxes/markdown-trust.json",
+        "injectTo": ["text.html.markdown"]
       }
     ],
     "debuggers": [
@@ -168,8 +180,8 @@
               },
               "cppFile": {
                 "type": "string",
-                "description": "Path to the transpiled C++ source file.",
-                "default": "${workspaceFolder}/.trust/${fileBasenameNoExtension}.cpp"
+                "description": "Path to the transpiled C++ source file (.cppt).",
+                "default": "${workspaceFolder}/.trust/${fileBasenameNoExtension}.cppt"
               },
               "targetFile": {
                 "type": "string",
@@ -190,7 +202,7 @@
             "request": "launch",
             "name": "Trust Debug (current file)",
             "sourceFile": "${file}",
-            "cppFile": "${workspaceFolder}/.trust/${fileBasenameNoExtension}.cpp",
+            "cppFile": "${workspaceFolder}/.trust/${fileBasenameNoExtension}.cppt",
             "targetFile": "${workspaceFolder}/.trust/${fileBasenameNoExtension}",
             "gdbPath": ""
           }

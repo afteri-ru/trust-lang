@@ -25,3 +25,50 @@
 - Re-Read `.tasklog/<taskid>.md` and review the original plan for completeness and append any items not completed and the reasons why they were not completed.
 - Systematize the errors that occurred during the tasks plan and suggest improvements to prevent them in the future.
 - **Append all results** of the plan execution in the `.tasklog/<taskid>.md` file with a brief description of the results.
+
+---
+
+## Read structures before refactoring
+
+**Do not refactor code without reading the full definition of every type involved.**
+
+- Before modifying or replacing a type — read the complete header file and understand **all** fields, their semantics, and relationships.
+- Do not assume which fields are "unnecessary". If you don't understand a field — ask.
+- Pay special attention to types with semantics — they may carry ownership or lifetime constraints.
+- When a task says "remove dependency on X" — first check what data from X is actually used in downstream code.
+
+## Verify before completion
+
+**Do not call `attempt_completion` until all verifications pass.**
+
+After ANY change that removes types/fields/tokens, run:
+1. `find` `grep <removed_name>` over the entire project — fix all remaining references.
+2. `cmake --build _build` — project must compile without errors.
+3. `make run_unit_tests` or `make run_tests` for all tests — must pass.
+
+If the change affects — add a roundtrip test (save → load → compare) before completing.
+
+Do not call `attempt_completion` if you haven't run build + tests. "Trusting" that unrelated files don't reference the removed code is not sufficient — verify.
+
+If build or tests fail — do NOT declare completion. Fix the underlying issue.
+
+## Scope boundaries
+
+**Do not expand the task without explicit agreement.**
+
+- If architectural plan discussion exceeds 5 iterations — split into subtasks and agree separately.
+- Do not mix adding functionality with API refactoring in a single task.
+- Do not rework caller APIs if the task does not require it.
+- If a simple task ("add an attribute") grows into an API redesign ("change substituteArgs to class") — stop and request a separate task.
+
+## Premature completion
+
+**Do NOT declare a task completed if sections "Verify before completion" and "Scope boundaries" have not been fulfilled.**
+
+Characteristic signs of premature completion:
+- Only 1-2 files changed, although the task involves conceptually related components.
+- No `find` `grep` check for remaining references.
+- No build check (`cmake --build _build`).
+- No test run (`make run_unit_tests` or `make run_tests` for all tests).
+
+If after declaring TaskComplete the user points out unfinished work — it means sections 2-3 were not fulfilled.

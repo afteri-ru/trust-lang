@@ -1,0 +1,15 @@
+# RUN: %trust -q --emit-lexemes %s > %t.out && %FileCheck %s <%t.out
+@@ add($x, $y) @@ ::= @$x + @$y;
+# CHECK: @@	MACRO_SEQ
+# CHECK: add	NAME
+# CHECK: (	LPAREN
+# CHECK: $x	LOCAL
+# CHECK: ,	COMMA
+# CHECK: $y	LOCAL
+# CHECK: )	RPAREN
+# CHECK: @@	MACRO_SEQ
+# CHECK: ::=	CREATE_NEW
+# CHECK: @$x	MACRO_ARGNAME
+# CHECK: +	PLUS
+# CHECK: @$y	MACRO_ARGNAME
+# CHECK: ;	SEMICOLON

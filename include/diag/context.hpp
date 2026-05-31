@@ -133,7 +133,7 @@ class Context : public SourceMap<MapperFile> {
     AttrPool& attrs();
     const DiagnosticEngine& diag() const;
     const Options& opts() const;
-    const AttrPool& attrs() const;
+    const AttrPoolView& attrs() const;
 
     // ── Поиск FileIdx по пути с нормализацией ──
     // Нормализует путь через baseDirectory и ищет среди входных файлов.

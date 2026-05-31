@@ -19,6 +19,8 @@ enum class EmitFlags {
     AST = 1 << 1,
     Cpp = 1 << 2,
     Module = 1 << 3,
+    LexemesOnly = 1 << 4,
+    Macros = 1 << 5,
 };
 
 inline constexpr EmitFlags operator|(EmitFlags a, EmitFlags b) {
@@ -50,6 +52,10 @@ struct PipelineOpts {
     bool gen_binding_header = false;
     std::string binding_header_file;
     bool binding_header_explicitly_set = false;
+
+    // DSL options
+    std::string dsl_file;      // имя файла для замены встроенного DSL (пусто = использовать встроенный)
+    bool dsl_disabled = false; // true если --dsl без аргумента (отключить DSL)
 
     // True if no emit flags specified (full compile mode)
     bool should_compile() const { return emit_flags == EmitFlags::None; }

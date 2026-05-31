@@ -1,7 +1,5 @@
 #include "pipeline/pipeline.hpp"
 #include "pipeline/options.h"
-#include "gencpp/ast_builder.hpp"
-#include "gencpp/cpp_generator.hpp"
 #include "parser/lexer.hpp"
 #include "parser/mmproc.hpp"
 #include "parser.tab.hh"
@@ -11,10 +9,42 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <variant>
 
 namespace trust {
+
+// ── Helper: setup DSL macros ──
+
+static std::shared_ptr<MacroTable> setupDsl(Context& ctx, const PipelineOpts& opts) {
+    auto macros = std::make_shared<MacroTable>();
+
+    if (opts.dsl_disabled) {
+        std::cerr << "info: default DSL macros disabled\n";
+        return macros;
+    }
+
+    if (!opts.dsl_file.empty()) {
+        std::ifstream ifs(opts.dsl_file);
+        if (!ifs) {
+            std::cerr << "error: cannot open DSL file: " << opts.dsl_file << "\n";
+            return nullptr;
+        }
+        std::string dsl_content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+        MMProcessor::compileFromSource(ctx, *macros, dsl_content);
+        if (opts.verbose)
+            std::cerr << "info: loaded DSL from " << opts.dsl_file << "\n";
+    } else {
+        MMProcessor::compileFromSource(ctx, *macros, getDefaultDslSrc());
+        if (opts.verbose)
+            std::cerr << "info: using embedded default DSL\n";
+    }
+
+    return macros;
+}
+
+// ── Pipeline methods ──
 
 int Pipeline::main(int argc, char* argv[], char* envp[]) {
     (void)envp;
@@ -50,9 +80,30 @@ int Pipeline::run_emit(const ParseResult& result, Context& ctx) {
         std::cerr << "info: loaded " << result.opts.input_file << "\n";
     }
 
-    // Lex → MMProcess → Parse → Build Program → Generate C++
+    // Lex
     auto lexemes = Lexer::tokenize(ctx, src_idx);
-    auto tokens = MMProcessor::process(ctx, lexemes);
+
+    if ((result.opts.emit_flags & EmitFlags::LexemesOnly) != EmitFlags::None) {
+        for (const auto& lex : lexemes) {
+            std::cout << static_cast<std::string_view>(lex) << "\t" << ParserToken::name(lex.kind) << "\n";
+        }
+        return 0;
+    }
+
+    // Compile default macros
+    auto macros = setupDsl(ctx, result.opts);
+    if (!macros)
+        return 1;
+
+    // Lex → MMProcess → Parse → Build Program → Generate C++
+    auto tokens = MMProcessor::process(ctx, lexemes, macros);
+
+    if ((result.opts.emit_flags & EmitFlags::Macros) != EmitFlags::None) {
+        for (const auto& tok : tokens) {
+            std::cout << tok->text << "\t" << ParserToken::name(tok->kind) << "\n";
+        }
+        return 0;
+    }
 
     std::size_t pos = 0;
 
@@ -75,9 +126,14 @@ int Pipeline::run_compile(const ParseResult& result, Context& ctx) {
         std::cerr << "info: loaded " << result.opts.input_file << "\n";
     }
 
+    // Compile default macros
+    auto macros = setupDsl(ctx, result.opts);
+    if (!macros)
+        return 1;
+
     // Lex → MMProcess → Parse → Build Program → Generate C++
     auto lexemes = Lexer::tokenize(ctx, src_idx);
-    auto tokens = MMProcessor::process(ctx, lexemes);
+    auto tokens = MMProcessor::process(ctx, lexemes, macros);
 
     std::size_t pos = 0;
     TokenSequence ast_nodes;

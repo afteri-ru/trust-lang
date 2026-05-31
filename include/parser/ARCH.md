@@ -30,7 +30,6 @@ Source → Lexer → LexemeSequence → MMProcessor → TokenSequence → Parser
 - Analyzes the remaining grammar: expressions, operators, declarations to build the AST.
 - Some tokens serve only a syntactic function (delimiters, parentheses, punctuation) and do not create AST nodes.
 - `TokenInfo`- a universal structure for the semantic AST, with separate storage for different data, namespace, sequence, expression, etc.
-- The AST tree from `TokenInfo` is the input to the `gencpp` component.
 
 ## Token Categories (`ParserToken::Kind`)
 

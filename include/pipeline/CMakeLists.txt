@@ -15,3 +15,9 @@ target_include_directories(pipeline_lib PRIVATE ${CMAKE_BINARY_DIR}/include)
 # generate_options_h должен быть собран до pipeline_lib — заголовочный файл с опциями
 # генерируется в include/pipeline/options.h.in → ${CMAKE_BINARY_DIR}/include/pipeline/options.h
 add_dependencies(pipeline_lib generate_options_h)
+
+# ── trust executable ──
+add_executable(trust
+    ${PROJECT_SOURCE_DIR}/trust.cpp
+)
+target_link_libraries(trust PRIVATE pipeline_lib)

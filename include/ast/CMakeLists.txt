@@ -49,4 +49,5 @@ target_include_directories(ast_lib PUBLIC
     ${PROJECT_INCLUDE_DIR}
     ${CMAKE_BINARY_DIR}/include
 )
+target_include_directories(ast_lib SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
 add_dependencies(ast_lib ast_generated)

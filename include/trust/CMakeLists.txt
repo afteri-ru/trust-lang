@@ -19,16 +19,8 @@ set(TRUST_MODULE_HEADERS
     types/rational.hpp
     types/tensors.hpp
 
-    stdlib/buildin.hpp
+    types/buildin.hpp
 
-    # gencpp/ast_visitor.hpp
-    # gencpp/ast.hpp
-    # gencpp/symbol_table.hpp
-    # gencpp/ast_builder.hpp
-    # gencpp/ast_validator.hpp
-    # gencpp/ast_printer.hpp
-    # gencpp/cpp_generator.hpp
-    # gencpp/semantic_analyzer.hpp
 )
 list(TRANSFORM TRUST_MODULE_HEADERS PREPEND "${PROJECT_INCLUDE_DIR}/")
 

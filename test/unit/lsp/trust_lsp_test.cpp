@@ -132,7 +132,7 @@ TEST_F(TrustLspTest, HandleDidOpen_TrustFile_Transpiles) {
                 {"params", {{"textDocument", {{"uri", fileUri}, {"languageId", "trust"}, {"version", 1}, {"text", ""}}}}}};
     lsp->handleNotification(req);
 
-    std::string expectedCpp = testCppDir + "/test.cpp";
+    std::string expectedCpp = testCppDir + "/test.cppt";
     EXPECT_TRUE(fs::exists(expectedCpp));
 }
 

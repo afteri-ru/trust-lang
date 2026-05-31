@@ -35,6 +35,7 @@ inline constexpr std::string_view kStackGuard = "stack_guard";
 inline constexpr std::string_view kTrust = "trust";
 inline constexpr std::string_view kRequire = "require";
 inline constexpr std::string_view kEnsure = "ensure";
+inline constexpr std::string_view kDependMacro = "depend_macro";
 
 } // namespace attr_names
 

@@ -12,7 +12,7 @@ namespace trust {
 struct ParserAST;
 
 // Semantic value type used by Bison (defined in generated parser.tab.hh)
-using semantic_type = void*;
+using semantic_type = TokenPtr;
 
 /// ParserContext — контекст для Bison-парсера, заменяет множество отдельных параметров.
 struct ParserContext {

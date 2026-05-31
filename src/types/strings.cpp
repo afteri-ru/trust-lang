@@ -1,5 +1,5 @@
 #include "types/strings.hpp"
-#include "stdlib/category.hpp"
+#include "types/category.hpp"
 #include "types/types.hpp"
 
 namespace trust {

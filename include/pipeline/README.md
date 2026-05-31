@@ -13,11 +13,10 @@
 
 - `diag` — диагностика и опции
 - `parser` — токенизация и парсинг
-- `gencpp` — AST, семантический анализ, оптимизации, генерация C++
 
 ## Использование
 
 ```bash
-trust <input.trust> [-o output.cpp]
+trust <input.src> [-o output.cppt]
 trust --version
 trust -h

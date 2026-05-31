@@ -86,11 +86,11 @@ mangled _${mangled_name}?$_{mangled_name}+
 "@#"            TK(MACRO_TOSTR);
 
 "@$"{name}      TK(MACRO_ARGNAME);
-"@$"[0-9]+      TK(MACRO_ARGPOS);
+"@$"[0-9]+("."[1-9])?  TK(MACRO_ARGPOS);
 
-"@$..."         TK(MACRO_ARGUMENT);
-"@$*"           TK(MACRO_ARGUMENT);
-"@$#"           TK(MACRO_ARGCOUNT);
+"@$..."[1-9]?   TK(MACRO_ARGUMENT);
+"@$*"("."[1-9])? TK(MACRO_ARGUMENT);
+"@$#"("."[1-9])? TK(MACRO_ARGCOUNT);
 
 "/**/"     ADV(yyleng);
 "/**"      { yy_push_state(state_DOC_BEFORE, yyscanner); ADV(yyleng, true);} /* TK(DOC_BEFORE) - do not remove checks */

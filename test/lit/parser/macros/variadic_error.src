@@ -1,0 +1,3 @@
+# RUN: not %trust -q --emit-lexemes %s > %t.out 2>&1 && %FileCheck %s <%t.out
+@@ bad($x, ... $y) @@ ::= @@ @$x @$... @@;
+# CHECK: error: '...' must be the last argument in macro declaration

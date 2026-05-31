@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "markdown.trust.codeblock",
+  "name": "Trust Markdown Code Blocks",
+  "injectionSelector": "L:text.html.markdown",
+  "patterns": [
+    {
+      "include": "#trust-code-block"
+    }
+  ],
+  "repository": {
+    "trust-code-block": {
+      "name": "meta.embedded.block.trust",
+      "begin": "(`{3,})\\s*(?i:trust)\\b",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.markdown" }
+      },
+      "end": "\\1",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.markdown" }
+      },
+      "patterns": [
+        { "include": "source.trust" }
+      ]
+    }
+  }
+}

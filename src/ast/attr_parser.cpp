@@ -11,36 +11,57 @@ namespace trust {
 // Helpers
 // ────────────────────────────────────────────────────────────────────────────
 
-/// Convert a token kind to an AttrParam (checks for integer/string/identifier tokens)
+/// Convert a token kind to an AttrParam (all token kinds become string parameters).
+/// Numeric tokens are NOT converted to int64_t — they remain as text from source.
 static std::optional<AttrParam> token_to_param(const TokenPtr& tok) {
     using PK = ParserToken::Kind;
 
-    // Integer literal
-    if (tok->kind == PK::INTEGER || tok->kind == PK::NUMBER) {
-        // Simple conversion: try to parse as int64_t
-        char* end = nullptr;
-        int64_t val = std::strtoll(tok->text.c_str(), &end, 10);
-        if (end != tok->text.c_str() && *end == '\0') {
-            return AttrParam(val);
-        }
-        return std::nullopt;
-    }
-
-    // String literals
-    if (tok->kind == PK::STRWIDE || tok->kind == PK::STRCHAR) {
-        return AttrParam(std::string_view(tok->text));
-    }
-
-    // Identifier (NAME) — treat as string parameter
-    if (tok->kind == PK::NAME) {
+    // Any token type that represents a value: integer, number, string, or identifier
+    if (tok->kind == PK::INTEGER || tok->kind == PK::NUMBER || tok->kind == PK::STRWIDE || tok->kind == PK::STRCHAR || tok->kind == PK::NAME) {
         return AttrParam(std::string_view(tok->text));
     }
 
     return std::nullopt;
 }
 
-/// Check if the given params' types match the required types
-static bool validate_param_types(const std::vector<AttrParam>& params, const std::vector<AttrParamType>& required, DiagnosticEngine& diag, MapperRange range) {
+/// Check if the given params' types match the required types.
+/// If variadic is true, the last required param type can be repeated 0+ times.
+static bool validate_param_types(const std::vector<AttrParam>& params, const std::vector<AttrParamType>& required, bool variadic, DiagnosticEngine& diag,
+                                 MapperRange range) {
+    if (variadic) {
+        // For variadic attrs, at least required.size() - 1 params must match exactly,
+        // and remaining params must match the last required type.
+        std::size_t fixed_count = required.empty() ? 0 : required.size() - 1;
+        if (params.size() < fixed_count) {
+            diag.report(range, Severity::Error, "attribute requires at least {} parameters, but {} provided", fixed_count, params.size());
+            return false;
+        }
+
+        // Check fixed prefix
+        for (std::size_t i = 0; i < fixed_count; ++i) {
+            AttrParamType got = params[i].type();
+            AttrParamType expected = required[i];
+            if (got != expected) {
+                diag.report(range, Severity::Error, "attribute parameter {}: expected type {}, got type {}", i + 1, static_cast<int>(expected),
+                            static_cast<int>(got));
+                return false;
+            }
+        }
+
+        // Check variadic tail (all must match the last required type)
+        AttrParamType variadic_type = required.empty() ? AttrParamType::kString : required.back();
+        for (std::size_t i = fixed_count; i < params.size(); ++i) {
+            AttrParamType got = params[i].type();
+            if (got != variadic_type) {
+                diag.report(range, Severity::Error, "attribute parameter {}: expected type {}, got type {}", i + 1, static_cast<int>(variadic_type),
+                            static_cast<int>(got));
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Non-variadic: exact match
     if (params.size() != required.size()) {
         diag.report(range, Severity::Error, "attribute requires {} parameters, but {} provided", required.size(), params.size());
         return false;
@@ -128,8 +149,8 @@ std::optional<ParsedAttr> parse_attr(AttrPool& pool, const TokenSequence& tokens
     if (existing_id.has_value()) {
         const Attr& existing = pool.get(existing_id.value());
 
-        // Validate parameter types against required types
-        if (!validate_param_types(params, existing.m_required_param_types, diag, attr_range)) {
+        // Validate parameter types against required types (including variadic check)
+        if (!validate_param_types(params, existing.param_types(), existing.m_variadic, diag, attr_range)) {
             return std::nullopt;
         }
 
