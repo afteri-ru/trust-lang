@@ -1076,6 +1076,7 @@ TEST(MMProcTest, PredefTimestampISO) {
 }
 
 TEST(MMProcTest, PredefCounter) {
+    MMProcessor::s_counter = 1;
     Context ctx;
     MapperFile idx = ctx.add_source("<test>", "@__COUNTER__ @__COUNTER__ @__COUNTER__");
     auto lexemes = Lexer::tokenize(ctx, idx);
@@ -1083,32 +1084,34 @@ TEST(MMProcTest, PredefCounter) {
     EXPECT_EQ(ctx.diag().errorCount(), 0);
     ASSERT_EQ(tokens.size(), 3u);
     EXPECT_EQ(tokens[0]->kind, ParserToken::Kind::IntLiteral);
-    EXPECT_EQ(tokens[0]->text, "0");
+    EXPECT_EQ(tokens[0]->text, "1");
     EXPECT_EQ(tokens[1]->kind, ParserToken::Kind::IntLiteral);
-    EXPECT_EQ(tokens[1]->text, "1");
+    EXPECT_EQ(tokens[1]->text, "2");
     EXPECT_EQ(tokens[2]->kind, ParserToken::Kind::IntLiteral);
-    EXPECT_EQ(tokens[2]->text, "2");
+    EXPECT_EQ(tokens[2]->text, "3");
 }
 
 TEST(MMProcTest, PredefCounterResetBetweenProcess) {
+    // @__COUNTER__ теперь глобальный, не сбрасывается между process()
+    // Просто проверяем инкремент
+    MMProcessor::s_counter = 100;
     Context ctx;
 
-    // Первый вызов process
     MapperFile idx1 = ctx.add_source("<test1>", "@__COUNTER__ @__COUNTER__");
     auto lexemes1 = Lexer::tokenize(ctx, idx1);
     auto tokens1 = MMProcessor::process(ctx, lexemes1);
     EXPECT_EQ(ctx.diag().errorCount(), 0);
     ASSERT_EQ(tokens1.size(), 2u);
-    EXPECT_EQ(tokens1[0]->text, "0");
-    EXPECT_EQ(tokens1[1]->text, "1");
+    EXPECT_EQ(tokens1[0]->text, "100");
+    EXPECT_EQ(tokens1[1]->text, "101");
 
-    // Второй вызов process — счётчик должен сброситься
+    // Второй вызов process — счётчик не сбрасывается
     MapperFile idx2 = ctx.add_source("<test2>", "@__COUNTER__");
     auto lexemes2 = Lexer::tokenize(ctx, idx2);
     auto tokens2 = MMProcessor::process(ctx, lexemes2);
     EXPECT_EQ(ctx.diag().errorCount(), 0);
     ASSERT_EQ(tokens2.size(), 1u);
-    EXPECT_EQ(tokens2[0]->text, "0");
+    EXPECT_EQ(tokens2[0]->text, "102");
 }
 
 TEST(MMProcTest, PredefUnknownError) {
@@ -1281,6 +1284,63 @@ TEST(MMProcTest, MacroParamInOwnGroup) {
     ASSERT_EQ(tokens.size(), 2u);
     EXPECT_EQ(tokens[0]->text, "x");
     EXPECT_EQ(tokens[1]->text, "y");
+}
+
+// ========== Тесты @__HYGIENIC__ ==========
+
+TEST(MMProcTest, HygienicBasic) {
+    MMProcessor::s_hygienicCounter = 1;
+    Context ctx;
+    MapperFile idx = ctx.add_source("<test>", "@__HYGIENIC__(tmp)");
+    auto lexemes = Lexer::tokenize(ctx, idx);
+    auto tokens = MMProcessor::process(ctx, lexemes);
+    EXPECT_EQ(ctx.diag().errorCount(), 0);
+    ASSERT_EQ(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0]->kind, ParserToken::Kind::Ident);
+    EXPECT_EQ(tokens[0]->text, "tmp__G1_");
+}
+
+TEST(MMProcTest, HygienicRepeatSameMacro) {
+    // Разные раскрытия одного макроса — разный суффикс
+    MMProcessor::s_hygienicCounter = 10;
+    Context ctx;
+    auto macros = std::make_shared<MacroTable>();
+    MapperFile idx = ctx.add_source("<test>", "@@ hrepeat ( $x ) @@ ::= @@ @__HYGIENIC__(tmp) = @$x @@; @hrepeat(a); @hrepeat(b);");
+    auto lexemes = Lexer::tokenize(ctx, idx);
+    auto tokens = MMProcessor::process(ctx, lexemes, macros);
+    EXPECT_EQ(ctx.diag().errorCount(), 0);
+    ASSERT_EQ(tokens.size(), 6u);
+    // Первый вызов → tmp__G10_, второй → tmp__G11_
+    EXPECT_EQ(tokens[0]->text, "tmp__G10_");
+    EXPECT_EQ(tokens[3]->text, "tmp__G11_");
+}
+
+TEST(MMProcTest, HygienicSameNameWithinOneExpansion) {
+    // В одном раскрытии макроса одно и то же имя даёт один и тот же суффикс
+    MMProcessor::s_hygienicCounter = 5;
+    Context ctx;
+    auto macros = std::make_shared<MacroTable>();
+    MapperFile idx = ctx.add_source("<test>", "@@ hsame ( $x, $y ) @@ ::= @@ @__HYGIENIC__(tmp) = @$x; @__HYGIENIC__(tmp) = @$y @@; @hsame(a, b);");
+    auto lexemes = Lexer::tokenize(ctx, idx);
+    auto tokens = MMProcessor::process(ctx, lexemes, macros);
+    EXPECT_EQ(ctx.diag().errorCount(), 0);
+    // tmp__G5_ = a ; tmp__G5_ = b (один и тот же суффикс)
+    // 7 токенов: Ident(tmp__G5_), ASSIGN(=), Ident(a), SEMICOLON, Ident(tmp__G5_), ASSIGN(=), Ident(b)
+    ASSERT_EQ(tokens.size(), 7u);
+    EXPECT_EQ(tokens[0]->text, "tmp__G5_");
+    EXPECT_EQ(tokens[4]->text, "tmp__G5_"); // тот же суффикс!
+}
+
+TEST(MMProcTest, HygienicQualifiedName) {
+    MMProcessor::s_hygienicCounter = 1;
+    Context ctx;
+    MapperFile idx = ctx.add_source("<test>", "@__HYGIENIC__(MyNamespace::tmp)");
+    auto lexemes = Lexer::tokenize(ctx, idx);
+    auto tokens = MMProcessor::process(ctx, lexemes);
+    EXPECT_EQ(ctx.diag().errorCount(), 0);
+    ASSERT_EQ(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0]->kind, ParserToken::Kind::Ident);
+    EXPECT_EQ(tokens[0]->text, "MyNamespace::tmp__G1_");
 }
 
 } // namespace trust

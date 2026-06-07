@@ -16,8 +16,9 @@
 #include <iomanip>
 #include <unordered_map>
 
-// Определение статического счётчика
-int trust::MMProcessor::s_counter = 0;
+// Определение статических счётчиков (начинаются с 1)
+int trust::MMProcessor::s_counter = 1;
+int trust::MMProcessor::s_hygienicCounter = 1;
 
 namespace trust {
 
@@ -41,7 +42,6 @@ static std::string formatHash(uint64_t hash) {
 }
 
 static std::string formatDateAsCpp() {
-    // Формат как __DATE__: "Mmm dd yyyy"
     std::time_t t = std::time(nullptr);
     std::tm tm{};
     localtime_r(&t, &tm);
@@ -51,7 +51,6 @@ static std::string formatDateAsCpp() {
 }
 
 static std::string formatTimeAsCpp() {
-    // Формат как __TIME__: "hh:mm:ss"
     std::time_t t = std::time(nullptr);
     std::tm tm{};
     localtime_r(&t, &tm);
@@ -61,7 +60,6 @@ static std::string formatTimeAsCpp() {
 }
 
 static std::string formatTimestampAsAsctime() {
-    // Формат как asctime: "Fri 19 Aug 13:32:58 2016"
     std::time_t t = std::time(nullptr);
     std::tm tm{};
     localtime_r(&t, &tm);
@@ -71,7 +69,6 @@ static std::string formatTimestampAsAsctime() {
 }
 
 static std::string formatTimestampISO() {
-    // ISO 8601: "2013-07-06T00:50:06Z"
     std::time_t t = std::time(nullptr);
     std::tm tm{};
     gmtime_r(&t, &tm);
@@ -88,11 +85,9 @@ static std::string formatTimestampISO() {
 
 TokenSequence MMProcessor::handlePredefinedMacro(Context& ctx, std::string_view macroName, MapperFile fileIdx, MapperLocation loc) {
     using Kind = ParserToken::Kind;
-
     auto makeStringLit = [&](std::string text) -> TokenSequence { return {TokenInfo::make(Kind::StringLiteral, std::move(text), MapperRange{loc, loc})}; };
     auto makeIntLit = [&](int value) -> TokenSequence { return {TokenInfo::make(Kind::IntLiteral, std::to_string(value), MapperRange{loc, loc})}; };
 
-    // ── Version macros ──
     if (macroName == "__TRUST_VERSION_MAJOR__")
         return makeIntLit(TRUST_VERSION_MAJOR);
     if (macroName == "__TRUST_VERSION_MINOR__")
@@ -108,10 +103,8 @@ TokenSequence MMProcessor::handlePredefinedMacro(Context& ctx, std::string_view 
     if (macroName == "__TRUST_DATE_BUILD__")
         return makeStringLit(TRUST_DATE_BUILD);
 
-    // ── File macros ──
-    if (macroName == "__FILE__") {
+    if (macroName == "__FILE__")
         return makeStringLit(std::string{ctx.filename(fileIdx)});
-    }
     if (macroName == "__FILE_NAME__") {
         std::filesystem::path p(std::string{ctx.filename(fileIdx)});
         return makeStringLit(p.filename().string());
@@ -120,15 +113,10 @@ TokenSequence MMProcessor::handlePredefinedMacro(Context& ctx, std::string_view 
         uint32_t line = ctx.line(loc);
         return makeIntLit(static_cast<int>(line));
     }
-    if (macroName == "__FILE_MD5__") {
-        uint64_t hash = ctx.getFileHash(fileIdx);
-        return makeStringLit(formatHash(hash));
-    }
-    if (macroName == "__FILE_TIMESTAMP__") {
+    if (macroName == "__FILE_MD5__")
+        return makeStringLit(formatHash(ctx.getFileHash(fileIdx)));
+    if (macroName == "__FILE_TIMESTAMP__")
         return makeStringLit(formatTimestampISO());
-    }
-
-    // ── Date/Time macros ──
     if (macroName == "__DATE__")
         return makeStringLit(formatDateAsCpp());
     if (macroName == "__TIME__")
@@ -138,13 +126,10 @@ TokenSequence MMProcessor::handlePredefinedMacro(Context& ctx, std::string_view 
     if (macroName == "__TIMESTAMP_ISO__")
         return makeStringLit(formatTimestampISO());
 
-    // ── Counter ──
     if (macroName == "__COUNTER__") {
-        int value = s_counter++;
-        return makeIntLit(value);
+        return makeIntLit(s_counter++);
     }
 
-    // ── Unknown ──
     if (macroName.size() >= 4 && macroName.starts_with("__") && macroName.ends_with("__")) {
         ctx.diag().report(loc, Severity::Error, "unknown predefined macro '@{}'", macroName);
     }
@@ -277,11 +262,9 @@ static bool is_macro_name_lexeme(ParserToken::Kind k) noexcept {
 }
 
 // ============================================================
-// formatArgsText — единая функция для сериализации аргументов
+// formatArgsText
 // ============================================================
 
-/// Сериализовать аргументы макроса в строку.
-/// @param withParens true → формат "(a, b, )" (как @$*), false → "a, b" (как @$...)
 static std::string formatArgsText(const std::vector<LexemeSequence>& args, bool withParens) {
     std::string out;
     if (withParens)
@@ -444,7 +427,7 @@ static int resolveArgByNameOrNumber(std::string_view ref, const std::vector<std:
 }
 
 // ============================================================
-// substituteTokenText — новая версия с 2D-аргументами
+// substituteTokenText
 // ============================================================
 
 std::string MMProcessor::substituteTokenText(std::string_view text, const std::vector<std::vector<LexemeSequence>>& callArgsByGroup,
@@ -453,44 +436,33 @@ std::string MMProcessor::substituteTokenText(std::string_view text, const std::v
         return std::string{text};
     std::string result;
     result.reserve(text.size());
-
-    // Вычислить flattened общее количество аргументов и variadic группы
     int totalArgCount = 0;
     for (const auto& group : callArgsByGroup)
         totalArgCount += static_cast<int>(group.size());
-
-    // Собрать индексы вариадических групп
     std::vector<int> variadicGroupIndices;
     for (int gi = 0; gi < static_cast<int>(argGroups.size()); ++gi)
         if (argGroups[gi].m_hasVariadic)
             variadicGroupIndices.push_back(gi);
-
-    // Лямбда для подстановки аргументов одной группы (variadic) как текст
     auto formatVariadicGroup = [&](int groupIdx, bool withParens) -> std::string {
         if (groupIdx < 0 || groupIdx >= static_cast<int>(callArgsByGroup.size()))
             return {};
         return formatArgsText(callArgsByGroup[groupIdx], withParens);
     };
-
-    // Лямбда для подстановки всех вариадических групп
     auto formatAllVariadic = [&](bool withParens) -> std::string {
         std::vector<LexemeSequence> all;
-        for (int gi : variadicGroupIndices) {
-            if (gi < static_cast<int>(callArgsByGroup.size())) {
+        for (int gi : variadicGroupIndices)
+            if (gi < static_cast<int>(callArgsByGroup.size()))
                 for (const auto& seq : callArgsByGroup[gi])
                     all.push_back(seq);
-            }
-        }
         return formatArgsText(all, withParens);
     };
-
     for (std::size_t i = 0; i < text.size(); ++i) {
         if (text[i] == '@' && i + 1 < text.size() && text[i + 1] == '$') {
             std::size_t start = i + 2;
             std::string ref;
             std::size_t j = start;
             bool is_star = false, is_hash = false, is_ellipsis = false;
-            int ellipsis_number = 0; // 0 = без цифры (все)
+            int ellipsis_number = 0;
             if (j < text.size() && text[j] == '*') {
                 is_star = true;
                 ref = "*";
@@ -503,7 +475,6 @@ std::string MMProcessor::substituteTokenText(std::string_view text, const std::v
                 is_ellipsis = true;
                 ref = "...";
                 j += 3;
-                // Проверяем, есть ли цифра после ...
                 if (j < text.size() && text[j] >= '1' && text[j] <= '9') {
                     ellipsis_number = text[j] - '0';
                     j++;
@@ -519,28 +490,18 @@ std::string MMProcessor::substituteTokenText(std::string_view text, const std::v
                 continue;
             }
             if (is_star) {
-                if (ellipsis_number > 0) {
-                    // @$*N — конкретная вариадическая группа
-                    int variadicIdx = ellipsis_number - 1;
-                    if (variadicIdx < static_cast<int>(variadicGroupIndices.size())) {
-                        result += formatVariadicGroup(variadicGroupIndices[variadicIdx], true);
-                    }
-                } else {
+                if (ellipsis_number > 0)
+                    result += formatVariadicGroup(variadicGroupIndices[ellipsis_number - 1], true);
+                else
                     result += formatAllVariadic(true);
-                }
                 i = j - 1;
                 continue;
             }
             if (is_ellipsis) {
-                if (ellipsis_number > 0) {
-                    // @$...N — конкретная вариадическая группа
-                    int variadicIdx = ellipsis_number - 1;
-                    if (variadicIdx < static_cast<int>(variadicGroupIndices.size())) {
-                        result += formatVariadicGroup(variadicGroupIndices[variadicIdx], false);
-                    }
-                } else {
+                if (ellipsis_number > 0)
+                    result += formatVariadicGroup(variadicGroupIndices[ellipsis_number - 1], false);
+                else
                     result += formatAllVariadic(false);
-                }
                 i = j - 1;
                 continue;
             }
@@ -549,7 +510,6 @@ std::string MMProcessor::substituteTokenText(std::string_view text, const std::v
                 i = j - 1;
                 continue;
             }
-            // @$name или @$N — поиск по всем группам
             for (int gi = 0; gi < static_cast<int>(argGroups.size()); ++gi) {
                 int arg_index = resolveArgByNameOrNumber(ref, argGroups[gi].m_params);
                 if (arg_index >= 0 && arg_index < static_cast<int>(callArgsByGroup[gi].size())) {
@@ -562,7 +522,6 @@ std::string MMProcessor::substituteTokenText(std::string_view text, const std::v
                     }
                     break;
                 }
-                // Если ref — число, ищем flattened
                 bool is_numeric = true;
                 for (char c : ref) {
                     if (!std::isdigit(static_cast<unsigned char>(c))) {
@@ -601,7 +560,7 @@ std::string MMProcessor::substituteTokenText(std::string_view text, const std::v
 }
 
 // ============================================================
-// substituteArgs — новая версия с 2D-аргументами
+// substituteArgs
 // ============================================================
 
 LexemeSequence MMProcessor::substituteArgs(const LexemeSequence& body, const std::vector<std::vector<LexemeSequence>>& callArgsByGroup,
@@ -609,25 +568,18 @@ LexemeSequence MMProcessor::substituteArgs(const LexemeSequence& body, const std
     LexemeSequence result;
     result.reserve(body.size());
     std::vector<std::string> owned_strings;
-
-    // Кэш: маппинг имени параметра → (group_idx, param_idx) для быстрого поиска
     struct ParamLoc {
         int group;
         int index;
     };
     std::unordered_map<std::string_view, ParamLoc> paramMap;
-    for (int gi = 0; gi < static_cast<int>(argGroups.size()); ++gi) {
+    for (int gi = 0; gi < static_cast<int>(argGroups.size()); ++gi)
         for (int pi = 0; pi < static_cast<int>(argGroups[gi].m_params.size()); ++pi)
             paramMap[argGroups[gi].m_params[pi]] = {gi, pi};
-    }
-
-    // Собрать индексы вариадических групп
     std::vector<int> variadicGroupIndices;
     for (int gi = 0; gi < static_cast<int>(argGroups.size()); ++gi)
         if (argGroups[gi].m_hasVariadic)
             variadicGroupIndices.push_back(gi);
-
-    // Лямбда: вставить аргументы одной группы (с разделителями COMMA)
     auto insertGroupArgs = [&](int groupIdx, bool withParens, MapperLocation tokenPos) {
         if (groupIdx < 0 || groupIdx >= static_cast<int>(callArgsByGroup.size()))
             return;
@@ -645,27 +597,6 @@ LexemeSequence MMProcessor::substituteArgs(const LexemeSequence& body, const std
             result.push_back(Lexeme(ParserToken::Kind::RPAREN, ")", tokenPos));
         }
     };
-
-    // Лямбда: вставить аргументы одной группы (без variadic) как flattened
-    auto insertGroupArgsFlattened = [&](int groupIdx, bool withParens, MapperLocation tokenPos) {
-        if (groupIdx < 0 || groupIdx >= static_cast<int>(callArgsByGroup.size()))
-            return;
-        if (withParens)
-            result.push_back(Lexeme(ParserToken::Kind::LPAREN, "(", tokenPos));
-        const auto& group = callArgsByGroup[groupIdx];
-        for (std::size_t ai = 0; ai < group.size(); ++ai) {
-            if (ai > 0)
-                result.push_back(Lexeme(ParserToken::Kind::COMMA, ",", tokenPos));
-            for (const auto& arg_tok : group[ai])
-                result.push_back(arg_tok);
-        }
-        if (withParens) {
-            result.push_back(Lexeme(ParserToken::Kind::COMMA, ",", tokenPos));
-            result.push_back(Lexeme(ParserToken::Kind::RPAREN, ")", tokenPos));
-        }
-    };
-
-    // Лямбда: вставить аргументы всех вариадических групп, или всех групп если variadic нет
     auto insertAllVariadic = [&](bool withParens, MapperLocation tokenPos) {
         if (!variadicGroupIndices.empty()) {
             if (withParens)
@@ -674,12 +605,11 @@ LexemeSequence MMProcessor::substituteArgs(const LexemeSequence& body, const std
             for (int gi : variadicGroupIndices) {
                 if (gi >= static_cast<int>(callArgsByGroup.size()))
                     continue;
-                const auto& group = callArgsByGroup[gi];
-                for (std::size_t ai = 0; ai < group.size(); ++ai) {
+                for (std::size_t ai = 0; ai < callArgsByGroup[gi].size(); ++ai) {
                     if (!first)
                         result.push_back(Lexeme(ParserToken::Kind::COMMA, ",", tokenPos));
                     first = false;
-                    for (const auto& arg_tok : group[ai])
+                    for (const auto& arg_tok : callArgsByGroup[gi][ai])
                         result.push_back(arg_tok);
                 }
             }
@@ -688,7 +618,6 @@ LexemeSequence MMProcessor::substituteArgs(const LexemeSequence& body, const std
                 result.push_back(Lexeme(ParserToken::Kind::RPAREN, ")", tokenPos));
             }
         } else {
-            // Нет variadic групп — подставляем все аргументы из всех групп flattened
             if (withParens)
                 result.push_back(Lexeme(ParserToken::Kind::LPAREN, "(", tokenPos));
             bool first = true;
@@ -707,112 +636,85 @@ LexemeSequence MMProcessor::substituteArgs(const LexemeSequence& body, const std
             }
         }
     };
-
     auto totalArgCount = [&]() -> int {
         int c = 0;
         for (const auto& g : callArgsByGroup)
             c += static_cast<int>(g.size());
         return c;
     };
-
     for (const auto& token : body) {
         if (token.kind == ParserToken::Kind::MACRO_ARGNAME || token.kind == ParserToken::Kind::MACRO_ARGPOS) {
             std::string_view sv{token};
             if (sv.size() >= 2 && sv[0] == '@' && sv[1] == '$')
                 sv = sv.substr(2);
-            // Поиск по имени (MACRO_ARGNAME)
             if (token.kind == ParserToken::Kind::MACRO_ARGNAME) {
                 auto it = paramMap.find(sv);
                 if (it != paramMap.end()) {
-                    int gi = it->second.group;
-                    int pi = it->second.index;
-                    if (gi < static_cast<int>(callArgsByGroup.size()) && pi < static_cast<int>(callArgsByGroup[gi].size())) {
+                    int gi = it->second.group, pi = it->second.index;
+                    if (gi < static_cast<int>(callArgsByGroup.size()) && pi < static_cast<int>(callArgsByGroup[gi].size()))
                         for (const auto& arg_tok : callArgsByGroup[gi][pi])
                             result.push_back(arg_tok);
-                    }
                 }
                 continue;
             }
-            // MACRO_ARGPOS — формат @$arg.group или @$arg (если одна группа)
-            // arg — номер аргумента (1-based), group — номер группы (1-based, опционально)
             auto dot_pos = sv.find('.');
             if (dot_pos != std::string_view::npos) {
-                // @$arg.group
-                std::string_view arg_sv = sv.substr(0, dot_pos);
-                std::string_view group_sv = sv.substr(dot_pos + 1);
-                int a = std::stoi(std::string{arg_sv}) - 1;
-                int g = std::stoi(std::string{group_sv}) - 1;
-                if (g < 0 || g >= static_cast<int>(callArgsByGroup.size()) || a < 0 || a >= static_cast<int>(callArgsByGroup[g].size())) {
-                    // invalid — skip without error (errors reported at definition validation)
-                    continue;
-                }
-                for (const auto& arg_tok : callArgsByGroup[g][a])
-                    result.push_back(arg_tok);
+                int a = std::stoi(std::string{sv.substr(0, dot_pos)}) - 1;
+                int g = std::stoi(std::string{sv.substr(dot_pos + 1)}) - 1;
+                if (g >= 0 && g < static_cast<int>(callArgsByGroup.size()) && a >= 0 && a < static_cast<int>(callArgsByGroup[g].size()))
+                    for (const auto& arg_tok : callArgsByGroup[g][a])
+                        result.push_back(arg_tok);
                 continue;
             }
-            // Без точки
             if (argGroups.size() == 1) {
-                // Одна группа — @$arg подразумевает @$arg.1
                 int a = std::stoi(std::string{sv}) - 1;
-                if (a >= 0 && a < static_cast<int>(callArgsByGroup[0].size())) {
+                if (a >= 0 && a < static_cast<int>(callArgsByGroup[0].size()))
                     for (const auto& arg_tok : callArgsByGroup[0][a])
                         result.push_back(arg_tok);
-                }
             }
-            // Если групп больше одной — просто игнорируем (будет ошибка при компиляции)
             continue;
         }
         if (token.kind == ParserToken::Kind::MACRO_ARGUMENT) {
             std::string_view sv{token};
-            // @$... — все вариадические
             if (sv == "@$...") {
                 insertAllVariadic(false, token.pos);
                 continue;
             }
-            // @$...N — N-я вариадическая группа
             if (sv.starts_with("@$...") && sv.size() > 5 && sv[5] >= '1' && sv[5] <= '9') {
-                int ellipsis_number = sv[5] - '0';
-                int variadicIdx = ellipsis_number - 1;
-                if (variadicIdx < static_cast<int>(variadicGroupIndices.size())) {
+                int variadicIdx = (sv[5] - '0') - 1;
+                if (variadicIdx < static_cast<int>(variadicGroupIndices.size()))
                     insertGroupArgs(variadicGroupIndices[variadicIdx], false, token.pos);
-                }
                 continue;
             }
             if (sv == "@$*") {
                 insertAllVariadic(true, token.pos);
                 continue;
             }
-            // @$*.group — конкретная группа со скобками
             if (sv.starts_with("@$*.") && sv.size() > 4 && sv[3] == '.' && sv[4] >= '1' && sv[4] <= '9') {
-                int groupIdx = sv[4] - '0' - 1;
-                if (groupIdx >= 0 && groupIdx < static_cast<int>(callArgsByGroup.size())) {
+                int groupIdx = (sv[4] - '0') - 1;
+                if (groupIdx >= 0 && groupIdx < static_cast<int>(callArgsByGroup.size()))
                     insertGroupArgs(groupIdx, true, token.pos);
-                }
                 continue;
             }
-            // Любая другая подстановка (в т.ч. в составе более длинного текста)
             owned_strings.push_back(substituteTokenText(std::string{token}, callArgsByGroup, argGroups));
             result.push_back(Lexeme(ParserToken::Kind::Ident, owned_strings.back(), token.pos));
             continue;
         }
         if (token.kind == ParserToken::Kind::MACRO_ARGCOUNT) {
             std::string_view sv{token};
-            // @$# — общее количество
             if (sv == "@$#") {
                 owned_strings.push_back(std::to_string(totalArgCount()));
                 result.push_back(Lexeme(ParserToken::Kind::IntLiteral, owned_strings.back(), token.pos));
                 continue;
             }
-            // @$#.group — количество в конкретной группе
             if (sv.starts_with("@$#.") && sv.size() > 4 && sv[3] == '.' && sv[4] >= '1' && sv[4] <= '9') {
-                int groupIdx = sv[4] - '0' - 1;
+                int groupIdx = (sv[4] - '0') - 1;
                 if (groupIdx >= 0 && groupIdx < static_cast<int>(callArgsByGroup.size())) {
                     owned_strings.push_back(std::to_string(callArgsByGroup[groupIdx].size()));
                     result.push_back(Lexeme(ParserToken::Kind::IntLiteral, owned_strings.back(), token.pos));
                 }
                 continue;
             }
-            // Fallback: неизвестный формат — total
             owned_strings.push_back(std::to_string(totalArgCount()));
             result.push_back(Lexeme(ParserToken::Kind::IntLiteral, owned_strings.back(), token.pos));
             continue;
@@ -858,11 +760,6 @@ static bool isMacroRedefined(MacroTable& macros, const MacroDef& def, Context& c
     return false;
 }
 
-// ============================================================
-// open/close bracket match helpers
-// ============================================================
-
-/// Вернуть закрывающий токен для открывающего, или END если невалидный
 static ParserToken::Kind closingFor(ParserToken::Kind open) noexcept {
     if (open == ParserToken::Kind::LPAREN)
         return ParserToken::Kind::RPAREN;
@@ -873,7 +770,6 @@ static ParserToken::Kind closingFor(ParserToken::Kind open) noexcept {
     return ParserToken::Kind::END;
 }
 
-/// true если токен — открывающая скобка, которая может быть группой аргументов
 static bool is_open_bracket(ParserToken::Kind k) noexcept {
     return k == ParserToken::Kind::LPAREN || k == ParserToken::Kind::LBRACKET || k == ParserToken::Kind::LANGLE;
 }
@@ -882,21 +778,16 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
     EXPECT(pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::MACRO_SEQ);
     MapperLocation macro_start_loc = lexemes[pos].pos;
     pos++;
-
-    // Парсинг имени макроса и групп аргументов
     std::vector<Lexeme> name_lexemes;
     std::vector<MacroArgGroup> arg_groups;
     MacroArgGroup* current_group = nullptr;
     ParserToken::Kind current_open_kind{ParserToken::Kind::END};
     MapperLocation paren_open_loc{};
     MapperLocation last_name_loc = macro_start_loc;
-
     while (pos < lexemes.size() && lexemes[pos].kind != ParserToken::Kind::MACRO_SEQ) {
         if (current_group) {
-            // Мы внутри группы скобок
             ParserToken::Kind close_kind = closingFor(current_open_kind);
             if (lexemes[pos].kind == close_kind) {
-                // Закрываем группу
                 current_group = nullptr;
                 current_open_kind = ParserToken::Kind::END;
                 pos++;
@@ -904,14 +795,11 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
             }
             if (lexemes[pos].kind == ParserToken::Kind::ELLIPSIS) {
                 current_group->m_hasVariadic = true;
-                // Проверка: ... должен быть последним перед закрывающей скобкой
                 std::size_t next = pos + 1;
-                // Пропускаем опциональную запятую
                 if (next < lexemes.size() && lexemes[next].kind == ParserToken::Kind::COMMA)
                     next++;
-                if (next < lexemes.size() && lexemes[next].kind != close_kind) {
+                if (next < lexemes.size() && lexemes[next].kind != close_kind)
                     ctx.diag().report(lexemes[pos].pos, Severity::Error, "'...' must be the last argument in a macro argument group");
-                }
                 pos++;
                 continue;
             }
@@ -928,7 +816,6 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
             pos++;
             continue;
         }
-        // Начало новой группы скобок
         if (is_open_bracket(lexemes[pos].kind)) {
             current_open_kind = lexemes[pos].kind;
             paren_open_loc = lexemes[pos].pos;
@@ -945,19 +832,15 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
         if (is_macro_name_lexeme(lexemes[pos].kind)) {
             last_name_loc = lexemes[pos].pos;
             if (lexemes[pos].kind == ParserToken::Kind::LOCAL) {
-                // $name вне скобок — pattern-matching (template-style)
-                // Все $name вне скобок объединяются в одну template-группу
                 if (arg_groups.empty() || !arg_groups.back().m_isTemplate) {
                     MacroArgGroup tg;
                     tg.m_isTemplate = true;
                     tg.m_params.push_back(std::string_view{lexemes[pos]}.substr(1));
                     arg_groups.push_back(std::move(tg));
-                } else {
+                } else
                     arg_groups.back().m_params.push_back(std::string_view{lexemes[pos]}.substr(1));
-                }
-            } else {
+            } else
                 name_lexemes.push_back(lexemes[pos]);
-            }
             pos++;
             continue;
         }
@@ -965,8 +848,6 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
         pos++;
         continue;
     }
-
-    // Проверка завершения имени
     if (current_group) {
         ctx.diag().report(paren_open_loc.isValid() ? paren_open_loc : macro_start_loc, Severity::Error, "unterminated bracket in macro argument group");
         if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::MACRO_SEQ)
@@ -977,11 +858,8 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
         ctx.diag().report(last_name_loc.isValid() ? last_name_loc : macro_start_loc, Severity::Error, "unterminated macro name (expected '@@')");
         return true;
     }
-
     MapperLocation close_name_loc = lexemes[pos].pos;
     pos++;
-
-    // Парсинг оператора создания
     if (pos >= lexemes.size()) {
         ctx.diag().report(close_name_loc, Severity::Error, "expected creation operator after macro name, got end of input");
         return true;
@@ -995,17 +873,12 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
         pos++;
         return true;
     }
-
     MapperLocation op_loc = lexemes[pos].pos;
     pos++;
-
-    // Парсинг тела макроса
     MacroDef def;
     def.m_nameLexemes = std::move(name_lexemes);
     def.m_argGroups = std::move(arg_groups);
     def.m_bodyType = MacroBodyType::kExpression;
-
-    // Вычисляем m_variadicCount
     int vc = 0;
     for (const auto& g : def.m_argGroups)
         if (g.m_hasVariadic)
@@ -1013,7 +886,6 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
     def.m_variadicCount = vc;
     MapperLocation first_body_loc = (pos < lexemes.size()) ? lexemes[pos].pos : op_loc;
     MapperLocation last_consumed_loc = op_loc;
-
     if (pos < lexemes.size()) {
         if (lexemes[pos].kind == ParserToken::Kind::MACRO_SEQ) {
             def.m_bodyType = MacroBodyType::kTokenSequence;
@@ -1042,23 +914,50 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
             }
         }
     }
-
     def.m_bodyRange = MapperRange{first_body_loc, last_consumed_loc};
-
-    // Обработка ';'
     if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::SEMICOLON) {
         def.m_bodyRange.end = lexemes[pos].pos;
         pos++;
-    } else {
+    } else
         ctx.diag().report(last_consumed_loc, Severity::Error, "expected ';' after macro definition");
-    }
-
-    // Проверка на переопределение
     if (isMacroRedefined(macros, def, ctx, op_loc))
         return true;
-
     macros.back()[std::string_view{def.m_nameLexemes[0]}].push_back(std::move(def));
     return true;
+}
+
+// ============================================================
+// makeHygienicName
+// ============================================================
+
+std::string MMProcessor::makeHygienicName(std::string_view ident, HygienicMap& hygienicMap) {
+    auto it = hygienicMap.find(std::string(ident));
+    if (it != hygienicMap.end()) {
+        std::size_t last_ns = ident.rfind("::");
+        std::string_view last_part = (last_ns == std::string_view::npos) ? ident : ident.substr(last_ns + 2);
+        std::string result;
+        result.reserve(ident.size() + 8);
+        if (last_ns != std::string_view::npos)
+            result.append(ident.data(), last_ns + 2);
+        result.append(last_part);
+        result += "__G";
+        result += std::to_string(it->second);
+        result += "_";
+        return result;
+    }
+    int num = s_hygienicCounter++;
+    hygienicMap[std::string(ident)] = num;
+    std::size_t last_ns = ident.rfind("::");
+    std::string_view last_part = (last_ns == std::string_view::npos) ? ident : ident.substr(last_ns + 2);
+    std::string result;
+    result.reserve(ident.size() + 8);
+    if (last_ns != std::string_view::npos)
+        result.append(ident.data(), last_ns + 2);
+    result.append(last_part);
+    result += "__G";
+    result += std::to_string(num);
+    result += "_";
+    return result;
 }
 
 // ============================================================
@@ -1066,19 +965,14 @@ bool MMProcessor::collectMacroDef(Context& ctx, MacroTable& macros, const Lexeme
 // ============================================================
 
 TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, int& recursionDepth, std::string_view name, const LexemeSequence& lexemes,
-                                             std::size_t& pos, std::set<std::string>* expandedMacros) {
+                                             std::size_t& pos, std::set<std::string>* expandedMacros, HygienicMap* hygienicMap) {
     TokenSequence result;
-
-    // Запоминаем имя раскрываемого макроса
     if (expandedMacros)
         expandedMacros->insert(std::string(name));
-
     if (recursionDepth >= kMaxRecursionDepth) {
         ctx.diag().report(lexemes[pos].pos, Severity::Error, "macro recursion depth exceeded (max {})", kMaxRecursionDepth);
         return result;
     }
-
-    // Поиск макроса
     const MacroDef* def_ptr = nullptr;
     std::size_t name_match_len = 1;
     for (auto it = macros.rbegin(); it != macros.rend(); ++it) {
@@ -1092,8 +986,8 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
                         match = false;
                         break;
                     }
-                    const auto& name_lex = candidate.m_nameLexemes[ni];
-                    if (lexemes[check_pos].kind != name_lex.kind || std::string_view{lexemes[check_pos]} != std::string_view{name_lex}) {
+                    if (lexemes[check_pos].kind != candidate.m_nameLexemes[ni].kind ||
+                        std::string_view{lexemes[check_pos]} != std::string_view{candidate.m_nameLexemes[ni]}) {
                         match = false;
                         break;
                     }
@@ -1109,36 +1003,28 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
                 break;
         }
     }
-
     if (!def_ptr) {
         ctx.diag().report(lexemes[pos].pos, Severity::Error, "undefined macro '{}'", name);
         return result;
     }
-
     const MacroDef& def = *def_ptr;
     pos += name_match_len;
-
-    // Собираем аргументы для каждой группы из определения макроса
-    // callArgsByGroup[gi] = vector of LexemeSequences for group gi, split by comma
     std::vector<std::vector<LexemeSequence>> callArgsByGroup;
     callArgsByGroup.reserve(def.m_argGroups.size());
-
     bool has_bracket_call = false;
     bool mismatch_error = false;
-
     for (std::size_t gi = 0; gi < def.m_argGroups.size(); ++gi) {
         const auto& group = def.m_argGroups[gi];
         if (group.m_isTemplate) {
-            // Template-style: $name вне скобок — собираем токены до ';'
             has_bracket_call = false;
             LexemeSequence group_flat;
             while (pos < lexemes.size() && lexemes[pos].kind != ParserToken::Kind::SEMICOLON) {
                 group_flat.push_back(lexemes[pos]);
                 pos++;
             }
-            if (group_flat.empty()) {
+            if (group_flat.empty())
                 callArgsByGroup.emplace_back();
-            } else {
+            else {
                 std::vector<LexemeSequence> template_args;
                 for (const auto& tok : group_flat) {
                     LexemeSequence single;
@@ -1148,7 +1034,6 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
                 callArgsByGroup.push_back(std::move(template_args));
             }
         } else {
-            // Скобочная группа — ожидаем скобку на вызове
             if (pos >= lexemes.size() || !is_open_bracket(lexemes[pos].kind)) {
                 if (!mismatch_error) {
                     ctx.diag().report((pos < lexemes.size()) ? lexemes[pos].pos : lexemes[pos - 1].pos, Severity::Error,
@@ -1160,8 +1045,7 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
                 continue;
             }
             has_bracket_call = true;
-            ParserToken::Kind open_kind = lexemes[pos].kind;
-            ParserToken::Kind close_kind = closingFor(open_kind);
+            ParserToken::Kind open_kind = lexemes[pos].kind, close_kind = closingFor(open_kind);
             pos++;
             LexemeSequence group_flat;
             int depth = 1;
@@ -1174,9 +1058,8 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
                     depth--;
                     if (depth > 0)
                         group_flat.push_back(lexemes[pos]);
-                } else {
+                } else
                     group_flat.push_back(lexemes[pos]);
-                }
                 pos++;
             }
             if (group_flat.empty())
@@ -1185,15 +1068,11 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
                 callArgsByGroup.push_back(splitArgsByComma(group_flat));
         }
     }
-
-    // Если в определении нет групп, но на вызове есть скобки — ошибка
     if (def.m_argGroups.empty() && pos < lexemes.size() && is_open_bracket(lexemes[pos].kind)) {
         ctx.diag().report(lexemes[pos].pos, Severity::Error, "macro '{}' has no argument groups but called with brackets",
                           std::string_view{def.m_nameLexemes[0]});
         return result;
     }
-
-    // Если в определении есть группы со скобками (не template), но на вызове их нет — ошибка
     if (!def.m_argGroups.empty() && !has_bracket_call) {
         bool expect_brackets = false;
         for (const auto& g : def.m_argGroups) {
@@ -1208,16 +1087,17 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
             return result;
         }
     }
-
-    // Рекурсивное раскрытие тела с передачей expandedMacros
+    // Каждый вызов expandMacroLexeme создаёт свой hygienicMap (если hygienicMap не передан).
+    // Вложенные раскрытия (рекурсивные) используют тот же map.
+    HygienicMap localHygienicMap;
+    HygienicMap* effectiveHygienicMap = hygienicMap ? hygienicMap : &localHygienicMap;
     auto recurseExpand = [&](LexemeSequence&& input) -> TokenSequence {
         recursionDepth++;
         std::size_t recurse_pos = 0;
-        auto out = processInternal(ctx, macros, recursionDepth, input, recurse_pos, expandedMacros);
+        auto out = processInternal(ctx, macros, recursionDepth, input, recurse_pos, expandedMacros, effectiveHygienicMap);
         recursionDepth--;
         return out;
     };
-
     if (def.m_bodyType == MacroBodyType::kStringLiteral) {
         std::string body_text;
         for (const auto& tok : def.m_body)
@@ -1234,9 +1114,6 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
         LexemeSequence substituted = substituteArgs(def.m_body, callArgsByGroup, def.m_argGroups);
         result = recurseExpand(std::move(substituted));
     }
-
-    // Проверка @__LEXEME_NEXT__ — следующая лексема должна быть одной из ожидаемых
-    // Выполняется ДО потребления ';', чтобы ';' могла быть проверена
     if (!def.m_expectedAfter.empty()) {
         if (pos >= lexemes.size()) {
             MapperLocation errLoc = (pos > 0) ? lexemes[pos - 1].pos : def.m_bodyRange.end;
@@ -1283,19 +1160,12 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
             }
         }
     }
-
-    // Потребляем ';' после вызова макроса (только если не было проверки @__LEXEME_NEXT__,
-    // которая могла уже его учесть)
     if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::SEMICOLON)
         pos++;
-
-    // Маппинг
     if (!result.empty()) {
-        MapperLocation first_loc = result.front()->range.begin;
-        MapperLocation last_loc = result.back()->range.end;
+        MapperLocation first_loc = result.front()->range.begin, last_loc = result.back()->range.end;
         ctx.addMacroMapping(MapperRange(first_loc, last_loc), def.m_bodyRange);
     }
-
     return result;
 }
 
@@ -1304,7 +1174,7 @@ TokenSequence MMProcessor::expandMacroLexeme(Context& ctx, MacroTable& macros, i
 // ============================================================
 
 TokenSequence MMProcessor::processAttrGroup(Context& ctx, MacroTable& macros, int& recursionDepth, const Lexeme& startLex, const LexemeSequence& lexemes,
-                                            std::size_t& pos, std::set<std::string>* expandedMacros) {
+                                            std::size_t& pos, std::set<std::string>* expandedMacros, HygienicMap* hygienicMap) {
     ++pos;
     LexemeSequence attr_lexemes;
     bool found_end = false;
@@ -1321,23 +1191,17 @@ TokenSequence MMProcessor::processAttrGroup(Context& ctx, MacroTable& macros, in
         ctx.diag().report(startLex.pos, Severity::Error, "unterminated '@[' — expected ']@'");
         return {};
     }
-
-    // Раскрываем макросы внутри атрибута
     std::set<std::string> expanded_macros_in_attr;
     std::size_t attr_pos = 0;
-    TokenSequence processed_attr = processInternal(ctx, macros, recursionDepth, attr_lexemes, attr_pos, &expanded_macros_in_attr);
-
+    TokenSequence processed_attr = processInternal(ctx, macros, recursionDepth, attr_lexemes, attr_pos, &expanded_macros_in_attr, hygienicMap);
     TokenSequence result;
     auto attr_token = TokenInfo::make(ParserToken::Kind::ATTR, "", MapperRange{});
     attr_token->m_sequence = std::move(processed_attr);
     result.push_back(std::move(attr_token));
-
-    // Если были раскрыты макросы — добавляем @[depend_macro(...)]@
     if (!expanded_macros_in_attr.empty()) {
-        if (expandedMacros) {
+        if (expandedMacros)
             for (const auto& n : expanded_macros_in_attr)
                 expandedMacros->insert(n);
-        }
         TokenSequence depend_seq;
         depend_seq.push_back(TokenInfo::make(ParserToken::Kind::Ident, "depend_macro", MapperRange{}));
         depend_seq.push_back(TokenInfo::make(ParserToken::Kind::LPAREN, "(", MapperRange{}));
@@ -1354,7 +1218,6 @@ TokenSequence MMProcessor::processAttrGroup(Context& ctx, MacroTable& macros, in
         depend_attr_token->m_sequence = std::move(depend_seq);
         result.push_back(std::move(depend_attr_token));
     }
-
     return result;
 }
 
@@ -1363,13 +1226,10 @@ TokenSequence MMProcessor::processAttrGroup(Context& ctx, MacroTable& macros, in
 // ============================================================
 
 TokenSequence MMProcessor::processInternal(Context& ctx, MacroTable& macros, int& recursionDepth, const LexemeSequence& lexemes, std::size_t& pos,
-                                           std::set<std::string>* expandedMacros) {
+                                           std::set<std::string>* expandedMacros, HygienicMap* hygienicMap) {
     TokenSequence result;
-
     while (pos < lexemes.size()) {
         const Lexeme& lex = lexemes[pos];
-
-        // Макро-определение
         if (lex.kind == ParserToken::Kind::MACRO_SEQ) {
             if (collectMacroDef(ctx, macros, lexemes, pos))
                 continue;
@@ -1377,27 +1237,19 @@ TokenSequence MMProcessor::processInternal(Context& ctx, MacroTable& macros, int
             pos++;
             continue;
         }
-
-        // Конкатенация строк
         if (is_concatenatable_token(lex.kind)) {
             result.push_back(concatStringTokens(lexemes, pos));
             continue;
         }
-
-        // MANGLED → Ident
         if (lex.kind == ParserToken::Kind::MANGLED) {
             result.push_back(TokenInfo::make(ParserToken::Kind::Ident, std::string{lex}, MapperRange{lex.pos, lex.pos}));
             ++pos;
             continue;
         }
-
-        // Идентификаторы
         if (is_id_start(lex.kind) || is_namespace(lex.kind)) {
             result.push_back(buildIdentToken(lexemes, pos));
             continue;
         }
-
-        // Вызов макроса (@name)
         if (lex.kind == ParserToken::Kind::MACRO) {
             std::string_view macro_name{lex};
             if (!macro_name.empty() && macro_name[0] == '@')
@@ -1410,20 +1262,16 @@ TokenSequence MMProcessor::processInternal(Context& ctx, MacroTable& macros, int
                 continue;
             }
 
-            // @__LEXEME_NEXT__ — парсинг контекстных ограничений
             if (macro_name == "__LEXEME_NEXT__") {
-                pos++; // пропускаем MACRO токен
-                // Ожидаем LPAREN
+                pos++;
                 if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::LPAREN) {
                     pos++;
                     std::vector<ExpectedToken> expected;
-                    // Парсим список аргументов через запятую до RPAREN
                     while (pos < lexemes.size() && lexemes[pos].kind != ParserToken::Kind::RPAREN) {
                         if (lexemes[pos].kind == ParserToken::Kind::COMMA) {
                             pos++;
                             continue;
                         }
-                        // Строковый литерал — проверка по text
                         if (is_string_token(lexemes[pos].kind)) {
                             std::string text{lexemes[pos]};
                             text = unescape(text);
@@ -1431,15 +1279,13 @@ TokenSequence MMProcessor::processInternal(Context& ctx, MacroTable& macros, int
                             pos++;
                             continue;
                         }
-                        // NAME — должно быть именем лексемы
                         if (lexemes[pos].kind == ParserToken::Kind::NAME) {
                             std::string_view name{lexemes[pos]};
                             const auto* kindPtr = ParserToken::from_name(name);
-                            if (kindPtr) {
+                            if (kindPtr)
                                 expected.push_back({true, *kindPtr, {}});
-                            } else {
+                            else
                                 ctx.diag().report(lexemes[pos].pos, Severity::Error, "unknown token name '{}' in @__LEXEME_NEXT__", name);
-                            }
                             pos++;
                             continue;
                         }
@@ -1448,30 +1294,58 @@ TokenSequence MMProcessor::processInternal(Context& ctx, MacroTable& macros, int
                     }
                     if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::RPAREN)
                         pos++;
-                    // Сохраняем в последний определённый макрос
                     if (!expected.empty() && !macros.empty()) {
                         auto& last_module = macros.back();
-                        for (auto& [key, defs] : last_module) {
-                            for (auto& def : defs) {
-                                if (def.m_expectedAfter.empty()) {
+                        for (auto& [key, defs] : last_module)
+                            for (auto& def : defs)
+                                if (def.m_expectedAfter.empty())
                                     def.m_expectedAfter = expected;
-                                }
-                            }
-                        }
                     }
-                    // Проверка: после @__LEXEME_NEXT__ не должно быть других лексем в теле
-                    // (после RPAREN мы ждём только ';')
-                    if (pos < lexemes.size() && lexemes[pos].kind != ParserToken::Kind::SEMICOLON) {
+                    if (pos < lexemes.size() && lexemes[pos].kind != ParserToken::Kind::SEMICOLON)
                         ctx.diag().report(lexemes[pos].pos, Severity::Error, "@__LEXEME_NEXT__ must be the last element in the macro body");
-                    }
                 }
-                // Пропускаем ';' после прагмы
                 if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::SEMICOLON)
                     pos++;
                 continue;
             }
 
-            // Проверка на предопределённый макрос @__XXX__
+            if (macro_name == "__HYGIENIC__") {
+                pos++;
+                if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::LPAREN) {
+                    pos++;
+                    LexemeSequence arg_lexemes;
+                    while (pos < lexemes.size() && lexemes[pos].kind != ParserToken::Kind::RPAREN) {
+                        arg_lexemes.push_back(lexemes[pos]);
+                        pos++;
+                    }
+                    if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::RPAREN)
+                        pos++;
+                    std::string ident_text;
+                    if (!arg_lexemes.empty() && (is_id_start(arg_lexemes[0].kind) || is_namespace(arg_lexemes[0].kind))) {
+                        std::size_t apos = 0;
+                        auto idTok = buildIdentToken(arg_lexemes, apos);
+                        if (idTok->kind == ParserToken::Kind::Ident && apos == arg_lexemes.size())
+                            ident_text = idTok->text;
+                    }
+                    if (ident_text.empty()) {
+                        ctx.diag().report(lex.pos, Severity::Error, "@__HYGIENIC__ requires an identifier argument");
+                    } else {
+                        if (!hygienicMap) {
+                            HygienicMap localMap;
+                            ident_text = makeHygienicName(ident_text, localMap);
+                        } else {
+                            ident_text = makeHygienicName(ident_text, *hygienicMap);
+                        }
+                        result.push_back(TokenInfo::make(ParserToken::Kind::Ident, std::move(ident_text), MapperRange{lex.pos, lex.pos}));
+                    }
+                } else {
+                    ctx.diag().report(lex.pos, Severity::Error, "@__HYGIENIC__ expects '(' after macro name");
+                }
+                if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::SEMICOLON)
+                    pos++;
+                continue;
+            }
+
             if (macro_name.size() >= 4 && macro_name.starts_with("__") && macro_name.ends_with("__")) {
                 auto predefined = handlePredefinedMacro(ctx, macro_name, lex.pos.fileIdx(), lex.pos);
                 if (!predefined.empty()) {
@@ -1479,15 +1353,16 @@ TokenSequence MMProcessor::processInternal(Context& ctx, MacroTable& macros, int
                     pos++;
                     continue;
                 }
-                // Если handlePredefinedMacro вернул пустой — ошибка уже выдана
                 pos++;
                 continue;
             }
 
+            // Каждый вызов макроса получает свой hygienicMap (процесс Internal передаёт nullptr).
+            // Все вложенные раскрытия (рекурсивные) разделяют один map.
             std::size_t pos_before = pos;
-            TokenSequence expanded = expandMacroLexeme(ctx, macros, recursionDepth, macro_name, lexemes, pos, expandedMacros);
+            TokenSequence expanded = expandMacroLexeme(ctx, macros, recursionDepth, macro_name, lexemes, pos, expandedMacros, nullptr);
             if (pos == pos_before) {
-                pos++; // пропускаем MACRO токен
+                pos++;
                 if (pos < lexemes.size() && lexemes[pos].kind == ParserToken::Kind::SEMICOLON)
                     pos++;
                 continue;
@@ -1495,40 +1370,29 @@ TokenSequence MMProcessor::processInternal(Context& ctx, MacroTable& macros, int
             result.insert(result.end(), std::make_move_iterator(expanded.begin()), std::make_move_iterator(expanded.end()));
             continue;
         }
-
-        // MACRO_STR → StringLiteral
         if (lex.kind == ParserToken::Kind::MACRO_STR) {
             result.push_back(makeStringLiteral(lex));
             ++pos;
             continue;
         }
-
-        // MODULE — ошибка
         if (lex.kind == ParserToken::Kind::MODULE) {
             ctx.diag().report(lex.pos, Severity::Error, "unimplemented token '{}' — module processing is not implemented", ParserToken::name(lex.kind));
             ++pos;
             continue;
         }
-
-        // ATTR — атрибут @[...]@
         if (lex.kind == ParserToken::Kind::ATTR) {
-            TokenSequence attr_result = processAttrGroup(ctx, macros, recursionDepth, lex, lexemes, pos, expandedMacros);
+            TokenSequence attr_result = processAttrGroup(ctx, macros, recursionDepth, lex, lexemes, pos, expandedMacros, hygienicMap);
             result.insert(result.end(), std::make_move_iterator(attr_result.begin()), std::make_move_iterator(attr_result.end()));
             continue;
         }
-
-        // ATTR_COMPLETE без ATTR — ошибка
         if (lex.kind == ParserToken::Kind::ATTR_COMPLETE) {
             ctx.diag().report(lex.pos, Severity::Error, "unexpected ']@' without '@['");
             ++pos;
             continue;
         }
-
-        // Обычный токен
         result.push_back(TokenInfo::make(lex));
         ++pos;
     }
-
     return result;
 }
 
@@ -1543,8 +1407,7 @@ void MMProcessor::compileFromSource(Context& ctx, MacroTable& macros, std::strin
         macros.emplace_back();
     int recursionDepth = 0;
     std::size_t pos = 0;
-    processInternal(ctx, macros, recursionDepth, lexemes, pos);
-    // Оставляем модуль в таблице — макросы будут доступны для последующего process()
+    processInternal(ctx, macros, recursionDepth, lexemes, pos, nullptr, nullptr);
 }
 
 // ============================================================
@@ -1552,19 +1415,16 @@ void MMProcessor::compileFromSource(Context& ctx, MacroTable& macros, std::strin
 // ============================================================
 
 TokenSequence MMProcessor::process(Context& ctx, const LexemeSequence& lexemes, std::shared_ptr<MacroTable> macros) {
-    // Сброс глобального счётчика @__COUNTER__
-    s_counter = 0;
-
     bool created = !macros;
-    if (created) {
+    if (created)
         macros = std::make_shared<MacroTable>();
-    }
-    macros->emplace_back(); // всегда добавляем модуль (поверх DSL)
+    macros->emplace_back();
     int recursionDepth = 0;
     std::size_t pos = 0;
-    TokenSequence result = processInternal(ctx, *macros, recursionDepth, lexemes, pos);
+    HygienicMap hygienicMap;
+    TokenSequence result = processInternal(ctx, *macros, recursionDepth, lexemes, pos, nullptr, &hygienicMap);
     if (created)
-        macros->pop_back(); // удаляем только свой модуль
+        macros->pop_back();
     return result;
 }
 

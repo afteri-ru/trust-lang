@@ -8,6 +8,7 @@
 #include <memory>
 #include <set>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace trust {
@@ -97,8 +98,14 @@ struct MMProcessor {
     /** Преобразовать escape-последовательности в реальные символы */
     [[nodiscard]] static std::string unescape(const std::string& s);
 
-    /** Глобальный счётчик для @__COUNTER__ */
+    /** Глобальный счётчик для @__COUNTER__ (начинается с 1) */
     static int s_counter;
+
+    /** Глобальный счётчик для @__HYGIENIC__ (начинается с 1) */
+    static int s_hygienicCounter;
+
+    /** Карта "аргумент → номер" для @__HYGIENIC__ в пределах раскрытия макроса. */
+    using HygienicMap = std::unordered_map<std::string, int>;
 
     /** Обработать предопределённый макрос вида @__NAME__.
      *  @return TokenSequence с одним токеном, или пустой если макрос не распознан
@@ -106,37 +113,26 @@ struct MMProcessor {
     static TokenSequence handlePredefinedMacro(Context& ctx, std::string_view macroName, MapperFile fileIdx, MapperLocation loc);
 
   private:
-    /** Внутренняя обработка (рекурсивное раскрытие).
-     *  @param expandedMacros если не nullptr — в него записываются имена раскрытых макросов */
+    /** Внутренняя обработка (рекурсивное раскрытие). */
     static TokenSequence processInternal(Context& ctx, MacroTable& macros, int& recursionDepth, const LexemeSequence& lexemes, std::size_t& pos,
-                                         std::set<std::string>* expandedMacros = nullptr);
+                                         std::set<std::string>* expandedMacros = nullptr, HygienicMap* hygienicMap = nullptr);
 
-    /** Конкатенация последовательных строковых/embed-лексем одного типа.
-     *  Начиная с pos, собирает все соседние лексемы типа kind, конкатенирует их текст,
-     *  применяет unescape (если не raw) и создаёт один TokenInfo.
-     *  Сдвигает pos за последнюю сконкатенированную лексему. */
+    /** Конкатенация последовательных строковых/embed-лексем одного типа. */
     static TokenPtr concatStringTokens(const LexemeSequence& lexemes, std::size_t& pos);
 
-    /** Собрать идентификатор из последовательности NAME/LOCAL/NATIVE/NAMESPACE.
-     *  Начиная с pos, пытается собрать полный идентификатор (с ::, $local, %native).
-     *  Сдвигает pos за последнюю лексему идентификатора.
-     *  Если идентификатор не собран — сдвигает pos на один токен и возвращает NAMESPACE токен.
-     *  @return TokenInfo с Kind::Ident или Kind::NAMESPACE (если только :: без имени) */
+    /** Собрать идентификатор из последовательности NAME/LOCAL/NATIVE/NAMESPACE. */
     static TokenPtr buildIdentToken(const LexemeSequence& lexemes, std::size_t& pos);
 
-    /** Попытаться считать определение макроса, начиная с pos.
-     *  Если определение найдено — регистрирует его и сдвигает pos.
-     *  Возвращает true, если определение считано. */
+    /** Попытаться считать определение макроса, начиная с pos. */
     static bool collectMacroDef(Context& ctx, MacroTable& macros, const LexemeSequence& lexemes, std::size_t& pos);
 
-    /** Раскрыть вызов макроса с подстановкой аргументов (работает с LexemeSequence).
-     *  @param name первая лексема имени макроса (ключ поиска)
-     *  @param expandedMacros если не nullptr — в него записываются имена раскрытых макросов */
+    /** Раскрыть вызов макроса с подстановкой аргументов.
+     *  Создаёт локальный hygienicMap для каждого вызова,
+     *  рекурсивные вложенные вызовы используют тот же map. */
     static TokenSequence expandMacroLexeme(Context& ctx, MacroTable& macros, int& recursionDepth, std::string_view name, const LexemeSequence& lexemes,
-                                           std::size_t& pos, std::set<std::string>* expandedMacros = nullptr);
+                                           std::size_t& pos, std::set<std::string>* expandedMacros = nullptr, HygienicMap* hygienicMap = nullptr);
 
-    /** Заменить @$param, @$N, @$*, @$# в теле макроса на аргументы.
-     *  callArgsByGroup[groupIdx] = vector of comma-separated LexemeSequences for that group. */
+    /** Заменить @$param, @$N, @$*, @$# в теле макроса на аргументы. */
     static LexemeSequence substituteArgs(const LexemeSequence& body, const std::vector<std::vector<LexemeSequence>>& callArgsByGroup,
                                          const std::vector<MacroArgGroup>& argGroups);
 
@@ -152,7 +148,11 @@ struct MMProcessor {
 
     /** Обработать атрибут @[...]@ с раскрытием макросов внутри. */
     static TokenSequence processAttrGroup(Context& ctx, MacroTable& macros, int& recursionDepth, const Lexeme& startLex, const LexemeSequence& lexemes,
-                                          std::size_t& pos, std::set<std::string>* expandedMacros);
+                                          std::size_t& pos, std::set<std::string>* expandedMacros, HygienicMap* hygienicMap = nullptr);
+
+    /** Создать гигиеническое имя: подставить суффикс __G<counter> в последнюю часть ident.
+     *  Если ident уже встречался в hygienicMap — используем сохранённый номер. */
+    [[nodiscard]] static std::string makeHygienicName(std::string_view ident, HygienicMap& hygienicMap);
 };
 
 } // namespace trust
