@@ -47,6 +47,17 @@ STATUS="success"
 [[ "$SUCCESS" == "false" ]] && STATUS="failed"
 # echo "[PostToolUse] Tool completed: $TOOL ($STATUS) in ${DURATION}ms" >&2
 
+# ---- Tool usage log (.tools.log) ----
+# One line per tool call: timestamp tool status duration_ms
+TASK_ID=$(extract_task_id "$INPUT" '.taskId') || TASK_ID=""
+if [ -n "$TASK_ID" ]; then
+  TOOLS_FILE="${TASKLOG_DIR}/${TASK_ID}.tools.log"
+  NOW_MS=$(date +%s%3N)
+  NOW_ISO=$(timestamp_to_iso "$NOW_MS") || NOW_ISO="$NOW_MS"
+  echo "${NOW_ISO} ${TOOL} ${STATUS} ${DURATION}ms" >> "$TOOLS_FILE"
+fi
+# ---- End Tool usage log ----
+
 # If cmake command failed — add CMakeLists.txt content to context
 if [[ "$TOOL" == "execute_command" ]] && [[ "$SUCCESS" == "false" ]]; then
   COMMAND=$(echo "$INPUT" | jq -r '.postToolUse.parameters.command // empty')

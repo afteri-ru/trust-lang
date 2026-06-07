@@ -7,20 +7,12 @@ set(TRUST_PCM_OBJ "${CMAKE_CURRENT_BINARY_DIR}/trust_module.o")
 set(TRUST_CPPM "${PROJECT_INCLUDE_DIR}/trust.cppm")
 
 set(TRUST_MODULE_HEADERS
-    types/types.hpp
-    types/type_info.hpp
-    types/forward.hpp
-    types/value.hpp
-    types/numbers.hpp
-    types/integers.hpp
-    types/strings.hpp
-    types/templates.hpp
-
-    types/rational.hpp
-    types/tensors.hpp
-
-    types/buildin.hpp
-
+    types/typekind.hpp
+    types/type_id.hpp
+    types/type_traits.hpp
+    types/group.hpp
+    types/registry.hpp
+    types/promotion.hpp
 )
 list(TRANSFORM TRUST_MODULE_HEADERS PREPEND "${PROJECT_INCLUDE_DIR}/")
 
@@ -28,16 +20,9 @@ set(TRUST_MODULE_GENERATED_HEADERS
     ${CMAKE_BINARY_DIR}/include/trust/version.h
 )
 
-# Generated parser output files (flex only; ast-generated files come via parser_generated)
-set(TRUST_PARSER_GEN_DIR "${CMAKE_BINARY_DIR}/include/parser")
-set(TRUST_PARSER_GEN_OUTPUTS
-    "${TRUST_PARSER_GEN_DIR}/flex.gen.h"
-)
-
 set(TRUST_COMPILE_OPTIONS
     -std=c++${CMAKE_CXX_STANDARD}
     -I${PROJECT_INCLUDE_DIR}
-    -I${TRUST_PARSER_GEN_DIR}
     -I${CMAKE_CURRENT_BINARY_DIR}
     -I${CMAKE_BINARY_DIR}/include
 )
@@ -49,7 +34,7 @@ add_custom_command(
             -x c++-module --precompile
             ${TRUST_CPPM}
             -o ${TRUST_PCM}
-    DEPENDS ${TRUST_CPPM} ${TRUST_MODULE_HEADERS} ${TRUST_MODULE_GENERATED_HEADERS} ${TRUST_PARSER_GEN_OUTPUTS} parser_generated
+    DEPENDS ${TRUST_CPPM} ${TRUST_MODULE_HEADERS} ${TRUST_MODULE_GENERATED_HEADERS}
     COMMENT "Precompiling C++${CMAKE_CXX_STANDARD} module -> ${TRUST_PCM}"
     VERBATIM
 )
@@ -68,7 +53,6 @@ add_custom_command(
 )
 
 add_custom_target(trust_pcm_target_all ALL DEPENDS ${TRUST_PCM_OBJ})
-add_dependencies(trust_pcm_target_all parser_lib)
 
 # ── Function to attach trust module to a target ──
 function(target_trust_module target)

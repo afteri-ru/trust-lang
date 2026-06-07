@@ -7,34 +7,47 @@
 
 namespace trust {
 
-// ── Константы формата упаковки TaggedLocation ──
-// Занимает sizeof(uint32_t) байт.
-// Упаковка: bits 31-20: RawType.file   (12 бит, 2047 файлов + флаг входа/выхода)
-//           bits 19-0:  RawType.offset (20 бит, ~1MB на файл)
+// ── Константы формата упаковки TaggedFile и TaggedLocation ──
+// Полная замена битовой раскладки, без обратной совместимости.
+// ── TaggedFile.raw ──
+//   raw = 0                         — невалидный
+//   bit 31 = 0: входной файл:       raw = index + 1 (1..511)
+//   bit 31 = 1: выходной файл:      raw = (index + 1) | OUTPUT_FILE_BIT (1..31)
+// ── TaggedLocation.packed ──
+//   bit 31 = 0: входной файл:       bits 30-22 = index+1 (9 бит, 511)
+//                                   bits 21-0  = offset (22 бита, ~4MB)
+//   bit 31 = 1: выходной файл:      bits 30-26 = index+1 (5 бит, 31)
+//                                   bits 25-0  = offset (26 бит, ~64MB)
 struct LocationPack {
     using RawType = uint32_t;
 
-    static constexpr int FILE_BITS = 11;
-    static constexpr int MAX_FILES = (1 << FILE_BITS) - 1;
-    static constexpr int OUTPUT_FILE_BIT = 1u << (FILE_BITS); // признак выходного файла в TaggedFile
+    // ── Для TaggedFile ──
+    static constexpr int FILE_BITS_INPUT = 9;
+    static constexpr int MAX_FILES_INPUT = (1 << FILE_BITS_INPUT) - 1; // 511
 
-    static constexpr int OFFSET_BITS = 20;
-    static constexpr int MAX_OFFSET = (1 << OFFSET_BITS) - 1;
-    // static constexpr int MACRO_OFFSET = (1 << OFFSET_BITS) - 1;
+    static constexpr int FILE_BITS_OUTPUT = 5;
+    static constexpr int MAX_FILES_OUTPUT = (1 << FILE_BITS_OUTPUT) - 1; // 31
 
-    // признак выходного файла в TaggedLocation
-    // OUTPUT_FILE_BIT (флаг выходного файла) при сдвиге на 20 оказывается в бите 31.
-    static constexpr LocationPack::RawType OUTPUT_LOCATION_BIT = 1u << (FILE_BITS + OFFSET_BITS);
+    static constexpr RawType OUTPUT_FILE_BIT = 1u << 31; // флаг выходного файла (в TaggedFile и TaggedLocation)
+
+    // ── Для TaggedLocation: входные файлы ──
+    static constexpr int OFFSET_BITS_INPUT = 22;
+    static constexpr int MAX_OFFSET_INPUT = (1 << OFFSET_BITS_INPUT) - 1; // 4'194'303 (~4MB)
+
+    // ── Для TaggedLocation: выходные файлы ──
+    static constexpr int OFFSET_BITS_OUTPUT = 26;
+    static constexpr int MAX_OFFSET_OUTPUT = (1 << OFFSET_BITS_OUTPUT) - 1; // 67'108'863 (~64MB)
 };
 
-static_assert(LocationPack::FILE_BITS + LocationPack::OFFSET_BITS + 1 == 8 * sizeof(int));
-static_assert(LocationPack::MAX_FILES == 2'047);
-static_assert(LocationPack::MAX_OFFSET == 1'048'575);
+static_assert(LocationPack::FILE_BITS_INPUT + LocationPack::OFFSET_BITS_INPUT + 1 == 32);
+static_assert(LocationPack::MAX_FILES_INPUT == 511);
+static_assert(LocationPack::MAX_OFFSET_INPUT == 4'194'303);
+
+static_assert(LocationPack::FILE_BITS_OUTPUT + LocationPack::OFFSET_BITS_OUTPUT + 1 == 32);
+static_assert(LocationPack::MAX_FILES_OUTPUT == 31);
+static_assert(LocationPack::MAX_OFFSET_OUTPUT == 67'108'863);
 
 // TaggedFile — шаблонный идентификатор файла (входного или выходного).
-//   raw = 0         — невалидный
-//   raw > 0, бит OUTPUT_FILE_BIT = 0 — входной: raw = index + 1
-//   raw > 0, бит OUTPUT_FILE_BIT = 1 — выходной: raw = (index + 1) | (1 << FILE_BITS)
 template <typename Tag>
 struct TaggedFile {
     explicit constexpr TaggedFile()
@@ -46,31 +59,33 @@ struct TaggedFile {
 
     // Создание из index
     [[nodiscard]] static constexpr TaggedFile make_input(size_t idx) {
-        EXPECT(idx + 1u < LocationPack::MAX_FILES);
+        EXPECT(idx + 1u < LocationPack::MAX_FILES_INPUT);
         return TaggedFile{static_cast<LocationPack::RawType>(idx + 1u)};
     }
     [[nodiscard]] static constexpr TaggedFile make_output(size_t idx) {
-        EXPECT(idx + 1u < LocationPack::MAX_FILES);
+        EXPECT(idx + 1u < LocationPack::MAX_FILES_OUTPUT);
         return TaggedFile{static_cast<LocationPack::RawType>(idx + 1u) | LocationPack::OUTPUT_FILE_BIT};
     }
 
-    [[nodiscard]] constexpr bool isValid() const {
+    [[nodiscard]] constexpr bool isInvalid() const {
         check_limit(raw);
-        return raw != 0u;
+        return raw == 0u;
     }
     [[nodiscard]] constexpr bool isOutput() const {
         check_limit(raw);
-        return (raw & LocationPack::OUTPUT_FILE_BIT);
+        return (raw & LocationPack::OUTPUT_FILE_BIT) != 0;
     }
 
     [[nodiscard]] constexpr LocationPack::RawType as_index() const {
-        EXPECT(isValid());
-        return (raw & LocationPack::MAX_FILES) - 1;
+        EXPECT(!isInvalid());
+        return (raw & ~LocationPack::OUTPUT_FILE_BIT) - 1;
     }
 
     static constexpr void check_limit(LocationPack::RawType value) {
         // clang-format off
-        EXPECT((value & !(LocationPack::OUTPUT_FILE_BIT | LocationPack::MAX_FILES)) == 0);
+        EXPECT(((value & ~LocationPack::OUTPUT_FILE_BIT) < LocationPack::MAX_FILES_INPUT
+                || ((value & ~LocationPack::OUTPUT_FILE_BIT) < LocationPack::MAX_FILES_OUTPUT && (value & LocationPack::OUTPUT_FILE_BIT)))
+               && "file index out of range");
         // clang-format on
     }
 
@@ -84,16 +99,13 @@ struct TaggedFile {
     static constexpr TaggedFile fromRaw(LocationPack::RawType r) { return TaggedFile{r}; }
 
     friend constexpr bool operator==(const TaggedFile& a, const TaggedFile& b) { return a.raw == b.raw; }
-    friend constexpr bool operator!=(const TaggedFile& a, const TaggedFile& b) { return !(a == b); }
-    friend constexpr bool operator<(const TaggedFile& a, const TaggedFile& b) { return a.raw < b.raw; }
-    friend constexpr bool operator>(const TaggedFile& a, const TaggedFile& b) { return a.raw > b.raw; }
-    friend constexpr bool operator<=(const TaggedFile& a, const TaggedFile& b) { return a.raw <= b.raw; }
-    friend constexpr bool operator>=(const TaggedFile& a, const TaggedFile& b) { return a.raw >= b.raw; }
+    friend constexpr auto operator<=>(const TaggedFile& a, const TaggedFile& b) { return a.raw <=> b.raw; }
 
     // SourceMap<MapperFile> и SourceMap<ReaderFile> имеют доступ к raw
     template <typename F>
     friend struct SourceMap;
     friend class Context;
+    friend class SourceMapWriter;
     template <typename Tag2>
     friend struct TaggedFile;
     template <typename Tag2>
@@ -123,8 +135,6 @@ struct TaggedLocation {
     constexpr TaggedLocation()
     : packed(0) {}
 
-    // static TaggedLocation invalid() { return TaggedLocation{0u}; }
-
     // Кросс-теговая конверсия: все TaggedLocation имеют одинаковый packed-формат,
     // разрешена только explicit конверсия (static_cast), т.к. теги разные.
     template <typename OtherTag>
@@ -136,83 +146,97 @@ struct TaggedLocation {
 
     // Статический конструктор от FileIdx + offset (для реализации)
     [[nodiscard]] static constexpr TaggedLocation makeLoc(FileIdx idx, size_t off) {
-        EXPECT(off <= LocationPack::MAX_OFFSET);
-        return TaggedLocation{idx, off};
+        if (idx.isOutput()) {
+            EXPECT(off <= LocationPack::MAX_OFFSET_OUTPUT);
+            LocationPack::RawType indexRaw = idx.raw & LocationPack::MAX_FILES_OUTPUT;
+            return TaggedLocation{static_cast<LocationPack::RawType>((indexRaw << LocationPack::OFFSET_BITS_OUTPUT) | LocationPack::OUTPUT_FILE_BIT | off)};
+        } else {
+            EXPECT(off <= LocationPack::MAX_OFFSET_INPUT);
+            return TaggedLocation{static_cast<LocationPack::RawType>((idx.raw << LocationPack::OFFSET_BITS_INPUT) | (off & LocationPack::MAX_OFFSET_INPUT))};
+        }
     }
 
-    [[nodiscard]] constexpr bool isValid() const { return packed != 0u; }
-    [[nodiscard]] constexpr bool isOutput() const { return fileIdx().isOutput(); }
+    [[nodiscard]] constexpr bool isInvalid() const { return packed == 0u; }
+    [[nodiscard]] constexpr bool isOutput() const { return (packed & LocationPack::OUTPUT_FILE_BIT) != 0; }
 
-    // Извлекает FileIdx (с флагом в бите FILE_BITS)
-    [[nodiscard]] constexpr FileIdx fileIdx() const { return FileIdx::fromRaw(packed >> LocationPack::OFFSET_BITS); }
+    // Извлекает FileIdx (с флагом в бите 31)
+    [[nodiscard]] constexpr FileIdx fileIdx() const {
+        if (isOutput()) {
+            LocationPack::RawType index = (packed >> LocationPack::OFFSET_BITS_OUTPUT) & LocationPack::MAX_FILES_OUTPUT;
+            return FileIdx::fromRaw(index | LocationPack::OUTPUT_FILE_BIT);
+        } else {
+            LocationPack::RawType index = packed >> LocationPack::OFFSET_BITS_INPUT;
+            return FileIdx::fromRaw(index);
+        }
+    }
 
     // Публичный доступ к упакованному значению (для SourceMapReader и маппингов)
     [[nodiscard]] constexpr LocationPack::RawType asPacked() const { return packed; }
 
     // Публичный доступ к offset (read-only) — смещение в файле (1-based)
-    [[nodiscard]] constexpr LocationPack::RawType offset() const { return packed & LocationPack::MAX_OFFSET; }
+    [[nodiscard]] constexpr LocationPack::RawType offset() const {
+        if (isOutput())
+            return packed & LocationPack::MAX_OFFSET_OUTPUT;
+        else
+            return packed & LocationPack::MAX_OFFSET_INPUT;
+    }
 
-    // ── Операторы сравнения
+    // ── Операторы сравнения (C++20 spaceship) — сравниваем (fileIdx, offset)
     friend constexpr bool operator==(const Location& a, size_t b) { return a.offset() == b; }
     friend constexpr bool operator==(size_t a, const Location& b) { return a == b.offset(); }
-    friend constexpr bool operator!=(const Location& a, size_t b) { return a.offset() != b; }
-    friend constexpr bool operator!=(size_t a, const Location& b) { return a != b.offset(); }
-    friend constexpr bool operator<(const Location& a, size_t b) { return a.offset() < b; }
-    friend constexpr bool operator<(size_t a, const Location& b) { return a < b.offset(); }
-    friend constexpr bool operator>(const Location& a, size_t b) { return a.offset() > b; }
-    friend constexpr bool operator>(size_t a, const Location& b) { return a > b.offset(); }
-    friend constexpr bool operator<=(const Location& a, size_t b) { return a.offset() <= b; }
-    friend constexpr bool operator<=(size_t a, const Location& b) { return a <= b.offset(); }
-    friend constexpr bool operator>=(const Location& a, size_t b) { return a.offset() >= b; }
-    friend constexpr bool operator>=(size_t a, const Location& b) { return a >= b.offset(); }
+    friend constexpr auto operator<=>(const Location& a, size_t b) { return a.offset() <=> b; }
+    friend constexpr auto operator<=>(size_t a, const Location& b) { return a <=> b.offset(); }
 
     // ── Арифметические операторы (offset + смещение)
     friend constexpr LocationPack::RawType operator+(const Location& loc, size_t val) { return loc.offset() + val; }
     friend constexpr LocationPack::RawType operator+(size_t val, const Location& loc) { return val + loc.offset(); }
     friend constexpr LocationPack::RawType operator-(const Location& loc, size_t val) {
-        EXPECT(loc.offset() > val);
+        EXPECT(loc.offset() > val && "offset subtraction underflows");
         return loc.offset() - val;
     }
 
-    friend constexpr bool operator==(const Location& a, const Location& b) { return a.packed == b.packed; }
-    friend constexpr bool operator!=(const Location& a, const Location& b) { return !(a == b); }
-    friend constexpr bool operator<(const Location& a, const Location& b) { return a.packed < b.packed; }
-    friend constexpr bool operator>(const Location& a, const Location& b) { return a.packed > b.packed; }
-    friend constexpr bool operator<=(const Location& a, const Location& b) { return a.packed <= b.packed; }
-    friend constexpr bool operator>=(const Location& a, const Location& b) { return a.packed >= b.packed; }
+    friend constexpr bool operator==(const Location& a, const Location& b) { return a.fileIdx() == b.fileIdx() && a.offset() == b.offset(); }
+    friend constexpr auto operator<=>(const Location& a, const Location& b) {
+        if (auto cmp = a.fileIdx() <=> b.fileIdx(); cmp != 0)
+            return cmp;
+        return a.offset() <=> b.offset();
+    }
 
     // Вложенный тип диапазона, параметризованный тем же тегом
     struct RangeType {
 
+        RangeType(FileIdx idx, size_t beginOff, size_t endOff)
+        : begin(Location::makeLoc(idx, beginOff))
+        , end(Location::makeLoc(idx, endOff)) {
+            EXPECT(beginOff <= endOff);
+        }
+
         RangeType(Location b, Location e)
         : begin(b)
         , end(e) {
-            EXPECT(is_valid());
+            EXPECT(b <= e);
         }
 
         [[nodiscard]] static RangeType point(Location loc) { return {loc, loc}; }
-        [[nodiscard]] bool is_point() const { return begin.packed == end.packed; }
-        [[nodiscard]] bool is_valid() { return begin.isValid() && end.isValid() && begin.fileIdx() == end.fileIdx() && begin <= end; }
+        [[nodiscard]] bool is_point() const { return begin == end; }
+        [[nodiscard]] bool isInvalid() const { return begin.isInvalid() || end.isInvalid() || begin.fileIdx() != end.fileIdx() || begin > end; }
 
         friend constexpr bool operator==(const RangeType& a, const RangeType& b) { return a.begin == b.begin && a.end == b.end; }
-        friend constexpr bool operator!=(const RangeType& a, const RangeType& b) { return !(a == b); }
-        friend constexpr bool operator<(const RangeType& a, const RangeType& b) { return a.begin < b.begin; }
-        friend constexpr bool operator>(const RangeType& a, const RangeType& b) { return a.begin > b.begin; }
-        friend constexpr bool operator<=(const RangeType& a, const RangeType& b) { return a.begin <= b.begin; }
-        friend constexpr bool operator>=(const RangeType& a, const RangeType& b) { return a.begin >= b.begin; }
+        friend constexpr auto operator<=>(const RangeType& a, const RangeType& b) { return a.begin <=> b.begin; }
 
         RangeType() = default;
         Location begin{}, end{};
     };
 
     [[nodiscard]] Location inc(size_t size) const {
-        EXPECT(size < LocationPack::MAX_OFFSET);
-        EXPECT(packed + size < LocationPack::MAX_OFFSET);
-        return Location{packed + static_cast<LocationPack::RawType>(size)};
+        FileIdx f = fileIdx();
+        LocationPack::RawType off = offset() + static_cast<LocationPack::RawType>(size);
+        return makeLoc(f, off);
     }
     [[nodiscard]] Location dec(size_t size) const {
-        EXPECT(packed > size);
-        return Location{packed - static_cast<LocationPack::RawType>(size)};
+        FileIdx f = fileIdx();
+        LocationPack::RawType off = offset() - static_cast<LocationPack::RawType>(size);
+        return makeLoc(f, off);
     }
 
   protected:
@@ -225,6 +249,7 @@ struct TaggedLocation {
     template <typename OtherTag>
     friend struct TaggedLocation;
     friend class Context;
+    friend class SourceMapWriter;
     friend class SourceMapReader;
 
     // Конструктор от упакованного значения (для восстановления из packed)
@@ -232,12 +257,17 @@ struct TaggedLocation {
     : packed(p) {}
 
     // Конструктор от FileIdx + offset: упаковывает в packed
-    // FileIdx.raw хранится целиком (с флагом в бите 11),
-    // при сдвиге на OFFSET_BITS бит 11 → бит 31.
     constexpr TaggedLocation(FileIdx idx, size_t off)
     : packed(0) {
-        EXPECT(idx.isValid());
-        packed = (idx.raw << LocationPack::OFFSET_BITS) | (off & LocationPack::MAX_OFFSET);
+        EXPECT(!idx.isInvalid());
+        if (idx.isOutput()) {
+            EXPECT(off <= LocationPack::MAX_OFFSET_OUTPUT);
+            LocationPack::RawType indexRaw = idx.raw & LocationPack::MAX_FILES_OUTPUT;
+            packed = (indexRaw << LocationPack::OFFSET_BITS_OUTPUT) | LocationPack::OUTPUT_FILE_BIT | static_cast<LocationPack::RawType>(off);
+        } else {
+            EXPECT(off <= LocationPack::MAX_OFFSET_INPUT);
+            packed = (idx.raw << LocationPack::OFFSET_BITS_INPUT) | (off & LocationPack::MAX_OFFSET_INPUT);
+        }
     }
 };
 

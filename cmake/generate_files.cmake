@@ -1,5 +1,4 @@
 # cmake/generate_files.cmake
-# Configure_file and custom targets for generated files
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/include/trust/version.h.in.cmake
@@ -7,13 +6,14 @@ configure_file(
     @ONLY
 )
 
+# Generate makefile_build.hpp with the Makefile template embedded as a C++ string
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/pipeline/options.h.in
-    ${CMAKE_BINARY_DIR}/include/pipeline/options.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/pipeline/makefile_build.hpp.in
+    ${CMAKE_BINARY_DIR}/include/pipeline/makefile_build.hpp
     @ONLY
 )
-add_custom_target(generate_options_h
-    DEPENDS "${CMAKE_BINARY_DIR}/include/pipeline/options.h"
+add_custom_target(generate_makefile_header
+    DEPENDS "${CMAKE_BINARY_DIR}/include/pipeline/makefile_build.hpp"
 )
 
 configure_file(

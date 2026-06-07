@@ -1,0 +1,4 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cpp && test -f %T/emit_map_simple.src_map && echo "PASS src_map exists"
+# CHECK: PASS src_map exists
+
+x := 42;

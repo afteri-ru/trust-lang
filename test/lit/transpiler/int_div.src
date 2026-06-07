@@ -1,0 +1,20 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка генерации целочисленного деления // и //=
+x:Int32 := 10;
+# CHECK: int32_t x = 10;
+
+y:Int32 := 3;
+# CHECK-NEXT: int32_t y = 3;
+
+# Стандартное деление
+z := x / y;
+# CHECK: std::any z = (x / y);
+
+# Целочисленное деление // → static_cast<int64_t>
+z2 := x // y;
+# CHECK: std::any z2 = (static_cast<int64_t>(x) / static_cast<int64_t>(y));
+
+# Составное целочисленное деление //=
+x //= y;
+# CHECK-NEXT: x = static_cast<int64_t>(x) / static_cast<int64_t>(y);

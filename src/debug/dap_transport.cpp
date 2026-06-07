@@ -1,4 +1,5 @@
 #include "debug/dap_transport.h"
+#include "utils/io.hpp"
 
 // ── DAP Protocol helpers ──
 
@@ -19,8 +20,8 @@ json readDapPacket(trust::transport::Transport& transport) {
     try {
         return json::parse(body);
     } catch (const json::parse_error& e) {
-        std::cerr << "JSON parse error: " << e.what() << "\n"
-                  << "Raw input: " << body << "\n";
+        trust::errs() << "JSON parse error: " << e.what() << "\n"
+                      << "Raw input: " << body << "\n";
         return json();
     }
 }
@@ -62,16 +63,16 @@ void sendBreakpointEvent(trust::transport::Transport& transport, const std::stri
 // ── CLI parsing ──
 
 void printUsage(const char* prog) {
-    std::cerr << "Usage: " << prog << " [options]\n"
-              << "\n"
-              << "DAP server for debugging Trust language programs.\n"
-              << "By default runs in interactive mode (stdin/stdout).\n"
-              << "\n"
-              << "Options:\n"
-              << "  --help                  Show this help\n"
-              << "  server[=<port>]         TCP server mode on given port (default: " << DAP_DEFAULT_PORT << ")\n"
-              << "  --project-dir <path>    Project working directory (default: cwd)\n"
-              << "  --gdb <path>            Path to gdb binary (default: gdb)\n";
+    trust::errs() << "Usage: " << prog << " [options]\n"
+                  << "\n"
+                  << "DAP server for debugging Trust language programs.\n"
+                  << "By default runs in interactive mode (stdin/stdout).\n"
+                  << "\n"
+                  << "Options:\n"
+                  << "  --help                  Show this help\n"
+                  << "  server[=<port>]         TCP server mode on given port (default: " << DAP_DEFAULT_PORT << ")\n"
+                  << "  --project-dir <path>    Project working directory (default: cwd)\n"
+                  << "  --gdb <path>            Path to gdb binary (default: gdb)\n";
 }
 
 DapOptions parseDapOptions(int argc, const char* argv[]) {
@@ -96,7 +97,7 @@ DapOptions parseDapOptions(int argc, const char* argv[]) {
 
         auto nextArg = [&]() -> std::string {
             if (++i >= argc) {
-                std::cerr << "Error: " << argv[i - 1] << " requires an argument\n";
+                trust::errs() << "Error: " << argv[i - 1] << " requires an argument\n";
                 std::exit(1);
             }
             return argv[i];
@@ -107,7 +108,7 @@ DapOptions parseDapOptions(int argc, const char* argv[]) {
         } else if (std::strcmp(argv[i], "--gdb") == 0) {
             opts.gdbPath = nextArg();
         } else {
-            std::cerr << "Error: unknown option '" << argv[i] << "'\n";
+            trust::errs() << "Error: unknown option '" << argv[i] << "'\n";
             std::exit(1);
         }
     }

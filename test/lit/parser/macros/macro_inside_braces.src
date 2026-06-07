@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-macros %s > %t.out 2>&1 && %FileCheck %s <%t.out
+@@ answer @@ := 42;
+{
+  @@ nested @@ := 10;
+}
+# CHECK: error: macro definition inside braces/try-block is not allowed

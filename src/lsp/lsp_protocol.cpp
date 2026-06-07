@@ -1,5 +1,6 @@
 #include "lsp/lsp_protocol.h"
 #include <iostream>
+#include "utils/io.hpp"
 
 // ── LSP Protocol helpers ──
 
@@ -14,8 +15,8 @@ json readLspPacket(trust::transport::Transport& transport) {
     try {
         return json::parse(body);
     } catch (const json::parse_error& e) {
-        std::cerr << "LSP JSON parse error: " << e.what() << "\n"
-                  << "Raw input: " << body << "\n";
+        trust::errs() << "LSP JSON parse error: " << e.what() << "\n"
+                      << "Raw input: " << body << "\n";
         return json();
     }
 }
@@ -50,17 +51,17 @@ void sendLspRequest(trust::transport::Transport& transport, const std::string& m
 // ── CLI parsing ──
 
 void printLspUsage(const char* prog) {
-    std::cerr << "Usage: " << prog << " [options]\n"
-              << "\n"
-              << "LSP server for Trust language source mapping.\n"
-              << "By default runs in interactive mode (stdin/stdout).\n"
-              << "\n"
-              << "Options:\n"
-              << "  --help                  Show this help\n"
-              << "  server[=<port>]         TCP server mode on given port (default: " << LSP_DEFAULT_PORT << ")\n"
-              << "  --project-dir <path>    Project working directory (default: cwd)\n"
-              << "  --temp-dir <path>       Directory for temporary transpiled .cpp files (default: none)\n"
-              << "  --trace                 Enable LSP protocol tracing\n";
+    trust::errs() << "Usage: " << prog << " [options]\n"
+                  << "\n"
+                  << "LSP server for Trust language source mapping.\n"
+                  << "By default runs in interactive mode (stdin/stdout).\n"
+                  << "\n"
+                  << "Options:\n"
+                  << "  --help                  Show this help\n"
+                  << "  server[=<port>]         TCP server mode on given port (default: " << LSP_DEFAULT_PORT << ")\n"
+                  << "  --project-dir <path>    Project working directory (default: cwd)\n"
+                  << "  --temp-dir <path>       Directory for temporary transpiled .cpp files (default: none)\n"
+                  << "  --trace                 Enable LSP protocol tracing\n";
 }
 
 LspOptions parseLspOptions(int argc, const char* argv[]) {
@@ -85,7 +86,7 @@ LspOptions parseLspOptions(int argc, const char* argv[]) {
 
         auto nextArg = [&]() -> std::string {
             if (++i >= argc) {
-                std::cerr << "Error: " << argv[i - 1] << " requires an argument\n";
+                trust::errs() << "Error: " << argv[i - 1] << " requires an argument\n";
                 std::exit(1);
             }
             return argv[i];
@@ -98,7 +99,7 @@ LspOptions parseLspOptions(int argc, const char* argv[]) {
         } else if (std::strcmp(argv[i], "--trace") == 0) {
             opts.trace = true;
         } else {
-            std::cerr << "Error: unknown option '" << argv[i] << "'\n";
+            trust::errs() << "Error: unknown option '" << argv[i] << "'\n";
             std::exit(1);
         }
     }

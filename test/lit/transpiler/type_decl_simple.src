@@ -1,0 +1,5 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка объявления типа-алиаса
+MyInt ::= :Int32;
+# CHECK: using MyInt = int32_t;

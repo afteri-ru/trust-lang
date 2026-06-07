@@ -339,9 +339,12 @@ async function main() {
             client.sendNotification('initialized', {});
         });
 
+        // Тестовый файл с новым синтаксисом (:=) и 14 строками (лежит рядом со скриптом)
+        const hoverTestFile = path.join(__dirname, 'test_hover.src');
+        const hoverTestContent = fs.readFileSync(hoverTestFile, 'utf-8');
+
         // ── Test 2: LSP textDocument/didOpen + definition ──
         await runSuite(lspPath, 'LSP Definition Provider', lspArgs, async (client) => {
-            // Initialize
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
                 rootUri: `file://${tmpDir}`,
@@ -355,20 +358,19 @@ async function main() {
             await client.waitForResponse(initId);
             client.sendNotification('initialized', {});
 
-            // didOpen
             client.sendNotification('textDocument/didOpen', {
                 textDocument: {
-                    uri: `file://${opts.srcFile}`,
+                    uri: `file://${hoverTestFile}`,
                     languageId: 'trust',
                     version: 1,
-                    text: fs.readFileSync(opts.srcFile, 'utf-8')
+                    text: hoverTestContent
                 }
             });
 
-            // Request definition at create x (строка 11, 0-based: 10)
+            // Request definition at x (строка 11, 0-based: 10)
             const defId = client.sendRequest('textDocument/definition', {
-                textDocument: { uri: `file://${opts.srcFile}` },
-                position: { line: 10, character: 9 }
+                textDocument: { uri: `file://${hoverTestFile}` },
+                position: { line: 10, character: 0 }
             });
             const defResp = await client.waitForResponse(defId);
             test('definition responds', () => {
@@ -400,16 +402,16 @@ async function main() {
 
             client.sendNotification('textDocument/didOpen', {
                 textDocument: {
-                    uri: `file://${opts.srcFile}`,
+                    uri: `file://${hoverTestFile}`,
                     languageId: 'trust',
                     version: 1,
-                    text: fs.readFileSync(opts.srcFile, 'utf-8')
+                    text: hoverTestContent
                 }
             });
 
             const hoverId = client.sendRequest('textDocument/hover', {
-                textDocument: { uri: `file://${opts.srcFile}` },
-                position: { line: 10, character: 9 }
+                textDocument: { uri: `file://${hoverTestFile}` },
+                position: { line: 10, character: 0 }
             });
             const hoverResp = await client.waitForResponse(hoverId);
             test('hover responds', () => {
@@ -423,7 +425,7 @@ async function main() {
                 const contents = hoverResp.result.contents;
                 const text = typeof contents === 'string' ? contents :
                     (Array.isArray(contents) ? contents.join(' ') : (contents.value || JSON.stringify(contents)));
-                assert(text.includes('cpp') || text.includes('int') || text.includes('cout'),
+                assert(text.includes('any') || text.includes('int') || text.includes('std::'),
                     `expected C++ code in hover, got: ${text}`);
             });
         });
@@ -431,7 +433,7 @@ async function main() {
         // Note: publishDiagnostics is sent only on transpile errors (via handleDidOpen on error path).
         // Valid files do NOT trigger publishDiagnostics. Test 9 covers the error case.
 
-        // ── Test 6: LSP shutdown ──
+        // ── Test 4: LSP shutdown ──
         await runSuite(lspPath, 'LSP Shutdown', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -469,15 +471,15 @@ async function main() {
 
             client.sendNotification('textDocument/didOpen', {
                 textDocument: {
-                    uri: `file://${opts.srcFile}`,
+                    uri: `file://${hoverTestFile}`,
                     languageId: 'trust',
                     version: 1,
-                    text: fs.readFileSync(opts.srcFile, 'utf-8')
+                    text: hoverTestContent
                 }
             });
 
             const docLinkId = client.sendRequest('textDocument/documentLink', {
-                textDocument: { uri: `file://${opts.srcFile}` }
+                textDocument: { uri: `file://${hoverTestFile}` }
             });
             const docLinkResp = await client.waitForResponse(docLinkId);
             test('documentLink responds', () => {
@@ -497,9 +499,6 @@ async function main() {
         });
 
         // ── Test 6: LSP textDocument/didChange ──
-        // Использует существующий файл simple_example.src.
-        // Файл не модифицируется — проверяем, что didChange и ховер
-        // после него работают корректно.
         await runSuite(lspPath, 'LSP didChange', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -509,17 +508,14 @@ async function main() {
             await client.waitForResponse(initId);
             client.sendNotification('initialized', {});
 
-            // Читаем содержимое существующего файла с диска
-            const content = fs.readFileSync(opts.srcFile, 'utf-8');
-
             client.sendNotification('textDocument/didOpen', {
-                textDocument: { uri: `file://${opts.srcFile}`, languageId: 'trust', version: 1, text: content }
+                textDocument: { uri: `file://${hoverTestFile}`, languageId: 'trust', version: 1, text: hoverTestContent }
             });
 
             // Hover to check transpilation happened
             const hoverId1 = client.sendRequest('textDocument/hover', {
-                textDocument: { uri: `file://${opts.srcFile}` },
-                position: { line: 10, character: 9 }
+                textDocument: { uri: `file://${hoverTestFile}` },
+                position: { line: 10, character: 0 }
             });
             const hoverResp1 = await client.waitForResponse(hoverId1);
             test('hover after didOpen responds', () => {
@@ -533,19 +529,17 @@ async function main() {
                 assert(text1.length > 0, `expected non-empty hover content, got empty`);
             });
 
-            // didChange с тем же содержимым (файл на диске не модифицируется)
+            // didChange с тем же содержимым
             client.sendNotification('textDocument/didChange', {
-                textDocument: { uri: `file://${opts.srcFile}`, version: 2 },
-                contentChanges: [{ text: content }]
+                textDocument: { uri: `file://${hoverTestFile}`, version: 2 },
+                contentChanges: [{ text: hoverTestContent }]
             });
 
-            // Wait a bit for re-transpilation
             await new Promise(resolve => setTimeout(resolve, 200));
 
-            // Hover to check re-transpilation happened
             const hoverId2 = client.sendRequest('textDocument/hover', {
-                textDocument: { uri: `file://${opts.srcFile}` },
-                position: { line: 10, character: 9 }
+                textDocument: { uri: `file://${hoverTestFile}` },
+                position: { line: 10, character: 0 }
             });
             const hoverResp2 = await client.waitForResponse(hoverId2);
             test('hover after didChange responds', () => {
@@ -560,6 +554,67 @@ async function main() {
             });
         });
 
+        // ── Test 6b: LSP didChange обновляет documentLink + hover для НОВЫХ операций ──
+        // Воспроизводит сценарий «правка в редакторе без сохранения → новые операции
+        // должны получить подчёркивание (documentLink) и hover».
+        await runSuite(lspPath, 'LSP didChange refresh links', lspArgs, async (client) => {
+            const initId = client.sendRequest('initialize', {
+                processId: process.pid,
+                rootUri: `file://${tmpDir}`,
+                capabilities: { textDocument: { definition: { dynamicRegistration: false }, hover: { dynamicRegistration: false } } }
+            });
+            await client.waitForResponse(initId);
+            client.sendNotification('initialized', {});
+
+            client.sendNotification('textDocument/didOpen', {
+                textDocument: { uri: `file://${hoverTestFile}`, languageId: 'trust', version: 1, text: hoverTestContent }
+            });
+
+            // documentLink до изменения
+            const dlId1 = client.sendRequest('textDocument/documentLink', { textDocument: { uri: `file://${hoverTestFile}` } });
+            const dlResp1 = await client.waitForResponse(dlId1);
+            const linksBefore = Array.isArray(dlResp1.result) ? dlResp1.result : [];
+            test('documentLink before change has links', () => {
+                assert(linksBefore.length > 0, `expected links before change, got ${JSON.stringify(linksBefore)}`);
+            });
+            test('documentLink before change has no link on new line 13', () => {
+                const onNew = linksBefore.some(l => l.range && l.range.start && l.range.start.line === 13);
+                assert(!onNew, 'unexpected link on line 13 before change');
+            });
+
+            // didChange добавляет НОВУЮ операцию на отдельной строке. На диск НЕ пишем.
+            // Завершающий '\n' гарантирует, что операция попадёт на свою строку
+            // (в test_hover.src нет переводов строк в конце).
+            const changedContent = hoverTestContent + '\nw := z * 2;\n';
+            const newLineIndex = changedContent.split('\n').findIndex(l => l.includes('w := z * 2'));
+            assert(newLineIndex >= 0, 'could not compute new line index');
+            client.sendNotification('textDocument/didChange', {
+                textDocument: { uri: `file://${hoverTestFile}`, version: 2 },
+                contentChanges: [{ text: changedContent }]
+            });
+
+            // documentLink после изменения — должна появиться ссылка на новой строке
+            const dlId2 = client.sendRequest('textDocument/documentLink', { textDocument: { uri: `file://${hoverTestFile}` } });
+            const dlResp2 = await client.waitForResponse(dlId2);
+            const linksAfter = Array.isArray(dlResp2.result) ? dlResp2.result : [];
+            test('documentLink after change has link on new line', () => {
+                const hasNew = linksAfter.some(l => l.range && l.range.start && l.range.start.line === newLineIndex);
+                assert(hasNew, `expected a link on new line ${newLineIndex} after didChange, got ${JSON.stringify(linksAfter)}`);
+            });
+
+            // hover по новой строке — должен вернуть содержимое (буфер учтён)
+            const hoverId = client.sendRequest('textDocument/hover', {
+                textDocument: { uri: `file://${hoverTestFile}` },
+                position: { line: newLineIndex, character: 1 }
+            });
+            const hoverResp = await client.waitForResponse(hoverId);
+            const hc = hoverResp.result && hoverResp.result.contents;
+            const htext = typeof hc === 'string' ? hc : (Array.isArray(hc) ? hc.join(' ') : '');
+            test('hover on new line has content', () => {
+                assert(htext.length > 0, `expected hover content on new line ${newLineIndex}, got empty`);
+            });
+        });
+
         // ── Test 7: LSP textDocument/hover — reverse (на C++ файле) ──
         await runSuite(lspPath, 'LSP Hover Reverse (Cpp→Trust)', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
@@ -570,29 +625,26 @@ async function main() {
             await client.waitForResponse(initId);
             client.sendNotification('initialized', {});
 
-            // Open trust file to trigger transpilation
             client.sendNotification('textDocument/didOpen', {
                 textDocument: {
-                    uri: `file://${opts.srcFile}`,
+                    uri: `file://${hoverTestFile}`,
                     languageId: 'trust',
                     version: 1,
-                    text: fs.readFileSync(opts.srcFile, 'utf-8')
+                    text: hoverTestContent
                 }
             });
 
-            // Запрашиваем ховер на C++ файле (dummy cppUri — реально сервер не обслуживает cpp файлы,
-            // но мы можем проверить, что если cpp файл есть в reverse-кеше, ховер работает)
             // Отправляем definition, чтобы получить cpp URI
             const defId = client.sendRequest('textDocument/definition', {
-                textDocument: { uri: `file://${opts.srcFile}` },
-                position: { line: 10, character: 9 }
+                textDocument: { uri: `file://${hoverTestFile}` },
+                position: { line: 10, character: 0 }
             });
             const defResp = await client.waitForResponse(defId);
             if (defResp.result && defResp.result.uri) {
                 const cppUri = defResp.result.uri;
                 const hoverId = client.sendRequest('textDocument/hover', {
                     textDocument: { uri: cppUri },
-                    position: { line: 3, character: 9 }
+                    position: { line: 3, character: 0 }
                 });
                 const hoverResp = await client.waitForResponse(hoverId);
                 test('reverse hover responds', () => {
@@ -619,17 +671,17 @@ async function main() {
 
             client.sendNotification('textDocument/didOpen', {
                 textDocument: {
-                    uri: `file://${opts.srcFile}`,
+                    uri: `file://${hoverTestFile}`,
                     languageId: 'trust',
                     version: 1,
-                    text: fs.readFileSync(opts.srcFile, 'utf-8')
+                    text: hoverTestContent
                 }
             });
 
             // Сначала получаем cpp URI через definition на trust
             const defId = client.sendRequest('textDocument/definition', {
-                textDocument: { uri: `file://${opts.srcFile}` },
-                position: { line: 10, character: 9 }
+                textDocument: { uri: `file://${hoverTestFile}` },
+                position: { line: 10, character: 0 }
             });
             const defResp = await client.waitForResponse(defId);
             if (defResp.result && defResp.result.uri) {
@@ -637,7 +689,7 @@ async function main() {
                 // Запрашиваем definition на cpp → trust (обратный маппинг)
                 const reverseDefId = client.sendRequest('textDocument/definition', {
                     textDocument: { uri: cppUri },
-                    position: { line: 3, character: 9 }
+                    position: { line: 3, character: 0 }
                 });
                 const reverseDefResp = await client.waitForResponse(reverseDefId);
                 test('reverse definition responds', () => {
@@ -668,7 +720,7 @@ async function main() {
             // transpileSourceFile reads from DISK, so create a file with invalid syntax first
             const tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'trust-lsp-test-'));
             const badFilePath = path.join(tmpDir2, 'invalid.src');
-            fs.writeFileSync(badFilePath, 'create x = ;\n');
+            fs.writeFileSync(badFilePath, 'x := ;\n');
             const badUri = `file://${badFilePath}`;
 
             client.sendNotification('textDocument/didOpen', {
@@ -676,7 +728,7 @@ async function main() {
                     uri: badUri,
                     languageId: 'trust',
                     version: 1,
-                    text: 'create x = ;\n'
+                    text: 'x := ;\n'
                 }
             });
 

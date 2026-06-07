@@ -37,8 +37,11 @@ class LruCache {
         m_entries.push_back(std::move(node));
 
         // Обновляем map: старые позиции сдвинулись
-        it->second = static_cast<int>(m_entries.size() - 1);
-        for (int i = it->second - 1; i < static_cast<int>(m_entries.size()); ++i)
+        // Нужно пересчитать индексы для *всех* элементов, начиная с 0,
+        // т.к. erase сдвинул индексы элементов после удалённого.
+        int new_idx = static_cast<int>(m_entries.size() - 1);
+        it->second = new_idx;
+        for (int i = 0; i <= new_idx; ++i)
             m_map[m_entries[i].key] = i;
 
         return &m_entries.back().value;

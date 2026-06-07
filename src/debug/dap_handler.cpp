@@ -4,6 +4,7 @@
 
 #include "debug/dap_handler.hpp"
 #include "debug/gdb_debug.h"
+#include "utils/io.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -13,6 +14,7 @@
 #include <iostream>
 #include <sstream>
 #include <system_error>
+#include "utils/io.hpp"
 
 using json = nlohmann::json;
 
@@ -30,7 +32,7 @@ DapHandler::DapHandler(trust::transport::Transport& transport, const DapOptions&
 // ── DAP command handlers ──
 
 void DapHandler::handleInitialize(const json& req) {
-    std::cerr << "[DAP-TRACE] handleInitialize: seq=" << req["seq"] << ", client=" << req.value("arguments", json::object()).value("clientID", "?") << "\n";
+    trust::errs() << "[DAP-TRACE] handleInitialize: seq=" << req["seq"] << ", client=" << req.value("arguments", json::object()).value("clientID", "?") << "\n";
     sendDapResponse(m_transport, req["seq"],
                     json{{"command", "initialize"},
                          {"body",
@@ -52,8 +54,8 @@ void DapHandler::handleLaunch(const json& req) {
     m_cpp_file = args.value("cppFile", "");
     m_target_file = args.value("targetFile", "");
 
-    std::cerr << "[DAP-TRACE] handleLaunch: seq=" << req["seq"] << ", sourceFile=" << m_source_file << ", cppFile=" << m_cpp_file
-              << ", targetFile=" << m_target_file << "\n";
+    trust::errs() << "[DAP-TRACE] handleLaunch: seq=" << req["seq"] << ", sourceFile=" << m_source_file << ", cppFile=" << m_cpp_file
+                  << ", targetFile=" << m_target_file << "\n";
 
     if (m_target_file.empty()) {
         sendDapOutput(m_transport, "stderr", "trust-dap: no target file specified\n");
@@ -71,9 +73,9 @@ void DapHandler::handleLaunch(const json& req) {
     // Load embedded source map from ELF .debug_trust_map section
     m_source_reader = trust::SourceMapReader::fromElf(m_target_file);
     if (!m_source_reader) {
-        std::cerr << "No embedded source map found in: " << m_target_file << " (debugging without mapping)\n";
+        trust::errs() << "No embedded source map found in: " << m_target_file << " (debugging without mapping)\n";
     } else {
-        std::cerr << "Loaded embedded source map from: " << m_target_file << "\n";
+        trust::errs() << "Loaded embedded source map from: " << m_target_file << "\n";
     }
 
     // Use gdbPath from launch arguments (passed from VSCode config), fallback to CLI option or default
@@ -81,11 +83,11 @@ void DapHandler::handleLaunch(const json& req) {
     if (gdb_path.empty()) {
         gdb_path = m_opts.gdbPath.empty() ? "gdb" : m_opts.gdbPath;
     }
-    std::cerr << "[DAP-TRACE] Using gdb: " << gdb_path << "\n";
+    trust::errs() << "[DAP-TRACE] Using gdb: " << gdb_path << "\n";
     m_debug = std::make_unique<GdbDebug>(GdbDebug::Config{gdb_path});
 
     if (!m_debug->CreateTarget(m_target_file)) {
-        std::cerr << "Failed to create target: " << m_target_file << "\n";
+        trust::errs() << "Failed to create target: " << m_target_file << "\n";
         sendDapResponse(m_transport, req["seq"],
                         json{{"command", "launch"}, {"body", json::object()}, {"success", false}, {"message", "Failed to create target"}});
         return;
@@ -126,14 +128,20 @@ void DapHandler::handleSetBreakpoints(const json& req) {
                     std::string cpp_file(m_source_reader->filename(mapping->begin.fileIdx()));
                     int cpp_line = static_cast<int>(m_source_reader->line(mapping->begin));
 
-                    int bp_num = m_debug->BreakpointBySource(cpp_file, cpp_line);
-                    verified = (bp_num != -1);
-
-                    if (verified) {
-                        sendDapOutput(m_transport, "stdout",
-                                      "  BP applied: " + path + ":" + std::to_string(line) + " -> " + cpp_file + ":" + std::to_string(cpp_line) + "\n");
+                    // Целевой файл маппинга — фиктивный (in-memory) источник: на диске
+                    // его нет, ставить брейкпоинт по реальному файлу нельзя.
+                    if (trust::SourceMapReader::isInMemoryName(cpp_file)) {
+                        sendDapOutput(m_transport, "stderr", "  BP skipped (in-memory source): " + path + ":" + std::to_string(line) + "\n");
                     } else {
-                        sendDapOutput(m_transport, "stderr", "  BP failed: " + path + ":" + std::to_string(line) + "\n");
+                        int bp_num = m_debug->BreakpointBySource(cpp_file, cpp_line);
+                        verified = (bp_num != -1);
+
+                        if (verified) {
+                            sendDapOutput(m_transport, "stdout",
+                                          "  BP applied: " + path + ":" + std::to_string(line) + " -> " + cpp_file + ":" + std::to_string(cpp_line) + "\n");
+                        } else {
+                            sendDapOutput(m_transport, "stderr", "  BP failed: " + path + ":" + std::to_string(line) + "\n");
+                        }
                     }
                 } else {
                     sendDapOutput(m_transport, "stderr", "  BP failed (no mapping): " + path + ":" + std::to_string(line) + "\n");
@@ -175,17 +183,20 @@ void DapHandler::handleBreakpointLocations(const json& req) {
     int num_lines = 0;
     if (is_trust_file && m_source_reader) {
         trust::ReaderFile idx = m_source_reader->findFile(src_path);
-        if (idx.isValid()) {
+        if (!idx.isInvalid()) {
             num_lines = static_cast<int>(m_source_reader->lineCount(idx));
         }
     }
 
     if (num_lines <= 0) {
-        std::ifstream src_stream(src_path);
-        if (src_stream.is_open()) {
-            std::string _;
-            while (std::getline(src_stream, _)) {
-                num_lines++;
+        // Фиктивный (in-memory) источник: файла на диске нет, открывать не пытаемся.
+        if (!trust::SourceMapReader::isInMemoryName(src_path)) {
+            std::ifstream src_stream(src_path);
+            if (src_stream.is_open()) {
+                std::string _;
+                while (std::getline(src_stream, _)) {
+                    num_lines++;
+                }
             }
         }
     }
@@ -198,9 +209,9 @@ void DapHandler::handleBreakpointLocations(const json& req) {
     if (is_trust_file && m_source_reader) {
         trust::ReaderFile idx = m_source_reader->findFile(src_path);
         for (int l = start_line; l <= end_line; ++l) {
-            if (idx.isValid()) {
+            if (!idx.isInvalid()) {
                 auto line_start = m_source_reader->loc_from_line(idx, l);
-                if (line_start.isValid()) {
+                if (!line_start.isInvalid()) {
                     auto ranges = m_source_reader->findRangesByLine(idx, l);
                     if (!ranges.empty()) {
                         locations.push_back({{"line", l}});
@@ -237,7 +248,7 @@ void DapHandler::handleConfigurationDone(const json& req) {
     if (!m_launched) {
         m_launched = true;
         if (!launchProcess()) {
-            std::cerr << "Failed to launch process after configurationDone\n";
+            trust::errs() << "Failed to launch process after configurationDone\n";
         }
     }
     sendDapResponse(m_transport, req["seq"], json{{"command", "configurationDone"}, {"body", json::object()}});
@@ -341,7 +352,7 @@ void DapHandler::handleVariables(const json& req) {
         if (!frames.empty()) {
             const auto& frame = frames[0];
             trust::ReaderFile cppIdx = m_source_reader->findFile(frame.m_file);
-            if (cppIdx.isValid()) {
+            if (!cppIdx.isInvalid()) {
                 cppLoc = m_source_reader->loc_from_line(cppIdx, static_cast<size_t>(frame.m_line));
             }
         }
@@ -353,7 +364,7 @@ void DapHandler::handleVariables(const json& req) {
         for (const auto& var_name : cpp_vars) {
             std::string display_name = var_name;
 
-            if (m_source_reader && cppLoc.isValid()) {
+            if (m_source_reader && !cppLoc.isInvalid()) {
                 auto trust_name = m_source_reader->getTrustName(cppLoc, var_name);
                 if (trust_name.has_value()) {
                     display_name = trust_name->fromName;
@@ -378,7 +389,7 @@ void DapHandler::handleDisconnect(const json& req) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         if (m_event_thread.joinable()) {
-            std::cerr << "[DAP-TRACE] pollEvents thread did not finish in 2s, detaching\n";
+            trust::errs() << "[DAP-TRACE] pollEvents thread did not finish in 2s, detaching\n";
             m_event_thread.detach();
         } else {
             m_event_thread.join();
@@ -391,7 +402,7 @@ void DapHandler::handleRequest(const json& req) {
     std::string command = req.value("command", "");
     std::string req_type = req.value("type", "");
     if (command != "continue" && command != "stackTrace") {
-        std::cerr << "[DAP-TRACE] handleRequest: type=" << req_type << ", command=" << command << ", seq=" << req["seq"] << "\n";
+        trust::errs() << "[DAP-TRACE] handleRequest: type=" << req_type << ", command=" << command << ", seq=" << req["seq"] << "\n";
     }
 
     if (command == "initialize") {
@@ -437,7 +448,7 @@ bool DapHandler::launchProcess() {
         return false;
     }
     if (!m_debug->Launch()) {
-        std::cerr << "Failed to launch: " << m_target_file << "\n";
+        trust::errs() << "Failed to launch: " << m_target_file << "\n";
         return false;
     }
 

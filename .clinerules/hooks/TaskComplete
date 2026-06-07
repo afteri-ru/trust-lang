@@ -91,6 +91,32 @@ TMP_FILE="${TASKLOG_DIR}/${TASK_ID}.tmp"
   fi
 } | safe_append_to_tasklog "$TASK_FILE" "$TMP_FILE"
 
+# ---- Completion report с агрегацией tool-вызовов ----
+TOOLS_FILE="${TASKLOG_DIR}/${TASK_ID}.tools.log"
+if [ -f "$TOOLS_FILE" ]; then
+  TOOL_CALLS=$(wc -l < "$TOOLS_FILE" | tr -d ' ')
+  READS=$(grep -c "read_file" "$TOOLS_FILE" || true)
+  WRITES=$(grep -c "write_to_file" "$TOOLS_FILE" || true)
+  EDITS=$(grep -c "replace_in_file" "$TOOLS_FILE" || true)
+  EXECS=$(grep -c "execute_command" "$TOOLS_FILE" || true)
+  FAILURES=$(grep -c "failed" "$TOOLS_FILE" || true)
+
+  # Добавить агрегированные tool-вызовы в лог задачи
+  {
+    echo ""
+    echo "## Completion report"
+    echo "- tool_calls: ${TOOL_CALLS}"
+    echo "- reads: ${READS}"
+    echo "- writes: ${WRITES}"
+    echo "- edits: ${EDITS}"
+    echo "- execs: ${EXECS}"
+    echo "- failures: ${FAILURES}"
+  } | safe_append_to_tasklog "$TASK_FILE" "$TMP_FILE"
+
+  # Удаляем временный .tools.log после агрегации
+  rm -f "$TOOLS_FILE"
+fi
+
 # Task завершена — удаляем снепшот
 rm -f "$TMP_FILE"
 

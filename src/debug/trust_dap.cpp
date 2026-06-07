@@ -10,11 +10,14 @@
 
 #include "debug/dap_handler.hpp"
 #include "debug/dap_transport.h"
+#include "utils/io.hpp"
 
 #include <nlohmann/json.hpp>
+#include "utils/io.hpp"
 
 #include <iostream>
 #include <memory>
+#include "utils/io.hpp"
 
 using json = nlohmann::json;
 
@@ -59,8 +62,8 @@ int main(int argc, const char* argv[]) {
     }
 
     // ═══ Interactive mode (stdin/stdout) ═══
-    std::cerr << "trust-dap: starting in interactive mode\n"
-              << "  project-dir: " << (opts.projectDir.empty() ? "(cwd)" : opts.projectDir) << "\n";
+    trust::errs() << "trust-dap: starting in interactive mode\n"
+                  << "  project-dir: " << (opts.projectDir.empty() ? "(cwd)" : opts.projectDir) << "\n";
 
     auto transport = std::make_unique<trust::transport::StdioTransport>();
     DapHandler handler(*transport, opts);
@@ -76,6 +79,6 @@ int main(int argc, const char* argv[]) {
         handler.handleRequest(req);
     }
 
-    std::cerr << "trust-dap: exiting\n";
+    trust::errs() << "trust-dap: exiting\n";
     return 0;
 }

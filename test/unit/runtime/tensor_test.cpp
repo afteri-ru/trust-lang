@@ -1,5 +1,4 @@
 #include "types/tensors.hpp"
-#include "types/types.hpp"
 #include "runtime/tensor.hpp"
 #include <gtest/gtest.h>
 #include <stdexcept>
@@ -11,17 +10,15 @@ class TensorTypeTest : public ::testing::Test {
     void SetUp() override { ASSERT_TRUE(ensure_tensor_runtime_loaded()) << "libtensor_cpu.so not found"; }
 };
 
-// Test Tensor type registration
-TEST_F(TensorTypeTest, TensorRegistered) {
-    auto& types = Types::instance();
-    auto kind = types.find("DenseTensor");
-    EXPECT_EQ(kind, TypeKind::DenseTensor);
+// Test Tensor type kind
+TEST_F(TensorTypeTest, TensorKind) {
+    Tensor t;
+    EXPECT_EQ(t.kind(), TypeKind::DenseTensor);
 }
 
-TEST_F(TensorTypeTest, SparseTensorRegistered) {
-    auto& types = Types::instance();
-    auto kind = types.find("SparseTensor");
-    EXPECT_EQ(kind, TypeKind::SparseTensor);
+TEST_F(TensorTypeTest, SparseTensorKind) {
+    SparseTensor t;
+    EXPECT_EQ(t.kind(), TypeKind::SparseTensor);
 }
 
 // Test Tensor to_string

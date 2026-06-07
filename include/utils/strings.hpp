@@ -456,7 +456,7 @@ inline std::string cpp_to_name(std::string_view cpp_name) {
 
                 if (cp == 0x0401 || cp == 0x0451) {
                     // Ё/ё
-                    unsigned char buf[4];
+                    char buf[4];
                     if (is_upper) {
                         buf[0] = 0xD0;
                         buf[1] = 0x81;
@@ -464,9 +464,9 @@ inline std::string cpp_to_name(std::string_view cpp_name) {
                         buf[0] = 0xD1;
                         buf[1] = 0x91;
                     }
-                    result.append(reinterpret_cast<char*>(buf), 2);
+                    result.append(buf, 2);
                 } else {
-                    unsigned char buf[4];
+                    char buf[4];
                     uint32_t target_cp;
                     if (is_upper)
                         target_cp = cp;
@@ -474,7 +474,7 @@ inline std::string cpp_to_name(std::string_view cpp_name) {
                         target_cp = cp + 0x20; // строчная
                     buf[0] = 0xD0 | static_cast<uint8_t>((target_cp >> 6) & 0x1F);
                     buf[1] = 0x80 | static_cast<uint8_t>(target_cp & 0x3F);
-                    result.append(reinterpret_cast<char*>(buf), 2);
+                    result.append(buf, 2);
                 }
                 pos += best_len;
             } else {

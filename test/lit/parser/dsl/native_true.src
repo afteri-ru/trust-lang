@@ -1,4 +1,3 @@
-# RUN: %trust -q --emit-macros %s > %t.out && %FileCheck %s <%t.out
-@@ true @@ ::= 1;
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
 @true
-# CHECK: 1	INTEGER
+# CHECK: IntLiteral 1

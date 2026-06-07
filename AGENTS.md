@@ -48,6 +48,11 @@
 
 - An empty value for std::optional is only allowed when the value is missing. It is invalid when invalid input data is passed (an error/FAULT/EXPECT must be returned).
 
+- Every `EXPECT()` and `FAULT()` call must include a human-readable diagnostic string:
+  - `FAULT("description", args...)` — description is the first argument;
+  - `EXPECT(expr && "description")` — description is added via `&& "..."`.
+  - A bare `EXPECT(expr)` without a description is allowed for obvious checks only.
+
 ### 6. No Implicit Backward Compatibility
 
 **Don't preserve history unless asked.**
@@ -65,13 +70,13 @@
 - If a comment contradicts your intended change, stop and reconsider.
 
 
-### 8. Using Git is prohibited.
+### 8. Use of Git or `.git` is prohibited.
 
-**Making any changes to Git, or modifying or reorganizing Git data in any way, is strictly prohibited.**
+**Use `.git` or any changes from `git`, or modifying or reorganizing Git data in any way, is strictly prohibited.**
 
-- In extreme cases, temporarily storing changes (stashed) is permitted only when investigating regressions during testing or if code analysis is inconclusive. 
-- However, all changes must then be merged into the main code. Any other actions with Git or its history are strictly prohibited!
-
+- Any use of the `git` (including reading history ) is prohibited.
+- Deny reading of the `.git` directory.
+- Not allowed reading `git` history or creating stash.
 
 ---
 
@@ -95,6 +100,7 @@
 - Fix underlying code on failure -- do not silence the test.
 - Tests **MUST** never be silently skipped — missing test infrastructure (GTest, lit, python3, etc.) is a **BUILD FAILURE, not a silent skip or GTEST_SKIP()**.
 - Do not delete generated/output files unless asked.
+- All tests **MUST** be executed with a timeout (e.g., via `timeout` command) to prevent infinite loops or resource exhaustion.
 
 ### 11. Architecture From `ARCH.md` Only
 
@@ -104,15 +110,41 @@
 - Read individual source/header files only when the task explicitly requires it or when modifying that specific file.
 - Do not scan the project for "understanding" — read `ARCH.md` or `README.md` first.
 
-### 12. Keep file `ARCH.md` Synchronized
+### 12. Keep file `ARCH.md` and `README.md` Synchronized
 
-**`ARCH.md` must always reflect the actual implementation.**
+**`ARCH.md` and `README.md` must always reflect the actual implementation.**
 
-- `ARCH.md` must always reflect the actual implementation:
-- If a code change reveals a discrepancy between `ARCH.md` and the code — stop and report it.
+- If a code change reveals a discrepancy between `ARCH.md`? `README.md` and the code — stop and report it.
 - Update `ARCH.md` in the same change set as the code modification.
-- Mismatch between `ARCH.md` and implementation is treated as a bug.
+- Mismatch between `ARCH.md` or `README.md` and implementation is treated as a bug.
 
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation.
+
+---
+
+## Memory (MCP server-memory)
+
+Persistent memory via knowledge graph (`.tasklog/memory.jsonl`).
+
+- **Read**: `read_graph`, `search_nodes(query, limit)` at session start.
+- **Write**: `create_entities`, `create_relations`, `add_observations`.
+- **Delete**: `delete_entities`, `delete_observations`, `delete_relations`.
+
+### When to remember
+
+- User/project facts, decisions, preferences, goals, relations between entities.
+
+### Format
+
+- **Entities** — nodes: unique name, type, observations.
+- **Relations** — directed active-voice edges (from → to).
+- **Observations** — atomic facts (one fact per entry).
+
+### Rules
+
+- Check `search_nodes` before creating entities — no duplicates.
+- No temporary data (intermediate results, logs).
+- Add observations, never overwrite.
+- Remove stale data via `delete_*`.

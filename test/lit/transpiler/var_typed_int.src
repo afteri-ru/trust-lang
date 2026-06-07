@@ -1,0 +1,14 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка объявления переменных с явными целочисленными типами
+a:Int8 := 10;
+# CHECK: int8_t a = 10;
+
+b:Int16 := 20;
+# CHECK-NEXT: int16_t b = 20;
+
+c:Int32 := 30;
+# CHECK-NEXT: int32_t c = 30;
+
+d:Int64 := 40;
+# CHECK-NEXT: int64_t d = 40;

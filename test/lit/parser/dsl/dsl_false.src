@@ -1,0 +1,3 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+@false
+# CHECK: IntLiteral 0

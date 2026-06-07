@@ -52,19 +52,21 @@ add_custom_target(npm-install-vscode-deps
     DEPENDS set-vscode-version
 )
 
-# ── Build VSIX package ──
-add_custom_target(vsix-trust-lang ALL
-    COMMENT "Building trust-lang.vsix"
-    COMMAND ${CMAKE_COMMAND}
-        -D VSIX_SOURCE_DIR=${VSIX_STAGING}
-        -D VSIX_OUTPUT_DIR=${CMAKE_BINARY_DIR}
-        -D VSIX_OUTPUT_FILE=${VSIX_FILE}
-        -D VSIX_TEMPLATE_DIR=${VSIX_PACKAGER_DIR}
-        -D VSIX_ID=${VSIX_ID}
-        -D VSIX_DISPLAY_NAME="Trust Lang"
-        -D VSIX_DESCRIPTION="Trust Lang support and debugger."
-        -D VSIX_PUBLISHER=rsashka
-        -D VSIX_VERSION=${PROJECT_VERSION}-${VSIX_GIT_HASH}
-        -P ${VSIX_PACKAGER_DIR}/package_vsix.cmake
-    DEPENDS copy-vscode-sources set-vscode-version npm-install-vscode-deps
-)
+# ── Build VSIX package (controlled by TRUST_BUILD_VSIX) ──
+if(TRUST_BUILD_VSIX)
+    add_custom_target(vsix-trust-lang ALL
+        COMMENT "Building trust-lang.vsix"
+        COMMAND ${CMAKE_COMMAND}
+            -D VSIX_SOURCE_DIR=${VSIX_STAGING}
+            -D VSIX_OUTPUT_DIR=${CMAKE_BINARY_DIR}
+            -D VSIX_OUTPUT_FILE=${VSIX_FILE}
+            -D VSIX_TEMPLATE_DIR=${VSIX_PACKAGER_DIR}
+            -D VSIX_ID=${VSIX_ID}
+            -D VSIX_DISPLAY_NAME="Trust Lang"
+            -D VSIX_DESCRIPTION="Trust Lang support and debugger."
+            -D VSIX_PUBLISHER=rsashka
+            -D VSIX_VERSION=${PROJECT_VERSION}-${VSIX_GIT_HASH}
+            -P ${VSIX_PACKAGER_DIR}/package_vsix.cmake
+        DEPENDS copy-vscode-sources set-vscode-version npm-install-vscode-deps
+    )
+endif()

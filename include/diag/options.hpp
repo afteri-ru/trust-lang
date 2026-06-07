@@ -1,6 +1,6 @@
 #pragma once
 
-#include "diag/diag.hpp"
+#include "diag/severity.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -16,15 +16,19 @@
 namespace trust {
 
 // X-macro для compile-time определения опций.
-// Формат: M(EnumName, "cli-name", DefaultSeverity)
+// Формат: M(EnumName, "cli-name", DefaultSeverityName)
+// DefaultSeverityName — имя Severity без префикса (например Warning, Error).
 // Переопределите OPTIONS_LIST до включения заголовка, чтобы добавить свои опции.
 #ifndef OPTIONS_LIST
-#define OPTIONS_LIST(M)                            \
-    M(UnusedVar, "unused-var", Severity::Warning)  \
-    M(Deprecated, "deprecated", Severity::Warning) \
-    M(ParseError, "parse-error", Severity::Error)  \
-    M(All, "all", Severity::Warning)
+#define OPTIONS_LIST(M)                         \
+    M(UnusedVar, "unused-var", Warning)         \
+    M(Deprecated, "deprecated", Warning)        \
+    M(ParseError, "parse-error", Error)         \
+    M(MacroRedefined, "macro-redefined", Fatal) \
+    M(All, "all", Warning)
 #endif
+
+class DiagnosticEngine;
 
 enum class OptKind : int {
 #define OPT_ENUM(name, str, sev) name,
@@ -47,7 +51,7 @@ constexpr Severity OptDefaultSeverity(OptKind k) {
     switch (k) {
 #define OPT_CASE(name, str, sev) \
     case OptKind::name:          \
-        return sev;
+        return Severity::sev;
         OPTIONS_LIST(OPT_CASE)
 #undef OPT_CASE
     }
@@ -88,6 +92,10 @@ class Options {
     [[nodiscard]] std::string_view name(OptKind kind) const;
 
     static Options make(std::initializer_list<OptionInitInfo> opts);
+
+    /// Парсит строковое имя severity ("fatal", "error", "warning", "remark", "note", "ignore").
+    /// Для "ignore" возвращает nullopt.
+    [[nodiscard]] static std::optional<Severity> parseSeverityName(std::string_view name) noexcept;
 
   private:
     struct OptionEntry {

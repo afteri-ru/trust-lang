@@ -52,16 +52,18 @@ static std::vector<unsigned char> readMsgpackFromFile(const std::string& path) {
 // Позиция column=15 попадает в оба → от меньшего к большему
 TEST(MappingExtTest, FindRangesByLine_Nested) {
     Context ctx;
-    MapperFile src = ctx.add_source("src", std::string(50, 'a'), false);
-    ASSERT_TRUE(src.isValid());
-    MapperFile cpp = ctx.add_output("cpp", false);
-    ctx.output_append(cpp, std::string(300, 'a'));
-    ASSERT_TRUE(cpp.isValid());
+    MapperFile src = ctx.source().add_source("src", std::string(50, 'a'), false);
+    ASSERT_FALSE(src.isInvalid());
+    MapperFile cpp = ctx.source().add_output("cpp", false);
+    ctx.source().output_append(cpp, std::string(300, 'a'));
+    ASSERT_FALSE(cpp.isInvalid());
 
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 10), ctx.makeLoc(src, 20)), ctx.makeRange(ctx.makeLoc(cpp, 100), ctx.makeLoc(cpp, 110))));
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 5), ctx.makeLoc(src, 30)), ctx.makeRange(ctx.makeLoc(cpp, 200), ctx.makeLoc(cpp, 225))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 10), ctx.source().makeLoc(src, 20)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 100), ctx.source().makeLoc(cpp, 110))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 5), ctx.source().makeLoc(src, 30)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 200), ctx.source().makeLoc(cpp, 225))));
 
-    auto reader = ctx.toReader();
+    auto reader = ctx.source().toReader();
 
     // Позиция column=15 ∈ [10,20] и [5,30]
     // small: 100+(15-10)=105, 110+(15-10)=115 → size=10
@@ -78,17 +80,20 @@ TEST(MappingExtTest, FindRangesByLine_Nested) {
 //   large: [5,40]   → cpp [300,335]
 TEST(MappingExtTest, FindRangesByLine_TripleNested) {
     Context ctx;
-    MapperFile src = ctx.add_source("src", std::string(50, 'a'), false);
-    ASSERT_TRUE(src.isValid());
-    MapperFile cpp = ctx.add_output("cpp", false);
-    ctx.output_append(cpp, std::string(400, 'a'));
-    ASSERT_TRUE(cpp.isValid());
+    MapperFile src = ctx.source().add_source("src", std::string(50, 'a'), false);
+    ASSERT_FALSE(src.isInvalid());
+    MapperFile cpp = ctx.source().add_output("cpp", false);
+    ctx.source().output_append(cpp, std::string(400, 'a'));
+    ASSERT_FALSE(cpp.isInvalid());
 
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 10), ctx.makeLoc(src, 15)), ctx.makeRange(ctx.makeLoc(cpp, 100), ctx.makeLoc(cpp, 105))));
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 8), ctx.makeLoc(src, 25)), ctx.makeRange(ctx.makeLoc(cpp, 200), ctx.makeLoc(cpp, 217))));
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 5), ctx.makeLoc(src, 40)), ctx.makeRange(ctx.makeLoc(cpp, 300), ctx.makeLoc(cpp, 335))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 10), ctx.source().makeLoc(src, 15)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 100), ctx.source().makeLoc(cpp, 105))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 8), ctx.source().makeLoc(src, 25)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 200), ctx.source().makeLoc(cpp, 217))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 5), ctx.source().makeLoc(src, 40)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 300), ctx.source().makeLoc(cpp, 335))));
 
-    auto reader = ctx.toReader();
+    auto reader = ctx.source().toReader();
 
     auto result = reader->findRangesByLine(ReaderFile::from(src), 1, 12);
     ASSERT_EQ(result.size(), 3u);
@@ -109,11 +114,11 @@ TEST(MappingExtTest, StressTest_500Mappings) {
     constexpr int NUM_RANGES = 300;
     constexpr int NUM_NAMES = 100;
     Context ctx;
-    MapperFile src = ctx.add_source("src", std::string(5000, 'a'), false);
-    ASSERT_TRUE(src.isValid());
-    MapperFile cpp = ctx.add_output("cpp", false);
-    ctx.output_append(cpp, std::string(10000, 'a'));
-    ASSERT_TRUE(cpp.isValid());
+    MapperFile src = ctx.source().add_source("src", std::string(5000, 'a'), false);
+    ASSERT_FALSE(src.isInvalid());
+    MapperFile cpp = ctx.source().add_output("cpp", false);
+    ctx.source().output_append(cpp, std::string(10000, 'a'));
+    ASSERT_FALSE(cpp.isInvalid());
 
     std::mt19937 rng(42);
     std::set<uint32_t> usedBegins;
@@ -136,8 +141,8 @@ TEST(MappingExtTest, StressTest_500Mappings) {
         uint32_t cLen = tEnd - tBegin;
         uint32_t cEnd = std::min(cBegin + cLen, 10000u);
 
-        ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, tBegin), ctx.makeLoc(src, tEnd)),
-                                        ctx.makeRange(ctx.makeLoc(cpp, cBegin), ctx.makeLoc(cpp, cEnd))));
+        ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, tBegin), ctx.source().makeLoc(src, tEnd)),
+                                                 ctx.source().makeRange(ctx.source().makeLoc(cpp, cBegin), ctx.source().makeLoc(cpp, cEnd))));
     }
 
     // ── 2. addNameMapping: 100 именованных маппингов ──
@@ -152,8 +157,9 @@ TEST(MappingExtTest, StressTest_500Mappings) {
         std::string trustName = "func_" + std::to_string(i);
         std::string cppName = "_func_" + std::to_string(i);
 
-        ASSERT_TRUE(ctx.addNameMapping(ctx.makeRange(ctx.makeLoc(src, tBegin), ctx.makeLoc(src, tEnd)),
-                                       ctx.makeRange(ctx.makeLoc(cpp, cBegin), ctx.makeLoc(cpp, cEnd)), trustName, cppName));
+        ASSERT_TRUE(ctx.source().addNameMapping(ctx.source().makeRange(ctx.source().makeLoc(src, tBegin), ctx.source().makeLoc(src, tEnd)),
+                                                ctx.source().makeRange(ctx.source().makeLoc(cpp, cBegin), ctx.source().makeLoc(cpp, cEnd)), trustName,
+                                                cppName));
     }
 
     // ── 3. addNameMapping внутри диапазона (offsets > 4000) ──
@@ -163,12 +169,12 @@ TEST(MappingExtTest, StressTest_500Mappings) {
         uint32_t cBegin = 9020 + i * 4;
         uint32_t cEnd = cBegin + 5;
 
-        ASSERT_TRUE(ctx.addNameMapping(ctx.makeRange(ctx.makeLoc(src, tBegin), ctx.makeLoc(src, tEnd)),
-                                       ctx.makeRange(ctx.makeLoc(cpp, cBegin), ctx.makeLoc(cpp, cEnd)), "inner_" + std::to_string(i),
-                                       "_inner_" + std::to_string(i)));
+        ASSERT_TRUE(ctx.source().addNameMapping(ctx.source().makeRange(ctx.source().makeLoc(src, tBegin), ctx.source().makeLoc(src, tEnd)),
+                                                ctx.source().makeRange(ctx.source().makeLoc(cpp, cBegin), ctx.source().makeLoc(cpp, cEnd)),
+                                                "inner_" + std::to_string(i), "_inner_" + std::to_string(i)));
     }
     // ── Сериализация → файл → десериализация из файла ──
-    const auto* readerBefore = ctx.toReader();
+    const auto* readerBefore = ctx.source().toReader();
     ASSERT_NE(readerBefore, nullptr);
 
     auto packed = readerBefore->packToMsgpack();
@@ -247,11 +253,11 @@ TEST(MappingExtTest, StressTest_500Mappings) {
 
 TEST(MappingExtTest, StressTest_1000RangeMappings) {
     Context ctx;
-    MapperFile src = ctx.add_source("src", std::string(10000, 'a'), false);
-    ASSERT_TRUE(src.isValid());
-    MapperFile cpp = ctx.add_output("cpp", false);
-    ctx.output_append(cpp, std::string(20000, 'a'));
-    ASSERT_TRUE(cpp.isValid());
+    MapperFile src = ctx.source().add_source("src", std::string(10000, 'a'), false);
+    ASSERT_FALSE(src.isInvalid());
+    MapperFile cpp = ctx.source().add_output("cpp", false);
+    ctx.source().output_append(cpp, std::string(20000, 'a'));
+    ASSERT_FALSE(cpp.isInvalid());
 
     std::mt19937 rng(123);
     constexpr int COUNT = 1000;
@@ -274,11 +280,11 @@ TEST(MappingExtTest, StressTest_1000RangeMappings) {
         uint32_t cLen = tEnd - tBegin;
         uint32_t cEnd = std::min(cBegin + cLen, 20000u);
 
-        ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, tBegin), ctx.makeLoc(src, tEnd)),
-                                        ctx.makeRange(ctx.makeLoc(cpp, cBegin), ctx.makeLoc(cpp, cEnd))));
+        ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, tBegin), ctx.source().makeLoc(src, tEnd)),
+                                                 ctx.source().makeRange(ctx.source().makeLoc(cpp, cBegin), ctx.source().makeLoc(cpp, cEnd))));
     }
 
-    const auto* readerBefore = ctx.toReader();
+    const auto* readerBefore = ctx.source().toReader();
     ASSERT_NE(readerBefore, nullptr);
 
     auto packed = readerBefore->packToMsgpack();
@@ -324,14 +330,14 @@ TEST(MappingExtTest, StressTest_1000RangeMappings) {
 
 TEST(MappingExtTest, FindRangesByLine_EmptyFile) {
     Context ctx;
-    MapperFile src = ctx.add_source("src", "", false);
-    ASSERT_TRUE(src.isValid());
-    MapperFile cpp = ctx.add_output("cpp", false);
-    ctx.output_append(cpp, std::string(100, 'a'));
-    ASSERT_TRUE(cpp.isValid());
+    MapperFile src = ctx.source().add_source("src", "", false);
+    ASSERT_FALSE(src.isInvalid());
+    MapperFile cpp = ctx.source().add_output("cpp", false);
+    ctx.source().output_append(cpp, std::string(100, 'a'));
+    ASSERT_FALSE(cpp.isInvalid());
 
     // Пустой файл — не должно быть маппингов, результат пустой
-    auto reader = ctx.toReader();
+    auto reader = ctx.source().toReader();
     auto result = reader->findRangesByLine(ReaderFile::from(src), 1, 1);
     EXPECT_TRUE(result.empty());
 }
@@ -342,15 +348,16 @@ TEST(MappingExtTest, FindRangesByLine_EmptyFile) {
 
 TEST(MappingExtTest, FindRangesByLine_ColumnZero) {
     Context ctx;
-    MapperFile src = ctx.add_source("src", std::string(50, 'a'), false);
-    ASSERT_TRUE(src.isValid());
-    MapperFile cpp = ctx.add_output("cpp", false);
-    ctx.output_append(cpp, std::string(200, 'a'));
-    ASSERT_TRUE(cpp.isValid());
+    MapperFile src = ctx.source().add_source("src", std::string(50, 'a'), false);
+    ASSERT_FALSE(src.isInvalid());
+    MapperFile cpp = ctx.source().add_output("cpp", false);
+    ctx.source().output_append(cpp, std::string(200, 'a'));
+    ASSERT_FALSE(cpp.isInvalid());
 
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 10), ctx.makeLoc(src, 20)), ctx.makeRange(ctx.makeLoc(cpp, 100), ctx.makeLoc(cpp, 110))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 10), ctx.source().makeLoc(src, 20)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 100), ctx.source().makeLoc(cpp, 110))));
 
-    auto reader = ctx.toReader();
+    auto reader = ctx.source().toReader();
 
     // column=0 и column=1 должны дать одинаковый результат
     auto result0 = reader->findRangesByLine(ReaderFile::from(src), 1, 0);
@@ -368,16 +375,18 @@ TEST(MappingExtTest, FindRangesByLine_ColumnZero) {
 
 TEST(MappingExtTest, FindRangesByLine_LineOnly) {
     Context ctx;
-    MapperFile src = ctx.add_source("src", std::string(50, 'a'), false);
-    ASSERT_TRUE(src.isValid());
-    MapperFile cpp = ctx.add_output("cpp", false);
-    ctx.output_append(cpp, std::string(300, 'a'));
-    ASSERT_TRUE(cpp.isValid());
+    MapperFile src = ctx.source().add_source("src", std::string(50, 'a'), false);
+    ASSERT_FALSE(src.isInvalid());
+    MapperFile cpp = ctx.source().add_output("cpp", false);
+    ctx.source().output_append(cpp, std::string(300, 'a'));
+    ASSERT_FALSE(cpp.isInvalid());
 
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 10), ctx.makeLoc(src, 20)), ctx.makeRange(ctx.makeLoc(cpp, 100), ctx.makeLoc(cpp, 110))));
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 1), ctx.makeLoc(src, 30)), ctx.makeRange(ctx.makeLoc(cpp, 200), ctx.makeLoc(cpp, 229))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 10), ctx.source().makeLoc(src, 20)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 100), ctx.source().makeLoc(cpp, 110))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 1), ctx.source().makeLoc(src, 30)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 200), ctx.source().makeLoc(cpp, 229))));
 
-    auto reader = ctx.toReader();
+    auto reader = ctx.source().toReader();
 
     // Без column (по умолчанию 1) — только для line=1, column=1
     // small [10,20] не содержит column=1, large [1,30] содержит
@@ -395,19 +404,21 @@ TEST(MappingExtTest, FindRangesByLine_LineOnly) {
 TEST(MappingExtTest, FindRangesByLine_MultiLine) {
     Context ctx;
     // Строка 1: 10 байт, строка 2: 20 байт
-    MapperFile src = ctx.add_source("src", std::string(10, 'a') + "\n" + std::string(20, 'a'), false);
-    ASSERT_TRUE(src.isValid());
-    MapperFile cpp = ctx.add_output("cpp", false);
-    ctx.output_append(cpp, std::string(200, 'a'));
-    ASSERT_TRUE(cpp.isValid());
+    MapperFile src = ctx.source().add_source("src", std::string(10, 'a') + "\n" + std::string(20, 'a'), false);
+    ASSERT_FALSE(src.isInvalid());
+    MapperFile cpp = ctx.source().add_output("cpp", false);
+    ctx.source().output_append(cpp, std::string(200, 'a'));
+    ASSERT_FALSE(cpp.isInvalid());
 
     // Диапазон на второй строке: src line=2, offset от 12 до 20 (1-based)
     //      10 ('a'*10) + 1 ('\n') = позиция 12 = начало строки 2
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 12), ctx.makeLoc(src, 20)), ctx.makeRange(ctx.makeLoc(cpp, 100), ctx.makeLoc(cpp, 108))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 12), ctx.source().makeLoc(src, 20)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 100), ctx.source().makeLoc(cpp, 108))));
     // Диапазон на первой строке
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 3), ctx.makeLoc(src, 8)), ctx.makeRange(ctx.makeLoc(cpp, 50), ctx.makeLoc(cpp, 55))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 3), ctx.source().makeLoc(src, 8)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 50), ctx.source().makeLoc(cpp, 55))));
 
-    auto reader = ctx.toReader();
+    auto reader = ctx.source().toReader();
 
     // Поиск на второй строке, column 4
     // loc = начало_строки_2 + (4-1) = offset 12 + 3 = 15
@@ -430,15 +441,16 @@ TEST(MappingExtTest, FindRangesByLine_MultiLine) {
 
 TEST(MappingExtTest, FindRangesByLine_LineOutOfRange) {
     Context ctx;
-    MapperFile src = ctx.add_source("src", std::string(50, 'a'), false);
-    ASSERT_TRUE(src.isValid());
-    MapperFile cpp = ctx.add_output("cpp", false);
-    ctx.output_append(cpp, std::string(200, 'a'));
-    ASSERT_TRUE(cpp.isValid());
+    MapperFile src = ctx.source().add_source("src", std::string(50, 'a'), false);
+    ASSERT_FALSE(src.isInvalid());
+    MapperFile cpp = ctx.source().add_output("cpp", false);
+    ctx.source().output_append(cpp, std::string(200, 'a'));
+    ASSERT_FALSE(cpp.isInvalid());
 
-    ASSERT_TRUE(ctx.addRangeMapping(ctx.makeRange(ctx.makeLoc(src, 10), ctx.makeLoc(src, 20)), ctx.makeRange(ctx.makeLoc(cpp, 100), ctx.makeLoc(cpp, 110))));
+    ASSERT_TRUE(ctx.source().addRangeMapping(ctx.source().makeRange(ctx.source().makeLoc(src, 10), ctx.source().makeLoc(src, 20)),
+                                             ctx.source().makeRange(ctx.source().makeLoc(cpp, 100), ctx.source().makeLoc(cpp, 110))));
 
-    auto reader = ctx.toReader();
+    auto reader = ctx.source().toReader();
     auto result = reader->findRangesByLine(ReaderFile::from(src), 100, 1);
     EXPECT_TRUE(result.empty());
 }

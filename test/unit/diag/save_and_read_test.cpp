@@ -34,22 +34,22 @@ TEST(SaveAndReadTest, SaveOutputThenReadFromDisk) {
     Context ctx(dataDir.generic_string());
 
     // Загружаем входной файл с диска — в msgpack попадёт абсолютный путь
-    MapperFile inputIdx = ctx.load_file(inputPath);
-    EXPECT_TRUE(inputIdx.isValid());
-    EXPECT_EQ(ctx.source(inputIdx), "create x = 42;");
+    MapperFile inputIdx = ctx.source().load_file(inputPath);
+    EXPECT_FALSE(inputIdx.isInvalid());
+    EXPECT_EQ(ctx.source().source(inputIdx), "create x = 42;");
 
     // Добавляем выходной файл и пишем в него
     // Передаём полный путь — normalizePath приведёт его к относительному от baseDir (dataDir)
-    MapperFile outIdx = ctx.add_output(outputPath, true); // полный путь → нормализуется в "output.cpp"
-    ctx.output_append(outIdx, "int x = 42;\n");
+    MapperFile outIdx = ctx.source().add_output(outputPath, true); // полный путь → нормализуется в "output.cpp"
+    ctx.source().output_append(outIdx, "int x = 42;\n");
 
     // Добавляем ещё один выходной файл в подкаталоге
     std::string subdirOutputPath = (dataDir / "lib" / "helpers.cpp").generic_string();
-    MapperFile subdirIdx = ctx.add_output(subdirOutputPath, true); // → нормализуется в "lib/helpers.cpp"
-    ctx.output_append(subdirIdx, "int helper() { return 0; }\n");
+    MapperFile subdirIdx = ctx.source().add_output(subdirOutputPath, true); // → нормализуется в "lib/helpers.cpp"
+    ctx.source().output_append(subdirIdx, "int helper() { return 0; }\n");
 
     // Сохраняем все выходные файлы на диск
-    ASSERT_TRUE(ctx.save_output(dataDir.generic_string()));
+    ASSERT_TRUE(ctx.source().save_output(dataDir.generic_string()));
 
     // Читаем сохранённые файлы и проверяем содержимое
     {
@@ -68,7 +68,7 @@ TEST(SaveAndReadTest, SaveOutputThenReadFromDisk) {
     }
 
     // ── Получаем SourceMapReader (финализирует выходные файлы) ──
-    const SourceMapReader* reader = ctx.toReader();
+    const SourceMapReader* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
     ASSERT_EQ(reader->output_count(), 2);
 
@@ -128,16 +128,16 @@ TEST(SaveAndReadTest, ChecksumMismatchDetected) {
     }
 
     Context ctx(dataDir.generic_string());
-    MapperFile inputIdx = ctx.load_file(inputPath);
-    EXPECT_TRUE(inputIdx.isValid());
+    MapperFile inputIdx = ctx.source().load_file(inputPath);
+    EXPECT_FALSE(inputIdx.isInvalid());
 
     // Добавляем выходной файл и пишем в него
-    MapperFile outIdx = ctx.add_output(outputPath, true); // полный путь → нормализуется в "output.cpp"
-    ctx.output_append(outIdx, "int x = 42;\n");
-    ASSERT_TRUE(ctx.save_output(dataDir.generic_string()));
+    MapperFile outIdx = ctx.source().add_output(outputPath, true); // полный путь → нормализуется в "output.cpp"
+    ctx.source().output_append(outIdx, "int x = 42;\n");
+    ASSERT_TRUE(ctx.source().save_output(dataDir.generic_string()));
 
     // ── Сериализуем через packToMsgpack ──
-    const SourceMapReader* reader = ctx.toReader();
+    const SourceMapReader* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
     std::vector<unsigned char> packed = reader->packToMsgpack();
 
@@ -181,14 +181,14 @@ TEST(SaveAndReadTest, DiskReadFailure) {
     }
 
     Context ctx(dataDir.generic_string());
-    MapperFile inputIdx = ctx.load_file(inputPath);
-    EXPECT_TRUE(inputIdx.isValid());
-    MapperFile outIdx = ctx.add_output(outputPath, true);
-    ctx.output_append(outIdx, "int x = 42;\n");
-    ASSERT_TRUE(ctx.save_output(dataDir.generic_string()));
+    MapperFile inputIdx = ctx.source().load_file(inputPath);
+    EXPECT_FALSE(inputIdx.isInvalid());
+    MapperFile outIdx = ctx.source().add_output(outputPath, true);
+    ctx.source().output_append(outIdx, "int x = 42;\n");
+    ASSERT_TRUE(ctx.source().save_output(dataDir.generic_string()));
 
     // ── Сериализуем → десериализуем ──
-    const SourceMapReader* reader = ctx.toReader();
+    const SourceMapReader* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
     std::vector<unsigned char> packed = reader->packToMsgpack();
 

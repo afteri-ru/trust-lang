@@ -1,0 +1,6 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -m -o $TD/module.trust %s
+# RUN: %trust --module-info $TD/module.trust | %FileCheck %s
+# CHECK: version: {{[0-9]+\.[0-9]+\.[0-9]+}}
+
+x := 1;

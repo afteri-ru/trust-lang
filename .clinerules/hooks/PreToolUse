@@ -69,14 +69,18 @@ if [[ "$TOOL" == "execute_command" ]] && [[ "$COMMAND" =~ cmake[[:space:]]+--bui
   fi
 fi
 
-# Example: Block dangerous operations
-if [[ "$TOOL" == "execute_command" ]] && [[ "$COMMAND" == *"rm -rf /"* ]]; then
-  echo '{"cancel":true,"errorMessage":"Dangerous command blocked by PreToolUse hook"}'
-  exit 0
+# Git check: allow only defensive search filters (--exclude-dir=.git, grep -v "\.git").
+# Any other occurrence of "git" (including ".git" and git commands) is forbidden.
+if [[ "$TOOL" == "execute_command" ]] && [[ "$COMMAND" == *"git"* ]]; then
+  # Allowing check — defensive filters that exclude the .git dir, not a git usage
+  if [[ "$COMMAND" =~ '--exclude-dir=.git' ]] || [[ "$COMMAND" =~ 'grep -v "\.git"' ]] || [[ "$COMMAND" =~ 'grep -v ".git"' ]] || [[ "$COMMAND" =~ "grep -v '.git'" ]] ; then
+    : # pass — these are directory-exclusion filters, not git usage
+  else
+    # Forbidding check — any other "git" occurrence (including ".git" and git commands)
+    echo '{"cancel":true,"errorMessage":"Использование Git запрещено (см. AGENTS.md п.8)."}'
+    exit 0
+  fi
 fi
 
-# Example: Log tool usage
-# echo "[PreToolUse] Tool about to execute: $TOOL" >&2
-
 # Allow execution
-# echo '{"cancel":false,"contextModification":"","errorMessage":""}'
+echo '{"cancel":false,"contextModification":"","errorMessage":""}'

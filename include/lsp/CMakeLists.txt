@@ -5,12 +5,14 @@
 add_library(lsp_lib STATIC
     ${PROJECT_SOURCE_DIR}/lsp/lsp_protocol.cpp
     ${PROJECT_SOURCE_DIR}/lsp/trust_lsp.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/transpile.cpp
 )
 
 target_link_libraries(lsp_lib PUBLIC
     trust_include_dirs
     debug_lib
+    semantic_lib
+    transpiler_lib
+    pipeline_lib
 )
 
 target_link_libraries(lsp_lib PRIVATE
@@ -31,7 +33,6 @@ add_executable(trust-lsp
 
 target_link_libraries(trust-lsp PRIVATE
     lsp_lib
-    debug_lib
     nlohmann_json::nlohmann_json
 )
 

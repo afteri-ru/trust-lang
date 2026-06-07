@@ -1,0 +1,4 @@
+# RUN: %trust -q --no-dsl --emit-ast %s > %t.out && %FileCheck %s <%t.out
+@true
+# CHECK: Ident
+# CHECK-NOT: IntLiteral

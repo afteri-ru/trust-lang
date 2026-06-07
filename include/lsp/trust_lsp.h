@@ -2,12 +2,12 @@
 #define TRUST_TRUST_LSP_H
 
 #include "lsp/lsp_protocol.h"
-#include "lsp/transpile.h"
 #include "diag/context.hpp"
 
 #include <nlohmann/json.hpp>
 
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -32,6 +32,9 @@ class TrustLsp {
     void handleNotification(const nlohmann::json& req);
     bool isRunning() const { return running_; }
 
+    // Пере-транспиляция документов, чей debounce-период истёк (вызывается главным циклом).
+    void flushPendingTranspile();
+
   private:
     // LSP handlers
     void handleInitialize(const nlohmann::json& req);
@@ -43,10 +46,16 @@ class TrustLsp {
     void handleHover(const nlohmann::json& req);
     void handleDocumentLink(const nlohmann::json& req);
     void handleDidChangeConfiguration(const nlohmann::json& req);
+    void handleExecuteCommand(const nlohmann::json& req);
 
     // Транспиляция при открытии файла (in-process)
     // Возвращает пустую строку при успехе, текст ошибки при неудаче.
     std::string transpileSourceFile(const std::string& trustFilePath);
+
+    // Транспиляция переданного текста буфера (без чтения файла с диска).
+    // trustFilePath используется как ключ кеша и идентификатор исходника.
+    // Возвращает пустую строку при успехе, текст ошибки при неудаче.
+    std::string transpileSource(const std::string& trustFilePath, const std::string& trustCode);
 
     // Вспомогательные: читают читателя и FileIdx из кеша по пути
     // Возвращают nullptr при ошибке
@@ -57,6 +66,13 @@ class TrustLsp {
         bool isCppRequest;                // true — запрос из C++ файла (курсор в cpp)
     };
     CachedReader getCachedReader(const std::string& filePath, std::string& outError);
+
+    // Применяет contentChanges (Incremental/Full) к буферу openDocuments_[filePath].
+    // Возвращает актуальный текст документа.
+    std::string applyContentChanges(const std::string& filePath, const nlohmann::json& contentChanges);
+
+    // Синхронная пере-транспиляция «грязного» документа из его буфера + публикация диагностик.
+    void flushDocument(const std::string& filePath);
 
     // Универсальный построитель содержимого ховера
     // Строит Markdown-массив с базовым кодом + Markdown-ссылками на определения,
@@ -78,6 +94,17 @@ class TrustLsp {
 
     // Reverse cache: cppFilePath → trustFilePath (для C++ → Trust навигации)
     std::unordered_map<std::string, std::string> cppToTrustCache_;
+
+    // Буферы открытых документов: trustFilePath → актуальный текст из didOpen/didChange.
+    // Используются для транспиляции вместо чтения файла с диска (чтобы правки без
+    // сохранения сразу отражались в hover/documentLink/definition).
+    std::unordered_map<std::string, std::string> openDocuments_;
+
+    // Документы, ожидающие пере-транспиляции после debounce (path → время последней правки).
+    std::unordered_map<std::string, std::chrono::steady_clock::time_point> pendingTranspile_;
+
+    // Задержка (debounce) перед автоматической пере-транспиляцией после правки.
+    static constexpr int kDebounceMs = 200;
 
     std::atomic<bool> running_{true};
 };
