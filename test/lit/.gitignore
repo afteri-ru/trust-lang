@@ -1,0 +1,6 @@
+*.cppt
+*.hppt
+*.trust
+pipeline/compile
+Makefile
+build.conf

@@ -2,6 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Trust",
   "patterns": [
+    { "include": "#macros" },
     { "include": "#comments" },
     { "include": "#doc-comments" },
     { "include": "#strings" },
@@ -113,6 +114,13 @@
         { "name": "variable.language.trust","match": "\\b__[\\p{L}_][\\p{L}\\p{N}_]+\\b" },
         { "name": "variable.name.trust",    "match": "\\b_[\\p{L}][\\p{L}\\p{N}_]*\\b" },
         { "name": "variable.other.trust",   "match": "\\b[\\p{L}_][\\p{L}\\p{N}_]*\\b" }
+      ]
+    },
+    "macros": {
+      "patterns": [
+        { "name": "markup.other.trust.macros", "begin": "@@@@", "end": "@@@@" },
+        { "name": "markup.other.trust.macros", "begin": "@@@", "end": "@@@" },
+        { "name": "markup.other.trust.macros", "begin": "@@", "end": "@@" }
       ]
     },
     "comments": {

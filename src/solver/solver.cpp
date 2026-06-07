@@ -1,6 +1,10 @@
 #include "solver/solver.hpp"
 
+#ifdef TRUST_HAS_Z3
+#include "solver/solver_z3.hpp"
+#else
 #include "solver/solver_stub.hpp"
+#endif
 
 #include <memory>
 
@@ -8,9 +12,11 @@ namespace trust {
 namespace solver {
 
 std::unique_ptr<SolverInterface> createSolver() {
-    // When WITH_SOLVER=OFF (default), return stub.
-    // The WITH_SOLVER=ON path uses SolverZ3 from solver_z3.cpp.
+#ifdef TRUST_HAS_Z3
+    return std::make_unique<SolverZ3>();
+#else
     return std::make_unique<SolverStub>();
+#endif
 }
 
 } // namespace solver

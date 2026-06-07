@@ -1,3 +1,4 @@
+#include "utils/io.hpp"
 #include "diag/context.hpp"
 #include "diag/diag.hpp"
 
@@ -19,17 +20,18 @@ class DiagFixture : public ::testing::Test {
   protected:
     DiagFixture()
     : m_source(generate_source(50))
-    , m_src(m_ctx.add_source("test.cpp", m_source)) {}
+    , m_src(m_ctx.source().add_source("test.cpp", m_source)) {}
 
     void SetUp() override {
         m_stream.str("");
         m_ctx.diag().clear();
         m_ctx.diag().setMinSeverity(Severity::Remark);
-        m_ctx.diag().setOutput(&m_stream);
+        m_prev_err = setErrs(&m_stream);
     }
 
-    void TearDown() override { m_ctx.diag().setOutput(nullptr); }
+    void TearDown() override { setErrs(m_prev_err); }
 
+    std::ostream* m_prev_err = nullptr;
     std::stringstream m_stream;
     std::string m_source;
     Context m_ctx;
@@ -39,8 +41,8 @@ class DiagFixture : public ::testing::Test {
 };
 
 TEST_F(DiagFixture, ErrorWithLocation) {
-    auto loc = m_ctx.loc_from_line(m_src, 10);
-    m_ctx.diag().report(loc, Severity::Error, "unexpected token '{}'", "foo");
+    auto loc = m_ctx.source().loc_from_line(m_src, 10);
+    m_ctx.diag().report(Severity::Error, loc, "unexpected token '{}'", "foo");
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:10:1: error: unexpected token 'foo'"), std::string::npos) << "Output: " << out;
@@ -48,8 +50,8 @@ TEST_F(DiagFixture, ErrorWithLocation) {
 }
 
 TEST_F(DiagFixture, WarningWithLocation) {
-    auto loc = m_ctx.loc_from_line(m_src, 42);
-    m_ctx.diag().report(loc, Severity::Warning, "deprecated function '{}'", "old_func");
+    auto loc = m_ctx.source().loc_from_line(m_src, 42);
+    m_ctx.diag().report(Severity::Warning, loc, "deprecated function '{}'", "old_func");
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:42:1: warning: deprecated function 'old_func'"), std::string::npos) << "Output: " << out;
@@ -57,8 +59,8 @@ TEST_F(DiagFixture, WarningWithLocation) {
 }
 
 TEST_F(DiagFixture, NoteWithLocation) {
-    auto loc = m_ctx.loc_from_line(m_src, 5);
-    m_ctx.diag().report(loc, Severity::Note, "did you mean '{}'?", "bar");
+    auto loc = m_ctx.source().loc_from_line(m_src, 5);
+    m_ctx.diag().report(Severity::Note, loc, "did you mean '{}'?", "bar");
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:5:1: note: did you mean 'bar'?"), std::string::npos) << "Output: " << out;
@@ -66,11 +68,11 @@ TEST_F(DiagFixture, NoteWithLocation) {
 
 TEST_F(DiagFixture, ErrorWithoutLocation) {
     MapperRange invalidRange;
-    m_ctx.diag().report(invalidRange, Severity::Error, "internal error");
+    m_ctx.diag().report(Severity::Error, invalidRange, "internal error");
 
     std::string out = output();
     EXPECT_NE(out.find("error: internal error"), std::string::npos) << "Output: " << out;
-    EXPECT_FALSE(invalidRange.begin.isValid());
+    EXPECT_TRUE(invalidRange.begin.isInvalid());
 }
 
 TEST_F(DiagFixture, SeverityFiltering) {
@@ -78,16 +80,16 @@ TEST_F(DiagFixture, SeverityFiltering) {
     m_ctx.diag().clear();
     m_stream.str("");
 
-    auto loc = m_ctx.loc_from_line(m_src, 1);
+    auto loc = m_ctx.source().loc_from_line(m_src, 1);
 
-    m_ctx.diag().report(loc, Severity::Remark, "optimization hint");
-    m_ctx.diag().report(loc, Severity::Note, "additional info");
+    m_ctx.diag().report(Severity::Remark, loc, "optimization hint");
+    m_ctx.diag().report(Severity::Note, loc, "additional info");
 
     std::string out = output();
     EXPECT_TRUE(out.find("remark") == std::string::npos) << "Remark should be filtered";
 
-    m_ctx.diag().report(loc, Severity::Warning, "test warning");
-    m_ctx.diag().report(loc, Severity::Error, "test error");
+    m_ctx.diag().report(Severity::Warning, loc, "test warning");
+    m_ctx.diag().report(Severity::Error, loc, "test error");
 
     out = output();
     EXPECT_NE(out.find("test warning"), std::string::npos) << "Warning should pass";
@@ -95,19 +97,19 @@ TEST_F(DiagFixture, SeverityFiltering) {
 }
 
 TEST_F(DiagFixture, ErrorCount) {
-    auto loc = m_ctx.loc_from_line(m_src, 1);
-    m_ctx.diag().report(loc, Severity::Error, "error 1");
-    m_ctx.diag().report(loc, Severity::Error, "error 2");
-    m_ctx.diag().report(loc, Severity::Warning, "warning 1");
+    auto loc = m_ctx.source().loc_from_line(m_src, 1);
+    m_ctx.diag().report(Severity::Error, loc, "error 1");
+    m_ctx.diag().report(Severity::Error, loc, "error 2");
+    m_ctx.diag().report(Severity::Warning, loc, "warning 1");
 
     EXPECT_EQ(m_ctx.diag().errorCount(), 2);
     EXPECT_EQ(m_ctx.diag().warningCount(), 1);
 }
 
 TEST_F(DiagFixture, ClearResetsCounts) {
-    auto loc = m_ctx.loc_from_line(m_src, 1);
-    m_ctx.diag().report(loc, Severity::Error, "error");
-    m_ctx.diag().report(loc, Severity::Warning, "warning");
+    auto loc = m_ctx.source().loc_from_line(m_src, 1);
+    m_ctx.diag().report(Severity::Error, loc, "error");
+    m_ctx.diag().report(Severity::Warning, loc, "warning");
     EXPECT_EQ(m_ctx.diag().errorCount(), 1);
     EXPECT_EQ(m_ctx.diag().warningCount(), 1);
 
@@ -117,24 +119,24 @@ TEST_F(DiagFixture, ClearResetsCounts) {
 }
 
 TEST_F(DiagFixture, FormatString) {
-    auto loc = m_ctx.loc_from_line(m_src, 1);
-    m_ctx.diag().report(loc, Severity::Error, "value {}, float {:.2f}, str {}", 42, 3.14159, "hello");
+    auto loc = m_ctx.source().loc_from_line(m_src, 1);
+    m_ctx.diag().report(Severity::Error, loc, "value {}, float {:.2f}, str {}", 42, 3.14159, "hello");
 
     std::string out = output();
     EXPECT_NE(out.find("value 42, float 3.14, str hello"), std::string::npos) << "Output: " << out;
 }
 
 TEST_F(DiagFixture, RemarkSeverity) {
-    auto loc = m_ctx.loc_from_line(m_src, 1);
-    m_ctx.diag().report(loc, Severity::Remark, "remark message");
+    auto loc = m_ctx.source().loc_from_line(m_src, 1);
+    m_ctx.diag().report(Severity::Remark, loc, "remark message");
 
     std::string out = output();
     EXPECT_NE(out.find("remark: remark message"), std::string::npos) << "Output: " << out;
 }
 
 TEST_F(DiagFixture, FatalWithLocation) {
-    auto loc = m_ctx.loc_from_line(m_src, 1);
-    m_ctx.diag().report(loc, Severity::Fatal, "internal compiler error: {}", "stack overflow");
+    auto loc = m_ctx.source().loc_from_line(m_src, 1);
+    EXPECT_THROW(m_ctx.diag().report(Severity::Fatal, loc, "internal compiler error: {}", "stack overflow"), FatalError);
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:1:1: fatal: internal compiler error: stack overflow"), std::string::npos) << "Output: " << out;
@@ -145,9 +147,9 @@ TEST_F(DiagFixture, FatalSeverityFiltering) {
     m_ctx.diag().clear();
     m_stream.str("");
 
-    auto loc = m_ctx.loc_from_line(m_src, 1);
-    m_ctx.diag().report(loc, Severity::Warning, "should be filtered");
-    m_ctx.diag().report(loc, Severity::Fatal, "fatal error");
+    auto loc = m_ctx.source().loc_from_line(m_src, 1);
+    m_ctx.diag().report(Severity::Warning, loc, "should be filtered");
+    EXPECT_THROW(m_ctx.diag().report(Severity::Fatal, loc, "fatal error"), FatalError);
 
     std::string out = output();
     EXPECT_TRUE(out.find("warning") == std::string::npos) << "Warning should be filtered";
@@ -170,14 +172,12 @@ TEST_F(DiagFixture, CaretWithSingleLocation) {
                                      "    int x = foo();\n"
                                      "    return 0;\n"
                                      "}\n");
-    Context ctx;
-    MapperFile src = ctx.add_source("test.cpp", source);
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src = m_ctx.source().add_source("test.cpp", source);
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
-    auto loc = ctx.loc_from_line(src, 2);
-    auto new_loc = ctx.makeLoc(src, loc + 12);
-    ctx.diag().report(new_loc, Severity::Error, "unknown identifier '{}'", "foo");
+    auto loc = m_ctx.source().loc_from_line(src, 2);
+    auto new_loc = m_ctx.source().makeLoc(src, loc + 12);
+    m_ctx.diag().report(Severity::Error, new_loc, "unknown identifier '{}'", "foo");
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:2:13: error: unknown identifier 'foo'"), std::string::npos) << "Output: " << out;
@@ -188,16 +188,14 @@ TEST_F(DiagFixture, CaretWithSingleLocation) {
 TEST_F(DiagFixture, CaretWithRange) {
     std::string source = std::string("int x = 42;\n"
                                      "int y = foobar();\n");
-    Context ctx;
-    MapperFile src = ctx.add_source("test.cpp", source);
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src = m_ctx.source().add_source("test.cpp", source);
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
     auto begin_pos = source.find("foobar", 12);
-    auto begin = ctx.makeLoc(src, static_cast<int>(begin_pos) + 1);
-    auto end = ctx.makeLoc(src, static_cast<int>(begin_pos) + 1 + 6);
+    auto begin = m_ctx.source().makeLoc(src, static_cast<int>(begin_pos) + 1);
+    auto end = m_ctx.source().makeLoc(src, static_cast<int>(begin_pos) + 1 + 6);
 
-    ctx.diag().report(MapperRange{begin, end}, Severity::Error, "unknown identifier '{}'", "foobar");
+    m_ctx.diag().report(Severity::Error, MapperRange{begin, end}, "unknown identifier '{}'", "foobar");
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:2:9: error: unknown identifier 'foobar'"), std::string::npos) << "Output: " << out;
@@ -206,7 +204,7 @@ TEST_F(DiagFixture, CaretWithRange) {
 }
 
 TEST_F(DiagFixture, CaretWithoutLocation) {
-    m_ctx.diag().report(MapperRange{}, Severity::Error, "internal error");
+    m_ctx.diag().report(Severity::Error, MapperRange{}, "internal error");
 
     std::string out = output();
     EXPECT_NE(out.find("error: internal error"), std::string::npos) << "Output: " << out;
@@ -215,15 +213,13 @@ TEST_F(DiagFixture, CaretWithoutLocation) {
 
 TEST_F(DiagFixture, CaretAtDifferentColumn) {
     std::string source = std::string("void test() { auto x = 1 + 2 * 3; }\n");
-    Context ctx;
-    MapperFile src = ctx.add_source("test.cpp", source);
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src = m_ctx.source().add_source("test.cpp", source);
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
-    auto loc = ctx.loc_from_line(src, 1);
-    auto new_loc = ctx.makeLoc(src, loc + 26);
+    auto loc = m_ctx.source().loc_from_line(src, 1);
+    auto new_loc = m_ctx.source().makeLoc(src, loc + 26);
 
-    ctx.diag().report(new_loc, Severity::Error, "magic number '{}'", 3);
+    m_ctx.diag().report(Severity::Error, new_loc, "magic number '{}'", 3);
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:1:27: error: magic number '3'"), std::string::npos) << "Output: " << out;
@@ -232,17 +228,15 @@ TEST_F(DiagFixture, CaretAtDifferentColumn) {
 
 TEST_F(DiagFixture, RangeSpanningSameLine) {
     std::string source = std::string("const char* name = \"hello world\";\n");
-    Context ctx;
-    MapperFile src = ctx.add_source("test.cpp", source);
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src = m_ctx.source().add_source("test.cpp", source);
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
     auto hello_pos = source.find("hello");
     auto world_end_pos = source.find("world") + 5;
-    auto begin = ctx.makeLoc(src, static_cast<int>(hello_pos) + 1);
-    auto end = ctx.makeLoc(src, static_cast<int>(world_end_pos) + 1);
+    auto begin = m_ctx.source().makeLoc(src, static_cast<int>(hello_pos) + 1);
+    auto end = m_ctx.source().makeLoc(src, static_cast<int>(world_end_pos) + 1);
 
-    ctx.diag().report(MapperRange{begin, end}, Severity::Warning, "string literal used");
+    m_ctx.diag().report(Severity::Warning, MapperRange{begin, end}, "string literal used");
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:1:"), std::string::npos) << "Output: " << out;
@@ -251,13 +245,11 @@ TEST_F(DiagFixture, RangeSpanningSameLine) {
 
 TEST_F(DiagFixture, FirstLineWithCaret) {
     std::string source = std::string("x = 1;\n");
-    Context ctx;
-    MapperFile src = ctx.add_source("test.cpp", source);
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src = m_ctx.source().add_source("test.cpp", source);
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
-    auto loc = ctx.loc_from_line(src, 1);
-    ctx.diag().report(loc, Severity::Error, "unexpected 'x'");
+    auto loc = m_ctx.source().loc_from_line(src, 1);
+    m_ctx.diag().report(Severity::Error, loc, "unexpected 'x'");
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:1:1: error: unexpected 'x'"), std::string::npos) << "Output: " << out;
@@ -266,10 +258,10 @@ TEST_F(DiagFixture, FirstLineWithCaret) {
 }
 
 TEST_F(DiagFixture, SourceRange_Point) {
-    auto loc = m_ctx.loc_from_line(m_src, 5);
+    auto loc = m_ctx.source().loc_from_line(m_src, 5);
     auto rng = MapperRange::point(loc);
     EXPECT_TRUE(rng.is_point());
-    m_ctx.diag().report(loc, Severity::Error, "point error");
+    m_ctx.diag().report(Severity::Error, loc, "point error");
 
     std::string out = output();
     EXPECT_NE(out.find("test.cpp:5:1: error: point error"), std::string::npos) << "Output: " << out;
@@ -277,16 +269,14 @@ TEST_F(DiagFixture, SourceRange_Point) {
 
 TEST_F(DiagFixture, ReportWithRange) {
     std::string source = "int x = foo;\n";
-    Context ctx;
-    MapperFile src = ctx.add_source("test.cpp", source);
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src = m_ctx.source().add_source("test.cpp", source);
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
     auto foo_pos = source.find("foo");
-    auto begin = ctx.makeLoc(src, static_cast<int>(foo_pos) + 1);
-    auto end = ctx.makeLoc(src, static_cast<int>(foo_pos) + 1 + 3);
+    auto begin = m_ctx.source().makeLoc(src, static_cast<int>(foo_pos) + 1);
+    auto end = m_ctx.source().makeLoc(src, static_cast<int>(foo_pos) + 1 + 3);
     auto range = MapperRange{begin, end};
-    ctx.diag().report(range, Severity::Warning, "unused variable");
+    m_ctx.diag().report(Severity::Warning, range, "unused variable");
 
     std::string out = output();
     EXPECT_NE(out.find("warning: unused variable"), std::string::npos) << "Output: " << out;
@@ -294,36 +284,32 @@ TEST_F(DiagFixture, ReportWithRange) {
 }
 
 TEST_F(DiagFixture, MultiSource) {
-    Context ctx;
-    MapperFile src_a = ctx.add_source("a.cpp", "int x = 1;\n");
-    MapperFile src_b = ctx.add_source("b.cpp", "int y = 2;\n");
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src_a = m_ctx.source().add_source("a.cpp", "int x = 1;\n");
+    MapperFile src_b = m_ctx.source().add_source("b.cpp", "int y = 2;\n");
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
-    auto loc_a = ctx.loc_from_line(src_a, 1);
-    auto loc_b = ctx.loc_from_line(src_b, 1);
+    auto loc_a = m_ctx.source().loc_from_line(src_a, 1);
+    auto loc_b = m_ctx.source().loc_from_line(src_b, 1);
 
-    ctx.diag().report(loc_a, Severity::Error, "error in a.cpp");
-    ctx.diag().report(loc_b, Severity::Error, "error in b.cpp");
+    m_ctx.diag().report(Severity::Error, loc_a, "error in a.cpp");
+    m_ctx.diag().report(Severity::Error, loc_b, "error in b.cpp");
 
     std::string out = m_stream.str();
     EXPECT_NE(out.find("a.cpp:1:1"), std::string::npos) << "Output: " << out;
     EXPECT_NE(out.find("b.cpp:1:1"), std::string::npos) << "Output: " << out;
-    EXPECT_EQ(ctx.diag().errorCount(), 2);
+    EXPECT_EQ(m_ctx.diag().errorCount(), 2);
 }
 
 TEST_F(DiagFixture, CaretAtCorrectColumn) {
     std::string source = "    int x = foo();\n";
-    Context ctx;
-    MapperFile src = ctx.add_source("caret.cpp", source);
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src = m_ctx.source().add_source("caret.cpp", source);
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
     auto foo_pos = source.find("foo");
-    auto foo_begin = ctx.makeLoc(src, static_cast<int>(foo_pos) + 1);
-    auto foo_end = ctx.makeLoc(src, static_cast<int>(foo_pos) + 4);
+    auto foo_begin = m_ctx.source().makeLoc(src, static_cast<int>(foo_pos) + 1);
+    auto foo_end = m_ctx.source().makeLoc(src, static_cast<int>(foo_pos) + 4);
 
-    ctx.diag().report(MapperRange{foo_begin, foo_end}, Severity::Warning, "unused variable {}", "foo");
+    m_ctx.diag().report(Severity::Warning, MapperRange{foo_begin, foo_end}, "unused variable {}", "foo");
 
     auto out = m_stream.str();
     EXPECT_NE(out.find("caret.cpp:1:13:"), std::string::npos) << "Wrong line/column: " << out;
@@ -332,15 +318,13 @@ TEST_F(DiagFixture, CaretAtCorrectColumn) {
 
 TEST_F(DiagFixture, CaretAtColumnOne) {
     std::string source = "int x;\n";
-    Context ctx;
-    MapperFile src = ctx.add_source("col1.cpp", source);
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src = m_ctx.source().add_source("col1.cpp", source);
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
-    auto loc = ctx.loc_from_line(src, 1);
-    auto end = ctx.makeLoc(src, loc + 3);
+    auto loc = m_ctx.source().loc_from_line(src, 1);
+    auto end = m_ctx.source().makeLoc(src, loc + 3);
 
-    ctx.diag().report(MapperRange{loc, end}, Severity::Error, "unexpected 'int'");
+    m_ctx.diag().report(Severity::Error, MapperRange{loc, end}, "unexpected 'int'");
 
     auto out = m_stream.str();
     EXPECT_NE(out.find("col1.cpp:1:1:"), std::string::npos) << "Wrong line/column: " << out;
@@ -350,16 +334,14 @@ TEST_F(DiagFixture, CaretAtColumnOne) {
 TEST_F(DiagFixture, MultiLineRangeCaretAtBegin) {
     std::string source = "int x = 1 +\n"
                          "    2 * 3;\n";
-    Context ctx;
-    MapperFile src = ctx.add_source("multi.cpp", source);
-    ctx.diag().setMinSeverity(Severity::Remark);
-    ctx.diag().setOutput(&m_stream);
+    MapperFile src = m_ctx.source().add_source("multi.cpp", source);
+    m_ctx.diag().setMinSeverity(Severity::Remark);
 
-    auto loc1 = ctx.loc_from_line(src, 1);
-    auto loc2 = ctx.loc_from_line(src, 2);
-    auto end = ctx.makeLoc(src, loc2 + 7);
+    auto loc1 = m_ctx.source().loc_from_line(src, 1);
+    auto loc2 = m_ctx.source().loc_from_line(src, 2);
+    auto end = m_ctx.source().makeLoc(src, loc2 + 7);
 
-    ctx.diag().report(MapperRange{loc1, end}, Severity::Error, "expression too long");
+    m_ctx.diag().report(Severity::Error, MapperRange{loc1, end}, "expression too long");
 
     auto out = m_stream.str();
     EXPECT_NE(out.find("multi.cpp:1:1:"), std::string::npos) << "Wrong line/column: " << out;

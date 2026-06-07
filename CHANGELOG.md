@@ -1,8 +1,30 @@
 # Version history
 
-## [Release v0.5 - current version](https://github.com/afteri/trust-lang))
+## [Release v0.5 - current version](https://github.com/afteri/trust-lang/releases/v0.5.0))
 
-Full rewrite of the project's code base with a name change.
+Complete rework of the project's code base with a name change (**NewLang -> TrustLang**).
+This release is the first after the switch to agent-driven development and is intended
+to capture the state after a fundamental architecture refactoring.
+
+Currently only a minimal set of language instructions is implemented (variable and
+function declarations, built-in code blocks, etc.), as the main focus is on building
+a full ecosystem: a VS Code plugin, and LSP and DAP servers for code debugging.
+
+### Standard features (as in conventional compiled languages)
+- Transpilation to C++ followed by build via generated Makefile.
+- Lexical and syntax analysis using Flex/Bison.
+- Macroprocessor and DSL macros.
+
+### Project-specific features
+- **Transparent display of generated code fragments:** a built-in source map (trust <-> C++)
+  embedded into the ELF `.debug_trust_map` section; LSP and DAP allow navigation between
+  the source trust code and the generated C++, and setting variable values in both files.
+- **VS Code extension:** syntax highlighting and LSP integration.
+- **LSP server (`trust-lsp`):** Go to Definition, hover, inlay hints, document links,
+  incremental synchronization and debounce.
+- **DAP server (`trust-dap`):** prototype debugging via GDB/MI with trust <-> C++ position translation.
+- **Solver (SMT-LIB 2):** prototype formula generation and optional Z3 integration for formal
+  verification (Trust Checking).
 
 
 ## [Release v0.4 (23.03.2024) - current version](https://github.com/rsashka/newlang/releases/tag/v0.4.0))

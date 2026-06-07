@@ -4,9 +4,11 @@
 #include "lsp/lsp_protocol.h"
 #include "lsp/trust_lsp.h"
 #include "utils/backtrace.hpp"
+#include "utils/io.hpp"
 
 #include <iostream>
 #include <memory>
+#include "utils/io.hpp"
 
 int main(int argc, const char* argv[]) {
     trust::utils::install_fault_handler();
@@ -36,6 +38,14 @@ int main(int argc, const char* argv[]) {
 
         while (server.isRunning()) {
             try {
+                // Сброс отложенных (debounce) пере-транспиляций
+                server.flushPendingTranspile();
+                // Ожидание ввода с таймаутом (чтобы периодически сбрасывать debounce)
+                int r = transport->waitInput(50);
+                if (r < 0)
+                    break;
+                if (r == 0)
+                    continue;
                 auto req = readLspPacket(*transport);
                 if (req.is_null() || req.empty()) {
                     break;
@@ -46,9 +56,9 @@ int main(int argc, const char* argv[]) {
                     server.handleNotification(req);
                 }
             } catch (const std::exception& e) {
-                std::cerr << "trust-lsp: FATAL ERROR (tcp): " << e.what() << "\n";
+                trust::errs() << "trust-lsp: FATAL ERROR (tcp): " << e.what() << "\n";
             } catch (...) {
-                std::cerr << "trust-lsp: FATAL ERROR (tcp): unknown exception\n";
+                trust::errs() << "trust-lsp: FATAL ERROR (tcp): unknown exception\n";
             }
         }
 
@@ -56,14 +66,23 @@ int main(int argc, const char* argv[]) {
     }
 
     // ═══ Interactive mode (stdin/stdout) ═══
-    std::cerr << "trust-lsp: starting in interactive mode\n"
-              << "  project-dir: " << (opts.projectDir.empty() ? "(cwd)" : opts.projectDir) << "\n";
+    trust::errs() << "trust-lsp: starting in interactive mode\n"
+                  << "  project-dir: " << (opts.projectDir.empty() ? "(cwd)" : opts.projectDir) << "\n";
 
     auto transport = std::make_unique<trust::transport::StdioTransport>();
     TrustLsp server(*transport, opts);
 
     while (server.isRunning()) {
         try {
+            // Сброс отложенных (debounce) пере-транспиляций
+            server.flushPendingTranspile();
+            // Ожидание ввода с таймаутом (чтобы периодически сбрасывать debounce)
+            int r = transport->waitInput(50);
+            if (r < 0)
+                break;
+            if (r == 0)
+                continue;
+
             auto req = readLspPacket(*transport);
             if (req.is_null() || req.empty()) {
                 break;
@@ -76,13 +95,13 @@ int main(int argc, const char* argv[]) {
                 server.handleNotification(req);
             }
         } catch (const std::exception& e) {
-            std::cerr << "trust-lsp: FATAL ERROR (interactive): " << e.what() << "\n";
+            trust::errs() << "trust-lsp: FATAL ERROR (interactive): " << e.what() << "\n";
             // Продолжаем цикл — сервер не должен упасть
         } catch (...) {
-            std::cerr << "trust-lsp: FATAL ERROR (interactive): unknown exception\n";
+            trust::errs() << "trust-lsp: FATAL ERROR (interactive): unknown exception\n";
         }
     }
 
-    std::cerr << "trust-lsp: exiting\n";
+    trust::errs() << "trust-lsp: exiting\n";
     return 0;
 }

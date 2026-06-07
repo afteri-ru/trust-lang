@@ -1,3 +1,4 @@
+#include "utils/io.hpp"
 #include "solver/smt_ast.hpp"
 #include "solver/smt_printer.hpp"
 
@@ -315,10 +316,10 @@ TEST(SmtPrinterTest, GenerateInt64ContractFile) {
     EXPECT_TRUE(content.find("> result x") != std::string::npos);
     EXPECT_TRUE(content.find("check-sat") != std::string::npos);
 
-    std::cout << "SMT-LIB 2 file written to: " << filepath << std::endl;
-    std::cout << "--- Content ---" << std::endl;
-    std::cout << content << std::endl;
-    std::cout << "--- End ---" << std::endl;
+    trust::outs() << "SMT-LIB 2 file written to: " << filepath << std::endl;
+    trust::outs() << "--- Content ---" << std::endl;
+    trust::outs() << content << std::endl;
+    trust::outs() << "--- End ---" << std::endl;
 
     // Clean up
     // std::remove(filepath.c_str());

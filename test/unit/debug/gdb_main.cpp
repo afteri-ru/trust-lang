@@ -1,3 +1,4 @@
+#include "utils/io.hpp"
 // Integration test for GDB via GdbDebug wrapper
 //
 // Usage: ./gdb_main <path_to_gdb_debuggee_binary>
@@ -15,11 +16,11 @@
 static const char* sep_title = nullptr;
 void sep(const char* title) {
     sep_title = title;
-    std::cout << "\n===== " << title << " =====\n";
+    trust::outs() << "\n===== " << title << " =====\n";
 }
 
 void printUsage(const char* prog) {
-    std::cerr << "Usage: " << prog << " <path_to_gdb_debuggee_binary>\n";
+    trust::errs() << "Usage: " << prog << " <path_to_gdb_debuggee_binary>\n";
 }
 
 int main(int argc, const char* argv[]) {
@@ -33,72 +34,72 @@ int main(int argc, const char* argv[]) {
     // ------------------------------------------------------------------
     sep("Initialize");
     GdbDebug debug;
-    std::cout << "  GdbDebug created\n";
+    trust::outs() << "  GdbDebug created\n";
 
     // ------------------------------------------------------------------
     sep("Create target");
-    std::cout << "  Loading binary: " << exe << std::endl;
+    trust::outs() << "  Loading binary: " << exe << std::endl;
     bool ok = debug.CreateTarget(exe);
-    std::cout << "  CreateTarget: " << (ok ? "OK" : "FAIL") << std::endl;
+    trust::outs() << "  CreateTarget: " << (ok ? "OK" : "FAIL") << std::endl;
     if (!ok) {
-        std::cerr << "  FAIL: CreateTarget returned false\n";
+        trust::errs() << "  FAIL: CreateTarget returned false\n";
         return 1;
     }
-    std::cout << "  Target created\n";
+    trust::outs() << "  Target created\n";
 
     // ------------------------------------------------------------------
     sep("Breakpoint at factorial");
     int bp = debug.BreakpointCreateByName("factorial");
-    std::cout << "  Breakpoint: " << (bp >= 0 ? "OK" : "FAIL") << " (token=" << bp << ")\n";
+    trust::outs() << "  Breakpoint: " << (bp >= 0 ? "OK" : "FAIL") << " (token=" << bp << ")\n";
     if (bp < 0) {
-        std::cerr << "  FAIL: BreakpointCreateByName returned " << bp << "\n";
+        trust::errs() << "  FAIL: BreakpointCreateByName returned " << bp << "\n";
         return 1;
     }
 
     // ------------------------------------------------------------------
     sep("Launch");
     ok = debug.Launch();
-    std::cout << "  Launch: " << (ok ? "OK" : "FAIL") << std::endl;
+    trust::outs() << "  Launch: " << (ok ? "OK" : "FAIL") << std::endl;
     if (!ok) {
-        std::cerr << "  FAIL: Launch failed\n";
+        trust::errs() << "  FAIL: Launch failed\n";
         return 1;
     }
-    std::cout << "  Hit breakpoint at factorial!\n";
+    trust::outs() << "  Hit breakpoint at factorial!\n";
 
     // ------------------------------------------------------------------
     sep("Step over and read variables");
     for (int i = 0; i < 3; ++i) {
-        std::cout << "\n--- Step #" << (i + 1) << " ---\n";
+        trust::outs() << "\n--- Step #" << (i + 1) << " ---\n";
 
         // Read variables before stepping
         auto vars = debug.GetVariables();
-        std::cout << "  Vars:";
+        trust::outs() << "  Vars:";
         for (const auto& v : vars) {
             std::string val = debug.EvaluateExpression(v);
-            std::cout << " " << v << "=" << val;
+            trust::outs() << " " << v << "=" << val;
         }
-        std::cout << "\n";
+        trust::outs() << "\n";
 
         // Step over (blocks until stop)
         debug.StepOver();
-        std::cout << "  Step over completed\n";
+        trust::outs() << "  Step over completed\n";
     }
 
     // ------------------------------------------------------------------
     sep("Continue to exit");
     debug.Continue();
     GdbDebug::Event evt = debug.WaitForEvent(5000);
-    std::cout << "  Event after continue: ";
+    trust::outs() << "  Event after continue: ";
     if (evt == GdbDebug::Event::Exit)
-        std::cout << "Exit";
+        trust::outs() << "Exit";
     else if (evt == GdbDebug::Event::Stop)
-        std::cout << "Stop";
+        trust::outs() << "Stop";
     else if (evt == GdbDebug::Event::Timeout)
-        std::cout << "Timeout";
-    std::cout << "\n";
+        trust::outs() << "Timeout";
+    trust::outs() << "\n";
 
     // ------------------------------------------------------------------
     sep("Cleanup");
-    std::cout << "  Done. GDB test passed.\n";
+    trust::outs() << "  Done. GDB test passed.\n";
     return 0;
 }

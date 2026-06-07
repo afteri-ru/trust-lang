@@ -1,23 +1,12 @@
-# lsp — Language Server Protocol
+# LSP — Language Server Protocol
 
-Autocomplete, go-to-definition, hover-диагностика, форматирование для IDE.
+## Назначение
 
-## Ответственность
+LSP-сервер на stdin/stdout для интеграции с IDE (VSCode). Обеспечивает автодополнение, go-to-definition, hover-диагностику, форматирование и двухоконную навигацию между trust- и C++-кодом.
 
-- Autocomplete и подсказки при вводе
-- Go-to-definition (переход к определению)
-- Hover-диагностика (показ ошибок при наведении)
-- Форматирование кода
-- Error-коды (LSP Diagnostic.code)
+## Особенности реализации
 
-## Компоненты
-
-- **trust_lsp.h** — основной LSP-сервер (обработчики методов, кеширование source map)
-- **lsp_protocol.h** — парсинг/сериализация JSON-RPC 2.0, Content-Length транспорт
-- **transpile.h** — in-process транспиляция Trust → C++ + source map
-
-## Зависимости
-
-- `parser` — токенизация и парсинг
-- `diag` — диагностика
-- `types` — система типов
+- **In-process транспиляция** — преобразование Trust → C++ выполняется внутри LSP-сервера через Context (без внешнего компилятора), с построением source-map в памяти.
+- **Двухоконная навигация** — source-map позволяет переключаться между исходным `.src` и сгенерированным `.cppt` кодом; go-to-definition и hover работают в обе стороны.
+- **Кеширование** — результат транспиляции и source-map кешируются по хешу содержимого, с инвалидацией при изменениях и auto-recovery при cache-miss.
+- **Transport** — Content-Length / JSON-RPC 2.0 поверх stdin/stdout, без внешних зависимостей от LSP-клиента.

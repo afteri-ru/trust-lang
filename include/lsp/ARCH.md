@@ -10,19 +10,20 @@ VSCode Extension (extension.js)
             ├── TrustLsp — обработчик LSP-методов
             │     ├── textDocument/didOpen        → in-process transpile (Trust → C++ + source map)
             │     ├── textDocument/didChange       → re-transpile при изменении
-            │     ├── textDocument/didClose        → очищает кеш
+            │     ├── textDocument/didClose        → очищает reverse-кеш
             │     ├── textDocument/definition     → trust_line → cpp_line (Go to Definition)
             │     ├── textDocument/hover          → C++ код под курсором
             │     ├── textDocument/inlayHint      → inline-подсказки "→ cpp:N"
-            │     └── textDocument/documentLink   → кликабельные ссылки на C++ строки
+            │     ├── textDocument/documentLink   → кликабельные ссылки на C++ строки
+            │     └── workspace/didChangeConfiguration — обновление опций
             │
-            ├── LspProtocol — парсинг/сериализация LSP (JSON-RPC 2.0)
-            │     ├── Content-Length парсинг
-            │     ├── JSON-RPC 2.0 диспетчеризация (request/response/notification)
-            │     └── stdin/stdout транспорт
+            ├── LspProtocol (lsp_protocol.h/cpp) — набор свободных функций:
+            │     readLspPacket, sendLspResponse, sendLspError,
+            │     sendLspNotification, sendLspRequest
+            │     Использует trust::transport::Transport (из utils/transport.hpp)
             │
-            └── Transpile (in-process, lsp/transpile.h)
-                  └── transpile() — Trust → C++ + source map (Context API)
+            └── Transpile (in-process, встраивается в TrustLsp::transpileSourceFile)
+                  └── transpileSourceFile() — Trust → C++ + source map (Context API)
 ```
 
 ## In-process транспиляция
@@ -52,7 +53,9 @@ VSCode Extension (extension.js)
 
 ## Сохранение транспилированного C++ на диск
 
-При получении `textDocument/didOpen` или `textDocument/didChange` trust-lsp выполняет in-process транспиляцию и кеширует source map. Если в настройках (`LspOptions::tempDir`) указан каталог, сервер сохраняет сгенерированный C++ код на диск. Файл перезаписывается при каждой транспиляции.
+При получении `textDocument/didOpen` trust-lsp транспилирует содержимое буфера (текст из didOpen) и кеширует source map. `textDocument/didChange` (синхронизация **Incremental**, `textDocumentSync: 2`) применяет правки к буферу в памяти и откладывает пере-транспиляцию через **debounce** (~200 мс), чтобы не транспилировать на каждый keystroke. Если в настройках (`LspOptions::tempDir`) указан каталог, сервер сохраняет сгенерированный C++ код на диск. Файл перезаписывается при каждой транспиляции.
+
+Анализ идёт по тексту буфера (`openDocuments_`), а не по файлу на диске — так hover/documentLink/definition сразу отражают правки в редакторе даже до сохранения.
 
 Настройка `tempDir` может быть изменена через LSP нотификацию `workspace/didChangeConfiguration`.
 
@@ -64,8 +67,8 @@ VSCode Extension (extension.js)
 
 | Событие | Поведение | Обоснование |
 |---------|-----------|-------------|
-| `didOpen` | Проверка хеша: если кэш есть и хеш содержимого совпадает — транспиляция не выполняется | Предотвращает повторную транспиляцию при переключении вкладок |
-| `didChange` | Безусловная перетранспиляция | Содержимое изменилось |
+| `didOpen` | Транспиляция текста буфера из didOpen, кеширование source map | Первое открытие — актуальный map сразу |
+| `didChange` | Применение правок к буферу (Incremental) + отложенная пере-транспиляция через debounce; при запросе hover/definition/documentLink — синхронный flush | Не транспилировать на каждый keystroke |
 | `didClose` | `sourceCache_` не очищается, очищается только reverse-кеш | Предотвращает потерю source-map при переключении вкладок |
 | `shutdown` | Полная очистка кэша | Корректный re-initialize |
 
@@ -83,6 +86,10 @@ VSCode Extension (extension.js)
 
 Convenience-методы для LSP: `lspToLocation(idx, line, character)` (0-based → Location), `findRangeMap(loc)` (поиск полного RangeMap), `rangeToFragmentString(range)` (преобразование в URL-фрагмент), `getWordAt(loc)` (извлечение идентификатора под курсором), `getNameMappings()`.
 
+`getCppName`/`getTrustName` возвращают полный `NameMap`: целевой диапазон — ВЕСЬ диапазон имени на противоположной стороне, без проекции/сдвига по позиции курсора внутри имени (иначе наведение на середину многосимвольного имени даёт сдвинутый target).
+
+**Обратная навигация cppt → src в VSCode:** расширение регистрирует `.cppt`/`.hppt` с language id `cpp` (`package.json` → `contributes.languages`), иначе VSCode считает их plaintext и не отправляет hover/documentLink в LSP — обратный переход/подсветка из cppt не работают.
+
 ### Унификация ховеров и documentLink
 
 `buildHoverContents()` — универсальный метод построения Markdown-массива ховера:
@@ -90,13 +97,22 @@ Convenience-методы для LSP: `lspToLocation(idx, line, character)` (0-ba
 - Базовый блок с кодом противоположной стороны
 - Выделение слова под курсором через `getWordAt`
 - Для src файла: поиск `getCppName` (ссылка на C++ определение) и `getMacroDefRange` (ссылка на определение макроса)
-- Для C++ файла: поиск `getTrustName` (ссылка на trust-определение)
+- Для C++ файла: поиск `getTrustName` (ссылка на trust-определение); если NameMap не найден (expression-операторы, embed — у них нет NameMap) — fallback на statement-маппинг `findRangeMap` (backward cpp→trust) со ссылкой `← Trust: <text>` на trust-фрагмент
 
 `handleDocumentLink()` — NameMap-ссылки для переменных.
 
 ### TrustLsp handler — единый каркас
 
 Все хендлеры используют общий шаблон: конвертация LSP позиции → Location → поиск маппинга → чтение противоположной стороны.
+
+### Трассировка (`--trace` / `trust.traceLSP`)
+
+При `LspOptions::trace` (флаг `--trace`, включается настройкой расширения `Trust: Trace LSP`) `TrustLsp::log()` пишет в stderr (попадает в канал «Trust Lang LSP») детальную диагностику:
+- при `didOpen` — дамп всех маппингов source map (forward/backward/name) с координатами и текстом обеих сторон (`formatRange` → `path:line:col–line:col [текст]`);
+- в `handleDocumentLink` (обе ветки) — каждая ссылка: исходный диапазон+текст → целевой диапазон+текст, с пометкой statement/name/macro;
+- в `handleDefinition`/`handleHover` — курсор → найденный маппинг → цель;
+- в `publishDiagnostics` — каждый diagnostic с диапазоном;
+- в `getCachedReader` — reverse-поиск по `cppToTrustCache_` (hit/miss) и индексы reader-файлов.
 
 ## Разделение ответственности
 
@@ -112,22 +128,25 @@ Convenience-методы для LSP: `lspToLocation(idx, line, character)` (0-ba
 | `initialize` | Принять capabilities, вернуть возможности сервера |
 | `shutdown` / `exit` | Завершение работы |
 | `textDocument/didOpen` | In-process транспиляция .src файла, кеширование source map |
-| `textDocument/didChange` | Re-transpile при изменении содержимого |
+| `textDocument/didChange` | Применить правки к буферу (Incremental) + отложенная пере-транспиляция (debounce) |
 | `textDocument/didClose` | Очистить кеш source map |
 | `textDocument/definition` | trust_line → {uri: .cppt, range: cpp_line} (F12). Поддерживает макро-маппинг |
 | `textDocument/hover` | Показать Markdown-массив: C++/trust код + ссылки на определения |
 | `textDocument/inlayHint` (LSP 3.17) | Показать "→ cpp:N" после каждой trust-строки |
 | `textDocument/documentLink` | Сделать каждую trust-строку ссылкой на C++ |
 
-Server capabilities: `textDocumentSync: 1`, `definitionProvider`, `hoverProvider`, `inlayHintProvider`, `documentLinkProvider`.
+Server capabilities: `textDocumentSync: 2` (Incremental), `definitionProvider`, `hoverProvider`, `inlayHintProvider`, `documentLinkProvider`.
 
 ## Transport
 
-Реализован внутри `LspProtocol` (не отдельный класс транспорта): Content-Length парсинг, stdin/stdout транспорт.
+Транспорт реализован через `trust::transport::Transport` (из `utils/transport.hpp`).
+`LspProtocol` — набор свободных функций (readLspPacket, sendLspResponse, sendLspError, sendLspNotification, sendLspRequest), принимающих `trust::transport::Transport&`.
+Поддерживается как stdin/stdout, так и TCP режим.
 
 ## Хранимые данные (CachedSource)
 
-Структура `CachedSource`: `sourceMap` (Context после transpile), `cppOutput` (сгенерированный C++ код), `cppFilePath` (полный путь к .cppt), `trustReaderIdx`/`cppReaderIdx` (индексы в reader space).
+Структура `CachedSource`: `sourceMap` (unique_ptr<Context> после transpile), `cppOutput` (сгенерированный C++ код), `cppFilePath` (полный путь к .cppt), `trustReaderIdx`/`cppReaderIdx` (ReaderFile индексы в reader space).
+Дополнительно: `cppToTrustCache_` (reverse-cache: cppFilePath → trustFilePath).
 
 ## Не трогает
 

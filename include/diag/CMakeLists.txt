@@ -7,12 +7,10 @@ add_library(diag_lib STATIC
     ${PROJECT_SOURCE_DIR}/diag/diag.cpp
     ${PROJECT_SOURCE_DIR}/diag/options.cpp
     ${PROJECT_SOURCE_DIR}/diag/reader.cpp
-    ${PROJECT_SOURCE_DIR}/utils/cache.cpp
-    ${PROJECT_SOURCE_DIR}/utils/backtrace.cpp
-    ${PROJECT_SOURCE_DIR}/utils/elf.cpp
-    ${PROJECT_SOURCE_DIR}/utils/file_io.cpp
+    ${PROJECT_SOURCE_DIR}/diag/mapper.cpp
 )
 
-target_include_directories(diag_lib SYSTEM PRIVATE ${LLVM_INCLUDE_DIRS})
-target_link_libraries(diag_lib PUBLIC trust_include_dirs ast_lib msgpack-c-static LLVMSupport ZLIB::ZLIB)
+target_link_libraries(diag_lib PRIVATE trust_llvm_dirs)
+target_link_libraries(diag_lib PUBLIC trust_include_dirs types_lib utils_lib msgpack-c-static)
+target_link_libraries(diag_lib PRIVATE LLVMSupport module_loader_lib)
 

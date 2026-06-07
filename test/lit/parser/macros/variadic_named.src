@@ -2,11 +2,13 @@
 @@ call($x, ...) @@ ::= @@ @$x [ @$... ] @@;
 
 @call( func, a, b, c );
-# CHECK: func	NAME
+# CHECK: func	Ident
 # CHECK: [	LBRACKET
-# CHECK: a	NAME
+# CHECK: func	Ident
 # CHECK: ,	COMMA
-# CHECK: b	NAME
+# CHECK: a	Ident
 # CHECK: ,	COMMA
-# CHECK: c	NAME
+# CHECK: b	Ident
+# CHECK: ,	COMMA
+# CHECK: c	Ident
 # CHECK: ]	RBRACKET

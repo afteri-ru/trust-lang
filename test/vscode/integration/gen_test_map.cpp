@@ -1,3 +1,4 @@
+#include "utils/io.hpp"
 /**
  * gen_test_map.cpp — Generates binary .map files for LSP integration tests.
  *
@@ -17,7 +18,7 @@
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
-        std::cerr << "Usage: " << argv[0] << " <trust_file> <cpp_file> <output_map>\n";
+        trust::errs() << "Usage: " << argv[0] << " <trust_file> <cpp_file> <output_map>\n";
         return 1;
     }
 
@@ -33,8 +34,8 @@ int main(int argc, char* argv[]) {
     std::string trustContent((std::istreambuf_iterator<char>(trustIn)), std::istreambuf_iterator<char>());
     trustIn.close();
 
-    auto trustIdx = ctx.add_source(trustFile, trustContent, true);
-    auto cppIdx = ctx.add_output(cppFile, true);
+    auto trustIdx = ctx.source().add_source(trustFile, trustContent, true);
+    auto cppIdx = ctx.source().add_output(cppFile, true);
 
     // Маппинг trust lines → cpp lines
     // trust:  fn main() -> int              → cpp:  #include <iostream>
@@ -42,15 +43,15 @@ int main(int argc, char* argv[]) {
     // trust:    let y: int = x + 1          → cpp:      int x = 42;
     // trust:    return y                    → cpp:      int y = x + 1;
     auto addMapping = [&](int trustLine, int cppLine) {
-        auto tLoc = ctx.loc_from_line(trustIdx, trustLine);
-        auto tLocEnd = ctx.loc_from_line(trustIdx, trustLine + 1);
-        auto tRange = ctx.makeRange(tLoc, tLocEnd);
+        auto tLoc = ctx.source().loc_from_line(trustIdx, trustLine);
+        auto tLocEnd = ctx.source().loc_from_line(trustIdx, trustLine + 1);
+        auto tRange = ctx.source().makeRange(tLoc, tLocEnd);
 
-        auto cLoc = ctx.makeLoc(cppIdx, cppLine);
-        auto cLocEnd = ctx.makeLoc(cppIdx, cppLine + 1);
-        auto cRange = ctx.makeRange(cLoc, cLocEnd);
+        auto cLoc = ctx.source().makeLoc(cppIdx, cppLine);
+        auto cLocEnd = ctx.source().makeLoc(cppIdx, cppLine + 1);
+        auto cRange = ctx.source().makeRange(cLoc, cLocEnd);
 
-        ctx.addRangeMapping(tRange, cRange);
+        ctx.source().addRangeMapping(tRange, cRange);
     };
 
     addMapping(1, 2); // trust:1 → cpp:2
@@ -61,19 +62,19 @@ int main(int argc, char* argv[]) {
     // Pack в бинарный msgpack
     auto data = ctx.packMapping();
     if (data.empty()) {
-        std::cerr << "Error: packMapping returned empty data\n";
+        trust::errs() << "Error: packMapping returned empty data\n";
         return 1;
     }
 
     // Запись в файл
     std::ofstream out(mapPath, std::ios::binary);
     if (!out.is_open()) {
-        std::cerr << "Error: Cannot write " << mapPath << "\n";
+        trust::errs() << "Error: Cannot write " << mapPath << "\n";
         return 1;
     }
     out.write(reinterpret_cast<const char*>(data.data()), data.size());
     out.close();
 
-    std::cout << "Generated " << mapPath << " (" << data.size() << " bytes)\n";
+    trust::outs() << "Generated " << mapPath << " (" << data.size() << " bytes)\n";
     return 0;
 }

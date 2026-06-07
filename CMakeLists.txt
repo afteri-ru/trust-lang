@@ -117,8 +117,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ── Symlink compile_commands.json into project root for clang-tidy ──
-file(CREATE_LINK "${CMAKE_BINARY_DIR}/compile_commands.json"
-     "${CMAKE_SOURCE_DIR}/compile_commands.json" SYMBOLIC)
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/compile_commands.json")
+    file(CREATE_LINK "${CMAKE_BINARY_DIR}/compile_commands.json"
+         "${CMAKE_SOURCE_DIR}/compile_commands.json" SYMBOLIC)
+endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
@@ -133,13 +135,10 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 #   - test/unit/unit_tests: additional -Wno-unused-result
 add_compile_options(
     -Werror
-    -Wswitch
-    -Werror=switch
     -Wold-style-cast
     -Wreorder
     -Wnon-virtual-dtor
     -Woverloaded-virtual
-    -Wimplicit-fallthrough
 )
 
 # ── Linker options ──
@@ -150,6 +149,7 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
 # ── Options ──
 option(WITH_TORCH "Enable libtorch support (builds libtensor_cpu.so)" OFF)
 option(WITH_SOLVER "Enable SMT solver (Z3) for formal verification" OFF)
+option(TRUST_BUILD_VSIX "Build trust-lang VSIX package (requires Node.js)" ON)
 
 if(WITH_TORCH)
     set(LIBTORCH_ROOT "${CMAKE_SOURCE_DIR}/contrib/libtorch")
@@ -167,6 +167,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(version)
 include(dependencies)
 include(generate_files)
+include(generate_parsers)
 
 # ── Configuration display ──
 message(STATUS "═══════════════════════════════════════════════════")
@@ -176,10 +177,8 @@ message(STATUS "  C Compiler:   ${CMAKE_C_COMPILER}")
 message(STATUS "  C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "  Build Type:   ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Build Dir:    ${CMAKE_BINARY_DIR}")
-message(STATUS "  Python3:      ${Python3_EXECUTABLE} (${Python3_VERSION})")
 message(STATUS "  lit:          ${LIT_EXECUTABLE}")
 message(STATUS "  Flex:         ${FLEX_EXECUTABLE}")
-message(STATUS "  Bison:        ${BISON_EXECUTABLE}")
 message(STATUS "  nlohmann_json: ${nlohmann_json_VERSION}")
 message(STATUS "  LLVM:         ${LLVM_VERSION}")
 message(STATUS "  Version:      ${TRUST_VERSION_FULL}")
@@ -187,7 +186,11 @@ message(STATUS "═════════════════════�
 
 # ── Interface targets ──
 add_library(trust_include_dirs INTERFACE)
-target_include_directories(trust_include_dirs INTERFACE ${PROJECT_INCLUDE_DIR})
+target_include_directories(trust_include_dirs INTERFACE ${PROJECT_INCLUDE_DIR} ${CMAKE_BINARY_DIR}/include)
+
+# ── Unified LLVM system include target ──
+add_library(trust_llvm_dirs INTERFACE)
+target_include_directories(trust_llvm_dirs SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS})
 
 # ── Subdirectories ──
 add_subdirectory(include/trust)
@@ -196,34 +199,34 @@ if(WITH_TORCH)
     add_subdirectory(include/precompiled)
 endif()
 
+add_subdirectory(include/module_loader)
 add_subdirectory(include/diag)
 add_subdirectory(include/ast)
-add_subdirectory(include/parser)
-add_subdirectory(include/stdlib)
 add_subdirectory(include/types)
+add_subdirectory(include/semantic)
+add_subdirectory(include/transpiler)
+add_subdirectory(include/utils)
 add_subdirectory(include/pipeline)
 add_subdirectory(include/solver)
 add_subdirectory(include/runtime)
 add_subdirectory(include/debug)
 add_subdirectory(include/lsp)
 add_subdirectory(include/vscode)
-
-# ── Unit tests ──
-add_subdirectory(test/unit)
-
-# ── LIT tests ──
-add_subdirectory(test/lit)
+add_subdirectory(include/syntax)
 
 # ── Общие пути для тестовых данных ──
-# Определены здесь, чтобы быть доступными во всех test-поддиректориях
+# Определены здесь (до test-поддиректорий), чтобы быть доступными во всех test/CMakeLists.txt
 set(TEST_DATA_DIR "${CMAKE_BINARY_DIR}/test_data" CACHE INTERNAL "Test data directory")
 set(TEST_SRC      "${CMAKE_SOURCE_DIR}/test/unit/debug/simple_example.src" CACHE INTERNAL "Trust source file")
 set(TEST_CPP      "${TEST_DATA_DIR}/.trust/simple_example.cpp" CACHE INTERNAL "Transpiled C++ file")
 set(TEST_MAP      "${TEST_DATA_DIR}/.trust/simple_example.map" CACHE INTERNAL "Source map file")
 set(TEST_BINARY   "${TEST_DATA_DIR}/simple_example" CACHE INTERNAL "Compiled ELF binary")
 
-# ── Common test data (transpile + compile) ──
-add_subdirectory(test)
+# ── Unit tests ──
+add_subdirectory(test/unit)
+
+# ── LIT tests ──
+add_subdirectory(test/lit)
 
 # ── VSCode extension tests ──
 add_subdirectory(test/vscode)

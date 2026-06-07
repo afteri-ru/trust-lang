@@ -1,0 +1,25 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Простой тип
+:Int;
+# CHECK:      TypeName ':Int'
+
+# Тип с локальным именем
+:$loc;
+# CHECK:      TypeName ':$loc'
+
+# Тип с нативным именем
+:%native;
+# CHECK:      TypeName ':%native'
+
+# Тип с размерностью
+:Array[4];
+# CHECK:      TypeName ':Array' [4]
+
+# Тип с параметрами
+:Pair(Int, Str:StrChar);
+# CHECK:      TypeName ':Pair' (Int,Str:StrChar)
+
+# Тип с размерностью и параметрами
+:Map[String](key);
+# CHECK:      TypeName ':Map' [String] (key)

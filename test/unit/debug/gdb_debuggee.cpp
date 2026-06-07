@@ -1,3 +1,4 @@
+#include "utils/io.hpp"
 // Отлаживаемая программа для GDB: рекурсивный factorial
 #include <iostream>
 
@@ -9,6 +10,6 @@ int factorial(int n) {
 
 int main() {
     int r = factorial(5);
-    std::cout << "gdb_factorial(5) = " << r << "\n";
+    trust::outs() << "gdb_factorial(5) = " << r << "\n";
     return 0;
 }

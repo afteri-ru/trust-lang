@@ -8,7 +8,6 @@ set(RUNTIME_PCM_OBJ "${RUNTIME_PCM_DIR}/trust.runtime_module.o")
 set(RUNTIME_CPPM "${CMAKE_CURRENT_SOURCE_DIR}/../runtime.cppm")
 
 set(RUNTIME_MODULE_HEADERS
-    types/rational.hpp
 )
 list(TRANSFORM RUNTIME_MODULE_HEADERS PREPEND "${PROJECT_INCLUDE_DIR}/")
 
@@ -49,13 +48,9 @@ add_custom_command(
 
 add_custom_target(runtime_pcm_target_all ALL DEPENDS ${RUNTIME_PCM_OBJ})
 
-# ── Library: runtime_lib (torch-independent, static) ──
-add_library(runtime_lib STATIC
-    ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
-)
-set_target_properties(runtime_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-target_link_libraries(runtime_lib PUBLIC types_lib gmp_interface trust_include_dirs)
+# ── Library: runtime_lib (header-only) ──
+add_library(runtime_lib INTERFACE)
+target_link_libraries(runtime_lib INTERFACE types_lib trust_include_dirs)
 
 # ── Library: tensor_cpu (torch-dependent, shared plugin) ──
 if(WITH_TORCH)

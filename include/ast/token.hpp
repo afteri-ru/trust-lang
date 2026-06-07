@@ -1,188 +1,170 @@
 // token.hpp - public header for the token library.
-// Provides a unified enum system for Flex lexer, Bison parser, and AST nodes.
-// Definitions are generated from tokens.def via X-macro pattern.
+// Provides ParserToken::Kind enum for AST nodes only.
+// Kind is generated from PARSER_TOKEN_KINDS X-macro.
+// To add a new token kind, add an entry to PARSER_TOKEN_KINDS.
+// Do NOT modify the enum, name() manually.
 //
-//   #include "token.hpp"
+// Format: T(name, node_type)
+//   name     — enumerator name (CamelCase)
+//   node_type — C++ class that represents this Kind (e.g. Binary, Scope, IdentName)
 
 #pragma once
 
-#include <cstdint>
 #include <cstddef>
-#include <array>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
 #include <string_view>
+#include <type_traits>
+#include <variant>
 #include <vector>
 #include "diag/location.hpp"
+#include "utils/error.hpp"
 
 namespace trust {
 
-/** Bitmask flags for token classification. Supports | and & operators. */
-enum class TokenFlag : int {
-    FLEX_LEXEME = 1,
-    BISON_TOKEN = 2,
-    Expr = 4,
-    Stmt = 8,
-    Decl = 16,
-    Root = 32,
-    Count_ = 64, // sentinel: all flags < Count_
-};
+class AstNodeBase;
 
-constexpr TokenFlag operator|(TokenFlag a, TokenFlag b) noexcept {
-    return static_cast<TokenFlag>(static_cast<int>(a) | static_cast<int>(b));
-}
+// Forward declarations for concrete AST node types (full definitions in their respective headers)
+class AstNodeAttr;
+class Binary;
+class CallExpr;
+class Sequence;
+class ScopeBlock;
+class IdentName;
+class IdentType;
+class Decl;
+class Literal;
+class JumpStmt;
+class ModuleNode;
+class ParamDecl;
+class FuncDecl;
+class VarDecl;
 
-constexpr TokenFlag operator&(TokenFlag a, TokenFlag b) noexcept {
-    return static_cast<TokenFlag>(static_cast<int>(a) & static_cast<int>(b));
-}
+// ============================================================================
+// X-macro: all ParserToken kinds.
+//
+// Format: T(name, node_type)
+//   name      — enumerator name (CamelCase)
+//   node_type — C++ class that stores data for this token kind.
+//               Multiple kinds can share the same node_type.
+//
+// Grouped by node_type for readability.
+// ============================================================================
+#define PARSER_TOKEN_KINDS(T)         \
+    /* ── Sequence ── */              \
+    T(sequence, Sequence)             \
+    T(Attr, Sequence)                 \
+    /* ── ScopeBlock ── */            \
+    T(ScopeBlock, ScopeBlock)         \
+    /* ── Binary ── */                \
+    T(TypeDecl, Binary)               \
+    T(NameDecl, Binary)               \
+    T(AssignOp, Binary)               \
+    T(MathOp, Binary)                 \
+    T(BitwiseOp, Binary)              \
+    T(CompareOp, Binary)              \
+    T(LogicalOp, Binary)              \
+    T(MemberAccess, Binary)           \
+    T(ArrayAccess, Binary)            \
+    /* ── IdentName ── */             \
+    T(Ident, IdentName)               \
+    /* ── IdentType ── */             \
+    T(TypeName, IdentType)            \
+    /* ── CallExpr ── */              \
+    T(CallExpr, CallExpr)             \
+    /* ── JumpStmt ── */              \
+    T(ReturnStmt, JumpStmt)           \
+    T(ThrowStmt, JumpStmt)            \
+    /* ── AstNodeAttr ── */           \
+    T(Program, AstNodeAttr)           \
+    T(VarRef, AstNodeAttr)            \
+    T(EmbedExpr, AstNodeAttr)         \
+    T(IntLiteral, Literal)            \
+    T(FloatLiteral, Literal)          \
+    T(StringLiteral, Literal)         \
+    T(EnumLiteral, AstNodeAttr)       \
+    T(ArrayInit, AstNodeAttr)         \
+    T(CastExpr, AstNodeAttr)          \
+    T(RefMakeExpr, AstNodeAttr)       \
+    T(RefTakeExpr, AstNodeAttr)       \
+    T(IfStmt, AstNodeAttr)            \
+    T(WhileStmt, AstNodeAttr)         \
+    T(AssignmentStmt, AstNodeAttr)    \
+    T(ExprStmt, AstNodeAttr)          \
+    T(BlockStmt, AstNodeAttr)         \
+    T(ThenBlock, AstNodeAttr)         \
+    T(ElseBlock, AstNodeAttr)         \
+    T(DoWhileStmt, AstNodeAttr)       \
+    T(WhileElseBlock, AstNodeAttr)    \
+    T(BreakStmt, AstNodeAttr)         \
+    T(ContinueStmt, AstNodeAttr)      \
+    T(TryCatchStmt, AstNodeAttr)      \
+    T(CatchBlock, AstNodeAttr)        \
+    T(MatchingStmt, AstNodeAttr)      \
+    T(MatchingCase, AstNodeAttr)      \
+    T(MatchingElseBlock, AstNodeAttr) \
+    T(FuncDecl, FuncDecl)             \
+    T(VarDecl, VarDecl)               \
+    /* ── ParamDecl ── */             \
+    T(ParamDecl, ParamDecl)           \
+    T(EnumDecl, AstNodeAttr)          \
+    T(EnumMember, AstNodeAttr)        \
+    T(StructDecl, AstNodeAttr)        \
+    T(StructField, AstNodeAttr)       \
+    /* ── ModuleNode ── */            \
+    T(ModuleDecl, ModuleNode)
 
-/** AST node category classification (not a bitmask, standalone enum). */
-enum class TokenCategory : int {
-    None = 0,
-    Expr = 1,
-    Stmt = 2,
-    Decl = 3,
-    Root = 4,
-};
-
-// Element count via X-macro pattern
-#define TK(name, val, flags) +1
-static constexpr std::size_t _ALL_COUNT = 0
-#include "ast/token.gen.all"
-    ;
-#undef TK
-
-/** Unified enum for all compiler tokens (Flex lexer + Bison parser + AST nodes).
- *  ParserToken::Kind is the single source of truth for all token types.
- *  Categories are determined by TokenFlag bitmask (Expr, Stmt, Decl, Root). */
+/** Unified enum for all AST node types (CamelCase).
+ *  Generated from PARSER_TOKEN_KINDS — do not edit manually. */
 struct ParserToken {
     enum class Kind : int {
-#define TK(name, val, flags) name = val,
-#include "ast/token.gen.all"
-#undef TK
+        END = 0,
+#define TOK_ENUM(name, node_type) name,
+        PARSER_TOKEN_KINDS(TOK_ENUM)
+#undef TOK_ENUM
     };
 
     // Token name
     [[nodiscard]] static constexpr std::string_view name(Kind k) noexcept {
         switch (k) {
-#define TCASE(name)  \
-    case Kind::name: \
+        case Kind::END:
+            return "END";
+#define TOK_NAME(name, node_type) \
+    case Kind::name:              \
         return #name;
-#include "ast/token.gen.name_all"
-#undef TCASE
+            PARSER_TOKEN_KINDS(TOK_NAME)
+#undef TOK_NAME
         }
-        return "<unknown>";
-    }
-
-    // Token flags (returns TokenFlag bitmask)
-    [[nodiscard]] static constexpr TokenFlag flags(Kind k) noexcept {
-        switch (k) {
-#define FCASE(name, fl) \
-    case Kind::name:    \
-        return fl;
-#include "ast/token.gen.flags_all"
-#undef FCASE
-        }
-        return TokenFlag{};
-    }
-
-    // Predicates
-    [[nodiscard]] static constexpr bool is_flex_lexeme(Kind k) noexcept { return (flags(k) & TokenFlag::FLEX_LEXEME) != TokenFlag{}; }
-    [[nodiscard]] static constexpr bool is_bison_token(Kind k) noexcept { return (flags(k) & TokenFlag::BISON_TOKEN) != TokenFlag{}; }
-    [[nodiscard]] static constexpr bool is_expr(Kind k) noexcept { return (flags(k) & TokenFlag::Expr) != TokenFlag{}; }
-    [[nodiscard]] static constexpr bool is_stmt(Kind k) noexcept { return (flags(k) & TokenFlag::Stmt) != TokenFlag{}; }
-    [[nodiscard]] static constexpr bool is_decl(Kind k) noexcept { return (flags(k) & TokenFlag::Decl) != TokenFlag{}; }
-    [[nodiscard]] static constexpr bool is_root(Kind k) noexcept { return (flags(k) & TokenFlag::Root) != TokenFlag{}; }
-
-    /** Static array of all tokens, for range-based for via ParserToken::all(). */
-    static constexpr std::array<Kind, _ALL_COUNT> _all = {{
-#define TK(name, val, flags) Kind::name,
-#include "ast/token.gen.all"
-#undef TK
-    }};
-
-    [[nodiscard]] static constexpr const auto& all() noexcept { return _all; }
-    [[nodiscard]] static constexpr std::size_t all_size() noexcept { return _ALL_COUNT; }
-
-    /** Lookup token by name (constexpr). Returns pointer to Kind or nullptr. */
-    [[nodiscard]] static constexpr const Kind* from_name(std::string_view s) noexcept {
-#define LOOKUP(name)                           \
-    if (s == #name) {                          \
-        static constexpr auto _k = Kind::name; \
-        return &_k;                            \
-    }
-#include "ast/token.gen.lookup_all"
-#undef LOOKUP
-        return nullptr;
-    }
-
-    // Lookup token by numeric value
-    [[nodiscard]] static constexpr const Kind* from_value(int v) noexcept {
-        for (std::size_t i = 0; i < _all.size(); ++i) {
-            if (static_cast<int>(_all[i]) == v)
-                return &_all[i];
-        }
-        return nullptr;
-    }
-
-    // Name by numeric value
-    [[nodiscard]] static constexpr std::string_view name_by_value(int v) noexcept {
-        if (auto* pk = from_value(v))
-            return name(*pk);
         return "<unknown>";
     }
 };
 
-// Compile-time checks: ParserToken::Kind values match tokens.def
-#define TK(name, val, flags) static_assert(static_cast<int>(ParserToken::Kind::name) == val, #name);
-#include "ast/token.gen.all"
-#undef TK
+// ── Kind → C++ type mapping ──
+// Each ParserToken::Kind maps to the concrete C++ class that stores its data.
 
-// Hash sync check: flex.gen.h and token.gen.hash must match
-#include "ast/token.gen.hash"
-#if defined(FLEX_DEFINES_TOKENS_HASH)
-static_assert(__builtin_strcmp(FLEX_DEFINES_TOKENS_HASH, TOKENS_DEF_HASH) == 0, "[trust::TokenGen] flex.gen.h and token.gen.hash are out of sync!");
-#endif
+template <ParserToken::Kind K>
+struct NodeTypeForKind;
 
-/** Lexeme: token kind + position. Text stored as std::string_view into base buffer.
- *  Used by both Flex lexer and Bison parser as the unified token representation. */
-struct Lexeme : std::string_view {
-    ParserToken::Kind kind{ParserToken::Kind::END};
-    MapperLocation pos{};
-    Lexeme() = default;
-    Lexeme(ParserToken::Kind k, std::string_view v, MapperLocation p)
-    : std::string_view(v)
-    , kind(k)
-    , pos(p) {}
+template <ParserToken::Kind K>
+using node_type_for_kind_t = typename NodeTypeForKind<K>::type;
+
+#define TOK_NODE_TYPE(name, node_type)                \
+    template <>                                       \
+    struct NodeTypeForKind<ParserToken::Kind::name> { \
+        using type = node_type;                       \
+    };
+PARSER_TOKEN_KINDS(TOK_NODE_TYPE)
+#undef TOK_NODE_TYPE
+
+#undef PARSER_TOKEN_KINDS
+
+// END maps to AstNodeBase (same as any other node without special fields).
+template <>
+struct NodeTypeForKind<ParserToken::Kind::END> {
+    using type = AstNodeBase;
 };
 
-using LexemeSequence = std::vector<Lexeme>;
+using AstNodePtr = std::shared_ptr<AstNodeBase>;
 
 } // namespace trust
-
-/** Runtime consistency check (debug only, no-op in release).
- *  Verifies hash sync and no unknown names. */
-#ifndef NDEBUG
-#include <cstdio>
-#include <cstdlib>
-
-namespace trust {
-inline void validateTokenGenConsistency() noexcept {
-#if defined(FLEX_DEFINES_TOKENS_HASH)
-    if (__builtin_strcmp(FLEX_DEFINES_TOKENS_HASH, TOKENS_DEF_HASH) != 0) {
-        std::fprintf(stderr, "[trust::TokenGen] FATAL: flex.gen.h and token.gen.hash are out of sync!\n");
-        std::abort();
-    }
-#endif
-    for (auto k : ParserToken::all()) {
-        if (ParserToken::name(k) == "<unknown>") {
-            std::fprintf(stderr, "[trust::TokenGen] token %d has no name!\n", static_cast<int>(k));
-            std::abort();
-        }
-    }
-}
-} // namespace trust
-#else
-namespace trust {
-inline void validateTokenGenConsistency() noexcept {
-}
-} // namespace trust
-#endif

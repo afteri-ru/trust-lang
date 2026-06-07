@@ -1,8 +1,7 @@
-// attr_builtin.hpp — built-in attribute definitions
+// attr_builtin.hpp — built-in attribute name constants
 //
-// This file defines the canonical names and required parameter types
-// for all built-in attributes. The setup function register_builtin_attrs()
-// registers them all into an AttrPool in one call.
+// This file defines the canonical names for all built-in attributes.
+// Registration is handled automatically by AttrPool constructor.
 //
 // Built-in attributes are identified by their name string, not by an enum.
 // This allows the storage system to treat built-in and user-defined
@@ -10,33 +9,38 @@
 
 #pragma once
 
-#include "ast/attr_pool.hpp"
 #include <string_view>
 
 namespace trust {
 
-/// Register all built-in attributes into the given pool.
-/// Safe to call multiple times — duplicate registration is a no-op.
-void register_builtin_attrs(AttrPool& pool);
-
 // ── Built-in attribute name constants ──
 // These are the canonical names used to identify built-in attributes.
 
-namespace attr_names {
+namespace attr {
 
-inline constexpr std::string_view kConst = "const";
-inline constexpr std::string_view kPure = "pure";
-inline constexpr std::string_view kSend = "send";
-inline constexpr std::string_view kSync = "sync";
-inline constexpr std::string_view kThread = "thread";
-inline constexpr std::string_view kReadOnly = "readonly";
-inline constexpr std::string_view kNoExcept = "noexcept";
-inline constexpr std::string_view kStackGuard = "stack_guard";
-inline constexpr std::string_view kTrust = "trust";
-inline constexpr std::string_view kRequire = "require";
-inline constexpr std::string_view kEnsure = "ensure";
-inline constexpr std::string_view kDependMacro = "depend_macro";
+inline constexpr std::string_view Const = "const";
+inline constexpr std::string_view Pure = "pure";
+inline constexpr std::string_view Send = "send";
+inline constexpr std::string_view Sync = "sync";
+inline constexpr std::string_view Thread = "thread";
+inline constexpr std::string_view ReadOnly = "readonly";
+inline constexpr std::string_view Optional = "optional";
+inline constexpr std::string_view NoExcept = "noexcept";
+inline constexpr std::string_view StackGuard = "stack_guard";
+inline constexpr std::string_view Trust = "trust";
+inline constexpr std::string_view Require = "require";
+inline constexpr std::string_view Ensure = "ensure";
+inline constexpr std::string_view DependMacro = "depend_macro";
 
-} // namespace attr_names
+// Legacy names (aliases for backward compatibility, kept in the same namespace)
+inline constexpr std::string_view Immutable = "immutable";
+inline constexpr std::string_view SmtPre = "smt_pre";
+inline constexpr std::string_view SmtPost = "smt_post";
+inline constexpr std::string_view FuncPure = "func_pure";
+inline constexpr std::string_view FuncConst = "func_const";
+inline constexpr std::string_view FuncConstexpr = "constexpr";
+inline constexpr std::string_view ThreadLocal = "thread_local";
+
+} // namespace attr
 
 } // namespace trust

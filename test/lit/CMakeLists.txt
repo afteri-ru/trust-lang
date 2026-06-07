@@ -3,19 +3,23 @@
 
 # ── LIT output symlinks (one per test subdirectory) ──
 if(NOT CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
-    foreach(_subdir parser/dsl parser/macros pipeline)
+    foreach(_subdir parser/dsl parser/macros parser pipeline transpiler)
         file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit/Output/${_subdir}/Output)
+        if(NOT EXISTS "${CMAKE_SOURCE_DIR}/test/lit/${_subdir}/Output")
+            file(CREATE_LINK
+                ${CMAKE_BINARY_DIR}/test/lit/Output/${_subdir}/Output
+                ${CMAKE_SOURCE_DIR}/test/lit/${_subdir}/Output
+                SYMBOLIC
+            )
+        endif()
+    endforeach()
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/test/lit/lit.cfg.py")
         file(CREATE_LINK
-            ${CMAKE_BINARY_DIR}/test/lit/Output/${_subdir}/Output
-            ${CMAKE_SOURCE_DIR}/test/lit/${_subdir}/Output
+            ${CMAKE_BINARY_DIR}/test/lit/lit.cfg.py
+            ${CMAKE_SOURCE_DIR}/test/lit/lit.cfg.py
             SYMBOLIC
         )
-    endforeach()
-    file(CREATE_LINK
-        ${CMAKE_BINARY_DIR}/test/lit/lit.cfg.py
-        ${CMAKE_SOURCE_DIR}/test/lit/lit.cfg.py
-        SYMBOLIC
-    )
+    endif()
 endif()
 
 # ── LIT test targets ──
@@ -34,7 +38,11 @@ endif()
 # )
 
 add_custom_target(run_lit_tests
-    COMMENT "Running all LIT tests"
+    COMMAND ${LIT_EXECUTABLE} -v ${CMAKE_SOURCE_DIR}/test/lit
+    DEPENDS trust generate_lit_cfg_py
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit
+    COMMENT "Running LIT tests"
+    USES_TERMINAL
 )
 
 # ── Debug test targets ──

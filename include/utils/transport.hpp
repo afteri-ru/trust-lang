@@ -1,6 +1,9 @@
 #ifndef TRUST_TRANSPORT_HPP
 #define TRUST_TRANSPORT_HPP
 
+#include "utils/io.hpp"
+
+#include <cerrno>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -8,6 +11,7 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -20,6 +24,25 @@ class Transport {
     virtual ~Transport() = default;
     virtual std::string readPacket() = 0;
     virtual void send(const std::string& payload) = 0;
+
+    // Возвращает fd, доступный для poll(), или -1, если транспорт не поллится.
+    // Используется главным циклом LSP для неблокирующего ожидания ввода.
+    virtual int pollFd() const { return -1; }
+
+    // Ожидание входных данных с таймаутом (мс).
+    // Возвращает 1 — данные готовы, 0 — таймаут, -1 — ошибка.
+    virtual int waitInput(int timeoutMs) const {
+        int fd = pollFd();
+        if (fd < 0)
+            return 1; // транспорт не поллится — считаем данные всегда готовыми
+        struct pollfd p{fd, POLLIN, 0};
+        for (;;) {
+            int r = ::poll(&p, 1, timeoutMs);
+            if (r < 0 && errno == EINTR)
+                continue; // прерывание сигналом — повторяем ожидание
+            return r;
+        }
+    }
 };
 
 // ── Content-Length чтение (общий для LSP и DAP) ──
@@ -47,22 +70,31 @@ inline int parseContentLength(const std::string& line) {
 }
 
 // ── StdioTransport (stdin/stdout) ──
+// Читает пакеты НАПРЯМУЮ из fd 0 (без std::cin), чтобы poll на fd 0 был надёжным —
+// смешивание iostreams-буфера std::cin и poll(fd0) приводило к пропуску пакетов.
 class StdioTransport : public Transport {
   public:
     StdioTransport() = default;
 
-    std::string readPacket() {
+    std::string readPacket() override {
         int contentLength = 0;
         std::string line;
-        while (std::getline(std::cin, line)) {
-            if (!line.empty() && line.back() == '\r') {
-                line.pop_back();
-            }
-            if (line.empty()) {
-                break;
-            }
-            if (isContentLength(line)) {
-                contentLength = parseContentLength(line);
+        char c;
+        // Читаем заголовки построчно из fd 0
+        while (::read(0, &c, 1) == 1) {
+            if (c == '\n') {
+                if (!line.empty() && line.back() == '\r') {
+                    line.pop_back();
+                }
+                if (line.empty()) {
+                    break;
+                }
+                if (isContentLength(line)) {
+                    contentLength = parseContentLength(line);
+                }
+                line.clear();
+            } else {
+                line += c;
             }
         }
 
@@ -71,15 +103,30 @@ class StdioTransport : public Transport {
         }
 
         std::string body(contentLength, '\0');
-        std::cin.read(&body[0], contentLength);
-        if (std::cin.gcount() != contentLength) {
-            return {};
+        ssize_t total = 0;
+        while (total < contentLength) {
+            ssize_t n = ::read(0, &body[0] + total, static_cast<size_t>(contentLength - total));
+            if (n <= 0)
+                return {};
+            total += n;
         }
 
         return body;
     }
 
-    void send(const std::string& payload) { std::cout << "Content-Length: " << payload.size() << "\r\n\r\n" << payload << std::flush; }
+    void send(const std::string& payload) override { trust::outs() << "Content-Length: " << payload.size() << "\r\n\r\n" << payload << std::flush; }
+
+    int pollFd() const override { return 0; }
+
+    int waitInput(int timeoutMs) const override {
+        struct pollfd p{0, POLLIN, 0};
+        for (;;) {
+            int r = ::poll(&p, 1, timeoutMs);
+            if (r < 0 && errno == EINTR)
+                continue;
+            return r;
+        }
+    }
 };
 
 // ── TcpTransport ──
@@ -113,7 +160,7 @@ class TcpTransport : public Transport {
         return *this;
     }
 
-    std::string readPacket() {
+    std::string readPacket() override {
         int contentLength = 0;
         std::string line;
 
@@ -155,13 +202,15 @@ class TcpTransport : public Transport {
         return body;
     }
 
-    void send(const std::string& payload) {
+    void send(const std::string& payload) override {
         std::string header = "Content-Length: " + std::to_string(payload.size()) + "\r\n\r\n";
         std::string full = header + payload;
         ::write(fd_, full.data(), full.size());
     }
 
     int fd() const { return fd_; }
+
+    int pollFd() const override { return fd_; }
 
   private:
     int fd_ = -1;
@@ -172,7 +221,7 @@ class TcpTransport : public Transport {
 inline int createTcpServer(int port) {
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) {
-        std::cerr << "Error: cannot create socket: " << std::strerror(errno) << "\n";
+        trust::errs() << "Error: cannot create socket: " << std::strerror(errno) << "\n";
         return -1;
     }
 
@@ -185,13 +234,13 @@ inline int createTcpServer(int port) {
     addr.sin_port = htons(static_cast<uint16_t>(port));
 
     if (::bind(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0) {
-        std::cerr << "Error: cannot bind to port " << port << ": " << std::strerror(errno) << "\n";
+        trust::errs() << "Error: cannot bind to port " << port << ": " << std::strerror(errno) << "\n";
         ::close(fd);
         return -1;
     }
 
     if (::listen(fd, 1) < 0) {
-        std::cerr << "Error: cannot listen on port " << port << ": " << std::strerror(errno) << "\n";
+        trust::errs() << "Error: cannot listen on port " << port << ": " << std::strerror(errno) << "\n";
         ::close(fd);
         return -1;
     }
@@ -204,7 +253,7 @@ inline int acceptConnection(int serverFd) {
     socklen_t clientLen = sizeof(clientAddr);
     int clientFd = ::accept(serverFd, reinterpret_cast<struct sockaddr*>(&clientAddr), &clientLen);
     if (clientFd < 0) {
-        std::cerr << "Error: accept failed: " << std::strerror(errno) << "\n";
+        trust::errs() << "Error: accept failed: " << std::strerror(errno) << "\n";
         return -1;
     }
 

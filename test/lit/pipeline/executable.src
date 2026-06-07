@@ -1,0 +1,6 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/executable %s
+# RUN: $TD/executable && echo "PASS"
+# CHECK: PASS
+
+{% int __executable_main__() { return 0; } %}

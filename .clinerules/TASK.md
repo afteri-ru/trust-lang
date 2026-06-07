@@ -15,10 +15,10 @@
 
 ## Structure your prompt for efficient LLM context caching.
 
-- Place static content (`AGENTS.md`, `ARCH.md`, etc.) first — they form a cacheable prefix.
+- Place static content (`AGENTS.md`, `README.md`, etc.) first — they form a cacheable prefix.
 - Place dynamic content (`.tasklog/<taskid>.md`, current file, command results) after static content.
 - When updating `.tasklog/<taskid>.md`, send it at the start of a new turn, not mid-conversation.
-- In long sessions, periodically re-send static blocks (`AGENTS.md`, `ARCH.md`, etc.) to prevent cache eviction.
+- In long sessions, periodically re-send static blocks (`AGENTS.md`, `README.md`, etc.) to prevent cache eviction.
 
 ## Before plan complete and stop task execution
 
@@ -42,13 +42,11 @@
 **Do not call `attempt_completion` until all verifications pass.**
 
 After ANY change that removes types/fields/tokens, run:
-1. `find` `grep <removed_name>` over the entire project — fix all remaining references.
-2. `cmake --build _build` — project must compile without errors.
-3. `make run_unit_tests` or `make run_tests` for all tests — must pass.
-
-If the change affects — add a roundtrip test (save → load → compare) before completing.
-
-Do not call `attempt_completion` if you haven't run build + tests. "Trusting" that unrelated files don't reference the removed code is not sufficient — verify.
+1. `grep -rn` for the removed/changed name across the entire project — fix all remaining references. 
+2. Do NOT skip test files — tests must also use the new code.
+3. Call `cmake --build _build` — project must compile without errors.
+4. Call `make run_tests` for all tests — must pass.
+   - All test runs **MUST** use a timeout (e.g., `timeout 60 make run_tests`) to catch infinite loops or hangs.
 
 If build or tests fail — do NOT declare completion. Fix the underlying issue.
 
@@ -61,14 +59,26 @@ If build or tests fail — do NOT declare completion. Fix the underlying issue.
 - Do not rework caller APIs if the task does not require it.
 - If a simple task ("add an attribute") grows into an API redesign ("change substituteArgs to class") — stop and request a separate task.
 
-## Premature completion
 
-**Do NOT declare a task completed if sections "Verify before completion" and "Scope boundaries" have not been fulfilled.**
+## Component knowledge check
 
-Characteristic signs of premature completion:
-- Only 1-2 files changed, although the task involves conceptually related components.
-- No `find` `grep` check for remaining references.
-- No build check (`cmake --build _build`).
-- No test run (`make run_unit_tests` or `make run_tests` for all tests).
+**Перед планированием задачи, затрагивающей компонент (ast, parser, diag, types, runtime и др.) — обязательно выполнить:**
 
-If after declaring TaskComplete the user points out unfinished work — it means sections 2-3 were not fulfilled.
+1. Обратиться к **memory** (search_nodes по имени компонента) и прочитать все наблюдения для этого компонента.
+2. Если наблюдения касаются затрагиваемой области — учесть их в плане до передачи пользователю.
+
+**Что сохраняется в memory (критерии включения):**
+- Только **семантические инварианты-ловушки**, которые:
+  - вызвали **≥2 циклов доработок** (reopened задачи);
+  - **не выводятся однозначно** из чтения исходного кода или описания ARCH.md;
+  - не являются описанием полей структур (состав полей — читать исходный код).
+
+**Что НЕ сохраняется в memory:**
+- информация о новой функциональности, которые уже выбраны пользователем и/или зафиксированы в коде или архитектуре;
+- объяснения архитектуры пользователем на стадии планирования (они уже в `.tasklog`);
+- состав и описание полей данных — для этого есть исходный код.
+
+**Порядок пополнения memory:**
+При каждом случае "ложного завершения" (≥2 TaskComplete) — если причина не покрыта существующими наблюдениями и не выводится из исходного кода — добавить наблюдение в memory.
+
+---

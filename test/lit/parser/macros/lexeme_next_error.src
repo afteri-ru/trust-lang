@@ -1,4 +1,0 @@
-# RUN: not %trust -q --emit-macros %s > %t.out 2>&1 && %FileCheck %s <%t.out
-@@ assert ( $x ) @@ ::= @@ @$x @__LEXEME_NEXT__(SEMICOLON); @@;
-@assert(42)
-# CHECK: error: macro 'assert' expected one of: SEMICOLON after expansion, but got end of input

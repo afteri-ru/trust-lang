@@ -9,35 +9,30 @@ set(TEST_SOURCES
     diag/mapping_test.cpp
     diag/mapping_extended_test.cpp
     diag/save_and_read_test.cpp
-    ast/attr_test.cpp
-    ast/module_api_save_test.cpp
-    parser/lexer_test.cpp
-    parser/lexer_integration_test.cpp
-    parser/mmproc_test.cpp
-    parser/naming_test.cpp
-    parser/parser_test.cpp
+    transpiler/src_map_cli_readback_test.cpp
+    transpiler/src_map_cli_readback_test.cpp
+    attr/attr_test.cpp
+    pipeline/module_registry_test.cpp
+    pipeline/module_loader_test.cpp
     #  parser/token_gen_test.cpp
     pipeline/pipeline_test.cpp
+    pipeline/compile_test.cpp
+    semantic/semantic_test.cpp
+    transpiler/transpiler_test.cpp
+    transpiler/transpile_lsp_test.cpp
     # pipeline/pipelineopt_test.cpp
-    types/registry_test.cpp
-    types/alias_test.cpp
-    types/cast_test.cpp
     types/numbers_test.cpp
     types/integers_test.cpp
     runtime/rational_test.cpp
-    stdlib/name_utils_test.cpp
-    stdlib/api_comparator_test.cpp
-    debug/transpile_test.cpp
-    debug/dap_test.cpp
-    debug/dap_handler_test.cpp
-    debug/dap_handler_extended_test.cpp
     lsp/trust_lsp_test.cpp
     utils/cache_test.cpp
     utils/file_io_test.cpp
     utils/strings_test.cpp
     solver/smt_printer_test.cpp
-    # Generated lexer
-    "${CMAKE_BINARY_DIR}/include/parser/lex.yy.cpp"
+    # Syntax tests
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_test.cpp
 )
 
 # Tensor tests (require WITH_TORCH)
@@ -62,14 +57,15 @@ endif()
 target_link_libraries(unit_tests PRIVATE
     ast_lib
     diag_lib
-    parser_lib
+    semantic_lib
+    transpiler_lib
     types_lib
     pipeline_lib
-    stdlib_lib
+    module_loader_lib
     debug_lib
     lsp_lib
     solver_lib
-    CLI11::CLI11
+    syntax_lib
     GTest::gtest
 )
 
@@ -80,54 +76,46 @@ file(MAKE_DIRECTORY "${TEST_DATA_DIR}")
 
 target_include_directories(unit_tests PRIVATE
     ${CMAKE_BINARY_DIR}/include
+    ${CMAKE_BINARY_DIR}/syntax
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include
 )
 target_include_directories(unit_tests SYSTEM PRIVATE
-    ${MSGPACK_INCLUDE_DIRS}
+    ${LLVM_INCLUDE_DIRS}
 )
 
 target_compile_definitions(unit_tests PRIVATE
     TEST_DATA_DIR="${TEST_DATA_DIR}"
+    TRUST_BINARY_PATH="${CMAKE_BINARY_DIR}/trust"
 )
-
-# DapHandler integration tests need prepared ELF binary
-add_dependencies(unit_tests prepare_test_data)
 
 # ── Attach trust module ──
 target_trust_module(unit_tests)
 
-set_source_files_properties(
-    "${CMAKE_BINARY_DIR}/include/parser/lex.yy.cpp"
-    PROPERTIES COMPILE_OPTIONS "-Wno-old-style-cast"
-)
 target_compile_options(unit_tests PRIVATE
     -Wno-unused-result
+    -Wno-error=old-style-cast
+    -Wno-error=switch
 )
 
-# ── Symlink tensor plugin for runtime loading ──
-add_custom_command(TARGET unit_tests POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_BINARY_DIR}/libtensor_cpu.so
-        ${CMAKE_CURRENT_BINARY_DIR}/libtensor_cpu.so
-    COMMENT "Creating symlink for libtensor_cpu.so"
-)
+# ── Symlink tensor plugin for runtime loading (only when Torch is enabled) ──
+if(WITH_TORCH)
+    add_custom_command(TARGET unit_tests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+            ${CMAKE_BINARY_DIR}/libtensor_cpu.so
+            ${CMAKE_CURRENT_BINARY_DIR}/libtensor_cpu.so
+        COMMENT "Creating symlink for libtensor_cpu.so"
+    )
+endif()
 
 # ── Integration test executables for debug component ──
-
-# simple_transpiler — transpile .src → .cpp + source map
-add_executable(simple_transpiler
-    ${CMAKE_CURRENT_SOURCE_DIR}/debug/simple_transpiler_main.cpp
-)
-target_include_directories(simple_transpiler PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/debug
-)
-target_link_libraries(simple_transpiler PRIVATE debug_lib lsp_lib)
 
 # gdb_debuggee — standalone программа, используемая как debuggee для GDB
 add_executable(gdb_debuggee
     ${CMAKE_CURRENT_SOURCE_DIR}/debug/gdb_debuggee.cpp
 )
+target_include_directories(gdb_debuggee PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(gdb_debuggee PRIVATE utils_lib)
 target_compile_options(gdb_debuggee PRIVATE -g -fno-pie)
 target_link_options(gdb_debuggee PRIVATE -fno-pie -no-pie)
 

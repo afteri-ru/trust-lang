@@ -1,14 +1,14 @@
 # RUN: %trust -q --emit-tokens %s > %t.out && %FileCheck %s <%t.out
-@@ if( ... ) @@ ::= @@ [ @$... ] --> @@;
+@@ variadic_if( ... ) @@ ::= @@ [ @$... ] --> @@;
 
-@if( a > b, a, b );
+@variadic_if( a > b, a, b );
 # CHECK: [	LBRACKET
-# CHECK: a	NAME
+# CHECK: a	Ident
 # CHECK: >	RANGLE
-# CHECK: b	NAME
+# CHECK: b	Ident
 # CHECK: ,	COMMA
-# CHECK: a	NAME
+# CHECK: a	Ident
 # CHECK: ,	COMMA
-# CHECK: b	NAME
+# CHECK: b	Ident
 # CHECK: ]	RBRACKET
 # CHECK: -->	FOLLOW

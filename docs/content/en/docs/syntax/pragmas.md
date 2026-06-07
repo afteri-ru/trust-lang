@@ -63,7 +63,25 @@ weight: 110
 ```
 
 
-## Управление макросами
+## Compiler options control {#options}
+@\_\_OPTION\_\_, @\_\_OPTION_PUSH\_\_, @\_\_OPTION_POP\_\_
+
+Macros for temporarily changing the severity of compiler diagnostic options from source code:
+
+```
+    @__OPTION_PUSH__;
+    @__OPTION__("macro-redefined", "ignore");
+    # ... macro definitions, redefinitions allowed ...
+    @__OPTION_POP__;
+```
+
+- `@__OPTION_PUSH__` — saves the current set of options.
+- `@__OPTION__("<option-name>", "<value>")` — sets the option severity. Value is one of: `fatal`, `error`, `warning`, `remark`, `note`, `ignore`.
+- `@__OPTION_POP__` — restores the previous set of options.
+
+The `macro-redefined` option controls behavior when redefining a macro: by default `fatal` (forbidden), `ignore` allows redefinition without diagnostics.
+
+## Macro control
 @\_\_PRAGMA_EXPECTED\_\_ - Следующий символ должен быть одним из списка
 ```
     @__PRAGMA_EXPECTED__( @\ {, @\ {*, @\ {+ ) 

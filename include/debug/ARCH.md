@@ -21,7 +21,7 @@
 (добавление данных) и debugger'ом (чтение/трансляция).
 
 Типы маппинга: `Location`, `SourceRange`, `FileIdx` (из `include/diag/location.hpp`),
-`RangeMap`, `NameMap`, `SourceMapping` (из `include/diag/mapping.hpp`).
+`RangeMap`, `NameMap`, `SourceMapping` (из `include/diag/mapper.hpp`).
 
 ---
 
@@ -205,12 +205,9 @@ VSCode → resolveDebugConfiguration → withProgress(transpile → compile) →
 
 | Цель | Описание | Зависит от GDB? |
 |------|----------|-----------------|
-| `simple_transpiler` | Транспилирует `.src` → `.cppt` + embedded source map (msgpack) | Нет |
 | `gdb_main` | Интеграционный тест GdbDebug (таргет, брейкпоинты, StepOver, переменные) | Да |
 | `gdb_debuggee` | Вспомогательный ELF-файл (debuggee) | Нет |
 | `transpile_test` | Модульный тест transpiler'а `trust::SourceMapReader` | Нет |
-| `dap_handler_test` | Unit-тесты DapHandler | Нет |
-| `dap_handler_integration` | Интеграционные тесты с real ELF | Нет (требуется prepare_test_data) |
 
 Запуск: `cmake --build . --target run_<name>`. Агрегирующая цель — `run_tests`.
 Тестовый `.src` файл: `test/unit/debug/simple_example.src`.

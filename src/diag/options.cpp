@@ -1,5 +1,6 @@
 #include "diag/options.hpp"
 
+#include "diag/diag.hpp"
 #include "diag/location.hpp"
 
 #include <algorithm>
@@ -20,7 +21,7 @@ void Options::add_option(OptKind kind, std::optional<Severity> default_severity)
     if (by_kind_.count(kind)) {
         auto loc = MapperLocation();
         if (m_diag)
-            m_diag->report(loc, Severity::Error, "duplicate option id {}", static_cast<int>(kind));
+            m_diag->report(Severity::Error, loc, "duplicate option id {}", static_cast<int>(kind));
         throw std::invalid_argument("Duplicate option id");
     }
 
@@ -28,7 +29,7 @@ void Options::add_option(OptKind kind, std::optional<Severity> default_severity)
     if (name_to_kind_.count(std::string(name))) {
         auto loc = MapperLocation();
         if (m_diag)
-            m_diag->report(loc, Severity::Error, "duplicate option name '{}'", name);
+            m_diag->report(Severity::Error, loc, "duplicate option name '{}'", name);
         throw std::invalid_argument("Duplicate option name");
     }
 
@@ -46,7 +47,7 @@ void Options::set(OptKind kind, std::optional<Severity> severity) {
     if (it == by_kind_.end()) {
         auto loc = MapperLocation();
         if (m_diag)
-            m_diag->report(loc, Severity::Error, "unknown option id {}", static_cast<int>(kind));
+            m_diag->report(Severity::Error, loc, "unknown option id {}", static_cast<int>(kind));
         throw std::invalid_argument("Unknown option id");
     }
     if (!history_.empty()) {
@@ -65,7 +66,7 @@ void Options::set(std::string_view name, std::optional<Severity> severity) {
     if (it == name_to_kind_.end()) {
         auto loc = MapperLocation();
         if (m_diag)
-            m_diag->report(loc, Severity::Error, "unknown option '{}'", name);
+            m_diag->report(Severity::Error, loc, "unknown option '{}'", name);
         throw std::invalid_argument("Unknown option name");
     }
     set(it->second, severity);
@@ -76,7 +77,7 @@ std::optional<Severity> Options::get(OptKind kind) const {
     if (it == by_kind_.end()) {
         auto loc = MapperLocation();
         if (m_diag)
-            m_diag->report(loc, Severity::Error, "unknown option id {}", static_cast<int>(kind));
+            m_diag->report(Severity::Error, loc, "unknown option id {}", static_cast<int>(kind));
         throw std::invalid_argument("Unknown option id");
     }
     return it->second.severity;
@@ -87,7 +88,7 @@ std::optional<Severity> Options::get(std::string_view name) const {
     if (it == name_to_kind_.end()) {
         auto loc = MapperLocation();
         if (m_diag)
-            m_diag->report(loc, Severity::Error, "unknown option '{}'", name);
+            m_diag->report(Severity::Error, loc, "unknown option '{}'", name);
         throw std::invalid_argument("Unknown option name");
     }
     return by_kind_.at(it->second).severity;
@@ -108,22 +109,11 @@ std::span<char*> Options::parse_argv(std::span<char*> argv) {
         if (auto eq = name.find('='); eq != std::string_view::npos) {
             auto arg_name = std::string(name.substr(0, eq));
             auto val_str = name.substr(eq + 1);
-            if (val_str == "fatal")
-                sev = Severity::Fatal;
-            else if (val_str == "error")
-                sev = Severity::Error;
-            else if (val_str == "warning")
-                sev = Severity::Warning;
-            else if (val_str == "ignore")
-                sev = std::nullopt;
-            else if (val_str == "remark")
-                sev = Severity::Remark;
-            else if (val_str == "note")
-                sev = Severity::Note;
-            else {
+            sev = parseSeverityName(val_str);
+            if (!sev.has_value() && val_str != "ignore") {
                 auto loc = MapperLocation();
                 if (m_diag)
-                    m_diag->report(loc, Severity::Error, "unknown status '{}'", val_str);
+                    m_diag->report(Severity::Error, loc, "unknown status '{}'", val_str);
                 throw std::invalid_argument(std::string("Unknown status value: ").append(val_str));
             }
             set(arg_name, sev);
@@ -131,7 +121,7 @@ std::span<char*> Options::parse_argv(std::span<char*> argv) {
             if (!is_registered(name)) {
                 auto loc = MapperLocation();
                 if (m_diag)
-                    m_diag->report(loc, Severity::Error, "unknown option '-W{}'", name);
+                    m_diag->report(Severity::Error, loc, "unknown option '-W{}'", name);
                 throw std::invalid_argument(std::string("Unknown option: -W").append(name));
             }
         }
@@ -185,6 +175,20 @@ Options Options::make(std::initializer_list<OptionInitInfo> opts) {
         result.add_option(p.kind, p.severity);
     }
     return result;
+}
+
+std::optional<Severity> Options::parseSeverityName(std::string_view name) noexcept {
+    if (name == "fatal")
+        return Severity::Fatal;
+    if (name == "error")
+        return Severity::Error;
+    if (name == "warning")
+        return Severity::Warning;
+    if (name == "remark")
+        return Severity::Remark;
+    if (name == "note")
+        return Severity::Note;
+    return std::nullopt;
 }
 
 } // namespace trust

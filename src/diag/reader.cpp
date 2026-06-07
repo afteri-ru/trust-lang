@@ -9,8 +9,8 @@
 #include "llvm/Support/MD5.h"
 #include "trust/version.h"
 
+#include "utils/zstd_compress.hpp"
 #include <optional>
-#include <zlib.h>
 
 #include <filesystem>
 #include <fstream>
@@ -44,13 +44,15 @@ void FileEntry::setFilename(std::string f) {
 
 void FileEntry::appendSource(std::string_view text) {
     m_source.append(text);
-    EXPECT(m_source.size() <= LocationPack::MAX_OFFSET);
+    // Максимальный размер для входных файлов — более консервативная оценка
+    EXPECT(m_source.size() <= LocationPack::MAX_OFFSET_INPUT);
     invalidateCache();
 }
 
 void FileEntry::setSource(std::string s) {
     m_source = std::move(s);
-    EXPECT(m_source.size() <= LocationPack::MAX_OFFSET);
+    // Максимальный размер для входных файлов — более консервативная оценка
+    EXPECT(m_source.size() <= LocationPack::MAX_OFFSET_INPUT);
     invalidateCache();
 }
 
@@ -149,11 +151,17 @@ bool SourceMapReader::readFilesFromDisk(std::string_view baseDir) {
 
     bool allOk = true;
     for (auto& entry : m_inputs) {
+        // Фиктивные (in-memory) источники помечены префиксом '@' — файла на диске
+        // нет, пытаться читать их не нужно (иначе ложно «файл не найден»).
+        if (isInMemoryName(entry.getFilename()))
+            continue;
         if (!readSingleFile(entry, basePath))
             allOk = false;
     }
 
     for (auto& entry : m_outputs) {
+        if (isInMemoryName(entry.getFilename()))
+            continue;
         if (!readSingleFile(entry, basePath))
             allOk = false;
     }
@@ -216,50 +224,17 @@ bool SourceMapReader::readFileArray(msgpack_object array, std::vector<FileEntry>
 }
 
 // ── Factory: fromMsgpack ──
-// Формат на входе: [orig_size_LE4][zlib_compressed][checksum8]
 
 std::unique_ptr<SourceMapReader> SourceMapReader::fromMsgpack(const unsigned char* data, size_t size) {
     auto reader = std::make_unique<SourceMapReader>();
 
-    // Минимальный размер: 4 (orig_size) + 1 (compressed min) + 8 (checksum) = 13
-    if (size < 13)
-        return nullptr;
-
-    // ── Проверка checksum от [orig_size_LE4 + compressed] ──
-    size_t payload_size = size - 8;
-    uint64_t stored_checksum = 0;
-    for (int i = 0; i < 8; ++i)
-        stored_checksum |= static_cast<uint64_t>(data[payload_size + i]) << (i * 8);
-
-    auto checksumArr = llvm::ArrayRef<uint8_t>(data, payload_size);
-    auto checksumRes = llvm::MD5::hash(checksumArr);
-    uint64_t computed_checksum = 0;
-    for (int i = 0; i < 8; ++i)
-        computed_checksum |= static_cast<uint64_t>(checksumRes[i]) << (i * 8);
-    if (computed_checksum != stored_checksum)
-        return nullptr;
-
-    // ── Читаем original_size (4 байта LE) ──
-    uLong orig_size = 0;
-    for (int i = 0; i < 4; ++i)
-        orig_size |= static_cast<uLong>(data[i]) << (i * 8);
-    if (orig_size == 0 || orig_size > 1024 * 1024 * 1024) // reasonable limit: 1GB
-        return nullptr;
-
-    // ── Распаковываем через zlib (inflate) ──
-    uLong compressed_size = static_cast<uLong>(payload_size - 4);
-    const auto* compressed_data = data + 4;
-
-    auto decompressed = std::make_unique<unsigned char[]>(orig_size);
-    uLong decompressed_size = orig_size;
-    int zret = uncompress(decompressed.get(), &decompressed_size, compressed_data, compressed_size);
-    if (zret != Z_OK)
-        return nullptr;
-    if (decompressed_size != orig_size)
+    // ── Распаковываем через zstd (checksum проверяется внутри) ──
+    auto decompressed = detail::zstd_decompress(data, size);
+    if (decompressed.empty())
         return nullptr;
 
     // ── Парсим msgpack из распакованных данных ──
-    MsgpackReader reader_(decompressed.get(), decompressed_size);
+    MsgpackReader reader_(decompressed.data(), decompressed.size());
     if (!reader_.is_valid())
         return nullptr;
 
@@ -315,7 +290,7 @@ std::unique_ptr<SourceMapReader> SourceMapReader::fromMsgpack(const unsigned cha
 // ── Поиск ──
 
 std::optional<ReaderRange> SourceMapReader::findRange(const std::map<uint32_t, RangeMap>& ranges, ReaderLocation loc) {
-    if (ranges.empty() || !loc.isValid())
+    if (ranges.empty() || loc.isInvalid())
         return std::nullopt;
 
     auto it = ranges.upper_bound(loc.packed);
@@ -327,7 +302,7 @@ std::optional<ReaderRange> SourceMapReader::findRange(const std::map<uint32_t, R
     if (it->second.from.begin.fileIdx() != loc.fileIdx())
         return std::nullopt;
 
-    if (!it->second.from.end.isValid())
+    if (it->second.from.end.isInvalid())
         return std::nullopt;
     if (loc.packed > it->second.from.end.packed)
         return std::nullopt;
@@ -337,27 +312,23 @@ std::optional<ReaderRange> SourceMapReader::findRange(const std::map<uint32_t, R
 }
 
 std::optional<SourceMapReader::Range> SourceMapReader::getMapTrustToCpp(Location trustLoc) const {
-    if (!trustLoc.isValid() || trustLoc.isOutput())
+    if (trustLoc.isInvalid() || trustLoc.isOutput())
         return std::nullopt;
 
     return findRange(m_forward, trustLoc);
 }
 
 std::optional<SourceMapReader::Range> SourceMapReader::getMapCppToTrust(Location cppLoc) const {
-    if (!cppLoc.isValid() || !cppLoc.isOutput())
+    if (cppLoc.isInvalid() || !cppLoc.isOutput())
         return std::nullopt;
 
     return findRange(m_backward, cppLoc);
 }
 
 std::optional<SourceMapReader::NameMap> SourceMapReader::getCppName(Location trustLoc, std::string_view trustName) const {
-    auto result = findNameInMappings(
-        m_nameMappings, trustLoc.packed, [trustName](const NameMap& v) { return v.fromName == trustName; },
-        [](const NameMap& v) -> const auto& { return v.rangeMap.from; },
-        [](NameMap& result, int offset) {
-            result.rangeMap.to.begin = Location{Location::fromPacked(result.rangeMap.to.begin.packed + offset)};
-            result.rangeMap.to.end = Location{Location::fromPacked(result.rangeMap.to.end.packed + offset)};
-        });
+    // Возвращает полный NameMap (цель hover-ссылки — весь диапазон имени на
+    // противоположной стороне, без сдвига по позиции курсора внутри имени).
+    auto result = findNameInMappings(m_nameMappings, trustLoc.packed, [trustName](const NameMap& v) { return v.fromName == trustName; }, &RangeMap::from);
     if (result.has_value())
         return result;
 
@@ -382,7 +353,7 @@ std::vector<SourceMapReader::RangeMap> SourceMapReader::getTrustFileMappings(Rea
         (void)key;
         if (entry.from.begin.fileIdx() != trustFileIdx)
             continue;
-        if (!entry.from.end.isValid() || !entry.to.end.isValid())
+        if (entry.from.end.isInvalid() || entry.to.end.isInvalid())
             continue;
         result.push_back(entry);
     }
@@ -390,13 +361,9 @@ std::vector<SourceMapReader::RangeMap> SourceMapReader::getTrustFileMappings(Rea
 }
 
 std::optional<SourceMapReader::NameMap> SourceMapReader::getTrustName(Location cppLoc, std::string_view cppName) const {
-    return findNameInMappings(
-        m_nameMappings, cppLoc.packed, [cppName](const NameMap& v) { return v.toName == cppName; },
-        [](const NameMap& v) -> const auto& { return v.rangeMap.to; },
-        [](NameMap& result, int offset) {
-            result.rangeMap.from.begin = Location{Location::fromPacked(result.rangeMap.from.begin.packed + offset)};
-            result.rangeMap.from.end = Location{Location::fromPacked(result.rangeMap.from.end.packed + offset)};
-        });
+    // Возвращает полный NameMap (цель hover-ссылки — весь диапазон имени на
+    // противоположной стороне, без сдвига по позиции курсора внутри имени).
+    return findNameInMappings(m_nameMappings, cppLoc.packed, [cppName](const NameMap& v) { return v.toName == cppName; }, &RangeMap::to);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -457,7 +424,7 @@ bool unpackGroups(msgpack_object array, uint32_t inputCount, uint32_t outputCoun
             if (outputGroup.via.array.size == 0)
                 continue;
 
-            uint32_t outRaw = (outIdx + 1u) | (1u << LocationPack::FILE_BITS);
+            uint32_t outRaw = (outIdx + 1u) | LocationPack::OUTPUT_FILE_BIT;
 
             for (uint32_t e = 0; e < outputGroup.via.array.size; ++e) {
                 msgpack_object entryArr = outputGroup.via.array.ptr[e];
@@ -701,7 +668,7 @@ bool SourceMapReader::unpackNames(msgpack_object namesArray) {
 // ══════════════════════════════════════════════════════════════
 //          Полная сериализация — packToMsgpack
 // ══════════════════════════════════════════════════════════════
-// Формат на выходе: [orig_size_LE4][zlib_compressed][checksum8]
+// Формат на выходе: [orig_size:LE4][dict_size:LE4][dictionary][zstd_compressed][MD5:LE8]
 
 std::vector<unsigned char> SourceMapReader::packToMsgpack() const {
     MsgpackWriter wr;
@@ -738,43 +705,15 @@ std::vector<unsigned char> SourceMapReader::packToMsgpack() const {
     // macros
     packMacros(wr);
 
-    // ── Получаем бинарный msgpack-буфер ──
+    // ── Сжимаем через zstd ──
     msgpack_sbuffer sbuf = std::move(wr).take_sbuf();
-    uLong orig_size = static_cast<uLong>(sbuf.size);
-    const auto* raw = reinterpret_cast<const unsigned char*>(sbuf.data);
-
-    // ── Сжимаем через zlib (deflate) ──
-    uLong compressed_capacity = compressBound(orig_size);
-    auto compressed = std::make_unique<unsigned char[]>(compressed_capacity);
-    uLong compressed_size = compressed_capacity;
-    if (compress2(compressed.get(), &compressed_size, raw, orig_size, Z_DEFAULT_COMPRESSION) != Z_OK) {
-        msgpack_sbuffer_destroy(&sbuf);
-        FAULT("packToMsgpack: zlib compress failed");
+    auto compressed = detail::zstd_compress(reinterpret_cast<const unsigned char*>(sbuf.data), sbuf.size);
+    msgpack_sbuffer_destroy(&sbuf);
+    if (compressed.empty()) {
+        FAULT("packToMsgpack: zstd compress failed");
     }
 
-    msgpack_sbuffer_destroy(&sbuf);
-
-    // ── Формируем результат: [orig_size_LE4][compressed][checksum8] ──
-    std::vector<unsigned char> result;
-    result.reserve(4 + compressed_size + 8);
-
-    // orig_size (4 байта LE)
-    for (int i = 0; i < 4; ++i)
-        result.push_back(static_cast<unsigned char>((orig_size >> (i * 8)) & 0xFF));
-
-    // compressed data
-    result.insert(result.end(), compressed.get(), compressed.get() + compressed_size);
-
-    // checksum от [orig_size_LE4 + compressed]
-    auto checksumArr = llvm::ArrayRef<uint8_t>(result.data(), result.size());
-    auto checksumRes = llvm::MD5::hash(checksumArr);
-    uint64_t checksum = 0;
-    for (int i = 0; i < 8; ++i)
-        checksum |= static_cast<uint64_t>(checksumRes[i]) << (i * 8);
-    for (int i = 0; i < 8; ++i)
-        result.push_back(static_cast<unsigned char>((checksum >> (i * 8)) & 0xFF));
-
-    return result;
+    return compressed;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -782,7 +721,7 @@ std::vector<unsigned char> SourceMapReader::packToMsgpack() const {
 // ══════════════════════════════════════════════════════════════
 
 std::optional<std::string> SourceMapReader::getWordAt(Location loc) const {
-    if (!loc.isValid())
+    if (loc.isInvalid())
         return std::nullopt;
 
     std::string_view src = source(loc.fileIdx());
@@ -826,9 +765,9 @@ SourceMapReader::Location SourceMapReader::lspToLocation(ReaderFile idx, int lin
 
     Location loc = loc_from_line(idx, static_cast<size_t>(line) + 1);
     uint32_t off = loc.offset() + static_cast<uint32_t>(character);
-    static constexpr uint32_t MAX_OFF = LocationPack::MAX_OFFSET;
-    if (off > MAX_OFF)
-        FAULT("lspToLocation: offset {} exceeds MAX_OFFSET {}", off, MAX_OFF);
+    uint32_t maxOff = idx.isOutput() ? LocationPack::MAX_OFFSET_OUTPUT : LocationPack::MAX_OFFSET_INPUT;
+    if (off > maxOff)
+        FAULT("lspToLocation: offset {} exceeds max {}", off, maxOff);
     return makeLoc(loc.fileIdx(), off);
 }
 
@@ -854,9 +793,13 @@ bool SourceMapReader::isCppFileExt(const std::string& path) noexcept {
     return path.size() >= 5 && (path.rfind(".cppt") == path.size() - 5 || path.rfind(".hppt") == path.size() - 5);
 }
 
+bool SourceMapReader::isInMemoryName(std::string_view name) noexcept {
+    return name.starts_with('@');
+}
+
 ReaderFile SourceMapReader::findFile(const std::string& path) const {
     ReaderFile idx = findFileIdx(path);
-    if (!idx.isValid()) {
+    if (idx.isInvalid()) {
         std::string base = std::filesystem::path(path).filename().string();
         idx = findFileIdxByBasename(base);
     }
@@ -865,7 +808,7 @@ ReaderFile SourceMapReader::findFile(const std::string& path) const {
 
 std::optional<SourceMapReader::Range> SourceMapReader::findTrustToCpp(const std::string& trustPath, int line) const {
     ReaderFile fidx = findFile(trustPath);
-    if (!fidx.isValid() || fidx.isOutput())
+    if (fidx.isInvalid() || fidx.isOutput())
         return std::nullopt;
     Location loc = loc_from_line(fidx, line);
     return getMapTrustToCpp(loc);
@@ -873,7 +816,7 @@ std::optional<SourceMapReader::Range> SourceMapReader::findTrustToCpp(const std:
 
 std::optional<SourceMapReader::Range> SourceMapReader::findCppToTrust(const std::string& cppPath, int line) const {
     ReaderFile fidx = findFile(cppPath);
-    if (!fidx.isValid() || !fidx.isOutput())
+    if (fidx.isInvalid() || !fidx.isOutput())
         return std::nullopt;
     Location loc = loc_from_line(fidx, line);
     return getMapCppToTrust(loc);
@@ -892,7 +835,7 @@ std::optional<std::pair<std::string, int>> SourceMapReader::calcCppToTrustLine(c
 // ══════════════════════════════════════════════════════════════
 
 std::optional<SourceMapReader::RangeMap> SourceMapReader::findRangeMap(Location loc) const {
-    if (!loc.isValid())
+    if (loc.isInvalid())
         return std::nullopt;
 
     // Если файл output — ищем по backward (cpp → trust), иначе по forward (trust → cpp)
@@ -907,7 +850,7 @@ std::optional<SourceMapReader::RangeMap> SourceMapReader::findRangeMap(Location 
 
     if (it->second.from.begin.fileIdx() != loc.fileIdx())
         return std::nullopt;
-    if (!it->second.from.end.isValid())
+    if (it->second.from.end.isInvalid())
         return std::nullopt;
     if (loc.packed > it->second.from.end.packed)
         return std::nullopt;
@@ -920,21 +863,22 @@ std::optional<SourceMapReader::RangeMap> SourceMapReader::findRangeMap(Location 
 // ══════════════════════════════════════════════════════════════
 
 std::vector<SourceMapReader::Range> SourceMapReader::findRangesByLine(ReaderFile idx, uint32_t line, std::optional<uint32_t> column) const {
-    if (!idx.isValid())
+    if (idx.isInvalid())
         FAULT("findRangesByLine: invalid ReaderFileIdx");
 
     // Получаем Location начала строки
     Location lineStart = loc_from_line(idx, line);
-    if (!lineStart.isValid())
+    if (lineStart.isInvalid())
         return {};
 
     // Если колонка задана — смещаем offset (1-based, по умолчанию 1 = начало строки)
     uint32_t col = column.value_or(1);
     // column 1-based → смещение 0-based: column - 1
-    uint32_t offset = lineStart + (col - 1);
-    if (offset > LocationPack::MAX_OFFSET)
+    uint32_t offset = lineStart.offset() + (col - 1);
+    uint32_t maxOff = idx.isOutput() ? LocationPack::MAX_OFFSET_OUTPUT : LocationPack::MAX_OFFSET_INPUT;
+    if (offset > maxOff)
         return {};
-    Location loc = Location::fromPacked((lineStart.packed & ~LocationPack::MAX_OFFSET) | offset);
+    Location loc = makeLoc(lineStart.fileIdx(), offset);
 
     // Выбираем map: output → m_backward, input → m_forward
     const auto& ranges = idx.isOutput() ? m_backward : m_forward;
@@ -949,7 +893,7 @@ std::vector<SourceMapReader::Range> SourceMapReader::findRangesByLine(ReaderFile
         // Фильтр: файл должен совпадать со стороной "from"
         if (entry.from.begin.fileIdx() != fileId)
             continue;
-        if (!entry.from.end.isValid() || !entry.to.end.isValid())
+        if (entry.from.end.isInvalid() || entry.to.end.isInvalid())
             continue;
 
         // Проверка: loc внутри [from.begin, from.end]
@@ -972,81 +916,6 @@ std::vector<SourceMapReader::Range> SourceMapReader::findRangesByLine(ReaderFile
     });
 
     return result;
-}
-
-// ══════════════════════════════════════════════════════════════
-//          Context::mapStart / mapStop
-// ══════════════════════════════════════════════════════════════
-
-Context::Range Context::mapStart(MapperFile from, uint32_t from_begin, uint32_t from_end, MapperFile to) {
-    if (!from.isValid())
-        FAULT("mapStart: 'from' FileIdx is invalid");
-    if (from_begin > from_end)
-        FAULT("mapStart: from_begin ({}) > from_end ({})", from_begin, from_end);
-
-    // Делегируем во вторую перегрузку mapStart(Range, MapperFile)
-    MapperLocation begin = makeLoc(from, from_begin);
-    MapperLocation end = makeLoc(from, from_end);
-    return mapStart(MapperRange{begin, end}, to);
-}
-
-MapperRange Context::mapStart(MapperRange from, MapperFile to) {
-    if (!from.begin.isValid() || !from.end.isValid())
-        FAULT("mapStart(Range): 'from' Range is invalid");
-    if (!to.isValid() || !to.isOutput())
-        FAULT("mapStart(Range): 'to' FileIdx must be a valid output file");
-
-    // Сохраняем текущую позицию выходного файла как Location
-    Location outputBegin = makeLoc(to, get_file(to).size() + 1);
-
-    m_mapStack.push_back({from, outputBegin});
-    return from;
-}
-
-const Context::MapStartEntry& Context::mapStackTop() const {
-    if (m_mapStack.empty())
-        FAULT("mapStackTop: map stack is empty");
-    return m_mapStack.back();
-}
-
-Context::Range Context::mapStop(MapperRange from) {
-    EXPECT(!m_mapStack.empty());
-
-    MapStartEntry entry = m_mapStack.back();
-    m_mapStack.pop_back();
-
-    EXPECT(entry.inputRange == from);
-
-    // Текущая позиция выходного файла — размер m_source
-    // size() возвращает 0-based размер, но Location ожидает 1-based offset
-    MapperFile to = entry.outputBegin.fileIdx();
-    uint32_t currentOffset = get_file(to).size() + 1;
-    Location outputEnd = makeLoc(to, currentOffset);
-
-    // Диапазон в выходном файле
-    Range cppRange{entry.outputBegin, outputEnd};
-    // + // Создаём RangeMap
-    //     +if (!addRangeMapping(entry.inputRange, cppRange)) +
-    //     FAULT("mapStop: addRangeMapping failed");
-    // +
-
-    // Проверки, как в addRangeMapping
-    EXPECT(entry.inputRange.begin.isValid());
-    EXPECT(entry.inputRange.end.isValid());
-    EXPECT(cppRange.begin.isValid());
-    EXPECT(cppRange.end.isValid());
-
-    uint32_t trustKey = entry.inputRange.begin.packed;
-    uint32_t cppKey = cppRange.begin.packed;
-
-    EXPECT(m_forward.find(trustKey) == m_forward.end());
-    EXPECT(m_backward.find(cppKey) == m_backward.end());
-
-    m_forward[trustKey] = RangeMap{entry.inputRange, cppRange};
-    m_backward[cppKey] = RangeMap{cppRange, entry.inputRange};
-    m_reader.reset();
-
-    return cppRange;
 }
 
 // ══════════════════════════════════════════════════════════════

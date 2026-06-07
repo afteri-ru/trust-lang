@@ -12,7 +12,7 @@
 | Static member | `s_snake_case` | `s_instance` |
 | Global variable | `g_snake_case` | `g_verbosity` |
 | Constant | `kPascalCase` | `kMaxTokens` |
-| `enum class` value | `kPascalCase` | `kInteger` |
+| `enum class` value | `PascalCase` | `Integer` |
 | Plain `enum` value | `ALL_CAPS` | `TOKEN_EOF` |
 | Namespace | snake_case | `trust::parser` |
 | File | snake_case ≤15 chars | `token_info.hpp` |
@@ -25,14 +25,13 @@ Naming rules do not apply to automatically generated files (such as parser.yy.*,
 
 Enumerations in ParserToken, TokenFlag, and TokenCategory use their own naming rules.
 
-###  Automatically generated identifier names have their own prefixes:
+### Automatically generated identifier names have their own prefixes
 
 "c_" — a synonym identifier for the `extern  "C"`
 "cpp_" — a synonym identifier for the `extern "C++"`
 "ru_" — a transliteration of the Russian identifier using ASCII characters
 "u8_" — an identifier encoding in UTF-8 using ASCII characters
 "tr_" — a synonym for the Trust-lang identifier in C++
-
 
 ## 2. Formatting (enforced by `.clang-format`)
 
@@ -52,11 +51,9 @@ Enumerations in ParserToken, TokenFlag, and TokenCategory use their own naming r
 
 - `using namespace std` / `clang` / `llvm`.
 - `using` in header files.
-- `#define` for constants — use `constexpr` or `enum : type`.
+- `#define` for constants — use `constexpr` or `enum : type` with `k` prefix for all elements.
 - Ternary operators.
 - C-style casts.
-- `default` in `switch` — enumerate all cases.
-- Missing `break` in `case`.
 - Multiple function calls in conditions — store in temporaries.
 - Chained calls — break into separate statements.
 - `size()` in loop condition on unchanged container.
@@ -67,9 +64,6 @@ Enumerations in ParserToken, TokenFlag, and TokenCategory use their own naming r
 - `override` for overridden virtual functions.
 - `nullptr` for empty pointers.
 - `auto` only when type is deducible.
-- `break` after every `case`.
-- All enum values enumerated in `switch` (no `default`).
-- Explicit comparisons (`ptr != nullptr`, not `if (ptr)`).
 - Forward declarations in headers when sufficient.
 - Lambdas only directly at the call site.
 
@@ -91,12 +85,11 @@ Header guard: `#pragma once`.
 C++ standard ≥ 20 (currently 23).
 
 ```
--Werror -Wswitch -Wswitch-error -Wold-style-cast
--Wreorder -Wnon-virtual-dtor -Woverloaded-virtual -Wimplicit-fallthrough
+-Werror -Wold-style-cast -Wreorder -Wnon-virtual-dtor -Woverloaded-virtual 
 ```
 
 - **System/external headers** (LLVM, msgpack, GMP, LIBTORCH, LLDB): included via `SYSTEM` (`-isystem`), so `-Werror` does not apply to them.
-- **Generated files** (`lex.yy.cpp`, `parser.tab.cpp`): use `-Wno-old-style-cast`
+- **Generated files** (`lex.yy.cpp`): use `-Wno-old-style-cast`
 - **Test binary** additionally uses `-Wno-unused-result`
 
 ## 7. Static Analysis (`.clang-tidy`)

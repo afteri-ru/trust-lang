@@ -17,6 +17,7 @@ if(WITH_SOLVER)
     target_sources(solver_lib PRIVATE ${PROJECT_SOURCE_DIR}/solver/solver_z3.cpp)
     target_link_libraries(solver_lib PRIVATE ${Z3_LIBRARIES})
     target_include_directories(solver_lib SYSTEM PRIVATE ${Z3_INCLUDE_DIRS})
+    target_compile_definitions(solver_lib PUBLIC TRUST_HAS_Z3)
 
     message(STATUS "Solver: Z3 enabled (${Z3_VERSION_STRING})")
 else()

@@ -3,31 +3,41 @@
 #include <format>
 #include <initializer_list>
 #include <optional>
-#include <ostream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "diag/location.hpp"
+#include "diag/severity.hpp"
+#include "diag/options.hpp"
 
 namespace trust {
 
-enum class Severity : int {
-    Remark,
-    Note,
-    Warning,
-    Error,
-    Fatal,
+// ── Исключение для фатальных диагностик: бросается из report() при Severity::Fatal ──
+class FatalError : public std::runtime_error {
+  public:
+    explicit FatalError(const std::string& msg)
+    : std::runtime_error(msg) {}
+};
+
+// ── Fixit-подсказка: автоматическое исправление ──
+struct FixitSuggestion {
+    MapperRange range;       // что заменяем
+    std::string replacement; // на что заменяем
 };
 
 // ── Структура для хранения одной диагностики ──
 struct DiagnosticEntry {
     MapperRange range;
     Severity severity;
+    OptKind optKind{OptKind::All};
     std::string message;
+    std::vector<FixitSuggestion> fixits; // привязанные fixit-подсказки
 };
 
 class Context;
+class Options;
 
 class DiagnosticEngine {
   public:
@@ -41,18 +51,30 @@ class DiagnosticEngine {
     void setMinSeverity(Severity sev);
     Severity minSeverity() const;
 
-    // Вывод диагностики. Три перегрузки: строка, точка (MapperLocation), диапазон (MapperRange).
-    void report(MapperRange range, Severity sev, std::string_view msg);
+    void setOptions(Options* opts) { m_opts = opts; }
 
+    // ── Шаблоны с форматной строкой ──
+    /// С явным OptKind перед fmt. Возвращает nullptr, если диагностика подавлена.
     template <typename... Args>
-    void report(MapperLocation loc, Severity sev, std::format_string<Args...> fmt, Args&&... args) {
-        report(MapperRange{loc, loc}, sev, std::format(fmt, std::forward<Args>(args)...));
+    DiagnosticEntry* report(Severity sev, MapperRange range, OptKind opt, std::format_string<Args...> fmt, Args&&... args) {
+        return output(sev, range, opt, std::format(fmt, std::forward<Args>(args)...));
     }
 
+    /// Без OptKind — перенаправляет с OptKind::All
     template <typename... Args>
-    void report(MapperRange range, Severity sev, std::format_string<Args...> fmt, Args&&... args) {
-        report(range, sev, std::format(fmt, std::forward<Args>(args)...));
+    DiagnosticEntry* report(Severity sev, MapperRange range, std::format_string<Args...> fmt, Args&&... args) {
+        return output(sev, range, OptKind::All, std::format(fmt, std::forward<Args>(args)...));
     }
+
+    /// С MapperLocation
+    template <typename... Args>
+    DiagnosticEntry* report(Severity sev, MapperLocation loc, std::format_string<Args...> fmt, Args&&... args) {
+        return output(sev, MapperRange{loc, loc}, OptKind::All, std::format(fmt, std::forward<Args>(args)...));
+    }
+
+    // ── Fixit-подсказки ──
+    /// Зафиксировать fixit для указанной диагностики. entry может быть nullptr (тогда ничего не делается).
+    void fixit(DiagnosticEntry* entry, MapperRange range, std::string_view replacement);
 
     int errorCount() const;
     int warningCount() const;
@@ -60,16 +82,15 @@ class DiagnosticEngine {
     // Доступ к накопленным диагностикам
     const std::vector<DiagnosticEntry>& diagnostics() const { return m_diagnostics; }
 
-    void setOutput(std::ostream* os);
     void clear();
 
   private:
-    void output(MapperRange range, Severity sev, std::string_view msg);
+    DiagnosticEntry* output(Severity sev, MapperRange range, OptKind opt, std::string_view msg);
 
     Severity m_minSeverity = Severity::Remark;
+    Options* m_opts = nullptr;
     int m_errorCount = 0;
     int m_warningCount = 0;
-    std::ostream* m_output = nullptr;
     const Context* m_ctx = nullptr;
     std::vector<DiagnosticEntry> m_diagnostics; // накопленные диагностики
 };

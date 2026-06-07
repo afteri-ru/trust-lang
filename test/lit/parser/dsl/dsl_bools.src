@@ -1,0 +1,6 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+@yes;
+@no;
+# CHECK: ScopeBlock
+# CHECK: IntLiteral 1
+# CHECK: IntLiteral 0

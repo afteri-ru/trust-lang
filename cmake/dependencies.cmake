@@ -2,15 +2,14 @@
 # Find required tools, libraries and create utility targets
 
 # ── Required tools ──
-find_package(ZLIB REQUIRED)
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
 find_package(GTest REQUIRED)
 find_program(FLEX_EXECUTABLE flex REQUIRED)
-find_program(BISON_EXECUTABLE bison REQUIRED)
+find_program(BISON_EXECUTABLE NAMES bison REQUIRED)
 find_program(LIT_EXECUTABLE NAMES lit REQUIRED)
 
 # ── Required libraries ──
 find_package(PkgConfig REQUIRED)
+pkg_check_modules(ZSTD REQUIRED IMPORTED_TARGET libzstd)
 pkg_check_modules(GMP REQUIRED gmp)
 
 find_package(nlohmann_json REQUIRED)
@@ -36,14 +35,9 @@ set_target_properties(msgpack-c-static PROPERTIES
     INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${MSGPACK_INCLUDE_DIRS}"
 )
 
-# ── LLVM/Clang (for stdlib) ──
+# ── LLVM (for MD5/ArrayRef utilities) ──
 list(APPEND CMAKE_PREFIX_PATH "/usr/lib/llvm-22/lib/cmake")
 find_package(LLVM REQUIRED CONFIG)
-find_package(Clang REQUIRED CONFIG)
-
-# ── LLDB (for debug) — версия из CLANG_VERSION ──
-set(LLDB_INCLUDE_DIRS "/usr/lib/llvm-${CLANG_VERSION}/include")
-set(LLDB_LIBRARIES "/usr/lib/llvm-${CLANG_VERSION}/lib/liblldb.so")
 
 # ── GMP interface target ──
 add_library(gmp_interface INTERFACE)

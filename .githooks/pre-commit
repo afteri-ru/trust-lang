@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# Pre-commit hook: auto-format staged C/C++ files with clang-format.
+#
+# Steps:
+#   1. Collect staged .hpp/.cpp/.h files.
+#   2. Run clang-format -i on them (respects .clang-format).
+#   3. Re-stage the formatted files so the commit sees the cleaned version.
+#
+set -euo pipefail
+
+CLANG_FORMAT="${CLANG_FORMAT:-clang-format}"
+
+# Files that are staged (deleted files excluded) and match our extensions.
+staged=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(hpp|cpp|h)$' || true)
+
+if [[ -z "$staged" ]]; then
+    exit 0
+fi
+
+echo "$staged" | while IFS= read -r file; do
+    if [[ -f "$file" ]]; then
+        "$CLANG_FORMAT" -i "$file"
+        git add "$file"
+    fi
+done

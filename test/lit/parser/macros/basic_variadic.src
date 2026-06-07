@@ -1,16 +1,13 @@
 # RUN: %trust -q --emit-lexemes %s > %t.out && %FileCheck %s <%t.out
-@@ if( ... ) @@ ::= @@ [ @$... ] --> @@;
-# CHECK: @@	MACRO_SEQ
-# CHECK: if	NAME
-# CHECK: (	LPAREN
-# CHECK: ...	ELLIPSIS
-# CHECK: )	RPAREN
-# CHECK: @@	MACRO_SEQ
-# CHECK: ::=	CREATE_NEW
-# CHECK: @@	MACRO_SEQ
-# CHECK: [	LBRACKET
-# CHECK: @$...	MACRO_ARGUMENT
-# CHECK: ]	RBRACKET
-# CHECK: -->	FOLLOW
-# CHECK: @@	MACRO_SEQ
-# CHECK: ;	SEMICOLON
+@@ my_variadic( ... ) @@ ::= @@ [ @$... ] --> @@;
+# CHECK: ::=	CREATE_TYPE
+# CHECK-NEXT: @@	MACRO_SEQ
+# CHECK-NEXT: my_variadic	NAME
+# CHECK-NEXT: (	SYMBOL
+# CHECK-NEXT: ...	ELLIPSIS
+# CHECK-NEXT: )	SYMBOL
+# CHECK-NEXT: @@	MACRO_SEQ
+# CHECK-NEXT: [	SYMBOL
+# CHECK-NEXT: @$...	MACRO_ARGUMENT
+# CHECK-NEXT: ]	SYMBOL
+# CHECK-NEXT: -->	FOLLOW
