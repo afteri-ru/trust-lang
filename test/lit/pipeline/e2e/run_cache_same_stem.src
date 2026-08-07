@@ -1,0 +1,28 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD/a $TD/b
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q -v --run a/prog.src > %t.o1 2> %t.e1
+# RUN: grep -q "make executable succeeded" %t.e1
+# RUN: ! grep -q "running cached" %t.e1
+# RUN: cd $TD && %trust -q -v --run b/prog.src > %t.o2 2> %t.e2; true
+# RUN: grep -q "make executable succeeded" %t.e2
+# RUN: ! grep -q "running cached" %t.e2
+# RUN: cd $TD && %trust -q -v --run a/prog.src > %t.o3 2> %t.e3
+# RUN: grep -q "make executable succeeded" %t.e3
+# RUN: ! grep -q "running cached" %t.e3
+#
+# A1: кеш --run не должен применяться к ДРУГОЙ программе с тем же именем файла (stem) из
+# другого каталога. Build-каталог по умолчанию (.trust/<stem>) общий, но запись
+# .debug_trust_hash хранит относительный путь главного файла; сверка с текущим входным
+# файлом заставляет пересобрать, а не выполнить устаревший бинарь чужой программы.
+# Без фикса второй и третий запуски использовали бы кеш ("running cached").
+
+//--- a/prog.src
+{% int prog__main__() {
+    return 0;
+}
+%}
+//--- b/prog.src
+{% int prog__main__() {
+    return 42;
+}
+%}

@@ -23,8 +23,9 @@ struct TestDir {
         char* tmpl = strdup(base.c_str());
         if (tmpl) {
             const char* d = mkdtemp(tmpl);
-            if (d)
+            if (d) {
                 path = d;
+            }
             free(tmpl);
         }
     }
@@ -52,7 +53,7 @@ struct TestDir {
 
     void writeExeSrc() const {
         std::ofstream ofs(srcPath());
-        ofs << "{% int __input_main__() { return 42; } %}\n";
+        ofs << "{% int input__main__() { return 42; } %}\n";
     }
 };
 
@@ -62,8 +63,9 @@ static int runCmd(const std::string& cmd) {
 
 static bool isElfFile(const std::string& path) {
     std::ifstream ifs(path, std::ios::binary);
-    if (!ifs)
+    if (!ifs) {
         return false;
+    }
     unsigned char magic[4];
     ifs.read(reinterpret_cast<char*>(magic), 4);
     return ifs.gcount() == 4 && magic[0] == 0x7F && magic[1] == 'E' && magic[2] == 'L' && magic[3] == 'F';
@@ -71,8 +73,9 @@ static bool isElfFile(const std::string& path) {
 
 static bool isArArchive(const std::string& path) {
     std::ifstream ifs(path, std::ios::binary);
-    if (!ifs)
+    if (!ifs) {
         return false;
+    }
     char magic[8];
     ifs.read(magic, 8);
     return ifs.gcount() == 8 && std::memcmp(magic, "!<arch>\n", 8) == 0;

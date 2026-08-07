@@ -16,7 +16,7 @@ weight: 10
 
 ### Создания объектов и присвоения новых значений
 
-Для создания объектов и присвоения им новых значений в NewLang используется несколько операторов:
+Для создания объектов и присвоения им новых значений в TrustLang используется несколько операторов:
 - "**::=**" или "**::-**" - используется для создания только новых объектов.
                         Если объект с таким именем был определен ранее, то произойдет ошибка компиляции.
 - "**:=**" или "**:-**" - используется для создания новых объектов с возможностью перекрытия имен.
@@ -26,9 +26,15 @@ weight: 10
 - "**:=:**" - Оператор не создает нового объекта, а обменивает значения уже существуюих (переменные должны иметь одинаковые/совместимые типы данных).
 
 ?????????????????????????????????????
-- "**[]=**" - добавлеят новый элемент к словарю или переопределяет созданное ранее имя [функции](/docs/types/funcs/) или [метод класса](/docs/types/class/).
-    Похож на оператор присвоения значения "**=**", но в отличии от него не *удаляет* старое значение, а сохраняет его в стек переопределнных имен,
-    и к старому значению можно обратиться по системному имени "**$$**" ????????????????? [*)](). Не может применяться к макросам.
+- "**[]=**" - добавляет новый элемент к контейнеру слева (аналог `push_back`): `X []= v` равносильно `X.push_back(v)`.
+    Для словаря добавляет позиционный элемент, для строки - символ/строку. Ширина строки RHS должна совпадать с типом
+    строкового контейнера. Вложенный LHS (`d['x'] []= v`, `d[0] []= v`, `d.field []= v`) пока не реализован (ошибка компиляции).
+    Именованный элемент словаря добавляется оператором присваивания `d[name] = value` (установка/добавление по ключу).
+    Для словаря через оператор распаковки `...` поддерживается слияние: `d []= ... dict2` или
+    `d []= ... (a=1, b=2,)` добавляет все элементы словаря-операнда (аналог `extend`/`update`);
+    размер цели растёт на число элементов (статически контролируется для литерала и словаря
+    с известным размером).
+
 
 Использование трех разных видов операторов для создания/изменения объектов позволяет более гибко контролировать подобные операции и выявлять логические ошибки в коде на более раннем этапе. 
 
@@ -54,7 +60,7 @@ weight: 10
 ```
 
 ### Присваивание значения сразу нескольким переменным и оператор распаковки словаря {#expand}
-*NewLang* поддерживает операцию присваивания значения сразу нескольким переменным, 
+*TrustLang* поддерживает операцию присваивания значения сразу нескольким переменным, 
 которые должны быть перечислены через запятую слева от оператора присвоения. 
 С правой стороны от оператора присвоения может находится только одно значение.
 А для обмена занчениями двух переменных, вместо традиционной записи:
@@ -77,19 +83,41 @@ weight: 10
     call(arg=0, arg1=1, arg2=2, 3, 4);
 ```
 
-Словарь может быть указан и с левой стороны от оператора присвоения. 
-Таким образом можно записать самый простой способ перебора всех его элементов: 
-`item, dictionary := ... dictionary;`, т.е. когда первый элемент словаря сохраняется в переменную `item`, а из самого словаря удаляется,
-и так в цикле пока словарь не станет пустым.
+Словарь может быть указан и с левой стороны от оператора присвоения — это **деструктуризация**.
+Без маркера — **точная привязка**: каждая цель получает ровно один элемент, число целей должно
+совпадать с числом элементов. Суффикс `...` у имени цели (`rest...`) связывает **оставшиеся**
+элементы; `_...` — извлечь элементы, остаток отбросить; `_` — пропустить один. Каждая цель
+типизируется runtime-типом своего элемента; **внутри цикла** тип расширяется до максимального среди
+элементов (Bool/Int8 → Integer, float → Double).
+**Assignment into existing variables** uses `=` (`a, b = ... d;` or `a, b = t;`): targets must be
+declared earlier (`:=`), no new variables are created; otherwise a compile error. Assignment to a
+constant target (`^`) is an error. A target may carry an explicit **type annotation**
+(`a:Int32, b := ... d;` / `a:Int32, b = t;`) which fixes the declared variable type: for a tuple —
+`int32_t c_a` instead of `auto`; for a dictionary the variable is declared `int32_t`, while the element
+is extracted by its storage runtime type (`std::any_cast<int64_t>(...)`, since Dict normalizes integers
+to `int64_t`). Without annotation the type is inferred.
+Nested destructuring (`a, (b, c) := t;`) is **not supported** — only flat variables.
+Named-key destructuring (`{a: x, b: y} = d` — positional only, by insertion order), rest-in-the-middle
+(`a, rest..., c := seq` — the `rest...` marker is allowed only as the last target) and a **type
+annotation on a rest target** (`rest:MyDict...` / `rest:MyTuple...` — the rest type is always inferred:
+`Dict` for a dictionary, a sub-tuple for a tuple; annotation is a compile error) are **not supported**.
+For a **tuple**, a rest target may not reuse the name of an existing variable (including the source
+itself — `a, t... := t`): unlike the dictionary spread, where `item, dict... := ... dict` is a legit
+source-mutation idiom, a tuple rest is not a mutation, so such reuse is a compile error. On a runtime
+element shortage (source of compile-time-unknown size) execution terminates with a controlled abort +
+diagnostic — no silent default (`None`/zero) for any target type (including `Any`). If a dictionary
+element type is not inferable (e.g. a dictionary parameter), the target **outside a loop** is typed
+`std::any` with a warning (symmetric to the in-loop widening) — never silently.
 
-Пример реализации цикла *foreach* для суммирования всех элементов словаря (или одномерного тензора) 
+Пример реализации цикла *foreach* для суммирования всех элементов словаря (или одномерного тензора)
 с использованием оператора раскрытия словаря (списка):
 ```python
     summa := 0;
     dictionary := (1,2,3,4,5,);
     @while( dictionary ) {
-        # Первый элемент словаря перемещается в item
-        item, dictionary := ... dictionary; 
+        # Первый элемент словаря перемещается в item; суффикс `dictionary...` связывает
+        # оставшиеся элементы, мутируя источник (цикл завершается, когда словарь опустеет)
+        item, dictionary... := ... dictionary; 
         summa += item;
     };
 ```

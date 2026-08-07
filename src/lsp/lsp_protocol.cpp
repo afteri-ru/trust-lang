@@ -51,7 +51,7 @@ void sendLspRequest(trust::transport::Transport& transport, const std::string& m
 // ── CLI parsing ──
 
 void printLspUsage(const char* prog) {
-    trust::errs() << "Usage: " << prog << " [options]\n"
+    trust::errs() << "Usage: " << prog << " [options] [input]\n"
                   << "\n"
                   << "LSP server for Trust language source mapping.\n"
                   << "By default runs in interactive mode (stdin/stdout).\n"
@@ -61,7 +61,18 @@ void printLspUsage(const char* prog) {
                   << "  server[=<port>]         TCP server mode on given port (default: " << LSP_DEFAULT_PORT << ")\n"
                   << "  --project-dir <path>    Project working directory (default: cwd)\n"
                   << "  --temp-dir <path>       Directory for temporary transpiled .cpp files (default: none)\n"
-                  << "  --trace                 Enable LSP protocol tracing\n";
+                  << "  --emit-build-dir <dir>  With --json: also build a tar.gz of the build dir (Makefile,\n"
+                  << "                          build.conf, .cppt, trust/) into <dir> without compiling (default: none)\n"
+                  << "  --trace                 Enable LSP protocol tracing\n"
+                  << "\n"
+                  << "Playground output modes (Trust → C++ + source map):\n"
+                  << "  --json [input]          Print {source,cpp,trustToCpp,cppToTrust} as JSON to stdout\n"
+                  << "                          (input = .src file, or omitted/'-' to read stdin)\n"
+                  << "  --html [input]          Print godbolt-style HTML (two Monaco editors + JS navigation)\n"
+                  << "  --html-full             Wrap --html output into a complete HTML page\n"
+                  << "  --monaco-url <url>      Monaco AMD 'vs' base URL for --html (default: jsdelivr CDN)\n"
+                  << "  --server-url <url>      Live-run endpoint (POST Trust text → JSON) for --html\n"
+                  << "  --examples-dir <dir>    Dir with *.src embedded into --html as example combobox\n";
 }
 
 LspOptions parseLspOptions(int argc, const char* argv[]) {
@@ -75,6 +86,7 @@ LspOptions parseLspOptions(int argc, const char* argv[]) {
 
         // server[=port] — TCP server mode
         if (std::strncmp(argv[i], "server", 6) == 0) {
+            opts.mode = LspMode::Server;
             const char* eq = std::strchr(argv[i], '=');
             if (eq != nullptr) {
                 opts.port = std::stoi(eq + 1);
@@ -92,12 +104,35 @@ LspOptions parseLspOptions(int argc, const char* argv[]) {
             return argv[i];
         };
 
-        if (std::strcmp(argv[i], "--project-dir") == 0) {
+        if (std::strcmp(argv[i], "--json") == 0) {
+            opts.mode = LspMode::Json;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                opts.inputFile = nextArg();
+            }
+        } else if (std::strcmp(argv[i], "--html") == 0) {
+            opts.mode = LspMode::Html;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                opts.inputFile = nextArg();
+            }
+        } else if (std::strcmp(argv[i], "--html-full") == 0) {
+            opts.htmlFull = true;
+        } else if (std::strcmp(argv[i], "--monaco-url") == 0) {
+            opts.monacoUrl = nextArg();
+        } else if (std::strcmp(argv[i], "--server-url") == 0) {
+            opts.serverUrl = nextArg();
+        } else if (std::strcmp(argv[i], "--examples-dir") == 0) {
+            opts.examplesDir = nextArg();
+        } else if (std::strcmp(argv[i], "--project-dir") == 0) {
             opts.projectDir = nextArg();
         } else if (std::strcmp(argv[i], "--temp-dir") == 0) {
             opts.tempDir = nextArg();
+        } else if (std::strcmp(argv[i], "--emit-build-dir") == 0) {
+            opts.emitBuildDir = nextArg();
         } else if (std::strcmp(argv[i], "--trace") == 0) {
             opts.trace = true;
+        } else if (std::strncmp(argv[i], "-W", 2) == 0) {
+            // Опции диагностики (-W<name>=<status>) — пробрасываются в pipeline.
+            opts.pipelineArgs.push_back(argv[i]);
         } else {
             trust::errs() << "Error: unknown option '" << argv[i] << "'\n";
             std::exit(1);

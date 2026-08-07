@@ -1,0 +1,15 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Сужение значения (переменная/неизвестное шире цели) в ЯВНО-типизированную переменную
+# → ошибка по умолчанию + fixit-предложение «use cast :Type(expr)».
+
+# a:Int64 → b:Int8 — сужение Int64→Int8.
+a:Int64 := 5;
+b:Int8 := a;
+# CHECK: error: value of type 'Int64' cannot be narrowed to 'Int8' (use cast :Int8(expr))
+# CHECK: fix-it: replace with ':Int8(a)'
+
+# Литерал, не влезающий в Int8 (1000 → Int16) → сужение.
+x:Int8 := 1000;
+# CHECK: error: value of type 'Int16' cannot be narrowed to 'Int8' (use cast :Int8(expr))
+# CHECK: fix-it: replace with ':Int8(1000)'

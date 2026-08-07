@@ -15,7 +15,7 @@ namespace trust {
  * Тип для хранения аргументов макроса — отображение имени аргумента на буфер.
  * MacroBuffer позволяет хранить как Lexem, так и TermPtr.
  */
-using MacroArgsType = std::map<std::string, MacroBuffer>;
+using MacroArgsType = std::map<std::string, SequenceType>;
 
 /**
  * MacroScope — внутренний класс: хранит ровно один набор макросов одного модуля.
@@ -26,9 +26,9 @@ using MacroArgsType = std::map<std::string, MacroBuffer>;
  * макросов по модулям, чтобы при выходе из модуля (PopScope) можно было удалить
  * все макросы, созданные в нём.
  */
-class MacroScope : public std::map<std::string, BlockType> {
+class MacroScope : public std::map<std::string, SequenceType> {
   public:
-    using std::map<std::string, BlockType>::map;
+    using std::map<std::string, SequenceType>::map;
 };
 
 class Macro : public std::enable_shared_from_this<Macro> {
@@ -44,8 +44,14 @@ class Macro : public std::enable_shared_from_this<Macro> {
      * В идентификаторе макроса ургументы в скобках могут быть только у одного термина или шаблона подстановки.
      *
      * Сопоставление макросов просиходит по точному соотвествию идентификатора имени термина, а возможные аргументы скобках игнорируются.
-     * Идентификаторы макросов, состоящие только из шаблонов подстановок не допускаются.
-     * Идентификаторы макроса с аргументами и без аргументов считаются разными идентификаторами,
+     * Идентификатор (сигнатура) макроса — ВСЯ последовательность термов его имени.
+     * ПЕРВЫЙ терм имени — ключ ГРУППЫ макросов: в одной группе может быть МНОГО макросов с одним
+     * первым именем, но разной арностью (разным числом/составом дополнительных термов), напр.
+     * `break`, `break $label`, `break $a $b`. При раскрытии выбирается самый длинный (наиболее
+     * специфичный) макрос группы — longest-match по числу потреблённых термов буфера.
+     * «macro duplication» диагностируется ТОЛЬКО при полном совпадении сигнатуры (всех термов),
+     * а не при совпадении одного лишь первого имени. Разные арности одной группы — НЕ дубликаты.
+     * Идентификаторы макроса с аргументами и без аргументов считаются разными сигнатурами,
      * поэтому для переименования всех возможных варинатов использования одного термина нужно определять
      * сразу два макроса со скобкамии и без скобок.
      * @ old @ new @; @ old(...) @ new(\$*) @;
@@ -120,8 +126,6 @@ class Macro : public std::enable_shared_from_this<Macro> {
      * Поэтому сейчас делаю полный перебор, а оптимизировать нужно будет потом.
      */
 
-    using MacroArgsType = trust::MacroArgsType;
-
     explicit Macro(trust::Context& ctx);
 
     virtual ~Macro() {}
@@ -143,10 +147,13 @@ class Macro : public std::enable_shared_from_this<Macro> {
     /// Количество макросов в конкретном скоупе стека (0 — базовый, ScopeCount()-1 — верхний).
     size_t CountInScope(size_t scopeIdx) const;
 
+    /// Собрать имена всех макросов по всему стеку скоупов (ключи групп — первый терм сигнатуры).
+    std::vector<std::string> MacroNames() const;
+
     /// Поиск списка макросов по ключу по всему стеку (сверху вниз).
     /// Возвращает указатель на список макросов в первом найденном скоупе или nullptr.
-    BlockType* FindMacroList(const std::string& key);
-    const BlockType* FindMacroList(const std::string& key) const;
+    SequenceType* FindMacroList(const std::string& key);
+    const SequenceType* FindMacroList(const std::string& key) const;
 
     std::string toMacroHash(TermPtr& term);
 
@@ -161,31 +168,34 @@ class Macro : public std::enable_shared_from_this<Macro> {
 
     std::string GetMacroMaping(const std::string str, const char* separator = ", ");
 
-    BlockType GetMacroId(TermPtr& term);
+    SequenceType GetMacroId(TermPtr& term);
 
-    BlockType MakeMacroId(const BlockType& seq);
+    SequenceType MakeMacroId(const SequenceType& seq);
 
     TermPtr EvalOpMacros(TermPtr& term);
     bool CheckMacro(const TermPtr& term);
     bool RemoveMacro(TermPtr& term);
 
-    TermPtr GetMacroById(const BlockType block);
+    TermPtr GetMacroById(const SequenceType block);
     TermPtr GetMacro(std::vector<std::string> list);
 
-    bool IdentityMacro(const BlockType& buffer, TermPtr& term);
+    bool IdentityMacro(const SequenceType& buffer, TermPtr& term);
+    /// Возвращает число потреблённых терминов входного буфера, если сигнатура макроса
+    /// сопоставлена (prefix/longest-match), иначе 0. identity-проверка — это MatchMacro != 0.
+    size_t MatchMacro(const SequenceType& buffer, TermPtr& macro);
     bool CompareMacroName(const std::string& term_name, const std::string& macro_name);
 
-    size_t ExtractArgs(BlockType& buffer, TermPtr& term, MacroArgsType& args);
-    void InsertArg_(MacroArgsType& args, std::string name, BlockType& buffer, size_t pos = static_cast<size_t>(-1));
-    BlockType SymbolSeparateArg_(const BlockType& buffer, size_t pos, std::vector<std::string> name, std::string& error);
+    size_t ExtractArgs(SequenceType& buffer, TermPtr& term, MacroArgsType& args);
+    void InsertArg_(MacroArgsType& args, std::string name, SequenceType& buffer, size_t pos = static_cast<size_t>(-1));
+    SequenceType SymbolSeparateArg_(const SequenceType& buffer, size_t pos, std::vector<std::string> name, std::string& error);
 
-    BlockType ExpandMacros(const TermPtr& macro, MacroArgsType& args);
+    SequenceType ExpandMacros(const TermPtr& macro, MacroArgsType& args, Parser& parser, MapperRange callRange);
     std::string ExpandString(const TermPtr& macro, MacroArgsType& args);
 
     std::string Dump();
     std::string Dump(const MacroArgsType& var);
-    std::string Dump(const BlockType& arr);
-    std::string DumpText(const BlockType& arr);
+    std::string Dump(const SequenceType& arr);
+    std::string DumpText(const SequenceType& arr);
 
     bool TestName(std::string_view name);
     std::string CreateFullName(std::string_view name);

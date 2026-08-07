@@ -17,7 +17,7 @@ function resetTraceChannel() {
 }
 
 function isDapTraceEnabled() {
-    return vscode.workspace.getConfiguration('trust').get('traceDAP', false);
+    return vscode.workspace.getConfiguration('trust').get('dev.traceDAP', false);
 }
 
 function writeTrace(msg, isError = false, dapTraceOnly = true) {

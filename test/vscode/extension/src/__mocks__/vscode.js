@@ -112,12 +112,24 @@ class MockTrustConfiguration {
             cppCompilerOptions: '-std=c++23 -g3 -O0',
             tempDir: '.trust',
             gdbPath: '',
-            traceDAP: false,
-            traceLSP: false
+            dev: {
+                traceDAP: false,
+                traceLSP: false,
+                highlightRanges: false
+            }
         };
     }
     get(key, defaultValue) {
-        return this.settings.hasOwnProperty(key) ? this.settings[key] : defaultValue;
+        // Поддержка точечных путей (trust.dev.*), как в реальном VS Code.
+        const parts = String(key).split('.');
+        let cur = this.settings;
+        for (const part of parts) {
+            if (cur === null || cur === undefined || typeof cur !== 'object' || !(part in cur)) {
+                return defaultValue;
+            }
+            cur = cur[part];
+        }
+        return cur;
     }
     update(key, value, target) {
         this.settings[key] = value;

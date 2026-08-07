@@ -1,4 +1,7 @@
 #include "lsp/trust_lsp.h"
+#include "lsp/builtin_catalog.h"
+#include "lsp/completion.h"
+#include "diag/protocol.hpp"
 #include "trust/version.h"
 #include "utils/file_io.hpp"
 #include "utils/uri.hpp"
@@ -6,22 +9,33 @@
 #include "utils/io.hpp"
 
 #include "pipeline/pipeline.hpp"
-#include "semantic/analyzer.hpp"
 #include "transpiler/transpiler.hpp"
+#include "ast/ast_nodes.hpp"
+#include "syntax/macro.h"
+#include "syntax/parser.h"
 #include "utils/io.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
+#include <regex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
 #include "utils/io.hpp"
 
 using json = nlohmann::json;
+using trust::utils::filePathToUri;
 using trust::utils::resolvePath;
 using trust::utils::uriToFilePath;
+
+// Хелперы автодополнения вынесены в модуль lsp/completion.h.
+using namespace trust::lsp::completion;
 
 // ── Конструктор ──
 TrustLsp::TrustLsp(trust::transport::Transport& transport, const LspOptions& opts)
@@ -37,6 +51,14 @@ void TrustLsp::log(const std::string& msg) const {
     }
 }
 
+// Безусловная запись в stderr (видна в канале LSP), независимо от --trace.
+// Используется для ВНУТРЕННИХ ошибок обработчиков (completion/codeAction), чтобы
+// не «глотать» их молча: LSP-обработчик возвращает корректный (пустой) результат,
+// но причина падения всегда фиксируется в выводе сервера.
+static void reportHandlerError(const std::string& what) {
+    trust::errs() << "trust-lsp: " << what << "\n";
+}
+
 // ── Проверка jsonrpc: "2.0" ──
 static bool validateJsonRpc(const json& msg) {
     if (!msg.contains("jsonrpc")) {
@@ -44,32 +66,6 @@ static bool validateJsonRpc(const json& msg) {
     }
     const auto& v = msg["jsonrpc"];
     return v.is_string() && v.get<std::string>() == "2.0";
-}
-
-// ── URL-encoding для пути (только спецсимволы) ──
-static std::string uriEncodePath(const std::string& path) {
-    std::string result;
-    result.reserve(path.size());
-    for (unsigned char c : path) {
-        if (c <= 32 || c >= 127 || c == '#' || c == '%' || c == '?' || c == '[' || c == ']' || c == ' ' || c == '"' || c == '<' || c == '>' || c == '{' ||
-            c == '}' || c == '|' || c == '\\' || c == '^' || c == '`') {
-            // Кодируем проблемные символы в %XX
-            static const char hex[] = "0123456789ABCDEF";
-            result += '%';
-            result += hex[c >> 4];
-            result += hex[c & 0xF];
-        } else {
-            result += c;
-        }
-    }
-    return result;
-}
-
-// ── Вспомогательная: filePath → "file://" URI ──
-static std::string filePathToUri(const std::string& path) {
-    if (path.rfind("file://", 0) == 0)
-        return path;
-    return "file://" + uriEncodePath(std::filesystem::absolute(path).string());
 }
 
 // ── Вспомогательная: Location → LSP Position (0-based) ──
@@ -93,8 +89,9 @@ static std::string makeFragmentUri(const trust::SourceMapReader& reader, const s
 // Формат: "path:line:col–line:col [текст]". Текст берётся из source-map (getText).
 // При невалидном range или невозможности получить текст — безопасный fallback.
 static std::string formatRange(const trust::SourceMapReader& reader, trust::SourceMapReader::Range range, const std::string& filePath) {
-    if (range.isInvalid())
+    if (range.isInvalid()) {
         return filePath + ":<invalid>";
+    }
     auto b = reader.line_column(range.begin);
     auto e = reader.line_column(range.end);
     std::string text;
@@ -210,6 +207,10 @@ void TrustLsp::handleRequest(const json& req) {
             handleHover(req);
         } else if (method == "textDocument/documentLink") {
             handleDocumentLink(req);
+        } else if (method == "textDocument/completion") {
+            handleCompletion(req);
+        } else if (method == "textDocument/codeAction") {
+            handleCodeAction(req);
         } else if (method == "workspace/executeCommand") {
             handleExecuteCommand(req);
         } else {
@@ -266,7 +267,9 @@ void TrustLsp::handleInitialize(const json& req) {
     json capabilities = {{"textDocumentSync", 2}, // TextDocumentSyncKind::Incremental
                          {"definitionProvider", true},
                          {"hoverProvider", true},
-                         {"documentLinkProvider", {{"resolveProvider", false}}}};
+                         {"documentLinkProvider", {{"resolveProvider", false}}},
+                         {"completionProvider", {{"resolveProvider", false}, {"triggerCharacters", {"%", "$", ":", "@", "_", "."}}}},
+                         {"codeActionProvider", {{"codeActionKinds", json::array({"quickfix"})}}}};
 
     json result = {{"capabilities", capabilities}, {"serverInfo", {{"name", "trust-lsp"}, {"version", TRUST_VERSION}}}};
     sendLspResponse(transport_, id, result);
@@ -314,16 +317,16 @@ void TrustLsp::handleDidOpen(const json& req) {
     if (text.empty()) {
         // Нет текста буфера (fallback / переоткрытие) — читаем с диска
         log("  no buffer text in didOpen, reading from disk");
-        std::string transpileErr = transpileSourceFile(filePath);
-        if (!transpileErr.empty()) {
-            publishDiagnostics(uri);
-        }
+        transpileSourceFile(filePath);
+        // Публикуем диагностики ВСЕГДА (не только при ошибках): предупреждения
+        // (например, -Wsigil) должны подсвечиваться сразу при открытии, а не после
+        // первой правки (didChange→flush). publishDiagnostics сам отправляет пустой
+        // список, если диагностик нет.
+        publishDiagnostics(uri);
     } else {
         openDocuments_[filePath] = text;
-        std::string transpileErr = transpileSource(filePath, text);
-        if (!transpileErr.empty()) {
-            publishDiagnostics(uri);
-        }
+        transpileSource(filePath, text);
+        publishDiagnostics(uri);
     }
 
     log("didOpen completed for " + filePath);
@@ -374,12 +377,14 @@ static size_t positionToOffset(const std::string& text, int line, int character)
     size_t pos = 0;
     for (int i = 0; i < line; ++i) {
         size_t nl = text.find('\n', pos);
-        if (nl == std::string::npos)
+        if (nl == std::string::npos) {
             break;
+        }
         pos = nl + 1;
     }
-    if (pos + static_cast<size_t>(character) > text.size())
+    if (pos + static_cast<size_t>(character) > text.size()) {
         return text.size();
+    }
     return pos + static_cast<size_t>(character);
 }
 
@@ -391,20 +396,23 @@ std::string TrustLsp::applyContentChanges(const std::string& filePath, const jso
     } else {
         // Буфер ещё не открыт (didOpen не было) — инициализируем содержимым с диска
         auto code = trust::utils::FileIO::read<std::vector<char>>(filePath);
-        if (code)
+        if (code) {
             text.assign(code->data(), code->size());
+        }
     }
 
-    if (!contentChanges.is_array())
+    if (!contentChanges.is_array()) {
         return text;
+    }
 
     for (const auto& ch : contentChanges) {
         if (ch.contains("range")) {
             const auto& range = ch["range"];
             size_t s = positionToOffset(text, range.value("start", json()).value("line", 0), range.value("start", json()).value("character", 0));
             size_t e = positionToOffset(text, range.value("end", json()).value("line", 0), range.value("end", json()).value("character", 0));
-            if (e < s)
+            if (e < s) {
                 e = s;
+            }
             text.replace(s, e - s, ch.value("text", ""));
         } else {
             // Без range — полная замена текста (Full-вариант)
@@ -418,8 +426,9 @@ std::string TrustLsp::applyContentChanges(const std::string& filePath, const jso
 void TrustLsp::flushDocument(const std::string& filePath) {
     pendingTranspile_.erase(filePath);
     auto it = openDocuments_.find(filePath);
-    if (it == openDocuments_.end())
+    if (it == openDocuments_.end()) {
         return;
+    }
 
     std::string transpileErr = transpileSource(filePath, it->second);
     if (!transpileErr.empty()) {
@@ -430,16 +439,19 @@ void TrustLsp::flushDocument(const std::string& filePath) {
 
 // ── Debounce-флаш: транспилируем документы, чей период тишины истёк ──
 void TrustLsp::flushPendingTranspile() {
-    if (pendingTranspile_.empty())
+    if (pendingTranspile_.empty()) {
         return;
+    }
     const auto now = std::chrono::steady_clock::now();
     std::vector<std::string> due;
     for (const auto& [path, t] : pendingTranspile_) {
-        if (now - t >= std::chrono::milliseconds(kDebounceMs))
+        if (now - t >= std::chrono::milliseconds(kDebounceMs)) {
             due.push_back(path);
+        }
     }
-    for (const auto& path : due)
+    for (const auto& path : due) {
         flushDocument(path);
+    }
 }
 
 // ── handleDefinition: Go to Definition ──
@@ -510,6 +522,18 @@ nlohmann::json TrustLsp::buildHoverContents(const trust::SourceMapReader& reader
     // Базовый блок с кодом противоположной стороны
     hoverContents.push_back("```" + hoverLang + "\n" + hoverText + "\n```");
 
+    // Путь к сохранённому dsl.src выводится из каталога .cppt (dsl.src сохраняется
+    // в <каталог cppt>/trust/dsl.src). Отдельное поле не нужно — расположение
+    // детерминировано относительно cppFilePath. Если файла на диске нет
+    // (tempDir не задан) — ссылка «Macro:» не выводится.
+    std::string dslFilePath;
+    {
+        std::filesystem::path dslPath = std::filesystem::path(cppFilePath).parent_path() / "trust" / "dsl.src";
+        if (std::filesystem::exists(dslPath)) {
+            dslFilePath = std::filesystem::absolute(dslPath).string();
+        }
+    }
+
     // Пытаемся выделить слово под курсором
     auto maybeWord = reader.getWordAt(cursorLoc);
     if (!maybeWord.has_value()) {
@@ -518,21 +542,37 @@ nlohmann::json TrustLsp::buildHoverContents(const trust::SourceMapReader& reader
     const std::string& word = *maybeWord;
 
     if (!isCppRequest) {
-        // ── Запрос из src (trust) файла ──
-        // Сначала пробуем получить маппинг имени переменной (NameMap)
+        // ── Запрос из src (trust) файла: ссылка «→ C++» на сгенерированный код. ──
+        // Если слово — объявленное имя — ссылка на его C++-имя (NameMap.to); иначе
+        // (в т.ч. макрос DSL: @assert/@while/print) — на раскрытый statement в cppt
+        // (findRangeMap → to). Для макроса дополнительно выдаём ссылку «Macro:» на его
+        // определение (getMacroDefRange). Диапазон определения лежит в in-memory
+        // источнике "@dsl"; ссылка навигируема только если dsl.src сохранён на диск
+        // (путь выводится из каталога cppFilePath: <каталог cppt>/trust/dsl.src).
         auto maybeName = reader.getCppName(cursorLoc, word);
         if (maybeName.has_value() && !maybeName->macroDefRange.has_value()) {
             const auto& targetRange = maybeName->rangeMap.to;
             std::string targetUri = makeFragmentUri(reader, cppFilePath, targetRange);
             hoverContents.push_back("[→ C++: " + maybeName->fromName + "](" + targetUri + ")");
-        }
-
-        // Поиск макроса: вызов макроса → определение макроса
-        auto maybeMacroDef = reader.getMacroDefRange(cursorLoc);
-        if (maybeMacroDef.has_value()) {
-            std::string_view defText = reader.getText(*maybeMacroDef);
-            std::string macroTargetUri = makeFragmentUri(reader, trustFilePath, *maybeMacroDef);
-            hoverContents.push_back("[Macro: " + std::string(defText) + "](" + macroTargetUri + ")");
+        } else {
+            // Курсор на макросе (или на необъявленном имени).
+            // Сначала ссылка на определение макроса («Macro:»), затем ссылка «→ C++»
+            // на раскрытый код в cppt — большое тело макроса не должно скрывать
+            // ссылку на определение. Переход по клику на текст идёт только в cppt.
+            if (maybeName.has_value() && maybeName->macroDefRange.has_value()) {
+                const auto& defRange = *maybeName->macroDefRange;
+                if (!dslFilePath.empty() && !defRange.isInvalid() && !defRange.begin.fileIdx().isOutput()) {
+                    std::string targetUri = makeFragmentUri(reader, dslFilePath, defRange);
+                    hoverContents.push_back("[Macro: " + maybeName->fromName + "](" + targetUri + ")");
+                    log("    macro hover def-link: " + formatRange(reader, defRange, dslFilePath));
+                }
+            }
+            auto maybeStmt = reader.findRangeMap(cursorLoc);
+            if (maybeStmt.has_value() && !maybeStmt->to.isInvalid() && maybeStmt->to.begin.fileIdx().isOutput()) {
+                std::string_view cppText = reader.getText(maybeStmt->to);
+                std::string targetUri = makeFragmentUri(reader, cppFilePath, maybeStmt->to);
+                hoverContents.push_back("[→ C++: " + std::string(cppText) + "](" + targetUri + ")");
+            }
         }
     } else {
         // ── Запрос из C++ файла ──
@@ -621,10 +661,12 @@ void TrustLsp::handleHover(const json& req) {
             const auto* ctx = cacheIt->second.sourceMap.get(); // Context для line_column конверсии
             const auto& diagnostics = ctx->diag().diagnostics();
             for (const auto& entry : diagnostics) {
-                if (entry.fixits.empty() || entry.range.begin.isInvalid())
+                if (entry.fixits.empty() || entry.range.begin.isInvalid()) {
                     continue;
-                if (entry.range.begin.fileIdx().isOutput())
+                }
+                if (entry.range.begin.fileIdx().isOutput()) {
                     continue;
+                }
                 auto beginLC = ctx->source().line_column(entry.range.begin);
                 auto endLC = !entry.range.end.isInvalid() && entry.range.begin.fileIdx() == entry.range.end.fileIdx()
                                  ? ctx->source().line_column(entry.range.end)
@@ -640,6 +682,25 @@ void TrustLsp::handleHover(const json& req) {
                     for (const auto& fixit : entry.fixits) {
                         hoverContents.push_back("_Fix: `" + fixit.replacement + "`_");
                     }
+                }
+            }
+        }
+    }
+
+    // Документирующий комментарий объявления/макроса — если имя под курсором есть в таблице
+    // символов анализатора (SymbolIndex). Выводим в начало ховера.
+    if (!cr.isCppRequest) {
+        auto cacheIt = sourceCache_.find(trustFilePath);
+        if (cacheIt != sourceCache_.end()) {
+            auto word = reader.getWordAt(loc);
+            if (word.has_value()) {
+                const std::string key = std::string(stripSigil(*word));
+                for (const auto& si : cacheIt->second.symbols) {
+                    if (si.documentation.empty() || stripSigil(si.name) != key) {
+                        continue;
+                    }
+                    hoverContents.insert(hoverContents.begin(), "**" + si.name + "**\n\n```trust\n" + si.documentation + "\n```");
+                    break;
                 }
             }
         }
@@ -686,8 +747,9 @@ void TrustLsp::handleDocumentLink(const json& req) {
         for (const auto& [key, entry] : backward) {
             (void)key;
             const auto& cppRange = entry.from;
-            if (cppRange.begin.fileIdx() != cr.cppReaderIdx)
+            if (cppRange.begin.fileIdx() != cr.cppReaderIdx) {
                 continue;
+            }
             const auto& trustRange = entry.to;
             std::string targetUri = makeFragmentUri(reader, trustFilePath, trustRange);
             json link = {{"range", rangeToLspRange(reader, cppRange)}, {"target", targetUri}};
@@ -698,8 +760,9 @@ void TrustLsp::handleDocumentLink(const json& req) {
         // Добавляем NameMap-ссылки для C++ → Trust (по всем nameMappings)
         for (const auto& nameMap : reader.getNameMappings()) {
             const auto& toRange = nameMap.rangeMap.to;
-            if (toRange.begin.fileIdx() != cr.cppReaderIdx)
+            if (toRange.begin.fileIdx() != cr.cppReaderIdx) {
                 continue;
+            }
             std::string targetUri = makeFragmentUri(reader, trustFilePath, nameMap.rangeMap.from);
             json link = {{"range", rangeToLspRange(reader, toRange)}, {"target", targetUri}};
             links.push_back(std::move(link));
@@ -713,16 +776,13 @@ void TrustLsp::handleDocumentLink(const json& req) {
             const auto& trustRange = mapping.from;
             const auto& cppRange = mapping.to;
 
-            // Проверяем, является ли это макросом
-            auto maybeMacroDef = reader.getMacroDefRange(trustRange.begin);
-            if (maybeMacroDef.has_value()) {
-                // Ссылка на определение макроса (в том же trust-файле)
-                std::string targetUri = makeFragmentUri(reader, filePath, *maybeMacroDef);
-                json link = {{"range", rangeToLspRange(reader, trustRange)}, {"target", targetUri}};
-                links.push_back(std::move(link));
-                log("    trust link(macro): " + formatRange(reader, trustRange, filePath) + "  ->  " + formatRange(reader, *maybeMacroDef, filePath));
-            } else {
-                // Обычный маппинг — link на C++ файл
+            // Для макросов и обычных операторов цель одна — раскрытый код в cppt
+            // (клик по тексту ведёт только в cppt). Раньше для макроса строилась
+            // ссылка на определение с basePath=filePath, но координаты определения
+            // лежат в in-memory "@dsl" и применялись к src → переход уводил в конец
+            // файла (баг навигации). Определение макроса навигируемо из ховера
+            // (ссылка «Macro:» в buildHoverContents), а не из documentLink.
+            if (cppRange.begin.fileIdx().isOutput()) {
                 std::string targetUri = makeFragmentUri(reader, cs.cppFilePath, cppRange);
                 json link = {{"range", rangeToLspRange(reader, trustRange)}, {"target", targetUri}};
                 links.push_back(std::move(link));
@@ -733,13 +793,44 @@ void TrustLsp::handleDocumentLink(const json& req) {
         // Добавляем NameMap-ссылки для Trust → C++ (по всем nameMappings)
         for (const auto& nameMap : reader.getNameMappings()) {
             const auto& fromRange = nameMap.rangeMap.from;
-            if (fromRange.begin.fileIdx() != cr.trustReaderIdx)
+            if (fromRange.begin.fileIdx() != cr.trustReaderIdx) {
                 continue;
+            }
             std::string targetUri = makeFragmentUri(reader, cs.cppFilePath, nameMap.rangeMap.to);
             json link = {{"range", rangeToLspRange(reader, fromRange)}, {"target", targetUri}};
             links.push_back(std::move(link));
             log("    trust name-link: " + formatRange(reader, fromRange, filePath) + "  ->  " + formatRange(reader, nameMap.rangeMap.to, cs.cppFilePath));
         }
+    }
+
+    // Убираем ссылки, чей диапазон — строгое надмножество другого диапазона
+    // (напр. маппинг всей функции перекрывает маппинги отдельных операторов и
+    // при клике уводит к началу функции вместо конкретного оператора — баг #4).
+    if (links.size() > 1) {
+        auto posLE = [](const json& a, const json& b) -> bool {
+            return a["line"].get<int>() < b["line"].get<int>() ||
+                   (a["line"].get<int>() == b["line"].get<int>() && a["character"].get<int>() <= b["character"].get<int>());
+        };
+        auto contains = [&](const json& outer, const json& inner) -> bool {
+            return posLE(outer["start"], inner["start"]) && posLE(inner["end"], outer["end"]);
+        };
+        json filtered = json::array();
+        for (const auto& link : links) {
+            bool isSuperset = false;
+            for (const auto& other : links) {
+                if (&link == &other) {
+                    continue;
+                }
+                if (contains(link["range"], other["range"]) && !contains(other["range"], link["range"])) {
+                    isSuperset = true;
+                    break;
+                }
+            }
+            if (!isSuperset) {
+                filtered.push_back(link);
+            }
+        }
+        links = std::move(filtered);
     }
 
     json result = links;
@@ -770,6 +861,150 @@ void TrustLsp::handleDidChangeConfiguration(const json& req) {
     }
 }
 
+// ── Обработчик textDocument/completion ──
+void TrustLsp::handleCompletion(const json& req) {
+    json id = req.value("id", json());
+    json params = req.value("params", json());
+    std::string uri = params.value("textDocument", json()).value("uri", "");
+    std::string filePath = uriToFilePath(uri);
+    json pos = params.value("position", json());
+    int line = pos.value("line", 0);
+    int character = pos.value("character", 0);
+
+    log("completion: " + filePath + " " + std::to_string(line) + ":" + std::to_string(character));
+
+    json items = json::array();
+    try {
+        std::string trustFilePath = filePath;
+        auto cppIt = cppToTrustCache_.find(filePath);
+        if (cppIt != cppToTrustCache_.end()) {
+            trustFilePath = cppIt->second;
+        }
+
+        // Текст документа из буфера (актуальные правки). Не зависим от успешной
+        // транспиляции — завершение работает и на недописанном коде.
+        std::string docText;
+        auto docIt = openDocuments_.find(trustFilePath);
+        if (docIt != openDocuments_.end()) {
+            docText = docIt->second;
+        } else if (auto content = trust::utils::FileIO::read<std::string>(filePath)) {
+            docText = *content;
+        }
+
+        // Единый каталог встроенных имён (типы/методы/функции/predef+DSL-макросы).
+        const trust::BuiltinCatalog& catalog = trust::BuiltinCatalog::instance();
+        // Пер-файловый реестр + таблица символов из кеша (последняя транспиляция).
+        // Встроенные имена — из каталога; пользовательские — из SymbolIndex/реестра.
+        const trust::TypeRegistry* reg = nullptr;
+        const trust::SymbolIndex* symbols = nullptr;
+        const trust::Context* ctx = nullptr;
+        auto cit = sourceCache_.find(trustFilePath);
+        if (cit != sourceCache_.end()) {
+            reg = cit->second.types.get();
+            symbols = &cit->second.symbols;
+            ctx = cit->second.sourceMap.get();
+        }
+
+        std::string lineStr = lineAt(docText, line);
+        // Позиция курсора в байтах UTF-8 (LSP даёт UTF-16 code units).
+        const int byteChar = utf16ToByte(lineStr, character);
+
+        // Режим: member-доступ (obj.<имя>) или обычное имя.
+        std::string objName;
+        std::string prefix;
+        bool member = false;
+        {
+            int dot = -1;
+            for (int i = 0; i < byteChar; ++i) {
+                if (lineStr[static_cast<size_t>(i)] == '.') {
+                    dot = i;
+                }
+            }
+            if (dot >= 0) {
+                bool onlyName = true;
+                for (int i = dot + 1; i < byteChar; ++i) {
+                    char c = lineStr[static_cast<size_t>(i)];
+                    if (!(isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '$')) {
+                        onlyName = false;
+                        break;
+                    }
+                }
+                if (onlyName) {
+                    member = true;
+                    objName = memberObjectName(lineStr, dot);
+                    prefix = lineStr.substr(static_cast<size_t>(dot + 1), static_cast<size_t>(byteChar - dot - 1));
+                }
+            }
+            if (!member) {
+                prefix = wordPrefix(lineStr, byteChar);
+            }
+        }
+        // Начало набранного префикса в UTF-16 для textEdit-диапазона.
+        const int utf16Start = byteToUtf16(lineStr, byteChar - static_cast<int>(prefix.size()));
+
+        if (member) {
+            collectMemberItems(reg, &catalog, symbols, objName, prefix, line, utf16Start, character, items);
+        } else {
+            // Имена пользовательского кода — из таблицы анализатора (SymbolIndex).
+            collectSymbolItems(symbols, ctx, line, prefix, utf16Start, character, items);
+            // Типы: встроенные (каталог) + пользовательские (реестр).
+            collectTypeItems(reg, &catalog, prefix, line, utf16Start, character, items);
+            // Макросы: predef/DSL (каталог) + записанные анализатором (SymbolIndex).
+            collectMacroItems(&catalog, symbols, prefix, line, utf16Start, character, items);
+        }
+        items = sortCompletionItems(items);
+    } catch (const std::exception& e) {
+        reportHandlerError("completion error: " + std::string(e.what()));
+    } catch (...) {
+        reportHandlerError("completion error: unknown");
+    }
+    sendLspResponse(transport_, id, json{{"isIncomplete", false}, {"items", items}});
+}
+
+// ── Обработчик textDocument/codeAction (quickfix по fixits) ──
+// Клиент (VSCode) передаёт в context.diagnostics те же объекты, что сервер опубликовал
+// в publishDiagnostics. Fixits сервер кладёт в зарезервированное LSP поле "data"
+// (vscode-languageclient сохраняет только стандартные поля диагностики + data;
+// кастомные поля на верхнем уровне отбрасывает — поэтому без data quickfix не доходит).
+// Для обратной совместимости поддерживаем и прямое поле "fixits".
+void TrustLsp::handleCodeAction(const json& req) {
+    json id = req.value("id", json());
+    json params = req.value("params", json());
+    std::string uri = params.value("textDocument", json()).value("uri", "");
+    json actions = json::array();
+    try {
+        const json& ctxDiags = params.value("context", json()).value("diagnostics", json::array());
+        for (const auto& d : ctxDiags) {
+            // Достаём fixits из data (стандарт LSP) с fallback на прямое поле "fixits".
+            json fixits;
+            if (d.contains("data") && d["data"].is_object() && d["data"].contains("fixits") && d["data"]["fixits"].is_array()) {
+                fixits = d["data"]["fixits"];
+            } else if (d.contains("fixits") && d["fixits"].is_array()) {
+                fixits = d["fixits"];
+            } else {
+                continue;
+            }
+            std::string message = d.value("message", "diagnostic");
+            json changes = json::array();
+            for (const auto& f : fixits) {
+                json te = {{"range", f["range"]}, {"newText", f.value("replacement", "")}};
+                changes.push_back(std::move(te));
+            }
+            if (changes.empty()) {
+                continue;
+            }
+            json action = {
+                {"title", "Fix: " + message}, {"kind", "quickfix"}, {"diagnostics", json::array({d})}, {"edit", {{"changes", {{uri, std::move(changes)}}}}}};
+            actions.push_back(std::move(action));
+        }
+    } catch (const std::exception& e) {
+        reportHandlerError("codeAction error: " + std::string(e.what()));
+    } catch (...) {
+        reportHandlerError("codeAction error: unknown");
+    }
+    sendLspResponse(transport_, id, actions);
+}
+
 // ── In-process транспиляция .src → C++ + source map ──
 
 // Конвертирует LspOptions → PipelineOpts для использования Pipeline
@@ -778,6 +1013,9 @@ static trust::PipelineOpts lspOptsToPipelineOpts(const LspOptions& lspOpts) {
     opts.verbose = lspOpts.trace;
     opts.quiet = false;
     opts.temp_dir = lspOpts.tempDir;
+    // LSP: анализатор должен работать на частичном AST даже при ошибках лексера/парсера
+    // (для сбора имён/типов и автодополнения). Транспиляция при ошибках не выполняется.
+    opts.allow_semantic_on_errors = true;
     return opts;
 }
 
@@ -797,12 +1035,16 @@ std::string TrustLsp::transpileSourceFile(const std::string& trustFilePath) {
 
 // Транспиляция текста буфера. trustFilePath — ключ кеша/идентификатор исходника,
 // содержимое берётся из переданного текста, а не с диска.
+
 std::string TrustLsp::transpileSource(const std::string& trustFilePath, const std::string& trustCodeStr) {
     log("transpiling (in-process): " + trustFilePath);
     std::string_view trustCode = trustCodeStr;
 
     // Создаём Context (projectDir или "." по умолчанию)
     auto ctx = std::make_unique<trust::Context>(opts_.projectDir.empty() ? "." : opts_.projectDir);
+
+    // Сбор имён/типов анализатором (SymbolCollectorHook) для автодополнения.
+    ctx->opts().set_enabled(trust::FlagKind::Symbols, true);
 
     // Конвертируем LspOptions → PipelineOpts и вычисляем пути через Pipeline
     auto pipelineOpts = lspOptsToPipelineOpts(opts_);
@@ -825,17 +1067,65 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
     trust::MapperFile cppIdx = ctx->source().add_output(cpptPath.filename().string());
 
     // ── Запускаем пайплайн через Pipeline ──
+    trust::SymbolIndex symbols;                    // имена+типы+диапазоны из анализатора
+    std::unique_ptr<trust::TypeRegistry> registry; // живой реестр (чтобы TypeId в symbols был валиден)
     {
         // Pipeline сам настраивает diag, но trust-lsp предпочитает свой вывод
         trust::Pipeline pipeline(*ctx, pipelineOpts);
-        pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
-        // AST нас не интересует — нам нужен только source map и C++ код
-        // Возвращаемый PipelineResult можно не использовать
+        trust::PipelineResult result;
+        try {
+            result = pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+        } catch (const std::exception& e) {
+            // Анализатор упал на частичном AST. НЕ глотаем без диагностики: публикуем сообщение
+            // с диапазоном (начало файла), чтобы LSP показал причину падения, а не «пустоту».
+            log("pipeline exception: " + std::string(e.what()));
+            ctx->diag().report(trust::Severity::Error, ctx->source().makeLoc(trustIdx, 1), "internal analysis error: {}", e.what());
+        }
+
+        // Забираем владение реестром типов, чтобы SymbolInfo::type (TypeId) оставался валидным
+        // после уничтожения Pipeline. Встроенные типы разделяются через общее ядро TypeRegistry.
+        registry = pipeline.releaseTypes();
+
+        // Символы из анализатора (SymbolCollectorHook): имя + тип + диапазоны. Если runPipeline
+        // упал ДО семантического шага (Fatal при парсинге), result.symbols пуст — дособираем
+        // макросы, записанные в Context во время парсинга (не теряются после PopScope модуля).
+        if (result.symbols) {
+            symbols = std::move(*result.symbols);
+        } else {
+            trust::appendMacroSymbols(*ctx, symbols);
+        }
     }
 
     // ── Конвертируем MapperFile → ReaderFile для хранения в кеше ──
     trust::ReaderFile trustReaderIdx = trust::ReaderFile::from(trustIdx);
     trust::ReaderFile cppReaderIdx = trust::ReaderFile::from(cppIdx);
+
+    // ── Сохраняем dsl.src вместе с остальными заголовками в <tempDir>/trust/,
+    // чтобы были навигируемы определения макросов: их диапазоны лежат в
+    // in-memory источнике "@dsl" (файла на диске нет). Копируем содержимое
+    // "@dsl" в <tempDir>/trust/dsl.src. Путь к файлу в buildHoverContents
+    // выводится из каталога cppFilePath (<каталог cppt>/trust/dsl.src). ──
+    if (saveToDisk) {
+        try {
+            const auto* reader = ctx->source().toReader();
+            if (reader) {
+                trust::ReaderFile dslIdx = reader->findFile("@dsl");
+                if (!dslIdx.isInvalid()) {
+                    std::string_view dslSource = reader->source(dslIdx);
+                    std::filesystem::path dslPath = cpptPath.parent_path() / "trust" / "dsl.src";
+                    std::error_code ec;
+                    std::filesystem::create_directories(dslPath.parent_path(), ec);
+                    std::ofstream ofs(dslPath, std::ios::binary);
+                    if (ofs) {
+                        ofs.write(dslSource.data(), static_cast<std::streamsize>(dslSource.size()));
+                        log("  saved dsl.src to: " + std::filesystem::absolute(dslPath).string());
+                    }
+                }
+            }
+        } catch (const std::exception& e) {
+            log("  dsl.src save failed: " + std::string(e.what()));
+        }
+    }
 
     // Сохраняем .cppt + .src_map рядом + #embed — единый код
     if (saveToDisk) {
@@ -901,6 +1191,8 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
     cs.cppFilePath = cppFilePath;
     cs.trustReaderIdx = trustReaderIdx;
     cs.cppReaderIdx = cppReaderIdx;
+    cs.symbols = std::move(symbols);
+    cs.types = std::move(registry);
     sourceCache_[trustFilePath] = std::move(cs);
 
     if (!hasErrors) {
@@ -927,18 +1219,20 @@ void TrustLsp::publishDiagnostics(const std::string& uri) {
         const auto* ctx = it->second.sourceMap.get(); // Context владеет line_column для MapperLocation
         const auto& entries = diag.diagnostics();
         for (const auto& entry : entries) {
-            if (entry.severity < trust::Severity::Error) {
-                continue; // отправляем только ошибки и выше
+            // Публикуем только диагностики ТЕКУЩЕГО trust-файла: диагностики импортированных
+            // модулей имеют собственные URI/координаты и не должны приписываться этому файлу.
+            // Output (cpp) и невалидные диапазоны пропускаем (им нет места в проблем-панели src).
+            if (entry.range.begin.isInvalid() || entry.range.begin.fileIdx().isOutput() ||
+                entry.range.begin.fileIdx().as_index() != it->second.trustReaderIdx.as_index()) {
+                continue;
             }
-            // Конвертируем MapperRange → LSP Range
-            json range = json::object();
-            if (ctx && !entry.range.begin.isInvalid()) {
-                auto beginLC = ctx->source().line_column(entry.range.begin);
-                auto endLC = !entry.range.end.isInvalid() && entry.range.begin.fileIdx() == entry.range.end.fileIdx()
-                                 ? ctx->source().line_column(entry.range.end)
-                                 : beginLC;
-                range = {{"start", {{"line", static_cast<int>(beginLC.line) - 1}, {"character", static_cast<int>(beginLC.column) - 1}}},
-                         {"end", {{"line", static_cast<int>(endLC.line) - 1}, {"character", static_cast<int>(endLC.column) - 1}}}};
+            // Публикуем все severity (Error/Fatal → 1, Warning → 2, Note → 3, Remark → 4).
+            // Конвертируем MapperRange → LSP Range (0-based) через общий diag/protocol.hpp
+            json range;
+            if (ctx) {
+                const auto pr = trust::mapperRangeToProtocol(ctx->source(), entry.range);
+                range = {{"start", {{"line", pr.start.line}, {"character", pr.start.character}}},
+                         {"end", {{"line", pr.end.line}, {"character", pr.end.character}}}};
             } else {
                 // Без позиции — ставим в начало
                 range = {{"start", {{"line", 0}, {"character", 0}}}, {"end", {{"line", 0}, {"character", 1}}}};
@@ -946,38 +1240,25 @@ void TrustLsp::publishDiagnostics(const std::string& uri) {
 
             log("  diagnostic: " + filePath + " range=" + range.dump() + " sev=" + std::to_string(static_cast<int>(entry.severity)) + " msg=" + entry.message);
 
-            // Маппим Severity → LSP DiagnosticSeverity (1=Error, 2=Warning, 3=Info, 4=Hint)
-            int lspSeverity = 3; // Info по умолчанию
-            switch (entry.severity) {
-            case trust::Severity::Fatal:
-            case trust::Severity::Error:
-                lspSeverity = 1;
-                break;
-            case trust::Severity::Warning:
-                lspSeverity = 2;
-                break;
-            case trust::Severity::Note:
-                lspSeverity = 3;
-                break;
-            case trust::Severity::Remark:
-                lspSeverity = 4;
-                break;
-            }
+            // Severity → LSP DiagnosticSeverity (1=Error, 2=Warning, 3=Info, 4=Hint)
+            const int lspSeverity = trust::severityToLsp(entry.severity);
 
             json diagObj = {{"range", range}, {"severity", lspSeverity}, {"source", "trust-lsp"}, {"message", entry.message}};
 
-            // Прикрепляем fixit-подсказки, если есть
+            // Прикрепляем fixit-подсказки, если есть. Кладём их в зарезервированное
+            // LSP поле "data": vscode-languageclient сохраняет у диагностики только
+            // стандартные поля + data, а кастомные (например, прямое "fixits") при
+            // запросе codeAction отбрасывает — без data quickfix не построить.
             if (!entry.fixits.empty() && ctx) {
                 json fixits = json::array();
                 for (const auto& f : entry.fixits) {
-                    auto fbLC = ctx->source().line_column(f.range.begin);
-                    auto feLC = ctx->source().line_column(f.range.end);
+                    const auto pr = trust::mapperRangeToProtocol(ctx->source(), f.range);
                     fixits.push_back({{"range",
-                                       {{"start", {{"line", static_cast<int>(fbLC.line) - 1}, {"character", static_cast<int>(fbLC.column) - 1}}},
-                                        {"end", {{"line", static_cast<int>(feLC.line) - 1}, {"character", static_cast<int>(feLC.column) - 1}}}}},
+                                       {{"start", {{"line", pr.start.line}, {"character", pr.start.character}}},
+                                        {"end", {{"line", pr.end.line}, {"character", pr.end.character}}}}},
                                       {"replacement", f.replacement}});
                 }
-                diagObj["fixits"] = std::move(fixits);
+                diagObj["data"] = json{{"fixits", std::move(fixits)}};
             }
 
             diagnostics.push_back(std::move(diagObj));

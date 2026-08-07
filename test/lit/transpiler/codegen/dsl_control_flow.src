@@ -1,0 +1,56 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# DSL-макросы: if / elif / else
+x:Int32 := 5;
+@if(x > 0) {
+    a := 1;
+} @elif(x < 0) {
+    b := -1;
+} @else {
+    c := 0;
+};
+# CHECK: if ((c_x > 0)) {
+# CHECK-NEXT:     bool c_a = 1;
+# CHECK-NEXT: } else if ((c_x < 0)) {
+# CHECK-NEXT:     std::any c_b = -1;
+# CHECK-NEXT: } else {
+# CHECK-NEXT:     bool c_c = 0;
+# CHECK-NEXT: }
+
+# DSL while
+z:Int32 := 0;
+@while(z < 5) {
+    z := z + 1;
+};
+# CHECK: while ((c_z < 5)) {
+# CHECK-NEXT:     std::any c_z = (c_z + 1);
+# CHECK-NEXT: }
+
+# DSL dowhile (тело перед макросом)
+{ z := z + 1; } @dowhile(z < 8);
+# CHECK: do {
+# CHECK-NEXT:     std::any c_z = (c_z + 1);
+# CHECK-NEXT: } while ((c_z < 8));
+
+# DSL loop (бесконечный цикл)
+@loop {
+    ++;
+};
+# CHECK: while (1) {
+# CHECK-NEXT:     break;
+# CHECK-NEXT: }
+
+# DSL match / case / default
+@match(x) ==> {
+    @case(1) { y := 1; };
+    @case(2, 3) { y := 2; };
+    @default { y := 0; };
+};
+# CHECK: auto _match1 = c_x;
+# CHECK-NEXT: if (_match1 == 1) {
+# CHECK-NEXT:     bool c_y = 1;
+# CHECK-NEXT: } else if (_match1 == 2 || _match1 == 3) {
+# CHECK-NEXT:     int8_t c_y = 2;
+# CHECK-NEXT: } else {
+# CHECK-NEXT:     bool c_y = 0;
+# CHECK-NEXT: }

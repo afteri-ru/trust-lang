@@ -17,14 +17,19 @@ void OutputBuffer::prepend(std::string_view text, std::string_view ns) {
     m_prefixes[key].emplace(text);
 }
 
+void OutputBuffer::prependLeading(std::string_view text) {
+    m_leading.append(text);
+}
+
 std::string OutputBuffer::build(unsigned indentSize) const {
-    std::string result;
+    std::string result = m_leading;
     for (const auto& [ns, lines] : m_prefixes) {
         if (ns.empty()) {
             for (const auto& line : lines) {
                 result.append(line);
-                if (line.empty() || line.back() != '\n')
+                if (line.empty() || line.back() != '\n') {
                     result.push_back('\n');
+                }
             }
         } else {
             result.append("namespace ");
@@ -34,8 +39,9 @@ std::string OutputBuffer::build(unsigned indentSize) const {
             for (const auto& line : lines) {
                 result.append(indent);
                 result.append(line);
-                if (line.empty() || line.back() != '\n')
+                if (line.empty() || line.back() != '\n') {
                     result.push_back('\n');
+                }
             }
             result.append("}\n");
         }
@@ -66,28 +72,81 @@ SourceMapWriter::SourceMapWriter(std::string_view basePath, std::string_view tem
     }
 }
 
+// ── Главный (корневой) файл модуля ──
+
+void SourceMapWriter::setMainModuleFile(MapperFile mainFile) {
+    m_mainModuleFile = mainFile;
+}
+
+std::string SourceMapWriter::moduleName(MapperFile idx) const {
+    std::error_code ec;
+    // filename(idx) — путь, нормализованный относительно baseDirectory (может быть относительным).
+    fs::path file = fs::path(filename(idx));
+    if (!file.is_absolute()) {
+        file = fs::path(m_baseDirectory) / file;
+    }
+    file = file.lexically_normal();
+
+    // База отсчёта: каталог главного файла (если задан), иначе baseDirectory.
+    // filename(...) возвращает путь относительно baseDirectory — приводим базу к absolute,
+    // чтобы fs::relative сравнивал пути одинаковой природы.
+    fs::path baseDir;
+    if (!m_mainModuleFile.isInvalid()) {
+        baseDir = fs::path(filename(m_mainModuleFile)).parent_path();
+    }
+    if (baseDir.empty()) {
+        baseDir = fs::path(m_baseDirectory);
+    }
+    if (!baseDir.is_absolute()) {
+        baseDir = fs::path(m_baseDirectory) / baseDir;
+    }
+    baseDir = baseDir.lexically_normal();
+
+    fs::path rel;
+    if (baseDir.empty()) {
+        rel = file;
+    } else {
+        rel = fs::relative(file, baseDir, ec);
+        if (ec) {
+            rel = file.filename();
+        }
+    }
+
+    std::string name = rel.replace_extension("").generic_string();
+    for (char& ch : name) {
+        if (ch == '/' || ch == '\\') {
+            ch = '_';
+        }
+    }
+    return name;
+}
+
 // ── Утилиты ──
 
 bool SourceMapWriter::validateSimpleName(std::string_view name) {
-    if (name.empty())
+    if (name.empty()) {
         return false;
+    }
     for (char c : name) {
-        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_')) {
             return false;
+        }
     }
     return true;
 }
 
 std::string SourceMapWriter::normalizePath(std::string_view path) const {
-    if (path.empty())
+    if (path.empty()) {
         return {};
+    }
     // Resolve relative paths against the base directory, not the current
     // working directory. Otherwise the stored filename depends on the process
     // CWD and becomes unusable when the map is read back from another location.
     fs::path base = fs::path(m_baseDirectory);
     fs::path p(path);
-    if (!p.is_absolute())
+    if (!p.is_absolute()) {
         p = base / p;
+    }
     auto rel = fs::relative(p, base);
     return rel.generic_string();
 }
@@ -95,8 +154,9 @@ std::string SourceMapWriter::normalizePath(std::string_view path) const {
 // ── findFileIdx ──
 
 MapperFile SourceMapWriter::findFileIdx(std::string_view filePath) const {
-    if (filePath.empty())
+    if (filePath.empty()) {
         return MapperFile{0};
+    }
 
     std::string norm = normalizePath(filePath);
 
@@ -106,13 +166,16 @@ MapperFile SourceMapWriter::findFileIdx(std::string_view filePath) const {
 // ── get_prepend ──
 
 std::string SourceMapWriter::get_prepend(MapperFile idx, unsigned indentSize) const {
-    if (idx.isInvalid())
+    if (idx.isInvalid()) {
         FAULT("FileIdx is invalid (raw == 0)");
-    if (!idx.isOutput())
+    }
+    if (!idx.isOutput()) {
         FAULT("FileIdx is an input file, not an output file");
+    }
     auto it = m_outputBuffers.find(idx.raw);
-    if (it == m_outputBuffers.end())
+    if (it == m_outputBuffers.end()) {
         FAULT("output FileIdx has no prepend buffer");
+    }
     return it->second.build(indentSize);
 }
 
@@ -127,8 +190,9 @@ MapperFile SourceMapWriter::add_source(std::string filename, std::string content
     if (normalize) {
         filename = normalizePath(filename);
     } else {
-        if (!validateSimpleName(filename))
+        if (!validateSimpleName(filename)) {
             FAULT("Filename '{}' not valid!", filename);
+        }
     }
     uint32_t idx = m_inputs.size();
     m_inputs.emplace_back(std::move(filename), std::move(content));
@@ -144,15 +208,17 @@ MapperFile SourceMapWriter::load_file(std::string path) {
 
     // Проверка на дубликат
     for (uint32_t i = 0; i < m_inputs.size(); ++i) {
-        if (m_inputs[i].getFilename() == norm)
+        if (m_inputs[i].getFilename() == norm) {
             FAULT("Module file {} already loaded as index {}!", m_inputs[i].getFilename(), i);
+        }
     }
 
     auto content = utils::FileIO::read<std::vector<char>>(norm);
     if (!content) {
         content = utils::FileIO::read<std::vector<char>>(path);
-        if (!content)
+        if (!content) {
             FAULT("Module file '{}' not found!", norm);
+        }
     }
     m_inputs.emplace_back(std::move(norm), std::string(content->data(), content->size()));
     m_reader.reset();
@@ -165,8 +231,9 @@ MapperFile SourceMapWriter::add_output(std::string filename, bool normalize) {
     if (normalize) {
         filename = normalizePath(filename);
     } else {
-        if (!validateSimpleName(filename))
+        if (!validateSimpleName(filename)) {
             FAULT("Filename '{}' not valid!", filename);
+        }
     }
     uint32_t idx = m_outputs.size();
     m_outputs.emplace_back(std::move(filename));
@@ -176,8 +243,9 @@ MapperFile SourceMapWriter::add_output(std::string filename, bool normalize) {
 }
 
 bool SourceMapWriter::output_append(MapperFile idx, std::string_view text) {
-    if (!idx.isOutput())
+    if (!idx.isOutput()) {
         FAULT("FileIdx is an input file, not an output file");
+    }
     auto& out = get_file(idx);
     out.appendSource(text);
     m_reader.reset();
@@ -185,12 +253,27 @@ bool SourceMapWriter::output_append(MapperFile idx, std::string_view text) {
 }
 
 bool SourceMapWriter::output_prepend(MapperFile idx, std::string_view text, std::string_view ns) {
-    if (!idx.isOutput())
+    if (!idx.isOutput()) {
         FAULT("FileIdx is an input file, not an output file");
+    }
     auto it = m_outputBuffers.find(idx.raw);
-    if (it == m_outputBuffers.end())
+    if (it == m_outputBuffers.end()) {
         FAULT("output FileIdx has no prepend buffer");
+    }
     it->second.prepend(text, ns);
+    m_reader.reset();
+    return true;
+}
+
+bool SourceMapWriter::output_prepend_leading(MapperFile idx, std::string_view text) {
+    if (!idx.isOutput()) {
+        FAULT("FileIdx is an input file, not an output file");
+    }
+    auto it = m_outputBuffers.find(idx.raw);
+    if (it == m_outputBuffers.end()) {
+        FAULT("output FileIdx has no prepend buffer");
+    }
+    it->second.prependLeading(text);
     m_reader.reset();
     return true;
 }
@@ -206,8 +289,9 @@ std::string SourceMapWriter::output_result(MapperFile idx) const {
 }
 
 std::string_view SourceMapWriter::output_body(MapperFile idx) const {
-    if (!idx.isOutput())
+    if (!idx.isOutput()) {
         FAULT("FileIdx is an input file, not an output file");
+    }
     return get_file(idx).getSource();
 }
 
@@ -260,24 +344,29 @@ bool SourceMapWriter::save_output(std::string_view outputDir) {
 // ── Создание и валидация Location / Range ──
 
 MapperRange SourceMapWriter::makeRange(MapperLocation begin, MapperLocation end) const {
-    if (begin.isInvalid() || end.isInvalid())
+    if (begin.isInvalid() || end.isInvalid()) {
         FAULT("Location is invalid (packed == 0)");
-    if (begin.fileIdx() != end.fileIdx())
+    }
+    if (begin.fileIdx() != end.fileIdx()) {
         FAULT("begin and end belong to different files");
-    if (end.offset() < begin.offset())
+    }
+    if (end.offset() < begin.offset()) {
         FAULT("end offset {} is less than begin offset {}", end.offset(), begin.offset());
+    }
     return MapperRange{begin, end};
 }
 
 bool SourceMapWriter::isValid(MapperLocation loc) const {
-    if (loc.isInvalid())
+    if (loc.isInvalid()) {
         return false;
+    }
     return loc.offset() <= get_file(loc.fileIdx()).size();
 }
 
 bool SourceMapWriter::isValid(MapperRange range) const {
-    if (!isValid(range.begin) || !isValid(range.end))
+    if (!isValid(range.begin) || !isValid(range.end)) {
         return false;
+    }
     return range.begin.fileIdx() == range.end.fileIdx() && range.begin <= range.end;
 }
 
@@ -294,6 +383,9 @@ std::string_view SourceMapWriter::source(MapperLocation loc) const {
 // ══════════════════════════════════════════════════════════════
 
 bool SourceMapWriter::addRangeMapping(MapperRange trustRange, MapperRange cppRange) {
+    if (mappingSuppressed()) {
+        return true; // подавлено: синтетические узлы (forward-decl на сайте импорта)
+    }
     EXPECT(!trustRange.begin.isInvalid());
     EXPECT(!trustRange.end.isInvalid());
     EXPECT(!cppRange.begin.isInvalid());
@@ -302,8 +394,28 @@ bool SourceMapWriter::addRangeMapping(MapperRange trustRange, MapperRange cppRan
     uint32_t trustKey = trustRange.begin.packed;
     uint32_t cppKey = cppRange.begin.packed;
 
-    EXPECT(m_forward.find(trustKey) == m_forward.end() && "trustKey already mapped");
-    EXPECT(m_backward.find(cppKey) == m_backward.end() && "cppKey already mapped");
+    auto trustIt = m_forward.find(trustKey);
+    if (trustIt != m_forward.end()) {
+        FAULT("addRangeMapping: trustKey already mapped: "
+              "key={:#x} new=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}] "
+              "existing=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}]",
+              trustKey, trustRange.begin.fileIdx().as_index(), trustRange.begin.offset(), trustRange.end.fileIdx().as_index(), trustRange.end.offset(),
+              cppRange.begin.fileIdx().as_index(), cppRange.begin.offset(), cppRange.end.fileIdx().as_index(), cppRange.end.offset(),
+              trustIt->second.from.begin.fileIdx().as_index(), trustIt->second.from.begin.offset(), trustIt->second.from.end.fileIdx().as_index(),
+              trustIt->second.from.end.offset(), trustIt->second.to.begin.fileIdx().as_index(), trustIt->second.to.begin.offset(),
+              trustIt->second.to.end.fileIdx().as_index(), trustIt->second.to.end.offset());
+    }
+    auto cppIt = m_backward.find(cppKey);
+    if (cppIt != m_backward.end()) {
+        FAULT("addRangeMapping: cppKey already mapped: "
+              "key={:#x} new=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}] "
+              "existing=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}]",
+              cppKey, trustRange.begin.fileIdx().as_index(), trustRange.begin.offset(), trustRange.end.fileIdx().as_index(), trustRange.end.offset(),
+              cppRange.begin.fileIdx().as_index(), cppRange.begin.offset(), cppRange.end.fileIdx().as_index(), cppRange.end.offset(),
+              cppIt->second.from.begin.fileIdx().as_index(), cppIt->second.from.begin.offset(), cppIt->second.from.end.fileIdx().as_index(),
+              cppIt->second.from.end.offset(), cppIt->second.to.begin.fileIdx().as_index(), cppIt->second.to.begin.offset(),
+              cppIt->second.to.end.fileIdx().as_index(), cppIt->second.to.end.offset());
+    }
 
     m_forward[trustKey] = RangeMap{trustRange, cppRange};
     m_backward[cppKey] = RangeMap{cppRange, trustRange};
@@ -312,6 +424,9 @@ bool SourceMapWriter::addRangeMapping(MapperRange trustRange, MapperRange cppRan
 }
 
 bool SourceMapWriter::addNameMapping(MapperRange trustRange, MapperRange cppRange, std::string_view trustName, std::string_view cppName) {
+    if (mappingSuppressed()) {
+        return true;
+    }
     EXPECT(!trustRange.begin.isInvalid());
     EXPECT(!trustRange.end.isInvalid());
     EXPECT(!cppRange.begin.isInvalid());
@@ -328,18 +443,24 @@ bool SourceMapWriter::addNameMapping(MapperRange trustRange, MapperRange cppRang
 }
 
 bool SourceMapWriter::addMacroMapping(MapperRange bodyRange, MapperRange defRange) {
+    if (mappingSuppressed()) {
+        return true;
+    }
     EXPECT(!bodyRange.begin.isInvalid());
     EXPECT(!bodyRange.end.isInvalid());
     EXPECT(!defRange.begin.isInvalid());
     EXPECT(!defRange.end.isInvalid());
-    if (bodyRange.begin.isOutput())
+    if (bodyRange.begin.isOutput()) {
         FAULT("bodyRange must be an input file");
-    if (defRange.begin.isOutput())
+    }
+    if (defRange.begin.isOutput()) {
         FAULT("defRange must be an input file");
+    }
 
     uint32_t key = bodyRange.begin.packed;
-    if (m_macroForward.find(key) != m_macroForward.end())
+    if (m_macroForward.find(key) != m_macroForward.end()) {
         return true;
+    }
 
     m_macroForward[key] = RangeMap{bodyRange, defRange};
     m_reader.reset();
@@ -351,10 +472,12 @@ bool SourceMapWriter::addMacroMapping(MapperRange bodyRange, MapperRange defRang
 // ══════════════════════════════════════════════════════════════
 
 MapperRange SourceMapWriter::mapStart(MapperFile from, uint32_t from_begin, uint32_t from_end, MapperFile to) {
-    if (from.isInvalid())
+    if (from.isInvalid()) {
         FAULT("mapStart: 'from' FileIdx is invalid");
-    if (from_begin > from_end)
+    }
+    if (from_begin > from_end) {
         FAULT("mapStart: from_begin ({}) > from_end ({})", from_begin, from_end);
+    }
 
     MapperLocation begin = makeLoc(from, from_begin);
     MapperLocation end = makeLoc(from, from_end);
@@ -362,10 +485,15 @@ MapperRange SourceMapWriter::mapStart(MapperFile from, uint32_t from_begin, uint
 }
 
 MapperRange SourceMapWriter::mapStart(MapperRange from, MapperFile to) {
-    if (from.begin.isInvalid() || from.end.isInvalid())
+    if (from.begin.isInvalid() || from.end.isInvalid()) {
         FAULT("mapStart(Range): 'from' Range is invalid");
-    if (to.isInvalid() || !to.isOutput())
+    }
+    if (to.isInvalid() || !to.isOutput()) {
         FAULT("mapStart(Range): 'to' FileIdx must be a valid output file");
+    }
+    if (mappingSuppressed()) {
+        return from; // подавлено: не пушим и не маппим
+    }
 
     Location outputBegin = makeLoc(to, get_file(to).size() + 1);
 
@@ -374,12 +502,16 @@ MapperRange SourceMapWriter::mapStart(MapperRange from, MapperFile to) {
 }
 
 const SourceMapWriter::MapStartEntry& SourceMapWriter::mapStackTop() const {
-    if (m_mapStack.empty())
+    if (m_mapStack.empty()) {
         FAULT("mapStackTop: map stack is empty");
+    }
     return m_mapStack.back();
 }
 
 MapperRange SourceMapWriter::mapStop(MapperRange from) {
+    if (mappingSuppressed()) {
+        return from; // подавлено: mapStart не пушил — нечего закрывать
+    }
     EXPECT(!m_mapStack.empty());
 
     MapStartEntry entry = m_mapStack.back();
@@ -401,8 +533,28 @@ MapperRange SourceMapWriter::mapStop(MapperRange from) {
     uint32_t trustKey = entry.inputRange.begin.packed;
     uint32_t cppKey = cppRange.begin.packed;
 
-    EXPECT(m_forward.find(trustKey) == m_forward.end() && "trustKey already mapped");
-    EXPECT(m_backward.find(cppKey) == m_backward.end() && "cppKey already mapped");
+    auto trustIt = m_forward.find(trustKey);
+    if (trustIt != m_forward.end()) {
+        FAULT("mapStop: trustKey already mapped: "
+              "key={:#x} new=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}] "
+              "existing=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}]",
+              trustKey, entry.inputRange.begin.fileIdx().as_index(), entry.inputRange.begin.offset(), entry.inputRange.end.fileIdx().as_index(),
+              entry.inputRange.end.offset(), cppRange.begin.fileIdx().as_index(), cppRange.begin.offset(), cppRange.end.fileIdx().as_index(),
+              cppRange.end.offset(), trustIt->second.from.begin.fileIdx().as_index(), trustIt->second.from.begin.offset(),
+              trustIt->second.from.end.fileIdx().as_index(), trustIt->second.from.end.offset(), trustIt->second.to.begin.fileIdx().as_index(),
+              trustIt->second.to.begin.offset(), trustIt->second.to.end.fileIdx().as_index(), trustIt->second.to.end.offset());
+    }
+    auto cppIt = m_backward.find(cppKey);
+    if (cppIt != m_backward.end()) {
+        FAULT("mapStop: cppKey already mapped: "
+              "key={:#x} new=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}] "
+              "existing=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}]",
+              cppKey, entry.inputRange.begin.fileIdx().as_index(), entry.inputRange.begin.offset(), entry.inputRange.end.fileIdx().as_index(),
+              entry.inputRange.end.offset(), cppRange.begin.fileIdx().as_index(), cppRange.begin.offset(), cppRange.end.fileIdx().as_index(),
+              cppRange.end.offset(), cppIt->second.from.begin.fileIdx().as_index(), cppIt->second.from.begin.offset(),
+              cppIt->second.from.end.fileIdx().as_index(), cppIt->second.from.end.offset(), cppIt->second.to.begin.fileIdx().as_index(),
+              cppIt->second.to.begin.offset(), cppIt->second.to.end.fileIdx().as_index(), cppIt->second.to.end.offset());
+    }
 
     m_forward[trustKey] = RangeMap{entry.inputRange, cppRange};
     m_backward[cppKey] = RangeMap{cppRange, entry.inputRange};
@@ -415,8 +567,9 @@ MapperRange SourceMapWriter::mapStop(MapperRange from) {
 // ══════════════════════════════════════════════════════════════
 
 const SourceMapReader* SourceMapWriter::toReader() const {
-    if (m_reader)
+    if (m_reader) {
         return m_reader.get();
+    }
 
     auto reader = std::make_unique<SourceMapReader>();
 
@@ -470,12 +623,14 @@ const SourceMapReader* SourceMapWriter::toReader() const {
             (void)key;
             auto& cppRange = cppIsFrom ? entry.from : entry.to;
             auto cppIdx = cppRange.begin.fileIdx();
-            if (!cppIdx.isOutput())
+            if (!cppIdx.isOutput()) {
                 continue;
+            }
             uint32_t outIdx = cppIdx.as_index();
             uint64_t prependSize = prependSizes[outIdx];
-            if (prependSize == 0)
+            if (prependSize == 0) {
                 continue;
+            }
             uint32_t beginOff = cppRange.begin.offset();
             using LocType = decltype(cppRange.begin);
             cppRange.begin = LocType::makeLoc(cppIdx, beginOff + static_cast<uint32_t>(prependSize));
@@ -488,15 +643,31 @@ const SourceMapReader* SourceMapWriter::toReader() const {
     offsetPrepends(reader->m_backward, true);
     offsetPrepends(reader->m_forward, false);
 
+    // Ключи m_backward — это cpp-begin (устанавливаются в mapStop как body-выровненные
+    // `get_file(to).size()+1`). offsetPrepends сдвинул cpp-RANGE (value) на prependSize,
+    // но ключ остался body-выровненным. Без пере-ключения findRangeMap/findRange
+    // (upper_bound по ключу) не совпадёт с full-выровненным запросом (lspToLocation),
+    // и обратный маппинг попадёт в «соседний» statement. Пере-ключаем на from.begin.
+    {
+        std::map<uint32_t, SourceMapReader::RangeMap> rekeyed;
+        for (auto& [oldKey, entry] : reader->m_backward) {
+            (void)oldKey;
+            rekeyed[entry.from.begin.packed] = std::move(entry);
+        }
+        reader->m_backward = std::move(rekeyed);
+    }
+
     for (auto& entry : reader->m_nameMappings) {
         auto& cppRange = entry.rangeMap.to;
         auto cppIdx = cppRange.begin.fileIdx();
-        if (!cppIdx.isOutput())
+        if (!cppIdx.isOutput()) {
             continue;
+        }
         uint32_t outIdx = cppIdx.as_index();
         uint64_t prependSize = prependSizes[outIdx];
-        if (prependSize == 0)
+        if (prependSize == 0) {
             continue;
+        }
         uint32_t beginOff = cppRange.begin.offset();
         cppRange.begin = ReaderLocation::makeLoc(cppIdx, beginOff + static_cast<uint32_t>(prependSize));
         if (!cppRange.end.isInvalid()) {

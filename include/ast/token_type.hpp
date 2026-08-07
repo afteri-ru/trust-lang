@@ -27,24 +27,17 @@ class IdentType : public IdentName {
         m_kind = ParserToken::Kind::TypeName;
     }
 
-    /// Test-only constructor: creates the node without a Term (range() will EXPECT).
-    IdentType(std::string name, MapperRange r, std::optional<std::vector<AstNodePtr>> dims = std::nullopt,
-              std::optional<std::vector<AstNodePtr>> params = std::nullopt)
-    : IdentName(std::move(name))
+    /// Терм-конструктор: имя читается из Term; kind=TypeName нормализует через
+    /// normalizeTermText (срез ведущего ':' и хвостового '^') в базовом IdentName.
+    IdentType(TermPtr term, std::optional<std::vector<AstNodePtr>> dims = std::nullopt, std::optional<std::vector<AstNodePtr>> params = std::nullopt)
+    : IdentName(std::move(term), ParserToken::Kind::TypeName)
     , m_dims(std::move(dims))
-    , m_params(std::move(params)) {
-        (void)r;
-        m_kind = ParserToken::Kind::TypeName;
-    }
+    , m_params(std::move(params)) {}
 
-    /// Конструктор из исходного Term (имя копируется в m_name).
-    IdentType(std::string name, TermPtr term, std::optional<std::vector<AstNodePtr>> dims = std::nullopt,
-              std::optional<std::vector<AstNodePtr>> params = std::nullopt)
-    : IdentName(std::move(name), std::move(term))
-    , m_dims(std::move(dims))
-    , m_params(std::move(params)) {
-        m_kind = ParserToken::Kind::TypeName;
-    }
+    /// Uniform term-constructor for the generated factory (kind всегда TypeName).
+    /// При ctx != nullptr сам строит детей: m_dims из term->m_type (ARGS-терм `[...]`),
+    /// m_params из term->m_args (call-аргументы `(...)`). Объявлен здесь, определён в token_type.cpp.
+    IdentType(ParserToken::Kind /*k*/, TermPtr term, Context* ctx = nullptr);
 
     /// Read-only access to dims/params
     const auto& dims() const noexcept { return m_dims; }

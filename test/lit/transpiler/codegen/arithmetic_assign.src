@@ -1,0 +1,20 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка генерации составных операторов присваивания
+x:Int32 := 10;
+# CHECK: int32_t c_x = 10;
+
+x += 5;
+# CHECK-NEXT: c_x += 5;
+
+x -= 3;
+# CHECK-NEXT: c_x -= 3;
+
+x *= 2;
+# CHECK-NEXT: c_x *= 2;
+
+x /= 4;
+# CHECK-NEXT: c_x /= 4;
+
+x %= 3;
+# CHECK-NEXT: c_x %= 3;

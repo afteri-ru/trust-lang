@@ -1,0 +1,31 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Типизация целей spread-словаря + однократная оценка источника + runtime-guard на нехватку.
+# Сгруппированы сценарии (были destructure_typed_dict / destructure_expr_once / destructure_runtime_guard):
+#  - `a, b, c := ... d` — per-element типизация: a=Int64 (int), b=Bool, c=Int64 (runtime Dict
+#    нормализует int → int64_t, поэтому any_cast<int64_t>), а не единый std::any;
+#  - `p, q, _ := ... (1,2,3,)` — источник-литерал оценивается ОДИН раз в __trust_dst (не на каждую цель);
+#  - `_, r, tail... := ... (1,2,3,4,)` — `_` skip + r + rest; guard `size() < 2` перед pop'ами.
+
+@main() := {
+    d := (10, true, 20,);
+    a, b, c := ... d;
+    p, q, _ := ... (1,2,3,);
+    _, r, tail... := ... (1,2,3,4,);
+};
+# CHECK: trust::Dict c_d = trust::Dict
+# CHECK-NEXT: auto __trust_dst_0 = c_d;
+# CHECK-NEXT: if (__trust_dst_0.size() < 3) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: int64_t c_a = std::any_cast<int64_t>(__trust_dst_0.pop_front());
+# CHECK-NEXT: bool c_b = std::any_cast<bool>(__trust_dst_0.pop_front());
+# CHECK-NEXT: int64_t c_c = std::any_cast<int64_t>(__trust_dst_0.pop_front());
+# CHECK-NEXT: auto __trust_dst_1 = trust::Dict
+# CHECK-NEXT: if (__trust_dst_1.size() < 3) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: bool c_p = std::any_cast<bool>(__trust_dst_1.pop_front());
+# CHECK-NEXT: int64_t c_q = std::any_cast<int64_t>(__trust_dst_1.pop_front());
+# CHECK-NEXT: __trust_dst_1.pop_front();
+# CHECK-NEXT: auto __trust_dst_2 = trust::Dict
+# CHECK-NEXT: if (__trust_dst_2.size() < 2) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: __trust_dst_2.pop_front();
+# CHECK-NEXT: int64_t c_r = std::any_cast<int64_t>(__trust_dst_2.pop_front());
+# CHECK-NEXT: trust::Dict c_tail = __trust_dst_2;

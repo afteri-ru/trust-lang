@@ -1,0 +1,16 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка объявления переменных с явными строковыми типами
+# StrChar/String (узкая) ← '…'; StrWide (широкая) ← "…" (эмитится L"…").
+a:StrChar := 'hello';
+# CHECK: std::string c_a = "hello";
+
+b:String := 'world';
+# CHECK-NEXT: std::string c_b = "world";
+
+c:StrWide := "wide";
+# CHECK-NEXT: std::wstring c_c = L"wide";
+
+# Дополнительно: Any (обобщённый тип)
+d:Any := 42;
+# CHECK-NEXT: std::any c_d = 42;

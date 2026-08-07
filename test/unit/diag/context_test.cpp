@@ -822,3 +822,28 @@ TEST(ContextTest, OutputPrepend_NoPrepend_OutputBodyUnchanged) {
     EXPECT_TRUE(ctx.source().output_append(out, "int x = 1;"));
     EXPECT_EQ(ctx.source().output_result(out), "int x = 1;");
 }
+
+// Документирующий комментарий перед макроопределением записывается в MacroDef.
+TEST(ContextTest, RecordMacroCapturesDocComment) {
+    Context ctx;
+    MapperFile src = ctx.source().add_source("test.src", "/// macro doc\n@foo");
+    auto loc = ctx.source().loc_from_line(src, 2);
+    ctx.recordMacro("foo", MapperRange{loc, loc});
+
+    ASSERT_EQ(ctx.macroDefs().size(), 1);
+    EXPECT_NE(ctx.macroDefs()[0].documentation.find("macro doc"), std::string::npos) << ctx.macroDefs()[0].documentation;
+    EXPECT_FALSE(ctx.macroDefs()[0].documentation.empty());
+}
+
+// Хвостовой inline-док (`///<`) после определения макроса тоже привязывается к макроопределению.
+TEST(ContextTest, RecordMacroCapturesTrailingDocComment) {
+    Context ctx;
+    MapperFile src = ctx.source().add_source("test.src", "@foo := 42 ///< macro trail");
+    auto begin = ctx.source().makeLoc(src, 1);
+    auto end = ctx.source().makeLoc(src, 11); // после `42`, перед `///<`
+    ctx.recordMacro("foo", MapperRange{begin, end});
+
+    ASSERT_EQ(ctx.macroDefs().size(), 1);
+    EXPECT_NE(ctx.macroDefs()[0].documentation.find("macro trail"), std::string::npos) << ctx.macroDefs()[0].documentation;
+    EXPECT_NE(ctx.macroDefs()[0].documentation.find("///<"), std::string::npos);
+}

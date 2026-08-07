@@ -1,9 +1,9 @@
 # test/lit/CMakeLists.txt
-# LIT test symlinks, custom targets and aggregated test targets
+# LIT output symlinks and CTest registration
 
 # ── LIT output symlinks (one per test subdirectory) ──
 if(NOT CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
-    foreach(_subdir parser/dsl parser/macros parser pipeline transpiler)
+    foreach(_subdir parser/ast parser/lex parser/tokens parser/diag parser/dsl transpiler/codegen transpiler/src_map pipeline/build pipeline/e2e pipeline/module)
         file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit/Output/${_subdir}/Output)
         if(NOT EXISTS "${CMAKE_SOURCE_DIR}/test/lit/${_subdir}/Output")
             file(CREATE_LINK
@@ -22,51 +22,16 @@ if(NOT CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
     endif()
 endif()
 
-# ── LIT test targets ──
-if(WITH_TORCH)
-    set(TORCH_PCH_DEP torch_pch_target)
-else()
-    set(TORCH_PCH_DEP "")
-endif()
-
-# add_custom_target(run_lit_pipeline
-#     COMMAND timeout --kill-after=10 120 ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/test/lit/cli
-#     DEPENDS pipeline_lib generate_lit_cfg_py
-#     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-#     COMMENT "Running LIT tests (pipeline, timeout: 120s)"
-#     USES_TERMINAL
-# )
-
-add_custom_target(run_lit_tests
-    COMMAND ${LIT_EXECUTABLE} -v ${CMAKE_SOURCE_DIR}/test/lit
-    DEPENDS trust generate_lit_cfg_py
+# ── CTest registration ──
+# LIT integration tests run as a single CTest test (via the trust CLI + FileCheck).
+# LIT always runs in succinct (brief) mode: `-v` (verbose) is deliberately
+# NOT used so the output stays concise.
+add_test(NAME lit_tests
+    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/test/lit
+)
+set_tests_properties(lit_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit
-    COMMENT "Running LIT tests"
-    USES_TERMINAL
+    TIMEOUT 300
+    # Final stage examples_tests runs only after all suites pass (fixture examples_deps).
+    FIXTURES_SETUP examples_deps
 )
-
-# ── Debug test targets ──
-
-add_custom_target(run_debug_main
-    COMMAND "${CMAKE_SOURCE_DIR}/test/wrapper/failed.sh" "run_debug_main" timeout --kill-after=5 10 $<TARGET_FILE:gdb_main> "$<TARGET_FILE:gdb_debuggee>"
-    DEPENDS gdb_main gdb_debuggee
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMENT "Running GDB debug test (timeout: 10s, kill-after: 5s)"
-    USES_TERMINAL
-)
-
-# add_custom_target(run_simple_integration
-#     COMMAND "${CMAKE_SOURCE_DIR}/test/wrapper/failed.sh" "run_simple_integration" timeout --kill-after=5 10 $<TARGET_FILE:simple_integration> --binary "${TEST_BINARY}" --map "${TEST_MAP}"
-#     DEPENDS simple_integration simple_compile
-#     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-#     COMMENT "Running debug integration test (timeout: 10s, kill-after: 5s)"
-#     USES_TERMINAL
-# )
-
-# add_custom_target(run_debug_tests
-#     DEPENDS run_simple_integration
-#     COMMENT "Running debug component tests"
-# )
-
-# ── Aggregated test targets ──
-# `run_tests` объявлен в корневом CMakeLists.txt

@@ -13,7 +13,7 @@
 #include <filesystem>
 #include <vector>
 
-#include "diag/location.hpp"
+#include "location/location.hpp"
 #include "diag/msgpack_util.hpp"
 #include "utils/cache.hpp"
 #include "utils/error.hpp"
@@ -221,8 +221,12 @@ struct OutputBuffer;
 struct OutputBuffer {
     // ns -> set of unique prefix strings
     std::map<std::string, std::set<std::string>> m_prefixes;
+    // Непорядковый «leading» префикс, эмитится ПЕРВЫМ (до отсортированного множества m_prefixes).
+    // Используется для шапки автогенерируемого файла/лицензии, чтобы они были первой строкой.
+    std::string m_leading;
 
     void prepend(std::string_view text, std::string_view ns = "");
+    void prependLeading(std::string_view text);
     std::string build(unsigned indentSize = 4) const;
 };
 
@@ -260,6 +264,7 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     [[nodiscard]] MapperFile add_output(std::string filename, bool normalize = true);
     bool output_append(MapperFile idx, std::string_view text);
     bool output_prepend(MapperFile idx, std::string_view text, std::string_view ns = "");
+    bool output_prepend_leading(MapperFile idx, std::string_view text);
     [[nodiscard]] std::string output_result(MapperFile idx) const;
     [[nodiscard]] std::string_view output_body(MapperFile idx) const;
     [[nodiscard]] bool save_output(std::string_view outputDir);
@@ -311,6 +316,28 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     void setBaseDirectory(std::string_view path);
     [[nodiscard]] const std::string& baseDirectory() const noexcept { return m_baseDirectory; }
 
+    // ── Главный (корневой) файл модуля ──
+    /// Устанавливает путь главного файла программы/модуля. Имя модуля любого файла
+    /// (см. moduleName) вычисляется относительно каталога главного файла.
+    void setMainModuleFile(MapperFile mainFile);
+    /// Имя модуля по FileIdx: путь текущего файла относительно каталога главного файла,
+    /// без расширения; разделители каталога ('/' и '\\') заменяются на '_'.
+    /// Если главный файл не задан — используется baseDirectory.
+    [[nodiscard]] std::string moduleName(MapperFile idx) const;
+
+    // ── Подавление маппинга (для синтетических узлов, напр. forward-decl на сайте импорта) ──
+    // Пока счётчик > 0, addRangeMapping/addNameMapping/mapStart/mapStop/addMacroMapping — no-op.
+    void suppressMapping() { ++m_mappingSuppressed; }
+    void resumeMapping() {
+        EXPECT(m_mappingSuppressed > 0);
+        --m_mappingSuppressed;
+    }
+    [[nodiscard]] bool mappingSuppressed() const noexcept { return m_mappingSuppressed > 0; }
+    /// True, если mapStart уже выполнен (стек маппинга не пуст) — т.е. можно безопасно
+    /// вызывать mapDeclaredName (иначе mapStackTop FAULT). Используется для опционального
+    /// маппинга синтетических узлов без исходного range.
+    [[nodiscard]] bool mappingActive() const noexcept { return !m_mapStack.empty(); }
+
   private:
     static bool validateSimpleName(std::string_view name);
     std::string normalizePath(std::string_view path) const;
@@ -324,8 +351,10 @@ class SourceMapWriter : public SourceMap<MapperFile> {
 
     std::string m_baseDirectory;
     std::string m_tempDirectory;
+    MapperFile m_mainModuleFile{}; ///< FileIdx главного файла программы (см. moduleName).
 
     std::vector<MapStartEntry> m_mapStack;
+    int m_mappingSuppressed = 0;
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -465,12 +494,14 @@ std::string_view SourceMap<FileIdx>::getText(Range range) const {
 template <typename FileIdx>
 FileIdx SourceMap<FileIdx>::findFileIdx(std::string_view name) const {
     for (uint32_t i = 0; i < m_inputs.size(); ++i) {
-        if (m_inputs[i].getFilename() == name)
+        if (m_inputs[i].getFilename() == name) {
             return FileIdx::make_input(i);
+        }
     }
     for (uint32_t i = 0; i < m_outputs.size(); ++i) {
-        if (m_outputs[i].getFilename() == name)
+        if (m_outputs[i].getFilename() == name) {
             return FileIdx::make_output(i);
+        }
     }
     return FileIdx{0};
 }
@@ -479,20 +510,23 @@ template <typename FileIdx>
 FileIdx SourceMap<FileIdx>::findFileIdxByBasename(std::string_view name) const {
     // Сначала точное совпадение (полный путь)
     FileIdx exact = findFileIdx(name);
-    if (!exact.isInvalid())
+    if (!exact.isInvalid()) {
         return exact;
+    }
 
     // Поиск по basename
     namespace fs = std::filesystem;
     for (uint32_t i = 0; i < m_inputs.size(); ++i) {
         std::string_view fname = m_inputs[i].getFilename();
-        if (fname == name || fs::path(fname).filename() == name)
+        if (fname == name || fs::path(fname).filename() == name) {
             return FileIdx::make_input(i);
+        }
     }
     for (uint32_t i = 0; i < m_outputs.size(); ++i) {
         std::string_view fname = m_outputs[i].getFilename();
-        if (fname == name || fs::path(fname).filename() == name)
+        if (fname == name || fs::path(fname).filename() == name) {
             return FileIdx::make_output(i);
+        }
     }
     return FileIdx{0};
 }
@@ -559,8 +593,9 @@ std::optional<SourceMapReader::NameMap> SourceMapReader::findNameInMappings(cons
                                                                             NameMatcher&& nameMatcher, Range RangeMap::* rangeMember) {
     for (const auto& v : nameMappings) {
         const Range& r = v.rangeMap.*rangeMember;
-        if (nameMatcher(v) && locPacked >= r.begin.packed && locPacked <= r.end.packed)
+        if (nameMatcher(v) && locPacked >= r.begin.packed && locPacked <= r.end.packed) {
             return v;
+        }
     }
     return std::nullopt;
 }

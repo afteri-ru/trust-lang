@@ -1,5 +1,5 @@
 #include "diag/context.hpp"
-#include "diag/location.hpp"
+#include "location/location.hpp"
 #include "diag/mapper.hpp"
 
 #include <gtest/gtest.h>

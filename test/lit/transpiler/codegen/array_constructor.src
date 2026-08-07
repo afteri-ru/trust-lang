@@ -1,0 +1,10 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# Конструкция массива `:Array(...)` → std::vector<Elem> (автовывод типа элемента, узкая разрядность).
+
+a := :Array(1,2,3);
+# CHECK: #include <vector>
+# CHECK: std::vector<int8_t> c_a = std::vector<int8_t>{1, 2, 3};
+
+b := :Array(10, 20, 30);
+# CHECK: std::vector<int8_t> c_b = std::vector<int8_t>{10, 20, 30};

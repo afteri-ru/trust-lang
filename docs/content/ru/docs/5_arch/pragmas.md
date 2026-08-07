@@ -11,6 +11,9 @@ weight: 200
 
 ### Предварительное объевления объектов
 @\_\_PRAGMA_DECLARE\_\_
+
+{{< unreleased why="прагма @__PRAGMA_DECLARE__ в текущей версии не существует (см. список поддерживаемых @__PRAGMA_* в src/syntax/parser.cpp)" />}}
+
 ```
     @__PRAGMA_DECLARE__( func(arg) );
 
@@ -19,6 +22,9 @@ weight: 200
 ### Импорт нативной функции / переменной 
 
 @\_\_PRAGMA_NATIVE\_\_
+
+{{< unreleased why="прагма @__PRAGMA_NATIVE__ в текущей версии не существует; импорт нативных объектов выполняется через @extern/@forward или `name(...):T := %native...` (см. docs/types/native)" />}}
+
 ```
     // import native int printf(char *format, ...)
     @__PRAGMA_NATIVE__( printf(format:FmtChar, ...):Int32 );

@@ -1,0 +1,148 @@
+# trust-lsp HTML/JSON-контракт (playground)
+
+Документ описывает контракт двухоконного playground (godbolt-стиль) между
+`trust-lsp`, отдельным сервером-исполнителем и страницей сайта. Читать вместе с
+`lsp/MEMORY.md`.
+
+## Режимы
+
+`trust-lsp` дополнительно к LSP-режимам (interactive / `server[=<port>]`)
+поддерживает два режима вывода результата in-process транспиляции Trust→C++:
+
+- `--json [input]` — печатает в stdout JSON-контракт (см. ниже). input — `.src`
+  файл; если опущен или `-` — читает stdin.
+- `--html [input]` — печатает в stdout godbolt-стиль HTML-фрагмент: два редактора
+  Monaco (Trust | C++ read-only) + встроенный glue-JS.
+  - `--html-full` — обернуть фрагмент в полную HTML-страницу.
+  - `--monaco-url <url>` — базовый путь сборки Monaco (AMD `vs`); по умолчанию
+    официальный CDN (`kDefaultMonacoUrl`).
+  - `--server-url <url>` — endpoint живого запуска (см. §4).
+  - `--examples-dir <dir>` — каталог с `*.src`, встраиваемый в фрагмент как
+    статический список примеров (комбобокс выбора). Каждый файл становится
+    элементом `{name, source}` (name = basename без расширения).
+
+## JSON-контракт (`resultToJson`, live-контракт страницы)
+
+```json
+{
+  "source": "<Trust-текст>",
+  "cpp": "<сгенерированный C++: autogen-заголовок + include + тело>",
+  "ok": true,
+  "error": "",
+  "trustToCpp": [[], [4,5,6], [4], ...],   // индекс = строка Trust (1-based) → строки C++
+  "cppToTrust": [[], [], [], [1], ...],     // индекс = строка C++ (1-based) → строки Trust
+  "log": "<stderr trust-lsp: диагностика/предупреждения>"   // опционально (worker)
+}
+```
+
+Массивы `trustToCpp`/`cppToTrust` строятся проекцией forward (`m_forward`) и
+backward (`m_backward`) маппингов source-map на строки через `line_column()`.
+Индексы 1-based; сортированы по возрастанию, без дубликатов. `ok=false` при
+ошибках транспиляции (`error` — текст диагностики), при этом `cpp`/map могут
+быть частичными.
+
+Дополнительные поля (возвращаются балансировщиком/воркером, не входят в
+статический HTML-конфиг):
+
+- `log` — stderr субпроцесса `trust-lsp` (полный текст диагностики), если он
+  непуст; glue-JS выводит его в окно лога под панелями.
+- `/run` НЕ возвращает build-архив и не имеет поля `buildArchiveUrl`/`archive`.
+  Build-архив собирается **лениво** — отдельным `POST /download` (см. §4), который
+  заново обрабатывает текущий код и сразу отдаёт `tar.gz` (без кеша на
+  балансировщике).
+
+
+## HTML-контракт
+
+Фрагмент — самодостаточен: встроены `<style>` (CSS-переменные `--tpl-*` для
+переопределения темы сайта), разметка, конфиг и glue-JS. Внешней остаётся только
+библиотека Monaco (`--monaco-url`).
+
+### Структура DOM
+
+```html
+<style> ... .tpl-pg { --tpl-bg; --tpl-text; --tpl-gutter; --tpl-border;
+                       --tpl-toolbar; --tpl-linked; --tpl-error; } ... </style>
+<div class="tpl-pg" id="trust-playground">
+  <div class="tpl-row">
+    <div class="tpl-pane"><div class="tpl-toolbar">Trust
+        <select id="tpl-examples" class="tpl-examples" title="Load example"></select></div>
+      <div id="tpl-trust-editor" class="tpl-editor"></div></div>
+    <div class="tpl-pane"><div class="tpl-toolbar">Generated C++
+        <a id="tpl-download" class="tpl-btn" href="#" hidden title="Download build archive">⬇ Build</a></div>
+      <div id="tpl-cpp-editor" class="tpl-editor"></div></div>
+  </div>
+  <div id="tpl-log" class="tpl-log"></div>
+  <div id="tpl-status" class="tpl-status"></div>
+</div>
+<script>...</script>
+```
+
+ID фиксированы (`trust-playground`, `tpl-trust-editor`, `tpl-cpp-editor`,
+`tpl-examples`, `tpl-status`, `tpl-log`, `tpl-download`) — один playground на страницу.
+- `#tpl-log` — окно лога под панелями (в него пишется `log` контракта при транспиляции).
+- `#tpl-download` — кнопка «⬇ Скачать» (ленивый `POST /download`: заново обрабатывает
+  текущий код и скачивает build-архив `tar.gz`).
+
+### Встроенный конфиг (глобальное пространство имён `window.__TPG`)
+
+```js
+window.__TPG.config = { monacoUrl, serverUrl, source, cpp, ok, error,
+                        trustToCpp, cppToTrust,
+                        examples: [ {name, source}, ... ] };
+window.__TPG.monarch = function(){ return (<Monarch-токенайзер Trust>); };
+window.__TPG.glue   = function(m){ var __MONARCH__ = m; (<glue-JS>); };
+window.__TPG.glue(window.__TPG.monarch());
+```
+
+`examples` — статический список примеров из `--examples-dir` (может быть
+пустым): `name` — label комбобокса, `source` — исходный Trust-текст.
+
+Все строки (`source`, `cpp`, `error`, URL, `examples[].name`/`.source`)
+экранируются `jsonEscape` с заменой `<` → `\u003c` — это гарантирует, что
+пользовательский код не завершит `<script>`-блок (HTML/JS-safety).
+
+### glue-JS (навигация и живая пере-транспиляция)
+
+- Регистрирует язык `trust` и задаёт Monarch-токенайзер (regex-подсветка Trust:
+  комментарии `/* */`/`#`, макросы `@…`, переменные `$…`, типы `:…`, нативные
+  `%…`, строки, числа, операторы). C++ — встроенный язык Monaco.
+- Создаёт два редактора Monaco (`vs-dark`, Trust — редактируемый, C++ — read-only).
+- Синхронная навигация: `onMouseDown` по строке → `deltaDecorations` с классом
+  `.tpl-linked` на соответствующих строках противоположной панели
+  (`trustToCpp`/`cppToTrust`).
+- Живая пере-транспиляция: при изменении Trust-кода (debounce 400 мс) отправляет
+  `fetch(serverUrl, POST, text/plain)` с текущим текстом; ответ — JSON-контракт;
+  обновляет C++-редактор и маппинги. Если `serverUrl` пуст — пере-транспиляция
+  отключена (статический фрагмент).
+- Комбобокс примеров (`#tpl-examples`): наполняется из `cfg.examples`. Начальный
+  выбор — пример, чей `source` совпадает с `cfg.source`; если такого нет —
+  отключённая опция «Custom». При выборе примера, если текущий текст Trust
+  отличается от `source` последнего загруженного примера, glue-JS запрашивает
+  подтверждение (`confirm`) перед заменой, иначе заменяет сразу. После замены
+  текст редактора устанавливается из `ex.source`, что через существующий debounce
+  (при заданном `serverUrl`) запускает пере-транспиляцию.
+
+## Протокол с отдельным сервером (§4)
+
+- `POST <serverUrl>` body = Trust-код как `text/plain; charset=utf-8`.
+- Ответ `200` + тело = JSON-контракт из §2.
+- Сервер реализует endpoint, линкуя `lsp_lib` и вызывая
+  `trust::lsp::transpileToResult(code, name, opts)` (или делегируя
+  `trust-lsp --json`), затем `resultToJson`. Пере-транспиляция выполняется
+  сервером (in-process), а не браузером.
+- При отсутствии свободных воркеров балансировщик отвечает `503` + тело
+  `{"ok":false,"unavailable":true,"error":"...","instructionsUrl":"https://…/host-a-worker/"}`.
+  glue-JS показывает в строке статуса сообщение со ссылкой на инструкцию.
+- `POST <serverUrl>/download` (балансировщик) — тело = Trust-код как `text/plain`.
+  Ленивая сборка build-архива: отдельный запрос, заново обрабатывает файл
+  (свежая транспиляция + сборка build-каталога самим trust-lsp `--emit-build-dir`,
+  без компиляции), без кеша на балансировщике. Ответ `200` + `application/gzip` +
+  `Content-Disposition: attachment; filename="trust-lang-<версия>-generated.tar.gz"`;
+  иначе `400/429/503/502`. Кнопка «⬇ Скачать» использует этот endpoint.
+
+## Тесты
+
+`test/unit/lsp/html_emit_test.cpp`: маппинг строк, валидность JSON и round-trip,
+структура HTML-фрагмента (Monarch/init/редакторы/конфиг), `--html-full`,
+HTML-safety `jsonEscape`.

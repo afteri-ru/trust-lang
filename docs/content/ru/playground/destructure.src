@@ -1,0 +1,27 @@
+#!../_build/trust --run -Wsigil=ignore
+
+### Destructuring: typed targets, assignment into existing variables,
+### dictionary spread (rest / skip / ignore-rest) and per-element typing.
+
+@main() := {
+    # ── Tuple destructuring ──
+    t := (10, 20,):Tuple;
+    a:Int64, b:Int64 := t;      # typed targets (int64_t)
+    a, b = (30, 40,):Tuple;     # assignment into existing variables
+    @print('tuple {}-{}\n', a, b);               # tuple 30-40
+
+    # ── Dictionary spread: exact binding + rest marker ──
+    d := (1, 2, 3, 4,);
+    first, second, rest... := ... d;             # rest... = остаток {3,4} (источник не мутируется)
+    @print('dict {}-{}-{}\n', first, second, rest);  # dict true-2-(3, 4,)
+
+    # ── Skip `_` and ignore-rest `_...` ──
+    _, second_only, _... := ... d;               # пропуск 1-го, остаток отброшен
+    @print('skip {}\n', second_only);            # skip 2
+
+    # ── Per-element typing (non-loop): each target gets its natural runtime type ──
+    dd := (true, 10, 2.5,);
+    flag, num, ratio := ... dd;                  # bool, int64_t, double
+    @print('typed {}-{}-{}\n', flag, num, ratio);  # typed true-10-2.5
+}
+

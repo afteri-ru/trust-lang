@@ -12,12 +12,15 @@ tags: [типы данных, ООП, коллекции]
 Различия между классом и словарем заключается в том, что поля словаря могу изменять динамически, 
 тогда как состав полей класса определется во время компиляции и могут только расширяться по сравнению родительскими типами??????
 
-Создание нового сложного типа (класса), происходит согласно [правилам синтаксиса](/ru/docs/ops/create/) как создание нового типа 
+Создание нового сложного типа (класса), происходит согласно [правилам синтаксиса](/ru/docs/4_operators/create/) как создание нового типа 
 как функции в пользовательском [пространстве имен](/ru/docs/syntax/namespace/). 
 Имя типа является именем нового класса, а его вызов как функции будет вызовом конструктора.
-Области видимости [тут](/ru/docs/arch/visibility.)
+Области видимости [тут](/ru/docs/5_arch/visibility/)
 
 Синтаксис создание класса выглядит следующим образом:
+
+{{< unreleased why="описанный здесь синтаксис классов (наследование, конструкторы/деструкторы, статические/объектные поля и методы, квалификаторы @::/., виртуальные методы) в текущей версии НЕ реализован: например `:Point := :Class() (...)` и вызов `:Point()` дают ошибку 'unable to generate C++ type'. Реализованы типы Enum/Variant/Tuple (см. docs/types/dicts и include/types/MEMORY.md)" />}}
+
 ```python
 # Новый тип (класс) :NewClass
 ns::NewClass() := :Class() { # Родительские класс или несколько классов через запятую
@@ -30,35 +33,35 @@ ns::NewClass() := :Class() { # Родительские класс или нес
     func() := {}; # Метод класса всегда статический
     .method() := {}; # Метод объекта (у каждого объекта свой)
 
-    ~NewClass() ::= { # Деструктор класса
+    ~NewClass() := { # Деструктор класса
 
     };
 };
 obj := ns::NewClass(); # Экземпляр класса
 ```
 
-Так как *NewLang* реализует полный набор вариантов проверок при создании объектов, 
+Так как *TrustLang* реализует полный набор вариантов проверок при создании объектов, 
 то переопределения наследуемых функций не требует никаких ключевых слов:
 ```python
 NewClass2() := NewClass { # Новый класс на базе существующего
-    .field ::= 2;    # Будет ошибка, т.к. поле field уже есть в базовом классе
+    .field := 2;    # Будет ошибка, т.к. поле field уже есть в базовом классе
     method() = {};  # Аналог override, т.к. method должен существовать в базовом классе
 };
 ```
 
 ```python
 
-@@ self_required() @@ ::= @if( @not(@self) ) { @throw :ErrorRuntime( 'Fail function call without object!' ); };
+@@ self_required() @@ := @if( @not(@self) ) { @throw :ErrorRuntime( 'Fail function call without object!' ); };
 
-:File(filename: String, mode:String) ::= Class(){
+:File(filename: String, mode:String) := Class(){
     :Handler ::= :Pointer;
-    _fopen(file:StrChar, mode:StrChar):Handler ::= %fopen64 ...;
-    _fclose(hfile:Handler):None ::= %fclose ...;
-    _ftmpfile():Handler ::= %ftmpfile ...;
+    _fopen(file:StrChar, mode:StrChar):Handler := %fopen64 ...;
+    _fclose(hfile:Handler):None := %fclose ...;
+    _ftmpfile():Handler := %ftmpfile ...;
     
-    ._haldler:Handler ::= 0; # FILE handler
+    ._haldler:Handler := 0; # FILE handler
 
-    ~File() ::= { # Destructor
+    ~File() := { # Destructor
         @self_required();
         [ $0._haldler ] --> {
             _fclose($0._haldler);
@@ -78,10 +81,10 @@ NewClass2() := NewClass { # Новый класс на базе существу
 
 };
 
-File::remove(filename:String):Int32; ::= %remove ...;
-File::frename(old:String, new:String):Int32 ::= %rename...;
-File::_fflush(stream:FileHandler):Int32 ::= fflush...;
-File::flush(hfile:Handler = -1):Int32 ::= {
+File::remove(filename:String):Int32; := %remove ...;
+File::frename(old:String, new:String):Int32 := %rename...;
+File::_fflush(stream:FileHandler):Int32 := fflush...;
+File::flush(hfile:Handler = -1):Int32 := {
     @self_required();
     [ hfile != -1 ] --> {
         @return _fflush(stream);
@@ -92,8 +95,8 @@ File::flush(hfile:Handler = -1):Int32 ::= {
     };
 };
 
-File::_fileno(handler:Handler) ::= fileno ...;
-File::fileno():Int32 ::= {
+File::_fileno(handler:Handler) := fileno ...;
+File::fileno():Int32 := {
     [ $0 ] {
         @return _fileno($0._haldler);
     },[...] ={
@@ -101,15 +104,15 @@ File::fileno():Int32 ::= {
     };
 };
 
-File::_fputc(c:Int32, stream:Handler):Int32 ::= fputc ...;
-File::_fputs(string:String, stream:Handler):Int32 ::= fputs...;
+File::_fputc(c:Int32, stream:Handler):Int32 := fputc ...;
+File::_fputs(string:String, stream:Handler):Int32 := fputs...;
 
-File::_fread(c:Int32, stream:Handler):Int32 ::= fputc ...;
-File::_fwrite(c:Int32, stream:Handler):Int32 ::= fputc ...;
+File::_fread(c:Int32, stream:Handler):Int32 := fputc ...;
+File::_fwrite(c:Int32, stream:Handler):Int32 := fputc ...;
 size_t fwrite(const void *buf, size_t size, size_t count, FILE *stream)
 
-File::_fread(buf:Pointer, size:Integer, count:Integer, stream:Handler):Integer ::= fread ...;
-File::read(&buf:Integer, size:Integer = -1):Integer ::= {
+File::_fread(buf:Pointer, size:Integer, count:Integer, stream:Handler):Integer := fread ...;
+File::read(&buf:Integer, size:Integer = -1):Integer := {
     [ @not($0) ] {
         @throw( "Fail read without object!" );
     };
@@ -127,8 +130,8 @@ int flushall(void)
 int fcloseall(void)
 
 
-File::filelegth() ::= {
-    $size: Int64 ::= _;
+File::filelegth() := {
+    $size: Int64 := _;
     @if( @.embed-enabled ){%
         size_t save = ftell($0._handler); // get current file pointer
         fseek($0._handler, 0, SEEK_END); // seek to end of file
@@ -149,25 +152,25 @@ File::filelegth() ::= {
 
 :FileHandler ::= :Pointer;
 
-fopen(filename:String, modes:String):FileHandler ::= :Pointer("fopen(filename:StrChar, modes:StrChar):FileHandler");;
-fopen64(filename:String, modes:String):FileHandler ::= :Pointer("fopen(filename:StrChar, modes:StrChar):FileHandler");;
+fopen(filename:String, modes:String):FileHandler := :Pointer("fopen(filename:StrChar, modes:StrChar):FileHandler");;
+fopen64(filename:String, modes:String):FileHandler := :Pointer("fopen(filename:StrChar, modes:StrChar):FileHandler");;
 
-freopen(filename:String, modes:String):FileHandler ::= :Pointer("freopen(filename:StrChar, modes:StrChar, stream:FileHandler):FileHandler");;
-fclose(stream:FileHandler):Int32 ::= :Pointer("fclose(stream:FileHandler):Int32");;
-fflush(stream:FileHandler):Int32 ::= :Pointer("fflush(stream:FileHandler):Int32");;
-fremove(filename:String):Int32 ::= :Pointer("remove(filename:StrChar):Int32");;
-frename(old:String, new:String):Int32 ::= :Pointer("rename(old:StrChar, new:StrChar):Int32");;
-ftmpfile():FileHandler ::= :Pointer("tmpfile():FileHandler");;
+freopen(filename:String, modes:String):FileHandler := :Pointer("freopen(filename:StrChar, modes:StrChar, stream:FileHandler):FileHandler");;
+fclose(stream:FileHandler):Int32 := :Pointer("fclose(stream:FileHandler):Int32");;
+fflush(stream:FileHandler):Int32 := :Pointer("fflush(stream:FileHandler):Int32");;
+fremove(filename:String):Int32 := :Pointer("remove(filename:StrChar):Int32");;
+frename(old:String, new:String):Int32 := :Pointer("rename(old:StrChar, new:StrChar):Int32");;
+ftmpfile():FileHandler := :Pointer("tmpfile():FileHandler");;
 
-fprintf(stream:FileHandler, format:FmtChar, ...):Int32 ::= :Pointer("fprintf(stream:FileHandler, format:FmtChar, ...):Int32");;
-fscanf(stream:FileHandler, format:FmtChar, ...):Int32 ::= :Pointer("fscanf(stream:FileHandler, format:FmtChar, ...):Int32");;       
-fgetc(stream:FileHandler):Int32 ::= :Pointer("fgetc(stream:FileHandler):Int32");;
-fungetc(c:Int32, stream:FileHandler):Int32 ::= :Pointer("ungetc(c:Int32, stream:FileHandler):Int32");;
-fputc(c:Int32, stream:FileHandler):Int32 ::= :Pointer("fputc(c:Int32, stream:FileHandler):Int32");;
-fputs(string:String, stream:FileHandler):Int32 ::= :Pointer("fputs(c:StrChar, stream:FileHandler):Int32");;
+fprintf(stream:FileHandler, format:FmtChar, ...):Int32 := :Pointer("fprintf(stream:FileHandler, format:FmtChar, ...):Int32");;
+fscanf(stream:FileHandler, format:FmtChar, ...):Int32 := :Pointer("fscanf(stream:FileHandler, format:FmtChar, ...):Int32");;       
+fgetc(stream:FileHandler):Int32 := :Pointer("fgetc(stream:FileHandler):Int32");;
+fungetc(c:Int32, stream:FileHandler):Int32 := :Pointer("ungetc(c:Int32, stream:FileHandler):Int32");;
+fputc(c:Int32, stream:FileHandler):Int32 := :Pointer("fputc(c:Int32, stream:FileHandler):Int32");;
+fputs(string:String, stream:FileHandler):Int32 := :Pointer("fputs(c:StrChar, stream:FileHandler):Int32");;
 
-SEEK ::= :Enum(SET=0, CUR=1, END=2);
-fseek(stream:FileHandler, offset:Int64, whence:Int32):Int32 ::= :Pointer("fseek(stream:FileHandler, offset:Int64, whence:Int32):Int32");;
+SEEK := :Enum(SET=0, CUR=1, END=2);
+fseek(stream:FileHandler, offset:Int64, whence:Int32):Int32 := :Pointer("fseek(stream:FileHandler, offset:Int64, whence:Int32):Int32");;
 
 
 ## Виртуальные функции {#overriding}
@@ -229,16 +232,16 @@ namespace ns {
 :NativeClass := %ns::NativeClassCPP {
 
     # Конструктор класса
-    NativeClass(day:Int32=0, month:Int32=0, year:Int32=0) ::= %(day, month, year) { 
+    NativeClass(day:Int32=0, month:Int32=0, year:Int32=0) := %(day, month, year) { 
     # Будет вызываться  NativeClassCPP(int day, int month, int year )
 
     }
 
-    getDate():None ::= %getDate ...;
-    Message():StdString  ::= %message ...;
-    setDate(day:Int32, month:Int32, int year:Int32):None ::= %setDate...;
+    getDate():None := %getDate ...;
+    Message():StdString  := %message ...;
+    setDate(day:Int32, month:Int32, int year:Int32):None := %setDate...;
 
-    ~NativeClass() ::= {
+    ~NativeClass() := {
         # Деструктор для нативного объекта вызывается автоматически
     };
 };
@@ -252,7 +255,7 @@ obj.Message();
 
 
 ## Интерфейсы, именование методов классов и пространства имен
-Для создания уникальных идентификаторов на основе имен методов классов, *NewLang* использует подход, похожий на применяемый в языке Python. 
+Для создания уникальных идентификаторов на основе имен методов классов, *TrustLang* использует подход, похожий на применяемый в языке Python. 
 При создании метода класса, создается глобальная функция с именем класса и именем метода, объединенные через разделитель области имен. 
 Например, в классе `NewClass2` при создании метода `method` будет создана функция с именем `::NewClass2::method`.
 
@@ -286,7 +289,7 @@ ns::NewClass() :=  Class() {    # Новый класс на базе сущес
     _NewClass() := {...}; # Скрытый метод с именем типа - защищенный конструктор объекта ?????????????????
     __NewClass() := {...}; # Скрытый метод с именем типа - приватный конструктор объекта ?????????????????
 
-    :NewClass(type) ::= {...}:NewClass; # Функция для приведения типа объекта $type к типу :NewClass
+    :NewClass(type) := {...}:NewClass; # Функция для приведения типа объекта $type к типу :NewClass
     ~NewClass() = {...}; # Скрытый метод - финализатор (вызывается перед освобождением памяти)
 
     __equals__(obj):Bool = { __compare__($obj) == 0 };

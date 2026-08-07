@@ -1,0 +1,49 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Пустые операторы ';' в sequence (ведущие/хвостовые/одиночные) — допустимы.
+# Раньше грамматика требовала expression после ';' внутри блока (см. `sequence` в parser.y.in);
+# теперь пустой оператор разрешён, как на верхнем уровне.
+
+# Без пустых операторов (baseline).
+%f(a:Int32):Int32 := {
+    ++ a ++;
+};
+# CHECK: int32_t f(int32_t c_a) {
+# CHECK-NEXT:     return c_a;
+# CHECK-NEXT: }
+
+# Ведущий пустой оператор.
+%g(a:Int32):Int32 := {
+    ;
+    ++ a ++;
+};
+# CHECK: int32_t g(int32_t c_a) {
+# CHECK-NEXT:     return c_a;
+# CHECK-NEXT: }
+
+# Хвостовой пустой оператор.
+%h(a:Int32):Int32 := {
+    ++ a ++;
+    ;
+};
+# CHECK: int32_t h(int32_t c_a) {
+# CHECK-NEXT:     return c_a;
+# CHECK-NEXT: }
+
+# Несколько пустых операторов подряд.
+%j(a:Int32):Int32 := {
+    ;
+    ;
+    ++ a ++;
+    ;
+};
+# CHECK: int32_t j(int32_t c_a) {
+# CHECK-NEXT:     return c_a;
+# CHECK-NEXT: }
+
+# Только пустые операторы — тело функции пусто.
+%i():Void := {
+    ;
+};
+# CHECK: void i() {
+# CHECK-NEXT: }

@@ -90,12 +90,13 @@ int main(int argc, const char* argv[]) {
     debug.Continue();
     GdbDebug::Event evt = debug.WaitForEvent(5000);
     trust::outs() << "  Event after continue: ";
-    if (evt == GdbDebug::Event::Exit)
+    if (evt == GdbDebug::Event::Exit) {
         trust::outs() << "Exit";
-    else if (evt == GdbDebug::Event::Stop)
+    } else if (evt == GdbDebug::Event::Stop) {
         trust::outs() << "Stop";
-    else if (evt == GdbDebug::Event::Timeout)
+    } else if (evt == GdbDebug::Event::Timeout) {
         trust::outs() << "Timeout";
+    }
     trust::outs() << "\n";
 
     // ------------------------------------------------------------------

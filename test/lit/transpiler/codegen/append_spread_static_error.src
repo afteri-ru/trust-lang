@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Статический индекс после spread-merge: `d []= ... (a=100, b=200, c=300,)` увеличивает
+# размер с 3 до 6, поэтому `d.6` — вне диапазона 0..5 → ошибка компиляции.
+
+@main() := {
+    d := (1, two=2, name='3',);
+    d []= ... (a=100, b=200, c=300,);
+    print('x={}\n', d.6);
+}
+# CHECK: error: static dict index 6 out of range (size 6)

@@ -1,0 +1,19 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && test -f %T/dict_spread.src_map && %FileCheck %s <%t.out
+
+# Операторы раскрытия словаря должны корректно мапиться на выходной .cppt:
+# destructure `a, b, c := ... d` (temp + pop_front'ы) и spread-merge `d []= ... e` (.extend).
+# Генерируется .src_map рядом с .cppt; тексты проверяют сам кодген.
+
+@main() := {
+    d := (1, 2, 3,);
+    a, b, c := ... d;
+    e := (4, 5,);
+    d []= ... e;
+};
+# CHECK: auto __trust_dst_0 = c_d;
+# CHECK-NEXT: if (__trust_dst_0.size() < 3) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: bool c_a = std::any_cast<bool>(__trust_dst_0.pop_front());
+# CHECK-NEXT: int64_t c_b = std::any_cast<int64_t>(__trust_dst_0.pop_front());
+# CHECK-NEXT: int64_t c_c = std::any_cast<int64_t>(__trust_dst_0.pop_front());
+# CHECK-NEXT: trust::Dict c_e = trust::Dict
+# CHECK-NEXT: c_d.extend(c_e);

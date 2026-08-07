@@ -8,7 +8,7 @@
 
 #include "syntax/term_types.h"
 
-#include "diag/location.hpp"
+#include "location/location.hpp"
 
 #include "syntax/warning_push.h"
 #include "syntax/parser.h"
@@ -41,6 +41,12 @@ class Term : public std::enable_shared_from_this<Term> {
 
     static TermPtr CreateSymbol(char sym);
 
+    // Маппинг одиночного символа → лексический TermID (LPAREN/RPAREN/...).
+    static TermID symbolToID(char sym);
+
+    // Маппинг лексического TermID → bison-токен (token::LPAREN/...).
+    static parser::token_type tokenFromID(TermID id);
+
     TermPtr Clone();
 
     Term(TermID id, std::string text, trust::MapperRange mapperRange = {}, parser::token_type lex_type = parser::token_type::END);
@@ -71,6 +77,8 @@ class Term : public std::enable_shared_from_this<Term> {
         case TermID::ASSIGN:
         case TermID::SWAP:
             return true;
+        default:
+            break;
         }
         return false;
     }
@@ -86,6 +94,8 @@ class Term : public std::enable_shared_from_this<Term> {
         case TermID::BLOCK_PLUS:
         case TermID::BLOCK_MINUS:
             return true;
+        default:
+            break;
         }
         return false;
     }
@@ -106,13 +116,11 @@ class Term : public std::enable_shared_from_this<Term> {
     void AppendRight(TermPtr item);
     void AppendText(const std::string& s);
 
-    void RightToBlock(std::vector<TermPtr>& vect, bool remove = true);
+    void RightToBlock(SequenceType& vect, bool remove = true);
 
     TermPtr AppendBlock(const TermPtr& item, TermID id, bool force = false);
 
     TermPtr Last();
-
-    void SetType(TermPtr type);
 
     inline TermPtr GetType() { return m_type; }
 
@@ -124,14 +132,22 @@ class Term : public std::enable_shared_from_this<Term> {
     TermPtr m_right;
 
     // На TYPE-узлах m_type хранит ARGS-терм размерностей [...], на узлах-значениях — тип.
-    BlockType m_block;
+    // Для терма `\module(func)` loader кладёт сюда тело загруженного модуля (m_ast),
+    // чтобы конвертация в AstNode была loader-free (рекурсивная конвертация m_sequence).
+    // Единое поле последовательности: и верхнеуровневая `sequence` (SEQUENCE), и
+    // вложенные `{ ... }`/тела конструкций (BLOCK/body) лежат здесь (см. MEMORY.md).
+    SequenceType m_sequence;
     TermPtr m_type;
 
-    BlockType m_docs;
+    /// Документирующие комментарии (`///`, `##`, `/**`, т.ч. хвостовой `///<`/`##<`),
+    /// привязанные грамматикой к терму-идентификатору (объявлению). Для не-объявлений
+    /// док остаётся отдельным sibling-узлом (makeDocBundle/appendDocs), этот слот пуст.
+    /// Источник для AstNodeBase::documentation (см. TermToAstConverter::convert).
+    std::vector<TermPtr> m_docs;
 
     std::optional<ArgsList> m_args;
 
-    BlockType m_attr;
+    SequenceType m_attr;
 
   public:
     parser::token_type m_lexer_type;

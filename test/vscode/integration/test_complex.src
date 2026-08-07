@@ -1,9 +1,0 @@
-# Complex test program
-create x = 10;
-create y = 20;
-create z = x + y;
-macro MyMacro print z;
-print x y;
-if 1 then print "yes";
-while x { print x; x = x - 1; }
-MyMacro;

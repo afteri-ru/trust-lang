@@ -3,10 +3,14 @@
 
 #include "lsp/lsp_protocol.h"
 #include "lsp/trust_lsp.h"
+#include "lsp/html_emit.h"
+#include "pipeline/pipeline.hpp"
 #include "utils/backtrace.hpp"
+#include "utils/file_io.hpp"
 #include "utils/io.hpp"
 
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include "utils/io.hpp"
 
@@ -19,8 +23,50 @@ int main(int argc, const char* argv[]) {
         return 0;
     }
 
+    // ═══ Playground output modes (--json / --html) ═══
+    // In-process транспиляция Trust → C++ + построчный source-map,
+    // результат — JSON (live-контракт) или godbolt-стиль HTML-фрагмент.
+    if (opts.mode == LspMode::Json || opts.mode == LspMode::Html) {
+        std::string code;
+        std::string fileName = opts.inputFile;
+        if (opts.inputFile.empty() || opts.inputFile == "-") {
+            code.assign(std::istreambuf_iterator<char>(std::cin), std::istreambuf_iterator<char>());
+            fileName = "stdin.src";
+        } else {
+            auto data = trust::utils::FileIO::read<std::vector<char>>(opts.inputFile);
+            if (!data) {
+                trust::errs() << "trust-lsp: cannot open file: " << opts.inputFile << "\n";
+                return 1;
+            }
+            code.assign(data->data(), data->size());
+        }
+
+        auto result = trust::lsp::transpileToResult(code, fileName, opts);
+        if (opts.mode == LspMode::Json) {
+            // --emit-build-dir: дополнительно собрать tar.gz build-каталога (без компиляции)
+            // для скачиваемого архива. JSON-контракт в stdout не меняется; архив остаётся
+            // на диске по пути <dir>/trust-lang-<версия>-generated.tar.gz.
+            if (!opts.emitBuildDir.empty()) {
+                std::string err;
+                const std::string archive = trust::emitBuildDirArchive(code, opts.emitBuildDir, err);
+                if (archive.empty()) {
+                    trust::errs() << "trust-lsp: --emit-build-dir failed: " << err << "\n";
+                    return 1;
+                }
+            }
+            std::cout << trust::lsp::resultToJson(result) << "\n";
+        } else {
+            if (!opts.examplesDir.empty()) {
+                opts.examples = trust::lsp::loadExamplesFromDir(opts.examplesDir);
+            }
+            const std::string monacoUrl = opts.monacoUrl.empty() ? trust::lsp::kDefaultMonacoUrl : opts.monacoUrl;
+            std::cout << trust::lsp::resultToHtml(result, opts, monacoUrl, opts.serverUrl, opts.htmlFull);
+        }
+        return result.ok ? 0 : 1;
+    }
+
     // ═══ Server mode ═══
-    if (opts.port > 0) {
+    if (opts.mode == LspMode::Server) {
         int serverFd = trust::transport::createTcpServer(opts.port);
         if (serverFd < 0) {
             return 1;
@@ -42,10 +88,12 @@ int main(int argc, const char* argv[]) {
                 server.flushPendingTranspile();
                 // Ожидание ввода с таймаутом (чтобы периодически сбрасывать debounce)
                 int r = transport->waitInput(50);
-                if (r < 0)
+                if (r < 0) {
                     break;
-                if (r == 0)
+                }
+                if (r == 0) {
                     continue;
+                }
                 auto req = readLspPacket(*transport);
                 if (req.is_null() || req.empty()) {
                     break;
@@ -78,10 +126,12 @@ int main(int argc, const char* argv[]) {
             server.flushPendingTranspile();
             // Ожидание ввода с таймаутом (чтобы периодически сбрасывать debounce)
             int r = transport->waitInput(50);
-            if (r < 0)
+            if (r < 0) {
                 break;
-            if (r == 0)
+            }
+            if (r == 0) {
                 continue;
+            }
 
             auto req = readLspPacket(*transport);
             if (req.is_null() || req.empty()) {

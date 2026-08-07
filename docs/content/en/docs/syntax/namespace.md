@@ -3,17 +3,17 @@ Title: Namespaces
 Weight: 20
 ---
 
-*NewLang* supports namespaces, where the separator, like in C++, is a double colon "**::**".
+*TrustLang* supports namespaces, where the separator, like in C++, is a double colon "**::**".
 
-A namespace can be specified for an individual identifier or for an entire [code block](/docs/ops/block/).
+A namespace can be specified for an individual identifier or for an entire [code block](/en/docs/ops/block/).
 
-Unlike *namespace* in C++, namespaces in *NewLang* are used not only to organize code into logical groups and avoid name conflicts, 
+Unlike *namespace* in C++, namespaces in *TrustLang* are used not only to organize code into logical groups and avoid name conflicts, 
 but also to associate an identifier, explicitly specifying the namespace, 
 with static objects (memory allocated during the compilation stage of the program).
 
-The global name cannot be overridden by a macro or local variable during [name lookup](/docs/syntax/naming/). To create a global (static) variable in the current namespace, you can specify the variable with the **@::** preprocessor.
+The global name cannot be overridden by a macro or local variable during [name lookup](/en/docs/syntax/naming/). To create a global (static) variable in the current namespace, you can specify the variable with the **@::** preprocessor.
 
-To use a namespace in a [code block](/docs/ops/block/), it must be specified before the opening curly brace. 
+To use a namespace in a [code block](/en/docs/ops/block/), it must be specified before the opening curly brace. 
 In such a named code block, it is not necessary to specify the closing "**::**".
 
 ```bash
@@ -39,7 +39,7 @@ ns { # Equivalent to ns::
 
 ## Namespaces, Modules, and Packages
 
-The namespace in *NewLang* supports both a [modular code structure](/docs/syntax/modules/) like in Java and Python languages, 
+The namespace in *TrustLang* supports both a [modular code structure](/en/docs/syntax/modules/) like in Java and Python languages, 
 and when specifying the full name of an object, program modules and namespaces can be combined.
 
 For example, the full name of a variable can be written with the indication of the program module `\root\dir\module::ns::name::var`, 
@@ -48,10 +48,10 @@ and **module** is the file name, i.e. *root/dir/module.src*.
 
 ## Namespace and OOP
 
-In *NewLang*, name decoration (mangling) based on function argument types is not used.
+In *TrustLang*, name decoration (mangling) based on function argument types is not used.
 
-However, when creating unique identifiers for [class](/docs/types/class/) methods, 
-*NewLang* uses an approach similar to that used in the Python language. When creating a [class method](/docs/types/class/), 
+However, when creating unique identifiers for [class](/en/docs/types/class/) methods, 
+*TrustLang* uses an approach similar to that used in the Python language. When creating a [class method](/en/docs/types/class/), 
 a global function is created with the class name and method name combined with the separator "**::**".
 
 For example, for the class `:NewClass`, when creating the method `method`, a function named `NewClass::method` will be created.

@@ -78,39 +78,6 @@ inline std::string& trim(std::string& s, const char* t = ws) {
     return ltrim(rtrim(s, t), t);
 }
 
-template <typename T>
-T repeat(T str, const std::size_t n) {
-    if (n == 0) {
-        str.clear();
-        str.shrink_to_fit();
-        return str;
-    } else if (n == 1 || str.empty()) {
-        return str;
-    }
-    const auto period = str.size();
-    if (period == 1) {
-        str.append(n - 1, str.front());
-        return str;
-    }
-    str.reserve(period * n);
-    std::size_t m{2};
-    for (; m < n; m *= 2)
-        str += str;
-    str.append(str.c_str(), (n - (m / 2)) * period);
-    return str;
-}
-
-template <class T>
-T BaseFileName(T const& path, T const& delims = "/\\") {
-    return path.substr(path.find_last_of(delims) + 1);
-}
-
-template <class T>
-T RemoveFileExtension(T const& filename) {
-    typename T::size_type const p(filename.find_last_of('.'));
-    return p > 0 && p != T::npos ? filename.substr(0, p) : filename;
-}
-
 typedef std::vector<std::string> StringArray;
 
 class ParserError : public std::runtime_error {
@@ -155,8 +122,9 @@ const TermPtr getRequiredTerm();
 
 // Name inspection helpers (unchanged)
 inline bool isReservedName(const std::string_view name) {
-    if (name.empty())
+    if (name.empty()) {
         return false;
+    }
     if (name.size() > 3 || !(name[0] == '$' || name[0] == '@' || name[0] == '%')) {
         return name.compare("_") == 0;
     }
@@ -223,14 +191,16 @@ inline bool isLocalAnyName(const std::string_view name) {
 }
 
 inline bool isSystemName(const std::string_view name) {
-    if (name.empty())
+    if (name.empty()) {
         return false;
+    }
     return name.size() >= 4 && name.find("__") == 0 && name.rfind("__") == name.size() - 2;
 }
 
 inline bool isPrivateName(const std::string_view name) {
-    if (name.empty())
+    if (name.empty()) {
         return false;
+    }
     return name.size() >= 3 && name.find("__") == 0;
 }
 

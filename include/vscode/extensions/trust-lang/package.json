@@ -71,7 +71,8 @@
         }
       ]
     },
-    "configuration": {
+    "configuration": [
+      {
       "title": "Trust Lang",
       "properties": {
         "trust.compilerPath": {
@@ -108,19 +109,31 @@
           "type": "string",
           "default": "gdb",
           "description": "Path to gdb. Used by the debug adapter."
-        },
-        "trust.traceDAP": {
+        }
+      }
+    },
+    {
+      "title": "Trust Lang: Developer",
+      "order": 100,
+      "properties": {
+        "trust.dev.traceDAP": {
           "type": "boolean",
           "default": false,
           "description": "Enable detailed DAP protocol tracing to the Trust Lang output channel."
         },
-        "trust.traceLSP": {
+        "trust.dev.traceLSP": {
           "type": "boolean",
           "default": false,
           "description": "Enable detailed LSP protocol tracing to the Trust Lang output channel."
+        },
+        "trust.dev.highlightRanges": {
+          "type": "boolean",
+          "default": false,
+          "description": "Underline clickable ranges (document links) in .src and generated .cppt files. When off, ranges are not underlined, but hover tooltips (with links) and go-to-definition still work."
         }
       }
-    },
+    }
+    ],
     "configurationDefaults": {
       "[trust]": {
         "editor.tokenColorCustomizations": {
@@ -158,6 +171,14 @@
               "settings": { "foreground": "#4EC9B0" }
             },
             {
+              "scope": "entity.name.module.trust",
+              "settings": { "foreground": "#4EC9B0" }
+            },
+            {
+              "scope": "meta.embedded.trust",
+              "settings": { "foreground": "#CE9178" }
+            },
+            {
               "scope": "keyword.other.trust",
               "settings": { "foreground": "#569CD6" }
             },
@@ -190,7 +211,7 @@
               "settings": { "foreground": "#CE9178" }
             },
             {
-              "scope": "string.interpolated.trust",
+              "scope": "constant.other.symbol.trust",
               "settings": { "foreground": "#CE9178" }
             },
             {
@@ -252,8 +273,7 @@
             {
               "scope": "markup.other.trust.macros",
               "settings": {
-                "foreground": "#808080",
-                "fontStyle": "underline"
+                "foreground": "#808080"
               }
             }
           ]

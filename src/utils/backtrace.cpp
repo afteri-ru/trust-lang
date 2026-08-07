@@ -66,8 +66,9 @@ std::string backtrace_string(int max_frames) {
 
         // Номер фрейма
         result += "  #";
-        if (i < 10)
+        if (i < 10) {
             result += ' ';
+        }
         result += std::to_string(i);
         result += "  ";
 

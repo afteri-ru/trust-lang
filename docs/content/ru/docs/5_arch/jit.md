@@ -5,6 +5,8 @@ weight: 50
 
 В состав языка взодят следующие компоненты:
 
+{{< unreleased why="JIT-компиляция, интерпретатор и REPL (компоненты nlc-jit, nlc-rt, LLVM) в текущей версии НЕ реализованы. Реализация `trust` транспилирует исходный текст в C++ и собирает исполняемый файл через clang++ (см. README.md и _build/trust --help); режима JIT/REPL нет" />}}
+
 1. Приложение компилятор и REPL одновременнно **nlc**.
 2. Библиотека nlc-rt - минимально необходимые компоненты для работы с обощенными типами данных.
 3. Рантайм компоненты проекта libtorch - для тензорных вычислений.
@@ -69,7 +71,7 @@ REPL и прочие возможностями JIT компиляции, так
 
 Пример простого приложения с использованием только одой библиотеки nlc-rt:
 ```python
-    print("Hello, world!\n");
+    @print("Hello, world!\n");
 ```
 
 
@@ -85,7 +87,7 @@ REPL и прочие возможностями JIT компиляции, так
     }
 
     if(@latter ~ :Error || $top < 1){
-        print("Use: factorial <int>\n");
+        @print("Use: factorial <int>\n");
         @exit(1);
     }
 
@@ -97,7 +99,7 @@ REPL и прочие возможностями JIT компиляции, так
             $fact *= i;
         }
     %}
-    print("Factorial %d - %s\n", $top, :StrChar(fact));
+    @print("Factorial %d - %s\n", $top, :StrChar(fact));
     @exit(0);
 ```
 
@@ -107,7 +109,7 @@ REPL и прочие возможностями JIT компиляции, так
         m_latter = ret.m_ret_value;
     }
     if(m_latter->op_class_test(:Error) || (*top) < 1 ){
-        print("Use: factorial <int>\n");
+        @print("Use: factorial <int>\n");
         throw IntMinus(Obj::CreateValue(1));
     }
 

@@ -1,5 +1,5 @@
 #include "diag/context.hpp"
-#include "diag/location.hpp"
+#include "location/location.hpp"
 #include "diag/mapper.hpp"
 #include "utils/elf.hpp"
 #include "utils/error.hpp"
@@ -31,8 +31,9 @@ FileEntry::FileEntry(std::string filename, std::string source)
 }
 
 uint64_t FileEntry::getHash() const noexcept {
-    if (!m_hash.has_value())
+    if (!m_hash.has_value()) {
         m_hash = llvm::MD5Hash(std::string_view(m_source));
+    }
     return *m_hash;
 }
 
@@ -88,10 +89,14 @@ FileEntry::LineColumn FileEntry::calc_column(size_t offset) const {
     // Линейный скан от startOff до target
     size_t fileSize = m_source.size();
     for (size_t i = startOff; i < target && i < fileSize; ++i) {
-        if (m_source[i] == '\n') {
+        const unsigned char c = static_cast<unsigned char>(m_source[i]);
+        if (c == '\n') {
             ++line;
             column = 1;
-        } else {
+        } else if ((c & 0xC0) != 0x80) {
+            // Колонка считается в СИМВОЛАХ UTF-8: continuation-байты (0x80..0xBF)
+            // многобайтового символа не инкрементируют колонку, иначе при кириллице
+            // указатель диагностики съезжает вправо (байтовая vs символьная колонка).
             ++column;
         }
     }
@@ -153,17 +158,21 @@ bool SourceMapReader::readFilesFromDisk(std::string_view baseDir) {
     for (auto& entry : m_inputs) {
         // Фиктивные (in-memory) источники помечены префиксом '@' — файла на диске
         // нет, пытаться читать их не нужно (иначе ложно «файл не найден»).
-        if (isInMemoryName(entry.getFilename()))
+        if (isInMemoryName(entry.getFilename())) {
             continue;
-        if (!readSingleFile(entry, basePath))
+        }
+        if (!readSingleFile(entry, basePath)) {
             allOk = false;
+        }
     }
 
     for (auto& entry : m_outputs) {
-        if (isInMemoryName(entry.getFilename()))
+        if (isInMemoryName(entry.getFilename())) {
             continue;
-        if (!readSingleFile(entry, basePath))
+        }
+        if (!readSingleFile(entry, basePath)) {
             allOk = false;
+        }
     }
 
     return allOk;
@@ -171,8 +180,9 @@ bool SourceMapReader::readFilesFromDisk(std::string_view baseDir) {
 
 bool SourceMapReader::verifyHash(ReaderFile idx) const {
     const auto& entry = get_file(idx);
-    if (!entry.m_hash_original.has_value())
+    if (!entry.m_hash_original.has_value()) {
         return true;
+    }
     return entry.getHash() == *entry.m_hash_original;
 }
 
@@ -185,8 +195,9 @@ bool SourceMapReader::readSingleFile(FileEntry& entry, const std::filesystem::pa
 
     namespace fs = std::filesystem;
     fs::path fullPath(fname);
-    if (!fullPath.is_absolute())
+    if (!fullPath.is_absolute()) {
         fullPath = basePath / fullPath;
+    }
 
     auto content = utils::FileIO::read<std::vector<char>>(fullPath.generic_string());
     if (!content) {
@@ -199,25 +210,29 @@ bool SourceMapReader::readSingleFile(FileEntry& entry, const std::filesystem::pa
 }
 
 bool SourceMapReader::readFileArray(msgpack_object array, std::vector<FileEntry>& files, bool filenames) {
-    if (array.type != MSGPACK_OBJECT_ARRAY)
+    if (array.type != MSGPACK_OBJECT_ARRAY) {
         return false;
+    }
 
     if (filenames) {
         files.reserve(array.via.array.size);
         for (uint32_t i = 0; i < array.via.array.size; ++i) {
             msgpack_object elem = array.via.array.ptr[i];
-            if (elem.type != MSGPACK_OBJECT_STR)
+            if (elem.type != MSGPACK_OBJECT_STR) {
                 return false;
+            }
             files.emplace_back();
             files.back().setFilename(std::string(elem.via.str.ptr, elem.via.str.size));
         }
     } else {
         for (uint32_t i = 0; i < array.via.array.size; ++i) {
             msgpack_object h = array.via.array.ptr[i];
-            if (h.type != MSGPACK_OBJECT_POSITIVE_INTEGER)
+            if (h.type != MSGPACK_OBJECT_POSITIVE_INTEGER) {
                 return false;
-            if (i < files.size())
+            }
+            if (i < files.size()) {
                 files[i].setHashOriginal(h.via.u64);
+            }
         }
     }
     return true;
@@ -230,59 +245,72 @@ std::unique_ptr<SourceMapReader> SourceMapReader::fromMsgpack(const unsigned cha
 
     // ── Распаковываем через zstd (checksum проверяется внутри) ──
     auto decompressed = detail::zstd_decompress(data, size);
-    if (decompressed.empty())
+    if (decompressed.empty()) {
         return nullptr;
+    }
 
     // ── Парсим msgpack из распакованных данных ──
     MsgpackReader reader_(decompressed.data(), decompressed.size());
-    if (!reader_.is_valid())
+    if (!reader_.is_valid()) {
         return nullptr;
+    }
 
     const msgpack_object& obj = reader_.root();
-    if (obj.type != MSGPACK_OBJECT_ARRAY)
+    if (obj.type != MSGPACK_OBJECT_ARRAY) {
         return nullptr;
+    }
 
     uint32_t array_size = obj.via.array.size;
-    if (array_size < kFieldRanges + 1 || array_size > kFieldCount)
+    if (array_size < kFieldRanges + 1 || array_size > kFieldCount) {
         return nullptr;
+    }
 
     msgpack_object* fields = obj.via.array.ptr;
 
     // [kFieldMajor] major version
-    if (fields[kFieldMajor].type != MSGPACK_OBJECT_POSITIVE_INTEGER)
+    if (fields[kFieldMajor].type != MSGPACK_OBJECT_POSITIVE_INTEGER) {
         return nullptr;
+    }
 
     // [kFieldMinor] minor version
-    if (fields[kFieldMinor].type != MSGPACK_OBJECT_POSITIVE_INTEGER)
+    if (fields[kFieldMinor].type != MSGPACK_OBJECT_POSITIVE_INTEGER) {
         return nullptr;
+    }
 
     // [kFieldInputFiles] input filenames
-    if (!readFileArray(fields[kFieldInputFiles], reader->m_inputs, true))
+    if (!readFileArray(fields[kFieldInputFiles], reader->m_inputs, true)) {
         return nullptr;
+    }
 
     // [kFieldOutputFiles] output filenames
-    if (!readFileArray(fields[kFieldOutputFiles], reader->m_outputs, true))
+    if (!readFileArray(fields[kFieldOutputFiles], reader->m_outputs, true)) {
         return nullptr;
+    }
 
     // [kFieldInputHashes] input_file_hashes
-    if (!readFileArray(fields[kFieldInputHashes], reader->m_inputs, false))
+    if (!readFileArray(fields[kFieldInputHashes], reader->m_inputs, false)) {
         return nullptr;
+    }
 
     // [kFieldOutputHashes] output_file_hashes
-    if (!readFileArray(fields[kFieldOutputHashes], reader->m_outputs, false))
+    if (!readFileArray(fields[kFieldOutputHashes], reader->m_outputs, false)) {
         return nullptr;
+    }
 
     // ranges
-    if (!reader->unpackRanges(fields[kFieldRanges]))
+    if (!reader->unpackRanges(fields[kFieldRanges])) {
         return nullptr;
+    }
 
     // names — опционально
-    if (array_size > kFieldNames)
+    if (array_size > kFieldNames) {
         reader->unpackNames(fields[kFieldNames]);
+    }
 
     // macros — опционально
-    if (array_size > kFieldMacros)
+    if (array_size > kFieldMacros) {
         reader->unpackMacros(fields[kFieldMacros]);
+    }
 
     return reader;
 }
@@ -290,37 +318,44 @@ std::unique_ptr<SourceMapReader> SourceMapReader::fromMsgpack(const unsigned cha
 // ── Поиск ──
 
 std::optional<ReaderRange> SourceMapReader::findRange(const std::map<uint32_t, RangeMap>& ranges, ReaderLocation loc) {
-    if (ranges.empty() || loc.isInvalid())
+    if (ranges.empty() || loc.isInvalid()) {
         return std::nullopt;
+    }
 
     auto it = ranges.upper_bound(loc.packed);
 
-    if (it == ranges.begin())
+    if (it == ranges.begin()) {
         return std::nullopt;
+    }
     --it;
 
-    if (it->second.from.begin.fileIdx() != loc.fileIdx())
+    if (it->second.from.begin.fileIdx() != loc.fileIdx()) {
         return std::nullopt;
+    }
 
-    if (it->second.from.end.isInvalid())
+    if (it->second.from.end.isInvalid()) {
         return std::nullopt;
-    if (loc.packed > it->second.from.end.packed)
+    }
+    if (loc.packed > it->second.from.end.packed) {
         return std::nullopt;
+    }
 
     uint32_t delta = loc.packed - it->second.from.begin.packed;
     return ReaderRange{ReaderLocation::fromPacked(it->second.to.begin.packed + delta), ReaderLocation::fromPacked(it->second.to.end.packed + delta)};
 }
 
 std::optional<SourceMapReader::Range> SourceMapReader::getMapTrustToCpp(Location trustLoc) const {
-    if (trustLoc.isInvalid() || trustLoc.isOutput())
+    if (trustLoc.isInvalid() || trustLoc.isOutput()) {
         return std::nullopt;
+    }
 
     return findRange(m_forward, trustLoc);
 }
 
 std::optional<SourceMapReader::Range> SourceMapReader::getMapCppToTrust(Location cppLoc) const {
-    if (cppLoc.isInvalid() || !cppLoc.isOutput())
+    if (cppLoc.isInvalid() || !cppLoc.isOutput()) {
         return std::nullopt;
+    }
 
     return findRange(m_backward, cppLoc);
 }
@@ -329,8 +364,9 @@ std::optional<SourceMapReader::NameMap> SourceMapReader::getCppName(Location tru
     // Возвращает полный NameMap (цель hover-ссылки — весь диапазон имени на
     // противоположной стороне, без сдвига по позиции курсора внутри имени).
     auto result = findNameInMappings(m_nameMappings, trustLoc.packed, [trustName](const NameMap& v) { return v.fromName == trustName; }, &RangeMap::from);
-    if (result.has_value())
+    if (result.has_value()) {
         return result;
+    }
 
     // Если не найден — проверяем макросы (input → input)
     auto macroRange = findRange(m_macroForward, trustLoc);
@@ -351,10 +387,12 @@ std::vector<SourceMapReader::RangeMap> SourceMapReader::getTrustFileMappings(Rea
     std::vector<RangeMap> result;
     for (const auto& [key, entry] : m_forward) {
         (void)key;
-        if (entry.from.begin.fileIdx() != trustFileIdx)
+        if (entry.from.begin.fileIdx() != trustFileIdx) {
             continue;
-        if (entry.from.end.isInvalid() || entry.to.end.isInvalid())
+        }
+        if (entry.from.end.isInvalid() || entry.to.end.isInvalid()) {
             continue;
+        }
         result.push_back(entry);
     }
     return result;
@@ -383,8 +421,9 @@ void packGroups(MsgpackWriter& wr, size_t inputCount, size_t outputCount, Iter b
 
     for (auto it = begin; it != end; ++it) {
         auto [inIdx, outIdx] = groupFn(*it);
-        if (inIdx < inputCount && outIdx < outputCount)
+        if (inIdx < inputCount && outIdx < outputCount) {
             groups[inIdx][outIdx].push_back(&*it);
+        }
     }
 
     // 2-й проход: sequential write
@@ -395,8 +434,9 @@ void packGroups(MsgpackWriter& wr, size_t inputCount, size_t outputCount, Iter b
         for (uint32_t outIdx = 0; outIdx < outputCount; ++outIdx) {
             const auto& g = groups[inIdx][outIdx];
             wr.packArray(g.size());
-            for (const auto* entry : g)
+            for (const auto* entry : g) {
                 writeFn(wr, *entry);
+            }
         }
     }
 }
@@ -406,33 +446,39 @@ void packGroups(MsgpackWriter& wr, size_t inputCount, size_t outputCount, Iter b
 //               uint32_t outRaw) → bool (false = ошибка)
 template <typename CreateEntryFn>
 bool unpackGroups(msgpack_object array, uint32_t inputCount, uint32_t outputCount, CreateEntryFn&& createEntry) {
-    if (array.type != MSGPACK_OBJECT_ARRAY)
+    if (array.type != MSGPACK_OBJECT_ARRAY) {
         return false;
+    }
 
     for (uint32_t inIdx = 0; inIdx < array.via.array.size && inIdx < inputCount; ++inIdx) {
         msgpack_object inputGroup = array.via.array.ptr[inIdx];
-        if (inputGroup.type != MSGPACK_OBJECT_ARRAY)
+        if (inputGroup.type != MSGPACK_OBJECT_ARRAY) {
             return false;
+        }
 
         uint32_t trustFileRaw = inIdx + 1u;
 
         for (uint32_t outIdx = 0; outIdx < inputGroup.via.array.size && outIdx < outputCount; ++outIdx) {
             msgpack_object outputGroup = inputGroup.via.array.ptr[outIdx];
-            if (outputGroup.type != MSGPACK_OBJECT_ARRAY)
+            if (outputGroup.type != MSGPACK_OBJECT_ARRAY) {
                 return false;
+            }
 
-            if (outputGroup.via.array.size == 0)
+            if (outputGroup.via.array.size == 0) {
                 continue;
+            }
 
             uint32_t outRaw = (outIdx + 1u) | LocationPack::OUTPUT_FILE_BIT;
 
             for (uint32_t e = 0; e < outputGroup.via.array.size; ++e) {
                 msgpack_object entryArr = outputGroup.via.array.ptr[e];
-                if (entryArr.type != MSGPACK_OBJECT_ARRAY)
+                if (entryArr.type != MSGPACK_OBJECT_ARRAY) {
                     return false;
+                }
 
-                if (!createEntry(&entryArr, trustFileRaw, outRaw))
+                if (!createEntry(&entryArr, trustFileRaw, outRaw)) {
                     return false;
+                }
             }
         }
     }
@@ -489,13 +535,15 @@ void writeMacroEntry(MsgpackWriter& wr, const std::pair<const uint32_t, SourceMa
 // ── Создание RangeMap из полей ──
 bool createRangeEntry(const msgpack_object* entryArr, uint32_t trustFileRaw, uint32_t outRaw, std::map<uint32_t, SourceMapReader::RangeMap>& forward,
                       std::map<uint32_t, SourceMapReader::RangeMap>& backward) {
-    if (entryArr->type != MSGPACK_OBJECT_ARRAY || entryArr->via.array.size < kRangeGroupFieldCount)
+    if (entryArr->type != MSGPACK_OBJECT_ARRAY || entryArr->via.array.size < kRangeGroupFieldCount) {
         return false;
+    }
 
     msgpack_object* f = entryArr->via.array.ptr;
     if (f[kRangeGroupFieldBeginOff].type != MSGPACK_OBJECT_POSITIVE_INTEGER || f[kRangeGroupFieldDelta].type != MSGPACK_OBJECT_POSITIVE_INTEGER ||
-        f[kRangeGroupFieldCppBeginOff].type != MSGPACK_OBJECT_POSITIVE_INTEGER || f[kRangeGroupFieldCppDelta].type != MSGPACK_OBJECT_POSITIVE_INTEGER)
+        f[kRangeGroupFieldCppBeginOff].type != MSGPACK_OBJECT_POSITIVE_INTEGER || f[kRangeGroupFieldCppDelta].type != MSGPACK_OBJECT_POSITIVE_INTEGER) {
         return false;
+    }
 
     SourceMapReader::RangeMap entry;
 
@@ -511,8 +559,9 @@ bool createRangeEntry(const msgpack_object* entryArr, uint32_t trustFileRaw, uin
     uint32_t cppKey = entry.to.begin.asPacked();
 
     auto [itFwd, insertedFwd] = forward.emplace(trustKey, entry);
-    if (!insertedFwd)
+    if (!insertedFwd) {
         return false;
+    }
 
     SourceMapReader::RangeMap bwdEntry{entry.to, entry.from};
     auto [itBwd, insertedBwd] = backward.emplace(cppKey, std::move(bwdEntry));
@@ -525,13 +574,15 @@ bool createRangeEntry(const msgpack_object* entryArr, uint32_t trustFileRaw, uin
 
 // ── Создание Macro entry (input→input, без OUTPUT_BIT) ──
 bool createMacroEntry(const msgpack_object* entryArr, uint32_t bodyFileRaw, uint32_t defFileRaw, std::map<uint32_t, SourceMapReader::RangeMap>& macroForward) {
-    if (entryArr->type != MSGPACK_OBJECT_ARRAY || entryArr->via.array.size < kMacroGroupFieldCount)
+    if (entryArr->type != MSGPACK_OBJECT_ARRAY || entryArr->via.array.size < kMacroGroupFieldCount) {
         return false;
+    }
 
     msgpack_object* f = entryArr->via.array.ptr;
     if (f[kMacroGroupFieldBodyBeginOff].type != MSGPACK_OBJECT_POSITIVE_INTEGER || f[kMacroGroupFieldBodyDelta].type != MSGPACK_OBJECT_POSITIVE_INTEGER ||
-        f[kMacroGroupFieldDefBeginOff].type != MSGPACK_OBJECT_POSITIVE_INTEGER || f[kMacroGroupFieldDefDelta].type != MSGPACK_OBJECT_POSITIVE_INTEGER)
+        f[kMacroGroupFieldDefBeginOff].type != MSGPACK_OBJECT_POSITIVE_INTEGER || f[kMacroGroupFieldDefDelta].type != MSGPACK_OBJECT_POSITIVE_INTEGER) {
         return false;
+    }
 
     SourceMapReader::RangeMap entry;
     ReaderFile bodyFile = ReaderFile::fromRaw(bodyFileRaw);
@@ -551,14 +602,16 @@ bool createMacroEntry(const msgpack_object* entryArr, uint32_t bodyFileRaw, uint
 // ── Создание NameMap из полей ──
 bool createNameEntry(const msgpack_object* entryArr, uint32_t trustFileRaw, uint32_t outRaw, std::vector<SourceMapReader::NameMap>& nameMappings,
                      std::unordered_multimap<std::string, std::string>& cppToTrustName) {
-    if (entryArr->type != MSGPACK_OBJECT_ARRAY || entryArr->via.array.size < kNameGroupFieldCount)
+    if (entryArr->type != MSGPACK_OBJECT_ARRAY || entryArr->via.array.size < kNameGroupFieldCount) {
         return false;
+    }
 
     msgpack_object* f = entryArr->via.array.ptr;
     if (f[kNameGroupFieldBeginOff].type != MSGPACK_OBJECT_POSITIVE_INTEGER || f[kNameGroupFieldDelta].type != MSGPACK_OBJECT_POSITIVE_INTEGER ||
         f[kNameGroupFieldCppBeginOff].type != MSGPACK_OBJECT_POSITIVE_INTEGER || f[kNameGroupFieldCppDelta].type != MSGPACK_OBJECT_POSITIVE_INTEGER ||
-        f[kNameGroupFieldTrustName].type != MSGPACK_OBJECT_STR || f[kNameGroupFieldCppName].type != MSGPACK_OBJECT_STR)
+        f[kNameGroupFieldTrustName].type != MSGPACK_OBJECT_STR || f[kNameGroupFieldCppName].type != MSGPACK_OBJECT_STR) {
         return false;
+    }
 
     SourceMapReader::NameMap info;
 
@@ -627,8 +680,9 @@ void SourceMapReader::packMacros(MsgpackWriter& wr) const {
     for (const auto& entry : m_macroForward) {
         uint32_t bodyInIdx = entry.second.from.begin.fileIdx().as_index();
         uint32_t defInIdx = entry.second.to.begin.fileIdx().as_index();
-        if (bodyInIdx < inputCount && defInIdx < inputCount)
+        if (bodyInIdx < inputCount && defInIdx < inputCount) {
             groups[bodyInIdx][defInIdx].push_back(&entry);
+        }
     }
 
     wr.packArray(inputCount);
@@ -637,8 +691,9 @@ void SourceMapReader::packMacros(MsgpackWriter& wr) const {
         for (uint32_t j = 0; j < inputCount; ++j) {
             const auto& g = groups[i][j];
             wr.packArray(g.size());
-            for (const auto* entry : g)
+            for (const auto* entry : g) {
                 writeMacroEntry(wr, *entry);
+            }
         }
     }
 }
@@ -678,23 +733,27 @@ std::vector<unsigned char> SourceMapReader::packToMsgpack() const {
 
     // input filenames
     wr.packArray(m_inputs.size());
-    for (const auto& f : m_inputs)
+    for (const auto& f : m_inputs) {
         wr.packString(f.getFilename());
+    }
 
     // output filenames
     wr.packArray(m_outputs.size());
-    for (const auto& f : m_outputs)
+    for (const auto& f : m_outputs) {
         wr.packString(f.getFilename());
+    }
 
     // input hashes
     wr.packArray(m_inputs.size());
-    for (const auto& f : m_inputs)
+    for (const auto& f : m_inputs) {
         wr.packUint64(f.getHash());
+    }
 
     // output hashes
     wr.packArray(m_outputs.size());
-    for (const auto& f : m_outputs)
+    for (const auto& f : m_outputs) {
         wr.packUint64(f.getHash());
+    }
 
     // ranges
     packRanges(wr, m_forward);
@@ -721,34 +780,42 @@ std::vector<unsigned char> SourceMapReader::packToMsgpack() const {
 // ══════════════════════════════════════════════════════════════
 
 std::optional<std::string> SourceMapReader::getWordAt(Location loc) const {
-    if (loc.isInvalid())
+    if (loc.isInvalid()) {
         return std::nullopt;
+    }
 
     std::string_view src = source(loc.fileIdx());
-    if (src.empty())
+    if (src.empty()) {
         return std::nullopt;
+    }
 
     // offset — 1-based, переводим в 0-based
     uint32_t off = loc.offset();
-    if (off < 1 || off > src.size())
+    if (off < 1 || off > src.size()) {
         return std::nullopt;
+    }
     size_t pos = off - 1;
 
-    // Проверяем, что символ под курсором — буква, цифра или _
-    auto is_word_char = [](char c) -> bool { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'; };
+    // Проверяем, что символ под курсором — буква, цифра, _ или '@'.
+    // '@' включаем, чтобы ховер над макросом (@assert/@while/print) выделял
+    // полное имя макроса с префиксом (иначе на позиции '@' слово пустое).
+    auto is_word_char = [](char c) -> bool { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '@'; };
 
-    if (!is_word_char(src[pos]))
+    if (!is_word_char(src[pos])) {
         return std::nullopt;
+    }
 
     // Идём влево до начала слова
     size_t start = pos;
-    while (start > 0 && is_word_char(src[start - 1]))
+    while (start > 0 && is_word_char(src[start - 1])) {
         --start;
+    }
 
     // Идём вправо до конца слова
     size_t end = pos;
-    while (end < src.size() && is_word_char(src[end]))
+    while (end < src.size() && is_word_char(src[end])) {
         ++end;
+    }
 
     return std::string(src.substr(start, end - start));
 }
@@ -758,16 +825,19 @@ std::optional<std::string> SourceMapReader::getWordAt(Location loc) const {
 // ══════════════════════════════════════════════════════════════
 
 SourceMapReader::Location SourceMapReader::lspToLocation(ReaderFile idx, int line, int character) const {
-    if (line < 0)
+    if (line < 0) {
         FAULT("lspToLocation: negative line ({})", line);
-    if (character < 0)
+    }
+    if (character < 0) {
         FAULT("lspToLocation: negative character ({})", character);
+    }
 
     Location loc = loc_from_line(idx, static_cast<size_t>(line) + 1);
     uint32_t off = loc.offset() + static_cast<uint32_t>(character);
     uint32_t maxOff = idx.isOutput() ? LocationPack::MAX_OFFSET_OUTPUT : LocationPack::MAX_OFFSET_INPUT;
-    if (off > maxOff)
+    if (off > maxOff) {
         FAULT("lspToLocation: offset {} exceeds max {}", off, maxOff);
+    }
     return makeLoc(loc.fileIdx(), off);
 }
 
@@ -808,24 +878,27 @@ ReaderFile SourceMapReader::findFile(const std::string& path) const {
 
 std::optional<SourceMapReader::Range> SourceMapReader::findTrustToCpp(const std::string& trustPath, int line) const {
     ReaderFile fidx = findFile(trustPath);
-    if (fidx.isInvalid() || fidx.isOutput())
+    if (fidx.isInvalid() || fidx.isOutput()) {
         return std::nullopt;
+    }
     Location loc = loc_from_line(fidx, line);
     return getMapTrustToCpp(loc);
 }
 
 std::optional<SourceMapReader::Range> SourceMapReader::findCppToTrust(const std::string& cppPath, int line) const {
     ReaderFile fidx = findFile(cppPath);
-    if (fidx.isInvalid() || !fidx.isOutput())
+    if (fidx.isInvalid() || !fidx.isOutput()) {
         return std::nullopt;
+    }
     Location loc = loc_from_line(fidx, line);
     return getMapCppToTrust(loc);
 }
 
 std::optional<std::pair<std::string, int>> SourceMapReader::calcCppToTrustLine(const std::string& cppPath, int cppLine) const {
     auto mapping = findCppToTrust(cppPath, cppLine);
-    if (!mapping.has_value())
+    if (!mapping.has_value()) {
         return std::nullopt;
+    }
     ReaderFile tIdx = mapping->begin.fileIdx();
     return std::make_pair(std::string(filename(tIdx)), static_cast<int>(line(mapping->begin)));
 }
@@ -835,25 +908,31 @@ std::optional<std::pair<std::string, int>> SourceMapReader::calcCppToTrustLine(c
 // ══════════════════════════════════════════════════════════════
 
 std::optional<SourceMapReader::RangeMap> SourceMapReader::findRangeMap(Location loc) const {
-    if (loc.isInvalid())
+    if (loc.isInvalid()) {
         return std::nullopt;
+    }
 
     // Если файл output — ищем по backward (cpp → trust), иначе по forward (trust → cpp)
     const auto& ranges = loc.fileIdx().isOutput() ? m_backward : m_forward;
-    if (ranges.empty())
+    if (ranges.empty()) {
         return std::nullopt;
+    }
 
     auto it = ranges.upper_bound(loc.packed);
-    if (it == ranges.begin())
+    if (it == ranges.begin()) {
         return std::nullopt;
+    }
     --it;
 
-    if (it->second.from.begin.fileIdx() != loc.fileIdx())
+    if (it->second.from.begin.fileIdx() != loc.fileIdx()) {
         return std::nullopt;
-    if (it->second.from.end.isInvalid())
+    }
+    if (it->second.from.end.isInvalid()) {
         return std::nullopt;
-    if (loc.packed > it->second.from.end.packed)
+    }
+    if (loc.packed > it->second.from.end.packed) {
         return std::nullopt;
+    }
 
     return it->second;
 }
@@ -863,21 +942,24 @@ std::optional<SourceMapReader::RangeMap> SourceMapReader::findRangeMap(Location 
 // ══════════════════════════════════════════════════════════════
 
 std::vector<SourceMapReader::Range> SourceMapReader::findRangesByLine(ReaderFile idx, uint32_t line, std::optional<uint32_t> column) const {
-    if (idx.isInvalid())
+    if (idx.isInvalid()) {
         FAULT("findRangesByLine: invalid ReaderFileIdx");
+    }
 
     // Получаем Location начала строки
     Location lineStart = loc_from_line(idx, line);
-    if (lineStart.isInvalid())
+    if (lineStart.isInvalid()) {
         return {};
+    }
 
     // Если колонка задана — смещаем offset (1-based, по умолчанию 1 = начало строки)
     uint32_t col = column.value_or(1);
     // column 1-based → смещение 0-based: column - 1
     uint32_t offset = lineStart.offset() + (col - 1);
     uint32_t maxOff = idx.isOutput() ? LocationPack::MAX_OFFSET_OUTPUT : LocationPack::MAX_OFFSET_INPUT;
-    if (offset > maxOff)
+    if (offset > maxOff) {
         return {};
+    }
     Location loc = makeLoc(lineStart.fileIdx(), offset);
 
     // Выбираем map: output → m_backward, input → m_forward
@@ -891,14 +973,17 @@ std::vector<SourceMapReader::Range> SourceMapReader::findRangesByLine(ReaderFile
         (void)key;
 
         // Фильтр: файл должен совпадать со стороной "from"
-        if (entry.from.begin.fileIdx() != fileId)
+        if (entry.from.begin.fileIdx() != fileId) {
             continue;
-        if (entry.from.end.isInvalid() || entry.to.end.isInvalid())
+        }
+        if (entry.from.end.isInvalid() || entry.to.end.isInvalid()) {
             continue;
+        }
 
         // Проверка: loc внутри [from.begin, from.end]
-        if (loc.packed < entry.from.begin.packed || loc.packed > entry.from.end.packed)
+        if (loc.packed < entry.from.begin.packed || loc.packed > entry.from.end.packed) {
             continue;
+        }
 
         // Вычисляем сдвиг в "to" стороне
         uint32_t delta = loc.packed - entry.from.begin.packed;
@@ -923,46 +1008,74 @@ std::vector<SourceMapReader::Range> SourceMapReader::findRangesByLine(ReaderFile
 // ══════════════════════════════════════════════════════════════
 
 bool SourceMapReader::unpackMacros(msgpack_object macrosArray) {
-    if (macrosArray.type != MSGPACK_OBJECT_ARRAY)
+    if (macrosArray.type != MSGPACK_OBJECT_ARRAY) {
         return false;
+    }
 
     uint32_t inputCount = static_cast<uint32_t>(m_inputs.size());
-    if (macrosArray.via.array.size != inputCount)
+    if (macrosArray.via.array.size != inputCount) {
         return false;
+    }
 
     for (uint32_t bodyInIdx = 0; bodyInIdx < inputCount; ++bodyInIdx) {
         msgpack_object bodyGroup = macrosArray.via.array.ptr[bodyInIdx];
-        if (bodyGroup.type != MSGPACK_OBJECT_ARRAY || bodyGroup.via.array.size != inputCount)
+        if (bodyGroup.type != MSGPACK_OBJECT_ARRAY || bodyGroup.via.array.size != inputCount) {
             return false;
+        }
 
         uint32_t bodyFileRaw = bodyInIdx + 1u;
 
         for (uint32_t defInIdx = 0; defInIdx < inputCount; ++defInIdx) {
             msgpack_object defGroup = bodyGroup.via.array.ptr[defInIdx];
-            if (defGroup.type != MSGPACK_OBJECT_ARRAY)
+            if (defGroup.type != MSGPACK_OBJECT_ARRAY) {
                 return false;
+            }
 
-            if (defGroup.via.array.size == 0)
+            if (defGroup.via.array.size == 0) {
                 continue;
+            }
 
             uint32_t defFileRaw = defInIdx + 1u;
 
             for (uint32_t e = 0; e < defGroup.via.array.size; ++e) {
                 msgpack_object entryArr = defGroup.via.array.ptr[e];
-                if (entryArr.type != MSGPACK_OBJECT_ARRAY)
+                if (entryArr.type != MSGPACK_OBJECT_ARRAY) {
                     return false;
+                }
 
-                if (!createMacroEntry(&entryArr, bodyFileRaw, defFileRaw, m_macroForward))
+                if (!createMacroEntry(&entryArr, bodyFileRaw, defFileRaw, m_macroForward)) {
                     return false;
+                }
             }
         }
     }
     return true;
 }
 
-// Возвращает диапазон определения макроса по позиции в теле макроса
+// Возвращает диапазон определения макроса по позиции в теле/вызове макроса.
+// ВАЖНО: возвращаем ПОЛНЫЙ диапазон определения (m_macroForward[..].to), а не проекцию
+// по позиции курсора. findRange сдвигает `to` на delta (смещение курсора внутри вызова),
+// из-за чего для макросов в конце файла диапазон уходит за пределы source
+// (→ getText «range out of bounds»).
 std::optional<SourceMapReader::Range> SourceMapReader::getMacroDefRange(Location bodyLoc) const {
-    return findRange(m_macroForward, bodyLoc);
+    if (m_macroForward.empty() || bodyLoc.isInvalid()) {
+        return std::nullopt;
+    }
+    auto it = m_macroForward.upper_bound(bodyLoc.packed);
+    if (it == m_macroForward.begin()) {
+        return std::nullopt;
+    }
+    --it;
+    if (it->second.from.begin.fileIdx() != bodyLoc.fileIdx()) {
+        return std::nullopt;
+    }
+    if (it->second.from.end.isInvalid() || it->second.to.end.isInvalid()) {
+        return std::nullopt;
+    }
+    if (bodyLoc.packed > it->second.from.end.packed) {
+        return std::nullopt;
+    }
+    return it->second.to;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -972,8 +1085,9 @@ std::optional<SourceMapReader::Range> SourceMapReader::getMacroDefRange(Location
 
 std::unique_ptr<SourceMapReader> SourceMapReader::fromElf(const std::string& elfPath) {
     auto sectionData = utils::readElfSection(elfPath, ".debug_trust_map");
-    if (!sectionData)
+    if (!sectionData) {
         return nullptr;
+    }
 
     return fromMsgpack(sectionData->data(), sectionData->size());
 }

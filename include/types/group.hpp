@@ -25,23 +25,27 @@ enum class Group : uint8_t {
     kRationals, // 1                      — 8
     kStrChar,   // 1                      — 9
     kStrWide,   // 1                      — 10
+    kDicts,     // 1                      — 11
 
     // ── Группы для реестра (Data=0) ─────────────────────
-    kTensors,       // 11
-    kContainers,    // 12
-    kStructured,    // 13
-    kCallable,      // 14
-    kClasses,       // 15
-    kRanges,        // 16
-    kIterators,     // 17
-    kDateTime,      // 18
-    kAsync,         // 19
-    kSync,          // 20
-    kExceptions,    // 21
-    kNative,        // 22
-    kEllipsis,      // 23
-    kArithmetics,   // 24
-    kTemplateParam, // 25 — template type parameter (data=depth)
+    kTensors,       // 12
+    kContainers,    // 13
+    kStructured,    // 14
+    kCallable,      // 15
+    kClasses,       // 16
+    kRanges,        // 17
+    kIterators,     // 18
+    kDateTime,      // 19
+    kAsync,         // 20
+    kSync,          // 21
+    kExceptions,    // 22
+    kNative,        // 23
+    kEllipsis,      // 24
+    kArithmetics,   // 25
+    kTemplateParam, // 26 — template type parameter (data=depth)
+    kReftype,       // 27 — ссылочные/указательные составные типы (реестр, Data≠0, RefType=вид)
+    kEnums,         // 28 — типобезопасные перечисления (реестр, EnumTypeData)
+    kVariants,      // 29 — гетерогенные варианты (реестр, VariantTypeData; → std::variant)
 };
 
 // ── Category (≤ 32 категорий) ────────────────────────────
@@ -81,6 +85,13 @@ constexpr bool belongsToCategory(Group g, Category c) noexcept {
 // ── Маска категорий для группы ───────────────────────────
 constexpr CategoryMask categoryMask(Group g) noexcept {
     return kGroupCategoryMask[static_cast<uint8_t>(g)];
+}
+
+// ── Арифметические группы ────────────────────────────────
+// Единый классификатор числовых групп (целые со знаком/без знака и числа с плавающей
+// точкой), используемый типизацией выражений и продвижением (promotion.hpp).
+constexpr bool isArithmeticGroup(Group g) noexcept {
+    return g == Group::kIntegers || g == Group::kUnsigned || g == Group::kNumbers;
 }
 
 } // namespace trust

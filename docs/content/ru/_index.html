@@ -1,8 +1,13 @@
 ---
-title: NewLang
+title: TrustLang
 ---
 
-{{< blocks/cover title="Добро пожаловать на сайт проекта NewLang!" image_anchor="top" height="auto" >}}
+<div class="alert alert-warning" role="alert" style="border-radius: 0; margin-bottom: 0;">
+    <strong>Сайт находится в переработке.</strong> Возможны нарушения в его работе и несоответствия
+    документации текущей реализации языка.
+</div>
+
+{{< blocks/cover title="Добро пожаловать на сайт проекта TrustLang!" image_anchor="top" height="auto" >}}
 
 <a class="btn btn-lg btn-primary me-3 mb-4" href="/ru/docs/">
     Документация <i class="fas fa-arrow-alt-circle-right ms-2"></i>
@@ -16,7 +21,7 @@ title: NewLang
     Playground<i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/rsashka/newlang/">
+<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
     GitHub <i class="fab fa-github ms-2 "></i>
 </a>
 
@@ -26,16 +31,16 @@ title: NewLang
 
 {{% blocks/lead %}}
 
-<p class="lead"><em>NewLang</em> — это язык программирования высокого уровня общего назначения c синтаксисом на основе грамматических правил
+<p class="lead"><em>TrustLang</em> — это язык программирования высокого уровня общего назначения c синтаксисом на основе грамматических правил
     без использования ключевых слов что позволяет создать любые варинты собственного синтаксиса (<a href="/ru/docs/syntax/dsl/">DSL</a>). 
 </p>
 
-<p class="lead"><em>NewLang</em> реализован как транспилер <a href="https://en.wikipedia.org/wiki/Source-to-source_compiler">(source-to-source translator)</a> 
+<p class="lead"><em>TrustLang</em> реализован как транспилер <a href="https://en.wikipedia.org/wiki/Source-to-source_compiler">(source-to-source translator)</a> 
     в код C++ и совместим ним на низком уровне, разрешая непосредственные вставки кода на языке С++ в тексте программы,
-    прямые вызовы С/С++ функций и наоборот, вызовы функции <em>NewLang</em> из С++.
+    прямые вызовы С/С++ функций и наоборот, вызовы функции <em>TrustLang</em> из С++.
 </p>
 
-<p class="lead">В языке <em>NewLang</em> на уровне синтаксиса языка реализована <a href="/ru/docs/ops/async/">вытесняющая и кооперативная</a> многозадачность 
+<p class="lead">В языке <em>TrustLang</em> на уровне синтаксиса языка реализована <a href="/ru/docs/4_operators/async/">вытесняющая и кооперативная</a> многозадачность 
     (т.е. многопоточное и асинхронное программирование).
 </p>
 
@@ -45,7 +50,7 @@ title: NewLang
     а рациональные числа неограниченной точности с помощью <a href="https://github.com/openssl/openssl/blob/master/crypto/bn/README.pod">OpenSSL</a>.
 </p>
 
-<p class="lead">В <em>NewLang</em> реализовано автоматическое безопасное управление памятью без сборщика мусора 
+<p class="lead">В <em>TrustLang</em> реализовано автоматическое безопасное управление памятью без сборщика мусора 
     и гарантируется отсуствие ошибок при управлени памятью на этапе компиляции исходного текста программы.
 </p>
 
@@ -100,7 +105,7 @@ title: NewLang
 
 {{% blocks/section %}}
 
-<h2>Зачем нужен <em>NewLang</em>?
+<h2>Зачем нужен <em>TrustLang</em>?
 </h2>
 
 <p>
@@ -118,7 +123,7 @@ title: NewLang
 </p>
 
 <p>
-    <em>NewLang</em> разработан как "надстройка" над языком C++ с сохранением всех его возможностей и характеристик,
+    <em>TrustLang</em> разработан как "надстройка" над языком C++ с сохранением всех его возможностей и характеристик,
     но лишенный его недостатков в виде очень сложной лексики, адресной арифметики, ручного управления памятью и 
     ограниченностью <em>встроенных</em> типов данных. 
 </p>
@@ -134,20 +139,19 @@ title: NewLang
 
 {{% blocks/section %}}
 
-<h4>Пример скрипта Hello world! на NewLang</h4>
+<h4>Пример скрипта Hello world! на TrustLang</h4>
 
 <br>
 <code>
     <pre>
-    #!../output/nlc --eval
-
-    hello(str) := {
-        # Импорт и вызов функции printf стандартной библиотеки
-        printf(format:FmtChar, ...):Int32 := %printf...;
-        printf('call: %s', $str);
-        $str;
+    hello(str:StrChar) := {
+        @print('call: {}\n', str);
+        str;
     };
-    hello('Привет, мир!');
+
+    @main() := {
+        hello('Привет, мир!');
+    };
     </pre>
 </code>
 
@@ -158,20 +162,27 @@ title: NewLang
     </pre></code>
 
 
-<h4>Пример вычисления факториала 40 на NewLang (базовый синтаксис)</h4>
+<h4>Пример вычисления факториала 40 на TrustLang с использованием DSL синтаксиса</h4>
 
 <br>
 <code>
     <pre>
-    #!../output/nlc --eval
+    #!../_build/trust --run
 
-    fact := 1\1; # Рациональное число 1 (без ограничения точности)
-    mult := 40..1..-1?; # Итератор из диапазона для множителей от 40 до 2
-    [mult ?!] <-> { # Цикл, пока не закончатся данные итератора
-        fact *= mult !; # Получить текущий множитель и перейти на следующий элемент итератора
-    };
+    @main() := {
 
-    fact # Вывести итоговый результат
+        $fact := 1\1; # Рациональное число 1 (без ограничения точности)
+        $mult := 1;
+
+        @while( mult <= 40 ) {
+            fact *= mult;
+            mult += 1;
+        };
+
+        # Print result
+        @print('{}', fact);
+    }
+
     </pre>
 </code>
 
@@ -182,31 +193,6 @@ title: NewLang
     </pre>
 </code>
 
-
-<h4>Тот же код с использованием DSL синтаксиса</h4>
-
-<br>
-<code>
-    <pre>
-    #!../output/nlc --eval
-
-    fact := 1\1;
-    mult := iter( 40..1..-1 );
-    while( curr(mult) ) {
-        fact *= next(mult);
-    };
-
-    fact;
-    </pre>
-</code>
-
-
-Вывод:
-<code>
-    <pre>
-    815915283247897734345611269596115894272000000000\1
-    </pre>
-</code>
 
 
 

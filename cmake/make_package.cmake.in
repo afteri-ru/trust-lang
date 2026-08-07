@@ -1,0 +1,66 @@
+# cmake/make_package.cmake.in
+# Build-time script (run via `cmake -P` by the `package` target).
+# Stages the distribution tree and packs it into a gzipped tar archive whose
+# name identifies OS, architecture, version and git hash.
+
+set(_stem "trust-lang-@TRUST_VERSION_FULL@-@TRUST_PKG_OS@-@TRUST_PKG_ARCH@")
+set(_staging "@CMAKE_BINARY_DIR@/package/${_stem}")
+set(_archive "@CMAKE_BINARY_DIR@/dist/${_stem}.tar.gz")
+
+# Ensure the distribution directory exists.
+file(MAKE_DIRECTORY "@CMAKE_BINARY_DIR@/dist")
+
+message(STATUS "Staging distribution tree -> ${_staging}")
+
+# Fresh staging directory
+file(REMOVE_RECURSE "${_staging}")
+file(MAKE_DIRECTORY "${_staging}/bin" "${_staging}/lib")
+
+# ── Executables ──
+file(COPY "@CMAKE_BINARY_DIR@/trust" DESTINATION "${_staging}/bin")
+file(COPY "@CMAKE_BINARY_DIR@/trust-lsp" DESTINATION "${_staging}/bin")
+file(COPY "@CMAKE_BINARY_DIR@/trust-dap" DESTINATION "${_staging}/bin")
+file(COPY "@CMAKE_BINARY_DIR@/trust-playground" DESTINATION "${_staging}/bin")
+
+# ── Runtime libraries (shared + static) ──
+# The public headers (trust/rational.hpp) and the stdlib sources are intentionally
+# NOT copied: their contents are embedded into the runtime libraries / the compiler
+# and stay version-synced with them. The pipeline extracts a header on demand from
+# the runtime library, so a separate copy in the archive is redundant.
+file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.so" DESTINATION "${_staging}/lib")
+file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.a" DESTINATION "${_staging}/lib")
+
+# ── Metadata ──
+file(COPY "@CMAKE_SOURCE_DIR@/VERSION" DESTINATION "${_staging}")
+file(COPY "@CMAKE_SOURCE_DIR@/LICENSE" DESTINATION "${_staging}")
+
+# ── Manifest (build attributes + file list) ──
+file(GLOB_RECURSE _files RELATIVE "${_staging}" "${_staging}/*")
+list(SORT _files)
+set(_manifest "# trust-lang distribution manifest\n")
+string(APPEND _manifest "Package:     ${_stem}\n")
+string(APPEND _manifest "Version:     @TRUST_VERSION@\n")
+string(APPEND _manifest "VersionFull: @TRUST_VERSION_FULL@\n")
+string(APPEND _manifest "GitHash:     @TRUST_GIT_HASH@\n")
+string(APPEND _manifest "OS:          @TRUST_PKG_OS@\n")
+string(APPEND _manifest "Arch:        @TRUST_PKG_ARCH@\n")
+string(APPEND _manifest "BuildDate:   @TRUST_DATE_BUILD@\n")
+string(APPEND _manifest "Contents:\n")
+foreach(_f IN LISTS _files)
+    string(APPEND _manifest "  ${_f}\n")
+endforeach()
+file(WRITE "${_staging}/manifest.txt" "${_manifest}")
+
+# ── Pack archive (creates ./<stem>/ inside the tar) ──
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" -E tar czf "${_archive}" "${_stem}"
+    WORKING_DIRECTORY "@CMAKE_BINARY_DIR@/package"
+    RESULT_VARIABLE _tar_res
+)
+if(NOT _tar_res EQUAL 0)
+    message(FATAL_ERROR "Failed to create archive: ${_archive}")
+endif()
+
+file(SHA256 "${_archive}" _sha)
+message(STATUS "Package created: ${_archive}")
+message(STATUS "  sha256: ${_sha}")

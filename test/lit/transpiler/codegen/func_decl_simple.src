@@ -1,0 +1,7 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка объявления простой функции без параметров с void возвратом
+%func():Void := { # void func(void)
+};
+# CHECK: void func() {
+# CHECK-NEXT: }

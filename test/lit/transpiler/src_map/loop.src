@@ -1,0 +1,14 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && test -f %T/loop.src_map && %FileCheck %s <%t.out
+
+# Проверка генерации C++ для циклов while и do-while, а также src_map (нормальное форматирование).
+z := 0;
+[z < 10] <-> {
+    z := z + 1;
+};
+# CHECK: while ((c_z < 10)) {
+# CHECK-NEXT:     std::any c_z = (c_z + 1);
+# CHECK-NEXT: }
+{ z := z - 1; } <-> [z > 0];
+# CHECK: do {
+# CHECK-NEXT:     std::any c_z = (c_z - 1);
+# CHECK-NEXT: } while ((c_z > 0));
