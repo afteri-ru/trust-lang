@@ -1806,55 +1806,59 @@ match_cond: '['   condition   ']'
 
 if_then:  match_cond  FOLLOW  body
             {
+                // branch: m_left = условие, m_right = тело
                 $$=$2;
                 TERM($$)->AppendLeft(TERM($1)); 
                 TERM($$)->AppendRight(TERM($3)); 
             }
 
+else_body: ','  '['  ELLIPSIS  ']'  FOLLOW  body
+            {
+                // else: тело else (маркер ELLIPSIS в AST не нужен — else ложится в m_right)
+                $$ = $body;
+            }
 
-if_list: if_then
+follow: if_then
             {
-                $$=Term::Create(TermID::FOLLOW, std::string(TERM($1)->getText().data(), 1), TERM($1)->m_mapperRange, token::FOLLOW);
-                TERM($$)->m_block.push_back(TERM($if_then));
+                // [cond] --> body : m_left=cond, m_block=[body]
+                $$=Term::Create(TermID::FOLLOW, "if", TERM($1)->m_mapperRange, token::FOLLOW);
+                TERM($$)->m_left = TERM($1)->m_left;
+                TERM($$)->m_block.push_back(TERM($1)->m_right);
             }
-        | if_list  ','  if_then
+        | follow  ','  if_then
             {
-                $$ = $1; 
-                TERM($$)->m_block.push_back(TERM($if_then));
+                // else-if: branch (m_left=cond, m_right=body) в m_block
+                $$ = $1;
+                TERM($$)->m_block.push_back(TERM($3));
             }
-        
-follow: if_list
+        | follow  else_body
             {
-                $$ = $1; 
+                // else: тело else в m_right
+                $$ = $1;
+                TERM($$)->m_right = TERM($2);
             }
-        | if_list  body_else
-            {
-                $$ = $1; 
-                TERM($$)->m_block.push_back(TERM($body_else));
-                
-            }
-   
+
 repeat: body  REPEAT  match_cond
             {
                 $$=$2;
                 TERM($$)->m_id = TermID::DOWHILE;
-                TERM($$)->AppendLeft(TERM($body)); 
-                TERM($$)->AppendRight(TERM($match_cond)); 
+                TERM($$)->m_left = TERM($match_cond);
+                TERM($$)->m_block.push_back(TERM($body));
             }
         | match_cond  REPEAT  body
             {
                 $$=$2;
                 TERM($$)->m_id = TermID::WHILE;
-                TERM($$)->AppendLeft(TERM($match_cond)); 
-                TERM($$)->AppendRight(TERM($body)); 
+                TERM($$)->m_left = TERM($match_cond);
+                TERM($$)->m_block.push_back(TERM($body));
             }
-        | match_cond  REPEAT  body  body_else
+        | match_cond  REPEAT  body  else_body
             {
                 $$=$2;
                 TERM($$)->m_id = TermID::WHILE;
-                TERM($$)->AppendLeft(TERM($match_cond)); 
-                TERM($$)->AppendRight(TERM($body)); 
-                TERM($$)->m_block.push_back(TERM($body_else)); 
+                TERM($$)->m_left = TERM($match_cond);
+                TERM($$)->m_block.push_back(TERM($body));
+                TERM($$)->m_right = TERM($else_body);
             }
 
 matches:  rval_range
@@ -1876,7 +1880,8 @@ match_item: '[' matches ']' FOLLOW  body
 
 match_items:  match_item  ';'
             {
-                $$ = Term::Create(TermID::MATCHING, std::string(TERM($1)->getText().data(), 1), trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($2)->m_mapperRange.end}, token::MATCHING);
+                // ';' — разделитель условия, не входит в выполняемое выражение; берём range самого match_item.
+                $$ = Term::Create(TermID::MATCHING, std::string(TERM($1)->getText().data(), 1), TERM($1)->m_mapperRange, token::MATCHING);
                 TERM($$)->m_block.push_back(TERM($match_item));
             }
         | match_items  match_item  ';'

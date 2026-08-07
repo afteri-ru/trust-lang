@@ -40,6 +40,10 @@ class ModuleNode;
 class ParamDecl;
 class FuncDecl;
 class VarDecl;
+class IfStmt;
+class WhileStmt;
+class DoWhileStmt;
+class MatchStmt;
 
 // ============================================================================
 // X-macro: all ParserToken kinds.
@@ -88,20 +92,20 @@ class VarDecl;
     T(CastExpr, AstNodeAttr)          \
     T(RefMakeExpr, AstNodeAttr)       \
     T(RefTakeExpr, AstNodeAttr)       \
-    T(IfStmt, AstNodeAttr)            \
-    T(WhileStmt, AstNodeAttr)         \
+    T(IfStmt, IfStmt)                 \
+    T(WhileStmt, WhileStmt)           \
     T(AssignmentStmt, AstNodeAttr)    \
     T(ExprStmt, AstNodeAttr)          \
     T(BlockStmt, AstNodeAttr)         \
     T(ThenBlock, AstNodeAttr)         \
     T(ElseBlock, AstNodeAttr)         \
-    T(DoWhileStmt, AstNodeAttr)       \
+    T(DoWhileStmt, DoWhileStmt)       \
     T(WhileElseBlock, AstNodeAttr)    \
-    T(BreakStmt, AstNodeAttr)         \
-    T(ContinueStmt, AstNodeAttr)      \
+    T(BreakStmt, JumpStmt)            \
+    T(ContinueStmt, JumpStmt)         \
     T(TryCatchStmt, AstNodeAttr)      \
     T(CatchBlock, AstNodeAttr)        \
-    T(MatchingStmt, AstNodeAttr)      \
+    T(MatchingStmt, MatchStmt)        \
     T(MatchingCase, AstNodeAttr)      \
     T(MatchingElseBlock, AstNodeAttr) \
     T(FuncDecl, FuncDecl)             \

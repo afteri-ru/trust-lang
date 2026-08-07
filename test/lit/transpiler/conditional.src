@@ -1,0 +1,20 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка генерации C++ для условного оператора if/else-if/else (нормальное форматирование)
+x:Int32 := 10;
+[x > 0] --> {
+    a := 1;
+},
+[x < 0] --> {
+    b := -1;
+},
+[...] --> {
+    c := 0;
+};
+# CHECK: if ((x > 0)) {
+# CHECK-NEXT:     std::any a = 1;
+# CHECK-NEXT: } else if ((x < 0)) {
+# CHECK-NEXT:     std::any b = -1;
+# CHECK-NEXT: } else {
+# CHECK-NEXT:     std::any c = 0;
+# CHECK-NEXT: }

@@ -361,30 +361,49 @@ std::string Term::toString(bool nested, bool suppressType) {
         return result;
 
     case TermID::WHILE:
+        // Единая раскладка: m_left=cond, m_block=[body], m_right=else.
         result = "[" + result + "]" + getText();
-        ASSERT(m_right);
-        result += m_right->toString() + ";";
+        ASSERT(!m_block.empty() && m_block[0]);
+        result += m_block[0]->toString() + ";";
+        if (m_right) {
+            result += ", [...]-->";
+            result += m_right->toString();
+            if (!(m_right->isBlock() || m_right->getTermID() == TermID::EMBED))
+                result += ";";
+        }
         return result;
 
     case TermID::DOWHILE:
-        result += getText() + "[";
-        ASSERT(m_right);
-        result += m_right->toString() + "];";
+        // Единая раскладка: m_left=cond, m_block=[body].
+        ASSERT(!m_block.empty() && m_block[0]);
+        result = m_block[0]->toString() + getText() + "[";
+        result += m_left->toString() + "];";
         return result;
 
     case TermID::FOLLOW:
+        // Единая раскладка: m_left=cond, m_block=[thenBody, elseif-branch...], m_right=else.
         result.clear();
-        for (size_t i = 0; i < m_block.size(); i++) {
-            if (!result.empty())
-                result += ",\n ";
+        if (m_left)
+            result += "[" + m_left->toString() + "]";
+        else
+            result += " ";
+        if (!m_block.empty() && m_block[0]) {
+            result += "-->" + m_block[0]->toString() + ";";
+        }
+        for (size_t i = 1; i < m_block.size(); i++) {
+            if (!m_block[i])
+                continue;
+            result += ",\n ";
             if (m_block[i]->m_left)
                 result += "[" + m_block[i]->m_left->toString() + "]";
             else
                 result += " ";
             ASSERT(m_block[i]->m_right);
-            result += "-->" + m_block[i]->m_right->toString();
-            if (!(m_block[i]->isBlock() || m_block[i]->getTermID() == TermID::EMBED))
-                result += ";";
+            result += "-->" + m_block[i]->m_right->toString() + ";";
+        }
+        if (m_right) {
+            result += ",\n [...]-->";
+            result += m_right->toString() + ";";
         }
         return result;
 
@@ -547,7 +566,9 @@ TermPtr Term::AppendBlock(const TermPtr& item, TermID id, bool force) {
             result->m_block.push_back(item);
         }
     } else {
-        ASSERT(!isBlock());
+        // this — не SEQUENCE (может быть и BLOCK и обычный statement): оборачиваем [this, item]
+        // в новую SEQUENCE. Блок как первый элемент последовательности (за ним идёт ещё оператор)
+        // — корректная конструкция, поэтому assert(!isBlock()) не ставим.
         result = Term::Create(id, "", item->m_mapperRange);
         result->m_block.push_back(shared_from_this());
         if (this != item.get())

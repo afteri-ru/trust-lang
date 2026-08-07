@@ -2,6 +2,7 @@
 #include "transpiler/transpiler.hpp"
 #include "semantic/analyzer.hpp"
 #include "semantic/symbol_table.hpp"
+#include "pipeline/pipeline.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/ident_name.hpp"
 #include "ast/token.hpp"
@@ -893,6 +894,226 @@ TEST_F(TranspilerTest, NameMapping_FuncParams) {
     ASSERT_TRUE(bCpp.has_value());
     EXPECT_EQ(bCpp->toName, "b");
     EXPECT_EQ(reader->getText(bCpp->rangeMap.to), "b");
+}
+
+/// Test: control-flow (if/else-if/else, while, do-while) — кодогенерация C++ и маппинг range.
+TEST_F(TranspilerTest, GenerateControlFlow_MapsRanges) {
+    const std::string name = "cf.src";
+    const std::string src = "x:Int32 := 10;\n"
+                            "[x > 0] --> { a := 1; }, [x < 0] --> { b := -1; }, [...] --> { c := 0; };\n"
+                            "z := 0;\n"
+                            "[z < 10] <-> { z := z + 1; };\n"
+                            "{ z := z - 1; } <-> [z > 0];";
+
+    MapperFile input = m_ctx.source().add_source(name, src, true);
+    MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
+    ASSERT_FALSE(out.isInvalid());
+
+    PipelineOpts opts;
+    opts.no_dsl = true;
+    Pipeline pipeline(m_ctx, opts);
+    std::vector<CppTranspiler::ExportEntry> exports;
+    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    ASSERT_TRUE(res.isValid());
+
+    const std::string cpp = m_ctx.source().output_result(out);
+    // if / else-if / else (многострочное форматирование)
+    EXPECT_NE(cpp.find("if ((x > 0)) {\n    std::any a = 1;\n} else if ((x < 0)) {\n    std::any b = -1;\n} else {\n    std::any c = 0;\n}"), std::string::npos)
+        << cpp;
+    // while
+    EXPECT_NE(cpp.find("while ((z < 10)) {\n    std::any z = (z + 1);\n}"), std::string::npos) << cpp;
+    // do-while
+    EXPECT_NE(cpp.find("} while ((z > 0));"), std::string::npos) << cpp;
+
+    auto* reader = m_ctx.source().toReader();
+    ASSERT_NE(reader, nullptr);
+
+    // Range mapping: ищем forward-маппинг оператора if — from (исходник) содержит условие
+    // "x > 0", to (сгенерированный C++) содержит "if ((".
+    const SourceMapReader::RangeMap* ifMap = nullptr;
+    for (const auto& [key, rm] : reader->getForwardMappings()) {
+        (void)key;
+        if (reader->getText(rm.to).find("if ((") != std::string::npos && reader->getText(rm.from).find("x > 0") != std::string::npos) {
+            ifMap = &rm;
+            break;
+        }
+    }
+    ASSERT_NE(ifMap, nullptr);
+
+    // Range mapping: оператор do-while — from содержит тело "z := z - 1", to содержит "do {".
+    const SourceMapReader::RangeMap* doMap = nullptr;
+    for (const auto& [key, rm] : reader->getForwardMappings()) {
+        (void)key;
+        if (reader->getText(rm.to).find("do {") != std::string::npos && reader->getText(rm.from).find("z := z - 1") != std::string::npos) {
+            doMap = &rm;
+            break;
+        }
+    }
+    ASSERT_NE(doMap, nullptr);
+}
+
+/// Test: while-else — кодогенерация C++.
+TEST_F(TranspilerTest, GenerateWhileElse_Codegen) {
+    const std::string name = "we.src";
+    const std::string src = "z := 0;\n"
+                            "[z < 10] <-> { z := z + 1; }, [...] --> { z := -1; };";
+
+    MapperFile input = m_ctx.source().add_source(name, src, true);
+    MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
+    ASSERT_FALSE(out.isInvalid());
+
+    PipelineOpts opts;
+    opts.no_dsl = true;
+    Pipeline pipeline(m_ctx, opts);
+    std::vector<CppTranspiler::ExportEntry> exports;
+    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    ASSERT_TRUE(res.isValid());
+
+    const std::string cpp = m_ctx.source().output_result(out);
+    // В C++ нет 'while...else' — else эмулируется флагом «вошёл ли цикл хотя бы раз».
+    EXPECT_NE(cpp.find("bool _we1 = false;\nwhile ((z < 10)) {\n    _we1 = true;\n    std::any z = (z + 1);\n}\nif (!_we1) {\n    std::any z = -1;\n}"),
+              std::string::npos)
+        << cpp;
+}
+
+/// Test: break (++) и continue (-+): безымянные → break;/continue; (без goto).
+TEST_F(TranspilerTest, GenerateBreakContinue_Codegen) {
+    const std::string name = "bc.src";
+    const std::string src = "z := 0;\n"
+                            "[z < 10] <-> { ++; -+; };\n"
+                            "{ ++; } <-> [z > 0];";
+
+    MapperFile input = m_ctx.source().add_source(name, src, true);
+    MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
+    ASSERT_FALSE(out.isInvalid());
+
+    PipelineOpts opts;
+    opts.no_dsl = true;
+    Pipeline pipeline(m_ctx, opts);
+    std::vector<CppTranspiler::ExportEntry> exports;
+    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    ASSERT_TRUE(res.isValid());
+
+    const std::string cpp = m_ctx.source().output_result(out);
+    // while: безымянные break/continue → break;/continue;
+    EXPECT_NE(cpp.find("while ((z < 10)) {\n    break;\n    continue;\n}"), std::string::npos) << cpp;
+    // do-while: безымянный break → break;
+    EXPECT_NE(cpp.find("do {\n    break;\n} while ((z > 0));"), std::string::npos) << cpp;
+}
+
+/// Test: return со значением (++ N ++) и void (++ _ ++) — кодогенерация.
+TEST_F(TranspilerTest, GenerateReturn_Codegen) {
+    const std::string name = "ret.src";
+    const std::string src = "%f():Int32 ::= { ++ 42 ++; };\n"
+                            "%g():None ::= { ++ _ ++; };";
+
+    MapperFile input = m_ctx.source().add_source(name, src, true);
+    MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
+    ASSERT_FALSE(out.isInvalid());
+
+    PipelineOpts opts;
+    opts.no_dsl = true;
+    Pipeline pipeline(m_ctx, opts);
+    std::vector<CppTranspiler::ExportEntry> exports;
+    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    ASSERT_TRUE(res.isValid());
+
+    const std::string cpp = m_ctx.source().output_result(out);
+    EXPECT_NE(cpp.find("return 42;"), std::string::npos) << cpp;
+    EXPECT_NE(cpp.find("return;"), std::string::npos) << cpp;
+}
+
+/// Test: match — временная переменная + if/else-if/else.
+TEST_F(TranspilerTest, GenerateMatch_Codegen) {
+    const std::string name = "match.src";
+    const std::string src = "x:Int32 := 5;\n"
+                            "[x] ==> { [1] --> { y := 1; }; [2, 3] --> { y := 2; }; [...] --> { y := 0; }; };";
+
+    MapperFile input = m_ctx.source().add_source(name, src, true);
+    MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
+    ASSERT_FALSE(out.isInvalid());
+
+    PipelineOpts opts;
+    opts.no_dsl = true;
+    Pipeline pipeline(m_ctx, opts);
+    std::vector<CppTranspiler::ExportEntry> exports;
+    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    ASSERT_TRUE(res.isValid());
+
+    const std::string cpp = m_ctx.source().output_result(out);
+    EXPECT_NE(cpp.find("auto _match1 = x;\nif (_match1 == 1) {\n    std::any y = 1;\n} else if (_match1 == 2 || _match1 == 3) {\n    std::any y = 2;\n} else "
+                       "{\n    std::any y = 0;\n}"),
+              std::string::npos)
+        << cpp;
+}
+
+/// Test: именованные блоки — метки <имя>_continue/_break для именованных break/continue (только внутри функций).
+TEST_F(TranspilerTest, GenerateNamedBlockLabels_Codegen) {
+    const std::string name = "nb.src";
+    const std::string src = "%f():None ::= { outer:: { z:Int32 := 0; [z < 3] <-> { outer:: ++; outer:: -+; }; }; };";
+
+    MapperFile input = m_ctx.source().add_source(name, src, true);
+    MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
+    ASSERT_FALSE(out.isInvalid());
+
+    PipelineOpts opts;
+    opts.no_dsl = true;
+    Pipeline pipeline(m_ctx, opts);
+    std::vector<CppTranspiler::ExportEntry> exports;
+    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    ASSERT_TRUE(res.isValid());
+
+    const std::string cpp = m_ctx.source().output_result(out);
+    // continue-метка именованного блока стоит ПЕРЕД циклом (после инициализации z := 0),
+    // break-метка — после блока; goto именованных break/continue внутри функции.
+    EXPECT_NE(cpp.find("void f() {\n    int32_t z = 0;\n    outer_continue:;while ((z < 3)) {\n        goto outer_break;\n        goto outer_continue;\n    "
+                       "}outer_break:;\n}"),
+              std::string::npos)
+        << cpp;
+}
+
+/// Test: топ-левел именованный блок метки НЕ выводит (метки C++ недопустимы на namespace-scope).
+TEST_F(TranspilerTest, NamedBlock_NoLabelsAtTopLevel) {
+    const std::string name = "tl.src";
+    const std::string src = "myblock:: { x := 1; };";
+
+    MapperFile input = m_ctx.source().add_source(name, src, true);
+    MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
+    ASSERT_FALSE(out.isInvalid());
+
+    PipelineOpts opts;
+    opts.no_dsl = true;
+    Pipeline pipeline(m_ctx, opts);
+    std::vector<CppTranspiler::ExportEntry> exports;
+    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    ASSERT_TRUE(res.isValid());
+
+    const std::string cpp = m_ctx.source().output_result(out);
+    EXPECT_EQ(cpp.find("myblock_break"), std::string::npos) << cpp;
+    EXPECT_EQ(cpp.find("myblock_continue"), std::string::npos) << cpp;
+}
+
+/// Test: функция — top-level именованный блок. Именованный break на имя функции (func:: ++) = return (void),
+/// именованный return (func:: ++ value ++) = return value.
+TEST_F(TranspilerTest, GenerateFuncLabelBreak_ReturnsVoid) {
+    const std::string name = "fr.src";
+    const std::string src = "%f():Int32 ::= { f:: ++ 42 ++; };\n"
+                            "%g():None ::= { g:: ++; };";
+
+    MapperFile input = m_ctx.source().add_source(name, src, true);
+    MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
+    ASSERT_FALSE(out.isInvalid());
+
+    PipelineOpts opts;
+    opts.no_dsl = true;
+    Pipeline pipeline(m_ctx, opts);
+    std::vector<CppTranspiler::ExportEntry> exports;
+    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    ASSERT_TRUE(res.isValid());
+
+    const std::string cpp = m_ctx.source().output_result(out);
+    EXPECT_NE(cpp.find("int32_t f() {\n    return 42;\n}"), std::string::npos) << cpp;
+    EXPECT_NE(cpp.find("void g() {\n    return;\n}"), std::string::npos) << cpp;
 }
 
 } // namespace

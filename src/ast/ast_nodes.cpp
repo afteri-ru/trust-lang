@@ -242,4 +242,66 @@ MapperRange VarDecl::nameRange() const noexcept {
     return {};
 }
 
+// ── IfStmt::dump ──
+
+std::string IfStmt::dump(size_t indent) const {
+    std::string result = AstNodeAttr::dump(indent);
+    if (m_cond)
+        result += "\n" + std::string(indent, ' ') + "cond: " + m_cond->dump(indent + 2);
+    if (m_then)
+        result += "\n" + std::string(indent, ' ') + "then: " + m_then->dump(indent + 2);
+    for (size_t i = 0; i < m_elseifs.size(); ++i) {
+        result += "\n" + std::string(indent, ' ') + "elseif" + std::to_string(i) + ":";
+        if (m_elseifs[i].first)
+            result += "\n" + std::string(indent + 2, ' ') + "cond: " + m_elseifs[i].first->dump(indent + 4);
+        if (m_elseifs[i].second)
+            result += "\n" + std::string(indent + 2, ' ') + "body: " + m_elseifs[i].second->dump(indent + 4);
+    }
+    if (m_else)
+        result += "\n" + std::string(indent, ' ') + "else: " + m_else->dump(indent + 2);
+    return result;
+}
+
+// ── WhileStmt::dump ──
+
+std::string WhileStmt::dump(size_t indent) const {
+    std::string result = AstNodeAttr::dump(indent);
+    if (m_cond)
+        result += "\n" + std::string(indent, ' ') + "cond: " + m_cond->dump(indent + 2);
+    if (m_body)
+        result += "\n" + std::string(indent, ' ') + "body: " + m_body->dump(indent + 2);
+    if (m_else)
+        result += "\n" + std::string(indent, ' ') + "else: " + m_else->dump(indent + 2);
+    return result;
+}
+
+// ── DoWhileStmt::dump ──
+
+std::string DoWhileStmt::dump(size_t indent) const {
+    std::string result = AstNodeAttr::dump(indent);
+    if (m_body)
+        result += "\n" + std::string(indent, ' ') + "body: " + m_body->dump(indent + 2);
+    if (m_cond)
+        result += "\n" + std::string(indent, ' ') + "cond: " + m_cond->dump(indent + 2);
+    return result;
+}
+
+// ── MatchStmt::dump ──
+
+std::string MatchStmt::dump(size_t indent) const {
+    std::string result = AstNodeAttr::dump(indent);
+    if (m_value)
+        result += "\n" + std::string(indent, ' ') + "value: " + m_value->dump(indent + 2);
+    for (size_t i = 0; i < m_cases.size(); ++i) {
+        result += "\n" + std::string(indent, ' ') + "case" + std::to_string(i) + ":";
+        for (size_t j = 0; j < m_cases[i].patterns.size(); ++j)
+            result += "\n" + std::string(indent + 2, ' ') + "pat" + std::to_string(j) + ": " + m_cases[i].patterns[j]->dump(indent + 4);
+        if (m_cases[i].body)
+            result += "\n" + std::string(indent + 2, ' ') + "body: " + m_cases[i].body->dump(indent + 4);
+    }
+    if (m_default)
+        result += "\n" + std::string(indent, ' ') + "default: " + m_default->dump(indent + 2);
+    return result;
+}
+
 } // namespace trust

@@ -112,7 +112,6 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
         ASSERT(macro_list);
 
         if (macro_done) {
-
             // Защита от бесконечной рекурсии при раскрытии макросов
             if (parser.m_macro_depth >= 100) {
                 parser.m_ctx.diag().report(Severity::Fatal, macro_done->m_mapperRange, "Macro expansion '{}' stack overflow?", macro_done->toString());
@@ -148,8 +147,13 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
                 def_range = MapperRange{macro_done->m_right->m_block.front()->m_mapperRange.begin, macro_done->m_right->m_block.back()->m_mapperRange.end};
             }
 
-            parser.m_ctx.source().addMacroMapping({parser.m_macro_analisys_buff.front()->m_mapperRange.begin, last_call_term->m_mapperRange.end},
-                                                  {def_range.begin, def_range.end});
+            // Реальный range замещаемого фрагмента (вызова макроса). Все вставленные лексемы
+            // раскрытого тела должны получить именно его location — иначе клоны тела (из @dsl)
+            // сохраняют range DSL-определения, и грамматика, комбинирующая range с call-site
+            // токенами, даёт begin > end (разные файлы) → EXPECT(b <= e).
+            MapperRange call_range{parser.m_macro_analisys_buff.front()->m_mapperRange.begin, last_call_term->m_mapperRange.end};
+
+            parser.m_ctx.source().addMacroMapping(call_range, {def_range.begin, def_range.end});
 
             parser.m_macro_analisys_buff.erase(parser.m_macro_analisys_buff.begin(), parser.m_macro_analisys_buff.begin() + size_remove);
 
@@ -157,6 +161,9 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
 
                 auto expanded_str = parser.m_macro->ExpandString(macro_done, macro_args);
                 BlockType macro_block = Scanner::ParseLexem(parser.lexer->m_ctx, expanded_str);
+                for (auto& t : macro_block)
+                    if (t)
+                        t->m_mapperRange = call_range;
                 parser.m_macro_analisys_buff.insert(parser.m_macro_analisys_buff.begin(), macro_block.begin(), macro_block.end());
 
                 parser.m_macro_depth--;
@@ -167,17 +174,10 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
 
                 ASSERT(macro_done->m_right);
                 BlockType macro_block = parser.m_macro->ExpandMacros(macro_done, macro_args);
+                for (auto& t : macro_block)
+                    if (t)
+                        t->m_mapperRange = call_range;
                 parser.m_macro_analisys_buff.insert(parser.m_macro_analisys_buff.begin(), macro_block.begin(), macro_block.end());
-
-                std::string temp = "";
-                for (auto& elem : parser.m_macro_analisys_buff) {
-                    if (!temp.empty()) {
-                        temp += " ";
-                    }
-                    temp += elem->getText();
-                    temp += ":";
-                    temp += toString(elem->m_id);
-                }
             }
 
             parser.m_macro_depth--;

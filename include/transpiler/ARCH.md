@@ -8,6 +8,65 @@ Called after semantic analysis succeeds.
 - Variable declarations with initialization → `auto x = 42;`
 - Literals → C++ literal syntax
 - Type aliases → `using MyInt = int32_t;`
+- Control flow: `if`/`else-if`/`else` → `if (...) { ... } else if (...) { ... } else { ... }`; `while`/`while-else` → `while (...) { ... } else { ... }`; `do-while` → `do { ... } while (...);`
+- Jump statements: `return expr;`, `throw expr;`, void `return;`
+- `break`/`continue` → `goto <метка начала/выхода цикла>;`
+- `match` → временная переменная + `if/else-if/else`
+
+## Единая раскладка control-flow в Term (parser.y)
+`FOLLOW`/`WHILE`/`DOWHILE` используют одинаковые роли полей:
+- `m_left`  — условие (`cond`) — всегда;
+- `m_right` — `else` (для if/while; у do-while пуст) — "else известен сразу";
+- `m_block` — тело в `[0]`; для `elseif` — branch-термы с `[1..]` (каждый `m_left`=cond, `m_right`=body).
+Полный диапазон statement'а вычисляется в term_to_ast (`expandControlFlowRange`): от min-begin до max-end по детям
+(для do-while это `[body.begin, cond.end]` — текстовый порядок «тело→условие» сохраняется в range, а не в полях).
+
+## Интеррапты: break / continue / return / throw (parser.y `exit_part`)
+Все операторы прерывания — `exit_part: interrupt | interrupt rval interrupt`, где
+`interrupt: INT_PLUS | INT_MINUS | INT_REPEAT`. Роль определяется по TermID и наличию значения:
+- `INT_PLUS` (`++`) без значения → **break**; со значением → **return**.
+- `INT_REPEAT` (`-+` / `+-`) → **continue**.
+- `INT_MINUS` (`--`) → **throw**.
+- Void-return записывается явно `++ _ ++` (значение — служебный символ `_`, `m_value = nullptr`).
+Имя блока (label) из `exit_prefix` живёт в `m_text` терма и попадает в `JumpStmt::m_label`.
+
+**AST:** break/continue/return/throw — класс `JumpStmt` с разными `Kind`
+(`BreakStmt`/`ContinueStmt`/`ReturnStmt`/`ThrowStmt`), `m_label` (опционально), `m_value` (для return/throw).
+
+## Оператор match (parser.y `match`)
+`[значение] ==> { [шаблоны] --> тело; ...; [...] --> else; }`.
+Раскладка MATCHING-терма: `m_left`=значение, `m_right`=match_body (BLOCK),
+`m_right->m_block` = [item1, item2, ..., elseItem]. Каждый item: `m_left`=шаблоны
+(matches: первый шаблон — сам терм, остальные — в его `m_block`), `m_right`=тело;
+else: `m_left` = ELLIPSIS.
+**AST:** класс `MatchStmt{MatchingStmt}`: `m_value`, `m_cases` (список `MatchCase{patterns, body}`), `m_default`.
+
+## Codegen: break/continue, return, match и форматирование
+- **break/continue.** Безымянные — обычные C++ `break;`/`continue;` (без goto). Именованные —
+  `goto <имя>_break/_continue` (имя очищается от `::` через `cleanLabelName`). goto нужен только
+  для именованных прерываний (передача управления между вложенными блоками/циклами).
+- **Метки именованных блоков.** Именованный блок (`ScopeBlock` с именем) внутри функции выводит
+  break-метку `<имя>_break:;` (после тела). continue-метку `<имя>_continue` ставит ПЕРВЫЙ цикл
+  в теле блока (через `m_pendingContinueLabel`): именованный блок кладёт pending-метку, а первый
+  while/do-while в его теле выводит её ПЕРЕД циклом (после инициализации блока), чтобы
+  `goto <имя>_continue` просто переоценивал условие цикла, не повторяя инициализацию.
+  Метки выводятся ТОЛЬКО внутри функций (`m_inFunction`), т.к. на namespace-scope C++-метки
+  недопустимы; флаг и имя функции пробрасываются в `body_gen` через `emitBlockBodyToFile(..., inFunction=true)`.
+- **Функция — top-level именованный блок.** Имя функции — блок для всей функции. Именованный
+  break на имя текущей функции (`func:: ++`) = `return;` (void); именованный return
+  (`func:: ++ value ++`) = `return value;` (определяется по `m_currentFuncName`).
+- **return/throw.** `++ значение ++` = `func:: ++ значение ++` = `return значение;`; void-return
+  `++ _ ++` = `func:: ++` (без `_` как зарезервированного значения) = `return;`; `throw <expr>;`.
+- **match.** Значение вычисляется во временную переменную `auto _match<N> = <value>;` (на отдельной
+  строке), затем ветки — через `if (_matchN == p1 || _matchN == p2) { body } ... else { default }`.
+- **Нормальное форматирование.** Тела блоков (функций, if/while/do-while/match) генерируются
+  многострочно с отступами (`m_indent`, 4 пробела на уровень): `{` в конце строки, каждый оператор
+  на новой строке с отступом, `}` на своём уровне. Ветки последовательностей (ScopeBlock/sequence)
+  внутри блоков также форматируются с отступом. На верхнем уровне (namespace-scope, indent==0)
+  сохраняется прежнее поведение (зеркалирование строк исходника).
+
+
+
 
 ## Pipeline Position
 ```
@@ -30,6 +89,15 @@ Walks the AST and produces C++ code directly to a file (no string-based generati
 - `generateTypeDeclToFile()` — генерация объявления типа (`::=`)
 - `generateExpr()` — генерация выражения (возвращает строку с C++ кодом)
 - `generateExprStmtToFile()` — генерация statement-level выражения
+- `generateIfToFile()` / `generateWhileToFile()` / `generateDoWhileToFile()` — генерация control-flow
+- `emitBlockBodyToFile()` / `emitBodyNode()` — генерация тела `{ ... }` с зеркалированием строк
+- `resolveTypeName()` — C++-имя типа
+
+**Маппинг control-flow:** каждый узел if/while/do-while маппится через `mapStart(node.range())/mapStop(node.range())`
+(весь statement → сгенерированный C++). Тело каждой ветки маппится отдельно через диапазон блока `{ ... }`.
+Исключение — do-while: begin statement'а совпадает с begin тела (начинается с `{`), что дало бы коллизию ключа
+в `mapStop` (ключ = begin диапазона). Поэтому тело do-while не оборачивается собственным `mapStart/mapStop`
+(`emitBodyNode(..., mapBlock=false)`) — всё покрывает единый range statement'а.
 
 **Маппинг:** Для каждого узла AST создаётся RangeMap input (trust) → output (cpp) через стек mapStart/mapStop в Context. Имена объявлений (переменных, функций, типов) и параметров функций дополнительно регистрируются через `addNameMapping` для hover-ссылок (trust → cpp).
 

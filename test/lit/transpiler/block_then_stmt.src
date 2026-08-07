@@ -1,0 +1,7 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Блок (анонимный или именованный) как первый элемент последовательности, за которым идёт оператор.
+{ x := 1; }; y := 2;
+# CHECK: std::any x = 1; std::any y = 2;
+outer:: { a := 1; }; b := 2;
+# CHECK: std::any a = 1; std::any b = 2;

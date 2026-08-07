@@ -488,8 +488,8 @@ TEST(TranspileLspTest, SameLineStatementsJoinOnOneLine) {
 // ============================================================================
 // Сгенерированный C++ повторяет раскладку исходника и внутри блоков: операторы на
 // одной строке исходника — на одной строке, '{'/'}' следуют строкам исходника.
-TEST(TranspileLspTest, FunctionBodyMirrorsSourceLayout) {
-    // Одно-строчный блок: всё на одной строке.
+TEST(TranspileLspTest, FunctionBodyProperFormatting) {
+    // Одно-строчный блок: нормальное многострочное форматирование с отступами.
     {
         Context ctx(".");
         const std::string code = "%foo():Void ::= { a := 1; b := 2; }\n";
@@ -501,10 +501,10 @@ TEST(TranspileLspTest, FunctionBodyMirrorsSourceLayout) {
         pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
         ASSERT_EQ(ctx.diag().errorCount(), 0);
         std::string cpp(ctx.source().output_body(cppIdx));
-        // Одно-строчный блок: всё на одной строке, с пробелами вокруг {, } и между операторами.
-        EXPECT_NE(cpp.find("void foo() { std::any a = 1; std::any b = 2; }"), std::string::npos) << cpp;
+        // Операторы тела функции — с отступом, каждый на своей строке.
+        EXPECT_NE(cpp.find("void foo() {\n    std::any a = 1;\n    std::any b = 2;\n}"), std::string::npos) << cpp;
     }
-    // Много-строчный блок: каждый оператор на своей строке.
+    // Много-строчный блок: то же нормальное форматирование с отступами.
     {
         Context ctx(".");
         const std::string code = "%foo():Void ::= {\n  a := 1;\n  b := 2;\n}\n";
@@ -516,7 +516,7 @@ TEST(TranspileLspTest, FunctionBodyMirrorsSourceLayout) {
         pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
         ASSERT_EQ(ctx.diag().errorCount(), 0);
         std::string cpp(ctx.source().output_body(cppIdx));
-        EXPECT_NE(cpp.find("void foo() {\nstd::any a = 1;\nstd::any b = 2;\n}"), std::string::npos) << cpp;
+        EXPECT_NE(cpp.find("void foo() {\n    std::any a = 1;\n    std::any b = 2;\n}"), std::string::npos) << cpp;
     }
 }
 

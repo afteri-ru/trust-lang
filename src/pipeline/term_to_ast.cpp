@@ -102,12 +102,14 @@ static ParserToken::Kind mapTermID(trust::TermID id) {
         return PK::ReturnStmt;
     case TK::INT_MINUS:
         return PK::ThrowStmt;
+    case TK::INT_REPEAT:
+        return PK::ContinueStmt;
     case TK::WHILE:
         return PK::WhileStmt;
     case TK::DOWHILE:
         return PK::DoWhileStmt;
     case TK::FOLLOW:
-        return PK::MatchingStmt;
+        return PK::IfStmt;
     case TK::WITH:
         return PK::MatchingStmt;
     case TK::OPERATOR_PTR:
@@ -164,6 +166,8 @@ static ParserToken::Kind mapTermID(trust::TermID id) {
 // ── Recursive converter ──
 
 static void convertTermToSeq(const trust::TermPtr& term, std::vector<AstNodePtr>& out, Context& ctx);
+static AstNodePtr makeControlFlowNode(const trust::TermPtr& term, Context& ctx);
+static AstNodePtr makeMatchNode(const trust::TermPtr& term, Context& ctx);
 
 /// Может ли узел данного kind нести признак иммутабельности ('^' → attr::Const)?
 static bool canHaveImmutableQualifier(const trust::TermPtr& term, ParserToken::Kind kind) {
@@ -230,6 +234,38 @@ static void expandTermRangeToChildren(const trust::TermPtr& term) {
         term->m_left->m_mapperRange.begin.offset() <= term->m_right->m_mapperRange.end.offset()) {
         term->m_mapperRange = MapperRange{term->m_left->m_mapperRange.begin, term->m_right->m_mapperRange.end};
     }
+}
+
+/// Расширяет range control-flow терма (FOLLOW/WHILE/DOWHILE) до полного охвата statement'а:
+/// от минимального begin до максимального end среди всех детей (m_left, m_right, m_block).
+/// Для do-while (m_block=[body], m_left=cond) даёт [body.begin, cond.end] — текстовый порядок
+/// «тело→условие» сохраняется именно здесь, а не в полях.
+/// Guard: учитываются только дети из того же файла, что и первый рассмотренный.
+static void expandControlFlowRange(const trust::TermPtr& term) {
+    bool have = false;
+    trust::MapperLocation begin, end;
+    auto consider = [&](const trust::TermPtr& t) {
+        if (!t || t->m_mapperRange.isInvalid())
+            return;
+        if (!have) {
+            begin = t->m_mapperRange.begin;
+            end = t->m_mapperRange.end;
+            have = true;
+            return;
+        }
+        if (t->m_mapperRange.begin.fileIdx() != begin.fileIdx())
+            return; // макро-раскрытие: дети в другом псевдо-файле — пропускаем
+        if (t->m_mapperRange.begin.offset() < begin.offset())
+            begin = t->m_mapperRange.begin;
+        if (t->m_mapperRange.end.offset() > end.offset())
+            end = t->m_mapperRange.end;
+    };
+    consider(term->m_left);
+    consider(term->m_right);
+    for (const auto& child : term->m_block)
+        consider(child);
+    if (have && begin.offset() <= end.offset())
+        term->m_mapperRange = trust::MapperRange{begin, end};
 }
 
 static AstNodePtr makeNodeForKind(const trust::TermPtr& term, ParserToken::Kind kind, const std::string& text, std::vector<AstNodePtr> body) {
@@ -306,20 +342,35 @@ static AstNodePtr makeNodeForKind(const trust::TermPtr& term, ParserToken::Kind 
         break;
     }
     case ParserToken::Kind::ReturnStmt:
-    case ParserToken::Kind::ThrowStmt: {
-        // Роль (return/throw) определяется по TermID, а не по тексту.
-        // Текст узла AST — '++'/'--'; namespace из m_text уходит в m_label.
-        auto js = std::make_shared<JumpStmt>(kind, term);
-        if (term->getTermID() == trust::TermID::INT_PLUS || term->getTermID() == trust::TermID::INT_MINUS) {
+    case ParserToken::Kind::ThrowStmt:
+    case ParserToken::Kind::BreakStmt:
+    case ParserToken::Kind::ContinueStmt: {
+        // Роль определяется по TermID и наличию значения:
+        //   INT_PLUS  (++) без значения → break; со значением → return
+        //   INT_REPEAT (-+ / +-)        → continue
+        //   INT_MINUS (--)              → throw
+        // Текст узла AST — '++'/'--'/'-+'; namespace (label) из m_text уходит в m_label.
+        ParserToken::Kind k = kind;
+        if (term->getTermID() == trust::TermID::INT_PLUS && body.empty())
+            k = ParserToken::Kind::BreakStmt;
+        auto js = std::make_shared<JumpStmt>(k, term);
+        if (term->getTermID() == trust::TermID::INT_PLUS || term->getTermID() == trust::TermID::INT_MINUS || term->getTermID() == trust::TermID::INT_REPEAT) {
             std::string_view ns = term->getText();
-            const char* op = kind == ParserToken::Kind::ReturnStmt ? "++" : "--";
+            const char* op = (k == ParserToken::Kind::ReturnStmt || k == ParserToken::Kind::BreakStmt) ? "++"
+                             : (k == ParserToken::Kind::ThrowStmt)                                     ? "--"
+                                                                                                       : "-+";
             if (!ns.empty() && ns != op) {
                 auto labelTerm = Term::Create(trust::TermID::NAME, std::string(ns));
                 js->m_label = std::make_shared<AstNodeAttr>(ParserToken::Kind::Ident, std::move(labelTerm));
             }
         }
-        if (!body.empty()) {
-            js->m_value = std::move(body[0]);
+        if (!body.empty() && k != ParserToken::Kind::BreakStmt && k != ParserToken::Kind::ContinueStmt) {
+            // void return `++ _ ++`: значение `_` — служебный символ, m_value = nullptr.
+            if (k == ParserToken::Kind::ReturnStmt && body[0] && body[0]->kind() == ParserToken::Kind::Ident && body[0]->text() == "_") {
+                js->m_value = nullptr;
+            } else {
+                js->m_value = std::move(body[0]);
+            }
         }
         node = std::move(js);
         break;
@@ -382,6 +433,15 @@ static AstNodePtr makeNode(const trust::TermPtr& term, Context& ctx) {
             ctx.diag().report(Severity::Error, term->m_mapperRange, "Immutable qualifier '^' is not applicable in block labels or namespaces");
             text.pop_back();
         }
+    }
+
+    // Control flow (if / while / do-while) и match: единая раскладка из parser.y.
+    // Обрабатываем до общей конвертации детей, чтобы не собирать их в плоский body.
+    if (term->getTermID() == trust::TermID::FOLLOW || term->getTermID() == trust::TermID::WHILE || term->getTermID() == trust::TermID::DOWHILE ||
+        term->getTermID() == trust::TermID::MATCHING) {
+        AstNodePtr node = (term->getTermID() == trust::TermID::MATCHING) ? makeMatchNode(term, ctx) : makeControlFlowNode(term, ctx);
+        convertAttrsToNode(term, node, ctx);
+        return node;
     }
 
     // Build children recursively — collect from m_block, m_args, m_left, m_right
@@ -480,6 +540,82 @@ static AstNodePtr makeNode(const trust::TermPtr& term, Context& ctx) {
     return node;
 }
 
+// ── Control flow node construction ──
+// Единая раскладка из parser.y: m_left=cond, m_right=else,
+// m_block=[тело, elseif-branch...]; для do-while m_block=[body], m_left=cond.
+static AstNodePtr makeControlFlowNode(const trust::TermPtr& term, Context& ctx) {
+    if (term->getTermID() == trust::TermID::FOLLOW) {
+        auto node = std::make_shared<IfStmt>(ParserToken::Kind::IfStmt, term);
+        if (term->m_left)
+            node->m_cond = makeNode(term->m_left, ctx);
+        if (!term->m_block.empty() && term->m_block[0])
+            node->m_then = makeNode(term->m_block[0], ctx);
+        for (size_t i = 1; i < term->m_block.size(); ++i) {
+            const auto& br = term->m_block[i];
+            if (!br)
+                continue;
+            AstNodePtr c = br->m_left ? makeNode(br->m_left, ctx) : nullptr;
+            AstNodePtr b = br->m_right ? makeNode(br->m_right, ctx) : nullptr;
+            node->m_elseifs.emplace_back(std::move(c), std::move(b));
+        }
+        if (term->m_right)
+            node->m_else = makeNode(term->m_right, ctx);
+        expandControlFlowRange(term);
+        return node;
+    }
+    if (term->getTermID() == trust::TermID::WHILE) {
+        auto node = std::make_shared<WhileStmt>(ParserToken::Kind::WhileStmt, term);
+        if (term->m_left)
+            node->m_cond = makeNode(term->m_left, ctx);
+        if (!term->m_block.empty() && term->m_block[0])
+            node->m_body = makeNode(term->m_block[0], ctx);
+        if (term->m_right)
+            node->m_else = makeNode(term->m_right, ctx);
+        expandControlFlowRange(term);
+        return node;
+    }
+    // do-while: m_left=cond, m_block=[body]
+    auto node = std::make_shared<DoWhileStmt>(ParserToken::Kind::DoWhileStmt, term);
+    if (!term->m_block.empty() && term->m_block[0])
+        node->m_body = makeNode(term->m_block[0], ctx);
+    if (term->m_left)
+        node->m_cond = makeNode(term->m_left, ctx);
+    expandControlFlowRange(term);
+    return node;
+}
+
+// ── Match node construction ──
+// Раскладка MATCHING-терма (parser.y): m_left=значение, m_right=match_body (BLOCK),
+// m_right->m_block = [item1, item2, ..., elseItem]. item: m_left=шаблоны (m_block=list),
+// m_right=тело; else: m_left=ELLIPSIS.
+static AstNodePtr makeMatchNode(const trust::TermPtr& term, Context& ctx) {
+    auto node = std::make_shared<MatchStmt>(ParserToken::Kind::MatchingStmt, term);
+    if (term->m_left)
+        node->m_value = makeNode(term->m_left, ctx);
+    if (term->m_right) {
+        for (const auto& item : term->m_right->m_block) {
+            if (!item)
+                continue;
+            if (item->m_left && item->m_left->getTermID() == trust::TermID::ELLIPSIS) {
+                // else: [...] --> body
+                node->m_default = item->m_right ? makeNode(item->m_right, ctx) : nullptr;
+            } else {
+                MatchStmt::MatchCase c;
+                if (item->m_left) {
+                    // matches: первый шаблон — сам терм, остальные — в его m_block
+                    c.patterns.push_back(makeNode(item->m_left, ctx));
+                    for (const auto& p : item->m_left->m_block)
+                        c.patterns.push_back(makeNode(p, ctx));
+                }
+                c.body = item->m_right ? makeNode(item->m_right, ctx) : nullptr;
+                node->m_cases.push_back(std::move(c));
+            }
+        }
+    }
+    expandControlFlowRange(term);
+    return node;
+}
+
 static void convertTermToSeq(const trust::TermPtr& term, std::vector<AstNodePtr>& out, Context& ctx) {
     if (!term || term->getTermID() == trust::TermID::END)
         return;
@@ -504,9 +640,10 @@ static void convertTermToSeq(const trust::TermPtr& term, std::vector<AstNodePtr>
     }
 
     // ── m_left ──
-    // Для INT_PLUS/INT_MINUS m_left не обходим: namespace (label) живёт в m_text
+    // Для INT_PLUS/INT_MINUS/INT_REPEAT m_left не обходим: namespace (label) живёт в m_text
     // и попадает в JumpStmt::m_label в makeNode, а не в тело узла.
-    if (term->m_left && term->getTermID() != trust::TermID::INT_PLUS && term->getTermID() != trust::TermID::INT_MINUS) {
+    if (term->m_left && term->getTermID() != trust::TermID::INT_PLUS && term->getTermID() != trust::TermID::INT_MINUS &&
+        term->getTermID() != trust::TermID::INT_REPEAT) {
         AstNodePtr ln = makeNode(term->m_left, ctx);
         if (ln)
             out.push_back(std::move(ln));

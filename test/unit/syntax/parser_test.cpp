@@ -1978,6 +1978,13 @@ TEST_F(ParserTest, Else) {
     ASSERT_TRUE(Parse("[val] <->{val}, [...]-->{else}"));
 }
 
+TEST_F(ParserTest, BlockThenStmt) {
+    // Блок (анонимный/именованный) как первый элемент последовательности, за которым идёт оператор.
+    ASSERT_TRUE(Parse("{ x := 1; }; y := 2;"));
+    ASSERT_TRUE(Parse("{ x := 1; }; { y := 2; };"));
+    ASSERT_TRUE(Parse("outer:: { x := 1; }; y := 2;"));
+}
+
 TEST_F(ParserTest, CheckResult) {
 
     ASSERT_TRUE(Parse("{ expr }; "));

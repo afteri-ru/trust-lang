@@ -19,4 +19,9 @@
 - `FuncDecl` — сигнатура и тело, forward declaration (`;`), возврат `return expr;`
 - Expression statements — присваивания `=`, `+=`, `-=`, `*=`, `/=`, `%=`, целочисленное деление `//` → `static_cast<int64_t>(...) / ...`
 - `JumpStmt` — `return expr;`, `throw expr;`
+- `IfStmt` — `if (cond) { ... } else if (cond2) { ... } else { ... }`
+- `WhileStmt` — `while (cond) { ... }`, с else — `while (cond) { ... } else { ... }`
+- `DoWhileStmt` — `do { ... } while (cond);`
+- `BreakStmt`/`ContinueStmt` — `goto <метка начала/выхода цикла>;` (безымянные — по ближайшему циклу)
+- `MatchStmt` — временная переменная + `if (_m == p1 || _m == p2) { ... } else { ... }`
 - Standalone literals и `EmbedExpr` (`{% ... %}`) — выводятся как есть с source mapping

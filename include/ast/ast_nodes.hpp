@@ -33,6 +33,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace trust {
@@ -393,6 +394,81 @@ class VarDecl : public Decl {
 
     AstNodePtr m_initializer;  ///< Инициализатор (nullptr = нет инициализатора)
     bool m_is_mutable = false; ///< mutable qualifier
+};
+
+/// IfStmt — условный оператор.
+/// kind = IfStmt.
+/// Единая раскладка из Term (parser.y): m_left=условие, m_right=else,
+/// m_block=[тело then, branch2, branch3, ...] (branch_i = терм cond_i→body_i).
+/// Здесь хранятся сконвертированные AST-дети: m_cond, m_then, m_elseifs, m_else.
+class IfStmt : public AstNodeAttr {
+  public:
+    IfStmt() = default;
+
+    IfStmt(ParserToken::Kind k, TermPtr term)
+    : AstNodeAttr(k, std::move(term)) {}
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    AstNodePtr m_cond{};                                      ///< Условие первой ветки
+    AstNodePtr m_then{};                                      ///< Тело then-ветки
+    std::vector<std::pair<AstNodePtr, AstNodePtr>> m_elseifs; ///< (условие, тело) для else-if
+    AstNodePtr m_else{};                                      ///< Тело else-ветки (nullptr если нет)
+};
+
+/// WhileStmt — цикл while с опциональным else.
+/// kind = WhileStmt.
+class WhileStmt : public AstNodeAttr {
+  public:
+    WhileStmt() = default;
+
+    WhileStmt(ParserToken::Kind k, TermPtr term)
+    : AstNodeAttr(k, std::move(term)) {}
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    AstNodePtr m_cond{}; ///< Условие
+    AstNodePtr m_body{}; ///< Тело цикла
+    AstNodePtr m_else{}; ///< Тело else (nullptr если нет)
+};
+
+/// DoWhileStmt — цикл do-while.
+/// kind = DoWhileStmt.
+class DoWhileStmt : public AstNodeAttr {
+  public:
+    DoWhileStmt() = default;
+
+    DoWhileStmt(ParserToken::Kind k, TermPtr term)
+    : AstNodeAttr(k, std::move(term)) {}
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    AstNodePtr m_body{}; ///< Тело цикла
+    AstNodePtr m_cond{}; ///< Условие
+};
+
+/// MatchStmt — оператор сопоставления (match/switch).
+/// kind = MatchingStmt.
+/// Раскладка из Term (parser.y): m_left=значение, m_right=match_body (BLOCK);
+/// m_right->m_block = [item1, item2, ..., elseItem]. Каждый item: m_left=шаблоны
+/// (m_block = список паттернов), m_right=тело; else: m_left = ELLIPSIS.
+class MatchStmt : public AstNodeAttr {
+  public:
+    struct MatchCase {
+        std::vector<AstNodePtr> patterns; ///< Шаблоны ветки (объединяются через ||)
+        AstNodePtr body{};                ///< Тело ветки
+    };
+
+    MatchStmt() = default;
+
+    MatchStmt(ParserToken::Kind k, TermPtr term)
+    : AstNodeAttr(k, std::move(term)) {}
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    AstNodePtr m_value{};           ///< Выражение для сопоставления
+    std::vector<MatchCase> m_cases; ///< Ветки (порядок важен)
+    AstNodePtr m_default{};         ///< Тело else (nullptr если нет)
 };
 
 } // namespace trust
