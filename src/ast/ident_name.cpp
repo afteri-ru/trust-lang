@@ -14,13 +14,25 @@
 namespace trust {
 
 // ──────────────────────────────────────────────
-// Конструкторы без Term (test-only): text() из m_name, range() → EXPECT.
+// Конструкторы без Term (test-only): text() из m_text, range() → EXPECT.
 // ──────────────────────────────────────────────
 
 IdentName::IdentName(std::string name, AttrPool* pool)
-: AstNodeAttr(ParserToken::Kind::Ident)
-, m_name(std::move(name)) {
+: HasText(ParserToken::Kind::Ident, std::move(name)) {
     stripCaretAndApplyReadonly(pool);
+}
+
+// ── Терм-конструктор: имя читается из Term и нормализуется по kind=Ident (срез '^').
+//    Признак иммутабельности → attr::ReadOnly применяется отдельно (convertAttrsToNode);
+//    stripCaretAndApplyReadonly здесь НЕ вызывается, чтобы не задвоить attr.
+IdentName::IdentName(TermPtr term, AttrPool* pool)
+: IdentName(std::move(term), ParserToken::Kind::Ident, pool) {
+}
+
+IdentName::IdentName(TermPtr term, ParserToken::Kind k, AttrPool* pool)
+: HasText(k, std::move(term)) {
+    // Базовый HasText уже делает EXPECT(m_term) и m_text = normalizeTermText(k, ...).
+    (void)pool;
 }
 
 // ──────────────────────────────────────────────
@@ -54,8 +66,9 @@ static bool is_unicode_digit(char32_t c) {
 }
 
 static bool is_utf8_letter(const char*& p, const char* end) {
-    if (p >= end)
+    if (p >= end) {
         return false;
+    }
     unsigned char c = static_cast<unsigned char>(*p);
     if (c < 0x80) {
         char32_t ch = static_cast<char32_t>(c);
@@ -76,15 +89,18 @@ static bool is_utf8_letter(const char*& p, const char* end) {
     } else if ((c & 0xF8) == 0xF0) {
         extra = 3;
         code = c & 0x07;
-    } else
+    } else {
         return false;
+    }
 
-    if (p + extra >= end)
+    if (p + extra >= end) {
         return false;
+    }
     for (int i = 0; i < extra; ++i) {
         ++p;
-        if ((static_cast<unsigned char>(*p) & 0xC0) != 0x80)
+        if ((static_cast<unsigned char>(*p) & 0xC0) != 0x80) {
             return false;
+        }
         code = (code << 6) | (static_cast<unsigned char>(*p) & 0x3F);
     }
     ++p;
@@ -92,8 +108,9 @@ static bool is_utf8_letter(const char*& p, const char* end) {
 }
 
 static bool is_utf8_letter_or_digit(const char*& p, const char* end) {
-    if (p >= end)
+    if (p >= end) {
         return false;
+    }
     unsigned char c = static_cast<unsigned char>(*p);
     if (c < 0x80) {
         char32_t ch = static_cast<char32_t>(c);
@@ -119,14 +136,7 @@ static bool is_lower_letter(char c) {
 // ──────────────────────────────────────────────
 
 std::string IdentName::dump(size_t indent) const {
-    std::string result = std::string(indent, ' ');
-    result += ParserToken::name(kind());
-    if (!text().empty()) {
-        result += " '";
-        result += text();
-        result += "'";
-    }
-    return result;
+    return detail::dumpQuotedName(kind(), text(), indent);
 }
 
 // ──────────────────────────────────────────────
@@ -138,8 +148,9 @@ bool IdentName::is_simple() const noexcept {
 }
 
 bool IdentName::is_qualified() const noexcept {
-    if (text().empty() || is_special())
+    if (text().empty() || is_special()) {
         return false;
+    }
     return is_macro() || is_local() || is_static() || is_field() || is_module() || is_type() || is_native();
 }
 
@@ -148,8 +159,9 @@ bool IdentName::is_special() const noexcept {
 }
 
 bool IdentName::is_internal() const noexcept {
-    if (text().empty())
+    if (text().empty()) {
         return false;
+    }
     std::string_view s = text();
     char last = s.back();
     return last == '$' || last == ':' || last == '%';
@@ -165,14 +177,18 @@ bool IdentName::is_macro() const noexcept {
 
 bool IdentName::is_local() const noexcept {
     std::string_view s = text();
-    if (s.empty() || s.front() != '$')
+    if (s.empty() || s.front() != '$') {
         return false;
-    if (s.size() == 1)
+    }
+    if (s.size() == 1) {
         return true;
-    if (s.size() == 2 && (s[1] == '$' || s[1] == '0' || s[1] == '*' || s[1] == '^'))
+    }
+    if (s.size() == 2 && (s[1] == '$' || s[1] == '0' || s[1] == '*' || s[1] == '^')) {
         return false;
-    if (s.size() >= 2 && s[1] >= '1' && s[1] <= '9')
+    }
+    if (s.size() >= 2 && s[1] >= '1' && s[1] <= '9') {
         return false;
+    }
     return true;
 }
 
@@ -190,10 +206,12 @@ bool IdentName::is_module() const noexcept {
 
 bool IdentName::is_type() const noexcept {
     std::string_view s = text();
-    if (s.empty() || s.front() != ':')
+    if (s.empty() || s.front() != ':') {
         return false;
-    if (s.size() >= 2 && s[1] == ':')
+    }
+    if (s.size() >= 2 && s[1] == ':') {
         return false;
+    }
     return true;
 }
 
@@ -232,13 +250,16 @@ bool IdentName::is_last_result() const noexcept {
 
 bool IdentName::is_arg_ref() const noexcept {
     std::string_view s = text();
-    if (s.empty() || s.front() != '$' || s.size() < 2)
+    if (s.empty() || s.front() != '$' || s.size() < 2) {
         return false;
-    if (s[1] < '1' || s[1] > '9')
+    }
+    if (s[1] < '1' || s[1] > '9') {
         return false;
+    }
     for (size_t i = 2; i < s.size(); ++i) {
-        if (s[i] < '0' || s[i] > '9')
+        if (s[i] < '0' || s[i] > '9') {
             return false;
+        }
     }
     return true;
 }
@@ -249,8 +270,9 @@ bool IdentName::is_arg_ref() const noexcept {
 
 std::string_view IdentName::bare_name() const noexcept {
     std::string_view s = text();
-    if (s.empty())
+    if (s.empty()) {
         return {};
+    }
 
     size_t start = 0;
     size_t end = s.size();
@@ -281,10 +303,12 @@ std::string_view IdentName::bare_name() const noexcept {
 // ──────────────────────────────────────────────
 
 bool IdentName::is_valid_simple_name(std::string_view s) noexcept {
-    if (s.empty())
+    if (s.empty()) {
         return false;
-    if (s.size() > max_name_length)
+    }
+    if (s.size() > max_name_length) {
         return false;
+    }
 
     const char* p = s.data();
     const char* end = p + s.size();
@@ -292,30 +316,36 @@ bool IdentName::is_valid_simple_name(std::string_view s) noexcept {
     if (p < end) {
         unsigned char c = static_cast<unsigned char>(*p);
         if (c < 0x80) {
-            if (c >= '0' && c <= '9')
+            if (c >= '0' && c <= '9') {
                 return false;
-            if (c != '_' && !is_ascii_letter(c))
+            }
+            if (c != '_' && !is_ascii_letter(c)) {
                 return false;
+            }
             ++p;
         } else {
-            if (!is_utf8_letter(p, end))
+            if (!is_utf8_letter(p, end)) {
                 return false;
+            }
         }
     }
 
     while (p < end) {
-        if (!is_utf8_letter_or_digit(p, end))
+        if (!is_utf8_letter_or_digit(p, end)) {
             return false;
+        }
     }
 
     return true;
 }
 
 bool IdentName::is_valid_module_name(std::string_view s) noexcept {
-    if (s.empty())
+    if (s.empty()) {
         return false;
-    if (s.size() > max_name_length)
+    }
+    if (s.size() > max_name_length) {
         return false;
+    }
 
     for (size_t i = 0; i < s.size(); ++i) {
         char c = s[i];
@@ -324,8 +354,9 @@ bool IdentName::is_valid_module_name(std::string_view s) noexcept {
         }
     }
 
-    if (s.front() == '_' || s.back() == '_')
+    if (s.front() == '_' || s.back() == '_') {
         return false;
+    }
 
     return true;
 }
@@ -336,24 +367,30 @@ bool IdentName::is_valid_module_name(std::string_view s) noexcept {
 
 bool IdentName::is_normalized() const noexcept {
     // '^' (immutable marker) may only appear at the end
-    if (!text().empty() && text().back() == '^')
+    if (!text().empty() && text().back() == '^') {
         return false;
-    if (is_macro())
+    }
+    if (is_macro()) {
         return false;
-    if (is_field())
+    }
+    if (is_field()) {
         return false;
-    if (is_local())
+    }
+    if (is_local()) {
         return false;
-    if (is_special())
+    }
+    if (is_special()) {
         return false;
+    }
     return true;
 }
 
 IdentName IdentName::normalized() const {
     std::string_view s = text();
     // '^' may only appear at the end
-    if (!s.empty() && s.back() == '^')
+    if (!s.empty() && s.back() == '^') {
         s.remove_suffix(1);
+    }
     IdentName result{std::string(s)};
 
     if (result.is_field()) {
@@ -371,19 +408,23 @@ IdentName IdentName::normalized() const {
 IdentName IdentName::to_internal() const {
     std::string_view s = text();
     // '^' may only appear at the end
-    if (!s.empty() && s.back() == '^')
+    if (!s.empty() && s.back() == '^') {
         s.remove_suffix(1);
+    }
     IdentName clean{std::string(s)};
 
-    if (clean.is_internal())
+    if (clean.is_internal()) {
         return clean;
+    }
 
-    if (clean.text().empty())
+    if (clean.text().empty()) {
         return IdentName("::");
+    }
 
     auto p = clean.parts();
-    if (p.empty())
+    if (p.empty()) {
         return IdentName("::");
+    }
 
     if (p.size() == 1) {
         std::string_view name = p[0];
@@ -418,8 +459,9 @@ IdentName IdentName::to_internal() const {
     if (has_pseudo_namespace) {
         std::string combined;
         for (size_t i = 0; i < p.size(); ++i) {
-            if (i > 0)
+            if (i > 0) {
                 combined.append("::");
+            }
             combined.append(p[i]);
         }
         IdentName combined_ident(std::move(combined));
@@ -476,8 +518,9 @@ IdentName IdentName::to_internal() const {
 std::vector<std::string_view> IdentName::parts() const {
     std::vector<std::string_view> result;
     std::string_view s = text();
-    if (s.empty())
+    if (s.empty()) {
         return result;
+    }
 
     if (s.size() >= 2 && s[0] == ':' && s[1] == ':') {
         result.emplace_back("::");
@@ -559,8 +602,9 @@ IdentName IdentName::mangle(std::string_view module_name) const {
 IdentName IdentName::demangle(std::string_view mangled) {
     std::string_view src = mangled;
 
-    if (src.size() < 4 || src[0] != '_' || src[1] != '$')
+    if (src.size() < 4 || src[0] != '_' || src[1] != '$') {
         return IdentName(std::string(src));
+    }
 
     size_t prefix_end = std::string_view::npos;
     if (src.size() >= 4 && src[2] == '$' && src[3] == '_') {
@@ -572,8 +616,9 @@ IdentName IdentName::demangle(std::string_view mangled) {
         }
     }
 
-    if (prefix_end == std::string_view::npos)
+    if (prefix_end == std::string_view::npos) {
         return IdentName(std::string(src));
+    }
 
     std::string_view body = src.substr(prefix_end);
 
@@ -602,13 +647,15 @@ IdentName IdentName::demangle(std::string_view mangled) {
 
 std::filesystem::path IdentName::module_name_to_path(std::string_view module_name, const std::filesystem::path& base_dir,
                                                      const std::filesystem::path& sys_dir) {
-    if (module_name.empty())
+    if (module_name.empty()) {
         return {};
+    }
 
     if (module_name.size() >= 3 && module_name[0] == '\\' && module_name[1] == '\\' && module_name[2] == '\\') {
         std::string_view rest = module_name.substr(3);
-        if (rest.empty())
+        if (rest.empty()) {
             return std::filesystem::absolute(sys_dir);
+        }
         std::filesystem::path result = sys_dir;
         size_t pos = 0;
         while (pos < rest.size()) {
@@ -621,16 +668,18 @@ std::filesystem::path IdentName::module_name_to_path(std::string_view module_nam
                 comp = rest.substr(pos, sep - pos);
                 pos = sep + 1;
             }
-            if (!comp.empty())
+            if (!comp.empty()) {
                 result /= comp;
+            }
         }
         return std::filesystem::absolute(result);
     }
 
     if (module_name.size() >= 2 && module_name[0] == '\\' && module_name[1] == '\\') {
         std::string_view rest = module_name.substr(2);
-        if (rest.empty())
+        if (rest.empty()) {
             return std::filesystem::path("/");
+        }
         std::filesystem::path result = std::filesystem::path("/");
         size_t pos = 0;
         while (pos < rest.size()) {
@@ -643,16 +692,18 @@ std::filesystem::path IdentName::module_name_to_path(std::string_view module_nam
                 comp = rest.substr(pos, sep - pos);
                 pos = sep + 1;
             }
-            if (!comp.empty())
+            if (!comp.empty()) {
                 result /= comp;
+            }
         }
         return result.lexically_normal();
     }
 
     if (!module_name.empty() && module_name[0] == '\\') {
         std::string_view rest = module_name.substr(1);
-        if (rest.empty())
+        if (rest.empty()) {
             return std::filesystem::absolute(base_dir);
+        }
         std::filesystem::path result = base_dir;
         size_t pos = 0;
         while (pos < rest.size()) {
@@ -665,8 +716,9 @@ std::filesystem::path IdentName::module_name_to_path(std::string_view module_nam
                 comp = rest.substr(pos, sep - pos);
                 pos = sep + 1;
             }
-            if (!comp.empty())
+            if (!comp.empty()) {
                 result /= comp;
+            }
         }
         return std::filesystem::absolute(result);
     }
@@ -676,8 +728,9 @@ std::filesystem::path IdentName::module_name_to_path(std::string_view module_nam
 }
 
 IdentName IdentName::path_to_module_name(const std::filesystem::path& path, const std::filesystem::path& base_dir) {
-    if (path.empty())
+    if (path.empty()) {
         return IdentName();
+    }
 
     std::filesystem::path abs_path = std::filesystem::absolute(path);
     std::filesystem::path abs_base = std::filesystem::absolute(base_dir);
@@ -710,8 +763,9 @@ IdentName IdentName::path_to_module_name(const std::filesystem::path& path, cons
     result.append("\\\\");
     bool first = true;
     for (const auto& component : rel_to_root) {
-        if (!first)
+        if (!first) {
             result.push_back('\\');
+        }
         first = false;
         std::string comp_str = component.generic_string();
         if (!IdentName::is_valid_module_name(comp_str)) {
@@ -728,16 +782,28 @@ IdentName IdentName::path_to_module_name(const std::filesystem::path& path, cons
 // ──────────────────────────────────────────────
 
 void IdentName::stripCaretAndApplyReadonly(AttrPool* pool) {
-    if (m_name.empty() || m_name.back() != '^')
+    if (m_text.empty() || m_text.back() != '^') {
         return;
-    if (is_special())
+    }
+    if (is_special()) {
         return;
-    EXPECT(pool);
-    while (!m_name.empty() && m_name.back() == '^')
-        m_name.pop_back();
-    auto readonly_id = pool->lookup(attr::ReadOnly);
-    EXPECT(readonly_id.has_value() && "readonly attr id not found");
-    add_attr(readonly_id.value()); // manual attr from name
+    }
+    // Единый хелпер иммутабельности ('^' → attr::ReadOnly), тот же, что использует
+    // конвертер Term→AST (convertAttrsToNode): kind=Ident допускает квалификатор.
+    EXPECT(pool && "stripCaretAndApplyReadonly requires AttrPool");
+    applyReadonlyFromCaret(*this, m_text, pool);
+    while (!m_text.empty() && m_text.back() == '^') {
+        m_text.pop_back();
+    }
+}
+
+bool IdentName::expandQualified(std::string_view namespace_path) {
+    if (m_text.rfind("@::", 0) != 0) {
+        return false;
+    }
+    const std::string rest = m_text.substr(3);
+    m_text = namespace_path.empty() ? rest : std::string(namespace_path) + "::" + rest;
+    return true;
 }
 
 } // namespace trust

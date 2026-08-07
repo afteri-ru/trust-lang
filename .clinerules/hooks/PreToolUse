@@ -82,5 +82,16 @@ if [[ "$TOOL" == "execute_command" ]] && [[ "$COMMAND" == *"git"* ]]; then
   fi
 fi
 
+# Grep check: рекурсивный grep должен исключать временные/производные каталоги,
+# иначе захватывает мусор из _build/.tasklog/.git/.trust. Предупреждение через
+# contextModification (не блокируем — у одиночного файлового grep фильтр не нужен).
+if [[ "$TOOL" == "execute_command" ]] && [[ "$COMMAND" == *"grep"* ]]; then
+  if [[ "$COMMAND" != *"--exclude-dir"* ]] && [[ "$COMMAND" =~ (^|[[:space:]])-r ]]; then
+    CTX="ВНИМАНИЕ: рекурсивный grep без --exclude-dir может захватить мусор из _build/.tasklog/.git/.trust. Добавьте --exclude-dir={_build,.tasklog,.git,_trust,.trust,node_modules} и сузьте корень поиска до src/include/test/examples (AGENTS.md п.8)."
+    output_json "false" "$CTX" ""
+    exit 0
+  fi
+fi
+
 # Allow execution
 echo '{"cancel":false,"contextModification":"","errorMessage":""}'

@@ -8,6 +8,27 @@
 
 namespace trust::utils {
 
+// ── URL-encoding для пути (только спецсимволы) ──
+// Кодирует в %XX символы, которые недопустимы в URI-пути: управляющие,
+// не-ASCII, а также резервированные символы из набора RFC 3986.
+inline std::string uriEncodePath(const std::string& path) {
+    std::string result;
+    result.reserve(path.size());
+    for (unsigned char c : path) {
+        if (c <= 32 || c >= 127 || c == '#' || c == '%' || c == '?' || c == '[' || c == ']' || c == ' ' || c == '\"' || c == '<' || c == '>' || c == '{' ||
+            c == '}' || c == '|' || c == '\\' || c == '^' || c == '`') {
+            // Кодируем проблемные символы в %XX
+            static const char hex[] = "0123456789ABCDEF";
+            result += '%';
+            result += hex[c >> 4];
+            result += hex[c & 0xF];
+        } else {
+            result += c;
+        }
+    }
+    return result;
+}
+
 // ── Преобразование file:// URI в путь с URL-decoding ──
 // Отсекает фрагмент #L{line},{col}-{line},{col} если есть
 inline std::string uriToFilePath(const std::string& uri) {
@@ -43,17 +64,20 @@ inline std::string uriToFilePath(const std::string& uri) {
 
 // ── Преобразование пути в "file://" URI ──
 inline std::string filePathToUri(const std::string& path) {
-    if (path.rfind("file://", 0) == 0)
+    if (path.rfind("file://", 0) == 0) {
         return path;
-    return "file://" + std::filesystem::absolute(path).string();
+    }
+    return "file://" + uriEncodePath(std::filesystem::absolute(path).string());
 }
 
 // ── Превращает относительный путь в абсолютный, используя projectDir ──
 inline std::string resolvePath(const std::string& path, const std::string& projectDir) {
-    if (path.empty() || path[0] == '/')
+    if (path.empty() || path[0] == '/') {
         return path;
-    if (projectDir.empty())
+    }
+    if (projectDir.empty()) {
         return path;
+    }
     return std::filesystem::path(projectDir) / path;
 }
 

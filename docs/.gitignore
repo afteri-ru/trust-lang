@@ -4,3 +4,6 @@ node_modules/
 package-lock.json
 .hugo_build.lock
 **/*.md.temp
+
+# Vendored Monaco build (downloaded by site.sh at build time)
+static/monaco/

@@ -63,8 +63,9 @@ std::string SmtPrinter::printTerm(const SmtTerm& term) {
     case SmtTermKind::kForall: {
         std::string result = "(forall (";
         for (size_t i = 0; i < term.quant_vars.size(); ++i) {
-            if (i > 0)
+            if (i > 0) {
                 result += " ";
+            }
             result += "(" + escapeSymbol(term.quant_vars[i]) +
                       " "
                       "Bool)";
@@ -77,8 +78,9 @@ std::string SmtPrinter::printTerm(const SmtTerm& term) {
     case SmtTermKind::kExists: {
         std::string result = "(exists (";
         for (size_t i = 0; i < term.quant_vars.size(); ++i) {
-            if (i > 0)
+            if (i > 0) {
                 result += " ";
+            }
             result += "(" + escapeSymbol(term.quant_vars[i]) +
                       " "
                       "Bool)";
@@ -91,8 +93,9 @@ std::string SmtPrinter::printTerm(const SmtTerm& term) {
     case SmtTermKind::kLet: {
         std::string result = "(let (";
         for (size_t i = 0; i < term.let_bindings.size(); ++i) {
-            if (i > 0)
+            if (i > 0) {
                 result += " ";
+            }
             result += "(" + escapeSymbol(term.let_bindings[i].first) + " " +
                       (term.let_bindings[i].second ? printTerm(*term.let_bindings[i].second) : "..err..") + ")";
         }
@@ -114,8 +117,9 @@ std::string SmtPrinter::printCommand(const SmtCommand& cmd) {
     case SmtCommandKind::kDeclareFun: {
         std::string result = "(declare-fun " + escapeSymbol(cmd.fun_name) + " (";
         for (size_t i = 0; i < cmd.fun_arg_sorts.size(); ++i) {
-            if (i > 0)
+            if (i > 0) {
                 result += " ";
+            }
             result += printSort(cmd.fun_arg_sorts[i]);
         }
         SmtSort default_bool;
@@ -126,8 +130,9 @@ std::string SmtPrinter::printCommand(const SmtCommand& cmd) {
     case SmtCommandKind::kDefineFun: {
         std::string result = "(define-fun " + escapeSymbol(cmd.fun_name) + " (";
         for (size_t i = 0; i < cmd.fun_arg_sorts.size(); ++i) {
-            if (i > 0)
+            if (i > 0) {
                 result += " ";
+            }
             result += "(" + escapeSymbol("x" + std::to_string(i)) + " " + printSort(cmd.fun_arg_sorts[i]) + ")";
         }
         SmtSort default_bool;
@@ -146,8 +151,9 @@ std::string SmtPrinter::printCommand(const SmtCommand& cmd) {
     case SmtCommandKind::kGetValue: {
         std::string result = "(get-value (";
         for (size_t i = 0; i < cmd.get_value_terms.size(); ++i) {
-            if (i > 0)
+            if (i > 0) {
                 result += " ";
+            }
             result += cmd.get_value_terms[i] ? printTerm(*cmd.get_value_terms[i]) : "..err..";
         }
         result += "))";

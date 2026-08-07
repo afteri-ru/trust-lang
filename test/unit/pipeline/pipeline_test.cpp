@@ -18,28 +18,33 @@ std::string create_temp_trust_file() {
     std::string base = TEST_DATA_DIR;
     base += "/pipeline_ut_XXXXXX";
     char* tmpl = strdup(base.c_str());
-    if (!tmpl)
+    if (!tmpl) {
         return {};
+    }
     const char* d = mkdtemp(tmpl);
     std::string dir;
-    if (d)
+    if (d) {
         dir = d;
+    }
     free(tmpl);
-    if (dir.empty())
+    if (dir.empty()) {
         return {};
+    }
     return dir + "/input.src";
 }
 
 static ParseResult do_parse(std::vector<const char*> args) {
     std::string temp_file = create_temp_trust_file();
-    if (temp_file.empty())
+    if (temp_file.empty()) {
         return {};
+    }
 
     // Создаём input.src файл с минимальным содержимым
     {
         std::ofstream ofs(temp_file);
-        if (!ofs)
+        if (!ofs) {
             return {};
+        }
         ofs << "x := 42;\n";
     }
 
@@ -55,8 +60,9 @@ static ParseResult do_parse(std::vector<const char*> args) {
 
     std::vector<char*> argv;
     argv.reserve(processed.size());
-    for (auto& a : processed)
+    for (auto& a : processed) {
         argv.push_back(const_cast<char*>(a));
+    }
     return Pipeline::parseArgs(static_cast<int>(argv.size()), argv.data());
 }
 
@@ -146,9 +152,11 @@ TEST(Parser, NoInputFile) {
 TEST(Parser, UnknownShort) {
     auto r = do_parse({"trust", "-x", "input.src"});
     bool found = false;
-    for (auto& a : r.remaining_args)
-        if (a == "-x")
+    for (auto& a : r.remaining_args) {
+        if (a == "-x") {
             found = true;
+        }
+    }
     EXPECT_TRUE(found);
 }
 
@@ -161,9 +169,11 @@ TEST(Parser, CombinedFlags) {
 TEST(Parser, DiagOptionAsRemaining) {
     auto r = do_parse({"trust", "-Wunused-var", "input.src"});
     bool found = false;
-    for (auto& a : r.remaining_args)
-        if (a == "-Wunused-var")
+    for (auto& a : r.remaining_args) {
+        if (a == "-Wunused-var") {
             found = true;
+        }
+    }
     EXPECT_TRUE(found);
 }
 
@@ -280,4 +290,29 @@ TEST(Parser, NoDsl) {
 TEST(Parser, DslAndNoDslConflict) {
     auto r = do_parse({"trust", "--dsl", "custom.src", "--no-dsl", "input.src"});
     EXPECT_EQ(r.exit_code, 1);
+}
+
+// emitBuildDirArchive (trust-lsp --emit-build-dir): собирает build-архив (build-каталог
+// pipeline: Makefile/build.conf/.cppt/trust/) и удаляет временные файлы. Проверяем, что
+// архив существует/непуст и временный build-каталог удалён (RAII-очистка).
+TEST(PipelineTest, EmitBuildDirArchiveCleansTempFiles) {
+    namespace fs = std::filesystem;
+    const std::string base = std::string(TEST_DATA_DIR) + "/emit_archive_ut_XXXXXX";
+    char* tmpl = ::strdup(base.c_str());
+    ASSERT_NE(tmpl, nullptr);
+    const char* d = ::mkdtemp(tmpl);
+    ASSERT_NE(d, nullptr);
+    const fs::path emit_dir(d);
+    std::free(tmpl);
+
+    std::string err;
+    const fs::path archive = trust::emitBuildDirArchive("print(\"hello\");\n", emit_dir, err);
+    EXPECT_TRUE(!archive.empty()) << "err: " << err;
+    if (!archive.empty()) {
+        EXPECT_TRUE(fs::is_regular_file(archive));
+        EXPECT_GT(fs::file_size(archive), 0u);
+        // Временный build-каталог (work) должен быть удалён после архивации.
+        EXPECT_FALSE(fs::exists(emit_dir / "work"));
+    }
+    fs::remove_all(emit_dir);
 }

@@ -52,6 +52,61 @@ add_custom_target(runtime_pcm_target_all ALL DEPENDS ${RUNTIME_PCM_OBJ})
 add_library(runtime_lib INTERFACE)
 target_link_libraries(runtime_lib INTERFACE types_lib trust_include_dirs)
 
+# ── Library: trust-runtime.so (dynamic) ──
+# Runtime implementation as a shared library. Public runtime headers (e.g.
+# trust/rational.hpp) are embedded into it via #embed into ELF sections named
+# after the header path; the pipeline extracts them back out when needed.
+add_library(trust_runtime SHARED
+    ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
+    ${PROJECT_SOURCE_DIR}/runtime/trust_headers.cpp
+    ${PROJECT_SOURCE_DIR}/utils/io.cpp
+    ${PROJECT_SOURCE_DIR}/utils/backtrace.cpp
+)
+target_include_directories(trust_runtime PUBLIC ${PROJECT_INCLUDE_DIR})
+target_link_libraries(trust_runtime PUBLIC gmp_interface)
+set_target_properties(trust_runtime PROPERTIES
+    OUTPUT_NAME "trust-runtime"
+    PREFIX ""
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+# trust_headers.cpp uses C23 #embed — suppress the extension warning
+set_source_files_properties(
+    ${PROJECT_SOURCE_DIR}/runtime/trust_headers.cpp
+    PROPERTIES COMPILE_OPTIONS "-Wno-c23-extensions"
+)
+
+# The trust CLI needs the built .so/.a at runtime (extracts embedded headers),
+# so building `trust` must also build trust_runtime.
+add_dependencies(trust trust_runtime)
+
+# ── Library: trust-runtime.a (static) ──
+# The same runtime implementation, but as a static library. Generated programs
+# are linked against it by default (static linking is self-contained: the
+# executable carries the runtime code and needs no trust-runtime.so at run time).
+# The public headers are still embedded (via #embed into ELF sections of the
+# object members); the pipeline extracts them from the .a archive member.
+add_library(trust_runtime_static STATIC
+    ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
+    ${PROJECT_SOURCE_DIR}/runtime/trust_headers.cpp
+    ${PROJECT_SOURCE_DIR}/utils/io.cpp
+    ${PROJECT_SOURCE_DIR}/utils/backtrace.cpp
+)
+target_include_directories(trust_runtime_static PUBLIC ${PROJECT_INCLUDE_DIR})
+target_link_libraries(trust_runtime_static PUBLIC gmp_interface)
+set_target_properties(trust_runtime_static PROPERTIES
+    OUTPUT_NAME "trust-runtime"
+    PREFIX ""
+    ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+)
+set_source_files_properties(
+    ${PROJECT_SOURCE_DIR}/runtime/trust_headers.cpp
+    PROPERTIES COMPILE_OPTIONS "-Wno-c23-extensions"
+)
+
+# The trust CLI may be configured to link generated programs with the static
+# library, so building `trust` must also build trust_runtime_static.
+add_dependencies(trust trust_runtime_static)
+
 # ── Library: tensor_cpu (torch-dependent, shared plugin) ──
 if(WITH_TORCH)
     add_library(tensor_cpu SHARED

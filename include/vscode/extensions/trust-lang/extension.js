@@ -367,7 +367,7 @@ function activate(context) {
         const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder, tempDir);
         lspArgs.push('--temp-dir', resolvedTempDir);
         // --trace если настройка включена
-        if (config.get('traceLSP', false)) {
+        if (config.get('dev.traceLSP', false)) {
             lspArgs.push('--trace');
         }
 
@@ -377,9 +377,20 @@ function activate(context) {
             options: { env: { ...process.env } }
         };
 
-        // Промежуточное ПО: оставляем documentLink как есть (с целевым URI).
-        // VSCode сам обработает клик по ссылке и откроет целевой файл.
-        const lspMiddleware = {};
+        // Промежуточное ПО: documentLink (подчёркнутые диапазоны) управляется флагом
+        // `trust.dev.highlightRanges`. Когда флаг сброшен (по умолчанию) — ссылки НЕ
+        // подчёркиваются в .src/.cppt, но hover (с Markdown-ссылками) и go-to-definition
+        // продолжают работать. Когда флаг включён — возвращаем ссылки как есть (VSCode
+        // сам обработает клик по ссылке и откроет целевой файл).
+        const lspMiddleware = {
+            provideDocumentLinks(document, token, next) {
+                const enabled = vscode.workspace.getConfiguration('trust').get('dev.highlightRanges', false);
+                if (!enabled) {
+                    return [];
+                }
+                return next(document, token);
+            }
+        };
 
         const clientOptions = {
             documentSelector: [

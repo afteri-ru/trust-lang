@@ -1,0 +1,13 @@
+# RUN: %trust -q --emit-lexemes %s > %t.out && %FileCheck %s <%t.out
+@@ my_variadic( ... ) @@ ::= @@ [ @$... ] --> @@;
+# CHECK: ::=	CREATE_TYPE
+# CHECK-NEXT: @@	MACRO_SEQ
+# CHECK-NEXT: my_variadic	NAME
+# CHECK-NEXT: (	LPAREN
+# CHECK-NEXT: ...	ELLIPSIS
+# CHECK-NEXT: )	RPAREN
+# CHECK-NEXT: @@	MACRO_SEQ
+# CHECK-NEXT: [	LBRACKET
+# CHECK-NEXT: @$...	MACRO_ARGUMENT
+# CHECK-NEXT: ]	RBRACKET
+# CHECK-NEXT: -->	FOLLOW

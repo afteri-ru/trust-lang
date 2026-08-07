@@ -9,7 +9,7 @@ simple_list: false
 а справа аналогичные операторы без использования ключевых слов.
 
 
-[Условный оператор](/ru/docs/ops/if/)
+[Условный оператор](/ru/docs/4_operators/if/)
 <table>
 <tr>
 <td>
@@ -41,7 +41,7 @@ simple_list: false
 </table>
 
 
-[Операторы циклов](/ru/docs/ops/while/)
+[Операторы циклов](/ru/docs/4_operators/while/)
 <table>
 <tr>
 <td>
@@ -89,7 +89,7 @@ simple_list: false
 </table>
 
 
-[Операторы оценки выражения](/ru/docs/ops/match/)
+[Операторы оценки выражения](/ru/docs/4_operators/match/)
 <table>
 <tr>
 <td>
@@ -117,7 +117,7 @@ simple_list: false
 
 
 
-[Оператор менеджера контекста](/ru/docs/ops/with/)
+[Оператор менеджера контекста](/ru/docs/4_operators/with/)
 <table>
 <tr>
 <td>

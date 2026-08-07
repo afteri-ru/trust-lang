@@ -1,0 +1,48 @@
+#!../_build/trust --run
+#
+# Пример диапазонов: литерал `start..stop[..step]` → параметризованный тип Range<Elem>,
+# рантайм-шаблон trust::Range<Elem>. Инклюзивная семантика (Kotlin a..b): stop включается.
+# Элементный тип Elem — join типов операндов (Int/Float/Rational/Any).
+#
+#   $a := 1..10;          # trust::Range<int64_t>(1, 10)        — count 10 (1..10)
+#   $b := 0..10..2;       # trust::Range<int64_t>(0, 10, 2)      — count 6  (0,2,4,6,8,10)
+#   $d := 0..$var..0.01;  # trust::Range<double>(0, var, 0.01)   — count 501
+#   $e := 0..100:Rational # trust::Range<trust::Rational>(0,100)  — count 101
+#
+# Методы Range доступны в доверенном коде. Обычный вызов и нативный (`%`), синонимы
+# (`length` → нативное `count`, `size`), const-вызов (`method^()` → const_cast<const T&>),
+# типизированные (`at(i)`, `contains(v)`, `start/stop/step`) и материализация (toVector/toDict).
+#
+
+@main() := {
+    $a := 1..10;
+    $b := 0..10..2;
+    $var := 5;
+    $d := 0..$var..0.01;
+    $e := 0..100:Rational;
+
+    @print('a count={}\n', $a.count());
+    @print('b count={}\n', $b.count());
+    @print('d count={}\n', $d.count());
+    @print('e count={}\n', $e.count());
+
+    # Синонимы: size() и length() (length — алиас нативного count); нативные формы %size/%length.
+    @print('size={}, length={}, %size={}, %length={}\n',
+           :Int32($a.size()), :Int32($a.length()), :Int32($a.%size()), :Int32($a.%length()));
+
+    # const-вызовы (гарантированно константная перегрузка через const_cast<const T&>).
+    @print('size^={}, %length^={}\n', :Int32($a.size^()), :Int32($a.%length^()));
+
+    # Типизированные методы: at(i) возвращает элемент (Int64), contains(v) — Bool, start/stop/step.
+    @print('at(0)={}, at(9)={}, empty={}, contains(5)={}\n',
+           :Int32($a.at(0)), :Int32($a.at(9)), :Int32($a.empty()), :Int32($a.contains(5)));
+    @print('start={}, stop={}, step={}\n', :Int32($a.start()), :Int32($a.stop()), :Int32($a.step()));
+
+    # Материализация: toVector (раскрытие в массив, тип Any), toDict (словарь с числом
+    # элементов — Dict.size() → Int64). Печать словаря целиком — через formatter.
+    $v := $a.toVector();
+    @print('toVector assigned, toDict size={}\n', :Int32($a.toDict().size()));
+    @print('toDict={}\n', $a.toDict());
+
+    @return 0;
+}

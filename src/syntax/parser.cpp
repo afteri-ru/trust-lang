@@ -1,6 +1,7 @@
 #include "syntax/parser.h"
 #include "syntax/lexer.h"
 #include "diag/context.hpp"
+#include "module_loader/module_loader.hpp"
 
 #include "syntax/warning_push.h"
 #include <sys/stat.h>
@@ -9,9 +10,97 @@
 #include "syntax/term.h"
 #include "trust/version.h"
 
+#include <utility>
+
 using namespace trust;
 
+namespace trust {
+
+// ── Хелперы грамматики для документирующих комментариев (doc_list / DOCUMENT_INLINE) ──
+// Forward-объявлены в прологе parser.y; вызываются из действий грамматики
+// (правила doc_list/expression/sequence).
+
+// Распаковка doc_list: сам док + его m_sequence (если он был бандлом из нескольких доков),
+// порядок сохраняется. Для одиночного DOCUMENT m_sequence пуст, поэтому возвращается [док].
+std::vector<TermPtr> flattenDocs(TermPtr docs) {
+    std::vector<TermPtr> out;
+    out.reserve(1 + docs->m_sequence.size());
+    out.push_back(docs);
+    out.insert(out.end(), docs->m_sequence.begin(), docs->m_sequence.end());
+    docs->m_sequence.clear();
+    return out;
+}
+
+// SEQUENCE из доков + опционального statement (valid m_mapperRange: [первый док, stmt/последний док]).
+TermPtr makeDocBundle(TermPtr docs, TermPtr stmt) {
+    auto all = flattenDocs(docs);
+    if (stmt) {
+        all.push_back(stmt);
+    }
+    auto seq = Term::Create(TermID::SEQUENCE, "");
+    seq->m_sequence = std::move(all);
+    MapperLocation end = stmt ? stmt->m_mapperRange.end : (seq->m_sequence.empty() ? docs->m_mapperRange.end : seq->m_sequence.back()->m_mapperRange.end);
+    seq->m_mapperRange = MapperRange{docs->m_mapperRange.begin, end};
+    return seq;
+}
+
+// Добавляет доки в конец m_sequence контейнера (последовательности).
+void appendDocs(TermPtr seq, TermPtr docs) {
+    auto all = flattenDocs(docs);
+    seq->m_sequence.insert(seq->m_sequence.end(), all.begin(), all.end());
+}
+
+// Истина, если терм — объявление (для привязки документирующего комментария к самому терму).
+bool isDeclTerm(const Term& t) {
+    switch (t.m_id) {
+    case TermID::CREATE_NAME: // := → VarDecl (или FuncDecl по сигнатуре в m_left)
+        // Деструктуризация `a, b := source` — НЕ одиночное объявление: док остаётся sibling-узлом.
+        return !(t.m_left && t.m_left->m_left);
+    case TermID::CREATE_TYPE: // ::= → TypeDecl
+    case TermID::FUNCTION:    // FuncDecl
+    case TermID::COROUTINE:   // FuncDecl
+    case TermID::ITERATOR:    // FuncDecl
+    case TermID::ARGS:        // ArgNode
+    case TermID::ARGUMENT:    // ArgNode
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Хвостовой док (`sequence DOCUMENT_INLINE`): если последний statement — объявление,
+// пишем док прямо в терм-идентификатор (m_docs); иначе — отдельным sibling-узлом (как было).
+// Для одиночного statement терм sequence равен самому терму (не SEQUENCE-обёртке), поэтому
+// last = сам терм; для multi-statement sequence — последний элемент m_sequence.
+void attachTrailingDoc(TermPtr seq, TermPtr docs) {
+    TermPtr last = seq;
+    if (last && last->m_id == TermID::SEQUENCE && !last->m_sequence.empty()) {
+        last = last->m_sequence.back();
+    }
+    if (last && isDeclTerm(*last)) {
+        last->m_docs.push_back(std::move(docs));
+    } else {
+        appendDocs(seq, docs);
+    }
+}
+
+// Ведущий док (`doc_list expression`): если выражение — объявление, цепляем док на терм
+// (m_docs); иначе возвращаем bundle (отдельный sibling-узел). Возвращает результат выражения.
+// Многострочные ведущие доки редуцируются вложенно (`doc_list expression`): внешний док
+// приходит ПОЗЖЕ, поэтому ведущие вставляем В НАЧАЛО m_docs, сохраняя порядок исходника.
+TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt) {
+    if (stmt && isDeclTerm(*stmt)) {
+        auto all = flattenDocs(docs);
+        stmt->m_docs.insert(stmt->m_docs.begin(), all.begin(), all.end());
+        return stmt;
+    }
+    return makeDocBundle(docs, std::move(stmt));
+}
+
+} // namespace trust
+
 int Parser::m_counter = 0;
+std::map<std::string, std::string> Parser::m_predef_macro;
 
 Parser::Parser(trust::Context& ctx, PostLexerType* postlex, bool pragma_enable, bool macro_expand)
 : m_ctx(ctx) {
@@ -101,12 +190,12 @@ void Parser::AstAddTerm(TermPtr term) {
         if (m_ast->m_id != TermID::SEQUENCE) {
             TermPtr temp = Term::Create(TermID::SEQUENCE, "", m_ast->m_mapperRange);
             m_ast.swap(temp);
-            m_ast->m_block.push_back(temp);
+            m_ast->m_sequence.push_back(temp);
         }
         if (term->m_id == TermID::SEQUENCE) {
-            m_ast->m_block.insert(m_ast->m_block.end(), term->m_block.begin(), term->m_block.end());
+            m_ast->m_sequence.insert(m_ast->m_sequence.end(), term->m_sequence.begin(), term->m_sequence.end());
         } else {
-            m_ast->m_block.push_back(term);
+            m_ast->m_sequence.push_back(term);
         }
     }
 }
@@ -133,12 +222,18 @@ __attribute__((weak)) ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
 
 bool Parser::PragmaCheck(const TermPtr& term) {
     if (term && term->getText().size() > 5 && term->getText().find("@__") == 0 && term->getText().rfind("__") == term->getText().size() - 2) {
+        // Контекст-макросы (@__NAMESPACE__, @__FUNCTION__, @__FUNCSIG__, @__FUNCDNAME__)
+        // — не прагмы, а значения/имена, раскрываемые анализатором. Иначе после
+        // ExpandPredefMacro (m_id = MACRO_CONTEXT) они попадали бы в ветку прагм и съедались.
+        if (term->m_id == TermID::MACRO_CONTEXT) {
+            return false;
+        }
         return !CheckPredefMacro(term);
     }
     return false;
 }
 
-bool Parser::PragmaEval(const TermPtr& term, BlockType& buffer, BlockType& seq) {
+bool Parser::PragmaEval(const TermPtr& term, SequenceType& buffer, SequenceType& seq) {
     /*
      *
      * https://javarush.com/groups/posts/1896-java-annotacii-chto-ehto-i-kak-ehtim-poljhzovatjhsja
@@ -201,7 +296,8 @@ bool Parser::PragmaEval(const TermPtr& term, BlockType& buffer, BlockType& seq) 
     if (term->getText().compare("@__HYGIENIC__") == 0) {
 
         if (term->size() != 1) {
-            m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "@__HYGIENIC__ expects exactly one argument!");
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "@__HYGIENIC__ expects exactly one argument!");
+            return false;
         }
 
         std::string ident(term->at(0).second->getText());
@@ -222,19 +318,22 @@ bool Parser::PragmaEval(const TermPtr& term, BlockType& buffer, BlockType& seq) 
     } else if (term->getText().compare("@__OPTION__") == 0) {
 
         if (term->size() != 2) {
-            m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "@__OPTION__ expects exactly two arguments!");
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "@__OPTION__ expects exactly two arguments!");
+            return false;
         }
 
         std::string name(term->at(0).second->getText());
         std::string sev_name(term->at(1).second->getText());
 
         if (!m_ctx.opts().is_registered(name)) {
-            m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Unknown option '{}' in @__OPTION__!", name);
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Unknown option '{}' in @__OPTION__!", name);
+            return false;
         }
 
         auto sev = Options::parseSeverityName(sev_name);
         if (!sev.has_value() && sev_name != "ignore") {
-            m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Unknown status '{}' in @__OPTION__!", sev_name);
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Unknown status '{}' in @__OPTION__!", sev_name);
+            return false;
         }
 
         m_ctx.opts().set(name, sev);
@@ -254,10 +353,77 @@ bool Parser::PragmaEval(const TermPtr& term, BlockType& buffer, BlockType& seq) 
         }
         return true;
 
+    } else if (term->getText().compare("@__OPTION_TRUE__") == 0 || term->getText().compare("@__OPTION_FALSE__") == 0) {
+
+        // Условная подстановка лексем по булевому feature-флагу (fallback для контекстов,
+        // где прагма уже собрана как term; основной путь — Parser::EvalOptionTrueFalseRaw):
+        //   @__OPTION_TRUE__(<flag>, <lex>...)  — срабатывает, если флаг включён;
+        //   @__OPTION_FALSE__(<flag>, <lex>...) — срабатывает, если флаг выключен.
+        // При срабатывании прагма заменяется лексемами-аргументами после первого.
+        if (term->size() < 1) {
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "{} expects at least one argument (option flag name)!", term->getText());
+            return false;
+        }
+
+        std::string flag(term->at(0).second->getText());
+
+        if (!m_ctx.opts().is_flag(flag)) {
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Unknown option flag '{}' in {}!", flag, term->getText());
+            return false;
+        }
+
+        const bool enabled = m_ctx.opts().is_enabled(flag);
+        const bool fire = (term->getText().compare("@__OPTION_TRUE__") == 0) ? enabled : !enabled;
+
+        if (fire) {
+            // Вставить аргументы после первого в исходном порядке. Каждому вставленному
+            // терму присваивается range прагмы (как в раскрытии макросов ExpandTermMacro),
+            // чтобы не сломать source-map отображение.
+            SequenceType block;
+            block.reserve(static_cast<size_t>(term->size() - 1));
+            for (int i = 1; i < term->size(); i++) {
+                TermPtr t = term->at(i).second;
+                if (t) {
+                    t->m_mapperRange = term->m_mapperRange;
+                    block.push_back(t);
+                }
+            }
+            buffer.insert(buffer.begin(), block.begin(), block.end());
+        }
+        return true;
+
+    } else if (term->getText().compare("@__OPTION_IIF__") == 0) {
+
+        // Условная подстановка по булевому feature-флагу с двумя ветками:
+        //   @__OPTION_IIF__(<flag>, <true>, <false>) — ровно 3 аргумента;
+        // если флаг включён — прагма заменяется <true>, иначе — <false>.
+        if (term->size() != 3) {
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "{} expects exactly three arguments (option flag name, true, false)!", term->getText());
+            return false;
+        }
+
+        std::string flag(term->at(0).second->getText());
+
+        if (!m_ctx.opts().is_flag(flag)) {
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Unknown option flag '{}' in {}!", flag, term->getText());
+            return false;
+        }
+
+        const bool enabled = m_ctx.opts().is_enabled(flag);
+        const int idx = enabled ? 1 : 2;
+
+        TermPtr t = term->at(idx).second;
+        if (t) {
+            t->m_mapperRange = term->m_mapperRange;
+            buffer.insert(buffer.begin(), t);
+        }
+        return true;
+
     } else if (term->getText().compare(__PRAGMA_TYPE_DEFINE__) == 0) {
 
         if (term->size() != 1 || !term->at(1).first.empty()) {
-            m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Expected argument in pragma macro '{}'", term->toString());
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Expected argument in pragma macro '{}'", term->toString());
+            return false;
         }
 
         if (term->at(1).first.empty() && term->at(1).second->getTermID() == TermID::INTEGER) {
@@ -293,7 +459,8 @@ bool Parser::PragmaEval(const TermPtr& term, BlockType& buffer, BlockType& seq) 
     } else if (term->getText().compare(__PRAGMA_MACRO__) == 0) {
 
         if (term->size() == 0) {
-            m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Expected argument in pragma macro '{}'", term->toString());
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Expected argument in pragma macro '{}'", term->toString());
+            return false;
         }
 
         if (term->at(0).second->getText().compare("push") == 0) {
@@ -309,13 +476,13 @@ bool Parser::PragmaEval(const TermPtr& term, BlockType& buffer, BlockType& seq) 
             return true;
 
         } else {
-            m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Pragma macro '{}' not recognized!", term->toString());
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Pragma macro '{}' not recognized!", term->toString());
         }
 
     } else if (term->getText().compare(__PRAGMA_MACRO_COND__) == 0) {
 
         if (term->size() == 0) {
-            m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Expected argument in pragma macro '{}'", term->toString());
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Expected argument in pragma macro '{}'", term->toString());
         }
 
         throw ParserError("Pragma @__PRAGMA_MACRO_COND__ not implemented!");
@@ -405,7 +572,67 @@ bool Parser::PragmaEval(const TermPtr& term, BlockType& buffer, BlockType& seq) 
         //     }
         //
         // } else {
-        m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Uknown pragma '{}'", term->toString());
+        m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Uknown pragma '{}'", term->toString());
+    }
+    return true;
+}
+
+bool Parser::EvalOptionTrueFalseRaw() {
+    SequenceType& buf = m_macro_analisys_buff;
+    const std::string ptext = buf[0]->getText();
+    if (ptext != "@__OPTION_TRUE__" && ptext != "@__OPTION_FALSE__") {
+        return false; // обрабатываем только TRUE/FALSE; остальные — через ParseTerm/PragmaEval
+    }
+    if (buf.size() < 4 || buf[1]->getText() != "(") {
+        return false; // не распознан «сырой» синтаксис — обработка через ParseTerm/PragmaEval
+    }
+    const trust::MapperRange prange = buf[0]->m_mapperRange;
+    std::string flag = buf[2]->getText();
+
+    size_t skip;
+    try {
+        skip = SkipBrackets(buf, 1); // токены от '(' до ')' включительно; buf[skip] = ')'
+    } catch (const ParserError&) {
+        return false;
+    }
+    if (skip >= buf.size()) {
+        return false;
+    }
+
+    size_t content_begin = 3;
+    if (content_begin < skip && buf[content_begin]->getText() == ",") {
+        content_begin++; // съём ведущей запятой (старая форма "@flag", <lex>)
+    }
+
+    // «Сырое» содержимое между именем флага и закрывающей скобкой. Каждому токену
+    // присваивается range сайта вызова прагмы (prange) — как при раскрытии остальных
+    // макросов/прагм (t->m_mapperRange = term->m_mapperRange). Это нужно, чтобы
+    // преdef-макросы и управляющие конструкции (напр. FOLLOW) внутри содержимого имели
+    // единый call-site range (иначе маппер падает, а локация «запекается» к dsl.src).
+    SequenceType content;
+    for (size_t i = content_begin; i < skip; i++) {
+        TermPtr t = buf[i];
+        if (t) {
+            t->m_mapperRange = prange;
+            content.push_back(t);
+        }
+    }
+
+    // Стереть саму прагму @__OPTION_*(...) из буфера.
+    buf.erase(buf.begin(), buf.begin() + skip + 1);
+
+    if (flag.empty()) {
+        m_ctx.diag().report(Severity::Error, prange, "{} expects option flag name!", ptext);
+    }
+    if (!m_ctx.opts().is_flag(flag)) {
+        m_ctx.diag().report(Severity::Error, prange, "Unknown option flag '{}' in {}!", flag, ptext);
+    }
+
+    const bool enabled = m_ctx.opts().is_enabled(flag);
+    const bool fire = (ptext == "@__OPTION_TRUE__") ? enabled : !enabled;
+
+    if (fire) {
+        buf.insert(buf.begin(), content.begin(), content.end());
     }
     return true;
 }
@@ -459,9 +686,21 @@ void Parser::InitPredefMacro() {
         VERIFY(RegisterPredefMacro("@__COUNTER__", "Monotonically increasing counter from zero"));
 
         VERIFY(RegisterPredefMacro("@::", "Full name of the current namespace"));
+        VERIFY(RegisterPredefMacro("@__MODULE_NAME__", "Current module name (without extension, relative to the main file, separators replaced with '_')"));
         VERIFY(RegisterPredefMacro("$\\\\", "Full name of the current module name"));
-        VERIFY(RegisterPredefMacro("@\\\\", "Root directory with the main program module"));
+        VERIFY(RegisterPredefMacro("@__ROOT_DIR__", "Root directory with the main program module"));
     }
+}
+
+std::vector<std::string> Parser::PredefMacroNames() {
+    InitPredefMacro();
+    std::vector<std::string> out;
+    out.reserve(m_predef_macro.size());
+    for (const auto& [k, v] : m_predef_macro) {
+        (void)v;
+        out.push_back(k);
+    }
+    return out;
 }
 
 bool Parser::CheckPredefMacro(const TermPtr& term) {
@@ -522,8 +761,8 @@ parser::token_type Parser::ExpandPredefMacro(TermPtr& term) {
         return term->m_lexer_type;
     }
 
-    const TermID str_type = TermID::STRWIDE;
-    const parser::token_type str_token = parser::token_type::STRWIDE;
+    const TermID str_type = TermID::STRCHAR;
+    const parser::token_type str_token = parser::token_type::STRCHAR;
 
     if (text.compare("@__COUNTER__") == 0) {
 
@@ -667,20 +906,18 @@ parser::token_type Parser::ExpandPredefMacro(TermPtr& term) {
         term->m_lexer_type = str_token;
         return term->m_lexer_type;
 
-    } else if (text.compare("@__CLASS__") == 0 || text.compare("@__NAMESPACE__") == 0 || // text.compare("@__FUNC_BLOCK__") == 0 ||
-               text.compare("@__FUNCTION__") == 0 || text.compare("@__FUNCDNAME__") == 0 || text.compare("@__FUNCSIG__") == 0) {
+    } else if (text.compare("@__NAMESPACE__") == 0 || text.compare("@::") == 0 || text.compare("@__FUNCTION__") == 0 || text.compare("@__FUNCDNAME__") == 0 ||
+               text.compare("@__FUNCSIG__") == 0) {
+
+        term->m_id = TermID::MACRO_CONTEXT;
+        term->m_lexer_type = parser::token_type::MACRO_CONTEXT;
+        return term->m_lexer_type;
+
+    } else if (text.compare("@__CLASS__") == 0) { // text.compare("@__FUNC_BLOCK__") == 0 ||
 
         term->m_id = TermID::NAMESPACE;
         term->m_lexer_type = parser::token_type::NAMESPACE;
         return term->m_lexer_type;
-
-    } else if (text.compare("@::") == 0) {
-
-        term->m_id = TermID::NAMESPACE;
-        term->m_lexer_type = parser::token_type::NAMESPACE;
-        return term->m_lexer_type;
-
-        //        ASSERT(text.compare("@::") != 0);
 
     } else if (text.compare("@$$") == 0) {
 
@@ -691,7 +928,19 @@ parser::token_type Parser::ExpandPredefMacro(TermPtr& term) {
         //        // Внешний блок или функция
         //        ASSERT(text.compare("@$$") != 0);
 
-    } else if (text.compare("@\\\\") == 0) {
+    } else if (text.compare("@__MODULE_NAME__") == 0) {
+
+        EXPECT(!term->m_mapperRange.begin.isInvalid() && "@__MODULE_NAME__: invalid location");
+        EXPECT(!term->m_mapperRange.begin.fileIdx().isInvalid() && "@__MODULE_NAME__: invalid file index");
+
+        term->m_id = TermID::NAME;
+        {
+            term->getText() = m_ctx.source().moduleName(term->m_mapperRange.begin.fileIdx());
+        }
+        term->m_lexer_type = parser::token_type::NAME;
+        return term->m_lexer_type;
+
+    } else if (text.compare("@__ROOT_DIR__") == 0) {
 
         term->m_id = TermID::NAME;
         {
@@ -708,7 +957,7 @@ parser::token_type Parser::ExpandPredefMacro(TermPtr& term) {
         return term->m_lexer_type;
     }
 
-    m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Predef macro '{}' not implemented!", term->toString());
+    m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Predef macro '{}' not implemented!", term->toString());
     return term->m_lexer_type;
 }
 
@@ -729,7 +978,7 @@ TermPtr Parser::ParseTerm(const char* proto, trust::Context& ctx, bool pragma_en
     }
 }
 
-size_t Parser::SkipBrackets(const BlockType& buffer, const size_t offset) {
+size_t Parser::SkipBrackets(const SequenceType& buffer, const size_t offset) {
 
     if (offset >= buffer.size()) {
         return 0;
@@ -795,7 +1044,7 @@ size_t Parser::SkipBrackets(const BlockType& buffer, const size_t offset) {
 //     return 0;
 // }
 
-size_t Parser::ParseTerm(TermPtr& result, const BlockType& buffer, trust::Context& ctx, size_t offset, bool pragma_enable, bool macro_expand) {
+size_t Parser::ParseTerm(TermPtr& result, const SequenceType& buffer, trust::Context& ctx, size_t offset, bool pragma_enable, bool macro_expand) {
 
     if (offset >= buffer.size()) {
         throw ParserError("Fail skip count %d or buffer size %d!", static_cast<int>(offset), static_cast<int>(buffer.size()));
@@ -869,19 +1118,24 @@ TermPtr Parser::CheckModuleTerm(const TermPtr& term) {
         return term;
     }
     if (!CheckCharModuleName(term->getText())) {
-        m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Module name - backslash, underscore, lowercase English letters or number!");
+        m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Module name - backslash, underscore, lowercase English letters or number!");
+        return term; // не обрабатываем невалидное имя модуля (ошибка уже записана)
     }
     if (!m_expand_module) {
         return term;
     }
     if (term->isCall()) {
         // Загрузка модуля: \module(func) — рекурсивный вызов парсера.
-        (void)m_ctx.loader().ensureLoaded(term->getText(), term->m_mapperRange);
+        // Loader сохраняет тело загруженного модуля (m_ast) в терм \module(func)->m_sequence,
+        // чтобы конвертация в AstNode была loader-free (рекурсивная конвертация m_sequence).
+        std::size_t idx = m_ctx.loader().ensureLoaded(term->getText(), term->m_mapperRange);
+        term->m_sequence.clear();
+        term->m_sequence.push_back(m_ctx.loader().body(idx));
     } else {
         // Обращение \module::var — не грузим, а проверяем факт загрузки модуля.
         auto idx = m_ctx.loader().indexOf(term->getText());
         if (!idx || !m_ctx.loader().isLoaded(*idx)) {
-            m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Module '{}' is not loaded", term->getText());
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Module '{}' is not loaded", term->getText());
         }
     }
     return term;
@@ -933,7 +1187,7 @@ go_parse_string:
             if (is_escape) {
 
                 if (type == parser::token_type::END) {
-                    m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Unexpected end of file '{}'", term->toString());
+                    m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Unexpected end of file '{}'", term->toString());
                 }
                 is_escape = false;
                 term->m_id = TermID::ESCAPE;
@@ -1016,7 +1270,7 @@ go_parse_string:
                 ASSERT(type == parser::token_type::MACRO_SEQ);
 
                 if (lexer->m_macro_del) {
-                    m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Invalid token '{}' at given position!", term->getText());
+                    m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Invalid token '{}' at given position!", term->getText());
                 }
 
                 lexer->m_macro_count = 2;
@@ -1037,10 +1291,10 @@ go_parse_string:
                 ASSERT(lexer->m_macro_body);
 
                 if (lexer->m_macro_del && !(type == parser::token_type::NAME || type == parser::token_type::LOCAL)) {
-                    m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Invalid token '{}' at given position!", term->getText());
+                    m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Invalid token '{}' at given position!", term->getText());
                 }
 
-                lexer->m_macro_body->m_block.push_back(term);
+                lexer->m_macro_body->m_sequence.push_back(term);
                 continue;
 
             } else if (lexer->m_macro_del == 1) {
@@ -1048,7 +1302,7 @@ go_parse_string:
                 ASSERT(type == parser::token_type::MACRO_DEL);
 
                 if (lexer->m_macro_count) {
-                    m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Invalid token '{}' at given position!", term->getText());
+                    m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Invalid token '{}' at given position!", term->getText());
                 }
 
                 lexer->m_macro_del = 2;
@@ -1062,8 +1316,12 @@ go_parse_string:
                     ASSERT(lexer->m_macro_body);
                 }
 
-                if (lexer->m_macro_body->m_block.empty()) {
-                    m_ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Empty sequence not allowed!");
+                if (lexer->m_macro_body->m_sequence.empty()) {
+                    m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Empty sequence not allowed!");
+                    // Не обрабатываем пустой макро-терм: сбрасываем состояние и продолжаем лекс.
+                    lexer->m_macro_del = 0;
+                    lexer->m_macro_body = nullptr;
+                    continue;
                 }
 
                 lexer->m_macro_del = 0;
@@ -1086,15 +1344,23 @@ go_parse_string:
         }
 
         if (lexer->m_macro_del || lexer->m_macro_count) {
+            lexer->m_macro_del = 0;
+            lexer->m_macro_count = 0;
+
             TermPtr bag_position;
-
             bag_position = (m_macro_analisys_buff.size() > 1) ? m_macro_analisys_buff[m_macro_analisys_buff.size() - 2] : term;
-            if (!bag_position) {
-                ASSERT(bag_position);
+            if (bag_position) {
+                if (term) {
+                    m_ctx.diag().report(Severity::Error, bag_position->m_mapperRange, "Incomplete syntax near '{}' in file {}!", bag_position->getText(),
+                                        m_ctx.source().filename(term->m_mapperRange.begin));
+                } else {
+                    m_ctx.diag().report(Severity::Error, bag_position->m_mapperRange, "Incomplete syntax near '{}'!", bag_position->getText());
+                }
+            } else {
+                // Нет терма для позиции (мягкая обработка ошибок): сообщение без локации.
+                m_ctx.diag().report(Severity::Error, MapperRange{}, "Incomplete syntax (macro buffer)");
             }
-
-            m_ctx.diag().report(Severity::Fatal, bag_position->m_mapperRange, "Incomplete syntax near '{}' in file {}!", bag_position->getText(),
-                                m_ctx.source().filename(term->m_mapperRange.begin));
+            lexer->m_macro_body = nullptr;
         }
     }
 
@@ -1108,13 +1374,18 @@ go_parse_string:
             // Обработка команд парсера @__PRAGMA ... __
             if (PragmaCheck(m_macro_analisys_buff[0])) {
 
+                // @__OPTION_TRUE__/@__OPTION_FALSE__: «сырое» содержимое без пре-парсинга.
+                if (EvalOptionTrueFalseRaw()) {
+                    continue;
+                }
+
                 size_t size;
                 size = Parser::ParseTerm(pragma, m_macro_analisys_buff, m_ctx, 0, false);
 
                 ASSERT(size);
                 ASSERT(pragma);
 
-                BlockType temp(m_macro_analisys_buff.begin(), m_macro_analisys_buff.begin() + size);
+                SequenceType temp(m_macro_analisys_buff.begin(), m_macro_analisys_buff.begin() + size);
 
                 m_macro_analisys_buff.erase(m_macro_analisys_buff.begin(), m_macro_analisys_buff.begin() + size);
 
@@ -1221,7 +1492,7 @@ go_parse_string:
         //
         //                //                compare_macro = true; // Раскрывать макросы в теле раскрытого макроса
         //
-        //                ASSERT(m_macro_analisys_buff.size() >= macro_done->m_block.size());
+        //                ASSERT(m_macro_analisys_buff.size() >= macro_done->m_sequence.size());
         //                ASSERT(macro_done->m_right);
         //
         //                Macro::MacroArgsType macro_args;
@@ -1274,7 +1545,7 @@ go_parse_string:
         //                } else {
         //
         //                    ASSERT(macro_done->m_right);
-        //                    BlockType macro_block = Macro::ExpandMacros(macro_done, macro_args);
+        //                    SequenceType macro_block = Macro::ExpandMacros(macro_done, macro_args);
         //                    m_macro_analisys_buff.insert(m_macro_analisys_buff.begin(), macro_block.begin(), macro_block.end());
         //
         //                    std::string temp = "";
@@ -1328,8 +1599,8 @@ go_parse_string:
 
             // Раскрыть последовательность токенов, т.к. они собираются в термин в лексере, а не парсере
             if (current->getTermID() == TermID::MACRO_SEQ || current->getTermID() == TermID::MACRO_DEL) {
-                for (int i = 0; i < current->m_block.size(); i++) {
-                    m_postlex->push_back(current->m_block[i]->getText());
+                for (int i = 0; i < current->m_sequence.size(); i++) {
+                    m_postlex->push_back(current->m_sequence[i]->getText());
                 }
                 m_postlex->push_back(current->getText());
             }

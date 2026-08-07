@@ -16,6 +16,8 @@ typedef struct {
     int count;
     const char* version;
     const __trust_export_entry* entries;
+    const char* decls;
+    const char* srcHash; ///< MD5-хеш исходного файла (для кеша --run без перекомпиляции)
 } __trust_exports;
 
 #ifdef __cplusplus

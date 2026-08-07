@@ -1,4 +1,4 @@
-#include "types/rational.hpp"
+#include "trust/rational.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -143,6 +143,16 @@ Rational::Rational(std::string_view numerator, std::string_view denominator)
     set_(numerator, denominator);
 }
 
+Rational::Rational(std::string_view value)
+: m_pimpl(std::make_unique<Impl>()) {
+    // Однострочная форма рационального литерала "num\den": парсинг по обратной косой.
+    const std::size_t sep = value.find('\\');
+    if (sep == std::string_view::npos) {
+        throw std::runtime_error("Rational string must be in form 'num\\den'");
+    }
+    set_(value.substr(0, sep), value.substr(sep + 1));
+}
+
 Rational::Rational(const Rational& other) noexcept
 : m_pimpl(std::make_unique<Impl>()) {
     m_pimpl->m_numerator = other.m_pimpl->m_numerator;
@@ -160,6 +170,10 @@ Rational::~Rational() noexcept = default;
 
 std::string Rational::GetAsString() const {
     return m_pimpl->m_numerator.GetAsString() + "\\" + m_pimpl->m_denominator.GetAsString();
+}
+
+Rational::operator std::string() const {
+    return GetAsString();
 }
 
 int64_t Rational::GetAsBoolean() const noexcept {

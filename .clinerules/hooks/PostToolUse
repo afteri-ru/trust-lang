@@ -50,6 +50,8 @@ STATUS="success"
 # ---- Tool usage log (.tools.log) ----
 # One line per tool call: timestamp tool status duration_ms
 TASK_ID=$(extract_task_id "$INPUT" '.taskId') || TASK_ID=""
+# Приводим taskId к числовому виду (убираем префикс/суффикс нового формата)
+TASK_ID=$(normalize_task_id "$TASK_ID")
 if [ -n "$TASK_ID" ]; then
   TOOLS_FILE="${TASKLOG_DIR}/${TASK_ID}.tools.log"
   NOW_MS=$(date +%s%3N)
@@ -81,6 +83,9 @@ if [[ "$TOOL" == "plan_mode_respond" ]] ; then # && [[ "$SUCCESS" == "true" ]]; 
     jq -n '{"cancel":false,"contextModification":"","errorMessage":"PostToolUse: failed to extract taskId"}'
     exit 0
   }
+
+  # Приводим taskId к числовому виду (убираем префикс/суффикс нового формата)
+  TASK_ID=$(normalize_task_id "$TASK_ID") || exit 0
 
   NOW_MS=$(date +%s%3N)
   NOW_ISO=$(timestamp_to_iso "$NOW_MS") || {

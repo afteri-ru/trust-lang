@@ -3,6 +3,8 @@
 
 #include "lsp/lsp_protocol.h"
 #include "diag/context.hpp"
+#include "semantic/symbol_index.hpp"
+#include "types/registry.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -15,12 +17,26 @@
 
 // ── Trust LSP Server ──
 // Хранит source map + сгенерированные C++ строки для одного файла
+
+// Имена для автодополнения берутся из ЕДИНЫХ источников:
+//  - пользовательский код — таблица анализатора SymbolIndex (CachedSource.symbols);
+//  - встроенные типы/методы/функции/макросы — глобальный BuiltinCatalog
+//    (shared иммутабельное ядро TypeRegistry::builtinCore() + predef/DSL-макросы).
+// Пер-файловый реестр (CachedSource.types) хранит только пользовательские типы и
+// служит для резолва SymbolInfo::type (TypeId) → методы типа (member-завершение).
+
 struct CachedSource {
     std::unique_ptr<trust::Context> sourceMap;
     std::string cppOutput;
     std::string cppFilePath;          // полный путь к .cpp файлу на диске (если tempDir задан)
     trust::ReaderFile trustReaderIdx; // input (trust) file index
     trust::ReaderFile cppReaderIdx;   // output (cpp) file index
+    // Собранные анализатором символы (имя + TypeId + тип + диапазоны) для автодополнения
+    // и навигации (go-to-definition / фильтр локальных по позиции курсора).
+    trust::SymbolIndex symbols;
+    // Живой реестр типов (пер-файловый; встроенные типы разделяются через общее ядро).
+    // Нужен, чтобы SymbolInfo::type (TypeId) можно было использовать для получения методов.
+    std::unique_ptr<trust::TypeRegistry> types;
 };
 
 class TrustLsp {
@@ -45,6 +61,8 @@ class TrustLsp {
     void handleDefinition(const nlohmann::json& req);
     void handleHover(const nlohmann::json& req);
     void handleDocumentLink(const nlohmann::json& req);
+    void handleCompletion(const nlohmann::json& req);
+    void handleCodeAction(const nlohmann::json& req);
     void handleDidChangeConfiguration(const nlohmann::json& req);
     void handleExecuteCommand(const nlohmann::json& req);
 

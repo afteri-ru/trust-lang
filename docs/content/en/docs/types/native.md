@@ -10,10 +10,10 @@ Native (machine) data can be variables or functions, and the names of native obj
 
 In the case of variables, these are binary data located in a single continuous area of machine memory at a specific address and have a strictly defined format.
 
-To use existing libraries, you need to import the native object, thereby creating an object NewLang, 
+To use existing libraries, you need to import the native object, thereby creating an object TrustLang, 
 but with an implementation in another language, for example, in C/C++.
 
-The syntax for importing native objects is the same as for [creating](/docs/ops/create/) regular language objects, 
+The syntax for importing native objects is the same as for [creating](/en/docs/ops/create/) regular language objects, 
 only the name of the native object needs to be specified as the right operand in the creation operator.
 
 When importing a native object, it is necessary to always specify the variable types, 

@@ -9,7 +9,6 @@ set(TRUST_CPPM "${PROJECT_INCLUDE_DIR}/trust.cppm")
 set(TRUST_MODULE_HEADERS
     types/typekind.hpp
     types/type_id.hpp
-    types/type_traits.hpp
     types/group.hpp
     types/registry.hpp
     types/promotion.hpp

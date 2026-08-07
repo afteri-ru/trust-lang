@@ -34,8 +34,9 @@ TEST(SparseCacheTest, SingleLineSource) {
 TEST(SparseCacheTest, MultiLineSource) {
     // Создаём 50 строк
     std::string src;
-    for (int i = 0; i < 50; ++i)
+    for (int i = 0; i < 50; ++i) {
         src += "line " + std::to_string(i + 1) + "\n";
+    }
 
     SparseCache c;
     c.build(src);
@@ -64,8 +65,9 @@ TEST(SparseCacheTest, MultiLineSource) {
 
 TEST(SparseCacheTest, SqrtSizeLimit) {
     std::string src;
-    for (int i = 0; i < 100; ++i)
+    for (int i = 0; i < 100; ++i) {
         src += std::to_string(i + 1) + "\n";
+    }
 
     SparseCache c;
     c.build(src);

@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/assert --link-runtime static %s
+# RUN: $TD/assert && echo "PASS"
+# CHECK: PASS
+
+# Use of trust::formatMessage in an embedded C++ block must make the transpiler
+# emit `#include "trust/assert.hpp"`; the pipeline extracts the header from
+# trust-runtime.a and links the runtime library into the executable, which must
+# then format and return 0.
+
+{% int assert__main__() {
+    std::string m = trust::formatMessage("/dir/file.cpp", 7, "val={}", 42);
+    if (m != "file.cpp:7: val=42")
+        return 1;
+    return 0;
+} %}

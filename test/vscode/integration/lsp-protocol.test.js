@@ -334,6 +334,12 @@ async function main() {
             test('initialize supports hoverProvider', () => {
                 assert(initResp.result.capabilities.hoverProvider === true);
             });
+            test('initialize supports completionProvider', () => {
+                const cp = initResp.result.capabilities.completionProvider;
+                assert(cp && Array.isArray(cp.triggerCharacters),
+                    `expected completionProvider.triggerCharacters, got ${JSON.stringify(cp)}`);
+                assert(cp.triggerCharacters.includes('.'), 'triggerCharacters must include "."');
+            });
 
             // initialized notification
             client.sendNotification('initialized', {});
@@ -430,8 +436,57 @@ async function main() {
             });
         });
 
-        // Note: publishDiagnostics is sent only on transpile errors (via handleDidOpen on error path).
-        // Valid files do NOT trigger publishDiagnostics. Test 9 covers the error case.
+        // ── Test 3b: LSP textDocument/completion ──
+        await runSuite(lspPath, 'LSP Completion', lspArgs, async (client) => {
+            const initId = client.sendRequest('initialize', {
+                processId: process.pid,
+                rootUri: `file://${tmpDir}`,
+                capabilities: {}
+            });
+            await client.waitForResponse(initId);
+            client.sendNotification('initialized', {});
+
+            client.sendNotification('textDocument/didOpen', {
+                textDocument: {
+                    uri: `file://${hoverTestFile}`,
+                    languageId: 'trust',
+                    version: 1,
+                    text: hoverTestContent
+                }
+            });
+
+            // Курсор в начале строки `y := 20;` (пустой префикс): виден объявленный
+            // ранее x; y (на позиции курсора) и z (объявлен ниже) ещё не видны.
+            const compId = client.sendRequest('textDocument/completion', {
+                textDocument: { uri: `file://${hoverTestFile}` },
+                position: { line: 11, character: 0 }
+            });
+            const compResp = await client.waitForResponse(compId);
+            test('completion responds', () => {
+                assert(compResp != null, 'no response');
+            });
+            test('completion has items array', () => {
+                assert(compResp.result && Array.isArray(compResp.result.items),
+                    `expected items, got ${JSON.stringify(compResp)}`);
+            });
+            const labels = (compResp.result.items || []).map(it => it.label);
+            test('completion includes declared variable x', () => {
+                assert(labels.includes('x'), `expected 'x' in items: ${labels.join(', ')}`);
+            });
+            test('completion does NOT include y (on cursor line, not yet typed)', () => {
+                assert(!labels.includes('y'), `'y' should not be suggested at its declaration start: ${labels.join(', ')}`);
+            });
+            test('completion does NOT include z (declared after cursor)', () => {
+                assert(!labels.includes('z'), `'z' should not be visible: ${labels.join(', ')}`);
+            });
+            test('completion includes builtin type :Int32', () => {
+                assert(labels.includes(':Int32'), `expected ':Int32' in items: ${labels.join(', ')}`);
+            });
+        });
+
+        // Note: since a fix, publishDiagnostics is sent on EVERY didOpen (including valid files
+        // and warnings, e.g. -Wsigil), not only on transpile errors. Fixits travel in diagnostic
+        // "data" (reserved LSP field) so vscode-languageclient round-trips them for codeAction.
 
         // ── Test 4: LSP shutdown ──
         await runSuite(lspPath, 'LSP Shutdown', lspArgs, async (client) => {

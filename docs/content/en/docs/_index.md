@@ -11,6 +11,6 @@ The materials are in the process of being translated into English!
 
 {{% /pageinfo %}}
 
-Basic materials on the NewLang programming language. 
+Basic materials on the TrustLang programming language. 
 
-The description is valid for the current [version 0.4](https://github.com/rsashka/newlang/releases/tag/v0.4.0)
+The description is valid for the current [version 0.6](https://github.com/afteri-ru/trust-lang/releases/tag/v0.6.0)

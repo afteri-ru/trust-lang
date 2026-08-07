@@ -1,0 +1,362 @@
+<style>
+.tpl-pg{--tpl-bg:#ffffff;--tpl-text:#24292f;--tpl-gutter:#6b7280;--tpl-border:#d1d5db;--tpl-toolbar:#f6f8fa;--tpl-linked:#fff3bf;--tpl-error:#dc2626;display:flex;flex-direction:column;gap:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--tpl-bg);color:var(--tpl-text);padding:8px;border:1px solid var(--tpl-border);border-radius:6px;}
+.tpl-row{display:flex;gap:6px;min-height:400px;}
+.tpl-pane{flex:1;display:flex;flex-direction:column;min-width:0;border:1px solid var(--tpl-border);border-radius:4px;overflow:hidden;}
+.tpl-toolbar{padding:4px 8px;background:var(--tpl-toolbar);font-size:12px;font-weight:600;user-select:none;display:flex;align-items:center;gap:8px;}
+.tpl-examples{font-size:12px;font-weight:400;max-width:260px;background:var(--tpl-bg);color:var(--tpl-text);border:1px solid var(--tpl-border);border-radius:3px;}
+.tpl-editor{flex:1;min-height:380px;}
+.tpl-status{min-height:1.2em;font-size:12px;color:var(--tpl-gutter);white-space:pre-wrap;}
+.tpl-status.tpl-error{color:var(--tpl-error);}
+.tpl-linked{background:var(--tpl-linked);}
+.tpl-gutter{box-shadow:inset 3px 0 0 var(--tpl-text);opacity:.55;}
+.tpl-follow{font-size:12px;font-weight:400;display:flex;align-items:center;gap:4px;margin-left:auto;cursor:pointer;user-select:none;}
+.tpl-follow input{accent-color:var(--tpl-text);cursor:pointer;}
+.tpl-btn{font-size:12px;padding:3px 10px;background:var(--tpl-toolbar);color:var(--tpl-text);border:1px solid var(--tpl-border);border-radius:4px;cursor:pointer;text-decoration:none;font-weight:600;}
+.tpl-btn-disabled{opacity:.6;pointer-events:none;}
+.tpl-log{min-height:80px;max-height:160px;overflow:auto;font-size:12px;color:var(--tpl-text);background:var(--tpl-bg);border:1px solid var(--tpl-border);border-radius:4px;padding:6px;white-space:pre-wrap;}
+</style>
+<div class="tpl-pg" id="trust-playground">
+<div class="tpl-row">
+  <div class="tpl-pane"><div class="tpl-toolbar">Trust<select id="tpl-examples" class="tpl-examples" title="Load example"></select></div><div id="tpl-trust-editor" class="tpl-editor"></div></div>
+  <div class="tpl-pane"><div class="tpl-toolbar">Generated C++<a id="tpl-download" class="tpl-btn tpl-btn-disabled" href="#" title="Скачать архив сборки">&#11015; Скачать архив</a><label id="tpl-follow" class="tpl-follow" title="Следовать за выбранной строкой (прокручивать вторую панель к ней)"><input type="checkbox" id="tpl-follow-cb" checked>follow</label></div><div id="tpl-cpp-editor" class="tpl-editor"></div></div>
+</div>
+<div id="tpl-log" class="tpl-log"></div>
+<div id="tpl-status" class="tpl-status"></div>
+</div>
+<script>
+window.__TPG = window.__TPG || {};
+window.__TPG.config = {"monacoUrl":"/monaco/vs","serverUrl":"https://playground.trust-lang.net/run","source":"#!../_build/trust --run\n\n@main() := {\n\n    $fact :Rational := 1\\1;\t# Rational value support bigint\n    $mult := 1; \t\t# Counter\n\n    @while( mult \u003c= 1000 ) {\n        fact *= mult;\n        mult += 1;\n    };\n\n\n    # Check factorial 1000!\n    @assert( fact == 402387260077093773543702433923003985719374864210714632543799910429938512398629020592044208486969404800479988610197196058631666872994808558901323829669944590997424504087073759918823627727188732519779505950995276120874975462497043601418278094646496291056393887437886487337119181045825783647849977012476632889835955735432513185323958463075557409114262417474349347553428646576611667797396668820291207379143853719588249808126867838374559731746136085379534524221586593201928090878297308431392844403281231558611036976801357304216168747609675871348312025478589320767169132448426236131412508780208000261683151027341827977704784635868170164365024153691398281264810213092761244896359928705114964975419909342221566832572080821333186116811553615836546984046708975602900950537616475847728421889679646244945160765353408198901385442487984959953319101723355556602139450399736280750137837615307127761926849034352625200015888535147331611702103968175921510907788019393178114194545257223865541461062892187960223838971476088506276862967146674697562911234082439208160153780889893964518263243671616762179168909779911903754031274622289988005195444414282012187361745992642956581746628302955570299024324153181617210465832036786906117260158783520751516284225540265170483304226143974286933061690897968482590125458327168226458066526769958652682272807075781391858178889652208164348344825993266043367660176999612831860788386150279465955131156552036093988180612138558600301435694527224206344631797460594682573103790084024432438465657245014402821885252470935190620929023136493273497565513958720559654228749774011413346962715422845862377387538230483865688976461927383814900140767310446640259899490222221765904339901886018566526485061799702356193897017860040811889729918311021171229845901641921068884387121855646124960798722908519296819372388642614839657382291123125024186649353143970137428531926649875337218940694281434118520158014123344828015051399694290153483077644569099073152433278288269864602789864321139083506217095002597389863554277196742822248757586765752344220207573630569498825087968928162753848863396909959826280956121450994871701244516461260379029309120889086942028510640182154399457156805941872748998094254742173582401063677404595741785160829230135358081840096996372524230560855903700624271243416909004153690105933983835777939410970027753472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\\1 );\n\n    # Print result\n    @print('{}\\n', fact);\n\n}","cpp":"#include \"trust/assert.hpp\"\n#include \"trust/io.hpp\"\n#include \"trust/rational.hpp\"\n#include \u003ccstdint>\nint rational__main__() {\n    trust::Rational c_fact = trust::Rational(\"1\\\\1\");\n    int64_t c_mult = 1;\n    while ((c_mult \u003c= 1000)) {\n        c_fact *= c_mult;\n        c_mult += 1;\n    }\n    (c_fact == trust::Rational(\"402387260077093773543702433923003985719374864210714632543799910429938512398629020592044208486969404800479988610197196058631666872994808558901323829669944590997424504087073759918823627727188732519779505950995276120874975462497043601418278094646496291056393887437886487337119181045825783647849977012476632889835955735432513185323958463075557409114262417474349347553428646576611667797396668820291207379143853719588249808126867838374559731746136085379534524221586593201928090878297308431392844403281231558611036976801357304216168747609675871348312025478589320767169132448426236131412508780208000261683151027341827977704784635868170164365024153691398281264810213092761244896359928705114964975419909342221566832572080821333186116811553615836546984046708975602900950537616475847728421889679646244945160765353408198901385442487984959953319101723355556602139450399736280750137837615307127761926849034352625200015888535147331611702103968175921510907788019393178114194545257223865541461062892187960223838971476088506276862967146674697562911234082439208160153780889893964518263243671616762179168909779911903754031274622289988005195444414282012187361745992642956581746628302955570299024324153181617210465832036786906117260158783520751516284225540265170483304226143974286933061690897968482590125458327168226458066526769958652682272807075781391858178889652208164348344825993266043367660176999612831860788386150279465955131156552036093988180612138558600301435694527224206344631797460594682573103790084024432438465657245014402821885252470935190620929023136493273497565513958720559654228749774011413346962715422845862377387538230483865688976461927383814900140767310446640259899490222221765904339901886018566526485061799702356193897017860040811889729918311021171229845901641921068884387121855646124960798722908519296819372388642614839657382291123125024186649353143970137428531926649875337218940694281434118520158014123344828015051399694290153483077644569099073152433278288269864602789864321139083506217095002597389863554277196742822248757586765752344220207573630569498825087968928162753848863396909959826280956121450994871701244516461260379029309120889086942028510640182154399457156805941872748998094254742173582401063677404595741785160829230135358081840096996372524230560855903700624271243416909004153690105933983835777939410970027753472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\\\\1\")) || trust::trust__abort__(\"docs/content/en/playground/rational.src\", 15, \"fact==402387260077093773543702433923003985719374864210714632543799910429938512398629020592044208486969404800479988610197196058631666872994808558901323829669944590997424504087073759918823627727188732519779505950995276120874975462497043601418278094646496291056393887437886487337119181045825783647849977012476632889835955735432513185323958463075557409114262417474349347553428646576611667797396668820291207379143853719588249808126867838374559731746136085379534524221586593201928090878297308431392844403281231558611036976801357304216168747609675871348312025478589320767169132448426236131412508780208000261683151027341827977704784635868170164365024153691398281264810213092761244896359928705114964975419909342221566832572080821333186116811553615836546984046708975602900950537616475847728421889679646244945160765353408198901385442487984959953319101723355556602139450399736280750137837615307127761926849034352625200015888535147331611702103968175921510907788019393178114194545257223865541461062892187960223838971476088506276862967146674697562911234082439208160153780889893964518263243671616762179168909779911903754031274622289988005195444414282012187361745992642956581746628302955570299024324153181617210465832036786906117260158783520751516284225540265170483304226143974286933061690897968482590125458327168226458066526769958652682272807075781391858178889652208164348344825993266043367660176999612831860788386150279465955131156552036093988180612138558600301435694527224206344631797460594682573103790084024432438465657245014402821885252470935190620929023136493273497565513958720559654228749774011413346962715422845862377387538230483865688976461927383814900140767310446640259899490222221765904339901886018566526485061799702356193897017860040811889729918311021171229845901641921068884387121855646124960798722908519296819372388642614839657382291123125024186649353143970137428531926649875337218940694281434118520158014123344828015051399694290153483077644569099073152433278288269864602789864321139083506217095002597389863554277196742822248757586765752344220207573630569498825087968928162753848863396909959826280956121450994871701244516461260379029309120889086942028510640182154399457156805941872748998094254742173582401063677404595741785160829230135358081840096996372524230560855903700624271243416909004153690105933983835777939410970027753472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\\1\", 1);\n    trust::trust__print__(\"{}\\n\", c_fact);\n    return 0;\n}\n","ok":true,"error":"","trustToCpp":[[],[],[],[5,6,7,8,9,10,11,12,13,14,15],[],[6],[7],[],[8,9,10,11],[9],[10],[],[],[],[],[12],[],[],[13],[],[]],"cppToTrust":[[],[],[],[],[],[3],[3,5],[3,6],[3,8],[3,8,9],[3,8,10],[3,8],[3,15],[3,18],[3],[3],[]],"examples":[{"name":"destructure","source":"#!../_build/trust --run -Wsigil=ignore\n\n### Destructuring: typed targets, assignment into existing variables,\n### dictionary spread (rest / skip / ignore-rest) and per-element typing.\n\n@main() := {\n    # ── Tuple destructuring ──\n    t := (10, 20,):Tuple;\n    a:Int64, b:Int64 := t;      # typed targets (int64_t)\n    a, b = (30, 40,):Tuple;     # assignment into existing variables\n    @print('tuple {}-{}\\n', a, b);               # tuple 30-40\n\n    # ── Dictionary spread: exact binding + rest marker ──\n    d := (1, 2, 3, 4,);\n    first, second, rest... := ... d;             # rest... = остаток {3,4} (источник не мутируется)\n    @print('dict {}-{}-{}\\n', first, second, rest);  # dict true-2-(3, 4,)\n\n    # ── Skip `_` and ignore-rest `_...` ──\n    _, second_only, _... := ... d;               # пропуск 1-го, остаток отброшен\n    @print('skip {}\\n', second_only);            # skip 2\n\n    # ── Per-element typing (non-loop): each target gets its natural runtime type ──\n    dd := (true, 10, 2.5,);\n    flag, num, ratio := ... dd;                  # bool, int64_t, double\n    @print('typed {}-{}-{}\\n', flag, num, ratio);  # typed true-10-2.5\n}\n\n"},{"name":"dict","source":"#!../_build/trust --run -Wembed=ignore -Wsigil=ignore \n#\n# Единый проверочный пример словаря (Dict): литерал `(1, two=2, name='3',)` → trust::Dict.\n# Запуск из корня проекта: ./_build/trust --run examples/dict_example.src\n#\n# Варианты доступа к элементам словаря и приведение результата:\n#   d.name — по имени; d.1 — статический индекс (компиляторная проверка размера);\n#   d[0]   — динамический индекс (рантайм-проверка). Тип поля выводится из литерала\n#   (d.two → Int8, d[0] → Bool, d.name → StrChar), доступ извлекает значение точным типом.\n# Финальное приведение к целому — языковой каст `:Int32(expr)` (с контролем диапазона).\n# Добавление элементов — оператор `[]=` (append/push_back): `X []= v` = `X.push_back(v)`.\n#   d []= 999  — безымянный (позиционный) элемент; доступ к нему — d[3], d[4] (Any → каст).\n\n\n@main() := {\n    /// Обычный словарь\n    d := (1, two=2, name='3',);\n\n    # Явное приведение типа: у вставки {% %} возвращаемый тип отсутствует, поэтому каст обязателен.\n    @print('size={}\\n', :Int32( {% $d.size() %} ));\n    # Динамический индекс d[0] (рантайм-проверка границ) → явный каст к :Int32.\n    @print('first={}\\n', :Int32( d[0] ));\n    # Статический индекс d.1 (компиляторная проверка размера) → явный каст к :Int32.\n    @print('one={}\\n',   :Int32( d.1 ));\n    # Доступ по имени d.two (тип поля Int8) → явный каст к :Int32.\n    @print('two={}\\n',   :Int32( d.two ));\n    # Доступ по имени d.name (тип поля StrChar) → автоматическое приведение к строке для вывода.\n    @print('name={}\\n',  d.name);\n\n    # Статический индекс d.4 отсуствует (ошибка во время компиляции):\n    # print('one={}\\n',    d.4);  # (раскомментируй → error: static dict index 4 out of range (size 3))\n\n    # Добавление элементов оператором []= (append/push_back): правило `X []= v` = `X.push_back(v)`.\n    d []= 999;        # добавить позиционный элемент (безымянный append)\n    d []= 'строка';   # добавить ещё один элемент (строка)\n    \n    # Размер словаря увеличился на 2.\n    @print('size_after_append={}\\n', :Int32( {% $d.size() %} ));\n    \n    # Доступ к добавленным элементам по динамическому (d[3]) и статическому (d.4) индексу.\n    # Элемент словаря (std::any/TypedValue) print выводит автоматически — явный каст не нужен.\n    @print('appended_int={}\\n', d[3]);\n    # Статический индекс d.4 теперь допустим (размер вырос до 5).\n    @print('appended_str={}\\n', d.4);\n\n    ## Слияние словаря через распаковку `...`: `d []= ... dict` добавляет ВСЕ элементы операнда.\n    extra := (e=6, 7,);\n    d []= ... extra;          # добавить распакованный словарь \n    d []= ... (последний=8,); # добавить один именованный элемент\n\n    @print('size_final={}\\n', :Int32( {% $d.size() %} ));  # 5 + 2 + 1 = 8\n    @print('e={}, {}\\n', d.e, d.6);    # доступ по имени и индексу к слитому слоаврю\n\n    # Тот же элемент по статическому индексу d.7 (8-й элемент).\n    @print('последний={}\\n', d.7);\n\n    # Печать всего словаря\n    @print('{}\\n', d);\n\n    @return 0;\n}\n\n"},{"name":"dict_mixed","source":"#!../_build/trust --run\n#\n# Смешанный словарь: несколько групп данных (быстрая ветка variant + std::any) и\n# приведения между типами, в т.ч. между storage (быстрая ветка) и std::any (вложенный Dict).\n#\n#   count=7     → Int8     (быстрая ветка variant, storage)\n#   pi=3.14     → Float64  (storage)\n#   name='mix'  → StrChar  (storage)\n#   half=1\\2    → Rational (быстрая ветка variant, по значению)\n#   inner=(k=9,)→ вложенный Dict (std::any-ветка)\n#   flag=count>5 → Bool     (storage, добавлен через []=)\n#\n# Запуск: ./_build/trust --run examples/dict_mixed.src\n\n\n@main() := {\n    d := (count=7, pi=3.14, name='mix', half=1\\2, inner=(k=9,),);\n    d []= (d.count > 5);   # Bool элемент (storage)\n\n    # Доступ к полям разных групп (тип выводится из литерала).\n    @print('count={}\\n', d.count);   # Int8\n    @print('pi={}\\n', d.pi);         # Float64\n    @print('name={}\\n', d.name);     # StrChar\n    @print('half={}\\n', d.half);     # Rational → \"1\\2\"\n    @print('flag={}\\n', d[5]);       # Bool → true/false\n\n    # Приведения между разными типами:\n    @print('count_as_float={}\\n',  :Float64( d.count ));   # int → float\n    @print('pi_as_int={}\\n',       :Int32( d.pi ));        # float → int (сужение с контролем)\n    @print('flag_as_int={}\\n',     :Int32( d[5] ));        # bool → int\n    @print('count_as_rational={}\\n', :Rational( d.count ));  # int → Rational\n\n    # std::any-ветка (вложенный Dict): доступ к внутреннему полю с приведением.\n    @print('inner_k={}\\n', :Int32( d.inner.k ));\n\n    # Комбинация storage и std::any: inner.k (std::any) + count (storage).\n    @print('sum={}\\n', :Int32( d.inner.k ) + :Int32( d.count ));\n\n    @return 0;\n}\n"},{"name":"enum_variant","source":"#!../_build/trust --run -q\n#\n# Enum и Variant — типы с членами разных типов данных и классическими методами на типах.\n#   Enum     — ЕДИНЫЙ тип значений у всех членов (числовой / строковый / Rational).\n#   Variant  — каждый член СВОЕГО типа (гетерогенный, → std::variant).\n# Методы на типах (работа только через имя типа):\n#   count()            — число членов;\n#   fromName(name)     — член по имени;\n#   fromValue(value)   — член по значению.\n# Сравнение членов enum идёт ПО ЗНАЧЕНИЮ (IntEnum-семантика).\n\n## Enum: числовые значения (тип значений — Int64 по общим правилам).\nStatus ::= (OK=0, ERROR=1, BUSY=2,):Enum;\n\n## Enum: строковые значения (тип значений — StrChar).\nLevel ::= (LOW='low', HIGH='high',):Enum;\n\n## Variant: гетерогенный — у каждого члена свой тип (Int8, StrChar, Rational).\nData ::= (i=42, s='text', r=1\\2,):Variant;\n\n## Enum: ЯВНЫЙ тип члена (`LOW:Int8`) задаёт единый тип значений — Int8 (безнарные → автоинкремент).\nFlag ::= (LOW:Int8, HIGH,):Enum;\n\n@main() := {\n\n    # ── Enum (числовой) ──\n    @print('status count      = {}\\n', Status.count());\n    @print('fromName(OK)==OK  = {}\\n', Status.fromName('OK') == Status.OK);\n    @print('fromValue(1)==ERR = {}\\n', Status.fromValue(1) == Status.ERROR);\n    @print('OK \u003c ERROR        = {}\\n', Status.OK \u003c Status.ERROR);\n\n    # ── Enum (строковый) ──\n    @print('level count       = {}\\n', Level.count());\n    @print('fromName(LOW)     = {}\\n', Level.fromName('LOW') == Level.LOW);\n    @print('fromValue(high)   = {}\\n', Level.fromValue('high') == Level.HIGH);\n\n    # ── Enum (явный тип члена → Int8) ──\n    @print('flag count         = {}\\n', Flag.count());\n    @print('Flag.LOW \u003c HIGH    = {}\\n', Flag.LOW \u003c Flag.HIGH);\n\n    # ── Variant (гетерогенный) ──\n    @print('data count        = {}\\n', Data.count());\n    @print('Data.i == 42      = {}\\n', Data.i == 42);\n    @print('Data.s == text    = {}\\n', Data.s == 'text');\n\n}\n"},{"name":"fibonacci","source":"#!../_build/trust --run -Wsigil=ignore\n\n%fib(n:Rational):Tuple(sum:Rational, fib:Rational) := {\n    @if(n \u003c 3){\n        @return :Tuple(1\\1, 1\\1);\n    };\n    p := fib(n-1);\n    @return (p.0 + p.1, p.sum,):Tuple;\n};\n\n%calc(n:Rational):Void := {\n    result := fib(n);\n    $value := '{0}'( result.fib );\n    @print('{}: {}\\n{}\\n', n, $value.size(), $value);\n};\n\n@main() := {\n    calc(3000);\n};\n\n# и за 0.3 секунды на неторопливой машине для баловства получил 11494 знака числа Фибоначчи номер 55,000. \n# С номером 60,000 - как предупреждают в статье. \n# Для сравнения, на Python облом уже на 1,000."},{"name":"foreach","source":"#!../_build/trust --run -Wsigil=ignore\n\n### An example implementation of a foreach loop to sum \n### all the elements of a dictionary (or one-dimensional tensor) \n### using the dictionary (list) expansion operator:\n\n@main() := {\n    summa := 0;\n    dictionary := (1,2,3,4,5,);\n    @while( dictionary ) {\n\n        # The first dictionary element is moved to the item\n\t# and removed from the dictionary (rest marker 'dictionary...'\n\t# binds the remainder, mutating the source in place)\n\n        item, dictionary... := ... dictionary;\n\t    summa += item;\n    };\n\n    # Last expression as return statement\n    @print('{}', summa);\n}"},{"name":"hello","source":"#!../_build/trust --run -Wsigil=ignore\n#\n# Hello, world! и атрибут @[format(\"printf\", ...)] — компиляйт-тайм проверка типов\n# аргументов на соответствие форматной строке printf (GCC-аналог __attribute__((format))).\n# Нативная функция printf объявляется forward-декларацией без подключения заголовочных файлов.\n\n@[format(\"printf\", 1, 2)]@ %printf(fmt: @[reftype(ptr)]@ StrChar^, ...):Int32 := ...;\n\n@main() := {\n    привет := 'Привет';\n    мир := 'мир';\n    мир_size := мир.size();\n\n    %printf('%s %s!\\n', привет.c_str(), мир.%c_str());\n    %printf('Длина строки: %zu + %zu + 1 = %d\\n', привет.size(), мир_size, :Int32(привет.%size() + мир_size + 1));\n\n    %printf('Строка: \"%s\"\\n', 'это строковый аргумент');\n    \n    # Неверные вызовы — компиляйт-тайм ошибки (атрибут format). Раскомментируйте:\n    # %printf('Ошибка: %s\\n', 42);        # %s ожидает C-строку (const char*), а передан целый 42\n    # %printf('Ошибка: %d\\n', 'строка');  # %d ожидает целое, а передана строка\n    # %printf('Ошибка: %s\\n', строка);    # переменная std::string в %s — нужен явный .c_str()\n}\n"},{"name":"native_functions","source":"#!../_build/trust --run\n#\n# Импорт и вызов нативных функций из стандартной библиотеки C++.\n# Запуск в стиле bash-скрипта (из каталога examples/):\n#     chmod +x native_functions.src\n#     ./native_functions.src\n# или напрямую (из корня проекта):\n#     ./_build/trust --run examples/native_functions.src\n#\n# Нативные функции используются двумя способами — оба через макросы DSL:\n#\n# 1) ПРЕДВАРИТЕЛЬНОЕ ОБЪЯВЛЕНИЕ (forward-declaration) — макрос @forward:\n#    @forward %labs(x:Int64):Int64;  →  %labs(x:Int64):Int64 := ...;\n#    имя `%labs` — это и есть нативный C-style идентификатор (`labs`). Имя и\n#    аргументы совпадают с нативной сигнатурой (никакой адаптации); реализацию\n#    (символ `labs`) линковщик найдёт в стандартной библиотеке при сборке.\n#\n# 2) ИМПОРТ существующей функции — макрос @extern:\n#    @extern abs(x:Int32):Int32;  →  abs(x:Int32):Int32 := %abs ...;\n#    trust-имя слева связывается с нативным именем справа (здесь они совпадают),\n#    а `...` означает «аргументы вызова повторяют аргументы слева».\n\n@forward %labs(x:Int64):Int64;\n@extern abs(x:Int32):Int32;\n\n@main() := {\n    @print('abs(-42)={}\\n', abs(-42));\n    @print('labs(-9000000000)={}\\n', %labs(-9000000000));\n\n    # Нативную функцию можно вызывать в выражениях и использовать в вычислениях.\n    sum :Int32 := 0;\n    i :Int32 := -3;\n    @while( i \u003c= 3 ) {\n        sum += abs(i);\n        i += 1;\n    };\n    @print('sum of abs(-3..3)={}\\n', sum);\n    @return 0;\n}\n"},{"name":"native_link","source":"#!../_build/trust --run\n#\n# Атрибут @[link(\"имя\")] — подключение библиотеки к шагу линковки.\n# Атрибут добавляет флаг `-l\u003cимя>` в build.conf (переменная LIBS) при сборке.\n# Существование символа/библиотеки НЕ проверяется — ответственность линковщика.\n#\n# Запуск в стиле bash-скрипта (из каталога examples/):\n#     chmod +x native_link.src\n#     ./native_link.src\n# или напрямую (из корня проекта):\n#     ./_build/trust --run examples/native_link.src\n#\n# Атрибут ставится перед обычным (trust) именем декларации, т.е. на ИМПОРТЕ:\n#         @[link(\"stdc++\")]@ fabs(x:Int32):Int32 := %abs...;\n# (нативные имена `%...` в позиции имени функции атрибут не принимают —\n#  forward-декларация `@forward %abs(x:Int32):Int32;` остаётся без атрибута).\n#\n# Импорт — АЛИАС: trust-имя `fabs` связывается с нативным именем `%abs`; C++-функция `fabs`\n# НЕ создаётся, а вызовы `fabs(...)` переписываются в прямой вызов `abs(...)`. `...` означает,\n# что аргументы вызова повторяют аргументы левой сигнатуры.\n#\n# Запуск (из корня проекта):\n#     ../_build/trust -q -o /tmp/native_link examples/native_link.src\n#     /tmp/native_link\n\n@forward %abs(x:Int32):Int32;\n\n@[link(\"stdc++\")]@ fabs(x:Int32):Int32 := %abs...;\n\n@main() := {\n    @print('fabs(-7)={}', fabs(-7));\n    @print('fabs(9)={}', fabs(9));\n}\n\n"},{"name":"range","source":"#!../_build/trust --run\n#\n# Пример диапазонов: литерал `start..stop[..step]` → параметризованный тип Range\u003cElem>,\n# рантайм-шаблон trust::Range\u003cElem>. Инклюзивная семантика (Kotlin a..b): stop включается.\n# Элементный тип Elem — join типов операндов (Int/Float/Rational/Any).\n#\n#   $a := 1..10;          # trust::Range\u003cint64_t>(1, 10)        — count 10 (1..10)\n#   $b := 0..10..2;       # trust::Range\u003cint64_t>(0, 10, 2)      — count 6  (0,2,4,6,8,10)\n#   $d := 0..$var..0.01;  # trust::Range\u003cdouble>(0, var, 0.01)   — count 501\n#   $e := 0..100:Rational # trust::Range\u003ctrust::Rational>(0,100)  — count 101\n#\n# Методы Range доступны в доверенном коде. Обычный вызов и нативный (`%`), синонимы\n# (`length` → нативное `count`, `size`), const-вызов (`method^()` → const_cast\u003cconst T&>),\n# типизированные (`at(i)`, `contains(v)`, `start/stop/step`) и материализация (toVector/toDict).\n#\n\n@main() := {\n    $a := 1..10;\n    $b := 0..10..2;\n    $var := 5;\n    $d := 0..$var..0.01;\n    $e := 0..100:Rational;\n\n    @print('a count={}\\n', $a.count());\n    @print('b count={}\\n', $b.count());\n    @print('d count={}\\n', $d.count());\n    @print('e count={}\\n', $e.count());\n\n    # Синонимы: size() и length() (length — алиас нативного count); нативные формы %size/%length.\n    @print('size={}, length={}, %size={}, %length={}\\n',\n           :Int32($a.size()), :Int32($a.length()), :Int32($a.%size()), :Int32($a.%length()));\n\n    # const-вызовы (гарантированно константная перегрузка через const_cast\u003cconst T&>).\n    @print('size^={}, %length^={}\\n', :Int32($a.size^()), :Int32($a.%length^()));\n\n    # Типизированные методы: at(i) возвращает элемент (Int64), contains(v) — Bool, start/stop/step.\n    @print('at(0)={}, at(9)={}, empty={}, contains(5)={}\\n',\n           :Int32($a.at(0)), :Int32($a.at(9)), :Int32($a.empty()), :Int32($a.contains(5)));\n    @print('start={}, stop={}, step={}\\n', :Int32($a.start()), :Int32($a.stop()), :Int32($a.step()));\n\n    # Материализация: toVector (раскрытие в массив, тип Any), toDict (словарь с числом\n    # элементов — Dict.size() → Int64). Печать словаря целиком — через formatter.\n    $v := $a.toVector();\n    @print('toVector assigned, toDict size={}\\n', :Int32($a.toDict().size()));\n    @print('toDict={}\\n', $a.toDict());\n\n    @return 0;\n}\n"},{"name":"rational","source":"#!../_build/trust --run\n\n@main() := {\n\n    $fact :Rational := 1\\1;\t# Rational value support bigint\n    $mult := 1; \t\t# Counter\n\n    @while( mult \u003c= 1000 ) {\n        fact *= mult;\n        mult += 1;\n    };\n\n\n    # Check factorial 1000!\n    @assert( fact == 402387260077093773543702433923003985719374864210714632543799910429938512398629020592044208486969404800479988610197196058631666872994808558901323829669944590997424504087073759918823627727188732519779505950995276120874975462497043601418278094646496291056393887437886487337119181045825783647849977012476632889835955735432513185323958463075557409114262417474349347553428646576611667797396668820291207379143853719588249808126867838374559731746136085379534524221586593201928090878297308431392844403281231558611036976801357304216168747609675871348312025478589320767169132448426236131412508780208000261683151027341827977704784635868170164365024153691398281264810213092761244896359928705114964975419909342221566832572080821333186116811553615836546984046708975602900950537616475847728421889679646244945160765353408198901385442487984959953319101723355556602139450399736280750137837615307127761926849034352625200015888535147331611702103968175921510907788019393178114194545257223865541461062892187960223838971476088506276862967146674697562911234082439208160153780889893964518263243671616762179168909779911903754031274622289988005195444414282012187361745992642956581746628302955570299024324153181617210465832036786906117260158783520751516284225540265170483304226143974286933061690897968482590125458327168226458066526769958652682272807075781391858178889652208164348344825993266043367660176999612831860788386150279465955131156552036093988180612138558600301435694527224206344631797460594682573103790084024432438465657245014402821885252470935190620929023136493273497565513958720559654228749774011413346962715422845862377387538230483865688976461927383814900140767310446640259899490222221765904339901886018566526485061799702356193897017860040811889729918311021171229845901641921068884387121855646124960798722908519296819372388642614839657382291123125024186649353143970137428531926649875337218940694281434118520158014123344828015051399694290153483077644569099073152433278288269864602789864321139083506217095002597389863554277196742822248757586765752344220207573630569498825087968928162753848863396909959826280956121450994871701244516461260379029309120889086942028510640182154399457156805941872748998094254742173582401063677404595741785160829230135358081840096996372524230560855903700624271243416909004153690105933983835777939410970027753472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\\1 );\n\n    # Print result\n    @print('{}\\n', fact);\n\n}"},{"name":"string_format","source":"#!../_build/trust --run -q\n#\n# Строка-формат: `'{}'(args)` (narrow) и `\"{}\"(args)` (wide) — литерал как формат-строка.\n# Транспилируется в std::format(L\"…\"/\"…\"). Аргументы сверяются с числом плейсхолдеров {}.\n\n@main() := {\n    val := 12345;\n\n    # Narrow-формат '…' → std::string.\n    s := '{}'(val);\n    @print('s={}\\n', s);\n\n    # Несколько плейсхолдеров в порядке аргументов.\n    t := 'x={} y={} z={}'(1, 'two', 3.5);\n    @print('t={}\\n', t);\n\n    # Wide-формат \"…\" → std::wstring.\n    w := \"value={}\"(val);\n    @print('w.size={}\\n', :Int32( {% $w.size() %} ));\n\n    @return 0;\n}\n"},{"name":"tuple","source":"#!../_build/trust --run -q\n#\n# Кортеж :Tuple — транспилируется в std::tuple. Две формы записи:\n#   :Tuple(1, 2, 'x')            — конструктор/приведение;\n#   (first='a', space=32, ...):Tuple — типизированный литерал.\n# Позиционные и именованные элементы; именованные при транспиляции конвертируются в индексы.\n# Доступ к элементам — по статическому индексу t.0 и по имени t.first (оба → std::get\u003cN>).\n\n@main() := {\n\n    t := :Tuple(10, second=20, 'x');\n    @print('{} {}\\n', t.second, t.0); # 20 10\n\n    u := (first='a', num=99, second='b',):Tuple;\n    @print('{} {} {}\\n', u.2, u.num, u.0); # b 99 a\n\n}\n"}]};
+window.__TPG.monarch = function () { return (    {
+      defaultToken: '',
+        tokenizer: {
+          root: [
+            [/\/\*/, 'comment.block', '@comment'],
+            [/#.*$/, 'comment.line'],
+            [/@\w[\w_]*/, 'keyword.macro'],
+            [/@[{}[\]<>:|]/, 'keyword.control'],
+            [/\$\$|\$\*|\$\.\.\.|\$\^/, 'variable.language'],
+            [/\$\d+/, 'variable.language'],
+            [/\$[A-Za-z_]\w*/, 'variable'],
+            [/:[A-Za-z_]\w*/, 'type'],
+            [/%[A-Za-z_]\w*/, 'keyword.function'],
+            [/R"[\s\S]*?"/, 'string.raw'],
+            [/R'[\s\S]*?'/, 'string.raw'],
+            [/`[^`]*`/, 'string'],
+            [/"/, 'string.double', '@str_d'],
+            [/'/, 'string.single', '@str_s'],
+            [/-?\d[\d_]*\.\d+([eE][-+]?\d+)?|-?\d[\d_]*([eE][-+]?\d+)?/, 'number'],
+            [/[a-zA-Z_]\w*/, 'identifier'],
+            [/[{}()\[\]]/, '@brackets'],
+            [/[=:;,.+\-*\/%&|^~!<>]+/, 'operator'],
+            [/\s+/, 'white']
+          ],
+          comment: [
+            [/[^/*]+/, 'comment.block'],
+            [/\/\*/, 'comment.block', '@push'],
+            [/\*\//, 'comment.block', '@pop'],
+            [/[/*]/, 'comment.block']
+          ],
+          str_d: [
+            [/[^"\\]+/, 'string.double'],
+            [/\\./, 'string.escape'],
+            [/"/, 'string.double', '@pop']
+          ],
+          str_s: [
+            [/[^'\\]+/, 'string.single'],
+            [/\\./, 'string.escape'],
+            [/'/, 'string.single', '@pop']
+          ]
+        }
+    }
+); };
+window.__TPG.glue = function (m) { var __MONARCH__ = m;   (function () {
+    var cfg = window.__TPG && window.__TPG.config;
+    if (!cfg) { return; }
+    // Origin бэкенда (для абсолютных URL: /download живёт на балансировщике, а страница — на статике).
+    var serverOrigin = '';
+    try { serverOrigin = new URL(cfg.serverUrl, location.href).origin; } catch (e) { serverOrigin = ''; }
+    var trustHost = document.getElementById('tpl-trust-editor');
+    var cppHost = document.getElementById('tpl-cpp-editor');
+    var status = document.getElementById('tpl-status');
+    var examplesSel = document.getElementById('tpl-examples');
+    var log = document.getElementById('tpl-log');
+    var downloadBtn = document.getElementById('tpl-download');
+    var followCb = document.getElementById('tpl-follow-cb');
+    if (!trustHost || !cppHost) { return; }
+
+    // Редакторы создаются в Monaco-колбэке; вынесены в область видимости glue,
+    // чтобы к ним был доступ и из обработчиков комбобокса.
+    var trustEditor = null, cppEditor = null;
+
+    // Исходник последнего загруженного примера (для детекции изменений текста).
+    var loadedSource = cfg.source;
+    // Индекс текущего выбранного примера в комбобоксе (для отката при отмене).
+    var curExIndex = -1;
+
+    function appendLog(msg) {
+      if (!log) { return; }
+      log.textContent += (log.textContent ? '\n' : '') + msg;
+      log.scrollTop = log.scrollHeight;
+    }
+    function clearLog() { if (log) { log.textContent = ''; } }
+    function setDownloadDisabled(on) {
+      if (!downloadBtn) { return; }
+      if (on) { downloadBtn.classList.add('tpl-btn-disabled'); downloadBtn.href = '#'; }
+      else { downloadBtn.classList.remove('tpl-btn-disabled'); }
+    }
+
+    // Ленивое скачивание build-архива: POST /download — отдельный запрос, заново
+    // обрабатывает текущий код и сразу возвращает tar.gz. НЕ зависит от /run.
+    function downloadArchive() {
+      if (!downloadBtn || !cfg.serverUrl) { return; }
+      var body = (trustEditor && trustEditor.getValue) ? trustEditor.getValue() : (loadedSource || '');
+      setStatus('building archive…');
+      appendLog('building archive…');
+      fetch(serverOrigin + '/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body: body
+      }).then(function (res) {
+        if (!res.ok) {
+          return res.json().catch(function () { return {}; }).then(function (d) {
+            throw new Error((d && d.error) || ('archive build failed (' + res.status + ')'));
+          });
+        }
+        var name = 'trust-build.tar.gz';
+        var cd = res.headers.get('Content-Disposition');
+        if (cd) { var m = /filename="?([^";]+)/.exec(cd); if (m && m[1]) { name = m[1]; } }
+        return res.blob().then(function (blob) {
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(a.href);
+          setStatus('ok');
+          appendLog('archive: ' + name);
+        });
+      }).catch(function (err) {
+        var m = 'archive build failed: ' + err;
+        setStatus(m);
+        appendLog(m);
+      });
+    }
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', function (ev) { ev.preventDefault(); downloadArchive(); });
+    }
+
+    // Заполняем комбобокс примеров СРАЗУ (до загрузки Monaco) — он не может быть пустым.
+    function populateExamples() {
+      if (!examplesSel || !cfg.examples || cfg.examples.length === 0) { return; }
+      var matched = -1;
+      for (var i = 0; i < cfg.examples.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = cfg.examples[i].name;
+        examplesSel.appendChild(opt);
+        if (cfg.examples[i].source === cfg.source) { matched = i; }
+      }
+      if (matched >= 0) {
+        curExIndex = matched;
+        examplesSel.selectedIndex = matched;
+      } else {
+        // Текущий текст не совпадает ни с одним примером → отключённая опция «Custom».
+        var custom = document.createElement('option');
+        custom.value = -1;
+        custom.textContent = 'Custom';
+        custom.disabled = true;
+        examplesSel.insertBefore(custom, examplesSel.firstChild);
+        examplesSel.selectedIndex = 0;
+        curExIndex = -1;
+      }
+      examplesSel.onchange = function () {
+        var idx = parseInt(examplesSel.value, 10);
+        if (!cfg.examples[idx]) { return; }
+        var ex = cfg.examples[idx];
+        if (trustEditor && trustEditor.getValue() !== loadedSource) {
+          if (!confirm('Текущий текст будет заменён на пример "' + ex.name + '". Продолжить?')) {
+            if (curExIndex >= 0) { examplesSel.selectedIndex = curExIndex; }
+            else { examplesSel.selectedIndex = 0; }
+            return;
+          }
+        }
+        if (trustEditor) { trustEditor.setValue(ex.source); }
+        loadedSource = ex.source;
+        curExIndex = idx;
+        setStatus('loaded example ' + ex.name);
+      };
+    }
+    populateExamples();
+
+    function setStatus(msg) { if (status) { status.textContent = msg; } }
+
+    function loadScript(src, onload) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = onload;
+      s.onerror = function () { setStatus('Failed to load Monaco from ' + src); };
+      document.head.appendChild(s);
+    }
+
+    function mkDeco(lines, cls) {
+      var arr = [];
+      for (var i = 0; i < lines.length; i++) {
+        arr.push({ range: new monaco.Range(lines[i], 1, lines[i], 1),
+                   options: { isWholeLine: true, className: cls } });
+      }
+      return arr;
+    }
+
+    function initEditors() {
+      if (typeof require === 'undefined') { setStatus('Monaco loader unavailable'); return; }
+      require.config({ paths: { vs: cfg.monacoUrl } });
+      require(['vs/editor/editor.main'], function () {
+        try {
+          /* trust Monarch tokenizer */
+          monaco.languages.register({ id: 'trust' });
+          monaco.languages.setMonarchTokensProvider('trust', __MONARCH__);
+
+          trustEditor = monaco.editor.create(trustHost, {
+            value: cfg.source, language: 'trust', theme: 'vs',
+            readOnly: false, automaticLayout: true, scrollBeyondLastLine: false,
+            minimap: { enabled: true }
+          });
+          cppEditor = monaco.editor.create(cppHost, {
+            value: cfg.cpp, language: 'cpp', theme: 'vs',
+            readOnly: true, automaticLayout: true, scrollBeyondLastLine: false,
+            minimap: { enabled: true }
+          });
+
+          var t2c = cfg.trustToCpp, c2t = cfg.cppToTrust;
+          var trustDec = [], cppDec = [];
+          var trustGutterDec = [], cppGutterDec = [];
+
+          function followEnabled() { return !followCb || followCb.checked; }
+
+          // Gutter-маркеры: пометить в колонке номеров ВСЕ строки, у которых есть маппинг
+          // (постоянные декор-метки; не путать с breadcrumb текущей строки).
+          function mkGutter(lines) {
+            var arr = [];
+            for (var i = 0; i < lines.length; i++) {
+              arr.push({ range: new monaco.Range(lines[i], 1, lines[i], 1),
+                         options: { isWholeLine: true, linesDecorationsClassName: 'tpl-gutter' } });
+            }
+            return arr;
+          }
+          function buildGutterMarks() {
+            var tl = [], cl = [];
+            for (var k in t2c) { if (t2c[k] && t2c[k].length) { tl.push(Number(k)); } }
+            for (var k in c2t) { if (c2t[k] && c2t[k].length) { cl.push(Number(k)); } }
+            trustGutterDec = trustEditor.deltaDecorations(trustGutterDec, mkGutter(tl));
+            cppGutterDec = cppEditor.deltaDecorations(cppGutterDec, mkGutter(cl));
+          }
+          buildGutterMarks();
+
+          // Троттлинг reveal: не «дёргать» прокрутку при быстрых перемещениях курсора.
+          var revealTimers = { trust: 0, cpp: 0 };
+          function revealThrottled(editor, line, which) {
+            if (!followEnabled()) { return; }
+            clearTimeout(revealTimers[which]);
+            revealTimers[which] = setTimeout(function () { editor.revealLine(line); }, 80);
+          }
+
+          // Навигация + breadcrumb: подсветить соответствующие строки, прокрутить (если follow),
+          // и показать маппинг ТЕКУЩЕЙ строки в статус-баре («→ cpp: N»).
+          trustEditor.onDidChangeCursorPosition(function (e) {
+            var l = e.position.lineNumber;
+            var lines = (t2c[l] || []);
+            cppDec = cppEditor.deltaDecorations(cppDec, mkDeco(lines, 'tpl-linked'));
+            if (lines.length) {
+              revealThrottled(cppEditor, lines[0], 'cpp');
+              setStatus('→ cpp: ' + lines.join(', '));
+            }
+          });
+          cppEditor.onDidChangeCursorPosition(function (e) {
+            var l = e.position.lineNumber;
+            var lines = (c2t[l] || []);
+            trustDec = trustEditor.deltaDecorations(trustDec, mkDeco(lines, 'tpl-linked'));
+            if (lines.length) {
+              revealThrottled(trustEditor, lines[0], 'trust');
+              setStatus('→ trust: ' + lines.join(', '));
+            }
+          });
+
+          // Двойной клик: перейти к первой соответствующей строке в противоположной панели.
+          trustEditor.onMouseDown(function (e) {
+            var dl = t2c[e.target.position.lineNumber];
+            if (e.event && e.event.detail >= 2 && dl && dl.length) {
+              cppEditor.setPosition({ lineNumber: dl[0], column: 1 });
+              cppEditor.revealLineInCenter(dl[0]);
+            }
+          });
+          cppEditor.onMouseDown(function (e) {
+            var dl = c2t[e.target.position.lineNumber];
+            if (e.event && e.event.detail >= 2 && dl && dl.length) {
+              trustEditor.setPosition({ lineNumber: dl[0], column: 1 });
+              trustEditor.revealLineInCenter(dl[0]);
+            }
+          });
+
+          function recompile() {
+            var body = trustEditor.getValue();
+            setStatus('transpiling…');
+            clearLog();
+            appendLog('transpiling…');
+            fetch(cfg.serverUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+              body: body
+            }).then(function (res) { return res.json(); })
+              .then(function (data) {
+                if (data && data.unavailable) {
+                  var umsg = (data.error || 'no workers available');
+                  if (data.instructionsUrl) {
+                    umsg = umsg + ' — <a href="' + data.instructionsUrl + '" target="_blank" rel="noopener">запустите свой узел</a>';
+                  }
+                  status.innerHTML = umsg;
+                  appendLog(umsg);
+                  return;
+                }
+                if (!data || !data.ok) {
+                  var err = (data && data.error) ? data.error : 'transpile error';
+                  setStatus(err);
+                  appendLog(err);
+                  if (data && data.log) { appendLog(data.log); }
+                  return;
+                }
+                cppEditor.setValue(data.cpp);
+                t2c = data.trustToCpp; c2t = data.cppToTrust;
+                cppDec = cppEditor.deltaDecorations(cppDec, []);
+                setStatus('ok');
+                appendLog('ok');
+                if (data.log) { appendLog(data.log); }
+              })
+              .catch(function (err) { var m = 'request failed: ' + err; setStatus(m); appendLog(m); });
+          }
+
+          if (cfg.serverUrl) {
+            var timer = null;
+            trustEditor.onDidChangeModelContent(function () {
+              clearTimeout(timer);
+              timer = setTimeout(recompile, 400);
+            });
+            // Первичная транспиляция на загрузке (заполняет лог). Кнопка «⬇ Скачать»
+            // активна всегда — build-архив собирается лениво по POST /download.
+            setDownloadDisabled(false);
+            recompile();
+          }
+
+          if (!cfg.ok) { setStatus(cfg.error || 'transpile error'); }
+          else { setStatus('ready'); }
+        } catch (err) {
+          setStatus('init error: ' + err);
+        }
+      });
+    }
+
+    loadScript(cfg.monacoUrl + '/loader.js', initEditors);
+  })();
+ };
+if (window.__TPG.monarch && window.__TPG.glue) { window.__TPG.glue(window.__TPG.monarch()); }
+</script>

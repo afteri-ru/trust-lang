@@ -1,0 +1,12 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# Проверка компиляции объявлений со строковыми типами
+# Узкие строки — в одинарных кавычках '…' (StrChar → std::string).
+s := 'hello';
+# CHECK: std::string c_s = "hello";
+
+t:StrChar := 'world';
+# CHECK-NEXT: std::string c_t = "world";
+
+u:String := 'test';
+# CHECK-NEXT: std::string c_u = "test";

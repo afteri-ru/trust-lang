@@ -1,14 +1,10 @@
 # Rule of plan execution
 
-## After switching to ACT mode, append the plan to the `.tasklog/<taskid>.md` file
-
-- Always add first step to any plan **After switching to ACT mode, appent the plan to the `.tasklog/<taskid>.md`.**
-- Until the work plan is finally approved and switched to ACT mode, only reading of the data for analysis and plan development is permitted; editing or changing the data is prohibited.
-- Always append data to the `.tasklog/<taskid>.md` file. The file may be modified by other tools, so it **needs to be re-read** each time new data is added.
-
 ## Record all actions to `.tasklog/<taskid>.md`
 
 - **After switching to ACT mode, append the plan to the `.tasklog/<taskid>.md`.**
+- Always append data to the `.tasklog/<taskid>.md` file. The file may be modified by other tools, so it **needs to be re-read** each time new data is added.
+- Until the work plan is finally approved and switched to ACT mode, only reading of the data for analysis and plan development is permitted; editing or changing the data is prohibited.
 - Always append the results **of each step of the plan tasks** in the `.tasklog/<taskid>.md` file, including any negative results.
 - After **several unsuccessful** attempts to solve a problem, **stop and analyze the problems**.
 - If the problem persists and requires a change in the architecture or the solution is outside the scope of the approved plan, **stop task execution** and provide a report on the problem encountered with several proposed solutions to choose from.
@@ -64,21 +60,26 @@ If build or tests fail — do NOT declare completion. Fix the underlying issue.
 
 **Перед планированием задачи, затрагивающей компонент (ast, parser, diag, types, runtime и др.) — обязательно выполнить:**
 
-1. Обратиться к **memory** (search_nodes по имени компонента) и прочитать все наблюдения для этого компонента.
-2. Если наблюдения касаются затрагиваемой области — учесть их в плане до передачи пользователю.
+1. Прочитать **`MEMORY.md` компонента** (корневой `MEMORY.md` и `include/<компонент>/MEMORY.md`) и учесть разделы «Architecture», «Facts and invariants», «Decisions», «Relations».
+2. Если информация касается затрагиваемой области — учесть её в плане до передачи пользователю.
 
-**Что сохраняется в memory (критерии включения):**
+**Что сохраняется в `MEMORY.md` (критерии включения):**
 - Только **семантические инварианты-ловушки**, которые:
   - вызвали **≥2 циклов доработок** (reopened задачи);
-  - **не выводятся однозначно** из чтения исходного кода или описания ARCH.md;
+  - **не выводятся однозначно** из чтения исходного кода или описания MEMORY.md;
   - не являются описанием полей структур (состав полей — читать исходный код).
+- Сохранять в `MEMORY.md` следует **только очень кратко** самые важные семантические инварианты-ловушки, которые сложно вывести из API/MEMORY.md/исходного кода.
 
-**Что НЕ сохраняется в memory:**
-- информация о новой функциональности, которые уже выбраны пользователем и/или зафиксированы в коде или архитектуре;
+**Что ЗАПРЕЩЕНО сохранять в `MEMORY.md`:**
+- **запрещено сохранять любую информацию о багах или задачах** (в т.ч. статус/итоги выполнения, найденные проблемы, планы, «отдельные задачи», списки оставшихся работ) — всё это должно быть в `.tasklog`;
+- информация о новой функциональности, которая уже выбрана пользователем и/или зафиксирована в коде или архитектуре;
 - объяснения архитектуры пользователем на стадии планирования (они уже в `.tasklog`);
 - состав и описание полей данных — для этого есть исходный код.
 
-**Порядок пополнения memory:**
-При каждом случае "ложного завершения" (≥2 TaskComplete) — если причина не покрыта существующими наблюдениями и не выводится из исходного кода — добавить наблюдение в memory.
+**Порядок пополнения `MEMORY.md`:**
+
+- При каждом случае "ложного завершения" (≥2 TaskComplete) — если причина не покрыта существующими наблюдениями и не выводится из исходного кода — добавить наблюдение в `MEMORY.md` соответствующего компонента и обновить `last_reviewed` при ревизии.
+- Если в ходе обычной задачи найден новый семантический инвариант-ловушка, отсутствующий в `MEMORY.md`, — дописать его в раздел «Facts and invariants» соответствующего компонента и обновить `last_reviewed`.
+- Если `last_reviewed` в `MEMORY.md` затрагиваемого компонента старше `review_period` — предложить провести ревизию (сверить содержимое с кодом, обновить `last_reviewed`) как отдельный пункт плана.
 
 ---

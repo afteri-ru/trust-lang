@@ -1,0 +1,22 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --temp-dir $TD -c -o $TD/type_synonym_int.o %s && test -f $TD/type_synonym_int.o && file $TD/type_synonym_int.o | grep ELF
+
+# Регистрация нового типа-синонима (Int32) и работа с переменными этого типа.
+# Пользовательский алиас сохраняет своё имя в генерируемом C++ (не раскрывается в int32_t).
+MyInt ::= :Int32;
+# CHECK: using c_MyInt = int32_t;
+
+x:MyInt := 10;
+# CHECK: c_MyInt c_x = 10;
+
+# Алиас-цепочка: Big ::= MyInt → using c_Big = c_MyInt; переменная в области имён — c_Big c_y = 20;
+# Область имён на верхнем уровне → namespace c_ns { ... } (область видимости сохраняется).
+Big ::= MyInt;
+# CHECK: using c_Big = c_MyInt;
+
+ns:: { y:Big := 20; };
+# CHECK: namespace c_ns {
+# CHECK-NEXT:     c_Big c_y = 20;
+# CHECK-NEXT: }
+
+

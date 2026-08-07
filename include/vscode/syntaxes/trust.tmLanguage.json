@@ -3,8 +3,10 @@
   "name": "Trust",
   "patterns": [
     { "include": "#macros" },
-    { "include": "#comments" },
     { "include": "#doc-comments" },
+    { "include": "#embedded" },
+    { "include": "#modules" },
+    { "include": "#comments" },
     { "include": "#strings" },
     { "include": "#keywords" },
     { "include": "#operators" },
@@ -12,6 +14,19 @@
     { "include": "#variables" }
   ],
   "repository": {
+    "embedded": {
+      "patterns": [
+        { "name": "meta.embedded.trust", "begin": "\\{%", "end": "%\\}" }
+      ]
+    },
+    "modules": {
+      "patterns": [
+        {
+          "name": "entity.name.module.trust",
+          "match": "\\\\[\\p{L}_][\\p{L}\\p{N}_]*(\\\\[\\p{L}_][\\p{L}\\p{N}_]*)*"
+        }
+      ]
+    },
     "doc-comments": {
       "patterns": [
         { "name": "comment.block.documentation.trust", "begin": "/\\*\\*", "end": "\\*/" },
@@ -24,13 +39,13 @@
     "strings": {
       "patterns": [
         {
-          "name": "string.interpolated.trust",
+          "name": "constant.other.symbol.trust",
           "begin": "`",
           "end": "`",
           "patterns": [ { "name": "constant.character.escape.trust", "match": "\\\\." } ]
         },
-        { "name": "string.quoted.raw.trust", "begin": "r\"", "end": "\"" },
-        { "name": "string.quoted.raw.trust", "begin": "r'", "end": "'" },
+        { "name": "string.quoted.raw.trust", "begin": "R\"", "end": "\"" },
+        { "name": "string.quoted.raw.trust", "begin": "R'", "end": "'" },
         {
           "name": "string.quoted.double.trust",
           "begin": "\"",
@@ -102,7 +117,7 @@
     },
     "numbers": {
       "patterns": [
-        { "name": "constant.numeric.complex.trust",  "match": "-?\\b\\d[\\d_]*\\.\\d+([eE][-+]?\\d+)?[-+]\\d[\\d_]*\\.\\d+([eE][-+]?\\d+)?[ij]\\b" },
+        { "name": "constant.numeric.complex.trust",  "match": "-?\\b(?:\\d[\\d_]*\\.\\d+([eE][-+]?\\d+)?|\\d[\\d_]*)[-+](?:\\d[\\d_]*\\.\\d+([eE][-+]?\\d+)?|\\d[\\d_]*)[ij]\\b|-?\\b(?:\\d[\\d_]*\\.\\d+([eE][-+]?\\d+)?|\\d[\\d_]*)[ij][-+](?:\\d[\\d_]*\\.\\d+([eE][-+]?\\d+)?|\\d[\\d_]*)\\b|-?\\b(?:\\d[\\d_]*\\.\\d+([eE][-+]?\\d+)?|\\d[\\d_]*)[ij]\\b" },
         { "name": "constant.numeric.rational.trust", "match": "-?\\b\\d[\\d_]*\\\\-?\\d[\\d_]*\\b" },
         { "name": "constant.numeric.float.trust",    "match": "-?\\b\\d[\\d_]*\\.\\d+([eE][-+]?\\d+)?\\b" },
         { "name": "constant.numeric.integer.trust",  "match": "-?\\b\\d[\\d_]*\\b" }
@@ -110,6 +125,7 @@
     },
     "variables": {
       "patterns": [
+        { "name": "variable.language.trust","match": "\\b_\\$[\\p{L}\\p{N}_$]*?\\$_[\\p{L}\\p{N}_$]*\\$" },
         { "name": "keyword.other.trust",    "match": "\\b__[\\p{L}_][\\p{L}\\p{N}_]*__\\b" },
         { "name": "variable.language.trust","match": "\\b__[\\p{L}_][\\p{L}\\p{N}_]+\\b" },
         { "name": "variable.name.trust",    "match": "\\b_[\\p{L}][\\p{L}\\p{N}_]*\\b" },

@@ -1,6 +1,7 @@
 #include "utils/io.hpp"
 #include "diag/context.hpp"
 #include "diag/diag.hpp"
+#include "diag/protocol.hpp"
 
 #include <gtest/gtest.h>
 #include <sstream>
@@ -346,4 +347,30 @@ TEST_F(DiagFixture, MultiLineRangeCaretAtBegin) {
     auto out = m_stream.str();
     EXPECT_NE(out.find("multi.cpp:1:1:"), std::string::npos) << "Wrong line/column: " << out;
     EXPECT_NE(out.find("^"), std::string::npos) << "Caret should be present: " << out;
+}
+
+// ── diag/protocol.hpp: общие конверсии в протокольные координаты (LSP/DAP) ──
+
+TEST_F(DiagFixture, SeverityToLsp) {
+    EXPECT_EQ(trust::severityToLsp(Severity::Fatal), 1);
+    EXPECT_EQ(trust::severityToLsp(Severity::Error), 1);
+    EXPECT_EQ(trust::severityToLsp(Severity::Warning), 2);
+    EXPECT_EQ(trust::severityToLsp(Severity::Note), 3);
+    EXPECT_EQ(trust::severityToLsp(Severity::Remark), 4);
+}
+
+TEST_F(DiagFixture, MapperRangeToProtocol_InvalidIsZero) {
+    const auto pr = trust::mapperRangeToProtocol(m_ctx.source(), MapperRange{});
+    EXPECT_EQ(pr.start.line, 0);
+    EXPECT_EQ(pr.start.character, 0);
+    EXPECT_EQ(pr.end.line, 0);
+    EXPECT_EQ(pr.end.character, 0);
+}
+
+TEST_F(DiagFixture, MapperRangeToProtocol_Valid) {
+    auto loc = m_ctx.source().loc_from_line(m_src, 10); // 1-based → 0-based line 9
+    const auto pr = trust::mapperRangeToProtocol(m_ctx.source(), MapperRange{loc, loc});
+    EXPECT_EQ(pr.start.line, 9);
+    EXPECT_EQ(pr.end.line, 9);
+    EXPECT_GE(pr.start.character, 0);
 }

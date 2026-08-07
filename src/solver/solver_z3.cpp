@@ -66,10 +66,12 @@ struct SolverZ3::Impl {
         switch (term.kind) {
         case SmtTermKind::kConst: {
             // Try to parse as integer, then boolean
-            if (term.const_value == "true")
+            if (term.const_value == "true") {
                 return Z3_mk_true(ctx);
-            if (term.const_value == "false")
+            }
+            if (term.const_value == "false") {
                 return Z3_mk_false(ctx);
+            }
             // Default: create symbol
             Z3_symbol sym = Z3_mk_string_symbol(ctx, term.const_value.c_str());
             return Z3_mk_const(ctx, sym, Z3_mk_bool_sort(ctx));
@@ -82,26 +84,32 @@ struct SolverZ3::Impl {
             Z3_symbol sym = Z3_mk_string_symbol(ctx, term.fun_name.c_str());
             // Built-in logic operators
             if (term.fun_name == "and" || term.fun_name == "or" || term.fun_name == "xor" || term.fun_name == "=>") {
-                if (term.args.size() < 2)
+                if (term.args.size() < 2) {
                     return Z3_mk_true(ctx);
+                }
                 Z3_ast a = term.args[0] ? toZ3Term(*term.args[0]) : Z3_mk_true(ctx);
                 Z3_ast b = term.args[1] ? toZ3Term(*term.args[1]) : Z3_mk_true(ctx);
-                if (term.fun_name == "and")
+                if (term.fun_name == "and") {
                     return Z3_mk_and(ctx, 2, std::array<Z3_ast, 2>{a, b}.data());
-                if (term.fun_name == "or")
+                }
+                if (term.fun_name == "or") {
                     return Z3_mk_or(ctx, 2, std::array<Z3_ast, 2>{a, b}.data());
-                if (term.fun_name == "xor")
+                }
+                if (term.fun_name == "xor") {
                     return Z3_mk_xor(ctx, a, b);
+                }
                 return Z3_mk_implies(ctx, a, b);
             }
             if (term.fun_name == "not") {
-                if (term.args.empty())
+                if (term.args.empty()) {
                     return Z3_mk_true(ctx);
+                }
                 return Z3_mk_not(ctx, term.args[0] ? toZ3Term(*term.args[0]) : Z3_mk_true(ctx));
             }
             if (term.fun_name == "=") {
-                if (term.args.size() < 2)
+                if (term.args.size() < 2) {
                     return Z3_mk_true(ctx);
+                }
                 return Z3_mk_eq(ctx, term.args[0] ? toZ3Term(*term.args[0]) : Z3_mk_true(ctx), term.args[1] ? toZ3Term(*term.args[1]) : Z3_mk_true(ctx));
             }
             // User-defined function

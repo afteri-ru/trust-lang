@@ -4,7 +4,7 @@ weight: 20
 # tags: [типы данных, строки]
 ---
 
-*NewLang* supports two types of strings:
+*TrustLang* supports two types of strings:
 - *:StrChar* - universal byte UTF-8 strings
 - *:StrWide* - system character (wide characters) 
 

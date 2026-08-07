@@ -22,14 +22,16 @@ static constexpr size_t kChecksumBytes = 8;
 static constexpr size_t kHeaderBytes = kOrigSizeBytes + kDictSizeBytes; // 8
 
 static void writeLE32(uint8_t* dst, uint32_t val) noexcept {
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         dst[i] = static_cast<uint8_t>((val >> (i * 8)) & 0xFF);
+    }
 }
 
 static uint32_t readLE32(const uint8_t* src) noexcept {
     uint32_t val = 0;
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         val |= static_cast<uint32_t>(src[i]) << (i * 8);
+    }
     return val;
 }
 
@@ -37,14 +39,16 @@ static uint64_t computeChecksum(const uint8_t* data, size_t size) noexcept {
     auto arr = llvm::ArrayRef<uint8_t>(data, size);
     auto hash = llvm::MD5::hash(arr);
     uint64_t checksum = 0;
-    for (int i = 0; i < 8; ++i)
+    for (int i = 0; i < 8; ++i) {
         checksum |= static_cast<uint64_t>(hash[i]) << (i * 8);
+    }
     return checksum;
 }
 
 static std::vector<size_t> makeSamples(size_t dataSize) noexcept {
-    if (dataSize < 256)
+    if (dataSize < 256) {
         return {};
+    }
     constexpr size_t kTargetChunk = 4096;
     unsigned numChunks = std::max(2u, static_cast<unsigned>(dataSize / kTargetChunk));
     size_t chunkSize = std::max(size_t{256}, dataSize / numChunks);
@@ -130,20 +134,23 @@ std::vector<unsigned char> zstd_compress(const unsigned char* data, size_t size)
 }
 
 std::vector<unsigned char> zstd_decompress(const unsigned char* data, size_t size) {
-    if (size < kHeaderBytes + 1 + kChecksumBytes)
+    if (size < kHeaderBytes + 1 + kChecksumBytes) {
         return {};
+    }
 
     // Verify checksum
     size_t payloadSize = size - kChecksumBytes;
     uint64_t stored = static_cast<uint64_t>(readLE32(data + payloadSize)) | (static_cast<uint64_t>(readLE32(data + payloadSize + 4)) << 32);
-    if (computeChecksum(data, payloadSize) != stored)
+    if (computeChecksum(data, payloadSize) != stored) {
         return {};
+    }
 
     const uint8_t* ptr = data;
     uint32_t origSize = readLE32(ptr);
     ptr += kOrigSizeBytes;
-    if (origSize == 0 || origSize > 1024 * 1024 * 1024)
+    if (origSize == 0 || origSize > 1024 * 1024 * 1024) {
         return {};
+    }
 
     uint32_t dictSize = readLE32(ptr);
     ptr += kDictSizeBytes;
@@ -151,8 +158,9 @@ std::vector<unsigned char> zstd_decompress(const unsigned char* data, size_t siz
     ptr += dictSize;
 
     size_t compressedSize = payloadSize - kHeaderBytes - dictSize;
-    if (compressedSize == 0)
+    if (compressedSize == 0) {
         return {};
+    }
     const uint8_t* compressedData = ptr;
 
     // Decompress directly into result vector — no extra copy
@@ -160,15 +168,17 @@ std::vector<unsigned char> zstd_decompress(const unsigned char* data, size_t siz
     size_t resultSize;
     if (dictSize > 0) {
         auto* dctx = ZSTD_createDCtx();
-        if (!dctx)
+        if (!dctx) {
             return {};
+        }
         resultSize = ZSTD_decompress_usingDict(dctx, result.data(), origSize, compressedData, compressedSize, dictStart, dictSize);
         ZSTD_freeDCtx(dctx);
     } else {
         resultSize = ZSTD_decompress(result.data(), origSize, compressedData, compressedSize);
     }
-    if (ZSTD_isError(resultSize) || resultSize != origSize)
+    if (ZSTD_isError(resultSize) || resultSize != origSize) {
         return {};
+    }
 
     return result;
 }

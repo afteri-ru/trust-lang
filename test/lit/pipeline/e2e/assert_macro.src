@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q -Wassert --temp-dir $TD -o $TD/am %s
+# RUN: ($TD/am 2> %t.err || true) && %FileCheck %s <%t.err
+# CHECK: assert_macro.src:[[#]]: 1==0
+
+# assert(cond) при -Wassert: провал печатает `file:line: <выражение>` и завершает процесс
+# через trust::trust__abort__.
+
+%chk():Void := {
+    assert( 1 == 0 );
+    ++ _ ++;
+};
+{% int assert_macro__main__() {
+    chk();
+    return 0;
+}
+%}

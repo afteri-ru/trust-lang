@@ -131,10 +131,10 @@ mangled _${mangled_name}?$_{mangled_name}+
 %x state_COMMENT
 %x state_STRWIDE
 %x state_STRCHAR
-%x state_DOC_BEFORE
+%x state_DOCUMENT
 %x state_EMBED
 %x state_MACRO_STR
-%x state_SYMBOL
+%x state_REFLECTION
 %x state_RAW_STRING
 %x state_RAW_BODY
 
@@ -154,21 +154,13 @@ mangled _${mangled_name}?$_{mangled_name}+
 
 
 "///<"[^\n]* {
-    int _len = yyleng - 6;
-    if (_len > 0)
-        *yylval = Term::Create(TermID::DOC_AFTER, token::DOC_AFTER, tokenText(5, _len).data(), _len, YY_MKRANGE(yyleng));
-    else
-        *yylval = Term::Create(TermID::DOC_AFTER, "", YY_MKRANGE(yyleng), token::DOC_AFTER);
-    return token::DOC_AFTER;
+    *yylval = Term::Create(TermID::DOCUMENT, token::DOCUMENT_INLINE, tokenText().data(), yyleng, YY_MKRANGE(yyleng));
+    return token::DOCUMENT_INLINE;
 }
 
 "///"[^\n]* {
-    int _len = yyleng - 5;
-    if (_len > 0)
-        *yylval = Term::Create(TermID::DOC_BEFORE, token::DOC_BEFORE, tokenText(4, _len).data(), _len, YY_MKRANGE(yyleng));
-    else
-        *yylval = Term::Create(TermID::DOC_BEFORE, "", YY_MKRANGE(yyleng), token::DOC_BEFORE);
-    return token::DOC_BEFORE;
+    *yylval = Term::Create(TermID::DOCUMENT, token::DOCUMENT, tokenText().data(), yyleng, YY_MKRANGE(yyleng));
+    return token::DOCUMENT;
 }
 
 "@##"           YY_TOKEN(MACRO_CONCAT);
@@ -186,11 +178,11 @@ mangled _${mangled_name}?$_{mangled_name}+
 "/**/"     /* skip */;
 
 "/**"      {
-                yy_push_state(state_DOC_BEFORE);
-                m_content_begin = m_current_pos;
+                yy_push_state(state_DOCUMENT);
+                m_content_begin = m_current_pos - yyleng;
             }
 
-<state_DOC_BEFORE>{
+<state_DOCUMENT>{
 
 "/*"            { LexerError("Document comments cannot be nested!"); }
 
@@ -199,32 +191,24 @@ mangled _${mangled_name}?$_{mangled_name}+
 "*/"            {
                     yy_pop_state();
                     auto src = m_ctx.source().source(m_srcIdx);
-                    int len = m_current_pos - yyleng - m_content_begin;
-                    YY_TOKEN_SRC(DOC_BEFORE, src.data() + m_content_begin, len);
+                    int len = m_current_pos - m_content_begin;
+                    YY_TOKEN_SRC(DOCUMENT, src.data() + m_content_begin, len);
                 }
 
 <<EOF>>         { LexerError("Unterminated /** */ doc comment"); }
 
 .               /* skip */
 
-} /* End of state_DOC_BEFORE state */
+} /* End of state_DOCUMENT state */
 
 "##<"[^\n]* {
-    int _len = yyleng - 5;
-    if (_len > 0)
-        *yylval = Term::Create(TermID::DOC_AFTER, token::DOC_AFTER, tokenText(4, _len).data(), _len, YY_MKRANGE(yyleng));
-    else
-        *yylval = Term::Create(TermID::DOC_AFTER, "", YY_MKRANGE(yyleng), token::DOC_AFTER);
-    return token::DOC_AFTER;
+    *yylval = Term::Create(TermID::DOCUMENT, token::DOCUMENT_INLINE, tokenText().data(), yyleng, YY_MKRANGE(yyleng));
+    return token::DOCUMENT_INLINE;
 }
 
 "##"[^\n]* {
-    int _len = yyleng - 4;
-    if (_len > 0)
-        *yylval = Term::Create(TermID::DOC_BEFORE, token::DOC_BEFORE, tokenText(3, _len).data(), _len, YY_MKRANGE(yyleng));
-    else
-        *yylval = Term::Create(TermID::DOC_BEFORE, "", YY_MKRANGE(yyleng), token::DOC_BEFORE);
-    return token::DOC_BEFORE;
+    *yylval = Term::Create(TermID::DOCUMENT, token::DOCUMENT, tokenText().data(), yyleng, YY_MKRANGE(yyleng));
+    return token::DOCUMENT;
 }
 
 "#"[^\n]* { /* skip */ }
@@ -398,10 +382,10 @@ R[']     {
 } /* End of state_STRCHAR state*/
 
 
-`         { yy_push_state(state_SYMBOL);
+`         { yy_push_state(state_REFLECTION);
             m_content_begin = m_current_pos; }
 
-<state_SYMBOL>{
+<state_REFLECTION>{
   `         { yy_pop_state();
               auto src = m_ctx.source().source(m_srcIdx);
               int len = m_current_pos - yyleng - m_content_begin;
@@ -461,12 +445,14 @@ ${name}"^"? YY_TOKEN(LOCAL);
 
 "\\\\\\"    YY_TOKEN(MODULE);
 
-"@::"       YY_TOKEN_ONLY(MACRO_NAMESPACE);
-"@$$"       YY_TOKEN_ONLY(MACRO_NAMESPACE);
-"$::"       YY_TOKEN_ONLY(MACRO_NAMESPACE);
+"@::"       YY_TOKEN(MACRO_CONTEXT);
+"@$$"       YY_TOKEN(MACRO_CONTEXT);
+"$::"       YY_TOKEN(MACRO_CONTEXT);
 
 "@["        YY_TOKEN(ATTRIBUTE);
 "]@"        YY_TOKEN_ONLY(ATTR_COMPLETE);
+
+"@\\,"      YY_TOKEN(COMMA_LEXEME);
 
         /* AST */
         /* Interruptions */
@@ -551,14 +537,45 @@ ${name}"^"? YY_TOKEN(LOCAL);
             YY_TOKEN(RBRACE);
         }
 
-[()\[\]\;\.,:=+\-*/%&|^~!?@$<>] {
-    *yylval = Term::Create(TermID::SYMBOL, static_cast<token_type>(*yytext), tokenText().data(), yyleng, YY_MKRANGE(yyleng));
-    return static_cast<token_type>(*yytext);
-}
+"("     YY_TOKEN(LPAREN);
+")"     YY_TOKEN(RPAREN);
+"["     YY_TOKEN(LBRACKET);
+"]"     YY_TOKEN(RBRACKET);
+";"     YY_TOKEN(SEMICOLON);
+","     YY_TOKEN(COMMA);
+"."     YY_TOKEN(DOT);
+":"     YY_TOKEN(COLON);
+"="     YY_TOKEN(EQ);
+"+"     YY_TOKEN(PLUS);
+"-"     YY_TOKEN(MINUS);
+"*"     YY_TOKEN(STAR);
+"/"     YY_TOKEN(SLASH);
+"%"     YY_TOKEN(PERCENT);
+"&"     YY_TOKEN(AMP);
+"|"     YY_TOKEN(PIPE);
+"^"     YY_TOKEN(CARET);
+"~"     YY_TOKEN(TILDE);
+"!"     YY_TOKEN(BANG);
+"?"     YY_TOKEN(QUESTION);
+"@"     YY_TOKEN(AT);
+"$"     YY_TOKEN(DOLLAR);
+"<"     YY_TOKEN(LT);
+">"     YY_TOKEN(GT);
+
 
 <<EOF>>     {
     *yylval = Term::Create(TermID::END, "", YY_MKRANGE(0), token::END);
     return token::END;
+}
+
+. {
+    /* Незнаю, нужны ли нераспознанные символы? Раньше планировалось с их помощью расширять синтаксис языковых конструкций, 
+    * но это относится к парсеру и не может изменяться динамически в зависимости от наличия существующий объектов и определений.
+    * Если относится к символам как к идентификаторам на других языках, то опять же это лучше делать на уровне лексера и парсера,
+    * чтобы еще при обработке исходников вместо создания неопределнных последовательностьей возникала ошибка времени компиляции,
+    * а не передача отдельных символов как не распознанных терминалов.
+    */        
+    LexerError("Unexpected character");
 }
 
 %% /*** Additional Code ***/

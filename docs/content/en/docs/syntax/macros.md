@@ -3,24 +3,24 @@ title: Macros
 weight: 50
 ---
 
-Macros are also used to transform the original code of *NewLang* into a more familiar syntax based on [keywords](/docs/syntax/dsl/), 
+Macros are also used to transform the original code of *TrustLang* into a more familiar syntax based on [keywords](/en/docs/syntax/dsl/), 
 as such text is much easier to understand when reading the original code later.
 
-In **NewLang**, macros are one or more consecutive terms that are replaced with another term or a whole syntactic construction (a sequence of lexemes).
+In **TrustLang**, macros are one or more consecutive terms that are replaced with another term or a whole syntactic construction (a sequence of lexemes).
 
 Macros are processed during the operation of the **lexer**, i.e., before passing the sequence of lexemes to the parser, 
 allowing fragments of the language syntax to be modified using macros, for example, when implementing custom DSL dialects.
 
 ### Defining Macros
 
-The definition of macros is similar to the [definition](/docs/ops/create/) of other objects and consists of three parts 
+The definition of macros is similar to the [definition](/en/docs/ops/create/) of other objects and consists of three parts 
 **<macro name> <creation/assignment operator> <macro body>** and ends with a semicolon "**;**", i.e., 
 normal operators **::=**(**::-**), **=**, or **:=**(**:-**) are used to create a new or redefine an existing object, 
 and the macro name is indicated between two symbols **"@@"** and can contain one or more lexemes (terms).
 
 All macros belong to the global namespace, so the first term in the macro name must be unique, 
-otherwise it will override local and global variables during [name lookup](/docs/syntax/naming/#name-lookup)
-if they are written in the program text without [qualifiers (sigils)](/docs/syntax/naming/#sigil).
+otherwise it will override local and global variables during [name lookup](/en/docs/syntax/naming/#name-lookup)
+if they are written in the program text without [qualifiers (sigils)](/en/docs/syntax/naming/#sigil).
 
 Using the operators **::-** and **:-** creates pure (hygienic) macros, arguments and variables in which are guaranteed not to intersect with the program's namespace.
 
@@ -52,23 +52,31 @@ Macros can be defined with arguments (parameters in parentheses) or without them
 If a macro was defined with arguments, their validation will be performed by the macro processor during definition and expansion of the macro. 
 If a macro was defined without arguments, the presence of arguments will be ignored by the macro processor.
 
-The macroprocessor considers macros with and without arguments identical, 
-so it is not possible to create two macros with the same name, one with arguments (in parentheses) and the other without.
+The **first term of a macro name is the key of a macro *group***: in one group there can be **many
+macros with the same first term but different arity** (different number/composition of additional
+terms), e.g. `break`, `break $label`, `break $a $b`. Such macros coexist and do not conflict.
 
-Therefore, if you need to use a macro in two different ways (with arguments and without), 
-you should define the macro without arguments, and in this case, the parameter control will be done by the compiler.
+At expansion, among the macros of the group the **longest (most specific) match** is chosen —
+the one that consumes the most terms of the input buffer. The "duplication" diagnostic is emitted
+**only when the full signature (all terms) matches**, not when only the first name coincides.
+Different arities of the same group are not duplicates.
+
+Macros with and without call arguments (parentheses) are also different signatures: a call form and
+a non-call form with the same first term can coexist (the non-call form matches a call too, consuming
+only the first term; the call form matches the full call).
 
 ```bash
     @@ macro @@ := term; # Macro without arguments
-    
-    macro(args); # OK -> term(args);
-    macro; # OK -> term;
+    @@ macro $value @@ := term(@$value); # Macro with one extra template term (different arity)
+
+    macro;        # OK -> term;          (arity-1 form)
+    macro 42;     # OK -> term(42);      (arity-2 form, longest match)
 
     # But
     @@ call() @@ := term(); 
 
     call(); # OK -> term();
-    call; # Error (@call is defined with arguments) 
+    call;   # OK -> term;  (the non-call form `call` also exists if defined)
 ```
 
 If arguments are specified when defining a macro, the place for their insertion in the body of the macro is written 

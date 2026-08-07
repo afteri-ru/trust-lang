@@ -14,7 +14,7 @@ https://habr.com/ru/articles/720416/
 ![image](https://habrastorage.org/webt/r9/4d/tu/r94dtuimvtiiuntx5xpunndaetq.jpeg)
 [This is a translation of my own article](https://habr.com/ru/company/timeweb/blog/719332/)
 
-The release of **[NewLang](https://newlang.net/)** language with a brand new "feature" is coming, a remodeled version of the preprocessor that allows you to extend the language syntax to create different DSL dialects using macros.
+The release of **[TrustLang](https://trust-lang.net/)** language with a brand new "feature" is coming, a remodeled version of the preprocessor that allows you to extend the language syntax to create different DSL dialects using macros.
 
 ### What is it about?
 > [DSL](https://en.wikipedia.org/wiki/Domain-specific_language) (Subject Oriented Language) is a programming language specialized for a specific application area. It is believed that the use of DSL significantly increases the level of abstractness of the code, and this allows to develop more quickly and efficiently and greatly simplifies the solution of many problems.
@@ -23,7 +23,7 @@ The release of **[NewLang](https://newlang.net/)** language with a brand new "fe
 - Development of independent syntax translators using lexer and parser generators to define the grammar of the target language through BNF (Backus–Naur form) and regular expressions (Lex, Yacc, ANTLR, etc.) and then compiling the resulting grammar into machine code.
 - Development or integration of the DSL dialect into a general-purpose language (metalanguage), including the use of various libraries or special parsers / preprocessors.
 
-We will talk about the second option, namely the implementation of DSL on the basis of general-purpose languages (metalanguages) and the new implementation of macros in **NewLang** as the basis for DSL development.
+We will talk about the second option, namely the implementation of DSL on the basis of general-purpose languages (metalanguages) and the new implementation of macros in **TrustLang** as the basis for DSL development.
 
 <cut />
 
@@ -41,17 +41,17 @@ If a language (metalanguage) allows you to modify its own grammar (for example a
 I strongly recommend you to read an excellent article on metaprogramming by @NeoCode [Metaprogramming: what it is and what it should be] (https://habr.com/ru/post/258667/).
 
 ## The following implementation of macros is offered for discussion
-"There is no perfection in the world", and after the release of **NewLang 0.2**, I received a lot of feedback (mostly negative), about the first version of [macro implementation](https://github.com/rsashka/newlang/blob/v0.3.0/docs/syntax.md#макросы) and [DSL based on it](https://github.com/rsashka/newlang/blob/v0.3.0/docs/syntax_dsl.md). And those criticisms were often valid. So I decided to try to redesign the macros a bit, in hopes of getting a "middle ground" between the two extremes described above when describing the DSL.
+"There is no perfection in the world", and after the release of **TrustLang 0.2**, I received a lot of feedback (mostly negative), about the first version of [macro implementation](https://github.com/afteri-ru/trust-lang/blob/v0.3.0/docs/syntax.md#макросы) and [DSL based on it](https://github.com/afteri-ru/trust-lang/blob/v0.3.0/docs/syntax_dsl.md). And those criticisms were often valid. So I decided to try to redesign the macros a bit, in hopes of getting a "middle ground" between the two extremes described above when describing the DSL.
 
 ### Terminology Used
-Macros in *NewLang*, are one or more terms that are replaced by another term or by an entire lexical construct (a sequence of tokens). Macros are both an extension of basic language syntax, when implementing DSL's own dialects, and a syntax sugar. 
+Macros in *TrustLang*, are one or more terms that are replaced by another term or by an entire lexical construct (a sequence of tokens). Macros are both an extension of basic language syntax, when implementing DSL's own dialects, and a syntax sugar. 
 
 The main feature of macros is that they allow expressions to be changed before they are evaluated at runtime. Macros are expanded at runtime **lexer**, which allows you to substitute any other terms with them and even modify the language syntax itself. 
 
-That's why if you don't specify a modifier before the **NewLang** object name (**\**macros, **$**local_variable or **@**module), the program will first search among macros, then among local variables and finally among modules (object from module). This allows you to use terms without modifiers to specify types of objects.
+That's why if you don't specify a modifier before the **TrustLang** object name (**\**macros, **$**local_variable or **@**module), the program will first search among macros, then among local variables and finally among modules (object from module). This allows you to use terms without modifiers to specify types of objects.
 
 #### Macro definitions
-The definition of macros uses exactly the same [syntax](https://newlang.net/ops.html) as for other language objects (the operators "**::=**", "**=**" or "**:=**" are used respectively to create a new object, assign a new value to an existing object or to create/assign a new value to an object regardless of its presence or absence). 
+The definition of macros uses exactly the same [syntax](https://trust-lang.net/ops.html) as for other language objects (the operators "**::=**", "**=**" or "**:=**" are used respectively to create a new object, assign a new value to an existing object or to create/assign a new value to an object regardless of its presence or absence). 
 
 In general, a macro definition consists of three parts **<** macro name **>** **<** creating/assignment operator **>** **<** macro body **>* and final semicolon "**;**".
 
@@ -123,11 +123,11 @@ You can define macros in the following combinations this way:
 
 
 ## Purpose and examples of use
-Macros are also used to convert the basic *NewLang* syntax into a more familiar keyword-based syntax, because such text is much easier to understand when reading the source code later.
+Macros are also used to convert the basic *TrustLang* syntax into a more familiar keyword-based syntax, because such text is much easier to understand when reading the source code later.
 
-If no modifier is specified before the name of NewLang object (**\\**macros, **$**local_variable or **@**module), then macros name is searched first, then the name of local variable and last, the name of module (module object). This makes it possible to define DSL syntax in the usual way without the obligatory prefixes for different types of objects. 
+If no modifier is specified before the name of TrustLang object (**\\**macros, **$**local_variable or **@**module), then macros name is searched first, then the name of local variable and last, the name of module (module object). This makes it possible to define DSL syntax in the usual way without the obligatory prefixes for different types of objects. 
 
-For example, writing a conditional statement in the basic syntax **NewLang**:
+For example, writing a conditional statement in the basic syntax **TrustLang**:
 ```
     [condition] --> {
         ...

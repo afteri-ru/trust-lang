@@ -22,10 +22,9 @@ target_include_directories(pipeline_lib PRIVATE
 )
 target_compile_definitions(pipeline_lib PRIVATE
     PROJECT_INCLUDE_DIR="${PROJECT_INCLUDE_DIR}"
-    TRUST_DSL_SRC="${CMAKE_SOURCE_DIR}/std/dsl.src"
 )
 
-# pipeline.cpp uses C23 #embed for std/dsl.src — suppress the extension warning
+# pipeline.cpp uses C23 #embed for trust/dsl.src — suppress the extension warning
 set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/pipeline/pipeline.cpp
     PROPERTIES COMPILE_OPTIONS "-Wno-c23-extensions"
@@ -43,12 +42,13 @@ add_dependencies(pipeline_lib generate_makefile_header gen_syntax_parsers)
 add_executable(trust
     ${PROJECT_SOURCE_DIR}/trust.cpp
 )
-# --start-group needed for circular dep: module_loader_lib ↔ lexer_lib ↔ diag_lib
+# After the refactor diag no longer depends on module_loader (ModuleLoader is
+# injected into Context as a non-owning pointer from Pipeline) and diag no longer
+# owns TypeRegistry creation before Options — so the cyclic dep that required
+# --start-group/--end-group is gone. Verified: trust links without the group.
 target_link_libraries(trust PRIVATE
-    -Wl,--start-group
     pipeline_lib
     module_loader_lib
     diag_lib
     ast_lib
-    -Wl,--end-group
 )

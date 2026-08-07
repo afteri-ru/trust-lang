@@ -1,0 +1,29 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Квалификаторы переменных из атрибутов:
+#   ReadOnly ('^' на имени или @[readonly]) -> const,
+#   ThreadLocal (@[thread_local])           -> thread_local.
+
+# '^' на имени переменной -> const (типизированная).
+a^:Int32 := 10;
+# CHECK: const int32_t c_a = 10;
+
+# @[readonly] перед объявлением -> const.
+@[readonly]@ b:Int32 := 20;
+# CHECK-NEXT: const int32_t c_b = 20;
+
+# @[thread_local] -> thread_local.
+@[thread_local]@ c:Int32 := 30;
+# CHECK-NEXT: thread_local int32_t c_c = 30;
+
+# @[readonly] + @[thread_local] -> const thread_local.
+@[readonly]@ @[thread_local]@ d:Int32 := 40;
+# CHECK-NEXT: const thread_local int32_t c_d = 40;
+
+# '^' на имени без явного типа -> const с выведенным минимальным Int.
+x^ := 50;
+# CHECK: const int8_t c_x = 50;
+
+# Forward-объявление с @[readonly] -> extern const.
+@[readonly]@ fwd:Int32 := ...;
+# CHECK-NEXT: extern const int32_t c_fwd;

@@ -2,7 +2,7 @@
 
 #include "debug/dap_transport.h"
 #include "debug/gdb_debug.h"
-#include "diag/location.hpp"
+#include "location/location.hpp"
 #include "diag/mapper.hpp"
 
 #include <nlohmann/json.hpp>

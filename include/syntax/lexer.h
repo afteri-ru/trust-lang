@@ -63,7 +63,7 @@ class Scanner : public NewLangFlexLexer {
     size_t m_macro_del;
     TermPtr m_macro_body;
 
-    static BlockType ParseLexem(trust::Context& ctx, const std::string str);
+    static SequenceType ParseLexem(trust::Context& ctx, const std::string str);
 
     std::vector<TermID> m_braceStack;
 
@@ -92,8 +92,14 @@ class Scanner : public NewLangFlexLexer {
     // void set_debug(bool b);
 
     void LexerError(const char* msg) override {
-        auto loc = trust::MapperLocation::makeLoc(m_srcIdx, static_cast<size_t>(std::max(1, m_offset)));
-        m_ctx.diag().report(trust::Severity::Fatal, trust::MapperRange(loc, loc), "{}", msg);
+        // ВАЖНО: позиция должна указывать на ТЕКУЩИЙ токен (tokenStartOffset), а не на
+        // m_offset — курсор заполнения буфера flex (число скормленных байт = конец файла).
+        // Иначе ЛЮБАЯ ошибка лексера ("Unexpected character", "Unterminated string", ...)
+        // рисовалась бы на последнем символе файла. tokenStartOffset() — 0-based начало
+        // токена; +1 → 1-based позиция (диапазоны source-map 1-based).
+        const int begin = std::max(1, tokenStartOffset() + 1);
+        const int end = std::max(begin, tokenStartOffset() + yyleng + 1);
+        m_ctx.diag().report(trust::Severity::Error, trust::MapperRange(m_srcIdx, begin, end), "{}", msg);
     }
 
     // Override Flex C++ scanner input to read from SourceMapper

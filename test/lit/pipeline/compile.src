@@ -1,9 +1,0 @@
-# RUN: TD=%t.dir && mkdir -p $TD
-# RUN: %trust -q --temp-dir $TD -c -o $TD/compile.o %s && test -f $TD/compile.o && file $TD/compile.o | grep ELF && echo "PASS object"
-# RUN: %trust -q --temp-dir $TD -a -o $TD/compile.a %s && test -f $TD/compile.a && ar -t $TD/compile.a | grep -q ".o" && echo "PASS static-lib"
-# RUN: %trust -q --temp-dir $TD -l -o $TD/compile.so %s && test -f $TD/compile.so && file $TD/compile.so | grep ELF && echo "PASS shared-lib"
-# CHECK: PASS object
-# CHECK: PASS static-lib
-# CHECK: PASS shared-lib
-
-x := 42;

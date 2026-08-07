@@ -1,0 +1,23 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# Проверка codegen оператора `[]=` (APPEND): правило `X []= v` = `X.push_back(v)`.
+# Словарь (безымянный append → push_back("", TypedValue{...})) и строки (append).
+
+@main() := {
+    d := (1, two=2,);
+    # CHECK: trust::Dict c_d = trust::Dict
+    d []= 999;
+    # CHECK: c_d.push_back
+    # CHECK: int16_t(999)
+    d []= 'x';
+    # CHECK: std::string("x")
+    s := 'abc';
+    # CHECK: std::string c_s = "abc";
+    s []= 'd';
+    # CHECK: c_s.append("d");
+    w := "def";
+    # CHECK: std::wstring c_w = L"def";
+    w []= "g";
+    # CHECK: c_w.append(L"g");
+    return 0;
+}

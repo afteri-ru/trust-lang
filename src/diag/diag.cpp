@@ -64,15 +64,18 @@ DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, OptKi
             sev = *opt_sev;
         }
 
-        if (sev < m_minSeverity)
+        if (sev < m_minSeverity) {
             return nullptr;
+        }
     }
 
     // Счётчики увеличиваются до фильтрации — это корректно, т.к. фильтрация на уровне do_report().
-    if (sev == Severity::Error)
+    if (sev == Severity::Error) {
         m_errorCount++;
-    if (sev == Severity::Warning)
+    }
+    if (sev == Severity::Warning) {
         m_warningCount++;
+    }
 
     // Сохраняем диагностику для последующего извлечения
     m_diagnostics.push_back({range, sev, opt, std::string(msg), {}});
@@ -95,11 +98,13 @@ DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, OptKi
 
         if (offset < static_cast<uint32_t>(size) && offset > 0) {
             const char* line_start = data + offset - 1;
-            while (line_start > data && line_start[-1] != '\n')
+            while (line_start > data && line_start[-1] != '\n') {
                 --line_start;
+            }
             const char* line_end = line_start;
-            while (*line_end && *line_end != '\n')
+            while (*line_end && *line_end != '\n') {
                 ++line_end;
+            }
 
             std::string_view line_text(line_start, line_end - line_start);
             out << "  " << line_text << "\n";
@@ -140,8 +145,9 @@ DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, OptKi
 }
 
 void DiagnosticEngine::fixit(DiagnosticEntry* entry, MapperRange range, std::string_view replacement) {
-    if (!entry)
+    if (!entry) {
         return;
+    }
 
     // Консольный вывод (как было)
     auto fname = m_ctx->source().get_file(range.begin.fileIdx()).getFilename();

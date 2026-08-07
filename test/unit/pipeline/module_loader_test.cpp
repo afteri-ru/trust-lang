@@ -1,6 +1,6 @@
 // module_loader_test.cpp — тесты ModuleLoader: parseSourceModule, ensureLoaded, indexOf
 #include "diag/context.hpp"
-#include "pipeline/module_loader.hpp"
+#include "module_loader/module_loader.hpp"
 #include "syntax/macro.h"
 #include "syntax/parser.h"
 #include "utils/error.hpp"
@@ -32,11 +32,13 @@ class ModuleLoaderTest : public ::testing::Test {
 
 TEST_F(ModuleLoaderTest, ParseSourceModuleLoadsAndCaches) {
     Context ctx;
+    ModuleLoader loader(ctx);
+    ctx.setLoader(&loader);
 
     MapperFile modSrc = ctx.source().add_source("\\mod", "func() := {};");
     std::size_t idx1 = ctx.loader().parseSourceModule("\\mod", modSrc);
     ASSERT_TRUE(ctx.loader().isLoaded(idx1));
-    ASSERT_FALSE(ctx.loader().preprocessed(idx1).empty());
+    ASSERT_NE(ctx.loader().body(idx1), nullptr);
     EXPECT_EQ(ctx.loader().moduleName(idx1), "\\mod");
 
     auto found = ctx.loader().indexOf("\\mod");
@@ -49,6 +51,8 @@ TEST_F(ModuleLoaderTest, ParseSourceModuleLoadsAndCaches) {
 
 TEST_F(ModuleLoaderTest, EnsureLoadedReadsSrcFile) {
     Context ctx;
+    ModuleLoader loader(ctx);
+    ctx.setLoader(&loader);
 
     std::string mainPath = (m_dir / "main.src").string();
     std::ofstream mainOfs(mainPath);
@@ -64,11 +68,13 @@ TEST_F(ModuleLoaderTest, EnsureLoadedReadsSrcFile) {
     auto found = ctx.loader().indexOf("\\mod");
     ASSERT_TRUE(found.has_value());
     ASSERT_TRUE(ctx.loader().isLoaded(*found));
-    ASSERT_FALSE(ctx.loader().preprocessed(*found).empty());
+    ASSERT_NE(ctx.loader().body(*found), nullptr);
 }
 
 TEST_F(ModuleLoaderTest, CyclicDependencyFaults) {
     Context ctx;
+    ModuleLoader loader(ctx);
+    ctx.setLoader(&loader);
 
     MapperFile aSrc = ctx.source().add_source("\\a", "\\a(func);");
     EXPECT_THROW((void)ctx.loader().parseSourceModule("\\a", aSrc), FatalError);
@@ -85,6 +91,8 @@ TEST_F(ModuleLoaderTest, CyclicDependencyFaults) {
 
 TEST_F(ModuleLoaderTest, MacroScopeIsolationOnModuleLoad) {
     Context ctx;
+    ModuleLoader loader(ctx);
+    ctx.setLoader(&loader);
     auto macro = std::make_shared<Macro>(ctx);
     ctx.setMacro(macro);
 
@@ -119,6 +127,8 @@ TEST_F(ModuleLoaderTest, MacroScopeIsolationOnModuleLoad) {
 
 TEST_F(ModuleLoaderTest, EnsureLoadedMissingFaults) {
     Context ctx;
+    ModuleLoader loader(ctx);
+    ctx.setLoader(&loader);
 
     std::string mainPath = (m_dir / "main2.src").string();
     std::ofstream mainOfs(mainPath);

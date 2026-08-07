@@ -16,7 +16,7 @@ class TorchTensor {
     // Construct from TensorHandle
     explicit TorchTensor(TensorHandle h);
 
-    // Produce a TensorHandle suitable for storing back into Var
+    // Produce a TensorHandle suitable for storing the tensor value
     TensorHandle as_var_handle() const;
 
     // Direct access — no indirection, all torch functions available

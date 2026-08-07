@@ -9,25 +9,52 @@ set(TEST_SOURCES
     diag/mapping_test.cpp
     diag/mapping_extended_test.cpp
     diag/save_and_read_test.cpp
-    transpiler/src_map_cli_readback_test.cpp
-    transpiler/src_map_cli_readback_test.cpp
+    transpiler/e2e/src_map_cli_readback_test.cpp
     attr/attr_test.cpp
+    ast/visit_test.cpp
     pipeline/module_registry_test.cpp
     pipeline/module_loader_test.cpp
+    pipeline/module_export_test.cpp
     #  parser/token_gen_test.cpp
     pipeline/pipeline_test.cpp
+    pipeline/pipeline_symbol_test.cpp
     pipeline/compile_test.cpp
     semantic/semantic_test.cpp
+    semantic/symbol_collector_test.cpp
+    semantic/scope_test.cpp
+    semantic/scope_liveness_test.cpp
+    semantic/multilevel_var_test.cpp
+    semantic/format_check_test.cpp
     transpiler/transpiler_test.cpp
-    transpiler/transpile_lsp_test.cpp
+    transpiler/integration/transpile_lsp_test.cpp
     # pipeline/pipelineopt_test.cpp
     types/numbers_test.cpp
     types/integers_test.cpp
+    types/type_alias_test.cpp
+    types/type_helpers_test.cpp
+    types/reftype_test.cpp
+    types/type_method_test.cpp
+    types/array_type_test.cpp
+    types/runtime_symbols_test.cpp
     runtime/rational_test.cpp
+    runtime/dict_test.cpp
+    runtime/range_test.cpp
+    runtime/checked_cast_test.cpp
+    runtime/any_convert_test.cpp
+    ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
     lsp/trust_lsp_test.cpp
+    lsp/html_emit_test.cpp
+    lsp/builtin_catalog_test.cpp
+    playground/server_test.cpp
+    playground/config_test.cpp
+    playground/dispatch_test.cpp
     utils/cache_test.cpp
     utils/file_io_test.cpp
     utils/strings_test.cpp
+    utils/transport_test.cpp
+    utils/elf_archive_test.cpp
+    utils/error_test.cpp
+    utils/io_test.cpp
     solver/smt_printer_test.cpp
     # Syntax tests
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_test.cpp
@@ -64,8 +91,10 @@ target_link_libraries(unit_tests PRIVATE
     module_loader_lib
     debug_lib
     lsp_lib
+    playground_lib
     solver_lib
     syntax_lib
+    gmp_interface
     GTest::gtest
 )
 
@@ -87,10 +116,16 @@ target_include_directories(unit_tests SYSTEM PRIVATE
 target_compile_definitions(unit_tests PRIVATE
     TEST_DATA_DIR="${TEST_DATA_DIR}"
     TRUST_BINARY_PATH="${CMAKE_BINARY_DIR}/trust"
+    TRUST_RUNTIME_STATIC_PATH="${CMAKE_BINARY_DIR}/trust-runtime.a"
+    TRUST_RUNTIME_SHARED_PATH="${CMAKE_BINARY_DIR}/trust-runtime.so"
+    TRUST_RATIONAL_HPP_PATH="${PROJECT_INCLUDE_DIR}/trust/rational.hpp"
 )
 
 # ── Attach trust module ──
 target_trust_module(unit_tests)
+
+# elf_archive_test needs the built runtime library files to extract headers from.
+add_dependencies(unit_tests trust_runtime trust_runtime_static)
 
 target_compile_options(unit_tests PRIVATE
     -Wno-unused-result
@@ -128,11 +163,16 @@ target_include_directories(gdb_main PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/debug
     ${CMAKE_SOURCE_DIR}/include
 )
-# ── Run unit tests target ──
-add_custom_target(run_unit_tests
-    COMMAND "${CMAKE_SOURCE_DIR}/test/wrapper/failed.sh" "run_unit_tests" $<TARGET_FILE:unit_tests> --gtest_brief=1
-    DEPENDS unit_tests
+# ── CTest registration ──
+# unit_tests is registered as a single CTest test: progress stays compact
+# (one line), and `ctest --output-on-failure` shows the full GTest report
+# (including the failing test names) only when the suite fails.
+add_test(NAME unit_tests
+    COMMAND $<TARGET_FILE:unit_tests>
+)
+set_tests_properties(unit_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Running all unit tests"
-    USES_TERMINAL
+    TIMEOUT 300
+    # Final stage examples_tests runs only after all suites pass (fixture examples_deps).
+    FIXTURES_SETUP examples_deps
 )

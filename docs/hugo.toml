@@ -1,5 +1,5 @@
 baseURL = 'http://example.org/'
-title = "NewLang"
+title = "TrustLang"
 
 # Language settings
 contentDir = "content"
@@ -66,15 +66,15 @@ languageName ="English"
 # Weight used for sorting.
 weight = 1
 [languages.en.params]
-title = "NewLang"
-description = "NewLang site"
+title = "TrustLang"
+description = "TrustLang site"
 
 [languages.ru]
 languageName ="Русский"
 contentDir = "content/ru"
 [languages.ru.params]
-title = "NewLang"
-description = "NewLang сайт"
+title = "TrustLang"
+description = "TrustLang сайт"
 time_format_default = "02.01.2006"
 time_format_blog = "02.01.2006"
 
@@ -105,7 +105,7 @@ time_format_blog = "02.01.2006"
 section = ["HTML", "print", "RSS"]
 
 [params]
-copyright = "The NewLang Authors"
+copyright = "The TrustLang Authors"
 math = true
 # privacy_policy = "https://policies.google.com/privacy"
 
@@ -128,13 +128,13 @@ version = "0.0"
 
 # A link to latest version of the docs. Used in the "version-banner" partial to
 # point people to the main doc site.
-url_latest_version = "https://github.com/rsashka/newlang/releases"
+url_latest_version = "https://github.com/afteri-ru/trust-lang/releases"
 
 # Repository configuration (URLs for in-page links to opening issues and suggesting changes)
 # github_repo = "https://github.com/google/docsy-example"
 
 # An optional link to a related project repo. For example, the sibling repository where your product code lives.
-github_project_repo = "https://github.com/rsashka/newlang"
+github_project_repo = "https://github.com/afteri-ru/trust-lang"
 
 # Specify a value here if your content directory is not in your repo's root directory
 # github_subdir = ""
@@ -193,7 +193,7 @@ enable = false
 # End user relevant links. These will show up on left side of footer and in the community page if you have one.
 [[params.links.user]]
   name = "User mailing list"
-  url = "mailto:mail@newlang.net"
+  url = "mailto:mail@trust-lang.net"
   icon = "fa fa-envelope"
   desc = "Discussion and help from your fellow users"
 [[params.links.user]]
@@ -209,7 +209,7 @@ enable = false
 # Developer relevant links. These will show up on right side of footer and in the community page if you have one.
 [[params.links.developer]]
   name = "GitHub"
-  url = "https://github.com/rsashka/newlang"
+  url = "https://github.com/afteri-ru/trust-lang"
   icon = "fab fa-github"
   desc = "Development takes place here!"
 [[params.links.developer]]
@@ -243,3 +243,5 @@ enable = false
 #    source = 'content/playground'
 #    target = 'content/playground'
 
+[security]
+allowContent = ['.*']

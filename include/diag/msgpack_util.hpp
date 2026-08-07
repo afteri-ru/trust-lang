@@ -102,8 +102,9 @@ class MsgpackWriter {
     }
 
     ~MsgpackWriter() {
-        if (m_packer != nullptr)
+        if (m_packer != nullptr) {
             msgpack_packer_free(m_packer);
+        }
         msgpack_sbuffer_destroy(&m_sbuf);
     }
 
@@ -121,8 +122,9 @@ class MsgpackWriter {
 
     MsgpackWriter& operator=(MsgpackWriter&& other) noexcept {
         if (this != &other) {
-            if (m_packer != nullptr)
+            if (m_packer != nullptr) {
                 msgpack_packer_free(m_packer);
+            }
             msgpack_sbuffer_destroy(&m_sbuf);
             m_sbuf = other.m_sbuf;
             m_packer = other.m_packer;
@@ -148,8 +150,9 @@ class MsgpackWriter {
     msgpack_sbuffer take_sbuf() && {
         msgpack_sbuffer result = m_sbuf;
         msgpack_sbuffer_init(&m_sbuf);
-        if (m_packer != nullptr)
+        if (m_packer != nullptr) {
             msgpack_packer_free(m_packer);
+        }
         m_packer = nullptr;
         return result;
     }

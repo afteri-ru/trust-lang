@@ -13,17 +13,27 @@
 #include <vector>
 
 #include "diag/diag.hpp"
-#include "diag/location.hpp"
+#include "location/location.hpp"
 #include "diag/mapper.hpp"
 #include "diag/options.hpp"
 #include "trust/version.h"
 #include "ast/attr_pool.hpp"
-#include "types/registry.hpp"
-#include "pipeline/module_loader.hpp"
 
 namespace trust {
 
 class Macro;
+class ModuleLoader;
+class TypeRegistry;
+
+// Запись о макроопределении, записанная в Context во время парсинга. Хранится отдельно
+// от таблицы макросов (Macro), т.к. макросы модуля удаляются из неё при PopScope — для
+// LSP-автодополнения и навигации нужны все определения независимо от текущего модуля.
+struct MacroDef {
+    std::string name;  ///< Имя макроса (первый терм группы, может содержать '@')
+    MapperRange range; ///< Диапазон определения макроса в исходнике
+    /// Документирующий комментарий (`///`, `/** */`, `##`) перед макроопределением (для LSP-док).
+    std::string documentation;
+};
 
 // Context — фасад, объединяющий SourceMapWriter, DiagnosticEngine, Options,
 // AttrPool, TypeRegistry, ModuleLoader.
@@ -43,12 +53,22 @@ class Context {
     Options& opts();
     AttrPool& attrs();
     TypeRegistry& types();
+    const TypeRegistry& types() const;
+    /// Устанавливает внешний (не владеющий) реестр типов. Context не владеет
+    /// TypeRegistry: он создаётся и владеется вышележащим слоем (Pipeline) и
+    /// внедряется сюда, чтобы избежать цикла diag ↔ types.
+    void setTypes(TypeRegistry* reg) { m_type_registry = reg; }
     const DiagnosticEngine& diag() const;
     const Options& opts() const;
     const AttrPool& attrs() const;
 
     ModuleLoader& loader();
     const ModuleLoader& loader() const;
+
+    /// Устанавливает внешний (не владеющий) загрузчик модулей. Context не владеет
+    /// ModuleLoader: он создаётся и владеется вышележащим слоем (Pipeline) и
+    /// внедряется сюда, чтобы избежать зависимости diag → module_loader.
+    void setLoader(ModuleLoader* loader) { m_moduleLoader = loader; }
 
     // ── Текущий (активный) модуль ──
     /// Индекс текущего модуля (верх стека ModuleLoader). nullopt = модуль не задан.
@@ -63,6 +83,11 @@ class Context {
     std::shared_ptr<Macro> macro() const;
     /// Устанавливает макрос для этого контекста.
     void setMacro(std::shared_ptr<Macro> macro);
+
+    /// Регистрирует макроопределение (имя + диапазон) — для LSP-навигации/автодополнения.
+    void recordMacro(std::string name, MapperRange range);
+    /// Все зарегистрированные макроопределения (не теряются после PopScope модуля).
+    const std::vector<MacroDef>& macroDefs() const noexcept { return m_macroDefs; }
 
     // ── Макро-счётчики ──
     /// Возвращает текущее значение счётчика макросов и инкрементирует его.
@@ -84,8 +109,9 @@ class Context {
     template <typename... Args>
     void report(MapperRange range, OptKind kind, std::format_string<Args...> fmt, Args&&... args) {
         auto sev = opts().severity(kind);
-        if (!sev.has_value())
+        if (!sev.has_value()) {
             return;
+        }
         diag().report(*sev, range, std::move(fmt), std::forward<Args>(args)...);
     }
 
@@ -95,9 +121,10 @@ class Context {
     std::optional<Options> m_opts;
     mutable std::unique_ptr<AttrPool> m_attr_pool;
 
-    std::unique_ptr<TypeRegistry> m_type_registry;
-    std::unique_ptr<ModuleLoader> m_moduleLoader;
+    TypeRegistry* m_type_registry = nullptr; ///< Невладеющий: внедряется через setTypes()
+    ModuleLoader* m_moduleLoader = nullptr;  ///< Невладеющий: внедряется через setLoader()
     std::shared_ptr<Macro> m_macro;
+    std::vector<MacroDef> m_macroDefs; ///< Реестр макроопределений для LSP
 
     std::optional<std::size_t> m_currentModule; ///< Индекс текущего (активного) модуля
 

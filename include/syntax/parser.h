@@ -2,6 +2,7 @@
 #define TRUST_SYNTAX_PARSER_H_
 
 #include <memory>
+#include <vector>
 
 namespace trust {
 class AstNodeBase;
@@ -40,9 +41,13 @@ class Parser {
     parser::token_type ExpandPredefMacro(TermPtr& term);
 
     static int m_counter;
-    std::map<std::string, std::string> m_predef_macro;
-    bool RegisterPredefMacro(const char* name, const char* desc);
-    void InitPredefMacro();
+    // Единый реестр предопределённых макросов (@__...__ и др.) — static, чтобы
+    // LSP-автодополнение могло перечислять его без инстанса парсера.
+    static std::map<std::string, std::string> m_predef_macro;
+    static bool RegisterPredefMacro(const char* name, const char* desc);
+    static void InitPredefMacro();
+    /// Имена предопределённых макросов (ключи m_predef_macro) — для автодополнения.
+    static std::vector<std::string> PredefMacroNames();
     bool CheckPredefMacro(const TermPtr& term);
 
     // To demonstrate pure handling of parse errors, instead of
@@ -68,7 +73,7 @@ class Parser {
 
     TermPtr GetAst();
 
-    BlockType m_macro_analisys_buff; ///< Последовательность лексем для анализа на наличие макросов
+    SequenceType m_macro_analisys_buff; ///< Последовательность лексем для анализа на наличие макросов
 
     // TODO(cleanup): unused — commented out, see task 1785696533477
     // TermPtr m_expected;
@@ -96,7 +101,14 @@ class Parser {
     // Проверяет термин на наличие команды препроцессора (прагмы)
     bool PragmaCheck(const TermPtr& term);
     // Выполняет команду препроцессора (прагму)
-    bool PragmaEval(const TermPtr& term, BlockType& buffer, BlockType& seq);
+    bool PragmaEval(const TermPtr& term, SequenceType& buffer, SequenceType& seq);
+
+    /// Специальная обработка @__OPTION_TRUE__/@__OPTION_FALSE__ прямо в GetNextToken:
+    /// содержимое после имени флага берётся «сырым» (токены до закрывающей скобки), без
+    /// разбивки по запятым и без ParseTerm-пре-парсинга. При срабатывании флага токены
+    /// вставляются как есть (преdef-макросы раскрываются на сайте вызова, локация не
+    /// «запекается»). Возвращает true, если прагма распознана и обработана.
+    bool EvalOptionTrueFalseRaw();
 
     /// Парсит текстовый фрагмент (не файл/модуль) под указанным «фиктивным» именем
     /// источника. Имена фиктивных источников помечаются префиксом '@' (in-memory,
@@ -112,7 +124,7 @@ class Parser {
     // Собирает термин из последовательности лексем и удаляет их из входного буфера.
     // ctx задаёт контекст, из которого наследуется Macro; macro_expand=false
     // отключает раскрытие макросов (специальные случаи: тесты, идентификаторы определений).
-    static size_t ParseTerm(TermPtr& term, const BlockType& buffer, trust::Context& ctx, const size_t skip = 0, bool pragma_enable = true,
+    static size_t ParseTerm(TermPtr& term, const SequenceType& buffer, trust::Context& ctx, const size_t skip = 0, bool pragma_enable = true,
                             bool macro_expand = true);
     static TermPtr ParseTerm(const char* proto, trust::Context& ctx, bool pragma_enable = true, bool macro_expand = true);
 
@@ -126,7 +138,7 @@ class Parser {
 
     TermPtr CheckModuleTerm(const TermPtr& term);
 
-    static size_t SkipBrackets(const BlockType& buffer, size_t offset);
+    static size_t SkipBrackets(const SequenceType& buffer, size_t offset);
 
     time_t m_timestamp;
 
