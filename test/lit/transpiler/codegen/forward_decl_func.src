@@ -1,0 +1,7 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --temp-dir $TD -c -o $TD/forward_decl_func.o %s && test -f $TD/forward_decl_func.o && file $TD/forward_decl_func.o | grep ELF
+
+# Forward-объявление функции `%add(a:Int32, b:Int32):Int32 := ...;` → C++ декларация (без тела).
+# Нативная функция транслируется в C++ напрямую, поэтому типы обязательны.
+%add(a:Int32, b:Int32):Int32 := ...;
+# CHECK: int32_t add(int32_t c_a, int32_t c_b);

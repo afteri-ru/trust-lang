@@ -59,6 +59,9 @@ TASK_ID=$(extract_task_id "$INPUT" '.taskComplete.taskMetadata.taskId') || {
   exit 0
 }
 
+# Приводим taskId к числовому виду (убираем префикс/суффикс нового формата)
+TASK_ID=$(normalize_task_id "$TASK_ID") || exit 0
+
 RESULT=$(echo "$INPUT" | jq -r '.taskComplete.taskMetadata.result')
 COMMAND=$(echo "$INPUT" | jq -r '.taskComplete.taskMetadata.command')
 

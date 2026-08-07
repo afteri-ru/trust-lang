@@ -31,6 +31,8 @@ https://habr.com/ru/articles/326138/
 Многопоточное и асинхронное программирование в *NewLnag*, это способы повышения производительности
 **одного экзмпляра приложения** при работе под большой нагрузкой для более полной утилизации вычислительных ресурсов компьютера.
 
+{{< unreleased why="весь описанный здесь раздел многопоточного и асинхронного программирования (сопрограммы/короутины, Awaitable, :Async, :AsyncTask, :AsyncPool, @co_yield/@co_await/@co_return) в текущей версии НЕ реализован. Конструкциям AWAIT/YIELD/WHEN_ALL/WHEN_ANY присвоен Kind=Unimplemented, потоки (:Thread) не реализованы" />}}
+
 Так же асинхронное программирование улучшает читабельности кода за счет линейной структуры алгоритма 
 без использования функций обраного вызова или различных вариантов обработчиков событий.
 
@@ -121,7 +123,7 @@ Awaitable объект, это спецификация Awaitable шаблона
 
 ```python
     
-    async_read(stream): Awaitable<@ <:String, :Error> @> ::= { 
+    async_read(stream): Awaitable<@ <:String, :Error> @> := { 
         # Coroutine as an asynchronous task
         @try {
             @if(poll(stream)){
@@ -137,10 +139,10 @@ Awaitable объект, это спецификация Awaitable шаблона
         }
     };
 
-    @@ co_await @@ ::= @@ ** @@; ??????????????????????
-    async_task(stream) ::= []() { // Coroutine
-        str ::= co_await async_read(stream); # ** async_read(stream);
-        print(str);
+    @@ co_await @@ := @@ ** @@; ??????????????????????
+    async_task(stream) := []() { // Coroutine
+        str := co_await async_read(stream); # ** async_read(stream);
+        @print(str);
     };
 
     @while( @true ){
@@ -183,12 +185,12 @@ Awaitable функции это обычные функции которые в�
 ### Отдельный поток приложения {#thread}
 
 ```cpp
-    func() ::= { slepp(1) };
+    func() := { slepp(1) };
     pure() ::- { slepp(1) };
 
-    *thread_func ::= :Thread( &func );
-    *thread_pure ::= :Thread( &pure );
-    *thread_anon ::= :Thread( _() := { sleep(1) } );
+    *thread_func := :Thread( &func );
+    *thread_pure := :Thread( &pure );
+    *thread_anon := :Thread( _() := { sleep(1) } );
 
     thread_func.join();
     thread_pure.join();
@@ -206,16 +208,16 @@ Awaitable функции это обычные функции которые в�
 
 ```python
 
-    print('Main thread %d',  :Thread::get_id()); 
+    @print('Main thread %d',  :Thread::get_id()); 
 
-    * pool ::= :ThreadPool(4); # Maximum 4 threads
+    * pool := :ThreadPool(4); # Maximum 4 threads
 
     * i :Integer = 0;
     @while(i < 5) {
         # Enqueue tasks for execution
         pool.enqueue( 
             _(task: Integer) := { 
-                print('Task %d is running on thread %d',  $task, :Thread::get_id()); 
+                @print('Task %d is running on thread %d',  $task, :Thread::get_id()); 
                 sleep(1);
             } 
         );
@@ -335,12 +337,12 @@ Batching, Circuit-breaker, throttling, debounce и т.д. и т.д. и т.д.
 Переключения потоков реализуется средствами ОС и происходит неявно в произвольные моменты времени.
 
 ```cpp
-    func() ::= { slepp(1) };
+    func() := { slepp(1) };
     pure() ::- { slepp(1) };
 
-    *thread_func ::= :Thread( &func );
-    *thread_pure ::= :Thread( &pure );
-    *thread_anon ::= :Thread( _() := { sleep(1) } );
+    *thread_func := :Thread( &func );
+    *thread_pure := :Thread( &pure );
+    *thread_anon := :Thread( _() := { sleep(1) } );
 
     thread_func.join();
     thread_pure.join();
@@ -358,16 +360,16 @@ Batching, Circuit-breaker, throttling, debounce и т.д. и т.д. и т.д.
 
 ```python
 
-    print('Main thread %d',  :Thread::get_id()); 
+    @print('Main thread %d',  :Thread::get_id()); 
 
-    * pool ::= :ThreadPool(4); # Maximum 4 threads
+    * pool := :ThreadPool(4); # Maximum 4 threads
 
     * i :Integer = 0;
     @while(i < 5) {
         # Enqueue tasks for execution
         pool.enqueue( 
             _(task: Integer) := { 
-                print('Task %d is running on thread %d',  $task, :Thread::get_id()); 
+                @print('Task %d is running on thread %d',  $task, :Thread::get_id()); 
                 sleep(1);
             } 
         );
@@ -415,7 +417,7 @@ Awaitable функции это обычные функции которые в�
 
 ```python
     
-    async_read(stream): <:String,>:Awaitable ::= { // <:AwaitState, :String,>: Awaitable
+    async_read(stream): <:String,>:Awaitable := { // <:AwaitState, :String,>: Awaitable
         # Coroutine as an asynchronous task
         @if(poll(stream)){
             # Read and return data
@@ -428,10 +430,10 @@ Awaitable функции это обычные функции которые в�
         }
     };
 
-    @@ co_await @@ ::= @@ ** @@;
-    async_task(stream) ::= []() { // Coroutine
-        str ::= co_await async_read(stream); # ** async_read(stream);
-        print(str);
+    @@ co_await @@ := @@ ** @@;
+    async_task(stream) := []() { // Coroutine
+        str := co_await async_read(stream); # ** async_read(stream);
+        @print(str);
     };
 
     @while( @true ){
@@ -451,18 +453,18 @@ Awaitable функции это обычные функции которые в�
 
 ```python
 
-    print('Main thread %d',  :Thread::get_id()); 
+    @print('Main thread %d',  :Thread::get_id()); 
 
-    * task ::= :AsyncTask(4); # Maximum 4 async task
+    * task := :AsyncTask(4); # Maximum 4 async task
     * i: Integer = 0;
     @while(i < 5) {
         # Enqueue async tasks for execution
         task.enqueue( 
             [](task: Integer) { 
-                print('AsyncTask %d is running on thread %d',  $task, :Thread::get_id()); 
+                @print('AsyncTask %d is running on thread %d',  $task, :Thread::get_id()); 
 
-                * counter:Int64 ::= 0;
-                * start_time:Int64 ::= time::microseconds();
+                * counter:Int64 := 0;
+                * start_time:Int64 := time::microseconds();
 
                 @while(time::microseconds() - start_time < 1_000_000){
                     usleep(1);
@@ -470,7 +472,7 @@ Awaitable функции это обычные функции которые в�
                     counter += 1;
                 }
 
-                print('AsyncTask %d in thread %d done and was called %d times!', $task, :Thread::get_id(), $counter); 
+                @print('AsyncTask %d in thread %d done and was called %d times!', $task, :Thread::get_id(), $counter); 
                 # @co_return; # ++;
             } 
         );
@@ -490,7 +492,7 @@ Awaitable функции это обычные функции которые в�
 
 
 ```python
-    * pool ::= :AsyncPool(2, 5); # Maximum 2 threads and 5 task in each
+    * pool := :AsyncPool(2, 5); # Maximum 2 threads and 5 task in each
 
     @while(@true) {
         pool.enqueue( &async_func( Open( Input ) )

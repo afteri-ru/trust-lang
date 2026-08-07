@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Вызов несуществующего метода на типе — диагностика ДО генерации C++.
+
+@main() := {
+    s: StrChar := 'abc';
+    p := s.no_such();
+}
+# CHECK: error: type 'StrChar' has no method 'no_such'

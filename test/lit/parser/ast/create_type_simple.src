@@ -1,0 +1,12 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Оператор создания переменной с типом ::=
+x := :Int;
+# CHECK: ModuleDecl
+# CHECK: VarDecl 'x'
+# CHECK-NEXT: init:     TypeName ':Int'
+
+# Оператор создания переменной с литералом
+y := 42;
+# CHECK: VarDecl 'y'
+# CHECK-NEXT: init:     IntLiteral 42

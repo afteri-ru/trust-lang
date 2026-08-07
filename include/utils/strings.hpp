@@ -21,14 +21,18 @@ namespace detail {
 
 /// Возвращает длину UTF8 последовательности по ведущему байту.
 inline int utf8_seq_len(uint8_t lead) noexcept {
-    if (lead < 0x80)
+    if (lead < 0x80) {
         return 1;
-    if ((lead & 0xE0) == 0xC0)
+    }
+    if ((lead & 0xE0) == 0xC0) {
         return 2;
-    if ((lead & 0xF0) == 0xE0)
+    }
+    if ((lead & 0xF0) == 0xE0) {
         return 3;
-    if ((lead & 0xF8) == 0xF0)
+    }
+    if ((lead & 0xF8) == 0xF0) {
         return 4;
+    }
     return 1; // невалидный lead, считаем 1 байтом
 }
 
@@ -51,8 +55,9 @@ inline bool is_hard_soft_sign(uint32_t cp) noexcept {
 /// и продвигает offset на длину последовательности.
 /// Если символ некорректен, возвращает 0xFFFFFFFF и offset не меняется.
 inline uint32_t decode_utf8_at(std::string_view s, size_t& offset) {
-    if (offset >= s.size())
+    if (offset >= s.size()) {
         return 0xFFFFFFFF;
+    }
     uint8_t b0 = static_cast<uint8_t>(s[offset]);
     if (b0 < 0x80) {
         uint32_t cp = b0;
@@ -134,14 +139,17 @@ inline int translit_index(uint32_t cp) noexcept {
     // Для строчных букв (а-я): cp ∈ [0x0430, 0x044F]
     // Сдвиг: заглавная на 0x20 меньше строчной для а-я
     uint32_t upper_cp = cp;
-    if (cp >= 0x0430 && cp <= 0x044F)
+    if (cp >= 0x0430 && cp <= 0x044F) {
         upper_cp = cp - 0x20;
-    else if (cp == 0x0451)
+    } else if (cp == 0x0451) {
         upper_cp = 0x0401;
+    }
     // теперь ищем
-    for (int i = 0; i < 33; ++i)
-        if (TRANSLIT_TABLE[i].cp == upper_cp)
+    for (int i = 0; i < 33; ++i) {
+        if (TRANSLIT_TABLE[i].cp == upper_cp) {
             return i;
+        }
+    }
     return -1;
 }
 
@@ -157,25 +165,31 @@ inline int translit_index(uint32_t cp) noexcept {
 // -----------------------------------------------------------------------
 
 inline std::string_view trim(std::string_view s) {
-    while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '\r'))
+    while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '\r')) {
         s.remove_prefix(1);
-    while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '\r'))
+    }
+    while (!s.empty() && (s.back() == ' ' || s.back() == '\t' || s.back() == '\r')) {
         s.remove_suffix(1);
+    }
     return s;
 }
 
 inline bool is_number(std::string_view s) {
-    if (s.empty())
+    if (s.empty()) {
         return false;
+    }
     size_t i = 0;
     if (s[0] == '-') {
         i = 1;
-        if (i >= s.size())
+        if (i >= s.size()) {
             return false; // только минус — не число
+        }
     }
-    for (; i < s.size(); ++i)
-        if (!std::isdigit(static_cast<unsigned char>(s[i])))
+    for (; i < s.size(); ++i) {
+        if (!std::isdigit(static_cast<unsigned char>(s[i]))) {
             return false;
+        }
+    }
     return true;
 }
 
@@ -185,13 +199,16 @@ inline std::vector<std::string_view> tokenize(std::string_view s) {
     size_t len = s.size();
     size_t i = 0;
     while (i < len) {
-        while (i < len && (ptr[i] == ' ' || ptr[i] == '\t'))
+        while (i < len && (ptr[i] == ' ' || ptr[i] == '\t')) {
             ++i;
-        if (i >= len)
+        }
+        if (i >= len) {
             break;
+        }
         size_t start = i;
-        while (i < len && ptr[i] != ' ' && ptr[i] != '\t')
+        while (i < len && ptr[i] != ' ' && ptr[i] != '\t') {
             ++i;
+        }
         tokens.push_back(std::string_view(ptr + start, i - start));
     }
     return tokens;
@@ -202,24 +219,28 @@ inline std::vector<std::string_view> tokenize(std::string_view s) {
 // -----------------------------------------------------------------------
 
 inline std::string_view extract_name(std::string_view s, size_t offset) {
-    if (s.empty() || offset >= s.size())
+    if (s.empty() || offset >= s.size()) {
         return {};
+    }
 
     // Если offset указывает на continuation-байт UTF8, откатываемся
     // к началу последовательности
-    while (offset > 0 && detail::is_utf8_cont(static_cast<uint8_t>(s[offset])))
+    while (offset > 0 && detail::is_utf8_cont(static_cast<uint8_t>(s[offset]))) {
         --offset;
+    }
 
     // Проверяет, может ли символ быть первым в идентификаторе
     auto is_ident_start = [](uint32_t cp) -> bool {
-        if (cp < 0x80)
+        if (cp < 0x80) {
             return std::isalpha(static_cast<int>(cp)) || cp == '_' || cp == ':';
+        }
         return true; // UTF8 буквы
     };
     // Проверяет, может ли символ быть внутри идентификатора (первые и последующие)
     auto is_ident_cont = [](uint32_t cp) -> bool {
-        if (cp < 0x80)
+        if (cp < 0x80) {
             return std::isalnum(static_cast<int>(cp)) || cp == '_' || cp == ':';
+        }
         return true;
     };
 
@@ -227,24 +248,28 @@ inline std::string_view extract_name(std::string_view s, size_t offset) {
     uint32_t cp;
     size_t tmp = pos;
     cp = detail::decode_utf8_at(s, tmp);
-    if (cp == 0xFFFFFFFF)
+    if (cp == 0xFFFFFFFF) {
         return {};
+    }
 
     // Если символ не может быть началом, но может быть продолжением — ищем начало слева
     if (!is_ident_start(cp)) {
-        if (!is_ident_cont(cp))
+        if (!is_ident_cont(cp)) {
             return {};
+        }
         // Ищем начало идентификатора слева
         size_t search_pos = offset;
         bool found_start = false;
         while (search_pos > 0) {
             size_t prev = search_pos - 1;
-            while (prev > 0 && detail::is_utf8_cont(static_cast<uint8_t>(s[prev])))
+            while (prev > 0 && detail::is_utf8_cont(static_cast<uint8_t>(s[prev]))) {
                 --prev;
+            }
             size_t tmp2 = prev;
             uint32_t prev_cp = detail::decode_utf8_at(s, tmp2);
-            if (prev_cp == 0xFFFFFFFF || !is_ident_cont(prev_cp))
+            if (prev_cp == 0xFFFFFFFF || !is_ident_cont(prev_cp)) {
                 break;
+            }
             if (is_ident_start(prev_cp)) {
                 search_pos = prev;
                 found_start = true;
@@ -252,8 +277,9 @@ inline std::string_view extract_name(std::string_view s, size_t offset) {
             }
             search_pos = prev;
         }
-        if (!found_start)
+        if (!found_start) {
             return {};
+        }
         // Переустанавливаем offset на начало и начинаем заново
         offset = search_pos;
         tmp = offset;
@@ -265,12 +291,14 @@ inline std::string_view extract_name(std::string_view s, size_t offset) {
     while (begin > 0) {
         // откатываемся на один символ UTF8
         size_t prev = begin - 1;
-        while (prev > 0 && detail::is_utf8_cont(static_cast<uint8_t>(s[prev])))
+        while (prev > 0 && detail::is_utf8_cont(static_cast<uint8_t>(s[prev]))) {
             --prev;
+        }
         size_t tmp2 = prev;
         uint32_t prev_cp = detail::decode_utf8_at(s, tmp2);
-        if (prev_cp == 0xFFFFFFFF || !is_ident_cont(prev_cp))
+        if (prev_cp == 0xFFFFFFFF || !is_ident_cont(prev_cp)) {
             break;
+        }
         begin = prev;
     }
 
@@ -279,8 +307,9 @@ inline std::string_view extract_name(std::string_view s, size_t offset) {
     while (end < s.size()) {
         size_t tmp3 = end;
         uint32_t next_cp = detail::decode_utf8_at(s, tmp3);
-        if (next_cp == 0xFFFFFFFF || !is_ident_cont(next_cp))
+        if (next_cp == 0xFFFFFFFF || !is_ident_cont(next_cp)) {
             break;
+        }
         end = tmp3;
     }
 
@@ -291,9 +320,53 @@ inline std::string_view extract_name(std::string_view s, size_t offset) {
 //  Конвертация имени в C++ идентификатор и обратно
 // -----------------------------------------------------------------------
 
+/// Срезает ведущий '%' (native-маркер) у trust-имени. Нативные имена (%add, %std::max)
+/// — уже C++-символы рантайма; '%' используется для маркировки и при кодогенерации
+/// срезается, а имя остаётся как есть. Единый источник среза для транспилятора
+/// (расчёт длины trust-range) и анализатора (funcShortName).
+inline std::string_view strip_native_prefix(std::string_view name) noexcept {
+    if (!name.empty() && name.front() == '%') {
+        name.remove_prefix(1);
+    }
+    return name;
+}
+
+/// Полный ключ метода кодирует нативность (ведущий '%') и константность (хвостовой '^'),
+/// напр. "%count^". bare-имя — ключ без '%'/'^' (идентичность метода при поиске и проверке
+/// дубликатов). '%' срезается единым источником strip_native_prefix; '^' — как в
+/// IdentName::bare_name()/normalizeTermText (хвостовой).
+inline std::string bare_name(std::string_view name) {
+    std::string s(strip_native_prefix(name));
+    if (!s.empty() && s.back() == '^') {
+        s.pop_back();
+    }
+    return s;
+}
+/// Имя нативное (ведущий '%') — то же, что IdentName::is_native().
+inline bool is_native_name(std::string_view name) {
+    return !name.empty() && name.front() == '%';
+}
+/// Имя константное (хвостовой '^') — срез '^' в IdentName::bare_name()/normalizeTermText.
+inline bool is_const_name(std::string_view name) {
+    return !name.empty() && name.back() == '^';
+}
+
 inline std::string name_to_cpp(std::string_view name) {
-    if (name.empty())
+    if (name.empty()) {
         return {};
+    }
+    // Нативное имя (%add, %std::max) — это уже C++-символ рантайма: срезаем '%'
+    // и возвращаем как есть (иначе сломается линковка).
+    if (name.front() == '%') {
+        return std::string(name.substr(1));
+    }
+
+    // Локальная переменная: ведущий '$' — сигнатура (аналог '%' у нативных), срезается
+    // перед манглингом, чтобы локальная `$x` отображалась в `c_x` (а не в `c_$x`) и была
+    // согласована с embed-ссылками `{% $x %}`. Спец-имена `$$` (родитель) не трогаем.
+    if (name.front() == '$' && name.size() > 1 && name[1] != '$') {
+        name.remove_prefix(1);
+    }
 
     // Сканируем имя: ищем UTF8 символы, двоеточия
     bool has_utf8 = false;
@@ -307,20 +380,24 @@ inline std::string name_to_cpp(std::string_view name) {
         uint8_t b = static_cast<uint8_t>(name[i]);
         if (b < 0x80) {
             // ASCII
-            if (b == ':')
+            if (b == ':') {
                 has_colon = true;
-            else if (std::isalpha(static_cast<int>(b)))
+            } else if (std::isalpha(static_cast<int>(b))) {
                 has_ascii_alpha = true;
+            }
             i += 1;
         } else {
             has_utf8 = true;
             uint32_t cp = detail::decode_utf8_at(name, i);
-            if (cp == 0xFFFFFFFF)
+            if (cp == 0xFFFFFFFF) {
                 continue;
-            if (!detail::is_russian_letter(cp))
+            }
+            if (!detail::is_russian_letter(cp)) {
                 only_russian_utf8 = false;
-            if (detail::is_hard_soft_sign(cp))
+            }
+            if (detail::is_hard_soft_sign(cp)) {
                 has_special_russian = true;
+            }
         }
     }
 
@@ -334,10 +411,11 @@ inline std::string name_to_cpp(std::string_view name) {
         // Чистый C++ идентификатор (с двоеточиями)
         result = "cpp_";
         for (char ch : name) {
-            if (ch == ':')
+            if (ch == ':') {
                 result += '$';
-            else
+            } else {
                 result += ch;
+            }
         }
     } else if (has_utf8 && only_russian_utf8 && !has_ascii_alpha && !has_special_russian) {
         // Русский идентификатор (без Ъ/Ь, без ASCII букв) — транслитерация
@@ -347,10 +425,11 @@ inline std::string name_to_cpp(std::string_view name) {
             uint8_t b = static_cast<uint8_t>(name[pos]);
             if (b < 0x80) {
                 // ASCII символ передаётся как есть (кроме ':')
-                if (b == ':')
+                if (b == ':') {
                     result += '$'; // на всякий случай
-                else
+                } else {
                     result += b;
+                }
                 pos += 1;
             } else {
                 uint32_t cp = detail::decode_utf8_at(name, pos);
@@ -382,10 +461,9 @@ inline std::string name_to_cpp(std::string_view name) {
 }
 
 inline std::string cpp_to_name(std::string_view cpp_name) {
-    if (cpp_name.empty())
+    if (cpp_name.empty()) {
         return {};
-    if (cpp_name.size() < 3)
-        return {};
+    }
 
     auto check_prefix = [&](const char* prefix, size_t len) -> bool {
         return cpp_name.size() >= len && cpp_name.substr(0, len) == std::string_view(prefix, len);
@@ -468,10 +546,11 @@ inline std::string cpp_to_name(std::string_view cpp_name) {
                 } else {
                     char buf[4];
                     uint32_t target_cp;
-                    if (is_upper)
+                    if (is_upper) {
                         target_cp = cp;
-                    else
+                    } else {
                         target_cp = cp + 0x20; // строчная
+                    }
                     buf[0] = 0xD0 | static_cast<uint8_t>((target_cp >> 6) & 0x1F);
                     buf[1] = 0x80 | static_cast<uint8_t>(target_cp & 0x3F);
                     result.append(buf, 2);
@@ -492,12 +571,15 @@ inline std::string cpp_to_name(std::string_view cpp_name) {
         std::string result;
         for (size_t pos = 0; pos + 1 < rest3.size(); pos += 2) {
             auto hex_val = [](char c) -> uint8_t {
-                if (c >= '0' && c <= '9')
+                if (c >= '0' && c <= '9') {
                     return static_cast<uint8_t>(c - '0');
-                if (c >= 'A' && c <= 'F')
+                }
+                if (c >= 'A' && c <= 'F') {
                     return static_cast<uint8_t>(c - 'A' + 10);
-                if (c >= 'a' && c <= 'f')
+                }
+                if (c >= 'a' && c <= 'f') {
                     return static_cast<uint8_t>(c - 'a' + 10);
+                }
                 return 0;
             };
             uint8_t b = (hex_val(rest3[pos]) << 4) | hex_val(rest3[pos + 1]);
@@ -506,7 +588,194 @@ inline std::string cpp_to_name(std::string_view cpp_name) {
         return result;
     }
 
-    return {};
+    // Имя без известного префикса (c_/cpp_/ru_/u8_) — нативное C++-имя: восстанавливаем маркер '%'.
+    return "%" + std::string(cpp_name);
+}
+
+// -----------------------------------------------------------------------
+//  Встраивание C++ (EmbedExpr): преобразование trust-маркеров $/@ в C++-имена
+// -----------------------------------------------------------------------
+
+// Конвертирует текст C++-вставки ({% ... %}) для кодогенерации: идентификаторы,
+// начинающиеся с '$' или '@', интерпретируются как trust-имена и заменяются на их
+// C++-эквивалент (name_to_cpp). '$name' — локальное trust-имя; '@name' — trust-имя
+// (допускается квалификация '::', напр. @ns::x). Остальной текст остаётся без изменений.
+// Чтение имени — через extract_name (единая точка входа; включает юникод и '::').
+inline std::string transform_embed_cpp(std::string_view text) {
+    std::string result;
+    result.reserve(text.size());
+    size_t i = 0;
+    while (i < text.size()) {
+        const char c = text[i];
+        if (c == '$' || c == '@') {
+            std::string_view name = extract_name(text, i + 1);
+            if (!name.empty()) {
+                result += name_to_cpp(name);
+                i += 1 + name.size();
+                continue;
+            }
+        }
+        result += c;
+        ++i;
+    }
+    return result;
+}
+
+// Извлекает trust-имена, на которые ссылается C++-вставка (маркеры $/@).
+// Используется семантическим анализатором для валидации в таблице символов.
+// Для маркера `$name` возвращается `$name` (локальная переменная; после нормализации имён
+// без сигила локальная хранится с `$` — `$d`), для `@name` — `name` (квалифицированное/глобальное).
+inline std::vector<std::string> extract_embed_names(std::string_view text) {
+    std::vector<std::string> names;
+    size_t i = 0;
+    while (i < text.size()) {
+        const char c = text[i];
+        if (c == '$' || c == '@') {
+            std::string_view name = extract_name(text, i + 1);
+            if (!name.empty()) {
+                if (c == '$') {
+                    names.emplace_back(std::string("$").append(name));
+                } else {
+                    names.emplace_back(name);
+                }
+                i += 1 + name.size();
+                continue;
+            }
+        }
+        ++i;
+    }
+    return names;
+}
+
+// Экранирует строку для встраивания в C++-строковый литерал: все специальные символы
+// превращаются в C++-escape-последовательности. Прочие управляющие (< 0x20, 0x7F) — в hex-escape.
+// Обратная операция — unescape_cpp_string. Единый источник для кодогенерации строковых литералов.
+inline std::string escape_cpp_string(std::string_view s) {
+    std::string out;
+    out.reserve(s.size());
+    for (const char ch : s) {
+        const unsigned char c = static_cast<unsigned char>(ch);
+        switch (c) {
+        case '\\':
+            out += "\\\\";
+            break;
+        case '"':
+            out += "\\\"";
+            break;
+        case '\n':
+            out += "\\n";
+            break;
+        case '\t':
+            out += "\\t";
+            break;
+        case '\r':
+            out += "\\r";
+            break;
+        case '\0':
+            out += "\\0";
+            break;
+        case '\a':
+            out += "\\a";
+            break;
+        case '\b':
+            out += "\\b";
+            break;
+        case '\f':
+            out += "\\f";
+            break;
+        case '\v':
+            out += "\\v";
+            break;
+        case '?':
+            out += "\\?";
+            break;
+        default:
+            if (c < 0x20 || c == 0x7F) {
+                const char hex[] = "0123456789ABCDEF";
+                out += "\\x";
+                out += hex[(c >> 4) & 0xF];
+                out += hex[c & 0xF];
+            } else {
+                out += static_cast<char>(c);
+            }
+        }
+    }
+    return out;
+}
+
+// Обратная операция к escape_cpp_string: декодирует C++-escape-последовательности
+// (backslash, quote, n, t, r, 0, a, b, f, v, ?, hex) обратно в символы.
+inline std::string unescape_cpp_string(std::string_view s) {
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size(); ++i) {
+        const char c = s[i];
+        if (c != '\\' || i + 1 >= s.size()) {
+            out += c;
+            continue;
+        }
+        const char e = s[++i];
+        switch (e) {
+        case '\\':
+            out += '\\';
+            break;
+        case '"':
+            out += '"';
+            break;
+        case 'n':
+            out += '\n';
+            break;
+        case 't':
+            out += '\t';
+            break;
+        case 'r':
+            out += '\r';
+            break;
+        case '0':
+            out += '\0';
+            break;
+        case 'a':
+            out += '\a';
+            break;
+        case 'b':
+            out += '\b';
+            break;
+        case 'f':
+            out += '\f';
+            break;
+        case 'v':
+            out += '\v';
+            break;
+        case '?':
+            out += '?';
+            break;
+        case 'x': {
+            int v = 0;
+            int n = 0;
+            while (n < 2 && i + 1 < s.size()) {
+                const char h = s[i + 1];
+                int d;
+                if (h >= '0' && h <= '9') {
+                    d = h - '0';
+                } else if (h >= 'a' && h <= 'f') {
+                    d = h - 'a' + 10;
+                } else if (h >= 'A' && h <= 'F') {
+                    d = h - 'A' + 10;
+                } else {
+                    break;
+                }
+                v = v * 16 + d;
+                ++n;
+                ++i;
+            }
+            out += static_cast<char>(v);
+            break;
+        }
+        default:
+            out += e;
+        }
+    }
+    return out;
 }
 
 } // namespace trust::utils

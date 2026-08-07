@@ -6,28 +6,28 @@ weight: 10
 
 Objects and data types can be named using letters, numbers, and underscores in any combination, provided that the first character of the name is not a digit.
 
-All identifiers must be unique, and to avoid collisions, you can use [namespaces](/docs/syntax/namespace/) and a [modular code structure](/docs/syntax/modules/) supported simultaneously by *NewLang*.
+All identifiers must be unique, and to avoid collisions, you can use [namespaces](/en/docs/syntax/namespace/) and a [modular code structure](/en/docs/syntax/modules/) supported simultaneously by *TrustLang*.
 
-Overloading [functions](/docs/types/funcs/) based on argument types is absent in *NewLang*, so defining multiple functions with the same name but different arguments is not possible, but you can [override a function](/docs/types/funcs/), including extending the types of accepted arguments or increasing their number.
+Overloading [functions](/en/docs/types/funcs/) based on argument types is absent in *TrustLang*, so defining multiple functions with the same name but different arguments is not possible, but you can [override a function](/en/docs/types/funcs/), including extending the types of accepted arguments or increasing their number.
 
 An object identifier can contain one or more special characters - qualifiers (or [sigils](https://en.wikipedia.org/wiki/Sigil_(computer_programming))), which represent specific values.
 An object identifier that does not contain a qualifier is called *simple*:
 
 ### Name Qualifiers: {#sigil}
-- '**@**' - the *at sign* prefix is used to specify the name of a [macro](/docs/syntax/macros/), which is processed by the preprocessor before the start of the program's syntactic analysis.
-- '**@**' - the *at* prefix is used to specify the name of a [macro](/docs/syntax/macros/) that is processed by the preprocessor before the start of the syntactic analysis of the source code of the program.
-- '**$**' - the dollar sign at the beginning of an object's name denotes an automatic name for a temporary variable, the memory space for which is dynamically allocated during the application's execution, and the [lifetime is limited by the language semantics](/docs/syntax/memory/).
-- '**::**' - the double colon serves as a separator for [namespaces](/docs/syntax/namespace/) and indicates a *static* object, the memory space for which is allocated during the compilation of the application or module. If the name starts with '**::**', the object's scope will be global and it will be accessible throughout the application. Otherwise, the object's visibility will be limited to the current [program module](/docs/syntax/modules/).
+- '**@**' - the *at sign* prefix is used to specify the name of a [macro](/en/docs/syntax/macros/), which is processed by the preprocessor before the start of the program's syntactic analysis.
+- '**@**' - the *at* prefix is used to specify the name of a [macro](/en/docs/syntax/macros/) that is processed by the preprocessor before the start of the syntactic analysis of the source code of the program.
+- '**$**' - the dollar sign at the beginning of an object's name denotes an automatic name for a temporary variable, the memory space for which is dynamically allocated during the application's execution, and the [lifetime is limited by the language semantics](/en/docs/syntax/memory/).
+- '**::**' - the double colon serves as a separator for [namespaces](/en/docs/syntax/namespace/) and indicates a *static* object, the memory space for which is allocated during the compilation of the application or module. If the name starts with '**::**', the object's scope will be global and it will be accessible throughout the application. Otherwise, the object's visibility will be limited to the current [program module](/en/docs/syntax/modules/).
 - '**.**' - the *dot* prefix is used when accessing a module or class field (limits the scope to the current object). The *dot* prefix can be used when defining (calling) a function to explicitly identify a named argument, preventing it from being overridden by a preprocessor macro.
-- '**\\**' - the *backslash* at the beginning of a term denotes the name of a [program module](/docs/syntax/modules/), and also separates directory names in the hierarchy of program module placement.
-- '**:**' — colon at the beginning of the term denotes the name of a [data type](/docs/types/) or a [class constructor](/docs/types/class/)
-- '**%**' — the *percent sign* prefix is used for [imported symbols (native variables and functions)](/docs/types/native/)
+- '**\\**' - the *backslash* at the beginning of a term denotes the name of a [program module](/en/docs/syntax/modules/), and also separates directory names in the hierarchy of program module placement.
+- '**:**' — colon at the beginning of the term denotes the name of a [data type](/en/docs/types/) or a [class constructor](/en/docs/types/class/)
+- '**%**' — the *percent sign* prefix is used for [imported symbols (native variables and functions)](/en/docs/types/native/)
 - '**^**' — the caret symbol after the name is used to give immutability (constancy, non-modifiability) to the object.
 
 ### Name Lookup {#name-lookup}
-If the object name does not contain a [qualifier](/docs/syntax/naming/#sigil), it is called *simple*. Creating an object with a *simple* name is equivalent to creating a local object.
+If the object name does not contain a [qualifier](/en/docs/syntax/naming/#sigil), it is called *simple*. Creating an object with a *simple* name is equivalent to creating a local object.
 
-In other cases, when *NewLang* encounters a *simple* object name without a qualifier ([sigil](https://en.wikipedia.org/wiki/Sigil_(computer_programming))), a special algorithm comes into play that associates the *simple* name found in the source code of the program with its declaration or a specific object by its [internal name](/docs/arch/mangling/).
+In other cases, when *TrustLang* encounters a *simple* object name without a qualifier ([sigil](https://en.wikipedia.org/wiki/Sigil_(computer_programming))), a special algorithm comes into play that associates the *simple* name found in the source code of the program with its declaration or a specific object by its [internal name](/en/docs/arch/mangling/).
 
 Resolution of *simple* names *without a qualifier* (*name lookup* for function/variable names) always occurs in a strictly defined order:
 - First, the search for the name is among macros
@@ -67,7 +67,7 @@ By means of a forward declaration, one can refer only to static objects (data ty
 
 For a forward declaration, only the fully qualified name can be used, which must exactly match the object's name when it is subsequently created.
 
-The same syntax is used for a forward declaration as for the actual [creation](/docs/ops/create/) of an object, only an ellipsis should be specified to the right of the creation operator.
+The same syntax is used for a forward declaration as for the actual [creation](/en/docs/ops/create/) of an object, only an ellipsis should be specified to the right of the creation operator.
 
 
 The scope of a forward declaration corresponds to the scope of its placement, not the actual scope of the object (even for global objects).

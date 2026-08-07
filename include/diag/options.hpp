@@ -25,7 +25,29 @@ namespace trust {
     M(Deprecated, "deprecated", Warning)        \
     M(ParseError, "parse-error", Error)         \
     M(MacroRedefined, "macro-redefined", Fatal) \
+    M(Embed, "embed", Warning)                  \
+    M(NoSigil, "sigil", Warning)                \
+    M(Format, "format", Error)                  \
+    M(WidenAny, "widen-any", Warning)           \
     M(All, "all", Warning)
+#endif
+
+// X-macro для булевых feature-флагов (НЕ severity-диагностик): формат M(EnumName, "cli-name").
+// Используется для опций кодогенерации (например подавление комментариев в C++-выводе) и
+// для опциональных уровней анализа (переключаются через pass-менеджер семантики).
+// Флаг может нести необязательное строковое значение: -W<flag>=<value> (как в clang).
+// Переопределите OPTIONS_FLAGS до включения заголовка, чтобы добавить свои флаги.
+#ifndef OPTIONS_FLAGS
+#define OPTIONS_FLAGS(M)    \
+    M(Comments, "comments") \
+    M(Lint, "lint")         \
+    M(Effect, "effect")     \
+    M(Trust, "trust")       \
+    M(Extended, "extended") \
+    M(Symbols, "symbols")   \
+    M(Assert, "assert")     \
+    M(Backtrace, "backtrace")
+
 #endif
 
 class DiagnosticEngine;
@@ -60,6 +82,24 @@ constexpr Severity OptDefaultSeverity(OptKind k) {
 
 static constexpr int NumOptions = static_cast<int>(OptKind::All) + 1;
 
+/// Булев feature-флаг (не severity-диагностика), генерируется из OPTIONS_FLAGS.
+enum class FlagKind : int {
+#define FLAG_ENUM(name, cli) name,
+    OPTIONS_FLAGS(FLAG_ENUM)
+#undef FLAG_ENUM
+};
+
+constexpr std::string_view FlagName(FlagKind k) {
+    switch (k) {
+#define FLAG_CASE(name, cli) \
+    case FlagKind::name:     \
+        return cli;
+        OPTIONS_FLAGS(FLAG_CASE)
+#undef FLAG_CASE
+    }
+    return {};
+}
+
 struct OptionInitInfo {
     OptKind kind;
     Severity severity;
@@ -71,6 +111,25 @@ class Options {
     Options();
 
     void add_option(OptKind kind, std::optional<Severity> default_severity = std::nullopt);
+
+    // ── Булевые feature-флаги (см. OPTIONS_FLAGS) ──
+    /// Регистрирует feature-флаг (по умолчанию выключен).
+    void register_flag(FlagKind kind);
+    /// Проверяет, является ли cli-имя флагом (а не severity-опцией).
+    [[nodiscard]] bool is_flag(std::string_view name) const;
+    /// Текущее состояние флага (незарегистрированный = false).
+    [[nodiscard]] bool is_enabled(FlagKind kind) const;
+    /// Текущее состояние флага по cli-имени (незарегистрированный = false).
+    [[nodiscard]] bool is_enabled(std::string_view name) const;
+    void set_enabled(FlagKind kind, bool enabled);
+    /// Включить флаг по cli-имени; false, если флаг не найден.
+    bool set_enabled(std::string_view name, bool enabled);
+    /// Строковое значение флага (nullopt, если не задано).
+    [[nodiscard]] std::optional<std::string_view> flag_value(FlagKind kind) const;
+    /// Установить значение флага по id (неявно включает флаг).
+    void set_flag_value(FlagKind kind, std::string_view value);
+    /// Установить значение флага по cli-имени; false, если флаг не найден.
+    bool set_flag_value(std::string_view name, std::string_view value);
 
     void set(OptKind kind, std::optional<Severity> severity);
     void set(std::string_view name, std::optional<Severity> severity);
@@ -109,9 +168,25 @@ class Options {
         std::optional<Severity> previous_severity;
     };
 
+    /// Запись булевого feature-флага: вкл/выкл + необязательное строковое значение.
+    struct FlagEntry {
+        bool enabled = false;
+        std::optional<std::string> value;
+    };
+
+    /// Дельта изменения флага для отката push/pop.
+    struct FlagDelta {
+        FlagKind kind;
+        bool previous_enabled;
+        std::optional<std::string> previous_value;
+    };
+
     std::unordered_map<OptKind, OptionEntry> by_kind_;
     std::unordered_map<std::string, OptKind> name_to_kind_;
+    std::unordered_map<FlagKind, FlagEntry> flags_;
+    std::unordered_map<std::string, FlagKind> flag_name_to_kind_;
     std::stack<std::vector<OptionDelta>> history_;
+    std::stack<std::vector<FlagDelta>> flag_history_;
     DiagnosticEngine* m_diag = nullptr;
 };
 

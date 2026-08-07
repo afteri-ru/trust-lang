@@ -1,8 +1,10 @@
 // module_registry_test.cpp — unit tests for ModuleRegistry and ModuleNode
-#include "pipeline/module_registry.hpp"
+#include "module_loader/module_registry.hpp"
+#include "module_loader/module_loader.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/token.hpp"
 #include "diag/context.hpp"
+#include "syntax/term.h"
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>
@@ -31,9 +33,8 @@ TEST_F(ModuleRegistryTest, GetOrLoadReturnsExistingAfterLoad) {
     auto idx = reg.getOrLoad("module_a");
     EXPECT_EQ(idx, 0u);
 
-    // Симулируем завершение загрузки: заполняем cacheApi
-    auto api = std::make_shared<std::vector<AstNodePtr>>();
-    reg.setCacheApi(idx, api);
+    // Симулируем завершение загрузки: устанавливаем Term-тело
+    reg.setBody(idx, Term::Create(TermID::SEQUENCE, "body"));
 
     auto idx2 = reg.getOrLoad("module_a");
     EXPECT_EQ(idx2, idx); // тот же индекс
@@ -42,7 +43,7 @@ TEST_F(ModuleRegistryTest, GetOrLoadReturnsExistingAfterLoad) {
 
 TEST_F(ModuleRegistryTest, GetOrLoadCycleDetected) {
     (void)reg.getOrLoad("module_a");
-    // cacheApi ещё пуст — симуляция "в процессе загрузки"
+    // Term ещё не установлен — симуляция "в процессе загрузки"
     // Повторный вызов того же модуля -> FAULT
     EXPECT_THROW((void)reg.getOrLoad("module_a"), std::runtime_error);
 }
@@ -57,14 +58,9 @@ TEST_F(ModuleRegistryTest, MultipleIndependentModules) {
     EXPECT_EQ(reg.count(), 2u);
     EXPECT_NE(idxA, idxB);
 
-    // Заполняем cacheApi для проверки isLoaded
-    auto apiA = std::make_shared<std::vector<AstNodePtr>>();
-    apiA->push_back(std::make_shared<Sequence>(ParserToken::Kind::sequence, "api_a", MapperRange{}));
-    reg.setCacheApi(idxA, apiA);
-
-    auto apiB = std::make_shared<std::vector<AstNodePtr>>();
-    apiB->push_back(std::make_shared<Sequence>(ParserToken::Kind::sequence, "api_b", MapperRange{}));
-    reg.setCacheApi(idxB, apiB);
+    // Устанавливаем Term для проверки isLoaded
+    reg.setBody(idxA, Term::Create(TermID::SEQUENCE, "api_a"));
+    reg.setBody(idxB, Term::Create(TermID::SEQUENCE, "api_b"));
 
     EXPECT_TRUE(reg.isLoaded(idxA));
     EXPECT_TRUE(reg.isLoaded(idxB));
@@ -79,42 +75,58 @@ TEST_F(ModuleRegistryTest, ModuleNameFaultForOutOfRange) {
     EXPECT_THROW((void)reg.moduleName(100), std::runtime_error);
 }
 
-TEST_F(ModuleRegistryTest, SetCacheApiFaultForOutOfRange) {
-    EXPECT_THROW((void)reg.setCacheApi(100, nullptr), std::runtime_error);
+TEST_F(ModuleRegistryTest, InterfaceSetGetHas) {
+    auto idx = reg.getOrLoad("iface_mod");
+    EXPECT_FALSE(reg.hasInterface(idx));
+
+    std::vector<TermPtr> iface{Term::Create(TermID::NAME, "func"), Term::Create(TermID::NAME, "x")};
+    reg.setInterface(idx, iface);
+    EXPECT_TRUE(reg.hasInterface(idx));
+    ASSERT_EQ(reg.interface(idx).size(), 2u);
+    EXPECT_EQ(reg.interface(idx)[0]->getText(), "func");
+    EXPECT_EQ(reg.interface(idx)[1]->getText(), "x");
 }
 
-TEST_F(ModuleRegistryTest, SetPreprocessedFaultForOutOfRange) {
-    EXPECT_THROW((void)reg.setPreprocessed(100, nullptr), std::runtime_error);
+TEST_F(ModuleRegistryTest, InterfaceFaultForOutOfRange) {
+    EXPECT_THROW((void)reg.interface(100), std::runtime_error);
+    EXPECT_THROW((void)reg.hasInterface(100), std::runtime_error);
+    EXPECT_THROW((void)reg.setInterface(100, {}), std::runtime_error);
 }
 
-TEST_F(ModuleRegistryTest, PreprocessedReturnsCorrectContent) {
+TEST_F(ModuleRegistryTest, BodyAstSetGet) {
+    auto idx = reg.getOrLoad("bodyast_mod");
+    reg.setBodyAst(idx, {});
+    EXPECT_TRUE(reg.bodyAst(idx).empty());
+    reg.setBodyAst(idx, {std::make_shared<AstNodeAttr>(ParserToken::Kind::Ident)});
+    ASSERT_EQ(reg.bodyAst(idx).size(), 1u);
+    EXPECT_EQ(reg.bodyAst(idx)[0]->kind(), ParserToken::Kind::Ident);
+}
+
+TEST_F(ModuleRegistryTest, BodyAstFaultForOutOfRange) {
+    EXPECT_THROW((void)reg.bodyAst(100), std::runtime_error);
+    EXPECT_THROW((void)reg.setBodyAst(100, {}), std::runtime_error);
+}
+
+TEST_F(ModuleRegistryTest, SetTermFaultForOutOfRange) {
+    EXPECT_THROW((void)reg.setBody(100, nullptr), std::runtime_error);
+}
+
+TEST_F(ModuleRegistryTest, TermReturnsCorrectContent) {
     auto idx = reg.getOrLoad("test_module");
-    auto body = std::make_shared<std::vector<AstNodePtr>>();
-    body->push_back(std::make_shared<Sequence>(ParserToken::Kind::sequence, "body_item", MapperRange{}));
-    reg.setPreprocessed(idx, body);
+    reg.setBody(idx, Term::Create(TermID::SEQUENCE, "body_item"));
 
-    const std::vector<AstNodePtr>& retrieved = reg.preprocessed(idx);
-    ASSERT_EQ(retrieved.size(), 1u);
+    const TermPtr& retrieved = reg.body(idx);
+    ASSERT_NE(retrieved, nullptr);
 }
 
-TEST_F(ModuleRegistryTest, PreprocessedFaultForOutOfRange) {
-    EXPECT_THROW((void)reg.preprocessed(100), std::runtime_error);
+TEST_F(ModuleRegistryTest, TermFaultForOutOfRange) {
+    EXPECT_THROW((void)reg.body(100), std::runtime_error);
 }
 
-TEST_F(ModuleRegistryTest, PreprocessedFaultForNullBody) {
+TEST_F(ModuleRegistryTest, TermFaultForNullTerm) {
     auto idx = reg.getOrLoad("test_module");
-    // preprocessed не установлен
-    EXPECT_THROW((void)reg.preprocessed(idx), std::runtime_error);
-}
-
-TEST_F(ModuleRegistryTest, CacheApiFaultForOutOfRange) {
-    EXPECT_THROW((void)reg.cacheApi(100), std::runtime_error);
-}
-
-TEST_F(ModuleRegistryTest, CacheApiFaultForNullApi) {
-    auto idx = reg.getOrLoad("test_module");
-    // cacheApi не установлен
-    EXPECT_THROW((void)reg.cacheApi(idx), std::runtime_error);
+    // body не установлен
+    EXPECT_THROW((void)reg.body(idx), std::runtime_error);
 }
 
 // ── ModuleNode tests ──
@@ -124,8 +136,7 @@ TEST(ModuleNodeTest, CreateModuleNodeFromIndex) {
     auto idx = reg.getOrLoad("test_module");
     ASSERT_EQ(idx, 0u);
 
-    MapperRange rng;
-    auto node = std::make_shared<ModuleNode>(idx, "test_module", rng);
+    auto node = std::make_shared<ModuleNode>(idx, "test_module");
     ASSERT_NE(node, nullptr);
 
     EXPECT_EQ(node->moduleIndex(), idx);
@@ -138,9 +149,8 @@ TEST(ModuleNodeTest, MultipleNodesShareSameModuleIndex) {
     ModuleRegistry reg;
     auto idx = reg.getOrLoad("shared_module");
 
-    MapperRange rng;
-    auto node1 = std::make_shared<ModuleNode>(idx, "shared_module", rng);
-    auto node2 = std::make_shared<ModuleNode>(idx, "shared_module", rng);
+    auto node1 = std::make_shared<ModuleNode>(idx, "shared_module");
+    auto node2 = std::make_shared<ModuleNode>(idx, "shared_module");
 
     ASSERT_NE(node1, nullptr);
     ASSERT_NE(node2, nullptr);
@@ -158,8 +168,7 @@ TEST(ModuleNodeTest, ModuleNodeWithEmptyBody) {
     auto idx = reg.getOrLoad("empty_module");
 
     // cacheBody не устанавливаем — тело будет пустым
-    MapperRange rng;
-    auto node = std::make_shared<ModuleNode>(idx, "empty_module", rng);
+    auto node = std::make_shared<ModuleNode>(idx, "empty_module");
     ASSERT_NE(node, nullptr);
     EXPECT_TRUE(node->m_body.empty());
 }
@@ -168,10 +177,12 @@ TEST(ModuleNodeTest, ModuleNodeWithEmptyBody) {
 
 TEST(ModuleLoaderContextTest, ContextProvidesLoader) {
     Context ctx;
-    ModuleLoader& loader = ctx.loader();
+    // Context не владеет ModuleLoader — внедряем его явно (как это делает Pipeline).
+    ModuleLoader loader(ctx);
+    ctx.setLoader(&loader);
 
-    // Проверяем, что loader доступен (косвенно: isLoaded на несуществующем индексе — FAULT)
-    EXPECT_THROW((void)loader.isLoaded(100), std::runtime_error);
+    ModuleLoader& l = ctx.loader();
+    EXPECT_THROW((void)l.isLoaded(100), std::runtime_error);
 }
 
 TEST(LoaderRegistryTest, DirectRegistryUsage) {

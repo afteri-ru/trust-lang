@@ -11,6 +11,6 @@ add_library(diag_lib STATIC
 )
 
 target_link_libraries(diag_lib PRIVATE trust_llvm_dirs)
-target_link_libraries(diag_lib PUBLIC trust_include_dirs types_lib utils_lib msgpack-c-static)
-target_link_libraries(diag_lib PRIVATE LLVMSupport module_loader_lib)
+target_link_libraries(diag_lib PUBLIC trust_include_dirs location_lib utils_lib msgpack-c-static)
+target_link_libraries(diag_lib PRIVATE LLVMSupport)
 

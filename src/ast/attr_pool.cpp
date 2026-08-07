@@ -86,8 +86,9 @@ std::string Attr::to_string() const {
     if (!m_default_params.empty()) {
         result += "(";
         for (std::size_t i = 0; i < m_default_params.size(); ++i) {
-            if (i > 0)
+            if (i > 0) {
                 result += ", ";
+            }
             result += "\"";
             result += m_default_params[i];
             result += "\"";
@@ -104,8 +105,9 @@ std::string Attr::to_string() const {
 
 std::optional<AttrId> AttrPool::lookup(std::string_view name) const noexcept {
     auto it = m_name_to_id.find(name);
-    if (it != m_name_to_id.end())
+    if (it != m_name_to_id.end()) {
         return it->second;
+    }
     return std::nullopt;
 }
 

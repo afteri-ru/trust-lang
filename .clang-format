@@ -12,6 +12,9 @@ IndentPPDirectives: None
 
 # ── Braces (Attach: opening on same line) ──
 BreakBeforeBraces: Attach
+# Всегда фигурные скобки для тел if/else/for/while/do даже из одного оператора
+# (включает InsertBraces — механическое проставление скобок однострочным веткам).
+InsertBraces: true
 AllowShortFunctionsOnASingleLine:  InlineOnly
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false

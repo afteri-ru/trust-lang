@@ -12,7 +12,7 @@ Unfortunately, manual memory management, or more precisely, manual memory contro
 
 However, references in one form or another are supported in all programming languages, although the term often implies not completely equivalent terms. For example, the word "reference" can be understood as a reference as an address in memory (as in C++) and a reference as a pointer to an object (as in Python or Java).  
   
-Although there are programming languages that try to solve these problems through the concept of "ownership" ([Rust](https://www.rust-lang.org/), [Argentum](https://aglang.org/), or [NewLang](https://newlang.net/)). The possible solution to these and other existing problems with references will be discussed further.
+Although there are programming languages that try to solve these problems through the concept of "ownership" ([Rust](https://www.rust-lang.org/), [Argentum](https://aglang.org/), or [TrustLang](https://trust-lang.net/)). The possible solution to these and other existing problems with references will be discussed further.
 
 
 ## What types of references exist?  

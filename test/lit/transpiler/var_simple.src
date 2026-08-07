@@ -1,5 +1,0 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
-
-# Простое объявление переменной с целочисленным литералом (без типа → Any)
-x := 42;
-# CHECK: std::any x = 42;

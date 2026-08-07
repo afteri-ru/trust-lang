@@ -17,24 +17,30 @@ class AttrPool; // forward declaration
 
 /// IdentName — узел AST для хранения идентификатора.
 /// kind всегда ParserToken::Kind::Ident.
-/// Имя хранится в m_name / text().
-class IdentName : public AstNodeAttr {
+/// Имя хранится в унаследованном от HasText поле m_text (text()).
+class IdentName : public HasText {
   public:
     IdentName()
-    : AstNodeAttr() {
+    : HasText() {
         m_kind = ParserToken::Kind::Ident;
     }
 
     explicit IdentName(std::string name, AttrPool* pool = nullptr);
 
-    /// Конструктор из исходного Term (имя копируется в m_name).
-    IdentName(std::string name, TermPtr term, AttrPool* pool = nullptr)
-    : AstNodeAttr(ParserToken::Kind::Ident, std::move(term))
-    , m_name(std::move(name)) {
-        stripCaretAndApplyReadonly(pool);
-    }
+    /// Терм-конструктор: имя читается из Term и нормализуется (см. normalizeTermText,
+    /// срезает '^'), затем stripCaretAndApplyReadonly(pool). Объявлен здесь, определён в .cpp.
+    IdentName(TermPtr term, AttrPool* pool = nullptr);
+    /// Uniform term-constructor for the generated factory (kind всегда Ident).
+    /// Дети не строятся (Ident→CallExpr решается в override visit_NAME).
+    IdentName(ParserToken::Kind /*k*/, TermPtr term, Context* /*ctx*/ = nullptr)
+    : IdentName(std::move(term)) {}
 
-    [[nodiscard]] std::string_view text() const noexcept override { return m_name; }
+    /// text() унаследован от HasText (m_text).
+
+    /// Раскрывает ведущий квалификатор "@::" на текущую область имён namespace_path
+    /// (пустая — без префикса): `@::x` + ns=`a::b` → `a::b::x`. Возвращает true, если имя
+    /// было изменено. Используется анализатором для контекст-макроса `@:: foo`.
+    bool expandQualified(std::string_view namespace_path);
 
     /// Implicit conversion to string_view for compatibility.
     operator std::string_view() const noexcept { return text(); }
@@ -103,7 +109,13 @@ class IdentName : public AstNodeAttr {
   private:
     void stripCaretAndApplyReadonly(AttrPool* pool);
 
-    std::string m_name; ///< Имя идентификатора (нормализованная строка)
+  protected:
+    /// Терм-конструктор с явным kind: нормализация через normalizeTermText(kind, text)
+    /// (TypeName срезает ведущий ':', '^' — всегда). Используется IdentType (Kind::TypeName);
+    /// публичный IdentName(term, pool) делегирует с Kind::Ident.
+    IdentName(TermPtr term, ParserToken::Kind k, AttrPool* pool = nullptr);
+
+    // Имя хранится в унаследованном от HasText поле m_text (text()).
 };
 
 } // namespace trust

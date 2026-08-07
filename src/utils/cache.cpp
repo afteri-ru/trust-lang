@@ -9,12 +9,14 @@
 namespace trust {
 
 void SparseCache::build(std::string_view source) {
-    if (!m_entries.empty())
+    if (!m_entries.empty()) {
         return;
+    }
 
     size_t fileSize = source.size();
-    if (fileSize == 0)
+    if (fileSize == 0) {
         return;
+    }
 
     std::vector<Entry> allLines;
     allLines.reserve(source.size() / 80 + 1);
@@ -45,23 +47,27 @@ void SparseCache::build(std::string_view source) {
 }
 
 const SparseCache::Entry* SparseCache::find_by_offset(uint32_t target) const {
-    if (m_entries.empty())
+    if (m_entries.empty()) {
         return nullptr;
+    }
 
     auto it = std::upper_bound(m_entries.begin(), m_entries.end(), target, [](uint32_t off, const Entry& e) { return off < e.offset; });
-    if (it == m_entries.begin())
+    if (it == m_entries.begin()) {
         return &m_entries[0];
+    }
     --it;
     return &(*it);
 }
 
 const SparseCache::Entry* SparseCache::find_by_line(uint32_t target) const {
-    if (m_entries.empty())
+    if (m_entries.empty()) {
         return nullptr;
+    }
 
     auto it = std::upper_bound(m_entries.begin(), m_entries.end(), target, [](uint32_t l, const Entry& e) { return l < e.line; });
-    if (it == m_entries.begin())
+    if (it == m_entries.begin()) {
         return &m_entries[0];
+    }
     --it;
     return &(*it);
 }

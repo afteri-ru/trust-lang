@@ -22,8 +22,9 @@ static void set_emit_flag(PipelineOpts& opts, EmitFlags flag) {
 ParseResult Pipeline::parseArgs(std::span<char*> argv) {
     ParseResult result;
 
-    if (argv.empty())
+    if (argv.empty()) {
         return result;
+    }
 
     // Set default compiler from CMake config
     result.opts.compiler = TRUST_DEFAULT_COMPILER;
@@ -52,19 +53,33 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
     app.add_flag("-l,--shared-lib", [&](int64_t) { result.opts.compile_mode = CompileMode::SharedLib; }, "Compile to shared library (.so)");
     app.add_flag("-m,--module", [&](int64_t) { result.opts.compile_mode = CompileMode::TrustModule; }, "Compile to trust module (.trust)");
     app.add_flag("--module-info", result.opts.module_info_requested, "Show exported symbols and version of a .trust module");
+    // --run: собрать исполняемый файл и запустить его (стиль bash-скрипта с шебангом #!).
+    app.add_flag(
+        "--run",
+        [&](int64_t) {
+            result.opts.compile_mode = CompileMode::Executable;
+            result.opts.run = true;
+        },
+        "Build and run the program (executable)");
 
     // ── Опции с аргументом ──
     app.add_option("-o,--output", result.opts.output_file, "Output file (default: stdout)")->type_name("file");
     app.add_option("--temp-dir", result.opts.temp_dir, "Temporary directory for intermediate files")->type_name("dir");
     app.add_option("--compiler", result.opts.compiler, "Compiler path")->type_name("path");
     app.add_option("--options", result.opts.compiler_options, "Additional compiler options (quoted)")->type_name("opts");
+    std::string link_mode = "static";
+    app.add_option("--link-runtime", link_mode, "How to link the trust runtime into the generated executable: static (default) or shared")
+        ->type_name("mode")
+        ->check(CLI::IsMember({"static", "shared"}, CLI::ignore_case));
 
     // ── Standard library ──
     app.add_flag("--no-stdlib", [&](int64_t) { result.opts.use_stdlib = false; }, "Disable standard library types");
 
     // ── DSL macros ──
-    app.add_option("--dsl", result.opts.dsl_file, "Load DSL macros from file instead of embedded std/dsl.src")->type_name("file");
+    app.add_option("--dsl", result.opts.dsl_file, "Load DSL macros from file instead of embedded trust/dsl.src")->type_name("file");
     app.add_flag("--no-dsl", result.opts.no_dsl, "Disable loading DSL macros");
+    app.add_flag("--semantic-on-errors", result.opts.allow_semantic_on_errors,
+                 "Run the semantic analyzer even when the lexer/parser produced errors (LSP-style, partial AST)");
 
     // ── Парсинг ──
     try {
@@ -76,6 +91,9 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
         }
         return result;
     }
+
+    // Apply --link-runtime value (validated by CLI::IsMember above).
+    result.opts.runtime_link = (link_mode == "shared") ? RuntimeLink::Shared : RuntimeLink::Static;
 
     // ── Дополнительная обработка после парсинга ──
 
@@ -120,12 +138,18 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
 
     // Warn about compile options being used with emit flags
     if (!result.opts.should_compile()) {
-        if (!result.opts.temp_dir.empty())
+        if (!result.opts.temp_dir.empty()) {
             trust::errs() << "warning: --temp-dir is ignored when using emit flags\n";
-        if (!result.opts.compiler_options.empty())
+        }
+        if (!result.opts.compiler_options.empty()) {
             trust::errs() << "warning: --options is ignored when using emit flags\n";
-        if (result.opts.compile_mode != CompileMode::Executable)
+        }
+        if (result.opts.compile_mode != CompileMode::Executable) {
             trust::errs() << "warning: -c/-a/-l is ignored when using emit flags\n";
+        }
+        if (result.opts.run) {
+            trust::errs() << "warning: --run is ignored when using emit flags\n";
+        }
     }
 
     return result;

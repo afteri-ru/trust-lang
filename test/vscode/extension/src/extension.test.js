@@ -915,3 +915,228 @@ describe('Diagnostics: DAP path errors', () => {
         config.get.mockRestore();
     });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// Developer settings group (trust.dev.*): --trace, highlightRanges middleware
+// ═══════════════════════════════════════════════════════════════
+
+// Активирует расширение с заданным lspPath. Spy на lspPath снимается сразу после
+// activate (lspPath нужен только при старте), чтобы не конфликтовать со spy в тестах.
+function activateWithLspPath(lspPath) {
+    const config = vscode.workspace.getConfiguration('trust');
+    const origGet = config.get.bind(config);
+    const spy = jest.spyOn(config, 'get').mockImplementation((key, defaultValue) => {
+        if (key === 'lspPath') return lspPath;
+        return origGet(key, defaultValue);
+    });
+    const ctx = { subscriptions: [] };
+    extension.activate(ctx);
+    spy.mockRestore();
+}
+
+describe('Developer settings: dev.traceLSP → --trace', () => {
+    beforeEach(() => {
+        vscode.window._statusBarItems = [];
+        vscode.window._outputChannels = [];
+    });
+
+    test('adds --trace to server args when dev.traceLSP is true', () => {
+        const { LanguageClient } = require('vscode-languageclient/node');
+        const cfg = vscode.workspace.getConfiguration('trust');
+        const origGet = cfg.get.bind(cfg);
+        jest.spyOn(cfg, 'get').mockImplementation((key, defaultValue) => {
+            if (key === 'lspPath') return 'trust-lsp';
+            if (key === 'dev.traceLSP') return true;
+            return origGet(key, defaultValue);
+        });
+
+        const ctx = { subscriptions: [] };
+        extension.activate(ctx);
+
+        const calls = LanguageClient.mock.calls;
+        const lastCall = calls[calls.length - 1];
+        expect(lastCall[2].args).toContain('--trace');
+
+        cfg.get.mockRestore();
+    });
+
+    test('does NOT add --trace when dev.traceLSP is false (default)', () => {
+        const { LanguageClient } = require('vscode-languageclient/node');
+        const cfg = vscode.workspace.getConfiguration('trust');
+        const origGet = cfg.get.bind(cfg);
+        jest.spyOn(cfg, 'get').mockImplementation((key, defaultValue) => {
+            if (key === 'lspPath') return 'trust-lsp';
+            return origGet(key, defaultValue);
+        });
+
+        const ctx = { subscriptions: [] };
+        extension.activate(ctx);
+
+        const calls = LanguageClient.mock.calls;
+        const lastCall = calls[calls.length - 1];
+        expect(lastCall[2].args).not.toContain('--trace');
+
+        cfg.get.mockRestore();
+    });
+});
+
+describe('Developer settings: highlightRanges middleware (provideDocumentLinks)', () => {
+    function getMiddleware() {
+        const { LanguageClient } = require('vscode-languageclient/node');
+        activateWithLspPath('trust-lsp');
+        const calls = LanguageClient.mock.calls;
+        const lastCall = calls[calls.length - 1];
+        const middleware = lastCall[3].middleware;
+        expect(middleware).toBeDefined();
+        return middleware;
+    }
+
+    test('returns empty array (no underlining) when highlightRanges is off (default)', async () => {
+        const middleware = getMiddleware();
+        const next = jest.fn().mockResolvedValue([{ range: {}, target: 'file:///x.cppt' }]);
+        const doc = { uri: 'file:///test.src' };
+        const token = { isCancellationRequested: () => false };
+
+        const result = await middleware.provideDocumentLinks(doc, token, next);
+
+        expect(result).toEqual([]);
+        expect(next).not.toHaveBeenCalled();
+    });
+
+    test('passes through to next() when highlightRanges is on', async () => {
+        const middleware = getMiddleware();
+        const cfg = vscode.workspace.getConfiguration('trust');
+        const origGet = cfg.get.bind(cfg);
+        const spy = jest.spyOn(cfg, 'get').mockImplementation((key, defaultValue) => {
+            if (key === 'dev.highlightRanges') return true;
+            return origGet(key, defaultValue);
+        });
+
+        const next = jest.fn().mockResolvedValue([{ range: {}, target: 'file:///x.cppt' }]);
+        const doc = { uri: 'file:///test.src' };
+        const token = { isCancellationRequested: () => false };
+
+        const result = await middleware.provideDocumentLinks(doc, token, next);
+
+        expect(result).toEqual([{ range: {}, target: 'file:///x.cppt' }]);
+        expect(next).toHaveBeenCalledWith(doc, token);
+        spy.mockRestore();
+    });
+
+    test('does not intercept hover/definition providers (only documentLinks middleware is set)', () => {
+        const middleware = getMiddleware();
+        expect(middleware.provideHover).toBeUndefined();
+        expect(middleware.provideDefinition).toBeUndefined();
+        expect(typeof middleware.provideDocumentLinks).toBe('function');
+    });
+});
+
+
+// ═══════════════════════════════════════════════════════════════
+// Trace output on error: DAP (writeTrace/writeDiag) и LSP (канал «Trust Lang LSP»)
+// ═══════════════════════════════════════════════════════════════
+
+describe('DAP trace output on error', () => {
+    const { writeTrace, writeDiag, resetTraceChannel } = require('dap-adapter');
+
+    beforeEach(() => {
+        vscode.window._outputChannels = [];
+        resetTraceChannel();
+    });
+
+    test('writeTrace(msg, isError=true) always writes to "Trust Lang" channel (even when traceDAP off)', () => {
+        writeTrace('[DAP-ERR] boom', true);
+        const channel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang');
+        expect(channel).toBeDefined();
+        expect(channel.content).toContain('[DAP-ERR] boom');
+    });
+
+    test('writeTrace(msg) (non-error) is suppressed when dev.traceDAP is off', () => {
+        writeTrace('[DAP->] verbose request');
+        const channel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang');
+        expect(channel).toBeDefined();
+        expect(channel.content).not.toContain('[DAP->] verbose request');
+    });
+
+    test('writeTrace(msg) (non-error) writes when dev.traceDAP is on', () => {
+        const cfg = vscode.workspace.getConfiguration('trust');
+        const origGet = cfg.get.bind(cfg);
+        jest.spyOn(cfg, 'get').mockImplementation((key, defaultValue) => {
+            if (key === 'dev.traceDAP') return true;
+            return origGet(key, defaultValue);
+        });
+
+        writeTrace('[DAP->] verbose request');
+        const channel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang');
+        expect(channel.content).toContain('[DAP->] verbose request');
+
+        cfg.get.mockRestore();
+    });
+
+    test('writeDiag always writes to "Trust Lang" channel', () => {
+        writeDiag('[DAP-DESC] diagnostic');
+        const channel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang');
+        expect(channel).toBeDefined();
+        expect(channel.content).toContain('[DAP-DESC] diagnostic');
+    });
+});
+
+describe('LSP trace output on error (dev.traceLSP)', () => {
+    beforeEach(() => {
+        vscode.window._statusBarItems = [];
+        vscode.window._outputChannels = [];
+    });
+
+    test('LSP client start() rejection writes [ERROR] to "Trust Lang LSP" channel', async () => {
+        const { LanguageClient } = require('vscode-languageclient/node');
+        const cfg = vscode.workspace.getConfiguration('trust');
+        const origGet = cfg.get.bind(cfg);
+        jest.spyOn(cfg, 'get').mockImplementation((key, defaultValue) => {
+            if (key === 'lspPath') return 'trust-lsp';
+            if (key === 'dev.traceLSP') return true;
+            return origGet(key, defaultValue);
+        });
+
+        LanguageClient.mockImplementationOnce(jest.fn().mockImplementation((id, name, serverOptions, clientOptions) => ({
+            start: jest.fn().mockRejectedValue(new Error('ENOENT: trust-lsp not found')),
+            stop: jest.fn().mockResolvedValue(undefined),
+            dispose: jest.fn().mockResolvedValue(undefined),
+            onDidChangeState: jest.fn().mockImplementation(() => ({ dispose: jest.fn() })),
+            onNotification: jest.fn().mockImplementation(() => ({ dispose: jest.fn() }))
+        })));
+
+        const ctx = { subscriptions: [] };
+        extension.activate(ctx);
+
+        // Дать микротаску обработать rejected promise из start() (.catch).
+        await new Promise(process.nextTick);
+
+        const lspChannel = vscode.window._outputChannels.find(ch => ch.name === 'Trust Lang LSP');
+        expect(lspChannel).toBeDefined();
+        expect(lspChannel.content).toContain('[ERROR]');
+        expect(lspChannel.content).toContain('failed to start');
+
+        cfg.get.mockRestore();
+    });
+
+    test('server receives --trace when dev.traceLSP is true (trace to LSP channel)', () => {
+        const { LanguageClient } = require('vscode-languageclient/node');
+        const cfg = vscode.workspace.getConfiguration('trust');
+        const origGet = cfg.get.bind(cfg);
+        jest.spyOn(cfg, 'get').mockImplementation((key, defaultValue) => {
+            if (key === 'lspPath') return 'trust-lsp';
+            if (key === 'dev.traceLSP') return true;
+            return origGet(key, defaultValue);
+        });
+
+        const ctx = { subscriptions: [] };
+        extension.activate(ctx);
+
+        const calls = LanguageClient.mock.calls;
+        const lastCall = calls[calls.length - 1];
+        expect(lastCall[2].args).toContain('--trace');
+
+        cfg.get.mockRestore();
+    });
+});
+

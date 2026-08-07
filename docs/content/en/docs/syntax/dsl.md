@@ -7,12 +7,12 @@ weight: 200
 
 
 ### Features of associative memory
-The syntax of the *NewLang* language is based on strict rules without the use of keywords,
+The syntax of the *TrustLang* language is based on strict rules without the use of keywords,
 and no matter how logical it may seem, association by keywords is much easier to remember, for example, **if**,
 than the combination *minus minus right angle bracket* **-->**. 
 Because of this, it makes sense to use not a "pure" basic syntax, but a more familiar dialect with the use of keywords.
 
-*NewLang* already contains a set of macros that extend the basic rule-based syntax of *NewLang*,
+*TrustLang* already contains a set of macros that extend the basic rule-based syntax of *TrustLang*,
 a set of predefined keywords as in classical programming languages,
 which can be adapted or supplemented to suit your own subject area.
 
@@ -43,9 +43,9 @@ which can be adapted or supplemented to suit your own subject area.
 - *@dowhile(...)* - Loop operator with postcondition
 - *@loop* - Infinite loop operator
 
-- *@break $label* - Operator to break out of a named named block of code
-- *@continue $label* - Jump operator to the beginning of a named block of code
-- *@return( result )* - Operator for returning a value and exiting a function
+- *@break [label]* - Break out of the innermost loop, or out of the named block `label` (a single identifier, without `::`). Without a label: `@break;`
+- *@continue [label]* - Jump to the beginning of the innermost loop, or of the named block `label` (a single identifier, without `::`). Without a label: `@continue;`
+- *@return [value]* - Exit the current function (equivalent to `break` by the function name `@__FUNCTION__`). Void form: `@return;`. With value: `@return <value>;` (a single rvalue: name, literal, string, call, or a tuple `(a, b,)` in brackets)
 - *@throw( error )* - Operator for creating an exception and returning an error
 
 - *@match( ... )* - Expression evaluation operator
@@ -61,7 +61,7 @@ which can be adapted or supplemented to suit your own subject area.
 - *@exit(code)* - Terminate program execution and return exit code
 - *@abort()* - Terminate program execution without flushing buffers to disk
 
-- *@using(...)* - Use the listed namespaces during [name lookup](/docs/syntax/naming/#using)
+- *@using(...)* - Use the listed namespaces during [name lookup](/en/docs/syntax/naming/#using)
 
 ## Built-in functions and checks
 
@@ -78,7 +78,7 @@ and computations inside `@verify` are executed, but their result is ignored.*
 
 ## Predefined macros
 
-When the *NewLang* parser is running, several reserved macros are automatically generated,
+When the *TrustLang* parser is running, several reserved macros are automatically generated,
 some of which correspond to preprocessor macros in C/C++.
 These predefined macros can be used as regular constants.
 
@@ -94,7 +94,7 @@ These predefined macros can be used as regular constants.
 - \_\_TIMESTAMP\_\_ - date and time when the compiler started running (for example: "Fri 19 Aug 13:32:58 2016")
 - \_\_TIMESTAMP_ISO\_\_ - date and time when the compiler started running in ISO format (for example: "2013-07-06T00:50:06Z")
 
-- \_\_NLC_VER\_\_ - Older and younger version of the NewLang compiler (8-bit number, 4 bits per digit)
-- \_\_NLC_DATE_BUILD\_\_ - text string with the build date of the NewLang compiler (for example, "06/23/04 20:51:39")
-- \_\_NLC_SOURCE_GIT\_\_ - text string with the identifier of the NewLang git repository source files used to build the compiler (for example, "v0.3.0-fef8c371")
-- \_\_NLC_SOURCE_BUILD\_\_ - build date and git identifier of NewLang source files in one text line (for example, "v0.3.0-fef8c371 06/23/04 20:51:39")
+- \_\_NLC_VER\_\_ - Older and younger version of the TrustLang compiler (8-bit number, 4 bits per digit)
+- \_\_NLC_DATE_BUILD\_\_ - text string with the build date of the TrustLang compiler (for example, "06/23/04 20:51:39")
+- \_\_NLC_SOURCE_GIT\_\_ - text string with the identifier of the TrustLang git repository source files used to build the compiler (for example, "v0.3.0-fef8c371")
+- \_\_NLC_SOURCE_BUILD\_\_ - build date and git identifier of TrustLang source files in one text line (for example, "v0.3.0-fef8c371 06/23/04 20:51:39")

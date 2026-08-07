@@ -1,6 +1,6 @@
 module;
 
-#include "diag/location.hpp"
+#include "location/location.hpp"
 #include "ast/token.hpp"
 #include "diag/context.hpp"
 #include "types/typekind.hpp"

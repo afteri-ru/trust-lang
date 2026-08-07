@@ -1,0 +1,34 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/rational --link-runtime shared %s
+# RUN: LD_LIBRARY_PATH=$(dirname %trust_bin) $TD/rational && echo "PASS"
+# CHECK: PASS
+
+# Rational runtime-backed type linked dynamically (--link-runtime shared): the
+# executable depends on trust-runtime.so, resolved at run time via LD_LIBRARY_PATH.
+
+# Rational runtime-backed type: `x : Rational := 0;` makes the transpiler emit
+# `#include "trust/rational.hpp"`; the pipeline extracts the header from
+# trust-runtime.so into <temp-dir>/trust/ and links the runtime library into the
+# executable, which must then run the Rational arithmetic correctly.
+x : Rational := 0;
+
+{% int rational__main__() {
+    trust::Rational a("3", "4");
+    trust::Rational b("1", "4");
+    trust::Rational s = a + b;
+    if (s.GetAsString() != "1\\1")
+        return 1;
+    trust::Rational h("1", "2");
+    trust::Rational t("1", "3");
+    if ((h - t).GetAsString() != "1\\6")
+        return 2;
+    if (h != h)
+        return 3;
+    if (trust::Rational("2", "4") != h)
+        return 4;
+    if (trust::Rational("1", "2") < trust::Rational("2", "3")) {
+    } else {
+        return 5;
+    }
+    return 0;
+} %}

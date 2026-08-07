@@ -61,13 +61,16 @@ struct GdbDebug::Impl {
             close(stdinPipe[1]);
             close(stdoutPipe[0]);
 
-            if (dup2(stdinPipe[0], STDIN_FILENO) < 0)
+            if (dup2(stdinPipe[0], STDIN_FILENO) < 0) {
                 _exit(1);
-            if (dup2(stdoutPipe[1], STDOUT_FILENO) < 0)
+            }
+            if (dup2(stdoutPipe[1], STDOUT_FILENO) < 0) {
                 _exit(1);
+            }
 
-            for (int i = 3; i < 1024; ++i)
+            for (int i = 3; i < 1024; ++i) {
                 close(i);
+            }
 
             execlp(gdbPath.c_str(), gdbPath.c_str(), "--interpreter=mi2", "-q", nullptr);
             // If execlp fails, try execvp with full path search via PATH
@@ -107,8 +110,9 @@ struct GdbDebug::Impl {
 
         while (std::chrono::steady_clock::now() < deadline) {
             std::string line = ReadLine(100);
-            if (line.empty())
+            if (line.empty()) {
                 continue;
+            }
 
             resp.raw = line;
             const char* p = line.c_str();
@@ -215,28 +219,34 @@ struct GdbDebug::Impl {
 
         while (*p != '\0' && *p != ']') {
             // Skip whitespace
-            while (*p == ' ' || *p == '\t')
+            while (*p == ' ' || *p == '\t') {
                 p++;
-            if (*p == '\0' || *p == ']')
+            }
+            if (*p == '\0' || *p == ']') {
                 break;
+            }
 
             // Expect "frame={"
-            if (strncmp(p, "frame={", 7) != 0)
+            if (strncmp(p, "frame={", 7) != 0) {
                 break;
+            }
             p += 7;
 
             StackFrameInfo frame;
             while (*p != '\0' && *p != '}') {
                 // Skip whitespace
-                while (*p == ' ' || *p == '\t')
+                while (*p == ' ' || *p == '\t') {
                     p++;
-                if (*p == '\0' || *p == '}')
+                }
+                if (*p == '\0' || *p == '}') {
                     break;
+                }
 
                 // key=value  (value may be quoted or unquoted)
                 const char* eq = strchr(p, '=');
-                if (eq == nullptr)
+                if (eq == nullptr) {
                     break;
+                }
 
                 std::string key(p, eq - p);
                 p = eq + 1;
@@ -245,18 +255,21 @@ struct GdbDebug::Impl {
                 if (*p == '"') {
                     p++; // skip opening quote
                     const char* val_end = strchr(p, '"');
-                    if (val_end == nullptr)
+                    if (val_end == nullptr) {
                         break;
+                    }
                     value = std::string(p, val_end - p);
                     p = val_end + 1;
                 } else {
                     const char* val_end = strchr(p, ',');
                     const char* brace_end = strchr(p, '}');
-                    if (val_end == nullptr && brace_end == nullptr)
+                    if (val_end == nullptr && brace_end == nullptr) {
                         break;
+                    }
                     const char* end = val_end;
-                    if (brace_end != nullptr && (val_end == nullptr || brace_end < val_end))
+                    if (brace_end != nullptr && (val_end == nullptr || brace_end < val_end)) {
                         end = brace_end;
+                    }
                     value = std::string(p, end - p);
                     p = end;
                 }
@@ -270,18 +283,21 @@ struct GdbDebug::Impl {
                 }
 
                 // Skip comma separator
-                if (*p == ',')
+                if (*p == ',') {
                     p++;
+                }
             }
 
             frames.push_back(frame);
 
             // Skip closing '}'
-            if (*p == '}')
+            if (*p == '}') {
                 p++;
+            }
             // Skip comma
-            if (*p == ',')
+            if (*p == ',') {
                 p++;
+            }
         }
 
         return frames;
@@ -314,8 +330,9 @@ struct GdbDebug::Impl {
         if (!line.empty() && line[0] == '~') {
             const char* p = line.c_str() + 1;
             // Skip leading whitespace after ~
-            while (*p == ' ')
+            while (*p == ' ') {
                 ++p;
+            }
             if (*p == '"') {
                 ++p;
                 const char* end = strrchr(p, '"');
@@ -347,8 +364,9 @@ struct GdbDebug::Impl {
         if (newlinePos != std::string::npos) {
             std::string line = m_buffer.substr(0, newlinePos);
             m_buffer.erase(0, newlinePos + 1);
-            if (!line.empty() && line.back() == '\r')
+            if (!line.empty() && line.back() == '\r') {
                 line.pop_back();
+            }
             return line;
         }
 
@@ -358,8 +376,9 @@ struct GdbDebug::Impl {
             pfd.fd = m_stdout_fd;
             pfd.events = POLLIN;
             int ret = poll(&pfd, 1, 50);
-            if (ret < 0)
+            if (ret < 0) {
                 break;
+            }
             if (ret > 0 && (pfd.revents & POLLIN)) {
                 char buf[4096];
                 ssize_t n = read(m_stdout_fd, buf, sizeof(buf) - 1);
@@ -370,8 +389,9 @@ struct GdbDebug::Impl {
                     if (newlinePos != std::string::npos) {
                         std::string line = m_buffer.substr(0, newlinePos);
                         m_buffer.erase(0, newlinePos + 1);
-                        if (!line.empty() && line.back() == '\r')
+                        if (!line.empty() && line.back() == '\r') {
                             line.pop_back();
+                        }
                         return line;
                     }
                 } else {
@@ -384,13 +404,16 @@ struct GdbDebug::Impl {
 
     static void ParseKeyValues(const char* p, MiResponse& resp) {
         while (p && *p) {
-            while (*p == ' ')
+            while (*p == ' ') {
                 ++p;
-            if (!*p)
+            }
+            if (!*p) {
                 break;
+            }
             const char* eq = strchr(p, '=');
-            if (!eq)
+            if (!eq) {
                 break;
+            }
             std::string key(p, eq - p);
             const char* valStart = eq + 1;
             if (*valStart == '"') {
@@ -398,10 +421,11 @@ struct GdbDebug::Impl {
                 const char* valEnd = strchr(valStart, '"');
                 if (valEnd) {
                     std::string value(valStart, valEnd - valStart);
-                    if (key == "reason")
+                    if (key == "reason") {
                         resp.reason = value;
-                    else if (key == "msg")
+                    } else if (key == "msg") {
                         resp.msg = value;
+                    }
                     p = valEnd + 1;
                 } else {
                     break;
@@ -410,17 +434,19 @@ struct GdbDebug::Impl {
                 const char* valEnd = strchr(valStart, ',');
                 if (valEnd) {
                     std::string value(valStart, valEnd - valStart);
-                    if (key == "reason")
+                    if (key == "reason") {
                         resp.reason = value;
-                    else if (key == "msg")
+                    } else if (key == "msg") {
                         resp.msg = value;
+                    }
                     p = valEnd + 1;
                 } else {
                     std::string value(valStart);
-                    if (key == "reason")
+                    if (key == "reason") {
                         resp.reason = value;
-                    else if (key == "msg")
+                    } else if (key == "msg") {
                         resp.msg = value;
+                    }
                     break;
                 }
             }
@@ -457,13 +483,15 @@ bool GdbDebug::CreateTarget(const std::string& exe) {
 
 static int parseBkptNumber(const std::string& raw) {
     const char* numStart = strstr(raw.c_str(), "number=\"");
-    if (!numStart)
+    if (!numStart) {
         return -1;
+    }
     numStart += 8; // skip "number=\""
     char* end = nullptr;
     long n = strtol(numStart, &end, 10);
-    if (end == numStart)
+    if (end == numStart) {
         return -1;
+    }
     return static_cast<int>(n);
 }
 
@@ -583,12 +611,14 @@ std::vector<std::string> GdbDebug::GetVariables() {
             p = markers + 10; // skip "variables=["
             while (*p && *p != ']') {
                 const char* nameEq = strstr(p, "name=\"");
-                if (!nameEq)
+                if (!nameEq) {
                     break;
+                }
                 nameEq += 6;
                 const char* nameEnd = strchr(nameEq, '"');
-                if (!nameEnd)
+                if (!nameEnd) {
                     break;
+                }
                 vars.push_back(std::string(nameEq, nameEnd - nameEq));
                 p = nameEnd + 1;
             }
@@ -609,8 +639,9 @@ std::string GdbDebug::ReadStdout() {
     while (poll(&pfd, 1, 0) > 0 && (pfd.revents & POLLIN)) {
         char buf[4096];
         ssize_t n = read(m_impl->m_stdout_fd, buf, sizeof(buf) - 1);
-        if (n <= 0)
+        if (n <= 0) {
             break;
+        }
     }
     std::string result;
     std::swap(result, m_impl->m_console_buffer);

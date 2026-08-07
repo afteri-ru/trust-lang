@@ -96,12 +96,14 @@ class AttrPool {
 
     /// Intern a string into the pool (stable set storage + dedup).
     [[nodiscard]] std::string_view intern(std::string_view s) {
-        if (s.empty())
+        if (s.empty()) {
             return {};
+        }
         // Use transparent comparator for heterogeneous lookup with string_view
         auto it = m_strings.find(s);
-        if (it != m_strings.end())
+        if (it != m_strings.end()) {
             return std::string_view(*it);
+        }
         return std::string_view(*m_strings.emplace(s).first);
     }
 

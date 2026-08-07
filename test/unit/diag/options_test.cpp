@@ -333,3 +333,112 @@ TEST(Options, SetUnknownThrows) {
     opts.add_option(OptKind::UnusedVar);
     EXPECT_THROW(opts.set("unknown", Severity::Error), std::invalid_argument);
 }
+
+// ── Булевые feature-флаги (OPTIONS_FLAGS) ──
+
+TEST(Options, FlagRegisterAndToggle) {
+    Options opts;
+    opts.register_flag(FlagKind::Comments);
+    EXPECT_FALSE(opts.is_enabled(FlagKind::Comments)); // по умолчанию выключен
+    opts.set_enabled(FlagKind::Comments, true);
+    EXPECT_TRUE(opts.is_enabled(FlagKind::Comments));
+    opts.set_enabled(FlagKind::Comments, false);
+    EXPECT_FALSE(opts.is_enabled(FlagKind::Comments));
+    // по cli-имени
+    EXPECT_TRUE(opts.set_enabled("comments", true));
+    EXPECT_TRUE(opts.is_enabled(FlagKind::Comments));
+    EXPECT_FALSE(opts.set_enabled("unknown-flag", true));
+}
+
+TEST(Options, FlagBacktrace) {
+    // Флаг backtrace управляет trace-аргументом trust__abort__.
+    Options opts;
+    opts.register_flag(FlagKind::Backtrace);
+    EXPECT_FALSE(opts.is_enabled(FlagKind::Backtrace)); // по умолчанию выключен
+
+    // -Wbacktrace → включить.
+    {
+        char a[] = "-Wbacktrace";
+        char* argv[] = {a};
+        auto rest = opts.parse_argv(argv);
+        EXPECT_TRUE(opts.is_enabled(FlagKind::Backtrace));
+        EXPECT_TRUE(rest.empty());
+    }
+    // -Wno-backtrace → выключить.
+    {
+        char a[] = "-Wno-backtrace";
+        char* argv[] = {a};
+        auto rest = opts.parse_argv(argv);
+        EXPECT_FALSE(opts.is_enabled(FlagKind::Backtrace));
+        EXPECT_TRUE(rest.empty());
+    }
+    // по cli-имени.
+    EXPECT_TRUE(opts.set_enabled("backtrace", true));
+    EXPECT_TRUE(opts.is_enabled("backtrace"));
+}
+
+TEST(Options, ParseArgvFlagNegate) {
+    Options opts;
+    opts.register_flag(FlagKind::Comments);
+    // -Wno-comments → выключить флаг (комментарии подавляются; см. isSuppressedDoc).
+    char a[] = "-Wno-comments";
+    char* argv[] = {a};
+    auto rest = opts.parse_argv(argv);
+    EXPECT_FALSE(opts.is_enabled(FlagKind::Comments));
+    EXPECT_TRUE(rest.empty());
+}
+
+TEST(Options, ParseArgvFlagBareEnables) {
+    Options opts;
+    opts.register_flag(FlagKind::Comments);
+    // голый -Wcomments → включить флаг (комментарии выводятся).
+    char a[] = "-Wcomments";
+    char* argv[] = {a};
+    auto rest = opts.parse_argv(argv);
+    EXPECT_TRUE(opts.is_enabled(FlagKind::Comments));
+    EXPECT_TRUE(rest.empty());
+}
+
+TEST(Options, ParseArgvFlagWithValue) {
+    Options opts;
+    opts.register_flag(FlagKind::Lint);
+    // -Wlint=aggressive → включить + задать строковое значение.
+    char a[] = "-Wlint=aggressive";
+    char* argv[] = {a};
+    auto rest = opts.parse_argv(argv);
+    EXPECT_TRUE(opts.is_enabled(FlagKind::Lint));
+    ASSERT_TRUE(opts.flag_value(FlagKind::Lint).has_value());
+    EXPECT_EQ(*opts.flag_value(FlagKind::Lint), "aggressive");
+    EXPECT_TRUE(rest.empty());
+}
+
+TEST(Options, FlagValueSetReset) {
+    Options opts;
+    opts.register_flag(FlagKind::Lint);
+    EXPECT_FALSE(opts.flag_value(FlagKind::Lint).has_value());
+
+    opts.set_flag_value("lint", "strict");
+    EXPECT_TRUE(opts.is_enabled(FlagKind::Lint));
+    ASSERT_TRUE(opts.flag_value(FlagKind::Lint).has_value());
+    EXPECT_EQ(*opts.flag_value(FlagKind::Lint), "strict");
+
+    // Выключение сбрасывает значение.
+    opts.set_enabled("lint", false);
+    EXPECT_FALSE(opts.is_enabled(FlagKind::Lint));
+    EXPECT_FALSE(opts.flag_value(FlagKind::Lint).has_value());
+}
+
+TEST(Options, FlagValuePushPop) {
+    Options opts;
+    opts.register_flag(FlagKind::Lint);
+    opts.set_flag_value(FlagKind::Lint, "basic");
+
+    opts.push();
+    opts.set_flag_value(FlagKind::Lint, "aggressive");
+    EXPECT_EQ(*opts.flag_value(FlagKind::Lint), "aggressive");
+
+    opts.pop();
+    ASSERT_TRUE(opts.flag_value(FlagKind::Lint).has_value());
+    EXPECT_EQ(*opts.flag_value(FlagKind::Lint), "basic");
+    EXPECT_TRUE(opts.is_enabled(FlagKind::Lint));
+}

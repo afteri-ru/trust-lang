@@ -1,0 +1,40 @@
+#!../_build/trust --run
+#
+# Смешанный словарь: несколько групп данных (быстрая ветка variant + std::any) и
+# приведения между типами, в т.ч. между storage (быстрая ветка) и std::any (вложенный Dict).
+#
+#   count=7     → Int8     (быстрая ветка variant, storage)
+#   pi=3.14     → Float64  (storage)
+#   name='mix'  → StrChar  (storage)
+#   half=1\2    → Rational (быстрая ветка variant, по значению)
+#   inner=(k=9,)→ вложенный Dict (std::any-ветка)
+#   flag=count>5 → Bool     (storage, добавлен через []=)
+#
+# Запуск: ./_build/trust --run examples/dict_mixed.src
+
+
+@main() := {
+    d := (count=7, pi=3.14, name='mix', half=1\2, inner=(k=9,),);
+    d []= (d.count > 5);   # Bool элемент (storage)
+
+    # Доступ к полям разных групп (тип выводится из литерала).
+    @print('count={}\n', d.count);   # Int8
+    @print('pi={}\n', d.pi);         # Float64
+    @print('name={}\n', d.name);     # StrChar
+    @print('half={}\n', d.half);     # Rational → "1\2"
+    @print('flag={}\n', d[5]);       # Bool → true/false
+
+    # Приведения между разными типами:
+    @print('count_as_float={}\n',  :Float64( d.count ));   # int → float
+    @print('pi_as_int={}\n',       :Int32( d.pi ));        # float → int (сужение с контролем)
+    @print('flag_as_int={}\n',     :Int32( d[5] ));        # bool → int
+    @print('count_as_rational={}\n', :Rational( d.count ));  # int → Rational
+
+    # std::any-ветка (вложенный Dict): доступ к внутреннему полю с приведением.
+    @print('inner_k={}\n', :Int32( d.inner.k ));
+
+    # Комбинация storage и std::any: inner.k (std::any) + count (storage).
+    @print('sum={}\n', :Int32( d.inner.k ) + :Int32( d.count ));
+
+    @return 0;
+}

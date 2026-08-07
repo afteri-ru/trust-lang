@@ -3,14 +3,14 @@ title: Numbers
 weight: 10
 ---
 
-*NewLang* is a language with dynamic typing, and explicit type declaration does not affect the memory size occupied by a variable. 
+*TrustLang* is a language with dynamic typing, and explicit type declaration does not affect the memory size occupied by a variable. 
 Type information is used when checking their compatibility, when assigning a value of a different type to an existing object. 
 This operation is possible only when the types are compatible and allow for automatic conversion. 
 This is true both during parsing/compilation of the source text and during execution in interpreter and/or compiled file modes.
 
 ### Arithmetic types
 
-All numbers (except rational) in *NewLang* are tensors, i.e. arrays of one type with an arbitrary number of dimensions 
+All numbers (except rational) in *TrustLang* are tensors, i.e. arrays of one type with an arbitrary number of dimensions 
 and the same column size in each. A unit number is also a tensor of zero size.
 
 Only signed integers are supported, as there is no special need for unsigned numbers, 
@@ -26,7 +26,7 @@ and there are many problems with them that can be found very easily.
 The names of the built-in arithmetic types: :Int8, :Int16, :Int32, :Int64, :Float16, :Float32, :Float64, :Complex16, 
 :Complex32, :Complex64 speak for themselves. 
 And although among them there are names that are inherent to unsigned numbers (:Byte, :Word, :DWord, etc.), 
-they are synonyms and are used for interaction with [native C++ code](/docs/types/native/).
+they are synonyms and are used for interaction with [native C++ code](/en/docs/types/native/).
 
 #### Logical type {#bool}
 A separate type is the logical type: Bool, which can only take values 0 or 1 (*false*/*true* respectively), 
@@ -60,11 +60,11 @@ a literal one-dimensional tensor of two numbers. After the closing bracket, the 
 If the type is not specified, it is automatically output based on the specified data and the minimum possible byte size that allows 
 all values to be saved without loss of accuracy is selected.
 
-Examples of creating tensors and transforming their dimensions can be found [here](/docs/types/convert/).
+Examples of creating tensors and transforming their dimensions can be found [here](/en/docs/types/convert/).
 
 ### Rational Numbers {#rational}
 
-For calculations with unlimited precision in *NewLang*, a separate type is used - rational numbers. 
+For calculations with unlimited precision in *TrustLang*, a separate type is used - rational numbers. 
 They are written in the form of a common fraction, in which the numerator must be an *integer*, 
 and the denominator *natural* (an integer without zero). 
 

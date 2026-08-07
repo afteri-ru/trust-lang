@@ -1,0 +1,18 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# Методы массива (зарегистрированы на `:Array`, подстановка элементного типа T→Elem).
+
+a := [10,20,30,];
+# CHECK: std::vector<int8_t> c_a = std::vector<int8_t>{10, 20, 30};
+
+n := a.count();
+# CHECK: int64_t c_n = (c_a).count();
+
+e := a.empty();
+# CHECK-NEXT: bool c_e = (c_a).empty();
+
+f := a.first();
+# CHECK-NEXT: int8_t c_f = (c_a).first();
+
+v := a.at(2);
+# CHECK-NEXT: int8_t c_v = (c_a).at(2);

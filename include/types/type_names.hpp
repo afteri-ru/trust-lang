@@ -50,8 +50,19 @@ inline constexpr std::string_view Complex64 = "Complex64";
 inline constexpr std::string_view StrChar = "StrChar";
 inline constexpr std::string_view StrWide = "StrWide";
 
+// ── C-string (невладеющий указатель const char*) ─────────
+// Результат метода StrChar.%c_str(); транслируется в `const char*` (C++).
+inline constexpr std::string_view CString = "CString";
+
 // ── Rational ──────────────────────────────────────────────
 inline constexpr std::string_view Rational = "Rational";
+
+// ── Dict (universal heterogeneous dictionary) ────────────
+inline constexpr std::string_view Dict = "Dict";
+inline constexpr std::string_view Dictionary = "Dictionary";
+
+// ── Array (universal mutable array, → std::vector) ───────
+inline constexpr std::string_view Array = "Array";
 
 // ── Integer/float aliases ─────────────────────────────────
 inline constexpr std::string_view Char = "Char";

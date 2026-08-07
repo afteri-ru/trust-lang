@@ -47,6 +47,9 @@ TASK_ID=$(extract_task_id "$INPUT" '.taskId') || {
   exit 0
 }
 
+# Приводим taskId к числовому виду (убираем префикс/суффикс нового формата)
+TASK_ID=$(normalize_task_id "$TASK_ID") || exit 0
+
 NOW_MS=$(date +%s%3N)
 NOW_ISO=$(timestamp_to_iso "$NOW_MS") || {
   jq -n '{"cancel":false,"contextModification":"","errorMessage":"UserPromptSubmit: failed to format timestamp"}'

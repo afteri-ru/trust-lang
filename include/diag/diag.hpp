@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-#include "diag/location.hpp"
+#include "location/location.hpp"
 #include "diag/severity.hpp"
 #include "diag/options.hpp"
 

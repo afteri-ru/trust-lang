@@ -8,7 +8,7 @@
 //   Attr                 — registered attribute descriptor with name and default params.
 //
 // Registration (AttrPool) is in attr_pool.hpp.
-// Built-in attribute names (attr::Const etc.) are in attr_builtin.hpp.
+// Built-in attribute names (attr::ReadOnly etc.) are in attr_builtin.hpp.
 // Parser for @[...] syntax is in attr_parser.hpp.
 // AstNodeBase stores std::vector<AttrId> (see include/ast/ast_nodes.hpp).
 //
@@ -32,7 +32,7 @@
 #include <algorithm>
 #include <optional>
 #include "utils/error.hpp"
-#include "diag/location.hpp"
+#include "location/location.hpp"
 
 namespace trust {
 
@@ -86,12 +86,18 @@ struct Attr {
     [[nodiscard]] bool has_params() const noexcept { return !m_default_params.empty(); }
 
     /// Check if the given parameter values match the default values.
+    /// Пустой (wildcard) дефолт-параметр совпадает с ЛЮБЫМ предоставленным строковым
+    /// значением того же количества параметров — так строковые атрибуты (напр. `link`)
+    /// принимают произвольные значения (`@[link("m")]`), а не только фиксированные.
+    /// Число параметров при этом должно совпадать.
     [[nodiscard]] bool matches_params(const std::vector<std::string_view>& params) const noexcept {
-        if (m_default_params.size() != params.size())
+        if (m_default_params.size() != params.size()) {
             return false;
+        }
         for (std::size_t i = 0; i < m_default_params.size(); ++i) {
-            if (!(m_default_params[i] == params[i]))
+            if (!(m_default_params[i].empty() || m_default_params[i] == params[i])) {
                 return false;
+            }
         }
         return true;
     }

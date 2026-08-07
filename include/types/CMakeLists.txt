@@ -6,4 +6,4 @@ add_library(types_lib STATIC
     ${PROJECT_SOURCE_DIR}/types/registry.cpp
 )
 
-target_link_libraries(types_lib PUBLIC diag_lib trust_include_dirs)
+target_link_libraries(types_lib PUBLIC diag_lib location_lib trust_include_dirs)

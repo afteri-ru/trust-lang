@@ -2,35 +2,43 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "cmake: configure + build",
+            "label": "cmake: configure + build (full)",
             "type": "shell",
             "command": "cmake -B _build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && cmake --build _build",
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
-            "label": "test: all (unit + lit + debug + vscode)",
+            "label": "cmake: build test binaries only",
             "type": "shell",
-            "command": "cmake --build _build --target run_tests",
-            "group": "test",
-            "dependsOn": ["cmake: configure + build"]
+            "command": "cmake -B _build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py",
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
-            "label": "test: unit_tests only",
+            "label": "test: all (run all via ctest)",
             "type": "shell",
-            "command": "cmake --build _build --target run_unit_tests",
-            "group": "test",
-            "dependsOn": ["cmake: configure + build"]
+            "command": "for b in _build/unit_tests _build/trust _build/trust-dap _build/trust-lsp; do [ -x \"$b\" ] || { cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py; break; }; done; /usr/local/bin/ctest --test-dir _build --output-on-failure -Q",
+            "group": "test"
+        },
+        {
+            "label": "test: all verbose (full output)",
+            "type": "shell",
+            "command": "for b in _build/unit_tests _build/trust _build/trust-dap _build/trust-lsp; do [ -x \"$b\" ] || { cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py; break; }; done; /usr/local/bin/ctest --test-dir _build --output-on-failure",
+            "group": "test"
         },
         {
             "label": "test: direct unit_tests with filter",
             "type": "shell",
-            "command": "./_build/unit_tests --gtest_shuffle --gtest_filter=TranspileTest*",
-            "group": "test",
-            "dependsOn": ["cmake: configure + build"]
-        },
-   ]
+            "command": "[ -x _build/unit_tests ] || cmake --build _build --target unit_tests; ./_build/unit_tests --gtest_brief=1 --gtest_shuffle --gtest_filter=*HandleHover_MacroDefLinkFirst_WholeRange",
+            "group": "test"
+        }
+    ]
 }

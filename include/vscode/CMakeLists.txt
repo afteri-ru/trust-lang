@@ -18,7 +18,10 @@ set(VSIX_ID "trust-lang")
 set(VSIX_STAGING "${CMAKE_BINARY_DIR}/_vsix_staging/trust-lang/extension")
 set(VSIX_SOURCE_DIR "${PROJECT_INCLUDE_DIR}/vscode")
 set(VSIX_PACKAGER_DIR "${VSIX_SOURCE_DIR}/packager")
-set(VSIX_FILE "${CMAKE_BINARY_DIR}/trust-lang-${PROJECT_VERSION}-${VSIX_GIT_HASH}.vsix")
+# Distribution artifacts (tarball + .vsix) live in a dedicated _build/dist directory.
+set(VSIX_DIST_DIR "${CMAKE_BINARY_DIR}/dist")
+file(MAKE_DIRECTORY "${VSIX_DIST_DIR}")
+set(VSIX_FILE "${VSIX_DIST_DIR}/trust-lang-${PROJECT_VERSION}-${VSIX_GIT_HASH}.vsix")
 
 # ── Stage extension sources ──
 add_custom_target(copy-vscode-sources
@@ -58,7 +61,7 @@ if(TRUST_BUILD_VSIX)
         COMMENT "Building trust-lang.vsix"
         COMMAND ${CMAKE_COMMAND}
             -D VSIX_SOURCE_DIR=${VSIX_STAGING}
-            -D VSIX_OUTPUT_DIR=${CMAKE_BINARY_DIR}
+            -D VSIX_OUTPUT_DIR=${VSIX_DIST_DIR}
             -D VSIX_OUTPUT_FILE=${VSIX_FILE}
             -D VSIX_TEMPLATE_DIR=${VSIX_PACKAGER_DIR}
             -D VSIX_ID=${VSIX_ID}

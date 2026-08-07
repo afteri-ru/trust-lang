@@ -17,6 +17,8 @@
 | Namespace | snake_case | `trust::parser` |
 | File | snake_case ≤15 chars | `token_info.hpp` |
 
+All macro in TrustLang *.src files MUST have `@` sigil prefix!
+
 Identifiers must be self-documenting. Function names must contain a verb.
 
 ### Exceptions to naming rules and automatically generated names
@@ -36,7 +38,7 @@ Enumerations in ParserToken, TokenFlag, and TokenCategory use their own naming r
 ## 2. Formatting (enforced by `.clang-format`)
 
 - Opening brace on the same line as the statement (Attach).
-- Braces mandatory for all blocks — even single statements.
+- Braces mandatory for all blocks — even single statements. **Это касается тел `if`/`else`/`else-if`/`for`/`while`/`do-while` из одного оператора:** всегда `{ ... }`, без «голых» однострочных веток. Например `if (x) { return; }`, а не `if (x) return;`. Включается `InsertBraces: true` в `.clang-format` (механическое проставление скобок). Правило не распространяется на сгенерированные файлы (`parser.yy.*`, `lex.yy.cpp`).
 - Indent: 4 spaces, no tabs.
 - Column limit: 160.
 - Space before parentheses: never.

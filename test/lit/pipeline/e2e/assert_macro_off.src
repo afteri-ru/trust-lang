@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q -Wno-assert --temp-dir $TD -o $TD/amo %s
+# RUN: $TD/amo && echo "PASS"
+# CHECK: PASS
+
+# assert(cond) при -Wno-assert (по умолчанию): проверка/диагностика выключены, программа не падает.
+
+%chk():Void := {
+    assert( 1 == 0 );
+    ++ _ ++;
+};
+{% int assert_macro_off__main__() {
+    chk();
+    return 0;
+}
+%}

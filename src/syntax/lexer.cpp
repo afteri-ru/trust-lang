@@ -18,8 +18,9 @@ Scanner::~Scanner() {
 
 int Scanner::LexerInput(char* buf, int max_size) {
     auto source = m_ctx.source().source(m_srcIdx);
-    if (m_offset >= static_cast<int>(source.size()))
+    if (m_offset >= static_cast<int>(source.size())) {
         return 0;
+    }
     int n = std::min(max_size, static_cast<int>(source.size()) - m_offset);
     std::memcpy(buf, source.data() + m_offset, n);
     m_offset += n;
@@ -30,11 +31,11 @@ void Scanner::braceMismatchError(TermID expected, TermID got) {
     std::string msg = std::string("Brace mismatch: expected '") + trust::toString(expected) + "' but got '" + trust::toString(got) +
                       "' (stack depth: " + std::to_string(m_braceStack.size()) + ")";
     auto loc = trust::MapperLocation::makeLoc(m_srcIdx, static_cast<size_t>(std::max(1, m_current_pos + 1)));
-    m_ctx.diag().report(trust::Severity::Fatal, trust::MapperRange(loc, loc), "{}", msg);
+    m_ctx.diag().report(trust::Severity::Error, trust::MapperRange(loc, loc), "{}", msg);
 }
 
-BlockType Scanner::ParseLexem(trust::Context& ctx, const std::string str) {
-    BlockType result;
+SequenceType Scanner::ParseLexem(trust::Context& ctx, const std::string str) {
+    SequenceType result;
     trust::MapperFile src = ctx.source().add_source("parselexem", str);
     Scanner lexer(ctx, src);
 

@@ -7,16 +7,18 @@ using namespace trust;
 
 static const std::map<const std::string, const TermPtr> default_types{MAKE_TYPE(":None"),
 
-                                                                      MAKE_TYPE(":Bool"),       MAKE_TYPE(":Int8"),      MAKE_TYPE(":Int16"),
+                                                                      MAKE_TYPE(":Bool"),       MAKE_TYPE(":Int8"),       MAKE_TYPE(":Int16"),
                                                                       MAKE_TYPE(":Int32"),      MAKE_TYPE(":Int64"),
 
-                                                                      MAKE_TYPE(":Float16"),    MAKE_TYPE(":Float32"),   MAKE_TYPE(":Float64"),
+                                                                      MAKE_TYPE(":Float16"),    MAKE_TYPE(":Float32"),    MAKE_TYPE(":Float64"),
 
-                                                                      MAKE_TYPE(":Complex16"),  MAKE_TYPE(":Complex32"), MAKE_TYPE(":Complex64"),
+                                                                      MAKE_TYPE(":Complex16"),  MAKE_TYPE(":Complex32"),  MAKE_TYPE(":Complex64"),
 
                                                                       MAKE_TYPE(":Rational"),
 
                                                                       MAKE_TYPE(":StrChar"),    MAKE_TYPE(":StrWide"),
+
+                                                                      MAKE_TYPE(":Dict"),       MAKE_TYPE(":Dictionary"),
 
                                                                       MAKE_TYPE(":Range"),      MAKE_TYPE(":Iterator"),
 

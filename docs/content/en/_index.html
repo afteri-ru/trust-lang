@@ -1,22 +1,27 @@
 ---
-title: NewLang
+title: TrustLang
 ---
 
-{{< blocks/cover title="Welcome to the NewLang project website!" image_anchor="top" height="auto" >}}
+<div class="alert alert-warning" role="alert" style="border-radius: 0; margin-bottom: 0;">
+    <strong>The site is under reconstruction.</strong> There may be disruptions in its operation
+    and inconsistencies between the documentation and the current implementation of the language.
+</div>
 
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/">
+{{< blocks/cover title="Welcome to the TrustLang project website!" image_anchor="top" height="auto" >}}
+
+<a class="btn btn-lg btn-primary me-3 mb-4" href="/en/docs/">
     Documentation <i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="/blog/">
+<a class="btn btn-lg btn-secondary me-3 mb-4" href="/en/blog/">
     Articles <i class="fas fa-arrow-alt-circle-right ms-2 "></i>
 </a>
 
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="/playground/">
+<a class="btn btn-lg btn-secondary me-3 mb-4" href="/en/playground/">
     Playground<i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/rsashka/newlang/">
+<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
     GitHub <i class="fab fa-github ms-2 "></i>
 </a>
 
@@ -26,7 +31,7 @@ title: NewLang
 
 {{% blocks/lead %}}
 
-<p class="lead"><em>NewLang</em> — NewLang is a general-purpose high-level programming language with a syntax based on a strict system of grammatical rules.
+<p class="lead"><em>TrustLang</em> — TrustLang is a general-purpose high-level programming language with a syntax based on a strict system of grammatical rules.
 <br>But with the help of preprocessor macros, the syntax is turned into DSL based on keywords..</p>
 
 <p class="lead">Tensor calculations and rationals of unlimited precision are supported at the level of language syntax and basic 
@@ -90,11 +95,11 @@ The main properties and features:
 
 {{% blocks/section %}}
 
-<h2>Why do we need <em>NewLang</em>?
+<h2>Why do we need <em>TrustLang</em>?
 </h2>
 
 <p>
-All modern programming languages have a constant <a href="/blog/complex-prog/">development (complication) of syntax</a> as new versions are released.<br>
+All modern programming languages have a constant <a href="/en/blog/">development (complication) of syntax</a> as new versions are released.<br>
 This is a kind of payment for the emergence of new features and is perceived by users as a natural process.
 <p>
 
@@ -109,13 +114,13 @@ when the old code is being finalized using the already new standards.
 </p>
 
 <p>
-<em>NewLang</em> naturally limits the complexity of language constructs by splitting the syntax of the language into two parts, 
+<em>TrustLang</em> naturally limits the complexity of language constructs by splitting the syntax of the language into two parts, 
 making it easier to learn and use.
 </p>
 
 <p>
 <em>Basic syntax</em> - for writing programs in object-oriented (imperative) and declarative styles,
-which is based not on reserved keywords, but on a system of strict <a href="/docs/syntax/">grammar rules</a>.
+which is based not on reserved keywords, but on a system of strict <a href="/en/docs/syntax/">grammar rules</a>.
 It is possible to extend the basic syntax through the use of macros.<br>
 
 <em>Extended syntax</em> - program inserts in the implementation language (C / C ++), when the main syntax becomes insufficient.
@@ -130,7 +135,7 @@ The same applies to calculations with unlimited precision, which also require th
 </p>
 
 <p>
-<em>NewLang</em> has tensor calculus and unlimited-precision rationals out of the box.<br>
+<em>TrustLang</em> has tensor calculus and unlimited-precision rationals out of the box.<br>
 
 They are supported at the syntax level for writing literals of the corresponding types,
 and simple arithmetic data types are scalars (tensors of dimension zero).<br>
@@ -144,7 +149,7 @@ and rational numbers using <a href="https://github.com/openssl/openssl/blob/mast
 
 {{% blocks/section %}}
 
-<h4>Hello world script example in NewLang</h4>
+<h4>Hello world script example in TrustLang</h4>
 
 <br>
 <code>
@@ -162,7 +167,7 @@ Output:
 </pre></code>
 
 
-<h4>An example of calculating factorial 40 on NewLang (base syntax)</h4>
+<h4>An example of calculating factorial 40 on TrustLang (base syntax)</h4>
 
 <br>
 <code>
@@ -192,7 +197,7 @@ Output:
 
 
 
-<h4>Same code using <a href="/docs/syntax/dsl/">DSL syntax</a></h4>
+<h4>Same code using <a href="/en/docs/syntax/dsl/">DSL syntax</a></h4>
 
 <br>
 <code>
@@ -225,11 +230,11 @@ Output:
 
 {{% blocks/section %}}
 
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/playground/">
+<a class="btn btn-lg btn-primary me-3 mb-4" href="/en/playground/">
     More code examples<i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/docs/">
+<a class="btn btn-lg btn-primary me-3 mb-4" href="/en/docs/">
     All documentation<i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 

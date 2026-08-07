@@ -1,0 +1,18 @@
+# RUN: %trust -q -Wno-comments --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Флаг -Wno-comments подавляет документирующие комментарии в C++-выводе.
+
+# Ведущий CHECK-NOT (до первой CHECK) охватывает начало вывода: ни одного `///` комментария.
+# CHECK-NOT: ///
+
+/// Документация переменной
+x := 42;
+# CHECK: int8_t c_x = 42;
+
+/// док перед функцией
+%func():Void := {
+    ++ 7 ++;
+};
+# CHECK: void func() {
+# CHECK:     return 7;
+# CHECK: }

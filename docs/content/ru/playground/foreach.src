@@ -1,17 +1,22 @@
-#!../output/nlc 
+#!../_build/trust --run -Wsigil=ignore
 
 ### An example implementation of a foreach loop to sum 
 ### all the elements of a dictionary (or one-dimensional tensor) 
 ### using the dictionary (list) expansion operator:
 
-summa := 0;
-dictionary := (1,2,3,4,5,);
-@while( dictionary ) {
-    # The first dictionary element is moved to the item
-    # and removed from the dictionary
-    item, dictionary := ... dictionary; 
-    summa += item;
-};
+@main() := {
+    summa := 0;
+    dictionary := (1,2,3,4,5,);
+    @while( dictionary ) {
 
-# Last expression as return statement
-summa
+        # The first dictionary element is moved to the item
+	# and removed from the dictionary (rest marker 'dictionary...'
+	# binds the remainder, mutating the source in place)
+
+        item, dictionary... := ... dictionary;
+	    summa += item;
+    };
+
+    # Last expression as return statement
+    @print('{}', summa);
+}

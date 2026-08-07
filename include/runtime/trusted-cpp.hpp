@@ -254,8 +254,9 @@ class Shared {
     /// Non-blocking lock attempt
     [[nodiscard]]
     std::optional<Locker<V>> try_lock(const SyncTimeoutType& timeout = SyncTimeoutNoWait) {
-        if (!ptr_)
+        if (!ptr_) {
             return std::nullopt;
+        }
         try {
             return Locker<V>(ptr_, false, timeout);
         } catch (const std::runtime_error&) {
@@ -266,8 +267,9 @@ class Shared {
     /// Non-blocking const lock attempt
     [[nodiscard]]
     std::optional<Locker<V>> try_lock_const(const SyncTimeoutType& timeout = SyncTimeoutNoWait) {
-        if (!ptr_)
+        if (!ptr_) {
             return std::nullopt;
+        }
         try {
             return Locker<V>(ptr_, true, timeout);
         } catch (const std::runtime_error&) {
@@ -374,8 +376,9 @@ class Weak {
     [[nodiscard]]
     std::optional<Locker<ValueType>> try_lock(const SyncTimeoutType& timeout = SyncTimeoutNoWait) const {
         SharedType shared = weak_ptr_.lock();
-        if (!shared)
+        if (!shared) {
             return std::nullopt;
+        }
         try {
             return T::make_auto(shared, false, timeout);
         } catch (const std::runtime_error&) {
@@ -387,8 +390,9 @@ class Weak {
     [[nodiscard]]
     std::optional<Locker<ValueType>> try_lock_const(const SyncTimeoutType& timeout = SyncTimeoutNoWait) const {
         SharedType shared = weak_ptr_.lock();
-        if (!shared)
+        if (!shared) {
             return std::nullopt;
+        }
         try {
             return T::make_auto(shared, true, timeout);
         } catch (const std::runtime_error&) {

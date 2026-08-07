@@ -1,0 +1,42 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Деструктуризация-присваивание в существующие переменные (`=`, цели НЕ объявляются).
+# Сгруппированы сценарии (были destructure_assign_dict / destructure_assign_tuple + новый skip):
+#  - `a, b = ... d` — spread-словарь: any_cast<int64_t> (тип цели из её объявления Int64);
+#  - `c, e = t` — кортеж: std::get<N> без объявления;
+#  - `f, _, h = ... g` — присваивание с пропуском `_` (элемент потребляется pop_front, цель не связывается).
+
+@main() := {
+    d := (10, 20,);
+    a:Int64 := 0;
+    b:Int64 := 0;
+    a, b = ... d;
+    t := (30, 40,):Tuple;
+    c:Int64 := 0;
+    e:Int64 := 0;
+    c, e = t;
+    g := (1,2,3,);
+    f:Int64 := 0;
+    h:Int64 := 0;
+    f, _, h = ... g;
+};
+# CHECK: trust::Dict c_d = trust::Dict
+# CHECK-NEXT: int64_t c_a = 0;
+# CHECK-NEXT: int64_t c_b = 0;
+# CHECK-NEXT: auto __trust_dst_0 = c_d;
+# CHECK-NEXT: if (__trust_dst_0.size() < 2) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: c_a = std::any_cast<int64_t>(__trust_dst_0.pop_front());
+# CHECK-NEXT: c_b = std::any_cast<int64_t>(__trust_dst_0.pop_front());
+# CHECK-NEXT: auto c_t = std::make_tuple(30, 40);
+# CHECK-NEXT: int64_t c_c = 0;
+# CHECK-NEXT: int64_t c_e = 0;
+# CHECK-NEXT: c_c = std::get<0>(c_t);
+# CHECK-NEXT: c_e = std::get<1>(c_t);
+# CHECK-NEXT: trust::Dict c_g = trust::Dict
+# CHECK-NEXT: int64_t c_f = 0;
+# CHECK-NEXT: int64_t c_h = 0;
+# CHECK-NEXT: auto __trust_dst_1 = c_g;
+# CHECK-NEXT: if (__trust_dst_1.size() < 3) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: c_f = std::any_cast<bool>(__trust_dst_1.pop_front());
+# CHECK-NEXT: __trust_dst_1.pop_front();
+# CHECK-NEXT: c_h = std::any_cast<int64_t>(__trust_dst_1.pop_front());

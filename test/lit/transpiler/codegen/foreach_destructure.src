@@ -1,0 +1,22 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Деструктуризация `item, dictionary... := ... dictionary` (rest-цель == источнику → мутация на месте)
+# + истинность словаря в @while:
+#  - `while (c_dictionary)` — trust::Dict::operator bool (непустой словарь истинен);
+#  - pop'ы идут прямо в c_dictionary (мутация): `std::any c_item = c_dictionary.pop_front();`;
+#  - `c_dictionary` уже является «остатком» — отдельное присвоение rest не генерируется;
+#  - `c_summa += trust::detail::anyToInt64(c_item)` — конвертация any → int64 (гетерогенный dict).
+
+@main() := {
+    summa := 0;
+    dictionary := (1,2,3,4,5,);
+    @while( dictionary ) {
+        item, dictionary... := ... dictionary;
+        summa += item;
+    };
+    @print('{}', summa);
+}
+# CHECK: while (c_dictionary) {
+# CHECK-NEXT: if (c_dictionary.size() < 1) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: int64_t c_item = trust::detail::anyToInt64(c_dictionary.pop_front());
+# CHECK-NEXT: c_summa += c_item;

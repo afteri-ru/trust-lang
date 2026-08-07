@@ -33,10 +33,14 @@ TEST_F(FileIOTest, write_and_read_string) {
 
     ASSERT_TRUE(trust::utils::FileIO::write(testFile.string(), testData));
 
-    auto result = trust::utils::FileIO::read<std::vector<char>>(testFile.string());
+    auto result = trust::utils::FileIO::read<std::string>(testFile.string());
     ASSERT_TRUE(result.has_value());
-    std::string resultStr(result->data(), result->size());
-    EXPECT_EQ(resultStr, testData);
+    EXPECT_EQ(*result, testData);
+}
+
+TEST_F(FileIOTest, read_string_nonexistent_file) {
+    auto result = trust::utils::FileIO::read<std::string>("/nonexistent/path/file.txt");
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST_F(FileIOTest, write_and_read_vector_char) {

@@ -6,7 +6,7 @@
 #include <cerrno>
 #include <cstring>
 #include <iostream>
-#include <sstream>
+#include <limits>
 #include <string>
 
 #include <arpa/inet.h>
@@ -33,24 +33,32 @@ class Transport {
     // Возвращает 1 — данные готовы, 0 — таймаут, -1 — ошибка.
     virtual int waitInput(int timeoutMs) const {
         int fd = pollFd();
-        if (fd < 0)
+        if (fd < 0) {
             return 1; // транспорт не поллится — считаем данные всегда готовыми
+        }
         struct pollfd p{fd, POLLIN, 0};
         for (;;) {
             int r = ::poll(&p, 1, timeoutMs);
-            if (r < 0 && errno == EINTR)
+            if (r < 0 && errno == EINTR) {
                 continue; // прерывание сигналом — повторяем ожидание
+            }
             return r;
         }
     }
 };
 
 // ── Content-Length чтение (общий для LSP и DAP) ──
+//
+// Максимальный размер одного LSP/DAP-пакета (байт). Защита от атаки
+// «Content-Length: <огромное>», которая иначе приводит к аллокации всего
+// объявленного объёма прямо из заголовка (OOM / memory DoS).
+inline constexpr int kMaxPacketBytes = 64 * 1024 * 1024; // 64 МБ
 
 // Проверяет, является ли строка заголовком Content-Length (case-insensitive)
 inline bool isContentLength(const std::string& line) {
-    if (line.size() < 14)
+    if (line.size() < 14) {
         return false;
+    }
     char buf[15];
     for (int i = 0; i < 14; ++i) {
         buf[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(line[i])));
@@ -60,13 +68,28 @@ inline bool isContentLength(const std::string& line) {
 }
 
 // Разбирает заголовок Content-Length из строки, возвращает длину или 0
+// (0 также возвращается при отсутствии/невалидном/переполнившемся значении — без исключений).
 inline int parseContentLength(const std::string& line) {
     size_t pos = line.find(':');
-    if (pos == std::string::npos)
+    if (pos == std::string::npos) {
         return 0;
-    std::string val = line.substr(pos + 1);
-    val.erase(0, val.find_first_not_of(" \t"));
-    return std::stoi(val);
+    }
+    long long result = 0;
+    for (size_t i = pos + 1; i < line.size(); ++i) {
+        char c = line[i];
+        if (c == ' ' || c == '\t' || c == '\r') {
+            continue;
+        }
+        if (c < '0' || c > '9') {
+            return 0; // нецифровой символ — невалидная длина
+        }
+        // Защита от переполнения int при накоплении.
+        if (result > (std::numeric_limits<int>::max() - (c - '0')) / 10) {
+            return 0;
+        }
+        result = result * 10 + (c - '0');
+    }
+    return static_cast<int>(result);
 }
 
 // ── StdioTransport (stdin/stdout) ──
@@ -98,7 +121,7 @@ class StdioTransport : public Transport {
             }
         }
 
-        if (contentLength <= 0) {
+        if (contentLength <= 0 || contentLength > kMaxPacketBytes) {
             return {};
         }
 
@@ -106,8 +129,9 @@ class StdioTransport : public Transport {
         ssize_t total = 0;
         while (total < contentLength) {
             ssize_t n = ::read(0, &body[0] + total, static_cast<size_t>(contentLength - total));
-            if (n <= 0)
+            if (n <= 0) {
                 return {};
+            }
             total += n;
         }
 
@@ -122,8 +146,9 @@ class StdioTransport : public Transport {
         struct pollfd p{0, POLLIN, 0};
         for (;;) {
             int r = ::poll(&p, 1, timeoutMs);
-            if (r < 0 && errno == EINTR)
+            if (r < 0 && errno == EINTR) {
                 continue;
+            }
             return r;
         }
     }
@@ -152,8 +177,9 @@ class TcpTransport : public Transport {
     }
     TcpTransport& operator=(TcpTransport&& other) noexcept {
         if (this != &other) {
-            if (fd_ >= 0)
+            if (fd_ >= 0) {
                 ::close(fd_);
+            }
             fd_ = other.fd_;
             other.fd_ = -1;
         }
@@ -167,8 +193,9 @@ class TcpTransport : public Transport {
         while (true) {
             char c;
             ssize_t n = ::read(fd_, &c, 1);
-            if (n <= 0)
+            if (n <= 0) {
                 return {};
+            }
 
             if (c == '\n') {
                 if (!line.empty() && line.back() == '\r') {
@@ -186,7 +213,7 @@ class TcpTransport : public Transport {
             }
         }
 
-        if (contentLength <= 0) {
+        if (contentLength <= 0 || contentLength > kMaxPacketBytes) {
             return {};
         }
 
@@ -194,8 +221,9 @@ class TcpTransport : public Transport {
         ssize_t total = 0;
         while (total < contentLength) {
             ssize_t n = ::read(fd_, &body[0] + total, contentLength - total);
-            if (n <= 0)
+            if (n <= 0) {
                 return {};
+            }
             total += n;
         }
 
