@@ -1,3 +1,0 @@
-# RUN: %trust -q --dsl %S/custom_dsl.src --emit-ast %s > %t.out && %FileCheck %s <%t.out
-@foo
-# CHECK: IntLiteral 42

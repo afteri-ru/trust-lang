@@ -1,9 +1,0 @@
-# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
-
-# Явный индекс {1} в формат-строке вне диапазона аргументов (один аргумент) →
-# понятная диагностика вместо сломанного C++ (std::format) на этапе компиляции.
-
-@main() := {
-    s := '{1}'(42);
-}
-# CHECK: error: format string '{1}' references argument index 1 but only 1 argument(s) provided

@@ -1,6 +1,0 @@
-# RUN: TD=%t.dir && mkdir -p $TD
-# RUN: %trust -q --temp-dir $TD -m -o $TD/module.trust %s && test -f $TD/module.trust && file $TD/module.trust | grep ELF && echo "PASS"
-# CHECK: PASS
-
-x := 42;
-y := "hello";

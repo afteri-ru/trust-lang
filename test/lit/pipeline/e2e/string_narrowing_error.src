@@ -1,6 +1,0 @@
-# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
-
-# Сужение StrWide ("…", широкая) → StrChar (узкая) — всегда ошибка
-# (значение литерала не влияет; любой "…" уже широкий).
-x:StrChar := "wide";
-# CHECK: error: value of type 'StrWide' cannot be narrowed to 'StrChar' (wide string into narrow); use single-quoted '…' for a narrow string

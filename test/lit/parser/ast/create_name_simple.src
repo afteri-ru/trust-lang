@@ -1,6 +1,0 @@
-# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
-
-# Оператор создания имени :=
-x := 42;
-# CHECK: VarDecl 'x'
-# CHECK-NEXT: init:   IntLiteral

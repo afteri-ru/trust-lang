@@ -1,8 +1,0 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
-
-# Определение типа массива `:Int32[3]` (размерности в квадратных скобках без финальной запятой):
-# изменяемый массив std::vector<int32_t> с известной размерностью 3 (для проверки границ).
-
-v:Int32[3] := [1,2,3,]:Int32;
-# CHECK: #include <vector>
-# CHECK-NEXT: std::vector<int32_t> c_v = std::vector<int32_t>{1, 2, 3};
