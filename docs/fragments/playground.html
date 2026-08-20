@@ -7,6 +7,11 @@
 .tpl-editor{flex:1;min-height:380px;}
 .tpl-status{min-height:1.2em;font-size:12px;color:var(--tpl-gutter);white-space:pre-wrap;}
 .tpl-status.tpl-error{color:var(--tpl-error);}
+.tpl-health{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--tpl-text);white-space:nowrap;}
+.tpl-health .dot{width:9px;height:9px;border-radius:50%;background:var(--tpl-gutter);flex:none;}
+.tpl-health.ok .dot{background:#2e7d32;}
+.tpl-health.degraded .dot{background:#ef6c00;}
+.tpl-health.down .dot{background:var(--tpl-error);}
 .tpl-linked{background:var(--tpl-linked);}
 .tpl-gutter{box-shadow:inset 3px 0 0 var(--tpl-text);opacity:.55;}
 .tpl-follow{font-size:12px;font-weight:400;display:flex;align-items:center;gap:4px;margin-left:auto;cursor:pointer;user-select:none;}
@@ -22,6 +27,7 @@
   <div class="tpl-pane"><div class="tpl-toolbar">Generated C++<a id="tpl-download" class="tpl-btn tpl-btn-disabled" href="#" title="Скачать архив сборки">&#11015; Скачать архив</a><label id="tpl-follow" class="tpl-follow" title="Следовать за выбранной строкой (прокручивать вторую панель к ней)"><input type="checkbox" id="tpl-follow-cb" checked>follow</label></div><div id="tpl-cpp-editor" class="tpl-editor"></div><div id="tpl-cpp-overlay" class="tpl-overlay"></div></div>
 </div>
 <div id="tpl-log" class="tpl-log"></div>
+<div class="tpl-toolbar" style="border-top:1px solid var(--tpl-border);"><span id="tpl-health" class="tpl-health"><span class="dot"></span><span id="tpl-health-text">…</span></span></div>
 <div id="tpl-status" class="tpl-status"></div>
 </div>
 <script>
@@ -79,6 +85,8 @@ window.__TPG.glue = function (m) { var __MONARCH__ = m;   (function () {
     var trustHost = document.getElementById('tpl-trust-editor');
     var cppHost = document.getElementById('tpl-cpp-editor');
     var status = document.getElementById('tpl-status');
+    var healthEl = document.getElementById('tpl-health');
+    var healthText = document.getElementById('tpl-health-text');
     var examplesSel = document.getElementById('tpl-examples');
     var log = document.getElementById('tpl-log');
     var downloadBtn = document.getElementById('tpl-download');
@@ -206,6 +214,29 @@ window.__TPG.glue = function (m) { var __MONARCH__ = m;   (function () {
     populateExamples();
 
     function setStatus(msg) { if (status) { status.textContent = msg; } }
+
+    function setHealth(state, txt) {
+      if (!healthEl) { return; }
+      healthEl.className = 'tpl-health ' + state;
+      if (healthText) { healthText.textContent = txt; }
+    }
+
+    // Публичный пинг балансировщика: онлайн ли он и сколько воркеров активно.
+    // Постоянный статус готовности, отличает «нет связи с балансировщиком» от «нет воркеров».
+    function updateHealth() {
+      if (!healthEl) { return; }
+      if (!cfg.serverUrl) { setHealth('down', 'нет связи с балансировщиком'); return; }
+      fetch(serverOrigin + '/health', { method: 'GET' }).then(function (res) {
+        if (!res.ok) { setHealth('down', 'нет связи с балансировщиком'); return; }
+        return res.json().catch(function () { return null; });
+      }).then(function (d) {
+        if (!d || typeof d.workers_connected !== 'number') { setHealth('down', 'нет связи с балансировщиком'); return; }
+        if (d.workers_connected > 0) { setHealth('ok', 'балансировщик онлайн · воркеров: ' + d.workers_connected); }
+        else { setHealth('degraded', 'балансировщик онлайн · нет воркеров'); }
+      }).catch(function () {
+        setHealth('down', 'нет связи с балансировщиком');
+      });
+    }
 
     function loadScript(src, onload) {
       var s = document.createElement('script');
@@ -359,7 +390,7 @@ window.__TPG.glue = function (m) { var __MONARCH__ = m;   (function () {
               }
               if (!rr.ok) {
                 // Балансировщик/прокси вернул HTTP-ошибку без валидного JSON-контракта.
-                var herr = (data && data.error) ? data.error : ('Нет связи с сервером песочницы (HTTP ' + rr.status + ')');
+                var herr = (data && data.error) ? data.error : ('Нет связи с балансировщиком (HTTP ' + rr.status + ')');
                 setStatus(herr);
                 appendLog(herr);
                 resetCppPane(herr);
@@ -383,7 +414,7 @@ window.__TPG.glue = function (m) { var __MONARCH__ = m;   (function () {
               if (data.log) { appendLog(data.log); }
             }).catch(function (err) {
               // Сетевой сбой (нет связи с балансировщиком).
-              var m = 'Нет связи с сервером песочницы';
+              var m = 'Нет связи с балансировщиком';
               setStatus(m);
               appendLog('request failed: ' + err);
               resetCppPane(m);
@@ -406,6 +437,9 @@ window.__TPG.glue = function (m) { var __MONARCH__ = m;   (function () {
         }
       });
     }
+
+    updateHealth();
+    setInterval(updateHealth, 5000);
 
     loadScript(cfg.monacoUrl + '/loader.js', initEditors);
   })();

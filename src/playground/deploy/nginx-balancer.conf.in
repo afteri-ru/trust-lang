@@ -1,5 +1,8 @@
-# trust-playground nginx-сайт для балансировщика: проксирует живой запуск
-# playground на localhost-порт. TLS обычно терминируется certbot (HTTP/2).
+# trust-playground nginx-сайт для балансировщика: проксирует все публичные эндпоинты
+# playground на localhost-порт (TLS обычно терминируется certbot / HTTP/2).
+# ВАЖНО: БЕЗ этих location страница playground не «видит» балансировщик — nginx вернёт
+# собственную страницу (например, «Welcome to nginx») вместо JSON, и статус-строка
+# покажет «нет связи с балансировщиком».
 server {
     listen 80;
     server_name @DOMAIN@;
@@ -14,8 +17,39 @@ server {
         proxy_read_timeout @TIMEOUT@s;
     }
 
+    # Публичный пинг готовности (статус-строка песочницы): онлайн + число воркеров
     location = /health {
         proxy_pass http://127.0.0.1:@PORT@/health;
         proxy_set_header Host $host;
+    }
+
+    # Кнопка «Скачать build-архив» на странице playground
+    location = /download {
+        proxy_pass http://127.0.0.1:@PORT@/download;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        client_max_body_size @BODY_LIMIT@k;
+        proxy_read_timeout @TIMEOUT@s;
+    }
+
+    # Статистика балансировщика (доступ по playground.stats_token)
+    location = /stats {
+        proxy_pass http://127.0.0.1:@PORT@/stats;
+        proxy_set_header Host $host;
+    }
+
+    # Воркер: reverse long-poll за задачей (соединение может держаться до poll_timeout)
+    location = /poll {
+        proxy_pass http://127.0.0.1:@PORT@/poll;
+        proxy_set_header Host $host;
+        proxy_read_timeout 120s;
+    }
+
+    # Воркер: отправка результата задачи
+    location = /result {
+        proxy_pass http://127.0.0.1:@PORT@/result;
+        proxy_set_header Host $host;
+        proxy_read_timeout @TIMEOUT@s;
     }
 }

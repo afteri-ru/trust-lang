@@ -101,7 +101,10 @@ TEST_F(HtmlEmitTest, HtmlFragment_ContainsMonarchInitEditorsAndConfig) {
     EXPECT_NE(html.find("tpl-cpp-overlay"), std::string::npos);
     // glue-JS содержит обработку ошибок связи (очистка панели + сообщение).
     EXPECT_NE(html.find("resetCppPane"), std::string::npos);
-    EXPECT_NE(html.find("Нет связи с сервером песочницы"), std::string::npos);
+    EXPECT_NE(html.find("Нет связи с балансировщиком"), std::string::npos);
+    // Индикатор связи песочницы с балансировщиком (публичный пинг /health).
+    EXPECT_NE(html.find("tpl-health"), std::string::npos);
+    EXPECT_NE(html.find("updateHealth"), std::string::npos);
     // Кросс-оконная навигация: обработчики по позиции курсора (клик и стрелки).
     EXPECT_NE(html.find("onDidChangeCursorPosition"), std::string::npos);
     EXPECT_NE(html.find("deltaDecorations"), std::string::npos);

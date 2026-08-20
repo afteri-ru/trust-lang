@@ -24,6 +24,26 @@ bool isValidToken(const std::string& token) {
     return true;
 }
 
+std::string generateToken() {
+    std::ifstream urandom("/dev/urandom", std::ios::binary);
+    unsigned char bytes[32] = {0};
+    if (!urandom) {
+        return std::string();
+    }
+    urandom.read(reinterpret_cast<char*>(bytes), sizeof(bytes));
+    if (urandom.gcount() != static_cast<std::streamsize>(sizeof(bytes))) {
+        return std::string();
+    }
+    static constexpr const char* kHex = "0123456789abcdef";
+    std::string out;
+    out.reserve(64);
+    for (const unsigned char b : bytes) {
+        out += kHex[(b >> 4) & 0x0f];
+        out += kHex[b & 0x0f];
+    }
+    return out;
+}
+
 std::string workerLabelForToken(const PlaygroundConfig& cfg, const std::string& token) {
     for (const WorkerRegistryEntry& w : cfg.workers) {
         if (w.token == token) {
@@ -229,8 +249,6 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
                 out.projectDir = value;
             } else if (k == "log_level") {
                 out.logLevel = value;
-            } else if (k == "stats_token") {
-                out.statsToken = value;
             } else if (k == "lsp_opts") {
                 // Список опций, разделённых пробелами/запятыми — всегда передаются в trust-lsp.
                 out.lspOpts.clear();
@@ -299,7 +317,7 @@ bool saveWorkerConfig(const std::string& path, const PlaygroundConfig& cfg, std:
     out << "# Параметры сгруппированы; для каждой опции указано назначение и значение по умолчанию.\n";
 
     out << "\n# ── Connection (подключение к балансировщику) ──\n";
-    opt("playground_url", cfg.playgroundUrl, "URL балансировщика (https://; http:// только для localhost/127.x/::1)", "пусто");
+    opt("playground_url", cfg.playgroundUrl, "URL балансировщика (https://; http:// только для localhost/127.x/::1)", "https://playground.trust-lang.net");
     opt("token", cfg.token, "токен воркера (обязательно, 64 hex)", "пусто");
     opt("lsp_bin", cfg.lspBin, "путь к исполняемому trust-lsp (обязательно)", "пусто");
 
@@ -312,7 +330,6 @@ bool saveWorkerConfig(const std::string& path, const PlaygroundConfig& cfg, std:
     opt("stats_interval_ms", std::to_string(cfg.statsIntervalMs), "период вывода статистики в консоль, мс", "10000");
 
     out << "\n# ── Safety (безопасность) ──\n";
-    opt("stats_token", cfg.statsToken, "токен доступа к GET /stats (пусто — статистика закрыта)", "пусто");
     {
         std::string joined;
         for (size_t i = 0; i < cfg.lspOpts.size(); ++i) {

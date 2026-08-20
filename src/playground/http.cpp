@@ -72,7 +72,9 @@ bool readWithTimeout(int fd, std::string& buf, int timeout_ms) {
         const int pr = ::poll(&p, 1, static_cast<int>(remain.count()));
         if (pr < 0) {
             if (errno == EINTR) {
-                continue;
+                // Прервано сигналом (например, Ctrl+C/SIGTERM при остановке воркера):
+                // завершаем чтение, чтобы слот-поток вышел из цикла и увидел stop_.
+                return false;
             }
             return false;
         }

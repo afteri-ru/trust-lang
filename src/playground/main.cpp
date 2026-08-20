@@ -13,10 +13,12 @@
 
 #include "utils/io.hpp"
 
+#include <algorithm>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <signal.h>
 #include <string>
 
 namespace {
@@ -35,6 +37,19 @@ void handleSignal(int) {
     }
 }
 
+// Устанавливает обработчики SIGINT/SIGTERM без SA_RESTART: блокирующие вызовы
+// (accept/poll/connect) прерываются EINTR, и циклы могут перепроверить stop_.
+// std::signal() на glibc ставит SA_RESTART, из-за чего accept() перезапускается
+// после обработчика и не возвращает EINTR — балансировщик не останавливался по Ctrl+C.
+void installSignalHandlers() {
+    struct sigaction sa{};
+    sa.sa_handler = handleSignal;
+    ::sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0; // БЕЗ SA_RESTART
+    ::sigaction(SIGINT, &sa, nullptr);
+    ::sigaction(SIGTERM, &sa, nullptr);
+}
+
 void printUsage(const char* prog) {
     trust::errs() << "Usage: " << prog << " [options]\n"
                   << "\n"
@@ -46,6 +61,7 @@ void printUsage(const char* prog) {
                   << "  --max-parallel <n>          Parallel tasks (worker)\n"
                   << "  --lsp <path>                Path to trust-lsp binary (worker)\n"
                   << "  --save-config               Save effective worker settings to config file\n"
+                  << "  --gen-token [n]             Generate n (default 1) worker tokens (64 hex)\n"
                   << "  --help                      Show this help\n";
 }
 
@@ -75,6 +91,8 @@ bool fileExists(const std::string& path) {
 
 int main(int argc, const char* argv[]) {
     bool playground_mode = false;
+    bool gen_token = false;
+    int gen_count = 1;
     std::string config_path = binaryDir(argv[0]) + "/trust-playground.conf";
     std::string lsp_bin, playground_url, token;
     int max_parallel = -1;
@@ -104,6 +122,20 @@ int main(int argc, const char* argv[]) {
             lsp_bin = next_arg(i);
         } else if (std::strcmp(argv[i], "--save-config") == 0) {
             save_config = true;
+        } else if (std::strcmp(argv[i], "--gen-token") == 0) {
+            gen_token = true;
+            // Необязательный счётчик: потребляем следующий аргумент, только если это число.
+            if (i + 1 < argc) {
+                const std::string next = argv[i + 1];
+                if (!next.empty() && next.find_first_not_of("0123456789") == std::string::npos) {
+                    try {
+                        gen_count = std::clamp(std::stoi(next), 1, 1000);
+                        ++i;
+                    } catch (const std::exception&) {
+                        gen_count = 1;
+                    }
+                }
+            }
         } else if (std::strcmp(argv[i], "--help") == 0) {
             help = true;
         } else {
@@ -114,6 +146,19 @@ int main(int argc, const char* argv[]) {
 
     if (help) {
         printUsage(argv[0]);
+        return 0;
+    }
+
+    // --gen-token: генерация токенов воркера (независимо от режима).
+    if (gen_token) {
+        for (int i = 0; i < gen_count; ++i) {
+            const std::string tok = trust::playground::generateToken();
+            if (tok.empty()) {
+                trust::errs() << "trust-playground: cannot generate token: /dev/urandom unavailable\n";
+                return 1;
+            }
+            std::printf("%s\n", tok.c_str());
+        }
         return 0;
     }
 
@@ -143,22 +188,23 @@ int main(int argc, const char* argv[]) {
 
     if (!playground_mode) {
         // ── Воркер: без root, конфиг рядом с бинарником, CLI-опции сохраняются ──
-        if (cfg.playgroundUrl.empty() || cfg.token.empty()) {
-            trust::errs() << "trust-playground: worker requires playground-url and token.\n"
-                          << "  Provide them via config file (" << config_path << ") or CLI:\n"
-                          << "    " << argv[0] << " --playground-url <url> --token <hex> [--lsp <path>]\n";
-            return 1;
-        }
-        if (!trust::playground::isValidToken(cfg.token)) {
+        bool runnable = true;
+        if (cfg.token.empty()) {
+            trust::errs() << "trust-playground: worker requires a token to run.\n"
+                          << "  Provide it via config file (" << config_path << ") or CLI: --token <hex>\n";
+            runnable = false;
+        } else if (!trust::playground::isValidToken(cfg.token)) {
             trust::errs() << "trust-playground: worker.token must be 64 hex chars\n";
-            return 1;
-        }
-        if (cfg.lspBin.empty()) {
+            runnable = false;
+        } else if (cfg.lspBin.empty()) {
             trust::errs() << "trust-playground: worker.lsp_bin is required (--lsp <path>)\n";
-            return 1;
+            runnable = false;
         }
 
-        if (save_config || !cfg_exists) {
+        // --save-config сохраняет конфиг даже без playground-url/token (можно заранее
+        // задать остальные worker-настройки; url/token добавить позже вручную в конфиг).
+        // Автосохранение при первом запуске — только когда параметров достаточно для запуска.
+        if (save_config || (!cfg_exists && runnable)) {
             std::string serr;
             if (trust::playground::saveWorkerConfig(config_path, cfg, serr)) {
                 trust::errs() << "trust-playground: settings saved to " << config_path << " as defaults\n";
@@ -167,17 +213,19 @@ int main(int argc, const char* argv[]) {
             }
         }
 
+        if (!runnable) {
+            return 1;
+        }
+
         trust::playground::PlaygroundWorker worker(cfg);
         g_worker = &worker;
-        std::signal(SIGINT, handleSignal);
-        std::signal(SIGTERM, handleSignal);
+        installSignalHandlers();
         return worker.run();
     }
 
     trust::playground::PlaygroundServer server(cfg);
     g_master = &server;
-    std::signal(SIGINT, handleSignal);
-    std::signal(SIGTERM, handleSignal);
+    installSignalHandlers();
     if (!cfg.statsToken.empty()) {
         trust::errs() << "trust-playground (playground): stats: http://" << cfg.listen << ":" << cfg.port << "/stats?token=" << cfg.statsToken << "\n";
     }

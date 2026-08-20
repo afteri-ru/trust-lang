@@ -237,8 +237,9 @@ PlaygroundServer::PlaygroundServer(const PlaygroundConfig& cfg)
 }
 
 void PlaygroundServer::requestStop() {
+    // Только async-signal-safe: set-флаг без cv_.notify_all() (последний захватывает
+    // мьютекс и недопустим из обработчика сигнала). accept-цикл выходит по EINTR-перепроверке.
     stop_.store(true);
-    cv_.notify_all();
 }
 
 bool PlaygroundServer::isWorkerToken(const std::string& token) const {
@@ -286,8 +287,20 @@ HttpResponse PlaygroundServer::handle(const HttpRequest& req, const std::string&
     if (req.method == "GET" && (req.target == "/health" || req.target == "/health/")) {
         resp.status = 200;
         resp.content_type = "application/json; charset=utf-8";
-        resp.body = "{\"status\":\"ok\"}";
         resp.cors = true;
+        // Число «живых» воркеров — для статусной строки песочницы (публичный пинг готовности).
+        const auto now = std::chrono::steady_clock::now();
+        int connected = 0;
+        {
+            std::lock_guard<std::mutex> lock(mu_);
+            for (const auto& [tok, w] : workers_) {
+                if ((now - w.lastSeen) < std::chrono::seconds(cfg_.pollTimeoutSec * 3)) {
+                    connected++;
+                }
+            }
+        }
+        nlohmann::json j{{"status", "ok"}, {"workers_connected", connected}};
+        resp.body = j.dump();
         return resp;
     }
     if (req.method == "POST" && req.target == "/run") {

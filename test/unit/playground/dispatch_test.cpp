@@ -67,7 +67,10 @@ TEST(ServerTest, HealthReturnsOk) {
     PlaygroundServer server(makeConfig(2, 2));
     const HttpResponse resp = server.handle(makeReq("GET", "/health", ""), "10.0.0.3");
     EXPECT_EQ(resp.status, 200);
-    EXPECT_EQ(nlohmann::json::parse(resp.body)["status"], "ok");
+    const auto j = nlohmann::json::parse(resp.body);
+    EXPECT_EQ(j["status"], "ok");
+    // Публичный пинг готовности: число «живых» воркеров (здесь воркеров нет → 0).
+    EXPECT_EQ(j["workers_connected"], 0);
 }
 
 // Полный цикл: воркер регистрируется через /poll, забирает задачу из /run,

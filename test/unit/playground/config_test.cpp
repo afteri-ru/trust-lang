@@ -11,6 +11,7 @@
 
 namespace {
 
+using trust::playground::generateToken;
 using trust::playground::isLoopbackHost;
 using trust::playground::isValidToken;
 using trust::playground::loadConfig;
@@ -71,6 +72,19 @@ TEST(ConfigTest, IsValidTokenChecksLengthAndHex) {
     EXPECT_FALSE(isValidToken(std::string(64, 'z'))); // 'z' не hex
     EXPECT_TRUE(isValidToken(std::string(64, 'a')));
     EXPECT_TRUE(isValidToken(std::string(64, 'f')));
+}
+
+TEST(ConfigTest, DefaultPlaygroundUrl) {
+    const PlaygroundConfig cfg;
+    EXPECT_EQ(cfg.playgroundUrl, "https://playground.trust-lang.net");
+}
+
+TEST(ConfigTest, GenerateTokenProducesValidDistinctTokens) {
+    const std::string tok = generateToken();
+    EXPECT_EQ(tok.size(), 64u);
+    EXPECT_TRUE(isValidToken(tok));
+    // Два вызова дают разные токены (случайность из /dev/urandom).
+    EXPECT_NE(tok, generateToken());
 }
 
 TEST(ConfigTest, IgnoresCommentsAndBlankLines) {

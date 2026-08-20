@@ -44,9 +44,11 @@ struct PlaygroundConfig {
     std::string alertCmd = "sendmail -t";                 // команда отправки (читает письмо из stdin)
 
     // ── worker (исполнитель) ──
-    std::string playgroundUrl; // http(s)://host[:port] — URL балансировщика (playground)
-    std::string token;         // собственный токен воркера (hex)
-    std::string lspBin;        // путь к исполняемому trust-lsp
+    // URL балансировщика по умолчанию — публичный playground (переопределяется
+    // worker.playground_url в конфиге / --playground-url).
+    std::string playgroundUrl = "https://playground.trust-lang.net";
+    std::string token;  // собственный токен воркера (hex)
+    std::string lspBin; // путь к исполняемому trust-lsp
     int maxParallel = 4;
     int maxMemoryMb = 512;
     int maxOutputKb = 2048;
@@ -58,7 +60,7 @@ struct PlaygroundConfig {
     // ── общее ──
     std::string projectDir;
     std::string logLevel = "info";
-    std::string statsToken; // токен для GET /stats (playground.stats_token / worker.stats_token)
+    std::string statsToken; // токен доступа к GET /stats балансировщика (playground.stats_token)
 
     // ── реестр воркеров (label -> token), заполняется из строк без префикса ──
     std::vector<WorkerRegistryEntry> workers;
@@ -69,6 +71,10 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
 
 // Проверяет формат токена (ровно 64 hex-символа). Пустая строка — false.
 bool isValidToken(const std::string& token);
+
+// Генерирует новый токен воркера: 32 байта из /dev/urandom → 64 hex-символа.
+// При ошибке чтения /dev/urandom возвращает пустую строку (вызывающий обрабатывает как ошибку).
+std::string generateToken();
 
 // Проверяет, что host — loopback (localhost / 127.x / ::1). Для loopback разрешено
 // http:// (локальная разработка/тесты); для прочих хостов обязателен https://.

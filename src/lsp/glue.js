@@ -7,6 +7,8 @@
     var trustHost = document.getElementById('tpl-trust-editor');
     var cppHost = document.getElementById('tpl-cpp-editor');
     var status = document.getElementById('tpl-status');
+    var healthEl = document.getElementById('tpl-health');
+    var healthText = document.getElementById('tpl-health-text');
     var examplesSel = document.getElementById('tpl-examples');
     var log = document.getElementById('tpl-log');
     var downloadBtn = document.getElementById('tpl-download');
@@ -134,6 +136,43 @@
     populateExamples();
 
     function setStatus(msg) { if (status) { status.textContent = msg; } }
+
+    function setHealth(state, txt) {
+      if (!healthEl) { return; }
+      healthEl.className = 'tpl-health ' + state;
+      if (healthText) { healthText.textContent = txt; }
+    }
+
+    // Публичный пинг балансировщика: онлайн ли он и сколько воркеров активно.
+    // Постоянный статус готовности, отличает «нет связи с балансировщиком» от «нет воркеров».
+    // Терпим к старым балансировщикам: если в ответе нет workers_connected — всё равно «онлайн»,
+    // просто без счётчика (поле появилось в новой версии /health).
+    function updateHealth() {
+      if (!healthEl) { return; }
+      if (!cfg.serverUrl) { setHealth('down', 'нет связи с балансировщиком'); return; }
+      fetch(serverOrigin + '/health', { method: 'GET' }).then(function (res) {
+        if (!res.ok) {
+          console.warn('[trust-playground] /health HTTP ' + res.status + ' at ' + serverOrigin);
+          setHealth('down', 'нет связи с балансировщиком (HTTP ' + res.status + ')'); return;
+        }
+        return res.json().catch(function () {
+          console.warn('[trust-playground] /health вернул не JSON (вероятно, статическая страница вместо балансировщика): ' + serverOrigin);
+          return null;
+        });
+      }).then(function (d) {
+        if (!d || d.status !== 'ok') {
+          console.warn('[trust-playground] /health ответ без status=ok:', d);
+          setHealth('down', 'нет связи с балансировщиком'); return;
+        }
+        var n = (typeof d.workers_connected === 'number') ? d.workers_connected : null;
+        if (n === null) { setHealth('ok', 'балансировщик онлайн'); }
+        else if (n > 0) { setHealth('ok', 'балансировщик онлайн · воркеров: ' + n); }
+        else { setHealth('degraded', 'балансировщик онлайн · нет воркеров'); }
+      }).catch(function (e) {
+        console.warn('[trust-playground] /health fetch failed at ' + serverOrigin + ':', e);
+        setHealth('down', 'нет связи с балансировщиком');
+      });
+    }
 
     function loadScript(src, onload) {
       var s = document.createElement('script');
@@ -287,7 +326,7 @@
               }
               if (!rr.ok) {
                 // Балансировщик/прокси вернул HTTP-ошибку без валидного JSON-контракта.
-                var herr = (data && data.error) ? data.error : ('Нет связи с сервером песочницы (HTTP ' + rr.status + ')');
+                var herr = (data && data.error) ? data.error : ('Нет связи с балансировщиком (HTTP ' + rr.status + ')');
                 setStatus(herr);
                 appendLog(herr);
                 resetCppPane(herr);
@@ -311,7 +350,7 @@
               if (data.log) { appendLog(data.log); }
             }).catch(function (err) {
               // Сетевой сбой (нет связи с балансировщиком).
-              var m = 'Нет связи с сервером песочницы';
+              var m = 'Нет связи с балансировщиком';
               setStatus(m);
               appendLog('request failed: ' + err);
               resetCppPane(m);
@@ -334,6 +373,9 @@
         }
       });
     }
+
+    updateHealth();
+    setInterval(updateHealth, 5000);
 
     loadScript(cfg.monacoUrl + '/loader.js', initEditors);
   })();

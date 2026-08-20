@@ -283,6 +283,12 @@ static std::string buildFragment(const HtmlResult& r, const LspOptions& opts, co
     out += ".tpl-editor{flex:1;min-height:380px;}\n";
     out += ".tpl-status{min-height:1.2em;font-size:12px;color:var(--tpl-gutter);white-space:pre-wrap;}\n";
     out += ".tpl-status.tpl-error{color:var(--tpl-error);}\n";
+    // Индикатор связи песочницы с балансировщиком (публичный пинг /health): онлайн/деградация/нет связи.
+    out += ".tpl-health{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--tpl-text);white-space:nowrap;}\n";
+    out += ".tpl-health .dot{width:9px;height:9px;border-radius:50%;background:var(--tpl-gutter);flex:none;}\n";
+    out += ".tpl-health.ok .dot{background:#2e7d32;}\n";
+    out += ".tpl-health.degraded .dot{background:#ef6c00;}\n";
+    out += ".tpl-health.down .dot{background:var(--tpl-error);}\n";
     out += ".tpl-linked{background:var(--tpl-linked);}\n";
     out += ".tpl-gutter{box-shadow:inset 3px 0 0 var(--tpl-text);opacity:.55;}\n";
     out += ".tpl-follow{font-size:12px;font-weight:400;display:flex;align-items:center;gap:4px;margin-left:auto;cursor:pointer;user-select:none;}\n";
@@ -311,6 +317,8 @@ static std::string buildFragment(const HtmlResult& r, const LspOptions& opts, co
            "<div id=\"tpl-cpp-overlay\" class=\"tpl-overlay\"></div></div>\n";
     out += "</div>\n";
     out += "<div id=\"tpl-log\" class=\"tpl-log\"></div>\n";
+    out += "<div class=\"tpl-toolbar\" style=\"border-top:1px solid var(--tpl-border);\">"
+           "<span id=\"tpl-health\" class=\"tpl-health\"><span class=\"dot\"></span><span id=\"tpl-health-text\">…</span></span></div>\n";
     out += "<div id=\"tpl-status\" class=\"tpl-status\"></div>\n";
     out += "</div>\n";
 

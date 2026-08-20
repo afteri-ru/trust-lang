@@ -30,6 +30,8 @@ class PlaygroundWorker {
     void statsLoop();
     // Собирает метрики системы + воркера (отправляются балансировщику в /poll).
     nlohmann::json collectMetrics();
+    // Печатает переход состояния подключения к балансировщику (только при смене, однократно).
+    void reportConnection(bool up);
 
     PlaygroundConfig cfg_;
     std::atomic<bool> stop_{false};
@@ -37,6 +39,7 @@ class PlaygroundWorker {
     std::atomic<int> jobsFailed_{0};       // задачи с ошибкой транспиляции
     std::atomic<int> busySlots_{0};        // слоты, занятые обработкой
     std::atomic<bool> connected_{false};   // последний /poll до балансировщика был успешным
+    std::atomic<int> connState_{1};        // 0 = нет связи, 1 = подключаемся, 2 = подключено (для отчёта переходов)
     std::atomic<long long> memUsedMax_{0}; // пик используемой памяти (байты) с момента старта
     std::atomic<double> loadMax_{0.0};     // пик нагрузки CPU (load1) с момента старта
     std::chrono::steady_clock::time_point startTime_{};

@@ -292,6 +292,23 @@ PlaygroundWorker::PlaygroundWorker(const PlaygroundConfig& cfg)
 void PlaygroundWorker::requestStop() {
     stop_.store(true);
 }
+
+// Печатает переход состояния подключения к балансировщику однократно (при смене).
+void PlaygroundWorker::reportConnection(bool up) {
+    const int desired = up ? 2 : 0;
+    int cur = connState_.load();
+    if (cur == desired) {
+        return;
+    }
+    if (connState_.compare_exchange_strong(cur, desired)) {
+        if (up) {
+            trust::errs() << "trust-playground (worker): connected to balancer " << cfg_.playgroundUrl << "\n";
+        } else {
+            trust::errs() << "trust-playground (worker): connection to balancer lost, retrying...\n";
+        }
+    }
+}
+
 void PlaygroundWorker::slotLoop(int slotIndex) {
     const int backoff_ms = 1000;
     while (!stop_.load()) {
@@ -299,13 +316,15 @@ void PlaygroundWorker::slotLoop(int slotIndex) {
         const HttpResult r = httpPost(cfg_.playgroundUrl + "/poll", poll_body.dump(), cfg_.pollTimeoutSec + 5);
         if (r.status == 0) {
             connected_.store(false);
-            trust::errs() << "trust-playground: slot " << slotIndex << ": master unreachable\n";
+            reportConnection(false);
+            trust::errs() << "trust-playground (worker): slot " << slotIndex << ": balancer unreachable, retrying\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(backoff_ms));
             continue;
         }
         connected_.store(true);
+        reportConnection(true);
         if (r.status == 403) {
-            trust::errs() << "trust-playground: slot " << slotIndex << ": unauthorized (bad token)\n";
+            trust::errs() << "trust-playground (worker): slot " << slotIndex << ": unauthorized (bad token)\n";
             std::this_thread::sleep_for(std::chrono::seconds(5));
             continue;
         }
@@ -468,11 +487,7 @@ int PlaygroundWorker::run() {
             return 1;
         }
     }
-    trust::errs() << "trust-playground (worker): connecting to " << cfg_.playgroundUrl << "\n";
-    if (!cfg_.statsToken.empty()) {
-        // Не печатаем сам токен в лог (утечка credentials при чтении лога).
-        trust::errs() << "trust-playground (worker): stats endpoint configured (token-protected) at " << cfg_.playgroundUrl << "/stats\n";
-    }
+    trust::errs() << "trust-playground (worker): connecting to " << cfg_.playgroundUrl << " ...\n";
     startTime_ = std::chrono::steady_clock::now();
 
     std::thread stats(&PlaygroundWorker::statsLoop, this);
