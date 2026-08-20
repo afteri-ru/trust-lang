@@ -87,8 +87,7 @@ ID фиксированы (`trust-playground`, `tpl-trust-editor`, `tpl-cpp-edit
 ### Встроенный конфиг (глобальное пространство имён `window.__TPG`)
 
 ```js
-window.__TPG.config = { monacoUrl, serverUrl, source, cpp, ok, error,
-                        trustToCpp, cppToTrust,
+window.__TPG.config = { monacoUrl, serverUrl, source,
                         examples: [ {name, source}, ... ] };
 window.__TPG.monarch = function(){ return (<Monarch-токенайзер Trust>); };
 window.__TPG.glue   = function(m){ var __MONARCH__ = m; (<glue-JS>); };
@@ -98,7 +97,13 @@ window.__TPG.glue(window.__TPG.monarch());
 `examples` — статический список примеров из `--examples-dir` (может быть
 пустым): `name` — label комбобокса, `source` — исходный Trust-текст.
 
-Все строки (`source`, `cpp`, `error`, URL, `examples[].name`/`.source`)
+**Трансляция (C++), маппинги и статус (`cpp`, `trustToCpp`, `cppToTrust`,
+`ok`, `error`) НЕ встраиваются в конфиг** — правый редактор стартует пустым,
+и трансляция получается только от балансировщика (`serverUrl`) при каждом
+изменении кода. В конфиге есть только статичные поля: URL Monaco/сервера,
+исходный текст стартового примера и список примеров.
+
+Все строки (`source`, `error`, URL, `examples[].name`/`.source`)
 экранируются `jsonEscape` с заменой `<` → `\u003c` — это гарантирует, что
 пользовательский код не завершит `<script>`-блок (HTML/JS-safety).
 
@@ -115,6 +120,13 @@ window.__TPG.glue(window.__TPG.monarch());
   `fetch(serverUrl, POST, text/plain)` с текущим текстом; ответ — JSON-контракт;
   обновляет C++-редактор и маппинги. Если `serverUrl` пуст — пере-транспиляция
   отключена (статический фрагмент).
+- Обработка ошибок связи: правый редактор **стартует пустым** и заполняется
+  только из успешного ответа балансировщика. При сетевом сбое, `{unavailable:true}`
+  (нет воркеров) или ошибке балансировщика (`!ok` / HTTP-ошибка) glue-JS
+  **очищает** правый редактор (`cppEditor.setValue('')`) и показывает по центру
+  панели (оверлей `#tpl-cpp-overlay`) сообщение: «Нет связи с сервером песочницы»
+  (сетевой сбой) либо сообщение балансировщика (его ошибка). Кнопка «⬇ Скачать»
+  неактивна до первого успешного ответа.
 - Комбобокс примеров (`#tpl-examples`): наполняется из `cfg.examples`. Начальный
   выбор — пример, чей `source` совпадает с `cfg.source`; если такого нет —
   отключённая опция «Custom». При выборе примера, если текущий текст Trust
@@ -133,7 +145,8 @@ window.__TPG.glue(window.__TPG.monarch());
   сервером (in-process), а не браузером.
 - При отсутствии свободных воркеров балансировщик отвечает `503` + тело
   `{"ok":false,"unavailable":true,"error":"...","instructionsUrl":"https://…/host-a-worker/"}`.
-  glue-JS показывает в строке статуса сообщение со ссылкой на инструкцию.
+  glue-JS очищает правый редактор и показывает по центру панели (оверлей) сообщение
+  балансировщика со ссылкой на инструкцию; также выводит его в строку статуса/лог.
 - `POST <serverUrl>/download` (балансировщик) — тело = Trust-код как `text/plain`.
   Ленивая сборка build-архива: отдельный запрос, заново обрабатывает файл
   (свежая транспиляция + сборка build-каталога самим trust-lsp `--emit-build-dir`,

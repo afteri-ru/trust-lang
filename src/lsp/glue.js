@@ -11,6 +11,7 @@
     var log = document.getElementById('tpl-log');
     var downloadBtn = document.getElementById('tpl-download');
     var followCb = document.getElementById('tpl-follow-cb');
+    var cppOverlay = document.getElementById('tpl-cpp-overlay');
     if (!trustHost || !cppHost) { return; }
 
     // Редакторы создаются в Monaco-колбэке; вынесены в область видимости glue,
@@ -28,6 +29,20 @@
       log.scrollTop = log.scrollHeight;
     }
     function clearLog() { if (log) { log.textContent = ''; } }
+
+    // Показ/скрытие центрированного сообщения поверх правой панели (ошибки,
+    // нет связи с сервером песочницы). По умолчанию оверлей скрыт (display:none).
+    function setCppOverlay(html) {
+      if (!cppOverlay) { return; }
+      cppOverlay.innerHTML = html;
+      cppOverlay.style.display = 'flex';
+    }
+    function clearCppOverlay() {
+      if (!cppOverlay) { return; }
+      cppOverlay.style.display = 'none';
+      cppOverlay.innerHTML = '';
+    }
+
     function setDownloadDisabled(on) {
       if (!downloadBtn) { return; }
       if (on) { downloadBtn.classList.add('tpl-btn-disabled'); downloadBtn.href = '#'; }
@@ -152,12 +167,14 @@
             minimap: { enabled: true }
           });
           cppEditor = monaco.editor.create(cppHost, {
-            value: cfg.cpp, language: 'cpp', theme: 'vs',
+            // Трансляция НЕ хранится в шаблоне страницы — правый редактор
+            // стартует пустым и заполняется только из ответа балансировщика.
+            value: '', language: 'cpp', theme: 'vs',
             readOnly: true, automaticLayout: true, scrollBeyondLastLine: false,
             minimap: { enabled: true }
           });
 
-          var t2c = cfg.trustToCpp, c2t = cfg.cppToTrust;
+          var t2c = {}, c2t = {};
           var trustDec = [], cppDec = [];
           var trustGutterDec = [], cppGutterDec = [];
 
@@ -227,6 +244,17 @@
             }
           });
 
+          function resetCppPane(html) {
+            // Очищаем правую панель и показываем по центру сообщение об ошибке/нет связи.
+            if (cppEditor && cppEditor.setValue) { cppEditor.setValue(''); }
+            t2c = {}; c2t = {};
+            cppDec = cppEditor.deltaDecorations(cppDec, []);
+            cppGutterDec = cppEditor.deltaDecorations(cppGutterDec, []);
+            trustGutterDec = trustEditor.deltaDecorations(trustGutterDec, []);
+            setCppOverlay(html);
+            setDownloadDisabled(true);
+          }
+
           function recompile() {
             var body = trustEditor.getValue();
             setStatus('transpiling…');
@@ -236,34 +264,61 @@
               method: 'POST',
               headers: { 'Content-Type': 'text/plain; charset=utf-8' },
               body: body
-            }).then(function (res) { return res.json(); })
-              .then(function (data) {
-                if (data && data.unavailable) {
-                  var umsg = (data.error || 'no workers available');
-                  if (data.instructionsUrl) {
-                    umsg = umsg + ' — <a href="' + data.instructionsUrl + '" target="_blank" rel="noopener">запустите свой узел</a>';
-                  }
-                  status.innerHTML = umsg;
-                  appendLog(umsg);
-                  return;
+            }).then(function (res) {
+              // Читаем тело как текст и пытаемся распарсить JSON: балансировщик
+              // может вернуть HTML/прокси-ошибку (не JSON) — в этом случае трактуем
+              // как отсутствие связи/ошибку и не роняем цепочку.
+              return res.text().then(function (txt) {
+                var data = null;
+                try { data = JSON.parse(txt); } catch (e) { data = null; }
+                return { ok: res.ok, status: res.status, data: data };
+              });
+            }).then(function (rr) {
+              var data = rr.data;
+              if (data && data.unavailable) {
+                var umsg = (data.error || 'Нет свободных воркеров');
+                if (data.instructionsUrl) {
+                  umsg = umsg + ' — <a href="' + data.instructionsUrl + '" target="_blank" rel="noopener">запустите свой узел</a>';
                 }
-                if (!data || !data.ok) {
-                  var err = (data && data.error) ? data.error : 'transpile error';
-                  setStatus(err);
-                  appendLog(err);
-                  if (data && data.log) { appendLog(data.log); }
-                  return;
-                }
-                cppEditor.setValue(data.cpp);
-                t2c = data.trustToCpp; c2t = data.cppToTrust;
-                cppDec = cppEditor.deltaDecorations(cppDec, []);
-                setStatus('ok');
-                appendLog('ok');
-                if (data.log) { appendLog(data.log); }
-              })
-              .catch(function (err) { var m = 'request failed: ' + err; setStatus(m); appendLog(m); });
+                setStatus(umsg);
+                appendLog(umsg);
+                resetCppPane(umsg);
+                return;
+              }
+              if (!rr.ok) {
+                // Балансировщик/прокси вернул HTTP-ошибку без валидного JSON-контракта.
+                var herr = (data && data.error) ? data.error : ('Нет связи с сервером песочницы (HTTP ' + rr.status + ')');
+                setStatus(herr);
+                appendLog(herr);
+                resetCppPane(herr);
+                return;
+              }
+              if (!data || !data.ok) {
+                var err = (data && data.error) ? data.error : 'Ошибка транспиляции';
+                setStatus(err);
+                appendLog(err);
+                if (data && data.log) { appendLog(data.log); }
+                resetCppPane(err);
+                return;
+              }
+              cppEditor.setValue(data.cpp);
+              t2c = data.trustToCpp || {}; c2t = data.cppToTrust || {};
+              cppDec = cppEditor.deltaDecorations(cppDec, []);
+              clearCppOverlay();
+              setDownloadDisabled(false);
+              setStatus('ok');
+              appendLog('ok');
+              if (data.log) { appendLog(data.log); }
+            }).catch(function (err) {
+              // Сетевой сбой (нет связи с балансировщиком).
+              var m = 'Нет связи с сервером песочницы';
+              setStatus(m);
+              appendLog('request failed: ' + err);
+              resetCppPane(m);
+            });
           }
 
+          setStatus('ready');
           if (cfg.serverUrl) {
             var timer = null;
             trustEditor.onDidChangeModelContent(function () {
@@ -271,13 +326,9 @@
               timer = setTimeout(recompile, 400);
             });
             // Первичная транспиляция на загрузке (заполняет лог). Кнопка «⬇ Скачать»
-            // активна всегда — build-архив собирается лениво по POST /download.
-            setDownloadDisabled(false);
+            // активна только после первого успешного ответа балансировщика.
             recompile();
           }
-
-          if (!cfg.ok) { setStatus(cfg.error || 'transpile error'); }
-          else { setStatus('ready'); }
         } catch (err) {
           setStatus('init error: ' + err);
         }

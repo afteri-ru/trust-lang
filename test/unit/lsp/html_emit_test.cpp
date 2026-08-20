@@ -93,9 +93,15 @@ TEST_F(HtmlEmitTest, HtmlFragment_ContainsMonarchInitEditorsAndConfig) {
     EXPECT_NE(html.find("window.__TPG.config"), std::string::npos);
     EXPECT_NE(html.find("window.__TPG.glue"), std::string::npos);
     EXPECT_NE(html.find("window.__TPG.monarch"), std::string::npos);
-    // Исходник и сгенерированный C++ встроены в конфиг (JSON-экранированы).
+    // Исходник примера встроен в конфиг (JSON-экранирован).
     EXPECT_NE(html.find("hello world"), std::string::npos);
-    EXPECT_NE(html.find("trust::trust__print__"), std::string::npos);
+    // Трансляция НЕ хранится в шаблоне страницы: в конфиге нет поля "cpp".
+    EXPECT_EQ(html.find("\"cpp\":"), std::string::npos) << "cpp must not be embedded in config";
+    // Оверлей для центрированного сообщения об ошибке/нет связи присутствует.
+    EXPECT_NE(html.find("tpl-cpp-overlay"), std::string::npos);
+    // glue-JS содержит обработку ошибок связи (очистка панели + сообщение).
+    EXPECT_NE(html.find("resetCppPane"), std::string::npos);
+    EXPECT_NE(html.find("Нет связи с сервером песочницы"), std::string::npos);
     // Кросс-оконная навигация: обработчики по позиции курсора (клик и стрелки).
     EXPECT_NE(html.find("onDidChangeCursorPosition"), std::string::npos);
     EXPECT_NE(html.find("deltaDecorations"), std::string::npos);

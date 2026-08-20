@@ -245,12 +245,9 @@ static std::string buildConfigJson(const HtmlResult& r, const std::string& monac
     std::string cfg = "{";
     cfg += "\"monacoUrl\":" + jsonEscape(monaco_url) + ",";
     cfg += "\"serverUrl\":" + jsonEscape(server_url) + ",";
-    cfg += "\"source\":" + jsonEscape(r.source) + ",";
-    cfg += "\"cpp\":" + jsonEscape(r.cpp) + ",";
-    cfg += "\"ok\":" + (r.ok ? std::string("true") : std::string("false")) + ",";
-    cfg += "\"error\":" + jsonEscape(r.error) + ",";
-    cfg += "\"trustToCpp\":" + json(r.trust_to_cpp).dump() + ",";
-    cfg += "\"cppToTrust\":" + json(r.cpp_to_trust).dump();
+    // Трансляция (cpp/маппинги/ok/error) НЕ хранится в шаблоне страницы —
+    // она получается только от балансировщика при каждом изменении кода.
+    cfg += "\"source\":" + jsonEscape(r.source);
     cfg += ",\"examples\":[";
     for (size_t i = 0; i < examples.size(); ++i) {
         if (i != 0) {
@@ -277,7 +274,8 @@ static std::string buildFragment(const HtmlResult& r, const LspOptions& opts, co
            "background:var(--tpl-bg);color:var(--tpl-text);padding:8px;"
            "border:1px solid var(--tpl-border);border-radius:6px;}\n";
     out += ".tpl-row{display:flex;gap:6px;min-height:400px;}\n";
-    out += ".tpl-pane{flex:1;display:flex;flex-direction:column;min-width:0;border:1px solid var(--tpl-border);border-radius:4px;overflow:hidden;}\n";
+    out += ".tpl-pane{flex:1;display:flex;flex-direction:column;min-width:0;position:relative;border:1px solid "
+           "var(--tpl-border);border-radius:4px;overflow:hidden;}\n";
     out += ".tpl-toolbar{padding:4px "
            "8px;background:var(--tpl-toolbar);font-size:12px;font-weight:600;user-select:none;display:flex;align-items:center;gap:8px;}\n";
     out += ".tpl-examples{font-size:12px;font-weight:400;max-width:260px;background:var(--tpl-bg);color:var(--tpl-text);border:1px solid "
@@ -294,6 +292,10 @@ static std::string buildFragment(const HtmlResult& r, const LspOptions& opts, co
     out += ".tpl-btn-disabled{opacity:.6;pointer-events:none;}\n";
     out += ".tpl-log{min-height:80px;max-height:160px;overflow:auto;font-size:12px;color:var(--tpl-text);background:var(--tpl-bg);border:1px solid "
            "var(--tpl-border);border-radius:4px;padding:6px;white-space:pre-wrap;}\n";
+    // Оверлей правой панели: центрированное сообщение об ошибке/нет связи с
+    // сервером песочницы. По умолчанию скрыт (display:none), включается из glue-JS.
+    out += ".tpl-overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;"
+           "padding:16px;text-align:center;background:var(--tpl-bg);color:var(--tpl-error);font-size:14px;line-height:1.5;z-index:10;}\n";
     out += "</style>\n";
 
     out += "<div class=\"tpl-pg\" id=\"trust-playground\">\n";
@@ -305,7 +307,8 @@ static std::string buildFragment(const HtmlResult& r, const LspOptions& opts, co
            "<a id=\"tpl-download\" class=\"tpl-btn tpl-btn-disabled\" href=\"#\" title=\"Скачать архив сборки\">&#11015; Скачать архив</a>"
            "<label id=\"tpl-follow\" class=\"tpl-follow\" title=\"Следовать за выбранной строкой (прокручивать вторую панель к ней)\">"
            "<input type=\"checkbox\" id=\"tpl-follow-cb\" checked>follow</label></div>"
-           "<div id=\"tpl-cpp-editor\" class=\"tpl-editor\"></div></div>\n";
+           "<div id=\"tpl-cpp-editor\" class=\"tpl-editor\"></div>"
+           "<div id=\"tpl-cpp-overlay\" class=\"tpl-overlay\"></div></div>\n";
     out += "</div>\n";
     out += "<div id=\"tpl-log\" class=\"tpl-log\"></div>\n";
     out += "<div id=\"tpl-status\" class=\"tpl-status\"></div>\n";
