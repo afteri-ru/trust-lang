@@ -1,5 +1,5 @@
 // src/ast/ident_name.cpp
-// Реализация IdentName — методы проверки, нормализации, манглинга идентификаторов.
+// Реализация IdentName - методы проверки, нормализации, манглинга идентификаторов.
 // Перенесено из trust::Ident, работа через text()/m_text вместо *this.
 
 #include "ast/ident_name.hpp"
@@ -13,16 +13,16 @@
 
 namespace trust {
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Конструкторы без Term (test-only): text() из m_text, range() → EXPECT.
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 IdentName::IdentName(std::string name, AttrPool* pool)
 : HasText(ParserToken::Kind::Ident, std::move(name)) {
     stripCaretAndApplyReadonly(pool);
 }
 
-// ── Терм-конструктор: имя читается из Term и нормализуется по kind=Ident (срез '^').
+// -- Терм-конструктор: имя читается из Term и нормализуется по kind=Ident (срез '^').
 //    Признак иммутабельности → attr::ReadOnly применяется отдельно (convertAttrsToNode);
 //    stripCaretAndApplyReadonly здесь НЕ вызывается, чтобы не задвоить attr.
 IdentName::IdentName(TermPtr term, AttrPool* pool)
@@ -35,9 +35,9 @@ IdentName::IdentName(TermPtr term, ParserToken::Kind k, AttrPool* pool)
     (void)pool;
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Вспомогательные утилиты
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 static bool is_unicode_letter(char32_t c) {
     return (c >= 0x0041 && c <= 0x005A) || // A-Z
@@ -131,17 +131,17 @@ static bool is_lower_letter(char c) {
     return (c >= 'a' && c <= 'z');
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // IdentName::dump
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 std::string IdentName::dump(size_t indent) const {
     return detail::dumpQuotedName(kind(), text(), indent);
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Тип имени
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 bool IdentName::is_simple() const noexcept {
     return !text().empty() && !is_qualified() && !is_special() && !is_internal();
@@ -167,9 +167,9 @@ bool IdentName::is_internal() const noexcept {
     return last == '$' || last == ':' || last == '%';
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Квалификаторные признаки
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 bool IdentName::is_macro() const noexcept {
     return !text().empty() && text().front() == '@';
@@ -228,9 +228,9 @@ bool IdentName::is_relative_module() const noexcept {
     return is_module() && !is_absolute_module();
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Специальные имена
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 bool IdentName::is_self() const noexcept {
     return text() == "$0";
@@ -264,9 +264,9 @@ bool IdentName::is_arg_ref() const noexcept {
     return true;
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Имя без квалификатора
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 std::string_view IdentName::bare_name() const noexcept {
     std::string_view s = text();
@@ -298,9 +298,9 @@ std::string_view IdentName::bare_name() const noexcept {
     return s.substr(start, end - start);
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Валидация
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 bool IdentName::is_valid_simple_name(std::string_view s) noexcept {
     if (s.empty()) {
@@ -361,9 +361,9 @@ bool IdentName::is_valid_module_name(std::string_view s) noexcept {
     return true;
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Нормализация
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 bool IdentName::is_normalized() const noexcept {
     // '^' (immutable marker) may only appear at the end
@@ -401,9 +401,9 @@ IdentName IdentName::normalized() const {
     return result;
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Внутреннее имя
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 IdentName IdentName::to_internal() const {
     std::string_view s = text();
@@ -511,9 +511,9 @@ IdentName IdentName::to_internal() const {
     return IdentName(std::move(result));
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Разбивка по ::
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 std::vector<std::string_view> IdentName::parts() const {
     std::vector<std::string_view> result;
@@ -550,9 +550,9 @@ std::vector<std::string_view> IdentName::parts() const {
     return result;
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Манглинг
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 IdentName IdentName::mangle(std::string_view module_name) const {
     std::string_view s = text();
@@ -641,9 +641,9 @@ IdentName IdentName::demangle(std::string_view mangled) {
     return IdentName(std::move(result));
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // Преобразование имени модуля в файловый путь
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 std::filesystem::path IdentName::module_name_to_path(std::string_view module_name, const std::filesystem::path& base_dir,
                                                      const std::filesystem::path& sys_dir) {
@@ -777,9 +777,9 @@ IdentName IdentName::path_to_module_name(const std::filesystem::path& path, cons
     return IdentName(std::move(result));
 }
 
-// ──────────────────────────────────────────────
-// handleImmutable — обработка '^' в конце имени
-// ──────────────────────────────────────────────
+// ----------------------------------------------
+// handleImmutable - обработка '^' в конце имени
+// ----------------------------------------------
 
 void IdentName::stripCaretAndApplyReadonly(AttrPool* pool) {
     if (m_text.empty() || m_text.back() != '^') {

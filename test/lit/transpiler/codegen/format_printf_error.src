@@ -1,6 +1,6 @@
 # RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
-# Атрибут @[format("printf", 1, 2)]: компиляйт-тайм проверка типов аргументов — %s ожидает
+# Атрибут @[format("printf", 1, 2)]: компиляйт-тайм проверка типов аргументов - %s ожидает
 # строку, а передан целый литерал → ошибка.
 
 @[format("printf", 1, 2)]@ %printf(fmt: @[reftype(ptr)]@ StrChar^, ...):Int32 := ...;

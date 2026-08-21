@@ -53,7 +53,7 @@ TEST(StringsTest, ExtractName) {
 }
 
 TEST(StringsTest, ExtractNameUtf8) {
-    // "привет" в UTF8 — 12 байт
+    // "привет" в UTF8 - 12 байт
     const char* s = "\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82";
     EXPECT_EQ(extract_name(s, 0), std::string_view(s, 12));
     EXPECT_EQ(extract_name(s, 6), std::string_view(s, 12));
@@ -93,12 +93,12 @@ TEST(NameToCppTest, CppQualified) {
 TEST(NameToCppTest, RussianTranslit) {
     EXPECT_EQ(name_to_cpp("\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82"), "ru_privet");
     EXPECT_EQ(name_to_cpp("\xD0\x9C\xD0\xB8\xD1\x80"), "ru_Mir");
-    // Полностью русское "Ю" — транслитерация, а не HEX
+    // Полностью русское "Ю" - транслитерация, а не HEX
     EXPECT_EQ(name_to_cpp("\xD0\xAE"), "ru_Yu");
 }
 
 TEST(NameToCppTest, MixedIdentifierHexEncoded) {
-    // Смешанный идентификатор (русская буква + латинская ASCII) — ветка u8_,
+    // Смешанный идентификатор (русская буква + латинская ASCII) - ветка u8_,
     // HEX-кодирование всех байтов: Ю = D0 AE, A = 41.
     EXPECT_EQ(name_to_cpp("\xD0\xAE"
                           "A"),
@@ -122,7 +122,7 @@ TEST(CppToNameTest, RussianTranslit) {
 }
 
 TEST(NameToCppTest, Native) {
-    // Нативные %-имена — уже C++-символы рантайма: '%' срезается, остальное как есть.
+    // Нативные %-имена - уже C++-символы рантайма: '%' срезается, остальное как есть.
     EXPECT_EQ(name_to_cpp("%add"), "add");
     EXPECT_EQ(name_to_cpp("%x"), "x");
     EXPECT_EQ(name_to_cpp("%std::max"), "std::max");
@@ -130,7 +130,7 @@ TEST(NameToCppTest, Native) {
 
 TEST(CppToNameTest, EmptyAndNative) {
     EXPECT_EQ(cpp_to_name(""), "");
-    // Имя без известного префикса — нативное C++-имя: восстанавливается маркер '%'.
+    // Имя без известного префикса - нативное C++-имя: восстанавливается маркер '%'.
     EXPECT_EQ(cpp_to_name("a"), "%a");
     EXPECT_EQ(cpp_to_name("ab"), "%ab");
     EXPECT_EQ(cpp_to_name("add"), "%add");
@@ -156,7 +156,7 @@ TEST(NameRoundTripTest, Russian) {
     }
 }
 
-// ── Вставки C++ (EmbedExpr): маркеры $/@ → name_to_cpp ──
+// -- Вставки C++ (EmbedExpr): маркеры $/@ → name_to_cpp --
 
 TEST(EmbedCppTest, TransformsLocalAndQualified) {
     EXPECT_EQ(transform_embed_cpp("printf(\"%s\", $msg);"), "printf(\"%s\", c_msg);");
@@ -166,7 +166,7 @@ TEST(EmbedCppTest, TransformsLocalAndQualified) {
     EXPECT_EQ(transform_embed_cpp("@ns::x"), "cpp_ns$$x");
     // Чистый C++-текст без маркеров остаётся без изменений.
     EXPECT_EQ(transform_embed_cpp("int x = 42;"), "int x = 42;");
-    // Маркер не перед именем (в строке/после спецсимвола) — копируется как есть.
+    // Маркер не перед именем (в строке/после спецсимвола) - копируется как есть.
     EXPECT_EQ(transform_embed_cpp("printf(\"$%d\", x);"), "printf(\"$%d\", x);");
     // Юникодное trust-имя конвертируется.
     EXPECT_EQ(transform_embed_cpp("$привет"), "ru_privet");
@@ -175,7 +175,7 @@ TEST(EmbedCppTest, TransformsLocalAndQualified) {
 TEST(EmbedCppTest, ExtractsNames) {
     auto names = extract_embed_names("a + $x + @y::z");
     ASSERT_EQ(names.size(), 2u);
-    // $x — локальная переменная (маркер $ сохраняется: после нормализации локальная хранится с $).
+    // $x - локальная переменная (маркер $ сохраняется: после нормализации локальная хранится с $).
     EXPECT_EQ(names[0], "$x");
     EXPECT_EQ(names[1], "y::z");
     // Маркеры не перед именами не извлекаются.
@@ -198,7 +198,7 @@ TEST(StringsTest, EscapeCppStringAllSpecial) {
     // Прочие управляющие (0x1B, 0x01) → hex-escape.
     EXPECT_EQ(escape_cpp_string(std::string("\x1B", 1)), "\\x1B");
     EXPECT_EQ(escape_cpp_string(std::string("\x01", 1)), "\\x01");
-    // UTF-8 / печатные — без изменений.
+    // UTF-8 / печатные - без изменений.
     EXPECT_EQ(escape_cpp_string("abc_123"), "abc_123");
 }
 
@@ -211,7 +211,7 @@ TEST(StringsTest, UnescapeCppString) {
     EXPECT_EQ(unescape_cpp_string("\\x1B"), "\x1B");
     // Неизвестная escape-последовательность сохраняется как символ.
     EXPECT_EQ(unescape_cpp_string("\\q"), "q");
-    // Строка без escapes — без изменений.
+    // Строка без escapes - без изменений.
     EXPECT_EQ(unescape_cpp_string("plain"), "plain");
 }
 

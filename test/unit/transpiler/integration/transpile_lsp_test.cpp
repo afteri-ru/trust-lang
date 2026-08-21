@@ -54,7 +54,7 @@ static void runPipeline(Context& ctx, std::string_view trustCode, MapperFile* ou
     }
 }
 
-// ── Хелперы для проверки записи .cppt/.src_map на диск ──
+// -- Хелперы для проверки записи .cppt/.src_map на диск --
 
 // Сохраняет транспилированный C++ + source map в _build/test_data/<testName>/
 // (путь по имени юнит-теста, временные имена не используются).
@@ -402,7 +402,7 @@ TEST(TranspileLspTest, MacroThenTranspileAndSave) {
 // ============================================================================
 // 8. Reverse name mapping: hover target is the whole name, not a shifted sub-range
 // ============================================================================
-// `getTrustName`/`getCppName` возвращают полный NameMap: цель hover-ссылки — весь
+// `getTrustName`/`getCppName` возвращают полный NameMap: цель hover-ссылки - весь
 // диапазон имени на противоположной стороне, без сдвига по позиции курсора внутри
 // имени (иначе наведение на середину многосимвольного имени даёт сдвинутый target).
 TEST(TranspileLspTest, ReverseNameMappingWholeNameNotShifted) {
@@ -435,7 +435,7 @@ TEST(TranspileLspTest, ReverseNameMappingWholeNameNotShifted) {
 // 6. Embed block: source-map range covers only the body (not the delimiters)
 // ============================================================================
 // range {% ... %} блока покрывает только содержимое между разделителями; каждый
-// {% ... %} — отдельный EmbedExpr-узел со своим range.
+// {% ... %} - отдельный EmbedExpr-узел со своим range.
 TEST(TranspileLspTest, EmbedBlockRangeCoversOnlyBody) {
     Context ctx(".");
     TypeRegistry types(ctx.diag(), ctx.opts());
@@ -492,7 +492,7 @@ TEST(TranspileLspTest, SameLineEmbedBlocksJoinOnOneLine) {
 // 6b2. General same-line logic: two statements on the same source line join
 // ============================================================================
 // Логика применяется ко ВСЕМ блокам, а не только к EMBED: если строка конца предыдущего
-// узла совпадает со строкой начала следующего — между ними '\n' не вставляется.
+// узла совпадает со строкой начала следующего - между ними '\n' не вставляется.
 TEST(TranspileLspTest, SameLineStatementsJoinOnOneLine) {
     Context ctx(".");
     TypeRegistry types(ctx.diag(), ctx.opts());
@@ -517,7 +517,7 @@ TEST(TranspileLspTest, SameLineStatementsJoinOnOneLine) {
 // 6b3. Function body mirrors the source layout ({ / } / statements on same lines)
 // ============================================================================
 // Сгенерированный C++ повторяет раскладку исходника и внутри блоков: операторы на
-// одной строке исходника — на одной строке, '{'/'}' следуют строкам исходника.
+// одной строке исходника - на одной строке, '{'/'}' следуют строкам исходника.
 TEST(TranspileLspTest, FunctionBodyProperFormatting) {
     // Одно-строчный блок: нормальное многострочное форматирование с отступами.
     {
@@ -533,7 +533,7 @@ TEST(TranspileLspTest, FunctionBodyProperFormatting) {
         pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
         ASSERT_EQ(ctx.diag().errorCount(), 0);
         std::string cpp(ctx.source().output_body(cppIdx));
-        // Операторы тела функции — с отступом, каждый на своей строке.
+        // Операторы тела функции - с отступом, каждый на своей строке.
         EXPECT_NE(cpp.find("void foo() {\n    bool c_a = 1;\n    int8_t c_b = 2;\n}"), std::string::npos) << cpp;
     }
     // Много-строчный блок: то же нормальное форматирование с отступами.
@@ -574,7 +574,7 @@ TEST(TranspileLspTest, MultipleEmbedBlocksSeparateLines) {
     ASSERT_EQ(ctx.diag().errorCount(), 0);
 
     std::string cpp(ctx.source().output_body(cppIdx));
-    // Каждый блок — на отдельной строке.
+    // Каждый блок - на отдельной строке.
     EXPECT_NE(cpp.find(" int x = 42; \n printf(\"hi\"); "), std::string::npos) << cpp;
 
     auto* reader = ctx.source().toReader();
@@ -642,9 +642,9 @@ TEST(TranspileLspTest, CompoundAssignmentRangeCoversWholeStatement) {
 // ============================================================================
 // 8. FuncDecl: сигнатура и тело маппятся раздельно
 // ============================================================================
-// Диапазон statement'а функции — [имя, оператор] (НЕ тело): он маппится на сигнатуру
+// Диапазон statement'а функции - [имя, оператор] (НЕ тело): он маппится на сигнатуру
 // C++ ("void func()"). Тело (блок m_right) маппится отдельно, чтобы скобки { } были
-// видны в C++, а имя функции — отдельным name-маппингом на "func".
+// видны в C++, а имя функции - отдельным name-маппингом на "func".
 TEST(TranspileLspTest, FuncDeclSignatureAndBodyMappedSeparately) {
     Context ctx(".");
     TypeRegistry types(ctx.diag(), ctx.opts());
@@ -677,7 +677,7 @@ TEST(TranspileLspTest, FuncDeclSignatureAndBodyMappedSeparately) {
         EXPECT_NE(trustText, ":=") << "operator-only mapping must not survive";
         if (trustText == "func():Void :=") {
             foundSig = true;
-            // Определение (с телом) — пользовательская C++-функция без extern "C";
+            // Определение (с телом) - пользовательская C++-функция без extern "C";
             // C-линковка добавляется только forward-декларациям (нет тела).
             EXPECT_EQ(reader->getText(m.to), "void func()");
         }
@@ -735,7 +735,7 @@ TEST(TranspileLspTest, DictionarySpreadMapping) {
     ASSERT_NE(reader, nullptr);
     ReaderFile rTrustIdx = reader->findFileIdx("@input");
     auto mappings = reader->getTrustFileMappings(rTrustIdx);
-    // Каждый statement (d:=, destructure, e:=, append) — отдельный маппинг. До фикса
+    // Каждый statement (d:=, destructure, e:=, append) - отдельный маппинг. До фикса
     // destructure маппинга НЕ имел (не был обёрнут SemicolonStmt) → маппингов было меньше.
     ASSERT_GE(mappings.size(), 4);
 

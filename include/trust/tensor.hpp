@@ -78,7 +78,7 @@ class TensorHandle {
     std::shared_ptr<void> m_storage;
 };
 
-// Always available — loads the tensor runtime plugin
+// Always available - loads the tensor runtime plugin
 // Returns true if the library was loaded successfully, false otherwise.
 bool ensure_tensor_runtime_loaded();
 

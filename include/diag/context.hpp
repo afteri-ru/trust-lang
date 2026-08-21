@@ -26,7 +26,7 @@ class ModuleLoader;
 class TypeRegistry;
 
 // Запись о макроопределении, записанная в Context во время парсинга. Хранится отдельно
-// от таблицы макросов (Macro), т.к. макросы модуля удаляются из неё при PopScope — для
+// от таблицы макросов (Macro), т.к. макросы модуля удаляются из неё при PopScope - для
 // LSP-автодополнения и навигации нужны все определения независимо от текущего модуля.
 struct MacroDef {
     std::string name;  ///< Имя макроса (первый терм группы, может содержать '@')
@@ -35,7 +35,7 @@ struct MacroDef {
     std::string documentation;
 };
 
-// Context — фасад, объединяющий SourceMapWriter, DiagnosticEngine, Options,
+// Context - фасад, объединяющий SourceMapWriter, DiagnosticEngine, Options,
 // AttrPool, TypeRegistry, ModuleLoader.
 // Владеет всеми объектами (unique_ptr) и предоставляет доступ к ним через геттеры.
 class Context {
@@ -46,7 +46,7 @@ class Context {
     Context(const Context&) = delete;
     Context& operator=(const Context&) = delete;
 
-    // ── Доступ к компонентам ──
+    // -- Доступ к компонентам --
     SourceMapWriter& source();
     const SourceMapWriter& source() const;
     DiagnosticEngine& diag();
@@ -70,7 +70,7 @@ class Context {
     /// внедряется сюда, чтобы избежать зависимости diag → module_loader.
     void setLoader(ModuleLoader* loader) { m_moduleLoader = loader; }
 
-    // ── Текущий (активный) модуль ──
+    // -- Текущий (активный) модуль --
     /// Индекс текущего модуля (верх стека ModuleLoader). nullopt = модуль не задан.
     [[nodiscard]] std::optional<std::size_t> currentModule() const noexcept { return m_currentModule; }
     /// Устанавливает активный модуль.
@@ -78,18 +78,18 @@ class Context {
     /// Сбрасывает активный модуль.
     void resetCurrentModule() { m_currentModule.reset(); }
 
-    // ── Макросы ──
+    // -- Макросы --
     /// Возвращает макрос, загруженный в этот контекст (может быть nullptr).
     std::shared_ptr<Macro> macro() const;
     /// Устанавливает макрос для этого контекста.
     void setMacro(std::shared_ptr<Macro> macro);
 
-    /// Регистрирует макроопределение (имя + диапазон) — для LSP-навигации/автодополнения.
+    /// Регистрирует макроопределение (имя + диапазон) - для LSP-навигации/автодополнения.
     void recordMacro(std::string name, MapperRange range);
     /// Все зарегистрированные макроопределения (не теряются после PopScope модуля).
     const std::vector<MacroDef>& macroDefs() const noexcept { return m_macroDefs; }
 
-    // ── Макро-счётчики ──
+    // -- Макро-счётчики --
     /// Возвращает текущее значение счётчика макросов и инкрементирует его.
     int nextMacroCounter() { return m_macroCounter++; }
     /// Возвращает текущее значение гигиенического счётчика и инкрементирует его.
@@ -99,13 +99,13 @@ class Context {
     /// Сброс гигиенического счётчика (для тестов).
     void resetHygienicCounter(int val = 1) { m_hygienicCounter = val; }
 
-    // ── Счётчик анонимных блоков ──
+    // -- Счётчик анонимных блоков --
     /// Возвращает текущее значение счётчика блоков и инкрементирует его.
     int nextBlockCounter() { return m_blockCounter++; }
     /// Сброс счётчика блоков (для тестов).
     void resetBlockCounter(int val = 1) { m_blockCounter = val; }
 
-    // report — convenience-метод: берёт severity из Options, вызывает DiagnosticEngine::report.
+    // report - convenience-метод: берёт severity из Options, вызывает DiagnosticEngine::report.
     template <typename... Args>
     void report(MapperRange range, OptKind kind, std::format_string<Args...> fmt, Args&&... args) {
         auto sev = opts().severity(kind);
@@ -128,7 +128,7 @@ class Context {
 
     std::optional<std::size_t> m_currentModule; ///< Индекс текущего (активного) модуля
 
-    // ── Макро-/блок-счётчики ──
+    // -- Макро-/блок-счётчики --
     int m_macroCounter{1};
     int m_hygienicCounter{1};
     int m_blockCounter{1};

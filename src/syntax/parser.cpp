@@ -16,7 +16,7 @@ using namespace trust;
 
 namespace trust {
 
-// ── Хелперы грамматики для документирующих комментариев (doc_list / DOCUMENT_INLINE) ──
+// -- Хелперы грамматики для документирующих комментариев (doc_list / DOCUMENT_INLINE) --
 // Forward-объявлены в прологе parser.y; вызываются из действий грамматики
 // (правила doc_list/expression/sequence).
 
@@ -50,11 +50,11 @@ void appendDocs(TermPtr seq, TermPtr docs) {
     seq->m_sequence.insert(seq->m_sequence.end(), all.begin(), all.end());
 }
 
-// Истина, если терм — объявление (для привязки документирующего комментария к самому терму).
+// Истина, если терм - объявление (для привязки документирующего комментария к самому терму).
 bool isDeclTerm(const Term& t) {
     switch (t.m_id) {
     case TermID::CREATE_NAME: // := → VarDecl (или FuncDecl по сигнатуре в m_left)
-        // Деструктуризация `a, b := source` — НЕ одиночное объявление: док остаётся sibling-узлом.
+        // Деструктуризация `a, b := source` - НЕ одиночное объявление: док остаётся sibling-узлом.
         return !(t.m_left && t.m_left->m_left);
     case TermID::CREATE_TYPE: // ::= → TypeDecl
     case TermID::FUNCTION:    // FuncDecl
@@ -68,10 +68,10 @@ bool isDeclTerm(const Term& t) {
     }
 }
 
-// Хвостовой док (`sequence DOCUMENT_INLINE`): если последний statement — объявление,
-// пишем док прямо в терм-идентификатор (m_docs); иначе — отдельным sibling-узлом (как было).
+// Хвостовой док (`sequence DOCUMENT_INLINE`): если последний statement - объявление,
+// пишем док прямо в терм-идентификатор (m_docs); иначе - отдельным sibling-узлом (как было).
 // Для одиночного statement терм sequence равен самому терму (не SEQUENCE-обёртке), поэтому
-// last = сам терм; для multi-statement sequence — последний элемент m_sequence.
+// last = сам терм; для multi-statement sequence - последний элемент m_sequence.
 void attachTrailingDoc(TermPtr seq, TermPtr docs) {
     TermPtr last = seq;
     if (last && last->m_id == TermID::SEQUENCE && !last->m_sequence.empty()) {
@@ -84,7 +84,7 @@ void attachTrailingDoc(TermPtr seq, TermPtr docs) {
     }
 }
 
-// Ведущий док (`doc_list expression`): если выражение — объявление, цепляем док на терм
+// Ведущий док (`doc_list expression`): если выражение - объявление, цепляем док на терм
 // (m_docs); иначе возвращаем bundle (отдельный sibling-узел). Возвращает результат выражения.
 // Многострочные ведущие доки редуцируются вложенно (`doc_list expression`): внешний док
 // приходит ПОЗЖЕ, поэтому ведущие вставляем В НАЧАЛО m_docs, сохраняя порядок исходника.
@@ -115,13 +115,13 @@ Parser::Parser(trust::Context& ctx, PostLexerType* postlex, bool pragma_enable, 
         m_timestamp = std::time(NULL);
     }
 
-    // TODO(cleanup): m_is_runing unused — commented out, see task 1785675437901
+    // TODO(cleanup): m_is_runing unused - commented out, see task 1785675437901
     // m_is_runing = false;
     m_is_lexer_complete = false;
 
     m_macro = macro_expand ? ctx.macro() : nullptr;
     m_postlex = postlex;
-    // TODO(cleanup): unused — only for m_annotation pragmas, commented out, see task 1785678668891
+    // TODO(cleanup): unused - only for m_annotation pragmas, commented out, see task 1785678668891
     // m_annotation = Term::Create(TermID::ARGS, "", parser::token_type::ARGS);
     m_no_macro = false;
     m_enable_pragma = pragma_enable;
@@ -144,7 +144,7 @@ TermPtr Parser::ParseText(std::string_view text, std::string_view sourceName, bo
 // Парсит из уже зарегистрированного source-файла (не создавая псевдо-источник
 // с префиксом '@' / in-memory). Используется модульным загрузчиком для главного
 // файла/модуля, чтобы маппинги (mapStart/mapStop) привязывались к реальному
-// файлу, а не к новому одноимённому входу — иначе source map невозможно
+// файлу, а не к новому одноимённому входу - иначе source map невозможно
 // сопоставить с исходным .src.
 TermPtr Parser::ParseWithSource(trust::MapperFile src, bool expand_module) {
     m_expand_module = expand_module;
@@ -223,7 +223,7 @@ __attribute__((weak)) ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
 bool Parser::PragmaCheck(const TermPtr& term) {
     if (term && term->getText().size() > 5 && term->getText().find("@__") == 0 && term->getText().rfind("__") == term->getText().size() - 2) {
         // Контекст-макросы (@__NAMESPACE__, @__FUNCTION__, @__FUNCSIG__, @__FUNCDNAME__)
-        // — не прагмы, а значения/имена, раскрываемые анализатором. Иначе после
+        // - не прагмы, а значения/имена, раскрываемые анализатором. Иначе после
         // ExpandPredefMacro (m_id = MACRO_CONTEXT) они попадали бы в ветку прагм и съедались.
         if (term->m_id == TermID::MACRO_CONTEXT) {
             return false;
@@ -287,7 +287,7 @@ bool Parser::PragmaEval(const TermPtr& term, SequenceType& buffer, SequenceType&
 
     static const char* __PRAGMA_NO_MACRO__ = "@__PRAGMA_NO_MACRO__";
 
-    // TODO(cleanup): unused — only for m_annotation pragmas, commented out, see task 1785678668891
+    // TODO(cleanup): unused - only for m_annotation pragmas, commented out, see task 1785678668891
     // static const char* __ANNOTATION_SET__ = "@__ANNOTATION_SET__";
     // static const char* __ANNOTATION_CHECK__ = "@__ANNOTATION_CHECK__";
     // static const char* __ANNOTATION_IIF__ = "@__ANNOTATION_IIF__";
@@ -356,9 +356,9 @@ bool Parser::PragmaEval(const TermPtr& term, SequenceType& buffer, SequenceType&
     } else if (term->getText().compare("@__OPTION_TRUE__") == 0 || term->getText().compare("@__OPTION_FALSE__") == 0) {
 
         // Условная подстановка лексем по булевому feature-флагу (fallback для контекстов,
-        // где прагма уже собрана как term; основной путь — Parser::EvalOptionTrueFalseRaw):
-        //   @__OPTION_TRUE__(<flag>, <lex>...)  — срабатывает, если флаг включён;
-        //   @__OPTION_FALSE__(<flag>, <lex>...) — срабатывает, если флаг выключен.
+        // где прагма уже собрана как term; основной путь - Parser::EvalOptionTrueFalseRaw):
+        //   @__OPTION_TRUE__(<flag>, <lex>...)  - срабатывает, если флаг включён;
+        //   @__OPTION_FALSE__(<flag>, <lex>...) - срабатывает, если флаг выключен.
         // При срабатывании прагма заменяется лексемами-аргументами после первого.
         if (term->size() < 1) {
             m_ctx.diag().report(Severity::Error, term->m_mapperRange, "{} expects at least one argument (option flag name)!", term->getText());
@@ -395,8 +395,8 @@ bool Parser::PragmaEval(const TermPtr& term, SequenceType& buffer, SequenceType&
     } else if (term->getText().compare("@__OPTION_IIF__") == 0) {
 
         // Условная подстановка по булевому feature-флагу с двумя ветками:
-        //   @__OPTION_IIF__(<flag>, <true>, <false>) — ровно 3 аргумента;
-        // если флаг включён — прагма заменяется <true>, иначе — <false>.
+        //   @__OPTION_IIF__(<flag>, <true>, <false>) - ровно 3 аргумента;
+        // если флаг включён - прагма заменяется <true>, иначе - <false>.
         if (term->size() != 3) {
             m_ctx.diag().report(Severity::Error, term->m_mapperRange, "{} expects exactly three arguments (option flag name, true, false)!", term->getText());
             return false;
@@ -487,7 +487,7 @@ bool Parser::PragmaEval(const TermPtr& term, SequenceType& buffer, SequenceType&
 
         throw ParserError("Pragma @__PRAGMA_MACRO_COND__ not implemented!");
 
-        // TODO(cleanup): m_expected/m_unexpected/m_finalize unused — commented out, see task 1785675437901
+        // TODO(cleanup): m_expected/m_unexpected/m_finalize unused - commented out, see task 1785675437901
         // } else if (term->getText().compare(__PRAGMA_EXPECTED__) == 0) {
         //
         //     m_expected = term;
@@ -511,7 +511,7 @@ bool Parser::PragmaEval(const TermPtr& term, SequenceType& buffer, SequenceType&
 
         m_no_macro = true;
 
-        // TODO(cleanup): unused — only for m_annotation pragmas, commented out, see task 1785678668891
+        // TODO(cleanup): unused - only for m_annotation pragmas, commented out, see task 1785678668891
         // } else if (term->getText().compare(__ANNOTATION_SET__) == 0) {
         //
         //     if (term->size() == 1) {
@@ -581,10 +581,10 @@ bool Parser::EvalOptionTrueFalseRaw() {
     SequenceType& buf = m_macro_analisys_buff;
     const std::string ptext = buf[0]->getText();
     if (ptext != "@__OPTION_TRUE__" && ptext != "@__OPTION_FALSE__") {
-        return false; // обрабатываем только TRUE/FALSE; остальные — через ParseTerm/PragmaEval
+        return false; // обрабатываем только TRUE/FALSE; остальные - через ParseTerm/PragmaEval
     }
     if (buf.size() < 4 || buf[1]->getText() != "(") {
-        return false; // не распознан «сырой» синтаксис — обработка через ParseTerm/PragmaEval
+        return false; // не распознан «сырой» синтаксис - обработка через ParseTerm/PragmaEval
     }
     const trust::MapperRange prange = buf[0]->m_mapperRange;
     std::string flag = buf[2]->getText();
@@ -605,7 +605,7 @@ bool Parser::EvalOptionTrueFalseRaw() {
     }
 
     // «Сырое» содержимое между именем флага и закрывающей скобкой. Каждому токену
-    // присваивается range сайта вызова прагмы (prange) — как при раскрытии остальных
+    // присваивается range сайта вызова прагмы (prange) - как при раскрытии остальных
     // макросов/прагм (t->m_mapperRange = term->m_mapperRange). Это нужно, чтобы
     // преdef-макросы и управляющие конструкции (напр. FOLLOW) внутри содержимого имели
     // единый call-site range (иначе маппер падает, а локация «запекается» к dsl.src).
@@ -1125,14 +1125,14 @@ TermPtr Parser::CheckModuleTerm(const TermPtr& term) {
         return term;
     }
     if (term->isCall()) {
-        // Загрузка модуля: \module(func) — рекурсивный вызов парсера.
+        // Загрузка модуля: \module(func) - рекурсивный вызов парсера.
         // Loader сохраняет тело загруженного модуля (m_ast) в терм \module(func)->m_sequence,
         // чтобы конвертация в AstNode была loader-free (рекурсивная конвертация m_sequence).
         std::size_t idx = m_ctx.loader().ensureLoaded(term->getText(), term->m_mapperRange);
         term->m_sequence.clear();
         term->m_sequence.push_back(m_ctx.loader().body(idx));
     } else {
-        // Обращение \module::var — не грузим, а проверяем факт загрузки модуля.
+        // Обращение \module::var - не грузим, а проверяем факт загрузки модуля.
         auto idx = m_ctx.loader().indexOf(term->getText());
         if (!idx || !m_ctx.loader().isLoaded(*idx)) {
             m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Module '{}' is not loaded", term->getText());
@@ -1163,7 +1163,7 @@ parser::token_type Parser::GetNextToken(TermPtr* yylval) {
 
 go_parse_string:
 
-    // TODO(cleanup): m_is_runing unused — commented out, see task 1785675437901
+    // TODO(cleanup): m_is_runing unused - commented out, see task 1785675437901
     // m_is_runing = true;
 
     TermPtr term;
@@ -1399,7 +1399,7 @@ go_parse_string:
             }
         }
 
-        // TODO(cleanup): m_expected/m_unexpected unused — commented out, see task 1785675437901
+        // TODO(cleanup): m_expected/m_unexpected unused - commented out, see task 1785675437901
         // // Обработка команды проверка следующего термина @__PRAGMA_EXPECTED__
         // if (m_expected) {
         //     for (int i = 0; i < m_expected->size(); i++) {

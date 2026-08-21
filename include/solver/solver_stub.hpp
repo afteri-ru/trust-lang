@@ -8,7 +8,7 @@
 namespace trust {
 namespace solver {
 
-/// Stub solver — always returns kUnsupported.
+/// Stub solver - always returns kUnsupported.
 /// Used when WITH_SOLVER=OFF.
 class SolverStub final : public SolverInterface {
   public:

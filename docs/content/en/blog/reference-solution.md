@@ -16,7 +16,7 @@ Although there are programming languages that try to solve these problems throug
 
 
 ## What types of references exist?  
-For example, in the C language, there are pointers, but working with them is not very convenient and at the same time very dangerous due to the presence of pointer arithmetic (the ability to directly modify the pointer address to data in the computer's memory). In C++, a separate entity appeared — reference, and in C++11, references received further development, rvalue-references appeared.  
+For example, in the C language, there are pointers, but working with them is not very convenient and at the same time very dangerous due to the presence of pointer arithmetic (the ability to directly modify the pointer address to data in the computer's memory). In C++, a separate entity appeared - reference, and in C++11, references received further development, rvalue-references appeared.  
   
 While in C++, there are several types of references at once, Python developers probably deliberately tried to "simplify" working with references and generally abandoned them. Although de facto in Python, every object is a reference, although some types (simple values) are automatically passed by value, whereas complex types (objects) are always passed by reference.
 

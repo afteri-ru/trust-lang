@@ -1,4 +1,4 @@
-# Debug — Отладка
+# Debug - Отладка
 
 ## Назначение
 
@@ -6,8 +6,8 @@
 
 ## Особенности реализации
 
-- **DAP-сервер** — trust-dap работает как отдельный процесс, общается с VSCode по DAP-протоколу (stdin/stdout или TCP).
-- **GDB/MI backend** — управление отладкой через subprocess GDB (GDB/MI асинхронный протокол) с поддержкой breakpoint, step, continue, stack trace, variables.
-- **Двухоконная отладка** — source-map Trust→C++ встроен в ELF-секцию `.debug_trust_map`; DAP-команды поддерживают параметр `sourceKind` для переключения между `.src` и `.cppt` окнами.
-- **In-process транспиляция** — транспиляция для LSP выполняется внутри процесса через Context, без внешнего компилятора.
-- **VSCode extension** — регистрирует тип `.src`, debug adapter, build task (транспиляция → компиляция → запуск trust-dap), контекстное меню "Open Generated C++ File".
+- **DAP-сервер** - trust-dap работает как отдельный процесс, общается с VSCode по DAP-протоколу (stdin/stdout или TCP).
+- **GDB/MI backend** - управление отладкой через subprocess GDB (GDB/MI асинхронный протокол) с поддержкой breakpoint, step, continue, stack trace, variables.
+- **Двухоконная отладка** - source-map Trust→C++ встроен в ELF-секцию `.debug_trust_map`; DAP-команды поддерживают параметр `sourceKind` для переключения между `.src` и `.cppt` окнами.
+- **In-process транспиляция** - транспиляция для LSP выполняется внутри процесса через Context, без внешнего компилятора.
+- **VSCode extension** - регистрирует тип `.src`, debug adapter, build task (транспиляция → компиляция → запуск trust-dap), контекстное меню "Open Generated C++ File".

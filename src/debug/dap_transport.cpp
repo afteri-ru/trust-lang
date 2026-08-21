@@ -1,7 +1,7 @@
 #include "debug/dap_transport.h"
 #include "utils/io.hpp"
 
-// ── DAP Protocol helpers ──
+// -- DAP Protocol helpers --
 
 static int dapSeq = 0;
 
@@ -41,7 +41,7 @@ void sendDapResponse(trust::transport::Transport& transport, int requestSeq, con
 
 void sendDapEvent(trust::transport::Transport& transport, const std::string& eventName, const json& body) {
     json evt = {{"type", "event"}, {"event", eventName}, {"seq", nextDapSeq()}};
-    // Всегда добавляем body, даже пустой — DAP spec этого не запрещает,
+    // Всегда добавляем body, даже пустой - DAP spec этого не запрещает,
     // а VSCode ожидает наличие поля
     evt["body"] = body;
     std::string payload = evt.dump();
@@ -58,9 +58,9 @@ void sendBreakpointEvent(trust::transport::Transport& transport, const std::stri
         {{"reason", verified ? "changed" : "new"}, {"breakpoint", {{"id", bpId}, {"verified", verified}, {"source", {{"path", srcPath}}}, {"line", line}}}});
 }
 
-// ── TCP server helpers (делегированы в trust::transport) ──
+// -- TCP server helpers (делегированы в trust::transport) --
 
-// ── CLI parsing ──
+// -- CLI parsing --
 
 void printUsage(const char* prog) {
     trust::errs() << "Usage: " << prog << " [options]\n"
@@ -84,7 +84,7 @@ DapOptions parseDapOptions(int argc, const char* argv[]) {
             return opts;
         }
 
-        // server[=port] — TCP server mode
+        // server[=port] - TCP server mode
         if (std::strncmp(argv[i], "server", 6) == 0) {
             const char* eq = std::strchr(argv[i], '=');
             if (eq != nullptr) {

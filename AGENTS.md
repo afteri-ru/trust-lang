@@ -6,7 +6,7 @@
 
 **Think through and understand the task before writing code. Step back when necessary.**
 
-- State assumptions clearly. Present alternatives. Never guess — ask.
+- State assumptions clearly. Present alternatives. Never guess - ask.
 - Convert tasks into verifiable success criteria before writing code.
 - For multi-step tasks, outline a brief plan with checkpoints.
 
@@ -38,7 +38,7 @@
 - Avoid duplicating logic or checks.
 - Prefer `static_assert` and type system over runtime checks.
 
-### 5. No fallback for invalid data — raise an error (use FAULT and EXPECT with a diagnostic)
+### 5. No fallback for invalid data - raise an error (use FAULT and EXPECT with a diagnostic)
 
 **Invalid input → FAULT or EXPECT, never use a silent fallback.**
 
@@ -49,8 +49,8 @@
 - An empty value for std::optional is only allowed when the value is missing. It is invalid when invalid input data is passed (an error/FAULT/EXPECT must be returned).
 
 - Every `EXPECT()` and `FAULT()` call must include a human-readable diagnostic string:
-  - `FAULT("description", args...)` — description is the first argument;
-  - `EXPECT(expr && "description")` — description is added via `&& "..."`.
+  - `FAULT("description", args...)` - description is the first argument;
+  - `EXPECT(expr && "description")` - description is added via `&& "..."`.
   - A bare `EXPECT(expr)` without a description is allowed for obvious checks only.
 
 ### 6. No Implicit Backward Compatibility
@@ -77,10 +77,10 @@
 - Any use of the `git` (including reading history ) is prohibited.
 - Deny reading of the `.git` directory.
 - Not allowed reading `git` history or creating stash.
-- `grep` MUST **exclude** `.tasklog`, `.git`, `_build`, `.trust`, `node_modules` and other temporary/derived dirs (never scan them for patterns; never `grep -r` over the whole repo so they get included). **Обязательная форма** — явные `--exclude-dir` для всех временных/производных каталогов, а лучше и сужение корня поиска:
+- `grep` MUST **exclude** `.tasklog`, `.git`, `_build`, `.trust`, `node_modules` and other temporary/derived dirs (never scan them for patterns; never `grep -r` over the whole repo so they get included). **Обязательная форма** - явные `--exclude-dir` для всех временных/производных каталогов, а лучше и сужение корня поиска:
   - `grep -rn '<pattern>' src include test examples cmake --exclude-dir={_build,.tasklog,.git,_trust,.trust,node_modules}`
   - Нельзя: `grep -rn '<pattern>' .` (без исключений), `grep -rn '<pattern>' src` (если в `src` попадают производные файлы), поиск в `_build`/`.tasklog`/`.git` целиком.
-  - `search_codebase`/поиск по коду — только по исходным каталогам (`src`, `include`, `test`, `examples`), без `_build`, `.tasklog`, `.git`.
+  - `search_codebase`/поиск по коду - только по исходным каталогам (`src`, `include`, `test`, `examples`), без `_build`, `.tasklog`, `.git`.
 
 ---
 
@@ -88,7 +88,7 @@
 
 ### 9. Follow CODESTYLE
 
-**All code must follow [CODESTYLE.md](CODESTYLE.md) — naming conventions, formatting, prohibited and required patterns.**
+**All code must follow [CODESTYLE.md](CODESTYLE.md) - naming conventions, formatting, prohibited and required patterns.**
 
 - The naming conventions, formatting, prohibited and required patterns, code rules must follow [CODESTYLE.md](CODESTYLE.md)
 - For compiler options and build targent in `CMakeLists.txt`.
@@ -102,7 +102,7 @@
 - Write tests for additions and modifications: normal paths, edge cases, errors.
 - Never remove, skip, or disable tests without explicit permission.
 - Fix underlying code on failure -- do not silence the test.
-- Tests **MUST** never be silently skipped — missing test infrastructure (GTest, lit, python3, etc.) is a **BUILD FAILURE, not a silent skip or GTEST_SKIP()**.
+- Tests **MUST** never be silently skipped - missing test infrastructure (GTest, lit, python3, etc.) is a **BUILD FAILURE, not a silent skip or GTEST_SKIP()**.
 - Do not delete generated/output files unless asked.
 - All tests **MUST** be executed with a timeout (e.g., via `timeout` command) to prevent infinite loops or resource exhaustion.
 - **Tests are ALWAYS adapted to code changes, NEVER the reverse.** If a change intentionally alters behavior/structure (incl. AST/term shape, grammar, codegen), update the affected tests to reflect the new contract. Do NOT revert/weaken a correct change to keep outdated tests passing. This also applies to parser tests that pin internal term/AST structure: they must be updated alongside the change.
@@ -118,9 +118,9 @@
 - A root `MEMORY.md` at the project root holds project-level facts, decisions, and
   cross-component relations.
 - Read individual source/header files only when the task explicitly requires it or when modifying that specific file.
-- Do not scan the project for "understanding" — read `MEMORY.md` or `README.md` first.
+- Do not scan the project for "understanding" - read `MEMORY.md` or `README.md` first.
 - **Exception**: when the task requires modifying/refactoring a specific type, read its complete
-  definition (all fields, semantics, relationships) first — see `.clinerules/TASK.md`
+  definition (all fields, semantics, relationships) first - see `.clinerules/TASK.md`
   («Read structures before refactoring»). This does not contradict the rule: full type reading
   is done for the type being changed, not for analyzing the architecture.
 
@@ -129,7 +129,7 @@
 
 **`MEMORY.md` and `README.md` must always reflect the actual implementation.**
 
-- If a code change reveals a discrepancy between `MEMORY.md`, `README.md` and the code — stop and report it.
+- If a code change reveals a discrepancy between `MEMORY.md`, `README.md` and the code - stop and report it.
 - Update `MEMORY.md` in the same change set as the code modification.
 - Mismatch between `MEMORY.md` or `README.md` and implementation is treated as a bug.
 
@@ -155,8 +155,8 @@ memory server**.
 
 ### Scope
 
-- Root `MEMORY.md` — project-level facts, decisions, and cross-component relations.
-- Per-component `MEMORY.md` — the component's architecture and persistent facts relevant to
+- Root `MEMORY.md` - project-level facts, decisions, and cross-component relations.
+- Per-component `MEMORY.md` - the component's architecture and persistent facts relevant to
   that directory (its context/scope).
 - **Any directory/component may contain its own `MEMORY.md`**; the file describes the context
   of the directory where it is located. The components currently having a `MEMORY.md` are the
@@ -164,11 +164,11 @@ memory server**.
 
 ### Rules (summary)
 
-- The authoritative format — mandatory header metadata (`scope`, `role`, `last_reviewed`,
+- The authoritative format - mandatory header metadata (`scope`, `role`, `last_reviewed`,
   `review_period`, `max_size`) and required sections (`## Architecture`, `## Facts and
   invariants`, `## Decisions`, `## Relations`), plus full rules on the size limit and periodic
-  review — is defined in `.clinerules/README.md`.
-- Detailed criteria of what may/must be stored in `MEMORY.md` — see `.clinerules/TASK.md`
+  review - is defined in `.clinerules/README.md`.
+- Detailed criteria of what may/must be stored in `MEMORY.md` - see `.clinerules/TASK.md`
   («Component knowledge check»).
 - Key principles: store only briefly the facts **difficult to deduce** from the code/API/docs;
   no temporary data, no bug/task status, no plans (those belong to `.tasklog/`); keep the file

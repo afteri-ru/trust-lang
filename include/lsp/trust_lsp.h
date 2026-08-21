@@ -15,12 +15,12 @@
 #include <unordered_map>
 #include <vector>
 
-// ── Trust LSP Server ──
+// -- Trust LSP Server --
 // Хранит source map + сгенерированные C++ строки для одного файла
 
 // Имена для автодополнения берутся из ЕДИНЫХ источников:
-//  - пользовательский код — таблица анализатора SymbolIndex (CachedSource.symbols);
-//  - встроенные типы/методы/функции/макросы — глобальный BuiltinCatalog
+//  - пользовательский код - таблица анализатора SymbolIndex (CachedSource.symbols);
+//  - встроенные типы/методы/функции/макросы - глобальный BuiltinCatalog
 //    (shared иммутабельное ядро TypeRegistry::builtinCore() + predef/DSL-макросы).
 // Пер-файловый реестр (CachedSource.types) хранит только пользовательские типы и
 // служит для резолва SymbolInfo::type (TypeId) → методы типа (member-завершение).
@@ -81,7 +81,7 @@ class TrustLsp {
         const trust::SourceMapReader* reader;
         trust::ReaderFile trustReaderIdx; // input (trust) file index
         trust::ReaderFile cppReaderIdx;   // output (cpp) file index
-        bool isCppRequest;                // true — запрос из C++ файла (курсор в cpp)
+        bool isCppRequest;                // true - запрос из C++ файла (курсор в cpp)
     };
     CachedReader getCachedReader(const std::string& filePath, std::string& outError);
 

@@ -1,5 +1,5 @@
 /**
- * build-task.js — TrustBuildTask для preLaunchTask
+ * build-task.js - TrustBuildTask для preLaunchTask
  * Предоставляет задачи "Trust: Transpile .src", "Trust: Compile .cpp" и "Trust: Build all"
  */
 

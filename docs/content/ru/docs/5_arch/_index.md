@@ -8,7 +8,7 @@ simple_list: false
 
 [Doxygen](/doxygen/index.html)
 
-{{< unreleased why="данный документ описывает устаревшую архитектуру (компилятор `nlc`, интерпретатор, LLVM-бэкенд, классы RunTime/Module/Context/Obj, загрузку модулей .nlm). Текущая реализация — транспилятор `trust` в код C++ с последующей сборкой через clang++ (см. README.md и include/transpiler/MEMORY.md); интерпретатор/LLVM-JIT не реализованы" />}}
+{{< unreleased why="данный документ описывает устаревшую архитектуру (компилятор `nlc`, интерпретатор, LLVM-бэкенд, классы RunTime/Module/Context/Obj, загрузку модулей .nlm). Текущая реализация - транспилятор `trust` в код C++ с последующей сборкой через clang++ (см. README.md и include/transpiler/MEMORY.md); интерпретатор/LLVM-JIT не реализованы" />}}
 
 
 ## На память

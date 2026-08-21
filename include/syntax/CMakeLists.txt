@@ -3,14 +3,14 @@
 
 set(SYNTAX_GEN_DIR "${CMAKE_BINARY_DIR}/syntax")
 
-# ── Mark generated parser files (flex/bison) ──
+# -- Mark generated parser files (flex/bison) --
 set_source_files_properties(
     "${SYNTAX_GEN_DIR}/lexer.yy.cpp"
     "${SYNTAX_GEN_DIR}/parser.yy.cpp"
     PROPERTIES GENERATED TRUE
 )
 
-# ── Syntax library ──
+# -- Syntax library --
 add_library(syntax_lib STATIC
     ${PROJECT_SOURCE_DIR}/syntax/lexer.cpp
     ${PROJECT_SOURCE_DIR}/syntax/macro.cpp
@@ -21,10 +21,10 @@ add_library(syntax_lib STATIC
     "${SYNTAX_GEN_DIR}/parser.yy.cpp"
 )
 
-# ── Ensure parsers are generated before building library ──
+# -- Ensure parsers are generated before building library --
 add_dependencies(syntax_lib gen_syntax_parsers)
 
-# ── Include paths ──
+# -- Include paths --
 target_include_directories(syntax_lib PUBLIC
     ${PROJECT_INCLUDE_DIR}
 )
@@ -37,7 +37,7 @@ target_include_directories(syntax_lib SYSTEM PRIVATE
     ${LLVM_INCLUDE_DIRS}
 )
 
-# ── Link dependencies ──
+# -- Link dependencies --
 target_link_libraries(syntax_lib PUBLIC
     trust_include_dirs
     trust_llvm_dirs

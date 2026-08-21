@@ -4,7 +4,7 @@
 find_program(NODE node)
 find_program(NPX npx)
 
-# ── CTest registration ──
+# -- CTest registration --
 # Each VSCode suite is a single CTest test.
 add_test(NAME vscode_unit
     COMMAND timeout --kill-after=10 120 ${NPX} jest --config ${CMAKE_CURRENT_SOURCE_DIR}/extension/jest.config.js

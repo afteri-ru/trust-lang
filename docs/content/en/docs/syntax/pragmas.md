@@ -75,9 +75,9 @@ Macros for temporarily changing the severity of compiler diagnostic options from
     @__OPTION_POP__;
 ```
 
-- `@__OPTION_PUSH__` — saves the current set of options.
-- `@__OPTION__("<option-name>", "<value>")` — sets the option severity. Value is one of: `fatal`, `error`, `warning`, `remark`, `note`, `ignore`.
-- `@__OPTION_POP__` — restores the previous set of options.
+- `@__OPTION_PUSH__` - saves the current set of options.
+- `@__OPTION__("<option-name>", "<value>")` - sets the option severity. Value is one of: `fatal`, `error`, `warning`, `remark`, `note`, `ignore`.
+- `@__OPTION_POP__` - restores the previous set of options.
 
 The `macro-redefined` option controls behavior when redefining a macro: by default `fatal` (forbidden), `ignore` allows redefinition without diagnostics.
 

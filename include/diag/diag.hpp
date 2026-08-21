@@ -14,20 +14,20 @@
 
 namespace trust {
 
-// ── Исключение для фатальных диагностик: бросается из report() при Severity::Fatal ──
+// -- Исключение для фатальных диагностик: бросается из report() при Severity::Fatal --
 class FatalError : public std::runtime_error {
   public:
     explicit FatalError(const std::string& msg)
     : std::runtime_error(msg) {}
 };
 
-// ── Fixit-подсказка: автоматическое исправление ──
+// -- Fixit-подсказка: автоматическое исправление --
 struct FixitSuggestion {
     MapperRange range;       // что заменяем
     std::string replacement; // на что заменяем
 };
 
-// ── Структура для хранения одной диагностики ──
+// -- Структура для хранения одной диагностики --
 struct DiagnosticEntry {
     MapperRange range;
     Severity severity;
@@ -53,14 +53,14 @@ class DiagnosticEngine {
 
     void setOptions(Options* opts) { m_opts = opts; }
 
-    // ── Шаблоны с форматной строкой ──
+    // -- Шаблоны с форматной строкой --
     /// С явным OptKind перед fmt. Возвращает nullptr, если диагностика подавлена.
     template <typename... Args>
     DiagnosticEntry* report(Severity sev, MapperRange range, OptKind opt, std::format_string<Args...> fmt, Args&&... args) {
         return output(sev, range, opt, std::format(fmt, std::forward<Args>(args)...));
     }
 
-    /// Без OptKind — перенаправляет с OptKind::All
+    /// Без OptKind - перенаправляет с OptKind::All
     template <typename... Args>
     DiagnosticEntry* report(Severity sev, MapperRange range, std::format_string<Args...> fmt, Args&&... args) {
         return output(sev, range, OptKind::All, std::format(fmt, std::forward<Args>(args)...));
@@ -72,7 +72,7 @@ class DiagnosticEngine {
         return output(sev, MapperRange{loc, loc}, OptKind::All, std::format(fmt, std::forward<Args>(args)...));
     }
 
-    // ── Fixit-подсказки ──
+    // -- Fixit-подсказки --
     /// Зафиксировать fixit для указанной диагностики. entry может быть nullptr (тогда ничего не делается).
     void fixit(DiagnosticEntry* entry, MapperRange range, std::string_view replacement);
 

@@ -2,10 +2,10 @@
 
 # Деструктуризация `item, dictionary... := ... dictionary` (rest-цель == источнику → мутация на месте)
 # + истинность словаря в @while:
-#  - `while (c_dictionary)` — trust::Dict::operator bool (непустой словарь истинен);
+#  - `while (c_dictionary)` - trust::Dict::operator bool (непустой словарь истинен);
 #  - pop'ы идут прямо в c_dictionary (мутация): `std::any c_item = c_dictionary.pop_front();`;
-#  - `c_dictionary` уже является «остатком» — отдельное присвоение rest не генерируется;
-#  - `c_summa += trust::detail::anyToInt64(c_item)` — конвертация any → int64 (гетерогенный dict).
+#  - `c_dictionary` уже является «остатком» - отдельное присвоение rest не генерируется;
+#  - `c_summa += trust::detail::anyToInt64(c_item)` - конвертация any → int64 (гетерогенный dict).
 
 @main() := {
     summa := 0;

@@ -5,8 +5,8 @@
 // Do NOT modify the enum, name() manually.
 //
 // Format: T(name, node_type)
-//   name     — enumerator name (CamelCase)
-//   node_type — C++ class that represents this Kind (e.g. Binary, Scope, IdentName)
+//   name     - enumerator name (CamelCase)
+//   node_type - C++ class that represents this Kind (e.g. Binary, Scope, IdentName)
 
 #pragma once
 
@@ -55,19 +55,19 @@ class ContextMacro;
 // X-macro: all ParserToken kinds.
 //
 // Format: T(name, node_type)
-//   name      — enumerator name (CamelCase)
-//   node_type — C++ class that stores data for this token kind.
+//   name      - enumerator name (CamelCase)
+//   node_type - C++ class that stores data for this token kind.
 //               Multiple kinds can share the same node_type.
 //
 // Grouped by node_type for readability.
 // ============================================================================
 #define PARSER_TOKEN_KINDS(T)           \
-    /* ── Sequence ── */                \
+    /* -- Sequence -- */                \
     T(sequence, Sequence)               \
     T(Attr, Sequence)                   \
-    /* ── ScopeBlock ── */              \
+    /* -- ScopeBlock -- */              \
     T(ScopeBlock, ScopeBlock)           \
-    /* ── Binary ── */                  \
+    /* -- Binary -- */                  \
     T(TypeDecl, Binary)                 \
     T(NameDecl, Binary)                 \
     T(AssignOp, Binary)                 \
@@ -78,16 +78,16 @@ class ContextMacro;
     T(LogicalOp, Binary)                \
     T(MemberAccess, Binary)             \
     T(ArrayAccess, Binary)              \
-    /* ── IdentName ── */               \
+    /* -- IdentName -- */               \
     T(Ident, IdentName)                 \
-    /* ── IdentType ── */               \
+    /* -- IdentType -- */               \
     T(TypeName, IdentType)              \
-    /* ── CallExpr ── */                \
+    /* -- CallExpr -- */                \
     T(CallExpr, CallExpr)               \
-    /* ── JumpStmt ── */                \
+    /* -- JumpStmt -- */                \
     T(ReturnStmt, JumpStmt)             \
     T(ThrowStmt, JumpStmt)              \
-    /* ── AstNodeAttr ── */             \
+    /* -- AstNodeAttr -- */             \
     T(Program, AstNodeAttr)             \
     T(VarRef, AstNodeAttr)              \
     T(EmbedExpr, AstNodeAttr)           \
@@ -128,17 +128,17 @@ class ContextMacro;
     T(FuncDecl, FuncDecl)               \
     T(VarDecl, VarDecl)                 \
     T(DestructureDecl, DestructureDecl) \
-    /* ── ArgNode ── */                 \
+    /* -- ArgNode -- */                 \
     T(ArgNode, ArgNode)                 \
     T(EnumDecl, Sequence)               \
     T(EnumMember, Sequence)             \
     T(StructDecl, Sequence)             \
     T(StructField, Sequence)            \
-    /* ── ModuleNode ── */              \
+    /* -- ModuleNode -- */              \
     T(ModuleDecl, ModuleNode)
 
 /** Unified enum for all AST node types (CamelCase).
- *  Generated from PARSER_TOKEN_KINDS — do not edit manually. */
+ *  Generated from PARSER_TOKEN_KINDS - do not edit manually. */
 struct ParserToken {
     enum class Kind : int {
         END = 0,
@@ -162,7 +162,7 @@ struct ParserToken {
     }
 };
 
-// ── Kind → C++ type mapping ──
+// -- Kind → C++ type mapping --
 // Each ParserToken::Kind maps to the concrete C++ class that stores its data.
 
 template <ParserToken::Kind K>

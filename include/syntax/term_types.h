@@ -15,19 +15,19 @@ namespace trust {
 class Term;
 typedef std::shared_ptr<Term> TermPtr;
 // Единое представление последовательности TermPtr: верхнеуровневая sequence
-// модуля, вложенные блоки '{ ... }' и тела конструкций — всё хранится в поле
+// модуля, вложенные блоки '{ ... }' и тела конструкций - всё хранится в поле
 // Term::m_sequence типа SequenceType (см. термин «Sequence» в MEMORY.md).
 typedef std::vector<TermPtr> SequenceType;
 
-// TERMS — единый источник всех TermID (терминалы грамматики + AST-узлы).
-// Формат: _(NAME, Kind)       — не-терминал грамматики;
-//         _(NAME, Kind, T)    — терминал грамматики (генерирует %token).
-// Kind — любой ParserToken::Kind (префикс ParserToken::Kind:: добавляет потребитель в term_to_ast.cpp),
-// включая Unimplemented (конструкция не реализована: при конвертации — ошибка «не реализовано»,
+// TERMS - единый источник всех TermID (терминалы грамматики + AST-узлы).
+// Формат: _(NAME, Kind)       - не-терминал грамматики;
+//         _(NAME, Kind, T)    - терминал грамматики (генерирует %token).
+// Kind - любой ParserToken::Kind (префикс ParserToken::Kind:: добавляет потребитель в term_to_ast.cpp),
+// включая Unimplemented (конструкция не реализована: при конвертации - ошибка «не реализовано»,
 // узел не строится). Маркер T означает: имя попадает в автогенерируемую секцию %token (кроме END,
 // который объявлен отдельно как %token END 0). Имена в TERMS и SYMBOL_TOKENS не дублируются.
 #define TERMS(_)                                 \
-    /* ── Не-терминалы: реализованные Kind ── */ \
+    /* -- Не-терминалы: реализованные Kind -- */ \
     _(NONE, END)                                 \
     _(SEQUENCE, ScopeBlock)                      \
     _(BLOCK, ScopeBlock)                         \
@@ -44,13 +44,13 @@ typedef std::vector<TermPtr> SequenceType;
     _(TENSOR, ArrayInit)                         \
     _(DICT, DictLiteral)                         \
     _(CLASS, StructDecl)                         \
-    /* ── Не-терминалы: Unimplemented ── */      \
+    /* -- Не-терминалы: Unimplemented -- */      \
     _(TYPENAME, Unimplemented)                   \
     _(FILLING, Unimplemented)                    \
-    /* ── Не-терминалы: NotApplicable ── */      \
+    /* -- Не-терминалы: NotApplicable -- */      \
     _(COMMA_LEXEME, NotApplicable, T)            \
     _(DOCUMENT_INLINE, NotApplicable, T)         \
-    /* ── Терминалы: реализованные Kind ── */    \
+    /* -- Терминалы: реализованные Kind -- */    \
     _(ATTRIBUTE, Attr, T)                        \
     _(DOCUMENT, Document, T)                     \
     _(INT_PLUS, ReturnStmt, T)                   \
@@ -101,7 +101,7 @@ typedef std::vector<TermPtr> SequenceType;
     _(OP_COMPARE, CompareOp, T)                  \
     _(OP_BITWISE, BitwiseOp, T)                  \
     _(EMBED, EmbedExpr, T)                       \
-    /* ── Терминалы: Unimplemented ── */         \
+    /* -- Терминалы: Unimplemented -- */         \
     _(PARENT, Unimplemented, T)                  \
     _(AWAIT, Unimplemented, T)                   \
     _(YIELD, Unimplemented, T)                   \
@@ -130,9 +130,9 @@ typedef std::vector<TermPtr> SequenceType;
     _(YIELD_END, Unimplemented, T)
 // note: no trailing \ on last line
 
-// SYMBOL_TOKENS — символьные терминалы грамматики (одиночные символы и скобки).
-// Формат: _(Name, char) — TermID + bison-токен; участвует в symbolToID/tokenFromID.
-// Все записи — терминалы грамматики (генерируют %token).
+// SYMBOL_TOKENS - символьные терминалы грамматики (одиночные символы и скобки).
+// Формат: _(Name, char) - TermID + bison-токен; участвует в symbolToID/tokenFromID.
+// Все записи - терминалы грамматики (генерируют %token).
 #define SYMBOL_TOKENS(_) \
     _(LPAREN, '(')       \
     _(RPAREN, ')')       \

@@ -38,7 +38,7 @@ TEST_F(TypeMethodFixture, StrCharHasCStrMethod) {
     const TypeId cstr = reg.getType("CString");
     ASSERT_NE(strChar, INVALID_TYPE_ID);
 
-    // Обычное имя находит нативный метод (ОДНА СТОРОНА). Метод — функциональный тип.
+    // Обычное имя находит нативный метод (ОДНА СТОРОНА). Метод - функциональный тип.
     const TypeId m = reg.findMethod(strChar, "c_str");
     ASSERT_NE(m, INVALID_TYPE_ID);
     const auto* fd = reg.getTypeDataAs<FunctionTypeData>(m);
@@ -46,12 +46,12 @@ TEST_F(TypeMethodFixture, StrCharHasCStrMethod) {
     EXPECT_EQ(fd->returnType, cstr);
     EXPECT_TRUE(fd->paramTypes.empty());
 
-    // Нативное имя — точное совпадение.
+    // Нативное имя - точное совпадение.
     const TypeId mn = reg.findMethod(strChar, "%c_str");
     ASSERT_NE(mn, INVALID_TYPE_ID);
     EXPECT_EQ(mn, m); // одна и та же сигнатура → один функциональный тип (интернирование)
 
-    // Несуществующий метод — INVALID_TYPE_ID.
+    // Несуществующий метод - INVALID_TYPE_ID.
     EXPECT_EQ(reg.findMethod(strChar, "nope"), INVALID_TYPE_ID);
 }
 
@@ -84,7 +84,7 @@ TEST_F(TypeMethodFixture, StrCharStringMethods) {
     EXPECT_EQ(reg.findMethod(strChar, "data"), reg.findMethod(strChar, "c_str"));
 }
 
-// Инвариант «одна форма имени»: повторная регистрация метода в любой из двух форм — ошибка.
+// Инвариант «одна форма имени»: повторная регистрация метода в любой из двух форм - ошибка.
 // EXPECT бросает std::runtime_error, тесты падают сразу.
 TEST_F(TypeMethodFixture, AddMethodRejectsBothNameForms) {
     TypeRegistry& reg = m_ctx.types();
@@ -98,12 +98,12 @@ TEST_F(TypeMethodFixture, AddMethodRejectsExactDuplicate) {
     TypeRegistry& reg = m_ctx.types();
     const TypeId strChar = reg.getType("StrChar");
     const TypeId cstr = reg.getType("CString");
-    // Повторная регистрация того же "%c_str" — ошибка.
+    // Повторная регистрация того же "%c_str" - ошибка.
     EXPECT_THROW(reg.addMethod(strChar, "%c_str", reg.getOrCreateFunctionType(cstr, {})), std::runtime_error);
 }
 
 // Универсальный диапазон `:Range` имеет встроенные методы (trust::Range<Elem>): count()/size() →
-// Int64, empty() → Bool; алиас trust `length` → нативное C++-имя `count`. Ключи — полная форма
+// Int64, empty() → Bool; алиас trust `length` → нативное C++-имя `count`. Ключи - полная форма
 // ('%' нативный, '^' константный); нативность/константность выводятся из ключа (bare_name/
 // is_const_name/is_native_name), отдельно не хранятся.
 TEST_F(TypeMethodFixture, RangeHasBuiltinMethods) {
@@ -131,7 +131,7 @@ TEST_F(TypeMethodFixture, RangeHasBuiltinMethods) {
     EXPECT_EQ(utils::bare_name(length->key), "count");
     EXPECT_EQ(length->funcType, count->funcType);
 
-    // size() — собственное нативное имя.
+    // size() - собственное нативное имя.
     const auto size = reg.findMethodInfo(range, "size");
     ASSERT_TRUE(size.has_value());
     EXPECT_EQ(utils::bare_name(size->key), "size");
@@ -141,7 +141,7 @@ TEST_F(TypeMethodFixture, RangeHasBuiltinMethods) {
 }
 
 // Регистрация const ('^') и не-const методов с ОДИНАКОВЫМИ аргументами (перегрузки по
-// константности) допустима; точный дубль (та же константность + имя) — ошибка EXPECT.
+// константности) допустима; точный дубль (та же константность + имя) - ошибка EXPECT.
 TEST_F(TypeMethodFixture, AddMethodConstNonConstOverloads) {
     TypeRegistry& reg = m_ctx.types();
     const TypeId base = reg.getType("Int64");
@@ -150,12 +150,12 @@ TEST_F(TypeMethodFixture, AddMethodConstNonConstOverloads) {
     ASSERT_NE(t, INVALID_TYPE_ID);
     const TypeId sig = reg.getOrCreateFunctionType(base, {});
     reg.addMethod(t, "%get^", sig); // const-перегрузка
-    reg.addMethod(t, "%get", sig);  // не-const перегрузка — допустима (другая константность)
+    reg.addMethod(t, "%get", sig);  // не-const перегрузка - допустима (другая константность)
     const auto info = reg.findMethodInfo(t, "get");
     ASSERT_TRUE(info.has_value());
     EXPECT_EQ(utils::bare_name(info->key), "get");
     EXPECT_EQ(info->funcType, sig);
-    // Точный дубль (та же константность) — ошибка.
+    // Точный дубль (та же константность) - ошибка.
     EXPECT_THROW(reg.addMethod(t, "%get^", sig), std::runtime_error);
 }
 
@@ -170,7 +170,7 @@ TEST_F(TypeMethodFixture, RangeParametricSubstitution) {
     const TypeId rr = reg.getOrCreateRangeType(rational);
     EXPECT_TRUE(reg.isRangeType(ri));
     EXPECT_TRUE(reg.isRangeType(rr));
-    EXPECT_NE(ri, rr); // Range<Int64> и Range<Rational> — разные типы
+    EXPECT_NE(ri, rr); // Range<Int64> и Range<Rational> - разные типы
     EXPECT_EQ(reg.rangeElementType(ri), int64);
     EXPECT_EQ(reg.rangeElementType(rr), rational);
     EXPECT_EQ(reg.getOrCreateRangeType(int64), ri); // интернирование по elementType

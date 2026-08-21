@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * lsp-protocol.test.js — Integration tests for trust-lsp LSP server
+ * lsp-protocol.test.js - Integration tests for trust-lsp LSP server
  *
  * Launches trust-lsp as a child process, sends LSP (JSON-RPC 2.0) packets
  * via stdin, reads responses from stdout, and validates the protocol flow.
@@ -16,7 +16,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// ── Test configuration ──
+// -- Test configuration --
 const SUITE_TIMEOUT = 120000;
 
 // Parse CLI args
@@ -47,7 +47,7 @@ function parseArgs() {
     return opts;
 }
 
-// ── LSP (JSON-RPC 2.0) Protocol helpers ──
+// -- LSP (JSON-RPC 2.0) Protocol helpers --
 let lspId = 0;
 function nextId() { return ++lspId; }
 
@@ -90,7 +90,7 @@ function parseLspResponse(data) {
     return { packets, remaining: buf.slice(pos) };
 }
 
-// ── Test framework ──
+// -- Test framework --
 let testsPassed = 0;
 let testsFailed = 0;
 
@@ -108,7 +108,7 @@ function assert(condition, message) {
     if (!condition) throw new Error(message || 'Assertion failed');
 }
 
-// ── LSP Client ──
+// -- LSP Client --
 class LspClient {
     constructor(lspPath, args) {
         this.lspPath = lspPath;
@@ -256,7 +256,7 @@ class LspClient {
     }
 }
 
-// ── Helper: run an LSP suite ──
+// -- Helper: run an LSP suite --
 async function runSuite(lspPath, suiteName, lspArgs, fn) {
     const client = new LspClient(lspPath, lspArgs);
     await client.start();
@@ -267,13 +267,13 @@ async function runSuite(lspPath, suiteName, lspArgs, fn) {
     }
 }
 
-// ── Main test suite ──
+// -- Main test suite --
 async function main() {
     const opts = parseArgs();
     let tmpDir = null;
 
     try {
-        // ── Validate required args ──
+        // -- Validate required args --
         if (!opts.srcFile) {
             console.error('Error: --src is required');
             console.error('Usage: node lsp-protocol.test.js --src <file> [--lsp-path <path>]');
@@ -308,7 +308,7 @@ async function main() {
         // Общие аргументы LSP сервера (--project-dir)
         const lspArgs = ['--project-dir', projectDir];
 
-        // ── Test 1: LSP initialize sequence ──
+        // -- Test 1: LSP initialize sequence --
         await runSuite(lspPath, 'LSP Initialize Sequence', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -349,7 +349,7 @@ async function main() {
         const hoverTestFile = path.join(__dirname, 'test_hover.src');
         const hoverTestContent = fs.readFileSync(hoverTestFile, 'utf-8');
 
-        // ── Test 2: LSP textDocument/didOpen + definition ──
+        // -- Test 2: LSP textDocument/didOpen + definition --
         await runSuite(lspPath, 'LSP Definition Provider', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -391,7 +391,7 @@ async function main() {
             });
         });
 
-        // ── Test 3: LSP textDocument/hover ──
+        // -- Test 3: LSP textDocument/hover --
         await runSuite(lspPath, 'LSP Hover', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -436,7 +436,7 @@ async function main() {
             });
         });
 
-        // ── Test 3b: LSP textDocument/completion ──
+        // -- Test 3b: LSP textDocument/completion --
         await runSuite(lspPath, 'LSP Completion', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -488,7 +488,7 @@ async function main() {
         // and warnings, e.g. -Wsigil), not only on transpile errors. Fixits travel in diagnostic
         // "data" (reserved LSP field) so vscode-languageclient round-trips them for codeAction.
 
-        // ── Test 4: LSP shutdown ──
+        // -- Test 4: LSP shutdown --
         await runSuite(lspPath, 'LSP Shutdown', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -514,7 +514,7 @@ async function main() {
             });
         });
 
-        // ── Test 5: LSP textDocument/documentLink — Trust → C++ ──
+        // -- Test 5: LSP textDocument/documentLink - Trust → C++ --
         await runSuite(lspPath, 'LSP DocumentLink Trust→Cpp', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -553,7 +553,7 @@ async function main() {
             });
         });
 
-        // ── Test 6: LSP textDocument/didChange ──
+        // -- Test 6: LSP textDocument/didChange --
         await runSuite(lspPath, 'LSP didChange', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -609,7 +609,7 @@ async function main() {
             });
         });
 
-        // ── Test 6b: LSP didChange обновляет documentLink + hover для НОВЫХ операций ──
+        // -- Test 6b: LSP didChange обновляет documentLink + hover для НОВЫХ операций --
         // Воспроизводит сценарий «правка в редакторе без сохранения → новые операции
         // должны получить подчёркивание (documentLink) и hover».
         await runSuite(lspPath, 'LSP didChange refresh links', lspArgs, async (client) => {
@@ -648,7 +648,7 @@ async function main() {
                 contentChanges: [{ text: changedContent }]
             });
 
-            // documentLink после изменения — должна появиться ссылка на новой строке
+            // documentLink после изменения - должна появиться ссылка на новой строке
             const dlId2 = client.sendRequest('textDocument/documentLink', { textDocument: { uri: `file://${hoverTestFile}` } });
             const dlResp2 = await client.waitForResponse(dlId2);
             const linksAfter = Array.isArray(dlResp2.result) ? dlResp2.result : [];
@@ -657,7 +657,7 @@ async function main() {
                 assert(hasNew, `expected a link on new line ${newLineIndex} after didChange, got ${JSON.stringify(linksAfter)}`);
             });
 
-            // hover по новой строке — должен вернуть содержимое (буфер учтён)
+            // hover по новой строке - должен вернуть содержимое (буфер учтён)
             const hoverId = client.sendRequest('textDocument/hover', {
                 textDocument: { uri: `file://${hoverTestFile}` },
                 position: { line: newLineIndex, character: 1 }
@@ -670,7 +670,7 @@ async function main() {
             });
         });
 
-        // ── Test 7: LSP textDocument/hover — reverse (на C++ файле) ──
+        // -- Test 7: LSP textDocument/hover - reverse (на C++ файле) --
         await runSuite(lspPath, 'LSP Hover Reverse (Cpp→Trust)', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -714,7 +714,7 @@ async function main() {
             }
         });
 
-        // ── Test 8: LSP textDocument/definition — reverse (C++ → Trust) ──
+        // -- Test 8: LSP textDocument/definition - reverse (C++ → Trust) --
         await runSuite(lspPath, 'LSP Definition Reverse', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -762,7 +762,7 @@ async function main() {
             }
         });
 
-        // ── Test 9: LSP invalid syntax → diagnostics ──
+        // -- Test 9: LSP invalid syntax → diagnostics --
         await runSuite(lspPath, 'LSP Invalid Syntax Diagnostics', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -804,7 +804,7 @@ async function main() {
             try { fs.rmSync(tmpDir2, { recursive: true }); } catch (_) {}
         });
 
-        // ── Test 10: LSP --help ──
+        // -- Test 10: LSP --help --
         {
             const cp = require('child_process');
             const result = cp.spawnSync(lspPath, ['--help'], { encoding: 'utf-8', timeout: 5000 });
@@ -828,7 +828,7 @@ async function main() {
         console.error(err.stack);
         testsFailed++;
     } finally {
-        // Don't clean up tmpDir — it points to pre-existing test data directory
+        // Don't clean up tmpDir - it points to pre-existing test data directory
     }
 
     process.exit(testsFailed > 0 ? 1 : 0);

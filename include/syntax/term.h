@@ -30,13 +30,13 @@ class Term : public std::enable_shared_from_this<Term> {
     ArgsPair& push_back(const ArgsPair& p);
     ArgsPair& push_back(const TermPtr value, const std::string& name = "");
 
-    // Копирует текст — ручное создание (безопасно для локальных std::string и литералов).
-    // lex_type — последний с дефолтом, для ручных вызовов не нужен.
+    // Копирует текст - ручное создание (безопасно для локальных std::string и литералов).
+    // lex_type - последний с дефолтом, для ручных вызовов не нужен.
     static TermPtr Create(TermID id, std::string text, trust::MapperRange mapperRange = {}, parser::token_type lex_type = parser::token_type::END);
 
-    // View из (text, len) = std::string_view(text, len) — НЕ копирует.
+    // View из (text, len) = std::string_view(text, len) - НЕ копирует.
     // Данные должны пережить Term (лексер: исходный текст SourceMapper).
-    // lex_type — второй аргумент (сразу после id), только для lexer.l / parser.y.
+    // lex_type - второй аргумент (сразу после id), только для lexer.l / parser.y.
     static TermPtr Create(TermID id, parser::token_type lex_type, const char* text, size_t len, trust::MapperRange mapperRange = {});
 
     static TermPtr CreateSymbol(char sym);
@@ -85,7 +85,7 @@ class Term : public std::enable_shared_from_this<Term> {
 
     inline bool isMacro() const { return m_id == TermID::MACRO_DEL || (isCreate() && m_left && m_left->m_id == TermID::MACRO_SEQ); }
 
-    // Used in toString() — kept
+    // Used in toString() - kept
     inline bool isBlock() const {
         switch (m_id) {
         case TermID::SEQUENCE:
@@ -131,7 +131,7 @@ class Term : public std::enable_shared_from_this<Term> {
     TermPtr m_left;
     TermPtr m_right;
 
-    // На TYPE-узлах m_type хранит ARGS-терм размерностей [...], на узлах-значениях — тип.
+    // На TYPE-узлах m_type хранит ARGS-терм размерностей [...], на узлах-значениях - тип.
     // Для терма `\module(func)` loader кладёт сюда тело загруженного модуля (m_ast),
     // чтобы конвертация в AstNode была loader-free (рекурсивная конвертация m_sequence).
     // Единое поле последовательности: и верхнеуровневая `sequence` (SEQUENCE), и

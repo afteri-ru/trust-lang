@@ -14,7 +14,7 @@ LintHook::LintHook(AnalysisContext& actx)
 }
 
 void LintHook::onDeclare(const Symbol& sym) {
-    // Линтуются переменные и параметры функций (ранее — символы с VariableSymbolData).
+    // Линтуются переменные и параметры функций (ранее - символы с VariableSymbolData).
     if (sym.decl && (sym.decl->kind() == ParserToken::Kind::VarDecl || sym.decl->kind() == ParserToken::Kind::ArgNode)) {
         m_declared[sym.name] = sym.decl->range();
     }

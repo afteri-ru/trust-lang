@@ -40,7 +40,7 @@ TEST(RationalTest, StringValueCtor) {
     EXPECT_EQ(Rational("3\\4").GetAsString(), "3\\4");
     EXPECT_EQ(Rational("10\\2").GetAsString(), "5\\1");
     EXPECT_EQ(Rational("-55\\3").GetAsString(), "-55\\3");
-    // Без разделителя — ошибка.
+    // Без разделителя - ошибка.
     EXPECT_THROW(Rational("no-slash"), std::runtime_error);
 }
 

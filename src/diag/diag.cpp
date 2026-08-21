@@ -7,7 +7,7 @@
 
 namespace trust {
 
-// output() — ядро вывода: формат file:line:col + исходная строка + caret (^~~).
+// output() - ядро вывода: формат file:line:col + исходная строка + caret (^~~).
 // Для non-point диапазонов на той же строке рисует подчёркивание.
 // Также выполняет фильтрацию: Fatal не фильтруется, опции и minSeverity применяются
 // к остальным severity.
@@ -34,7 +34,7 @@ void DiagnosticEngine::clear() {
     m_diagnostics.clear();
 }
 
-// severityToString — маппинг enum → строка. Должен соответствовать порядку Severity.
+// severityToString - маппинг enum → строка. Должен соответствовать порядку Severity.
 static const char* severityToString(Severity sev) {
     switch (sev) {
     case Severity::Remark:
@@ -52,13 +52,13 @@ static const char* severityToString(Severity sev) {
 }
 
 DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, OptKind opt, std::string_view msg) {
-    // Fatal — не фильтруется ни опциями, ни minSeverity: всегда выводится и прерывает выполнение.
+    // Fatal - не фильтруется ни опциями, ни minSeverity: всегда выводится и прерывает выполнение.
     if (sev != Severity::Fatal) {
-        // Если опция задана и есть Options — проверяем severity через Options.
+        // Если опция задана и есть Options - проверяем severity через Options.
         if (m_opts && opt != OptKind::All) {
             auto opt_sev = m_opts->severity(opt);
             if (!opt_sev.has_value()) {
-                // opt is "ignore" — не выводим диагностику
+                // opt is "ignore" - не выводим диагностику
                 return nullptr;
             }
             sev = *opt_sev;
@@ -69,7 +69,7 @@ DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, OptKi
         }
     }
 
-    // Счётчики увеличиваются до фильтрации — это корректно, т.к. фильтрация на уровне do_report().
+    // Счётчики увеличиваются до фильтрации - это корректно, т.к. фильтрация на уровне do_report().
     if (sev == Severity::Error) {
         m_errorCount++;
     }
@@ -109,8 +109,8 @@ DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, OptKi
             std::string_view line_text(line_start, line_end - line_start);
             out << "  " << line_text << "\n";
 
-            // Рендер caret: для однострочных range — подчёркивание ~ от begin до end.
-            // Для многострочных — только ^ на begin.
+            // Рендер caret: для однострочных range - подчёркивание ~ от begin до end.
+            // Для многострочных - только ^ на begin.
             if (!range.is_point()) {
                 auto end_lc = m_ctx->source().line_column(range.end);
                 if (end_lc.line == begin_lc.line) {
@@ -131,12 +131,12 @@ DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, OptKi
             out << "  ^\n";
         }
 
-        // Без валидной локации — только severity: message.
+        // Без валидной локации - только severity: message.
     } else {
         out << severityToString(sev) << ": " << msg << "\n";
     }
 
-    // Fatal — прерываем выполнение после вывода диагностики.
+    // Fatal - прерываем выполнение после вывода диагностики.
     if (sev == Severity::Fatal) {
         throw FatalError(std::string(msg));
     }

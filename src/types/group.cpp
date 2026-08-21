@@ -2,7 +2,7 @@
 
 namespace trust {
 
-// ── Group → Category mask table ──────────────────────────
+// -- Group → Category mask table --------------------------
 // Indexed by static_cast<uint8_t>(Group).
 // Each value is a bitmask of Category bits for that group.
 
@@ -85,10 +85,10 @@ const CategoryMask kGroupCategoryMask[256] = {
     // Group::kArithmetics (25)
     (1u << static_cast<uint8_t>(Category::kArithmetics)),
 
-    // Group::kTemplateParam (26) — no category
+    // Group::kTemplateParam (26) - no category
     0u,
 
-    // Group::kReftype (27) — no category
+    // Group::kReftype (27) - no category
     0u,
 
     // Group::kEnums (28)
@@ -101,6 +101,6 @@ const CategoryMask kGroupCategoryMask[256] = {
     // Up to index 255
 };
 
-static_assert(static_cast<uint8_t>(Group::kArithmetics) == 25, "Group enum values have changed — update kGroupCategoryMask");
+static_assert(static_cast<uint8_t>(Group::kArithmetics) == 25, "Group enum values have changed - update kGroupCategoryMask");
 
 } // namespace trust

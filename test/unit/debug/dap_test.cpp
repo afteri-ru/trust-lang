@@ -1,4 +1,4 @@
-// ── Юнит-тесты для DAP транспортного уровня ──
+// -- Юнит-тесты для DAP транспортного уровня --
 //
 // Проверяет парсинг DAP-пакетов (Content-Length), работу заглушек
 // для StdioTransport / TcpTransport, парсинг опций CLI.
@@ -15,7 +15,7 @@
 
 using json = nlohmann::json;
 
-// ── MockTransport: эмулирует клиента для тестов ──
+// -- MockTransport: эмулирует клиента для тестов --
 class MockTransport : public trust::transport::Transport {
   public:
     std::string mockInput;      // сырые данные (заголовки + тело)
@@ -51,7 +51,7 @@ class MockTransport : public trust::transport::Transport {
             }
             pos = eol + 1;
 
-            // Пустая строка — конец заголовков
+            // Пустая строка - конец заголовков
             if (line.empty()) {
                 break;
             }
@@ -66,7 +66,7 @@ class MockTransport : public trust::transport::Transport {
             }
         }
 
-        // После пустой строки — тело
+        // После пустой строки - тело
         if (contentLength <= 0 || pos + contentLength > mockInput.size()) {
             consumed = mockInput.size();
             return {};
@@ -85,7 +85,7 @@ class MockTransport : public trust::transport::Transport {
 // ═══════════════════════════════════════════════════
 
 TEST(DapTransportTest, StdioReadPacket_Basic) {
-    // Тест напрямую не тестирует std::cin — только логику парсинга
+    // Тест напрямую не тестирует std::cin - только логику парсинга
     // Используем MockTransport для проверки протокола
     MockTransport mock;
     std::string body = R"({"type":"request","command":"initialize","seq":1})";

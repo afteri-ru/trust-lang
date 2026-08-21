@@ -108,6 +108,41 @@ TEST_F(HtmlEmitTest, HtmlFragment_ContainsMonarchInitEditorsAndConfig) {
     // Кросс-оконная навигация: обработчики по позиции курсора (клик и стрелки).
     EXPECT_NE(html.find("onDidChangeCursorPosition"), std::string::npos);
     EXPECT_NE(html.find("deltaDecorations"), std::string::npos);
+    // Изменяемый размер окон: вертикальный сплиттер Trust|C++ и горизонтальный над логом.
+    // id/class сплиттеров ДОЛЖНЫ быть обычными кавычками без обратных слешей: иначе
+    // getElementById('tpl-split-v'/'tpl-split-h') вернёт null и ресайз не будет работать,
+    // а в теле страницы останется видимый артефакт "\n"/слеш (двойное экранирование
+    // \\n / \\" в html_emit.cpp).
+    EXPECT_NE(html.find("id=\"tpl-split-v\""), std::string::npos);
+    EXPECT_NE(html.find("id=\"tpl-split-h\""), std::string::npos);
+    EXPECT_NE(html.find("class=\"tpl-splitter-v\""), std::string::npos);
+    EXPECT_NE(html.find("class=\"tpl-splitter-h\""), std::string::npos);
+    // Никаких обратных слешей перед кавычками в разметке сплиттеров.
+    EXPECT_EQ(html.find("id=\\\"tpl-split-v"), std::string::npos);
+    EXPECT_EQ(html.find("id=\\\"tpl-split-h"), std::string::npos);
+    // В CSS после правила сплиттера должен идти РЕАЛЬНЫЙ перевод строки, а не текст \\n.
+    EXPECT_NE(html.find(".tpl-splitter-v{width:6px;cursor:col-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}\n.tpl-splitter-v:hover{"
+                        "background:var(--tpl-border);}"),
+              std::string::npos);
+    EXPECT_NE(html.find(".tpl-splitter-h{height:6px;cursor:row-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}\n.tpl-splitter-h:hover{"
+                        "background:var(--tpl-border);}"),
+              std::string::npos);
+    // glue-JS содержит drag-обработчики сплиттеров (makeSplitter).
+    EXPECT_NE(html.find("makeSplitter"), std::string::npos);
+}
+
+TEST_F(HtmlEmitTest, HtmlFragment_EmbedsLogNavigation) {
+    auto r = trust::lsp::transpileToResult(kHelloSrc, "hello.src", opts);
+    std::string html = trust::lsp::resultToHtml(r, opts);
+    // glue-JS разбирает заголовки диагностик (формат file:line:col: severity: msg)
+    // и делает их кликабельными (переход на строку в исходнике); оверлей строится
+    // через textContent (без innerHTML - строки от сервера не исполняются как HTML).
+    EXPECT_NE(html.find("gotoTrustLine"), std::string::npos);
+    EXPECT_NE(html.find("tpl-log-link"), std::string::npos);
+    EXPECT_NE(html.find("tpl-logline"), std::string::npos);
+    EXPECT_NE(html.find("tpl-log-error"), std::string::npos);
+    EXPECT_NE(html.find("cppOverlay.textContent"), std::string::npos);
+    EXPECT_EQ(html.find("cppOverlay.innerHTML"), std::string::npos);
 }
 
 TEST_F(HtmlEmitTest, HtmlFullPage_WrapsDocument) {

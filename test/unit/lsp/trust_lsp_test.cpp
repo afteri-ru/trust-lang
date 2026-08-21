@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// Unit tests for TrustLsp — LSP handlers
+// Unit tests for TrustLsp - LSP handlers
 // -----------------------------------------------------------------------
 
 #include "lsp/trust_lsp.h"
@@ -26,7 +26,7 @@
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
-// ── MockTransport для LSP ──
+// -- MockTransport для LSP --
 class MockLspTransport : public trust::transport::Transport {
   public:
     std::string capturedOutput;
@@ -71,7 +71,7 @@ class MockLspTransport : public trust::transport::Transport {
 
 namespace {
 
-// ── Тестовый класс ──
+// -- Тестовый класс --
 class TrustLspTest : public ::testing::Test {
   protected:
     MockLspTransport transport;
@@ -135,7 +135,7 @@ TEST_F(TrustLspTest, HandleInitialize_ReturnsCapabilities) {
 }
 
 // ═══════════════════════════════════════════════════
-// handleDidOpen — trust file
+// handleDidOpen - trust file
 // ═══════════════════════════════════════════════════
 
 TEST_F(TrustLspTest, HandleDidOpen_TrustFile_Transpiles) {
@@ -160,7 +160,7 @@ TEST_F(TrustLspTest, HandleDidOpen_NonTrustFile_Ignored) {
 }
 
 // ═══════════════════════════════════════════════════
-// handleDefinition — found / not found
+// handleDefinition - found / not found
 // ═══════════════════════════════════════════════════
 TEST_F(TrustLspTest, HandleDefinition_Found) {
     openTrustFile();
@@ -204,7 +204,7 @@ TEST_F(TrustLspTest, HandleDefinition_NotFound_ReturnsNull) {
 }
 
 // ═══════════════════════════════════════════════════
-// handleHover — found with correct link format
+// handleHover - found with correct link format
 // ═══════════════════════════════════════════════════
 TEST_F(TrustLspTest, HandleHover_ReturnsContents) {
     openTrustFile();
@@ -237,7 +237,7 @@ TEST_F(TrustLspTest, HandleHover_ReturnsContents) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// handleHover (C++ file) — reverse navigation back to src for expression
+// handleHover (C++ file) - reverse navigation back to src for expression
 // operators (compound assignment has no NameMap; must fall back to the
 // statement mapping and produce a "← Trust: ..." link).
 // ═══════════════════════════════════════════════════════════════
@@ -298,7 +298,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForCompoundAssignment) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// handleHover (C++ file) — reverse navigation via a name mapping,
+// handleHover (C++ file) - reverse navigation via a name mapping,
 // based on examples/rational.src. Hover over `c_fact` in the cppt
 // must produce a "← Trust: c_fact" link whose #L fragment points at
 // the `fact` declaration in the trust source, and the base code block
@@ -308,7 +308,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForCompoundAssignment) {
 // ═══════════════════════════════════════════════════════════════
 TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
     // Представительный вариант examples/rational.src (без гигантского @assert-литерала,
-    // но с самим макросом @assert) — структура маппинга: @main, рац. литерал, @while, @assert, :StrChar.
+    // но с самим макросом @assert) - структура маппинга: @main, рац. литерал, @while, @assert, :StrChar.
     std::ofstream(testSrcFile) << "@main():={\n"
                                   "    fact :Rational := 1\\1;\n"
                                   "    mult := 1;\n"
@@ -339,7 +339,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
         return r;
     };
 
-    // ── 1. Обратный ховер (cpp → trust) над объявлением `c_fact = trust::Rational` ──
+    // -- 1. Обратный ховер (cpp → trust) над объявлением `c_fact = trust::Rational` --
     int cfactLine = -1;
     {
         int n = 0;
@@ -382,7 +382,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
         EXPECT_TRUE(baseShowsFactDecl) << "base hover block shows wrong statement:\n" << resp.dump();
     }
 
-    // ── 2. Обратный ховер (cpp → trust) над сгенерированным кодом макроса @assert ──
+    // -- 2. Обратный ховер (cpp → trust) над сгенерированным кодом макроса @assert --
     // Ровно одна ссылка на сам statement @assert; не падать (регрессия: getMacroDefRange
     // возвращал range за пределами source для макросов в конце DSL-файла).
     {
@@ -436,7 +436,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
         }
     }
 
-    // ── 3. Обратный ховер (cpp → trust): вложенные выражения — ровно одна ссылка ──
+    // -- 3. Обратный ховер (cpp → trust): вложенные выражения - ровно одна ссылка --
     {
         std::vector<std::pair<int, std::string>> targets;
         {
@@ -482,7 +482,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
         }
     }
 
-    // ── 4. Прямой ховер (trust → cpp) над макросами @assert/@while/print ──
+    // -- 4. Прямой ховер (trust → cpp) над макросами @assert/@while/print --
     // Не должен падать и должен давать ссылку «→ C++» на раскрытый код в cppt
     // (регрессия: раньше «Macro:»-ссылка уводила в конец src-файла).
     {
@@ -509,7 +509,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
                             EXPECT_NE(std::string(item).find(cppUri), std::string::npos) << "macro forward link must point into cpp:\n" << resp.dump();
                         }
                         if (item.is_string() && std::string(item).find("[Macro: ") != std::string::npos) {
-                            // Вторая ссылка — на определение макроса в trust/dsl.src (должна вести в него).
+                            // Вторая ссылка - на определение макроса в trust/dsl.src (должна вести в него).
                             sawMacroDefLink = true;
                             EXPECT_NE(std::string(item).find("trust/dsl.src"), std::string::npos) << "macro def link must point into trust/dsl.src:\n"
                                                                                                   << resp.dump();
@@ -529,7 +529,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
 }
 
 // ═══════════════════════════════════════════════════
-// handleDidChange — анализ по буферу, а не по диску
+// handleDidChange - анализ по буферу, а не по диску
 // ═══════════════════════════════════════════════════
 TEST_F(TrustLspTest, HandleDidChange_UsesBufferContent) {
     // На диске лежит СТАРЫЙ текст (только 1 строка) и НЕ содержит новых операций.
@@ -551,7 +551,7 @@ TEST_F(TrustLspTest, HandleDidChange_UsesBufferContent) {
     lsp->handleNotification(changeReq);
     transport.capturedOutput.clear();
 
-    // hover по строке 2 — существует только в буфере, не на диске.
+    // hover по строке 2 - существует только в буфере, не на диске.
     bool found = false;
     for (int ch = 0; ch < 30 && !found; ++ch) {
         json hoverReq = {{"jsonrpc", "2.0"},
@@ -573,7 +573,7 @@ TEST_F(TrustLspTest, HandleDidChange_UsesBufferContent) {
 }
 
 // ═══════════════════════════════════════════════════
-// handleDidChange — инкрементальная (range-based) правка
+// handleDidChange - инкрементальная (range-based) правка
 // ═══════════════════════════════════════════════════
 TEST_F(TrustLspTest, HandleDidChange_IncrementalEdit) {
     std::ofstream(testSrcFile) << "msg := \"old\";\n";
@@ -630,7 +630,7 @@ TEST_F(TrustLspTest, HandleDidChangeConfiguration_UpdatesTempDir) {
 }
 
 // ═══════════════════════════════════════════════════
-// handleShutdown — clears cache
+// handleShutdown - clears cache
 // ═══════════════════════════════════════════════════
 
 TEST_F(TrustLspTest, HandleShutdown_ClearsCache) {
@@ -712,7 +712,7 @@ TEST_F(TrustLspTest, HandleDocumentLink_ForwardReverseTargets) {
         return -1;
     };
 
-    // ── Forward: trust→cpp — все цели в cppt, макросы не уводят в конец src ──
+    // -- Forward: trust→cpp - все цели в cppt, макросы не уводят в конец src --
     {
         json dl = docLink(trustUri, 200);
         ASSERT_TRUE(dl.contains("result") && dl["result"].is_array());
@@ -724,7 +724,7 @@ TEST_F(TrustLspTest, HandleDocumentLink_ForwardReverseTargets) {
         }
     }
 
-    // ── Reverse: cpp→trust — print-строка ведёт в print-фрагмент, а не в начало функции ──
+    // -- Reverse: cpp→trust - print-строка ведёт в print-фрагмент, а не в начало функции --
     {
         int cppPrintLine = findLine(cppText, "trust__print__");
         int srcPrintLine = findLine(srcText, "print('{}'");
@@ -754,7 +754,7 @@ TEST_F(TrustLspTest, HandleDocumentLink_ForwardReverseTargets) {
 
 // ═══════════════════════════════════════════════════════════════
 // Ховер над макросом: ссылка на определение («Macro:») должна идти ПЕРВОЙ,
-// а «→ C++» (раскрытый код, часто большой) — второй, чтобы не скрывать
+// а «→ C++» (раскрытый код, часто большой) - второй, чтобы не скрывать
 // определение. Диапазон в dsl.src должен выделять ВЕСЬ макрос (начинаться
 // с имени макроса, а не с тела).
 // ═══════════════════════════════════════════════════════════════
@@ -792,18 +792,18 @@ TEST_F(TrustLspTest, HandleHover_MacroDefLinkFirst_WholeRange) {
     const auto& contents = resp["result"]["contents"];
     ASSERT_GE(contents.size(), 3) << "expected base + Macro + → C++ :\n" << resp.dump();
 
-    // Индекс [0] — базовый блок кода.
-    // Индекс [1] — ссылка на определение макроса (должна быть первой).
+    // Индекс [0] - базовый блок кода.
+    // Индекс [1] - ссылка на определение макроса (должна быть первой).
     ASSERT_TRUE(contents[1].is_string());
     const std::string first = contents[1].get<std::string>();
     EXPECT_NE(first.find("[Macro: @assert]"), std::string::npos) << "first link must be Macro def:\n" << resp.dump();
     // Ссылка на определение должна указывать в dsl.src и выделять весь макрос,
-    // начиная с имени (колонка 1). Номер строки не хардкодим — проверяем формат
+    // начиная с имени (колонка 1). Номер строки не хардкодим - проверяем формат
     // `trust/dsl.src#L<номер>,1-`, чтобы тест не зависел от содержимого dsl.src.
     const std::regex defLinkRe(R"(trust/dsl\.src#L[0-9]+,1-)");
     EXPECT_TRUE(std::regex_search(first, defLinkRe)) << "macro def range must start at macro name:\n" << first;
 
-    // Индекс [2] — раскрытый код в cppt.
+    // Индекс [2] - раскрытый код в cppt.
     ASSERT_TRUE(contents[2].is_string());
     const std::string second = contents[2].get<std::string>();
     EXPECT_NE(second.find("[→ C++:"), std::string::npos) << "second link must be → C++:\n" << resp.dump();
@@ -875,7 +875,7 @@ struct CompletionHelpers {
 
 TEST_F(TrustLspTest, HandleCompletion_Names_FunctionPrefix) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // Комментарий с префиксом (валидный документ) — курсор после 'my'.
+    // Комментарий с префиксом (валидный документ) - курсор после 'my'.
     h.open("x := 'str';\n%myfunc(a:Int32):Int32 := a + 1;\n$value := 42;\n# my\n");
 
     json resp = h.at(3, 4, 101);
@@ -886,7 +886,7 @@ TEST_F(TrustLspTest, HandleCompletion_Names_FunctionPrefix) {
 
 TEST_F(TrustLspTest, HandleCompletion_Names_NotVisibleAfterCursor) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // x объявлена на строке 0, $value — на строке 2. Курсор на строке 1: $value ещё не виден.
+    // x объявлена на строке 0, $value - на строке 2. Курсор на строке 1: $value ещё не виден.
     h.open("x := 'str';\n#\n$value := 42;\n");
 
     json resp = h.at(1, 0, 102);
@@ -907,7 +907,7 @@ TEST_F(TrustLspTest, HandleCompletion_Types_ColonTypes) {
 
 TEST_F(TrustLspTest, HandleCompletion_Macros_AtPrefix) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // Комментарий с префиксом '@' — макросы берутся из @dsl.
+    // Комментарий с префиксом '@' - макросы берутся из @dsl.
     h.open("# @\n");
 
     json resp = h.at(0, 3, 104);
@@ -930,7 +930,7 @@ TEST_F(TrustLspTest, HandleCompletion_MemberAccess_StrCharMethods) {
 
 TEST_F(TrustLspTest, HandleCompletion_MemberAccess_PrefixFilter) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // Набираем x.si — member-режим, фильтрация методов по префиксу 'si'.
+    // Набираем x.si - member-режим, фильтрация методов по префиксу 'si'.
     h.open("x := 'str';\n# x.si\n");
 
     json resp = h.at(1, 6, 107);
@@ -964,7 +964,7 @@ TEST_F(TrustLspTest, HandleCompletion_MemberAccess_StringLiteral) {
 TEST_F(TrustLspTest, HandleCompletion_NoCrash_OnIncompleteSyntax) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
     // Недописанный код (после '@' введён ещё один '@') не должен ронять сервер
-    // и не должен возвращать ошибку — завершение работает по тексту буфера.
+    // и не должен возвращать ошибку - завершение работает по тексту буфера.
     h.open("x := 1;\n@@\n");
 
     json resp = h.at(1, 2, 110);
@@ -975,7 +975,7 @@ TEST_F(TrustLspTest, HandleCompletion_NoCrash_OnIncompleteSyntax) {
 
 TEST_F(TrustLspTest, HandleCompletion_Macro_HasTextEdit) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // textEdit с диапазоном набранного префикса '@' — сигнатура не дублируется.
+    // textEdit с диапазоном набранного префикса '@' - сигнатура не дублируется.
     h.open("# @\n");
 
     json resp = h.at(0, 3, 111);
@@ -1053,7 +1053,7 @@ TEST_F(TrustLspTest, HandleCompletion_Cyrillic) {
 
 TEST_F(TrustLspTest, HandleCompletion_MemberAccess_AnalyzerType) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // Тип объекта из анализатора (VarDecl::inferredType): b := a, где a — строка.
+    // Тип объекта из анализатора (VarDecl::inferredType): b := a, где a - строка.
     // Regex-вывод не справляется (литерал 'a'), анализатор даёт StrChar.
     h.open("a := 'str';\nb := a;\n# b.\n");
 
@@ -1065,7 +1065,7 @@ TEST_F(TrustLspTest, HandleCompletion_MemberAccess_AnalyzerType) {
 
 TEST_F(TrustLspTest, HandleCompletion_MemberAccess_DictType) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // Именованный словарь: поля a и b раскрываются, тип литерала — Dict (не Tuple).
+    // Именованный словарь: поля a и b раскрываются, тип литерала - Dict (не Tuple).
     h.open("d := (a=1, b=2,);\n# d.\n");
 
     json resp = h.at(1, 4, 117);
@@ -1075,7 +1075,7 @@ TEST_F(TrustLspTest, HandleCompletion_MemberAccess_DictType) {
 }
 
 // Переменная-диапазон `a := 1..10` (тип Range<Int64>): методы берутся из абстрактного `:Range`
-// (fallback — собственный дескриптор Range<Int64> пуст), включая алиас `length` (нативное `count`).
+// (fallback - собственный дескриптор Range<Int64> пуст), включая алиас `length` (нативное `count`).
 TEST_F(TrustLspTest, HandleCompletion_MemberAccess_RangeVariable) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
     h.open("a := 1..10;\n# a.\n");
@@ -1090,7 +1090,7 @@ TEST_F(TrustLspTest, HandleCompletion_MemberAccess_RangeVariable) {
     EXPECT_TRUE(h.hasLabel(resp, "start()")) << resp.dump();
 }
 
-// Члены самого типа `Range.` — включая алиас `length` (нативное имя `count`).
+// Члены самого типа `Range.` - включая алиас `length` (нативное имя `count`).
 TEST_F(TrustLspTest, HandleCompletion_MemberAccess_RangeType) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
     h.open("# Range.\n");
@@ -1104,7 +1104,7 @@ TEST_F(TrustLspTest, HandleCompletion_MemberAccess_RangeType) {
 
 TEST_F(TrustLspTest, HandleCompletion_UnknownDoc_EmptyItems) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // Несуществующий URI — сервер должен вернуть пустой результат без ошибки.
+    // Несуществующий URI - сервер должен вернуть пустой результат без ошибки.
     json req = {{"jsonrpc", "2.0"},
                 {"id", 106},
                 {"method", "textDocument/completion"},
@@ -1185,7 +1185,7 @@ TEST_F(TrustLspTest, HandleCodeAction_QuickfixFromFixits) {
     EXPECT_EQ(changes[0]["range"]["start"]["character"].get<int>(), 0);
 }
 
-// Без fixits — пустой список действий (никаких quickfix).
+// Без fixits - пустой список действий (никаких quickfix).
 TEST_F(TrustLspTest, HandleCodeAction_NoFixits_Empty) {
     std::string uri = "file://" + testSrcFile;
     json plainDiag = {{"range", {{"start", {{"line", 0}, {"character", 0}}}, {"end", {{"line", 0}, {"character", 1}}}}},
@@ -1214,7 +1214,7 @@ TEST_F(TrustLspTest, HandleCodeAction_NoFixits_Empty) {
 // ═══════════════════════════════════════════════════════════════
 
 TEST_F(TrustLspTest, HandleDidOpen_SyntaxError_PublishesDiagnosticWithRange) {
-    // Недописанная строка `y := ;` — синтаксическая ошибка на строке 1 (0-based).
+    // Недописанная строка `y := ;` - синтаксическая ошибка на строке 1 (0-based).
     std::string uri = "file://" + testSrcFile;
     std::string bad = "x := 1;\ny := ;\n";
     json req = {{"jsonrpc", "2.0"},
@@ -1263,7 +1263,7 @@ TEST_F(TrustLspTest, HandleDidOpen_SyntaxError_PublishesDiagnosticWithRange) {
 // корректно отвечать на hover/definition/completion по тому же документу.
 TEST_F(TrustLspTest, HandleSyntaxError_ServerStillServesHoverDefinitionCompletion) {
     std::string uri = "file://" + testSrcFile;
-    // Первая строка валидна (x := 'hi';), вторая — синтаксическая ошибка.
+    // Первая строка валидна (x := 'hi';), вторая - синтаксическая ошибка.
     std::string bad = "x := 'hi';\ny := ;\n# x.\n";
     json openReq = {{"jsonrpc", "2.0"},
                     {"method", "textDocument/didOpen"},
@@ -1277,7 +1277,7 @@ TEST_F(TrustLspTest, HandleSyntaxError_ServerStillServesHoverDefinitionCompletio
 
     transport.capturedOutput.clear();
 
-    // ── hover над `x` (строка 0) должен успешно ответить ──
+    // -- hover над `x` (строка 0) должен успешно ответить --
     json hoverReq = {{"jsonrpc", "2.0"},
                      {"id", 301},
                      {"method", "textDocument/hover"},
@@ -1290,7 +1290,7 @@ TEST_F(TrustLspTest, HandleSyntaxError_ServerStillServesHoverDefinitionCompletio
 
     transport.capturedOutput.clear();
 
-    // ── completion в начале строки 2 должен вернуть items (в т.ч. x) ──
+    // -- completion в начале строки 2 должен вернуть items (в т.ч. x) --
     json compReq = {{"jsonrpc", "2.0"},
                     {"id", 302},
                     {"method", "textDocument/completion"},
@@ -1301,7 +1301,7 @@ TEST_F(TrustLspTest, HandleSyntaxError_ServerStillServesHoverDefinitionCompletio
     ASSERT_TRUE(compResp.contains("result")) << compResp.dump();
     ASSERT_FALSE(compResp.contains("error")) << compResp.dump();
 
-    // ── definition по `x` (строка 0) отвечает без ошибки ──
+    // -- definition по `x` (строка 0) отвечает без ошибки --
     json defReq = {{"jsonrpc", "2.0"},
                    {"id", 303},
                    {"method", "textDocument/definition"},
@@ -1353,8 +1353,8 @@ TEST_F(TrustLspTest, HandleDidOpen_UnexpectedCharacter_PointsToActualChar) {
 // ═══════════════════════════════════════════════════════════════
 TEST_F(TrustLspTest, HandleNoSigilLocalVariable_HasFixit_AndCodeAction) {
     std::string uri = "file://" + testSrcFile;
-    // `extra := 5` внутри функции — bare-имя в локальном скоупе → NoSigil warning.
-    // didOpen публикует диагностики ВСЕГДА (в т.ч. warning'и) — сразу на открытии.
+    // `extra := 5` внутри функции - bare-имя в локальном скоупе → NoSigil warning.
+    // didOpen публикует диагностики ВСЕГДА (в т.ч. warning'и) - сразу на открытии.
     std::string src = "%foo():Int32 := {\n    extra := 5;\n    extra\n};\n";
     json openReq = {{"jsonrpc", "2.0"},
                     {"method", "textDocument/didOpen"},

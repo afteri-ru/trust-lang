@@ -16,7 +16,7 @@
 #define YYDEBUG 1
 
 /* Хелперы грамматики для документирующих комментариев (doc_list): flattenDocs/makeDocBundle/
- * appendDocs. Forward-объявления — определения в src/syntax/parser.cpp. */
+ * appendDocs. Forward-объявления - определения в src/syntax/parser.cpp. */
 namespace trust {
 std::vector<TermPtr> flattenDocs(TermPtr docs);
 TermPtr makeDocBundle(TermPtr docs, TermPtr stmt);
@@ -118,7 +118,7 @@ TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt);
  * - Типы параметров функции.
  * - Соглашение о вызовах.
  * - Тип значения, возвращаемого функцией.
- * Имена функций и классов кодируются во внутреннем имени. Остальная часть внутреннего имени — это код, 
+ * Имена функций и классов кодируются во внутреннем имени. Остальная часть внутреннего имени - это код, 
  * который имеет смысл только для компилятора и компоновщика. 
  * 
  * 
@@ -142,7 +142,7 @@ TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt);
     #include "syntax/term_types.h"
 }
 
-/* Макрос TERM() теперь pass-through, т.к. api.value.type — TermPtr */
+/* Макрос TERM() теперь pass-through, т.к. api.value.type - TermPtr */
 %code {
     using namespace trust;
     inline static TermPtr& TERM(TermPtr &v) __attribute__((unused));
@@ -235,7 +235,7 @@ name_attr:  name_no_attr
             }
     |  attr  native
             {
-                // Атрибуты перед нативным идентификатором (%...) — напр. forward-декларация
+                // Атрибуты перед нативным идентификатором (%...) - напр. forward-декларация
                 // нативной функции `@[format("printf",1,2)]@ %printf(...) := ...;`.
                 $$ = $2;
                 TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
@@ -350,7 +350,7 @@ type_dim: rval_var
 type_dims: type_dim
         {
             $$ = Term::Create(TermID::ARGS, "", TERM($1)->m_mapperRange);
-            // ARGUMENT-терм сам несёт имя размерности в m_left — имя в ArgsPair не дублируется
+            // ARGUMENT-терм сам несёт имя размерности в m_left - имя в ArgsPair не дублируется
             TERM($$)->push_back(TERM($1));
         }
     | type_dims  COMMA  type_dim
@@ -485,7 +485,7 @@ type_call: type_name   call
 type_item:  type_name
             {
                 $$ = $1;
-                // Узел-оператор (&, *) уже корень типа — не перезаписываем m_id
+                // Узел-оператор (&, *) уже корень типа - не перезаписываем m_id
                 if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE)
                     TERM($$)->m_id = TermID::TYPE;
             }
@@ -618,14 +618,14 @@ strtype: strwide
             }
         |  MACRO_TOSTR   name_to_concat
             {            
-                // Predefined контекст-макрос приходит токеном MACRO — раскрываем его в
+                // Predefined контекст-макрос приходит токеном MACRO - раскрываем его в
                 // MACRO_CONTEXT (иначе не отличим контекст-макрос от обычного имени).
                 if (TERM($2)->getTermID() == trust::TermID::MACRO) {
                     driver.ExpandPredefMacro(TERM($2));
                 }
                 if (TERM($2)->getTermID() == trust::TermID::MACRO_CONTEXT) {
                     // Стрингификация контекст-макроса (@# @__X__ / @#' / @#"): маркер
-                    // (@#/@#'/@#") добавляется в начало текста, узел остаётся ContextMacro —
+                    // (@#/@#'/@#") добавляется в начало текста, узел остаётся ContextMacro -
                     // анализатор развернёт его в литерал нужного вида.
                     $$ = $2;
                     TERM($$)->m_id = trust::TermID::MACRO_CONTEXT;
@@ -706,14 +706,14 @@ field_name:  NAME
             }
         | INTEGER
             {
-                // Статический индекс: `d.1` — доступ по номеру, известному на этапе
+                // Статический индекс: `d.1` - доступ по номеру, известному на этапе
                 // компиляции. В AST это MemberAccess с правым операндом IntLiteral
-                // (отличие от имени поля — NAME→Ident).
+                // (отличие от имени поля - NAME→Ident).
                 $$ = $1;
             }
         | native
             {
-                // Нативный идентификатор поля/метода: `obj.%c_str` — нативный член C++.
+                // Нативный идентификатор поля/метода: `obj.%c_str` - нативный член C++.
                 $$ = $1;
             }
         | native  call
@@ -726,8 +726,8 @@ field_name:  NAME
 field:  DOT  field_name
             {
                 // Доступ по имени/статическому индексу: объект присоединяется в
-                // `lval_obj: lval_obj field`. Здесь поле — FIELD-терм с ключом в m_right
-                // (имя — NAME→Ident, статический индекс — INTEGER→IntLiteral).
+                // `lval_obj: lval_obj field`. Здесь поле - FIELD-терм с ключом в m_right
+                // (имя - NAME→Ident, статический индекс - INTEGER→IntLiteral).
                 $$ = $1;
                 TERM($$)->m_id = TermID::FIELD;
                 TERM($$)->m_right = TERM($field_name);
@@ -735,7 +735,7 @@ field:  DOT  field_name
         | DOT  take  field_name
             {
                 // Оператор take (* / *^) остаётся в AST как узел RefTakeExpr:
-                // терм take становится корнем, field_name — его правым операндом.
+                // терм take становится корнем, field_name - его правым операндом.
                 // Признак иммутабельности (*^) живёт на самом take (текст "*^"),
                 // имя field_name не модифицируется.
                 TERM($field_name)->m_id = TermID::FIELD;
@@ -774,8 +774,8 @@ lval_obj: assign_name
             }
         |  assign_name  LBRACKET  args  RBRACKET
             {   
-                // Доступ по индексу `d[expr]`: INDEX-терм — корень, объект — m_left,
-                // все индексы (в т.ч. multi `[a,b]`) — в m_args, первый — в m_right
+                // Доступ по индексу `d[expr]`: INDEX-терм - корень, объект - m_left,
+                // все индексы (в т.ч. multi `[a,b]`) - в m_args, первый - в m_right
                 // (для кодогенерации ArrayAccess).
                 $$ = $2;
                 TERM($$)->m_id = TermID::INDEX;
@@ -815,7 +815,7 @@ lval_var:  lval_obj
             }
         |  take  rval_name
             {
-                // take (* / *^) — оператор; остаётся в AST как RefTakeExpr над rval_name.
+                // take (* / *^) - оператор; остаётся в AST как RefTakeExpr над rval_name.
                 $$ = $take;
                 TERM($$)->AppendRight(TERM($rval_name));
             } 
@@ -837,7 +837,7 @@ lval_var:  lval_obj
 /* Допустимые lvalue объекты */
 lval_call:  take  call
             {
-                // take (* / *^) — оператор; остаётся в AST как RefTakeExpr над call.
+                // take (* / *^) - оператор; остаётся в AST как RefTakeExpr над call.
                 $$ = $take;
                 TERM($$)->AppendRight(TERM($call));
             } 
@@ -987,10 +987,10 @@ iter_all:  ITERATOR_QQ  /* !?  ?! */
  * 
  */
 
-/* Аргументом может быть что угодно — единый список (arg-list := Expression (',' Expression)*).
+/* Аргументом может быть что угодно - единый список (arg-list := Expression (',' Expression)*).
  * Именованные аргументы (name=value) строят ARGUMENT-терм (m_left=имя, m_right=значение).
  * Это отдельный узел-обёртка (аналог Python ast.keyword / C# ArgumentSyntax), а не ASSIGN:
- * присваивание — действие, именованный аргумент — декларативная метка + выражение. */
+ * присваивание - действие, именованный аргумент - декларативная метка + выражение. */
 
 named_rhs: EQ logical
         { // Правая часть именованного аргумента со значением
@@ -1017,7 +1017,7 @@ arg: ptr arg_name named_rhs
             TERM($$)->m_left = TERM($name);
             TERM($$)->m_right = TERM($ptr);
             TERM($ptr)->AppendRight(TERM($4));
-            // НОРМАЛИЗАЦИЯ: тип аргумента — ЕДИНЫЙ слот m_type (не m_right->SetType / $4->SetType).
+            // НОРМАЛИЗАЦИЯ: тип аргумента - ЕДИНЫЙ слот m_type (не m_right->SetType / $4->SetType).
             TERM($$)->m_type = TERM($type_item);
         }
     | arg_name named_rhs
@@ -1031,7 +1031,7 @@ arg: ptr arg_name named_rhs
             $$ = Term::Create(TermID::ARGUMENT, "", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($3)->m_mapperRange.end});
             TERM($$)->m_left = TERM($1);
             TERM($$)->m_right = TERM($3);
-            // НОРМАЛИЗАЦИЯ: тип аргумента — ЕДИНЫЙ слот m_type (не m_right->SetType).
+            // НОРМАЛИЗАЦИЯ: тип аргумента - ЕДИНЫЙ слот m_type (не m_right->SetType).
             TERM($$)->m_type = TERM($type_item);
         }
     | logical
@@ -1130,7 +1130,7 @@ dictionary: LPAREN  COMMA  RPAREN
                 $$ = $1;
                 TERM($$)->getText().clear();
                 TERM($$)->m_id = TermID::DICT;
-                // Полный охват `()` — диапазон терма обязан покрывать весь литерал, а не только
+                // Полный охват `()` - диапазон терма обязан покрывать весь литерал, а не только
                 // открывающую скобку (иначе range() словаря сужался бы до `(`, и маппинг/подсветка
                 // statement'а `x := (...)` не захватывали бы инициализатор).
                 TERM($$)->m_mapperRange.end = TERM($3)->m_mapperRange.end;
@@ -1235,7 +1235,7 @@ assign_expr:  body
                 }
             | ELLIPSIS
                 {
-                    // Предварительное (forward) объявление: `<name> := ...;` — многоточие
+                    // Предварительное (forward) объявление: `<name> := ...;` - многоточие
                     // вместо тела функции / инициализатора переменной. m_right = ELLIPSIS.
                     $$ = $1;
                 }
@@ -1283,8 +1283,8 @@ assign_expr:  body
            
 
 
-// assign_item — ЦЕЛЬ деструктуризации. По дизайну поддерживаются ТОЛЬКО отдельные переменные
-// (`lval` — обычная цель; `lval ELLIPSIS` — rest-цель `rest...`). Вложенная деструктуризация
+// assign_item - ЦЕЛЬ деструктуризации. По дизайну поддерживаются ТОЛЬКО отдельные переменные
+// (`lval` - обычная цель; `lval ELLIPSIS` - rest-цель `rest...`). Вложенная деструктуризация
 // (`a, (b, c) := t;`) НЕ поддерживается и НЕ планируется: грамматика допускает только плоские
 // lval-цели, что упрощает синтаксис и типизацию составных типов (типизируются только отдельные
 // элементы, а не составные структуры).
@@ -1295,7 +1295,7 @@ assign_item:  lval
             |  lval  ELLIPSIS
                 {
                     // rest-цель (`rest...`, C++-pack-стиль): «остаток» коллекции/кортежа.
-                    // lval (имя) получает ELLIPSIS в m_right — DestructureDecl помечает её как rest.
+                    // lval (имя) получает ELLIPSIS в m_right - DestructureDecl помечает её как rest.
                     $$ = $1;
                     TERM($$)->AppendRight(TERM($2));
                 }
@@ -1716,7 +1716,7 @@ if_then:  match_cond  FOLLOW  body
 
 else_body: COMMA  LBRACKET  ELLIPSIS  RBRACKET  FOLLOW  body
             {
-                // else: тело else (маркер ELLIPSIS в AST не нужен — else ложится в m_right)
+                // else: тело else (маркер ELLIPSIS в AST не нужен - else ложится в m_right)
                 $$ = $body;
             }
 
@@ -1782,7 +1782,7 @@ match_item: LBRACKET matches RBRACKET FOLLOW  body
 
 match_items:  match_item  SEMICOLON
             {
-                // ';' — разделитель условия, не входит в выполняемое выражение; берём range самого match_item.
+                // ';' - разделитель условия, не входит в выполняемое выражение; берём range самого match_item.
                 $$ = Term::Create(TermID::MATCHING, std::string(TERM($1)->getText().data(), 1), TERM($1)->m_mapperRange, token::MATCHING);
                 TERM($$)->m_sequence.push_back(TERM($match_item));
             }
@@ -2073,9 +2073,9 @@ expression: assign_seq
             }
         | doc_list expression
             {
-                // Ведущий док: если выражение — объявление, цепляем док прямо на терм-
+                // Ведущий док: если выражение - объявление, цепляем док прямо на терм-
                 // идентификатор (m_docs → AstNodeBase::documentation); иначе (не-объявление)
-                // — отдельный sibling-узел (makeDocBundle), как было.
+                // - отдельный sibling-узел (makeDocBundle), как было.
                 $$ = attachLeadingDoc(TERM($1), TERM($2));
             }
         | follow
@@ -2134,7 +2134,7 @@ sequence:  expression
         | separator
             {
                 // Пустой оператор: последовательность из одних ';' (например тело `{ ; }`).
-                // Возвращаем пустую SEQUENCE (без statement), а не separator-терм — иначе
+                // Возвращаем пустую SEQUENCE (без statement), а не separator-терм - иначе
                 // конвертация в AST упрётся в TermID::SEMICOLON («не реализовано»).
                 $$ = Term::Create(TermID::SEQUENCE, "", $1->m_mapperRange);
             }
@@ -2156,7 +2156,7 @@ sequence:  expression
         | sequence DOCUMENT_INLINE
             {
                 // Хвостовой inline-док (`///<`/`##<` на той же строке, без ';'):
-                // для объявления цепляем на сам терм, иначе — отдельным sibling-узлом.
+                // для объявления цепляем на сам терм, иначе - отдельным sibling-узлом.
                 attachTrailingDoc(TERM($1), TERM($2));
                 $$ = $1;
             }

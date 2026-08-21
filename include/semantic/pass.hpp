@@ -4,9 +4,9 @@
 // Общий контекст семантики (AnalysisContext).
 // Семантика выполняется единым однопроходным ядром NameResolutionPass
 // (см. name_resolution.hpp), к которому параллельно подключаются опциональные
-// анализаторы — InlineAnalysisHook (см. inline_hook.hpp), управляемые feature-флагами
+// анализаторы - InlineAnalysisHook (см. inline_hook.hpp), управляемые feature-флагами
 // `diag::Options`. Lowering выполняется в конце при отсутствии блокирующих ошибок.
-// AnalysisContext владеет единой таблицей символов (SymbolTable) — стеком вложенных
+// AnalysisContext владеет единой таблицей символов (SymbolTable) - стеком вложенных
 // лексических скоупов, который служит одновременно и реестром объявлений, и
 // иерархией вложенности для разрешения имён.
 
@@ -40,13 +40,13 @@ class AnalysisContext {
     SymbolIndex& symbolIndex() { return m_symbolIndex; }
     const SymbolIndex& symbolIndex() const { return m_symbolIndex; }
 
-    // ── Контекст области имён и текущей функции (вывод из скоуп-стека) ──
+    // -- Контекст области имён и текущей функции (вывод из скоуп-стека) --
     // namespace-путь и текущая функция выводятся из скоуп-стека SymbolTable
     // (создателей скоупов), а не хранятся в отдельном состоянии. Единый источник
-    // для ядра и любого хук-анализатора (все получают AnalysisContext), — чтобы
+    // для ядра и любого хук-анализатора (все получают AnalysisContext), - чтобы
     // не дублировать разбор областей имён в каждом потребителе.
 
-    /// Путь текущей области имён (например "ns::inner"); пустой — глобальная.
+    /// Путь текущей области имён (например "ns::inner"); пустой - глобальная.
     [[nodiscard]] std::string namespacePath() const;
     /// Полная область имён: "::ns::name::" (глобальная → "::").
     [[nodiscard]] std::string namespaceFull() const;
@@ -59,17 +59,17 @@ class AnalysisContext {
     /// Требует нахождения внутри функции: иначе диагностика Severity::Error и false.
     [[nodiscard]] bool requireFunction(const AstNodeBase& node, const char* macro) const;
 
-    // ── Резолв типов и runtime-символов (query-сервисы, единые для ядра и хуков) ──
+    // -- Резолв типов и runtime-символов (query-сервисы, единые для ядра и хуков) --
 
     /// Резолвит аннотацию типа (узел kind=TypeName) в TypeId: сначала по скоуп-стеку
     /// (пользовательские алиасы с учётом shadowing), затем в реестре типов (builtin).
-    /// std::nullopt — тип не найден (диагностику формирует вызывающий).
+    /// std::nullopt - тип не найден (диагностику формирует вызывающий).
     [[nodiscard]] std::optional<TypeId> resolveType(const AstNodeBase& type_node) const;
 
-    /// Разрешённый тип узла (единый источник для ядра и хуков): составное выражение — из кеша
-    /// `m_exprTypes` (заполняет ядро пост-порядково через `setExprType`); лист — литерал /
-    /// символ (Ident) / каст; объявление и бинарная операция — из поля узла
-    /// (VarDecl → inferredType, Binary → resultType). INVALID_TYPE_ID — не выведено.
+    /// Разрешённый тип узла (единый источник для ядра и хуков): составное выражение - из кеша
+    /// `m_exprTypes` (заполняет ядро пост-порядково через `setExprType`); лист - литерал /
+    /// символ (Ident) / каст; объявление и бинарная операция - из поля узла
+    /// (VarDecl → inferredType, Binary → resultType). INVALID_TYPE_ID - не выведено.
     [[nodiscard]] TypeId resolvedType(const AstNodeBase& node) const;
 
     /// Сохраняет тип результата составного выражения в кеш типов (заполняет ядро
@@ -79,8 +79,8 @@ class AnalysisContext {
     /// Строит функциональный тип (FunctionTypeId) по сигнатуре функции через TypeRegistry.
     [[nodiscard]] TypeId buildFuncType(const FuncDecl& func_node) const;
 
-    /// Истина, если имя (с native-префиксом '%' или без) — зарегистрированный runtime-символ
-    /// (например %trust::trust__abort__ / %trust::formatMessage). Такие имена — известные
+    /// Истина, если имя (с native-префиксом '%' или без) - зарегистрированный runtime-символ
+    /// (например %trust::trust__abort__ / %trust::formatMessage). Такие имена - известные
     /// нативные функции из публичного runtime-заголовка и не должны давать «undefined name».
     [[nodiscard]] bool isRegisteredRuntimeSymbol(std::string_view name) const;
 

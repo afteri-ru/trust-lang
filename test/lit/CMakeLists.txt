@@ -1,7 +1,7 @@
 # test/lit/CMakeLists.txt
 # LIT output symlinks and CTest registration
 
-# ── LIT output symlinks (one per test subdirectory) ──
+# -- LIT output symlinks (one per test subdirectory) --
 if(NOT CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
     foreach(_subdir parser/ast parser/lex parser/tokens parser/diag parser/dsl transpiler/codegen transpiler/src_map pipeline/build pipeline/e2e pipeline/module)
         file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit/Output/${_subdir}/Output)
@@ -22,7 +22,7 @@ if(NOT CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
     endif()
 endif()
 
-# ── CTest registration ──
+# -- CTest registration --
 # LIT integration tests run as a single CTest test (via the trust CLI + FileCheck).
 # LIT always runs in succinct (brief) mode: `-v` (verbose) is deliberately
 # NOT used so the output stays concise.

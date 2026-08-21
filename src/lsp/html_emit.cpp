@@ -26,7 +26,7 @@ namespace trust::lsp {
 
 using json = nlohmann::json;
 
-// ── Экранирование ──
+// -- Экранирование --
 
 std::string jsonEscape(const std::string& s) {
     std::string out = json(s).dump();
@@ -43,7 +43,7 @@ std::string jsonEscape(const std::string& s) {
     return out;
 }
 
-// ── Список примеров (комбобокс playground) ──
+// -- Список примеров (комбобокс playground) --
 
 std::vector<LspExample> loadExamplesFromDir(const std::string& dir) {
     namespace fs = std::filesystem;
@@ -80,7 +80,7 @@ std::vector<LspExample> loadExamplesFromDir(const std::string& dir) {
     return out;
 }
 
-// ── Вспомогательные ──
+// -- Вспомогательные --
 
 static size_t countLines(const std::string& s) {
     if (s.empty()) {
@@ -163,7 +163,7 @@ static void buildLineMapping(const trust::SourceMapReader& reader, trust::Reader
     }
 }
 
-// ── Транспиляция ──
+// -- Транспиляция --
 
 HtmlResult transpileToResult(const std::string& trust_code, const std::string& file_name, const LspOptions& opts) {
     HtmlResult r;
@@ -212,7 +212,7 @@ HtmlResult transpileToResult(const std::string& trust_code, const std::string& f
     return r;
 }
 
-// ── JSON ──
+// -- JSON --
 
 std::string resultToJson(const HtmlResult& r) {
     json j;
@@ -225,11 +225,11 @@ std::string resultToJson(const HtmlResult& r) {
     return j.dump();
 }
 
-// ── HTML ──
+// -- HTML --
 // Всё, что нужно для работы, встроено в выводимый HTML: стили, конфиг и
 // glue-JS (Monarch-токенайзер Trust, инициализация двух редакторов Monaco,
 // синхронная навигация, debounced живая пере-транспиляция). Внешней остаётся
-// только сама библиотека Monaco (monaco_url) — она слишком велика для встраивания.
+// только сама библиотека Monaco (monaco_url) - она слишком велика для встраивания.
 
 static const unsigned char kMonarchTrustBytes[] = {
 #embed "trust.monarch.js"
@@ -245,7 +245,7 @@ static std::string buildConfigJson(const HtmlResult& r, const std::string& monac
     std::string cfg = "{";
     cfg += "\"monacoUrl\":" + jsonEscape(monaco_url) + ",";
     cfg += "\"serverUrl\":" + jsonEscape(server_url) + ",";
-    // Трансляция (cpp/маппинги/ok/error) НЕ хранится в шаблоне страницы —
+    // Трансляция (cpp/маппинги/ok/error) НЕ хранится в шаблоне страницы -
     // она получается только от балансировщика при каждом изменении кода.
     cfg += "\"source\":" + jsonEscape(r.source);
     cfg += ",\"examples\":[";
@@ -273,9 +273,16 @@ static std::string buildFragment(const HtmlResult& r, const LspOptions& opts, co
            "font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;"
            "background:var(--tpl-bg);color:var(--tpl-text);padding:8px;"
            "border:1px solid var(--tpl-border);border-radius:6px;}\n";
-    out += ".tpl-row{display:flex;gap:6px;min-height:400px;}\n";
-    out += ".tpl-pane{flex:1;display:flex;flex-direction:column;min-width:0;position:relative;border:1px solid "
+    out += ".tpl-row{display:flex;gap:0;min-height:400px;}\n";
+    out += ".tpl-pane{flex:1 1 0;display:flex;flex-direction:column;min-width:0;position:relative;border:1px solid "
            "var(--tpl-border);border-radius:4px;overflow:hidden;}\n";
+    // Изменяемый размер: вертикальный сплиттер между Trust и Generated C++,
+    // горизонтальный - над окном лога.
+    out += ".tpl-splitter-v{width:6px;cursor:col-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}\n";
+    out += ".tpl-splitter-v:hover{background:var(--tpl-border);}\n";
+    out += ".tpl-splitter-h{height:6px;cursor:row-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}\n";
+    out += ".tpl-splitter-h:hover{background:var(--tpl-border);}\n";
+
     out += ".tpl-toolbar{padding:4px "
            "8px;background:var(--tpl-toolbar);font-size:12px;font-weight:600;user-select:none;display:flex;align-items:center;gap:8px;}\n";
     out += ".tpl-examples{font-size:12px;font-weight:400;max-width:260px;background:var(--tpl-bg);color:var(--tpl-text);border:1px solid "
@@ -296,8 +303,13 @@ static std::string buildFragment(const HtmlResult& r, const LspOptions& opts, co
     out += ".tpl-btn{font-size:12px;padding:3px 10px;background:var(--tpl-toolbar);color:var(--tpl-text);border:1px solid "
            "var(--tpl-border);border-radius:4px;cursor:pointer;text-decoration:none;font-weight:600;}\n";
     out += ".tpl-btn-disabled{opacity:.6;pointer-events:none;}\n";
-    out += ".tpl-log{min-height:80px;max-height:160px;overflow:auto;font-size:12px;color:var(--tpl-text);background:var(--tpl-bg);border:1px solid "
+    out += ".tpl-log{height:120px;min-height:40px;flex:none;overflow:auto;font-size:12px;color:var(--tpl-text);background:var(--tpl-bg);border:1px solid "
            "var(--tpl-border);border-radius:4px;padding:6px;white-space:pre-wrap;}\n";
+    // Строки лога: кликабельные заголовки диагностик (переход на строку в исходнике).
+    out += ".tpl-logline{min-height:1.1em;}\n";
+    out += ".tpl-log-link{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;}\n";
+    out += ".tpl-log-error{color:var(--tpl-error);}\n";
+    out += ".tpl-log-warn{color:var(--tpl-text);}\n";
     // Оверлей правой панели: центрированное сообщение об ошибке/нет связи с
     // сервером песочницы. По умолчанию скрыт (display:none), включается из glue-JS.
     out += ".tpl-overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;"
@@ -309,12 +321,16 @@ static std::string buildFragment(const HtmlResult& r, const LspOptions& opts, co
     out += "  <div class=\"tpl-pane\"><div class=\"tpl-toolbar\">Trust"
            "<select id=\"tpl-examples\" class=\"tpl-examples\" title=\"Load example\"></select></div>"
            "<div id=\"tpl-trust-editor\" class=\"tpl-editor\"></div></div>\n";
+    out += "  <div class=\"tpl-splitter-v\" id=\"tpl-split-v\"></div>\n";
+
     out += "  <div class=\"tpl-pane\"><div class=\"tpl-toolbar\">Generated C++"
            "<a id=\"tpl-download\" class=\"tpl-btn tpl-btn-disabled\" href=\"#\" title=\"Скачать архив сборки\">&#11015; Скачать архив</a>"
            "<label id=\"tpl-follow\" class=\"tpl-follow\" title=\"Следовать за выбранной строкой (прокручивать вторую панель к ней)\">"
            "<input type=\"checkbox\" id=\"tpl-follow-cb\" checked>follow</label></div>"
            "<div id=\"tpl-cpp-editor\" class=\"tpl-editor\"></div>"
            "<div id=\"tpl-cpp-overlay\" class=\"tpl-overlay\"></div></div>\n";
+    out += "  <div class=\"tpl-splitter-h\" id=\"tpl-split-h\"></div>\n";
+
     out += "</div>\n";
     out += "<div id=\"tpl-log\" class=\"tpl-log\"></div>\n";
     out += "<div class=\"tpl-toolbar\" style=\"border-top:1px solid var(--tpl-border);\">"

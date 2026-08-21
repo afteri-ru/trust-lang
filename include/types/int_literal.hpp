@@ -17,7 +17,7 @@
 
 namespace trust {
 
-// ── Вмещаемость беззнакового значения в целый тип ──────────
+// -- Вмещаемость беззнакового значения в целый тип ----------
 // kIntegers → 2^(w-1)-1, kUnsigned → 2^w-1. Не-целая группа → значение считается безопасным.
 inline bool fitsIntegerValue(Group g, uint8_t width, unsigned long long value) noexcept {
     if (g == Group::kIntegers) {
@@ -46,10 +46,10 @@ inline bool fitsIntegerValue(Group g, uint8_t width, unsigned long long value) n
             return true;
         }
     }
-    return true; // не-целая группа — целочисленный литерал считается безопасным
+    return true; // не-целая группа - целочисленный литерал считается безопасным
 }
 
-// ── Знаковый целый тип (Int8/16/32/64) по ширине в битах ────
+// -- Знаковый целый тип (Int8/16/32/64) по ширине в битах ----
 inline TypeId intTypeForWidth(const TypeRegistry& reg, uint8_t width) {
     switch (width) {
     case 8:
@@ -63,7 +63,7 @@ inline TypeId intTypeForWidth(const TypeRegistry& reg, uint8_t width) {
     }
 }
 
-// ── Минимальный знаковый Int, вмещающий значение ───────────
+// -- Минимальный знаковый Int, вмещающий значение -----------
 // Единая таблица ширины/границ для выбора типа целого литерала (literalType).
 inline TypeId intTypeForLiteral(const TypeRegistry& reg, unsigned long long value) {
     constexpr uint8_t kSignedWidths[] = {8, 16, 32, 64};

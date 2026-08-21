@@ -83,31 +83,31 @@ weight: 10
     call(arg=0, arg1=1, arg2=2, 3, 4);
 ```
 
-Словарь может быть указан и с левой стороны от оператора присвоения — это **деструктуризация**.
-Без маркера — **точная привязка**: каждая цель получает ровно один элемент, число целей должно
+Словарь может быть указан и с левой стороны от оператора присвоения - это **деструктуризация**.
+Без маркера - **точная привязка**: каждая цель получает ровно один элемент, число целей должно
 совпадать с числом элементов. Суффикс `...` у имени цели (`rest...`) связывает **оставшиеся**
-элементы; `_...` — извлечь элементы, остаток отбросить; `_` — пропустить один. Каждая цель
+элементы; `_...` - извлечь элементы, остаток отбросить; `_` - пропустить один. Каждая цель
 типизируется runtime-типом своего элемента; **внутри цикла** тип расширяется до максимального среди
 элементов (Bool/Int8 → Integer, float → Double).
 **Assignment into existing variables** uses `=` (`a, b = ... d;` or `a, b = t;`): targets must be
 declared earlier (`:=`), no new variables are created; otherwise a compile error. Assignment to a
 constant target (`^`) is an error. A target may carry an explicit **type annotation**
-(`a:Int32, b := ... d;` / `a:Int32, b = t;`) which fixes the declared variable type: for a tuple —
+(`a:Int32, b := ... d;` / `a:Int32, b = t;`) which fixes the declared variable type: for a tuple -
 `int32_t c_a` instead of `auto`; for a dictionary the variable is declared `int32_t`, while the element
 is extracted by its storage runtime type (`std::any_cast<int64_t>(...)`, since Dict normalizes integers
 to `int64_t`). Without annotation the type is inferred.
-Nested destructuring (`a, (b, c) := t;`) is **not supported** — only flat variables.
-Named-key destructuring (`{a: x, b: y} = d` — positional only, by insertion order), rest-in-the-middle
-(`a, rest..., c := seq` — the `rest...` marker is allowed only as the last target) and a **type
-annotation on a rest target** (`rest:MyDict...` / `rest:MyTuple...` — the rest type is always inferred:
+Nested destructuring (`a, (b, c) := t;`) is **not supported** - only flat variables.
+Named-key destructuring (`{a: x, b: y} = d` - positional only, by insertion order), rest-in-the-middle
+(`a, rest..., c := seq` - the `rest...` marker is allowed only as the last target) and a **type
+annotation on a rest target** (`rest:MyDict...` / `rest:MyTuple...` - the rest type is always inferred:
 `Dict` for a dictionary, a sub-tuple for a tuple; annotation is a compile error) are **not supported**.
 For a **tuple**, a rest target may not reuse the name of an existing variable (including the source
-itself — `a, t... := t`): unlike the dictionary spread, where `item, dict... := ... dict` is a legit
+itself - `a, t... := t`): unlike the dictionary spread, where `item, dict... := ... dict` is a legit
 source-mutation idiom, a tuple rest is not a mutation, so such reuse is a compile error. On a runtime
 element shortage (source of compile-time-unknown size) execution terminates with a controlled abort +
-diagnostic — no silent default (`None`/zero) for any target type (including `Any`). If a dictionary
+diagnostic - no silent default (`None`/zero) for any target type (including `Any`). If a dictionary
 element type is not inferable (e.g. a dictionary parameter), the target **outside a loop** is typed
-`std::any` with a warning (symmetric to the in-loop widening) — never silently.
+`std::any` with a warning (symmetric to the in-loop widening) - never silently.
 
 Пример реализации цикла *foreach* для суммирования всех элементов словаря (или одномерного тензора)
 с использованием оператора раскрытия словаря (списка):

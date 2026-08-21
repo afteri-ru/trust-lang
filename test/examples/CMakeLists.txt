@@ -2,7 +2,7 @@
 # Examples as the FINAL CTest stage.
 #
 # examples/ contains standalone programs (run/pause individually, e.g. for
-# debugging) — NOT lit tests. Each is run one-by-one via `trust --run`.
+# debugging) - NOT lit tests. Each is run one-by-one via `trust --run`.
 #
 # This subdirectory is added LAST (after test/unit, test/lit, test/vscode), so
 # examples_tests is numbered sequentially last in the CTest list. It is also

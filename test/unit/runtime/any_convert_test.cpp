@@ -11,7 +11,7 @@ using trust::TypedValue;
 
 namespace {
 
-// TypeKind: Group(0-7) | Data/размерность(8-15) — кодировка (ABI) trust::TypedValue.
+// TypeKind: Group(0-7) | Data/размерность(8-15) - кодировка (ABI) trust::TypedValue.
 constexpr uint32_t kInt8 = 3u | (8u << 8);
 constexpr uint32_t kInt32 = 3u | (32u << 8);
 constexpr uint32_t kInt64 = 3u | (64u << 8);
@@ -40,7 +40,7 @@ TEST(AnyConvertTest, StringFromNumberThrows) {
 
 TEST(AnyConvertTest, RationalTarget) {
     constexpr uint32_t kRational = 8u | (1u << 8);
-    // Rational — быстрая ветка variant (по значению); any_to<Rational> читает её напрямую.
+    // Rational - быстрая ветка variant (по значению); any_to<Rational> читает её напрямую.
     const Rational r = any_to<Rational>(TypedValue{kRational, Rational("3", "4")});
     EXPECT_EQ(r.GetAsString(), "3\\4");
     // Числовое приведение из Rational (GetAsNumber).

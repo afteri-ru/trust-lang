@@ -53,7 +53,7 @@ std::string OutputBuffer::build(unsigned indentSize) const {
 //                      SourceMapWriter
 // ══════════════════════════════════════════════════════════════
 
-// ── Конструкторы ──
+// -- Конструкторы --
 
 SourceMapWriter::SourceMapWriter()
 : SourceMap() {
@@ -72,7 +72,7 @@ SourceMapWriter::SourceMapWriter(std::string_view basePath, std::string_view tem
     }
 }
 
-// ── Главный (корневой) файл модуля ──
+// -- Главный (корневой) файл модуля --
 
 void SourceMapWriter::setMainModuleFile(MapperFile mainFile) {
     m_mainModuleFile = mainFile;
@@ -80,7 +80,7 @@ void SourceMapWriter::setMainModuleFile(MapperFile mainFile) {
 
 std::string SourceMapWriter::moduleName(MapperFile idx) const {
     std::error_code ec;
-    // filename(idx) — путь, нормализованный относительно baseDirectory (может быть относительным).
+    // filename(idx) - путь, нормализованный относительно baseDirectory (может быть относительным).
     fs::path file = fs::path(filename(idx));
     if (!file.is_absolute()) {
         file = fs::path(m_baseDirectory) / file;
@@ -88,7 +88,7 @@ std::string SourceMapWriter::moduleName(MapperFile idx) const {
     file = file.lexically_normal();
 
     // База отсчёта: каталог главного файла (если задан), иначе baseDirectory.
-    // filename(...) возвращает путь относительно baseDirectory — приводим базу к absolute,
+    // filename(...) возвращает путь относительно baseDirectory - приводим базу к absolute,
     // чтобы fs::relative сравнивал пути одинаковой природы.
     fs::path baseDir;
     if (!m_mainModuleFile.isInvalid()) {
@@ -121,7 +121,7 @@ std::string SourceMapWriter::moduleName(MapperFile idx) const {
     return name;
 }
 
-// ── Утилиты ──
+// -- Утилиты --
 
 bool SourceMapWriter::validateSimpleName(std::string_view name) {
     if (name.empty()) {
@@ -151,7 +151,7 @@ std::string SourceMapWriter::normalizePath(std::string_view path) const {
     return rel.generic_string();
 }
 
-// ── findFileIdx ──
+// -- findFileIdx --
 
 MapperFile SourceMapWriter::findFileIdx(std::string_view filePath) const {
     if (filePath.empty()) {
@@ -163,7 +163,7 @@ MapperFile SourceMapWriter::findFileIdx(std::string_view filePath) const {
     return SourceMap::findFileIdx(norm);
 }
 
-// ── get_prepend ──
+// -- get_prepend --
 
 std::string SourceMapWriter::get_prepend(MapperFile idx, unsigned indentSize) const {
     if (idx.isInvalid()) {
@@ -184,7 +184,7 @@ uint32_t SourceMapWriter::get_output_size(MapperFile idx) const {
     return out.size();
 }
 
-// ── Входные файлы ──
+// -- Входные файлы --
 
 MapperFile SourceMapWriter::add_source(std::string filename, std::string content, bool normalize) {
     if (normalize) {
@@ -225,7 +225,7 @@ MapperFile SourceMapWriter::load_file(std::string path) {
     return MapperFile::make_input(static_cast<uint32_t>(m_inputs.size()) - 1u);
 }
 
-// ── Выходные файлы ──
+// -- Выходные файлы --
 
 MapperFile SourceMapWriter::add_output(std::string filename, bool normalize) {
     if (normalize) {
@@ -341,7 +341,7 @@ bool SourceMapWriter::save_output(std::string_view outputDir) {
     return allOk;
 }
 
-// ── Создание и валидация Location / Range ──
+// -- Создание и валидация Location / Range --
 
 MapperRange SourceMapWriter::makeRange(MapperLocation begin, MapperLocation end) const {
     if (begin.isInvalid() || end.isInvalid()) {
@@ -510,7 +510,7 @@ const SourceMapWriter::MapStartEntry& SourceMapWriter::mapStackTop() const {
 
 MapperRange SourceMapWriter::mapStop(MapperRange from) {
     if (mappingSuppressed()) {
-        return from; // подавлено: mapStart не пушил — нечего закрывать
+        return from; // подавлено: mapStart не пушил - нечего закрывать
     }
     EXPECT(!m_mapStack.empty());
 
@@ -643,7 +643,7 @@ const SourceMapReader* SourceMapWriter::toReader() const {
     offsetPrepends(reader->m_backward, true);
     offsetPrepends(reader->m_forward, false);
 
-    // Ключи m_backward — это cpp-begin (устанавливаются в mapStop как body-выровненные
+    // Ключи m_backward - это cpp-begin (устанавливаются в mapStop как body-выровненные
     // `get_file(to).size()+1`). offsetPrepends сдвинул cpp-RANGE (value) на prependSize,
     // но ключ остался body-выровненным. Без пере-ключения findRangeMap/findRange
     // (upper_bound по ключу) не совпадёт с full-выровненным запросом (lspToLocation),

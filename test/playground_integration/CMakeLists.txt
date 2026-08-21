@@ -2,7 +2,7 @@
 # Интеграционный тест полной цепочки playground (server→worker→lsp→worker→server).
 # Добавлен ПОСЛЕ test/examples и запускается только после него через фикстуру
 # playground_integration_deps (которую setup'ит examples_tests). Запускает реальные
-# бинарники trust-playground/trust-lsp со временным конфигом — без установки и без
+# бинарники trust-playground/trust-lsp со временным конфигом - без установки и без
 # системных настроек (просто запуск приложения с контролем работы).
 
 add_executable(playground_integration

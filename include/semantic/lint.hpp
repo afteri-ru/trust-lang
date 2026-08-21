@@ -4,8 +4,8 @@
 // Опциональный анализатор (InlineAnalysisHook), подключаемый параллельно к ядру
 // разрешения имён. Сообщает о неиспользуемых переменных. Режим задаётся строковым
 // значением флага FlagKind::Lint:
-//   - (пусто/не задано) — severity из OptKind::UnusedVar;
-//   - "aggressive"      — диагностика становится Error (жёсткая проверка).
+//   - (пусто/не задано) - severity из OptKind::UnusedVar;
+//   - "aggressive"      - диагностика становится Error (жёсткая проверка).
 
 #include "semantic/inline_hook.hpp"
 #include "semantic/pass.hpp"

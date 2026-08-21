@@ -1,7 +1,7 @@
 # include/trust/CMakeLists.txt
 # C++20 module infrastructure (trust module)
 
-# ── PCM build configuration ──
+# -- PCM build configuration --
 set(TRUST_PCM "${CMAKE_CURRENT_BINARY_DIR}/trust.pcm")
 set(TRUST_PCM_OBJ "${CMAKE_CURRENT_BINARY_DIR}/trust_module.o")
 set(TRUST_CPPM "${PROJECT_INCLUDE_DIR}/trust.cppm")
@@ -53,7 +53,7 @@ add_custom_command(
 
 add_custom_target(trust_pcm_target_all ALL DEPENDS ${TRUST_PCM_OBJ})
 
-# ── Function to attach trust module to a target ──
+# -- Function to attach trust module to a target --
 function(target_trust_module target)
     set(_trust_pcm_path "${CMAKE_BINARY_DIR}/include/trust/trust.pcm")
     set(_trust_pcm_obj "${CMAKE_BINARY_DIR}/include/trust/trust_module.o")

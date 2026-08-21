@@ -35,9 +35,9 @@ class BuiltinCatalog {
     /// Единственный экземпляр (ленивый, thread-safe magic static).
     static const BuiltinCatalog& instance();
 
-    /// Встроенные типы и их методы (ключ — каноническое trust-имя типа).
+    /// Встроенные типы и их методы (ключ - каноническое trust-имя типа).
     const std::map<std::string, BuiltinTypeInfo>& types() const noexcept { return m_types; }
-    /// Предопределённые макросы (@__...__ и др.) — из реестра парсера.
+    /// Предопределённые макросы (@__...__ и др.) - из реестра парсера.
     const std::vector<std::string>& predefMacros() const noexcept { return m_predefMacros; }
     /// Встроенные DSL-макросы (из trust/dsl.src).
     const std::set<std::string>& dslMacros() const noexcept { return m_dslMacros; }

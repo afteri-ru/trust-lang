@@ -10,20 +10,20 @@
 
 ## Overview
 
-Система отладки для trust-lang — языка, транслируемого в C++.
+Система отладки для trust-lang - языка, транслируемого в C++.
 Позволяет отлаживать trust-lang код напрямую через DAP-протокол (VSCode),
 в том числе навигировать по исходному коду и устанавливать значения переменных
 как в C++ файле, так и в оригинальном trust-исходнике.
 
 ## Namespace
 
-- `GdbDebug`, `DapHandler`, транспортные классы — глобальное пространство имён
-- `trust::Context` — пространство имён `trust` (из `diag/`)
-- `trust::SourceMapReader` — пространство имён `trust` (из `diag/mapper.hpp`)
+- `GdbDebug`, `DapHandler`, транспортные классы - глобальное пространство имён
+- `trust::Context` - пространство имён `trust` (из `diag/`)
+- `trust::SourceMapReader` - пространство имён `trust` (из `diag/mapper.hpp`)
 
 ## Принципы
 
-`trust::Context` (см. `include/diag/context.hpp` и `include/diag/MEMORY.md`) — единая точка входа
+`trust::Context` (см. `include/diag/context.hpp` и `include/diag/MEMORY.md`) - единая точка входа
 для source-маппинга: хранение пар `(trust_file, cpp_file)`, маппинг диапазонов (byte offset-based),
 имен переменных, сериализация (msgpack), нормализация путей. Context используется transpiler'ом
 (добавление данных) и debugger'ом (чтение/трансляция).
@@ -38,7 +38,7 @@
 ### 1. trust::Context (`diag/context.hpp`, `src/diag/context.cpp`)
 
 Единый класс хранения, загрузки, сериализации и трансляции source-маппинга.
-Используется компонентами debug, lsp и diag. Детальное описание API — в `include/diag/MEMORY.md`.
+Используется компонентами debug, lsp и diag. Детальное описание API - в `include/diag/MEMORY.md`.
 
 Основные методы, используемые в debug: `mapTrustToCpp(Location)` / `mapCppToTrust(Location)`, `getCppName()` / `getTrustName()`, `getTrustFileMappings(FileIdx)`, `loc_from_line()`, `line()` / `column()` / `line_column()`, `filename()` / `source()`, `packMapping()` / `unpackMapping()`, `file_count()` / `output_count()`.
 
@@ -93,7 +93,7 @@ DAP-сервер для отладки trust-lang. Содержит класс `
 
 Особенности реализации:
 
-- Использует `GdbDebug` вместо `TrustDebug` (LLDB) — нет зависимости от LLDB
+- Использует `GdbDebug` вместо `TrustDebug` (LLDB) - нет зависимости от LLDB
 - Source map загружается из embedded ELF-секции `.debug_trust_map` через `SourceMapReader::fromElf()`
 - Thread `pollEvents()` обрабатывает `*stopped`/`*exit` асинхронные уведомления GDB
 - Поля класса следуют CODESTYLE (префикс `m_`)
@@ -103,18 +103,18 @@ CLI-аргументы `trust-dap [options]` (см. `--help`): по умолча
 
 Обработка DAP-команд:
 
-1. `initialize` — ответить с capabilities (configurationDone, breakpointLocations, functionBreakpoints, stepIn, stepOut, disassembly)
-2. `launch` — загрузить embedded source map из ELF через `SourceMapReader::fromElf()`, сохранить пути sourceFile/cppFile/targetFile, создать target, запустить процесс, запустить поток pollEvents()
-3. `configurationDone` — только ответить
-4. `setBreakpoints` — source-aware: `.src` брейкпоинты транслируются через SourceMapReader, `.cppt` — напрямую GDB
-5. `breakpointLocations` — вернуть строки файла с учётом маппинга
-6. `stackTrace` — двухоконная отладка (см. ниже)
-7. `scopes` — вернуть scope "Local"
-8. `variables` — вернуть список переменных через `GdbDebug::GetVariables()` с трансляцией имён C++ → trust
-9. `continue`, `next`, `stepIn`, `stepOut` — управление выполнением
-10. `threads` — список тредов
-11. `setExceptionBreakpoints` — заглушка
-12. `disconnect` — остановить поток pollEvents, завершить
+1. `initialize` - ответить с capabilities (configurationDone, breakpointLocations, functionBreakpoints, stepIn, stepOut, disassembly)
+2. `launch` - загрузить embedded source map из ELF через `SourceMapReader::fromElf()`, сохранить пути sourceFile/cppFile/targetFile, создать target, запустить процесс, запустить поток pollEvents()
+3. `configurationDone` - только ответить
+4. `setBreakpoints` - source-aware: `.src` брейкпоинты транслируются через SourceMapReader, `.cppt` - напрямую GDB
+5. `breakpointLocations` - вернуть строки файла с учётом маппинга
+6. `stackTrace` - двухоконная отладка (см. ниже)
+7. `scopes` - вернуть scope "Local"
+8. `variables` - вернуть список переменных через `GdbDebug::GetVariables()` с трансляцией имён C++ → trust
+9. `continue`, `next`, `stepIn`, `stepOut` - управление выполнением
+10. `threads` - список тредов
+11. `setExceptionBreakpoints` - заглушка
+12. `disconnect` - остановить поток pollEvents, завершить
 
 **Embedded source map:**
 Source map data встраивается в ELF-секцию `.debug_trust_map` на этапе компиляции C++.
@@ -125,8 +125,8 @@ trust-dap читает эту секцию через `SourceMapReader::fromElf(
 
 - Запускается в отдельном потоке после launch
 - Каждые 500ms вызывает `GdbDebug::WaitForEvent()`
-- При `Stop` — отправляет DAP-событие `stopped` с причиной (breakpoint/step/exception)
-- При `Exit` — отправляет `exited` + `terminated`
+- При `Stop` - отправляет DAP-событие `stopped` с причиной (breakpoint/step/exception)
+- При `Exit` - отправляет `exited` + `terminated`
 
 #### Двухоконная отладка (sourceKind)
 
@@ -136,13 +136,13 @@ trust-dap поддерживает отладку одновременно в д
 Механизм работы `handleStackTrace`:
 Запрос `stackTrace` принимает опциональный параметр `sourceKind`:
 
-- `sourceKind: "src"` (по умолчанию) — стек-трейнс показывает trust-lang файлы (`.src`) с транслированными номерами строк.
-- `sourceKind: "cpp"` — стек-трейнс показывает C++ файлы (`.cppt`) с оригинальными номерами строк от GDB без трансляции.
+- `sourceKind: "src"` (по умолчанию) - стек-трейнс показывает trust-lang файлы (`.src`) с транслированными номерами строк.
+- `sourceKind: "cpp"` - стек-трейнс показывает C++ файлы (`.cppt`) с оригинальными номерами строк от GDB без трансляции.
 
 Механизм работы `setBreakpoints`:
 
-- В `.src` файлах — точка останова транслируется через `ReaderFile::getMapTrustToCpp()` в соответствующую позицию C++ файла.
-- В `.cppt` файлах — точка останова передаётся напрямую в GDB без трансляции.
+- В `.src` файлах - точка останова транслируется через `ReaderFile::getMapTrustToCpp()` в соответствующую позицию C++ файла.
+- В `.cppt` файлах - точка останова передаётся напрямую в GDB без трансляции.
 
 Механизм работы `handleVariables`:
 Имена переменных, полученные от GDB (C++ names), транслируются в trust-lang имена через `ReaderFile::getTrustName()`.
@@ -151,10 +151,10 @@ trust-dap поддерживает отладку одновременно в д
 
 DAP-запрос `launch` принимает следующие поля (передаются из VSCode конфигурации):
 
-- `sourceFile` — путь к исходному `.src` файлу (текущий файл в VSCode)
-- `cppFile` — путь к сгенерированному `.cppt` файлу
-- `targetFile` — путь к скомпилированному ELF бинарю
-- `gdbPath` — путь к GDB (опционально, переопределяет настройку расширения)
+- `sourceFile` - путь к исходному `.src` файлу (текущий файл в VSCode)
+- `cppFile` - путь к сгенерированному `.cppt` файлу
+- `targetFile` - путь к скомпилированному ELF бинарю
+- `gdbPath` - путь к GDB (опционально, переопределяет настройку расширения)
 
 Все пути должны быть переданы через DAP-запрос, а не через CLI-аргументы.
 CLI-аргументы `trust-dap` принимает только `--project-dir`
@@ -165,9 +165,9 @@ CLI-аргументы `trust-dap` принимает только `--project-di
 
 VSCode extension выполняет сборку автоматически при запуске отладки:
 
-1. **Транспиляция** — вызов trust-lang компилятора
-2. **Компиляция C++** — вызов C++ компилятора
-3. **Запуск trust-dap** — запускает DAP сервер; пути к файлам передаются через DAP-запрос `launch`
+1. **Транспиляция** - вызов trust-lang компилятора
+2. **Компиляция C++** - вызов C++ компилятора
+3. **Запуск trust-dap** - запускает DAP сервер; пути к файлам передаются через DAP-запрос `launch`
 
 Сборка выполняется в `resolveDebugConfiguration` с отображением прогресса через `withProgress`.
 Временные файлы (`.cppt`, ELF) создаются в каталоге из настроек vscode плагина (по умолчанию `.trust` в корне проекта).
@@ -178,12 +178,12 @@ VSCode extension выполняет сборку автоматически пр
 
 Расширение VSCode, регистрирующее:
 
-- **Тип файла** `.src` — trust-lang исходный код, syntax highlighting
-- **Debug adapter** — `trust-dap` с аргументами из настроек
-- **Build task** — `trust: build and debug`, вызываемый по F5
-- **Breakpoints** — поддержка SetBreakpoints по F9
-- **Контекстное меню** — команда `Trust: Open Generated C++ File`
-- **Pre-launch build** — автоматическая транспиляция и компиляция при запуске отладки
+- **Тип файла** `.src` - trust-lang исходный код, syntax highlighting
+- **Debug adapter** - `trust-dap` с аргументами из настроек
+- **Build task** - `trust: build and debug`, вызываемый по F5
+- **Breakpoints** - поддержка SetBreakpoints по F9
+- **Контекстное меню** - команда `Trust: Open Generated C++ File`
+- **Pre-launch build** - автоматическая транспиляция и компиляция при запуске отладки
 
 Поля настроек (`trust.*`): `compilerPath`, `cppCompilerPath`, `cppCompilerOptions`, `tempDir`, `dapPath`, `gdbPath`, `dev.traceDAP`.
 
@@ -205,7 +205,7 @@ VSCode → resolveDebugConfiguration → withProgress(transpile → compile) →
 | `gdb_debuggee` | Вспомогательный ELF-файл (debuggee) | Нет |
 | `transpile_test` | Модульный тест transpiler'а `trust::SourceMapReader` | Нет |
 
-Запуск: `cmake --build . --target run_<name>`. Агрегирующая цель — `run_tests`.
+Запуск: `cmake --build . --target run_<name>`. Агрегирующая цель - `run_tests`.
 Тестовый `.src` файл: `test/unit/debug/simple_example.src`.
 
 ---
@@ -220,7 +220,7 @@ VSCode → resolveDebugConfiguration → withProgress(transpile → compile) →
 
 ### Зависимости
 
-- **libmsgpack-c** — бинарная сериализация mapping data
-- **nlohmann_json** — только DAP-сервер (JSON-RPC)
-- **trust::SourceMapReader** (`diag_lib`) — source-маппинг (не зависит от отладчика)
-- **zlib** — сжатие/распаковка source map данных
+- **libmsgpack-c** - бинарная сериализация mapping data
+- **nlohmann_json** - только DAP-сервер (JSON-RPC)
+- **trust::SourceMapReader** (`diag_lib`) - source-маппинг (не зависит от отладчика)
+- **zlib** - сжатие/распаковка source map данных

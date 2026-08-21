@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// dap_handler.cpp — реализация DapHandler (DAP-логика)
+// dap_handler.cpp - реализация DapHandler (DAP-логика)
 // -----------------------------------------------------------------------
 
 #include "debug/dap_handler.hpp"
@@ -18,7 +18,7 @@
 
 using json = nlohmann::json;
 
-// ── DapHandler ──
+// -- DapHandler --
 
 DapHandler::DapHandler(trust::transport::Transport& transport, const DapOptions& opts)
 : m_transport(transport)
@@ -27,9 +27,9 @@ DapHandler::DapHandler(trust::transport::Transport& transport, const DapOptions&
 , m_running(true) {
 }
 
-// ── helpers are now in SourceMapReader: findFile, isTrustFileExt, calcCppToTrustLine ──
+// -- helpers are now in SourceMapReader: findFile, isTrustFileExt, calcCppToTrustLine --
 
-// ── DAP command handlers ──
+// -- DAP command handlers --
 
 void DapHandler::handleInitialize(const json& req) {
     trust::errs() << "[DAP-TRACE] handleInitialize: seq=" << req["seq"] << ", client=" << req.value("arguments", json::object()).value("clientID", "?") << "\n";
@@ -95,7 +95,7 @@ void DapHandler::handleLaunch(const json& req) {
 
     sendDapOutput(m_transport, "stdout", "trust-dap: target created for " + m_target_file + "\n");
 
-    // Don't launch process yet — wait for configurationDone so breakpoints can be set first.
+    // Don't launch process yet - wait for configurationDone so breakpoints can be set first.
     sendDapResponse(m_transport, req["seq"], json{{"command", "launch"}, {"body", json::object()}});
 }
 
@@ -128,7 +128,7 @@ void DapHandler::handleSetBreakpoints(const json& req) {
                     std::string cpp_file(m_source_reader->filename(mapping->begin.fileIdx()));
                     int cpp_line = static_cast<int>(m_source_reader->line(mapping->begin));
 
-                    // Целевой файл маппинга — фиктивный (in-memory) источник: на диске
+                    // Целевой файл маппинга - фиктивный (in-memory) источник: на диске
                     // его нет, ставить брейкпоинт по реальному файлу нельзя.
                     if (trust::SourceMapReader::isInMemoryName(cpp_file)) {
                         sendDapOutput(m_transport, "stderr", "  BP skipped (in-memory source): " + path + ":" + std::to_string(line) + "\n");
@@ -244,7 +244,7 @@ void DapHandler::handleThreads(const json& req) {
 }
 
 void DapHandler::handleConfigurationDone(const json& req) {
-    // Launch the process now — all breakpoints have been set by VSCode.
+    // Launch the process now - all breakpoints have been set by VSCode.
     if (!m_launched) {
         m_launched = true;
         if (!launchProcess()) {
@@ -383,7 +383,7 @@ void DapHandler::handleDisconnect(const json& req) {
     m_running = false;
     if (m_event_thread.joinable()) {
         // Ждём завершения потока pollEvents с таймаутом 2 секунды
-        // Если поток не завершился — detach, чтобы избежать deadlock при зависшем GDB
+        // Если поток не завершился - detach, чтобы избежать deadlock при зависшем GDB
         auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
         while (m_event_thread.joinable() && std::chrono::steady_clock::now() < deadline) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -440,7 +440,7 @@ void DapHandler::handleRequest(const json& req) {
     }
 }
 
-// ── Process management ──
+// -- Process management --
 
 bool DapHandler::launchProcess() {
     if (!m_debug) {

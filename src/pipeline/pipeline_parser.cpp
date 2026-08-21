@@ -11,13 +11,13 @@
 
 namespace trust {
 
-// ── Callbacks ──
+// -- Callbacks --
 
 static void set_emit_flag(PipelineOpts& opts, EmitFlags flag) {
     opts.emit_flags = opts.emit_flags | flag;
 }
 
-// ── Pipeline::parseArgs ──
+// -- Pipeline::parseArgs --
 
 ParseResult Pipeline::parseArgs(std::span<char*> argv) {
     ParseResult result;
@@ -29,17 +29,17 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
     // Set default compiler from CMake config
     result.opts.compiler = TRUST_DEFAULT_COMPILER;
 
-    CLI::App app{"trust — Trust language transpiler pipeline"};
+    CLI::App app{"trust - Trust language transpiler pipeline"};
     app.allow_extras();
     app.allow_windows_style_options(false);
     app.set_help_flag("");        // отключаем стандартный --help
     app.set_version_flag("", ""); // отключаем стандартный --version
     app.require_subcommand(0, 0);
 
-    // ── Позиционный аргумент: входной файл ──
+    // -- Позиционный аргумент: входной файл --
     app.add_option("input", result.opts.input_file, "Input source file")->type_name("file");
 
-    // ── Флаги ──
+    // -- Флаги --
     app.add_flag("-h,--help", result.opts.help_requested, "Show this help message");
     app.add_flag("--version", result.opts.version_requested, "Show version information");
     app.add_flag("-v,--verbose", result.opts.verbose, "Verbose output");
@@ -62,7 +62,7 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
         },
         "Build and run the program (executable)");
 
-    // ── Опции с аргументом ──
+    // -- Опции с аргументом --
     app.add_option("-o,--output", result.opts.output_file, "Output file (default: stdout)")->type_name("file");
     app.add_option("--temp-dir", result.opts.temp_dir, "Temporary directory for intermediate files")->type_name("dir");
     app.add_option("--compiler", result.opts.compiler, "Compiler path")->type_name("path");
@@ -72,16 +72,16 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
         ->type_name("mode")
         ->check(CLI::IsMember({"static", "shared"}, CLI::ignore_case));
 
-    // ── Standard library ──
+    // -- Standard library --
     app.add_flag("--no-stdlib", [&](int64_t) { result.opts.use_stdlib = false; }, "Disable standard library types");
 
-    // ── DSL macros ──
+    // -- DSL macros --
     app.add_option("--dsl", result.opts.dsl_file, "Load DSL macros from file instead of embedded trust/dsl.src")->type_name("file");
     app.add_flag("--no-dsl", result.opts.no_dsl, "Disable loading DSL macros");
     app.add_flag("--semantic-on-errors", result.opts.allow_semantic_on_errors,
                  "Run the semantic analyzer even when the lexer/parser produced errors (LSP-style, partial AST)");
 
-    // ── Парсинг ──
+    // -- Парсинг --
     try {
         app.parse(static_cast<int>(argv.size()), argv.data());
     } catch (const CLI::ParseError& e) {
@@ -95,7 +95,7 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
     // Apply --link-runtime value (validated by CLI::IsMember above).
     result.opts.runtime_link = (link_mode == "shared") ? RuntimeLink::Shared : RuntimeLink::Static;
 
-    // ── Дополнительная обработка после парсинга ──
+    // -- Дополнительная обработка после парсинга --
 
     // --help / --version
     if (result.opts.help_requested) {

@@ -1,4 +1,4 @@
-// module_registry_test.cpp — unit tests for ModuleRegistry and ModuleNode
+// module_registry_test.cpp - unit tests for ModuleRegistry and ModuleNode
 #include "module_loader/module_registry.hpp"
 #include "module_loader/module_loader.hpp"
 #include "ast/ast_nodes.hpp"
@@ -13,7 +13,7 @@
 
 namespace trust {
 
-// ── ModuleRegistry tests ──
+// -- ModuleRegistry tests --
 
 class ModuleRegistryTest : public ::testing::Test {
   protected:
@@ -43,7 +43,7 @@ TEST_F(ModuleRegistryTest, GetOrLoadReturnsExistingAfterLoad) {
 
 TEST_F(ModuleRegistryTest, GetOrLoadCycleDetected) {
     (void)reg.getOrLoad("module_a");
-    // Term ещё не установлен — симуляция "в процессе загрузки"
+    // Term ещё не установлен - симуляция "в процессе загрузки"
     // Повторный вызов того же модуля -> FAULT
     EXPECT_THROW((void)reg.getOrLoad("module_a"), std::runtime_error);
 }
@@ -129,7 +129,7 @@ TEST_F(ModuleRegistryTest, TermFaultForNullTerm) {
     EXPECT_THROW((void)reg.body(idx), std::runtime_error);
 }
 
-// ── ModuleNode tests ──
+// -- ModuleNode tests --
 
 TEST(ModuleNodeTest, CreateModuleNodeFromIndex) {
     ModuleRegistry reg;
@@ -167,17 +167,17 @@ TEST(ModuleNodeTest, ModuleNodeWithEmptyBody) {
     ModuleRegistry reg;
     auto idx = reg.getOrLoad("empty_module");
 
-    // cacheBody не устанавливаем — тело будет пустым
+    // cacheBody не устанавливаем - тело будет пустым
     auto node = std::make_shared<ModuleNode>(idx, "empty_module");
     ASSERT_NE(node, nullptr);
     EXPECT_TRUE(node->m_body.empty());
 }
 
-// ── ModuleLoader via Context tests ──
+// -- ModuleLoader via Context tests --
 
 TEST(ModuleLoaderContextTest, ContextProvidesLoader) {
     Context ctx;
-    // Context не владеет ModuleLoader — внедряем его явно (как это делает Pipeline).
+    // Context не владеет ModuleLoader - внедряем его явно (как это делает Pipeline).
     ModuleLoader loader(ctx);
     ctx.setLoader(&loader);
 

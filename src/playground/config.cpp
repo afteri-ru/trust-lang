@@ -122,6 +122,17 @@ std::string trim(const std::string& s) {
 
 } // namespace
 
+std::string unquote(const std::string& s) {
+    if (s.size() >= 2) {
+        const char a = s.front();
+        const char b = s.back();
+        if ((a == '\'' && b == '\'') || (a == '"' && b == '"')) {
+            return s.substr(1, s.size() - 2);
+        }
+    }
+    return s;
+}
+
 bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& error) {
     std::ifstream file(path);
     if (!file) {
@@ -133,8 +144,35 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
     int line_no = 0;
     while (std::getline(file, line)) {
         ++line_no;
-        const std::string trimmed = trim(line);
+        std::string trimmed = trim(line);
         if (trimmed.empty() || trimmed[0] == '#') {
+            continue;
+        }
+        // Строчный комментарий: всё от первого '#' ВНЕ кавычек до конца строки.
+        // Значения могут быть в кавычках (напр. '8' или "https://..."), поэтому '#' внутри
+        // кавычек комментарием не считается. Отрезаем до разбора key=value, чтобы числовые
+        // опции (saveWorkerConfig пишет их с хвостовым "# desc (default: ...)") парсились.
+        {
+            char q = 0;
+            size_t hash = std::string::npos;
+            for (size_t i = 0; i < trimmed.size(); ++i) {
+                const char c = trimmed[i];
+                if (q != 0) {
+                    if (c == q) {
+                        q = 0;
+                    }
+                } else if (c == '\'' || c == '"') {
+                    q = c;
+                } else if (c == '#') {
+                    hash = i;
+                    break;
+                }
+            }
+            if (hash != std::string::npos) {
+                trimmed = trim(trimmed.substr(0, hash));
+            }
+        }
+        if (trimmed.empty()) {
             continue;
         }
         const size_t eq = trimmed.find('=');
@@ -143,9 +181,16 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
             return false;
         }
         const std::string key = trim(trimmed.substr(0, eq));
-        const std::string value = trim(trimmed.substr(eq + 1));
-        if (key.empty() || value.empty()) {
-            error = "line " + std::to_string(line_no) + ": empty key or value";
+        const std::string value = unquote(trim(trimmed.substr(eq + 1)));
+        if (key.empty()) {
+            error = "line " + std::to_string(line_no) + ": empty key";
+            return false;
+        }
+        // worker.lsp_opts может быть пустым (доп. опции trust-lsp не обязательны) -
+        // пустое значение допустимо и трактуется как пустой список (см. ветку ниже).
+        // Остальные ключи с пустым значением - ошибка.
+        if (value.empty() && key != "worker.lsp_opts") {
+            error = "line " + std::to_string(line_no) + ": empty value";
             return false;
         }
 
@@ -209,6 +254,86 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
                 if (!parseInt(key, value, out.maxRateLimitIps, error)) {
                     return false;
                 }
+            } else if (k == "max_conns") {
+                if (!parseInt(key, value, out.maxConns, error)) {
+                    return false;
+                }
+            } else if (k == "max_client_conns") {
+                if (!parseInt(key, value, out.maxClientConns, error)) {
+                    return false;
+                }
+            } else if (k == "max_worker_conns") {
+                if (!parseInt(key, value, out.maxWorkerConns, error)) {
+                    return false;
+                }
+            } else if (k == "allowed_origins") {
+                out.allowedOrigins.clear();
+                std::string cur;
+                for (const char c : value) {
+                    if (c == ',') {
+                        if (!cur.empty()) {
+                            out.allowedOrigins.push_back(cur);
+                        }
+                        cur.clear();
+                    } else {
+                        cur += c;
+                    }
+                }
+                if (!cur.empty()) {
+                    out.allowedOrigins.push_back(cur);
+                }
+            } else if (k == "allowed_hosts") {
+                out.allowedHosts.clear();
+                std::string cur;
+                for (const char c : value) {
+                    if (c == ',') {
+                        if (!cur.empty()) {
+                            out.allowedHosts.push_back(cur);
+                        }
+                        cur.clear();
+                    } else {
+                        cur += c;
+                    }
+                }
+                if (!cur.empty()) {
+                    out.allowedHosts.push_back(cur);
+                }
+            } else if (k == "pow_min_difficulty") {
+                if (!parseInt(key, value, out.powMinDifficulty, error)) {
+                    return false;
+                }
+            } else if (k == "pow_max_difficulty") {
+                if (!parseInt(key, value, out.powMaxDifficulty, error)) {
+                    return false;
+                }
+            } else if (k == "pow_nonce_ttl_sec") {
+                if (!parseInt(key, value, out.powNonceTtlSec, error)) {
+                    return false;
+                }
+            } else if (k == "pow_max_uses_per_nonce") {
+                if (!parseInt(key, value, out.powMaxUsesPerNonce, error)) {
+                    return false;
+                }
+            } else if (k == "cache_max_entries") {
+                if (!parseInt(key, value, out.cacheMaxEntries, error)) {
+                    return false;
+                }
+            } else if (k == "cache_max_mb") {
+                if (!parseInt(key, value, out.cacheMaxMb, error)) {
+                    return false;
+                }
+            } else if (k == "cache_ttl_sec") {
+                if (!parseInt(key, value, out.cacheTtlSec, error)) {
+                    return false;
+                }
+            } else if (k == "stats_session_ttl_sec") {
+                if (!parseInt(key, value, out.statsSessionTtlSec, error)) {
+                    return false;
+                }
+            } else if (k == "stats_session_max_sec") {
+                if (!parseInt(key, value, out.statsSessionMaxSec, error)) {
+                    return false;
+                }
             }
             continue;
         }
@@ -250,7 +375,7 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
             } else if (k == "log_level") {
                 out.logLevel = value;
             } else if (k == "lsp_opts") {
-                // Список опций, разделённых пробелами/запятыми — всегда передаются в trust-lsp.
+                // Список опций, разделённых пробелами/запятыми - всегда передаются в trust-lsp.
                 out.lspOpts.clear();
                 std::string cur;
                 for (const char c : value) {
@@ -265,6 +390,16 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
                 }
                 if (!cur.empty()) {
                     out.lspOpts.push_back(cur);
+                }
+            } else if (k == "tmp_dir") {
+                out.tmpDir = value;
+            } else if (k == "tmp_ttl_sec") {
+                if (!parseInt(key, value, out.tmpTtlSec, error)) {
+                    return false;
+                }
+            } else if (k == "disk_free_min_mb") {
+                if (!parseInt(key, value, out.diskFreeMinMb, error)) {
+                    return false;
                 }
             }
             continue;
@@ -313,15 +448,15 @@ bool saveWorkerConfig(const std::string& path, const PlaygroundConfig& cfg, std:
         out << "worker." << key << "=" << val << "    # " << desc << " (default: " << def << ")\n";
     };
 
-    out << "# trust-playground (воркер) — создано автоматически.\n";
+    out << "# trust-playground (воркер) - создано автоматически.\n";
     out << "# Параметры сгруппированы; для каждой опции указано назначение и значение по умолчанию.\n";
 
-    out << "\n# ── Connection (подключение к балансировщику) ──\n";
+    out << "\n# -- Connection (подключение к балансировщику) --\n";
     opt("playground_url", cfg.playgroundUrl, "URL балансировщика (https://; http:// только для localhost/127.x/::1)", "https://playground.trust-lang.net");
     opt("token", cfg.token, "токен воркера (обязательно, 64 hex)", "пусто");
     opt("lsp_bin", cfg.lspBin, "путь к исполняемому trust-lsp (обязательно)", "пусто");
 
-    out << "\n# ── Limits / performance (лимиты и производительность) ──\n";
+    out << "\n# -- Limits / performance (лимиты и производительность) --\n";
     opt("max_parallel", std::to_string(cfg.maxParallel), "максимум параллельных задач", "4");
     opt("max_memory_mb", std::to_string(cfg.maxMemoryMb), "лимит памяти на одну транспиляцию, МБ", "512");
     opt("max_output_kb", std::to_string(cfg.maxOutputKb), "лимит размера результата, КБ", "2048");
@@ -329,7 +464,7 @@ bool saveWorkerConfig(const std::string& path, const PlaygroundConfig& cfg, std:
     opt("poll_interval_ms", std::to_string(cfg.pollIntervalMs), "период поллинга к балансировщику, мс", "200");
     opt("stats_interval_ms", std::to_string(cfg.statsIntervalMs), "период вывода статистики в консоль, мс", "10000");
 
-    out << "\n# ── Safety (безопасность) ──\n";
+    out << "\n# -- Safety (безопасность) --\n";
     {
         std::string joined;
         for (size_t i = 0; i < cfg.lspOpts.size(); ++i) {
@@ -341,11 +476,16 @@ bool saveWorkerConfig(const std::string& path, const PlaygroundConfig& cfg, std:
         opt("lsp_opts", joined, "доп. опции, всегда передаваемые в trust-lsp", "пусто");
     }
 
-    out << "\n# ── Project (рабочее окружение) ──\n";
+    out << "\n# -- Project (рабочее окружение) --\n";
     opt("project_dir", cfg.projectDir, "рабочий каталог для trust-lsp", "пусто");
 
+    out << "\n# -- Disk safety (защита от переполнения диска) --\n";
+    opt("tmp_dir", cfg.tmpDir, "каталог временных файлов (пусто = /tmp)", "пусто");
+    opt("tmp_ttl_sec", std::to_string(cfg.tmpTtlSec), "TTL осиротевших tmp-каталогов (старше - чистим), сек", "3600");
+    opt("disk_free_min_mb", std::to_string(cfg.diskFreeMinMb), "мин. свободного места в tmp перед задачей, МБ", "512");
+
     if (!keep.empty()) {
-        out << "\n# ── Playground / registry (сохранённые строки) ──\n";
+        out << "\n# -- Playground / registry (сохранённые строки) --\n";
         for (const std::string& l : keep) {
             out << l << "\n";
         }

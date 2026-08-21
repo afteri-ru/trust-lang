@@ -1,4 +1,4 @@
-// format_check.cpp — парсер printf-формата и сверка типов аргументов.
+// format_check.cpp - парсер printf-формата и сверка типов аргументов.
 
 #include "semantic/format_check.hpp"
 #include "types/group.hpp"
@@ -25,7 +25,7 @@ bool parse_printf_format(std::string_view fmt, std::vector<Conversion>& out) {
         }
         ++i; // '%'
         if (fmt[i] == '%') {
-            ++i; // %% — литерал, аргумент не потребляет
+            ++i; // %% - литерал, аргумент не потребляет
             continue;
         }
         // Флаги: -+ #0
@@ -105,7 +105,7 @@ bool parse_printf_format(std::string_view fmt, std::vector<Conversion>& out) {
 
 bool arg_matches_expect(const TypeRegistry& reg, TypeId argType, Expect expect) {
     if (argType == INVALID_TYPE_ID) {
-        return true; // выражение без выведенного типа — не проверяем
+        return true; // выражение без выведенного типа - не проверяем
     }
     const TypeId c = reg.getCanonicalTypeId(argType);
     if (c == INVALID_TYPE_ID) {
@@ -116,15 +116,15 @@ bool arg_matches_expect(const TypeRegistry& reg, TypeId argType, Expect expect) 
     const bool isValue = (getRefType(k) == RefType::kValue);
     switch (expect) {
     case Expect::Integer:
-        // Любое целое по значению (числовые группы). %c — целый аргумент.
+        // Любое целое по значению (числовые группы). %c - целый аргумент.
         return isValue && (g == Group::kIntegers || g == Group::kUnsigned);
     case Expect::Unsigned:
         return isValue && g == Group::kUnsigned;
     case Expect::Float:
         return isValue && (g == Group::kNumbers || g == Group::kBFloat);
     case Expect::StrChar:
-        // %s — C-строка `const char*` (= встроенный тип CString). StrChar (std::string)
-        // напрямую в printf %s передать нельзя — нужен .c_str() (→ CString) или строковый
+        // %s - C-строка `const char*` (= встроенный тип CString). StrChar (std::string)
+        // напрямую в printf %s передать нельзя - нужен .c_str() (→ CString) или строковый
         // литерал (уже const char*); литерал обрабатывается отдельно в checkFormatArgs.
         return c == reg.getType(type::CString);
     case Expect::Pointer:

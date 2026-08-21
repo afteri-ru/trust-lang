@@ -97,7 +97,7 @@ TEST_F(TranspilerTest, GenerateToFileDictLiteral) {
     MapperRange nameRange(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 2));
     MapperRange dictRange(m_ctx.source().makeLoc(input_file, 6), m_ctx.source().makeLoc(input_file, 27));
 
-    // Литерал словаря: контракт — все элементы ArgNode (имя в text(), значение в m_value).
+    // Литерал словаря: контракт - все элементы ArgNode (имя в text(), значение в m_value).
     auto dictTerm = Term::Create(TermID::DICT, "", dictRange, parser::token_type::END);
     auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::move(dictTerm));
     // Безымянный элемент: ArgNode(имя="", значение).
@@ -168,8 +168,8 @@ TEST_F(TranspilerTest, GenerateToFileRangeLiteral) {
     EXPECT_NE(result.find("trust::Range<int64_t> c_r = trust::Range<int64_t>(1, 10);"), std::string::npos) << result;
 }
 
-/// Test: составной литерал (ArrayInit) как значение члена Variant — анализ/регистрация работают,
-/// кодогенерация выдаёт «не реализовано» и НЕ эмитит сломанный C++ (memberValueCpp — скалярные).
+/// Test: составной литерал (ArrayInit) как значение члена Variant - анализ/регистрация работают,
+/// кодогенерация выдаёт «не реализовано» и НЕ эмитит сломанный C++ (memberValueCpp - скалярные).
 TEST_F(TranspilerTest, VariantCompositeMemberValueNotImplemented) {
     auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
     dict->m_type = std::make_shared<IdentType>(std::string("Variant"));
@@ -180,7 +180,7 @@ TEST_F(TranspilerTest, VariantCompositeMemberValueNotImplemented) {
     seq.push_back(std::move(variantDecl));
 
     SemanticPassRunner runner(m_ctx);
-    ASSERT_TRUE(runner.run(seq)); // анализ не блокирует — ошибка на кодогенерации
+    ASSERT_TRUE(runner.run(seq)); // анализ не блокирует - ошибка на кодогенерации
 
     MapperFile out_idx = m_ctx.source().add_output("value_out.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
@@ -193,7 +193,7 @@ TEST_F(TranspilerTest, VariantCompositeMemberValueNotImplemented) {
     EXPECT_EQ(result.find("std::variant"), std::string::npos); // сломанный код не эмитится
 }
 
-/// Test: составной литерал (ArrayInit) как значение члена Enum — кодогенерация «не реализовано».
+/// Test: составной литерал (ArrayInit) как значение члена Enum - кодогенерация «не реализовано».
 TEST_F(TranspilerTest, EnumCompositeMemberValueNotImplemented) {
     auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
     dict->m_type = std::make_shared<IdentType>(std::string("Enum"));
@@ -233,7 +233,7 @@ TEST_F(TranspilerTest, GenerateToFileRangeConstCall) {
     auto nameTerm = Term::Create(TermID::NAME, "r", nameRange, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(nameTerm), nullptr, std::move(rng));
 
-    // $r.size^() — const-вызов: attr::ReadOnly на ВЫЗОВЕ (CallExpr; в реальном потоке ставит
+    // $r.size^() - const-вызов: attr::ReadOnly на ВЫЗОВЕ (CallExpr; в реальном потоке ставит
     // convertAttrsToNode, т.к. canHaveImmutableQualifier(CallExpr)=true). Инициализатор переменной.
     auto callee = std::make_shared<IdentName>("size");
     auto call = std::make_shared<CallExpr>(ParserToken::Kind::CallExpr, std::move(callee));
@@ -318,7 +318,7 @@ TEST_F(TranspilerTest, GenerateRegularFunctionVoidMangled) {
     EXPECT_NE(result.find("void c_helper()"), std::string::npos);
 }
 
-/// Test: generateToFile для Document-узла — комментарий эмитится сырым текстом с маркерами.
+/// Test: generateToFile для Document-узла - комментарий эмитится сырым текстом с маркерами.
 TEST_F(TranspilerTest, GenerateToFileWithDocument) {
     MapperFile input_file = m_ctx.source().add_source("doc.src", "/// doc\nx := 42;", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 8));
@@ -379,7 +379,7 @@ TEST_F(TranspilerTest, GenerateToFileSuppressDocument) {
     EXPECT_NE(result.find("int8_t c_x = 42;"), std::string::npos);
 }
 
-/// Test: Trust-доки `##`/`##<` невалидны в C++ — в выводе нормализуются в `///`/`///<`.
+/// Test: Trust-доки `##`/`##<` невалидны в C++ - в выводе нормализуются в `///`/`///<`.
 TEST_F(TranspilerTest, GenerateToFileNormalizesHashDocument) {
     MapperFile input_file = m_ctx.source().add_source("doc_hash.src", "## hash\ny := 7;", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 7));
@@ -539,11 +539,11 @@ TEST_F(TranspilerTest, GenerateCallExprInInitializer) {
     MapperRange fooRange(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 8));
     MapperRange xRange(m_ctx.source().makeLoc(input_file, 9), m_ctx.source().makeLoc(input_file, 22));
 
-    // foo := 0 — чтобы вызов foo(...) имел объявление (semantic lookup).
+    // foo := 0 - чтобы вызов foo(...) имел объявление (semantic lookup).
     auto fooTerm = Term::Create(TermID::NAME, "foo", fooRange, parser::token_type::NAME);
     auto fooVar = std::make_shared<VarDecl>(std::move(fooTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "0"));
 
-    // x := foo(1, 2) — инициализатор — CallExpr.
+    // x := foo(1, 2) - инициализатор - CallExpr.
     auto callee = std::make_shared<IdentName>("foo");
     auto callTerm = Term::Create(TermID::NAME, "foo", xRange, parser::token_type::NAME);
     auto call = std::make_shared<CallExpr>(ParserToken::Kind::CallExpr, std::move(callee));
@@ -876,7 +876,7 @@ TEST_F(TranspilerTest, GenerateFuncDeclTyped) {
     gen.generateToFile(seq, out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    // Возврат — зарегистрированный тип Int64 → каноническое C++-имя int64_t.
+    // Возврат - зарегистрированный тип Int64 → каноническое C++-имя int64_t.
     EXPECT_TRUE(result.find("int64_t func(int32_t c_a, uint8_t c_b)") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("return 0;") != std::string::npos) << "result: " << result;
 
@@ -1243,7 +1243,7 @@ TEST_F(TranspilerTest, GenerateReadOnlyAttrUnchanged) {
     EXPECT_TRUE(result.find("const int8_t c_x = 42;") != std::string::npos) << "result: " << result;
 }
 
-/// Test: `x := :Int32` невалидно — в `:=` справа должно быть значение, а не тип-имя
+/// Test: `x := :Int32` невалидно - в `:=` справа должно быть значение, а не тип-имя
 /// (тип объявляется через `::=`). Семантика выдаёт явную ошибку.
 TEST_F(TranspilerTest, GenerateTypeNameExprIsError) {
     MapperFile input_file = m_ctx.source().add_source("test.src", "x := :Int32;", true);
@@ -1348,7 +1348,7 @@ TEST_F(TranspilerTest, NameMapping_TypeDecl) {
 /// и регистрировать своё имя в name-маппинге (hover/definition).
 TEST_F(TranspilerTest, NameMapping_TypeDeclAliasChain) {
     const std::string name = "aliasmap.src";
-    // "Big" — строка 2, offset 19 (1-based).
+    // "Big" - строка 2, offset 19 (1-based).
     const std::string src = "MyInt ::= :Int32;\nBig ::= MyInt;\n";
 
     MapperFile input = m_ctx.source().add_source(name, src, true);
@@ -1375,7 +1375,7 @@ TEST_F(TranspilerTest, NameMapping_TypeDeclAliasChain) {
     EXPECT_EQ(cppBig->toName, "c_Big");
     EXPECT_EQ(reader->getText(cppBig->rangeMap.to), "c_Big");
 
-    // Statement-маппинг: доверяем MapperScope — forward-маппинг оператора Big ::= MyInt;
+    // Statement-маппинг: доверяем MapperScope - forward-маппинг оператора Big ::= MyInt;
     // ведёт на сгенерированную строку "using c_Big = c_MyInt;".
     bool foundStmt = false;
     for (const auto& [key, m] : reader->getForwardMappings()) {
@@ -1392,7 +1392,7 @@ TEST_F(TranspilerTest, NameMapping_TypeDeclAliasChain) {
 
 /// Test: name-маппинг (hover/definition) для типа Enum и его членов и для типа Variant и его
 /// членов: тип → c_<Тип>, член → c_<Член>. Маппинг добавлен в emitEnumStruct/emitVariantStruct
-/// (раньше у Enum/Variant его не было вовсе — только у алиасов/переменных/функций).
+/// (раньше у Enum/Variant его не было вовсе - только у алиасов/переменных/функций).
 TEST_F(TranspilerTest, NameMapping_EnumVariantTypeAndMembers) {
     const std::string src = "Level ::= (LOW='low', HIGH='high',):Enum;\nData ::= (i=42, s='text',):Variant;\n";
     MapperFile input = m_ctx.source().add_source("evmap.src", src, true);
@@ -1522,7 +1522,7 @@ TEST_F(TranspilerTest, NameMapping_FuncParams) {
     EXPECT_EQ(reader->getText(bCpp->rangeMap.to), "c_b");
 }
 
-/// Test: control-flow (if/else-if/else, while, do-while) — кодогенерация C++ и маппинг range.
+/// Test: control-flow (if/else-if/else, while, do-while) - кодогенерация C++ и маппинг range.
 TEST_F(TranspilerTest, GenerateControlFlow_MapsRanges) {
     const std::string name = "cf.src";
     const std::string src = "x:Int32 := 10;\n"
@@ -1555,7 +1555,7 @@ TEST_F(TranspilerTest, GenerateControlFlow_MapsRanges) {
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
 
-    // Range mapping: ищем forward-маппинг оператора if — from (исходник) содержит условие
+    // Range mapping: ищем forward-маппинг оператора if - from (исходник) содержит условие
     // "x > 0", to (сгенерированный C++) содержит "if ((".
     const SourceMapReader::RangeMap* ifMap = nullptr;
     for (const auto& [key, rm] : reader->getForwardMappings()) {
@@ -1567,7 +1567,7 @@ TEST_F(TranspilerTest, GenerateControlFlow_MapsRanges) {
     }
     ASSERT_NE(ifMap, nullptr);
 
-    // Range mapping: оператор do-while — from содержит тело "z := z - 1", to содержит "do {".
+    // Range mapping: оператор do-while - from содержит тело "z := z - 1", to содержит "do {".
     const SourceMapReader::RangeMap* doMap = nullptr;
     for (const auto& [key, rm] : reader->getForwardMappings()) {
         (void)key;
@@ -1579,7 +1579,7 @@ TEST_F(TranspilerTest, GenerateControlFlow_MapsRanges) {
     ASSERT_NE(doMap, nullptr);
 }
 
-/// Test: while-else — кодогенерация C++.
+/// Test: while-else - кодогенерация C++.
 TEST_F(TranspilerTest, GenerateWhileElse_Codegen) {
     const std::string name = "we.src";
     const std::string src = "z := 0;\n"
@@ -1597,7 +1597,7 @@ TEST_F(TranspilerTest, GenerateWhileElse_Codegen) {
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
-    // В C++ нет 'while...else' — else эмулируется флагом «вошёл ли цикл хотя бы раз».
+    // В C++ нет 'while...else' - else эмулируется флагом «вошёл ли цикл хотя бы раз».
     EXPECT_NE(cpp.find("bool _we1 = false;\nwhile ((c_z < 10)) {\n    _we1 = true;\n    std::any c_z = (c_z + 1);\n}\nif (!_we1) {\n    std::any c_z = -1;\n}"),
               std::string::npos)
         << cpp;
@@ -1628,7 +1628,7 @@ TEST_F(TranspilerTest, GenerateBreakContinue_Codegen) {
     EXPECT_NE(cpp.find("do {\n    break;\n} while ((c_z > 0));"), std::string::npos) << cpp;
 }
 
-/// Test: return со значением (++ N ++) и void (++ _ ++) — кодогенерация.
+/// Test: return со значением (++ N ++) и void (++ _ ++) - кодогенерация.
 TEST_F(TranspilerTest, GenerateReturn_Codegen) {
     const std::string name = "ret.src";
     const std::string src = "%f():Int32 := { ++ 42 ++; };\n"
@@ -1650,7 +1650,7 @@ TEST_F(TranspilerTest, GenerateReturn_Codegen) {
     EXPECT_NE(cpp.find("return;"), std::string::npos) << cpp;
 }
 
-/// Test: match — временная переменная + if/else-if/else.
+/// Test: match - временная переменная + if/else-if/else.
 TEST_F(TranspilerTest, GenerateMatch_Codegen) {
     const std::string name = "match.src";
     const std::string src = "x:Int32 := 5;\n"
@@ -1674,7 +1674,7 @@ TEST_F(TranspilerTest, GenerateMatch_Codegen) {
         << cpp;
 }
 
-/// Test: именованные блоки — метки <имя>_continue/_break для именованных break/continue (только внутри функций).
+/// Test: именованные блоки - метки <имя>_continue/_break для именованных break/continue (только внутри функций).
 TEST_F(TranspilerTest, GenerateNamedBlockLabels_Codegen) {
     const std::string name = "nb.src";
     const std::string src = "%f():Void := { outer { z:Int32 := 0; [z < 3] <-> { outer ++; outer -+; }; }; };";
@@ -1692,9 +1692,9 @@ TEST_F(TranspilerTest, GenerateNamedBlockLabels_Codegen) {
 
     const std::string cpp = m_ctx.source().output_result(out);
     // continue-метка именованного блока стоит ПЕРЕД циклом (после инициализации z := 0),
-    // break-метка — после блока; goto именованных break/continue внутри функции.
+    // break-метка - после блока; goto именованных break/continue внутри функции.
     // Сам именованный блок (внутри функции) обёрнут в compound statement { }.
-    // Метки — отдельные узлы AST (LabelStmt), поэтому выводятся на своих строках.
+    // Метки - отдельные узлы AST (LabelStmt), поэтому выводятся на своих строках.
     EXPECT_NE(cpp.find("void f() {\n    {\n        int32_t c_z = 0;\n        outer_continue:;\n        while ((c_z < 3)) "
                        "{\n            goto outer_break;\n            goto outer_continue;\n        }\n        outer_break:;\n    }\n}"),
               std::string::npos)
@@ -1722,7 +1722,7 @@ TEST_F(TranspilerTest, NamedBlock_NoLabelsAtTopLevel) {
     EXPECT_EQ(cpp.find("myblock_continue"), std::string::npos) << cpp;
 }
 
-/// Test: функция — top-level именованный блок. Именованный break на имя функции (func:: ++) = return (void),
+/// Test: функция - top-level именованный блок. Именованный break на имя функции (func:: ++) = return (void),
 /// именованный return (func:: ++ value ++) = return value.
 TEST_F(TranspilerTest, GenerateFuncLabelBreak_ReturnsVoid) {
     const std::string name = "fr.src";
@@ -1774,7 +1774,7 @@ TEST_F(TranspilerTest, GenerateToFileAliasChainAndVar) {
     EXPECT_NE(cpp.find("c_Big c_y = 20;"), std::string::npos) << cpp;
 }
 
-/// Test: тип без C++-имени (Void) — транспайлер сообщает об ошибке, запрещён fallback "auto".
+/// Test: тип без C++-имени (Void) - транспайлер сообщает об ошибке, запрещён fallback "auto".
 TEST_F(TranspilerTest, GenerateToFileUnknownTypeReportsError) {
     const std::string name = "errtype.src";
     const std::string src = "v:Void := 5;\n";
@@ -1795,7 +1795,7 @@ TEST_F(TranspilerTest, GenerateToFileUnknownTypeReportsError) {
     EXPECT_EQ(cpp.find("auto v"), std::string::npos) << cpp;
 }
 /// Test: область имён на верхнем уровне эмитится как `namespace ns { ... }` (область видимости
-/// сохраняется — переменная не «протекает» в глобальный скоуп), имя внутри маппится.
+/// сохраняется - переменная не «протекает» в глобальный скоуп), имя внутри маппится.
 TEST_F(TranspilerTest, GenerateTopLevelNamespaceScope) {
     const std::string name = "tlblock.src";
     const std::string src = "ns:: { y:Int32 := 20; };";
@@ -1817,7 +1817,7 @@ TEST_F(TranspilerTest, GenerateTopLevelNamespaceScope) {
     // Имя переменной внутри области имён должно маппиться (addNameMapping) и указывать на 'y'.
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
-    // 'y' в "ns:: { y:Int32 := 20; }" — 1-based позиция 8.
+    // 'y' в "ns:: { y:Int32 := 20; }" - 1-based позиция 8.
     auto cppName = reader->getCppName(static_cast<ReaderLocation>(m_ctx.source().makeLoc(input, 8)), "y");
     ASSERT_TRUE(cppName.has_value());
     EXPECT_EQ(cppName->toName, "c_y");
@@ -1863,7 +1863,7 @@ TEST_F(TranspilerTest, GenerateBlockInFunction_Compound) {
     EXPECT_NE(cpp.find("void f() {\n    int32_t c_a = 1;\n    {\n        int32_t c_b = 2;\n    }\n    int32_t c_c = 3;\n}"), std::string::npos) << cpp;
 }
 
-/// Test: объявление типа в области имён — тип маппится и не «протекает».
+/// Test: объявление типа в области имён - тип маппится и не «протекает».
 TEST_F(TranspilerTest, GenerateNamespaceTypeDecl_NameMapping) {
     const std::string name = "blktype.src";
     const std::string src = "ns:: { MyInt ::= :Int32; y:MyInt := 20; };";
@@ -1880,12 +1880,12 @@ TEST_F(TranspilerTest, GenerateNamespaceTypeDecl_NameMapping) {
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
     const std::string cpp = m_ctx.source().output_result(out);
-    // Объявление типа и переменная — внутри namespace ns (не в глобальном скоупе).
+    // Объявление типа и переменная - внутри namespace ns (не в глобальном скоупе).
     EXPECT_NE(cpp.find("namespace c_ns {\n    using c_MyInt = int32_t;\n    c_MyInt c_y = 20;\n}"), std::string::npos) << cpp;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
-    // Имя типа MyInt в области имён должно маппиться; 'M' в "ns:: { MyInt ::= ..." — 1-based позиция 8.
+    // Имя типа MyInt в области имён должно маппиться; 'M' в "ns:: { MyInt ::= ..." - 1-based позиция 8.
     auto cppName = reader->getCppName(static_cast<ReaderLocation>(m_ctx.source().makeLoc(input, 8)), "MyInt");
     ASSERT_TRUE(cppName.has_value());
     EXPECT_EQ(cppName->toName, "c_MyInt");
@@ -1970,7 +1970,7 @@ TEST_F(TranspilerTest, GenerateVarDeclReadOnlyThreadLocal) {
 TEST_F(TranspilerTest, GenerateFuncDeclAttributeQualifiers) {
     MapperFile input_file = m_ctx.source().add_source("test.src", "%f():Void := { };", true);
 
-    // Каждая функция — синтетическая, но с УНИКАЛЬНЫМ source-range (иначе коллизия mapStop).
+    // Каждая функция - синтетическая, но с УНИКАЛЬНЫМ source-range (иначе коллизия mapStop).
     auto makeFunc = [&](std::string name, MapperRange r, std::initializer_list<AttrId> attrs) {
         auto term = Term::Create(TermID::NAME, name, r, parser::token_type::NAME);
         auto func = std::make_shared<FuncDecl>(std::move(term));
@@ -2053,7 +2053,7 @@ TEST_F(TranspilerTest, GenerateNativeFuncCollectsLinkLib) {
     EXPECT_TRUE(result.find("extern \"C\" double sqrt()") != std::string::npos) << result;
 }
 
-/// Test: импорт нативной функции `fabs(x:Int32):Int32 := %abs...;` — АЛИАС:
+/// Test: импорт нативной функции `fabs(x:Int32):Int32 := %abs...;` - АЛИАС:
 /// C++-функция `fabs` НЕ эмитится (в отличие от forward-декларации/определения).
 TEST_F(TranspilerTest, GenerateNativeImportAlias) {
     MapperFile input_file = m_ctx.source().add_source("test.src", "fabs(x:Int32):Int32 := %abs...;", true);
@@ -2083,8 +2083,8 @@ TEST_F(TranspilerTest, GenerateNativeImportAlias) {
     EXPECT_EQ(result.find("c_fabs"), std::string::npos) << result;
 }
 
-/// Test: правило линковки нативной декларации — без '::' линкуется как C-символ (extern "C",
-/// напр. libc/libm `sqrt`), с '::' — C++-линковка (extern "C" НЕ добавляется, `std::sqrt`).
+/// Test: правило линковки нативной декларации - без '::' линкуется как C-символ (extern "C",
+/// напр. libc/libm `sqrt`), с '::' - C++-линковка (extern "C" НЕ добавляется, `std::sqrt`).
 TEST_F(TranspilerTest, GenerateNativeDeclLinkage) {
     auto run = [&](const char* nativeName, const char* outName) -> std::string {
         MapperFile input_file = m_ctx.source().add_source(outName, "%native(x:Float64):Float64 := ...;", true);

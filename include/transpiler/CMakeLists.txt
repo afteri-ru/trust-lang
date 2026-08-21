@@ -1,5 +1,5 @@
 # include/transpiler/CMakeLists.txt
-# C++ transpiler library — generates C++ code from AST
+# C++ transpiler library - generates C++ code from AST
 
 add_library(transpiler_lib STATIC
     ${PROJECT_SOURCE_DIR}/transpiler/transpiler.cpp

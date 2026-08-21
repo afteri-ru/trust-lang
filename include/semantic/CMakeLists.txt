@@ -1,5 +1,5 @@
 # include/semantic/CMakeLists.txt
-# Semantic analyzer library — symbol table, AST analysis, type checking
+# Semantic analyzer library - symbol table, AST analysis, type checking
 
 add_library(semantic_lib STATIC
     ${PROJECT_SOURCE_DIR}/semantic/symbol_table.cpp

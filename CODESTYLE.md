@@ -29,16 +29,16 @@ Enumerations in ParserToken, TokenFlag, and TokenCategory use their own naming r
 
 ### Automatically generated identifier names have their own prefixes
 
-"c_" — a synonym identifier for the `extern  "C"`
-"cpp_" — a synonym identifier for the `extern "C++"`
-"ru_" — a transliteration of the Russian identifier using ASCII characters
-"u8_" — an identifier encoding in UTF-8 using ASCII characters
-"tr_" — a synonym for the Trust-lang identifier in C++
+"c_" - a synonym identifier for the `extern  "C"`
+"cpp_" - a synonym identifier for the `extern "C++"`
+"ru_" - a transliteration of the Russian identifier using ASCII characters
+"u8_" - an identifier encoding in UTF-8 using ASCII characters
+"tr_" - a synonym for the Trust-lang identifier in C++
 
 ## 2. Formatting (enforced by `.clang-format`)
 
 - Opening brace on the same line as the statement (Attach).
-- Braces mandatory for all blocks — even single statements. **Это касается тел `if`/`else`/`else-if`/`for`/`while`/`do-while` из одного оператора:** всегда `{ ... }`, без «голых» однострочных веток. Например `if (x) { return; }`, а не `if (x) return;`. Включается `InsertBraces: true` в `.clang-format` (механическое проставление скобок). Правило не распространяется на сгенерированные файлы (`parser.yy.*`, `lex.yy.cpp`).
+- Braces mandatory for all blocks - even single statements. **Это касается тел `if`/`else`/`else-if`/`for`/`while`/`do-while` из одного оператора:** всегда `{ ... }`, без «голых» однострочных веток. Например `if (x) { return; }`, а не `if (x) return;`. Включается `InsertBraces: true` в `.clang-format` (механическое проставление скобок). Правило не распространяется на сгенерированные файлы (`parser.yy.*`, `lex.yy.cpp`).
 - Indent: 4 spaces, no tabs.
 - Column limit: 160.
 - Space before parentheses: never.
@@ -53,11 +53,11 @@ Enumerations in ParserToken, TokenFlag, and TokenCategory use their own naming r
 
 - `using namespace std` / `clang` / `llvm`.
 - `using` in header files.
-- `#define` for constants — use `constexpr` or `enum : type` with `k` prefix for all elements.
+- `#define` for constants - use `constexpr` or `enum : type` with `k` prefix for all elements.
 - Ternary operators.
 - C-style casts.
-- Multiple function calls in conditions — store in temporaries.
-- Chained calls — break into separate statements.
+- Multiple function calls in conditions - store in temporaries.
+- Chained calls - break into separate statements.
 - `size()` in loop condition on unchanged container.
 
 ## 4. Required

@@ -1,9 +1,13 @@
 /public
+/gh-pages
 resources/
 node_modules/
 package-lock.json
 .hugo_build.lock
 **/*.md.temp
 
-# Vendored Monaco build (downloaded by site.sh at build time)
+# Generated HTML fragments (written by gh-pages_build.sh / playground_run.sh at build time)
+/fragments/
+
+# Vendored Monaco build (downloaded by gh-pages_build.sh at build time)
 static/monaco/

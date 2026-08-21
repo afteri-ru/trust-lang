@@ -1,10 +1,10 @@
 // src/playground/main.cpp
 // trust-playground: единый бинарник для двух режимов.
-//   --playground          — балансировщик (принимает запросы сайта, диспетчеризация)
-//   (без аргумента)       — исполнительный VPS (reverse long-poll к балансировщику)
+//   --playground          - балансировщик (принимает запросы сайта, диспетчеризация)
+//   (без аргумента)       - исполнительный VPS (reverse long-poll к балансировщику)
 //
 // Воркер НЕ требует root/установки: читает trust-playground.conf рядом с бинарником;
-// если файла нет — нужны CLI-опции --playground-url и --token. При корректном запуске
+// если файла нет - нужны CLI-опции --playground-url и --token. При корректном запуске
 // с CLI-опциями они сохраняются в файл как настройки по умолчанию (или по --save-config).
 
 #include "playground/config.h"
@@ -40,7 +40,7 @@ void handleSignal(int) {
 // Устанавливает обработчики SIGINT/SIGTERM без SA_RESTART: блокирующие вызовы
 // (accept/poll/connect) прерываются EINTR, и циклы могут перепроверить stop_.
 // std::signal() на glibc ставит SA_RESTART, из-за чего accept() перезапускается
-// после обработчика и не возвращает EINTR — балансировщик не останавливался по Ctrl+C.
+// после обработчика и не возвращает EINTR - балансировщик не останавливался по Ctrl+C.
 void installSignalHandlers() {
     struct sigaction sa{};
     sa.sa_handler = handleSignal;
@@ -104,7 +104,7 @@ int main(int argc, const char* argv[]) {
             trust::errs() << "Error: " << argv[i - 1] << " requires an argument\n";
             std::exit(1);
         }
-        return argv[i];
+        return trust::playground::unquote(argv[i]);
     };
 
     for (int i = 1; i < argc; ++i) {
@@ -117,7 +117,13 @@ int main(int argc, const char* argv[]) {
         } else if (std::strcmp(argv[i], "--token") == 0) {
             token = next_arg(i);
         } else if (std::strcmp(argv[i], "--max-parallel") == 0) {
-            max_parallel = std::stoi(next_arg(i));
+            const std::string mp = next_arg(i);
+            try {
+                max_parallel = std::stoi(mp);
+            } catch (const std::exception&) {
+                trust::errs() << "Error: invalid integer for --max-parallel: '" << mp << "'\n";
+                return 1;
+            }
         } else if (std::strcmp(argv[i], "--lsp") == 0) {
             lsp_bin = next_arg(i);
         } else if (std::strcmp(argv[i], "--save-config") == 0) {
@@ -187,7 +193,7 @@ int main(int argc, const char* argv[]) {
     }
 
     if (!playground_mode) {
-        // ── Воркер: без root, конфиг рядом с бинарником, CLI-опции сохраняются ──
+        // -- Воркер: без root, конфиг рядом с бинарником, CLI-опции сохраняются --
         bool runnable = true;
         if (cfg.token.empty()) {
             trust::errs() << "trust-playground: worker requires a token to run.\n"
@@ -203,7 +209,7 @@ int main(int argc, const char* argv[]) {
 
         // --save-config сохраняет конфиг даже без playground-url/token (можно заранее
         // задать остальные worker-настройки; url/token добавить позже вручную в конфиг).
-        // Автосохранение при первом запуске — только когда параметров достаточно для запуска.
+        // Автосохранение при первом запуске - только когда параметров достаточно для запуска.
         if (save_config || (!cfg_exists && runnable)) {
             std::string serr;
             if (trust::playground::saveWorkerConfig(config_path, cfg, serr)) {
@@ -227,7 +233,9 @@ int main(int argc, const char* argv[]) {
     g_master = &server;
     installSignalHandlers();
     if (!cfg.statsToken.empty()) {
-        trust::errs() << "trust-playground (playground): stats: http://" << cfg.listen << ":" << cfg.port << "/stats?token=" << cfg.statsToken << "\n";
+        // Токен не передаётся в URL (убрано ?token=). Доступ к статистике - через форму
+        // входа /stats/login (cookie-сессия) или заголовок X-Stats-Token (скрипты).
+        trust::errs() << "trust-playground (playground): stats: http://" << cfg.listen << ":" << cfg.port << "/stats/login\n";
     }
     return server.run();
 }

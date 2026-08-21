@@ -1,11 +1,11 @@
-// attr.hpp — AST attribute system (base types, separate from pool and parser)
+// attr.hpp - AST attribute system (base types, separate from pool and parser)
 //
 // Key Entities:
-//   AttrId (uint32_t)    — attribute identifier with a bitmask:
+//   AttrId (uint32_t)    - attribute identifier with a bitmask:
 //                           bits 0-29  = index in AttrPool.
 //                           bit  30    = built-in (1) or user-defined (0).
 //                           bit  31    = set manually (1) or automatically (0).
-//   Attr                 — registered attribute descriptor with name and default params.
+//   Attr                 - registered attribute descriptor with name and default params.
 //
 // Registration (AttrPool) is in attr_pool.hpp.
 // Built-in attribute names (attr::ReadOnly etc.) are in attr_builtin.hpp.
@@ -13,7 +13,7 @@
 // AstNodeBase stores std::vector<AttrId> (see include/ast/ast_nodes.hpp).
 //
 // Design Principles:
-// 1. There is no AttrType enum — all attributes, built-in or user-defined,
+// 1. There is no AttrType enum - all attributes, built-in or user-defined,
 //    are stored uniformly and identified by their name string.
 // 2. Attributes are unique by name. The same name always returns the same AttrId.
 // 3. Each attribute stores its default parameter values in m_default_params.
@@ -36,9 +36,9 @@
 
 namespace trust {
 
-// ────────────────────────────────────────────────────────────────────────────
-// AttrId — attribute identifier
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AttrId - attribute identifier
+// ----------------------------------------------------------------------------
 
 using AttrId = uint32_t;
 
@@ -69,9 +69,9 @@ static constexpr AttrId kAttrIndexMask = (1u << 30) - 1;
 }
 } // namespace detail
 
-// ────────────────────────────────────────────────────────────────────────────
-// Attr — registered attribute (name + optional default parameter values)
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// Attr - registered attribute (name + optional default parameter values)
+// ----------------------------------------------------------------------------
 
 struct Attr {
     AttrId m_id{0};
@@ -87,7 +87,7 @@ struct Attr {
 
     /// Check if the given parameter values match the default values.
     /// Пустой (wildcard) дефолт-параметр совпадает с ЛЮБЫМ предоставленным строковым
-    /// значением того же количества параметров — так строковые атрибуты (напр. `link`)
+    /// значением того же количества параметров - так строковые атрибуты (напр. `link`)
     /// принимают произвольные значения (`@[link("m")]`), а не только фиксированные.
     /// Число параметров при этом должно совпадать.
     [[nodiscard]] bool matches_params(const std::vector<std::string_view>& params) const noexcept {

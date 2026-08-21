@@ -1,4 +1,4 @@
-// ast_nodes.cpp — реализации Binary, CallExpr, Scope, Decl, JumpStmt, VarDecl
+// ast_nodes.cpp - реализации Binary, CallExpr, Scope, Decl, JumpStmt, VarDecl
 // + утилита dumpBody() для устранения дублирования обхода std::vector<AstNodePtr>
 
 #include "ast/ast_nodes.hpp"
@@ -11,14 +11,14 @@
 
 namespace trust {
 
-// ── AstNodeBase::collectChildren — единый источник истины «kind → дети». ──
+// -- AstNodeBase::collectChildren - единый источник истины «kind → дети». --
 //    Заполняет out указателями на дочерние слоты (позволяет заменять узлы при обходе).
-//    Листья — без слотов. Используется семантикой (обход с подменой узлов) и const-
-//    обёрткой children() (см. ниже). Не мутирует дерево — только читает слоты.
+//    Листья - без слотов. Используется семантикой (обход с подменой узлов) и const-
+//    обёрткой children() (см. ниже). Не мутирует дерево - только читает слоты.
 
 void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
     switch (m_kind) {
-    // ── Sequence / блоки / модуль: m_body ──
+    // -- Sequence / блоки / модуль: m_body --
     case ParserToken::Kind::sequence:
     case ParserToken::Kind::Attr:
     case ParserToken::Kind::ScopeBlock:
@@ -42,8 +42,8 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── Binary: m_left/m_right. Для объявлений (TypeDecl/NameDecl) m_left — имя
-    //    объявляемого, его НЕ обходим (не резолвим как переменную) — только m_right. ──
+    // -- Binary: m_left/m_right. Для объявлений (TypeDecl/NameDecl) m_left - имя
+    //    объявляемого, его НЕ обходим (не резолвим как переменную) - только m_right. --
     case ParserToken::Kind::AssignOp:
     case ParserToken::Kind::MathOp:
     case ParserToken::Kind::BitwiseOp:
@@ -69,7 +69,7 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── DestructureDecl: обходим только источник; цели слева — объявления, их не резолвим ──
+    // -- DestructureDecl: обходим только источник; цели слева - объявления, их не резолвим --
     case ParserToken::Kind::DestructureDecl: {
         auto& d = static_cast<DestructureDecl&>(*this);
         if (d.m_source) {
@@ -77,7 +77,7 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── CallExpr: m_callee + m_args ──
+    // -- CallExpr: m_callee + m_args --
     case ParserToken::Kind::CallExpr: {
         auto& c = static_cast<CallExpr&>(*this);
         if (c.m_callee) {
@@ -90,7 +90,7 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── IdentType: dims [...] + params (...) ──
+    // -- IdentType: dims [...] + params (...) --
     case ParserToken::Kind::TypeName: {
         auto& t = static_cast<IdentType&>(*this);
         if (t.dims()) {
@@ -107,8 +107,8 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── JumpStmt (return/throw/break/continue): m_value — выражение. m_label — метка
-    //    (не переменная), её НЕ обходим и не резолвим. ──
+    // -- JumpStmt (return/throw/break/continue): m_value - выражение. m_label - метка
+    //    (не переменная), её НЕ обходим и не резолвим. --
     case ParserToken::Kind::ReturnStmt:
     case ParserToken::Kind::ThrowStmt:
     case ParserToken::Kind::BreakStmt:
@@ -119,7 +119,7 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── VarDecl: m_type + m_initializer ──
+    // -- VarDecl: m_type + m_initializer --
     case ParserToken::Kind::VarDecl: {
         auto& v = static_cast<VarDecl&>(*this);
         if (v.m_type) {
@@ -130,7 +130,7 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── FuncDecl: m_type + m_params + m_body ──
+    // -- FuncDecl: m_type + m_params + m_body --
     case ParserToken::Kind::FuncDecl: {
         auto& f = static_cast<FuncDecl&>(*this);
         if (f.m_type) {
@@ -148,7 +148,7 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── ArgNode: m_type + m_value ──
+    // -- ArgNode: m_type + m_value --
     case ParserToken::Kind::ArgNode: {
         auto& p = static_cast<ArgNode&>(*this);
         if (p.m_type) {
@@ -159,7 +159,7 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── ControlFlowStmt (if/while/do-while): cond + body + else (+ elseifs у if) ──
+    // -- ControlFlowStmt (if/while/do-while): cond + body + else (+ elseifs у if) --
     case ParserToken::Kind::IfStmt:
     case ParserToken::Kind::WhileStmt:
     case ParserToken::Kind::DoWhileStmt: {
@@ -186,7 +186,7 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── SemicolonStmt: m_expr ──
+    // -- SemicolonStmt: m_expr --
     case ParserToken::Kind::SemicolonStmt: {
         auto& e = static_cast<SemicolonStmt&>(*this);
         if (e.m_expr) {
@@ -194,7 +194,7 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
         }
         break;
     }
-    // ── MatchStmt: m_value + patterns/body веток + m_default ──
+    // -- MatchStmt: m_value + patterns/body веток + m_default --
     case ParserToken::Kind::MatchingStmt: {
         auto& m = static_cast<MatchStmt&>(*this);
         if (m.m_value) {
@@ -220,8 +220,8 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
     }
 }
 
-// ── AstNodeBase::children — const-обёртка над collectChildren (копии узлов). ──
-//    Единый источник истины «kind → дети» — collectChildren; этот метод только
+// -- AstNodeBase::children - const-обёртка над collectChildren (копии узлов). --
+//    Единый источник истины «kind → дети» - collectChildren; этот метод только
 //    копирует слоты в возвращаемый вектор (для const-потребителей, напр. pipeline).
 
 std::vector<AstNodePtr> AstNodeBase::children() const {
@@ -237,14 +237,14 @@ std::vector<AstNodePtr> AstNodeBase::children() const {
     return out;
 }
 
-// ── Единый хелпер иммутабельности ('^' → attr::ReadOnly) — объявлен в token_base.hpp.
+// -- Единый хелпер иммутабельности ('^' → attr::ReadOnly) - объявлен в token_base.hpp.
 //    Используется конвертером Term→AST и IdentName (manual-конструктор).
 bool applyReadonlyFromCaret(AstNodeAttr& node, std::string_view raw, AttrPool* pool) {
     if (raw.empty() || raw.back() != '^') {
         return false;
     }
     if (!canHaveImmutableQualifier(node.kind())) {
-        return false; // '^' неприменим к этому kind — диагностика выполняется отдельно (в convert)
+        return false; // '^' неприменим к этому kind - диагностика выполняется отдельно (в convert)
     }
     EXPECT(pool && "applyReadonlyFromCaret requires AttrPool");
     auto readonly_id = pool->lookup(attr::ReadOnly);
@@ -253,17 +253,17 @@ bool applyReadonlyFromCaret(AstNodeAttr& node, std::string_view raw, AttrPool* p
     return true;
 }
 
-// ── HasText: терм-конструктор — текст читается из Term и нормализуется по kind.
-//    m_term хранится для range(); m_text — нормализованный текст (text() читает m_text).
+// -- HasText: терм-конструктор - текст читается из Term и нормализуется по kind.
+//    m_term хранится для range(); m_text - нормализованный текст (text() читает m_text).
 HasText::HasText(ParserToken::Kind k, TermPtr term)
 : AstNodeAttr(k, std::move(term)) {
     EXPECT(m_term && "HasText term-constructor requires a source Term");
     m_text = normalizeTermText(k, m_term->getText());
 }
 
-// ── Sequence / Binary / ScopeBlock / JumpStmt: терм-конструкторы строят детей.
+// -- Sequence / Binary / ScopeBlock / JumpStmt: терм-конструкторы строят детей.
 //    При ctx != nullptr дети рекурсивно строятся через TermToAstConverter (convert/convertSeq,
-//    объявлен в ast/term_to_ast.hpp, тот же ast_lib — без loader и без цикла).
+//    объявлен в ast/term_to_ast.hpp, тот же ast_lib - без loader и без цикла).
 
 Sequence::Sequence(ParserToken::Kind k, TermPtr term, Context* ctx)
 : HasText(k, std::move(term)) {
@@ -286,9 +286,9 @@ Binary::Binary(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-// ── CallExpr: терм-конструктор — callee из имени Term, args из convertChildren. ──
+// -- CallExpr: терм-конструктор - callee из имени Term, args из convertChildren. --
 // Единственный владелец раскладки Ident-вызова: класс-селекция (CallExpr vs IdentName)
-// остаётся в конвертере, здесь — только постройка полей из m_term.
+// остаётся в конвертере, здесь - только постройка полей из m_term.
 
 CallExpr::CallExpr(ParserToken::Kind k, TermPtr term, Context* ctx)
 : AstNodeAttr(k, std::move(term)) {
@@ -332,7 +332,7 @@ JumpStmt::JumpStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
             m_kind = body.empty() ? ParserToken::Kind::BreakStmt : ParserToken::Kind::ReturnStmt;
         }
 
-        // Текст узла AST — '++'/'--'/'-+'; namespace (label) из m_text уходит в m_label.
+        // Текст узла AST - '++'/'--'/'-+'; namespace (label) из m_text уходит в m_label.
         std::string_view ns = m_term->getText();
         const char* op = (m_kind == ParserToken::Kind::ReturnStmt || m_kind == ParserToken::Kind::BreakStmt) ? "++"
                          : (m_kind == ParserToken::Kind::ThrowStmt)                                          ? "--"
@@ -344,7 +344,7 @@ JumpStmt::JumpStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 
     if (!body.empty() && m_kind != ParserToken::Kind::BreakStmt && m_kind != ParserToken::Kind::ContinueStmt) {
-        // void return `++ _ ++`: значение `_` — служебный символ, m_value = nullptr.
+        // void return `++ _ ++`: значение `_` - служебный символ, m_value = nullptr.
         if (m_kind == ParserToken::Kind::ReturnStmt && body[0] && body[0]->kind() == ParserToken::Kind::Ident && body[0]->text() == "_") {
             m_value = nullptr;
         } else {
@@ -353,7 +353,7 @@ JumpStmt::JumpStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-// ── ModuleNode: терм-конструктор строит m_body из term->m_sequence (loader-free). ──
+// -- ModuleNode: терм-конструктор строит m_body из term->m_sequence (loader-free). --
 
 ModuleNode::ModuleNode(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
 : ModuleNode(0, std::move(term)) {
@@ -368,7 +368,7 @@ ModuleNode::ModuleNode(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
     }
 }
 
-// ── Control flow / match: терм-конструкторы строят детей при ctx != nullptr.
+// -- Control flow / match: терм-конструкторы строят детей при ctx != nullptr.
 //    Раскладка из parser.y (см. комментарии в ast_nodes.hpp). Рекурсия детей через
 //    TermToAstConverter (объявлен в ast/term_to_ast.hpp, тот же ast_lib).
 
@@ -456,7 +456,7 @@ MatchStmt::MatchStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
             } else {
                 MatchCase c;
                 if (item->m_left) {
-                    // matches: первый шаблон — сам терм, остальные — в его m_sequence
+                    // matches: первый шаблон - сам терм, остальные - в его m_sequence
                     c.patterns.push_back(convertChild(*ctx, item->m_left));
                     for (const auto& p : item->m_left->m_sequence) {
                         c.patterns.push_back(convertChild(*ctx, p));
@@ -469,8 +469,8 @@ MatchStmt::MatchStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-// ── Имя узла из Term для операторных термов (VarDecl/FuncDecl/ArgNode):
-//    у терма оператора (`:=`, `::=`, ARGUMENT) имя лежит в m_left; иначе — в самом терме.
+// -- Имя узла из Term для операторных термов (VarDecl/FuncDecl/ArgNode):
+//    у терма оператора (`:=`, `::=`, ARGUMENT) имя лежит в m_left; иначе - в самом терме.
 static std::string_view declNameFromTerm(const TermPtr& term) {
     if (term->m_left) {
         return term->m_left->getText();
@@ -478,8 +478,8 @@ static std::string_view declNameFromTerm(const TermPtr& term) {
     return term->getText();
 }
 
-// True, если терм — «чистое» многоточие `<name> := ...;` (forward-объявление): ELLIPSIS без
-// детей. Для извлечения из коллекции `... dict` (ELLIPSIS c rval в m_right) — false, такой
+// True, если терм - «чистое» многоточие `<name> := ...;` (forward-объявление): ELLIPSIS без
+// детей. Для извлечения из коллекции `... dict` (ELLIPSIS c rval в m_right) - false, такой
 // терм не является признаком forward-объявления.
 static bool isForwardEllipsisTerm(const TermPtr& term) {
     if (!term || term->getTermID() != trust::TermID::ELLIPSIS) {
@@ -488,7 +488,7 @@ static bool isForwardEllipsisTerm(const TermPtr& term) {
     return !term->m_left && !term->m_right && term->m_sequence.empty() && !term->m_args.has_value();
 }
 
-// True, если терм — нативный импорт `<name>(...) := %sym...;` (m_right — native-терм `%sym`).
+// True, если терм - нативный импорт `<name>(...) := %sym...;` (m_right - native-терм `%sym`).
 static bool isNativeImportTerm(const TermPtr& term) {
     return term && term->getTermID() == trust::TermID::NATIVE;
 }
@@ -502,7 +502,7 @@ static std::string nativeImportName(const TermPtr& term) {
     return std::string(t);
 }
 
-// ── VarDecl/FuncDecl/ArgNode: терм-конструкторы — имя из m_left (fallback term->getText()).
+// -- VarDecl/FuncDecl/ArgNode: терм-конструкторы - имя из m_left (fallback term->getText()).
 VarDecl::VarDecl(TermPtr term, AstNodePtr type, AstNodePtr initializer)
 : Decl(std::move(term))
 , m_initializer(std::move(initializer)) {
@@ -512,17 +512,17 @@ VarDecl::VarDecl(TermPtr term, AstNodePtr type, AstNodePtr initializer)
     m_text = normalizeTermText(ParserToken::Kind::VarDecl, declNameFromTerm(m_term));
 }
 
-// ── VarDecl: uniform терм-конструктор (kind = VarDecl). ──
+// -- VarDecl: uniform терм-конструктор (kind = VarDecl). --
 // Единственный владелец раскладки операторного терма `:=` (CREATE_NAME):
 //   m_type из m_left->m_type, m_initializer из m_right. Охват [имя, expr] вычисляется
-//   в VarDecl::range() на лету — Term не мутируется.
+//   в VarDecl::range() на лету - Term не мутируется.
 VarDecl::VarDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
 : VarDecl(std::move(term)) {
     if (ctx && m_term) {
         if (m_term->m_left && m_term->m_left->m_type) {
             m_type = convertChild(*ctx, m_term->m_left->m_type);
         }
-        // Предварительное (forward) объявление `x:Type := ...;`: m_right — чистое многоточие
+        // Предварительное (forward) объявление `x:Type := ...;`: m_right - чистое многоточие
         // вместо инициализатора. m_initializer остаётся nullptr (forward declaration).
         if (isForwardEllipsisTerm(m_term->m_right)) {
             return;
@@ -539,9 +539,9 @@ VarDecl::VarDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
     }
 }
 
-// ── DestructureDecl: `t1, ..., tN := [... ]source;` ──
-// Цели слева — список имён (assign_items: цепочка m_left: a→b→c), источник — m_right
-// (для `...` — ELLIPSIS с вложенным выражением; для кортежа — само выражение).
+// -- DestructureDecl: `t1, ..., tN := [... ]source;` --
+// Цели слева - список имён (assign_items: цепочка m_left: a→b→c), источник - m_right
+// (для `...` - ELLIPSIS с вложенным выражением; для кортежа - само выражение).
 DestructureDecl::DestructureDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
 : AstNodeAttr(ParserToken::Kind::DestructureDecl, std::move(term)) {
     EXPECT(m_term && "DestructureDecl term-constructor requires a source Term");
@@ -552,8 +552,8 @@ DestructureDecl::DestructureDecl(ParserToken::Kind /*k*/, TermPtr term, Context*
     m_isSpread = m_term->m_right && m_term->m_right->getTermID() == trust::TermID::ELLIPSIS;
     if (m_term->m_left) {
         for (const TermPtr* t = &m_term->m_left; *t; t = &(*t)->m_left) {
-            // Цель — имя переменной из терма lval; IdentName конструируем напрямую (convertChild
-            // для lval-терма может дать не тот kind). rest-цель (`rest...`) — lval с суффиксом
+            // Цель - имя переменной из терма lval; IdentName конструируем напрямую (convertChild
+            // для lval-терма может дать не тот kind). rest-цель (`rest...`) - lval с суффиксом
             // ELLIPSIS в m_right (грамматика assign_item: `lval ELLIPSIS`). Явная аннотация типа
             // цели (`a:Int32`) хранится в lval->m_type (грамматика `lval_var: name type_item`
             // → m_type = type_item); конвертируем её в узел типа для семантики/кодгена.
@@ -598,8 +598,8 @@ MapperRange DestructureDecl::range() const {
     if (!m_term) {
         return {};
     }
-    // Полный охват `t1, ..., tN := [... ]source;`: начало — первый lval-терм цепочки имён
-    // (m_term->m_left), конец — источник (m_source->range(); для `... source` источник — операнд
+    // Полный охват `t1, ..., tN := [... ]source;`: начало - первый lval-терм цепочки имён
+    // (m_term->m_left), конец - источник (m_source->range(); для `... source` источник - операнд
     // ELLIPSIS). Базовый m_term (CREATE_NAME `:=`) имеет m_mapperRange на оператор `:=`; без
     // расширения маппинг деструктуризации сужался бы до одного оператора (как VarDecl::range()).
     const bool beginOk = m_term->m_left && !m_term->m_left->m_mapperRange.isInvalid();
@@ -618,20 +618,20 @@ FuncDecl::FuncDecl(TermPtr term)
     m_text = normalizeTermText(ParserToken::Kind::FuncDecl, declNameFromTerm(m_term));
 }
 
-// ── FuncDecl: uniform терм-конструктор (kind = FuncDecl). ──
+// -- FuncDecl: uniform терм-конструктор (kind = FuncDecl). --
 // Единственный владелец раскладки функции. Два layout:
 //   1. Функция с сигнатурой в m_left: CREATE_NAME (`:=`) `name(params):Type := {body}`
-//      (в т.ч. native — %name(params):Type := {body}); m_type из m_left->m_type,
+//      (в т.ч. native - %name(params):Type := {body}); m_type из m_left->m_type,
 //      params из m_left->m_args (ARGUMENT: имя в m_left, тип в m_right), body из m_right.
 //      Диапазон функции [имя, оператор] (признак функции) вычисляется в FuncDecl::range()
-//      на лету — Term не мутируется.
+//      на лету - Term не мутируется.
 //   2. lambda/iterator (FUNCTION/COROUTINE/ITERATOR): split params/body из convertChildren.
 FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
 : FuncDecl(std::move(term)) {
     if (!ctx || !m_term) {
         return;
     }
-    // CREATE_NAME (`:=`) с сигнатурой функции в m_left (m_left->isCall()) — это функция.
+    // CREATE_NAME (`:=`) с сигнатурой функции в m_left (m_left->isCall()) - это функция.
     const bool sigInLeft = m_term->getTermID() == trust::TermID::CREATE_NAME && m_term->m_left && m_term->m_left->isCall();
     if (sigInLeft) {
         if (m_term->m_left->m_type) {
@@ -639,7 +639,7 @@ FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
         }
         m_params = std::vector<AstNodePtr>{};
         // Параметры: m_args на сигнатуре (ARGUMENT: имя в m_left, тип в m_right).
-        // Раскладка m_type — в ArgNode-конструкторе.
+        // Раскладка m_type - в ArgNode-конструкторе.
         if (m_term->m_left->m_args) {
             for (const auto& [name, argTerm] : *m_term->m_left->m_args) {
                 (void)name;
@@ -649,15 +649,15 @@ FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
                 m_params->push_back(std::make_shared<ArgNode>(ParserToken::Kind::ArgNode, argTerm, ctx));
             }
         }
-        // Нативный импорт `<name>(...) := %sym...;` — АЛИАС на нативную функцию: C++-функция
+        // Нативный импорт `<name>(...) := %sym...;` - АЛИАС на нативную функцию: C++-функция
         // НЕ эмитится, вызовы name(...) переписываются в прямой вызов %sym(...). m_body пуст.
         if (isNativeImportTerm(m_term->m_right)) {
             m_isNativeImport = true;
             m_nativeName = nativeImportName(m_term->m_right);
             return;
         }
-        // Тело: m_right — block. Предварительное объявление `%func():Type := ...;` —
-        // m_right — чистое многоточие вместо тела → m_body = nullopt (forward declaration).
+        // Тело: m_right - block. Предварительное объявление `%func():Type := ...;` -
+        // m_right - чистое многоточие вместо тела → m_body = nullopt (forward declaration).
         if (isForwardEllipsisTerm(m_term->m_right)) {
             return;
         }
@@ -698,30 +698,30 @@ ArgNode::ArgNode(TermPtr term, AstNodePtr type, AstNodePtr value)
     m_text = normalizeTermText(ParserToken::Kind::ArgNode, declNameFromTerm(m_term));
 }
 
-// ── ArgNode: uniform терм-конструктор (kind = ArgNode). ──
+// -- ArgNode: uniform терм-конструктор (kind = ArgNode). --
 // КАНОНИЧЕСКАЯ раскладка аргумента: имя в m_left, явный тип в m_type (страховка `name:Type`
-// без значения — m_right->m_type), значение в m_right. Единая для параметров функций, элементов
+// без значения - m_right->m_type), значение в m_right. Единая для параметров функций, элементов
 // словаря/enum/variant и аргументов вызова (терм_to_ast::appendDictElementsFromArgs использует
-// manual-конструктор; здесь — uniform путь visit_ARGUMENT / параметры функции).
+// manual-конструктор; здесь - uniform путь visit_ARGUMENT / параметры функции).
 ArgNode::ArgNode(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
 : ArgNode(std::move(term)) {
     if (ctx && m_term) {
-        // Тип: из m_type (канонический слот); страховка — m_right->m_type (`name:Type` без =value).
+        // Тип: из m_type (канонический слот); страховка - m_right->m_type (`name:Type` без =value).
         if (m_term->m_type) {
             m_type = convertChild(*ctx, m_term->m_type);
         } else if (m_term->m_right && m_term->m_right->m_type) {
             m_type = convertChild(*ctx, m_term->m_right->m_type);
         }
-        // Значение: у ARGUMENT m_right — значение (name=value / name:Type=value).
+        // Значение: у ARGUMENT m_right - значение (name=value / name:Type=value).
         if (m_term->getTermID() == trust::TermID::ARGUMENT && m_term->m_right) {
             m_value = convertChild(*ctx, m_term->m_right);
         }
     }
 }
 
-// ── Helper: добавить строку "label: <child-dump>" с отступом (если child не пуст).
+// -- Helper: добавить строку "label: <child-dump>" с отступом (если child не пуст).
 //    Единый формат для dump() узлов с детьми (Binary, ArgNode, VarDecl, If/While/DoWhile, Match).
-//    Сохраняет точный прежний вывод: "\n" + indent + "label: " + child->dump(indent+2). ──
+//    Сохраняет точный прежний вывод: "\n" + indent + "label: " + child->dump(indent+2). --
 static void dumpLabeled(std::string& out, size_t indent, std::string_view label, const AstNodePtr& child) {
     if (!child) {
         return;
@@ -733,7 +733,7 @@ static void dumpLabeled(std::string& out, size_t indent, std::string_view label,
     out += child->dump(indent + 2);
 }
 
-// ── Sequence::dumpBody — дамп содержимого std::vector<AstNodePtr> ──
+// -- Sequence::dumpBody - дамп содержимого std::vector<AstNodePtr> --
 
 void Sequence::dumpBody(std::string& result, const std::vector<AstNodePtr>& body, size_t indent, size_t child_indent) {
     if (body.empty()) {
@@ -751,7 +751,7 @@ void Sequence::dumpBody(std::string& result, const std::vector<AstNodePtr>& body
     }
 }
 
-// ── Literal::dump ──
+// -- Literal::dump --
 
 std::string Literal::dump(size_t indent) const {
     std::string result = std::string(indent, ' ');
@@ -769,7 +769,7 @@ std::string Literal::dump(size_t indent) const {
     return result;
 }
 
-// ── ContextMacro::dump ──
+// -- ContextMacro::dump --
 
 std::string ContextMacro::dump(size_t indent) const {
     std::string result = std::string(indent, ' ');
@@ -782,7 +782,7 @@ std::string ContextMacro::dump(size_t indent) const {
     return result;
 }
 
-// ── Binary::dump ──
+// -- Binary::dump --
 
 std::string Binary::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -791,7 +791,7 @@ std::string Binary::dump(size_t indent) const {
     return result;
 }
 
-// ── CallExpr::dump ──
+// -- CallExpr::dump --
 
 std::string CallExpr::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -813,7 +813,7 @@ std::string CallExpr::dump(size_t indent) const {
     return result;
 }
 
-// ── ArgNode::dump ──
+// -- ArgNode::dump --
 
 std::string ArgNode::dump(size_t indent) const {
     std::string result = detail::dumpQuotedName(kind(), text(), indent);
@@ -822,7 +822,7 @@ std::string ArgNode::dump(size_t indent) const {
     return result;
 }
 
-// ── Sequence::dump ──
+// -- Sequence::dump --
 
 std::string Sequence::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -830,7 +830,7 @@ std::string Sequence::dump(size_t indent) const {
     return result;
 }
 
-// ── RangeExpr::dump ──
+// -- RangeExpr::dump --
 
 std::string RangeExpr::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -843,7 +843,7 @@ std::string RangeExpr::dump(size_t indent) const {
     return result;
 }
 
-// ── ScopeBlock::dump ──
+// -- ScopeBlock::dump --
 std::string ScopeBlock::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
     if (!text().empty()) {
@@ -855,17 +855,17 @@ std::string ScopeBlock::dump(size_t indent) const {
     return result;
 }
 
-// ── ModuleNode::dump ──
+// -- ModuleNode::dump --
 
 std::string ModuleNode::dump(size_t indent) const {
     // Паттерн ScopeBlock::dump: заголовок (kind) + имя, затем дети ОДИН раз.
-    // НЕ используем Sequence::dump — он уже печатает m_body (иначе было бы дважды).
+    // НЕ используем Sequence::dump - он уже печатает m_body (иначе было бы дважды).
     std::string result = detail::dumpQuotedName(kind(), text(), indent);
     dumpBody(result, m_body, indent, indent + 2);
     return result;
 }
 
-// ── Decl::dump ──
+// -- Decl::dump --
 
 std::string Decl::dump(size_t indent) const {
     // Имя выводится один раз (ident_name/dump даёт "Kind 'text'"); ранее здесь
@@ -880,7 +880,7 @@ std::string Decl::dump(size_t indent) const {
     return result;
 }
 
-// ── FuncDecl::dump ──
+// -- FuncDecl::dump --
 
 std::string FuncDecl::dump(size_t indent) const {
     std::string result = Decl::dump(indent);
@@ -917,7 +917,7 @@ std::string FuncDecl::dump(size_t indent) const {
     return result;
 }
 
-// ── FuncDecl::signature — строка сигнатуры для контекст-макроса @__FUNCSIG__ ──
+// -- FuncDecl::signature - строка сигнатуры для контекст-макроса @__FUNCSIG__ --
 
 std::string FuncDecl::signature(std::string_view namespace_path) const {
     std::string name(text());
@@ -958,16 +958,16 @@ std::string FuncDecl::signature(std::string_view namespace_path) const {
 }
 
 MapperRange FuncDecl::blockRange() const noexcept {
-    // Тело функции — блок { ... } лежит в m_term->m_right (терм CREATE_TYPE ::=).
+    // Тело функции - блок { ... } лежит в m_term->m_right (терм CREATE_TYPE ::=).
     // Его range используется для определения строк { и }, чтобы сгенерированный код
-    // повторял раскладку исходника. Для test-only узлов без терма — invalid range.
+    // повторял раскладку исходника. Для test-only узлов без терма - invalid range.
     if (m_term && m_term->m_right) {
         return m_term->m_right->m_mapperRange;
     }
     return {};
 }
 
-// ── JumpStmt::dump ──
+// -- JumpStmt::dump --
 
 std::string JumpStmt::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -986,7 +986,7 @@ std::string JumpStmt::dump(size_t indent) const {
     return result;
 }
 
-// ── VarDecl::dump ──
+// -- VarDecl::dump --
 
 std::string VarDecl::dump(size_t indent) const {
     std::string result = Decl::dump(indent);
@@ -998,8 +998,8 @@ std::string VarDecl::dump(size_t indent) const {
     return result;
 }
 
-// ── VarDecl::nameRange ──
-// Диапазон реального имени. Базовый m_term для `x := ...` — терм оператора ':=':
+// -- VarDecl::nameRange --
+// Диапазон реального имени. Базовый m_term для `x := ...` - терм оператора ':=':
 // его m_mapperRange указывает на оператор, а имя лежит в m_term->m_left.
 MapperRange VarDecl::nameRange() const noexcept {
     if (m_term && m_term->m_left && !m_term->m_left->m_mapperRange.isInvalid()) {
@@ -1008,7 +1008,7 @@ MapperRange VarDecl::nameRange() const noexcept {
     return {};
 }
 
-// ── ControlFlowStmt::dumpControlFlow ──
+// -- ControlFlowStmt::dumpControlFlow --
 // Единый дамп общих полей cond/body/else (в порядке WhileStmt: cond → body → else).
 std::string ControlFlowStmt::dumpControlFlow(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -1018,7 +1018,7 @@ std::string ControlFlowStmt::dumpControlFlow(size_t indent) const {
     return result;
 }
 
-// ── IfStmt::dump ──
+// -- IfStmt::dump --
 
 std::string IfStmt::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -1037,13 +1037,13 @@ std::string IfStmt::dump(size_t indent) const {
     return result;
 }
 
-// ── WhileStmt::dump ──
+// -- WhileStmt::dump --
 
 std::string WhileStmt::dump(size_t indent) const {
     return dumpControlFlow(indent);
 }
 
-// ── DoWhileStmt::dump ──
+// -- DoWhileStmt::dump --
 // do-while печатает body → cond (порядок исходника «тело→условие»).
 
 std::string DoWhileStmt::dump(size_t indent) const {
@@ -1053,7 +1053,7 @@ std::string DoWhileStmt::dump(size_t indent) const {
     return result;
 }
 
-// ── MatchStmt::dump ──
+// -- MatchStmt::dump --
 
 std::string MatchStmt::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -1071,9 +1071,9 @@ std::string MatchStmt::dump(size_t indent) const {
     return result;
 }
 
-// ── LabelRef (kind=GotoStmt|LabelStmt) / SemicolonStmt: dump ──
+// -- LabelRef (kind=GotoStmt|LabelStmt) / SemicolonStmt: dump --
 // Синтетические узлы (без Term): текст читается из собственного поля. Имя kind выводится
-// из ParserToken::name(kind()) — поэтому один dump на оба kinds (GotoStmt/LabelStmt).
+// из ParserToken::name(kind()) - поэтому один dump на оба kinds (GotoStmt/LabelStmt).
 
 std::string LabelRef::dump(size_t indent) const {
     return detail::dumpQuotedName(kind(), m_name, indent);
@@ -1085,7 +1085,7 @@ std::string SemicolonStmt::dump(size_t indent) const {
     return result;
 }
 
-// ── Диапазоны узлов: вычисляются на лету по узлам-детям, исходный Term НЕ мутируется. ──
+// -- Диапазоны узлов: вычисляются на лету по узлам-детям, исходный Term НЕ мутируется. --
 // Ранее конвертер TermToAstConverter расширял term->m_mapperRange (expandTermRangeToChildren /
 // expandControlFlowRange и блок в FuncDecl-конструкторе). Теперь полный охват statement'а
 // возвращается override'ами range() узлов, Term остаётся неизменным. Охват считается по
@@ -1106,7 +1106,7 @@ static std::optional<MapperRange> spanOfNodes(const std::vector<AstNodePtr>& chi
             return;
         }
         if (r.begin.fileIdx() != begin.fileIdx()) {
-            return; // макро-раскрытие: ребёнок в другом псевдо-файле — пропускаем
+            return; // макро-раскрытие: ребёнок в другом псевдо-файле - пропускаем
         }
         if (r.begin.offset() < begin.offset()) {
             begin = r.begin;
@@ -1130,7 +1130,7 @@ MapperRange Binary::range() const {
     if (!m_term) {
         return {};
     }
-    // [left.begin, right.end] — обе стороны обязательны (операторный терм несёт range только
+    // [left.begin, right.end] - обе стороны обязательны (операторный терм несёт range только
     // оператора). Совпадает с прежним expandTermRangeToChildren, но охват читается из детей.
     if (m_left && m_right) {
         const MapperRange l = m_left->range();
@@ -1194,8 +1194,8 @@ MapperRange VarDecl::range() const {
     if (!m_term) {
         return {};
     }
-    // [имя, инициализатор] — обе стороны обязательны (прежний expandTermRangeToChildren).
-    // Имя из nameRange() (m_term->m_left), инициализатор — узел-ребёнок.
+    // [имя, инициализатор] - обе стороны обязательны (прежний expandTermRangeToChildren).
+    // Имя из nameRange() (m_term->m_left), инициализатор - узел-ребёнок.
     if (m_initializer) {
         const MapperRange n = nameRange();
         const MapperRange init = m_initializer->range();

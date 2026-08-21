@@ -1,9 +1,9 @@
-// token_type.hpp — специализированные AST-узлы: IdentName и IdentType
+// token_type.hpp - специализированные AST-узлы: IdentName и IdentType
 //
 // Иерархия:
 //   AstNodeBase
-//     └── IdentName    (kind = Ident, имя в text())
-//          └── IdentType (kind = TypeName, добавляет m_dims, m_params)
+//     └-- IdentName    (kind = Ident, имя в text())
+//          └-- IdentType (kind = TypeName, добавляет m_dims, m_params)
 
 #pragma once
 
@@ -15,7 +15,7 @@
 
 namespace trust {
 
-/// IdentType — узел AST для хранения типа вида :Ident[...](...).
+/// IdentType - узел AST для хранения типа вида :Ident[...](...).
 /// kind всегда ParserToken::Kind::TypeName.
 /// Имя типа (то, что после ':') хранится в унаследованном text().
 class IdentType : public IdentName {

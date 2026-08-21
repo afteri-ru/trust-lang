@@ -1,8 +1,8 @@
-// term_to_ast.cpp — TermID-visitor конвертации Term -> AstNode.
+// term_to_ast.cpp - TermID-visitor конвертации Term -> AstNode.
 //
-// ЕДИНЫЙ источник TermID->Kind — X-макрос TERMS в syntax/term_types.h
+// ЕДИНЫЙ источник TermID->Kind - X-макрос TERMS в syntax/term_types.h
 // (записи _(NAME, Kind)). Записи _(NAME) без Kind в интерфейс TermVisitor НЕ попадают:
-// если такой TermID реально доходит до конвертации (convert) — это ошибка логики
+// если такой TermID реально доходит до конвертации (convert) - это ошибка логики
 // (узел без Kind не должен строиться), поэтому dispatchTerm default = FAULT.
 // TermID::END обрабатывается в convert (возврат nullptr) и dispatchTerm (FAULT).
 //
@@ -31,7 +31,7 @@
 
 namespace trust {
 
-// ── Диспетчер TermID-visitor (из TERMS) ──
+// -- Диспетчер TermID-visitor (из TERMS) --
 
 AstNodePtr dispatchTerm(const trust::TermPtr& term, TermVisitor& visitor, Context& ctx) {
     switch (term->getTermID()) {
@@ -57,7 +57,7 @@ AstNodePtr dispatchTerm(const trust::TermPtr& term, TermVisitor& visitor, Contex
     default:
         // TermID без Kind (AWAIT/YIELD/WHEN_ALL/WHEN_ANY/FILLING и т.п.): синтаксис
         // распознан лексером/грамматикой, но конвертация в AstNode не реализована.
-        // Это НЕ внутренняя ошибка — пользовательская конструкция, требующая диагностики
+        // Это НЕ внутренняя ошибка - пользовательская конструкция, требующая диагностики
         // с позицией в исходном файле. Возвращаем nullptr: convert/convertSeq его
         // безопасно пропускают, а конвейер (pipeline) не запускает semantic/transpile
         // при наличии ошибок (см. runPipeline: проверка errorCount после ParseAST).
@@ -66,7 +66,7 @@ AstNodePtr dispatchTerm(const trust::TermPtr& term, TermVisitor& visitor, Contex
     }
 }
 
-// ── Вспомогательные функции (файловая область) ──
+// -- Вспомогательные функции (файловая область) --
 
 static void convertAttrsToNode(const trust::TermPtr& term, AstNodePtr& node, Context& ctx) {
     if (!node) {
@@ -74,8 +74,8 @@ static void convertAttrsToNode(const trust::TermPtr& term, AstNodePtr& node, Con
     }
     if (auto* attrNode = node->as_attr()) {
         // Для объявлений (VarDecl/FuncDecl) признак имени ('^' и @[ ... ]@) живёт на терме-имени
-        // (m_left оператора `:=`/`::=`), а не на самом операторном терме — берём атрибуты оттуда.
-        // Для остальных узлов источник атрибутов — сам терм.
+        // (m_left оператора `:=`/`::=`), а не на самом операторном терме - берём атрибуты оттуда.
+        // Для остальных узлов источник атрибутов - сам терм.
         const trust::TermPtr source = (node->kind() == ParserToken::Kind::VarDecl || node->kind() == ParserToken::Kind::FuncDecl) ? term->m_left : term;
         if (source) {
             // Пользовательские атрибуты @[ ... ]@, собранные парсером в source->m_attr.
@@ -113,19 +113,19 @@ static void convertAttrsToNode(const trust::TermPtr& term, AstNodePtr& node, Con
             }
             // Иммутабельность ('^' в имени) → attr::ReadOnly с ручным признаком.
             // Единый хелпер (applyReadonlyFromCaret): та же логика, что в IdentName.
-            // '^' при этом не срезается здесь — это делает normalizeTermText конструкторов.
+            // '^' при этом не срезается здесь - это делает normalizeTermText конструкторов.
             applyReadonlyFromCaret(*attrNode, source->getText(), &ctx.attrs());
         }
     }
 }
 
 /// Структурный предикат «есть конвертируемые дети» для Ident-терма (выбор CallExpr vs IdentName).
-/// Предикат `m_args || m_sequence || m_left || m_right`: наличие m_args (даже пустого — `f()`) —
-/// это вызов → CallExpr; m_sequence/m_left/m_right — составные дети (не-null, не-END).
-/// (Для Ident m_left всегда обходится — в отличие от INT_* в convertSeq.)
+/// Предикат `m_args || m_sequence || m_left || m_right`: наличие m_args (даже пустого - `f()`) -
+/// это вызов → CallExpr; m_sequence/m_left/m_right - составные дети (не-null, не-END).
+/// (Для Ident m_left всегда обходится - в отличие от INT_* в convertSeq.)
 static bool hasConvertibleChildren(const trust::TermPtr& term) {
     if (term->isCall()) {
-        return true; // f() / f(a) — вызов, даже без аргументов
+        return true; // f() / f(a) - вызов, даже без аргументов
     }
     for (const auto& child : term->m_sequence) {
         if (child && child->getTermID() != trust::TermID::END) {
@@ -141,15 +141,15 @@ static bool hasConvertibleChildren(const trust::TermPtr& term) {
     return false;
 }
 
-// ── TermVisitorDefault: генерируемые «типовые» visit-методы ──
+// -- TermVisitorDefault: генерируемые «типовые» visit-методы --
 // Каждый visit_<NAME> делегирует в convertForKind<Kind>: класс-селекция (Ident, control-flow)
-// либо generic по node_type_for_kind_t<Kind>. Раскладка детей — в терм-конструкторах узлов.
+// либо generic по node_type_for_kind_t<Kind>. Раскладка детей - в терм-конструкторах узлов.
 
 template <ParserToken::Kind K>
 AstNodePtr TermVisitorDefault::convertForKind(const trust::TermPtr& term, Context& ctx) {
     if constexpr (K == ParserToken::Kind::NotApplicable) {
         // TermID с Kind=NotApplicable (например COMMA_LEXEME) НИКОГДА не должен доходить
-        // до конвертации в AstNode. Если он сюда попал — это ошибка логики (в отличие от
+        // до конвертации в AstNode. Если он сюда попал - это ошибка логики (в отличие от
         // Unimplemented, где конструкция лишь не реализована). Диагностируем как фатальную.
         ctx.diag().report(Severity::Fatal, term->m_mapperRange, "Конструкция '{}' неприменима (не должна появляться в AST)",
                           trust::toString(term->getTermID()));
@@ -157,14 +157,14 @@ AstNodePtr TermVisitorDefault::convertForKind(const trust::TermPtr& term, Contex
     } else if constexpr (K == ParserToken::Kind::Unimplemented) {
         // TermID с Kind=Unimplemented (AWAIT/YIELD/WHEN_ALL/WHEN_ANY/FILLING/TYPENAME/PARENT и т.п.):
         // синтаксис распознан лексером/грамматикой, но конвертация в AstNode не реализована.
-        // Это НЕ внутренняя ошибка — пользовательская конструкция, требующая диагностики с позицией
+        // Это НЕ внутренняя ошибка - пользовательская конструкция, требующая диагностики с позицией
         // в исходном файле. Узел не строится; convert/convertSeq его безопасно пропускают, а конвейер
         // (pipeline) не запускает semantic/transpile при наличии ошибок (runPipeline: errorCount после ParseAST).
         ctx.diag().report(Severity::Error, term->m_mapperRange, "Конструкция '{}' не реализована", trust::toString(term->getTermID()));
         return nullptr;
     } else if constexpr (K == ParserToken::Kind::Ident) {
         // Класс-селекция Ident→CallExpr vs IdentName: структурный предикат
-        // «есть конвертируемые дети». Раскладка детей (callee/args) — в CallExpr-конструкторе.
+        // «есть конвертируемые дети». Раскладка детей (callee/args) - в CallExpr-конструкторе.
         if (hasConvertibleChildren(term)) {
             return std::make_shared<CallExpr>(ParserToken::Kind::CallExpr, term, &ctx);
         }
@@ -177,11 +177,11 @@ AstNodePtr TermVisitorDefault::convertForKind(const trust::TermPtr& term, Contex
     } else {
         using NT = node_type_for_kind_t<K>;
         if constexpr (std::is_same_v<NT, AstNodeBase>) {
-            // Kind=END (TermID::NONE) — не конвертируется.
+            // Kind=END (TermID::NONE) - не конвертируется.
             FAULT("convertForKind: TermID с Kind=END достиг конвертации");
             return nullptr;
         } else {
-            // Охват операторного терма (Binary) вычисляется на лету в Binary::range() — Term не мутируется.
+            // Охват операторного терма (Binary) вычисляется на лету в Binary::range() - Term не мутируется.
             return std::make_shared<NT>(K, term, &ctx);
         }
     }
@@ -207,7 +207,7 @@ TERMS(TRUST_TVD_DEF_CASE)
 #undef TRUST_TVD_DEF_GENCASE
 #undef TRUST_TVD_DEF_NOCASE
 
-// ── TermToAstConverter ──
+// -- TermToAstConverter --
 
 AstNodePtr TermToAstConverter::convert(const trust::TermPtr& term) {
     if (!term || term->getTermID() == trust::TermID::END) {
@@ -218,8 +218,8 @@ AstNodePtr TermToAstConverter::convert(const trust::TermPtr& term) {
     AstNodePtr node = dispatchTerm(term, *this, m_ctx);
 
     // Документирующий комментарий, привязанный грамматикой к терму-идентификатору
-    // (объявлению), переносим в узел (term->m_docs — см. include/syntax/term.h). Для
-    // не-объявлений m_docs пуст — док остаётся отдельным sibling-узлом Document.
+    // (объявлению), переносим в узел (term->m_docs - см. include/syntax/term.h). Для
+    // не-объявлений m_docs пуст - док остаётся отдельным sibling-узлом Document.
     if (node && !term->m_docs.empty() && isDeclKindForDocs(node->kind())) {
         std::string d;
         for (const auto& doc : term->m_docs) {
@@ -231,7 +231,7 @@ AstNodePtr TermToAstConverter::convert(const trust::TermPtr& term) {
         node->documentation = std::move(d);
     }
 
-    // Document — чистый leaf (полный текст комментария): никакой '^'-нормализации,
+    // Document - чистый leaf (полный текст комментария): никакой '^'-нормализации,
     // атрибутов или диагностики иммутабельности (комментарий может оканчиваться на '^').
     if (node && node->kind() == ParserToken::Kind::Document) {
         return node;
@@ -239,8 +239,8 @@ AstNodePtr TermToAstConverter::convert(const trust::TermPtr& term) {
 
     // Нормализация ':' (TypeName) и '^' (иммутабельность) выполняется терм-конструкторами
     // узлов (normalizeTermText). Здесь остаётся только диагностика: '^' неприменим к меткам
-    // блоков/областям имён — ошибка синтеза (конструктором текст при этом не срезается).
-    // Исключение: тип-вызов `:Type^(args)` (DictLiteralNode с prefix=true) — '^' это const
+    // блоков/областям имён - ошибка синтеза (конструктором текст при этом не срезается).
+    // Исключение: тип-вызов `:Type^(args)` (DictLiteralNode с prefix=true) - '^' это const
     // контейнера (attr::ReadOnly на m_type, ставится в visit_TYPE), валидный квалификатор типа.
     if (!text.empty() && text.back() == '^' && node && !canHaveImmutableQualifier(node->kind())) {
         const bool typeCallPrefix = node->kind() == ParserToken::Kind::DictLiteral && static_cast<const DictLiteralNode*>(node.get())->prefix;
@@ -258,17 +258,17 @@ void TermToAstConverter::convertSeq(const trust::TermPtr& term, std::vector<AstN
         return;
     }
 
-    // ── m_sequence (children stored in a vector, e.g. members of a block) ──
-    // SEQUENCE-терм — синтаксический контейнер операторов (`sequence` non-terminal) и doc-bundle,
+    // -- m_sequence (children stored in a vector, e.g. members of a block) --
+    // SEQUENCE-терм - синтаксический контейнер операторов (`sequence` non-terminal) и doc-bundle,
     // НЕ пользовательский скоуп: рекурсивно разворачиваем, иначе вокруг тела блока/функции/дока
-    // появляется лишний ScopeBlock-слой. Пользовательские скоупы — только BLOCK-термы.
+    // появляется лишний ScopeBlock-слой. Пользовательские скоупы - только BLOCK-термы.
     for (const auto& child : term->m_sequence) {
         if (child) {
             flattenInto(child, out);
         }
     }
 
-    // ── m_args (named arguments, e.g. function call arguments) ──
+    // -- m_args (named arguments, e.g. function call arguments) --
     if (term->m_args) {
         for (const auto& [name, argTerm] : *term->m_args) {
             (void)name; // Имя аргумента уже сохранено в ARGUMENT-обёртке (m_left)
@@ -282,10 +282,10 @@ void TermToAstConverter::convertSeq(const trust::TermPtr& term, std::vector<AstN
         }
     }
 
-    // ── m_left ──
+    // -- m_left --
     // Для jump-термов (INT_PLUS/INT_MINUS/INT_REPEAT) m_left всегда null: значение живёт
-    // в m_right, label/namespace — в m_text (переносится в JumpStmt::m_label конструктором).
-    // Поэтому спец-исключение не требуется — jump-терм обходится единообразно.
+    // в m_right, label/namespace - в m_text (переносится в JumpStmt::m_label конструктором).
+    // Поэтому спец-исключение не требуется - jump-терм обходится единообразно.
     if (term->m_left) {
         AstNodePtr ln = convert(term->m_left);
         if (ln) {
@@ -293,7 +293,7 @@ void TermToAstConverter::convertSeq(const trust::TermPtr& term, std::vector<AstN
         }
     }
 
-    // ── m_right (chained list) ──
+    // -- m_right (chained list) --
     if (term->m_right) {
         trust::TermPtr cur = term->m_right;
         while (cur && cur->getTermID() != trust::TermID::END) {
@@ -310,7 +310,7 @@ void TermToAstConverter::flattenInto(const trust::TermPtr& term, std::vector<Ast
     if (!term) {
         return;
     }
-    // SEQUENCE-терм — синтаксический контейнер (последовательность операторов, doc-bundle):
+    // SEQUENCE-терм - синтаксический контейнер (последовательность операторов, doc-bundle):
     // разворачиваем рекурсивно в детей. BLOCK-термы (пользовательские скоупы) и прочие
     // конвертируются как есть (ScopeBlock для BLOCK).
     if (term->getTermID() == trust::TermID::SEQUENCE) {
@@ -338,7 +338,7 @@ std::vector<AstNodePtr> TermToAstConverter::termToAst(const trust::TermPtr& term
     return result;
 }
 
-// ── Спец-термы ──
+// -- Спец-термы --
 
 AstNodePtr TermToAstConverter::visit_MODULE(const trust::TermPtr& term, Context& ctx) {
     if (!term->isCall()) {
@@ -349,8 +349,8 @@ AstNodePtr TermToAstConverter::visit_MODULE(const trust::TermPtr& term, Context&
         return std::make_shared<AstNodeAttr>(ParserToken::Kind::Ident, term);
     }
     auto mn = std::make_shared<ModuleNode>(ParserToken::Kind::ModuleDecl, term, &ctx);
-    // Аргументы оператора загрузки `\module(mod, masks)` — список масок фильтра
-    // экспорт-интерфейса (glob `*`/`?`, через запятую = OR). Без аргументов — все экспорты.
+    // Аргументы оператора загрузки `\module(mod, masks)` - список масок фильтра
+    // экспорт-интерфейса (glob `*`/`?`, через запятую = OR). Без аргументов - все экспорты.
     std::string masks;
     if (term->m_args) {
         for (const auto& [name, arg] : *term->m_args) {
@@ -367,21 +367,21 @@ AstNodePtr TermToAstConverter::visit_MODULE(const trust::TermPtr& term, Context&
 }
 
 AstNodePtr TermToAstConverter::visit_CREATE_NAME(const trust::TermPtr& term, Context& ctx) {
-    // CREATE_NAME (`:=`) — оператор объявления функции И переменной (единый синтаксический узел).
+    // CREATE_NAME (`:=`) - оператор объявления функции И переменной (единый синтаксический узел).
     // Класс-селекция по форме m_left: сигнатура функции (m_left->isCall()) → FuncDecl;
-    // иначе переменная → VarDecl. Раскладка детей — в FuncDecl/VarDecl конструкторах.
+    // иначе переменная → VarDecl. Раскладка детей - в FuncDecl/VarDecl конструкторах.
     // Для переменной охват [имя, expr] вычисляется в VarDecl::range(); диапазон функции
-    // ([имя, оператор], без тела) — в FuncDecl::range() (признак функции).
+    // ([имя, оператор], без тела) - в FuncDecl::range() (признак функции).
     if (term->m_left && term->m_left->isCall()) {
         return std::make_shared<FuncDecl>(ParserToken::Kind::FuncDecl, term, &ctx);
     }
     // Деструктуризация `a, b, ... := source;`: многоимённый LHS (цепочка m_left->m_left) + RHS
-    // (`... source` — spread-коллекция, или выражение-кортеж). `x := ...;` (forward, одно имя) — НЕ.
+    // (`... source` - spread-коллекция, или выражение-кортеж). `x := ...;` (forward, одно имя) - НЕ.
     const bool isDestructure = term->m_left && term->m_left->m_left && term->m_right;
     if (isDestructure) {
         return std::make_shared<DestructureDecl>(ParserToken::Kind::DestructureDecl, term, &ctx);
     }
-    // `x := ... source;` — spread с ОДНОЙ целью: неоднозначно (вся коллекция или первый элемент?)
+    // `x := ... source;` - spread с ОДНОЙ целью: неоднозначно (вся коллекция или первый элемент?)
     // и не поддерживается (точная привязка/rest требует маркер `rest...` или список имён). Guard.
     if (term->m_right && term->m_right->getTermID() == trust::TermID::ELLIPSIS && term->m_right->m_right) {
         ctx.diag().report(Severity::Error, term->m_right->m_mapperRange,
@@ -392,10 +392,10 @@ AstNodePtr TermToAstConverter::visit_CREATE_NAME(const trust::TermPtr& term, Con
 }
 
 AstNodePtr TermToAstConverter::visit_ASSIGN(const trust::TermPtr& term, Context& ctx) {
-    // `=` — оператор присваивания. Многоимённый LHS (`a, b = ... source;`, assign_items: цепочка
-    // m_left) + RHS (`... source` — spread-коллекция, или выражение-кортеж) → деструктуризация-
-    // присваивание (DestructureDecl, m_isAssign=true): цели — уже существующие переменные, в них
-    // записываются элементы источника. Одиночный `a = expr` — обычный AssignOp (generic-путь).
+    // `=` - оператор присваивания. Многоимённый LHS (`a, b = ... source;`, assign_items: цепочка
+    // m_left) + RHS (`... source` - spread-коллекция, или выражение-кортеж) → деструктуризация-
+    // присваивание (DestructureDecl, m_isAssign=true): цели - уже существующие переменные, в них
+    // записываются элементы источника. Одиночный `a = expr` - обычный AssignOp (generic-путь).
     const bool isDestructure = term->m_left && term->m_left->m_left && term->m_right;
     if (isDestructure) {
         return std::make_shared<DestructureDecl>(ParserToken::Kind::DestructureDecl, term, &ctx);
@@ -416,7 +416,7 @@ void appendDictElementsFromArgs(Context& ctx, const trust::TermPtr& term, DictLi
         AstNodePtr typeAnn; // явная аннотация типа члена (`name:Type`)
         if (argTerm && argTerm->getTermID() == trust::TermID::ARGUMENT) {
             value = convertChild(ctx, argTerm->m_right); // именованный name=value: правая часть
-            // Тип может лежать на ARGUMENT (m_type) или на его значении (m_right->m_type) —
+            // Тип может лежать на ARGUMENT (m_type) или на его значении (m_right->m_type) -
             // грамматика `name type_item named_rhs` ставит его на значение.
             if (argTerm->m_type) {
                 typeAnn = convertChild(ctx, argTerm->m_type);
@@ -432,11 +432,11 @@ void appendDictElementsFromArgs(Context& ctx, const trust::TermPtr& term, DictLi
 
         std::string elname = name;
         // ЕДИНЫЙ узел аргумента: (имя из ArgsPair, явный тип, значение). Безнарный член enum/variant
-        // `HIGH` (имя в value-Ident) НЕ сдвигается здесь — имя/значение разрешает анализатор
-        // (enumVariantMember), т.к. в словаре голое значение — это значение, а не имя.
+        // `HIGH` (имя в value-Ident) НЕ сдвигается здесь - имя/значение разрешает анализатор
+        // (enumVariantMember), т.к. в словаре голое значение - это значение, а не имя.
         // Именованный ARGUMENT-член (name=value) строим ЧЕРЕЗ ТЕРМ: сохраняем исходный source-range
         // члена (иначе range() невалиден, т.к. ручной конструктор без терма). Необходимо для
-        // source-map/name-маппинга членов Enum/Variant/Dict. Голые значения (безымянные) — как было.
+        // source-map/name-маппинга членов Enum/Variant/Dict. Голые значения (безымянные) - как было.
         AstNodePtr arg;
         if (argTerm && argTerm->getTermID() == trust::TermID::ARGUMENT) {
             arg = std::make_shared<ArgNode>(argTerm, std::move(typeAnn), std::move(value));
@@ -448,8 +448,8 @@ void appendDictElementsFromArgs(Context& ctx, const trust::TermPtr& term, DictLi
 }
 
 // Является ли аргумент `Tuple(...)` «типовой формой»: TYPE-терм (`:Rational`) или имя с типом
-// (`sum:Rational` — m_type задан). В позиции аннотации типа аргументы — типы, в позиции
-// литерала — значения (`1`, `'x'`). Различает `Tuple(:Rational, ...)` (тип) от `:Tuple(1, ...)` (литерал).
+// (`sum:Rational` - m_type задан). В позиции аннотации типа аргументы - типы, в позиции
+// литерала - значения (`1`, `'x'`). Различает `Tuple(:Rational, ...)` (тип) от `:Tuple(1, ...)` (литерал).
 bool argIsTypeForm(const trust::TermPtr& argTerm) {
     if (!argTerm) {
         return false;
@@ -457,7 +457,7 @@ bool argIsTypeForm(const trust::TermPtr& argTerm) {
     if (argTerm->getTermID() == trust::TermID::TYPE) {
         return true;
     }
-    return argTerm->m_type != nullptr; // name:Type — имя с типом (не значение)
+    return argTerm->m_type != nullptr; // name:Type - имя с типом (не значение)
 }
 
 bool isAllTupleTypeArgs(const trust::TermPtr& term) {
@@ -479,7 +479,7 @@ AstNodePtr TermToAstConverter::visit_DICT(const trust::TermPtr& term, Context& c
     // Литерал словаря `(1, two=2, name=3,)` (возможно типизированный `(...):Type`) →
     // DictLiteralNode. Элементы нормализуются к ЕДИНОЙ форме Binary(AssignOp). Имя берём
     // из канонической пары (name, term) грамматики `args` (argName вычислен в parser.y).
-    // Аннотация типа сохраняется механически (m_type) — её интерпретирует анализатор по
+    // Аннотация типа сохраняется механически (m_type) - её интерпретирует анализатор по
     // типу из реестра (Tuple → kind=Tuple и структурный кортеж; иначе конструкция/каст).
     auto node = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, term);
     node->m_type = term && term->m_type ? convertChild(ctx, term->m_type) : nullptr;
@@ -489,8 +489,8 @@ AstNodePtr TermToAstConverter::visit_DICT(const trust::TermPtr& term, Context& c
 
 AstNodePtr TermToAstConverter::visit_TENSOR(const trust::TermPtr& term, Context& ctx) {
     // Литерал массива `[1,2:Int8,3,]` (возможно типизированный `[...]:Int32`) → DictLiteralNode
-    // с kind=ArrayInit (позиционные элементы; имя-метка у элемента — ""). Аннотация `]:Type`
-    // сохраняется механически в m_type — интерпретирует анализатор (тип элемента массива).
+    // с kind=ArrayInit (позиционные элементы; имя-метка у элемента - ""). Аннотация `]:Type`
+    // сохраняется механически в m_type - интерпретирует анализатор (тип элемента массива).
     auto node = std::make_shared<DictLiteralNode>(ParserToken::Kind::ArrayInit, term);
     node->m_type = term && term->m_type ? convertChild(ctx, term->m_type) : nullptr;
     appendDictElementsFromArgs(ctx, term, *node);
@@ -501,7 +501,7 @@ AstNodePtr TermToAstConverter::visit_RANGE(const trust::TermPtr& term, Context& 
     // Литерал диапазона `start..stop[..step]` → RangeExpr. Generic-путь (Sequence-конструктор)
     // строит m_body из детей в m_args (порядок start/stop/step). Дополнительно переносим явные
     // аннотации типа операндов (`start:Type`/`stop:Type`, грамматика `digits_literal type_item`
-    // кладёт их в m_type терма-операнда) в RangeExpr::operandTypes — параллельно m_body.
+    // кладёт их в m_type терма-операнда) в RangeExpr::operandTypes - параллельно m_body.
     auto node = std::make_shared<RangeExpr>(ParserToken::Kind::RangeExpr, term, &ctx);
     if (term && term->m_args) {
         node->operandTypes.reserve(term->m_args->size());
@@ -515,23 +515,23 @@ AstNodePtr TermToAstConverter::visit_RANGE(const trust::TermPtr& term, Context& 
 
 AstNodePtr TermToAstConverter::visit_ARGUMENT(const trust::TermPtr& term, Context& ctx) {
     // ЕДИНЫЙ узел аргумента (name в m_left, тип в m_type, значение в m_right) → ArgNode.
-    // Раскладка слотов — в ArgNode-конструкторе (ast_nodes.cpp).
+    // Раскладка слотов - в ArgNode-конструкторе (ast_nodes.cpp).
     return std::make_shared<ArgNode>(ParserToken::Kind::ArgNode, term, &ctx);
 }
 
 AstNodePtr TermToAstConverter::visit_TYPE(const trust::TermPtr& term, Context& ctx) {
-    // `:Type(...)` — префиксная форма: аннотация типа (в позиции типа) или литерал/конструкция
+    // `:Type(...)` - префиксная форма: аннотация типа (в позиции типа) или литерал/конструкция
     // (в позиции значения). Терм-слой делает ТОЛЬКО механическую раскладку, класс узла
     // (аннотация | кортеж | каст | конструктор) определяется ПОЗЖЕ анализатором по типу из
     // реестра (см. MEMORY.md). Никаких сравнений имён типов здесь нет.
-    // Конструкция/литерал — когда есть вызов-аргументы (m_args) и m_type НЕ является
-    // размерностями `[...]` (ARGS-терм; `Matrix[2,3](Float)` — аннотация с dims → default).
-    // Хвостовая элементная аннотация `:Type(...):Elem` (m_type — TYPE-терм) допускается.
+    // Конструкция/литерал - когда есть вызов-аргументы (m_args) и m_type НЕ является
+    // размерностями `[...]` (ARGS-терм; `Matrix[2,3](Float)` - аннотация с dims → default).
+    // Хвостовая элементная аннотация `:Type(...):Elem` (m_type - TYPE-терм) допускается.
     if (term->m_args && !(term->m_type && term->m_type->getTermID() == trust::TermID::ARGS)) {
-        // Параметризованная АННОТАЦИЯ типа `Tuple(:Rational, sum:Rational)` (все аргументы —
+        // Параметризованная АННОТАЦИЯ типа `Tuple(:Rational, sum:Rational)` (все аргументы -
         // типы, `:Rational` / `name:Type`) → IdentType с параметрами (позиционные → IdentType,
         // именованные → ArgNode(name, type)), чтобы тип не терялся. Это решение чисто
-        // механическое (аргументы — ТИПЫ), не зависит от имени типа.
+        // механическое (аргументы - ТИПЫ), не зависит от имени типа.
         if (isAllTupleTypeArgs(term)) {
             std::optional<std::vector<AstNodePtr>> params;
             params.emplace();
@@ -543,29 +543,29 @@ AstNodePtr TermToAstConverter::visit_TYPE(const trust::TermPtr& term, Context& c
                     params->push_back(convertChild(ctx, argTerm)); // позиционный :Rational → IdentType
                 } else if (argTerm->m_type) {
                     // именованный sum:Rational → ArgNode("sum", :Rational). Имя из самого терма
-                    // (аргумент — NAME-терм с m_type; в ArgsList имя пустое, т.к. это не ARGUMENT).
+                    // (аргумент - NAME-терм с m_type; в ArgsList имя пустое, т.к. это не ARGUMENT).
                     params->push_back(std::make_shared<ArgNode>(std::string(argTerm->getText()), convertChild(ctx, argTerm->m_type)));
                 }
             }
             return std::make_shared<IdentType>(term, std::nullopt, std::move(params));
         }
-        // `:Type(args)` с НЕ-типовыми аргументами — литерал/конструкция/вызов (значения).
+        // `:Type(args)` с НЕ-типовыми аргументами - литерал/конструкция/вызов (значения).
         // ЕДИНЫЙ узел DictLiteralNode с аннотацией типа (m_type = контейнер). Анализатор по
         // СЛОТУ (тип/значение) и типу из реестра решает: в value-слоте Tuple → kind=Tuple,
-        // иначе — каст/конструктор (кодогенерация); в type-слоте аннотация — resolveType.
+        // иначе - каст/конструктор (кодогенерация); в type-слоте аннотация - resolveType.
         // Константность `^` (`:Array^`) → attr::ReadOnly на контейнере (→ std::array).
         // Хвостовая элементная аннотация `:Type(...):Elem` (term->m_type) → arrayElementAnnotation.
         {
             auto node = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, term);
-            // Контейнер типа: IdentType из терма — normalizeTermText конструктора срезает
+            // Контейнер типа: IdentType из терма - normalizeTermText конструктора срезает
             // ведущий ':' и хвостовой '^' (`:Array^` → "Array").
             node->m_type = std::make_shared<IdentType>(term);
             // Константность '^' в имени контейнера → attr::ReadOnly. Единый хелпер
             // applyReadonlyFromCaret (как в convertAttrsToNode) получает ИСХОДНЫЙ текст терма
             // (в т.ч. '^'), сам определяет наличие суффикса и применяет атрибут; '^' здесь не
-            // срезается — это сделал normalizeTermText конструктора.
+            // срезается - это сделал normalizeTermText конструктора.
             applyReadonlyFromCaret(static_cast<AstNodeAttr&>(*node->m_type), term->getText(), &ctx.attrs());
-            node->prefix = true; // `:Type(args)` — префиксная форма (type-call/конструкция)
+            node->prefix = true; // `:Type(args)` - префиксная форма (type-call/конструкция)
             if (term->m_type) {
                 node->arrayElementAnnotation = convertChild(ctx, term->m_type);
             }
@@ -578,7 +578,7 @@ AstNodePtr TermToAstConverter::visit_TYPE(const trust::TermPtr& term, Context& c
 
 namespace {
 
-// `"fmt"(args)` / `'fmt'(args)` — строка как формат-строка (правило `string: strtype call`,
+// `"fmt"(args)` / `'fmt'(args)` - строка как формат-строка (правило `string: strtype call`,
 // parser.y): аргументы цепляются к строковому терму. Строим CallExpr(callee=Literal),
 // чтобы транспилятор мог эмитить `std::format(fmt, args...)`. Без аргументов обычный литерал.
 AstNodePtr buildStringFormatCall(ParserToken::Kind litKind, const trust::TermPtr& term, Context& ctx) {
@@ -611,7 +611,7 @@ AstNodePtr TermToAstConverter::visit_STRCHAR(const trust::TermPtr& term, Context
     return TermVisitorDefault::visit_STRCHAR(term, ctx);
 }
 
-// ── Свободные хелперы конвертации (см. term_to_ast.hpp) ──
+// -- Свободные хелперы конвертации (см. term_to_ast.hpp) --
 // Устраняют дублирование `TermToAstConverter conv{ctx}; ...` в терм-конструкторах узлов.
 
 AstNodePtr convertChild(Context& ctx, const trust::TermPtr& term) {
@@ -629,7 +629,7 @@ void convertModuleBody(Context& ctx, const trust::TermPtr& term, std::vector<Ast
         return;
     }
     TermToAstConverter conv{ctx};
-    // SEQUENCE-терм — контейнер тела модуля: разворачиваем его детей (convertSeq разворачивает
+    // SEQUENCE-терм - контейнер тела модуля: разворачиваем его детей (convertSeq разворачивает
     // вложенные SEQUENCE-термы, пользовательские { ... }/BLOCK-термы сохраняет как ScopeBlock).
     // Модуль сам открывает глобальный скоуп, поэтому ScopeBlock-обёртка не создаётся.
     if (term->getTermID() == trust::TermID::SEQUENCE) {

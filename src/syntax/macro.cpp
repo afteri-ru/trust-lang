@@ -113,7 +113,7 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
                 macro_done = *iter;
                 macro_best = matched;
             } else if (matched == macro_best && *iter != macro_done) {
-                // Два РАЗНЫХ макроса группы потребляют одинаковое число термов — настоящая
+                // Два РАЗНЫХ макроса группы потребляют одинаковое число термов - настоящая
                 // неоднозначность выбора (не путать с разными арностями одной группы).
                 parser.m_ctx.diag().report(Severity::Error, macro_done->m_mapperRange, "Macro duplication '{}' and '{}'!", macro_done->toString(),
                                            (*iter)->toString());
@@ -128,7 +128,7 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
                 parser.m_ctx.diag().report(Severity::Fatal, macro_done->m_mapperRange, "Macro expansion '{}' stack overflow?", macro_done->toString());
             }
 
-            // Новое дерево раскрытия макроса — сброс кэша гигиенических имён
+            // Новое дерево раскрытия макроса - сброс кэша гигиенических имён
             if (parser.m_macro_depth == 0) {
                 parser.m_hygienic_names.clear();
             }
@@ -145,7 +145,7 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
 
             // Диапазон вызова макроса: от начала первого токена до конца последнего
             // потреблённого токена (индекс size_remove-1). Токен на индексе size_remove
-            // уже НЕ входит в вызов — использовать его нельзя (для операторных макросов
+            // уже НЕ входит в вызов - использовать его нельзя (для операторных макросов
             // $... он может выйти за границы буфера).
             const auto& last_call_term = parser.m_macro_analisys_buff[size_remove - 1];
 
@@ -158,7 +158,7 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
             } else {
                 def_range.end = macro_done->m_right->m_mapperRange.end;
             }
-            // Начало — имя макроса (m_left), но только если оно в том же файле, что и
+            // Начало - имя макроса (m_left), но только если оно в том же файле, что и
             // конец тела (иначе получится кросс-файловый range → EXPECT). Для простых
             // алиасов, где имя в другом файле, оставляем начало тела (прежнее поведение).
             if (macro_done->m_left && !macro_done->m_left->m_mapperRange.begin.isInvalid() &&
@@ -171,7 +171,7 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
             }
 
             // Реальный range замещаемого фрагмента (вызова макроса). Все вставленные лексемы
-            // раскрытого тела должны получить именно его location — иначе клоны тела (из @dsl)
+            // раскрытого тела должны получить именно его location - иначе клоны тела (из @dsl)
             // сохраняют range DSL-определения, и грамматика, комбинирующая range с call-site
             // токенами, даёт begin > end (разные файлы) → EXPECT(b <= e).
             MapperRange call_range{parser.m_macro_analisys_buff.front()->m_mapperRange.begin, last_call_term->m_mapperRange.end};
@@ -374,7 +374,7 @@ bool Macro::CheckMacro(const TermPtr& term) {
             }
         }
         // LOCAL pattern names inside parentheses (e.g. $result in return($result))
-        // are matched in the macro body as @$name — add them to the template set.
+        // are matched in the macro body as @$name - add them to the template set.
         if (isLocalName(args->at(i).second->getText())) {
             tmpl.insert(args->at(i).second->getText());
         }
@@ -440,7 +440,7 @@ TermPtr Macro::EvalOpMacros(TermPtr& term) {
     }
 
     if (!CheckMacro(term)) {
-        return term; // макрос некорректен (мягкие ошибки) — не регистрируем
+        return term; // макрос некорректен (мягкие ошибки) - не регистрируем
     }
 
     TermPtr macro = GetMacroById(GetMacroId(term));
@@ -455,8 +455,8 @@ TermPtr Macro::EvalOpMacros(TermPtr& term) {
         SequenceType* macro_list = FindMacroList(toMacroHash(term));
         if (macro_list) {
             for (auto iter = macro_list->begin(); iter != macro_list->end(); ++iter) {
-                // Разная арность (число термов сигнатуры) — это РАЗНЫЕ макросы одной группы
-                // (общий первый терм). Дубликат — только при полном совпадении сигнатуры.
+                // Разная арность (число термов сигнатуры) - это РАЗНЫЕ макросы одной группы
+                // (общий первый терм). Дубликат - только при полном совпадении сигнатуры.
                 if (GetMacroId(*iter).size() != GetMacroId(term).size()) {
                     continue;
                 }
@@ -484,7 +484,7 @@ TermPtr Macro::EvalOpMacros(TermPtr& term) {
         if (existing_list) {
             for (auto iter = existing_list->begin(); iter != existing_list->end(); ++iter) {
                 TermPtr temp2 = *iter;
-                // Разная арность — это РАЗНЫЕ макросы одной группы, не дубликаты.
+                // Разная арность - это РАЗНЫЕ макросы одной группы, не дубликаты.
                 if (GetMacroId(*iter).size() != GetMacroId(term).size()) {
                     continue;
                 }
@@ -505,7 +505,7 @@ TermPtr Macro::EvalOpMacros(TermPtr& term) {
         if (macro_list) {
             macro_list->push_back(macro);
         } else {
-            // Создание нового макроса — в верхнем (текущем) скоупе.
+            // Создание нового макроса - в верхнем (текущем) скоупе.
             m_scopes.back()[toMacroHash(macro)].push_back(macro);
         }
     }
@@ -529,7 +529,7 @@ bool Macro::RemoveMacro(TermPtr& term) {
     ASSERT(!list.empty());
 
     if (term->m_id == TermID::MACRO_DEL && list.size() == 1 && list[0]->getText().compare("_") == 0) {
-        // Удаление всех макросов — очищаем все скоупы.
+        // Удаление всех макросов - очищаем все скоупы.
         for (auto& scope : m_scopes) {
             scope.clear();
         }
@@ -874,7 +874,7 @@ size_t Macro::MatchMacro(const SequenceType& buffer, TermPtr& macro) {
 
         if (macro_offset == id.size()) {
             // Сигнатура макроса сопоставлена полностью (возможно, буфер потреблён не целиком).
-            // Возвращаем число потреблённых термов буфера — метрика longest-match при выборе
+            // Возвращаем число потреблённых термов буфера - метрика longest-match при выборе
             // макроса из группы (все макросы с одним первым именем, но разной арностью).
             return buff_offset;
         }
@@ -1157,7 +1157,7 @@ SequenceType Macro::ExpandMacros(const TermPtr& macro, MacroArgsType& args, Pars
                 (*result.rbegin())->m_id = TermID::STRCHAR;
             } else {
                 ASSERT(seq[i]->getText().compare("@#") == 0);
-                // bare @# — стрингификация по умолчанию: узкая строка (StrChar),
+                // bare @# - стрингификация по умолчанию: узкая строка (StrChar),
                 (*result.rbegin())->m_id = TermID::STRCHAR;
             }
             i++;
@@ -1169,7 +1169,7 @@ SequenceType Macro::ExpandMacros(const TermPtr& macro, MacroArgsType& args, Pars
                 throw ParserError("Concat elements not exist!");
             }
 
-            // Если предыдущий элемент — предопределённый макрос (например @__MODULE_NAME__),
+            // Если предыдущий элемент - предопределённый макрос (например @__MODULE_NAME__),
             // раскрыть его до склейки с локацией сайта вызова, иначе конкатенация склеит
             // сырое имя макроса (напр. "@__MODULE_NAME__" + "__main__") и результат не раскроется.
             if (result.back()->getTermID() == TermID::MACRO && result.back()->getText().find("@") == 0) {

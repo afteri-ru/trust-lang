@@ -10,7 +10,7 @@
 namespace trust {
 
 // ══════════════════════════════════════════════════════════════
-//  LruCache — LRU-кеш с O(1) операциями
+//  LruCache - LRU-кеш с O(1) операциями
 // ══════════════════════════════════════════════════════════════
 template <typename TKey, typename TValue>
 class LruCache {
@@ -29,7 +29,7 @@ class LruCache {
         if (it == m_map.end()) {
             return nullptr;
         }
-        // Promotion: перемещаем элемент в конец (самый свежий) — O(1),
+        // Promotion: перемещаем элемент в конец (самый свежий) - O(1),
         // итератор остаётся валидным после splice.
         auto list_it = it->second;
         m_entries.splice(m_entries.end(), m_entries, list_it);
@@ -37,7 +37,7 @@ class LruCache {
     }
 
     void insert(TKey key, TValue value) {
-        // Если ключ уже существует — удаляем старую запись
+        // Если ключ уже существует - удаляем старую запись
         auto it = m_map.find(key);
         if (it != m_map.end()) {
             m_entries.erase(it->second);
@@ -66,7 +66,7 @@ class LruCache {
 };
 
 // ══════════════════════════════════════════════════════════════
-//  SparseCache — разреженный кеш строк: бинарный поиск по
+//  SparseCache - разреженный кеш строк: бинарный поиск по
 //  равномерно распределённым точкам (offset, line).
 // ══════════════════════════════════════════════════════════════
 class SparseCache {

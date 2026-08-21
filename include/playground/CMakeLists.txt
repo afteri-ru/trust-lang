@@ -2,7 +2,7 @@
 # trust-playground: HTTP-сервер для playground (POST /run -> JSON).
 # Единый бинарник с двумя режимами: --playground (балансировщик) и worker.
 
-# ── Library (HTTP-ядро без сокетов; линкуется и в unit_tests) ──
+# -- Library (HTTP-ядро без сокетов; линкуется и в unit_tests) --
 add_library(playground_lib STATIC
     ${PROJECT_SOURCE_DIR}/playground/http.cpp
     ${PROJECT_SOURCE_DIR}/playground/config.cpp
@@ -21,7 +21,7 @@ target_include_directories(playground_lib PUBLIC
     ${CMAKE_BINARY_DIR}/include
 )
 
-# ── trust-playground: HTTP server executable ──
+# -- trust-playground: HTTP server executable --
 add_executable(trust-playground
     ${PROJECT_SOURCE_DIR}/playground/main.cpp
 )

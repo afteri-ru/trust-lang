@@ -1,4 +1,4 @@
-// module_export.cpp — реализация сбора экспорт-интерфейса модуля.
+// module_export.cpp - реализация сбора экспорт-интерфейса модуля.
 #include "module_loader/module_export.hpp"
 
 #include "ast/ast_nodes.hpp"
@@ -74,8 +74,8 @@ bool isExportDeclKind(ParserToken::Kind kind) {
     }
 }
 
-/// Имя экспортируемой декларации. Для TypeDecl (`::=`) имя — слева (Ident); для
-/// VarDecl/FuncDecl/StructDecl/EnumDecl — текст узла с убранным `%`-префиксом нативной
+/// Имя экспортируемой декларации. Для TypeDecl (`::=`) имя - слева (Ident); для
+/// VarDecl/FuncDecl/StructDecl/EnumDecl - текст узла с убранным `%`-префиксом нативной
 /// функции (маски фильтра соответствуют логическому имени, без маркера нативности).
 std::string_view declNameOf(const AstNodeBase& node) {
     std::string_view name;
@@ -114,7 +114,7 @@ void collectRec(const std::vector<AstNodePtr>& body, std::string_view masks, std
             }
             continue;
         }
-        // Области имён (ScopeBlock). Анонимная `_` и безымянный кодовый блок — пропускаем.
+        // Области имён (ScopeBlock). Анонимная `_` и безымянный кодовый блок - пропускаем.
         if (const auto* scope = node->as_sequence(); scope && node->kind() == ParserToken::Kind::ScopeBlock) {
             const ScopeBlock& sb = static_cast<const ScopeBlock&>(*node);
             if (sb.is_hidden() || sb.is_anonymous()) {

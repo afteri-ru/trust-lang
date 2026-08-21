@@ -32,7 +32,7 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
 
     auto reader = ctx.source().toReader();
 
-    // ── Forward: trust → cpp (query=12, delta=2 → проекция +2) ──
+    // -- Forward: trust → cpp (query=12, delta=2 → проекция +2) --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 12));
         auto r = reader->getMapTrustToCpp(loc);
@@ -41,7 +41,7 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
         EXPECT_EQ(r->end, 42u);
     }
 
-    // ── Backward: cpp → trust (query=35, delta=5 → проекция +5) ──
+    // -- Backward: cpp → trust (query=35, delta=5 → проекция +5) --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(cppSrc, 35));
         auto r = reader->getMapCppToTrust(loc);
@@ -50,7 +50,7 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
         EXPECT_EQ(r->end, 25u);
     }
 
-    // ── Edge: точное совпадение начала (query=10, delta=0 → проекция 0) ──
+    // -- Edge: точное совпадение начала (query=10, delta=0 → проекция 0) --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 10));
         auto r = reader->getMapTrustToCpp(loc);
@@ -58,7 +58,7 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
         EXPECT_EQ(r->begin, 30u);
     }
 
-    // ── Edge: точное совпадение конца (query=19, delta=9 → проекция +9) ──
+    // -- Edge: точное совпадение конца (query=19, delta=9 → проекция +9) --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 19));
         auto r = reader->getMapTrustToCpp(loc);
@@ -66,14 +66,14 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
         EXPECT_EQ(r->end, 49u);
     }
 
-    // ── Out of range: до начала маппинга ──
+    // -- Out of range: до начала маппинга --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 5));
         auto r = reader->getMapTrustToCpp(loc);
         EXPECT_FALSE(r.has_value());
     }
 
-    // ── Out of range: после конца маппинга ──
+    // -- Out of range: после конца маппинга --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 25));
         auto r = reader->getMapTrustToCpp(loc);
@@ -97,23 +97,23 @@ TEST(MappingTest, AddNameMapping_GetCppName_GetTrustName) {
 
     auto reader = ctx.source().toReader();
 
-    // ── getCppName (query=12, delta=2) — цель hover-ссылки — ВЕСЬ диапазон имени на
-    // противоположной стороне, без проекции/сдвига по позиции курсора внутри имени. ──
+    // -- getCppName (query=12, delta=2) - цель hover-ссылки - ВЕСЬ диапазон имени на
+    // противоположной стороне, без проекции/сдвига по позиции курсора внутри имени. --
     auto cppName = reader->getCppName(static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 12)), "trustName");
     ASSERT_TRUE(cppName.has_value());
     EXPECT_EQ(cppName->toName, "cppName");
     EXPECT_EQ(cppName->rangeMap.to.begin, 30u);
     EXPECT_EQ(cppName->rangeMap.to.end, 40u);
 
-    // ── getTrustName ──
+    // -- getTrustName --
     auto trustName = reader->getTrustName(static_cast<ReaderLocation>(ctx.source().makeLoc(cppSrc, 35)), "cppName");
     ASSERT_TRUE(trustName.has_value());
     EXPECT_EQ(trustName->fromName, "trustName");
-    // Цель — весь trust-диапазон имени [10,20], без сдвига по курсору.
+    // Цель - весь trust-диапазон имени [10,20], без сдвига по курсору.
     EXPECT_EQ(trustName->rangeMap.from.begin, 10u);
     EXPECT_EQ(trustName->rangeMap.from.end, 20u);
 
-    // ── Поиск по несуществующему имени ──
+    // -- Поиск по несуществующему имени --
     EXPECT_FALSE(reader->getCppName(static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 12)), "nonExistent").has_value());
 }
 
@@ -150,7 +150,7 @@ TEST(MappingTest, FindRangesByLine) {
     auto ranges = reader->findRangesByLine(rTrust, 2);
     EXPECT_EQ(ranges.size(), 1);
 
-    // ── Несуществующая строка ──
+    // -- Несуществующая строка --
     ranges = reader->findRangesByLine(rTrust, 999);
     EXPECT_TRUE(ranges.empty());
 }
@@ -208,7 +208,7 @@ TEST(MappingTest, MsgpackRoundtrip) {
     auto cppR = ctx.source().makeRange(ctx.source().makeLoc(cppSrc, 30), ctx.source().makeLoc(cppSrc, 40));
     ctx.source().addRangeMapping(trustR, cppR);
 
-    // ── Pack via reader → unpack ──
+    // -- Pack via reader → unpack --
     auto reader = ctx.source().toReader();
     auto packed = reader->packToMsgpack();
     auto unpacked = SourceMapReader::fromMsgpack(packed.data(), packed.size());
@@ -250,7 +250,7 @@ TEST(MappingTest, FilenameViaLocation) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//    Context: getInput — напрямую через унаследованные методы
+//    Context: getInput - напрямую через унаследованные методы
 // ══════════════════════════════════════════════════════════════
 
 TEST(MappingTest, GetFile_Input) {
@@ -290,7 +290,7 @@ TEST(MappingTest, GetFile_OutOfBounds_Output) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//    Context: line_column / loc_from_line — унаследовано от Mapper
+//    Context: line_column / loc_from_line - унаследовано от Mapper
 // ══════════════════════════════════════════════════════════════
 //
 // Контент: "line1\nline2\nline3"
@@ -563,20 +563,20 @@ TEST(MappingTest, GetText_OnReader_Output) {
 
 TEST(MappingDeathTest, GetText_InvalidRange_DefaultConstructed) {
     Context ctx;
-    // Range с default-конструктором (begin и end == 0) — невалидный
+    // Range с default-конструктором (begin и end == 0) - невалидный
     MapperRange invalidRange;
     EXPECT_THROW(ctx.source().getText(invalidRange), std::exception);
 }
 
 // ══════════════════════════════════════════════════════════════
 // Регрессия: кэш line_column не должен коллизировать по offset между
-// разными input-файлами. Раньше кэш был ключом только по offset — при
+// разными input-файлами. Раньше кэш был ключом только по offset - при
 // нескольких файлах с одинаковыми offset'ами возвращались неверные line/col
 // (например, name-маппинги для второй строки в trust-lsp).
 // ══════════════════════════════════════════════════════════════
 TEST(MappingTest, LineColumnCacheDoesNotCollideAcrossFiles) {
     Context ctx;
-    // offset 5 в файле A — 'C' (строка 3, колонка 1), в файле B — '5' (строка 1, колонка 5).
+    // offset 5 в файле A - 'C' (строка 3, колонка 1), в файле B - '5' (строка 1, колонка 5).
     MapperFile a = ctx.source().add_source("A", "A\nB\nC\n", false);
     MapperFile b = ctx.source().add_source("B", "12345\n", false);
     auto* reader = ctx.source().toReader();
@@ -592,7 +592,7 @@ TEST(MappingTest, LineColumnCacheDoesNotCollideAcrossFiles) {
     EXPECT_EQ(lb.line, 1u);
     EXPECT_EQ(lb.column, 5u);
 
-    // Обратный порядок (кэш уже заполнен) — результат не должен зависеть от порядка.
+    // Обратный порядок (кэш уже заполнен) - результат не должен зависеть от порядка.
     auto lb2 = reader->line_column(reader->makeLoc(rb, 5));
     EXPECT_EQ(lb2.line, 1u);
     EXPECT_EQ(lb2.column, 5u);

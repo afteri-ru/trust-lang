@@ -37,14 +37,14 @@ using trust::utils::uriToFilePath;
 // Хелперы автодополнения вынесены в модуль lsp/completion.h.
 using namespace trust::lsp::completion;
 
-// ── Конструктор ──
+// -- Конструктор --
 TrustLsp::TrustLsp(trust::transport::Transport& transport, const LspOptions& opts)
 : transport_(transport)
 , opts_(opts) {
 }
 
-// ── Локальный stderr-лог ──
-// trace — только если включён флаг --trace
+// -- Локальный stderr-лог --
+// trace - только если включён флаг --trace
 void TrustLsp::log(const std::string& msg) const {
     if (opts_.trace) {
         trust::errs() << "trust-lsp: " << msg << "\n";
@@ -59,7 +59,7 @@ static void reportHandlerError(const std::string& what) {
     trust::errs() << "trust-lsp: " << what << "\n";
 }
 
-// ── Проверка jsonrpc: "2.0" ──
+// -- Проверка jsonrpc: "2.0" --
 static bool validateJsonRpc(const json& msg) {
     if (!msg.contains("jsonrpc")) {
         return false;
@@ -68,26 +68,26 @@ static bool validateJsonRpc(const json& msg) {
     return v.is_string() && v.get<std::string>() == "2.0";
 }
 
-// ── Вспомогательная: Location → LSP Position (0-based) ──
+// -- Вспомогательная: Location → LSP Position (0-based) --
 static json locationToLspPosition(const trust::SourceMapReader& reader, trust::SourceMapReader::Location loc) {
     auto lc = reader.line_column(loc);
     return {{"line", static_cast<int>(lc.line) - 1}, {"character", static_cast<int>(lc.column) - 1}};
 }
 
-// ── Вспомогательная: Range → LSP Range ──
+// -- Вспомогательная: Range → LSP Range --
 static json rangeToLspRange(const trust::SourceMapReader& reader, trust::SourceMapReader::Range range) {
     return {{"start", locationToLspPosition(reader, range.begin)}, {"end", locationToLspPosition(reader, range.end)}};
 }
 
-// ── Построение file:// URI с фрагментом из SourceMapReader::rangeToFragmentString ──
+// -- Построение file:// URI с фрагментом из SourceMapReader::rangeToFragmentString --
 static std::string makeFragmentUri(const trust::SourceMapReader& reader, const std::string& basePath, trust::SourceMapReader::Range range) {
     std::string uri = filePathToUri(basePath);
     return uri + "#" + reader.rangeToFragmentString(range);
 }
 
-// ── Вспомогательная: форматирование Range для трассировки ──
+// -- Вспомогательная: форматирование Range для трассировки --
 // Формат: "path:line:col–line:col [текст]". Текст берётся из source-map (getText).
-// При невалидном range или невозможности получить текст — безопасный fallback.
+// При невалидном range или невозможности получить текст - безопасный fallback.
 static std::string formatRange(const trust::SourceMapReader& reader, trust::SourceMapReader::Range range, const std::string& filePath) {
     if (range.isInvalid()) {
         return filePath + ":<invalid>";
@@ -103,11 +103,11 @@ static std::string formatRange(const trust::SourceMapReader& reader, trust::Sour
     return std::format("{}:{}:{}-{}:{} [{}]", filePath, b.line, b.column, e.line, e.column, text);
 }
 
-// ── Вспомогательная: проверка, является ли файл C++ (не trust-исходником) ──
+// -- Вспомогательная: проверка, является ли файл C++ (не trust-исходником) --
 // Для C++ файла, не найденного в reverse-кеше, не нужно ничего делать.
 // Перемещено в SourceMapReader::isCppFileExt
 
-// ── Вспомогательная функция для получения Reader и FileIdx из кеша ──
+// -- Вспомогательная функция для получения Reader и FileIdx из кеша --
 // trustFilePath берётся из sourceCache_ (по ключу). Для cpp-запросов
 // trustFilePath находится через reverse-кеш cppToTrustCache_.
 TrustLsp::CachedReader TrustLsp::getCachedReader(const std::string& filePath, std::string& outError) {
@@ -121,7 +121,7 @@ TrustLsp::CachedReader TrustLsp::getCachedReader(const std::string& filePath, st
         isCpp = true;
         log("  getCachedReader: reverse-cache HIT  cppPath=" + filePath + " -> trustPath=" + trustFilePath);
     } else if (trust::SourceMapReader::isCppFileExt(filePath)) {
-        // C++ файл не в reverse-кеше — это не транспилированный файл, игнорируем
+        // C++ файл не в reverse-кеше - это не транспилированный файл, игнорируем
         log("  getCachedReader: cpp file NOT in reverse-cache (miss): " + filePath);
         outError = "";
         return {nullptr, trust::ReaderFile{0}, trust::ReaderFile{0}, false};
@@ -131,13 +131,13 @@ TrustLsp::CachedReader TrustLsp::getCachedReader(const std::string& filePath, st
     }
 
     // Фиктивный (in-memory) источник: файла на диске нет, искать/открывать его
-    // не нужно — сообщаем об этом явно вместо «file not found».
+    // не нужно - сообщаем об этом явно вместо «file not found».
     if (trust::SourceMapReader::isInMemoryName(trustFilePath)) {
         outError = "in-memory source (no file on disk): " + trustFilePath;
         return {nullptr, trust::ReaderFile{0}, trust::ReaderFile{0}, false};
     }
 
-    // Если документ «грязный» (debounce ещё не истёк) — синхронно пере-транспилируем его,
+    // Если документ «грязный» (debounce ещё не истёк) - синхронно пере-транспилируем его,
     // чтобы hover/documentLink/definition всегда отражали текущий буфер.
     if (pendingTranspile_.find(trustFilePath) != pendingTranspile_.end()) {
         flushDocument(trustFilePath);
@@ -146,7 +146,7 @@ TrustLsp::CachedReader TrustLsp::getCachedReader(const std::string& filePath, st
     auto it = sourceCache_.find(trustFilePath);
     if (it == sourceCache_.end()) {
         // Auto-recovery: если кэша нет, пытаемся транспилировать на лету.
-        // При наличии буфера документа (didOpen/didChange) — транспилируем его,
+        // При наличии буфера документа (didOpen/didChange) - транспилируем его,
         // иначе читаем файл с диска.
         if (!isCpp && !trust::SourceMapReader::isCppFileExt(trustFilePath) && trustFilePath.find(".src") != std::string::npos) {
             std::string transpileErr;
@@ -184,7 +184,7 @@ TrustLsp::CachedReader TrustLsp::getCachedReader(const std::string& filePath, st
     return result;
 }
 
-// ── LSP Request handlers ──
+// -- LSP Request handlers --
 
 void TrustLsp::handleRequest(const json& req) {
     if (!validateJsonRpc(req)) {
@@ -295,27 +295,27 @@ void TrustLsp::handleDidOpen(const json& req) {
 
     log("didOpen: " + filePath);
 
-    // Если это не Trust-файл — игнорируем
+    // Если это не Trust-файл - игнорируем
     if (!trust::SourceMapReader::isTrustFileExt(filePath)) {
         log("  skipped (not a trust source file)");
         return;
     }
 
-    // Если это C++ файл из reverse-кеша — не транспилируем, просто логируем
+    // Если это C++ файл из reverse-кеша - не транспилируем, просто логируем
     if (cppToTrustCache_.find(filePath) != cppToTrustCache_.end()) {
         log("  cpp file already cached via reverse cache");
         return;
     }
 
-    // Новое открытие — сбрасываем отложенную пере-транспиляцию
+    // Новое открытие - сбрасываем отложенную пере-транспиляцию
     pendingTranspile_.erase(filePath);
 
-    // ── Транспилируем содержимое буфера из didOpen, а не файла на диске ──
+    // -- Транспилируем содержимое буфера из didOpen, а не файла на диске --
     // Это гарантирует, что hover/documentLink/definition сразу учитывают правки
     // в редакторе, даже если файл ещё не сохранён.
     std::string text = params.value("textDocument", json()).value("text", "");
     if (text.empty()) {
-        // Нет текста буфера (fallback / переоткрытие) — читаем с диска
+        // Нет текста буфера (fallback / переоткрытие) - читаем с диска
         log("  no buffer text in didOpen, reading from disk");
         transpileSourceFile(filePath);
         // Публикуем диагностики ВСЕГДА (не только при ошибках): предупреждения
@@ -338,7 +338,7 @@ void TrustLsp::handleDidClose(const json& req) {
 
     std::string filePath = uriToFilePath(uri);
 
-    // Не удаляем sourceCache_ или cppToTrustCache_ при didClose — это ломало
+    // Не удаляем sourceCache_ или cppToTrustCache_ при didClose - это ломало
     // hover/definition/documentLink при переключении вкладок и для C++ файлов.
     // Кэш чистится только при didOpen (если хеш изменился) или при shutdown.
     // C++ файл физически существует на диске, пока сервер не перезапущен.
@@ -352,15 +352,15 @@ void TrustLsp::handleDidChange(const json& req) {
     // Преобразуем URI в файловый путь (с URL-decoding)
     std::string filePath = uriToFilePath(uri);
 
-    // Если это не Trust-файл — игнорируем
+    // Если это не Trust-файл - игнорируем
     if (!trust::SourceMapReader::isTrustFileExt(filePath)) {
         log("  skipped (not a trust source file)");
         return;
     }
 
     // Обновляем буфер из contentChanges (инкрементальная синхронизация,
-    // textDocumentSync=2). Каждый элемент — либо {text: полный текст},
-    // либо {range, text} — инкрементальная правка.
+    // textDocumentSync=2). Каждый элемент - либо {text: полный текст},
+    // либо {range, text} - инкрементальная правка.
     std::string newText = applyContentChanges(filePath, params.value("contentChanges", json::array()));
     openDocuments_[filePath] = newText;
 
@@ -371,7 +371,7 @@ void TrustLsp::handleDidChange(const json& req) {
     log("didChange: buffer updated for " + filePath + " (transpile deferred)");
 }
 
-// ── Применение contentChanges к буферу (Incremental/Full) ──
+// -- Применение contentChanges к буферу (Incremental/Full) --
 // LSP position → offset в строке (строки разделены '\n').
 static size_t positionToOffset(const std::string& text, int line, int character) {
     size_t pos = 0;
@@ -394,7 +394,7 @@ std::string TrustLsp::applyContentChanges(const std::string& filePath, const jso
     if (it != openDocuments_.end()) {
         text = it->second;
     } else {
-        // Буфер ещё не открыт (didOpen не было) — инициализируем содержимым с диска
+        // Буфер ещё не открыт (didOpen не было) - инициализируем содержимым с диска
         auto code = trust::utils::FileIO::read<std::vector<char>>(filePath);
         if (code) {
             text.assign(code->data(), code->size());
@@ -415,14 +415,14 @@ std::string TrustLsp::applyContentChanges(const std::string& filePath, const jso
             }
             text.replace(s, e - s, ch.value("text", ""));
         } else {
-            // Без range — полная замена текста (Full-вариант)
+            // Без range - полная замена текста (Full-вариант)
             text = ch.value("text", "");
         }
     }
     return text;
 }
 
-// ── Пере-транспиляция одного «грязного» документа (синхронно) ──
+// -- Пере-транспиляция одного «грязного» документа (синхронно) --
 void TrustLsp::flushDocument(const std::string& filePath) {
     pendingTranspile_.erase(filePath);
     auto it = openDocuments_.find(filePath);
@@ -437,7 +437,7 @@ void TrustLsp::flushDocument(const std::string& filePath) {
     publishDiagnostics(filePathToUri(filePath));
 }
 
-// ── Debounce-флаш: транспилируем документы, чей период тишины истёк ──
+// -- Debounce-флаш: транспилируем документы, чей период тишины истёк --
 void TrustLsp::flushPendingTranspile() {
     if (pendingTranspile_.empty()) {
         return;
@@ -454,7 +454,7 @@ void TrustLsp::flushPendingTranspile() {
     }
 }
 
-// ── handleDefinition: Go to Definition ──
+// -- handleDefinition: Go to Definition --
 void TrustLsp::handleDefinition(const json& req) {
     json id = req.value("id", json());
 
@@ -496,10 +496,10 @@ void TrustLsp::handleDefinition(const json& req) {
     trust::ReaderFile targetFile = targetRange.begin.fileIdx();
     std::string targetPath;
     if (targetFile.isOutput()) {
-        // C++ файл — берём cppFilePath из кеша
+        // C++ файл - берём cppFilePath из кеша
         targetPath = sourceCache_.at(cr.isCppRequest ? cppToTrustCache_.at(filePath) : filePath).cppFilePath;
     } else {
-        // Trust файл — берём исходный путь
+        // Trust файл - берём исходный путь
         targetPath = cr.isCppRequest ? cppToTrustCache_.at(filePath) : filePath;
     }
 
@@ -510,7 +510,7 @@ void TrustLsp::handleDefinition(const json& req) {
     log("  definition: from " + formatRange(reader, rangeMap.from, filePath) + "  ->  " + formatRange(reader, rangeMap.to, targetPath));
 }
 
-// ── buildHoverContents: универсальный построитель содержимого ховера ──
+// -- buildHoverContents: универсальный построитель содержимого ховера --
 // Строит массив Markdown-элементов:
 //   [0] = "```<lang>\n<text>\n```" (базовый код с противоположной стороны)
 //   [1+] = Markdown-ссылки на определения (если курсор на идентификаторе / макросе)
@@ -523,9 +523,9 @@ nlohmann::json TrustLsp::buildHoverContents(const trust::SourceMapReader& reader
     hoverContents.push_back("```" + hoverLang + "\n" + hoverText + "\n```");
 
     // Путь к сохранённому dsl.src выводится из каталога .cppt (dsl.src сохраняется
-    // в <каталог cppt>/trust/dsl.src). Отдельное поле не нужно — расположение
+    // в <каталог cppt>/trust/dsl.src). Отдельное поле не нужно - расположение
     // детерминировано относительно cppFilePath. Если файла на диске нет
-    // (tempDir не задан) — ссылка «Macro:» не выводится.
+    // (tempDir не задан) - ссылка «Macro:» не выводится.
     std::string dslFilePath;
     {
         std::filesystem::path dslPath = std::filesystem::path(cppFilePath).parent_path() / "trust" / "dsl.src";
@@ -537,14 +537,14 @@ nlohmann::json TrustLsp::buildHoverContents(const trust::SourceMapReader& reader
     // Пытаемся выделить слово под курсором
     auto maybeWord = reader.getWordAt(cursorLoc);
     if (!maybeWord.has_value()) {
-        return hoverContents; // курсор не на идентификаторе — базовый ховер достаточен
+        return hoverContents; // курсор не на идентификаторе - базовый ховер достаточен
     }
     const std::string& word = *maybeWord;
 
     if (!isCppRequest) {
-        // ── Запрос из src (trust) файла: ссылка «→ C++» на сгенерированный код. ──
-        // Если слово — объявленное имя — ссылка на его C++-имя (NameMap.to); иначе
-        // (в т.ч. макрос DSL: @assert/@while/print) — на раскрытый statement в cppt
+        // -- Запрос из src (trust) файла: ссылка «→ C++» на сгенерированный код. --
+        // Если слово - объявленное имя - ссылка на его C++-имя (NameMap.to); иначе
+        // (в т.ч. макрос DSL: @assert/@while/print) - на раскрытый statement в cppt
         // (findRangeMap → to). Для макроса дополнительно выдаём ссылку «Macro:» на его
         // определение (getMacroDefRange). Диапазон определения лежит в in-memory
         // источнике "@dsl"; ссылка навигируема только если dsl.src сохранён на диск
@@ -557,7 +557,7 @@ nlohmann::json TrustLsp::buildHoverContents(const trust::SourceMapReader& reader
         } else {
             // Курсор на макросе (или на необъявленном имени).
             // Сначала ссылка на определение макроса («Macro:»), затем ссылка «→ C++»
-            // на раскрытый код в cppt — большое тело макроса не должно скрывать
+            // на раскрытый код в cppt - большое тело макроса не должно скрывать
             // ссылку на определение. Переход по клику на текст идёт только в cppt.
             if (maybeName.has_value() && maybeName->macroDefRange.has_value()) {
                 const auto& defRange = *maybeName->macroDefRange;
@@ -575,14 +575,14 @@ nlohmann::json TrustLsp::buildHoverContents(const trust::SourceMapReader& reader
             }
         }
     } else {
-        // ── Запрос из C++ файла ──
+        // -- Запрос из C++ файла --
         auto maybeName = reader.getTrustName(cursorLoc, word);
         if (maybeName.has_value()) {
             const auto& targetRange = maybeName->rangeMap.from;
             std::string targetUri = makeFragmentUri(reader, trustFilePath, targetRange);
             hoverContents.push_back("[← Trust: " + maybeName->toName + "](" + targetUri + ")");
         } else {
-            // NameMap нет (expression-операторы, embed и т.п.) — даём обратную ссылку
+            // NameMap нет (expression-операторы, embed и т.п.) - даём обратную ссылку
             // через statement-маппинг (backward cpp→trust), чтобы из cppt можно было
             // перейти обратно в src к соответствующему фрагменту.
             auto maybeStmt = reader.findRangeMap(cursorLoc);
@@ -597,7 +597,7 @@ nlohmann::json TrustLsp::buildHoverContents(const trust::SourceMapReader& reader
     return hoverContents;
 }
 
-// ── handleHover: возвращает код для фрагмента под курсором ──
+// -- handleHover: возвращает код для фрагмента под курсором --
 void TrustLsp::handleHover(const json& req) {
     json id = req.value("id", json());
 
@@ -615,12 +615,12 @@ void TrustLsp::handleHover(const json& req) {
     if (!cr.reader) {
         if (!err.empty()) {
             log("  " + err);
-            // Не отправляем LSP ошибку — показываем информационный ховер
+            // Не отправляем LSP ошибку - показываем информационный ховер
             json hoverContents = json::array();
             hoverContents.push_back("```txt\n" + err + "\n```");
             sendLspResponse(transport_, id, {{"contents", hoverContents}});
         } else {
-            // C++ файл не из кеша — не наш файл, просто пустой ответ
+            // C++ файл не из кеша - не наш файл, просто пустой ответ
             sendLspResponse(transport_, id, {{"contents", json::array()}});
         }
         return;
@@ -687,7 +687,7 @@ void TrustLsp::handleHover(const json& req) {
         }
     }
 
-    // Документирующий комментарий объявления/макроса — если имя под курсором есть в таблице
+    // Документирующий комментарий объявления/макроса - если имя под курсором есть в таблице
     // символов анализатора (SymbolIndex). Выводим в начало ховера.
     if (!cr.isCppRequest) {
         auto cacheIt = sourceCache_.find(trustFilePath);
@@ -711,7 +711,7 @@ void TrustLsp::handleHover(const json& req) {
     log("  hover built with " + std::to_string(hoverContents.size()) + " element(s)");
 }
 
-// ── handleDocumentLink: возвращает ссылки на определения макросов ──
+// -- handleDocumentLink: возвращает ссылки на определения макросов --
 void TrustLsp::handleDocumentLink(const json& req) {
     json id = req.value("id", json());
 
@@ -740,7 +740,7 @@ void TrustLsp::handleDocumentLink(const json& req) {
     json links = json::array();
 
     if (cr.isCppRequest) {
-        // ── C++ → Trust: link на trust-файл по cpp-диапазону ──
+        // -- C++ → Trust: link на trust-файл по cpp-диапазону --
         // Используем m_backward: for (cppKey, RangeMap { from=cppRange, to=trustRange })
         auto backward = reader.getBackwardMappings();
         log("  [cpp→trust] backward-mappings total=" + std::to_string(backward.size()) + " cppReaderIdx=" + std::to_string(cr.cppReaderIdx.as_index()));
@@ -769,14 +769,14 @@ void TrustLsp::handleDocumentLink(const json& req) {
             log("    cpp name-link: " + formatRange(reader, toRange, filePath) + "  ->  " + formatRange(reader, nameMap.rangeMap.from, trustFilePath));
         }
     } else {
-        // ── Trust → C++: link на C++ файл ──
+        // -- Trust → C++: link на C++ файл --
         auto mappings = reader.getTrustFileMappings(cr.trustReaderIdx);
         log("  [trust→cpp] forward-mappings total=" + std::to_string(mappings.size()) + " trustReaderIdx=" + std::to_string(cr.trustReaderIdx.as_index()));
         for (const auto& mapping : mappings) {
             const auto& trustRange = mapping.from;
             const auto& cppRange = mapping.to;
 
-            // Для макросов и обычных операторов цель одна — раскрытый код в cppt
+            // Для макросов и обычных операторов цель одна - раскрытый код в cppt
             // (клик по тексту ведёт только в cppt). Раньше для макроса строилась
             // ссылка на определение с basePath=filePath, но координаты определения
             // лежат в in-memory "@dsl" и применялись к src → переход уводил в конец
@@ -803,9 +803,9 @@ void TrustLsp::handleDocumentLink(const json& req) {
         }
     }
 
-    // Убираем ссылки, чей диапазон — строгое надмножество другого диапазона
+    // Убираем ссылки, чей диапазон - строгое надмножество другого диапазона
     // (напр. маппинг всей функции перекрывает маппинги отдельных операторов и
-    // при клике уводит к началу функции вместо конкретного оператора — баг #4).
+    // при клике уводит к началу функции вместо конкретного оператора - баг #4).
     if (links.size() > 1) {
         auto posLE = [](const json& a, const json& b) -> bool {
             return a["line"].get<int>() < b["line"].get<int>() ||
@@ -838,7 +838,7 @@ void TrustLsp::handleDocumentLink(const json& req) {
     log("  generated " + std::to_string(links.size()) + " document link(s)");
 }
 
-// ── Обработка workspace/executeCommand (заглушка — не используется) ──
+// -- Обработка workspace/executeCommand (заглушка - не используется) --
 void TrustLsp::handleExecuteCommand(const json& req) {
     json id = req.value("id", json());
     json params = req.value("params", json());
@@ -847,7 +847,7 @@ void TrustLsp::handleExecuteCommand(const json& req) {
     sendLspError(transport_, id, -32601, "Command not implemented: " + command);
 }
 
-// ── Обработка workspace/didChangeConfiguration ──
+// -- Обработка workspace/didChangeConfiguration --
 void TrustLsp::handleDidChangeConfiguration(const json& req) {
     json params = req.value("params", json());
     json settings = params.value("settings", json());
@@ -861,7 +861,7 @@ void TrustLsp::handleDidChangeConfiguration(const json& req) {
     }
 }
 
-// ── Обработчик textDocument/completion ──
+// -- Обработчик textDocument/completion --
 void TrustLsp::handleCompletion(const json& req) {
     json id = req.value("id", json());
     json params = req.value("params", json());
@@ -882,7 +882,7 @@ void TrustLsp::handleCompletion(const json& req) {
         }
 
         // Текст документа из буфера (актуальные правки). Не зависим от успешной
-        // транспиляции — завершение работает и на недописанном коде.
+        // транспиляции - завершение работает и на недописанном коде.
         std::string docText;
         auto docIt = openDocuments_.find(trustFilePath);
         if (docIt != openDocuments_.end()) {
@@ -894,7 +894,7 @@ void TrustLsp::handleCompletion(const json& req) {
         // Единый каталог встроенных имён (типы/методы/функции/predef+DSL-макросы).
         const trust::BuiltinCatalog& catalog = trust::BuiltinCatalog::instance();
         // Пер-файловый реестр + таблица символов из кеша (последняя транспиляция).
-        // Встроенные имена — из каталога; пользовательские — из SymbolIndex/реестра.
+        // Встроенные имена - из каталога; пользовательские - из SymbolIndex/реестра.
         const trust::TypeRegistry* reg = nullptr;
         const trust::SymbolIndex* symbols = nullptr;
         const trust::Context* ctx = nullptr;
@@ -945,7 +945,7 @@ void TrustLsp::handleCompletion(const json& req) {
         if (member) {
             collectMemberItems(reg, &catalog, symbols, objName, prefix, line, utf16Start, character, items);
         } else {
-            // Имена пользовательского кода — из таблицы анализатора (SymbolIndex).
+            // Имена пользовательского кода - из таблицы анализатора (SymbolIndex).
             collectSymbolItems(symbols, ctx, line, prefix, utf16Start, character, items);
             // Типы: встроенные (каталог) + пользовательские (реестр).
             collectTypeItems(reg, &catalog, prefix, line, utf16Start, character, items);
@@ -961,11 +961,11 @@ void TrustLsp::handleCompletion(const json& req) {
     sendLspResponse(transport_, id, json{{"isIncomplete", false}, {"items", items}});
 }
 
-// ── Обработчик textDocument/codeAction (quickfix по fixits) ──
+// -- Обработчик textDocument/codeAction (quickfix по fixits) --
 // Клиент (VSCode) передаёт в context.diagnostics те же объекты, что сервер опубликовал
 // в publishDiagnostics. Fixits сервер кладёт в зарезервированное LSP поле "data"
 // (vscode-languageclient сохраняет только стандартные поля диагностики + data;
-// кастомные поля на верхнем уровне отбрасывает — поэтому без data quickfix не доходит).
+// кастомные поля на верхнем уровне отбрасывает - поэтому без data quickfix не доходит).
 // Для обратной совместимости поддерживаем и прямое поле "fixits".
 void TrustLsp::handleCodeAction(const json& req) {
     json id = req.value("id", json());
@@ -1005,7 +1005,7 @@ void TrustLsp::handleCodeAction(const json& req) {
     sendLspResponse(transport_, id, actions);
 }
 
-// ── In-process транспиляция .src → C++ + source map ──
+// -- In-process транспиляция .src → C++ + source map --
 
 // Конвертирует LspOptions → PipelineOpts для использования Pipeline
 static trust::PipelineOpts lspOptsToPipelineOpts(const LspOptions& lspOpts) {
@@ -1033,7 +1033,7 @@ std::string TrustLsp::transpileSourceFile(const std::string& trustFilePath) {
     return transpileSource(trustFilePath, trustCodeStr);
 }
 
-// Транспиляция текста буфера. trustFilePath — ключ кеша/идентификатор исходника,
+// Транспиляция текста буфера. trustFilePath - ключ кеша/идентификатор исходника,
 // содержимое берётся из переданного текста, а не с диска.
 
 std::string TrustLsp::transpileSource(const std::string& trustFilePath, const std::string& trustCodeStr) {
@@ -1053,7 +1053,7 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
     std::filesystem::path cpptPath = trust::computeCpptPath(pipelineOpts);
     bool saveToDisk = !opts_.tempDir.empty();
 
-    // Если tempDir задан — создаём директорию
+    // Если tempDir задан - создаём директорию
     if (saveToDisk) {
         std::error_code ec;
         std::filesystem::create_directories(cpptPath.parent_path(), ec);
@@ -1062,11 +1062,11 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
         }
     }
 
-    // ── Загружаем исходный код и создаём выходной файл ──
+    // -- Загружаем исходный код и создаём выходной файл --
     trust::MapperFile trustIdx = ctx->source().add_source(trustFilePath, std::string(trustCode));
     trust::MapperFile cppIdx = ctx->source().add_output(cpptPath.filename().string());
 
-    // ── Запускаем пайплайн через Pipeline ──
+    // -- Запускаем пайплайн через Pipeline --
     trust::SymbolIndex symbols;                    // имена+типы+диапазоны из анализатора
     std::unique_ptr<trust::TypeRegistry> registry; // живой реестр (чтобы TypeId в symbols был валиден)
     {
@@ -1087,7 +1087,7 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
         registry = pipeline.releaseTypes();
 
         // Символы из анализатора (SymbolCollectorHook): имя + тип + диапазоны. Если runPipeline
-        // упал ДО семантического шага (Fatal при парсинге), result.symbols пуст — дособираем
+        // упал ДО семантического шага (Fatal при парсинге), result.symbols пуст - дособираем
         // макросы, записанные в Context во время парсинга (не теряются после PopScope модуля).
         if (result.symbols) {
             symbols = std::move(*result.symbols);
@@ -1096,15 +1096,15 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
         }
     }
 
-    // ── Конвертируем MapperFile → ReaderFile для хранения в кеше ──
+    // -- Конвертируем MapperFile → ReaderFile для хранения в кеше --
     trust::ReaderFile trustReaderIdx = trust::ReaderFile::from(trustIdx);
     trust::ReaderFile cppReaderIdx = trust::ReaderFile::from(cppIdx);
 
-    // ── Сохраняем dsl.src вместе с остальными заголовками в <tempDir>/trust/,
+    // -- Сохраняем dsl.src вместе с остальными заголовками в <tempDir>/trust/,
     // чтобы были навигируемы определения макросов: их диапазоны лежат в
     // in-memory источнике "@dsl" (файла на диске нет). Копируем содержимое
     // "@dsl" в <tempDir>/trust/dsl.src. Путь к файлу в buildHoverContents
-    // выводится из каталога cppFilePath (<каталог cppt>/trust/dsl.src). ──
+    // выводится из каталога cppFilePath (<каталог cppt>/trust/dsl.src). --
     if (saveToDisk) {
         try {
             const auto* reader = ctx->source().toReader();
@@ -1127,7 +1127,7 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
         }
     }
 
-    // Сохраняем .cppt + .src_map рядом + #embed — единый код
+    // Сохраняем .cppt + .src_map рядом + #embed - единый код
     if (saveToDisk) {
         if (trust::saveCppAndEmbedSourceMap(*ctx, cppIdx, cpptPath, opts_.trace)) {
             log("  saved cpp to: " + cpptPath.string());
@@ -1152,7 +1152,7 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
         log(errMsg);
     }
 
-    // ── Трассировка: дамп всех маппингов из source map (до перемещения ctx в кеш) ──
+    // -- Трассировка: дамп всех маппингов из source map (до перемещения ctx в кеш) --
     if (opts_.trace) {
         try {
             const auto* reader = ctx->source().toReader();
@@ -1185,7 +1185,7 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
         }
     }
 
-    // Кешируем результат (даже при ошибках диагностики — для частичного source map)
+    // Кешируем результат (даже при ошибках диагностики - для частичного source map)
     CachedSource cs;
     cs.sourceMap = std::move(ctx);
     cs.cppFilePath = cppFilePath;
@@ -1203,7 +1203,7 @@ std::string TrustLsp::transpileSource(const std::string& trustFilePath, const st
     return errMsg;
 }
 
-// ── Отправка диагностики из кеша ──
+// -- Отправка диагностики из кеша --
 // Извлекает диагностики из CachedSource (если есть) по trustFilePath.
 // trustFilePath используется как ключ в sourceCache_ для доступа к Context.
 void TrustLsp::publishDiagnostics(const std::string& uri) {
@@ -1234,7 +1234,7 @@ void TrustLsp::publishDiagnostics(const std::string& uri) {
                 range = {{"start", {{"line", pr.start.line}, {"character", pr.start.character}}},
                          {"end", {{"line", pr.end.line}, {"character", pr.end.character}}}};
             } else {
-                // Без позиции — ставим в начало
+                // Без позиции - ставим в начало
                 range = {{"start", {{"line", 0}, {"character", 0}}}, {"end", {{"line", 0}, {"character", 1}}}};
             }
 
@@ -1248,7 +1248,7 @@ void TrustLsp::publishDiagnostics(const std::string& uri) {
             // Прикрепляем fixit-подсказки, если есть. Кладём их в зарезервированное
             // LSP поле "data": vscode-languageclient сохраняет у диагностики только
             // стандартные поля + data, а кастомные (например, прямое "fixits") при
-            // запросе codeAction отбрасывает — без data quickfix не построить.
+            // запросе codeAction отбрасывает - без data quickfix не построить.
             if (!entry.fixits.empty() && ctx) {
                 json fixits = json::array();
                 for (const auto& f : entry.fixits) {

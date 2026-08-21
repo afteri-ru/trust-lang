@@ -16,7 +16,7 @@
 :Array[4];
 # CHECK:      TypeName ':Array' [4]
 
-# Тип с параметрами (аргументы-типы; голые имена — value-форма/вызов, см. TypeCastExprToAst)
+# Тип с параметрами (аргументы-типы; голые имена - value-форма/вызов, см. TypeCastExprToAst)
 :Pair(:Int, Str:StrChar);
 # CHECK:      TypeName ':Pair' (:Int,Str:StrChar)
 

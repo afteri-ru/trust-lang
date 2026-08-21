@@ -1,6 +1,6 @@
-# test/unit/CMakeLists.txt — единый исполняемый файл для всех юнит-тестов
+# test/unit/CMakeLists.txt - единый исполняемый файл для всех юнит-тестов
 
-# ── All test sources ──
+# -- All test sources --
 set(TEST_SOURCES
     unittest.cpp
     diag/diag_test.cpp
@@ -48,6 +48,8 @@ set(TEST_SOURCES
     playground/server_test.cpp
     playground/config_test.cpp
     playground/dispatch_test.cpp
+    playground/security_test.cpp
+    playground/worker_test.cpp
     utils/cache_test.cpp
     utils/file_io_test.cpp
     utils/strings_test.cpp
@@ -70,7 +72,7 @@ endif()
 add_executable(unit_tests ${TEST_SOURCES})
 
 
-# ── Torch configuration for unit_tests ──
+# -- Torch configuration for unit_tests --
 if(WITH_TORCH)
     target_compile_definitions(unit_tests PRIVATE TRUST_HAS_TORCH)
     target_include_directories(unit_tests SYSTEM PRIVATE ${LIBTORCH_INCLUDE_DIRS})
@@ -80,7 +82,7 @@ if(WITH_TORCH)
     target_sources(unit_tests PRIVATE ${PROJECT_SOURCE_DIR}/runtime/tensor.cpp)
 endif()
 
-# ── Link all libraries ──
+# -- Link all libraries --
 target_link_libraries(unit_tests PRIVATE
     ast_lib
     diag_lib
@@ -98,9 +100,9 @@ target_link_libraries(unit_tests PRIVATE
     GTest::gtest
 )
 
-# ── Test data directory ──
+# -- Test data directory --
 # TEST_DATA_DIR определён как CACHE-переменная в корневом CMakeLists.txt.
-# Локально не переопределяем — используем глобальную.
+# Локально не переопределяем - используем глобальную.
 file(MAKE_DIRECTORY "${TEST_DATA_DIR}")
 
 target_include_directories(unit_tests PRIVATE
@@ -121,7 +123,7 @@ target_compile_definitions(unit_tests PRIVATE
     TRUST_RATIONAL_HPP_PATH="${PROJECT_INCLUDE_DIR}/trust/rational.hpp"
 )
 
-# ── Attach trust module ──
+# -- Attach trust module --
 target_trust_module(unit_tests)
 
 # elf_archive_test needs the built runtime library files to extract headers from.
@@ -133,7 +135,7 @@ target_compile_options(unit_tests PRIVATE
     -Wno-error=switch
 )
 
-# ── Symlink tensor plugin for runtime loading (only when Torch is enabled) ──
+# -- Symlink tensor plugin for runtime loading (only when Torch is enabled) --
 if(WITH_TORCH)
     add_custom_command(TARGET unit_tests POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E create_symlink
@@ -143,9 +145,9 @@ if(WITH_TORCH)
     )
 endif()
 
-# ── Integration test executables for debug component ──
+# -- Integration test executables for debug component --
 
-# gdb_debuggee — standalone программа, используемая как debuggee для GDB
+# gdb_debuggee - standalone программа, используемая как debuggee для GDB
 add_executable(gdb_debuggee
     ${CMAKE_CURRENT_SOURCE_DIR}/debug/gdb_debuggee.cpp
 )
@@ -154,7 +156,7 @@ target_link_libraries(gdb_debuggee PRIVATE utils_lib)
 target_compile_options(gdb_debuggee PRIVATE -g -fno-pie)
 target_link_options(gdb_debuggee PRIVATE -fno-pie -no-pie)
 
-# gdb_main — test GDB via GdbDebug wrapper
+# gdb_main - test GDB via GdbDebug wrapper
 add_executable(gdb_main
     ${CMAKE_CURRENT_SOURCE_DIR}/debug/gdb_main.cpp
 )
@@ -163,7 +165,7 @@ target_include_directories(gdb_main PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/debug
     ${CMAKE_SOURCE_DIR}/include
 )
-# ── CTest registration ──
+# -- CTest registration --
 # unit_tests is registered as a single CTest test: progress stays compact
 # (one line), and `ctest --output-on-failure` shows the full GTest report
 # (including the failing test names) only when the suite fails.

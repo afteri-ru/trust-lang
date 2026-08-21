@@ -25,7 +25,7 @@ void reportTypeDiag(DiagnosticEngine& diag, const Options& opts, OptKind kind, M
 }
 } // namespace
 
-// ── Concrete groups (Data != 0) ────────────────────────────
+// -- Concrete groups (Data != 0) ----------------------------
 static constexpr bool isAbstractGroup(Group group) noexcept {
     switch (group) {
     case Group::kAny:
@@ -49,7 +49,7 @@ static constexpr bool isAbstractGroup(Group group) noexcept {
     }
 }
 
-// ── Общее иммутабельное ядро встроенных типов ─────────────
+// -- Общее иммутабельное ядро встроенных типов -------------
 // Строится один раз (см. TypeRegistry::builtinCore) и разделяется всеми экземплярами
 // TypeRegistry. Содержит только встроенные типы/алиасы, их методы и рантайм-символы;
 // пользовательские типы живут в каждом экземпляре отдельно (m_descriptors).
@@ -77,7 +77,7 @@ const TypeRegistry::BuiltinTypeCore& TypeRegistry::builtinCore() {
     return core;
 }
 
-// ── Роутинг дескрипторов: встроенные — из ядра, пользовательские — из экземпляра ──
+// -- Роутинг дескрипторов: встроенные - из ядра, пользовательские - из экземпляра --
 const TypeDescriptor* TypeRegistry::descriptorOf(TypeId id) const noexcept {
     const uint32_t idx = getIndexFromId(id);
     if (idx == 0) {
@@ -93,13 +93,13 @@ const TypeDescriptor* TypeRegistry::descriptorOf(TypeId id) const noexcept {
 TypeDescriptor* TypeRegistry::userDescriptorOf(TypeId id) noexcept {
     const uint32_t idx = getIndexFromId(id);
     if (idx == 0 || idx <= m_builtinCount) {
-        return nullptr; // встроенный — иммутабелен
+        return nullptr; // встроенный - иммутабелен
     }
     const size_t u = static_cast<size_t>(idx) - 1 - m_builtinCount;
     return (u < m_descriptors.size()) ? &m_descriptors[u] : nullptr;
 }
 
-// ── Constructor ──────────────────────────────────────────
+// -- Constructor ------------------------------------------
 TypeRegistry::TypeRegistry(DiagnosticEngine& diag, const Options& opts)
 : m_diag(diag)
 , m_opts(opts) {
@@ -124,10 +124,10 @@ void TypeRegistry::reset() {
     m_name_to_id.clear();  // пользовательские имена
     m_descriptors.clear(); // пользовательские дескрипторы
     m_structural.clear();
-    m_runtimeSymbols.clear(); // пер-инстансовых рантайм-символов нет (встроенные — в ядре)
+    m_runtimeSymbols.clear(); // пер-инстансовых рантайм-символов нет (встроенные - в ядре)
 }
 
-// ── Register all builtin types ──────────────────────────
+// -- Register all builtin types --------------------------
 void TypeRegistry::registerBuiltinTypes() {
     // Concrete builtin types (Data ≠ 0 → TypeClass::kTrivial)
     registerBuiltinType(type::Void, Group::kVoid, 1);
@@ -149,11 +149,11 @@ void TypeRegistry::registerBuiltinTypes() {
     registerBuiltinType(type::Complex64, Group::kComplex, 64, "std::complex<double>", {"#include <complex>"});
     auto strCharId = registerBuiltinType(type::StrChar, Group::kStrChar, 1, "std::string", {"#include <string>"});
     registerBuiltinType(type::StrWide, Group::kStrWide, 1, "std::wstring", {"#include <string>"});
-    // CString — невладеющий указатель на C-строку (const char*): результат метода
+    // CString - невладеющий указатель на C-строку (const char*): результат метода
     // StrChar.%c_str(), совместим с нативными C-функциями (printf %s).
     auto cstringId = registerBuiltinType(type::CString, Group::kStrChar, 2, "const char*", {});
     // Нативные методы StrChar (std::string) без параметров (в C++ вставляется идентификатор без '%').
-    // Сигнатура метода — функциональный тип (метод и функция — одно и то же).
+    // Сигнатура метода - функциональный тип (метод и функция - одно и то же).
     addMethod(strCharId, "%c_str", getOrCreateFunctionType(cstringId, {}));
     addMethod(strCharId, "%data", getOrCreateFunctionType(cstringId, {}));
     addMethod(strCharId, "%size", getOrCreateFunctionType(uint64Id, {}));
@@ -172,7 +172,7 @@ void TypeRegistry::registerBuiltinTypes() {
 
     // Runtime symbols: presence of these C++ symbols in generated code forces
     // linking the trust-runtime library and including its public headers.
-    // Единый источник описания — types/runtime_symbols.hpp. Регистрируются ТОЛЬКО
+    // Единый источник описания - types/runtime_symbols.hpp. Регистрируются ТОЛЬКО
     // не-типовые функции: типы Dict/Rational покрываются registerBuiltinType по-типу
     // (механизм №1 в транспиляторе) и не должны дублироваться как символы.
     for (size_t i = 0; i < static_cast<size_t>(RuntimeSymbolId::kCount); ++i) {
@@ -183,7 +183,7 @@ void TypeRegistry::registerBuiltinTypes() {
     registerBuiltinType(type_category::EllipsisAny, Group::kEllipsis, 1);
     registerBuiltinType(type_category::EllipsisTyped, Group::kEllipsis, 2);
 
-    // Aliases — register as separate types based on existing concrete types
+    // Aliases - register as separate types based on existing concrete types
     registerType(type::Char, int8Id);
     registerType(type::Byte, uint8Id);
     registerType(type::Word, uint16Id);
@@ -234,7 +234,7 @@ void TypeRegistry::registerBuiltinTypes() {
     registerBuiltinType(type_category::Native, Group::kNative);
 
     // Array: универсальный изменяемый массив (cpp-имя std::vector<Elem>). Структурные
-    // `Array<Elem>` создаются getOrCreateArrayType (Group::kContainers, Data=1). Здесь —
+    // `Array<Elem>` создаются getOrCreateArrayType (Group::kContainers, Data=1). Здесь -
     // абстрактный `:Array` (Data=0), на котором объявлены методы (как у `:Range`).
     registerBuiltinType(type::Array, Group::kContainers);
 
@@ -247,13 +247,13 @@ void TypeRegistry::registerBuiltinTypes() {
     registerBuiltinType(type_generic::Strings, Group::kStrChar);
     registerBuiltinType(type_generic::Tensors, Group::kTensors);
 
-    // ── Методы универсального диапазона `:Range` (рантайм trust::Range<Elem>) ──
+    // -- Методы универсального диапазона `:Range` (рантайм trust::Range<Elem>) --
     // Ключ кодирует нативность ('%') и константность ('^'); все методы Range константные.
     // Сигнатуры объявлены ОДИН раз на абстрактном `:Range`; ЭЛЕМЕНТ-зависимые слоты помечены
     // типовым параметром T (Group::kTemplateParam) и подставляются (T→Elem) при резолве для
     // конкретного Range<Elem> (C++-модель шаблонов, см. getOrCreateRangeType/instantiateRangeMethod):
     //   start/stop/step → T, at(Int64) → T, contains(T) → Bool.
-    // count/size/empty/toDict — конкретные типы (не зависят от элемента). toVector/toArray/toList/
+    // count/size/empty/toDict - конкретные типы (не зависят от элемента). toVector/toArray/toList/
     // reversed возвращают контейнер/диапазон, для которых элементная точность не моделируется → Any.
     // Алиас: trust `length` → нативное `count` (алиас повторяет семантику цели: нативный+константный).
     addMethod(rangeId, "%count^", getOrCreateFunctionType(int64Id, {}), {"%length^"});
@@ -270,16 +270,16 @@ void TypeRegistry::registerBuiltinTypes() {
     addMethod(rangeId, "%toDict^", getOrCreateFunctionType(dictId, {}));
     addMethod(rangeId, "%reversed^", getOrCreateFunctionType(anyId, {}));
 
-    // ── Методы универсального массива `:Array` (std::vector<Elem> / std::array<Elem,N>) ──
+    // -- Методы универсального массива `:Array` (std::vector<Elem> / std::array<Elem,N>) --
     // Модель как у `:Range`: сигнатуры объявлены ОДИН раз на абстрактном `:Array`; элемент-зависимые
     // слоты помечены типовым параметром T (Group::kTemplateParam) и подставляются (T→Elem) при
     // резолве для конкретного `Array<Elem>` (instantiateArrayMethod).
     //   at(Int64)→T, first/front/last/back→T, contains(T)→Bool, push_back(T)→Void, pop_back()→Void.
-    // count/size/length/empty/clear/resize — не зависят от элемента (конкретные типы).
+    // count/size/length/empty/clear/resize - не зависят от элемента (конкретные типы).
     // Универсальные операции (как в C++/Python/Rust/Go): count/size/length (size()),
     // empty (empty()), at(i) (at/bounds-check), first/front (front()), last/back (back()),
     // contains (поиск), push_back (push_back), pop_back (pop_back), clear (clear),
-    // resize(n) (resize), reverse (std::reverse). Срезы/slice и insert/erase — следующая задача.
+    // resize(n) (resize), reverse (std::reverse). Срезы/slice и insert/erase - следующая задача.
     const TypeId arrayId = getType(type::Array);
     addMethod(arrayId, "%count^", getOrCreateFunctionType(int64Id, {}), {"%length^"});
     addMethod(arrayId, "%size^", getOrCreateFunctionType(int64Id, {}));
@@ -302,13 +302,13 @@ void TypeRegistry::registerBuiltinTypes() {
     m_builtinCount = m_descriptors.size();
 }
 
-// ── Register builtin type ────────────────────────────────
+// -- Register builtin type --------------------------------
 TypeId TypeRegistry::registerBuiltinType(std::string_view name, Group group, uint8_t data, std::string_view cpp_name,
                                          std::vector<std::string> preprocIncludes) {
     if (isAbstractGroup(group)) {
         EXPECT(data == 0 && "abstract group must have data=0");
     } else if (data == 0) {
-        // Alias: data=0 for a normally-concrete group — allowed.
+        // Alias: data=0 for a normally-concrete group - allowed.
     } else {
         EXPECT(data != 0 && "concrete group must have data!=0");
     }
@@ -324,18 +324,18 @@ TypeId TypeRegistry::registerBuiltinType(std::string_view name, Group group, uin
         m_name_to_id[std::string(cpp_name)] = id;
     }
     m_descriptors.push_back({
-        std::string(name),          // name — владеющая копия (не висячий string_view)
+        std::string(name),          // name - владеющая копия (не висячий string_view)
         {},                         // attrs (builtin have no attrs)
         {},                         // sourceRange (builtin have no source)
         std::string(cpp_name),      // cppName
-        std::move(preprocIncludes), // preprocIncludes — список директив (первый — основной)
-        INVALID_TYPE_ID,            // baseType — builtin types are not aliases
-        SimpleTypeData{}            // data — builtin types are simple
+        std::move(preprocIncludes), // preprocIncludes - список директив (первый - основной)
+        INVALID_TYPE_ID,            // baseType - builtin types are not aliases
+        SimpleTypeData{}            // data - builtin types are simple
     });
     return id;
 }
 
-// ── Lookup with error ───────────────────────────────────
+// -- Lookup with error -----------------------------------
 TypeId TypeRegistry::getType(std::string_view name) const {
     if (auto id = findType(name)) {
         return *id;
@@ -343,7 +343,7 @@ TypeId TypeRegistry::getType(std::string_view name) const {
     FAULT("type '{}' not found", name);
 }
 
-// ── Lookup with optional ────────────────────────────────
+// -- Lookup with optional --------------------------------
 std::optional<TypeId> TypeRegistry::findType(std::string_view name) const noexcept {
     const std::string key(name);
     if (auto it = m_name_to_id.find(key); it != m_name_to_id.end()) {
@@ -357,12 +357,12 @@ std::optional<TypeId> TypeRegistry::findType(std::string_view name) const noexce
     return std::nullopt;
 }
 
-// ── Lookup by id ─────────────────────────────────────────
+// -- Lookup by id -----------------------------------------
 const TypeDescriptor* TypeRegistry::lookup(TypeId id) const {
     return descriptorOf(id);
 }
 
-// ── Iterate named types ──────────────────────────────────
+// -- Iterate named types ----------------------------------
 void TypeRegistry::forEachType(const std::function<void(std::string_view, bool)>& cb) const {
     for (const auto& [name, id] : m_name_to_id) { // пользовательские
         cb(name, true);
@@ -374,7 +374,7 @@ void TypeRegistry::forEachType(const std::function<void(std::string_view, bool)>
     }
 }
 
-// ── Get full type name ───────────────────────────────────
+// -- Get full type name -----------------------------------
 std::string TypeRegistry::getFullTypeName(TypeId id) const {
     if (const TypeDescriptor* desc = descriptorOf(id)) {
         // Параметризованный Range<Elem>: отображаем с элементным типом (структурный тип имеет
@@ -390,9 +390,9 @@ std::string TypeRegistry::getFullTypeName(TypeId id) const {
     return "Unknown";
 }
 
-// ── Get C++ type name ────────────────────────────────────
+// -- Get C++ type name ------------------------------------
 std::expected<std::string, std::string> TypeRegistry::getCppTypeName(TypeId id) const {
-    // Константность — ортогональный квалификатор: лидирующий `const `. RefType (вид ссылки,
+    // Константность - ортогональный квалификатор: лидирующий `const `. RefType (вид ссылки,
     // биты 16-19) применяется к базовому имени pointee (суффикс `*`/`&`/`&&` либо обёртка
     // std::shared_ptr/std::weak_ptr/std::unique_ptr). Для вложенности (RefTypeData-узел)
     // базовое имя строится рекурсивно от pointee.
@@ -432,7 +432,7 @@ std::expected<std::string, std::string> TypeRegistry::getCppTypeName(TypeId id) 
     case RefType::kPtrPtr:
         return base + "**";
     case RefType::kTake:
-        // Владеющая в рамках текущего скоупа: RAII-охранник trust::Take<T> (runtime-тип —
+        // Владеющая в рамках текущего скоупа: RAII-охранник trust::Take<T> (runtime-тип -
         // отдельная задача; здесь зарезервировано имя эмиссии).
         return "trust::Take<" + base + ">";
     case RefType::kRef:
@@ -462,7 +462,7 @@ std::expected<std::string, std::string> TypeRegistry::getCppTypeName(TypeId id) 
     return std::unexpected(std::format("getCppTypeName: unknown RefType for '{}'", getFullTypeName(id)));
 }
 
-// ── Register user-defined type ──────────────────────────
+// -- Register user-defined type --------------------------
 TypeId TypeRegistry::registerType(std::string_view name, TypeId baseTypeId, std::vector<AttrId> attrs, MapperRange sourceRange,
                                   std::string_view preprocInclude) {
     const std::string key(name);
@@ -483,19 +483,19 @@ TypeId TypeRegistry::registerType(std::string_view name, TypeId baseTypeId, std:
     // registry_index для пользовательского типа = после всех встроенных (m_builtinCount).
     TypeId id = makeTypeId(kind, static_cast<uint32_t>(m_builtinCount + m_descriptors.size() + 1));
     m_descriptors.push_back({
-        std::string(name),                                                                                           // name — владеющая копия
+        std::string(name),                                                                                           // name - владеющая копия
         std::move(attrs),                                                                                            // attrs
         sourceRange,                                                                                                 // sourceRange
         {},                                                                                                          // cppName (empty for aliases)
         preprocInclude.empty() ? std::vector<std::string>{} : std::vector<std::string>{std::string(preprocInclude)}, // preprocIncludes
-        baseTypeId,                                                                                                  // baseType — points to the aliased type
-        SimpleTypeData{}                                                                                             // data — aliases are simple types
+        baseTypeId,                                                                                                  // baseType - points to the aliased type
+        SimpleTypeData{}                                                                                             // data - aliases are simple types
     });
     m_name_to_id[std::string(name)] = id;
     return id;
 }
 
-// ── Регистрация enum-типа (Group::kEnums, EnumTypeData) ────
+// -- Регистрация enum-типа (Group::kEnums, EnumTypeData) ----
 TypeId TypeRegistry::registerEnumType(std::string_view name, TypeId valueType, std::vector<EnumMemberData> members, MapperRange sourceRange) {
     const std::string key(name);
     const bool inBuiltin = m_builtin && m_builtin->name_to_id.find(key) != m_builtin->name_to_id.end();
@@ -511,24 +511,24 @@ TypeId TypeRegistry::registerEnumType(std::string_view name, TypeId valueType, s
         return INVALID_TYPE_ID;
     }
 
-    // Group::kEnums, data=1 — конкретный enum-тип (аналог kStructured для кортежа).
+    // Group::kEnums, data=1 - конкретный enum-тип (аналог kStructured для кортежа).
     TypeKind kind = makeTypeKind(Group::kEnums, 1);
     TypeId id = makeTypeId(kind, static_cast<uint32_t>(m_builtinCount + m_descriptors.size() + 1));
     EnumTypeData data{valueType, std::move(members)};
     m_descriptors.push_back({
-        std::string(name), // name — владеющая копия
-        {},                // attrs (пусто — атрибуты enum пока не используются)
-        sourceRange,       // sourceRange — позиция объявления enum
-        {},                // cppName (пусто — манглинг в кодогенерации: name_to_cpp)
+        std::string(name), // name - владеющая копия
+        {},                // attrs (пусто - атрибуты enum пока не используются)
+        sourceRange,       // sourceRange - позиция объявления enum
+        {},                // cppName (пусто - манглинг в кодогенерации: name_to_cpp)
         {},                // preprocIncludes (enum-структура самодостаточна; инклуды тянут типы значений)
-        INVALID_TYPE_ID,   // baseType — enum НЕ алиас (canonical = сам тип)
-        std::move(data)    // data — EnumTypeData
+        INVALID_TYPE_ID,   // baseType - enum НЕ алиас (canonical = сам тип)
+        std::move(data)    // data - EnumTypeData
     });
     m_name_to_id[std::string(name)] = id;
     return id;
 }
 
-// ── Регистрация Variant-типа (Group::kVariants, VariantTypeData) ────
+// -- Регистрация Variant-типа (Group::kVariants, VariantTypeData) ----
 TypeId TypeRegistry::registerVariantType(std::string_view name, std::vector<VariantMemberData> members, MapperRange sourceRange) {
     const std::string key(name);
     const bool inBuiltin = m_builtin && m_builtin->name_to_id.find(key) != m_builtin->name_to_id.end();
@@ -544,18 +544,18 @@ TypeId TypeRegistry::registerVariantType(std::string_view name, std::vector<Vari
         return INVALID_TYPE_ID;
     }
 
-    // Group::kVariants, data=1 — конкретный вариант-тип.
+    // Group::kVariants, data=1 - конкретный вариант-тип.
     TypeKind kind = makeTypeKind(Group::kVariants, 1);
     TypeId id = makeTypeId(kind, static_cast<uint32_t>(m_builtinCount + m_descriptors.size() + 1));
     VariantTypeData data{std::move(members)};
     m_descriptors.push_back({
-        std::string(name), // name — владеющая копия
+        std::string(name), // name - владеющая копия
         {},                // attrs
         sourceRange,       // sourceRange
         {},                // cppName (манглинг в кодогенерации: name_to_cpp)
-        {},                // preprocIncludes (заголовки тянут типы членов; <variant> — кодогенерация)
-        INVALID_TYPE_ID,   // baseType — Variant НЕ алиас
-        std::move(data)    // data — VariantTypeData
+        {},                // preprocIncludes (заголовки тянут типы членов; <variant> - кодогенерация)
+        INVALID_TYPE_ID,   // baseType - Variant НЕ алиас
+        std::move(data)    // data - VariantTypeData
     });
     m_name_to_id[std::string(name)] = id;
     return id;
@@ -589,26 +589,26 @@ TypeId TypeRegistry::getOrCreateStructuralType(std::string_view name, TypeKind k
         auto nameIt = m_name_to_id.find(nkey);
         const bool inBuiltin = m_builtin && m_builtin->name_to_id.find(nkey) != m_builtin->name_to_id.end();
         if (nameIt != m_name_to_id.end() || inBuiltin) {
-            // If same TypeKey — return existing
+            // If same TypeKey - return existing
             if (nameIt != m_name_to_id.end() && m_structural.find(key) != m_structural.end()) {
                 return nameIt->second;
             }
 
-            // If name collision with different type — error
+            // If name collision with different type - error
             reportTypeDiag(m_diag, m_opts, OptKind::ParseError, {}, "duplicate type name '{}'", name);
             return INVALID_TYPE_ID;
         }
     }
 
-    // Create new type (registry_index = после всех встроенных, т.к. дескриптор — пользовательский)
+    // Create new type (registry_index = после всех встроенных, т.к. дескриптор - пользовательский)
     TypeId id = makeTypeId(kind, static_cast<uint32_t>(m_builtinCount + m_descriptors.size() + 1));
     m_descriptors.push_back({
-        std::string(name), // name — владеющая копия
+        std::string(name), // name - владеющая копия
         {},                // attrs (empty, caller should set after creation)
         {},                // sourceRange
         {},                // cppName
         preprocInclude.empty() ? std::vector<std::string>{} : std::vector<std::string>{std::string(preprocInclude)}, // preprocIncludes
-        INVALID_TYPE_ID, // baseType — structural types are not aliases
+        INVALID_TYPE_ID, // baseType - structural types are not aliases
         std::move(data)  // data
     });
     if (!name.empty()) {
@@ -618,7 +618,7 @@ TypeId TypeRegistry::getOrCreateStructuralType(std::string_view name, TypeKind k
     return id;
 }
 
-// ── Get or create FunctionType ─────────────────────────
+// -- Get or create FunctionType -------------------------
 TypeId TypeRegistry::getOrCreateFunctionType(TypeId returnType, std::vector<TypeId> paramTypes, TypeId variadicType) {
     // Build children: [returnType, paramTypes..., variadicType (if variadic)]
     std::vector<TypeId> children;
@@ -634,14 +634,14 @@ TypeId TypeRegistry::getOrCreateFunctionType(TypeId returnType, std::vector<Type
 
     FunctionTypeData funcData{returnType, paramTypes, variadicType};
 
-    // Use empty name — structural function types don't need a name
+    // Use empty name - structural function types don't need a name
     return getOrCreateStructuralType("", funcKind, std::move(children), std::move(funcData));
 }
 
-// ── Get or create TupleType (структурный кортеж) ─────────
+// -- Get or create TupleType (структурный кортеж) ---------
 // Структурный тип: дети = типы элементов, имена = имена элементов (входят в TypeKey::names,
-// поэтому два кортежа с одинаковыми типами, но разными именами полей — разные типы).
-// TupleTypeData хранит элементы (имя, тип) — источник для резолва `t.name`/`t.0`.
+// поэтому два кортежа с одинаковыми типами, но разными именами полей - разные типы).
+// TupleTypeData хранит элементы (имя, тип) - источник для резолва `t.name`/`t.0`.
 TypeId TypeRegistry::getOrCreateTupleType(std::vector<std::pair<std::string, TypeId>> elements) {
     std::vector<TypeId> children;
     std::vector<std::string> names;
@@ -656,27 +656,27 @@ TypeId TypeRegistry::getOrCreateTupleType(std::vector<std::pair<std::string, Typ
         names.push_back(name);
         elems.push_back(TupleElementData{name, type});
     }
-    // data=1 в Group::kStructured — конкретный структурный кортеж (свободно: функция = kCallable/1).
+    // data=1 в Group::kStructured - конкретный структурный кортеж (свободно: функция = kCallable/1).
     TypeKind tupleKind = makeTypeKind(Group::kStructured, 1);
     TupleTypeData data{std::move(elems)};
     return getOrCreateStructuralType("", tupleKind, std::move(children), std::move(data), "", std::move(names));
 }
 
-// ── Get or create RangeType (параметризованный Range<Elem>) ──
+// -- Get or create RangeType (параметризованный Range<Elem>) --
 // Структурный тип: дети = [elementType] (входят в TypeKey), поэтому Range<Int64> и
-// Range<Rational> — разные типы. Данные — TemplateTypeData{templateTypeId=:Range, args=[Elem]}
+// Range<Rational> - разные типы. Данные - TemplateTypeData{templateTypeId=:Range, args=[Elem]}
 // (единый механизм параметризованных типов); элементный тип читается из args[0].
 // Методы Range объявлены на абстрактном `:Range` (ключ с '%'/'^') и подставляются (T→Elem)
 // в instantiateRangeMethod.
 TypeId TypeRegistry::getOrCreateRangeType(TypeId elementType) {
     EXPECT(!typeIsInferred(elementType) && "range element type must not carry the inferred bit");
     EXPECT(!typeIsConst(elementType) && "range element type must not carry the const bit");
-    // Data=1 в Group::kRanges — конкретный структурный диапазон (абстрактный `:Range` — Data=0).
+    // Data=1 в Group::kRanges - конкретный структурный диапазон (абстрактный `:Range` - Data=0).
     TypeKind rangeKind = makeTypeKind(Group::kRanges, 1);
     TemplateTypeData data{getType(type_category::Range), {elementType}};
     TypeId id = getOrCreateStructuralType("", rangeKind, {elementType}, std::move(data), "@trust/range.hpp");
     // Рантайм-заголовки: range.hpp самодостаточен, но для toDict/элементов нужны dict.hpp и
-    // rational.hpp — пайплайн извлекает только по прямому запросу, поэтому кладём все три.
+    // rational.hpp - пайплайн извлекает только по прямому запросу, поэтому кладём все три.
     if (TypeDescriptor* desc = userDescriptorOf(id)) {
         desc->preprocIncludes = {"@trust/range.hpp", "@trust/dict.hpp", "@trust/rational.hpp"};
     }
@@ -699,7 +699,7 @@ TypeId TypeRegistry::rangeElementType(TypeId id) const noexcept {
 // Подстановка типового параметра T (Group::kTemplateParam) → elem в сигнатуре функционального
 // типа. Единый механизм для параметризованных контейнеров (Range, Array): методы объявлены на
 // абстрактном типе с T, а для конкретного Elem интернируется конкретная сигнатура.
-// funcType не-функциональный — возвращается как есть; без T — без изменений.
+// funcType не-функциональный - возвращается как есть; без T - без изменений.
 static TypeId substituteElementParam(TypeRegistry& reg, TypeId elem, TypeId templateFuncType) {
     const auto* fd = reg.getTypeDataAs<FunctionTypeData>(templateFuncType);
     if (!fd) {
@@ -731,15 +731,15 @@ TypeId TypeRegistry::instantiateRangeMethod(TypeId objType, TypeId templateFuncT
     return substituteElementParam(*this, elem, templateFuncType);
 }
 
-// ── Get or create ArrayType (параметризованный Array<Elem>) ──
+// -- Get or create ArrayType (параметризованный Array<Elem>) --
 // Структурный тип: дети = [elementType] (входят в TypeKey); размерности и признак константности
-// кодируются в TypeKey::names (дети — только типы, числа не являются TypeId). Данные —
+// кодируются в TypeKey::names (дети - только типы, числа не являются TypeId). Данные -
 // ArrayTypeData{elementType, dimensions, isConst}. Мутable-форма → std::vector<Elem>,
 // константная/фиксированная → std::array<Elem,N> (кодогенерация по isConst).
 TypeId TypeRegistry::getOrCreateArrayType(TypeId elementType, std::vector<uint64_t> dimensions) {
     EXPECT(!typeIsInferred(elementType) && "array element type must not carry the inferred bit");
     EXPECT(!typeIsConst(elementType) && "array element type must not carry the const bit");
-    // TypeKey::names — единственный слот для «не-типовых» атрибутов (dims): children=[elem].
+    // TypeKey::names - единственный слот для «не-типовых» атрибутов (dims): children=[elem].
     // Формат: "<d1>,<d2>,...". Пустой → динамический.
     std::vector<std::string> names;
     if (!dimensions.empty()) {
@@ -752,7 +752,7 @@ TypeId TypeRegistry::getOrCreateArrayType(TypeId elementType, std::vector<uint64
         }
         names.push_back(std::move(enc));
     }
-    // Data=1 в Group::kContainers — конкретный структурный массив (абстрактный `:Array` — Data=0).
+    // Data=1 в Group::kContainers - конкретный структурный массив (абстрактный `:Array` - Data=0).
     TypeKind arrayKind = makeTypeKind(Group::kContainers, 1);
     ArrayTypeData data{elementType, dimensions, false};
     TypeId id = getOrCreateStructuralType("", arrayKind, {elementType}, std::move(data), "", std::move(names));
@@ -789,7 +789,7 @@ TypeId TypeRegistry::instantiateArrayMethod(TypeId objType, TypeId templateFuncT
 
 TypeId TypeRegistry::getOrCreateRefType(RefType kind, TypeId pointee) {
     // Составной ссылочный узел: отдельная группа kReftype (Data=1, RefType=вид), один
-    // ребёнок pointee. Интернируется структурно по TypeKey{kind, children} — ссылка на
+    // ребёнок pointee. Интернируется структурно по TypeKey{kind, children} - ссылка на
     // уже ссылочный тип (shared<ptr<Int32>>) получает свой узел, а не перезаписывает бит.
     TypeKind refType = makeTypeKind(Group::kReftype, 1, TypeClass::kTrivial, kind);
     RefTypeData data{pointee};
@@ -797,9 +797,9 @@ TypeId TypeRegistry::getOrCreateRefType(RefType kind, TypeId pointee) {
 }
 
 TypeId TypeRegistry::applyRefType(TypeId base, RefType kind) {
-    // Первая ссылка на тип без признака — fast-path бит. withRefType работает с TypeKind
+    // Первая ссылка на тип без признака - fast-path бит. withRefType работает с TypeKind
     // (uint32) и обнуляет registry_index, поэтому пересобираем TypeId, сохраняя нижние
-    // 32 бита (registry_index + kInferredFlag/kConstFlag). Вложенность — составной узел.
+    // 32 бита (registry_index + kInferredFlag/kConstFlag). Вложенность - составной узел.
     if (getRefType(getKindFromId(base)) == RefType::kValue) {
         return (static_cast<uint64_t>(withRefType(getKindFromId(base), kind)) << 32) | (static_cast<uint32_t>(base) & 0xFFFFFFFFu);
     }
@@ -810,11 +810,11 @@ void TypeRegistry::addMethod(TypeId type, std::string_view name, TypeId funcType
     const TypeId canonical = getCanonicalTypeId(type);
     TypeDescriptor* desc = userDescriptorOf(canonical);
     EXPECT(desc != nullptr && "addMethod: unknown type (methods can only be added to user-defined types)");
-    // Полный ключ — как передан (нативность '%' и константность '^' кодируются в имени).
+    // Полный ключ - как передан (нативность '%' и константность '^' кодируются в имени).
     const std::string key(name);
     EXPECT(!utils::bare_name(key).empty() && "addMethod: empty method name");
-    // Дубликат: то же bare-имя + та же константность (независимо от '%' — нативное и обычное
-    // написание — один метод). const и не-const перегрузки с одинаковыми аргументами — разные.
+    // Дубликат: то же bare-имя + та же константность (независимо от '%' - нативное и обычное
+    // написание - один метод). const и не-const перегрузки с одинаковыми аргументами - разные.
     const bool isConst = utils::is_const_name(key);
     for (const auto& [k, ft] : desc->methods) {
         (void)ft;
@@ -887,7 +887,7 @@ std::optional<TypeRegistry::MethodRef> TypeRegistry::findMethodInfo(TypeId type,
             }
         }
     }
-    // Параметризованный Array<Elem> — аналогично: методы объявлены на абстрактном `:Array`.
+    // Параметризованный Array<Elem> - аналогично: методы объявлены на абстрактном `:Array`.
     if (isArrayType(canonical)) {
         if (const TypeDescriptor* arrDesc = descriptorOf(getType(type::Array))) {
             if (auto r = findMethodInDescriptor(*arrDesc, bare, wantConst)) {
@@ -903,11 +903,11 @@ TypeId TypeRegistry::findMethod(TypeId type, std::string_view name) const {
     return m ? m->funcType : INVALID_TYPE_ID;
 }
 
-// ── Get preprocessor includes ───────────────────────────
+// -- Get preprocessor includes ---------------------------
 std::string_view TypeRegistry::getPreprocInclude(TypeId id) const noexcept {
     if (const TypeDescriptor* desc = descriptorOf(id)) {
         if (!desc->preprocIncludes.empty()) {
-            return desc->preprocIncludes.front(); // первый — основной заголовок типа
+            return desc->preprocIncludes.front(); // первый - основной заголовок типа
         }
     }
     return {};
@@ -921,7 +921,7 @@ const std::vector<std::string>& TypeRegistry::getPreprocIncludes(TypeId id) cons
     return kEmpty;
 }
 
-// ── Get source range ────────────────────────────────────
+// -- Get source range ------------------------------------
 MapperRange TypeRegistry::getTypeSourceRange(TypeId id) const {
     if (const TypeDescriptor* desc = descriptorOf(id)) {
         return desc->sourceRange;
@@ -929,7 +929,7 @@ MapperRange TypeRegistry::getTypeSourceRange(TypeId id) const {
     return {};
 }
 
-// ── Runtime symbols ─────────────────────────────────────
+// -- Runtime symbols -------------------------------------
 void TypeRegistry::registerRuntimeSymbol(RuntimeSymbolId id) {
     const std::string_view sym = runtimeSymbolName(id);
     const auto headers = runtimeSymbolHeaders(id);
@@ -937,7 +937,7 @@ void TypeRegistry::registerRuntimeSymbol(RuntimeSymbolId id) {
     // Инвариант: символ НЕ должен дублировать тип, зарегистрированный через
     // registerBuiltinType (его заголовки уже покрываются по-типу, механизм №1).
     // Пример: trust::Dict регистрируется ТОЛЬКО как тип; добавление его как
-    // рантайм-символа — ошибка (явная, при инициализации реестра / в тестах).
+    // рантайм-символа - ошибка (явная, при инициализации реестра / в тестах).
     for (const auto& desc : m_descriptors) {
         EXPECT(desc.cppName != sym && "runtime symbol duplicates a builtin type; headers already come from the type");
     }
@@ -951,10 +951,10 @@ const std::vector<RuntimeSymbol>& TypeRegistry::runtimeSymbols() const noexcept 
     return m_builtin ? m_builtin->runtimeSymbols : m_runtimeSymbols;
 }
 
-// ── Canonical type id ───────────────────────────────────
+// -- Canonical type id -----------------------------------
 TypeId TypeRegistry::getCanonicalTypeId(TypeId id) const noexcept {
     // Структурная идентичность: снимаем флаги «тип выведен» (kInferredFlag) и «константность»
-    // (kConstFlag) — они не часть ключа интернирования (см. types/type_id.hpp, types/MEMORY.md).
+    // (kConstFlag) - они не часть ключа интернирования (см. types/type_id.hpp, types/MEMORY.md).
     id = clearInferred(id);
     id = clearConst(id);
     while (true) {
@@ -966,7 +966,7 @@ TypeId TypeRegistry::getCanonicalTypeId(TypeId id) const noexcept {
     }
 }
 
-// ── Accessors ────────────────────────────────────────────
+// -- Accessors --------------------------------------------
 
 TypeId TypeRegistry::getBaseType(TypeId id) const noexcept {
     if (const TypeDescriptor* desc = descriptorOf(id)) {
@@ -992,7 +992,7 @@ const std::optional<TypeData>& TypeRegistry::getTypeData(TypeId id) const noexce
     return kEmpty;
 }
 
-// ── Type checks ─────────────────────────────────────────
+// -- Type checks -----------------------------------------
 
 bool TypeRegistry::isTypeDataKind(TypeId id, TypeDataKind kind) const noexcept {
     const auto& data = getTypeData(id);

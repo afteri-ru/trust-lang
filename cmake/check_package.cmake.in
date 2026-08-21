@@ -32,6 +32,7 @@ set(_required
     "bin/trust"
     "bin/trust-lsp"
     "bin/trust-dap"
+    "bin/trust-playground"
     "lib/trust-runtime.a"
     "lib/trust-runtime.so"
     "manifest.txt"

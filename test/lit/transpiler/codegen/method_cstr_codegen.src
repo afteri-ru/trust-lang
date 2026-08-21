@@ -1,6 +1,6 @@
 # RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
-# Нативный метод StrChar.%c_str(): CString — явная конверсия строки в const char*.
+# Нативный метод StrChar.%c_str(): CString - явная конверсия строки в const char*.
 # Кодогенерация: s.c_str() / s.%c_str() → (c_s).c_str(); результат типизируется как CString.
 # Оба синтаксиса вызова допустимы: обычный и нативный (с '%').
 

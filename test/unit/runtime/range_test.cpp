@@ -15,7 +15,7 @@ using trust::Rational;
 
 namespace {
 
-// ── Целые ──────────────────────────────────────────────────────────────────
+// -- Целые ------------------------------------------------------------------
 
 TEST(RangeTest, DefaultStepAscending) {
     const Range<std::int64_t> r(1, 10);
@@ -130,7 +130,7 @@ TEST(RangeTest, Equality) {
     EXPECT_NE(a, c);
 }
 
-// ── Вещественные ───────────────────────────────────────────────────────────
+// -- Вещественные -----------------------------------------------------------
 
 TEST(RangeTest, FloatDefaultAndStep) {
     const Range<double> r(0.0, 1.0, 0.01);
@@ -153,7 +153,7 @@ TEST(RangeTest, FloatContains) {
     EXPECT_FALSE(r.contains(0.3));
 }
 
-// ── Рациональные ───────────────────────────────────────────────────────────
+// -- Рациональные -----------------------------------------------------------
 
 TEST(RangeTest, RationalRange) {
     const Range<Rational> r(Rational(0), Rational(100));
@@ -172,7 +172,7 @@ TEST(RangeTest, RationalFractionalStep) {
     EXPECT_TRUE(r.contains(Rational("2\\3")));
 }
 
-// ── Универсальный Any (std::any) ───────────────────────────────────────────
+// -- Универсальный Any (std::any) -------------------------------------------
 
 TEST(RangeTest, AnyRange) {
     const Range<std::any> r(std::any(std::int64_t(1)), std::any(std::int64_t(5)));

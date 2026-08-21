@@ -16,13 +16,13 @@ message(STATUS "Staging distribution tree -> ${_staging}")
 file(REMOVE_RECURSE "${_staging}")
 file(MAKE_DIRECTORY "${_staging}/bin" "${_staging}/lib")
 
-# ── Executables ──
+# -- Executables --
 file(COPY "@CMAKE_BINARY_DIR@/trust" DESTINATION "${_staging}/bin")
 file(COPY "@CMAKE_BINARY_DIR@/trust-lsp" DESTINATION "${_staging}/bin")
 file(COPY "@CMAKE_BINARY_DIR@/trust-dap" DESTINATION "${_staging}/bin")
 file(COPY "@CMAKE_BINARY_DIR@/trust-playground" DESTINATION "${_staging}/bin")
 
-# ── Runtime libraries (shared + static) ──
+# -- Runtime libraries (shared + static) --
 # The public headers (trust/rational.hpp) and the stdlib sources are intentionally
 # NOT copied: their contents are embedded into the runtime libraries / the compiler
 # and stay version-synced with them. The pipeline extracts a header on demand from
@@ -30,11 +30,11 @@ file(COPY "@CMAKE_BINARY_DIR@/trust-playground" DESTINATION "${_staging}/bin")
 file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.so" DESTINATION "${_staging}/lib")
 file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.a" DESTINATION "${_staging}/lib")
 
-# ── Metadata ──
+# -- Metadata --
 file(COPY "@CMAKE_SOURCE_DIR@/VERSION" DESTINATION "${_staging}")
 file(COPY "@CMAKE_SOURCE_DIR@/LICENSE" DESTINATION "${_staging}")
 
-# ── Manifest (build attributes + file list) ──
+# -- Manifest (build attributes + file list) --
 file(GLOB_RECURSE _files RELATIVE "${_staging}" "${_staging}/*")
 list(SORT _files)
 set(_manifest "# trust-lang distribution manifest\n")
@@ -51,7 +51,7 @@ foreach(_f IN LISTS _files)
 endforeach()
 file(WRITE "${_staging}/manifest.txt" "${_manifest}")
 
-# ── Pack archive (creates ./<stem>/ inside the tar) ──
+# -- Pack archive (creates ./<stem>/ inside the tar) --
 execute_process(
     COMMAND "@CMAKE_COMMAND@" -E tar czf "${_archive}" "${_stem}"
     WORKING_DIRECTORY "@CMAKE_BINARY_DIR@/package"

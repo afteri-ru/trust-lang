@@ -45,14 +45,14 @@ void FileEntry::setFilename(std::string f) {
 
 void FileEntry::appendSource(std::string_view text) {
     m_source.append(text);
-    // Максимальный размер для входных файлов — более консервативная оценка
+    // Максимальный размер для входных файлов - более консервативная оценка
     EXPECT(m_source.size() <= LocationPack::MAX_OFFSET_INPUT);
     invalidateCache();
 }
 
 void FileEntry::setSource(std::string s) {
     m_source = std::move(s);
-    // Максимальный размер для входных файлов — более консервативная оценка
+    // Максимальный размер для входных файлов - более консервативная оценка
     EXPECT(m_source.size() <= LocationPack::MAX_OFFSET_INPUT);
     invalidateCache();
 }
@@ -63,7 +63,7 @@ void FileEntry::ensureCache() const {
     }
 }
 
-// ── Вычисление строки/колонки по 1-based offset ──
+// -- Вычисление строки/колонки по 1-based offset --
 FileEntry::LineColumn FileEntry::calc_column(size_t offset) const {
     ensureCache();
 
@@ -71,7 +71,7 @@ FileEntry::LineColumn FileEntry::calc_column(size_t offset) const {
 
     size_t target = offset - 1; // переводим в 0-based
 
-    // Если кеш пуст (пустой файл) — всё в первой строке
+    // Если кеш пуст (пустой файл) - всё в первой строке
     if (m_sparseCache.empty()) {
         return LineColumn{1, offset};
     }
@@ -104,11 +104,11 @@ FileEntry::LineColumn FileEntry::calc_column(size_t offset) const {
     return {line, column};
 }
 
-// ── Вычисление offset (1-based) по номеру строки (1-based) ──
+// -- Вычисление offset (1-based) по номеру строки (1-based) --
 size_t FileEntry::calc_line_offset(size_t line) const {
     ensureCache();
 
-    // Если кеш пуст — пустой файл
+    // Если кеш пуст - пустой файл
     if (m_sparseCache.empty()) {
         return 1;
     }
@@ -133,7 +133,7 @@ size_t FileEntry::calc_line_offset(size_t line) const {
         }
     }
 
-    // Если строка не найдена — возвращаем конец файла
+    // Если строка не найдена - возвращаем конец файла
     return fileSize + 1;
 }
 
@@ -156,7 +156,7 @@ bool SourceMapReader::readFilesFromDisk(std::string_view baseDir) {
 
     bool allOk = true;
     for (auto& entry : m_inputs) {
-        // Фиктивные (in-memory) источники помечены префиксом '@' — файла на диске
+        // Фиктивные (in-memory) источники помечены префиксом '@' - файла на диске
         // нет, пытаться читать их не нужно (иначе ложно «файл не найден»).
         if (isInMemoryName(entry.getFilename())) {
             continue;
@@ -238,18 +238,18 @@ bool SourceMapReader::readFileArray(msgpack_object array, std::vector<FileEntry>
     return true;
 }
 
-// ── Factory: fromMsgpack ──
+// -- Factory: fromMsgpack --
 
 std::unique_ptr<SourceMapReader> SourceMapReader::fromMsgpack(const unsigned char* data, size_t size) {
     auto reader = std::make_unique<SourceMapReader>();
 
-    // ── Распаковываем через zstd (checksum проверяется внутри) ──
+    // -- Распаковываем через zstd (checksum проверяется внутри) --
     auto decompressed = detail::zstd_decompress(data, size);
     if (decompressed.empty()) {
         return nullptr;
     }
 
-    // ── Парсим msgpack из распакованных данных ──
+    // -- Парсим msgpack из распакованных данных --
     MsgpackReader reader_(decompressed.data(), decompressed.size());
     if (!reader_.is_valid()) {
         return nullptr;
@@ -302,12 +302,12 @@ std::unique_ptr<SourceMapReader> SourceMapReader::fromMsgpack(const unsigned cha
         return nullptr;
     }
 
-    // names — опционально
+    // names - опционально
     if (array_size > kFieldNames) {
         reader->unpackNames(fields[kFieldNames]);
     }
 
-    // macros — опционально
+    // macros - опционально
     if (array_size > kFieldMacros) {
         reader->unpackMacros(fields[kFieldMacros]);
     }
@@ -315,7 +315,7 @@ std::unique_ptr<SourceMapReader> SourceMapReader::fromMsgpack(const unsigned cha
     return reader;
 }
 
-// ── Поиск ──
+// -- Поиск --
 
 std::optional<ReaderRange> SourceMapReader::findRange(const std::map<uint32_t, RangeMap>& ranges, ReaderLocation loc) {
     if (ranges.empty() || loc.isInvalid()) {
@@ -361,14 +361,14 @@ std::optional<SourceMapReader::Range> SourceMapReader::getMapCppToTrust(Location
 }
 
 std::optional<SourceMapReader::NameMap> SourceMapReader::getCppName(Location trustLoc, std::string_view trustName) const {
-    // Возвращает полный NameMap (цель hover-ссылки — весь диапазон имени на
+    // Возвращает полный NameMap (цель hover-ссылки - весь диапазон имени на
     // противоположной стороне, без сдвига по позиции курсора внутри имени).
     auto result = findNameInMappings(m_nameMappings, trustLoc.packed, [trustName](const NameMap& v) { return v.fromName == trustName; }, &RangeMap::from);
     if (result.has_value()) {
         return result;
     }
 
-    // Если не найден — проверяем макросы (input → input)
+    // Если не найден - проверяем макросы (input → input)
     auto macroRange = findRange(m_macroForward, trustLoc);
     if (macroRange.has_value()) {
         NameMap result;
@@ -399,7 +399,7 @@ std::vector<SourceMapReader::RangeMap> SourceMapReader::getTrustFileMappings(Rea
 }
 
 std::optional<SourceMapReader::NameMap> SourceMapReader::getTrustName(Location cppLoc, std::string_view cppName) const {
-    // Возвращает полный NameMap (цель hover-ссылки — весь диапазон имени на
+    // Возвращает полный NameMap (цель hover-ссылки - весь диапазон имени на
     // противоположной стороне, без сдвига по позиции курсора внутри имени).
     return findNameInMappings(m_nameMappings, cppLoc.packed, [cppName](const NameMap& v) { return v.toName == cppName; }, &RangeMap::to);
 }
@@ -410,12 +410,12 @@ std::optional<SourceMapReader::NameMap> SourceMapReader::getTrustName(Location c
 
 namespace {
 
-// ── packGroups: шаблон для packRanges/packNames ──
+// -- packGroups: шаблон для packRanges/packNames --
 // GroupFn(const Entry&) → (inIdx, outIdx)
 // WriteFn(MsgpackWriter&, const Entry&) → void (запись entry)
 template <typename Iter, typename GroupFn, typename WriteFn>
 void packGroups(MsgpackWriter& wr, size_t inputCount, size_t outputCount, Iter begin, Iter end, GroupFn&& groupFn, WriteFn&& writeFn) {
-    // 1-й проход: grouping — сохраняем указатели на элементы по группам
+    // 1-й проход: grouping - сохраняем указатели на элементы по группам
     using Entry = std::decay_t<decltype(*begin)>;
     std::vector<std::vector<std::vector<const Entry*>>> groups(inputCount, std::vector<std::vector<const Entry*>>(outputCount));
 
@@ -441,7 +441,7 @@ void packGroups(MsgpackWriter& wr, size_t inputCount, size_t outputCount, Iter b
     }
 }
 
-// ── unpackGroups: шаблон для unpackRanges/unpackNames ──
+// -- unpackGroups: шаблон для unpackRanges/unpackNames --
 // CreateEntryFn(msgpack_object *fields, uint32_t trustFileRaw,
 //               uint32_t outRaw) → bool (false = ошибка)
 template <typename CreateEntryFn>
@@ -485,7 +485,7 @@ bool unpackGroups(msgpack_object array, uint32_t inputCount, uint32_t outputCoun
     return true;
 }
 
-// ── Извлечение пары (inIdx, outIdx) из map-записи (std::pair) ──
+// -- Извлечение пары (inIdx, outIdx) из map-записи (std::pair) --
 auto rangeEntryGroupFn = [](const std::pair<const uint32_t, SourceMapReader::RangeMap>& p) {
     const auto& entry = p.second;
     uint32_t inIdx = entry.from.begin.fileIdx().as_index();
@@ -493,14 +493,14 @@ auto rangeEntryGroupFn = [](const std::pair<const uint32_t, SourceMapReader::Ran
     return std::pair{inIdx, outIdx};
 };
 
-// ── Извлечение пары (inIdx, outIdx) из NameMap ──
+// -- Извлечение пары (inIdx, outIdx) из NameMap --
 auto nameEntryGroupFn = [](const SourceMapReader::NameMap& v) {
     uint32_t inIdx = v.rangeMap.from.begin.fileIdx().as_index();
     uint32_t outIdx = v.rangeMap.to.begin.fileIdx().as_index();
     return std::pair{inIdx, outIdx};
 };
 
-// ── Запись range entry (из map-записи) ──
+// -- Запись range entry (из map-записи) --
 void writeRangeEntry(MsgpackWriter& wr, const std::pair<const uint32_t, SourceMapReader::RangeMap>& p) {
     const auto& entry = p.second;
     wr.packArray(kRangeGroupFieldCount);
@@ -510,7 +510,7 @@ void writeRangeEntry(MsgpackWriter& wr, const std::pair<const uint32_t, SourceMa
     wr.packUint32(entry.to.end.offset() - entry.to.begin.offset());
 }
 
-// ── Запись name entry ──
+// -- Запись name entry --
 void writeNameEntry(MsgpackWriter& wr, const SourceMapReader::NameMap& v) {
     wr.packArray(kNameGroupFieldCount);
     wr.packUint32(v.rangeMap.from.begin.offset());
@@ -521,7 +521,7 @@ void writeNameEntry(MsgpackWriter& wr, const SourceMapReader::NameMap& v) {
     wr.packString(v.toName);
 }
 
-// ── Запись macro entry (из map-записи m_macroForward) ──
+// -- Запись macro entry (из map-записи m_macroForward) --
 void writeMacroEntry(MsgpackWriter& wr, const std::pair<const uint32_t, SourceMapReader::RangeMap>& p) {
     const auto& entry = p.second;
     wr.packArray(kMacroGroupFieldCount);
@@ -532,7 +532,7 @@ void writeMacroEntry(MsgpackWriter& wr, const std::pair<const uint32_t, SourceMa
     wr.packUint32(entry.to.end.offset() - entry.to.begin.offset());
 }
 
-// ── Создание RangeMap из полей ──
+// -- Создание RangeMap из полей --
 bool createRangeEntry(const msgpack_object* entryArr, uint32_t trustFileRaw, uint32_t outRaw, std::map<uint32_t, SourceMapReader::RangeMap>& forward,
                       std::map<uint32_t, SourceMapReader::RangeMap>& backward) {
     if (entryArr->type != MSGPACK_OBJECT_ARRAY || entryArr->via.array.size < kRangeGroupFieldCount) {
@@ -572,7 +572,7 @@ bool createRangeEntry(const msgpack_object* entryArr, uint32_t trustFileRaw, uin
     return true;
 }
 
-// ── Создание Macro entry (input→input, без OUTPUT_BIT) ──
+// -- Создание Macro entry (input→input, без OUTPUT_BIT) --
 bool createMacroEntry(const msgpack_object* entryArr, uint32_t bodyFileRaw, uint32_t defFileRaw, std::map<uint32_t, SourceMapReader::RangeMap>& macroForward) {
     if (entryArr->type != MSGPACK_OBJECT_ARRAY || entryArr->via.array.size < kMacroGroupFieldCount) {
         return false;
@@ -599,7 +599,7 @@ bool createMacroEntry(const msgpack_object* entryArr, uint32_t bodyFileRaw, uint
     return inserted;
 }
 
-// ── Создание NameMap из полей ──
+// -- Создание NameMap из полей --
 bool createNameEntry(const msgpack_object* entryArr, uint32_t trustFileRaw, uint32_t outRaw, std::vector<SourceMapReader::NameMap>& nameMappings,
                      std::unordered_multimap<std::string, std::string>& cppToTrustName) {
     if (entryArr->type != MSGPACK_OBJECT_ARRAY || entryArr->via.array.size < kNameGroupFieldCount) {
@@ -640,7 +640,7 @@ bool createNameEntry(const msgpack_object* entryArr, uint32_t trustFileRaw, uint
 // Формат: [[[beginOff, delta, cppBeginOff, cppDelta,
 //            trustName, cppName], ...], ...]
 //
-// trustFileIdx/cppFileIdx не хранятся — вычисляются из позиции
+// trustFileIdx/cppFileIdx не хранятся - вычисляются из позиции
 // во внешнем/внутреннем массиве.
 //
 // delta = endOffset - beginOffset (0 для точечной позиции).
@@ -653,7 +653,7 @@ bool createNameEntry(const msgpack_object* entryArr, uint32_t trustFileRaw, uint
 // Формат: [[[beginOff, delta, cppBeginOff, cppDelta,
 //            trustName, cppName], ...], ...]
 //
-// trustFileIdx/cppFileIdx не хранятся — вычисляются из позиции
+// trustFileIdx/cppFileIdx не хранятся - вычисляются из позиции
 // во внешнем/внутреннем массиве.
 //
 // delta = endOffset - beginOffset (0 для точечной позиции).
@@ -670,7 +670,7 @@ void SourceMapReader::packNames(MsgpackWriter& wr, const std::vector<NameMap>& n
     packGroups(wr, m_inputs.size(), m_outputs.size(), nameMappings.begin(), nameMappings.end(), nameEntryGroupFn, writeNameEntry);
 }
 
-// ── packMacros: упаковка macro map (input→input) ──
+// -- packMacros: упаковка macro map (input→input) --
 void SourceMapReader::packMacros(MsgpackWriter& wr) const {
     size_t inputCount = m_inputs.size();
     // Группируем по (bodyInIdx, defInIdx)
@@ -703,7 +703,7 @@ void SourceMapReader::packMacros(MsgpackWriter& wr) const {
 // ══════════════════════════════════════════════════════════════
 //
 // Обратная операция к packRanges/packNames.
-// Формат — симметричный: [[[entry, ...], ...], ...]
+// Формат - симметричный: [[[entry, ...], ...], ...]
 // outIdx = outGroupIdx (так как все группы присутствуют, включая пустые).
 
 bool SourceMapReader::unpackRanges(msgpack_object rangesArray) {
@@ -721,7 +721,7 @@ bool SourceMapReader::unpackNames(msgpack_object namesArray) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//          Полная сериализация — packToMsgpack
+//          Полная сериализация - packToMsgpack
 // ══════════════════════════════════════════════════════════════
 // Формат на выходе: [orig_size:LE4][dict_size:LE4][dictionary][zstd_compressed][MD5:LE8]
 
@@ -764,7 +764,7 @@ std::vector<unsigned char> SourceMapReader::packToMsgpack() const {
     // macros
     packMacros(wr);
 
-    // ── Сжимаем через zstd ──
+    // -- Сжимаем через zstd --
     msgpack_sbuffer sbuf = std::move(wr).take_sbuf();
     auto compressed = detail::zstd_compress(reinterpret_cast<const unsigned char*>(sbuf.data), sbuf.size);
     msgpack_sbuffer_destroy(&sbuf);
@@ -789,14 +789,14 @@ std::optional<std::string> SourceMapReader::getWordAt(Location loc) const {
         return std::nullopt;
     }
 
-    // offset — 1-based, переводим в 0-based
+    // offset - 1-based, переводим в 0-based
     uint32_t off = loc.offset();
     if (off < 1 || off > src.size()) {
         return std::nullopt;
     }
     size_t pos = off - 1;
 
-    // Проверяем, что символ под курсором — буква, цифра, _ или '@'.
+    // Проверяем, что символ под курсором - буква, цифра, _ или '@'.
     // '@' включаем, чтобы ховер над макросом (@assert/@while/print) выделял
     // полное имя макроса с префиксом (иначе на позиции '@' слово пустое).
     auto is_word_char = [](char c) -> bool { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '@'; };
@@ -912,7 +912,7 @@ std::optional<SourceMapReader::RangeMap> SourceMapReader::findRangeMap(Location 
         return std::nullopt;
     }
 
-    // Если файл output — ищем по backward (cpp → trust), иначе по forward (trust → cpp)
+    // Если файл output - ищем по backward (cpp → trust), иначе по forward (trust → cpp)
     const auto& ranges = loc.fileIdx().isOutput() ? m_backward : m_forward;
     if (ranges.empty()) {
         return std::nullopt;
@@ -952,7 +952,7 @@ std::vector<SourceMapReader::Range> SourceMapReader::findRangesByLine(ReaderFile
         return {};
     }
 
-    // Если колонка задана — смещаем offset (1-based, по умолчанию 1 = начало строки)
+    // Если колонка задана - смещаем offset (1-based, по умолчанию 1 = начало строки)
     uint32_t col = column.value_or(1);
     // column 1-based → смещение 0-based: column - 1
     uint32_t offset = lineStart.offset() + (col - 1);
@@ -1079,7 +1079,7 @@ std::optional<SourceMapReader::Range> SourceMapReader::getMacroDefRange(Location
 }
 
 // ══════════════════════════════════════════════════════════════
-//          SourceMapReader::fromElf — читает embedded source map
+//          SourceMapReader::fromElf - читает embedded source map
 //          из ELF-секции .debug_trust_map
 // ══════════════════════════════════════════════════════════════
 

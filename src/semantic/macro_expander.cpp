@@ -10,7 +10,7 @@ ContextMacroExpander::ContextMacroExpander(AnalysisContext& actx)
 : m_actx(actx) {
 }
 
-// ── Мутирующий обход узла ──
+// -- Мутирующий обход узла --
 
 bool ContextMacroExpander::onNode(AstNodePtr& node) {
     if (!node) {
@@ -19,15 +19,15 @@ bool ContextMacroExpander::onNode(AstNodePtr& node) {
     switch (node->kind()) {
     case ParserToken::Kind::ContextMacro:
         expandContextMacro(node);
-        return true; // узел заменён (Literal/IdentName) — ядро его не резолвит как имя
+        return true; // узел заменён (Literal/IdentName) - ядро его не резолвит как имя
     case ParserToken::Kind::Ident:
-        // Квалификатор @:: foo уже свёрнут в текст идентификатора ("@::foo") — раскрываем
+        // Квалификатор @:: foo уже свёрнут в текст идентификатора ("@::foo") - раскрываем
         // текстовой заменой на текущую область имён; затем имя резолвит ядро.
         expandQualifierName(node);
         return false;
     case ParserToken::Kind::VarDecl:
     case ParserToken::Kind::FuncDecl:
-        // Раскрытие @:: в имени объявления до регистрации (имя объявления — в text()).
+        // Раскрытие @:: в имени объявления до регистрации (имя объявления - в text()).
         expandDeclName(node);
         return false;
     case ParserToken::Kind::TypeDecl: {
@@ -41,7 +41,7 @@ bool ContextMacroExpander::onNode(AstNodePtr& node) {
     case ParserToken::Kind::ThrowStmt:
     case ParserToken::Kind::BreakStmt:
     case ParserToken::Kind::ContinueStmt:
-        // Метка (не переменная) — раскрываем @__FUNCTION__/@::/@__FUNCDNAME__.
+        // Метка (не переменная) - раскрываем @__FUNCTION__/@::/@__FUNCDNAME__.
         expandLabel(static_cast<JumpStmt&>(*node).m_label);
         return false;
     default:
@@ -49,7 +49,7 @@ bool ContextMacroExpander::onNode(AstNodePtr& node) {
     }
 }
 
-// ── Раскрытие контекст-макросов ──
+// -- Раскрытие контекст-макросов --
 
 void ContextMacroExpander::expandContextMacro(AstNodePtr& self) {
     auto& cm = static_cast<ContextMacro&>(*self);
@@ -68,7 +68,7 @@ void ContextMacroExpander::expandContextMacro(AstNodePtr& self) {
         stringified = true;
     }
 
-    // @__FUNCSIG__ — всегда строковый литерал (сигнатура).
+    // @__FUNCSIG__ - всегда строковый литерал (сигнатура).
     if (text == "@__FUNCSIG__") {
         if (m_actx.requireFunction(cm, "@__FUNCSIG__")) {
             self = std::make_shared<Literal>(ParserToken::Kind::StrChar, m_actx.currentFunc()->signature(m_actx.namespacePath()));
@@ -96,7 +96,7 @@ void ContextMacroExpander::expandContextMacro(AstNodePtr& self) {
         return;
     }
 
-    // Без стрингификации — имя-аналог (NAME).
+    // Без стрингификации - имя-аналог (NAME).
     if (text == "@__NAMESPACE__" || text == "@::") {
         self = std::make_shared<IdentName>(m_actx.namespacePath());
     } else if (text == "@__FUNCTION__") {
@@ -108,7 +108,7 @@ void ContextMacroExpander::expandContextMacro(AstNodePtr& self) {
             self = std::make_shared<IdentName>(utils::name_to_cpp(m_actx.qualifiedFuncName()));
         }
     } else {
-        // Прочие MACRO_CONTEXT ($::, @$$ и т.п.) — не раскрываем, оставляем как имя.
+        // Прочие MACRO_CONTEXT ($::, @$$ и т.п.) - не раскрываем, оставляем как имя.
         self = std::make_shared<IdentName>(text);
     }
 }
@@ -124,7 +124,7 @@ void ContextMacroExpander::expandDeclName(AstNodePtr& self) {
     if (!self) {
         return;
     }
-    // VarDecl/FuncDecl — потомки IdentName (имя в text()).
+    // VarDecl/FuncDecl - потомки IdentName (имя в text()).
     if (self->kind() == ParserToken::Kind::VarDecl || self->kind() == ParserToken::Kind::FuncDecl) {
         static_cast<IdentName&>(*self).expandQualified(m_actx.namespacePath());
     }
@@ -164,7 +164,7 @@ void ContextMacroExpander::expandLabel(AstNodePtr& self) {
         }
         expanded = utils::name_to_cpp(m_actx.qualifiedFuncName());
     } else {
-        return; // не контекст-макрос — оставляем как есть
+        return; // не контекст-макрос - оставляем как есть
     }
 
     if (qualified) {

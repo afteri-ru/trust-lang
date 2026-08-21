@@ -7,7 +7,7 @@
 #include "utils/transport.hpp"
 #include <nlohmann/json.hpp>
 
-// ── Опции командной строки ──
+// -- Опции командной строки --
 // Режимы работы trust-lsp:
 enum class LspMode {
     Interactive, ///< LSP поверх stdin/stdout (по умолчанию)
@@ -42,7 +42,7 @@ struct LspOptions {
 
 static constexpr int LSP_DEFAULT_PORT = 4712;
 
-// ── LSP Protocol helpers ──
+// -- LSP Protocol helpers --
 // Принимают trust::transport::Transport& (см. utils/transport.hpp)
 nlohmann::json readLspPacket(trust::transport::Transport& transport);
 void sendLspResponse(trust::transport::Transport& transport, const nlohmann::json& id, const nlohmann::json& result);
@@ -50,7 +50,7 @@ void sendLspError(trust::transport::Transport& transport, const nlohmann::json& 
 void sendLspNotification(trust::transport::Transport& transport, const std::string& method, const nlohmann::json& params);
 void sendLspRequest(trust::transport::Transport& transport, const std::string& method, const nlohmann::json& params);
 
-// ── CLI parsing ──
+// -- CLI parsing --
 LspOptions parseLspOptions(int argc, const char* argv[]);
 void printLspUsage(const char* prog);
 

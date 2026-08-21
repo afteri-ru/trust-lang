@@ -24,7 +24,7 @@ TEST(SaveAndReadTest, SaveOutputThenReadFromDisk) {
     std::string outputPath = (dataDir / "output.cpp").generic_string();
     std::string inputPath = (dataDir / "test.src").generic_string();
 
-    // Создаём входной файл на диске — он понадобится readFilesFromDisk после десериализации
+    // Создаём входной файл на диске - он понадобится readFilesFromDisk после десериализации
     {
         std::ofstream ofs(inputPath, std::ios::out | std::ios::binary | std::ios::trunc);
         ASSERT_TRUE(ofs);
@@ -33,13 +33,13 @@ TEST(SaveAndReadTest, SaveOutputThenReadFromDisk) {
 
     Context ctx(dataDir.generic_string());
 
-    // Загружаем входной файл с диска — в msgpack попадёт абсолютный путь
+    // Загружаем входной файл с диска - в msgpack попадёт абсолютный путь
     MapperFile inputIdx = ctx.source().load_file(inputPath);
     EXPECT_FALSE(inputIdx.isInvalid());
     EXPECT_EQ(ctx.source().source(inputIdx), "create x = 42;");
 
     // Добавляем выходной файл и пишем в него
-    // Передаём полный путь — normalizePath приведёт его к относительному от baseDir (dataDir)
+    // Передаём полный путь - normalizePath приведёт его к относительному от baseDir (dataDir)
     MapperFile outIdx = ctx.source().add_output(outputPath, true); // полный путь → нормализуется в "output.cpp"
     ctx.source().output_append(outIdx, "int x = 42;\n");
 
@@ -67,12 +67,12 @@ TEST(SaveAndReadTest, SaveOutputThenReadFromDisk) {
         EXPECT_EQ(ss.str(), "int helper() { return 0; }\n");
     }
 
-    // ── Получаем SourceMapReader (финализирует выходные файлы) ──
+    // -- Получаем SourceMapReader (финализирует выходные файлы) --
     const SourceMapReader* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
     ASSERT_EQ(reader->output_count(), 2);
 
-    // ── Сериализуем → десериализуем (симуляция IPC) ──
+    // -- Сериализуем → десериализуем (симуляция IPC) --
     std::vector<unsigned char> packed = reader->packToMsgpack();
     ASSERT_FALSE(packed.empty());
 
@@ -83,19 +83,19 @@ TEST(SaveAndReadTest, SaveOutputThenReadFromDisk) {
     EXPECT_TRUE(restored->source(ReaderFile::make_input(0)).empty());
     EXPECT_TRUE(restored->source(ReaderFile::make_output(0)).empty());
 
-    // ── Читаем файлы с диска ──
-    // После десериализации filename для output — это абсолютный путь (т.к. в msgpack записан он)
+    // -- Читаем файлы с диска --
+    // После десериализации filename для output - это абсолютный путь (т.к. в msgpack записан он)
     // Убедимся, что readFilesFromDisk находит файлы:
     // Передаём dataDir как baseDir для резолвинга относительных путей
     bool readOk = restored->readFilesFromDisk(dataDir.generic_string());
     if (!readOk) {
-        // Если не удалось — это может быть из-за input-файла (но он есть на диске).
+        // Если не удалось - это может быть из-за input-файла (но он есть на диске).
         // Выводим диагностику
         ADD_FAILURE() << "readFilesFromDisk вернул false";
     }
 
     // Проверяем содержимое после чтения с диска
-    // После десериализации имя выходного файла — абсолютный путь (сохранён в msgpack)
+    // После десериализации имя выходного файла - абсолютный путь (сохранён в msgpack)
     EXPECT_FALSE(restored->filename(ReaderFile::make_input(0)).empty());
     EXPECT_EQ(restored->source(ReaderFile::make_input(0)), "create x = 42;");
 
@@ -136,29 +136,29 @@ TEST(SaveAndReadTest, ChecksumMismatchDetected) {
     ctx.source().output_append(outIdx, "int x = 42;\n");
     ASSERT_TRUE(ctx.source().save_output(dataDir.generic_string()));
 
-    // ── Сериализуем через packToMsgpack ──
+    // -- Сериализуем через packToMsgpack --
     const SourceMapReader* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
     std::vector<unsigned char> packed = reader->packToMsgpack();
 
-    // ── Меняем содержимое файла на диске (чтобы сломать контрольную сумму) ──
+    // -- Меняем содержимое файла на диске (чтобы сломать контрольную сумму) --
     {
         std::ofstream ofs(outputPath, std::ios::out | std::ios::binary | std::ios::trunc);
         ofs << "int y = 99;\n";
     }
 
-    // ── Десериализуем ──
+    // -- Десериализуем --
     auto restored = SourceMapReader::fromMsgpack(packed.data(), packed.size());
     ASSERT_NE(restored, nullptr);
 
-    // ── readFilesFromDisk читает файлы с диска, не проверяя хеши ──
+    // -- readFilesFromDisk читает файлы с диска, не проверяя хеши --
     bool readOk = restored->readFilesFromDisk(dataDir.generic_string());
     EXPECT_TRUE(readOk) << "readFilesFromDisk должен вернуть true (файлы прочитаны)";
 
-    // ── Проверяем, что содержимое прочитано ──
+    // -- Проверяем, что содержимое прочитано --
     EXPECT_EQ(restored->source(ReaderFile::make_output(0)), "int y = 99;\n");
 
-    // ── verifyHash индивидуально проверяет хеш каждого файла ──
+    // -- verifyHash индивидуально проверяет хеш каждого файла --
     EXPECT_FALSE(restored->verifyHash(ReaderFile::make_output(0))) << "verifyHash должен вернуть false для изменённого файла";
     EXPECT_TRUE(restored->verifyHash(ReaderFile::make_input(0))) << "verifyHash должен вернуть true для неизменённого входного файла";
 
@@ -187,7 +187,7 @@ TEST(SaveAndReadTest, DiskReadFailure) {
     ctx.source().output_append(outIdx, "int x = 42;\n");
     ASSERT_TRUE(ctx.source().save_output(dataDir.generic_string()));
 
-    // ── Сериализуем → десериализуем ──
+    // -- Сериализуем → десериализуем --
     const SourceMapReader* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
     std::vector<unsigned char> packed = reader->packToMsgpack();
@@ -195,16 +195,16 @@ TEST(SaveAndReadTest, DiskReadFailure) {
     auto restored = SourceMapReader::fromMsgpack(packed.data(), packed.size());
     ASSERT_NE(restored, nullptr);
 
-    // ── Удаляем выходной файл с диска ──
+    // -- Удаляем выходной файл с диска --
     ASSERT_TRUE(fs::remove(outputPath));
 
-    // ── readFilesFromDisk должен вернуть false (файл не найден) ──
+    // -- readFilesFromDisk должен вернуть false (файл не найден) --
     bool readOk = restored->readFilesFromDisk(dataDir.generic_string());
     EXPECT_FALSE(readOk) << "readFilesFromDisk должен вернуть false, т.к. output.cpp удалён";
 
-    // ── Входной файл всё ещё на диске и должен быть прочитан ──
+    // -- Входной файл всё ещё на диске и должен быть прочитан --
     EXPECT_EQ(restored->source(ReaderFile::make_input(0)), "create x = 42;");
 
-    // ── Выходной файл не прочитан — источник пуст ──
+    // -- Выходной файл не прочитан - источник пуст --
     EXPECT_TRUE(restored->source(ReaderFile::make_output(0)).empty());
 }

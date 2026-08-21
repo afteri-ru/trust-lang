@@ -27,7 +27,7 @@ TEST(DapHandlerTest, IsTrustFileExt_TrueForSrc) {
 }
 
 TEST(DapHandlerTest, IsTrustFileExt_FalseForTrust) {
-    // .trust — бинарный скомпилированный модуль, не исходный файл
+    // .trust - бинарный скомпилированный модуль, не исходный файл
     EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("/path/to/file.trust"));
     EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("file.trust"));
 }

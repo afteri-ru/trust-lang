@@ -3,7 +3,7 @@
 # Сужение значения (переменная/неизвестное шире цели) в ЯВНО-типизированную переменную
 # → ошибка по умолчанию + fixit-предложение «use cast :Type(expr)».
 
-# a:Int64 → b:Int8 — сужение Int64→Int8.
+# a:Int64 → b:Int8 - сужение Int64→Int8.
 a:Int64 := 5;
 b:Int8 := a;
 # CHECK: error: value of type 'Int64' cannot be narrowed to 'Int8' (use cast :Int8(expr))

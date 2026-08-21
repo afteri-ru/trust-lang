@@ -1,5 +1,5 @@
 # include/location/CMakeLists.txt
-# Location — низкоуровневые примитивы позиций и теги файлов:
+# Location - низкоуровневые примитивы позиций и теги файлов:
 #   TaggedFile / TaggedLocation / Location / RangeType / MapperRange
 # Header-only, зависит только от utils (FAULT/EXPECT).
 

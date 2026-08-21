@@ -515,7 +515,7 @@ int GdbDebug::BreakpointBySource(const std::string& file, int line) {
 
 bool GdbDebug::Launch() {
     m_impl->SendCommand("-exec-run");
-    // Don't wait for stop synchronously — *stopped will arrive asynchronously via WaitForEvent.
+    // Don't wait for stop synchronously - *stopped will arrive asynchronously via WaitForEvent.
     // The process may stop at main (breakpoint) or exit immediately if no breakpoints.
     m_impl->m_launched = true;
     m_impl->m_running = true;
@@ -577,7 +577,7 @@ int GdbDebug::getLastThreadId() const {
 }
 
 int GdbDebug::getCurrentThreadId() const {
-    // GDB/MI single process, single thread model — always 1
+    // GDB/MI single process, single thread model - always 1
     return 1;
 }
 

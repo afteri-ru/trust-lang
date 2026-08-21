@@ -14,7 +14,7 @@
 
 namespace trust::detail {
 
-// ── Format constants ──
+// -- Format constants --
 // (not in anonymous namespace so static functions in the same TU can see them)
 static constexpr size_t kOrigSizeBytes = 4;
 static constexpr size_t kDictSizeBytes = 4;
@@ -72,7 +72,7 @@ static std::vector<size_t> makeSamples(size_t dataSize) noexcept {
     return sizes;
 }
 
-// zstd_compress — compression with per-buffer trained dictionary.
+// zstd_compress - compression with per-buffer trained dictionary.
 // Single buffer, no intermediate copies or memcpy of dictionary.
 std::vector<unsigned char> zstd_compress(const unsigned char* data, size_t size) {
     if (size == 0 || size > 1024 * 1024 * 1024) {
@@ -103,7 +103,7 @@ std::vector<unsigned char> zstd_compress(const unsigned char* data, size_t size)
     // Write dict_size at offset 4
     writeLE32(base + kOrigSizeBytes, static_cast<uint32_t>(actualDictSize));
 
-    // Compress — writes immediately after dictionary
+    // Compress - writes immediately after dictionary
     uint8_t* compressedPos = dictPos + actualDictSize;
     size_t compressedCapacity = totalCapacity - (compressedPos - base) - kChecksumBytes;
     size_t compressedSize;
@@ -163,7 +163,7 @@ std::vector<unsigned char> zstd_decompress(const unsigned char* data, size_t siz
     }
     const uint8_t* compressedData = ptr;
 
-    // Decompress directly into result vector — no extra copy
+    // Decompress directly into result vector - no extra copy
     std::vector<unsigned char> result(origSize);
     size_t resultSize;
     if (dictSize > 0) {

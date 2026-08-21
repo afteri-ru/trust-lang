@@ -1,6 +1,6 @@
-// attr_parser.hpp — parse @[...] attribute name and parameters into AttrId
+// attr_parser.hpp - parse @[...] attribute name and parameters into AttrId
 //
-// Works directly with string_view values — no dependency on TokenSequence,
+// Works directly with string_view values - no dependency on TokenSequence,
 // Lexeme, or ParserToken.
 //
 // Usage:
@@ -21,8 +21,8 @@ namespace trust {
 /// Parse an attribute from a name and optional parameter values.
 ///
 /// Expected format:
-///   name                    — attribute without parameters
-///   name(param1, param2)    — attribute with parenthesized parameters
+///   name                    - attribute without parameters
+///   name(param1, param2)    - attribute with parenthesized parameters
 ///
 /// Parameters are string_view values (raw text from source).
 ///

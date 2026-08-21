@@ -16,7 +16,7 @@ namespace {
 
 TEST(FormatCheck, ParseConversions) {
     std::vector<format_check::Conversion> convs;
-    // %% — литерал (аргумент не потребляет); %d/%s/%f/%u/%x — конверсии в порядке аргументов.
+    // %% - литерал (аргумент не потребляет); %d/%s/%f/%u/%x - конверсии в порядке аргументов.
     ASSERT_TRUE(format_check::parse_printf_format("x %d %s %% %f %u %x", convs));
     ASSERT_EQ(convs.size(), 5u);
     EXPECT_EQ(convs[0].conv, 'd');
@@ -74,7 +74,7 @@ TEST_F(FormatCheckTypeFixture, ArgMatchesExpect) {
     EXPECT_FALSE(format_check::arg_matches_expect(reg, int32, format_check::Expect::StrChar));
     EXPECT_FALSE(format_check::arg_matches_expect(reg, int32, format_check::Expect::Float));
 
-    // %s ожидает C-строку (const char* = CString); StrChar (std::string) — только литерал.
+    // %s ожидает C-строку (const char* = CString); StrChar (std::string) - только литерал.
     EXPECT_TRUE(format_check::arg_matches_expect(reg, cstr, format_check::Expect::StrChar));
     EXPECT_FALSE(format_check::arg_matches_expect(reg, str, format_check::Expect::StrChar));
     EXPECT_FALSE(format_check::arg_matches_expect(reg, str, format_check::Expect::Integer));

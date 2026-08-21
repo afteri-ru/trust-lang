@@ -29,22 +29,22 @@
 #     and run via `ctest --output-on-failure`. Each suite (unit_tests, lit_tests,
 #     vscode_*) is a single CTest test; on failure `--output-on-failure` prints
 #     the full report including the failing test names.
-#     ┌ unit/  — C++ unit tests (single executable: unit_tests)
+#     ┌ unit/  - C++ unit tests (single executable: unit_tests)
 #     │           Sources under test/unit/, registered in test/unit/CMakeLists.txt.
-#     ├ lit/   — LIT integration tests (lit.cfg.py.in → lit.cfg.py)
+#     ├ lit/   - LIT integration tests (lit.cfg.py.in → lit.cfg.py)
 #     │           Sources under test/lit/, registered in test/lit/CMakeLists.txt.
-#     ├ vscode/ — VSCode extension unit & integration tests
+#     ├ vscode/ - VSCode extension unit & integration tests
 #     │           (run by jest/node, registered in test/vscode/CMakeLists.txt).
-#     └ examples/ — standalone programs (examples/*.src), run one-by-one via
+#     └ examples/ - standalone programs (examples/*.src), run one-by-one via
 #                   `trust --run` as the FINAL CTest stage `examples_tests`
 #                   (registered in the root CMakeLists.txt). Runs only after all
 #                   prior suites pass (gated via the `examples_deps` fixture);
 #                   if any prior suite fails, examples_tests is marked "Not Run".
-#                   These are NOT lit tests — individual run/pause programs.
+#                   These are NOT lit tests - individual run/pause programs.
 #
 #  6. Debug executables (gdb_debuggee / gdb_main)
-#     ─ Declared in test/unit/CMakeLists.txt (standalone debuggee + GDB harness).
-#     ─ Helper executables; debug tests are not part of the CTest suite.
+#     - Declared in test/unit/CMakeLists.txt (standalone debuggee + GDB harness).
+#     - Helper executables; debug tests are not part of the CTest suite.
 #     To build manually:  cmake --build _build --target gdb_main gdb_debuggee
 #
 #  7. Generated files
@@ -77,7 +77,7 @@
 #     There may be more tasks, but these must be present.
 #
 # 11. Common build commands
-#     ──────────────────────────────────────────────────────────
+#     ----------------------------------------------------------
 #     # Конфигурация (из корня проекта)
 #     cmake -B _build -G "Unix Makefiles"
 #     cmake -B _build -G "Unix Makefiles" -DWITH_TORCH=ON   # с Torch
@@ -106,12 +106,12 @@
 #     cmake --build _build --target clean
 #
 # 12. AI agent build commands
-#     ──────────────────────────────────────────────────────────
+#     ----------------------------------------------------------
 #     Неинтерактивные команды для запуска сборки ИИ-агентом
 #     (например, Cline). Все команды выполнять из корня проекта.
 #     Избегать шагов, требующих ввода или TTY.
 #
-#     # 1) Configure — генерация make-файлов (аналог "cmake: configure"
+#     # 1) Configure - генерация make-файлов (аналог "cmake: configure"
 #     #    из .vscode/tasks.json). Опции задаются здесь.
 #     cmake -B _build -G "Unix Makefiles"
 #     cmake -B _build -G "Unix Makefiles" -DWITH_TORCH=ON   # с опциями
@@ -128,10 +128,10 @@
 #     cmake --build _build --target unit_tests -j"$(nproc)"
 #
 #     # 5) Запуск тестов ОБЯЗАТЕЛЬНО с timeout (антизависание):
-#     timeout 600 ctest --test-dir _build --output-on-failure   # все тесты (включая examples — финальная стадия)
+#     timeout 600 ctest --test-dir _build --output-on-failure   # все тесты (включая examples - финальная стадия)
 #     timeout 300 cmake --build _build --target run_tests       # собрать бинарники + ctest
 #
-#     # 5a) Финальная стадия examples (examples/*.src — standalone-программы).
+#     # 5a) Финальная стадия examples (examples/*.src - standalone-программы).
 #     #     Выполнится только если все предыдущие суиты прошли (fixture examples_deps);
 #     #     иначе ctest пометит examples_tests как "Not Run".
 #     #     Примечание: из-за фикстуры -R прогонит также setup-суиты (unit/lit/vscode/package).
@@ -156,24 +156,24 @@
 
 cmake_minimum_required(VERSION 3.28)
 
-# ── Compilers ──
+# -- Compilers --
 set(CLANG_VERSION 22)
 set(CMAKE_C_COMPILER clang-${CLANG_VERSION} CACHE FILEPATH "" FORCE)
 set(CMAKE_CXX_COMPILER clang++-${CLANG_VERSION} CACHE FILEPATH "" FORCE)
 
 project(trust-lang LANGUAGES C CXX)
 
-# ── Common paths ──
+# -- Common paths --
 set(PROJECT_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
 set(PROJECT_SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
 
-# ── Global settings ──
+# -- Global settings --
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# ── Symlink compile_commands.json into project root for clang-tidy ──
+# -- Symlink compile_commands.json into project root for clang-tidy --
 if(NOT EXISTS "${CMAKE_SOURCE_DIR}/compile_commands.json")
     file(CREATE_LINK "${CMAKE_BINARY_DIR}/compile_commands.json"
          "${CMAKE_SOURCE_DIR}/compile_commands.json" SYMBOLIC)
@@ -181,7 +181,7 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# ── Strict compile options ──
+# -- Strict compile options --
 # NOTE: These flags apply to ALL project code via add_compile_options.
 # Exceptions are made for:
 #   - System/external headers: marked as SYSTEM include directories
@@ -198,12 +198,12 @@ add_compile_options(
     -Woverloaded-virtual
 )
 
-# ── Linker options ──
-# -rdynamic нужен для backtrace_symbols() — чтобы видеть имена функций
+# -- Linker options --
+# -rdynamic нужен для backtrace_symbols() - чтобы видеть имена функций
 # в стеке вызовов. Применяем ко всем исполняемым файлам.
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
 
-# ── Options ──
+# -- Options --
 option(WITH_TORCH "Enable libtorch support (builds libtensor_cpu.so)" OFF)
 option(WITH_SOLVER "Enable SMT solver (Z3) for formal verification" OFF)
 option(TRUST_BUILD_VSIX "Build trust-lang VSIX package (requires Node.js)" ON)
@@ -217,17 +217,17 @@ if(WITH_TORCH)
     set(LIBTORCH_LIB_DIRS ${LIBTORCH_ROOT}/lib)
 endif()
 
-# ── Module path ──
+# -- Module path --
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# ── Modules ──
+# -- Modules --
 include(version)
 include(dependencies)
 include(generate_files)
 include(generate_parsers)
 include(package)
 
-# ── Configuration display ──
+# -- Configuration display --
 message(STATUS "═══════════════════════════════════════════════════")
 message(STATUS "Project Configuration:")
 message(STATUS "  C++ Compiler: ${CMAKE_CXX_COMPILER}")
@@ -242,15 +242,15 @@ message(STATUS "  LLVM:         ${LLVM_VERSION}")
 message(STATUS "  Version:      ${TRUST_VERSION_FULL}")
 message(STATUS "═══════════════════════════════════════════════════")
 
-# ── Interface targets ──
+# -- Interface targets --
 add_library(trust_include_dirs INTERFACE)
 target_include_directories(trust_include_dirs INTERFACE ${PROJECT_INCLUDE_DIR} ${CMAKE_BINARY_DIR}/include)
 
-# ── Unified LLVM system include target ──
+# -- Unified LLVM system include target --
 add_library(trust_llvm_dirs INTERFACE)
 target_include_directories(trust_llvm_dirs SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS})
 
-# ── Subdirectories ──
+# -- Subdirectories --
 add_subdirectory(include/trust)
 
 if(WITH_TORCH)
@@ -274,7 +274,7 @@ add_subdirectory(include/playground)
 add_subdirectory(include/vscode)
 add_subdirectory(include/syntax)
 
-# ── Общие пути для тестовых данных ──
+# -- Общие пути для тестовых данных --
 # Определены здесь (до test-поддиректорий), чтобы быть доступными во всех test/CMakeLists.txt
 set(TEST_DATA_DIR "${CMAKE_BINARY_DIR}/test_data" CACHE INTERNAL "Test data directory")
 set(TEST_SRC      "${CMAKE_SOURCE_DIR}/test/unit/debug/simple_example.src" CACHE INTERNAL "Trust source file")
@@ -282,10 +282,10 @@ set(TEST_CPP      "${TEST_DATA_DIR}/.trust/simple_example.cpp" CACHE INTERNAL "T
 set(TEST_MAP      "${TEST_DATA_DIR}/.trust/simple_example.map" CACHE INTERNAL "Source map file")
 set(TEST_BINARY   "${TEST_DATA_DIR}/simple_example" CACHE INTERNAL "Compiled ELF binary")
 
-# ── Enable CTest (must precede add_test in the test subdirectories) ──
+# -- Enable CTest (must precede add_test in the test subdirectories) --
 enable_testing()
 
-# ── Distribution archive test (uses the package target + check_package.cmake) ──
+# -- Distribution archive test (uses the package target + check_package.cmake) --
 add_test(NAME package_target_test
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/check_package.cmake
 )
@@ -297,36 +297,41 @@ set_tests_properties(package_target_test PROPERTIES
     FIXTURES_SETUP examples_deps
 )
 
-# ── Unit tests ──
+# -- Unit tests --
 add_subdirectory(test/unit)
 
-# ── LIT tests ──
+# -- LIT tests --
 add_subdirectory(test/lit)
 
-# ── VSCode extension tests ──
+# -- VSCode extension tests --
 add_subdirectory(test/vscode)
 
-# ── Top-level test target ──
-# Builds all test binaries (unit_tests, trust, trust-dap, trust-lsp and the
-# generated lit.cfg.py) and then runs every registered CTest test via
-# `ctest --output-on-failure`. Each suite (unit_tests, lit_tests, vscode_unit,
-# vscode_dap, vscode_lsp) is a single CTest test.
-# CTest is the single entry point for running tests.
-add_custom_target(run_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${CMAKE_BINARY_DIR} --output-on-failure
-    DEPENDS unit_tests trust trust-dap trust-lsp generate_lit_cfg_py
-    COMMENT "Run all tests via CTest (unit + lit + vscode)"
-)
+# -- Top-level test target -- (см. конец файла: должен определяться ПОСЛЕ всех
+# add_subdirectory, чтобы DEPENDS на все тестовые/плейграунд target'ы были валидны)
 
-# ── Examples as a final CTest stage ──
+# -- Examples as a final CTest stage --
 # examples/ contains standalone programs (run/pause individually, e.g. for
-# debugging) — NOT lit tests. Each is run one-by-one via `trust --run`.
+# debugging) - NOT lit tests. Each is run one-by-one via `trust --run`.
 # Registered in test/examples LAST (after unit/lit/vscode subdirs) and gated by
 # the `examples_deps` fixture, so CTest numbers it sequentially last and runs it
 # only after ALL prior suites (package_target_test, unit_tests, lit_tests, vscode_*).
 add_subdirectory(test/examples)
 
-# ── Playground integration (после examples) ──
+# -- Playground integration (после examples) --
 # Реальная цепочка server→worker→lsp→worker→server. Запускается только после
 # examples_tests (фикстура playground_integration_deps).
 add_subdirectory(test/playground_integration)
+
+# -- Top-level test target (определяется ПОСЛЕ всех add_subdirectory, чтобы DEPENDS
+# на все тестовые/плейграунд target'ы были валидны) --
+# Собирает тот же набор артефактов, что и обычная сборка (включая trust-playground и
+# playground_integration), и запускает ВСЕ зарегистрированные CTest-тесты.
+# CTest - единая точка входа для запуска тестов. Явный шаг сборки (COMMAND) гарантирует,
+# что тесты всегда идут на актуальных бинарниках.
+add_custom_target(run_tests
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
+            --target unit_tests trust trust-dap trust-lsp trust-playground playground_integration generate_lit_cfg_py
+    COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${CMAKE_BINARY_DIR} --output-on-failure
+    DEPENDS unit_tests trust trust-dap trust-lsp trust-playground playground_integration generate_lit_cfg_py
+    COMMENT "Build test binaries + playground, then run all tests via CTest (unit + lit + vscode + playground_integration)"
+)

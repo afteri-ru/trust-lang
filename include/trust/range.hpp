@@ -1,4 +1,4 @@
-// trust/range.hpp — universal arithmetic range for the Trust runtime.
+// trust/range.hpp - universal arithmetic range for the Trust runtime.
 //
 // Public runtime header: self-contained (standard headers + rational.hpp + dict.hpp)
 // so that generated C++ programs can include it without depending on the compiler's
@@ -44,9 +44,9 @@
 
 namespace trust {
 
-// ── detail: операции над элементом T (арифметика/сравнение), унифицированные для
+// -- detail: операции над элементом T (арифметика/сравнение), унифицированные для
 //    интегральных/float/Rational и std::any (Any). Для std::any арифметика идёт через
-//    double-представление (универсальный диапазон); для остальных T — напрямую. ──
+//    double-представление (универсальный диапазон); для остальных T - напрямую. --
 namespace detail {
 
 /// Преобразование значения в double (для std::any-диапазона и подсчёта).
@@ -103,7 +103,7 @@ inline double rangeAsDouble(const std::any& v) {
     throw std::bad_any_cast();
 }
 
-// Сравнение: приоритетная перегрузка для std::any, шаблонная — для остальных.
+// Сравнение: приоритетная перегрузка для std::any, шаблонная - для остальных.
 template <typename T>
 constexpr bool rangeLess(const T& a, const T& b) {
     return a < b;
@@ -136,7 +136,7 @@ inline bool rangeGreaterEqual(const std::any& a, const std::any& b) {
     return rangeAsDouble(a) >= rangeAsDouble(b);
 }
 
-// Сложение start + i*step: для std::any — через double, иначе — напрямую.
+// Сложение start + i*step: для std::any - через double, иначе - напрямую.
 template <typename T>
 constexpr T rangeAdd(const T& a, const T& b) {
     return a + b;
@@ -160,7 +160,7 @@ constexpr T rangeOne() {
     return T(1);
 }
 
-// «Умеет ли T отрицательный шаг»: знаковые целые, float, Rational — да; беззнаковые — нет.
+// «Умеет ли T отрицательный шаг»: знаковые целые, float, Rational - да; беззнаковые - нет.
 template <typename T>
 constexpr bool rangeCanNegStep = std::is_signed_v<T> || std::is_floating_point_v<T>;
 template <>
@@ -187,7 +187,7 @@ inline constexpr uint32_t kRangeGroupRationals = 8u;
 /// Диапазон `start..stop[..step]` над арифметическим типом T (Int/Float/Rational/Any).
 /// Инклюзивная семантика (Kotlin-модель): stop включается, если достижим шагом.
 /// Ленивый: значения вычисляются на лету (start/stop/step/count/at/iterator);
-/// материализация — toVector()/toArray()/toDict().
+/// материализация - toVector()/toArray()/toDict().
 template <typename T>
 class Range {
   public:
@@ -215,7 +215,7 @@ class Range {
         }
     }
 
-    /// ── Свойства ──
+    /// -- Свойства --
     [[nodiscard]] const T& start() const noexcept { return m_start; }
     /// Конец диапазона (инклюзивный).
     [[nodiscard]] const T& stop() const noexcept { return m_stop; }
@@ -228,7 +228,7 @@ class Range {
         } else if constexpr (std::is_same_v<T, trust::Rational>) {
             return rationalCount_();
         } else {
-            // float/double и std::any — через double-представление.
+            // float/double и std::any - через double-представление.
             return floatCount_();
         }
     }
@@ -249,7 +249,7 @@ class Range {
         }
     }
 
-    /// Элемент по индексу (0-базовый; вне [0, count) — std::out_of_range).
+    /// Элемент по индексу (0-базовый; вне [0, count) - std::out_of_range).
     [[nodiscard]] T at(std::size_t index) const {
         if (index >= count()) {
             throw std::out_of_range("trust::Range::at: index out of range");
@@ -257,13 +257,13 @@ class Range {
         return element_(index);
     }
 
-    /// Элемент по индексу (без проверки границ; вне [0, count) — UB).
+    /// Элемент по индексу (без проверки границ; вне [0, count) - UB).
     [[nodiscard]] T operator[](std::size_t index) const { return element_(index); }
 
     /// Обратный диапазон: те же start/stop, шаг с обратным знаком (лениво).
     [[nodiscard]] Range reversed() const { return Range(m_stop, m_start, negate_(m_step)); }
 
-    /// ── Итераторы (ленивые, forward) ──
+    /// -- Итераторы (ленивые, forward) --
     class iterator {
       public:
         using iterator_category = std::forward_iterator_tag;
@@ -300,7 +300,7 @@ class Range {
     [[nodiscard]] iterator cbegin() const { return begin(); }
     [[nodiscard]] iterator cend() const { return end(); }
 
-    /// ── Материализация ──
+    /// -- Материализация --
     /// Раскрытие в std::vector<T>.
     [[nodiscard]] std::vector<T> toVector() const {
         std::vector<T> out;
@@ -314,7 +314,7 @@ class Range {
     [[nodiscard]] std::vector<T> toArray() const { return toVector(); }
     [[nodiscard]] std::vector<T> toList() const { return toVector(); }
 
-    /// Преобразование в универсальный словарь trust::Dict: каждый элемент — (index, value)
+    /// Преобразование в универсальный словарь trust::Dict: каждый элемент - (index, value)
     /// (имя = десятичный индекс, значение = TypedValue с естественным типом элемента).
     [[nodiscard]] Dict toDict() const {
         Dict out;
@@ -325,7 +325,7 @@ class Range {
         return out;
     }
 
-    /// ── Сравнение (по start/stop/step) ──
+    /// -- Сравнение (по start/stop/step) --
     friend bool operator==(const Range& a, const Range& b) {
         return detail::rangeEqual(a.m_start, b.m_start) && detail::rangeEqual(a.m_stop, b.m_stop) && detail::rangeEqual(a.m_step, b.m_step);
     }
@@ -446,7 +446,7 @@ class Range {
         } else if constexpr (std::is_integral_v<T>) {
             return TypedValue(detail::kRangeGroupIntegers | (sizeof(T) * 8u << 8), v);
         } else {
-            // std::any и прочие — Any (kind=0, значение в std::any-ветке).
+            // std::any и прочие - Any (kind=0, значение в std::any-ветке).
             return TypedValue(0, v);
         }
     }

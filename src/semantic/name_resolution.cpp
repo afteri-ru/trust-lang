@@ -21,11 +21,11 @@ namespace trust {
 
 namespace {
 // Влезает ли десятичный целочисленный литерал в целевой целый тип (по группе/ширине).
-// Границы — единый источник `fitsIntegerValue` (type_inference.hpp).
+// Границы - единый источник `fitsIntegerValue` (type_inference.hpp).
 bool intFitsTarget(std::string_view text, TypeKind targetKind) noexcept {
     const Group g = getGroup(targetKind);
     if (g != Group::kIntegers && g != Group::kUnsigned) {
-        return true; // не-целая цель (float) — целочисленный литерал считается безопасным
+        return true; // не-целая цель (float) - целочисленный литерал считается безопасным
     }
     unsigned long long v = 0;
     if (!parseDecimalUInt(text, v)) {
@@ -35,7 +35,7 @@ bool intFitsTarget(std::string_view text, TypeKind targetKind) noexcept {
 }
 
 // Является ли TypeId универсальным словарём `:Dict` (канонический). Единый предикат для
-// детекции словарного операнда в `[]= ... dict` (spread-merge) — сравнение по каноническому id.
+// детекции словарного операнда в `[]= ... dict` (spread-merge) - сравнение по каноническому id.
 bool isDictTypeId(const TypeRegistry& reg, TypeId tid) noexcept {
     if (tid == INVALID_TYPE_ID) {
         return false;
@@ -43,9 +43,9 @@ bool isDictTypeId(const TypeRegistry& reg, TypeId tid) noexcept {
     return reg.getCanonicalTypeId(tid) == reg.getType(type::Dict);
 }
 
-// Является ли имя простым (без сигила/квалификатора) — кандидат на нормализацию `x → $x`
+// Является ли имя простым (без сигила/квалификатора) - кандидат на нормализацию `x → $x`
 // (опция -Wsigil) и на «$x-first» резолв. Сигилы: $ локальная, % нативная, @ макро, \ модуль,
-// : тип, . поле. Квалифицированное (::) имя — не простое.
+// : тип, . поле. Квалифицированное (::) имя - не простое.
 bool isSimpleVarName(std::string_view name) noexcept {
     if (name.empty()) {
         return false;
@@ -92,7 +92,7 @@ void NameResolutionPass::finalize() {
     }
 }
 
-// ── Скоупы с уведомлением хуков ──
+// -- Скоупы с уведомлением хуков --
 
 void NameResolutionPass::enterScope(const AstNodeBase& node) {
     m_actx.symbols().push(&node);
@@ -108,7 +108,7 @@ void NameResolutionPass::exitScope() {
     m_actx.symbols().pop();
 }
 
-// ── Обход ──
+// -- Обход --
 
 void NameResolutionPass::run(std::vector<AstNodePtr>& ast_nodes) {
     for (auto& node : ast_nodes) {
@@ -130,7 +130,7 @@ void NameResolutionPass::analyzeNode(AstNodePtr& self) {
     // Раскрытие контекст-макросов (ContextMacro → Literal/IdentName, квалификатор @::
     // в именах) выполняет всегда-подключённый хук ContextMacroExpander. Он вызывается
     // ДО обработки ядра, чтобы имя объявления было раскрыто до регистрации, а ContextMacro
-    // — заменён до резолва. Возврат true означает, что узел заменён хук-ом (ядро его
+    // - заменён до резолва. Возврат true означает, что узел заменён хук-ом (ядро его
     // не обрабатывает, но продолжает обход детей).
     bool consumed = false;
     for (auto& hook : m_hooks) {
@@ -140,9 +140,9 @@ void NameResolutionPass::analyzeNode(AstNodePtr& self) {
     }
 
     // Скоуп-контейнеры (модуль/блок) открывают вложенный скоуп на время обхода тела.
-    // ЛЮБОЙ блок (в т.ч. цикл while/do-while) создаёт скоуп — это локальность переменных:
+    // ЛЮБОЙ блок (в т.ч. цикл while/do-while) создаёт скоуп - это локальность переменных:
     // объявленные в теле цикла видны только внутри него. Детекция цикла (для диагностик
-    // деструктуризации) — по creator-скоупа в стеке (isInLoop).
+    // деструктуризации) - по creator-скоупа в стеке (isInLoop).
     switch (self->kind()) {
     case ParserToken::Kind::ModuleDecl:
     case ParserToken::Kind::sequence:
@@ -206,7 +206,7 @@ void NameResolutionPass::analyzeNode(AstNodePtr& self) {
 }
 
 // Обход реальных детей через единый источник AstNodeBase::collectChildren (ссылки на
-// слоты, чтобы хук мог заменять узлы). Не открывает скоупы — это делает analyzeNode.
+// слоты, чтобы хук мог заменять узлы). Не открывает скоупы - это делает analyzeNode.
 void NameResolutionPass::analyzeChildren(AstNodePtr& self) {
     if (!self) {
         return;
@@ -220,16 +220,16 @@ void NameResolutionPass::analyzeChildren(AstNodePtr& self) {
     }
 }
 
-// Анализ литерала словаря. Контракт: все элементы m_body — ArgNode (имя в text(), значение в
+// Анализ литерала словаря. Контракт: все элементы m_body - ArgNode (имя в text(), значение в
 // m_value), строятся из канонических пар грамматики `args` (term_to_ast::visit_DICT).
 // Значение анализируем полностью (резолв/типизация); имя-метку НЕ резолвим как переменную и
 // НЕ регистрируем в таблице символов. Тип значения сохраняем на элементе (ArgNode::resultType
-// из resolvedType) — единый источник для кодогенерации TypedValue (не только Literal::typeId).
+// из resolvedType) - единый источник для кодогенерации TypedValue (не только Literal::typeId).
 void NameResolutionPass::analyzeDictLiteral(Sequence& dict_node) {
     // Enum/Variant-объявление (ПОСТФИКС `(...):Enum`/`(...):Variant`): это правая часть `::=`,
     // обрабатывается analyzeTypeDecl (analyzeEnumDecl/analyzeVariantDecl); как обычный словарь НЕ
     // анализируется (иначе голые члены `B` резолвились бы как переменные). Префикс `:Enum(...)`
-    // — НЕ объявление (type-call): голые аргументы = значения, резолвятся как обычно.
+    // - НЕ объявление (type-call): голые аргументы = значения, резолвятся как обычно.
     const auto& dl0 = static_cast<const DictLiteralNode&>(dict_node);
     if (!dl0.prefix && dl0.m_type) {
         const std::string ann = std::string(dl0.m_type->text());
@@ -249,9 +249,9 @@ void NameResolutionPass::analyzeDictLiteral(Sequence& dict_node) {
         a.resultType = m_actx.resolvedType(*a.m_value);
     }
     // Тип литерала определяется по АННОТАЦИИ m_type через реестр типов (никаких строк/enum):
-    //   - если аннотация резолвится в тип Tuple → kind узла меняется на Tuple, а тип выражения —
+    //   - если аннотация резолвится в тип Tuple → kind узла меняется на Tuple, а тип выражения -
     //     на интернированный структурный кортеж (TupleTypeData; источник `t.name`/`t.0`);
-    //   - иначе (аннотация-каст/конструктор или её нет) — тип литерала = резолвленной аннотации
+    //   - иначе (аннотация-каст/конструктор или её нет) - тип литерала = резолвленной аннотации
     //     (скаляр/класс) или универсального словаря Dict.
     auto& dl = static_cast<DictLiteralNode&>(dict_node);
     TypeRegistry& reg = m_actx.ctx().types();
@@ -321,7 +321,7 @@ void NameResolutionPass::analyzeDictLiteral(Sequence& dict_node) {
         elemType = clearInferred(elemType);
         const TypeId arrBase = reg.getOrCreateArrayType(elemType, {static_cast<uint64_t>(dl.m_body.size())});
         if (arrBase != INVALID_TYPE_ID) {
-            // Константность (`:Array^`) — kConstFlag-бит в TypeId (withConst), а не поле типа.
+            // Константность (`:Array^`) - kConstFlag-бит в TypeId (withConst), а не поле типа.
             const TypeId arr = isConst ? withConst(arrBase) : arrBase;
             dl.arrayType = arr;
             m_actx.setExprType(&dict_node, arr);
@@ -335,18 +335,18 @@ void NameResolutionPass::analyzeDictLiteral(Sequence& dict_node) {
 }
 
 // Анализ литерала массива `[1,2:Int8,3,]` / `[1,2,3,]:Int32` / `[[1,2,],[3,4,],]` (вложенный).
-// Элементы — ArgNode (имя пустое, значение в m_value, явный тип в m_type). Тип элемента: явная
+// Элементы - ArgNode (имя пустое, значение в m_value, явный тип в m_type). Тип элемента: явная
 // аннотация `]:Type` (приоритет), затем явная аннотация элемента (`2:Int8`), затем общий тип
-// (если все элементы одного канонического типа — напр. вложенные Array<Elem> для многомерных),
-// затем join'элементных типов. Результат — интернированный структурный массив `Array<Elem>`
+// (если все элементы одного канонического типа - напр. вложенные Array<Elem> для многомерных),
+// затем join'элементных типов. Результат - интернированный структурный массив `Array<Elem>`
 // (ArrayTypeData); тип сохраняется на узле (DictLiteralNode::arrayType) и в кеше выражений.
 // Вложенные массивы-литералы строят многомерный `Array<Array<...>>` (анализ работает;
-// «не реализовано» — только на кодогенерации тензора).
+// «не реализовано» - только на кодогенерации тензора).
 void NameResolutionPass::analyzeArrayInit(DictLiteralNode& node) {
     TypeRegistry& reg = m_actx.ctx().types();
     std::vector<TypeId> raw;           // сырые (clearInferred) типы элементов
     std::vector<TypeId> explicitTypes; // типы из явных аннотаций элементов (`2:Int8`)
-    bool hasArrayElement = false;      // хотя бы один элемент — массив (многомерный литерал)
+    bool hasArrayElement = false;      // хотя бы один элемент - массив (многомерный литерал)
     TypeId firstArrayElemType = INVALID_TYPE_ID;
     for (auto& el : node.m_body) {
         if (!el || el->kind() != ParserToken::Kind::ArgNode) {
@@ -369,7 +369,7 @@ void NameResolutionPass::analyzeArrayInit(DictLiteralNode& node) {
         if (et != INVALID_TYPE_ID) {
             const TypeId ct = clearInferred(et);
             raw.push_back(ct);
-            // Элемент — массив (вложенный литерал/многомерность): детектируем независимо от типа.
+            // Элемент - массив (вложенный литерал/многомерность): детектируем независимо от типа.
             if (reg.isArrayType(ct)) {
                 hasArrayElement = true;
                 if (firstArrayElemType == INVALID_TYPE_ID) {
@@ -393,7 +393,7 @@ void NameResolutionPass::analyzeArrayInit(DictLiteralNode& node) {
         elemType = arrayElementJoin(raw);
     }
     // Многомерный литерал: если есть элементы-массивы, а выведенный элементный тип не массив
-    // (гетерогенные внутренние массивы, напр. `[[1,2],[3,4]]`), берём тип первого массива-элемента —
+    // (гетерогенные внутренние массивы, напр. `[[1,2],[3,4]]`), берём тип первого массива-элемента -
     // так внешний тип становится Array<Array<...>> и кодогенерация выдаёт «не реализовано».
     if (elemType == INVALID_TYPE_ID && hasArrayElement && firstArrayElemType != INVALID_TYPE_ID) {
         elemType = firstArrayElemType;
@@ -412,7 +412,7 @@ void NameResolutionPass::analyzeArrayInit(DictLiteralNode& node) {
 // Общий тип элементов массива с сохранением узкой разрядности (в отличие от naturalRuntimeType,
 // который для словарей/диапазонов расширяет целые до Int64). Для литералов массивов это даёт
 // `[1,2,3,]` → Int8, `[100,300,]` → Int16, `[1.5,2.5,]` → Float64. Если все элементы одного
-// канонического типа — берём его; строки не смешиваются с числами; несовместимое → INVALID (Any).
+// канонического типа - берём его; строки не смешиваются с числами; несовместимое → INVALID (Any).
 TypeId NameResolutionPass::arrayElementJoin(const std::vector<TypeId>& elementTypes) const {
     const TypeRegistry& reg = m_actx.ctx().types();
     if (elementTypes.empty()) {
@@ -439,7 +439,7 @@ TypeId NameResolutionPass::arrayElementJoin(const std::vector<TypeId>& elementTy
         const Group g = getGroup(getKindFromId(c));
         switch (g) {
         case Group::kLogical:
-            hasInt = true; // Bool — вырожденное целое
+            hasInt = true; // Bool - вырожденное целое
             break;
         case Group::kIntegers:
         case Group::kUnsigned:
@@ -492,10 +492,10 @@ TypeId NameResolutionPass::arrayElementJoin(const std::vector<TypeId>& elementTy
 }
 
 // Анализ литерала диапазона `start..stop` / `start..stop..step`. Универсальный тип `:Range`
-// (как `:Dict`): тип ВЫРАЖЕНИЯ — `:Range`, а элементный тип (Int/Rational/Float/Any) выводится
+// (как `:Dict`): тип ВЫРАЖЕНИЯ - `:Range`, а элементный тип (Int/Rational/Float/Any) выводится
 // join'ом типов start/stop/step и параметризует `trust::Range<Elem>` при кодогенерации.
 // Элементы должны быть арифметическими (Int/UInt/Float/Rational/Bool) или Any; строки и прочие
-// — диагностика. Элементный тип: Rational при любом рациональном операнде, иначе Double при
+// - диагностика. Элементный тип: Rational при любом рациональном операнде, иначе Double при
 // любом float, иначе Int64/UInt64/Bool; несовместимое/неизвестное → INVALID (Any).
 void NameResolutionPass::analyzeRangeExpr(RangeExpr& range_node) {
     TypeRegistry& reg = m_actx.ctx().types();
@@ -509,7 +509,7 @@ void NameResolutionPass::analyzeRangeExpr(RangeExpr& range_node) {
         analyzeNode(child);
         TypeId t = m_actx.resolvedType(*child);
         // Явная аннотация типа операнда (`stop:Type`, напр. `0..100:Rational`) имеет приоритет
-        // над выведенным типом: грамматика кладёт её в m_type терма-операнда, конвертер — в
+        // над выведенным типом: грамматика кладёт её в m_type терма-операнда, конвертер - в
         // RangeExpr::operandTypes. Аннотация `:Rational` делает элементный тип Rational.
         if (i < range_node.operandTypes.size() && range_node.operandTypes[i]) {
             if (auto ann = m_actx.resolveType(*range_node.operandTypes[i]); ann) {
@@ -564,7 +564,7 @@ void NameResolutionPass::analyzeRangeExpr(RangeExpr& range_node) {
     } else {
         range_node.elementType = INVALID_TYPE_ID; // Any
     }
-    // Тип выражения — параметризованный структурный Range<Elem> (элементный тип Elem):
+    // Тип выражения - параметризованный структурный Range<Elem> (элементный тип Elem):
     // литерал `1..10` → Range<Int64>, `0..100:Rational` → Range<Rational>, иначе Range<Any>.
     TypeId elemT = range_node.elementType;
     if (elemT == INVALID_TYPE_ID) {
@@ -576,7 +576,7 @@ void NameResolutionPass::analyzeRangeExpr(RangeExpr& range_node) {
     }
 }
 
-// Статическая размерность объекта: для литерала словаря — число элементов; для переменной —
+// Статическая размерность объекта: для литерала словаря - число элементов; для переменной -
 // свойство dims символа (из инициализатора-литерала). -1 = неизвестна.
 int64_t NameResolutionPass::dictSizeOf(const AstNodeBase* obj) const {
     if (!obj) {
@@ -593,7 +593,7 @@ int64_t NameResolutionPass::dictSizeOf(const AstNodeBase* obj) const {
     return -1;
 }
 
-// Имя и значение элемента коллекции из m_body. Элемент — ArgNode (dict/enum/variant) или
+// Имя и значение элемента коллекции из m_body. Элемент - ArgNode (dict/enum/variant) или
 // общий узел (ArrayInit/прочее). Для ArgNode: имя=text(), значение=m_value; иначе элемент сам
 // является значением (позиционный). Единый источник чтения элемента для семантики.
 static void collectionElementNameValue(const AstNodeBase* el, std::string& name, const AstNodeBase*& value) {
@@ -609,13 +609,13 @@ static void collectionElementNameValue(const AstNodeBase* el, std::string& name,
     }
 }
 
-// Извлечение члена enum/variant из ArgNode: имя, значение (null — безнарный), явный тип.
-// Безнарный член `HIGH` (имя="" и значение-Ident) — имя лежит в значении (Ident), значение
-// отбрасывается (это имя члена, а не значение). Тип члена — напрямую из ArgNode.m_type.
+// Извлечение члена enum/variant из ArgNode: имя, значение (null - безнарный), явный тип.
+// Безнарный член `HIGH` (имя="" и значение-Ident) - имя лежит в значении (Ident), значение
+// отбрасывается (это имя члена, а не значение). Тип члена - напрямую из ArgNode.m_type.
 struct EnumVariantMember {
     std::string name;
-    AstNodePtr value; // nullptr — безнарный (нет значения)
-    AstNodePtr type;  // явный тип (nullptr — нет)
+    AstNodePtr value; // nullptr - безнарный (нет значения)
+    AstNodePtr type;  // явный тип (nullptr - нет)
 };
 static EnumVariantMember enumVariantMember(const ArgNode& a) {
     EnumVariantMember m;
@@ -643,8 +643,8 @@ TypeId NameResolutionPass::dictElementType(const AstNodeBase* valueNode) const {
 
 // Типы элементов словаря-источника ПО ИНДЕКСУ (для вывода типов целей деструктуризации,
 // аналогично кортежу): литерал → тип каждого элемента m_body; переменная → dictFieldTypes.
-// Возвращаются СЫРЫЕ типы (с битом inferred у литералов) — по нему определяется нетипизированный
-// словарь. Неизвестный/неприменимый элемент → INVALID_TYPE_ID. Пустой вектор — типы недоступны.
+// Возвращаются СЫРЫЕ типы (с битом inferred у литералов) - по нему определяется нетипизированный
+// словарь. Неизвестный/неприменимый элемент → INVALID_TYPE_ID. Пустой вектор - типы недоступны.
 std::vector<TypeId> NameResolutionPass::dictElementTypes(const AstNodeBase* src) const {
     std::vector<TypeId> result;
     if (!src) {
@@ -674,7 +674,7 @@ std::vector<TypeId> NameResolutionPass::dictElementTypes(const AstNodeBase* src)
 
 // «Естественный» runtime-тип элемента словаря (как хранит Dict): integers → Int64,
 // unsigned → UInt64, numbers(float) → Double, logical → Bool, StrChar/StrWide → соответствующий.
-// Нечисловой/неизвестный → INVALID_TYPE_ID (→ Any). Классификация — по битовой структуре TypeKind
+// Нечисловой/неизвестный → INVALID_TYPE_ID (→ Any). Классификация - по битовой структуре TypeKind
 // (getKindFromId/getGroup), а НЕ по строковым именам типов.
 TypeId NameResolutionPass::naturalRuntimeType(TypeId nominal) const {
     const TypeRegistry& reg = m_actx.ctx().types();
@@ -702,7 +702,7 @@ TypeId NameResolutionPass::naturalRuntimeType(TypeId nominal) const {
 
 // JOIN (максимальный) элементных runtime-типов для widening В ЦИКЛЕ: Bool+Int → Int64,
 // любой float → Double, однородные строки → Str; несовместимое/неизвестное → INVALID (Any).
-// Классификация — по Group (TypeKind), без строковых имён типов.
+// Классификация - по Group (TypeKind), без строковых имён типов.
 TypeId NameResolutionPass::joinElementTypes(const std::vector<TypeId>& naturalized) const {
     const TypeRegistry& reg = m_actx.ctx().types();
     bool hasDouble = false, hasInt = false, hasBool = false, hasUInt = false, hasStrChar = false, hasStrWide = false;
@@ -755,7 +755,7 @@ TypeId NameResolutionPass::joinElementTypes(const std::vector<TypeId>& naturaliz
 }
 
 // Тип поля объекта по ключу доступа (имя/статический индекс для MemberAccess, индекс для
-// ArrayAccess). INVALID — тип неизвестен (гетерогенный/динамический) → Any.
+// ArrayAccess). INVALID - тип неизвестен (гетерогенный/динамический) → Any.
 TypeId NameResolutionPass::dictFieldTypeOf(const Binary& access) const {
     const AstNodeBase* obj = access.m_left.get();
     if (!obj) {
@@ -808,12 +808,12 @@ void NameResolutionPass::analyzeAccess(Binary& n) {
     if (n.m_left) {
         analyzeNode(n.m_left);
     }
-    // Вызов метода на объекте: obj.method(args) — MemberAccess(left=obj, right=CallExpr).
+    // Вызов метода на объекте: obj.method(args) - MemberAccess(left=obj, right=CallExpr).
     if (n.kind() == ParserToken::Kind::MemberAccess && n.m_right && n.m_right->kind() == ParserToken::Kind::CallExpr) {
         handleMethodCall(n);
         return;
     }
-    // Доступ к кортежу `t.name` / `t.0` / `t[idx]`: левый операнд — структурный Tuple-тип.
+    // Доступ к кортежу `t.name` / `t.0` / `t[idx]`: левый операнд - структурный Tuple-тип.
     {
         const TypeRegistry& treg = m_actx.ctx().types();
         const TypeId leftT = n.m_left ? treg.getCanonicalTypeId(m_actx.resolvedType(*n.m_left)) : INVALID_TYPE_ID;
@@ -821,7 +821,7 @@ void NameResolutionPass::analyzeAccess(Binary& n) {
             resolveTupleAccess(n, leftT);
             return;
         }
-        // Доступ к элементу массива `a[i]` / `a.0`: левый операнд — структурный Array-тип.
+        // Доступ к элементу массива `a[i]` / `a.0`: левый операнд - структурный Array-тип.
         if (leftT != INVALID_TYPE_ID && treg.isArrayType(leftT)) {
             resolveArrayAccess(n, leftT);
             return;
@@ -876,12 +876,12 @@ void NameResolutionPass::analyzeAccess(Binary& n) {
         }
     }
     if (n.kind() == ParserToken::Kind::ArrayAccess) {
-        // Динамический индекс — обычное выражение (резолв/типизация).
+        // Динамический индекс - обычное выражение (резолв/типизация).
         if (n.m_right) {
             analyzeNode(n.m_right);
         }
     } else {
-        // MemberAccess: m_right — имя поля или статический индекс (литерал). Не резолвим.
+        // MemberAccess: m_right - имя поля или статический индекс (литерал). Не резолвим.
         if (n.m_right && n.m_right->kind() == ParserToken::Kind::IntLiteral) {
             // Статический индекс `d.1`: проверка по статической размерности объекта.
             const int64_t size = dictSizeOf(n.m_left.get());
@@ -903,10 +903,10 @@ void NameResolutionPass::analyzeAccess(Binary& n) {
     m_actx.setExprType(&n, t);
 }
 
-// ── Доступ к элементу кортежа: t.name / t.0 / t[idx] ──
-// Левый операнд — структурный Tuple-тип (TupleTypeData). Резолвим имя/статический индекс в
+// -- Доступ к элементу кортежа: t.name / t.0 / t[idx] --
+// Левый операнд - структурный Tuple-тип (TupleTypeData). Резолвим имя/статический индекс в
 // списке элементов; тип результата = тип элемента. Для динамического индекса `t[expr]`
-// (без константы) — статически нерезолвимо (std::get требует константу) → диагностика.
+// (без константы) - статически нерезолвимо (std::get требует константу) → диагностика.
 void NameResolutionPass::resolveTupleAccess(Binary& n, TypeId tupleType) {
     const TypeRegistry& reg = m_actx.ctx().types();
     const auto* td = reg.getTypeDataAs<TupleTypeData>(tupleType);
@@ -947,13 +947,13 @@ void NameResolutionPass::resolveTupleAccess(Binary& n, TypeId tupleType) {
     m_actx.setExprType(&n, et);
 }
 
-// Доступ к элементу массива `a[i]` / `a.0`: левый операнд — структурный Array-тип.
+// Доступ к элементу массива `a[i]` / `a.0`: левый операнд - структурный Array-тип.
 // Тип результата = элементный тип массива (ArrayTypeData::elementType). Статический индекс
 // (литерал) проверяется по известной размерности массива. Индекс-выражение анализируется.
 void NameResolutionPass::resolveArrayAccess(Binary& n, TypeId arrayType) {
     const TypeRegistry& reg = m_actx.ctx().types();
     const TypeId et = reg.arrayElementType(arrayType);
-    // Индекс — выражение: анализируем/типизируем (для `a[expr]`).
+    // Индекс - выражение: анализируем/типизируем (для `a[expr]`).
     if (n.m_right) {
         analyzeNode(n.m_right);
     }
@@ -973,10 +973,10 @@ void NameResolutionPass::resolveArrayAccess(Binary& n, TypeId arrayType) {
     m_actx.setExprType(&n, et);
 }
 
-// ── Вызов метода на объекте: obj.method(args) ──
+// -- Вызов метода на объекте: obj.method(args) --
 // По типу объекта ищет метод в реестре типов (TypeRegistry::findMethod), проверяет наличие и
-// количество аргументов по сигнатуре, типизирует результат возвращаемым типом. Метод — это
-// функциональный тип (метод и функция — одно и то же), поэтому проверка аргументов идёт по
+// количество аргументов по сигнатуре, типизирует результат возвращаемым типом. Метод - это
+// функциональный тип (метод и функция - одно и то же), поэтому проверка аргументов идёт по
 // FunctionTypeData::paramTypes единым путём с функциями. Проверка происходит ДО генерации C++.
 void NameResolutionPass::handleMethodCall(Binary& n) {
     const auto& call = static_cast<const CallExpr&>(*n.m_right);
@@ -985,7 +985,7 @@ void NameResolutionPass::handleMethodCall(Binary& n) {
     TypeRegistry& reg = m_actx.ctx().types();
     const TypeId objType = n.m_left ? reg.getCanonicalTypeId(m_actx.resolvedType(*n.m_left)) : INVALID_TYPE_ID;
     if (objType == INVALID_TYPE_ID) {
-        // Тип объекта неизвестен (напр. Any) — не можем проверить метод; типизируем как Any.
+        // Тип объекта неизвестен (напр. Any) - не можем проверить метод; типизируем как Any.
         n.resultType = n.commonType = m_actx.ctx().types().getType(type_generic::Any);
         m_actx.setExprType(&n, n.resultType);
         return;
@@ -1000,7 +1000,7 @@ void NameResolutionPass::handleMethodCall(Binary& n) {
         m_actx.setExprType(&n, INVALID_TYPE_ID);
         return;
     }
-    // Интернированная сигнатура метода (TypeId). Нативность/константность для кодгена — из
+    // Интернированная сигнатура метода (TypeId). Нативность/константность для кодгена - из
     // methodInfo->key (полный ключ с '%'/'^'); const-вызов (`obj.method^()`) кодген определяет по
     // attr::ReadOnly на вызове (см. convertAttrsToNode/CallExpr).
     TypeId funcType = methodInfo->funcType;
@@ -1028,7 +1028,7 @@ void NameResolutionPass::handleMethodCall(Binary& n) {
     m_actx.setExprType(&n, fd->returnType);
 }
 
-// Обработка по kind (объявления, типы, Ident, ContextMacro); полный обход детей — в
+// Обработка по kind (объявления, типы, Ident, ContextMacro); полный обход детей - в
 // analyzeNode через analyzeChildren, поэтому здесь рекурсия в детей не нужна.
 void NameResolutionPass::handleNode(AstNodePtr& self) {
     switch (self->kind()) {
@@ -1050,10 +1050,10 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
         const auto& embed = static_cast<const AstNodeAttr&>(*self);
         m_actx.ctx().report(embed.range(), OptKind::Embed, "C++ code embedding {{% ... %}} is used");
         // C++-вставка ({% ... %}): trust-имена, на которые ссылается вставка ($name/@name),
-        // проверяются на доступность в таблице символов; отсутствующие — предупреждение.
+        // проверяются на доступность в таблице символов; отсутствующие - предупреждение.
         for (const auto& nm : utils::extract_embed_names(embed.text())) {
             const Symbol* found = m_actx.symbols().resolve(nm);
-            // Квалифицированное имя (ns::x): таблица — плоский стек скоупов, поэтому полное
+            // Квалифицированное имя (ns::x): таблица - плоский стек скоупов, поэтому полное
             // имя не находится; проверяем по последнему сегменту (грубая проверка доступности).
             if (!found) {
                 const auto pos = nm.rfind("::");
@@ -1069,26 +1069,26 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
     }
     case ParserToken::Kind::AppendStmt: {
         // Учёт `[]=` в статическом размере словаря: `d []= v` увеличивает известный размер
-        // (dims) целевого словаря — чтобы статическая проверка `d.N` далее по тексту видела
-        // выросший размер (после двух append размер 3 → 5). LHS — простой Ident (вложенный
+        // (dims) целевого словаря - чтобы статическая проверка `d.N` далее по тексту видела
+        // выросший размер (после двух append размер 3 → 5). LHS - простой Ident (вложенный
         // отклонён в typeExpr); dims >= 0 означает «словарь с известным размером».
         //
-        // Spread-merge `d []= ... dict` (RHS — Ellipsis): добавляются ВСЕ элементы словаря-
+        // Spread-merge `d []= ... dict` (RHS - Ellipsis): добавляются ВСЕ элементы словаря-
         // операнда, поэтому dims растёт на число элементов операнда, а типы полей переносятся
-        // в dictFieldTypes цели. Без `...` — одиночный элемент (прежнее поведение: dims += 1,
-        // типы полей не регистрируются — сохранение «Any» для добавленных позиционных).
+        // в dictFieldTypes цели. Без `...` - одиночный элемент (прежнее поведение: dims += 1,
+        // типы полей не регистрируются - сохранение «Any» для добавленных позиционных).
         auto& append = static_cast<Binary&>(*self);
         if (append.m_left && append.m_left->kind() == ParserToken::Kind::Ident) {
             if (Symbol* s = resolveSimple(append.m_left.get(), append.m_left->text())) {
                 if (s->dims < 0) {
-                    break; // статический размер цели неизвестен — отслеживать нечего
+                    break; // статический размер цели неизвестен - отслеживать нечего
                 }
                 const AstNodeBase* rhs = append.m_right.get();
                 if (rhs && rhs->kind() == ParserToken::Kind::Ellipsis) {
                     const auto& ell = static_cast<const Sequence&>(*rhs);
                     const AstNodeBase* operand = ell.m_body.empty() ? nullptr : ell.m_body[0].get();
                     if (operand && operand->kind() == ParserToken::Kind::DictLiteral) {
-                        // Компиляционно известный словарь-литерал: каждый элемент — новый элемент.
+                        // Компиляционно известный словарь-литерал: каждый элемент - новый элемент.
                         const auto& dl = static_cast<const Sequence&>(*operand);
                         for (const auto& el : dl.m_body) {
                             if (!el) {
@@ -1112,13 +1112,13 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
                             }
                         }
                     }
-                    // Прочий dict-операнд (выражение): статический размер неизвестен — не меняем.
+                    // Прочий dict-операнд (выражение): статический размер неизвестен - не меняем.
                     break;
                 }
                 // Одиночный элемент (не spread): размер +1 и регистрация типа поля по позиции,
                 // чтобы dictFieldTypes оставался выровнен по dims (инвариант: число записей
                 // dictFieldTypes == известный размер). Для литерала тип выводится, для
-                // переменной/выражения (до анализа) — Any (INVALID).
+                // переменной/выражения (до анализа) - Any (INVALID).
                 s->dims += 1;
                 s->dictFieldTypes.emplace_back("", rhs ? dictElementType(rhs) : INVALID_TYPE_ID);
             }
@@ -1130,7 +1130,7 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
     }
 }
 
-// ── Объявления ──
+// -- Объявления --
 
 void NameResolutionPass::analyzeVarDecl(VarDecl& var_node) {
     std::string var_name{var_node.text()};
@@ -1150,7 +1150,7 @@ void NameResolutionPass::analyzeVarDecl(VarDecl& var_node) {
     AstNodePtr init_node = var_node.m_initializer;
 
     // В `:=` справа должно быть ЗНАЧЕНИЕ, а не тип-имя: `x := :Int32` невалидно. Тип объявляется
-    // через `::=` (`x ::= :Int32` → тип-алиас). Голый `:T` — TypeName; конструкция `:T(a)` — единый
+    // через `::=` (`x ::= :Int32` → тип-алиас). Голый `:T` - TypeName; конструкция `:T(a)` - единый
     // узел DictLiteralNode (это выражение-значение, не затрагивается).
     if (init_node && init_node->kind() == ParserToken::Kind::TypeName) {
         m_actx.ctx().diag().report(Severity::Error, var_range, "cannot assign a type '{}' to a value variable '{}'; use '::=' to declare a type alias",
@@ -1158,7 +1158,7 @@ void NameResolutionPass::analyzeVarDecl(VarDecl& var_node) {
         return;
     }
 
-    // Предварительное (forward) объявление `x:Type := ...;` — инициализатора нет.
+    // Предварительное (forward) объявление `x:Type := ...;` - инициализатора нет.
     // Для нативного имени (%...) тип обязателен: имя напрямую транслируется в C++.
     if (!init_node && !var_name.empty() && var_name[0] == '%' && !var_node.m_type) {
         m_actx.ctx().diag().report(Severity::Error, var_range, "native variable '{}' must have a type in a forward declaration", var_name);
@@ -1167,14 +1167,14 @@ void NameResolutionPass::analyzeVarDecl(VarDecl& var_node) {
 
     // Имя без сигила в локальном скоупе: нормализуем в локальную переменную с '$' префиксом
     // ($x) и предупреждаем (опция -Wsigil, default Warning). Локальный скоуп = внутри функции
-    // (в стеке скоупов есть FuncDecl); уровень модуля/глобальный — НЕ локальный. Единый хелпер
+    // (в стеке скоупов есть FuncDecl); уровень модуля/глобальный - НЕ локальный. Единый хелпер
     // normalizeLocalSigil используется и declareDestructureTarget (унификация sigil-логики).
     const bool isLocal = isInLocalScope();
     var_name = normalizeLocalSigil(var_node, var_node.nameRange(), isLocal);
 
     Symbol sym;
     sym.name = var_name;
-    // Константность ('^' → attr::ReadOnly) и вид ссылки (@[reftype(...)]) — ортогональные
+    // Константность ('^' → attr::ReadOnly) и вид ссылки (@[reftype(...)]) - ортогональные
     // квалификаторы, применяемые единым хелпером (applyRefAttrs). Константность в типе даёт
     // `const T` в C++ (getCppTypeName) и попадает в прототипы функций. Для нетипизированной
     // переменной (var_type == INVALID) бит const выставляется позже, в typeExpr, когда тип
@@ -1196,7 +1196,7 @@ void NameResolutionPass::analyzeVarDecl(VarDecl& var_node) {
         sym.storage = Storage::Local;
     }
 
-    // Регистрация в текущем скоупе (дубликат — ошибка). Forward-объявление (init == nullptr)
+    // Регистрация в текущем скоупе (дубликат - ошибка). Forward-объявление (init == nullptr)
     // может быть завершено последующим определением того же имени (declareOrComplete → Completed).
     if (m_actx.symbols().declareOrComplete(sym) == DeclResult::Duplicate) {
         m_actx.ctx().diag().report(Severity::Error, var_range, "duplicate declaration '{}'", var_name);
@@ -1244,7 +1244,7 @@ void NameResolutionPass::analyzeTypeDecl(Binary& binary_node) {
     }
 
     // Enum/Variant-объявление (ПОСТФИКС `(...):Enum`/`(...):Variant`, НЕ префикс `:Enum(...)`):
-    // правая часть — DictLiteral с аннотацией «Enum»/«Variant». Голые члены = безнарные (валидны).
+    // правая часть - DictLiteral с аннотацией «Enum»/«Variant». Голые члены = безнарные (валидны).
     if (right->kind() == ParserToken::Kind::DictLiteral) {
         const auto& dl = static_cast<const DictLiteralNode&>(*right);
         if (!dl.prefix && dl.m_type && dl.m_type->text() == "Enum") {
@@ -1260,15 +1260,15 @@ void NameResolutionPass::analyzeTypeDecl(Binary& binary_node) {
     // Определяем базовый TypeId правой части (имя типа: алиас или встроенный).
     TypeId base_id = INVALID_TYPE_ID;
     if (right->kind() == ParserToken::Kind::TypeName) {
-        // y ::= Int; — alias на существующий тип.
+        // y ::= Int; - alias на существующий тип.
         base_id = m_actx.resolveType(*right).value_or(INVALID_TYPE_ID);
         if (base_id == INVALID_TYPE_ID) {
             m_actx.ctx().diag().report(Severity::Error, right->range(), "type '{}' not found", right->text());
             return;
         }
     } else if (right->kind() == ParserToken::Kind::Ident) {
-        // y ::= MyInt; — правая часть — имя ТИПА (пользовательский алиас). Оператор '::='
-        // создаёт ТОЛЬКО типы: ссылка на переменную справа — ошибка (не «алиас на переменную»).
+        // y ::= MyInt; - правая часть - имя ТИПА (пользовательский алиас). Оператор '::='
+        // создаёт ТОЛЬКО типы: ссылка на переменную справа - ошибка (не «алиас на переменную»).
         const Symbol* vs = m_actx.symbols().resolve(right->text());
         if (!vs) {
             m_actx.ctx().diag().report(Severity::Error, right->range(), "undefined name '{}'", right->text());
@@ -1291,7 +1291,7 @@ void NameResolutionPass::analyzeTypeDecl(Binary& binary_node) {
     // Регистрация алиаса в реестре типов (метаданные TypeId).
     TypeId alias_id = m_actx.ctx().types().registerType(type_name, base_id, {}, right->range());
     if (alias_id == INVALID_TYPE_ID) {
-        return; // дубликат — диагностику сформировал реестр
+        return; // дубликат - диагностику сформировал реестр
     }
 
     // Биндинг имени алиаса в текущем скоупе (shadowing/коллизии через скоуп-стек).
@@ -1308,15 +1308,15 @@ void NameResolutionPass::analyzeTypeDecl(Binary& binary_node) {
     }
 }
 
-// ── Единый сбор членов `(name=value / name:Type=value / bare name)` из DictLiteral RHS ──
-// Контракт: элементы m_body — ArgNode (имя в text(), явный тип в m_type, значение в m_value),
-// строятся term_to_ast::appendDictElementsFromArgs. Чтение (имя/тип/значение) — НАПРЯМУЮ из
-// ArgNode, без обёрток и без разворачивания. Значение члена Variant — AST-выражение (источник —
-// ArgNode.m_value); в реестре — только разрешённый тип члена.
+// -- Единый сбор членов `(name=value / name:Type=value / bare name)` из DictLiteral RHS --
+// Контракт: элементы m_body - ArgNode (имя в text(), явный тип в m_type, значение в m_value),
+// строятся term_to_ast::appendDictElementsFromArgs. Чтение (имя/тип/значение) - НАПРЯМУЮ из
+// ArgNode, без обёрток и без разворачивания. Значение члена Variant - AST-выражение (источник -
+// ArgNode.m_value); в реестре - только разрешённый тип члена.
 
-// ── Объявление enum-типа (`Color ::= :Enum(RED=1, GREEN=2,)` / `(RED=1, GREEN=2,):Enum`) ──
+// -- Объявление enum-типа (`Color ::= :Enum(RED=1, GREEN=2,)` / `(RED=1, GREEN=2,):Enum`) --
 // TypeDecl(Binary): left = имя типа, right = DictLiteral с аннотацией m_type «Enum»; элементы
-// m_body — ArgNode (имя, явный тип, значение). Регистрирует enum-тип, вычисляет единый тип
+// m_body - ArgNode (имя, явный тип, значение). Регистрирует enum-тип, вычисляет единый тип
 // значений (по общим правилам, предупреждение WidenAny при повышении до Any), биндит имя и
 // регистрирует классические методы.
 void NameResolutionPass::analyzeEnumDecl(Binary& binary_node) {
@@ -1328,7 +1328,7 @@ void NameResolutionPass::analyzeEnumDecl(Binary& binary_node) {
     EXPECT(right && right->kind() == ParserToken::Kind::DictLiteral && "analyzeEnumDecl: RHS must be Enum-annotated DictLiteral");
     auto& dict = static_cast<DictLiteralNode&>(*right);
 
-    // ── Члены: (имя, значение|null, явный тип|null) — напрямую из элементов m_body (ArgNode).
+    // -- Члены: (имя, значение|null, явный тип|null) - напрямую из элементов m_body (ArgNode).
     const auto& body = dict.m_body;
     const auto isMember = [](const AstNodePtr& el) { return el && el->kind() == ParserToken::Kind::ArgNode; };
 
@@ -1347,7 +1347,7 @@ void NameResolutionPass::analyzeEnumDecl(Binary& binary_node) {
     md.reserve(memberCount);
     TypeId valueType = INVALID_TYPE_ID;
 
-    // ── Проход 1: тип — из ЯВНЫХ аннотаций члена (`A:Rational`); иначе из значений ──
+    // -- Проход 1: тип - из ЯВНЫХ аннотаций члена (`A:Rational`); иначе из значений --
     bool haveExplicitType = false;
     for (const auto& el : body) {
         if (isMember(el) && static_cast<const ArgNode&>(*el).m_type) {
@@ -1383,7 +1383,7 @@ void NameResolutionPass::analyzeEnumDecl(Binary& binary_node) {
             valueType = reg.getType(type::Int64);
         }
     } else {
-        // Тип из явных значений (resolvedType + join); если явных нет — минимальный Int по числу членов.
+        // Тип из явных значений (resolvedType + join); если явных нет - минимальный Int по числу членов.
         std::vector<TypeId> explicitTypes;
         for (const auto& el : body) {
             if (!isMember(el)) {
@@ -1424,10 +1424,10 @@ void NameResolutionPass::analyzeEnumDecl(Binary& binary_node) {
         }
     }
     // valueType всегда разрешён выше (тип из аннотаций / значений / JOIN → Any с предупреждением
-    // WidenAny). Ветка INVALID здесь невозможна — молча не подменяем, а ловим инвариантом.
+    // WidenAny). Ветка INVALID здесь невозможна - молча не подменяем, а ловим инвариантом.
     EXPECT(valueType != INVALID_TYPE_ID && "analyzeEnumDecl: value type must be resolved");
 
-    // ── Проход 2: значения членов (автоинкремент для целого типа, иначе ординал) ──
+    // -- Проход 2: значения членов (автоинкремент для целого типа, иначе ординал) --
     const bool integerVT = getGroup(getKindFromId(reg.getCanonicalTypeId(valueType))) == Group::kIntegers;
     unsigned long long cur = 0;
     bool haveValue = false;
@@ -1461,13 +1461,13 @@ void NameResolutionPass::analyzeEnumDecl(Binary& binary_node) {
         ++ordinal;
     }
 
-    // ── Регистрация enum-типа в реестре (EnumTypeData; дубликат → диагностика реестра).
+    // -- Регистрация enum-типа в реестре (EnumTypeData; дубликат → диагностика реестра).
     const TypeId enum_id = reg.registerEnumType(enum_name, valueType, std::move(md), decl_range);
     if (enum_id == INVALID_TYPE_ID) {
         return;
     }
 
-    // ── Биндинг имени enum-типа в текущем скоупе (shadowing через скоуп-стек).
+    // -- Биндинг имени enum-типа в текущем скоупе (shadowing через скоуп-стек).
     Symbol es;
     es.name = enum_name;
     es.type = enum_id;
@@ -1480,7 +1480,7 @@ void NameResolutionPass::analyzeEnumDecl(Binary& binary_node) {
         hook->onDeclare(es);
     }
 
-    // ── Классические тип-уровневые методы (осознанное решение: работа ТОЛЬКО через тип).
+    // -- Классические тип-уровневые методы (осознанное решение: работа ТОЛЬКО через тип).
     // count() -> Int64; fromName(name: StrChar) -> Enum; fromValue(value: Value) -> Enum.
     const TypeId int64Id = reg.getType(type::Int64);
     const TypeId strCharId = reg.getType(type::StrChar);
@@ -1490,10 +1490,10 @@ void NameResolutionPass::analyzeEnumDecl(Binary& binary_node) {
     reg.addMethod(enum_id, "fromValue", ftype(enum_id, {valueType}));
 }
 
-// ── Объявление Variant-типа (`Value ::= :Variant(RED:Int64=0, GREEN='g',)`) ──
+// -- Объявление Variant-типа (`Value ::= :Variant(RED:Int64=0, GREEN='g',)`) --
 // TypeDecl(Binary): left = имя типа, right = DictLiteral с аннотацией m_type «Variant»; элементы
-// m_body — Binary(AssignOp) (left=имя или пусто для бесзначённого, right=значение). Тип каждого
-// члена — СВОЙ (гетерогенный): выводится из значения (resolvedType), ординальный член без значения
+// m_body - Binary(AssignOp) (left=имя или пусто для бесзначённого, right=значение). Тип каждого
+// члена - СВОЙ (гетерогенный): выводится из значения (resolvedType), ординальный член без значения
 // → минимальный знаковый Int по позиции. Регистрирует Variant-тип, биндит имя, методы (count).
 void NameResolutionPass::analyzeVariantDecl(Binary& binary_node) {
     const std::string variant_name = std::string(binary_node.m_left->text());
@@ -1505,7 +1505,7 @@ void NameResolutionPass::analyzeVariantDecl(Binary& binary_node) {
     auto& dict = static_cast<DictLiteralNode&>(*right);
 
     std::vector<VariantMemberData> members;
-    // Единый сбор из m_body (ArgNode): тип члена — из ЯВНОЙ аннотации (m.type), иначе из
+    // Единый сбор из m_body (ArgNode): тип члена - из ЯВНОЙ аннотации (m.type), иначе из
     // значения (m.value), иначе минимальный знаковый Int по позиции.
     size_t ordinal = 0;
     for (const auto& el : dict.m_body) {
@@ -1519,7 +1519,7 @@ void NameResolutionPass::analyzeVariantDecl(Binary& binary_node) {
             if (tid.has_value()) {
                 mtype = reg.getCanonicalTypeId(*tid);
             } else {
-                // Явная аннотация типа члена не резолвится — ОШИБКА (симметрично enum), а не
+                // Явная аннотация типа члена не резолвится - ОШИБКА (симметрично enum), а не
                 // тихий fallback на тип из значения/ординал: ниже член всё же получает тип,
                 // но ошибка уже зафиксирована.
                 m_actx.ctx().diag().report(Severity::Error, m.type->range(), "variant '{}': unknown member type", variant_name);
@@ -1578,7 +1578,7 @@ void NameResolutionPass::analyzeFuncDecl(FuncDecl& func_node) {
     sym.type = m_actx.buildFuncType(func_node);
     sym.decl = &func_node;
 
-    // Регистрация в текущем скоупе (дубликат — ошибка). Forward-объявление (без тела) может
+    // Регистрация в текущем скоупе (дубликат - ошибка). Forward-объявление (без тела) может
     // быть завершено последующим определением того же имени (declareOrComplete → Completed).
     if (m_actx.symbols().declareOrComplete(sym) == DeclResult::Duplicate) {
         m_actx.ctx().diag().report(Severity::Error, func_range, "duplicate declaration '{}'", func_name);
@@ -1589,7 +1589,7 @@ void NameResolutionPass::analyzeFuncDecl(FuncDecl& func_node) {
     }
 }
 
-// Регистрация параметров в текущем (функционном) скоупе — вызывается из analyzeNode
+// Регистрация параметров в текущем (функционном) скоупе - вызывается из analyzeNode
 // ВНУТРИ enterScope() скоупа функции, чтобы имена в теле функции резолвились.
 void NameResolutionPass::declareFuncParams(FuncDecl& func_node) {
     if (!func_node.m_params) {
@@ -1603,14 +1603,14 @@ void NameResolutionPass::declareFuncParams(FuncDecl& func_node) {
         Symbol ps;
         ps.name = std::string(pd.text());
         TypeId ptype = (pd.m_type) ? m_actx.resolveType(*pd.m_type).value_or(INVALID_TYPE_ID) : INVALID_TYPE_ID;
-        // Константность и вид ссылки параметра — из атрибутов узла ТИПА параметра
+        // Константность и вид ссылки параметра - из атрибутов узла ТИПА параметра
         // (`fmt: @[reftype(ptr)]@ StrChar^`): reftype → RefType, ReadOnly → const.
         if (pd.m_type && pd.m_type->as_attr()) {
             ptype = applyRefAttrs(ptype, *pd.m_type->as_attr(), pd.m_type->range());
         }
         ps.type = ptype;
         ps.decl = &pd;
-        ps.storage = Storage::Local; // параметры функции — стек
+        ps.storage = Storage::Local; // параметры функции - стек
         m_actx.symbols().declare(ps);
         for (auto& hook : m_hooks) {
             hook->onDeclare(ps);
@@ -1634,7 +1634,7 @@ bool NameResolutionPass::collectDestructureSlots(const DestructureDecl& node, si
             hasRest = true;
             if (i + 1 != cnt) {
                 m_actx.ctx().diag().report(Severity::Error, t->range(), "rest target '...' must be the last destructuring target");
-                return false; // фатально: rest не последняя — цели не разбираем
+                return false; // фатально: rest не последняя - цели не разбираем
             }
         } else {
             ++elementSlots;
@@ -1644,11 +1644,11 @@ bool NameResolutionPass::collectDestructureSlots(const DestructureDecl& node, si
 }
 
 // Деструктуризация `t1, ..., tN := [... ]source;`.
-// Без маркера — ТОЧНАЯ привязка (Python/Rust/Go/C++/Haskell): каждая цель — один элемент; для
+// Без маркера - ТОЧНАЯ привязка (Python/Rust/Go/C++/Haskell): каждая цель - один элемент; для
 // статически-известного размера число целей == числу элементов. Суффикс `...` у цели (`rest...`,
-// C++-pack) — «остаток»: связывает оставшиеся элементы; `_...` — извлечь, остаток отбросить;
-// одиночный `_` — пропустить ровно один элемент. Спред (`... source`, Dict) — цели извлекаются
-// pop_front (точная привязка) / rest = остаток; кортеж (без `...`) — цели std::get<N> с проверкой арности.
+// C++-pack) - «остаток»: связывает оставшиеся элементы; `_...` - извлечь, остаток отбросить;
+// одиночный `_` - пропустить ровно один элемент. Спред (`... source`, Dict) - цели извлекаются
+// pop_front (точная привязка) / rest = остаток; кортеж (без `...`) - цели std::get<N> с проверкой арности.
 void NameResolutionPass::analyzeDestructure(DestructureDecl& node) {
     if (node.m_source) {
         analyzeNode(node.m_source);
@@ -1668,7 +1668,7 @@ void NameResolutionPass::analyzeDestructure(DestructureDecl& node) {
                                    "destructuring requires a tuple source (or use '...' for a dictionary spread)");
         return;
     }
-    // spread (коллекция Dict). Проверка типа источника: допустим только словарь (Dict) — иначе
+    // spread (коллекция Dict). Проверка типа источника: допустим только словарь (Dict) - иначе
     // pop_front на не-коллекции упал бы лишь на этапе C++-компиляции (тихий fallback в семантике).
     const TypeRegistry& reg = m_actx.ctx().types();
     const TypeId srcType = node.m_source ? m_actx.resolvedType(*node.m_source) : INVALID_TYPE_ID;
@@ -1682,9 +1682,9 @@ void NameResolutionPass::analyzeDestructure(DestructureDecl& node) {
     size_t elementTargets = 0;
     bool hasRest = false;
     if (!collectDestructureSlots(node, elementTargets, hasRest)) {
-        return; // rest не последняя — Error репортнут
+        return; // rest не последняя - Error репортнут
     }
-    // Статическая арность: без rest — elementTargets == размер (точная привязка); с rest —
+    // Статическая арность: без rest - elementTargets == размер (точная привязка); с rest -
     // elementTargets <= размер (остаток поглощается rest).
     const int64_t size = dictSizeOf(node.m_source.get());
     if (size >= 0) {
@@ -1702,10 +1702,10 @@ void NameResolutionPass::analyzeDestructure(DestructureDecl& node) {
             return;
         }
     }
-    // Типизация целей: per-element (как в кортеже) — каждая цель получает runtime-тип своего
+    // Типизация целей: per-element (как в кортеже) - каждая цель получает runtime-тип своего
     // элемента (Int8..Int64 → Int64, Float → Double, Bool, StrChar...). ВНУТРИ ЦИКЛА тип расширяется
-    // до МАКСИМАЛЬНОГО среди элементов (Bool/Int8 → Integer, float → Double) — элемент перечитывается
-    // и может меняться; Any — только если тип не выводим (внешний источник / несовместимые категории).
+    // до МАКСИМАЛЬНОГО среди элементов (Bool/Int8 → Integer, float → Double) - элемент перечитывается
+    // и может меняться; Any - только если тип не выводим (внешний источник / несовместимые категории).
     node.m_targetTypes.assign(cnt, INVALID_TYPE_ID);
     node.m_targetDeclaredTypes.assign(cnt, INVALID_TYPE_ID);
     node.m_inLoop = isInLoop();
@@ -1738,29 +1738,29 @@ void NameResolutionPass::analyzeDestructure(DestructureDecl& node) {
         }
         const bool isRest = i < node.m_targetIsRest.size() && node.m_targetIsRest[i];
         if (node.m_isAssign) {
-            // Присваивание в существующие цели: резолв + проверка const. Тип any_cast — natural
+            // Присваивание в существующие цели: резолв + проверка const. Тип any_cast - natural
             // runtime тип ЭЛЕМЕНТА (соответствует хранению Dict), а не цель; значение присваивается
             // в существующую переменную с её собственным типом (C++-конверсия).
             // rest в присваивании: допустима только мутация-идиома (rest == источнику); прочее
-            // переиспользование — Error (иначе кодген молча присвоил бы Dict в несовместимую цель).
+            // переиспользование - Error (иначе кодген молча присвоил бы Dict в несовместимую цель).
             if (isRest && !restTargetNameAllowed(static_cast<HasText&>(*t), /*isSpreadDict=*/true, node.m_source.get())) {
                 continue;
             }
             node.m_targetTypes[i] = isRest ? INVALID_TYPE_ID : (elemIdx < naturalized.size() ? naturalized[elemIdx] : INVALID_TYPE_ID);
             assignDestructureTarget(node, i, static_cast<HasText&>(*t), isRest);
         } else {
-            // Объявление: m_targetTypes[i] — тип any_cast = natural runtime тип ЭЛЕМЕНТА (как хранит
-            // Dict); declaredType — тип объявляемой переменной (явная аннотация `a:Int32` фиксирует
-            // его, иначе — тот же выведенный). Разделение важно: Dict хранит int как int64_t, поэтому
+            // Объявление: m_targetTypes[i] - тип any_cast = natural runtime тип ЭЛЕМЕНТА (как хранит
+            // Dict); declaredType - тип объявляемой переменной (явная аннотация `a:Int32` фиксирует
+            // его, иначе - тот же выведенный). Разделение важно: Dict хранит int как int64_t, поэтому
             // any_cast<int32_t> по аннотации Int32 упал бы на элементе, хранимом как int64_t.
             if (isRest) {
                 // Шаг 1: переиспользование имени rest-цели. Допустима только мутация-идиома
-                // (rest == источнику); прочее переиспользование — Error (иначе кодген молча дал бы
+                // (rest == источнику); прочее переиспользование - Error (иначе кодген молча дал бы
                 // C++-redefinition). При конфликте цель не связываем.
                 if (!restTargetNameAllowed(static_cast<HasText&>(*t), /*isSpreadDict=*/true, node.m_source.get())) {
                     continue;
                 }
-                // Шаг 2: аннотация типа на rest-цели запрещена — кодген фиксирует rest как Dict и
+                // Шаг 2: аннотация типа на rest-цели запрещена - кодген фиксирует rest как Dict и
                 // аннотацию молча игнорировал бы. Явная диагностика вместо тихого игнора.
                 if (i < node.m_targetTypeNodes.size() && node.m_targetTypeNodes[i]) {
                     m_actx.ctx().diag().report(Severity::Error, t->range(), "type annotation on a rest target '{}...' is not supported; rest type is inferred",
@@ -1772,7 +1772,7 @@ void NameResolutionPass::analyzeDestructure(DestructureDecl& node) {
                 isRest ? INVALID_TYPE_ID : (node.m_inLoop ? joined : (elemIdx < naturalized.size() ? naturalized[elemIdx] : INVALID_TYPE_ID));
             // Вне цикла тип цели не расширяется (per-element типизация): если тип конкретного
             // элемента не выводится (naturalRuntimeType → INVALID), цель молча становится std::any.
-            // Симметрично цикловому предупреждению WidenAny — явная диагностика вместо тихого
+            // Симметрично цикловому предупреждению WidenAny - явная диагностика вместо тихого
             // fallback на Any (AGENTS rule 5 «no silent fallback»).
             if (!node.m_inLoop && !isRest && inferred == INVALID_TYPE_ID && t->text() != "_") {
                 m_actx.ctx().report(t->range(), OptKind::WidenAny,
@@ -1798,9 +1798,9 @@ void NameResolutionPass::analyzeDestructureTuple(DestructureDecl& node, TypeId t
     size_t slots = 0;
     bool hasRest = false;
     if (!collectDestructureSlots(node, slots, hasRest)) {
-        return; // rest не последняя — Error репортнут
+        return; // rest не последняя - Error репортнут
     }
-    // Арность: без rest — слоты == число элементов; с rest — слоты <= числа элементов (остаток).
+    // Арность: без rest - слоты == число элементов; с rest - слоты <= числа элементов (остаток).
     if (hasRest) {
         if (slots > elemCount) {
             m_actx.ctx().diag().report(Severity::Error, node.range(),
@@ -1833,18 +1833,18 @@ void NameResolutionPass::analyzeDestructureTuple(DestructureDecl& node, TypeId t
             continue;
         }
         if (isRest) {
-            // rest: `_...` — отброс (ничего не связываем); именованный `rest...` — остаток кортежа
-            // (C++-тип выводится в кодогенерации через make_tuple; семантический тип — исходный кортеж).
+            // rest: `_...` - отброс (ничего не связываем); именованный `rest...` - остаток кортежа
+            // (C++-тип выводится в кодогенерации через make_tuple; семантический тип - исходный кортеж).
             if (h.text() == "_") {
                 continue;
             }
             // Шаг 1: rest кортежа не может переиспользовать существующую переменную (в т.ч. сам
-            // источник): кортежный rest — НЕ мутация (в отличие от spread-словаря), иначе кодген
+            // источник): кортежный rest - НЕ мутация (в отличие от spread-словаря), иначе кодген
             // молча дал бы `auto c_t = std::make_tuple(std::get<2>(c_t)...)` (переобъявление/UB).
             if (!restTargetNameAllowed(h, /*isSpreadDict=*/false, node.m_source.get())) {
                 continue;
             }
-            // Шаг 2: аннотация типа на rest-цели запрещена — кодген кортежа эмитит `auto` и
+            // Шаг 2: аннотация типа на rest-цели запрещена - кодген кортежа эмитит `auto` и
             // аннотацию молча игнорировал бы. Явная диагностика вместо тихого игнора.
             if (i < node.m_targetTypeNodes.size() && node.m_targetTypeNodes[i]) {
                 m_actx.ctx().diag().report(Severity::Error, t->range(), "type annotation on a rest target '{}...' is not supported; rest type is inferred",
@@ -1864,7 +1864,7 @@ void NameResolutionPass::analyzeDestructureTuple(DestructureDecl& node, TypeId t
     }
 }
 
-// True, если текущий скоуп — локальный (в стеке скоупов есть FuncDecl). Единый предикат для
+// True, если текущий скоуп - локальный (в стеке скоупов есть FuncDecl). Единый предикат для
 // sigil-нормализации имён (analyzeVarDecl / declareDestructureTarget).
 bool NameResolutionPass::isInLocalScope() const {
     bool isLocal = false;
@@ -1923,8 +1923,8 @@ std::string NameResolutionPass::canonicalTargetName(const HasText& t) const {
 
 // Проверка переиспользования имени именованной rest-цели (`rest...`). Для словаря допустима
 // мутация-идиома (rest-цель == самому источнику: pop'ы идут прямо в источник, объявление не
-// создаётся — см. declareDestructureTarget). Переиспользование ЛЮБОЙ другой существующей
-// переменной — Error: без этой проверки кодген молча сгенерировал бы C++-redefinition
+// создаётся - см. declareDestructureTarget). Переиспользование ЛЮБОЙ другой существующей
+// переменной - Error: без этой проверки кодген молча сгенерировал бы C++-redefinition
 // (`trust::Dict c_x = ...` поверх уже объявленного c_x) без диагностики. Для кортежа rest
 // никогда не мутация, поэтому переиспользование (в т.ч. самого источника) всегда Error.
 bool NameResolutionPass::restTargetNameAllowed(HasText& t, bool isSpreadDict, const AstNodeBase* source) {
@@ -1933,7 +1933,7 @@ bool NameResolutionPass::restTargetNameAllowed(HasText& t, bool isSpreadDict, co
         return true;
     }
     if (!m_actx.symbols().resolve(name)) {
-        return true; // имя свободно — можно объявлять заново
+        return true; // имя свободно - можно объявлять заново
     }
     bool isSourceReuse = false;
     if (isSpreadDict && source && source->kind() == ParserToken::Kind::Ident) {
@@ -1953,7 +1953,7 @@ bool NameResolutionPass::restTargetNameAllowed(HasText& t, bool isSpreadDict, co
     return false;
 }
 
-// Объявление одной цели деструктуризации. `_` — skip. isRest + уже объявленное имя (= источник)
+// Объявление одной цели деструктуризации. `_` - skip. isRest + уже объявленное имя (= источник)
 // → «остаток» через мутацию pop_front, отдельного объявления нет.
 void NameResolutionPass::declareDestructureTarget(HasText& t, bool isRest, TypeId type) {
     std::string name{t.text()};
@@ -1964,7 +1964,7 @@ void NameResolutionPass::declareDestructureTarget(HasText& t, bool isRest, TypeI
     // Нормализация сигила (единый хелпер с analyzeVarDecl): bare-имя в локальном скоупе → $name.
     const bool isLocal = isInLocalScope();
     name = normalizeLocalSigil(t, range, isLocal);
-    // «Остаток» (isRest): если имя уже объявлено (== источник) — это мутация pop_front, не объявляем.
+    // «Остаток» (isRest): если имя уже объявлено (== источник) - это мутация pop_front, не объявляем.
     if (isRest && m_actx.symbols().resolve(name)) {
         return;
     }
@@ -1982,7 +1982,7 @@ void NameResolutionPass::declareDestructureTarget(HasText& t, bool isRest, TypeI
     }
 }
 
-// Явный тип цели из аннотации (`a:Int32`, node.m_targetTypeNodes[i]); INVALID — аннотации нет
+// Явный тип цели из аннотации (`a:Int32`, node.m_targetTypeNodes[i]); INVALID - аннотации нет
 // (возвращается fallback) или тип не резолвится (диагностируется).
 TypeId NameResolutionPass::explicitTargetType(const DestructureDecl& node, size_t i, TypeId fallback) {
     if (i >= node.m_targetTypeNodes.size() || !node.m_targetTypeNodes[i]) {
@@ -1998,7 +1998,7 @@ TypeId NameResolutionPass::explicitTargetType(const DestructureDecl& node, size_
 
 // Цель деструктуризации-ПРИСВАИВАНИЯ (`a, b = ... source`): резолв существующей переменной,
 // проверка на константность; объявление не создаётся. Тип any_cast задаёт вызывающий (цикл кладёт
-// natural runtime тип элемента в node.m_targetTypes[i]). `_` — skip; rest == источник — мутация
+// natural runtime тип элемента в node.m_targetTypes[i]). `_` - skip; rest == источник - мутация
 // pop_front (присвоения нет).
 void NameResolutionPass::assignDestructureTarget(DestructureDecl& node, size_t i, HasText& t, bool isRest) {
     (void)node;
@@ -2010,7 +2010,7 @@ void NameResolutionPass::assignDestructureTarget(DestructureDecl& node, size_t i
     const MapperRange range = t.range();
     const bool isLocal = isInLocalScope();
     name = normalizeLocalSigil(t, range, isLocal);
-    // «Остаток» (isRest): если имя уже объявлено (== источник) — это мутация pop_front, присвоения нет.
+    // «Остаток» (isRest): если имя уже объявлено (== источник) - это мутация pop_front, присвоения нет.
     if (isRest && m_actx.symbols().resolve(name)) {
         return;
     }
@@ -2025,7 +2025,7 @@ void NameResolutionPass::assignDestructureTarget(DestructureDecl& node, size_t i
     }
 }
 
-// ── Применение ортогональных квалификаторов типа (const + вид ссылки) ──
+// -- Применение ортогональных квалификаторов типа (const + вид ссылки) --
 // Единый источник для переменных (analyzeVarDecl) и параметров (declareFuncParams).
 TypeId NameResolutionPass::applyRefAttrs(TypeId base, const AstNodeAttr& node, MapperRange range) {
     if (base == INVALID_TYPE_ID) {
@@ -2036,8 +2036,8 @@ TypeId NameResolutionPass::applyRefAttrs(TypeId base, const AstNodeAttr& node, M
     if (node.has_attr(attrs, attr::ReadOnly)) {
         base = withConst(base);
     }
-    // Вид ссылки (@[reftype("ptr")]) — плоский enum RefType. Первая ссылка — fast-path бит,
-    // вложенность — составной узел (единый источник: TypeRegistry::applyRefType).
+    // Вид ссылки (@[reftype("ptr")]) - плоский enum RefType. Первая ссылка - fast-path бит,
+    // вложенность - составной узел (единый источник: TypeRegistry::applyRefType).
     auto reftype_id = attrs.lookup(attr::Reftype);
     if (reftype_id.has_value() && node.has_attr(*reftype_id)) {
         const std::vector<std::string>* rargs = node.attr_args(*reftype_id);
@@ -2055,12 +2055,12 @@ TypeId NameResolutionPass::applyRefAttrs(TypeId base, const AstNodeAttr& node, M
     return base;
 }
 
-// ── Разрешение имён ──
+// -- Разрешение имён --
 
 const Symbol* NameResolutionPass::lookupOrError(AstNodeBase& node) {
     const std::string name(node.text());
     const Symbol* sym = resolveSimple(&node, name);
-    // Зарегистрированные runtime-символы (например %trust::trust__abort__) — известные
+    // Зарегистрированные runtime-символы (например %trust::trust__abort__) - известные
     // нативные функции из публичного runtime-заголовка (trust/assert.hpp); «undefined name»
     // для них не выдаём (транспилер эмитит вызов по имени, объявление даёт заголовок).
     const bool isRuntime = !sym && m_actx.isRegisteredRuntimeSymbol(name);
@@ -2075,14 +2075,14 @@ const Symbol* NameResolutionPass::lookupOrError(AstNodeBase& node) {
 
 // Единый алгоритм разрешения простого имени с правилами вывода сигилов.
 // Порядок для bare-имени `x`: `$x` (локальная) → `x` (глобал/параметр) → `%x` (нативная функция).
-// Для `$`-имени `$x`: сначала `$x`; если нет — bare `x` (параметр/локальная без сигила): `n` и
-// `$n` — одно локальное имя. При попадании на `$x`/`%x` текст узла-ссылки (node) нормализуется
+// Для `$`-имени `$x`: сначала `$x`; если нет - bare `x` (параметр/локальная без сигила): `n` и
+// `$n` - одно локальное имя. При попадании на `$x`/`%x` текст узла-ссылки (node) нормализуется
 // на эту форму, чтобы манглинг (name_to_cpp срезает `$`/`%` → c_x / x) совпал с объявлением.
 // Квалифицированные/сигилные/нативные имена, найденные напрямую, резолвятся как есть.
 // node может быть nullptr (тогда текст не меняется).
 Symbol* NameResolutionPass::resolveSimple(AstNodeBase* node, std::string_view name) {
     const bool simple = isSimpleVarName(name);
-    // bare x: сначала локальная $x (при попадании — нормализуем текст узла на $x).
+    // bare x: сначала локальная $x (при попадании - нормализуем текст узла на $x).
     if (simple) {
         const std::string sigil_name = "$" + std::string(name);
         if (Symbol* s = m_actx.symbols().resolveMutable(sigil_name)) {
@@ -2098,7 +2098,7 @@ Symbol* NameResolutionPass::resolveSimple(AstNodeBase* node, std::string_view na
     }
     // Правила вывода сигилов:
     //  - bare x → нативная функция %x (напр. %fib вызывается как fib);
-    //  - $x → локальная/параметр без сигила (n и $n — одно локальное имя).
+    //  - $x → локальная/параметр без сигила (n и $n - одно локальное имя).
     if (simple) {
         const std::string native_name = "%" + std::string(name);
         if (Symbol* s = m_actx.symbols().resolveMutable(native_name)) {
@@ -2139,7 +2139,7 @@ const Symbol* NameResolutionPass::resolveSimpleRead(std::string_view name) const
     return nullptr;
 }
 
-// ── Типизация выражений (post-order) ──
+// -- Типизация выражений (post-order) --
 
 TypeId NameResolutionPass::typeBinaryResult(Binary& b) {
     if (!b.m_left || !b.m_right) {
@@ -2153,7 +2153,7 @@ TypeId NameResolutionPass::typeBinaryResult(Binary& b) {
 
     // Типобезопасность enum: сравнение (<,>,<=,>=,==,!=) допустимо только между однотипными
     // enum; неявное приведение enum к его типу значений или иному типу запрещено (работа
-    // с enum идёт ТОЛЬКО через имя типа — осознанное решение, см. MEMORY.md).
+    // с enum идёт ТОЛЬКО через имя типа - осознанное решение, см. MEMORY.md).
     if (b.kind() == ParserToken::Kind::CompareOp) {
         const bool lEnum = isEnumType(lt, reg);
         const bool rEnum = isEnumType(rt, reg);
@@ -2171,7 +2171,7 @@ TypeId NameResolutionPass::typeBinaryResult(Binary& b) {
 
     // Продвижение auto-Bool в арифметике: тип, ВЫВЕДЕННЫЙ из литерала 0/1 или из
     // inferred-переменной, продвигается по общим правилам приведения (C++ bool→int → Int32).
-    // Явный Bool (:Bool, результат сравнения/логики) в арифметике — ошибка компиляции
+    // Явный Bool (:Bool, результат сравнения/логики) в арифметике - ошибка компиляции
     // (нельзя привести к числу). Compare/Logical и простое присваивание '=' не затрагиваются.
     TypeId elt = lt, ert = rt;
     const bool arithmetic = !(b.kind() == ParserToken::Kind::CompareOp || b.kind() == ParserToken::Kind::LogicalOp) &&
@@ -2208,7 +2208,7 @@ TypeId NameResolutionPass::typeBinaryResult(Binary& b) {
         } else if (isAnyType(rt, reg)) {
             b.commonType = promoteSingleNumeric(reg, lt);
         } else {
-            b.commonType = INVALID_TYPE_ID; // оба конкретные — any_cast не нужен
+            b.commonType = INVALID_TYPE_ID; // оба конкретные - any_cast не нужен
         }
     }
     m_actx.setExprType(&b, result);
@@ -2221,13 +2221,13 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
     }
     if (is_binary_expr_kind(node->kind())) {
         auto& b = static_cast<Binary&>(*node);
-        // AppendStmt (`X []= v`) — append к контейнеру, не обычное бинарное выражение:
+        // AppendStmt (`X []= v`) - append к контейнеру, не обычное бинарное выражение:
         // типы ложатся специально (lhsType=тип контейнера, rhsType/resultType=тип значения),
         // сужение/расширение целевой переменной не применяются (append не меняет тип цели).
         if (b.kind() == ParserToken::Kind::AppendStmt) {
             const TypeId lt = b.m_left ? m_actx.resolvedType(*b.m_left) : INVALID_TYPE_ID;
             const TypeId rt = b.m_right ? m_actx.resolvedType(*b.m_right) : INVALID_TYPE_ID;
-            // Spread-merge `X []= ... dict`: правая часть — маркер распаковки (Ellipsis),
+            // Spread-merge `X []= ... dict`: правая часть - маркер распаковки (Ellipsis),
             // единичным элементом НЕ является, тип результата не выводится (INVALID).
             const bool spread = b.m_right && b.m_right->kind() == ParserToken::Kind::Ellipsis;
             b.lhsType = lt;
@@ -2236,7 +2236,7 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
             b.commonType = spread ? INVALID_TYPE_ID : rt;
             // Строковые контейнеры: ширина RHS должна быть совместима с единичным элементом
             // контейнера (StrChar ↔ std::string, StrWide ↔ std::wstring). Потерянное сужение
-            // (широкая строка в узкий контейнер) — ошибка; обратное (char→wide) кодогенерация
+            // (широкая строка в узкий контейнер) - ошибка; обратное (char→wide) кодогенерация
             // сама расширяет узкий литерал в wide.
             const TypeRegistry& reg = m_actx.ctx().types();
             const TypeId strChar = reg.getType(type::StrChar);
@@ -2248,7 +2248,7 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
                 if (ltC != INVALID_TYPE_ID && ltC != reg.getType(type::Dict)) {
                     m_actx.ctx().diag().report(Severity::Error, b.range(), "spread append '[]= ...' is only supported for a dictionary container");
                 }
-                // Вложенный LHS (`d['x'] []= ...`, `d[0] []= ...`, `d.field []= ...`) — отложено.
+                // Вложенный LHS (`d['x'] []= ...`, `d[0] []= ...`, `d.field []= ...`) - отложено.
                 if (b.m_left && (b.m_left->kind() == ParserToken::Kind::ArrayAccess || b.m_left->kind() == ParserToken::Kind::MemberAccess)) {
                     m_actx.ctx().diag().report(Severity::Error, b.m_left->range(),
                                                "вложенный append '[]=' пока не реализован: append допустим только к простому контейнеру");
@@ -2262,7 +2262,7 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
                     Severity::Error, b.range(),
                     "append '[]=': wide string cannot be appended to a narrow string container; use matching quotes (narrow '...' or wide \"...\")");
             }
-            // Вложенный LHS (`d['x'] []= v`, `d[0] []= v`, `d.field []= v`) — отложено.
+            // Вложенный LHS (`d['x'] []= v`, `d[0] []= v`, `d.field []= v`) - отложено.
             if (b.m_left && (b.m_left->kind() == ParserToken::Kind::ArrayAccess || b.m_left->kind() == ParserToken::Kind::MemberAccess)) {
                 m_actx.ctx().diag().report(Severity::Error, b.m_left->range(),
                                            "вложенный append '[]=' пока не реализован: append допустим только к простому контейнеру");
@@ -2272,7 +2272,7 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
         }
         const TypeId result = typeBinaryResult(b);
         const bool isAssignOp = (b.kind() == ParserToken::Kind::AssignOp);
-        // Составное присваивание ("+=", "//=") — оператор с текстом, оканчивающимся на '=';
+        // Составное присваивание ("+=", "//=") - оператор с текстом, оканчивающимся на '=';
         // простые операторы ("//", "+") не расширяют целевую переменную.
         const bool compound = utils::isCompoundAssignOp(b.text());
         // Сужение в ЯВНО-типизированную цель (inferred-цели расширяются ниже).
@@ -2284,8 +2284,8 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
                 }
             }
         }
-        // Константность (kConstFlag): запись в константную переменную — ошибка; LHS с `^`
-        // (attr::ReadOnly на узле Ident) — финальная запись, делающая переменную константой
+        // Константность (kConstFlag): запись в константную переменную - ошибка; LHS с `^`
+        // (attr::ReadOnly на узле Ident) - финальная запись, делающая переменную константой
         // (became-const: `x := 42; x^ += 1;` → x неизменяема со значением 44).
         if (b.m_left && b.m_left->kind() == ParserToken::Kind::Ident && (isAssignOp || compound)) {
             if (Symbol* s = m_actx.symbols().resolveMutable(b.m_left->text())) {
@@ -2297,20 +2297,20 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
                 } else if (makeConst) {
                     // Финальная запись `x^ = ...`: переменная становится константной (бит
                     // kConstFlag на Symbol::type). Декларация при этом остаётся не-const (см.
-                    // transpiler::generateVarDeclToFile — const объявления берётся из атрибута узла).
+                    // transpiler::generateVarDeclToFile - const объявления берётся из атрибута узла).
                     s->type = withConst(s->type);
                 }
             }
         }
-        // Расширение выводимой цели по истории присвоений — только для присваиваний
+        // Расширение выводимой цели по истории присвоений - только для присваиваний
         // (AssignOp "=", "+=" или составной MathOp "+=").
         if (isAssignOp || compound) {
             TypeId widen = result;
             // Автоматически выведенный Bool, используемый в составной числовой арифметике
             // (например `mult := 1; mult += 1;`), расширяется до максимального Int (Int64):
-            // Bool — вырожденное целое, а в однопроходной типизации нет «оператора в цикле»,
+            // Bool - вырожденное целое, а в однопроходной типизации нет «оператора в цикле»,
             // поэтому расширяем по самому факту составного присваивания. Явный `:Bool` так
-            // НЕ расширяется — для него это ошибка (явный тип фиксирован).
+            // НЕ расширяется - для него это ошибка (явный тип фиксирован).
             if (!utils::isPlainAssignOp(b.text()) && b.m_left && b.m_left->kind() == ParserToken::Kind::Ident) {
                 if (Symbol* s = m_actx.symbols().resolveMutable(b.m_left->text())) {
                     const TypeRegistry& reg = m_actx.ctx().types();
@@ -2342,17 +2342,17 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
                     v.inferredType = clearInferred(t);
                     if (Symbol* s = m_actx.symbols().resolveMutable(v.text())) {
                         // Живой тип символа несёт бит «выведен» (для join/продвижения) и, при
-                        // константности ('^' → attr::ReadOnly), бит «константность» (kConstFlag) —
+                        // константности ('^' → attr::ReadOnly), бит «константность» (kConstFlag) -
                         // источник префикса `const ` в кодогенерации переменной.
                         s->type = v.has_attr(m_actx.ctx().attrs(), attr::ReadOnly) ? withConst(t) : t;
                     }
                 } else if (v.m_initializer->kind() != ParserToken::Kind::TypeName) {
                     if (auto aid = m_actx.ctx().types().findType("Any")) {
                         // Инициализатор без выводимого типа (C++-вставка `{% %}`, вызов с
-                        // неизвестным результатом, отрицательный литерал) — переменная по природе
+                        // неизвестным результатом, отрицательный литерал) - переменная по природе
                         // std::any. Маркируем тип ЯВНО (Any), чтобы транспилятор НЕ угадывал тихим
                         // fallback на std::any (AGENTS rule 5): INVALID у переменной с инициализатором
-                        // в кодогенерации — ошибка вывода. Голый `:T` сюда не попадает — это
+                        // в кодогенерации - ошибка вывода. Голый `:T` сюда не попадает - это
                         // невалидная запись `x := :Int32` (диагностируется в analyzeVarDecl).
                         v.inferredType = *aid;
                         if (Symbol* s = m_actx.symbols().resolveMutable(v.text())) {
@@ -2368,7 +2368,7 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
                 }
             }
         } else if (v.m_type == nullptr) {
-            // Нетипизированное forward-объявление (`x := ...;`): и инициализатора, и типа нет —
+            // Нетипизированное forward-объявление (`x := ...;`): и инициализатора, и типа нет -
             // по природе std::any. Маркируем тип ЯВНО (Any), как и для тип-less инициализаторов,
             // чтобы транспилятор единообразно эмитил `emitTypeName(inferred)` без ветки угадывания.
             if (auto aid = m_actx.ctx().types().findType("Any")) {
@@ -2386,13 +2386,13 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
     case ParserToken::Kind::StrWide:
     case ParserToken::Kind::RationalLiteral: {
         // Литерал: кешируем тип (literalType), чтобы resolvedType не пересчитывал его
-        // при каждом обращении (маленький лист — но единый кеш типов выражений).
+        // при каждом обращении (маленький лист - но единый кеш типов выражений).
         const TypeId t = literalType(static_cast<const Literal&>(*node), m_actx.ctx().types());
         if (t != INVALID_TYPE_ID) {
             // Тип значения литерала всегда ВЫВЕДЕН из литерала → маркируем битом inferred
             // (auto-Bool `0`/`1` продвигается в арифметике; см. typeBinaryResult).
             const TypeId vt = withInferred(t);
-            // Запоминаем TypeId на узле — транспилятор литерала словаря читает его (kind из
+            // Запоминаем TypeId на узле - транспилятор литерала словаря читает его (kind из
             // getKindFromId, C++-имя из реестра), не пересчитывая диапазоны литералов.
             static_cast<Literal&>(*node).typeId = vt;
             m_actx.setExprType(node, vt);
@@ -2404,7 +2404,7 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
         // с атрибутом @[format("printf", ...)]. Вызывается пост-порядково, когда типы
         // аргументов уже вычислены и доступны через resolvedType.
         auto& call = static_cast<CallExpr&>(*node);
-        // Строка-формат `"{}"(args)` / `'{}'(args)`: callee — строковый литерал. Результат —
+        // Строка-формат `"{}"(args)` / `'{}'(args)`: callee - строковый литерал. Результат -
         // строка той же ширины (StrWide/StrChar), как у литерала. + компиляйт-тайм проверка.
         if (call.m_callee && (call.m_callee->kind() == ParserToken::Kind::StrWide || call.m_callee->kind() == ParserToken::Kind::StrChar)) {
             const bool wide = call.m_callee->kind() == ParserToken::Kind::StrWide;
@@ -2415,12 +2415,12 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
             checkFormatStringArgs(call);
             break;
         }
-        // printf-формат (атрибут @[format]) — проверка типов аргументов (пост-порядково).
+        // printf-формат (атрибут @[format]) - проверка типов аргументов (пост-порядково).
         checkFormatArgs(call);
         // Обычный вызов пользовательской функции: типизируем результат возвращаемым типом
         // сигнатуры (как handleMethodCall для методов). Это чинит `p := f(10)` → int32_t
         // (ранее результат вызова был std::any). Метод-вызов obj.method(args) обрабатывается
-        // отдельно (analyzeAccess/handleMethodCall). Если тип не резолвится — остаётся Any.
+        // отдельно (analyzeAccess/handleMethodCall). Если тип не резолвится - остаётся Any.
         if (call.m_callee && call.m_callee->kind() == ParserToken::Kind::Ident) {
             if (const Symbol* s = resolveSimple(call.m_callee.get(), call.m_callee->text())) {
                 if (s->decl && s->decl->kind() == ParserToken::Kind::FuncDecl) {
@@ -2437,7 +2437,7 @@ void NameResolutionPass::typeExpr(AstNodeBase* node) {
     }
 }
 
-// ── Компиляйт-тайм проверка printf-формата (атрибут @[format("printf", ...)]) ──
+// -- Компиляйт-тайм проверка printf-формата (атрибут @[format("printf", ...)]) --
 void NameResolutionPass::checkFormatArgs(CallExpr& call) {
     if (!call.m_callee || call.m_callee->kind() != ParserToken::Kind::Ident) {
         return;
@@ -2453,7 +2453,7 @@ void NameResolutionPass::checkFormatArgs(CallExpr& call) {
         return;
     }
     const std::vector<std::string>* fargs = f.attr_args(*fmt_id);
-    // @[format("printf", string_index, first_to_check)] — ровно три параметра.
+    // @[format("printf", string_index, first_to_check)] - ровно три параметра.
     if (!fargs || fargs->size() != 3 || fargs->at(0) != "printf") {
         return; // поддерживается только printf-архетип; параметры валидирует matches_params
     }
@@ -2468,7 +2468,7 @@ void NameResolutionPass::checkFormatArgs(CallExpr& call) {
     if (stringIdx < 1 || firstToCheck < 1 || !call.m_args || static_cast<int>(call.m_args->size()) < stringIdx) {
         return;
     }
-    // Формат-строка — аргумент stringIdx-1 (индексы 1-based); обязана быть строковым литералом.
+    // Формат-строка - аргумент stringIdx-1 (индексы 1-based); обязана быть строковым литералом.
     const auto& fmtArg = (*call.m_args)[stringIdx - 1];
     if (!fmtArg || fmtArg->kind() != ParserToken::Kind::StrChar) {
         m_actx.ctx().report(fmtArg ? fmtArg->range() : call.range(), OptKind::Format, "format string is not a string literal");
@@ -2512,9 +2512,9 @@ void NameResolutionPass::checkFormatArgs(CallExpr& call) {
     }
 }
 
-// ── Компиляйт-тайм проверка строки-формата `"{}"(args)` / `'{}'(args)` ──
-// callee — строковый литерал (StrWide/StrChar). Сверяем число плейсхолдеров `{}` с числом
-// аргументов ({{ / }} — литеральные скобки, аргумент не потребляют) и баланс фигурных скобок.
+// -- Компиляйт-тайм проверка строки-формата `"{}"(args)` / `'{}'(args)` --
+// callee - строковый литерал (StrWide/StrChar). Сверяем число плейсхолдеров `{}` с числом
+// аргументов ({{ / }} - литеральные скобки, аргумент не потребляют) и баланс фигурных скобок.
 void NameResolutionPass::checkFormatStringArgs(CallExpr& call) {
     const auto* fmtNode = call.m_callee.get();
     if (!fmtNode || (fmtNode->kind() != ParserToken::Kind::StrChar && fmtNode->kind() != ParserToken::Kind::StrWide)) {
@@ -2527,7 +2527,7 @@ void NameResolutionPass::checkFormatStringArgs(CallExpr& call) {
     for (size_t i = 0; i < fmt.size(); ++i) {
         const char c = fmt[i];
         if (c == '{') {
-            if (i + 1 < fmt.size() && fmt[i + 1] == '{') { // `{{` — литеральная скобка
+            if (i + 1 < fmt.size() && fmt[i + 1] == '{') { // `{{` - литеральная скобка
                 ++i;
                 continue;
             }
@@ -2548,7 +2548,7 @@ void NameResolutionPass::checkFormatStringArgs(CallExpr& call) {
                 }
             }
         } else if (c == '}') {
-            if (i + 1 < fmt.size() && fmt[i + 1] == '}') { // `}}` — литеральная скобка
+            if (i + 1 < fmt.size() && fmt[i + 1] == '}') { // `}}` - литеральная скобка
                 ++i;
                 continue;
             }
@@ -2599,7 +2599,7 @@ void NameResolutionPass::checkAssignmentNarrowing(const AstNodeBase* valueNode, 
     const TypeKind dKind = getKindFromId(dc);
     const Group sg = getGroup(sKind);
     const Group dg = getGroup(dKind);
-    // Строки: сужение StrWide (широкая) → StrChar (узкая) — всегда ошибка (значение литерала
+    // Строки: сужение StrWide (широкая) → StrChar (узкая) - всегда ошибка (значение литерала
     // не влияет: любой "…" уже широкий; безопасного сужения и строкового cast нет).
     if (sg == Group::kStrWide && dg == Group::kStrChar) {
         std::string srcName(reg.getFullTypeName(sc));

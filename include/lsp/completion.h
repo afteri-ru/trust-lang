@@ -4,11 +4,11 @@
 // Логика автодополнения (textDocument/completion) LSP.
 // ЕДИНЫЕ источники имён (без текстовых проходов по документу и пер-файловых копий
 // реестра):
-//  - пользовательский код (переменные/функции/типы/макросы) — таблица анализатора
+//  - пользовательский код (переменные/функции/типы/макросы) - таблица анализатора
 //    SymbolIndex (SymbolCollectorHook + реестр макросов);
-//  - встроенные типы/методы/функции/макросы — глобальный BuiltinCatalog
+//  - встроенные типы/методы/функции/макросы - глобальный BuiltinCatalog
 //    (shared иммутабельное ядро TypeRegistry + predef/DSL-макросы).
-// Вставка идёт через textEdit с диапазоном набранного префикса — сигнатура не дублируется.
+// Вставка идёт через textEdit с диапазоном набранного префикса - сигнатура не дублируется.
 
 #include "lsp/builtin_catalog.h"
 #include "semantic/symbol_index.hpp"
@@ -49,16 +49,16 @@ std::string memberObjectName(const std::string& line, int dotIndex);
 int utf16ToByte(const std::string& s, int utf16pos);
 int byteToUtf16(const std::string& s, int byteLen);
 
-// Имена пользовательского кода — из таблицы анализатора (SymbolIndex).
+// Имена пользовательского кода - из таблицы анализатора (SymbolIndex).
 void collectSymbolItems(const trust::SymbolIndex* symbols, const trust::Context* ctx, int line, const std::string& prefix, int utf16Start, int utf16End,
                         nlohmann::json& items);
-// Типы (:Имя) — встроенные из каталога + пользовательские из реестра.
+// Типы (:Имя) - встроенные из каталога + пользовательские из реестра.
 void collectTypeItems(const trust::TypeRegistry* reg, const trust::BuiltinCatalog* catalog, const std::string& prefix, int line, int utf16Start, int utf16End,
                       nlohmann::json& items);
-// Макросы (@...) — predef/DSL из каталога + записанные анализатором (isMacro).
+// Макросы (@...) - predef/DSL из каталога + записанные анализатором (isMacro).
 void collectMacroItems(const trust::BuiltinCatalog* catalog, const trust::SymbolIndex* symbols, const std::string& prefix, int line, int utf16Start,
                        int utf16End, nlohmann::json& items);
-// Методы/поля для `obj.` — по TypeId из реестра + поля словаря из SymbolInfo::dictFields.
+// Методы/поля для `obj.` - по TypeId из реестра + поля словаря из SymbolInfo::dictFields.
 void collectMemberItems(const trust::TypeRegistry* reg, const trust::BuiltinCatalog* catalog, const trust::SymbolIndex* symbols, const std::string& objExpr,
                         const std::string& prefix, int line, int utf16Start, int utf16End, nlohmann::json& items);
 

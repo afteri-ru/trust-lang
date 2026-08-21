@@ -57,7 +57,7 @@ std::string readFile(const std::string& path) {
     return ss.str();
 }
 
-// Список *.src в каталоге (сортированный) — несколько разных файлов для проверки.
+// Список *.src в каталоге (сортированный) - несколько разных файлов для проверки.
 std::vector<std::string> listSrcFiles(const std::string& dir) {
     namespace fs = std::filesystem;
     std::vector<std::string> out;
@@ -162,7 +162,7 @@ int main(int argc, const char* argv[]) {
     const std::string base = "http://127.0.0.1:" + std::to_string(port);
     const std::string token(64, 'a');
 
-    // Временный конфиг — в _build (tmp_dir), не в /tmp.
+    // Временный конфиг - в _build (tmp_dir), не в /tmp.
     const std::string cfg_path = tmp_dir + "/trust_pg_int_" + std::to_string(::getpid()) + ".conf";
     {
         FILE* f = std::fopen(cfg_path.c_str(), "w");
@@ -230,7 +230,7 @@ int main(int argc, const char* argv[]) {
         }
     }
 
-    // 5b. Ленивое скачивание build-архива: POST /download — отдельный запрос, заново
+    // 5b. Ленивое скачивание build-архива: POST /download - отдельный запрос, заново
     //     обрабатывает файл и сразу отдаёт gzip-архив (без кеша на балансировщике).
     {
         const std::string src = readFile(files[0]);
@@ -238,7 +238,7 @@ int main(int argc, const char* argv[]) {
         CHECK(r.status == 200);
         CHECK(r.body.size() >= 2);
         if (r.body.size() >= 2) {
-            // Магическое число gzip (1f 8b) — подтверждает, что вернулся tar.gz.
+            // Магическое число gzip (1f 8b) - подтверждает, что вернулся tar.gz.
             CHECK(static_cast<unsigned char>(r.body[0]) == 0x1f && static_cast<unsigned char>(r.body[1]) == 0x8b);
         }
     }
@@ -278,7 +278,7 @@ int main(int argc, const char* argv[]) {
         }
     }
 
-    // 8. Очистка (процессы). Временный конфиг НЕ удаляется — остаётся в _build.
+    // 8. Очистка (процессы). Временный конфиг НЕ удаляется - остаётся в _build.
     for (const pid_t c : children) {
         ::kill(c, SIGKILL);
         int status = 0;

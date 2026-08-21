@@ -1,9 +1,9 @@
 # include/pipeline/CMakeLists.txt
-# Pipeline — transpiler pipeline library
+# Pipeline - transpiler pipeline library
 
 set(SYNTAX_GEN_DIR "${CMAKE_BINARY_DIR}/syntax")
 
-# ── Pipeline library ──
+# -- Pipeline library --
 add_library(pipeline_lib STATIC
     ${PROJECT_SOURCE_DIR}/pipeline/pipeline.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/pipeline_parser.cpp
@@ -24,13 +24,13 @@ target_compile_definitions(pipeline_lib PRIVATE
     PROJECT_INCLUDE_DIR="${PROJECT_INCLUDE_DIR}"
 )
 
-# pipeline.cpp uses C23 #embed for trust/dsl.src — suppress the extension warning
+# pipeline.cpp uses C23 #embed for trust/dsl.src - suppress the extension warning
 set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/pipeline/pipeline.cpp
     PROPERTIES COMPILE_OPTIONS "-Wno-c23-extensions"
 )
 
-# Syntax headers trigger -Wswitch and old-style-cast warnings — suppress them
+# Syntax headers trigger -Wswitch and old-style-cast warnings - suppress them
 target_compile_options(pipeline_lib PRIVATE
     -Wno-error=switch
     -Wno-error=old-style-cast
@@ -38,13 +38,13 @@ target_compile_options(pipeline_lib PRIVATE
 
 add_dependencies(pipeline_lib generate_makefile_header gen_syntax_parsers)
 
-# ── trust executable ──
+# -- trust executable --
 add_executable(trust
     ${PROJECT_SOURCE_DIR}/trust.cpp
 )
 # After the refactor diag no longer depends on module_loader (ModuleLoader is
 # injected into Context as a non-owning pointer from Pipeline) and diag no longer
-# owns TypeRegistry creation before Options — so the cyclic dep that required
+# owns TypeRegistry creation before Options - so the cyclic dep that required
 # --start-group/--end-group is gone. Verified: trust links without the group.
 target_link_libraries(trust PRIVATE
     pipeline_lib

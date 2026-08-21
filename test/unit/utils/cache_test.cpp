@@ -48,7 +48,7 @@ TEST(SparseCacheTest, MultiLineSource) {
     EXPECT_EQ(first->offset, 0u);
     EXPECT_EQ(first->line, 1u);
 
-    // Последняя строка — номер <= 50, т.к. кеш хранит sqrt(N) записей
+    // Последняя строка - номер <= 50, т.к. кеш хранит sqrt(N) записей
     auto* last = c.find_by_offset(static_cast<uint32_t>(src.size() - 1));
     ASSERT_NE(last, nullptr);
     EXPECT_LE(last->line, 50u);
@@ -124,10 +124,10 @@ TEST(LruCacheTest, LookupPromotes) {
     c.insert(2, 20);
     c.insert(3, 30);
 
-    // lookup 1 — делает её "последней использованной"
+    // lookup 1 - делает её "последней использованной"
     EXPECT_NE(c.lookup(1), nullptr);
 
-    // теперь вставляем 4 — вытеснится 2 (самая давняя)
+    // теперь вставляем 4 - вытеснится 2 (самая давняя)
     c.insert(4, 40);
     EXPECT_EQ(c.lookup(2), nullptr);
     EXPECT_NE(c.lookup(1), nullptr);
@@ -143,7 +143,7 @@ TEST(LruCacheTest, OverwriteExisting) {
     auto* v = c.lookup(1);
     ASSERT_NE(v, nullptr);
     EXPECT_EQ(*v, 200);
-    // размер (всего слотов минус свободные) — не проверяем, т.к. не храним размер
+    // размер (всего слотов минус свободные) - не проверяем, т.к. не храним размер
 }
 
 TEST(LruCacheTest, CustomStruct) {

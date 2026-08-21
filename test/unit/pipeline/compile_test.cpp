@@ -12,7 +12,7 @@ using namespace trust;
 
 namespace {
 
-// Временная директория для тестовых файлов — внутри _build/test_data
+// Временная директория для тестовых файлов - внутри _build/test_data
 struct TestDir {
     std::string path;
 

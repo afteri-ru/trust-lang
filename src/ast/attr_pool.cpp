@@ -1,4 +1,4 @@
-// attr_pool.cpp — AttrPool implementation
+// attr_pool.cpp - AttrPool implementation
 
 #include "ast/attr_pool.hpp"
 #include "ast/attr_builtin.hpp"
@@ -8,9 +8,9 @@
 
 namespace trust {
 
-// ────────────────────────────────────────────────────────────────────────────
-// AttrPool constructor — reserves slot 0
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AttrPool constructor - reserves slot 0
+// ----------------------------------------------------------------------------
 
 AttrPool::AttrPool()
 : m_name_to_id() {
@@ -25,9 +25,9 @@ AttrPool::AttrPool()
     registerBuiltinAttrs(*this);
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// AttrPool::register_attr_impl — shared registration (FAULT on duplicate name)
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AttrPool::register_attr_impl - shared registration (FAULT on duplicate name)
+// ----------------------------------------------------------------------------
 
 AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range) {
     std::string_view interned_name = intern(name);
@@ -37,7 +37,7 @@ AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::stri
         p = intern(p);
     }
 
-    // FAULT if duplicate name (use transparent hash — no std::string copy)
+    // FAULT if duplicate name (use transparent hash - no std::string copy)
     if (m_name_to_id.find(interned_name) != m_name_to_id.end()) {
         FAULT("AttrPool::register_attr: attribute '{}' already registered", interned_name);
     }
@@ -60,25 +60,25 @@ AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::stri
     return new_id;
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// AttrPool::register_attr — user-defined attribute
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AttrPool::register_attr - user-defined attribute
+// ----------------------------------------------------------------------------
 
 AttrId AttrPool::register_attr(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range) {
     return register_attr_impl(name, std::move(default_params), def_range);
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// AttrPool::register_builtin_attr — built-in attribute
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AttrPool::register_builtin_attr - built-in attribute
+// ----------------------------------------------------------------------------
 
 AttrId AttrPool::register_builtin_attr(std::string_view name, std::vector<std::string_view> default_params) {
     return register_attr_impl(name, std::move(default_params), MapperRange{});
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Attr::to_string — human-readable representation
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// Attr::to_string - human-readable representation
+// ----------------------------------------------------------------------------
 
 std::string Attr::to_string() const {
     std::string result(m_name);
@@ -99,9 +99,9 @@ std::string Attr::to_string() const {
     return result;
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// AttrPool::lookup (transparent hash — no std::string copy)
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AttrPool::lookup (transparent hash - no std::string copy)
+// ----------------------------------------------------------------------------
 
 std::optional<AttrId> AttrPool::lookup(std::string_view name) const noexcept {
     auto it = m_name_to_id.find(name);
@@ -111,9 +111,9 @@ std::optional<AttrId> AttrPool::lookup(std::string_view name) const noexcept {
     return std::nullopt;
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 // AttrPool::get_name
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 
 std::string_view AttrPool::get_name(AttrId id) const {
     auto idx = id & detail::kAttrIndexMask;
@@ -121,9 +121,9 @@ std::string_view AttrPool::get_name(AttrId id) const {
     return m_attrs[idx].m_name;
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 // AttrPool::has_attr (by name, transparent hash)
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 
 bool AttrPool::has_attr(std::string_view name) const noexcept {
     return m_name_to_id.find(name) != m_name_to_id.end();

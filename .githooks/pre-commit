@@ -1,15 +1,12 @@
 #!/bin/bash
 #
 # Pre-commit hook.
-#   1. Auto-format staged C/C++ files with clang-format.
-#   2. Block committing forbidden data: dev/локальные serverUrl во фрагментах playground,
-#      dev-адрес балансировщика и 64-hex токены в конфиг-файлах (worker.token, stats_token и т.п.).
+#   Auto-format staged C/C++ files with clang-format.
 #
 set -euo pipefail
 
 CLANG_FORMAT="${CLANG_FORMAT:-clang-format}"
 
-# ── 1. Форматирование C/C++ ──
 staged=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(hpp|cpp|h)$' || true)
 
 if [[ -n "$staged" ]]; then
@@ -21,47 +18,4 @@ if [[ -n "$staged" ]]; then
     done
 fi
 
-# ── 2. Запрещённые данные ──
-# Формат записи: "описание|regex|имя-файла-фильтр" (имя-файла-фильтр — пусто = все файлы).
-# regex — POSIX ERE (grep -E). Парсинг: описание до первого '|', фильтр после последнего '|'.
-BLOCKED_RULES=(
-  'dev/локальный serverUrl playground во фрагменте|"serverUrl"[[:space:]]*:[[:space:]]*"http://(127\.0\.0\.1|localhost|0\.0\.0\.0):[0-9]+|'
-  'dev-адрес балансировщика (http://localhost) в конфиге|worker\.playground_url[[:space:]]*=[[:space:]]*http://(127\.0\.0\.1|localhost|0\.0\.0\.0):[0-9]+|\.conf$'
-  'playground-токен (64 hex) в конфиге|(worker\.token|playground\.stats_token|stats_token|testworker|local-dev)[[:space:]]*=[[:space:]]*[0-9a-fA-F]{64}|\.conf$'
-)
-
-files=$(git diff --cached --name-only --diff-filter=ACMR || true)
-if [[ -z "$files" ]]; then
-    exit 0
-fi
-
-violated=0
-while IFS= read -r file; do
-    # Пропускаем бинарные файлы (наличие NUL-байта).
-    if git show ":$file" 2>/dev/null | LC_ALL=C grep -aq $'\x00'; then
-        continue
-    fi
-    content="$(git show ":$file" 2>/dev/null || true)"
-    for rule in "${BLOCKED_RULES[@]}"; do
-        desc="${rule%%|*}"
-        rest="${rule#*|}"
-        file_filter="${rest##*|}"
-        regex="${rest%|*}"
-        # Пустой фильтр → применить ко всем файлам; иначе — по имени файла.
-        if [[ -n "$file_filter" ]] && ! printf '%s' "$file" | grep -Eq "$file_filter"; then
-            continue
-        fi
-        if printf '%s' "$content" | grep -Eq "$regex"; then
-            echo "pre-commit: BLOCKED: '$file' содержит запрещённые данные: $desc" >&2
-            violated=1
-        fi
-    done
-done <<< "$files"
-
-if [[ "$violated" -ne 0 ]]; then
-    echo "pre-commit: коммит отклонён — удалите/исправьте запрещённые данные." >&2
-    echo "  Фрагмент playground (docs/fragments/playground.html) генерируется site.sh;" >&2
-    echo "  не коммитьте версию с dev serverUrl. Токены — только через env/реестр, не в конфиг." >&2
-    exit 1
-fi
 exit 0

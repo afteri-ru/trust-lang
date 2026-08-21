@@ -17,7 +17,7 @@ namespace trust {
 
 // X-macro для compile-time определения опций.
 // Формат: M(EnumName, "cli-name", DefaultSeverityName)
-// DefaultSeverityName — имя Severity без префикса (например Warning, Error).
+// DefaultSeverityName - имя Severity без префикса (например Warning, Error).
 // Переопределите OPTIONS_LIST до включения заголовка, чтобы добавить свои опции.
 #ifndef OPTIONS_LIST
 #define OPTIONS_LIST(M)                         \
@@ -112,7 +112,7 @@ class Options {
 
     void add_option(OptKind kind, std::optional<Severity> default_severity = std::nullopt);
 
-    // ── Булевые feature-флаги (см. OPTIONS_FLAGS) ──
+    // -- Булевые feature-флаги (см. OPTIONS_FLAGS) --
     /// Регистрирует feature-флаг (по умолчанию выключен).
     void register_flag(FlagKind kind);
     /// Проверяет, является ли cli-имя флагом (а не severity-опцией).

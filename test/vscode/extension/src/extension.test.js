@@ -1,5 +1,5 @@
 /**
- * Unit tests for extension.js — activation, commands, DAP adapter factory
+ * Unit tests for extension.js - activation, commands, DAP adapter factory
  *
  * moduleNameMapper in jest.config.js provides the vscode mock.
  *
@@ -646,7 +646,7 @@ describe('Diagnostics: LSP path errors', () => {
         const allStarts = startCalls.flatMap(s => s.calls);
         expect(allStarts.length).toBeGreaterThan(0);
 
-        // Status bar — starting
+        // Status bar - starting
         const lspStatusBars = vscode.window._statusBarItems.filter(
             item => item.text && item.text.includes('Trust LSP')
         );
@@ -698,7 +698,7 @@ describe('Diagnostics: LSP path errors', () => {
         expect(lspChannel.content).toContain('[ERROR]');
         expect(lspChannel.content).toContain('unexpectedly');
 
-        // Status bar — error
+        // Status bar - error
         const lspStatusBars = vscode.window._statusBarItems.filter(
             item => item.text && item.text.includes('Trust LSP')
         );

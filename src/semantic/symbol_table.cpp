@@ -34,7 +34,7 @@ bool SymbolTable::isForwardDecl(const Symbol& sym) {
     case ParserToken::Kind::FuncDecl:
         return !static_cast<const FuncDecl&>(*sym.decl).m_body.has_value();
     default:
-        return false; // TypeDecl и прочие — всегда определение
+        return false; // TypeDecl и прочие - всегда определение
     }
 }
 

@@ -2,10 +2,10 @@
 
 # Типизация целей spread-словаря + однократная оценка источника + runtime-guard на нехватку.
 # Сгруппированы сценарии (были destructure_typed_dict / destructure_expr_once / destructure_runtime_guard):
-#  - `a, b, c := ... d` — per-element типизация: a=Int64 (int), b=Bool, c=Int64 (runtime Dict
+#  - `a, b, c := ... d` - per-element типизация: a=Int64 (int), b=Bool, c=Int64 (runtime Dict
 #    нормализует int → int64_t, поэтому any_cast<int64_t>), а не единый std::any;
-#  - `p, q, _ := ... (1,2,3,)` — источник-литерал оценивается ОДИН раз в __trust_dst (не на каждую цель);
-#  - `_, r, tail... := ... (1,2,3,4,)` — `_` skip + r + rest; guard `size() < 2` перед pop'ами.
+#  - `p, q, _ := ... (1,2,3,)` - источник-литерал оценивается ОДИН раз в __trust_dst (не на каждую цель);
+#  - `_, r, tail... := ... (1,2,3,4,)` - `_` skip + r + rest; guard `size() < 2` перед pop'ами.
 
 @main() := {
     d := (10, true, 20,);

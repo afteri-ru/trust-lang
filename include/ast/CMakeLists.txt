@@ -1,8 +1,8 @@
 # include/ast/CMakeLists.txt
-# AST library — token definitions, naming, AST node types, and attributes
+# AST library - token definitions, naming, AST node types, and attributes
 # Attribute subsystem is merged into ast_lib (previously separate attr_lib).
 
-# ── AST library ──
+# -- AST library --
 add_library(ast_lib STATIC
     ${PROJECT_SOURCE_DIR}/ast/ident_name.cpp
     ${PROJECT_SOURCE_DIR}/ast/ast_nodes.cpp
@@ -19,7 +19,7 @@ target_link_libraries(ast_lib PRIVATE trust_llvm_dirs)
 # syntax/term.h includes syntax/parser.h → generated parser.yy.h
 target_include_directories(ast_lib PRIVATE "${CMAKE_BINARY_DIR}/syntax")
 # term_to_ast.cpp includes syntax headers (term.h → parser.h) that trigger
-# -Wswitch / old-style-cast warnings — suppress as errors.
+# -Wswitch / old-style-cast warnings - suppress as errors.
 set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/ast/term_to_ast.cpp
     PROPERTIES COMPILE_OPTIONS "-Wno-error=switch;-Wno-error=old-style-cast"

@@ -9,7 +9,7 @@ MyInt ::= :Int32;
 x:MyInt := 10;
 # CHECK: c_MyInt c_x = 10;
 
-# Алиас-цепочка: Big ::= MyInt → using c_Big = c_MyInt; переменная в области имён — c_Big c_y = 20;
+# Алиас-цепочка: Big ::= MyInt → using c_Big = c_MyInt; переменная в области имён - c_Big c_y = 20;
 # Область имён на верхнем уровне → namespace c_ns { ... } (область видимости сохраняется).
 Big ::= MyInt;
 # CHECK: using c_Big = c_MyInt;

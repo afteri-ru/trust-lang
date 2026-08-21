@@ -66,7 +66,7 @@ inline uint32_t decode_utf8_at(std::string_view s, size_t& offset) {
     }
     int seq_len = utf8_seq_len(b0);
     if (seq_len < 2 || offset + seq_len > s.size()) {
-        // невалидный UTF8 — пропускаем один байт
+        // невалидный UTF8 - пропускаем один байт
         offset += 1;
         return 0xFFFFFFFF;
     }
@@ -182,7 +182,7 @@ inline bool is_number(std::string_view s) {
     if (s[0] == '-') {
         i = 1;
         if (i >= s.size()) {
-            return false; // только минус — не число
+            return false; // только минус - не число
         }
     }
     for (; i < s.size(); ++i) {
@@ -252,7 +252,7 @@ inline std::string_view extract_name(std::string_view s, size_t offset) {
         return {};
     }
 
-    // Если символ не может быть началом, но может быть продолжением — ищем начало слева
+    // Если символ не может быть началом, но может быть продолжением - ищем начало слева
     if (!is_ident_start(cp)) {
         if (!is_ident_cont(cp)) {
             return {};
@@ -321,7 +321,7 @@ inline std::string_view extract_name(std::string_view s, size_t offset) {
 // -----------------------------------------------------------------------
 
 /// Срезает ведущий '%' (native-маркер) у trust-имени. Нативные имена (%add, %std::max)
-/// — уже C++-символы рантайма; '%' используется для маркировки и при кодогенерации
+/// - уже C++-символы рантайма; '%' используется для маркировки и при кодогенерации
 /// срезается, а имя остаётся как есть. Единый источник среза для транспилятора
 /// (расчёт длины trust-range) и анализатора (funcShortName).
 inline std::string_view strip_native_prefix(std::string_view name) noexcept {
@@ -332,8 +332,8 @@ inline std::string_view strip_native_prefix(std::string_view name) noexcept {
 }
 
 /// Полный ключ метода кодирует нативность (ведущий '%') и константность (хвостовой '^'),
-/// напр. "%count^". bare-имя — ключ без '%'/'^' (идентичность метода при поиске и проверке
-/// дубликатов). '%' срезается единым источником strip_native_prefix; '^' — как в
+/// напр. "%count^". bare-имя - ключ без '%'/'^' (идентичность метода при поиске и проверке
+/// дубликатов). '%' срезается единым источником strip_native_prefix; '^' - как в
 /// IdentName::bare_name()/normalizeTermText (хвостовой).
 inline std::string bare_name(std::string_view name) {
     std::string s(strip_native_prefix(name));
@@ -342,11 +342,11 @@ inline std::string bare_name(std::string_view name) {
     }
     return s;
 }
-/// Имя нативное (ведущий '%') — то же, что IdentName::is_native().
+/// Имя нативное (ведущий '%') - то же, что IdentName::is_native().
 inline bool is_native_name(std::string_view name) {
     return !name.empty() && name.front() == '%';
 }
-/// Имя константное (хвостовой '^') — срез '^' в IdentName::bare_name()/normalizeTermText.
+/// Имя константное (хвостовой '^') - срез '^' в IdentName::bare_name()/normalizeTermText.
 inline bool is_const_name(std::string_view name) {
     return !name.empty() && name.back() == '^';
 }
@@ -355,13 +355,13 @@ inline std::string name_to_cpp(std::string_view name) {
     if (name.empty()) {
         return {};
     }
-    // Нативное имя (%add, %std::max) — это уже C++-символ рантайма: срезаем '%'
+    // Нативное имя (%add, %std::max) - это уже C++-символ рантайма: срезаем '%'
     // и возвращаем как есть (иначе сломается линковка).
     if (name.front() == '%') {
         return std::string(name.substr(1));
     }
 
-    // Локальная переменная: ведущий '$' — сигнатура (аналог '%' у нативных), срезается
+    // Локальная переменная: ведущий '$' - сигнатура (аналог '%' у нативных), срезается
     // перед манглингом, чтобы локальная `$x` отображалась в `c_x` (а не в `c_$x`) и была
     // согласована с embed-ссылками `{% $x %}`. Спец-имена `$$` (родитель) не трогаем.
     if (name.front() == '$' && name.size() > 1 && name[1] != '$') {
@@ -371,9 +371,9 @@ inline std::string name_to_cpp(std::string_view name) {
     // Сканируем имя: ищем UTF8 символы, двоеточия
     bool has_utf8 = false;
     bool has_colon = false;
-    bool only_russian_utf8 = true;    // все UTF8 символы — русские
-    bool has_special_russian = false; // Ъ/Ь — теряют информацию при транслитерации
-    bool has_ascii_alpha = false;     // есть ASCII буквы (a-z, A-Z) — конфликтуют с транслитерацией
+    bool only_russian_utf8 = true;    // все UTF8 символы - русские
+    bool has_special_russian = false; // Ъ/Ь - теряют информацию при транслитерации
+    bool has_ascii_alpha = false;     // есть ASCII буквы (a-z, A-Z) - конфликтуют с транслитерацией
 
     size_t i = 0;
     while (i < name.size()) {
@@ -418,7 +418,7 @@ inline std::string name_to_cpp(std::string_view name) {
             }
         }
     } else if (has_utf8 && only_russian_utf8 && !has_ascii_alpha && !has_special_russian) {
-        // Русский идентификатор (без Ъ/Ь, без ASCII букв) — транслитерация
+        // Русский идентификатор (без Ъ/Ь, без ASCII букв) - транслитерация
         result = "ru_";
         size_t pos = 0;
         while (pos < name.size()) {
@@ -442,7 +442,7 @@ inline std::string name_to_cpp(std::string_view name) {
             }
         }
     } else {
-        // Другие UTF8 символы — HEX кодирование всех символов подряд
+        // Другие UTF8 символы - HEX кодирование всех символов подряд
         result = "u8_";
         size_t pos = 0;
         auto hex_chars = [](std::string& out, uint8_t b) {
@@ -526,7 +526,7 @@ inline std::string cpp_to_name(std::string_view cpp_name) {
             }
             if (best_idx >= 0) {
                 uint32_t cp = detail::TRANSLIT_TABLE[best_idx].cp;
-                // Проверяем, с какой буквы начинается: если первая буква в best совпадении заглавная —
+                // Проверяем, с какой буквы начинается: если первая буква в best совпадении заглавная -
                 // значит и результат должен быть заглавным
                 const char* upper_str = detail::TRANSLIT_TABLE[best_idx].upper;
                 size_t upper_len = std::strlen(upper_str);
@@ -588,7 +588,7 @@ inline std::string cpp_to_name(std::string_view cpp_name) {
         return result;
     }
 
-    // Имя без известного префикса (c_/cpp_/ru_/u8_) — нативное C++-имя: восстанавливаем маркер '%'.
+    // Имя без известного префикса (c_/cpp_/ru_/u8_) - нативное C++-имя: восстанавливаем маркер '%'.
     return "%" + std::string(cpp_name);
 }
 
@@ -598,9 +598,9 @@ inline std::string cpp_to_name(std::string_view cpp_name) {
 
 // Конвертирует текст C++-вставки ({% ... %}) для кодогенерации: идентификаторы,
 // начинающиеся с '$' или '@', интерпретируются как trust-имена и заменяются на их
-// C++-эквивалент (name_to_cpp). '$name' — локальное trust-имя; '@name' — trust-имя
+// C++-эквивалент (name_to_cpp). '$name' - локальное trust-имя; '@name' - trust-имя
 // (допускается квалификация '::', напр. @ns::x). Остальной текст остаётся без изменений.
-// Чтение имени — через extract_name (единая точка входа; включает юникод и '::').
+// Чтение имени - через extract_name (единая точка входа; включает юникод и '::').
 inline std::string transform_embed_cpp(std::string_view text) {
     std::string result;
     result.reserve(text.size());
@@ -624,7 +624,7 @@ inline std::string transform_embed_cpp(std::string_view text) {
 // Извлекает trust-имена, на которые ссылается C++-вставка (маркеры $/@).
 // Используется семантическим анализатором для валидации в таблице символов.
 // Для маркера `$name` возвращается `$name` (локальная переменная; после нормализации имён
-// без сигила локальная хранится с `$` — `$d`), для `@name` — `name` (квалифицированное/глобальное).
+// без сигила локальная хранится с `$` - `$d`), для `@name` - `name` (квалифицированное/глобальное).
 inline std::vector<std::string> extract_embed_names(std::string_view text) {
     std::vector<std::string> names;
     size_t i = 0;
@@ -648,8 +648,8 @@ inline std::vector<std::string> extract_embed_names(std::string_view text) {
 }
 
 // Экранирует строку для встраивания в C++-строковый литерал: все специальные символы
-// превращаются в C++-escape-последовательности. Прочие управляющие (< 0x20, 0x7F) — в hex-escape.
-// Обратная операция — unescape_cpp_string. Единый источник для кодогенерации строковых литералов.
+// превращаются в C++-escape-последовательности. Прочие управляющие (< 0x20, 0x7F) - в hex-escape.
+// Обратная операция - unescape_cpp_string. Единый источник для кодогенерации строковых литералов.
 inline std::string escape_cpp_string(std::string_view s) {
     std::string out;
     out.reserve(s.size());

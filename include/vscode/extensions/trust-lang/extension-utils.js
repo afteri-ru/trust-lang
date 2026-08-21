@@ -1,5 +1,5 @@
 /**
- * extension-utils.js — Вынесенные из extension.js функции для unit-тестирования
+ * extension-utils.js - Вынесенные из extension.js функции для unit-тестирования
  */
 
 const path = require('path');
@@ -7,7 +7,7 @@ const fs = require('fs');
 const os = require('os');
 const { execSync } = require('child_process');
 
-// ── Path resolution ──
+// -- Path resolution --
 function resolvePath(configPath, workspaceFolder) {
     let result = configPath || '';
     if (workspaceFolder && result) {
@@ -80,7 +80,7 @@ function updateLspStatusBar(status, lspStatusBar) {
     lspStatusBar.show();
 }
 
-// ── Build pipeline functions ──
+// -- Build pipeline functions --
 
 /**
  * Resolve a config value with workspace folder substitution.
@@ -216,7 +216,7 @@ function buildForDebug(sourceFile, workspaceFolder, config) {
 }
 
 
-// ── Pseudoterminal для custom execution задач ──
+// -- Pseudoterminal для custom execution задач --
 function createPseudoterminal(name, command, args, cwd) {
     const writeEmitter = new vscode.EventEmitter();
     const closeEmitter = new vscode.EventEmitter();

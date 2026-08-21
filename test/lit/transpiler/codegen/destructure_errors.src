@@ -13,7 +13,7 @@
 # RUN: %not %trust -q --emit-cpp $TD/dict_assign_rest_reuse.src > $TD/o11 2>&1 && %FileCheck --check-prefix=CHECK-K %s <$TD/o11
 #
 # Ошибочные сценарии деструктуризации (сгруппированы в один файл через %split-file; каждый
-# `//--- <имя>.src` — отдельный мини-исходник). Были отдельные файлы destructure_single_name_error /
+# `//--- <имя>.src` - отдельный мини-исходник). Были отдельные файлы destructure_single_name_error /
 # destructure_spread_arity_error / destructure_spread_not_collection_error / destructure_tuple_error /
 # destructure_assign_error + новые диагностики (tuple_rest_reuse, rest-аннотация dict/tuple,
 # duplicate, const_assign, dict_assign_rest_reuse).

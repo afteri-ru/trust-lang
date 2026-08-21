@@ -1,5 +1,5 @@
 #pragma once
-// Module API — ABI-стабильные структуры для __trust_get_exports
+// Module API - ABI-стабильные структуры для __trust_get_exports
 // Используется как компилятором (--module-info), так и встраивается
 // в сгенерированный .cppt код через #embed при сборке модуля.
 

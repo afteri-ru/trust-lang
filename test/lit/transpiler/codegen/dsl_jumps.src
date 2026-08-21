@@ -1,7 +1,7 @@
 # RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # DSL-макросы return / break / continue: void и со значением, без метки и с меткой.
-# return = break по имени функции (@__FUNCTION__); label блока — один идентификатор без '::'.
+# return = break по имени функции (@__FUNCTION__); label блока - один идентификатор без '::'.
 
 %f(x:Int32):Int32 := {
     @return x;

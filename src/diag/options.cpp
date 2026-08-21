@@ -225,7 +225,7 @@ std::span<char*> Options::parse_argv(std::span<char*> argv) {
         const auto eq = name.find('=');
         std::string_view arg_name = (eq == std::string_view::npos) ? name : name.substr(0, eq);
 
-        // -Wno-<flag> — выключить поведение флага. Для Comments «включено» означает ВЫВОД
+        // -Wno-<flag> - выключить поведение флага. Для Comments «включено» означает ВЫВОД
         // комментариев в C++-коде (по умолчанию включено в Context), поэтому -Wno-comments →
         // set_enabled(false) (подавить), а голый -Wcomments → set_enabled(true) (выводить).
         bool negate = false;

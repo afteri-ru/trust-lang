@@ -4,7 +4,7 @@
 ## Проверка утверждений: `assert(cond)` / `verify(cond)`.
 ## Управление: -Wassert / -Wno-assert (вкл/выкл проверку), -Wbacktrace / -Wno-backtrace (trace).
 ## При провале печатается `file:line: <выражение>` и стек вызовов (backtrace включён по умолчанию,
-## отключение — -Wno-backtrace), затем trust::trust__abort__ завершает программу БЕЗ core-dump
+## отключение - -Wno-backtrace), затем trust::trust__abort__ завершает программу БЕЗ core-dump
 ## (std::_Exit(EXIT_FAILURE), exit 1).
 ## Вызов trust__abort__ происходит ТОЛЬКО при ложном cond (short-circuit `cond || ...`).
 ## При -Wno-assert: assert → no-op, verify → `(cond)` (условие вычисляется, без проверки).
@@ -26,13 +26,13 @@
 
 ## Импорт нативного имени (связывание trust-имени с нативным символом):
 ##   @extern abs(x:Int32):Int32  →  abs(x:Int32):Int32 := %abs ...
-## trust-имя = нативное имя (без префикса '%'); сигнатура — после имени.
+## trust-имя = нативное имя (без префикса '%'); сигнатура - после имени.
 @@ extern $name $... @@ := @@ @$name @$... := % @$name ... @@;
 
 ## Предварительное объявление (forward-declaration):
 ##   @forward open(path:StrChar, flags:Int32):Int32  →  open(path:StrChar, flags:Int32):Int32 := ...
 ##   @forward x :Int32                               →  x :Int32 := ...
-## Имя указывается ПЕРВЫМ, тип/сигнатура — после него; тело — многоточие.
+## Имя указывается ПЕРВЫМ, тип/сигнатура - после него; тело - многоточие.
 @@ forward $name $... @@ := @@ @$name @$... := ... @@;
 
 

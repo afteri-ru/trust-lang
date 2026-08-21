@@ -56,7 +56,7 @@ The **first term of a macro name is the key of a macro *group***: in one group t
 macros with the same first term but different arity** (different number/composition of additional
 terms), e.g. `break`, `break $label`, `break $a $b`. Such macros coexist and do not conflict.
 
-At expansion, among the macros of the group the **longest (most specific) match** is chosen —
+At expansion, among the macros of the group the **longest (most specific) match** is chosen -
 the one that consumes the most terms of the input buffer. The "duplication" diagnostic is emitted
 **only when the full signature (all terms) matches**, not when only the first name coincides.
 Different arities of the same group are not duplicates.

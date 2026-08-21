@@ -37,7 +37,7 @@ TEST(PipelineSymbol, AllowSemanticOnErrorsCollectsSymbols) {
     EXPECT_TRUE(found);
 }
 
-// Без флага при ошибке парсера семантика не запускается — символов нет.
+// Без флага при ошибке парсера семантика не запускается - символов нет.
 TEST(PipelineSymbol, DefaultSkipsSemanticOnErrors) {
     Context ctx;
     TypeRegistry reg(ctx.diag(), ctx.opts());

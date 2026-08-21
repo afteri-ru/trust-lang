@@ -118,10 +118,10 @@ TEST_F(ParserTest, LiteralInteger) {
 TEST_F(ParserTest, TermCreateStringView) {
     std::string source = "some_name";
     std::string_view sv(source.data(), source.size());
-    // View-перегрузка: Create(id, lex_type, text, len) — НЕ копирует.
+    // View-перегрузка: Create(id, lex_type, text, len) - НЕ копирует.
     TermPtr term = Term::Create(TermID::NAME, parser::token_type::NAME, sv.data(), sv.size());
 
-    // m_text хранит string_view — данные не копируются, адрес совпадает с source
+    // m_text хранит string_view - данные не копируются, адрес совпадает с source
     const Term& cterm = *term;
     EXPECT_EQ(source.data(), cterm.getText().data());
     EXPECT_EQ(source.size(), cterm.getText().size());
@@ -231,8 +231,8 @@ TEST_F(ParserTest, TermSimple) {
 
 TEST_F(ParserTest, InternalName) {
     ASSERT_TRUE(Parse("term.filed();"));
-    // `.filed` — доступ по имени: FIELD-терм (объект в m_left, ключ в m_right);
-    // `()` — вызов на поле.
+    // `.filed` - доступ по имени: FIELD-терм (объект в m_left, ключ в m_right);
+    // `()` - вызов на поле.
     ASSERT_EQ(TermID::FIELD, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("term", ast->m_left->getText());
     ASSERT_EQ("filed", ast->m_right->getText());
@@ -245,7 +245,7 @@ TEST_F(ParserTest, Tensor1) {
     ASSERT_EQ("[,]:Int8", ast->toString());
 
     ASSERT_TRUE(Parse("term[1];"));
-    // `term[1]` — доступ по индексу: INDEX-терм (объект в m_left, индексы в m_args).
+    // `term[1]` - доступ по индексу: INDEX-терм (объект в m_left, индексы в m_args).
     ASSERT_EQ(TermID::INDEX, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("term", ast->m_left->getText());
     ASSERT_EQ(1, ast->size());
@@ -264,7 +264,7 @@ TEST_F(ParserTest, Tensor1) {
 
 TEST_F(ParserTest, Tensor2) {
     ASSERT_TRUE(Parse("term[1, 2];"));
-    // `term[1, 2]` — multi-индекс: INDEX-терм, все индексы в m_args.
+    // `term[1, 2]` - multi-индекс: INDEX-терм, все индексы в m_args.
     ASSERT_EQ(TermID::INDEX, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("term", ast->m_left->getText());
     ASSERT_EQ(2, ast->size());
@@ -661,7 +661,7 @@ TEST_F(ParserTest, TermArgTake) {
     ASSERT_EQ(TermID::NAME, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("term", ast->getText());
     ASSERT_EQ(1, ast->size());
-    // take(* / *^) — оператор, остаётся в AST как узел RefTakeExpr над rval_name.
+    // take(* / *^) - оператор, остаётся в AST как узел RefTakeExpr над rval_name.
     ASSERT_EQ(TermID::TAKE, ast->at(0).second->getTermID());
     ASSERT_EQ("*", ast->at(0).second->getText());
     ASSERT_TRUE(ast->at(0).second->m_right);
@@ -671,7 +671,7 @@ TEST_F(ParserTest, TermArgTake) {
     ASSERT_EQ(TermID::NAME, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("term", ast->getText());
     ASSERT_EQ(1, ast->size());
-    // Имя arg^ сохраняет '^' (иммутабельность в имени), take — оператор *^.
+    // Имя arg^ сохраняет '^' (иммутабельность в имени), take - оператор *^.
     ASSERT_EQ(TermID::TAKE, ast->at(0).second->getTermID());
     ASSERT_EQ("*^", ast->at(0).second->getText());
     ASSERT_TRUE(ast->at(0).second->m_right);
@@ -694,7 +694,7 @@ TEST_F(ParserTest, TermArgTake) {
 
     ASSERT_EQ(1, ast->size());
     ASSERT_EQ("name", ast->at(0).first);
-    // take — оператор *^; оборачивает значение value (имя не модифицируется).
+    // take - оператор *^; оборачивает значение value (имя не модифицируется).
     ASSERT_EQ(TermID::TAKE, ast->at(0).second->m_right->getTermID());
     ASSERT_EQ("*^", ast->at(0).second->m_right->getText());
     ASSERT_TRUE(ast->at(0).second->m_right->m_right);
@@ -949,7 +949,7 @@ TEST_F(ParserTest, TermCollection2) {
     ASSERT_EQ("term", ast->getText());
     ASSERT_EQ(2, ast->size());
     ASSERT_EQ(TermID::DICT, ast->at(0).second->getTermID()) << trust::toString(ast->at(0).second->getTermID());
-    // Именованный аргумент — ARGUMENT-обёртка, значение (TENSOR) в m_right
+    // Именованный аргумент - ARGUMENT-обёртка, значение (TENSOR) в m_right
     ASSERT_EQ(TermID::ARGUMENT, ast->at(1).second->getTermID()) << trust::toString(ast->at(1).second->getTermID());
     ASSERT_TRUE(ast->at(1).second->m_right);
     ASSERT_EQ(TermID::TENSOR, ast->at(1).second->m_right->getTermID()) << trust::toString(ast->at(1).second->m_right->getTermID());
@@ -1241,7 +1241,7 @@ TEST_F(ParserTest, TakeConstToAst) {
     std::vector<AstNodePtr> nodes = TermToAstConverter::termToAst(ast, m_ctx);
     ASSERT_EQ(1, nodes.size());
 
-    // term(*^arg^) — вызов: корневой узел CallExpr (callee = имя term, args = [операнд]).
+    // term(*^arg^) - вызов: корневой узел CallExpr (callee = имя term, args = [операнд]).
     auto* termNode = dynamic_cast<CallExpr*>(nodes[0].get());
     ASSERT_TRUE(termNode);
     ASSERT_EQ("term", termNode->m_callee->text());
@@ -1253,7 +1253,7 @@ TEST_F(ParserTest, TakeConstToAst) {
     ASSERT_EQ("*", take->text()) << "'^' must be stripped from take text";
     ASSERT_TRUE(take->has_attr(m_ctx.attrs(), attr::ReadOnly));
 
-    // arg^ — имя с иммутабельностью: срезается '^', проставляется attr::ReadOnly.
+    // arg^ - имя с иммутабельностью: срезается '^', проставляется attr::ReadOnly.
     auto* arg = dynamic_cast<AstNodeAttr*>(take->m_body[0].get());
     ASSERT_TRUE(arg);
     ASSERT_EQ("arg", arg->text());
@@ -1261,7 +1261,7 @@ TEST_F(ParserTest, TakeConstToAst) {
 }
 
 // ptr(&) при конвертации в AstNode: узел-оператор становится RefMakeExpr,
-// операнд — его телом; иммутабельность &^ → attr::ReadOnly.
+// операнд - его телом; иммутабельность &^ → attr::ReadOnly.
 TEST_F(ParserTest, RefMakeToAst) {
     ASSERT_TRUE(Parse("term(&arg);"));
 
@@ -1284,7 +1284,7 @@ TEST_F(ParserTest, RefMakeToAst) {
     ASSERT_EQ("arg", arg->text());
     ASSERT_FALSE(arg->has_attr(m_ctx.attrs(), attr::ReadOnly));
 
-    // &^ — иммутабельность оператора → attr::ReadOnly на RefMakeExpr.
+    // &^ - иммутабельность оператора → attr::ReadOnly на RefMakeExpr.
     ASSERT_TRUE(Parse("term(&^arg);"));
     nodes = TermToAstConverter::termToAst(ast, m_ctx);
     ASSERT_EQ(1, nodes.size());
@@ -1296,7 +1296,7 @@ TEST_F(ParserTest, RefMakeToAst) {
     ASSERT_EQ("&", refMake->text());
     ASSERT_TRUE(refMake->has_attr(m_ctx.attrs(), attr::ReadOnly));
 
-    // &arg^ — иммутабельность операнда → attr::ReadOnly на arg, не на операторе.
+    // &arg^ - иммутабельность операнда → attr::ReadOnly на arg, не на операторе.
     ASSERT_TRUE(Parse("term(&arg^);"));
     nodes = TermToAstConverter::termToAst(ast, m_ctx);
     ASSERT_EQ(1, nodes.size());
@@ -1312,7 +1312,7 @@ TEST_F(ParserTest, RefMakeToAst) {
     ASSERT_EQ("arg", arg->text());
     ASSERT_TRUE(arg->has_attr(m_ctx.attrs(), attr::ReadOnly));
 }
-// ELLIPSIS ("...") — синтаксис, распознанный лексером/грамматикой в аргументах — теперь
+// ELLIPSIS ("...") - синтаксис, распознанный лексером/грамматикой в аргументах - теперь
 // конвертируется в AST-узел (kind=Ellipsis, Sequence). Ранее (без Kind) конвертация FAULT.
 TEST_F(ParserTest, EllipsisToAst) {
     m_ctx.diag().clear();
@@ -1326,7 +1326,7 @@ TEST_F(ParserTest, EllipsisToAst) {
     ASSERT_EQ("...", ell->text());
 }
 
-// TypeName-терм-конструктор — единственный владелец раскладки TYPE-терма:
+// TypeName-терм-конструктор - единственный владелец раскладки TYPE-терма:
 //   m_dims   из term->m_type (ARGS-терм размерностей `[...]`)
 //   m_params из term->m_args (call-аргументы `(...)`)
 TEST_F(ParserTest, TypeNameDimsParamsToAst) {
@@ -1344,7 +1344,7 @@ TEST_F(ParserTest, TypeNameDimsParamsToAst) {
 
 TEST_F(ParserTest, TypeNameParamsOnlyToAst) {
     // Параметризованная аннотация с ТИПИЗИРОВАННЫМИ аргументами `Pair(:Int, :String)` → IdentType
-    // с параметрами. (Голые имена `Pair(Int, String)` — это value-форма/вызов → DictLiteralNode,
+    // с параметрами. (Голые имена `Pair(Int, String)` - это value-форма/вызов → DictLiteralNode,
     // см. TypeCastExprToAst; аннотация с параметрами пишется с типами-аргументами.)
     ASSERT_TRUE(Parse("p:Pair(:Int, :String) := 0;"));
     std::vector<AstNodePtr> nodes = TermToAstConverter::termToAst(ast, m_ctx);
@@ -1384,7 +1384,7 @@ TEST_F(ParserTest, TypeCastExprToAst) {
     EXPECT_EQ(b.m_value->text(), "a");
 }
 
-// ── Диапазон `start..stop[..step]` (TermID::RANGE) → RangeExpr ──
+// -- Диапазон `start..stop[..step]` (TermID::RANGE) → RangeExpr --
 // Терм `range` хранит операнды в m_args с именами start/stop/step; конвертер строит
 // m_body=[start, stop, (step)] и переносит аннотации типа операндов в operandTypes.
 TEST_F(ParserTest, RangeExprToAst) {
@@ -1417,7 +1417,7 @@ TEST_F(ParserTest, RangeExprWithStepToAst) {
 }
 
 TEST_F(ParserTest, RangeExprTypedStopToAst) {
-    // `0..100:Rational` — stop-операнд с аннотацией типа (грамматика `digits_literal type_item`
+    // `0..100:Rational` - stop-операнд с аннотацией типа (грамматика `digits_literal type_item`
     // кладёт её в m_type) → конвертер переносит её в RangeExpr::operandTypes[1] (TypeName Rational).
     auto r = Term::Create(TermID::RANGE, "..");
     r->push_back(Term::Create(TermID::INTEGER, "0"), "start");
@@ -1449,7 +1449,7 @@ TEST_F(ParserTest, TypeNameDimsOnlyToAst) {
     ASSERT_FALSE(t->params()) << "нет params";
 }
 
-// ── Класс-селекция Ident→CallExpr vs IdentName ──
+// -- Класс-селекция Ident→CallExpr vs IdentName --
 // Голое имя (без детей) → IdentName; вызов (есть дети) → CallExpr.
 TEST_F(ParserTest, IdentBareToIdentName) {
     auto t = Term::Create(TermID::NAME, "x");
@@ -1507,7 +1507,7 @@ TEST_F(ParserTest, CallNamedArgToArgNode) {
     ASSERT_EQ("5", a->m_value->text());
 }
 
-// ── VarDecl (visit_CREATE_NAME → VarDecl-конструктор) ──
+// -- VarDecl (visit_CREATE_NAME → VarDecl-конструктор) --
 TEST_F(ParserTest, VarDeclSimpleToAst) {
     ASSERT_TRUE(Parse("x := 5;"));
     std::vector<AstNodePtr> nodes = TermToAstConverter::termToAst(ast, m_ctx);
@@ -1531,8 +1531,8 @@ TEST_F(ParserTest, VarDeclTypedToAst) {
     ASSERT_EQ(ParserToken::Kind::TypeName, vd->m_type->kind());
 }
 
-// ── Функции через CREATE_NAME (`:=`) → FuncDecl-конструктор ──
-// CREATE_NAME — единый узел функции И переменной; класс-селекция по m_left->isCall().
+// -- Функции через CREATE_NAME (`:=`) → FuncDecl-конструктор --
+// CREATE_NAME - единый узел функции И переменной; класс-селекция по m_left->isCall().
 TEST_F(ParserTest, FuncDeclViaAssignToAst) {
     ASSERT_TRUE(Parse("add(a:Int, b:Int):Int := { ++ a ++; };"));
     std::vector<AstNodePtr> nodes = TermToAstConverter::termToAst(ast, m_ctx);
@@ -1551,7 +1551,7 @@ TEST_F(ParserTest, FuncDeclViaAssignToAst) {
     ASSERT_TRUE(fd->m_body && !fd->m_body->empty()) << "функция должна иметь тело";
 }
 
-// Native-функция — тоже обычная функция через `:=` (m_left — native-идентификатор с сигнатурой).
+// Native-функция - тоже обычная функция через `:=` (m_left - native-идентификатор с сигнатурой).
 // NATIVE отдельно не выделяется.
 TEST_F(ParserTest, NativeFuncDeclToAst) {
     ASSERT_TRUE(Parse("%add(a:Int, b:Int):Int := { ++ a ++; };"));
@@ -1565,17 +1565,17 @@ TEST_F(ParserTest, NativeFuncDeclToAst) {
     ASSERT_TRUE(fd->m_body && !fd->m_body->empty()) << "native-функция должна иметь тело";
 }
 
-// CREATE_TYPE (`::=`) — синоним типа, а НЕ функция (даже с формой вызова в m_left).
+// CREATE_TYPE (`::=`) - синоним типа, а НЕ функция (даже с формой вызова в m_left).
 TEST_F(ParserTest, CreateTypeIsTypeSynonymToAst) {
     ASSERT_TRUE(Parse("MyInt ::= Int;"));
     std::vector<AstNodePtr> nodes = TermToAstConverter::termToAst(ast, m_ctx);
     ASSERT_EQ(1, nodes.size());
     auto* bin = dynamic_cast<Binary*>(nodes[0].get());
-    ASSERT_TRUE(bin) << "::= — это синоним типа (Binary TypeDecl), не функция";
+    ASSERT_TRUE(bin) << "::= - это синоним типа (Binary TypeDecl), не функция";
     ASSERT_EQ(ParserToken::Kind::TypeDecl, bin->kind());
 }
 
-// Forward-объявление переменной `x:Int32 := ...;` — чистое многоточие вместо инициализатора.
+// Forward-объявление переменной `x:Int32 := ...;` - чистое многоточие вместо инициализатора.
 TEST_F(ParserTest, ForwardVarDeclToAst) {
     ASSERT_TRUE(Parse("x:Int32 := ...;"));
     std::vector<AstNodePtr> nodes = TermToAstConverter::termToAst(ast, m_ctx);
@@ -1588,7 +1588,7 @@ TEST_F(ParserTest, ForwardVarDeclToAst) {
     ASSERT_EQ(nullptr, vd->m_initializer) << "forward-объявление не должно иметь инициализатора";
 }
 
-// Forward-объявление переменной без типа `y := ...;` — инициализатора нет, тип опционален.
+// Forward-объявление переменной без типа `y := ...;` - инициализатора нет, тип опционален.
 TEST_F(ParserTest, ForwardVarDeclNoTypeToAst) {
     ASSERT_TRUE(Parse("y := ...;"));
     std::vector<AstNodePtr> nodes = TermToAstConverter::termToAst(ast, m_ctx);
@@ -1600,7 +1600,7 @@ TEST_F(ParserTest, ForwardVarDeclNoTypeToAst) {
     ASSERT_EQ(nullptr, vd->m_initializer) << "forward-объявление не должно иметь инициализатора";
 }
 
-// Forward-объявление функции `%add(a:Int32, b:Int32):Int32 := ...;` — чистое многоточие
+// Forward-объявление функции `%add(a:Int32, b:Int32):Int32 := ...;` - чистое многоточие
 // вместо тела → m_body = nullopt (forward declaration).
 TEST_F(ParserTest, ForwardFuncDeclToAst) {
     ASSERT_TRUE(Parse("%add(a:Int32, b:Int32):Int32 := ...;"));
@@ -2209,7 +2209,7 @@ TEST_F(ParserTest, Types) {
     ASSERT_EQ(":type", ast->toString()) << ast->toString();
 
     EXPECT_TRUE(Parse(":*type"));
-    // take — узел-оператор (TAKE) с правым операндом TYPE ":type".
+    // take - узел-оператор (TAKE) с правым операндом TYPE ":type".
     ASSERT_EQ(TermID::TAKE, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("*", ast->getText()) << ast->getText();
     ASSERT_TRUE(ast->m_right);
@@ -2354,7 +2354,7 @@ TEST_F(ParserTest, CheckResult) {
 }
 
 TEST_F(ParserTest, WithArgs) {
-    // with (a, b) { body } — аргументы собираются в m_args через общее правило args
+    // with (a, b) { body } - аргументы собираются в m_args через общее правило args
     ASSERT_TRUE(Parse("** (a, b) { expr }"));
     ASSERT_EQ(TermID::WITH, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ(2, ast->size());
@@ -2806,7 +2806,7 @@ TEST_F(ParserTest, HelloWorld) {
 }
 
 TEST_F(ParserTest, EnumTypeDecl) {
-    // Enum через :Enum(...) / (...):Enum (как Tuple) — DictLiteral с аннотацией Enum.
+    // Enum через :Enum(...) / (...):Enum (как Tuple) - DictLiteral с аннотацией Enum.
     EXPECT_TRUE(Parse("Color ::= :Enum(RED, GREEN);"));
     EXPECT_TRUE(Parse("Color ::= (RED, GREEN,):Enum;"));
     EXPECT_TRUE(Parse("Color ::= :Enum(RED=1, GREEN=2);"));
@@ -3037,7 +3037,7 @@ TEST_F(ParserTest, FuncAssignOpsEq) {
     ASSERT_EQ(1, ast->m_left->size());
     ASSERT_EQ("arg", ast->m_left->at(0).first);
     ASSERT_EQ("1", ast->m_left->at(0).second->m_right->getText());
-    // НОРМАЛИЗАЦИЯ: тип аргумента — единый слот m_type ARGUMENT-терма.
+    // НОРМАЛИЗАЦИЯ: тип аргумента - единый слот m_type ARGUMENT-терма.
     ASSERT_TRUE(ast->m_left->at(0).second->m_type);
 }
 
@@ -3053,7 +3053,7 @@ TEST_F(ParserTest, FuncAssignOpsCreateUse) {
     ASSERT_EQ(2, ast->m_left->size());
     ASSERT_EQ("arg1", ast->m_left->at(0).first);
     ASSERT_EQ("1", ast->m_left->at(0).second->m_right->getText());
-    // НОРМАЛИЗАЦИЯ: тип аргумента — единый слот m_type ARGUMENT-терма.
+    // НОРМАЛИЗАЦИЯ: тип аргумента - единый слот m_type ARGUMENT-терма.
     ASSERT_TRUE(ast->m_left->at(0).second->m_type);
     ASSERT_EQ("arg2", ast->m_left->at(1).second->getText());
 }
@@ -3095,7 +3095,7 @@ TEST_F(ParserTest, CallArgTypePositional) {
     ASSERT_EQ(1, ast->size());
     ASSERT_EQ("name", ast->at(0).first);
     ASSERT_EQ("1", ast->at(0).second->m_right->getText());
-    // НОРМАЛИЗАЦИЯ: тип аргумента — единый слот m_type ARGUMENT-терма.
+    // НОРМАЛИЗАЦИЯ: тип аргумента - единый слот m_type ARGUMENT-терма.
     ASSERT_TRUE(ast->at(0).second->m_type);
     ASSERT_EQ(":Int32", ast->at(0).second->m_type->getText());
     ASSERT_EQ("term(name:Int32=1)", ast->toString());
@@ -3123,12 +3123,12 @@ TEST_F(ParserTest, CallArgTypeMixed) {
     ASSERT_EQ(2, ast->size());
     ASSERT_EQ("name", ast->at(0).first);
     ASSERT_EQ("1", ast->at(0).second->m_right->getText());
-    // НОРМАЛИЗАЦИЯ: тип аргумента — единый слот m_type ARGUMENT-терма.
+    // НОРМАЛИЗАЦИЯ: тип аргумента - единый слот m_type ARGUMENT-терма.
     ASSERT_TRUE(ast->at(0).second->m_type);
     ASSERT_EQ(":Int32", ast->at(0).second->m_type->getText());
     ASSERT_EQ("arg2", ast->at(1).first);
     ASSERT_EQ("2", ast->at(1).second->m_right->getText());
-    // НОРМАЛИЗАЦИЯ: тип аргумента — единый слот m_type ARGUMENT-терма.
+    // НОРМАЛИЗАЦИЯ: тип аргумента - единый слот m_type ARGUMENT-терма.
     ASSERT_TRUE(ast->at(1).second->m_type);
     ASSERT_EQ(":Int64", ast->at(1).second->m_type->getText());
     ASSERT_EQ("term(name:Int32=1, arg2:Int64=2)", ast->toString());
@@ -3213,7 +3213,7 @@ TEST_F(ParserTest, CallArgRefType) {
     ASSERT_TRUE(Parse("term(&arg:Int32=val);"));
     ASSERT_EQ(1, ast->size());
     ASSERT_EQ("arg", ast->at(0).first);
-    // ARGUMENT.m_right — узел-оператор &, его m_right — val; тип — единый слот m_type ARGUMENT-терма.
+    // ARGUMENT.m_right - узел-оператор &, его m_right - val; тип - единый слот m_type ARGUMENT-терма.
     ASSERT_EQ(TermID::OPERATOR_PTR, ast->at(0).second->m_right->getTermID()) << trust::toString(ast->at(0).second->m_right->getTermID());
     ASSERT_TRUE(ast->at(0).second->m_right->m_right);
     ASSERT_EQ("val", ast->at(0).second->m_right->m_right->getText());
@@ -3221,7 +3221,7 @@ TEST_F(ParserTest, CallArgRefType) {
 
     ASSERT_TRUE(Parse("term(*arg:Int32);"));
     ASSERT_EQ(1, ast->size());
-    // take (*) — оператор; оборачивает arg:Int32.
+    // take (*) - оператор; оборачивает arg:Int32.
     ASSERT_EQ(TermID::TAKE, ast->at(0).second->getTermID());
     ASSERT_EQ("*", ast->at(0).second->getText());
     ASSERT_TRUE(ast->at(0).second->m_right);
@@ -3231,7 +3231,7 @@ TEST_F(ParserTest, CallArgRefType) {
     ASSERT_TRUE(Parse("term(&*arg:Int32=val);"));
     ASSERT_EQ(1, ast->size());
     ASSERT_EQ("arg", ast->at(0).first);
-    // &* — узел-оператор OPERATOR_PTR (&*), оборачивает val; тип — единый слот m_type ARGUMENT-терма.
+    // &* - узел-оператор OPERATOR_PTR (&*), оборачивает val; тип - единый слот m_type ARGUMENT-терма.
     ASSERT_EQ(TermID::OPERATOR_PTR, ast->at(0).second->m_right->getTermID()) << trust::toString(ast->at(0).second->m_right->getTermID());
     ASSERT_EQ("&*", ast->at(0).second->m_right->getText());
     ASSERT_TRUE(ast->at(0).second->m_right->m_right);
@@ -3263,7 +3263,7 @@ TEST_F(ParserTest, FuncFullCombinations) {
 // ===== Прямые тесты для FinalizeAndTest =====
 
 TEST_F(ParserTest, FinalizeAndTestNoLeft) {
-    // Вызов без m_left — только установка id
+    // Вызов без m_left - только установка id
     auto term = Term::Create(TermID::NAME, "name", {}, parser::token_type::NAME);
     EXPECT_EQ(TermID::NAME, term->m_id);
     EXPECT_FALSE(term->m_left);
@@ -3289,7 +3289,7 @@ TEST_F(ParserTest, FinalizeAndTestTextJoin) {
     // Создаём термы: name2 -> name1 -> term
     // где name2.m_left = name1, name1.m_left = term
     // После FinalizeAndTest m_text должен быть "termname1name2"
-    // (insert(0, ...) — самый левый элемент оказывается в начале)
+    // (insert(0, ...) - самый левый элемент оказывается в начале)
     auto name2 = Term::Create(TermID::NAME, "name2", {}, parser::token_type::NAME);
     auto name1 = Term::Create(TermID::NAME, "name1", {}, parser::token_type::NAME);
     auto term = Term::Create(TermID::NAME, "term", {}, parser::token_type::NAME);
@@ -3333,7 +3333,7 @@ TEST_F(ParserTest, FinalizeAndTestWithNamespace) {
     // Моделируем ситуацию из grammar: ns_part ::= ns_part NAMESPACE NAME
     // Создаём цепочку: name2 -> NAMESPACE("::") -> name1
     // После FinalizeAndTest: m_text должен быть "name1::name2"
-    // (insert(0, ...) — самый левый элемент в начале)
+    // (insert(0, ...) - самый левый элемент в начале)
     auto name2 = Term::Create(TermID::NAME, "name2", {}, parser::token_type::NAME);
     auto ns = Term::Create(TermID::NAMESPACE, "::", {}, parser::token_type::NAMESPACE);
     auto name1 = Term::Create(TermID::NAME, "name1", {}, parser::token_type::NAME);
@@ -3350,7 +3350,7 @@ TEST_F(ParserTest, FinalizeAndTestWithNamespace) {
     EXPECT_FALSE(name2->m_left);
 }
 
-// ── Конвертер Term→AstNode НЕ мутирует исходный Term (range-оверрайды вместо мутации). ──
+// -- Конвертер Term→AstNode НЕ мутирует исходный Term (range-оверрайды вместо мутации). --
 TEST_F(ParserTest, ConverterDoesNotMutateTerm) {
     MapperFile f = m_ctx.source().add_source("t.src", "x := 1;", true);
     MapperRange nameRange(m_ctx.source().makeLoc(f, 1), m_ctx.source().makeLoc(f, 2)); // "x"
@@ -3381,7 +3381,7 @@ TEST_F(ParserTest, ConverterDoesNotMutateTerm) {
     ASSERT_EQ(cnBefore.begin.offset(), cn->m_mapperRange.begin.offset());
     ASSERT_EQ(cnBefore.end.offset(), cn->m_mapperRange.end.offset());
 
-    // Диапазон узла — расширенный [имя, expr], вычисляется на лету в VarDecl::range().
+    // Диапазон узла - расширенный [имя, expr], вычисляется на лету в VarDecl::range().
     ASSERT_EQ(nameRange.begin.offset(), vd->range().begin.offset()) << "VarDecl range begins at name";
     ASSERT_EQ(litRange.end.offset(), vd->range().end.offset()) << "VarDecl range ends at initializer";
 }
@@ -3412,7 +3412,7 @@ TEST_F(ParserTest, NamedArgumentRangeExpanded) {
     ASSERT_EQ("a=1", m_ctx.source().getText(arg->range())) << "named-arg range must cover name=value";
 }
 
-// ── Документирующие комментарии (TermID::DOCUMENT) ──
+// -- Документирующие комментарии (TermID::DOCUMENT) --
 
 namespace {
 // Рекурсивный подсчёт DOCUMENT-термов в дереве Term.

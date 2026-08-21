@@ -87,15 +87,15 @@ class Scanner : public NewLangFlexLexer {
      * calls this virtual function to fetch new tokens. */
     virtual parser::token_type lex(TermPtr* yylval);
 
-    // TODO(cleanup): unused — commented out, see task 1785675437901
+    // TODO(cleanup): unused - commented out, see task 1785675437901
     // /** Enable debug output (via arg_yyout) if compiled into the scanner. */
     // void set_debug(bool b);
 
     void LexerError(const char* msg) override {
         // ВАЖНО: позиция должна указывать на ТЕКУЩИЙ токен (tokenStartOffset), а не на
-        // m_offset — курсор заполнения буфера flex (число скормленных байт = конец файла).
+        // m_offset - курсор заполнения буфера flex (число скормленных байт = конец файла).
         // Иначе ЛЮБАЯ ошибка лексера ("Unexpected character", "Unterminated string", ...)
-        // рисовалась бы на последнем символе файла. tokenStartOffset() — 0-based начало
+        // рисовалась бы на последнем символе файла. tokenStartOffset() - 0-based начало
         // токена; +1 → 1-based позиция (диапазоны source-map 1-based).
         const int begin = std::max(1, tokenStartOffset() + 1);
         const int end = std::max(begin, tokenStartOffset() + yyleng + 1);

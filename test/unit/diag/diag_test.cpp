@@ -349,7 +349,19 @@ TEST_F(DiagFixture, MultiLineRangeCaretAtBegin) {
     EXPECT_NE(out.find("^"), std::string::npos) << "Caret should be present: " << out;
 }
 
-// ── diag/protocol.hpp: общие конверсии в протокольные координаты (LSP/DAP) ──
+// Позиция ошибки в диагностике - 1-based (совпадает с нумерацией строк Monaco-редактора
+// на странице песочницы). Регрессия на сдвиг +1: для ошибки на строке N вывод должен
+// содержать ":N:", а НЕ ":N+1:".
+TEST_F(DiagFixture, DiagnosticLineIsOneBased) {
+    auto loc3 = m_ctx.source().loc_from_line(m_src, 3); // 1-based строка 3
+    auto loc4 = m_ctx.source().loc_from_line(m_src, 4);
+    m_ctx.diag().report(Severity::Error, MapperRange{loc3, loc4}, "test error on line 3");
+    const std::string out = m_stream.str();
+    EXPECT_NE(out.find("test.cpp:3:"), std::string::npos) << "Expected 1-based line 3 in: " << out;
+    EXPECT_EQ(out.find("test.cpp:4:"), std::string::npos) << "Off-by-one: reported line 4 for error beginning on line 3: " << out;
+}
+
+// -- diag/protocol.hpp: общие конверсии в протокольные координаты (LSP/DAP) --
 
 TEST_F(DiagFixture, SeverityToLsp) {
     EXPECT_EQ(trust::severityToLsp(Severity::Fatal), 1);

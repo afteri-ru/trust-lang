@@ -1,7 +1,7 @@
 # include/runtime/CMakeLists.txt
 # C++20 module infrastructure (trust.runtime module)
 
-# ── PCM build configuration ──
+# -- PCM build configuration --
 set(RUNTIME_PCM_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(RUNTIME_PCM "${RUNTIME_PCM_DIR}/trust.runtime.pcm")
 set(RUNTIME_PCM_OBJ "${RUNTIME_PCM_DIR}/trust.runtime_module.o")
@@ -48,11 +48,11 @@ add_custom_command(
 
 add_custom_target(runtime_pcm_target_all ALL DEPENDS ${RUNTIME_PCM_OBJ})
 
-# ── Library: runtime_lib (header-only) ──
+# -- Library: runtime_lib (header-only) --
 add_library(runtime_lib INTERFACE)
 target_link_libraries(runtime_lib INTERFACE types_lib trust_include_dirs)
 
-# ── Library: trust-runtime.so (dynamic) ──
+# -- Library: trust-runtime.so (dynamic) --
 # Runtime implementation as a shared library. Public runtime headers (e.g.
 # trust/rational.hpp) are embedded into it via #embed into ELF sections named
 # after the header path; the pipeline extracts them back out when needed.
@@ -69,7 +69,7 @@ set_target_properties(trust_runtime PROPERTIES
     PREFIX ""
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
-# trust_headers.cpp uses C23 #embed — suppress the extension warning
+# trust_headers.cpp uses C23 #embed - suppress the extension warning
 set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/runtime/trust_headers.cpp
     PROPERTIES COMPILE_OPTIONS "-Wno-c23-extensions"
@@ -79,7 +79,7 @@ set_source_files_properties(
 # so building `trust` must also build trust_runtime.
 add_dependencies(trust trust_runtime)
 
-# ── Library: trust-runtime.a (static) ──
+# -- Library: trust-runtime.a (static) --
 # The same runtime implementation, but as a static library. Generated programs
 # are linked against it by default (static linking is self-contained: the
 # executable carries the runtime code and needs no trust-runtime.so at run time).
@@ -107,7 +107,7 @@ set_source_files_properties(
 # library, so building `trust` must also build trust_runtime_static.
 add_dependencies(trust trust_runtime_static)
 
-# ── Library: tensor_cpu (torch-dependent, shared plugin) ──
+# -- Library: tensor_cpu (torch-dependent, shared plugin) --
 if(WITH_TORCH)
     add_library(tensor_cpu SHARED
         ${PROJECT_SOURCE_DIR}/runtime/tensor.cpp
@@ -143,7 +143,7 @@ if(WITH_TORCH)
     add_dependencies(tensor_cpu runtime_pcm_target_all)
 endif()
 
-# ── Function to attach runtime module to a target ──
+# -- Function to attach runtime module to a target --
 function(target_runtime_module target)
     set(_runtime_pcm_path "${CMAKE_CURRENT_BINARY_DIR}/trust.runtime.pcm")
     set(_runtime_pcm_obj "${CMAKE_CURRENT_BINARY_DIR}/trust.runtime_module.o")

@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// Extended unit tests for DapHandler — setBreakpoints, stackTrace, variables
+// Extended unit tests for DapHandler - setBreakpoints, stackTrace, variables
 // -----------------------------------------------------------------------
 
 #include "debug/dap_handler.hpp"
@@ -24,7 +24,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-// ── Тестовый класс с временной ELF для integration-тестов ──
+// -- Тестовый класс с временной ELF для integration-тестов --
 class DapHandlerExtendedTest : public ::testing::Test {
   protected:
     MockTransport mock;
@@ -85,12 +85,12 @@ TEST_F(DapHandlerExtendedTest, SetBreakpoints_CppFile_Direct) {
     ASSERT_FALSE(mock.capturedOutput.empty());
     json resp = json::parse(mock.capturedOutput);
     EXPECT_TRUE(resp["success"].get<bool>());
-    // Без debug — unverified, но команда обработана
+    // Без debug - unverified, но команда обработана
     ASSERT_TRUE(resp["body"].contains("breakpoints"));
 }
 
 TEST_F(DapHandlerExtendedTest, SetBreakpoints_TrustFile_NoMapping) {
-    // .src файл без m_source_reader — mapping недоступен, пробуем напрямую
+    // .src файл без m_source_reader - mapping недоступен, пробуем напрямую
     json req = {{"type", "request"},
                 {"command", "setBreakpoints"},
                 {"seq", 12},
@@ -131,7 +131,7 @@ TEST_F(DapHandlerExtendedTest, Threads_NoDebug_ReturnsEmpty) {
     json resp = json::parse(mock.capturedOutput);
     EXPECT_TRUE(resp["success"].get<bool>());
     ASSERT_TRUE(resp["body"].contains("threads"));
-    // Без debug — пустой список
+    // Без debug - пустой список
     EXPECT_TRUE(resp["body"]["threads"].empty());
 }
 

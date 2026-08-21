@@ -50,7 +50,7 @@ typedef trust::parser::token_type token_type;
 #define YY_USER_ACTION m_current_pos += yyleng;
 
 /* Создаёт Term с позицией в исходном коде */
-/* Важно: m_current_pos — 0-based (используется и как индекс в исходный текст).
+/* Важно: m_current_pos - 0-based (используется и как индекс в исходный текст).
  * Диапазон для source-map/диагностики должен быть 1-based (getText/line_column/CPP
  * используют 1-based; cpp-сторона строится как size+1), поэтому здесь +1. */
 #define YY_MKRANGE(len) \
@@ -68,7 +68,7 @@ typedef trust::parser::token_type token_type;
         return token::tok; \
     } while (0)
 
-/* Создаёт токен из указателя на данные (ptr, len) — для извлечения из исходного текста.
+/* Создаёт токен из указателя на данные (ptr, len) - для извлечения из исходного текста.
  * Диапазон строится от m_content_begin (0-based индекс в исходник) до конца содержимого.
  * Для source-map диапазон должен быть 1-based → +1 к begin и end. */
 #define YY_TOKEN_SRC(tok, ptr, len) \
@@ -141,7 +141,7 @@ mangled _${mangled_name}?$_{mangled_name}+
 
 %% /*** Regular Expressions Part ***/
 
-[ \t\r\n]+  /* skip — иначе flex ECHO выводит пробельные символы в yyout (std::cout) и ломает LSP-фрейминг */
+[ \t\r\n]+  /* skip - иначе flex ECHO выводит пробельные символы в yyout (std::cout) и ломает LSP-фрейминг */
 
 "/*"        { yy_push_state(state_COMMENT); }
 
@@ -298,9 +298,9 @@ R[']     {
 
 <state_RAW_BODY>{
 
-  \n              ; /* skip — flex пропускает, YY_USER_ACTION обновляет позицию */
+  \n              ; /* skip - flex пропускает, YY_USER_ACTION обновляет позицию */
 
-  [^)\n]+         ; /* skip — flex пропускает, YY_USER_ACTION обновляет позицию */
+  [^)\n]+         ; /* skip - flex пропускает, YY_USER_ACTION обновляет позицию */
 
   ")"        {
                  /* Проверяем closing delimiter напрямую в исходном тексте через смещение.
@@ -312,7 +312,7 @@ R[']     {
                  bool match = (pos + closing_len <= static_cast<int>(src.size()) &&
                                src.compare(pos, closing_len, m_raw_closing) == 0);
                  if (match) {
-                     /* Синхронизируем буфер flex — потребляем оставшиеся символы closing delimiter */
+                     /* Синхронизируем буфер flex - потребляем оставшиеся символы closing delimiter */
                      for (int i = 1; i < closing_len; ++i) {
                          yyinput();
                      }
@@ -321,7 +321,7 @@ R[']     {
                      int body_len = (m_current_pos - yyleng) - m_content_begin;
                      YY_TOKEN_SRC(STRWIDE, src.data() + m_content_begin, body_len);
                  }
-                 /* Не совпало — flex сам продолжит сканирование после ')'.
+                 /* Не совпало - flex сам продолжит сканирование после ')'.
                   * Символы не нужно возвращать или сохранять: YY_USER_ACTION уже обновил
                   * m_current_pos, а flex продолжит с позиции после ')'. */
              }
@@ -351,7 +351,7 @@ R[']     {
             LexerError("Unterminated string constant");
         }
 
-\\(.|\n)    /* skip — escape sequences preserved as-is in source */
+\\(.|\n)    /* skip - escape sequences preserved as-is in source */
 [^\\\"\n]+ /* skip */
 
 } /* End of state_STRWIDE state*/
@@ -376,7 +376,7 @@ R[']     {
             LexerError("Unterminated string constant");
         }
 
-\\(.|\n)    /* skip — escape sequences preserved as-is in source */
+\\(.|\n)    /* skip - escape sequences preserved as-is in source */
 [^\\'\n]+   /* skip */
 
 } /* End of state_STRCHAR state*/

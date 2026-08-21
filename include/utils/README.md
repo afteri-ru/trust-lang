@@ -1,4 +1,4 @@
-# Utils — Вспомогательные утилиты
+# Utils - Вспомогательные утилиты
 
 ## Назначение
 
@@ -6,11 +6,11 @@
 
 ## Особенности реализации
 
-- **file_io** — чтение/запись файлов (`FileIO::read<std::vector<char>>`/`read<std::string>`, `write`), работа с временными файлами и директориями.
-- **URI** — парсинг и формирование URI (`uriToFilePath`, `filePathToUri` с URL-encoding, `resolvePath`, `uriEncodePath`).
-- **strings** — строковые утилиты: trim, tokenize, is_number, extract_name, конвертация имён (`name_to_cpp`/`cpp_to_name`: `%`-нативные срезаются как есть, ведущий `$`-сигил локальной переменной срезается перед манглингом, обычные манглируются префиксами `c_`/`cpp_`/`ru_`/`u8_`), конвертация trust-имён в C++-вставках `{% ... %}` (`transform_embed_cpp`/`extract_embed_names`, маркеры `$`/`@`).
-- **error (FAULT/EXPECT)** — макросы для проверки инвариантов и фатальных ошибок с диагностикой.
-- **cache** — `LruCache` (O(1) по времени) и `SparseCache` для хранения результатов дорогих операций.
-- **ELF** — чтение ELF-заголовков и секций (используется debug для `.debug_trust_map`).
-- **backtrace** — получение и форматирование stack trace для диагностики.
-- **transport** — низкоуровневый ввод/вывод (read/write с таймаутами, non-blocking).
+- **file_io** - чтение/запись файлов (`FileIO::read<std::vector<char>>`/`read<std::string>`, `write`), работа с временными файлами и директориями.
+- **URI** - парсинг и формирование URI (`uriToFilePath`, `filePathToUri` с URL-encoding, `resolvePath`, `uriEncodePath`).
+- **strings** - строковые утилиты: trim, tokenize, is_number, extract_name, конвертация имён (`name_to_cpp`/`cpp_to_name`: `%`-нативные срезаются как есть, ведущий `$`-сигил локальной переменной срезается перед манглингом, обычные манглируются префиксами `c_`/`cpp_`/`ru_`/`u8_`), конвертация trust-имён в C++-вставках `{% ... %}` (`transform_embed_cpp`/`extract_embed_names`, маркеры `$`/`@`).
+- **error (FAULT/EXPECT)** - макросы для проверки инвариантов и фатальных ошибок с диагностикой.
+- **cache** - `LruCache` (O(1) по времени) и `SparseCache` для хранения результатов дорогих операций.
+- **ELF** - чтение ELF-заголовков и секций (используется debug для `.debug_trust_map`).
+- **backtrace** - получение и форматирование stack trace для диагностики.
+- **transport** - низкоуровневый ввод/вывод (read/write с таймаутами, non-blocking).

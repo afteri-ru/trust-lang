@@ -18,7 +18,7 @@ static constexpr char kEmbeddedDslSrc[] = {
 } // namespace
 
 BuiltinCatalog::BuiltinCatalog() {
-    // 1) Встроенные типы и их методы — из общего иммутабельного ядра. Один лёгкий
+    // 1) Встроенные типы и их методы - из общего иммутабельного ядра. Один лёгкий
     //    инстанс реестра (встроенные разделяются через TypeRegistry::builtinCore(),
     //    пользовательских типов нет). Тот же сбор методов, что и прежний typeSnapshot,
     //    но выполняется глобально один раз, а не на каждый файл.
@@ -27,7 +27,7 @@ BuiltinCatalog::BuiltinCatalog() {
         Options opts(diag);
         TypeRegistry reg(diag, opts);
         reg.forEachType([&](std::string_view name, bool userDefined) {
-            (void)userDefined; // каталог — только встроенные типы
+            (void)userDefined; // каталог - только встроенные типы
             auto tid = reg.findType(name);
             if (!tid) {
                 return;
@@ -43,13 +43,13 @@ BuiltinCatalog::BuiltinCatalog() {
                     (void)funcType;
                     t.methods[utils::bare_name(mname)] = true; // bare-имя (без '%'/'^') для LSP
                 }
-                // Алиасы методов (доверенные имена) — тоже в списке имён.
+                // Алиасы методов (доверенные имена) - тоже в списке имён.
                 for (const auto& [alias, target] : desc->methodAliases) {
                     (void)target;
                     t.methods[alias] = true;
                 }
                 // Члены классов/типов (TupleTypeData): имя → поле/метод. Методом считаем
-                // элемент, чей тип — функциональный (FunctionTypeData).
+                // элемент, чей тип - функциональный (FunctionTypeData).
                 if (const auto* td = reg.getTypeDataAs<TupleTypeData>(*tid)) {
                     for (const auto& el : td->elements) {
                         if (!el.name.empty()) {
@@ -61,7 +61,7 @@ BuiltinCatalog::BuiltinCatalog() {
         });
     }
 
-    // 2) Предопределённые макросы (@__...__ и др.) — из статического реестра парсера
+    // 2) Предопределённые макросы (@__...__ и др.) - из статического реестра парсера
     //    (PredefMacroNames сам вызывает InitPredefMacro).
     m_predefMacros = Parser::PredefMacroNames();
 

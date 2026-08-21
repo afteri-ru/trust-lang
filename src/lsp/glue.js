@@ -1,7 +1,7 @@
   (function () {
     var cfg = window.__TPG && window.__TPG.config;
     if (!cfg) { return; }
-    // Origin бэкенда (для абсолютных URL: /download живёт на балансировщике, а страница — на статике).
+    // Origin бэкенда (для абсолютных URL: /download живёт на балансировщике, а страница - на статике).
     var serverOrigin = '';
     try { serverOrigin = new URL(cfg.serverUrl, location.href).origin; } catch (e) { serverOrigin = ''; }
     var trustHost = document.getElementById('tpl-trust-editor');
@@ -24,25 +24,99 @@
     var loadedSource = cfg.source;
     // Индекс текущего выбранного примера в комбобоксе (для отката при отмене).
     var curExIndex = -1;
+    // Имя текущего выбранного примера (для кеша на балансировщике: X-Example-Name).
+    var curExampleName = '';
+
+    // Диагностики trust-lsp в логе приходят из stderr в формате
+    // "файл:строка:колонка: severity: сообщение" (см. src/diag/diag.cpp). Такие строки
+    // делаем кликабельными: клик переводит курсор редактора Trust на строку в исходнике.
+    var logDiagRe = /^(.+):(\d+):(\d+):\s*(fatal|error|warning|remark|note):(.*)$/;
+    var logFirstErrLine = 0; // 1-based строка исходника первой ошибки (для авто-перехода)
+
+    function gotoTrustLine(line, col) {
+      if (!trustEditor || !line || line < 1) { return; }
+      var column = (col && col > 0) ? col : 1;
+      trustEditor.setPosition({ lineNumber: line, column: column });
+      trustEditor.revealLineInCenter(line);
+      trustEditor.focus();
+    }
+
+    // При наличии в логе ошибки - перевести курсор на её строку. Не вырываем курсор,
+    // если пользователь активно редактирует (редактор Trust в фокусе): иначе debounce
+    // пере-транспиляции при каждом нажатии сбрасывал бы позицию на первую ошибку.
+    function autoFocusFirstError() {
+      if (logFirstErrLine && trustEditor && !trustEditor.hasTextFocus()) {
+        gotoTrustLine(logFirstErrLine, 1);
+      }
+    }
 
     function appendLog(msg) {
       if (!log) { return; }
-      log.textContent += (log.textContent ? '\n' : '') + msg;
+      var lines = String(msg).split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        var row = document.createElement('div');
+        row.className = 'tpl-logline';
+        var text = lines[i];
+        var m = logDiagRe.exec(text);
+        if (m) {
+          var ln = parseInt(m[2], 10);
+          var col = parseInt(m[3], 10);
+          var sev = (m[4] || '').toLowerCase();
+          var isErr = (sev === 'error' || sev === 'fatal');
+          if (isErr && !logFirstErrLine) { logFirstErrLine = ln; }
+          var link = document.createElement('span');
+          link.className = 'tpl-log-link ' + (isErr ? 'tpl-log-error' : 'tpl-log-warn');
+          link.textContent = text;
+          link.title = 'Перейти к строке ' + ln;
+          link.addEventListener('click', (function (ll, lc) {
+            return function () { gotoTrustLine(ll, lc); };
+          })(ln, col));
+          row.appendChild(link);
+        } else {
+          row.textContent = text;
+        }
+        log.appendChild(row);
+      }
       log.scrollTop = log.scrollHeight;
     }
-    function clearLog() { if (log) { log.textContent = ''; } }
+    function clearLog() {
+      if (log) { log.textContent = ''; }
+      logFirstErrLine = 0;
+    }
+
+    // Ссылка документации о песочнице должна вести в ту же языковую версию, что и
+    // страница. Сайт мультиязычный: ru -> /ru/docs/sandbox/, en -> /en/docs/sandbox/
+    // (или без префикса, если en - язык по умолчанию). Если на странице нет
+    // языкового префикса - возвращаем URL как есть.
+    function localizeLink(url) {
+      var m = /^\/(ru|en)\//.exec(location.pathname);
+      if (!m) { return url; }
+      var lang = m[1];
+      return url.replace(/^([a-z][a-z0-9+.-]*:\/\/[^\/]+)(\/)/i, '$1/' + lang + '$2');
+    }
 
     // Показ/скрытие центрированного сообщения поверх правой панели (ошибки,
     // нет связи с сервером песочницы). По умолчанию оверлей скрыт (display:none).
-    function setCppOverlay(html) {
+    // Контент собирается через createElement/textContent (НЕ innerHTML): строки
+    // (data.error, instructionsUrl) приходят от сервера и не должны исполняться как HTML.
+    function setCppOverlay(text, linkHref, linkText) {
       if (!cppOverlay) { return; }
-      cppOverlay.innerHTML = html;
+      cppOverlay.textContent = '';
+      if (text) { cppOverlay.appendChild(document.createTextNode(text)); }
+      if (linkHref) {
+        var a = document.createElement('a');
+        a.href = linkHref;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = linkText || linkHref;
+        cppOverlay.appendChild(a);
+      }
       cppOverlay.style.display = 'flex';
     }
     function clearCppOverlay() {
       if (!cppOverlay) { return; }
       cppOverlay.style.display = 'none';
-      cppOverlay.innerHTML = '';
+      cppOverlay.textContent = '';
     }
 
     function setDownloadDisabled(on) {
@@ -51,7 +125,7 @@
       else { downloadBtn.classList.remove('tpl-btn-disabled'); }
     }
 
-    // Ленивое скачивание build-архива: POST /download — отдельный запрос, заново
+    // Ленивое скачивание build-архива: POST /download - отдельный запрос, заново
     // обрабатывает текущий код и сразу возвращает tar.gz. НЕ зависит от /run.
     function downloadArchive() {
       if (!downloadBtn || !cfg.serverUrl) { return; }
@@ -60,7 +134,7 @@
       appendLog('building archive…');
       fetch(serverOrigin + '/download', {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        headers: requestHeaders(),
         body: body
       }).then(function (res) {
         if (!res.ok) {
@@ -92,7 +166,7 @@
       downloadBtn.addEventListener('click', function (ev) { ev.preventDefault(); downloadArchive(); });
     }
 
-    // Заполняем комбобокс примеров СРАЗУ (до загрузки Monaco) — он не может быть пустым.
+    // Заполняем комбобокс примеров СРАЗУ (до загрузки Monaco) - он не может быть пустым.
     function populateExamples() {
       if (!examplesSel || !cfg.examples || cfg.examples.length === 0) { return; }
       var matched = -1;
@@ -105,6 +179,7 @@
       }
       if (matched >= 0) {
         curExIndex = matched;
+        curExampleName = cfg.examples[matched].name;
         examplesSel.selectedIndex = matched;
       } else {
         // Текущий текст не совпадает ни с одним примером → отключённая опция «Custom».
@@ -115,6 +190,7 @@
         examplesSel.insertBefore(custom, examplesSel.firstChild);
         examplesSel.selectedIndex = 0;
         curExIndex = -1;
+        curExampleName = '';
       }
       examplesSel.onchange = function () {
         var idx = parseInt(examplesSel.value, 10);
@@ -130,12 +206,25 @@
         if (trustEditor) { trustEditor.setValue(ex.source); }
         loadedSource = ex.source;
         curExIndex = idx;
+        curExampleName = ex.name;
         setStatus('loaded example ' + ex.name);
       };
     }
     populateExamples();
 
     function setStatus(msg) { if (status) { status.textContent = msg; } }
+
+    // Заголовки к балансировщику: имя примера (для кеша - только пока текст НЕ изменён).
+    function requestHeaders() {
+      var h = { 'Content-Type': 'text/plain; charset=utf-8' };
+      var name = '';
+      if (curExampleName) {
+        var txt = (trustEditor && trustEditor.getValue) ? trustEditor.getValue() : '';
+        if (txt === loadedSource) { name = curExampleName; }
+      }
+      if (name) { h['X-Example-Name'] = name; }
+      return h;
+    }
 
     function setHealth(state, txt) {
       if (!healthEl) { return; }
@@ -145,7 +234,7 @@
 
     // Публичный пинг балансировщика: онлайн ли он и сколько воркеров активно.
     // Постоянный статус готовности, отличает «нет связи с балансировщиком» от «нет воркеров».
-    // Терпим к старым балансировщикам: если в ответе нет workers_connected — всё равно «онлайн»,
+    // Терпим к старым балансировщикам: если в ответе нет workers_connected - всё равно «онлайн»,
     // просто без счётчика (поле появилось в новой версии /health).
     function updateHealth() {
       if (!healthEl) { return; }
@@ -206,7 +295,7 @@
             minimap: { enabled: true }
           });
           cppEditor = monaco.editor.create(cppHost, {
-            // Трансляция НЕ хранится в шаблоне страницы — правый редактор
+            // Трансляция НЕ хранится в шаблоне страницы - правый редактор
             // стартует пустым и заполняется только из ответа балансировщика.
             value: '', language: 'cpp', theme: 'vs',
             readOnly: true, automaticLayout: true, scrollBeyondLastLine: false,
@@ -283,14 +372,14 @@
             }
           });
 
-          function resetCppPane(html) {
+          function resetCppPane(text, linkHref, linkText) {
             // Очищаем правую панель и показываем по центру сообщение об ошибке/нет связи.
             if (cppEditor && cppEditor.setValue) { cppEditor.setValue(''); }
             t2c = {}; c2t = {};
             cppDec = cppEditor.deltaDecorations(cppDec, []);
             cppGutterDec = cppEditor.deltaDecorations(cppGutterDec, []);
             trustGutterDec = trustEditor.deltaDecorations(trustGutterDec, []);
-            setCppOverlay(html);
+            setCppOverlay(text, linkHref, linkText);
             setDownloadDisabled(true);
           }
 
@@ -301,11 +390,11 @@
             appendLog('transpiling…');
             fetch(cfg.serverUrl, {
               method: 'POST',
-              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+              headers: requestHeaders(),
               body: body
             }).then(function (res) {
               // Читаем тело как текст и пытаемся распарсить JSON: балансировщик
-              // может вернуть HTML/прокси-ошибку (не JSON) — в этом случае трактуем
+              // может вернуть HTML/прокси-ошибку (не JSON) - в этом случае трактуем
               // как отсутствие связи/ошибку и не роняем цепочку.
               return res.text().then(function (txt) {
                 var data = null;
@@ -315,13 +404,14 @@
             }).then(function (rr) {
               var data = rr.data;
               if (data && data.unavailable) {
-                var umsg = (data.error || 'Нет свободных воркеров');
-                if (data.instructionsUrl) {
-                  umsg = umsg + ' — <a href="' + data.instructionsUrl + '" target="_blank" rel="noopener">запустите свой узел</a>';
-                }
+                // Нет доступных воркеров (балансировщик онлайн, но ни один воркер не
+                // подключён/не свободен). Отличаем от «Нет связи с балансировщиком».
+                var umsg = 'Нет доступных воркеров';
+                var uLink = null;
+                if (data.instructionsUrl) { uLink = localizeLink(data.instructionsUrl); }
+                appendLog((data && data.error) ? data.error : umsg);
                 setStatus(umsg);
-                appendLog(umsg);
-                resetCppPane(umsg);
+                resetCppPane(umsg, uLink, 'запустите свой узел');
                 return;
               }
               if (!rr.ok) {
@@ -338,6 +428,7 @@
                 appendLog(err);
                 if (data && data.log) { appendLog(data.log); }
                 resetCppPane(err);
+                autoFocusFirstError();
                 return;
               }
               cppEditor.setValue(data.cpp);
@@ -348,12 +439,12 @@
               setStatus('ok');
               appendLog('ok');
               if (data.log) { appendLog(data.log); }
+              autoFocusFirstError();
             }).catch(function (err) {
-              // Сетевой сбой (нет связи с балансировщиком).
-              var m = 'Нет связи с балансировщиком';
-              setStatus(m);
+              // Сетевой сбой (нет связи с балансировщиком) - НЕ путать с «нет воркеров».
               appendLog('request failed: ' + err);
-              resetCppPane(m);
+              resetCppPane('Нет связи с балансировщиком');
+              setStatus('Нет связи с балансировщиком');
             });
           }
 
@@ -376,6 +467,60 @@
 
     updateHealth();
     setInterval(updateHealth, 5000);
+
+    // --- Изменяемый размер окон: вертикальный сплиттер Trust|C++ и горизонтальный (высота лога) ---
+    var playground = document.getElementById('trust-playground');
+    var splitV = document.getElementById('tpl-split-v');
+    var splitH = document.getElementById('tpl-split-h');
+
+    // Универсальный drag для сплиттера (мышь). После вертикального перетаскивания
+    // редакторы Monaco требуют явного layout() - см. onDrag.
+    function makeSplitter(handle, axis, onDrag) {
+      if (!handle) { return; }
+      var dragging = false;
+      var cursor = (axis === 'v') ? 'col-resize' : 'row-resize';
+      handle.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) { return; }
+        dragging = true;
+        document.body.style.cursor = cursor;
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', function (e) {
+        if (!dragging) { return; }
+        onDrag(e.clientX, e.clientY);
+      });
+      document.addEventListener('mouseup', function () {
+        if (!dragging) { return; }
+        dragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      });
+    }
+
+    // Вертикальный сплиттер: ширина левой (Trust) панели в процентах от .tpl-row.
+    if (splitV && trustHost) {
+      var rowEl = splitV.parentElement;
+      makeSplitter(splitV, 'v', function (cx) {
+        var rect = rowEl.getBoundingClientRect();
+        if (rect.width <= 0) { return; }
+        var pct = ((cx - rect.left) / rect.width) * 100;
+        pct = Math.max(15, Math.min(85, pct));
+        trustHost.parentElement.style.flex = '0 0 ' + pct + '%';
+        if (trustEditor) { trustEditor.layout(); }
+        if (cppEditor) { cppEditor.layout(); }
+      });
+    }
+
+    // Горизонтальный сплиттер: высота окна лога (от курсора до низа контейнера).
+    if (splitH && log && playground) {
+      makeSplitter(splitH, 'h', function (cx, cy) {
+        var bottom = playground.getBoundingClientRect().bottom;
+        var h = Math.max(40, Math.min(500, bottom - cy - 6));
+        log.style.height = h + 'px';
+      });
+    }
+
 
     loadScript(cfg.monacoUrl + '/loader.js', initEditors);
   })();

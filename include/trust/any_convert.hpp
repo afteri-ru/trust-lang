@@ -1,8 +1,8 @@
-// trust/any_convert.hpp — типизированная конверсия из элемента словаря (TypedValue).
+// trust/any_convert.hpp - типизированная конверсия из элемента словаря (TypedValue).
 //
-// Public runtime header. Используется кодогенерацией для `:Type(d.field)` — когда операнд
+// Public runtime header. Используется кодогенерацией для `:Type(d.field)` - когда операнд
 // каста является элементом словаря (TypedValue: kind + std::any). Категория и размерность
-// значения закодированы в kind (TypeKind: Group|Data) и декодируются методами TypedValue —
+// значения закодированы в kind (TypeKind: Group|Data) и декодируются методами TypedValue -
 // автономно, без TypeRegistry:
 //   - числовой целевой тип ← kind-число       → checked_cast (контроль диапазона);
 //   - std::string          ← kind-строка      → конверсия;
@@ -59,7 +59,7 @@ namespace detail {
             return static_cast<long double>(p->GetAsNumber());
         }
     }
-    // std::any-ветка (открытые типы / несоответствие) — попытка числовой конверсии.
+    // std::any-ветка (открытые типы / несоответствие) - попытка числовой конверсии.
     if (const std::any* a = std::get_if<std::any>(&tv.storage)) {
         return static_cast<long double>(anyToDouble(*a));
     }
@@ -87,8 +87,8 @@ namespace detail {
 } // namespace detail
 
 /// Типизированная конверсия из элемента словаря (TypedValue). Поведение зависит от To:
-/// числовой (интеграл/float) — извлечение числа по kind + checked_cast; std::string — из
-/// строки; иначе — точный std::any_cast.
+/// числовой (интеграл/float) - извлечение числа по kind + checked_cast; std::string - из
+/// строки; иначе - точный std::any_cast.
 template <typename To>
 [[nodiscard]] To any_to(const TypedValue& tv) {
     if constexpr (std::is_arithmetic_v<To>) {
@@ -96,7 +96,7 @@ template <typename To>
     } else if constexpr (std::is_same_v<To, std::string>) {
         return detail::typedToString(tv);
     } else if constexpr (std::is_same_v<To, Rational>) {
-        // Rational — быстрая ветка variant (по значению).
+        // Rational - быстрая ветка variant (по значению).
         if (const Rational* p = std::get_if<Rational>(&tv.storage)) {
             return *p;
         }

@@ -6,22 +6,22 @@
 
 namespace trust {
 
-// ── Forward declarations ────────────────────────────────
+// -- Forward declarations --------------------------------
 enum class Group : uint8_t;
 enum class TypeClass : uint8_t;
 enum class RefType : uint8_t;
 
-// ── SizeUnit (bits or bytes) ────────────────────────────
+// -- SizeUnit (bits or bytes) ----------------------------
 enum class SizeUnit : uint8_t {
     kBits = 0,
     kBytes = 1,
 };
 
-// ── TypeKind ─────────────────────────────────────────────
+// -- TypeKind ---------------------------------------------
 // 32-bit: Group(8) + Data(8) + RefType(4) + TypeClass(2) + SizeUnit(1) + Reserved(9)
 using TypeKind = uint32_t;
 
-// ── Bit positions ────────────────────────────────────────
+// -- Bit positions ----------------------------------------
 constexpr uint32_t kTypeKindGroupShift = 0;
 constexpr uint32_t kTypeKindGroupMask = 0xFFU << kTypeKindGroupShift;
 
@@ -40,7 +40,7 @@ constexpr uint32_t kTypeKindSizeUnitMask = 0x1U << kTypeKindSizeUnitShift;
 constexpr uint32_t kTypeKindReservedShift = 23;
 constexpr uint32_t kTypeKindReservedMask = 0x1FFU << kTypeKindReservedShift;
 
-// ── Builtin flag ──────────────────────────────────────────
+// -- Builtin flag ------------------------------------------
 // Бит флага "встроенный тип". Устанавливается registerBuiltinType(),
 // позволяет определить builtin-тип по TypeKind без доступа к TypeRegistry.
 constexpr uint32_t kTypeKindBuiltinFlag = 0x1U << kTypeKindReservedShift;
@@ -53,7 +53,7 @@ constexpr TypeKind setBuiltinFlag(TypeKind k) noexcept {
 constexpr bool hasBuiltinFlag(TypeKind k) noexcept {
     return (static_cast<uint32_t>(k) & kTypeKindBuiltinFlag) != 0;
 }
-// ── TypeClass ────────────────────────────────────────────
+// -- TypeClass --------------------------------------------
 enum class TypeClass : uint8_t {
     kTrivial = 0,     // memcpy ok, no ctor/dtor
     kRelocatable = 1, // memcpy + destroy old
@@ -61,29 +61,29 @@ enum class TypeClass : uint8_t {
     kPolymorphic = 3, // vtable, dynamic_cast
 };
 
-// ── RefType ──────────────────────────────────────────────
-// Плоский enum «вид ссылки». ОДИН признак ссылки на объявление — осознанное решение
+// -- RefType ----------------------------------------------
+// Плоский enum «вид ссылки». ОДИН признак ссылки на объявление - осознанное решение
 // для упрощения понимания системы ссылочных типов (НЕ следствие 4-битного поля),
-// подробно: types/REFType.md. Первая ссылка на тип без признака — fast-path бит
+// подробно: types/REFType.md. Первая ссылка на тип без признака - fast-path бит
 // (withRefType); для вложенности (ссылку на уже ссылочный тип) создаётся составной
 // узел getOrCreateRefType (types/registry.hpp). Сырые C++-виды (ptr/ref/rref/mptr/ptrptr)
-// напрямую операторами не используются — только через атрибут `@[reftype("...")]`;
+// напрямую операторами не используются - только через атрибут `@[reftype("...")]`;
 // классические операторы дают безопасные виды (value/shared/weak/unique).
 enum class RefType : uint8_t {
-    kValue = 0,  // value  — владение значением (без ссылки)
-    kShared = 1, // shared — совместное владение
-    kWeak = 2,   // weak   — слабая (не владеющая) ссылка
-    kUnique = 3, // unique — исключительное владение
-    kPtr = 4,    // ptr    — сырой указатель (*), только через атрибут
-    kMptr = 5,   // mptr   — указатель на член (::*), MemberPointerTypeData
-    kRef = 6,    // ref    — ссылка (&), только через атрибут
-    kRref = 7,   // rref   — rvalue-ссылка (&&), только через атрибут
-    kPtrPtr = 8, // ptrptr — указатель на указатель (**)
-    kTake = 9,   // take   — владеющая в рамках текущего скоупа (RAII-охранник, результат take)
+    kValue = 0,  // value  - владение значением (без ссылки)
+    kShared = 1, // shared - совместное владение
+    kWeak = 2,   // weak   - слабая (не владеющая) ссылка
+    kUnique = 3, // unique - исключительное владение
+    kPtr = 4,    // ptr    - сырой указатель (*), только через атрибут
+    kMptr = 5,   // mptr   - указатель на член (::*), MemberPointerTypeData
+    kRef = 6,    // ref    - ссылка (&), только через атрибут
+    kRref = 7,   // rref   - rvalue-ссылка (&&), только через атрибут
+    kPtrPtr = 8, // ptrptr - указатель на указатель (**)
+    kTake = 9,   // take   - владеющая в рамках текущего скоупа (RAII-охранник, результат take)
     // 10-15 reserved
 };
 
-// ── Строковые имена видов ссылок (для @[reftype("...")] и диагностики) ──
+// -- Строковые имена видов ссылок (для @[reftype("...")] и диагностики) --
 [[nodiscard]] constexpr std::string_view refTypeName(RefType r) noexcept {
     switch (r) {
     case RefType::kValue:
@@ -146,7 +146,7 @@ enum class RefType : uint8_t {
     return std::nullopt;
 }
 
-// ── Construction ─────────────────────────────────────────
+// -- Construction -----------------------------------------
 constexpr TypeKind makeTypeKind(Group group, uint8_t data, TypeClass tc = TypeClass::kTrivial, RefType ref = RefType::kValue,
                                 SizeUnit su = SizeUnit::kBits) noexcept {
     auto raw = static_cast<uint32_t>(static_cast<uint8_t>(group)) | (static_cast<uint32_t>(data) << kTypeKindDataShift) |
@@ -155,7 +155,7 @@ constexpr TypeKind makeTypeKind(Group group, uint8_t data, TypeClass tc = TypeCl
     return static_cast<TypeKind>(raw);
 }
 
-// ── Field extraction ─────────────────────────────────────
+// -- Field extraction -------------------------------------
 constexpr Group getGroup(TypeKind k) noexcept {
     return static_cast<Group>(static_cast<uint32_t>(k) & kTypeKindGroupMask);
 }
@@ -176,13 +176,13 @@ constexpr SizeUnit getSizeUnit(TypeKind k) noexcept {
     return static_cast<SizeUnit>((static_cast<uint32_t>(k) & kTypeKindSizeUnitMask) >> kTypeKindSizeUnitShift);
 }
 
-// ── Field setting (returns new TypeKind) ──────────────────
+// -- Field setting (returns new TypeKind) ------------------
 constexpr TypeKind withRefType(TypeKind k, RefType ref) noexcept {
     auto raw = (static_cast<uint32_t>(k) & ~kTypeKindRefTypeMask) | (static_cast<uint32_t>(ref) << kTypeKindRefTypeShift);
     return static_cast<TypeKind>(raw);
 }
 
-// ── Classification helpers ───────────────────────────────
+// -- Classification helpers -------------------------------
 // Data != 0 → builtin concrete type (can be stored as value)
 constexpr bool isBuiltinConcrete(TypeKind k) noexcept {
     return getData(k) != 0;

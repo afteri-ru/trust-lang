@@ -1,5 +1,5 @@
 # include/module_loader/CMakeLists.txt
-# Module loader library — needed by diag::Context (and pipeline_lib)
+# Module loader library - needed by diag::Context (and pipeline_lib)
 
 set(SYNTAX_GEN_DIR "${CMAKE_BINARY_DIR}/syntax")
 

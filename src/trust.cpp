@@ -1,4 +1,4 @@
-// src/trust.cpp — точка входа в компилятор/транспилятор Trust
+// src/trust.cpp - точка входа в компилятор/транспилятор Trust
 #include "pipeline/pipeline.hpp"
 #include "diag/diag.hpp"
 
@@ -10,7 +10,7 @@ int main(int argc, char* argv[], char* envp[]) {
     (void)envp;
 
     // Linux-хешбанг передаёт ВЕСЬ текст после интерпретатора ОДНИМ аргументом
-    // (например "--run -Wembed=ignore" — один argv-токен, т.к. ядро не разбивает пробелы).
+    // (например "--run -Wembed=ignore" - один argv-токен, т.к. ядро не разбивает пробелы).
     // Разбиваем option-аргументы (начинающиеся с '-'), содержащие пробелы, на отдельные токены,
     // чтобы --run и -W опции распознавались корректно. Не-option аргументы (пути) не трогаем.
     std::vector<std::string> argStrs;
@@ -35,7 +35,7 @@ int main(int argc, char* argv[], char* envp[]) {
     // Парсинг аргументов командной строки
     auto result = trust::Pipeline::parseArgs(static_cast<int>(newArgv.size()), newArgv.data());
 
-    // Help/version/errors — выходим сразу
+    // Help/version/errors - выходим сразу
     if (trust::Pipeline::isSpecialExit(result)) {
         return result.exit_code;
     }

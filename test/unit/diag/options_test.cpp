@@ -334,7 +334,7 @@ TEST(Options, SetUnknownThrows) {
     EXPECT_THROW(opts.set("unknown", Severity::Error), std::invalid_argument);
 }
 
-// ── Булевые feature-флаги (OPTIONS_FLAGS) ──
+// -- Булевые feature-флаги (OPTIONS_FLAGS) --
 
 TEST(Options, FlagRegisterAndToggle) {
     Options opts;

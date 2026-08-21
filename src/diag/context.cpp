@@ -85,7 +85,7 @@ std::string trailingInlineDoc(const SourceMapWriter& src, MapperLocation defEnd)
 }
 
 // Документирующий комментарий макроопределения: доки ПЕРЕД begin + хвостовой inline-док
-// (`///<`/`##<`) после end. Источник — текст файла (макроопределения сворачиваются в
+// (`///<`/`##<`) после end. Источник - текст файла (макроопределения сворачиваются в
 // макропроцессоре и AST-узла не имеют), привязан к определению макроса в точке записи.
 std::string macroDocComment(const SourceMapWriter& src, MapperLocation begin, MapperLocation end) {
     std::string out = precedingDocComment(src, begin);
@@ -104,7 +104,7 @@ std::string macroDocComment(const SourceMapWriter& src, MapperLocation begin, Ma
 //                         Context
 // ══════════════════════════════════════════════════════════════
 
-// ── Конструкторы ──
+// -- Конструкторы --
 
 Context::Context()
 : m_sourceMap(std::make_unique<SourceMapWriter>())
@@ -121,9 +121,9 @@ Context::Context()
     // Проверки `assert`/`verify` включены по умолчанию (безопасность по умолчанию);
     // отключаются через `-Wno-assert`.
     m_opts->set_enabled(FlagKind::Assert, true);
-    // Стек вызовов при провале assert/verify печатается ПО УМОЛЧАНИЮ; отключение — через -Wno-backtrace.
+    // Стек вызовов при провале assert/verify печатается ПО УМОЛЧАНИЮ; отключение - через -Wno-backtrace.
     m_opts->set_enabled(FlagKind::Backtrace, true);
-    // Комментарии в C++-выводе выводятся по умолчанию; подавление — через -Wno-comments
+    // Комментарии в C++-выводе выводятся по умолчанию; подавление - через -Wno-comments
     // (флаг «comments» выключен = подавлять). См. OPTIONS_FLAGS(Comments).
     m_opts->set_enabled(FlagKind::Comments, true);
 }
@@ -143,14 +143,14 @@ Context::Context(std::string_view basePath, std::string_view tempPath)
     // Проверки `assert`/`verify` включены по умолчанию (безопасность по умолчанию);
     // отключаются через `-Wno-assert`.
     m_opts->set_enabled(FlagKind::Assert, true);
-    // Стек вызовов при провале assert/verify печатается ПО УМОЛЧАНИЮ; отключение — через -Wno-backtrace.
+    // Стек вызовов при провале assert/verify печатается ПО УМОЛЧАНИЮ; отключение - через -Wno-backtrace.
     m_opts->set_enabled(FlagKind::Backtrace, true);
-    // Комментарии в C++-выводе выводятся по умолчанию; подавление — через -Wno-comments
+    // Комментарии в C++-выводе выводятся по умолчанию; подавление - через -Wno-comments
     // (флаг «comments» выключен = подавлять). См. OPTIONS_FLAGS(Comments).
     m_opts->set_enabled(FlagKind::Comments, true);
 }
 
-// ── Доступ к компонентам ──
+// -- Доступ к компонентам --
 
 SourceMapWriter& Context::source() {
     return *m_sourceMap;
@@ -220,7 +220,7 @@ void Context::recordMacro(std::string name, MapperRange range) {
     MacroDef md;
     md.name = std::move(name);
     md.range = range;
-    // Документирующий комментарий макроопределения (ведущий + хвостовой inline) — для LSP-док.
+    // Документирующий комментарий макроопределения (ведущий + хвостовой inline) - для LSP-док.
     md.documentation = macroDocComment(*m_sourceMap, range.begin, range.end);
     m_macroDefs.push_back(std::move(md));
 }

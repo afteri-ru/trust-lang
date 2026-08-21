@@ -292,7 +292,7 @@ TEST_F(MacroTest, Pragma) {
 
 TEST_F(MacroTest, DISABLED_Annotate) {
 
-    // Logger callback removed — errors are printed to stderr, not captured in m_output.
+    // Logger callback removed - errors are printed to stderr, not captured in m_output.
     // These tests verify the annotation pragma behavior through parser exceptions and LexOut.
 
     ASSERT_ANY_THROW(Parse("@__ANNOTATION_SET__"));
@@ -1388,12 +1388,12 @@ TEST_F(MacroTest, MacroArityGrouping) {
     ASSERT_NO_THROW(Parse("@@ break $label @@ ::= @@ @$label ++ @@;", macro)) << macro->Dump();
     ASSERT_EQ(2, macro->CountInScope(0)) << macro->Dump();
 
-    // Переопределение ТОЙ ЖЕ сигнатуры оператором `:=` — молча, без новой записи.
+    // Переопределение ТОЙ ЖЕ сигнатуры оператором `:=` - молча, без новой записи.
     ASSERT_NO_THROW(Parse("@@ break @@ := @@ ++ @@;", macro)) << macro->Dump();
     ASSERT_EQ(2, macro->CountInScope(0)) << macro->Dump();
 
-    // Шаблоны той же арности и структуры (break $label / break $x) — одна сигнатура:
-    // `::=` (create-only) на ту же сигнатуру — ошибка «already exists».
+    // Шаблоны той же арности и структуры (break $label / break $x) - одна сигнатура:
+    // `::=` (create-only) на ту же сигнатуру - ошибка «already exists».
     ASSERT_ANY_THROW(Parse("@@ break $x @@ ::= @@ @$x ++ @@;", macro)) << macro->Dump();
     ASSERT_EQ(2, macro->CountInScope(0)) << macro->Dump();
 
@@ -1783,7 +1783,7 @@ TEST_F(MacroTest, HygienicQualified) {
     ASSERT_TRUE(LexOut().find("42") != std::string::npos);
 }
 
-// ── @__OPTION_PUSH__ / @__OPTION__ / @__OPTION_POP__ ──
+// -- @__OPTION_PUSH__ / @__OPTION__ / @__OPTION_POP__ --
 
 TEST_F(MacroTest, OptionMacroRedefinedIgnore) {
     MacroPtr macro = std::make_shared<Macro>(m_ctx);
@@ -1791,7 +1791,7 @@ TEST_F(MacroTest, OptionMacroRedefinedIgnore) {
     ASSERT_NO_THROW(Parse("@__OPTION_PUSH__;", macro));
     ASSERT_NO_THROW(Parse("@__OPTION__(\"macro-redefined\", \"ignore\");", macro));
 
-    // ::= — запрещённое по умолчанию переопределение, с ignore — молча игнорируется
+    // ::= - запрещённое по умолчанию переопределение, с ignore - молча игнорируется
     ASSERT_NO_THROW(Parse("@@ A @@ ::= 1;", macro));
     ASSERT_NO_THROW(Parse("@@ A @@ ::= 2;", macro));
     ASSERT_EQ(0, m_ctx.diag().errorCount()) << macro->Dump();
@@ -1804,7 +1804,7 @@ TEST_F(MacroTest, OptionMacroRedefinedErrorByDefault) {
 
     ASSERT_NO_THROW(Parse("@@ B @@ ::= 1;", macro));
     m_ctx.diag().clear();
-    // По умолчанию macro-redefined имеет severity Fatal — переопределение запрещено
+    // По умолчанию macro-redefined имеет severity Fatal - переопределение запрещено
     ASSERT_ANY_THROW(Parse("@@ B @@ ::= 2;", macro)) << macro->Dump();
 }
 
@@ -1841,7 +1841,7 @@ TEST_F(MacroTest, OptionUnknownSeverityError) {
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
 
-// ── @__OPTION_TRUE__ / @__OPTION_FALSE__ (условная подстановка по feature-флагу) ──
+// -- @__OPTION_TRUE__ / @__OPTION_FALSE__ (условная подстановка по feature-флагу) --
 
 TEST_F(MacroTest, OptionTRUE_FlagEnabled) {
     MacroPtr macro = std::make_shared<Macro>(m_ctx);
@@ -1919,7 +1919,7 @@ TEST_F(MacroTest, OptionFALSE_CommaLexeme) {
     ASSERT_NE(std::string::npos, ast->toString().find("g(1, 2)")) << ast->toString();
 }
 
-// ── @__OPTION_IIF__(flag, true, false) — две ветки по булевому флагу ──
+// -- @__OPTION_IIF__(flag, true, false) - две ветки по булевому флагу --
 
 TEST_F(MacroTest, OptionIIF_TrueBranch) {
     MacroPtr macro = std::make_shared<Macro>(m_ctx);
@@ -1976,7 +1976,7 @@ TEST_F(MacroTest, PredefRootDir) {
 
 // Вложенный Parser (через Parser::ParseTerm) наследует Macro из Context:
 // dsl-макрос, загруженный в m_ctx, раскрывается во вложенном парсере.
-// macro_expand=false — специальный случай «без раскрытия макросов».
+// macro_expand=false - специальный случай «без раскрытия макросов».
 TEST_F(MacroTest, NestedParserInheritsMacroFromContext) {
     MacroPtr macro = std::make_shared<Macro>(m_ctx);
     ASSERT_NO_THROW(Parse("@@ true @@ := 1;", macro));
@@ -1986,7 +1986,7 @@ TEST_F(MacroTest, NestedParserInheritsMacroFromContext) {
     ASSERT_EQ(TermID::INTEGER, term->getTermID()) << term->toString();
     ASSERT_EQ("1", term->getText());
 
-    // macro_expand=false — раскрытие отключено, остаётся токен MACRO.
+    // macro_expand=false - раскрытие отключено, остаётся токен MACRO.
     term = Parser::ParseTerm("@true;", m_ctx, true, /*macro_expand=*/false);
     ASSERT_TRUE(term);
     ASSERT_EQ(TermID::MACRO, term->getTermID()) << term->toString();
@@ -2090,12 +2090,12 @@ TEST_F(MacroTest, MacroMapping_DoesNotSwallowNextToken) {
     size_t plusIdx = src.find('+');
     ASSERT_NE(plusIdx, std::string::npos);
 
-    // Позиция на операторе '+' находится после конца вызова `alias` — маппинга быть не должно
+    // Позиция на операторе '+' находится после конца вызова `alias` - маппинга быть не должно
     auto atPlus = reader->getMacroDefRange(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(plusIdx))));
     EXPECT_FALSE(atPlus.has_value());
 }
 
-// ── @__MODULE_NAME__ ──
+// -- @__MODULE_NAME__ --
 
 // Прямое раскрытие предопределённого макроса @__MODULE_NAME__: имя файла модуля
 // без расширения, относительно главного файла, разделители каталога → '_'.

@@ -2,7 +2,7 @@
 #include <iostream>
 #include "utils/io.hpp"
 
-// ── LSP Protocol helpers ──
+// -- LSP Protocol helpers --
 
 using json = nlohmann::json;
 
@@ -46,9 +46,9 @@ void sendLspRequest(trust::transport::Transport& transport, const std::string& m
     transport.send(payload);
 }
 
-// ── TCP server helpers (делегированы в trust::transport) ──
+// -- TCP server helpers (делегированы в trust::transport) --
 
-// ── CLI parsing ──
+// -- CLI parsing --
 
 void printLspUsage(const char* prog) {
     trust::errs() << "Usage: " << prog << " [options] [input]\n"
@@ -84,7 +84,7 @@ LspOptions parseLspOptions(int argc, const char* argv[]) {
             return opts;
         }
 
-        // server[=port] — TCP server mode
+        // server[=port] - TCP server mode
         if (std::strncmp(argv[i], "server", 6) == 0) {
             opts.mode = LspMode::Server;
             const char* eq = std::strchr(argv[i], '=');
@@ -131,7 +131,7 @@ LspOptions parseLspOptions(int argc, const char* argv[]) {
         } else if (std::strcmp(argv[i], "--trace") == 0) {
             opts.trace = true;
         } else if (std::strncmp(argv[i], "-W", 2) == 0) {
-            // Опции диагностики (-W<name>=<status>) — пробрасываются в pipeline.
+            // Опции диагностики (-W<name>=<status>) - пробрасываются в pipeline.
             opts.pipelineArgs.push_back(argv[i]);
         } else {
             trust::errs() << "Error: unknown option '" << argv[i] << "'\n";

@@ -41,12 +41,12 @@ class Parser {
     parser::token_type ExpandPredefMacro(TermPtr& term);
 
     static int m_counter;
-    // Единый реестр предопределённых макросов (@__...__ и др.) — static, чтобы
+    // Единый реестр предопределённых макросов (@__...__ и др.) - static, чтобы
     // LSP-автодополнение могло перечислять его без инстанса парсера.
     static std::map<std::string, std::string> m_predef_macro;
     static bool RegisterPredefMacro(const char* name, const char* desc);
     static void InitPredefMacro();
-    /// Имена предопределённых макросов (ключи m_predef_macro) — для автодополнения.
+    /// Имена предопределённых макросов (ключи m_predef_macro) - для автодополнения.
     static std::vector<std::string> PredefMacroNames();
     bool CheckPredefMacro(const TermPtr& term);
 
@@ -75,13 +75,13 @@ class Parser {
 
     SequenceType m_macro_analisys_buff; ///< Последовательность лексем для анализа на наличие макросов
 
-    // TODO(cleanup): unused — commented out, see task 1785696533477
+    // TODO(cleanup): unused - commented out, see task 1785696533477
     // TermPtr m_expected;
     // TermPtr m_unexpected;
-    // TODO(cleanup): unused — commented out, see task 1785675437901
+    // TODO(cleanup): unused - commented out, see task 1785675437901
     // TermPtr m_finalize;
     // int m_finalize_counter;
-    // TODO(cleanup): unused — only for m_annotation pragmas, commented out, see task 1785678668891
+    // TODO(cleanup): unused - only for m_annotation pragmas, commented out, see task 1785678668891
     // TermPtr m_annotation;
     bool m_no_macro;
     bool m_enable_pragma;
@@ -112,7 +112,7 @@ class Parser {
 
     /// Парсит текстовый фрагмент (не файл/модуль) под указанным «фиктивным» именем
     /// источника. Имена фиктивных источников помечаются префиксом '@' (in-memory,
-    /// файла на диске нет). По умолчанию "@input"; для встроенного DSL — "@dsl".
+    /// файла на диске нет). По умолчанию "@input"; для встроенного DSL - "@dsl".
     TermPtr ParseText(std::string_view text, std::string_view sourceName = "@input", bool expand_module = false);
 
     /// Парсит из уже зарегистрированного source-файла (не создавая in-memory
@@ -128,7 +128,7 @@ class Parser {
                             bool macro_expand = true);
     static TermPtr ParseTerm(const char* proto, trust::Context& ctx, bool pragma_enable = true, bool macro_expand = true);
 
-    // TODO(cleanup): unused — commented out, see task 1785675437901
+    // TODO(cleanup): unused - commented out, see task 1785675437901
     // inline static bool IsBracket(const std::string_view str) { return str.size() > 0 && (str[0] == '(' || str[0] == '[' || str[0] == '<'); }
 
     static std::string GetCurrentDate(time_t ts = std::time(NULL));
@@ -149,7 +149,7 @@ class Parser {
 
   private:
     TermPtr m_ast;
-    // TODO(cleanup): unused — commented out, see task 1785675437901
+    // TODO(cleanup): unused - commented out, see task 1785675437901
     // bool m_is_runing;
     PostLexerType* m_postlex;
 };

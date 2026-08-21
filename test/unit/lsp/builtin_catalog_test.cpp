@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// Unit tests for BuiltinCatalog — глобальный каталог встроенных имён LSP
+// Unit tests for BuiltinCatalog - глобальный каталог встроенных имён LSP
 // -----------------------------------------------------------------------
 
 #include "lsp/builtin_catalog.h"
@@ -26,7 +26,7 @@ TEST_F(BuiltinCatalogTest, ContainsBuiltinTypes) {
     }
 }
 
-// Встроенный тип несёт свои методы (методы функции — true, %-префикс у нативных).
+// Встроенный тип несёт свои методы (методы функции - true, %-префикс у нативных).
 TEST_F(BuiltinCatalogTest, StrCharHasMethods) {
     auto it = cat.types().find("StrChar");
     ASSERT_TRUE(it != cat.types().end());
@@ -37,8 +37,8 @@ TEST_F(BuiltinCatalogTest, StrCharHasMethods) {
 }
 
 // Алиасы нативных методов попадают в список имён для экспорта в LSP: каталог `Range`
-// содержит trust-имена методов, включая алиас `length` (нативное имя — `count`), нативные
-// `%size`/`%length` (в каталоге — как `size`/`length`) и обычные методы.
+// содержит trust-имена методов, включая алиас `length` (нативное имя - `count`), нативные
+// `%size`/`%length` (в каталоге - как `size`/`length`) и обычные методы.
 TEST_F(BuiltinCatalogTest, RangeHasMethodsWithAlias) {
     auto it = cat.types().find("Range");
     ASSERT_TRUE(it != cat.types().end()) << "Range must be in the builtin catalog";
@@ -49,7 +49,7 @@ TEST_F(BuiltinCatalogTest, RangeHasMethodsWithAlias) {
     }
 }
 
-// Каталог — только встроенные (userDefined всегда false).
+// Каталог - только встроенные (userDefined всегда false).
 TEST_F(BuiltinCatalogTest, OnlyBuiltin) {
     for (const auto& [name, info] : cat.types()) {
         (void)name;

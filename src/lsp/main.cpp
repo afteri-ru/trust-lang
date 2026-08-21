@@ -25,7 +25,7 @@ int main(int argc, const char* argv[]) {
 
     // ═══ Playground output modes (--json / --html) ═══
     // In-process транспиляция Trust → C++ + построчный source-map,
-    // результат — JSON (live-контракт) или godbolt-стиль HTML-фрагмент.
+    // результат - JSON (live-контракт) или godbolt-стиль HTML-фрагмент.
     if (opts.mode == LspMode::Json || opts.mode == LspMode::Html) {
         std::string code;
         std::string fileName = opts.inputFile;
@@ -146,7 +146,7 @@ int main(int argc, const char* argv[]) {
             }
         } catch (const std::exception& e) {
             trust::errs() << "trust-lsp: FATAL ERROR (interactive): " << e.what() << "\n";
-            // Продолжаем цикл — сервер не должен упасть
+            // Продолжаем цикл - сервер не должен упасть
         } catch (...) {
             trust::errs() << "trust-lsp: FATAL ERROR (interactive): unknown exception\n";
         }

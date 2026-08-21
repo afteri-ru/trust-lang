@@ -102,7 +102,7 @@ TEST(SrcMapCliReadback, EmitCppProducesReadableMap) {
     //    that base dir by stripping the relative suffix from the absolute path.
     //    ('@'-prefixed in-memory inputs are skipped by readFilesFromDisk; the
     //     overall return value may still be false if the .cppt output lives in a
-    //     different temp dir than baseDir — a separate path-resolution concern.)
+    //     different temp dir than baseDir - a separate path-resolution concern.)
     std::string absSrc = fs::absolute(srcPath).lexically_normal().generic_string();
     if (absSrc.ends_with(inName) && inName.size() < absSrc.size()) {
         fs::path baseDir = fs::path(absSrc.substr(0, absSrc.size() - inName.size()));

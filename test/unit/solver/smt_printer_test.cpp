@@ -232,7 +232,7 @@ SmtScript buildInt64ContractScript() {
     eq->fun_name = "=";
     eq->args = {result_term, add};
 
-    // (not (> result x)) — negated postcondition to check
+    // (not (> result x)) - negated postcondition to check
     auto gt = std::make_shared<SmtTerm>();
     gt->kind = SmtTermKind::kApp;
     gt->fun_name = ">";
@@ -275,7 +275,7 @@ SmtScript buildInt64ContractScript() {
     cmd_eq.assert_term = eq;
     script.commands.push_back(cmd_eq);
 
-    // assert (not (> result x)) — try to refute postcondition
+    // assert (not (> result x)) - try to refute postcondition
     SmtCommand cmd_refute;
     cmd_refute.kind = SmtCommandKind::kAssert;
     cmd_refute.assert_term = not_gt;

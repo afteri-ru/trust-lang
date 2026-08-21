@@ -1,13 +1,13 @@
-// attr_parser.cpp — parse @[...] attribute name and parameters into AttrId
+// attr_parser.cpp - parse @[...] attribute name and parameters into AttrId
 
 #include "ast/attr_parser.hpp"
 #include "diag/diag.hpp"
 
 namespace trust {
 
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 // parse_attr
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 
 std::optional<AttrId> parse_attr(Context& ctx, MapperRange range, std::string_view name, std::optional<std::vector<std::string_view>> params) {
 
@@ -30,7 +30,7 @@ std::optional<AttrId> parse_attr(Context& ctx, MapperRange range, std::string_vi
         return existing_id;
     }
 
-    // Attribute not found — diagnostic error, do NOT register a new one.
+    // Attribute not found - diagnostic error, do NOT register a new one.
     ctx.diag().report(Severity::Error, range, "unknown attribute '{}'", name);
     return std::nullopt;
 }

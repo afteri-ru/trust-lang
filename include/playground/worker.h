@@ -45,5 +45,19 @@ class PlaygroundWorker {
     std::chrono::steady_clock::time_point startTime_{};
 };
 
+// Заменяет вхождения токена воркера (64 hex) в тексте на "<redacted>", чтобы
+// конфиденциальный auth-токен не попал в публичный ответ песочницы (например, если
+// он ошибочно оказался в stderr trust-lsp, который воркер возвращает как error/log).
+std::string redactToken(const std::string& text, const std::string& token);
+
+// Проверяет настройки воркера на корректность при запуске: рабочий каталог
+// (worker.project_dir) существует и является каталогом, исполняемый файл trust-lsp
+// (worker.lsp_bin) существует и исполняемый, worker.lsp_opts - корректные опции
+// (каждый НЕПУСТОЙ элемент начинается с '-'; ловит случайный токен/позиционный
+// аргумент, который иначе дал бы trust-lsp "unknown option '<токен>'"; пустой список
+// допустим - lsp_opts могут не быть настроены), здравые числовые лимиты. Возвращает
+// пустую строку при успехе или описание первой найденной проблемы.
+std::string validateWorkerSettings(const PlaygroundConfig& cfg);
+
 } // namespace playground
 } // namespace trust

@@ -1,7 +1,7 @@
 # include/vscode/CMakeLists.txt
 # VS Code Extension Build System
 
-# ── Read version from root VERSION file and git hash ──
+# -- Read version from root VERSION file and git hash --
 file(READ "${CMAKE_SOURCE_DIR}/VERSION" PROJECT_VERSION_RAW)
 string(STRIP "${PROJECT_VERSION_RAW}" PROJECT_VERSION)
 
@@ -14,7 +14,7 @@ execute_process(
 
 set(VSIX_ID "trust-lang")
 
-# ── Paths ──
+# -- Paths --
 set(VSIX_STAGING "${CMAKE_BINARY_DIR}/_vsix_staging/trust-lang/extension")
 set(VSIX_SOURCE_DIR "${PROJECT_INCLUDE_DIR}/vscode")
 set(VSIX_PACKAGER_DIR "${VSIX_SOURCE_DIR}/packager")
@@ -23,7 +23,7 @@ set(VSIX_DIST_DIR "${CMAKE_BINARY_DIR}/dist")
 file(MAKE_DIRECTORY "${VSIX_DIST_DIR}")
 set(VSIX_FILE "${VSIX_DIST_DIR}/trust-lang-${PROJECT_VERSION}-${VSIX_GIT_HASH}.vsix")
 
-# ── Stage extension sources ──
+# -- Stage extension sources --
 add_custom_target(copy-vscode-sources
     COMMENT "Staging trust-lang extension sources"
     COMMAND ${CMAKE_COMMAND} -E remove_directory ${VSIX_STAGING}
@@ -36,7 +36,7 @@ add_custom_target(copy-vscode-sources
         ${VSIX_STAGING}/syntaxes
 )
 
-# ── Set extension version and ID ──
+# -- Set extension version and ID --
 add_custom_target(set-vscode-version
     COMMENT "Setting extension version to ${PROJECT_VERSION}-${VSIX_GIT_HASH} and ID to ${VSIX_ID}"
     COMMAND ${CMAKE_COMMAND}
@@ -47,7 +47,7 @@ add_custom_target(set-vscode-version
     DEPENDS copy-vscode-sources
 )
 
-# ── Install npm dependencies ──
+# -- Install npm dependencies --
 add_custom_target(npm-install-vscode-deps
     COMMENT "Installing npm dependencies for VS Code extension"
     COMMAND npm install --omit=dev --no-audit --no-fund
@@ -55,7 +55,7 @@ add_custom_target(npm-install-vscode-deps
     DEPENDS set-vscode-version
 )
 
-# ── Build VSIX package (controlled by TRUST_BUILD_VSIX) ──
+# -- Build VSIX package (controlled by TRUST_BUILD_VSIX) --
 if(TRUST_BUILD_VSIX)
     add_custom_target(vsix-trust-lang ALL
         COMMENT "Building trust-lang.vsix"

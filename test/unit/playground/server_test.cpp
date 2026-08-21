@@ -117,10 +117,19 @@ TEST_F(PlaygroundServerTest, SerializeHttpResponse_CorsOptIn) {
     EXPECT_NE(out_default.find("\r\n\r\n{\"ok\":true}"), std::string::npos);
     // CORS добавляется только при явном r.cors = true.
     r.cors = true;
+    // Без конкретного origin (corsOrigin пуст) ACAO НЕ выводим - НИКОГДА не '*'.
     const std::string out_cors = trust::playground::serializeHttpResponse(r);
-    EXPECT_NE(out_cors.find("Access-Control-Allow-Origin: *"), std::string::npos);
-    // Content-Disposition должен быть доступен JS (иначе браузер не отдаст имя файла).
-    EXPECT_NE(out_cors.find("Access-Control-Expose-Headers: Content-Disposition"), std::string::npos);
+    EXPECT_EQ(out_cors.find("Access-Control-Allow-Origin"), std::string::npos);
+    EXPECT_NE(out_cors.find("Access-Control-Allow-Methods"), std::string::npos);
+    // С конкретным origin - выводим именно его (и не '*'; Content-Disposition доступен JS).
+    r.corsOrigin = "https://trust-lang.net";
+    const std::string out_cors2 = trust::playground::serializeHttpResponse(r);
+    EXPECT_NE(out_cors2.find("Access-Control-Allow-Origin: https://trust-lang.net"), std::string::npos);
+    EXPECT_EQ(out_cors2.find("Access-Control-Allow-Origin: *"), std::string::npos);
+    // Кастомные заголовки фронтенда должны быть разрешены в CORS-preflight, иначе браузер
+    // отклонит OPTIONS и /run упадёт («Нет связи»), хотя /health будет «онлайн».
+    EXPECT_NE(out_cors2.find("Access-Control-Allow-Headers: Content-Type, X-Example-Name, X-Stats-Token"), std::string::npos);
+    EXPECT_NE(out_cors2.find("Access-Control-Expose-Headers: Content-Disposition"), std::string::npos);
 }
 
 } // namespace

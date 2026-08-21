@@ -8,7 +8,7 @@
 using namespace trust;
 
 // ══════════════════════════════════════════════════════════════
-//                Context — создание Location (makeLoc)
+//                Context - создание Location (makeLoc)
 //                SourceMap::makeLoc не валидирует offset/fileIdx
 // ══════════════════════════════════════════════════════════════
 
@@ -26,7 +26,7 @@ TEST(ContextTest, MakeLoc_Valid) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//                Context — создание SourceRange (makeRange)
+//                Context - создание SourceRange (makeRange)
 // ══════════════════════════════════════════════════════════════
 
 TEST(ContextTest, MakeRange_Valid) {
@@ -89,7 +89,7 @@ TEST(ContextTest, MakeRange_DifferentFilesSameIdxDifferentFlag) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              Context — входные и выходные файлы
+//              Context - входные и выходные файлы
 // ══════════════════════════════════════════════════════════════
 
 TEST(ContextTest, AddSource_And_Retrieve) {
@@ -158,7 +158,7 @@ TEST(ContextTest, OutputBodyForInputFile_Fails) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              Context — normalize параметр
+//              Context - normalize параметр
 // ══════════════════════════════════════════════════════════════
 
 TEST(ContextTest, AddSource_WithNormalize) {
@@ -252,7 +252,7 @@ TEST(ContextTest, SourceViaOutputLocation_Empty) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              FileIdx — проверки (новая упаковка)
+//              FileIdx - проверки (новая упаковка)
 // ══════════════════════════════════════════════════════════════
 
 TEST(FileIdxTest, IsOutput_InputFile_Bit31Clear) {
@@ -306,7 +306,7 @@ TEST(FileIdxTest, RawFormat_OutputHasBit31) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              TaggedLocation — проверки упаковки (новая раскладка)
+//              TaggedLocation - проверки упаковки (новая раскладка)
 // ══════════════════════════════════════════════════════════════
 
 TEST(LocationPackTest, InputLocation_NoBit31) {
@@ -418,7 +418,7 @@ TEST(FileIdxTest, IsOutput_FromRaw) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              Context — краевые случаи
+//              Context - краевые случаи
 // ══════════════════════════════════════════════════════════════
 
 TEST(ContextTest, EmptyContext) {
@@ -440,7 +440,7 @@ TEST(ContextTest, LocFromLine_WithContent) {
     auto loc1 = ctx.source().loc_from_line(src, 1);
     EXPECT_EQ(loc1, 1);
     auto loc2 = ctx.source().loc_from_line(src, 2);
-    EXPECT_EQ(loc2, 5); // "abc\n" = 4 байта, 5-й — начало "def"
+    EXPECT_EQ(loc2, 5); // "abc\n" = 4 байта, 5-й - начало "def"
 }
 
 TEST(ContextTest, LocFromLine_LineAtEnd) {
@@ -453,7 +453,7 @@ TEST(ContextTest, LocFromLine_LineAtEnd) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              Context — Location упаковка
+//              Context - Location упаковка
 // ══════════════════════════════════════════════════════════════
 
 TEST(ContextTest, Location_PackUnpack_Input) {
@@ -481,7 +481,7 @@ TEST(ContextTest, Location_FileIdx_Invalid) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              Context — isValid(Location)
+//              Context - isValid(Location)
 // ══════════════════════════════════════════════════════════════
 
 TEST(ContextTest, IsValid_Location_Valid) {
@@ -521,7 +521,7 @@ TEST(ContextTest, IsValid_Location_OutputFile_OutOfBounds) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              Context — isValid(Range)
+//              Context - isValid(Range)
 // ══════════════════════════════════════════════════════════════
 
 TEST(ContextTest, IsValid_Range_Valid) {
@@ -603,7 +603,7 @@ TEST(ContextTest, IsValid_Range_OutOfBoundsEnd) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              Context — getText
+//              Context - getText
 // ══════════════════════════════════════════════════════════════
 
 TEST(ContextTest, SourceText_Basic) {
@@ -654,14 +654,14 @@ TEST(ContextTest, SourceText_OnOutputFile) {
 TEST(ContextTest, SourceText_RangeOutOfBounds_Fault) {
     Context ctx;
     MapperFile src = ctx.source().add_source("test.trust", "abc");
-    // end offset > source.size() + 1 — getText бросает FAULT
+    // end offset > source.size() + 1 - getText бросает FAULT
     auto begin = ctx.source().makeLoc(src, 2);
     auto end = ctx.source().makeLoc(src, 100); // намного больше размера
     MapperRange range = ctx.source().makeRange(begin, end);
     EXPECT_THROW((void)ctx.source().getText(range), std::runtime_error);
 }
 
-// ── outputBodyText ──
+// -- outputBodyText --
 
 TEST(ContextTest, OutputBodyText_Basic) {
     Context ctx;
@@ -707,7 +707,7 @@ TEST(ContextTest, OutputBodyText_PointRange_Empty) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//              OutputBuffer — prepend с namespace
+//              OutputBuffer - prepend с namespace
 // ══════════════════════════════════════════════════════════════
 
 TEST(ContextTest, OutputPrepend_Global) {
@@ -801,7 +801,7 @@ TEST(ContextTest, OutputPrepend_EmptyText) {
     Context ctx;
     MapperFile out = ctx.source().add_output("out.cpp");
     EXPECT_TRUE(ctx.source().output_prepend(out, ""));     // empty string, всё равно добавится в set
-    EXPECT_TRUE(ctx.source().output_prepend(out, "", "")); // ещё один пустой — дубликат
+    EXPECT_TRUE(ctx.source().output_prepend(out, "", "")); // ещё один пустой - дубликат
     std::string result = ctx.source().output_result(out);
     // пустая строка будет в set, build выведет её как пустую строку + \n
     EXPECT_EQ(result, "\n");

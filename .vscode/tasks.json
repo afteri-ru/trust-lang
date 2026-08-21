@@ -25,19 +25,19 @@
         {
             "label": "test: all (run all via ctest)",
             "type": "shell",
-            "command": "for b in _build/unit_tests _build/trust _build/trust-dap _build/trust-lsp; do [ -x \"$b\" ] || { cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py; break; }; done; /usr/local/bin/ctest --test-dir _build --output-on-failure -Q",
+            "command": "cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py && /usr/local/bin/ctest --test-dir _build --output-on-failure -Q",
             "group": "test"
         },
         {
             "label": "test: all verbose (full output)",
             "type": "shell",
-            "command": "for b in _build/unit_tests _build/trust _build/trust-dap _build/trust-lsp; do [ -x \"$b\" ] || { cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py; break; }; done; /usr/local/bin/ctest --test-dir _build --output-on-failure",
+            "command": "cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py && /usr/local/bin/ctest --test-dir _build --output-on-failure",
             "group": "test"
         },
         {
             "label": "test: direct unit_tests with filter",
             "type": "shell",
-            "command": "[ -x _build/unit_tests ] || cmake --build _build --target unit_tests; ./_build/unit_tests --gtest_brief=1 --gtest_shuffle --gtest_filter=*HandleHover_MacroDefLinkFirst_WholeRange",
+            "command": "cmake --build _build --target unit_tests && ./_build/unit_tests --gtest_brief=1 --gtest_shuffle --gtest_filter=*HandleHover_MacroDefLinkFirst_WholeRange",
             "group": "test"
         }
     ]

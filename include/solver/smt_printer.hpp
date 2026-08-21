@@ -8,7 +8,7 @@ namespace trust {
 namespace solver {
 
 /// Converts SmtAst nodes to SMT-LIB 2 textual format.
-/// Does NOT depend on Z3 — works with WITH_SOLVER=OFF.
+/// Does NOT depend on Z3 - works with WITH_SOLVER=OFF.
 class SmtPrinter {
   public:
     /// Print a complete SMT-LIB 2 script

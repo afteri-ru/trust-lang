@@ -1,4 +1,4 @@
-// module_loader_test.cpp — тесты ModuleLoader: parseSourceModule, ensureLoaded, indexOf
+// module_loader_test.cpp - тесты ModuleLoader: parseSourceModule, ensureLoaded, indexOf
 #include "diag/context.hpp"
 #include "module_loader/module_loader.hpp"
 #include "syntax/macro.h"

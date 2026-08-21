@@ -22,12 +22,12 @@ ctest --test-dir _build --output-on-failure   # all tests
 
 Test layout:
 
-- **unit/** — C++ unit tests (`test/unit/`), a single `unit_tests` executable
+- **unit/** - C++ unit tests (`test/unit/`), a single `unit_tests` executable
   registered as one CTest test; `ctest --output-on-failure` prints the full
   GTest report (with failing test names) when the suite fails.
-- **lit/** — LIT integration tests (`test/lit/`), registered as the `lit_tests`
+- **lit/** - LIT integration tests (`test/lit/`), registered as the `lit_tests`
   CTest test (run through the `trust` CLI + FileCheck).
-- **vscode/** — VSCode extension tests (`test/vscode/`), registered as
+- **vscode/** - VSCode extension tests (`test/vscode/`), registered as
   `vscode_unit`, `vscode_dap` and `vscode_lsp` CTest tests.
 
 `make run_tests` (alias `cmake --build _build --target run_tests`) builds the
@@ -41,20 +41,20 @@ built both as a dynamic library (`trust-runtime.so`) and a static one
 (`trust-runtime.a`). When compiling an executable, the pipeline links the runtime
 according to `--link-runtime` (default **`static`**):
 
-- `static` — the runtime code is linked into the executable from `trust-runtime.a`;
+- `static` - the runtime code is linked into the executable from `trust-runtime.a`;
   the resulting binary is self-contained and runs without `trust-runtime.so`.
-- `shared` — the executable links `trust-runtime.so` dynamically and resolves it
+- `shared` - the executable links `trust-runtime.so` dynamically and resolves it
   at run time via `LD_LIBRARY_PATH` / the launch directory.
 
 ## Diagnostics options (`-W<name>[=status]`)
 
 Severity-options control compile-time diagnostics (status: `ignore`/`warning`/`error`/`fatal`):
 
-- `-Wembed=ignore` — silence the warning about the very fact that a `{% ... %}` C++ embed block
+- `-Wembed=ignore` - silence the warning about the very fact that a `{% ... %}` C++ embed block
   is used (independent of the names inside; default `warning`).
-- `-Wsigil=ignore` — silence the warning about normalizing a simple local variable declared
+- `-Wsigil=ignore` - silence the warning about normalizing a simple local variable declared
   without the `$` sigil into a local `$x` (default `warning`).
-- `-Wformat=ignore|warning|error` — controls compile-time type checking of arguments against a
+- `-Wformat=ignore|warning|error` - controls compile-time type checking of arguments against a
   printf format string for native functions marked with `@[format("printf", ...)]` (default `error`).
 
 ## Generated C++ files
@@ -72,8 +72,10 @@ The `package` target produces a gzipped tar archive for installation/distributio
 cmake --build _build --target package
 ```
 
-The archive (and the `.vsix` package, when built) are placed in a dedicated
-`_build/dist/` directory. The archive name encodes the build attributes:
+The archive is also built automatically as part of the default build
+(`cmake --build _build`) - independently of running the tests (test binaries and
+`ctest` are not required). The archive (and the `.vsix` package, when built) are
+placed in a dedicated `_build/dist/` directory. The archive name encodes the build attributes:
 
 ```
 trust-lang-<version>-<git-hash>-<os>-<arch>.tar.gz
@@ -92,4 +94,4 @@ Because the toolchain (clang-22, LLVM, GMP, bison/flex, lit) and the pipeline ar
 POSIX/ELF-based, the recommended way to build on a Windows host is **WSL2**, where
 the environment is a native Linux and the archive is produced as a `linux-<arch>`
 package. A fully native Windows build requires separating the embedded-header
-storage from ELF sections and replacing the make-based pipeline — a separate task.
+storage from ELF sections and replacing the make-based pipeline - a separate task.

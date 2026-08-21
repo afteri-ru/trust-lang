@@ -14,7 +14,7 @@ namespace trust {
 namespace lsp {
 namespace completion {
 
-// Байты >= 0x80 — UTF-8 (кириллица и др. письменности). isalpha/isalnum в локали
+// Байты >= 0x80 - UTF-8 (кириллица и др. письменности). isalpha/isalnum в локали
 // "C" понимают только ASCII, поэтому для Unicode-имён добавляем ручную проверку.
 bool isWordChar(char c) {
     const auto u = static_cast<unsigned char>(c);
@@ -24,8 +24,8 @@ bool isSigil(char c) {
     return c == '@' || c == '%' || c == '$' || c == ':';
 }
 
-// ── Конвертация LSP-позиций (UTF-16 code units) ↔ байтовые смещения UTF-8 ──
-// Позиции в LSP — UTF-16 code units; сканирование строки ведём по байтам.
+// -- Конвертация LSP-позиций (UTF-16 code units) ↔ байтовые смещения UTF-8 --
+// Позиции в LSP - UTF-16 code units; сканирование строки ведём по байтам.
 int utf16ToByte(const std::string& s, int utf16pos) {
     int b = 0, u = 0;
     const int n = static_cast<int>(s.size());
@@ -160,8 +160,8 @@ int nameKind(const std::string& name) {
     return kKindVariable; // %, $, _, plain
 }
 
-// ── Типы (:Имя) — из глобального каталога встроенных (BuiltinCatalog) и
-// пер-файлового реестра пользовательских типов (заполняет анализатор). ──
+// -- Типы (:Имя) - из глобального каталога встроенных (BuiltinCatalog) и
+// пер-файлового реестра пользовательских типов (заполняет анализатор). --
 void collectTypeItems(const trust::TypeRegistry* reg, const trust::BuiltinCatalog* catalog, const std::string& prefix, int line, int utf16Start, int utf16End,
                       json& items) {
     std::set<std::string> seen;
@@ -187,8 +187,8 @@ void collectTypeItems(const trust::TypeRegistry* reg, const trust::BuiltinCatalo
     }
 }
 
-// ── Макросы (@...) — единый источник: глобальный каталог (predef + DSL) +
-// макроопределения, записанные анализатором (SymbolIndex, isMacro). ──
+// -- Макросы (@...) - единый источник: глобальный каталог (predef + DSL) +
+// макроопределения, записанные анализатором (SymbolIndex, isMacro). --
 void collectMacroItems(const trust::BuiltinCatalog* catalog, const trust::SymbolIndex* symbols, const std::string& prefix, int line, int utf16Start,
                        int utf16End, json& items) {
     std::set<std::string> names;
@@ -209,7 +209,7 @@ void collectMacroItems(const trust::BuiltinCatalog* catalog, const trust::Symbol
     }
     std::set<std::string> seen;
     for (const auto& n : names) {
-        // Имя может уже содержать сигнатуру (@, $, %, :), иначе — макрос без неё.
+        // Имя может уже содержать сигнатуру (@, $, %, :), иначе - макрос без неё.
         std::string insert = (isSigil(n.front()) ? std::string() : "@") + n;
         if (!matchesPrefix(insert, prefix) || !seen.insert(insert).second) {
             continue;
@@ -218,9 +218,9 @@ void collectMacroItems(const trust::BuiltinCatalog* catalog, const trust::Symbol
     }
 }
 
-// ── Тип объекта для member-доступа ──
-// Определяет тип ЛИТЕРАЛА по самому объекту ('...', число, true/false) — без
-// сканирования документа. Возвращает "" если objExpr — не литерал.
+// -- Тип объекта для member-доступа --
+// Определяет тип ЛИТЕРАЛА по самому объекту ('...', число, true/false) - без
+// сканирования документа. Возвращает "" если objExpr - не литерал.
 std::string literalTypeOf(const std::string& objExpr) {
     if (objExpr.empty()) {
         return "";
@@ -244,10 +244,10 @@ std::string literalTypeOf(const std::string& objExpr) {
     return "";
 }
 
-// ── Имена из анализатора (SymbolIndex) ──
+// -- Имена из анализатора (SymbolIndex) --
 // Единый источник имён пользовательского кода: объявленные переменные/функции/типы
 // с типами и фильтром видимости по позиции курсора. Сигнатура (% $ : @) сохраняется
-// в label — вставка через textEdit не дублирует набранную сигнатуру.
+// в label - вставка через textEdit не дублирует набранную сигнатуру.
 void collectSymbolItems(const trust::SymbolIndex* symbols, const trust::Context* ctx, int line, const std::string& prefix, int utf16Start, int utf16End,
                         json& items) {
     if (!symbols || !ctx) {
@@ -273,7 +273,7 @@ void collectSymbolItems(const trust::SymbolIndex* symbols, const trust::Context*
                 continue;
             }
         }
-        // Локальные по позиции: символ виден, если курсор внутри его скоупа (иначе — глобальный).
+        // Локальные по позиции: символ виден, если курсор внутри его скоупа (иначе - глобальный).
         if (!si.scopeRange.isInvalid()) {
             const int startLine = ctx->source().line_column(si.scopeRange.begin).line - 1;
             const int endLine = ctx->source().line_column(si.scopeRange.end).line - 1;
@@ -289,13 +289,13 @@ void collectSymbolItems(const trust::SymbolIndex* symbols, const trust::Context*
     }
 }
 
-// ── Методы/поля для `obj.` ──
+// -- Методы/поля для `obj.` --
 // Тип объекта резолвится из ЕДИНЫХ источников (без сканирования документа):
-//  1) objExpr — литерал → тип по значению (literalTypeOf);
-//  2) objExpr — имя типа → TypeId из пер-файлового реестра;
-//  3) objExpr — переменная → SymbolInfo::type (TypeId) из таблицы анализатора.
+//  1) objExpr - литерал → тип по значению (literalTypeOf);
+//  2) objExpr - имя типа → TypeId из пер-файлового реестра;
+//  3) objExpr - переменная → SymbolInfo::type (TypeId) из таблицы анализатора.
 // Методы/поля берутся по TypeId из реестра (descriptor::methods + TupleTypeData::elements);
-// при отсутствии реестра (нет кеша) — из глобального каталога встроенных типов.
+// при отсутствии реестра (нет кеша) - из глобального каталога встроенных типов.
 void collectMemberItems(const trust::TypeRegistry* reg, const trust::BuiltinCatalog* catalog, const trust::SymbolIndex* symbols, const std::string& objExpr,
                         const std::string& prefix, int line, int utf16Start, int utf16End, json& items) {
     if (objExpr.empty()) {
@@ -374,7 +374,7 @@ void collectMemberItems(const trust::TypeRegistry* reg, const trust::BuiltinCata
 
     if (typeId != trust::INVALID_TYPE_ID && reg) {
         // Эмит методов дескриптора (методы + алиасы) с bare-именами (для автодополнения показываем
-        // доверенные имена: "size", "length", "count" — без '%'/'^').
+        // доверенные имена: "size", "length", "count" - без '%'/'^').
         auto emitDescMethods = [&](const trust::TypeDescriptor* d) {
             if (!d) {
                 return;
@@ -397,7 +397,7 @@ void collectMemberItems(const trust::TypeRegistry* reg, const trust::BuiltinCata
         if (reg->isRangeType(typeId)) {
             emitDescMethods(reg->lookup(reg->getType(trust::type_category::Range)));
         }
-        // Члены классов/типов (TupleTypeData): имя → поле/метод (функциональный тип — метод).
+        // Члены классов/типов (TupleTypeData): имя → поле/метод (функциональный тип - метод).
         if (const auto* td = reg->getTypeDataAs<trust::TupleTypeData>(typeId)) {
             for (const auto& el : td->elements) {
                 if (!el.name.empty()) {
@@ -406,7 +406,7 @@ void collectMemberItems(const trust::TypeRegistry* reg, const trust::BuiltinCata
             }
         }
     } else if (catalog && !typeName.empty()) {
-        // Реестр недоступен (нет кеша) — члены встроенного типа из каталога.
+        // Реестр недоступен (нет кеша) - члены встроенного типа из каталога.
         auto tit = catalog->types().find(typeName);
         if (tit != catalog->types().end()) {
             for (const auto& [mname, isFunc] : tit->second.methods) {

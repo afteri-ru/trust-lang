@@ -1,4 +1,4 @@
-// test/unit/ast/visit_test.cpp — unit-тесты для единой диспетчеризации AST по kind
+// test/unit/ast/visit_test.cpp - unit-тесты для единой диспетчеризации AST по kind
 // (ast/kind_visitor.hpp). Проверяют: вызов по kind (не по классу), типизацию методов
 // visit_<Kind>(const <класс>&), группировку нескольких kinds в один обработчик и
 // notImplemented для нереализованного kind.
@@ -17,7 +17,7 @@ namespace {
     FAULT("kind visitor: обработчик для kind '{}' не реализован", kind_name);
 }
 
-/// Базовая реализация KindVisitor с notImplemented-заглушками — нужна только тестам,
+/// Базовая реализация KindVisitor с notImplemented-заглушками - нужна только тестам,
 /// поэтому определяется здесь, а не в продуктовом ast/kind_visitor.hpp.
 struct KindVisitorDefault : KindVisitor {
 #define KIND_VISITOR_DEFAULT(name, node_type)           \
@@ -44,7 +44,7 @@ struct RecordingVisitor : KindVisitorDefault {
 
 TEST(KindVisitTest, DispatchesByKindNotByClass) {
     RecordingVisitor v;
-    // Оба узла — класс Literal, но разные kinds → разные методы.
+    // Оба узла - класс Literal, но разные kinds → разные методы.
     dispatchKind(*std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1"), v);
     EXPECT_EQ(v.trace, "IntLiteral;");
     v.trace.clear();
@@ -63,7 +63,7 @@ TEST(KindVisitTest, IdentTypeAndIdentHaveDistinctMethods) {
 }
 
 TEST(KindVisitTest, MultipleKindsGroupToSharedHandler) {
-    // MathOp и AssignOp — оба класс Binary, но разные kinds; оба → общий обработчик.
+    // MathOp и AssignOp - оба класс Binary, но разные kinds; оба → общий обработчик.
     RecordingVisitor v;
     auto mkBinary = [](ParserToken::Kind k) { return std::make_shared<Binary>(k); };
     dispatchKind(*mkBinary(ParserToken::Kind::MathOp), v);
@@ -78,7 +78,7 @@ TEST(KindVisitTest, NotImplementedForUnhandledKind) {
     struct Strict : KindVisitorDefault {
         std::string trace;
     } v;
-    // Sequence-метод visit_sequence переопределён выше, но здесь Strict его не имеет —
+    // Sequence-метод visit_sequence переопределён выше, но здесь Strict его не имеет -
     // используем необработанный kind=StrChar → notImplemented кидает.
     EXPECT_THROW(dispatchKind(*std::make_shared<Literal>(ParserToken::Kind::StrChar, "s"), v), std::exception);
 }

@@ -25,7 +25,7 @@ class Macro;
 
 namespace trust {
 
-// ── Emit flags ──
+// -- Emit flags --
 
 enum class EmitFlags {
     None = 0,
@@ -43,7 +43,7 @@ inline constexpr EmitFlags operator&(EmitFlags a, EmitFlags b) {
     return static_cast<EmitFlags>(static_cast<int>(a) & static_cast<int>(b));
 }
 
-// ── Pipeline steps (bitmask) ──
+// -- Pipeline steps (bitmask) --
 
 enum class PipelineSteps {
     None = 0,
@@ -64,7 +64,7 @@ inline constexpr bool hasStep(PipelineSteps flags, PipelineSteps step) {
     return (static_cast<int>(flags) & static_cast<int>(step)) != 0;
 }
 
-// ── Compile mode ──
+// -- Compile mode --
 
 enum class CompileMode {
     Executable,  ///< Compile to executable (default)
@@ -74,14 +74,14 @@ enum class CompileMode {
     TrustModule, ///< Compile to trust module (.trust, shared library with exports)
 };
 
-// ── Runtime link mode ──
+// -- Runtime link mode --
 
 enum class RuntimeLink {
     Static, ///< Link runtime as a static library (default; self-contained executable)
     Shared, ///< Link runtime as a dynamic library (trust-runtime.so)
 };
 
-// ── Pipeline parsed options ──
+// -- Pipeline parsed options --
 
 struct PipelineOpts {
     std::string input_file;
@@ -129,7 +129,7 @@ struct ParseResult {
     int exit_code = 0; // 0 = OK, 1 = error
 };
 
-// ── Pipeline result (stateless output of runPipeline) ──
+// -- Pipeline result (stateless output of runPipeline) --
 
 struct PipelineResult {
     std::optional<std::vector<AstNodePtr>> astNodes;
@@ -156,32 +156,32 @@ inline void appendMacroSymbols(const Context& ctx, SymbolIndex& out) {
     }
 }
 
-// ── Pipeline ──
+// -- Pipeline --
 
 class Pipeline {
   public:
     Pipeline(Context& ctx, const PipelineOpts& opts);
 
-    // ── CLI entry point ──
+    // -- CLI entry point --
     int execute();
 
     /// Забирает владение реестром типов из Pipeline (для LSP): TypeId в SymbolInfo остаётся
     /// валидным после уничтожения Pipeline. Встроенные типы при этом разделяются через общее
-    /// ядро TypeRegistry (без дублирования), пер-инстансовые — только пользовательские.
+    /// ядро TypeRegistry (без дублирования), пер-инстансовые - только пользовательские.
     std::unique_ptr<TypeRegistry> releaseTypes();
 
-    // ── Базовый runPipeline (без Transpile) ──
+    // -- Базовый runPipeline (без Transpile) --
     // Выполняет ParseAST, Semantic.
-    // Transpile без cppOut — FAULT.
+    // Transpile без cppOut - FAULT.
     // Возвращает PipelineResult с опциональным AST.
     PipelineResult runPipeline(PipelineSteps steps, MapperFile inputFile);
 
-    // ── runPipeline с Transpile ──
+    // -- runPipeline с Transpile --
     // Дополнительно выполняет CppTranspiler, записывая результат в cppOut.
     PipelineResult runPipeline(PipelineSteps steps, MapperFile inputFile, MapperFile cppOut, std::vector<CppTranspiler::ExportEntry>* out_exports = nullptr,
                                std::vector<std::string>* out_runtime_headers = nullptr, std::vector<std::string>* out_link_libs = nullptr);
 
-    // ── Статические методы для CLI ──
+    // -- Статические методы для CLI --
     static ParseResult parseArgs(int argc, char* argv[]);
     static ParseResult parseArgs(std::span<char*> argv);
     static bool isSpecialExit(const ParseResult& r);
@@ -207,7 +207,7 @@ class Pipeline {
         std::filesystem::path cpptPath;
         std::vector<CppTranspiler::ExportEntry> exports;
         /// Рантайм-заголовки (напр. "trust/rational.hpp"), реально использованные
-        /// сгенерированным кодом — pipeline извлечёт их из trust-runtime.so.
+        /// сгенерированным кодом - pipeline извлечёт их из trust-runtime.so.
         std::vector<std::string> runtimeHeaders;
         /// Флаги линковки нативных библиотек (`-l<имя>`) из `@[link("имя")]`.
         std::vector<std::string> linkLibs;
@@ -222,14 +222,14 @@ class Pipeline {
     std::vector<std::filesystem::path> generateModuleOutputs(std::vector<std::string>* module_runtime_headers = nullptr,
                                                              std::vector<std::string>* module_link_libs = nullptr);
 
-    // Транспиляция тела одного модуля (индекс) в отдельный .cppt (полное тело — определения).
+    // Транспиляция тела одного модуля (индекс) в отдельный .cppt (полное тело - определения).
     void transpileModuleBody(std::size_t idx, const std::filesystem::path& cpptPath, std::vector<std::string>* runtime_headers = nullptr,
                              std::vector<std::string>* link_libs = nullptr);
 
     std::size_t m_mainModuleIndex{0}; ///< Индекс корневого (главного) модуля
 };
 
-// ── Free functions (old parse_args wrappers) ──
+// -- Free functions (old parse_args wrappers) --
 
 inline ParseResult Pipeline::parseArgs(int argc, char* argv[]) {
     return parseArgs(std::span<char*>(argv, static_cast<size_t>(argc)));
@@ -239,13 +239,13 @@ inline bool Pipeline::isSpecialExit(const ParseResult& r) {
     return r.opts.help_requested || r.opts.version_requested || r.exit_code != 0;
 }
 
-// ── Свободные функции ──
+// -- Свободные функции --
 
 // Сохранение .cppt + .src_map рядом + #embed + export table
-// embed_export_table=false — не встраивать экспорт-таблицу (модуль-исходник, линкуемый
+// embed_export_table=false - не встраивать экспорт-таблицу (модуль-исходник, линкуемый
 // в программу: таблица принадлежит главному файлу, иначе дубли __trust_get_exports).
-// program_record — запись кеша --run: первая строка ВСЕГДА версия компилятора
-// "trust-lang\t<TRUST_VERSION_FULL>", далее строки "файл\tmd5" — главный файл (2-я строка),
+// program_record - запись кеша --run: первая строка ВСЕГДА версия компилятора
+// "trust-lang\t<TRUST_VERSION_FULL>", далее строки "файл\tmd5" - главный файл (2-я строка),
 // затем импортированные модули (встраивается в секцию .debug_trust_hash главного файла).
 bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::filesystem::path& cppt_path, bool verbose,
                               const std::vector<CppTranspiler::ExportEntry>& exports = {}, bool embed_export_table = true,
@@ -257,12 +257,12 @@ std::filesystem::path computeBuildDir(const PipelineOpts& opts);
 // cppt_path = build_dir / <input_stem>.cppt
 std::filesystem::path computeCpptPath(const PipelineOpts& opts);
 
-// ── Генерация build-каталога / архива для скачивания (trust-lsp --emit-build-dir) ──
+// -- Генерация build-каталога / архива для скачивания (trust-lsp --emit-build-dir) --
 
 // Генерирует build-файлы (Makefile, build.conf, _main.cppt, LICENSE и trust/ рантайм-
 // заголовки) в build_dir рядом с .cppt. НЕ компилирует и не линкует. Вызывается и
 // `trust build` (compileAndLink), и trust-lsp `--emit-build-dir`.
-// build.conf — единый переносимый (без абсолютных путей и привязки к .so/.a):
+// build.conf - единый переносимый (без абсолютных путей и привязки к .so/.a):
 // include-путь `-I.` (каталог сборки) + `LIBS += -ltrust-runtime -lgmp`. Локальная
 // сборка резолвит `-ltrust-runtime` через LIBRARY_PATH (см. compileAndLink).
 bool writeBuildFiles(const PipelineOpts& opts, const std::filesystem::path& cppt_path, const std::vector<std::filesystem::path>& module_cppt_paths,

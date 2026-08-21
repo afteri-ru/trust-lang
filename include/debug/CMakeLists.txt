@@ -1,7 +1,7 @@
 # include/debug/CMakeLists.txt
 # Debug: Trust-lang debug system (source mapping + GDB/MI bridge)
 
-# ── debug_lib (no LLDB dependency) ──
+# -- debug_lib (no LLDB dependency) --
 add_library(debug_lib STATIC
     ${PROJECT_SOURCE_DIR}/debug/gdb_debug.cpp
     ${PROJECT_SOURCE_DIR}/debug/dap_transport.cpp
@@ -26,7 +26,7 @@ target_include_directories(debug_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# ── trust-dap: DAP server для trust-lang debugging ──
+# -- trust-dap: DAP server для trust-lang debugging --
 add_executable(trust-dap
     ${PROJECT_SOURCE_DIR}/debug/trust_dap.cpp
 )

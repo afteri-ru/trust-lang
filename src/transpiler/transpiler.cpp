@@ -18,7 +18,7 @@
 
 namespace trust {
 
-// ── RAII-обёртка пары mapStart/mapStop: mapStart в конструкторе, mapStop в деструкторе.
+// -- RAII-обёртка пары mapStart/mapStop: mapStart в конструкторе, mapStop в деструкторе.
 //    Гарантирует закрытие маппинга даже при раннем выходе (return/EXPECT). Некопируем.
 //    Range для mapStop всегда совпадает с range, переданным в mapStart.
 class MapperScope {
@@ -37,15 +37,15 @@ class MapperScope {
     MapperRange m_range;
 };
 
-// ── Helper: собрать операторы тела и диапазон блока из узла-тела
-//    (ScopeBlock/Sequence → m_body + range блока; одиночный statement → сам узел) ──
+// -- Helper: собрать операторы тела и диапазон блока из узла-тела
+//    (ScopeBlock/Sequence → m_body + range блока; одиночный statement → сам узел) --
 static void collectBodyStatements(const AstNodePtr& bodyNode, std::vector<AstNodePtr>& out, MapperRange& blockRange) {
     out.clear();
     blockRange = {};
     if (!bodyNode) {
         return;
     }
-    // Блочный узел (ScopeBlock/sequence/ModuleNode) → его m_body + range; иначе — одиночный statement.
+    // Блочный узел (ScopeBlock/sequence/ModuleNode) → его m_body + range; иначе - одиночный statement.
     // as_sequence() (virtual) устраняет kind/static_cast; Attr исключён через is_block_kind.
     if (is_block_kind(bodyNode->kind())) {
         out = bodyNode->as_sequence()->m_body;
@@ -67,7 +67,7 @@ CppTranspiler::CppTranspiler(Context& ctx, const SymbolTable* resolvedTypes)
 }
 
 bool CppTranspiler::isSuppressedDoc(ParserToken::Kind k) const {
-    // Флаг «comments» включён = комментарии ВЫВОДЯТСЯ; подавление — флаг выключен (-Wno-comments).
+    // Флаг «comments» включён = комментарии ВЫВОДЯТСЯ; подавление - флаг выключен (-Wno-comments).
     return k == ParserToken::Kind::Document && !m_ctx.opts().is_enabled(FlagKind::Comments);
 }
 
@@ -114,7 +114,7 @@ void CppTranspiler::generateToFile(const std::vector<AstNodePtr>& ast_nodes, Map
     if (!ast_nodes.empty()) {
         m_ctx.source().output_append(output_idx, "\n");
     }
-    // МЕХАНИЗМ №1 — ПО ТИПУ: только ПОСЛЕ полного обхода AST формируем инклуды из собранных
+    // МЕХАНИЗМ №1 - ПО ТИПУ: только ПОСЛЕ полного обхода AST формируем инклуды из собранных
     // типов (m_usedTypes), затем препендим все директивы (emitCollectedIncludes).
     collectTypeIncludes();
     emitCollectedIncludes(output_idx);
@@ -127,7 +127,7 @@ void CppTranspiler::collectLinkLib(const AstNodeAttr& node) {
         return;
     }
     const std::vector<std::string>* args = node.attr_args(*link_id);
-    // @[link("имя")] — ровно один аргумент (имя библиотеки).
+    // @[link("имя")] - ровно один аргумент (имя библиотеки).
     if (!args || args->size() != 1 || (*args)[0].empty()) {
         return;
     }
@@ -137,9 +137,9 @@ void CppTranspiler::collectLinkLib(const AstNodeAttr& node) {
 void CppTranspiler::emitBlockSeparator(const AstNodeBase* prev, const AstNodeBase& node, MapperFile output_idx) {
     // Перевод строки между блоками вставляется только если они в исходнике на разных
     // строках: строка конца prev != строка начала node. Если строки совпадают (блоки
-    // намеренно на одной строке) — перевод строки не выводится, вместо него пробел.
+    // намеренно на одной строке) - перевод строки не выводится, вместо него пробел.
     if (!prev) {
-        return; // первый блок — перевод строки не нужен
+        return; // первый блок - перевод строки не нужен
     }
     const bool sameSourceLine = m_ctx.source().line(prev->range().end) == m_ctx.source().line(node.range().begin);
     if (!sameSourceLine) {
@@ -163,7 +163,7 @@ void CppTranspiler::emitSameLineSpace(std::string_view nextText, MapperFile outp
 
 void CppTranspiler::emitSequenceBody(const Sequence& node, MapperFile output_idx) {
     // Sequence, ScopeBlock or ModuleNode → walk body. Метки именованных блоков и goto
-    // вставляются анализатором (lowering) как отдельные узлы LabelStmt/GotoStmt — здесь
+    // вставляются анализатором (lowering) как отдельные узлы LabelStmt/GotoStmt - здесь
     // только кодогенерация: каждый узел m_body эмитится по своему kind.
 
     const bool inBlock = indentLevel() > 0;
@@ -176,12 +176,12 @@ void CppTranspiler::emitSequenceBody(const Sequence& node, MapperFile output_idx
             continue;
         }
         if (inBlock) {
-            // Внутри блока — каждый оператор с новой строки с отступом (нормальное форматирование).
+            // Внутри блока - каждый оператор с новой строки с отступом (нормальное форматирование).
             // Для блочных детей (ScopeBlock/sequence/ModuleDecl) отступ выставляет их собственный обход.
             // Перевод строки добавляется ПОСЛЕ каждого реально выведенного узла (а не до),
             // чтобы подавленные доки/пустые bundle'ы не оставляли «сиротских» пустых строк.
             const size_t before = m_ctx.source().output_body(output_idx).size();
-            // Документирующий комментарий объявления (из term->m_docs) — строками с отступом.
+            // Документирующий комментарий объявления (из term->m_docs) - строками с отступом.
             emitDocumentation(*child, output_idx);
             if (!is_block_kind(child->kind())) {
                 m_ctx.source().output_append(output_idx, indentPrefix());
@@ -194,9 +194,9 @@ void CppTranspiler::emitSequenceBody(const Sequence& node, MapperFile output_idx
                 }
             }
         } else {
-            // На верхнем уровне (indent==0) — прежнее поведение (зеркалирование строк исходника).
+            // На верхнем уровне (indent==0) - прежнее поведение (зеркалирование строк исходника).
             emitBlockSeparator(prev, *child, output_idx);
-            // Документирующий комментарий объявления (из term->m_docs) — строками без отступа.
+            // Документирующий комментарий объявления (из term->m_docs) - строками без отступа.
             emitDocumentation(*child, output_idx);
             generateNodeToFile(*child, output_idx);
             prev = child.get();
@@ -239,7 +239,7 @@ void CppTranspiler::recordRequiredInclude(std::string_view include) const {
     m_requiredIncludes.insert(std::string(include));
 }
 
-// ── МЕХАНИЗМ №1 — ПО ТИПУ (TypeRegistry): сбор ТИПОВ во время обхода AST, инклуды ПОСЛЕ ──
+// -- МЕХАНИЗМ №1 - ПО ТИПУ (TypeRegistry): сбор ТИПОВ во время обхода AST, инклуды ПОСЛЕ --
 // Во время эмиссии resolveCppTypeId/recordUsedType только отмечают использованные типы
 // (канонические TypeId) в m_usedTypes. Сами директивы инклудов из типов формируются
 // ПОСЛЕ полного обхода AST (collectTypeIncludes → emitCollectedIncludes).
@@ -261,7 +261,7 @@ void CppTranspiler::collectTypeIncludes() const {
 }
 
 std::optional<std::string> CppTranspiler::emitTypeName(TypeId type_id, std::string_view displayName) {
-    // МЕХАНИЗМ №1 — ПО ТИПУ: resolveCppTypeId только отмечает тип как использованный
+    // МЕХАНИЗМ №1 - ПО ТИПУ: resolveCppTypeId только отмечает тип как использованный
     // (recordUsedType → m_usedTypes); инклуды из типов формируются ПОСЛЕ обхода AST.
     auto resolved = resolveCppTypeId(type_id, displayName);
     if (!resolved) {
@@ -272,7 +272,7 @@ std::optional<std::string> CppTranspiler::emitTypeName(TypeId type_id, std::stri
 
 std::string CppTranspiler::emitTypeNameForNode(const AstNodeBase* type_node) {
     if (!type_node || type_node->kind() != ParserToken::Kind::TypeName) {
-        return ""; // нет типа-аннотации — caller решает (напр. параметр без типа → auto)
+        return ""; // нет типа-аннотации - caller решает (напр. параметр без типа → auto)
     }
     // Резолвим TypeId, затем применяем ортогональные квалификаторы из атрибутов узла ТИПА
     // (`fmt: @[reftype(ptr)]@ StrChar^`): ReadOnly → const, reftype → вид ссылки. Так тип
@@ -284,8 +284,8 @@ std::string CppTranspiler::emitTypeNameForNode(const AstNodeBase* type_node) {
     }
     TypeId applied = *type_id;
     // Тип-определение массива `:Elem[3]`/`:Elem[3,4]`: размерности из `[...]` (IdentType::dims)
-    // превращают базовый тип в структурный Array<Elem,dims> — так семантика (resolveType) и
-    // кодогенерация согласованы (N-D — без кодогенерации: диагностика «не реализовано» ниже).
+    // превращают базовый тип в структурный Array<Elem,dims> - так семантика (resolveType) и
+    // кодогенерация согласованы (N-D - без кодогенерации: диагностика «не реализовано» ниже).
     if (const auto* it = dynamic_cast<const IdentType*>(type_node)) {
         if (it->dims() && !it->dims()->empty()) {
             std::vector<uint64_t> dims;
@@ -303,7 +303,7 @@ std::string CppTranspiler::emitTypeNameForNode(const AstNodeBase* type_node) {
             }
             if (!dims.empty()) {
                 // Определение типа массива `:Elem[3]`: изменяемый массив (std::vector) с известной
-                // размерностью (согласовано с семантикой resolveType). N-D — без кодогенерации.
+                // размерностью (согласовано с семантикой resolveType). N-D - без кодогенерации.
                 applied = m_ctx.types().getOrCreateArrayType(*type_id, std::move(dims));
             }
         }
@@ -322,7 +322,7 @@ std::string CppTranspiler::emitTypeNameForNode(const AstNodeBase* type_node) {
         }
     }
     // Многомерное определение массива `:Bool[3,4]`: тип регистрируется (семантика), но генерация
-    // C++ не реализована («не реализовано» — только на кодогенерации, как у вложенных литералов).
+    // C++ не реализована («не реализовано» - только на кодогенерации, как у вложенных литералов).
     if (isMultiDimArray(applied, m_ctx.types())) {
         m_ctx.report(type_node->range(), OptKind::ParseError, "многомерные массивы пока не реализованы: транслируются как тензоры (LibTorch)");
         return "";
@@ -331,13 +331,13 @@ std::string CppTranspiler::emitTypeNameForNode(const AstNodeBase* type_node) {
     if (auto resolved = resolveCppTypeId(applied, type_node->text())) {
         return std::move(resolved->first);
     }
-    // Fallback запрещён: нерезолвящееся имя типа — ВСЕГДА ошибка с обязательной диагностикой.
+    // Fallback запрещён: нерезолвящееся имя типа - ВСЕГДА ошибка с обязательной диагностикой.
     m_ctx.report(type_node->range(), OptKind::ParseError, "unable to generate C++ type '{}'", type_node->text());
     return "";
 }
 
 // Рантайм-символ по типизированному идентификатору: заголовки из компайлтайм-таблицы
-// (types/runtime_symbols.hpp). Enum вместо строки — опечатка в имени символа невозможна.
+// (types/runtime_symbols.hpp). Enum вместо строки - опечатка в имени символа невозможна.
 // ЕДИНСТВЕННЫЙ способ записи заголовков рантайм-символа.
 void CppTranspiler::recordRuntimeSymbolHeaders(RuntimeSymbolId id) const {
     for (const auto& h : runtimeSymbolHeaders(id)) {
@@ -346,7 +346,7 @@ void CppTranspiler::recordRuntimeSymbolHeaders(RuntimeSymbolId id) const {
 }
 
 // Скан текста EMBED-вставки ({% %}) на имена рантайм-символов (substring) и запись их
-// заголовков через recordRuntimeSymbolHeaders(id). Для EMBED типа нет — это единственный
+// заголовков через recordRuntimeSymbolHeaders(id). Для EMBED типа нет - это единственный
 // способ определить нужные заголовки. Отдельный хелпер, не перегрузка записи.
 void CppTranspiler::recordRuntimeSymbolsInText(std::string_view text) const {
     for (size_t i = 0; i < static_cast<size_t>(RuntimeSymbolId::kCount); ++i) {
@@ -369,7 +369,7 @@ void CppTranspiler::generateNodeToFile(const AstNodeBase& node, MapperFile outpu
         return;
     }
 
-    // Единая диспетчеризация ПО KIND (см. ast/kind_visitor.hpp): класс — наследник абстрактного
+    // Единая диспетчеризация ПО KIND (см. ast/kind_visitor.hpp): класс - наследник абстрактного
     // KindVisitor, поэтому dispatchKind вызывает соответствующий visit_<Kind> прямо на *this.
     // Каждый kind реализован (или явный no-op): пропуск генерации не даст скомпилироваться.
     m_out = output_idx;
@@ -398,13 +398,13 @@ void CppTranspiler::generateVarDeclToFile(const VarDecl& var_node, MapperFile ou
         }
     } else {
         // Нетипизированная переменная: выведенный семантикой конкретный тип, либо ЯВНО помеченный
-        // std::any (семантика маркирует Any для тип-less инициализаторов — тип-имя, embed, вызов
-        // с неизвестным результатом, отрицательный литерал — и для forward-объявлений без типа).
-        // Any — обычный выводимый тип → эмитим единообразно emitTypeName(inferred). INVALID у
-        // переменной — ошибка вывода: тихий fallback на std::any запрещён (AGENTS rule 5).
+        // std::any (семантика маркирует Any для тип-less инициализаторов - тип-имя, embed, вызов
+        // с неизвестным результатом, отрицательный литерал - и для forward-объявлений без типа).
+        // Any - обычный выводимый тип → эмитим единообразно emitTypeName(inferred). INVALID у
+        // переменной - ошибка вывода: тихий fallback на std::any запрещён (AGENTS rule 5).
         TypeId inferred = var_node.inferredType;
         // Страховка: forward-объявление, чей тип семантика не пометила (напр. stdlib/Any не
-        // зарегистрирован), мог быть завершён последующим определением — добиваем по символу.
+        // зарегистрирован), мог быть завершён последующим определением - добиваем по символу.
         if (inferred == INVALID_TYPE_ID && m_resolvedTypes) {
             if (const Symbol* s = m_resolvedTypes->resolve(var_node.text())) {
                 inferred = s->type;
@@ -430,7 +430,7 @@ void CppTranspiler::generateVarDeclToFile(const VarDecl& var_node, MapperFile ou
     // сформированы из них ПОСЛЕ обхода AST (collectTypeIncludes).
 
     MapperScope scope(m_ctx.source(), var_node.range(), output_idx);
-    // Константность ОБЪЯВЛЕНИЯ переменной — attr::ReadOnly на узле ('^' на имени или
+    // Константность ОБЪЯВЛЕНИЯ переменной - attr::ReadOnly на узле ('^' на имени или
     // @[readonly]@). НЕ берётся из бита Symbol::type: переменная может стать константной
     // позже (became-const, `x := 42; x^ += 1;`), но её ДЕКЛАРАЦИЯ обязана остаться не-const
     // (переменная мутировалась до финализации). Признак на узле = const «в типе» объявления.
@@ -443,7 +443,7 @@ void CppTranspiler::generateVarDeclToFile(const VarDecl& var_node, MapperFile ou
         prefix += "thread_local ";
     }
     // Forward-объявление `x:Type := ...;` → C++ extern-декларация переменной (объявление без
-    // определения); иначе — определение с инициализатором. Смещение имени в выводе зависит
+    // определения); иначе - определение с инициализатором. Смещение имени в выводе зависит
     // от наличия префикса "extern " (source-map).
     uint32_t namePrefixLen = static_cast<uint32_t>(prefix.length()) + static_cast<uint32_t>(cpp_type.length()) + 1;
     if (!var_node.m_initializer || m_forwardDeclOnly) {
@@ -457,7 +457,7 @@ void CppTranspiler::generateVarDeclToFile(const VarDecl& var_node, MapperFile ou
 
     // Добавляем маппинг имени переменной для hover-ссылок.
     // Диапазон trust-имени: nameRange() берёт диапазон реального имени из m_term->m_left
-    // (важно при макро-раскрытии, где range() самого узла — оператор). Fallback — имя
+    // (важно при макро-раскрытии, где range() самого узла - оператор). Fallback - имя
     // в начале range() (когда range() покрывает всю строку, m_term->m_left отсутствует).
     MapperRange trustNameRange = var_node.nameRange();
     if (trustNameRange.isInvalid()) {
@@ -467,13 +467,13 @@ void CppTranspiler::generateVarDeclToFile(const VarDecl& var_node, MapperFile ou
         trustNameRange = MapperRange(trustNameBegin, trustNameEnd);
     }
     // Имя выводится сразу после префикса "<cpp_type> " (или "extern <cpp_type> " для forward).
-    // trust-имя в маппинге — исходное (var_node.text(), для нативных с '%'), cpp-имя — манглированное.
+    // trust-имя в маппинге - исходное (var_node.text(), для нативных с '%'), cpp-имя - манглированное.
     mapDeclaredName(output_idx, trustNameRange, namePrefixLen, var_node.text(), var_name);
 
     // Экспортируются ОПРЕДЕЛЕНИЯ на верхнем уровне модуля в НЕ анонимной области имён
-    // (глобальная '::' и именованные 'ns::' — с квалификацией, напр. "ns::x").
+    // (глобальная '::' и именованные 'ns::' - с квалификацией, напр. "ns::x").
     // Локальные (внутри функций/блоков кода), скрытая область '_' и forward-объявления
-    // (нет инициализатора → нет определения, `&::name` не связался бы) — не экспортируются.
+    // (нет инициализатора → нет определения, `&::name` не связался бы) - не экспортируются.
     if (var_node.m_initializer && !var_name.empty() && !m_inCppBlock && m_hiddenNamespaceDepth == 0) {
         m_exports.push_back({std::string(var_node.text()), qualifiedCppName(var_name), buildTrustForwardDecl(var_node)});
     }
@@ -491,11 +491,11 @@ void CppTranspiler::generateTypeDeclToFile(const Binary& binary_node, MapperFile
 
     auto* right = binary_node.m_right.get();
     // Enum/Variant-объявление: `Color ::= :Enum(...)` / `(...):Enum`, `Value ::= :Variant(...)` /
-    // `(...):Variant` — правая часть DictLiteral с аннотацией типа «Enum»/«Variant».
+    // `(...):Variant` - правая часть DictLiteral с аннотацией типа «Enum»/«Variant».
     if (right && right->kind() == ParserToken::Kind::DictLiteral) {
         const auto& dl = static_cast<const DictLiteralNode&>(*right);
         if (dl.m_type && dl.m_type->text() == "Enum") {
-            // Тип обязан быть зарегистрирован семантикой (analyzeEnumDecl). Если его нет —
+            // Тип обязан быть зарегистрирован семантикой (analyzeEnumDecl). Если его нет -
             // инвариантное нарушение: без диагностики молча ничего не эмитим.
             auto tid = m_ctx.types().findType(left->text());
             if (!tid) {
@@ -503,7 +503,7 @@ void CppTranspiler::generateTypeDeclToFile(const Binary& binary_node, MapperFile
                 return;
             }
             // Отображение объявления (trust-range → cpp): MapperScope охватывает struct +
-            // out-of-class определения. Маппинг имени типа — внутри emitEnumStruct (оффсет
+            // out-of-class определения. Маппинг имени типа - внутри emitEnumStruct (оффсет
             // вычисляется из фактического вывода, а не из магической константы).
             std::unique_ptr<MapperScope> scope;
             if (!binary_node.range().begin.isInvalid()) {
@@ -526,7 +526,7 @@ void CppTranspiler::generateTypeDeclToFile(const Binary& binary_node, MapperFile
             return;
         }
     }
-    // База алиаса: TypeName (:Int32) или Ident (MyInt — существующий алиас/переменная).
+    // База алиаса: TypeName (:Int32) или Ident (MyInt - существующий алиас/переменная).
     // Оба разрешаются по имени через resolveCppType.
     if (!right || (right->kind() != ParserToken::Kind::TypeName && right->kind() != ParserToken::Kind::Ident)) {
         m_ctx.report(binary_node.range(), OptKind::ParseError, "unsupported type alias definition");
@@ -535,7 +535,7 @@ void CppTranspiler::generateTypeDeclToFile(const Binary& binary_node, MapperFile
 
     // Resolve base type (canonical chain + cpp name + инклуды через emitTypeName).
     // Правая часть всегда тип (семантика '::=' отклоняет переменную справа), поэтому fallback
-    // на переменную не нужен: при невозможности вывода базы — явная ошибка.
+    // на переменную не нужен: при невозможности вывода базы - явная ошибка.
     std::string base_cpp;
     if (auto tid = m_ctx.types().findType(right->text())) {
         if (auto n = emitTypeName(*tid, right->text())) {
@@ -553,7 +553,7 @@ void CppTranspiler::generateTypeDeclToFile(const Binary& binary_node, MapperFile
     m_ctx.source().output_append(output_idx, cpp_line);
 
     // Add name mapping for the type name (hover links): name starts right after the "using " prefix.
-    // trust-имя в маппинге — исходное (left->text()), cpp-имя — манглированное (type_name).
+    // trust-имя в маппинге - исходное (left->text()), cpp-имя - манглированное (type_name).
     mapDeclaredName(output_idx, left->range(), static_cast<uint32_t>(using_prefix.length()), left->text(), type_name);
 }
 
@@ -588,8 +588,8 @@ static std::string memberValueCpp(const TypeRegistry& reg, TypeId mt, std::strin
 
 // Эмиссия enum-типа: `struct c_Color : trust::Enum<ValueCpp, N> { using ...; static const члены; };`
 // + out-of-class `const c_Color c_Color::c_MEMBER{value, ordinal};`. Generic-логика (значение/
-// ординал, конструкторы, операторы сравнения по ординалу, count()) — в рантайм-шаблоне trust::Enum;
-// кодогенерация эмитит только данные члена. Члены — static const (out-of-class), т.к.
+// ординал, конструкторы, операторы сравнения по ординалу, count()) - в рантайм-шаблоне trust::Enum;
+// кодогенерация эмитит только данные члена. Члены - static const (out-of-class), т.к.
 // static constexpr собственного типа невозможен (неполный тип в точке объявления).
 void CppTranspiler::emitEnumStruct(std::string_view enum_trust, const DictLiteralNode& dict, TypeId enum_id, MapperFile output_idx, MapperRange typeNameRange) {
     // Значения членов читаются из EnumTypeData (вычислены семантикой с автоинкрементом);
@@ -619,7 +619,7 @@ void CppTranspiler::emitEnumStruct(std::string_view enum_trust, const DictLitera
     out += enum_cpp + " : " + base + " {\n";
     out += "    using " + base + "::Enum;\n";
     // Декларации членов + их name-маппинг (hover): член выводится как `static const c_Level c_NAME;`
-    // — имя сразу после "<enum_cpp> ". Источник диапазона члена — ArgNode из dict.m_body (тот же
+    // - имя сразу после "<enum_cpp> ". Источник диапазона члена - ArgNode из dict.m_body (тот же
     // порядок, что и ed->members). Для синтетических/без-range узлов маппинг пропускается.
     {
         size_t midx = 0;
@@ -646,7 +646,7 @@ void CppTranspiler::emitEnumStruct(std::string_view enum_trust, const DictLitera
     // (не constexpr) читают её во время выполнения. Для литеральных типов тоже корректно.
     out += "    static inline const trust::EnumMember<" + valueCpp + "> kMembers[" + std::to_string(N) + "] = {";
     // Значения членов: скалярные литералы (ast::is_literal_kind) форматируются по типу
-    // (memberValueCpp). Составные литералы (массив/словарь/диапазон) НЕ реализованы — «не
+    // (memberValueCpp). Составные литералы (массив/словарь/диапазон) НЕ реализованы - «не
     // реализовано» выдаётся ЗДЕСЬ, по факту невозможности сгенерировать C++-литерал значения.
     std::string defs;
     size_t idx = 0;
@@ -660,7 +660,7 @@ void CppTranspiler::emitEnumStruct(std::string_view enum_trust, const DictLitera
         const auto& a = static_cast<const ArgNode&>(*el);
         const AstNodeBase* valNode = a.m_value.get();
         if (a.text().empty() && valNode && valNode->kind() == ParserToken::Kind::Ident) {
-            valNode = nullptr; // безнарный член — имя в значении, значения нет
+            valNode = nullptr; // безнарный член - имя в значении, значения нет
         }
         if (valNode && !is_literal_kind(valNode->kind())) {
             m_ctx.report(el->range(), OptKind::ParseError, "значение члена enum '{}' (массив/словарь/диапазон) ещё не реализовано", enum_trust);
@@ -688,7 +688,7 @@ void CppTranspiler::emitEnumStruct(std::string_view enum_trust, const DictLitera
 
 // Эмиссия Variant-типа (гетерогенный): `struct c_Value { using Variant = std::variant<...>;
 // static const <T> c_MEMBER; ... }` + out-of-class определения (значения из DictLiteral RHS).
-// Каждый член — константа СВОЕГО типа (из VariantTypeData); `Value.RED` → c_Value::c_RED.
+// Каждый член - константа СВОЕГО типа (из VariantTypeData); `Value.RED` → c_Value::c_RED.
 void CppTranspiler::emitVariantStruct(std::string_view variant_trust, const DictLiteralNode& dict, TypeId variant_id, MapperFile output_idx,
                                       MapperRange typeNameRange) {
     const std::string vcpp = utils::name_to_cpp(variant_trust);
@@ -724,8 +724,8 @@ void CppTranspiler::emitVariantStruct(std::string_view variant_trust, const Dict
         out += memberCpp[i];
     }
     out += ">;\n";
-    // Декларации членов + их name-маппинг (hover): `static const <T> c_NAME;` — имя сразу после
-    // "<T> ". Источник диапазона члена — ArgNode из dict.m_body (тот же порядок, что и vd->members).
+    // Декларации членов + их name-маппинг (hover): `static const <T> c_NAME;` - имя сразу после
+    // "<T> ". Источник диапазона члена - ArgNode из dict.m_body (тот же порядок, что и vd->members).
     {
         size_t midx = 0;
         for (const auto& el : dict.m_body) {
@@ -748,8 +748,8 @@ void CppTranspiler::emitVariantStruct(std::string_view variant_trust, const Dict
     out += "    static constexpr int count() { return " + std::to_string(vd->members.size()) + "; }\n";
     out += "};\n";
     // out-of-class определения: значения из ArgNode (имя в text(), значение в m_value); без
-    // значения → ordinal. Форматирование значения по типу члена — единый memberValueCpp.
-    // Значение члена Variant — AST-выражение (источник истины — ArgNode.m_value); реестр хранит
+    // значения → ordinal. Форматирование значения по типу члена - единый memberValueCpp.
+    // Значение члена Variant - AST-выражение (источник истины - ArgNode.m_value); реестр хранит
     // только разрешённый тип (VariantMemberData).
     size_t i = 0;
     for (const auto& el : dict.m_body) {
@@ -762,13 +762,13 @@ void CppTranspiler::emitVariantStruct(std::string_view variant_trust, const Dict
         const auto& a = static_cast<const ArgNode&>(*el);
         std::string mname = std::string(a.text());
         AstNodePtr valNode = a.m_value;
-        // Безнарный член `x` (имя="" и значение-Ident) — имя лежит в значении, значение отбрасываем.
+        // Безнарный член `x` (имя="" и значение-Ident) - имя лежит в значении, значение отбрасываем.
         if (mname.empty() && valNode && valNode->kind() == ParserToken::Kind::Ident) {
             mname = std::string(valNode->text());
             valNode = nullptr;
         }
         // Значение члена Variant: скалярные литералы (ast::is_literal_kind) форматируются по типу.
-        // Составные литералы (массив/словарь/диапазон) НЕ реализованы — «не реализовано» выдаётся
+        // Составные литералы (массив/словарь/диапазон) НЕ реализованы - «не реализовано» выдаётся
         // ЗДЕСЬ, по факту невозможности сгенерировать C++-литерал значения.
         if (valNode && !is_literal_kind(valNode->kind())) {
             m_ctx.report(el->range(), OptKind::ParseError, "значение члена variant '{}' (массив/словарь/диапазон) ещё не реализовано", variant_trust);
@@ -794,10 +794,10 @@ void CppTranspiler::emitExpr(const AstNodeBase* node) {
         m_ctx.source().output_append(m_out, "{}");
         return;
     }
-    // Единая диспетчеризация ПО KIND (ast/kind_visitor.hpp) — как и для statement.
-    // Различие statement/expression — глубина m_exprDepth: visit_<Kind> добавляет
+    // Единая диспетчеризация ПО KIND (ast/kind_visitor.hpp) - как и для statement.
+    // Различие statement/expression - глубина m_exprDepth: visit_<Kind> добавляет
     // mapStart/mapStop и ';' только на верхнем уровне (m_exprDepth==0); вложенный
-    // вызов emitExpr (m_exprDepth>0) — только текст выражения (без ';' и map).
+    // вызов emitExpr (m_exprDepth>0) - только текст выражения (без ';' и map).
     ++m_exprDepth;
     dispatchKind(*node, *this);
     --m_exprDepth;
@@ -813,7 +813,7 @@ void CppTranspiler::emitBinaryOpRaw(const Binary& binary_node) {
         emitExpr(binary_node.m_right.get());
         m_ctx.source().output_append(m_out, ")");
     } else if (m_exprDepth == 0 && utils::isIntDivOp(op) && utils::isCompoundAssignOp(op)) {
-        // //= — только statement (присваивание); как вложенное выражение не используется.
+        // //= - только statement (присваивание); как вложенное выражение не используется.
         emitExpr(binary_node.m_left.get());
         m_ctx.source().output_append(m_out, " = static_cast<int64_t>(");
         emitExpr(binary_node.m_left.get());
@@ -821,8 +821,8 @@ void CppTranspiler::emitBinaryOpRaw(const Binary& binary_node) {
         emitExpr(binary_node.m_right.get());
         m_ctx.source().output_append(m_out, ")");
     } else {
-        // LHS: для простого присвоения "=" — это адрес хранения (any_cast неприменим);
-        // иначе (арифметика/составные) — значение, может требовать std::any_cast.
+        // LHS: для простого присвоения "=" - это адрес хранения (any_cast неприменим);
+        // иначе (арифметика/составные) - значение, может требовать std::any_cast.
         const bool plainAssign = (binary_node.kind() == ParserToken::Kind::AssignOp && utils::isPlainAssignOp(op));
         if (binary_node.m_left) {
             if (plainAssign) {
@@ -855,7 +855,7 @@ void CppTranspiler::emitBinaryOperand(const AstNodeBase* operand, TypeId operand
                     // std::any → универсальный runtime-конвертер anyToInt64. Точный
                     // `std::any_cast<Cpp>` ломался на гетерогенных значениях словаря (bool, int8,
                     // int64...), а конвертер принимает любую числовую/bool-категорию (dict.hpp).
-                    // anyToInt64 требует <any> — подключаем по-типу (тип операнда Any).
+                    // anyToInt64 требует <any> - подключаем по-типу (тип операнда Any).
                     recordUsedType(operandType);
                     m_ctx.source().output_append(m_out, "trust::detail::anyToInt64(");
                     emitExpr(operand);
@@ -882,7 +882,7 @@ void CppTranspiler::emitBinaryStmtOrExpr(const Binary& binary_node) {
 }
 
 std::optional<TypeId> CppTranspiler::resolveTypeIdByName(std::string_view trustName) const {
-    // Если задана разрешённая семантикой таблица символов — используем её TypeId как
+    // Если задана разрешённая семантикой таблица символов - используем её TypeId как
     // единый источник с анализом (скоуп-стек к моменту кодогенерации сброшен к глобальному;
     // для builtin-имён в скоупе записи нет → fallback на реестр).
     if (m_resolvedTypes) {
@@ -903,19 +903,19 @@ std::optional<std::pair<std::string, std::string_view>> CppTranspiler::resolveCp
     return resolveCppTypeId(*type_id, trustName);
 }
 
-// Разрешение по уже известному TypeId. displayName — trust-имя, сохраняемое для пользовательского
-// алиаса; встроенные типы и встроенные алиасы — каноническое C++-имя.
+// Разрешение по уже известному TypeId. displayName - trust-имя, сохраняемое для пользовательского
+// алиаса; встроенные типы и встроенные алиасы - каноническое C++-имя.
 std::optional<std::pair<std::string, std::string_view>> CppTranspiler::resolveCppTypeId(TypeId type_id, std::string_view displayName) const {
     TypeId canonical = m_ctx.types().getCanonicalTypeId(type_id);
-    // Кортеж — структурный/компайлтайм-тип без единого runtime-представления: всегда конкретный
+    // Кортеж - структурный/компайлтайм-тип без единого runtime-представления: всегда конкретный
     // std::tuple, тип которого выводится из инициализатора (std::make_tuple). Голого C++-имени
     // у типа `:Tuple` нет → объявление переменной эмитится как `auto`. Плоский `:Tuple` и
-    // структурный кортеж (TupleTypeData) — оба.
+    // структурный кортеж (TupleTypeData) - оба.
     if (canonical == m_ctx.types().getType(type_category::Tuple) || m_ctx.types().isTypeDataKind(canonical, TypeDataKind::kTuple)) {
         return std::make_pair(std::string("auto"), std::string_view{});
     }
     // Параметризованный Range<Elem> (структурный, TypeDataKind::kRange): конкретный C++-шаблон
-    // `trust::Range<ElemCpp>`, где ElemCpp — элементный тип из RangeTypeData (рекурсивно через
+    // `trust::Range<ElemCpp>`, где ElemCpp - элементный тип из RangeTypeData (рекурсивно через
     // emitTypeName). В отличие от абстрактного `:Range` (ветка ниже → auto) здесь имя конкретно.
     if (m_ctx.types().isRangeType(canonical)) {
         const TypeId elem = m_ctx.types().rangeElementType(canonical);
@@ -931,7 +931,7 @@ std::optional<std::pair<std::string, std::string_view>> CppTranspiler::resolveCp
         recordUsedType(canonical); // включит @trust/range.hpp + dict/rational (getPreprocIncludes)
         return std::make_pair("trust::Range<" + elemCpp + ">", m_ctx.types().getPreprocInclude(canonical));
     }
-    // Диапазон `:Range` — абстрактный универсальный тип (как :Dict), конкретное C++-представление
+    // Диапазон `:Range` - абстрактный универсальный тип (как :Dict), конкретное C++-представление
     // `trust::Range<Elem>` (шаблон по элементному типу) выводится из инициализатора-литерала
     // `..` в visit_RangeExpr. Голого C++-имени у `:Range` нет → объявление переменной эмитится
     // как `auto`, инициализатор задаёт конкретный `trust::Range<Elem>`. (Модель: кортеж `:Tuple`.)
@@ -940,7 +940,7 @@ std::optional<std::pair<std::string, std::string_view>> CppTranspiler::resolveCp
     }
     // Параметризованный Array<Elem> (структурный, ArrayTypeData): конкретный C++-шаблон
     // `std::vector<ElemCpp>` (mutable) или `std::array<ElemCpp,N>` (константная/фиксированная).
-    // ElemCpp — элементный тип из ArrayTypeData (рекурсивно через resolveCppTypeId).
+    // ElemCpp - элементный тип из ArrayTypeData (рекурсивно через resolveCppTypeId).
     if (m_ctx.types().isArrayType(canonical)) {
         const TypeId elem = m_ctx.types().arrayElementType(canonical);
         std::string elemCpp;
@@ -965,19 +965,19 @@ std::optional<std::pair<std::string, std::string_view>> CppTranspiler::resolveCp
         recordRequiredInclude("#include <vector>");
         return std::make_pair("std::vector<" + elemCpp + ">", std::string_view{});
     }
-    // Массив `:Array` — абстрактный универсальный тип (как :Dict/:Range): конкретное
+    // Массив `:Array` - абстрактный универсальный тип (как :Dict/:Range): конкретное
     // C++-представление `std::vector<Elem>` выводится из инициализатора-литерала (visit_ArrayInit).
     // Голого C++-имени нет → объявление переменной эмитится как `auto`.
     if (canonical == m_ctx.types().getType(type::Array)) {
         return std::make_pair(std::string("auto"), std::string_view{});
     }
-    // Константность (kConstFlag) — ортогональный квалификатор, учитывается здесь: префикс `const `
+    // Константность (kConstFlag) - ортогональный квалификатор, учитывается здесь: префикс `const `
     // добавляется к базовому имени (каноника снимает бит, поэтому getCppTypeName(canonical) его
     // не видит). Для пользовательских алиасов const добавляется к trust-имени.
     const bool isConst = typeIsConst(type_id);
 
     // Спецправило: узкая строка как указатель на константные данные
-    // (`fmt: @[reftype(ptr)]@ StrChar^`) — это C-строка `const char*` (а НЕ `const std::string*`).
+    // (`fmt: @[reftype(ptr)]@ StrChar^`) - это C-строка `const char*` (а НЕ `const std::string*`).
     // Такой тип совместим с C-функциями, принимающими форматную строку (printf и др.); при
     // вызове StrChar-аргумент конвертируется в .c_str() (см. visit_CallExpr).
     if (isConst && getRefType(getKindFromId(canonical)) == RefType::kPtr) {
@@ -988,7 +988,7 @@ std::optional<std::pair<std::string, std::string_view>> CppTranspiler::resolveCp
         }
     }
 
-    // Enum-тип (Group::kEnums, EnumTypeData): C++-имя — манглинг trust-имени (самодостаточная
+    // Enum-тип (Group::kEnums, EnumTypeData): C++-имя - манглинг trust-имени (самодостаточная
     // struct, объявленная visit_EnumDecl); у типа нет единого preproc-include.
     if (m_ctx.types().isTypeDataKind(canonical, TypeDataKind::kEnum)) {
         std::string name = utils::name_to_cpp(displayName);
@@ -998,7 +998,7 @@ std::optional<std::pair<std::string, std::string_view>> CppTranspiler::resolveCp
         recordUsedType(canonical);
         return std::make_pair(std::move(name), std::string_view{});
     }
-    // Variant-тип (Group::kVariants, VariantTypeData): C++-имя — манглинг trust-имени (struct c_Value).
+    // Variant-тип (Group::kVariants, VariantTypeData): C++-имя - манглинг trust-имени (struct c_Value).
     if (m_ctx.types().isTypeDataKind(canonical, TypeDataKind::kVariant)) {
         std::string name = utils::name_to_cpp(displayName);
         if (isConst) {
@@ -1014,14 +1014,14 @@ std::optional<std::pair<std::string, std::string_view>> CppTranspiler::resolveCp
     }
     std::string_view include = m_ctx.types().getPreprocInclude(canonical);
 
-    // МЕХАНИЗМ №1 — ПО ТИПУ: отмечаем тип как использованный (не файлы!). Инклуды из собранных
+    // МЕХАНИЗМ №1 - ПО ТИПУ: отмечаем тип как использованный (не файлы!). Инклуды из собранных
     // типов формируются ПОСЛЕ обхода AST (collectTypeIncludes), а не в момент резолва.
     recordUsedType(canonical);
 
     // Пользовательский алиас (зарегистрирован семантикой) сохраняет своё trust-имя в коде;
     // встроенные типы и встроенные алиасы (Integer, String, Char...) маппятся на каноническое
     // C++-имя (int64_t, std::string...). Include всегда берётся у канонического (базового) типа.
-    // Признак пользовательского типа — явный (isUserDefinedType), а не по sourceRange.
+    // Признак пользовательского типа - явный (isUserDefinedType), а не по sourceRange.
     if (m_ctx.types().isUserDefinedType(type_id)) {
         // Пользовательский алиас сохраняет своё trust-имя в C++-коде, но в виде корректного
         // C++-идентификатора (манглинг: MyInt → c_MyInt), чтобы совпадать с объявлением `using c_MyInt = ...`.
@@ -1043,7 +1043,7 @@ void CppTranspiler::mapDeclaredName(MapperFile output_idx, MapperRange trustRang
         return;
     }
     // Оффсет всегда от mapStackTop().outputBegin (инклуды output_prepend сдвигают начало
-    // вывода — нельзя предполагать, что вывод начинается с offset 1). См. memory (transpiler).
+    // вывода - нельзя предполагать, что вывод начинается с offset 1). См. memory (transpiler).
     const auto stackEntry = m_ctx.source().mapStackTop();
     const uint32_t nameOffset = stackEntry.outputBegin.offset() + prefixLen;
     MapperLocation nameBegin = m_ctx.source().makeLoc(output_idx, nameOffset);
@@ -1053,7 +1053,7 @@ void CppTranspiler::mapDeclaredName(MapperFile output_idx, MapperRange trustRang
 }
 
 void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile output_idx) {
-    // Нативный импорт `<name>(...) := %native...;` — алиас: C++-функция НЕ эмитится.
+    // Нативный импорт `<name>(...) := %native...;` - алиас: C++-функция НЕ эмитится.
     // Регистрируем trust-имя → нативное C++-имя; вызовы name(...) будут переписаны в native(...).
     if (func_node.m_isNativeImport) {
         m_nativeImports[std::string(func_node.text())] = func_node.m_nativeName;
@@ -1070,7 +1070,7 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
     const std::string trust_name = std::string(func_node.text());
     const bool isEntry = func_node.m_body && !m_inCppBlock && m_hiddenNamespaceDepth == 0 && trust_name.ends_with("__main__");
     // Function name: манглинг trust-имени в C++-идентификатор (срез '%' у нативных функций).
-    // Entry — без манглинга, иначе не совпадёт с `extern int <имя>__main__()` в _main.cppt.
+    // Entry - без манглинга, иначе не совпадёт с `extern int <имя>__main__()` в _main.cppt.
     std::string name = isEntry ? std::string(utils::strip_native_prefix(trust_name)) : utils::name_to_cpp(trust_name);
 
     // Return type (инклуды типа записываются через emitTypeName). None/Void → "void"; нет аннотации → "void".
@@ -1111,13 +1111,13 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
         trail += " noexcept";
     }
 
-    // Нативная декларация (`%...`): правило линковки — без '::' линкуется как C-символ
-    // (extern "C", напр. libc/libm `sqrt`, `open`, `abs`); с '::' — C++-линковка (`std::...`).
-    // Импорт-алиасы (`name(...) := %sym...;`) вернулись выше — сюда попадают только
+    // Нативная декларация (`%...`): правило линковки - без '::' линкуется как C-символ
+    // (extern "C", напр. libc/libm `sqrt`, `open`, `abs`); с '::' - C++-линковка (`std::...`).
+    // Импорт-алиасы (`name(...) := %sym...;`) вернулись выше - сюда попадают только
     // forward-decl и определения.
     // extern "C" добавляется ТОЛЬКО forward-декларациям (нет тела): это настоящие C-символы.
-    // Определения (с телом) — пользовательские C++-функции; extern "C" для них неверен
-    // (напр. auto-возврат кортежа несовместим с C-линковкой) и не нужен — при наличии
+    // Определения (с телом) - пользовательские C++-функции; extern "C" для них неверен
+    // (напр. auto-возврат кортежа несовместим с C-линковкой) и не нужен - при наличии
     // forward-объявления определение наследует C-линковку по правилу [dcl.link].
     if (trust_name.starts_with('%') && !func_node.m_body.has_value() && utils::strip_native_prefix(trust_name).find("::") == std::string::npos) {
         lead = "extern \"C\" " + lead;
@@ -1135,11 +1135,11 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
             }
             auto* param_node = static_cast<const ArgNode*>((*func_node.m_params)[i].get());
             if (!param_node || param_node->kind() != ParserToken::Kind::ArgNode) {
-                params_str += "std::any"; // дефектный узел (семантика отсекает) — тип Any
+                params_str += "std::any"; // дефектный узел (семантика отсекает) - тип Any
                 continue;
             }
             if (param_node->text() == "...") {
-                // Вариативность: trust `...` — свойство компилятора (произвольное число
+                // Вариативность: trust `...` - свойство компилятора (произвольное число
                 // аргументов); в C++ это чистая variadic-метка `...` (без имени и типа).
                 // C++ требует `...` последним параметром, что и гарантируется грамматикой.
                 params_str += "...";
@@ -1155,11 +1155,11 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
                 } else {
                     param_type = emitTypeNameForNode(param_node->m_type.get());
                     if (param_type.empty()) {
-                        return; // emitTypeNameForNode уже вывел диагностику — функция невалидна
+                        return; // emitTypeNameForNode уже вывел диагностику - функция невалидна
                     }
                 }
             } else if (auto aid = m_ctx.types().findType(type_generic::Any)) {
-                // Нетипизированный параметр — тип :Any (std::any); инклуд записывает emitTypeName.
+                // Нетипизированный параметр - тип :Any (std::any); инклуд записывает emitTypeName.
                 auto anyName = emitTypeName(*aid, type_generic::Any);
                 EXPECT(anyName.has_value() && "untyped parameter: Any type must have a C++ name");
                 param_type = std::move(*anyName);
@@ -1167,7 +1167,7 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
                 EXPECT(false && "untyped parameter: Any type must be registered");
             }
             // Param name: манглинг trust-имени параметра в C++-идентификатор (a → c_a).
-            // Безымянный параметр (только тип) эмитится без имени — C++ это допускает
+            // Безымянный параметр (только тип) эмитится без имени - C++ это допускает
             // (void f(int32_t)), и к нему нельзя обратиться из тела.
             std::string param_name = utils::name_to_cpp(param_node->text());
             if (param_name.empty()) {
@@ -1197,7 +1197,7 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
                         name);
     }
 
-    // Parameter names: name_pos — оффсет имени от начала сигнатуры (= начала mapStart).
+    // Parameter names: name_pos - оффсет имени от начала сигнатуры (= начала mapStart).
     for (const auto& [param_node, name_pos] : param_name_positions) {
         std::string raw_param = std::string(param_node->text());
         if (raw_param.empty()) {
@@ -1207,7 +1207,7 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
         mapDeclaredName(output_idx, param_node->range(), name_pos, raw_param, cpp_param);
     }
 
-    // Сигнатура (src [имя, оператор]) смапплена — закрываем её отдельно от тела.
+    // Сигнатура (src [имя, оператор]) смапплена - закрываем её отдельно от тела.
     m_ctx.source().mapStop(func_node.range());
 
     // Body or forward declaration
@@ -1218,7 +1218,7 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
         MapperRange blockRange = func_node.blockRange();
 
         // Тело функции: convertSeq уже развернул SEQUENCE-контейнер тела, поэтому
-        // func_node.m_body — плоский список операторов; пользовательские блоки остаются
+        // func_node.m_body - плоский список операторов; пользовательские блоки остаются
         // ScopeBlock-узлами и оборачиваются visit_ScopeBlock. Отдельного сплющивания не нужно.
         // Entry-функция без явного `return` в конце получает `return 0;` перед '}' (иначе
         // «control reaches end of non-void function»).
@@ -1236,7 +1236,7 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
 
     // Экспортируются ОПРЕДЕЛЕНИЯ функций на верхнем уровне модуля в НЕ анонимной области имён
     // (квалифицированно для 'ns::'); из '_' и локальных, а также forward-объявления
-    // (нет тела → нет определения, `&::name` не связался бы) — не экспортируются.
+    // (нет тела → нет определения, `&::name` не связался бы) - не экспортируются.
     if (func_node.m_body && !name.empty() && !m_inCppBlock && m_hiddenNamespaceDepth == 0) {
         m_exports.push_back({std::string(func_node.text()), qualifiedCppName(name), buildTrustForwardDecl(func_node)});
     }
@@ -1244,7 +1244,7 @@ void CppTranspiler::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile
 
 void CppTranspiler::emitBlockBodyToFile(const std::vector<AstNodePtr>& body, MapperRange blockRange, MapperFile output_idx, bool mapBlock,
                                         const std::string& beforeCloseLabel, const std::string& afterOpen) {
-    // mapBlock=false: не оборачиваем тело собственным маппингом (do-while — begin тела
+    // mapBlock=false: не оборачиваем тело собственным маппингом (do-while - begin тела
     // совпадает с begin statement'а, иначе коллизия ключа в mapStop).
     const bool hasBlockRange = !blockRange.isInvalid() && mapBlock;
 
@@ -1254,8 +1254,8 @@ void CppTranspiler::emitBlockBodyToFile(const std::vector<AstNodePtr>& body, Map
         scope.emplace(m_ctx.source(), blockRange, output_idx);
     }
 
-    // Нормальное многострочное форматирование: '{' в конце строки, операторы — с отступом.
-    // Входим во вложенный скоуп: отступ +1 (функция/блок — только уровень отступа).
+    // Нормальное многострочное форматирование: '{' в конце строки, операторы - с отступом.
+    // Входим во вложенный скоуп: отступ +1 (функция/блок - только уровень отступа).
     m_ctx.source().output_append(output_idx, " {");
     m_scopeStack.push_back({indentLevel() + 1});
     m_ctx.source().output_append(output_idx, "\n");
@@ -1263,7 +1263,7 @@ void CppTranspiler::emitBlockBodyToFile(const std::vector<AstNodePtr>& body, Map
     // `namespace { }` (namespace внутри compound statement в C++ недопустим).
     const bool savedCppBlock = m_inCppBlock;
     m_inCppBlock = true;
-    // afterOpen — текст сразу после '{' (например, установка флага while-else).
+    // afterOpen - текст сразу после '{' (например, установка флага while-else).
     if (!afterOpen.empty()) {
         m_ctx.source().output_append(output_idx, indentPrefix());
         m_ctx.source().output_append(output_idx, afterOpen);
@@ -1279,7 +1279,7 @@ void CppTranspiler::emitBlockBodyToFile(const std::vector<AstNodePtr>& body, Map
         }
         const size_t before = m_ctx.source().output_body(output_idx).size();
         // Для блочных детей (ScopeBlock/sequence/ModuleDecl) отступ выставляет их собственный обход;
-        // для остальных операторов — отступ текущего блока.
+        // для остальных операторов - отступ текущего блока.
         if (!is_block_kind(child->kind())) {
             m_ctx.source().output_append(output_idx, indentPrefix());
         }
@@ -1411,13 +1411,13 @@ void CppTranspiler::generateMatchToFile(const MatchStmt& node, MapperFile output
     }
 }
 
-// ── KindVisitor: visit_<Kind> (statement-контекст, потоковый вывод в m_out) ──
+// -- KindVisitor: visit_<Kind> (statement-контекст, потоковый вывод в m_out) --
 
-// Блоки-обёртки: обход тела; Attr — не обход.
+// Блоки-обёртки: обход тела; Attr - не обход.
 void CppTranspiler::visit_sequence(const Sequence& n) {
     emitSequenceBody(n, m_out);
 }
-// ── Блоки и области видимости ──
+// -- Блоки и области видимости --
 
 std::string CppTranspiler::qualifiedCppName(std::string_view name) const {
     if (m_namespaceStack.empty()) {
@@ -1473,7 +1473,7 @@ void CppTranspiler::visit_ScopeBlock(const ScopeBlock& n) {
     const std::string_view text = n.text();
     // Безымянный блок кода: последовательность операторов как одно выражение.
     const bool isCodeBlock = text.empty() || text == "{";
-    // Именованный блок-метка: одно имя (идентификатор) без '::' — label { ... }.
+    // Именованный блок-метка: одно имя (идентификатор) без '::' - label { ... }.
     const bool isLabel = !isCodeBlock && !n.is_hidden() && text.find("::") == std::string_view::npos;
     // Глобальная область имён: ':: { ... }'.
     const bool isGlobalNs = text == "::";
@@ -1498,7 +1498,7 @@ void CppTranspiler::visit_ScopeBlock(const ScopeBlock& n) {
         return;
     }
 
-    // Глобальная область '::' — содержимое без namespace-обёртки.
+    // Глобальная область '::' - содержимое без namespace-обёртки.
     if (isGlobalNs) {
         emitSequenceBody(n, m_out);
         return;
@@ -1521,17 +1521,17 @@ void CppTranspiler::visit_ScopeBlock(const ScopeBlock& n) {
 }
 void CppTranspiler::visit_ModuleDecl(const ModuleNode& n) {
     if (n.isImport()) {
-        // Сайт импорта `\module(mod, masks)`: вместо полного тела — только forward-decl
+        // Сайт импорта `\module(mod, masks)`: вместо полного тела - только forward-decl
         // экспортируемого интерфейса (прототипы функций / extern переменных / алиасы типов).
         // Определения живут в отдельном .cppt модуля и связываются линковщиком.
         emitModuleImportDecls(n);
         return;
     }
-    // Корневой модуль (главный файл) — полное тело.
+    // Корневой модуль (главный файл) - полное тело.
     emitSequenceBody(n, m_out);
 }
 
-// ── Эмиссия forward-decl экспортов на сайте импорта модуля ──
+// -- Эмиссия forward-decl экспортов на сайте импорта модуля --
 
 void CppTranspiler::emitModuleImportDecls(const ModuleNode& n) {
     // Множество экспортируемых термов (из отфильтрованного интерфейса сайта импорта).
@@ -1547,10 +1547,10 @@ void CppTranspiler::emitModuleImportDecls(const ModuleNode& n) {
         return; // ничего не импортируется (или модуль без экспортов)
     }
     // В forward-режиме объявления подавляют определения (extern/прототип).
-    // ВЕСЬ импорт мапится ОДНИМ фрагментом — на месте оператора загрузки модуля (`\module(...)`,
+    // ВЕСЬ импорт мапится ОДНИМ фрагментом - на месте оператора загрузки модуля (`\module(...)`,
     // n.range()), как при раскрытии макроса. Внутренние forward-decl эмитятся внутри этого одного
     // маппинга; их собственные per-node маппинги подавляются, чтобы не заявлять диапазоны объявлений
-    // модуля — эти диапазоны мапит отдельный `.cppt` модуля (иначе коллизия trustKey).
+    // модуля - эти диапазоны мапит отдельный `.cppt` модуля (иначе коллизия trustKey).
     MapperScope importScope(m_ctx.source(), n.range(), m_out);
     m_forwardDeclOnly = true;
     m_ctx.source().suppressMapping();
@@ -1566,17 +1566,17 @@ void CppTranspiler::emitImportScope(const std::vector<AstNodePtr>& body, const s
         }
         if (node->kind() == ParserToken::Kind::ScopeBlock) {
             const auto& sb = static_cast<const ScopeBlock&>(*node);
-            // Анонимная область `_` и безымянный кодовый блок — не экспортируются.
+            // Анонимная область `_` и безымянный кодовый блок - не экспортируются.
             if (sb.is_hidden() || sb.is_anonymous()) {
                 continue;
             }
             const std::string_view text = sb.text();
-            // Глобальная область `::` — содержимое без обёртки.
+            // Глобальная область `::` - содержимое без обёртки.
             if (text == "::") {
                 emitImportScope(sb.m_body, terms, out);
                 continue;
             }
-            // Именованная область `ns::` — оборачиваем в `namespace ns { ... }`.
+            // Именованная область `ns::` - оборачиваем в `namespace ns { ... }`.
             const std::string nsName = utils::name_to_cpp(namespaceCppName(text));
             m_namespaceStack.push_back(nsName);
             m_scopeStack.push_back({indentLevel() + 1});
@@ -1611,7 +1611,7 @@ void CppTranspiler::emitImportScope(const std::vector<AstNodePtr>& body, const s
     }
 }
 
-// ── Реконструкция Trust-синтаксиса предварительного объявления экспортируемого узла ──
+// -- Реконструкция Trust-синтаксиса предварительного объявления экспортируемого узла --
 
 std::string CppTranspiler::buildTrustForwardDecl(const AstNodeBase& node) const {
     switch (node.kind()) {
@@ -1676,19 +1676,19 @@ void CppTranspiler::visit_FuncDecl(const FuncDecl& n) {
     generateFuncDeclToFile(n, m_out);
 }
 void CppTranspiler::visit_DestructureDecl(const DestructureDecl& n) {
-    // `t1, ..., tN := [... ]source;` — деструктуризация. Spread (`... source`) — коллекция (Dict,
-    // pop_front + «остаток»); без `...` — кортеж (std::get). `_` — skip (потребляется, не связывается).
+    // `t1, ..., tN := [... ]source;` - деструктуризация. Spread (`... source`) - коллекция (Dict,
+    // pop_front + «остаток»); без `...` - кортеж (std::get). `_` - skip (потребляется, не связывается).
     if (n.m_targets.empty() || !n.m_source) {
-        // Семантика всегда заполняет цели и источник; пустой узел — инвариантное нарушение.
-        // Вместо тихого no-op (AGENTS rule 5 «no silent fallback») — явная диагностика.
+        // Семантика всегда заполняет цели и источник; пустой узел - инвариантное нарушение.
+        // Вместо тихого no-op (AGENTS rule 5 «no silent fallback») - явная диагностика.
         m_ctx.report(n.range(), OptKind::ParseError, "destructuring requires at least one target and a source expression");
         return;
     }
-    // DestructureDecl — НЕ statement-выражение (не оборачивается SemicolonStmt, который добавляет
+    // DestructureDecl - НЕ statement-выражение (не оборачивается SemicolonStmt, который добавляет
     // mapStart/mapStop), поэтому собственный маппинг здесь обязателен: иначе оператор раскрытия
     // словаря/кортежа не имел бы записи в source map и не мапился бы на выходной .cppt. Весь
     // диапазон оператора `t1, ..., tN := [... ]source;` покрывает все эмитируемые строки
-    // (temp-источник + runtime-guard + pop_front'ы / std::get + rest) — как у ControlFlowStmt.
+    // (temp-источник + runtime-guard + pop_front'ы / std::get + rest) - как у ControlFlowStmt.
     MapperScope scope(m_ctx.source(), n.range(), m_out);
     if (n.m_isSpread) {
         emitDestructureDict(n);
@@ -1700,12 +1700,12 @@ void CppTranspiler::visit_DestructureDecl(const DestructureDecl& n) {
 void CppTranspiler::emitDestructureDict(const DestructureDecl& n) {
     const std::string ind = indentPrefix();
     const size_t cnt = n.m_targets.size();
-    // C++-имя источника (для rest-мутации == источнику); для не-Ident — пусто.
+    // C++-имя источника (для rest-мутации == источнику); для не-Ident - пусто.
     std::string srcCpp;
     if (n.m_source && n.m_source->kind() == ParserToken::Kind::Ident) {
         srcCpp = utils::name_to_cpp(n.m_source->text());
     }
-    // Именованный rest (`rest...`): C++-имя цели (пропускаем `_...` — отброс).
+    // Именованный rest (`rest...`): C++-имя цели (пропускаем `_...` - отброс).
     std::string restCpp;
     for (size_t i = 0; i < cnt; ++i) {
         auto* t = n.m_targets[i].get();
@@ -1715,7 +1715,7 @@ void CppTranspiler::emitDestructureDict(const DestructureDecl& n) {
     }
     // Мутация источника на месте: rest-цель == источнику (идиома `item, dict... := ... dict`).
     const bool mutatingRest = !restCpp.empty() && restCpp == srcCpp;
-    // Источник: при мутации — сам источник (pop'ы идут прямо в него); иначе — временная копия,
+    // Источник: при мутации - сам источник (pop'ы идут прямо в него); иначе - временная копия,
     // из которой делаются pop_front и rest-копия (одна оценка источника-выражения, не N раз).
     std::string srcRef = srcCpp;
     if (!mutatingRest) {
@@ -1725,10 +1725,10 @@ void CppTranspiler::emitDestructureDict(const DestructureDecl& n) {
         m_ctx.source().output_append(m_out, ";\n");
         srcRef = tmp;
     }
-    // Runtime-недостаток элементов (динамический источник — размер неизвестен на этапе сборки):
+    // Runtime-недостаток элементов (динамический источник - размер неизвестен на этапе сборки):
     // точная привязка требует, чтобы число элементов было не меньше числа pop'ов. Guard с понятной
-    // диагностикой вместо голого std::out_of_range из pop_front (AGENTS rule 5 — без тихого дефолта
-    // / None; для кортежа арность проверяется статически — guard здесь не нужен, под-кортежи pop_front
+    // диагностикой вместо голого std::out_of_range из pop_front (AGENTS rule 5 - без тихого дефолта
+    // / None; для кортежа арность проверяется статически - guard здесь не нужен, под-кортежи pop_front
     // не делают).
     // Имя файла и строку в сообщении берём из ИСХОДНОГО .src, а не из сгенерированного C++ (как
     // @__FILE_NAME__/@__FILE_LINE__ для @assert): через SourceMap по диапазону узла деструктуризации.
@@ -1759,7 +1759,7 @@ void CppTranspiler::emitDestructureDict(const DestructureDecl& n) {
         ++needPops; // каждый не-rest target (включая `_` skip) делает pop_front
     }
     if (needPops > 0) {
-        // trust__abort__ определён в trust/assert.hpp — обязательный инклуд (как для @assert).
+        // trust__abort__ определён в trust/assert.hpp - обязательный инклуд (как для @assert).
         // Префикс '@' направляет заголовок в механизм извлечения рантайм-заголовков (extractRuntimeHeader):
         // он извлекается в <build_dir>/trust/assert.hpp + добавляется `-I<build_dir>`, поэтому
         // доступен и в изолированной сборке (--run из произвольного каталога), а не только при
@@ -1769,7 +1769,7 @@ void CppTranspiler::emitDestructureDict(const DestructureDecl& n) {
                                                 escapeCppLiteral(srcFile) + "\", " + std::to_string(srcLine) +
                                                 ", \"destructuring: not enough elements in source\");\n");
     }
-    // Цели-элементы (НЕ rest): pop_front. Вне цикла — per-element тип элемента (any_cast<T>, где T —
+    // Цели-элементы (НЕ rest): pop_front. Вне цикла - per-element тип элемента (any_cast<T>, где T -
     // runtime-тип: Int8..Int64 → int64_t, Float → double, Bool, StrChar...). ВНУТРИ цикла тип расширен
     // до максимального (Integer/Double); гетерогенность (bool+int) обрабатывается runtime-конвертерами
     // (anyToInt64/anyToDouble/anyToString), а не строгим any_cast. Any → std::any.
@@ -1793,7 +1793,7 @@ void CppTranspiler::emitDestructureDict(const DestructureDecl& n) {
         const std::string cppName = utils::name_to_cpp(t->text());
         const TypeId et = (i < n.m_targetTypes.size()) ? n.m_targetTypes[i] : INVALID_TYPE_ID;
         const TypeId etC = (et != INVALID_TYPE_ID) ? reg.getCanonicalTypeId(et) : INVALID_TYPE_ID;
-        // Префикс объявления: присваивание (`a = ...`) — без типа; объявление — тип + имя.
+        // Префикс объявления: присваивание (`a = ...`) - без типа; объявление - тип + имя.
         const std::string anyPrefix = n.m_isAssign ? "" : "std::any ";
         if (etC == INVALID_TYPE_ID) {
             m_ctx.source().output_append(m_out, anyPrefix + cppName + " = " + srcRef + ".pop_front();\n");
@@ -1804,12 +1804,12 @@ void CppTranspiler::emitDestructureDict(const DestructureDecl& n) {
         const auto tname = emitTypeName(declared, t->text());
         if (!tname || tname->empty()) {
             // Тип цели уже резолвлен семантикой (naturalRuntimeType возвращает только типы с
-            // C++-именем: Int64/Double/Bool/StrChar/StrWide/Any); сбой emitTypeName — инвариантное
-            // нарушение. Не тихий fallback на std::any (AGENTS rule 5) — явная диагностика.
+            // C++-именем: Int64/Double/Bool/StrChar/StrWide/Any); сбой emitTypeName - инвариантное
+            // нарушение. Не тихий fallback на std::any (AGENTS rule 5) - явная диагностика.
             m_ctx.report(n.range(), OptKind::ParseError, "unable to emit C++ type for destructuring target '{}'", cppName);
             return;
         }
-        // Тип any_cast: natural runtime тип ЭЛЕМЕНТА (m_targetTypes) — соответствует хранению Dict
+        // Тип any_cast: natural runtime тип ЭЛЕМЕНТА (m_targetTypes) - соответствует хранению Dict
         // (int → int64_t); переменная объявляется типом declared (аннотация/выведенный).
         const auto castName = emitTypeName(et, t->text());
         const std::string castType = (castName && !castName->empty()) ? *castName : *tname;
@@ -1822,21 +1822,21 @@ void CppTranspiler::emitDestructureDict(const DestructureDecl& n) {
             } else if (etC == scC) {
                 m_ctx.source().output_append(m_out, prefix + cppName + " = trust::detail::anyToString(" + srcRef + ".pop_front());\n");
             } else {
-                // Bool и пр. — однородные: строгий any_cast безопасен (хранится как есть).
+                // Bool и пр. - однородные: строгий any_cast безопасен (хранится как есть).
                 m_ctx.source().output_append(m_out, prefix + cppName + " = std::any_cast<" + castType + ">(" + srcRef + ".pop_front());\n");
             }
         } else {
             m_ctx.source().output_append(m_out, prefix + cppName + " = std::any_cast<" + castType + ">(" + srcRef + ".pop_front());\n");
         }
     }
-    // Именованный rest: «остаток» — копия источника после pop'ов (источник не мутируется);
-    // в режиме присваивания — `rest = src` (цель уже существует).
+    // Именованный rest: «остаток» - копия источника после pop'ов (источник не мутируется);
+    // в режиме присваивания - `rest = src` (цель уже существует).
     if (!mutatingRest && !restCpp.empty()) {
         m_ctx.source().output_append(m_out, ind);
         m_ctx.source().output_append(m_out, (n.m_isAssign ? "" : "trust::Dict ") + restCpp + " = " + srcRef + ";\n");
     }
-    // mutatingRest — источник уже мутирован pop'ами и является rest; присвоение не нужно.
-    // `_...` (отброс остатка) — ничего не генерируем: остаток остаётся во временной переменной.
+    // mutatingRest - источник уже мутирован pop'ами и является rest; присвоение не нужно.
+    // `_...` (отброс остатка) - ничего не генерируем: остаток остаётся во временной переменной.
 }
 
 void CppTranspiler::emitDestructureTuple(const DestructureDecl& n) {
@@ -1844,7 +1844,7 @@ void CppTranspiler::emitDestructureTuple(const DestructureDecl& n) {
     const std::string ind = indentPrefix();
     const size_t cnt = n.m_targets.size();
     // Арность источника-кортежа (для rest): семантика сохранила её на узле (скоуп-стек
-    // к моменту кодогенерации сброшен, локальные символы недоступны). Запасной путь — литерал.
+    // к моменту кодогенерации сброшен, локальные символы недоступны). Запасной путь - литерал.
     // `m_sourceArity == 0` здесь НЕ является инвариантным нарушением: пустой кортеж `():Tuple`
     // даёт легитимную нулевую арность (например, один rest `r... := t` → пустой make_tuple()).
     // Литерал-фолбэк покрывает прямое построение AST в unit-тестах (без прохода семантики).
@@ -1871,8 +1871,8 @@ void CppTranspiler::emitDestructureTuple(const DestructureDecl& n) {
             m_ctx.source().output_append(m_out, ind);
         }
         first = false;
-        // Префикс объявления: присваивание (`a = ...`) — без типа; явная аннотация (`a:Int32`,
-        // m_targetTypes[i] заполнена семантикой) — фиксированный тип; иначе `auto` (элемент кортежа).
+        // Префикс объявления: присваивание (`a = ...`) - без типа; явная аннотация (`a:Int32`,
+        // m_targetTypes[i] заполнена семантикой) - фиксированный тип; иначе `auto` (элемент кортежа).
         std::string prefix;
         if (n.m_isAssign) {
             prefix.clear();
@@ -1888,7 +1888,7 @@ void CppTranspiler::emitDestructureTuple(const DestructureDecl& n) {
         ++idx;
     }
     // Именованный rest (`rest...`): остаток как make_tuple оставшихся элементов (std::get<k>).
-    // `_...` (отброс остатка) — ничего не генерируем.
+    // `_...` (отброс остатка) - ничего не генерируем.
     for (size_t i = 0; i < cnt; ++i) {
         auto* t = n.m_targets[i].get();
         if (!t || t->kind() != ParserToken::Kind::Ident) {
@@ -1921,25 +1921,25 @@ void CppTranspiler::visit_ArgNode(const ArgNode&) {
 void CppTranspiler::visit_TypeDecl(const Binary& n) {
     generateTypeDeclToFile(n, m_out);
 }
-// Бинарные statement/expression kinds — единая генерация (m_exprDepth различает контекст).
+// Бинарные statement/expression kinds - единая генерация (m_exprDepth различает контекст).
 void CppTranspiler::visit_NameDecl(const Binary& n) {
     emitBinaryStmtOrExpr(n);
 }
 void CppTranspiler::visit_AssignOp(const Binary& n) {
     emitBinaryStmtOrExpr(n);
 }
-// AppendStmt (`X []= v`) — append к контейнеру: `X.push_back(v)`. X — простой контейнер
+// AppendStmt (`X []= v`) - append к контейнеру: `X.push_back(v)`. X - простой контейнер
 // (Ident; вложенный LHS отклонён семантикой как «не реализовано»). Ветка кодогенерации
 // выбирается по каноническому TypeId контейнера (не по C++-имени): алиасы резолвятся явно
 // (String → StrChar, Dictionary → Dict). trust::Dict → push_back(TypedValue), строка →
-// push_back/append. Значение RHS — точно таким типом, как хранит контейнер.
+// push_back/append. Значение RHS - точно таким типом, как хранит контейнер.
 void CppTranspiler::visit_AppendStmt(const Binary& n) {
     if (!n.m_left || !n.m_right) {
         emitPlaceholderExpr(m_out);
         return;
     }
     // emitTypeName резолвит C++-имя и записывает инклуды контейнера (сайд-эффект); сам
-    // результат не нужен — ветка кодогенерации выбирается по каноническому TypeId ниже.
+    // результат не нужен - ветка кодогенерации выбирается по каноническому TypeId ниже.
     if (!emitTypeName(n.lhsType, "")) {
         m_ctx.report(n.range(), OptKind::ParseError, "unable to resolve container type for append '[]='");
         return;
@@ -1954,7 +1954,7 @@ void CppTranspiler::visit_AppendStmt(const Binary& n) {
     if (cid == dictId) {
         if (n.m_right && n.m_right->kind() == ParserToken::Kind::Ellipsis) {
             // Spread-merge `X []= ... dict` → `X.extend(dict)`: добор ВСЕХ элементов словаря-
-            // операнда (аналог extend/update). Операнд — m_body[0] узла Ellipsis (литерал
+            // операнда (аналог extend/update). Операнд - m_body[0] узла Ellipsis (литерал
             // → trust::Dict{...}, переменная → c_d2, выражение → его значение).
             m_ctx.source().output_append(m_out, ".extend(");
             const auto& ell = static_cast<const Sequence&>(*n.m_right);
@@ -1966,7 +1966,7 @@ void CppTranspiler::visit_AppendStmt(const Binary& n) {
             m_ctx.source().output_append(m_out, ")");
             return;
         }
-        // Dict: только push_back(name, value); безымянный append — пустое имя (позиционный элемент).
+        // Dict: только push_back(name, value); безымянный append - пустое имя (позиционный элемент).
         m_ctx.source().output_append(m_out, ".push_back(\"\", ");
         emitTypedDictValue(n.m_right.get(), n.resultType);
         m_ctx.source().output_append(m_out, ")");
@@ -1975,13 +1975,13 @@ void CppTranspiler::visit_AppendStmt(const Binary& n) {
         m_ctx.source().output_append(m_out, ".append(");
         if (wide && n.m_right && n.m_right->kind() == ParserToken::Kind::StrChar) {
             // Узкий символьный литерал 'c' в wide-контейнер → wide-литерал L"c" (char→wchar).
-            // Источник — StrChar (одинарные кавычки): голый " экранируем в \" (см. visit_StrChar).
+            // Источник - StrChar (одинарные кавычки): голый " экранируем в \" (см. visit_StrChar).
             const std::string_view t = n.m_right->text();
             std::string body;
             body.reserve(t.size());
             for (size_t i = 0; i < t.size(); ++i) {
                 const char c = t[i];
-                if (c == '\\' && i + 1 < t.size()) { // escape-последовательность — как есть
+                if (c == '\\' && i + 1 < t.size()) { // escape-последовательность - как есть
                     body += c;
                     body += t[++i];
                 } else if (c == '"') {
@@ -2012,12 +2012,12 @@ void CppTranspiler::visit_LogicalOp(const Binary& n) {
     emitBinaryStmtOrExpr(n);
 }
 // Доступ к элементу словаря: имя/статический индекс (MemberAccess) или динамический индекс
-// (ArrayAccess). Для конкретного типа поля — obj.at(key).getAs<Cpp>() (типизированный доступ
-// к значению: fast-path variant / std::any); для Any/неизвестного — obj.at(key) (TypedValue,
+// (ArrayAccess). Для конкретного типа поля - obj.at(key).getAs<Cpp>() (типизированный доступ
+// к значению: fast-path variant / std::any); для Any/неизвестного - obj.at(key) (TypedValue,
 // дальше any_to в касте).
 bool CppTranspiler::emitDictElementAccess(const Binary& n) {
     // Заголовки Dict-типа записаны при объявлении/создании объекта (emitTypeName/resolveCppTypeId);
-    // здесь — только тип поля через emitTypeName (единая точка сбора).
+    // здесь - только тип поля через emitTypeName (единая точка сбора).
     const TypeId rt = n.resultType;
     const bool concrete = (rt != INVALID_TYPE_ID && !isAnyType(rt, m_ctx.types()));
     std::string concreteCpp;
@@ -2053,10 +2053,10 @@ bool CppTranspiler::emitDictElementAccess(const Binary& n) {
 }
 
 // Доступ к элементу словаря по имени или статическому индексу: d.two / d.1.
-// Вызов метода на объекте (obj.method(args)) — нативный член C++-объекта, вставляется как есть.
+// Вызов метода на объекте (obj.method(args)) - нативный член C++-объекта, вставляется как есть.
 void CppTranspiler::visit_MemberAccess(const Binary& n) {
     // Доступ к enum через имя типа: Color.RED → c_Color::RED; Color.count()/fromName(...) →
-    // c_Color::count()/... (тип-уровневые методы; члены и методы — статические члены структуры).
+    // c_Color::count()/... (тип-уровневые методы; члены и методы - статические члены структуры).
     if (n.m_left && n.m_left->kind() == ParserToken::Kind::Ident) {
         if (auto tid = m_ctx.types().findType(n.m_left->text())) {
             if (isEnumType(*tid, m_ctx.types())) {
@@ -2114,19 +2114,19 @@ void CppTranspiler::visit_MemberAccess(const Binary& n) {
     if (n.m_right && n.m_right->kind() == ParserToken::Kind::CallExpr) {
         const auto& call = static_cast<const CallExpr&>(*n.m_right);
         if (call.m_callee) {
-            // Метод на объекте: (объект).<нативный_член>(args). Нативность/константность метода —
-            // из полного ключа (findMethodInfo: '%' нативный, '^' константный); нативное имя — из
-            // ключа (срез '%'/'^'). const-вызов `obj.method^()` — attr::ReadOnly на ВЫЗОВЕ
+            // Метод на объекте: (объект).<нативный_член>(args). Нативность/константность метода -
+            // из полного ключа (findMethodInfo: '%' нативный, '^' константный); нативное имя - из
+            // ключа (срез '%'/'^'). const-вызов `obj.method^()` - attr::ReadOnly на ВЫЗОВЕ
             // (convertAttrsToNode/CallExpr) → const_cast<const T&>(obj) (гарантированно const-перегрузка).
-            // const_cast-тип T — из TypeId объекта (n.lhsType, сохранён семантикой; кодген не может
-            // восстановить его для локальной переменной — скоуп-стек сброшен). Fallback — резолв имени.
+            // const_cast-тип T - из TypeId объекта (n.lhsType, сохранён семантикой; кодген не может
+            // восстановить его для локальной переменной - скоуп-стек сброшен). Fallback - резолв имени.
             TypeId objType = (n.lhsType != INVALID_TYPE_ID) ? m_ctx.types().getCanonicalTypeId(n.lhsType) : INVALID_TYPE_ID;
             if (objType == INVALID_TYPE_ID && n.m_left && n.m_left->kind() == ParserToken::Kind::Ident) {
                 if (auto t = resolveTypeIdByName(n.m_left->text())) {
                     objType = m_ctx.types().getCanonicalTypeId(*t);
                 }
             }
-            // Нативное имя: из полного ключа совпавшего метода (алиас → ключ цели); иначе — как есть.
+            // Нативное имя: из полного ключа совпавшего метода (алиас → ключ цели); иначе - как есть.
             std::string mname(call.m_callee->text());
             std::string native;
             if (objType != INVALID_TYPE_ID) {
@@ -2140,7 +2140,7 @@ void CppTranspiler::visit_MemberAccess(const Binary& n) {
                     native.erase(0, 1);
                 }
             }
-            // const-вызов `obj.method^()` — attr::ReadOnly на вызове.
+            // const-вызов `obj.method^()` - attr::ReadOnly на вызове.
             const bool constCall = call.as_attr() && call.as_attr()->has_attr(m_ctx.attrs(), attr::ReadOnly);
             if (constCall) {
                 m_ctx.source().output_append(m_out, "const_cast<const ");
@@ -2184,7 +2184,7 @@ void CppTranspiler::visit_ArrayAccess(const Binary& n) {
         emitTupleElementAccess(n);
         return;
     }
-    // Доступ к элементу массива `a[i]` (структурный Array-тип): `(obj).at(idx)` —
+    // Доступ к элементу массива `a[i]` (структурный Array-тип): `(obj).at(idx)` -
     // безопасный (bounds-check) доступ, как для словаря. lhsType ставит семантика
     // (resolveArrayAccess).
     if (n.lhsType != INVALID_TYPE_ID && m_ctx.types().isArrayType(n.lhsType)) {
@@ -2241,20 +2241,20 @@ void CppTranspiler::visit_ThrowStmt(const JumpStmt& n) {
     emitJumpValue("throw", n);
 }
 void CppTranspiler::visit_BreakStmt(const JumpStmt& n) {
-    // Безымянный break — обычный C++ break;. Именованный break анализатор переписывает
+    // Безымянный break - обычный C++ break;. Именованный break анализатор переписывает
     // в GotoStmt (или void-ReturnStmt при break по имени функции), поэтому сюда доходит
     // только безымянный.
     MapperScope scope(m_ctx.source(), n.range(), m_out);
     m_ctx.source().output_append(m_out, "break;");
 }
 void CppTranspiler::visit_ContinueStmt(const JumpStmt& n) {
-    // Безымянный continue — обычный C++ continue;. Именованный continue анализатор
+    // Безымянный continue - обычный C++ continue;. Именованный continue анализатор
     // переписывает в GotoStmt, поэтому сюда доходит только безымянный.
     MapperScope scope(m_ctx.source(), n.range(), m_out);
     m_ctx.source().output_append(m_out, "continue;");
 }
 
-// Goto/Label — синтетические узлы lowering: goto по метке / определение метки.
+// Goto/Label - синтетические узлы lowering: goto по метке / определение метки.
 // Маппинг НЕ строится: у синтетических узлов нет исходного trust-текста, а их range
 // (блок/цикл) уже смапплен реальными узлами (иначе коллизия trustKey в mapStop).
 void CppTranspiler::visit_GotoStmt(const LabelRef& n) {
@@ -2264,7 +2264,7 @@ void CppTranspiler::visit_LabelStmt(const LabelRef& n) {
     m_ctx.source().output_append(m_out, n.m_name + ":;");
 }
 
-// SemicolonStmt — выражение в позиции оператора: выражение в statement-root (без скобок) +
+// SemicolonStmt - выражение в позиции оператора: выражение в statement-root (без скобок) +
 // завершающая ';'. Маппинг range берётся от обёрнутого выражения (SemicolonStmt::range() делегирует).
 void CppTranspiler::visit_SemicolonStmt(const SemicolonStmt& n) {
     MapperScope scope(m_ctx.source(), n.range(), m_out);
@@ -2274,13 +2274,13 @@ void CppTranspiler::visit_SemicolonStmt(const SemicolonStmt& n) {
     m_ctx.source().output_append(m_out, ";");
 }
 
-// Литерал — всегда только текст (statement-позицию оборачивает SemicolonStmt, добавляя ';').
+// Литерал - всегда только текст (statement-позицию оборачивает SemicolonStmt, добавляя ';').
 void CppTranspiler::visit_IntLiteral(const Literal& n) {
     m_ctx.source().output_append(m_out, n.text());
 }
 void CppTranspiler::visit_RationalLiteral(const Literal& n) {
     // Рациональный литерал `num\den` создаётся непосредственно из строки: эмитим
-    // `trust::Rational("num\den")` — парсинг `num\den` выполняет однострочный конструктор
+    // `trust::Rational("num\den")` - парсинг `num\den` выполняет однострочный конструктор
     // Rational. В C++-строковом литерале обратная косая экранируется (`\` → `\\`).
     // Инклуд Rational-типа записывается через emitTypeName (единая точка сбора).
     if (n.typeId != INVALID_TYPE_ID) {
@@ -2301,16 +2301,16 @@ void CppTranspiler::visit_RationalLiteral(const Literal& n) {
     m_ctx.source().output_append(m_out, std::format("trust::Rational(\"{}\")", escaped));
 }
 void CppTranspiler::visit_StrChar(const Literal& n) {
-    // Строка в одинарных кавычках '…' → StrChar → обычная "…". Ограничитель StrChar — ',
+    // Строка в одинарных кавычках '…' → StrChar → обычная "…". Ограничитель StrChar - ',
     // поэтому голый " в нём допустим; в C++-литерале "…" экранируем его в \" (иначе литерал
     // обрывается). Escape-последовательности trust сохранены как есть и валидны в C++ без
-    // изменений — копируем их (backslash + следующий символ) не трогая.
+    // изменений - копируем их (backslash + следующий символ) не трогая.
     const std::string_view t = n.text();
     std::string body;
     body.reserve(t.size());
     for (size_t i = 0; i < t.size(); ++i) {
         const char c = t[i];
-        if (c == '\\' && i + 1 < t.size()) { // escape-последовательность — как есть
+        if (c == '\\' && i + 1 < t.size()) { // escape-последовательность - как есть
             body += c;
             body += t[++i];
         } else if (c == '"') {
@@ -2323,7 +2323,7 @@ void CppTranspiler::visit_StrChar(const Literal& n) {
 }
 void CppTranspiler::visit_StrWide(const Literal& n) {
     // Строка в двойных кавычках "…" → StrWide → wide-строка L"…". Голый " в StrWide невозможен
-    // (закрыл бы строку), кавычка вставляется как \" и уже валидна в C++ — экранирование не нужно.
+    // (закрыл бы строку), кавычка вставляется как \" и уже валидна в C++ - экранирование не нужно.
     m_ctx.source().output_append(m_out, std::format("L\"{}\"", n.text()));
 }
 void CppTranspiler::visit_FloatLiteral(const Literal& n) {
@@ -2332,7 +2332,7 @@ void CppTranspiler::visit_FloatLiteral(const Literal& n) {
 
 // Контекст-макросы (@__NAMESPACE__, @::, @__FUNCTION__, @__FUNCSIG__, @__FUNCDNAME__)
 // раскрываются анализатором (заменяются на Literal/StrChar или имя) до транспиляции.
-// До транспилятора такие узлы доходить не должны — это недостижимая ветка (сигнал бага).
+// До транспилятора такие узлы доходить не должны - это недостижимая ветка (сигнал бага).
 void CppTranspiler::visit_ContextMacro(const ContextMacro&) {
     FAULT("ContextMacro reached the transpiler (must be expanded by the analyzer)");
 }
@@ -2351,7 +2351,7 @@ void CppTranspiler::visit_MatchingStmt(const MatchStmt& n) {
     generateMatchToFile(n, m_out);
 }
 
-// EmbedExpr — raw text: statement с маппингом, выражение — только текст.
+// EmbedExpr - raw text: statement с маппингом, выражение - только текст.
 void CppTranspiler::visit_EmbedExpr(const AstNodeAttr& n) {
     // Узкий чек ТОЛЬКО по тексту вставки: рантайм-функции/символы → запись их заголовков
     // (нужно для заголовков, которые физически отсутствуют в каталоге подключаемых файлов
@@ -2367,9 +2367,9 @@ void CppTranspiler::visit_EmbedExpr(const AstNodeAttr& n) {
     }
 }
 
-// Document — документирующий комментарий: эмитится в statement-позиции. Trust-доки `##`/`##<`
-// невалидны в C++ (префикс '#' — препроцессор), поэтому нормализуются в однострочные C++ `///`/`///<`;
-// `/** … */` и `///` выводится как есть. Подавление (флаг -Wno-comments) — на уровне обхода.
+// Document - документирующий комментарий: эмитится в statement-позиции. Trust-доки `##`/`##<`
+// невалидны в C++ (префикс '#' - препроцессор), поэтому нормализуются в однострочные C++ `///`/`///<`;
+// `/** … */` и `///` выводится как есть. Подавление (флаг -Wno-comments) - на уровне обхода.
 void CppTranspiler::visit_Document(const AstNodeAttr& n) {
     if (m_exprDepth > 0) {
         return;
@@ -2395,15 +2395,15 @@ void CppTranspiler::visit_Ident(const IdentName& n) {
 void CppTranspiler::visit_TypeName(const IdentType& n) {
     emitExprText(n.text());
 }
-// CallExpr — только выражение: callee(args). Statement-позицию оборачивает SemicolonStmt.
+// CallExpr - только выражение: callee(args). Statement-позицию оборачивает SemicolonStmt.
 void CppTranspiler::visit_CallExpr(const CallExpr& n) {
-    // Строка-формат: `"{}"(args)` / `'{}'(args)` — callee строковый литерал → std::format.
+    // Строка-формат: `"{}"(args)` / `'{}'(args)` - callee строковый литерал → std::format.
     if (n.m_callee && (n.m_callee->kind() == ParserToken::Kind::StrWide || n.m_callee->kind() == ParserToken::Kind::StrChar)) {
         emitFormatCall(n);
         return;
     }
     // Рантайм-функции (print/assert): заголовки по имени callee (точное совпадение с
-    // рантайм-символом; ведущий '%' срезается, как в семантике) — без скана всего буфера.
+    // рантайм-символом; ведущий '%' срезается, как в семантике) - без скана всего буфера.
     if (n.m_callee) {
         if (const auto id = findRuntimeSymbolByName(n.m_callee->text())) {
             recordRuntimeSymbolHeaders(*id);
@@ -2441,21 +2441,21 @@ void CppTranspiler::emitFormatCall(const CallExpr& n) {
 // AstNodeAttr-kind'ы, не генерируемые как statement → no-op.
 void CppTranspiler::visit_Program(const AstNodeAttr&) {
 }
-// Expression-kind'ы без реализованной генерации: как statement — no-op,
-// как выражение — placeholder "{}" (сохранение прежнего default из emitExpr).
+// Expression-kind'ы без реализованной генерации: как statement - no-op,
+// как выражение - placeholder "{}" (сохранение прежнего default из emitExpr).
 void CppTranspiler::visit_VarRef(const AstNodeAttr&) {
     emitPlaceholderExpr(m_out);
 }
 namespace {
 
 // Единая итерация элементов литерала словаря/кортежа/массива. Нормализация term_to_ast::visit_DICT
-// гарантирует форму ArgNode (имя в text(), значение в m_value); тип значения элемента —
+// гарантирует форму ArgNode (имя в text(), значение в m_value); тип значения элемента -
 // ArgNode::resultType (единый источник семантики, см. analyzeDictLiteral). Не-ArgNode элементы
 // (out-of-contract) отбрасываются. Устраняет дублирование обхода m_body в visit_Tuple,
 // emitDictLiteralBody и emitTypedConstruction.
 struct DictElement {
-    std::string name;         ///< имя/метка элемента ("" — позиционный)
-    const AstNodeBase* value; ///< узел значения (nullptr — пустой элемент)
+    std::string name;         ///< имя/метка элемента ("" - позиционный)
+    const AstNodeBase* value; ///< узел значения (nullptr - пустой элемент)
     TypeId resultType;        ///< тип значения (из семантики)
 };
 std::vector<DictElement> dictElements(const DictLiteralNode& n) {
@@ -2473,7 +2473,7 @@ std::vector<DictElement> dictElements(const DictLiteralNode& n) {
 
 } // namespace
 // Литерал массива `[1,2:Int8,3,]` / `[1,2,3,]:Int32` → `std::vector<Elem>{...}` (mut)
-// или `std::array<Elem,N>{...}` (константная/фиксированная форма). Тип элемента — единый
+// или `std::array<Elem,N>{...}` (константная/фиксированная форма). Тип элемента - единый
 // источник семантики: результат анализа ArrayInit (структурный Array<Elem>, resolveCppTypeId).
 void CppTranspiler::visit_ArrayInit(const DictLiteralNode& n) {
     if (n.arrayType == INVALID_TYPE_ID) {
@@ -2485,7 +2485,7 @@ void CppTranspiler::visit_ArrayInit(const DictLiteralNode& n) {
 
 // Эмитит литерал/конструкцию массива: `std::vector<Elem>{v1, v2, ...}` (mutable) либо
 // `std::array<Elem,N>{v1, ...}` (константная форма). Тип контейнера берётся из структурного
-// Array<Elem> через resolveCppTypeId (записывает инклуды <vector>/<array>). Элементы — ArgNode
+// Array<Elem> через resolveCppTypeId (записывает инклуды <vector>/<array>). Элементы - ArgNode
 // (значение в m_value); именованные/пустые отбрасываются.
 void CppTranspiler::emitArrayLiteral(const DictLiteralNode& n, TypeId arrayType) {
     // Многомерный массив (несколько размерностей или вложенные литералы): генерация тензора
@@ -2515,13 +2515,13 @@ void CppTranspiler::emitArrayLiteral(const DictLiteralNode& n, TypeId arrayType)
     m_ctx.source().output_append(m_out, "}");
 }
 // Литерал словаря/кортежа: `(1, two="2", name=3,)` → trust::Dict{ {"", expr}, {"two", expr}, ... }.
-// Контракт: все элементы m_body — Binary(AssignOp) (left=Ident-метка или пустой, right=значение),
-// строятся из канонических пар грамматики `args` (term_to_ast::visit_DICT). Тип значения —
+// Контракт: все элементы m_body - Binary(AssignOp) (left=Ident-метка или пустой, right=значение),
+// строятся из канонических пар грамматики `args` (term_to_ast::visit_DICT). Тип значения -
 // единый источник семантики: Binary::resultType (из resolvedType), см. emitTypedDictValue.
 // Литерал словаря/конструкция/каст и кортеж. kind==Tuple → visit_Tuple (std::tuple);
 // типизированный `:Type(...)`/`(...):Type` (не Tuple) → emitTypedConstruction (каст/конструктор);
-// голый `(...)` → emitDictLiteralBody (trust::Dict). Контракт элементов — Binary(AssignOp)
-// (term_to_ast::visit_DICT); тип значения — единый источник Binary::resultType.
+// голый `(...)` → emitDictLiteralBody (trust::Dict). Контракт элементов - Binary(AssignOp)
+// (term_to_ast::visit_DICT); тип значения - единый источник Binary::resultType.
 void CppTranspiler::visit_DictLiteral(const DictLiteralNode& n) {
     if (n.m_type) {
         emitTypedConstruction(n);
@@ -2550,18 +2550,18 @@ void CppTranspiler::visit_Tuple(const DictLiteralNode& n) {
 }
 
 // Литерал диапазона `start..stop` / `start..stop..step` → `trust::Range<Elem>(start, stop[, step])`.
-// Универсальный тип `:Range` (как `:Dict`): элементный тип Elem — join типов start/stop/step,
+// Универсальный тип `:Range` (как `:Dict`): элементный тип Elem - join типов start/stop/step,
 // вычисленный семантикой (RangeExpr::elementType из analyzeRangeExpr) и параметризующий шаблон
 // trust::Range<T> при кодогенерации. Рациональные значения оборачиваются trust::Rational(...)
 // самим visit_RationalLiteral. Записывает @trust/range.hpp (механизм как у visit_Tuple/<tuple>).
 void CppTranspiler::visit_RangeExpr(const RangeExpr& node) {
-    // range.hpp самодостаточен, но для toDict/элементов нужны dict.hpp и rational.hpp — их
+    // range.hpp самодостаточен, но для toDict/элементов нужны dict.hpp и rational.hpp - их
     // пайплайн извлекает из рантайма ТОЛЬКО по прямому запросу (транзитивные инклуды не
     // отслеживаются), поэтому перечисляем весь транзитивный набор (как у Dict-типа).
     recordRequiredInclude("@trust/range.hpp");
     recordRequiredInclude("@trust/dict.hpp");
     recordRequiredInclude("@trust/rational.hpp");
-    // Элементный C++-тип — из семантики (join start/stop/step). INVALID → универсальный Any.
+    // Элементный C++-тип - из семантики (join start/stop/step). INVALID → универсальный Any.
     TypeId elemTid = node.elementType;
     if (elemTid == INVALID_TYPE_ID) {
         elemTid = m_ctx.types().getType(type_generic::Any);
@@ -2583,10 +2583,10 @@ void CppTranspiler::visit_RangeExpr(const RangeExpr& node) {
     m_ctx.source().output_append(m_out, ")");
 }
 
-// Тело словаря trust::Dict{ {"name", TypedValue}, ... } — для голого `(...)` и для типизированного
+// Тело словаря trust::Dict{ {"name", TypedValue}, ... } - для голого `(...)` и для типизированного
 // с аннотацией, резолвящейся в сам Dict.
 void CppTranspiler::emitDictLiteralBody(const DictLiteralNode& n) {
-    // Имя и заголовки Dict-типа — через emitTypeName (единая точка сбора; без хардкода пути).
+    // Имя и заголовки Dict-типа - через emitTypeName (единая точка сбора; без хардкода пути).
     auto dictId = m_ctx.types().findType(type::Dict);
     if (!dictId) {
         emitPlaceholderExpr(m_out);
@@ -2607,9 +2607,9 @@ void CppTranspiler::emitDictLiteralBody(const DictLiteralNode& n) {
             m_ctx.source().output_append(m_out, ", ");
         }
         first = false;
-        // Имя поля (у безымянного — пустая строка). Экранируем для C++-строки.
+        // Имя поля (у безымянного - пустая строка). Экранируем для C++-строки.
         m_ctx.source().output_append(m_out, "{\"" + utils::escape_cpp_string(el.name) + "\", ");
-        // Элемент: TypedValue{kind, значение} — конструктор размещает в быструю ветку variant.
+        // Элемент: TypedValue{kind, значение} - конструктор размещает в быструю ветку variant.
         emitTypedDictValue(el.value, el.resultType);
         m_ctx.source().output_append(m_out, "}");
     }
@@ -2663,15 +2663,15 @@ void CppTranspiler::emitTypedConstruction(const DictLiteralNode& n) {
         return;
     }
     if (values.size() == 1) {
-        // Каст одного значения. Операнд — элемент словаря: any_to<Type> только когда тип поля
-        // неизвестен (Any/INVALID); для конкретного типа — обычный checked_cast.
+        // Каст одного значения. Операнд - элемент словаря: any_to<Type> только когда тип поля
+        // неизвестен (Any/INVALID); для конкретного типа - обычный checked_cast.
         const AstNodeBase* operand = values[0];
         bool operandIsAny = false;
         if (operand && (operand->kind() == ParserToken::Kind::MemberAccess || operand->kind() == ParserToken::Kind::ArrayAccess)) {
             const auto& b = static_cast<const Binary&>(*operand);
             // Вызов метода (obj.m(...)) возвращает КОНКРЕТНОЕ C++-значение нативного члена
-            // (напр. Range.at(i) → int64), а НЕ trust::TypedValue: для него any_to неприменим —
-            // используем checked_cast (как для любого конкретного значения). any_to — только
+            // (напр. Range.at(i) → int64), а НЕ trust::TypedValue: для него any_to неприменим -
+            // используем checked_cast (как для любого конкретного значения). any_to - только
             // для доступа к элементу словаря (TypedValue), где тип поля неизвестен (Any/INVALID).
             const bool isMethodCall = (b.kind() == ParserToken::Kind::MemberAccess && b.m_right && b.m_right->kind() == ParserToken::Kind::CallExpr);
             if (!isMethodCall) {
@@ -2705,22 +2705,22 @@ void CppTranspiler::emitTypedConstruction(const DictLiteralNode& n) {
     m_ctx.source().output_append(m_out, ")");
 }
 
-// Эмитит trust::TypedValue{kind, значение} для элемента словаря. kind — TypeKind значения,
+// Эмитит trust::TypedValue{kind, значение} для элемента словаря. kind - TypeKind значения,
 // вычисленный семантикой (resolvedType) и сохранённый на элементе-AssignOp (Binary::resultType).
 // Конструктор TypedValue сам размещает значение в быструю ветку std::variant (по группе kind:
 // числа/bool/строки) либо в std::any-ветку (открытые типы, вложенный Dict).
 // kind и C++-имя выводятся из TypeId без дублирования логики диапазонов/маппинга группа→имя.
-// Единый предикат литералов — ast::is_literal_kind.
+// Единый предикат литералов - ast::is_literal_kind.
 void CppTranspiler::emitTypedDictValue(const AstNodeBase* valueNode, TypeId tid) {
     const TypeKind kind = getKindFromId(tid);
-    // C++-имя — через emitTypeName (единая точка: резолв + запись инклудов типа).
+    // C++-имя - через emitTypeName (единая точка: резолв + запись инклудов типа).
     auto cpp = emitTypeName(tid, "");
 
-    // kind (TypeKind) — 32-битная битовая кодировка типа. Печатаем в hex (0x…), чтобы были
+    // kind (TypeKind) - 32-битная битовая кодировка типа. Печатаем в hex (0x…), чтобы были
     // наглядны разряды Group/Data/RefType/…; в C++-литерале эквивалентно десятичному значению.
     m_ctx.source().output_append(m_out, std::format("trust::TypedValue{{0x{:x}, ", kind));
     // Точный C++-тип значения из реестра для литералов. RationalLiteral уже эмитится как
-    // trust::Rational(...) — не оборачиваем. Не-литералы (вложенный Dict, переменная, вызов) — как есть.
+    // trust::Rational(...) - не оборачиваем. Не-литералы (вложенный Dict, переменная, вызов) - как есть.
     if (cpp && !cpp->empty() && is_literal_kind(valueNode->kind()) && valueNode->kind() != ParserToken::Kind::RationalLiteral) {
         m_ctx.source().output_append(m_out, *cpp + "(");
         emitExpr(valueNode);
@@ -2760,8 +2760,8 @@ void CppTranspiler::visit_MatchingCase(const AstNodeAttr&) {
 void CppTranspiler::visit_MatchingElseBlock(const AstNodeAttr&) {
 }
 void CppTranspiler::visit_EnumDecl(const Sequence&) {
-    // Enum-объявления теперь — TypeDecl с Enum-аннотированным DictLiteral-RHS; реальная
-    // эмиссия — в generateTypeDeclToFile → emitEnumStruct. Узел EnumDecl не производится.
+    // Enum-объявления теперь - TypeDecl с Enum-аннотированным DictLiteral-RHS; реальная
+    // эмиссия - в generateTypeDeclToFile → emitEnumStruct. Узел EnumDecl не производится.
 }
 void CppTranspiler::visit_EnumMember(const Sequence&) {
 }
@@ -2771,12 +2771,12 @@ void CppTranspiler::visit_StructField(const Sequence&) {
 }
 
 // Kind=Unimplemented: конвертер Term→Ast (convertForKind<Unimplemented>) не строит узел и выдаёт
-// ошибку, поэтому такой узел в AST не появляется. Метод — no-op (требуется строгим контрактом KindVisitor).
+// ошибку, поэтому такой узел в AST не появляется. Метод - no-op (требуется строгим контрактом KindVisitor).
 void CppTranspiler::visit_Unimplemented(const AstNodeAttr&) {
 }
 
 // Kind=NotApplicable: узел никогда не строится (convertForKind<NotApplicable> → Fatal), в AST не
-// появляется. Метод — no-op (требуется строгим контрактом KindVisitor).
+// появляется. Метод - no-op (требуется строгим контрактом KindVisitor).
 void CppTranspiler::visit_NotApplicable(const AstNodeAttr&) {
 }
 

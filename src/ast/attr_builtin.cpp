@@ -1,4 +1,4 @@
-// attr_builtin.cpp — AttrPool::registerBuiltinAttrs implementation
+// attr_builtin.cpp - AttrPool::registerBuiltinAttrs implementation
 
 #include "ast/attr_pool.hpp"
 #include "ast/attr_builtin.hpp"
@@ -33,17 +33,17 @@ void AttrPool::registerBuiltinAttrs(AttrPool& pool) {
     // Register with one default param to indicate it takes params
     pool.register_builtin_attr(DependMacro, {std::string_view{}});
 
-    // @link("libname") — имя линкуемой библиотеки для нативной декларации.
-    // Один строковый параметр; пустой дефолт — wildcard (принимает любое имя).
+    // @link("libname") - имя линкуемой библиотеки для нативной декларации.
+    // Один строковый параметр; пустой дефолт - wildcard (принимает любое имя).
     pool.register_builtin_attr(Link, {std::string_view{}});
 
-    // @reftype("ptr") — вид ссылки (плоский RefType). Один строковый параметр —
-    // мнемоническое имя вида; пустой дефолт — wildcard.
+    // @reftype("ptr") - вид ссылки (плоский RefType). Один строковый параметр -
+    // мнемоническое имя вида; пустой дефолт - wildcard.
     pool.register_builtin_attr(Reftype, {std::string_view{}});
 
-    // @format("printf", string_index, first_to_check) — компиляйт-тайм проверка аргументов
-    // на соответствие форматной строке printf (GCC-аналог). Первый параметр — архетип
-    // формата ("printf"); два индекса — пустые wildcard (принимают любые 1-based значения).
+    // @format("printf", string_index, first_to_check) - компиляйт-тайм проверка аргументов
+    // на соответствие форматной строке printf (GCC-аналог). Первый параметр - архетип
+    // формата ("printf"); два индекса - пустые wildcard (принимают любые 1-based значения).
     pool.register_builtin_attr(Format, {"printf", std::string_view{}, std::string_view{}});
 }
 
