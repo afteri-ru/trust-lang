@@ -1,0 +1,13 @@
+<!-- Playground HTML-каркас (godbolt-стиль). Встраивается в html_emit.cpp через #embed.
+     Статичен: динамические части (конфиг/Monarch/glue-JS) вставляются в C++ отдельным <script>. -->
+<div class="tpl-pg" id="trust-playground">
+<div class="tpl-row">
+  <div class="tpl-pane"><div class="tpl-toolbar">Trust<select id="tpl-examples" class="tpl-examples" title="Load example"></select></div><div id="tpl-trust-editor" class="tpl-editor"></div></div>
+  <div class="tpl-splitter-v" id="tpl-split-v"></div>
+  <div class="tpl-pane"><div class="tpl-toolbar">Generated C++<a id="tpl-download" class="tpl-btn tpl-btn-disabled" href="#" title="Скачать архив сборки">&#11015; Скачать архив</a><label id="tpl-follow" class="tpl-follow" title="Следовать за выбранной строкой (прокручивать вторую панель к ней)"><input type="checkbox" id="tpl-follow-cb" checked>follow</label></div><div id="tpl-cpp-editor" class="tpl-editor"></div><div id="tpl-cpp-overlay" class="tpl-overlay"></div></div>
+  <div class="tpl-splitter-h" id="tpl-split-h"></div>
+</div>
+<div id="tpl-log" class="tpl-log"></div>
+<div class="tpl-toolbar" style="border-top:1px solid var(--tpl-border);"><span id="tpl-health" class="tpl-health"><span class="dot"></span><span id="tpl-health-text">…</span></span></div>
+<div id="tpl-status" class="tpl-status"></div>
+</div>

@@ -16,7 +16,7 @@
 namespace trust::utils {
 
 // -----------------------------------------------------------------------
-// backtrace_string  —  возвращает стек вызовов в std::string
+// backtrace_string  -  возвращает стек вызовов в std::string
 // -----------------------------------------------------------------------
 //
 // Использует glibc backtrace()/backtrace_symbols() и demangling через
@@ -98,7 +98,7 @@ std::string backtrace_string(int max_frames) {
                 result += " +";
                 result += (plus + 1);
             } else {
-                // malloc не удался — копируем как есть
+                // malloc не удался - копируем как есть
                 result.append(paren_open + 1, name_len);
             }
         } else {
@@ -117,7 +117,7 @@ std::string backtrace_string(int max_frames) {
 
 namespace {
 
-// SIGABRT handler — выводит backtrace и завершает процесс
+// SIGABRT handler - выводит backtrace и завершает процесс
 extern "C" void sigabrt_handler(int signum) {
     std::signal(signum, SIG_DFL);
 
@@ -129,7 +129,7 @@ extern "C" void sigabrt_handler(int signum) {
     _exit(128 + signum);
 }
 
-// terminate_handler — выводит backtrace и завершает процесс
+// terminate_handler - выводит backtrace и завершает процесс
 [[noreturn]] void terminate_handler() {
     std::string bt = backtrace_string();
     ::write(STDERR_FILENO, bt.data(), bt.size());

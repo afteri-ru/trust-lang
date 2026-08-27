@@ -1,0 +1,22 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Директива решателя z3_unroll(N) внутри инварианта-контракта: `@{ invariant: z3_unroll(3) @}` -
+# разворачивает цикл на 3 итерации (приоритетнее глобального -fsolver-loop-unroll), без предупреждения
+# -Wsolver-loop. sum>=0 доказуем -> UNSAT.
+
+sum(n:Int32):Int32 trust_pre( n >= 0 ) trust_post( sum >= 0 ) := {
+    s := 0; i := 0;
+    @{ invariant: z3_unroll(3) @};
+    @while(i < n){ s := s + 1; i := i + 1; };
+    @return s;
+};
+
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun sum_n () (_ BitVec 32))
+# SM2: (declare-fun sum ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (assert (and (bvsge sum_n (_ bv0 32)) (not (bvsge (ite (bvslt (_ bv0 32) sum_n)
+# SM2: (check-sat)
+# SM2: (assert (forall ((sum_n (_ BitVec 32))) (=> (bvsge sum_n (_ bv0 32)) (bvsge (sum sum_n) (_ bv0 32)))))
+
+# Z3: unsat

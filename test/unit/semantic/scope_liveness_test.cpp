@@ -7,7 +7,7 @@
 // транспайлер берёт из реестра, а не из SymbolTable).
 //
 // Механизм проверки: анализатор-хук (`InlineAnalysisHook`), вызываемый ПАРАЛЛЕЛЬНО ядру
-// разрешения имён ВО ВРЕМЯ обхода — когда скоупы (в т.ч. модульный) ещё активны. Это единственная
+// разрешения имён ВО ВРЕМЯ обхода - когда скоупы (в т.ч. модульный) ещё активны. Это единственная
 // точка, где имена уровня модуля наблюдаемы (после run() модульный скоуп вытолкнут).
 // NameResolutionPass гоняется напрямую (SemanticPassRunner не даёт подключить произвольный хук).
 
@@ -32,14 +32,14 @@
 namespace trust {
 namespace {
 
-// ── Пробный хук: фиксирует резолв имени и тип алиаса в момент активных скоупов ──
+// -- Пробный хук: фиксирует резолв имени и тип алиаса в момент активных скоупов --
 class NameProbeHook : public InlineAnalysisHook {
   public:
     explicit NameProbeHook(AnalysisContext& actx)
     : m_actx(actx) {}
 
     // onResolve срабатывает для Ident-ссылки (lookupOrError) во время обхода. Захватываем
-    // тип (значение TypeId) — на момент вызова скоуп модуля активен, поэтому ссылка на
+    // тип (значение TypeId) - на момент вызова скоуп модуля активен, поэтому ссылка на
     // верхнеуровневую переменную обязана разрешиться (sym != nullptr).
     void onResolve(const AstNodeBase& node, const Symbol* sym) override {
         if (node.text() == kRefName) {
@@ -72,7 +72,7 @@ class NameProbeHook : public InlineAnalysisHook {
     TypeId m_aliasType = INVALID_TYPE_ID;
 };
 
-// ── x:Int32 := 5;  MyInt ::= :Int32;  w := x; ──
+// -- x:Int32 := 5;  MyInt ::= :Int32;  w := x; --
 // Скоупы (модульный) активны ТОЛЬКО во время обхода; хук проверяет резолв в этот момент.
 TEST(ScopeLiveness, ModuleLevelNamesResolveDuringTraversal) {
     Context ctx;
@@ -88,9 +88,9 @@ TEST(ScopeLiveness, ModuleLevelNamesResolveDuringTraversal) {
     auto body = std::make_shared<ScopeBlock>(std::string(""));
     // x:Int32 := 5;
     body->m_body.push_back(std::make_shared<VarDecl>("x", std::make_shared<IdentType>("Int32"), std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5")));
-    // MyInt ::= :Int32; — объявление ТИПА (валидно; '::=' создаёт только типы). onDeclare захватит его TypeId.
+    // MyInt ::= :Int32; - объявление ТИПА (валидно; '::=' создаёт только типы). onDeclare захватит его TypeId.
     body->m_body.push_back(std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>("MyInt"), std::make_shared<IdentType>("Int32")));
-    // w := x; — ссылка на переменную x (Ident) → onResolve.
+    // w := x; - ссылка на переменную x (Ident) → onResolve.
     body->m_body.push_back(std::make_shared<VarDecl>("w", nullptr, std::make_shared<IdentName>("x")));
 
     std::vector<AstNodePtr> seq;
@@ -111,12 +111,12 @@ TEST(ScopeLiveness, ModuleLevelNamesResolveDuringTraversal) {
     ASSERT_NE(alias, INVALID_TYPE_ID);
     EXPECT_EQ(ctx.types().getCanonicalTypeId(alias), ctx.types().getType("Int32"));
 
-    // Контраст: ПОСЛЕ обхода модульный скоуп вытолкнут — x уровня модуля в SymbolTable недоступен
+    // Контраст: ПОСЛЕ обхода модульный скоуп вытолкнут - x уровня модуля в SymbolTable недоступен
     // (поэтому транспайлер, читающий таблицу после анализа, использует реестр).
     EXPECT_EQ(actx.symbols().resolve("x"), nullptr);
 }
 
-// Оператор '::=' создаёт ТОЛЬКО типы: ссылка на переменную справа — ошибка, а не «алиас на переменную».
+// Оператор '::=' создаёт ТОЛЬКО типы: ссылка на переменную справа - ошибка, а не «алиас на переменную».
 TEST(ScopeLiveness, AliasOnVariableIsError) {
     Context ctx;
     TypeRegistry types(ctx.diag(), ctx.opts());
@@ -124,7 +124,7 @@ TEST(ScopeLiveness, AliasOnVariableIsError) {
     AnalysisContext actx(ctx);
     NameResolutionPass core(actx);
 
-    // x:Int32 := 5;  y ::= x; — правая часть — переменная (Ident) → ошибка.
+    // x:Int32 := 5;  y ::= x; - правая часть - переменная (Ident) → ошибка.
     auto body = std::make_shared<ScopeBlock>(std::string(""));
     body->m_body.push_back(std::make_shared<VarDecl>("x", std::make_shared<IdentType>("Int32"), std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5")));
     body->m_body.push_back(std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>("y"), std::make_shared<IdentName>("x")));

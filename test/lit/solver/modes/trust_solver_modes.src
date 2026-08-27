@@ -1,0 +1,14 @@
+# RUN: %trust --emit-cpp -Wsolver=warning %s > %t.out 2>&1 && %FileCheck --check-prefix=WARN %s <%t.out
+# RUN: %not %trust -q --emit-cpp -Wsolver=error %s > %t.err 2>&1 && %FileCheck --check-prefix=ERR %s <%t.err
+
+# Severity-опция `-Wsolver` для trust-конструкций (presence-диагностика «присутствуют условия»):
+#   warning - предупреждение о наличии любого условия (default);
+#   error   - ошибка при наличии любого условия.
+# Поведенческие режимы (assert/export/calculate) - отдельный флаг `--solver-mode`
+# (см. solver/assert/trust_solver_assert.src / solver/misc/trust_solver_export.src).
+
+add(x:Int32):Int32 trust_pre( x > 0 ) := { r := x + 1; return r; };
+y trust_assert( y > 0 ) := add(5);
+
+# WARN: warning: trust condition(s) present
+# ERR: error: trust condition(s) present

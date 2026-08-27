@@ -3,13 +3,16 @@
 
 set(SOLVER_SOURCES
     ${PROJECT_SOURCE_DIR}/solver/smt_printer.cpp
+    ${PROJECT_SOURCE_DIR}/solver/sort_mapper.cpp
     ${PROJECT_SOURCE_DIR}/solver/solver.cpp
+    ${PROJECT_SOURCE_DIR}/solver/trust_to_smt.cpp
 )
 
-# Always build the base solver library (printer + stub)
+# Always build the base solver library (printer + stub + AST→SMT bridge)
 add_library(solver_lib STATIC ${SOLVER_SOURCES})
 
-target_link_libraries(solver_lib PUBLIC diag_lib)
+# Мост AST→SMT (TrustToSmt) переводит trust-конструкции: нужны ast/semantic (символы) и types.
+target_link_libraries(solver_lib PUBLIC diag_lib semantic_lib)
 target_include_directories(solver_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(WITH_SOLVER)

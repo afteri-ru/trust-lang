@@ -1,0 +1,8 @@
+{
+  "scopeName": "source.trusted-cpp",
+  "name": "Trust C++",
+  "comment": "Грамматика для сгенерированных C++ файлов (.cppt/.hppt). Документы trust-lang навигации обслуживает trust-lsp, а сам язык изолирован от 'cpp' (trusted-cpp), чтобы clangd не анализировал сгенерированный код. Подсветка делегируется встроенной C++-грамматике (source.cpp).",
+  "patterns": [
+    { "include": "source.cpp" }
+  ]
+}

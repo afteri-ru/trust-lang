@@ -10,7 +10,7 @@
 
 using namespace trust;
 
-// ── Helper: запись msgpack в файл ──
+// -- Helper: запись msgpack в файл --
 static void writeMsgpackToFile(const std::string& path, const std::vector<unsigned char>& data) {
     std::ofstream ofs(path, std::ios::binary);
     if (!ofs) {
@@ -24,7 +24,7 @@ static void writeMsgpackToFile(const std::string& path, const std::vector<unsign
     }
 }
 
-// ── Helper: чтение msgpack из файла ──
+// -- Helper: чтение msgpack из файла --
 static std::vector<unsigned char> readMsgpackFromFile(const std::string& path) {
     std::ifstream ifs(path, std::ios::binary | std::ios::ate);
     if (!ifs) {
@@ -43,7 +43,7 @@ static std::vector<unsigned char> readMsgpackFromFile(const std::string& path) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//   findRangesByLine — вложенные с разными begin
+//   findRangesByLine - вложенные с разными begin
 // ══════════════════════════════════════════════════════════════
 
 // Два вложенных диапазона:
@@ -123,7 +123,7 @@ TEST(MappingExtTest, StressTest_500Mappings) {
     std::mt19937 rng(42);
     std::set<uint32_t> usedBegins;
 
-    // ── 1. addRangeMapping: 300 диапазонов с уникальными key с обеих сторон ──
+    // -- 1. addRangeMapping: 300 диапазонов с уникальными key с обеих сторон --
     for (int i = 0; i < NUM_RANGES; ++i) {
         uint32_t tBegin, cBegin;
         do {
@@ -145,7 +145,7 @@ TEST(MappingExtTest, StressTest_500Mappings) {
                                                  ctx.source().makeRange(ctx.source().makeLoc(cpp, cBegin), ctx.source().makeLoc(cpp, cEnd))));
     }
 
-    // ── 2. addNameMapping: 100 именованных маппингов ──
+    // -- 2. addNameMapping: 100 именованных маппингов --
     for (int i = 0; i < NUM_NAMES; ++i) {
         uint32_t tBegin = rng() % 4000 + 1;
         uint32_t tLen = rng() % 50 + 1;
@@ -162,7 +162,7 @@ TEST(MappingExtTest, StressTest_500Mappings) {
                                                 cppName));
     }
 
-    // ── 3. addNameMapping внутри диапазона (offsets > 4000) ──
+    // -- 3. addNameMapping внутри диапазона (offsets > 4000) --
     for (int i = 0; i < 50; ++i) {
         uint32_t tBegin = 4620 + i * 2;
         uint32_t tEnd = tBegin + 1;
@@ -173,7 +173,7 @@ TEST(MappingExtTest, StressTest_500Mappings) {
                                                 ctx.source().makeRange(ctx.source().makeLoc(cpp, cBegin), ctx.source().makeLoc(cpp, cEnd)),
                                                 "inner_" + std::to_string(i), "_inner_" + std::to_string(i)));
     }
-    // ── Сериализация → файл → десериализация из файла ──
+    // -- Сериализация → файл → десериализация из файла --
     const auto* readerBefore = ctx.source().toReader();
     ASSERT_NE(readerBefore, nullptr);
 
@@ -336,7 +336,7 @@ TEST(MappingExtTest, FindRangesByLine_EmptyFile) {
     ctx.source().output_append(cpp, std::string(100, 'a'));
     ASSERT_FALSE(cpp.isInvalid());
 
-    // Пустой файл — не должно быть маппингов, результат пустой
+    // Пустой файл - не должно быть маппингов, результат пустой
     auto reader = ctx.source().toReader();
     auto result = reader->findRangesByLine(ReaderFile::from(src), 1, 1);
     EXPECT_TRUE(result.empty());
@@ -388,7 +388,7 @@ TEST(MappingExtTest, FindRangesByLine_LineOnly) {
 
     auto reader = ctx.source().toReader();
 
-    // Без column (по умолчанию 1) — только для line=1, column=1
+    // Без column (по умолчанию 1) - только для line=1, column=1
     // small [10,20] не содержит column=1, large [1,30] содержит
     auto result = reader->findRangesByLine(ReaderFile::from(src), 1);
     ASSERT_EQ(result.size(), 1u);

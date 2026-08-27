@@ -1,0 +1,11 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Фаза 2.7: тип-утверждение MyInt ::= :Int32 @{ MyInt > 0 @}.
+# VC = not(forall MyInt:Int32. MyInt>0) - нарушаемо (существует MyInt<=0) -> SAT.
+
+MyInt @{ MyInt > 0 @} ::= :Int32;
+
+# SM2: (assert (not (forall ((MyInt (_ BitVec 32))) (bvsgt MyInt (_ bv0 32)))))
+
+# Z3: sat

@@ -31,7 +31,7 @@ TEST(ParseContentLengthTest, NonNumeric) {
 }
 
 TEST(ParseContentLengthTest, NegativeNotSupported) {
-    // Знак '-' не является цифрой — трактуется как невалидная длина.
+    // Знак '-' не является цифрой - трактуется как невалидная длина.
     EXPECT_EQ(parseContentLength("Content-Length: -5"), 0);
 }
 

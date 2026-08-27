@@ -1,18 +1,18 @@
-// module_registry.cpp — реализация ModuleRegistry
+// module_registry.cpp - реализация ModuleRegistry
 #include "module_loader/module_registry.hpp"
 
 namespace trust {
 
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 // ModuleRegistry implementation
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 
 std::size_t ModuleRegistry::getOrLoad(std::string_view moduleId) {
     // Линейный поиск среди зарегистрированных модулей
     for (std::size_t i = 0; i < m_modules.size(); ++i) {
         if (m_modules[i].m_moduleId == moduleId) {
             if (!m_modules[i].m_body) {
-                // Запись существует, но Term ещё не установлен — модуль в процессе загрузки
+                // Запись существует, но Term ещё не установлен - модуль в процессе загрузки
                 FAULT("Cyclic module dependency detected: {}", moduleId);
             }
             return i;

@@ -1,14 +1,47 @@
 #include "syntax/lexer.h"
 
 #include "syntax/macro.h"
-#include <set>
-#include <vector>
+#include "syntax/macro_split.hpp"
 #include "syntax/parser.h"
 #include "diag/mapper.hpp"
+#include "syntax/diag.hpp"
+#include "utils/strings.hpp"
+
+#include <set>
+#include <vector>
 
 using namespace trust;
 
-const std::string Macro::deny_chars_from_macro(";@:&^#?!{}+-%*~`\"',/|\\()[]<>");
+namespace {
+
+// Подавление -Wsigil для макроса, вызванного без '@'. Возвращает true, если bare-имя есть в
+// значении флага "keywords" (cli-имя, запятая-разделение) как запись БЕЗ ведущего '@'
+// (макрос «как ключевое слово»). Записи с '@' суппресс НЕ дают (односторонняя логика).
+bool isKeywordSigilSuppressed(const trust::Context& ctx, const std::string& bareName) {
+    const auto kw = ctx.opts().flagValueByName("keywords");
+    if (!kw || kw->empty()) {
+        return false;
+    }
+    std::string_view s = *kw;
+    size_t i = 0;
+    while (i < s.size()) {
+        const size_t j = s.find(',', i);
+        const size_t end = (j == std::string_view::npos) ? s.size() : j;
+        const std::string_view entry = s.substr(i, end - i);
+        if (!entry.empty() && entry[0] != '@' && entry == bareName) {
+            return true;
+        }
+        i = (j == std::string_view::npos) ? s.size() : j + 1;
+    }
+    return false;
+}
+
+} // namespace
+
+// Символы, запрещённые в имени/сигнатуре макроса. Допустимы как термы-разделители/маркеры:
+// `:` - разделитель типа возврата (`@@ func $name ( ... ): $... @@`), `{`/`}` - терминатор
+// сигнатуры/граница блока тела (`@@ func $name ( ... ): $... { @@`), `@` - префикс имени
+// другого макроса в сигнатуре (`@@ @foo func $name ... @@`).
 
 Macro::Macro(trust::Context& ctx)
 : m_ctx(ctx) {
@@ -27,7 +60,7 @@ void Macro::PopScope() {
     m_scopes.pop_back();
 }
 
-MacroScope* Macro::FindScope(const std::string& key) {
+MacroScope* Macro::FindScope(std::string_view key) {
     for (auto iter = m_scopes.rbegin(); iter != m_scopes.rend(); ++iter) {
         if (iter->find(key) != iter->end()) {
             return &*iter;
@@ -36,7 +69,7 @@ MacroScope* Macro::FindScope(const std::string& key) {
     return nullptr;
 }
 
-const MacroScope* Macro::FindScope(const std::string& key) const {
+const MacroScope* Macro::FindScope(std::string_view key) const {
     for (auto iter = m_scopes.rbegin(); iter != m_scopes.rend(); ++iter) {
         if (iter->find(key) != iter->end()) {
             return &*iter;
@@ -45,22 +78,22 @@ const MacroScope* Macro::FindScope(const std::string& key) const {
     return nullptr;
 }
 
-SequenceType* Macro::FindMacroList(const std::string& key) {
+SequenceType* Macro::FindMacroList(std::string_view key) {
     MacroScope* scope = FindScope(key);
-    return scope ? &scope->find(key)->second : nullptr;
+    return scope ? &scope->find(key)->second.defs : nullptr;
 }
 
-const SequenceType* Macro::FindMacroList(const std::string& key) const {
+const SequenceType* Macro::FindMacroList(std::string_view key) const {
     const MacroScope* scope = FindScope(key);
-    return scope ? &scope->find(key)->second : nullptr;
+    return scope ? &scope->find(key)->second.defs : nullptr;
 }
 
 std::string Macro::toMacroHash(TermPtr& term) {
-    if (term->isMacro()) {
-        ASSERT(!GetMacroId(term).empty());
-        return toMacroHashName(GetMacroId(term)[0]->getText());
-    }
-    return toMacroHashName(term->getText());
+    return syntax::toMacroHash(m_ctx, term);
+}
+
+TermID Macro::MarkerToken(std::string_view key) const {
+    return syntax::markerToken(*this, key);
 }
 
 // replase
@@ -113,7 +146,7 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
                 macro_done = *iter;
                 macro_best = matched;
             } else if (matched == macro_best && *iter != macro_done) {
-                // Два РАЗНЫХ макроса группы потребляют одинаковое число термов — настоящая
+                // Два РАЗНЫХ макроса группы потребляют одинаковое число термов - настоящая
                 // неоднозначность выбора (не путать с разными арностями одной группы).
                 parser.m_ctx.diag().report(Severity::Error, macro_done->m_mapperRange, "Macro duplication '{}' and '{}'!", macro_done->toString(),
                                            (*iter)->toString());
@@ -123,14 +156,50 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
         ASSERT(macro_list);
 
         if (macro_done) {
-            // Защита от бесконечной рекурсии при раскрытии макросов
-            if (parser.m_macro_depth >= 100) {
-                parser.m_ctx.diag().report(Severity::Fatal, macro_done->m_mapperRange, "Macro expansion '{}' stack overflow?", macro_done->toString());
+            // -Wsigil: макрос вызван БЕЗ '@' (bare NAME) и не подавлен флагом "keywords".
+            // Подавление одностороннее: имя в keywords как запись без ведущего '@' супрессит
+            // warning; запись с '@' супресс не даёт. Диагностика и fixit «добавить @».
+            {
+                const auto& call0 = parser.m_macro_analisys_buff[0];
+                if (call0 && call0->getTermID() == TermID::NAME && !isKeywordSigilSuppressed(parser.m_ctx, call0->getText())) {
+                    if (parser.m_ctx.opts().isRegisteredByName("sigil")) {
+                        const auto sev = parser.m_ctx.opts().getByName("sigil");
+                        if (sev.has_value()) {
+                            auto* entry = parser.m_ctx.diag().report(*sev, call0->m_mapperRange, "macro '{}' is missing '@' sigil", call0->getText());
+                            if (entry != nullptr && !call0->m_mapperRange.isInvalid()) {
+                                parser.m_ctx.diag().fixit(entry, call0->m_mapperRange, "@" + call0->getText());
+                            }
+                        }
+                    }
+                }
+            }
+            // Защита от бесконечной рекурсии при раскрытии макросов:
+            // - kMacroNestingLimit   - глубина вложенности в одной цепочке раскрытий (вложенная рекурсия);
+            // - kMacroExpansionLimit - суммарное число раскрытий в текущем операторе (самовоспроизведение
+            //   через границы чтений парсера, когда глубина не копится).
+            // Обе ошибки - Severity::Error (мягкие, как прочие ошибки программы): макрос дальше НЕ раскрываем
+            // (return Break - иначе бесконечный цикл), разбор продолжается на оставшихся токенах (bison
+            // error-recovery). Отчёт - один раз за оператор (m_macro_recursion_reported). Локация - call site
+            // текущего раскрытия, имя макроса - первый терм сигнатуры (а не определение в DSL).
+            const auto& call0 = parser.m_macro_analisys_buff[0];
+            const std::string mname = (!macro_done->m_sequence.empty()) ? std::string(macro_done->m_sequence.front()->getText()) : macro_done->toString();
+            if (parser.m_macro_depth >= kMacroNestingLimit && !parser.m_macro_recursion_reported) {
+                parser.m_macro_recursion_reported = true;
+                parser.m_ctx.diag().report(Severity::Error, call0->m_mapperRange, "recursive macro '{}' (nesting too deep)", mname);
+                return ExpandMacroResult::Break;
+            }
+            if (++parser.m_macro_expansion_total >= kMacroExpansionLimit) {
+                if (!parser.m_macro_recursion_reported) {
+                    parser.m_macro_recursion_reported = true;
+                    parser.m_ctx.diag().report(Severity::Error, call0->m_mapperRange,
+                                               "recursive macro '{}' (expansion did not terminate; possible self-recursion)", mname);
+                }
+                return ExpandMacroResult::Break;
             }
 
-            // Новое дерево раскрытия макроса — сброс кэша гигиенических имён
+            // Новое дерево раскрытия макроса - сброс кэша гигиенических имён
             if (parser.m_macro_depth == 0) {
-                parser.m_hygienic_names.clear();
+                parser.pragma().clearHygienicNames();
             }
 
             parser.m_macro_depth++;
@@ -145,11 +214,11 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
 
             // Диапазон вызова макроса: от начала первого токена до конца последнего
             // потреблённого токена (индекс size_remove-1). Токен на индексе size_remove
-            // уже НЕ входит в вызов — использовать его нельзя (для операторных макросов
+            // уже НЕ входит в вызов - использовать его нельзя (для операторных макросов
             // $... он может выйти за границы буфера).
             const auto& last_call_term = parser.m_macro_analisys_buff[size_remove - 1];
 
-            // Диапазон определения макроса: от начала имени (m_left) до конца тела.
+            // Диапазон определения макроса: от начала имени (m_sequence) до конца тела.
             // Раньше бралось только тело (m_right), поэтому при переходе по ссылке
             // выделялась лишь часть макроса, а не весь макрос целиком.
             MapperRange def_range;
@@ -158,12 +227,13 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
             } else {
                 def_range.end = macro_done->m_right->m_mapperRange.end;
             }
-            // Начало — имя макроса (m_left), но только если оно в том же файле, что и
-            // конец тела (иначе получится кросс-файловый range → EXPECT). Для простых
-            // алиасов, где имя в другом файле, оставляем начало тела (прежнее поведение).
-            if (macro_done->m_left && !macro_done->m_left->m_mapperRange.begin.isInvalid() &&
-                macro_done->m_left->m_mapperRange.begin.fileIdx() == def_range.end.fileIdx()) {
-                def_range.begin = macro_done->m_left->m_mapperRange.begin;
+            // Начало - открывающий маркер `@@` определения макроса (сам терм macro_done),
+            // но только если он в том же файле, что и конец тела (иначе кросс-файловый range → EXPECT).
+            if (!macro_done->m_mapperRange.begin.isInvalid() && macro_done->m_mapperRange.begin.fileIdx() == def_range.end.fileIdx()) {
+                def_range.begin = macro_done->m_mapperRange.begin;
+            } else if (!macro_done->m_sequence.empty() && !macro_done->m_sequence.front()->m_mapperRange.begin.isInvalid() &&
+                       macro_done->m_sequence.front()->m_mapperRange.begin.fileIdx() == def_range.end.fileIdx()) {
+                def_range.begin = macro_done->m_sequence.front()->m_mapperRange.begin;
             } else if (macro_done->m_right->getTermID() == TermID::MACRO_SEQ && !macro_done->m_right->m_sequence.empty()) {
                 def_range.begin = macro_done->m_right->m_sequence.front()->m_mapperRange.begin;
             } else {
@@ -171,7 +241,7 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
             }
 
             // Реальный range замещаемого фрагмента (вызова макроса). Все вставленные лексемы
-            // раскрытого тела должны получить именно его location — иначе клоны тела (из @dsl)
+            // раскрытого тела должны получить именно его location - иначе клоны тела (из @trust/dsl)
             // сохраняют range DSL-определения, и грамматика, комбинирующая range с call-site
             // токенами, даёт begin > end (разные файлы) → EXPECT(b <= e).
             MapperRange call_range{parser.m_macro_analisys_buff.front()->m_mapperRange.begin, last_call_term->m_mapperRange.end};
@@ -223,58 +293,56 @@ ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
             return ExpandMacroResult::Continue;
 
         } else {
+            // Имя макроса присутствует в группе, но ни один шаблон не сопоставился с вызовом.
+            // Находим «ближайший» кандидат (максимум совпавших термов сигнатуры до провала),
+            // чтобы дать конкретную причину рассинхрона + список всех доступных паттернов.
+            // Это ВСЕГДА диагностика макропроцессора (а не анализатора).
+            MacroMismatch best;
+            TermPtr bestMacro;
+            for (auto iter = macro_list->begin(); iter != macro_list->end(); ++iter) {
+                MacroMismatch mm;
+                if (parser.m_macro->MatchMacro(parser.m_macro_analisys_buff, *iter, &mm) != 0) {
+                    continue; // совпал - в эту ветку попадать не должен
+                }
+                if (!bestMacro || mm.matched_terms > best.matched_terms) {
+                    best = mm;
+                    bestMacro = *iter;
+                }
+            }
 
-            parser.m_ctx.diag().report(Severity::Error, parser.m_macro_analisys_buff[0]->m_mapperRange,
-                                       "Macro mapping '{}' not found!\nThe following macro mapping are available:\n{}",
-                                       parser.m_macro_analisys_buff[0]->toString(),
-                                       parser.m_macro->GetMacroMaping(parser.m_macro->toMacroHash(parser.m_macro_analisys_buff[0]), "\n"));
+            const std::string call_name = parser.m_macro_analisys_buff[0]->toString();
+            const std::string exp_str = (best.expected.empty() || best.expected == "@@") ? "end of pattern" : "'" + best.expected + "'";
+            const std::string found_str = (best.found.empty() || best.found.rfind("@@", 0) == 0) ? "end of input" : "'" + best.found + "'";
+            std::string msg = "macro '" + call_name +
+                              "' does not match any pattern.\n"
+                              "Closest pattern: expected " +
+                              exp_str + " but found " + found_str +
+                              ".\n"
+                              "The following macro mapping are available:\n" +
+                              parser.m_macro->GetMacroMaping(parser.m_macro->toMacroHash(parser.m_macro_analisys_buff[0]), "\n");
+            auto* entry = parser.m_ctx.diag().report(Severity::Error, parser.m_macro_analisys_buff[0]->m_mapperRange, "{}", msg);
+
+            // Fix-it: если рассинхрон на реальном токене буфера и ожидаемый терм - простой литерал
+            // (не шаблон/EOF-маркер), предлагаем заменить найденный токен на ожидаемый.
+            if (entry && bestMacro && best.buffer_pos < parser.m_macro_analisys_buff.size()) {
+                const std::string& exp = best.expected;
+                const bool literal = !exp.empty() && exp != "@@" && exp.find('$') == std::string::npos && exp.find('(') == std::string::npos &&
+                                     !best.found.empty() && best.found.rfind("@@", 0) != 0;
+                if (literal) {
+                    parser.m_ctx.diag().fixit(entry, parser.m_macro_analisys_buff[best.buffer_pos]->m_mapperRange, exp);
+                }
+            }
         }
     }
     return ExpandMacroResult::Break;
 }
 
 SequenceType Macro::MakeMacroId(const SequenceType& seq) {
-
-    SequenceType result;
-    size_t pos = 0;
-    TermPtr term;
-    size_t done;
-
-    while (pos < seq.size()) {
-
-        if (deny_chars_from_macro.find(seq[pos]->getText()[0]) != std::string::npos) {
-            m_ctx.diag().report(Severity::Error, seq[pos]->m_mapperRange, "Symbol '{}' in lexem sequence not allowed!", seq[pos]->getText()[0]);
-        }
-
-        done = Parser::ParseTerm(term, seq, m_ctx, pos, true, /*macro_expand=*/false);
-        if (done) {
-            result.push_back(term);
-            pos = done;
-        } else {
-            m_ctx.diag().report(Severity::Error, seq[pos]->m_mapperRange, "Fail convert {}", seq[pos]->toString());
-            break; // не продвигаться вперёд нельзя (иначе бесконечный цикл); ошибка уже записана
-        }
-    }
-    return result;
+    return syntax::makeMacroId(m_ctx, seq);
 }
 
 SequenceType Macro::GetMacroId(TermPtr& term) {
-    if (!term->isMacro()) {
-        m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Term '{}' as {} not a macro!", term->toString(), trust::toString(term->m_id));
-        return {}; // не продолжать обработку не-макроса (иначе ASSERT/UB)
-    }
-
-    if (term->m_id == TermID::MACRO_DEL) {
-        ASSERT(!term->m_sequence.empty());
-        return MakeMacroId(term->m_sequence);
-    }
-
-    ASSERT(term->isCreate());
-    ASSERT(term->m_left);
-    ASSERT(term->m_left->m_id == TermID::MACRO_SEQ);
-    ASSERT(term->m_left->m_sequence.size() && "Macro sequence is empty!");
-
-    return MakeMacroId(term->m_left->m_sequence);
+    return syntax::getMacroId(m_ctx, term);
 }
 
 std::string Macro::GetMacroMaping(const std::string str, const char* separator) {
@@ -298,121 +366,7 @@ std::string Macro::GetMacroMaping(const std::string str, const char* separator) 
 }
 
 bool Macro::CheckMacro(const TermPtr& term) {
-    const int err_before = m_ctx.diag().errorCount(); // мягкие ошибки валидации не должны допускать регистрацию
-    if (!term) {
-        ASSERT(term);
-    }
-    ASSERT(term->m_left);
-    ASSERT(term->m_right);
-
-    TermPtr op_term;
-    bool is_operator = false;
-    TermPtr args;               // Arguments @macro(name)
-    std::set<std::string> tmpl; // Templates $name
-
-    ASSERT(!term->m_left->m_sequence.empty());
-    for (auto& elem : MakeMacroId(term->m_left->m_sequence)) {
-        if (elem->isCall()) {
-            if (args) {
-                m_ctx.diag().report(Severity::Error, elem->m_mapperRange, "Only one term in a macro can have arguments");
-            }
-            args = elem;
-        } else if (isLocalName(elem->getText())) {
-            if (tmpl.find(elem->getText()) != tmpl.end()) {
-                m_ctx.diag().report(Severity::Error, elem->m_mapperRange, "Reuse of argument name!");
-            }
-            if (elem->getText().compare("$...") == 0) {
-                if (is_operator) {
-                    m_ctx.diag().report(Severity::Error, elem->m_mapperRange, "Statement pattern should be only one!");
-                }
-                op_term = elem;
-                is_operator = true;
-            }
-            tmpl.insert(elem->getText());
-        } else if (elem->m_id == TermID::NAME) {
-            if (isReservedName(elem->getText())) {
-                m_ctx.diag().report(Severity::Error, elem->m_mapperRange, "Reserved term name used!");
-            }
-            // OK
-        } else {
-            m_ctx.diag().report(Severity::Error, elem->m_mapperRange, "Unexpected term in macro!");
-        }
-    }
-
-    if (is_operator) {
-        if (term->m_left->m_sequence.back()->getText().compare("$...") != 0) {
-            m_ctx.diag().report(Severity::Error, op_term->m_mapperRange, "Statement pattern must be the last term!");
-        }
-        if (args) {
-            m_ctx.diag().report(Severity::Error, args->m_mapperRange, "The statement macro cannot be a function call!");
-        }
-    }
-
-    std::set<std::string> args_name;
-
-    int arg_count = args ? args->size() : 0;
-    bool named = false;
-    bool is_ellips = false;
-    for (int i = 0; args && i < args->size(); i++) {
-        if (!args->at(i).first.empty()) {
-            named = true;
-            if (args_name.find(args->at(i).first) != args_name.end()) {
-                m_ctx.diag().report(Severity::Error, args->at(i).second->m_mapperRange, "Reuse of argument name!");
-            }
-            args_name.insert(args->at(i).first);
-        } else {
-            if (args->at(i).second->m_id == TermID::ELLIPSIS) {
-                if (i + 1 != args->size()) {
-                    m_ctx.diag().report(Severity::Error, args->at(i).second->m_mapperRange, "The ellipsis can only be the last in the list of arguments!");
-                }
-                arg_count--;
-                is_ellips = true;
-                break;
-            }
-            if (named) {
-                m_ctx.diag().report(Severity::Error, args->at(i).second->m_mapperRange, "Positional arguments must come before named arguments!");
-            }
-        }
-        // LOCAL pattern names inside parentheses (e.g. $result in return($result))
-        // are matched in the macro body as @$name — add them to the template set.
-        if (isLocalName(args->at(i).second->getText())) {
-            tmpl.insert(args->at(i).second->getText());
-        }
-        if (args_name.find(args->at(i).second->getText()) != args_name.end()) {
-            m_ctx.diag().report(Severity::Error, args->at(i).second->m_mapperRange, "Reuse of argument name!");
-        }
-        args_name.insert(args->at(i).second->getText());
-    }
-
-    if (term->m_right->getTermID() == TermID::MACRO_SEQ) {
-
-        //"@$"{name}      YY_TOKEN(MACRO_ARGNAME);
-
-        //"@$..."         YY_TOKEN(MACRO_ARGUMENT);
-        //"@$*"           YY_TOKEN(MACRO_ARGUMENT); - All OK
-
-        //"@$"[0-9]+      YY_TOKEN(MACRO_ARGNUM);
-        //"@$#"           YY_TOKEN(MACRO_ARGCOUNT); - All OK
-
-        for (auto& elem : term->m_right->m_sequence) {
-            if (elem->m_id == TermID::MACRO_ARGUMENT && elem->getText().compare("@$...") == 0) {
-                if (!is_ellips && !is_operator) {
-                    m_ctx.diag().report(Severity::Error, elem->m_mapperRange, "The macro has a fixed number of arguments, ellipsis cannot be used!");
-                }
-            } else if (elem->m_id == TermID::MACRO_ARGPOS) {
-                int64_t num = std::strtol(elem->getText().c_str() + 2, nullptr, 10);
-                if (num >= arg_count) {
-                    m_ctx.diag().report(Severity::Error, elem->m_mapperRange, "Invalid argument number!");
-                }
-            } else if (elem->m_id == TermID::MACRO_ARGNAME) {
-                if (args_name.find(elem->getText().substr(2)) == args_name.end() && tmpl.find(elem->getText().substr(1)) == tmpl.end()) {
-                    m_ctx.diag().report(Severity::Error, elem->m_mapperRange, "Macro argument name not found!");
-                }
-            }
-        }
-    }
-
-    return m_ctx.diag().errorCount() == err_before;
+    return syntax::checkMacro(m_ctx, term);
 }
 
 TermPtr Macro::EvalOpMacros(TermPtr& term) {
@@ -421,101 +375,77 @@ TermPtr Macro::EvalOpMacros(TermPtr& term) {
 
     if (term->getTermID() == TermID::MACRO_DEL) {
         if (!RemoveMacro(term)) {
-            fprintf(stderr, "W: Macro '%s' not found!\n", toMacroHash(term).c_str());
+            // Явная диагностика (не тихий stderr): удаление несуществующего макроса.
+            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Macro '{}' not found for removal!", toMacroHash(term));
         }
         return term;
     }
 
-    if (!term->m_left) {
-        ASSERT(term->m_left);
-    }
-    if (term->m_left->getTermID() != TermID::MACRO_SEQ) {
-        m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Operand '{}' not a macros!", term->m_left->toString());
+    if (term->getTermID() != TermID::MACRO_SEQ || !term->m_right) {
+        m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Operand '{}' not a macros!", term->toString());
         return term; // не продолжать EvalOpMacros с не-макросом
     }
 
-    if (term->m_right->getTermID() == TermID::MACRO_DEL || term->m_right->getTermID() == TermID::END) {
-        m_ctx.diag().report(Severity::Error, term->m_mapperRange, "For remove macro use operator @@@@ {} @@@@;)", term->m_left->getText());
-        return term;
+    if (!CheckMacro(term)) {
+        return term; // макрос некорректен (мягкие ошибки) - не регистрируем
     }
 
-    if (!CheckMacro(term)) {
-        return term; // макрос некорректен (мягкие ошибки) — не регистрируем
-    }
+    // Имя макроса для диагностики (из сигнатуры m_sequence).
+    auto macro_name = [&](TermPtr t) -> std::string {
+        SequenceType mid = GetMacroId(t);
+        std::string s;
+        for (auto& e : mid) {
+            if (!s.empty()) {
+                s += " ";
+            }
+            s += e->getText();
+        }
+        return s;
+    };
 
     TermPtr macro = GetMacroById(GetMacroId(term));
 
     if (macro) {
-
-        if (term->getTermID() == TermID::CREATE_TYPE) {
-            m_ctx.report(term->m_mapperRange, OptKind::MacroRedefined, "Macros '{}' already exists!", term->m_left->toString());
-        }
-
-        // Список макросов, один из которых может соответствовать текущему буферу (по первому термину буфера)
-        SequenceType* macro_list = FindMacroList(toMacroHash(term));
-        if (macro_list) {
-            for (auto iter = macro_list->begin(); iter != macro_list->end(); ++iter) {
-                // Разная арность (число термов сигнатуры) — это РАЗНЫЕ макросы одной группы
-                // (общий первый терм). Дубликат — только при полном совпадении сигнатуры.
-                if (GetMacroId(*iter).size() != GetMacroId(term).size()) {
-                    continue;
-                }
-                if (IdentityMacro(GetMacroId(term), *iter) || IdentityMacro(GetMacroId(*iter), term)) {
-
-                    if (term->getTermID() == TermID::CREATE_TYPE || (iter->get() != macro.get())) {
-                        m_ctx.report(term->m_mapperRange, OptKind::MacroRedefined, "Macro duplication '{}' and '{}'!", term->m_left->toString(),
-                                     (*iter)->toString());
-                    }
-                }
-            }
-        }
+        // Макрос с такой сигнатурой уже существует -> переопределение тела.
+        // Уровень диагностики управляется опцией "macro-redefined".
+        m_ctx.report(term->m_mapperRange, syntax::DiagId::MacroRedefined, "Macro duplication '{}' and '{}'!", macro_name(term), macro->toString());
 
         macro->m_right = term->m_right;
 
     } else {
 
-        if (term->getTermID() == TermID::ASSIGN) {
-            m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Macros '{}' not exists!", term->m_left->toString());
-        }
-
-        TermPtr temp = term->m_left;
-        // Список макросов, один из которых может соответствовать текущему буферу (по первому термину буфера)
-        SequenceType* existing_list = FindMacroList(toMacroHash(temp));
-        if (existing_list) {
-            for (auto iter = existing_list->begin(); iter != existing_list->end(); ++iter) {
-                TermPtr temp2 = *iter;
-                // Разная арность — это РАЗНЫЕ макросы одной группы, не дубликаты.
-                if (GetMacroId(*iter).size() != GetMacroId(term).size()) {
-                    continue;
-                }
-                if (IdentityMacro(GetMacroId(term), *iter) || IdentityMacro(GetMacroId(temp2), term)) {
-                    m_ctx.report(term->m_mapperRange, OptKind::MacroRedefined, "Macro duplication '{}' and '{}'!", term->m_left->toString(),
-                                 (*iter)->toString());
-                }
-            }
-        }
-
-        //@todo Сделать два типа макросов, явные и не явные (::- :- или ::= :=), что позволит
-        // контролировать обязательность указания признака макроса @ для явных макросов,
-        // а не явные применять всегда (как сейчас)
-
+        // Новый макрос - регистрируем в текущем скоупе.
         macro = term;
 
         SequenceType* macro_list = FindMacroList(toMacroHash(macro));
         if (macro_list) {
             macro_list->push_back(macro);
         } else {
-            // Создание нового макроса — в верхнем (текущем) скоупе.
-            m_scopes.back()[toMacroHash(macro)].push_back(macro);
+            // Создание нового макроса - в верхнем (текущем) скоупе.
+            m_scopes.back()[toMacroHash(macro)].defs.push_back(macro);
         }
     }
 
     // Реестр имён макросов для LSP: определения не теряются после PopScope модуля.
+    // Плюс классификация макроса для форматтера (no-paren/contract) хранится вместе с записью
+    // группы (MacroEntry::kind) и коллбек в реальном времени.
     if (macro) {
         try {
             SequenceType mid = GetMacroId(macro);
             if (!mid.empty() && mid[0]) {
                 m_ctx.recordMacro(mid[0]->getText(), macro->m_mapperRange);
+                const MacroKind k = classifyMacro(macro);
+                const std::string name = toMacroHashName(mid[0]->getText());
+                // Группа могла существовать и раньше (в любом скоупе) - обновляем класс у её записи.
+                if (MacroScope* sc = FindScope(name)) {
+                    const auto it = sc->find(name);
+                    if (it != sc->end()) {
+                        it->second.kind = k;
+                    }
+                }
+                if (on_macro_kind) {
+                    on_macro_kind(name, k, /*removed=*/false, macro->m_mapperRange.begin.offset());
+                }
             }
         } catch (...) {
         }
@@ -529,7 +459,14 @@ bool Macro::RemoveMacro(TermPtr& term) {
     ASSERT(!list.empty());
 
     if (term->m_id == TermID::MACRO_DEL && list.size() == 1 && list[0]->getText().compare("_") == 0) {
-        // Удаление всех макросов — очищаем все скоупы.
+        // Удаление всех макросов - очищаем все скоупы.
+        if (on_macro_kind) {
+            for (const auto& scope : m_scopes) {
+                for (const auto& [name, entry] : scope) {
+                    on_macro_kind(name, entry.kind, /*removed=*/true, term->m_mapperRange.begin.offset());
+                }
+            }
+        }
         for (auto& scope : m_scopes) {
             scope.clear();
         }
@@ -542,7 +479,7 @@ bool Macro::RemoveMacro(TermPtr& term) {
     }
 
     auto found = scope->find(toMacroHash(term));
-    for (SequenceType::iterator iter = found->second.begin(); iter != found->second.end(); ++iter) {
+    for (SequenceType::iterator iter = found->second.defs.begin(); iter != found->second.defs.end(); ++iter) {
 
         SequenceType names = GetMacroId(*iter);
 
@@ -560,10 +497,17 @@ bool Macro::RemoveMacro(TermPtr& term) {
             }
         }
 
-        found->second.erase(iter);
+        found->second.defs.erase(iter);
 
-        if (found->second.empty()) {
-            scope->erase(list[0]->getText().c_str());
+        // Если группа (имя) стала пустой - запись целиком удаляется, класс пропадает вместе с ней.
+        // Если в группе остались другие арности, имя макроса всё ещё живо -> класс сохраняется
+        // (раньше он ошибочно терялся при удалении одной из арностей группы).
+        if (found->second.defs.empty()) {
+            const MacroKind groupKind = found->second.kind;
+            scope->erase(found);
+            if (on_macro_kind) {
+                on_macro_kind(toMacroHashName(list[0]->getText()), groupKind, /*removed=*/true, term->m_mapperRange.begin.offset());
+            }
         }
 
         return true;
@@ -585,8 +529,8 @@ bool Macro::isEmpty() const {
 size_t Macro::CountInScope(size_t scopeIdx) const {
     EXPECT(scopeIdx < m_scopes.size() && "Macro scope index out of range");
     size_t count = 0;
-    for (const auto& [key, list] : m_scopes[scopeIdx]) {
-        count += list.size();
+    for (const auto& [key, entry] : m_scopes[scopeIdx]) {
+        count += entry.defs.size();
     }
     return count;
 }
@@ -594,8 +538,8 @@ size_t Macro::CountInScope(size_t scopeIdx) const {
 std::vector<std::string> Macro::MacroNames() const {
     std::set<std::string> names;
     for (const auto& scope : m_scopes) {
-        for (const auto& [key, list] : scope) {
-            (void)list;
+        for (const auto& [key, entry] : scope) {
+            (void)entry;
             names.insert(key);
         }
     }
@@ -611,20 +555,20 @@ std::string Macro::Dump() {
                 result += ", ";
             }
 
-            for (int pos = 0; pos < iter->second.size(); pos++) {
+            for (int pos = 0; pos < iter->second.defs.size(); pos++) {
 
                 std::string str;
-                for (auto& elem : GetMacroId(iter->second[pos])) {
+                for (auto& elem : GetMacroId(iter->second.defs[pos])) {
                     if (!str.empty()) {
                         str += " ";
                     }
                     str += elem->getText();
-                    if (iter->second[pos]->isCall()) {
+                    if (iter->second.defs[pos]->isCall()) {
                         str += "(";
                     }
                 }
                 result += iter->first + "->'" + str + "'";
-                if (pos + 1 < iter->second.size()) {
+                if (pos + 1 < iter->second.defs.size()) {
 
                     result += "; ";
                 }
@@ -685,33 +629,7 @@ std::string Macro::DumpText(const SequenceType& arr) {
 }
 
 bool Macro::CompareMacroName(const std::string& term_name, const std::string& macro_name) {
-    if (isLocalName(macro_name)) {
-        // Шаблон соответствует любому термину входного буфера
-        return true;
-    }
-    if (isMacroName(term_name)) {
-        // Если термин в буфере - имя макроса
-        if (isMacroName(macro_name)) {
-            return macro_name.compare(term_name) == 0;
-        }
-        // Префикс макроса не учавтствует в сравнении
-        return macro_name.compare(&term_name.c_str()[1]) == 0;
-
-    } else if (isMacroName(macro_name)) {
-        // Если термин в буфере - имя макроса
-        if (isMacroName(term_name)) {
-            return macro_name.compare(term_name) == 0;
-        }
-        // Префикс макроса не учавтствует в сравнении
-        return term_name.compare(&macro_name.c_str()[1]) == 0;
-
-    } else if (isLocalAnyName(term_name.c_str())) {
-        // Любой другой термин не подходит
-
-        return false;
-    }
-    // Без префиксов оба термина
-    return term_name.compare(macro_name) == 0;
+    return syntax::compareMacroName(term_name, macro_name);
 }
 
 /*
@@ -760,19 +678,6 @@ bool Macro::CompareMacroName(const std::string& term_name, const std::string& ma
  * а аннотации только к одному создаваемому объекту (к следующей операции создания объекта/присвоения значения);
  *
  *
- * @@ override @@ := @@ @__ANNOTATION_SET__(override, 1) @__PRAGMA_UNEXPECTED__( (, <, [, {, {+, {-, {*) @@
- * @@ nothrow @@ := @@ @__ANNOTATION_SET__(nothrow, 1) @__PRAGMA_UNEXPECTED__( (, <, [, {, {+, {-, {*) @@
- * @@ func $name (...) @@ := @@ @$name ( @$* )  @__ANNOTATION_IIF__(override, =, ::=)
- *                                              @__ANNOTATION_IF_EXPECTED__(nothrow, {*)
- *                                              @__ANNOTATION_ELSE_EXPECTED__(nothrow, {, {+, {-, {*)  @@
- *
- * @@ __name__ @@ ::= @@ . @__PRAGMA_NO_MACRO__()  __name__ @@ # -> \.__name__
- *
- * @__PRAGMA_INDENT_BLOCK__( +} )
- *
- *
- * func name() { # ->   name() ::= {
- * };
  *
  * @override
  * func name() { # ->   name() = {
@@ -832,460 +737,70 @@ bool Macro::CompareMacroName(const std::string& term_name, const std::string& ma
  *
  *
  */
-size_t Macro::MatchMacro(const SequenceType& buffer, TermPtr& macro) {
-
-    if (!macro || !macro->isMacro()) {
-        return 0;
-    }
-
-    const SequenceType id = GetMacroId(macro);
-
-    size_t buff_offset = 0;
-    size_t macro_offset = 0;
-    while (buff_offset < buffer.size() && macro_offset < id.size()) {
-
-        if (buffer[buff_offset]->getTermID() == TermID::END) {
-            return 0;
-        }
-        // Шаблон (`$name`, `$...`) как терм сигнатуры захватывает терм ЗНАЧЕНИЯ/ИМЕНИ, но НЕ
-        // разделитель `;`/END. Иначе `@return;`/`@break;` ошибочно сопоставлялись бы с
-        // `return $value`/`break $label` (пустой аргумент), а не с arity-1 макросом.
-        if (isLocalName(id[macro_offset]->getText()) &&
-            (buffer[buff_offset]->getTermID() == TermID::SEMICOLON || buffer[buff_offset]->getTermID() == TermID::END)) {
-            return 0;
-        }
-
-        if (!CompareMacroName(buffer[buff_offset]->getText(), id[macro_offset]->getText())) {
-            return 0;
-        } else {
-
-            buff_offset++;
-
-            if (id[macro_offset]->isCall()) {
-                size_t skip = Parser::SkipBrackets(buffer, buff_offset);
-                if (!skip) {
-                    return 0;
-                }
-                buff_offset += skip;
-            }
-        }
-
-        macro_offset++;
-
-        if (macro_offset == id.size()) {
-            // Сигнатура макроса сопоставлена полностью (возможно, буфер потреблён не целиком).
-            // Возвращаем число потреблённых термов буфера — метрика longest-match при выборе
-            // макроса из группы (все макросы с одним первым именем, но разной арностью).
-            return buff_offset;
-        }
-    }
-    return 0;
+size_t Macro::MatchMacro(const SequenceType& buffer, TermPtr& macro, MacroMismatch* mismatch) {
+    return syntax::matchMacro(m_ctx, buffer, macro, mismatch);
 }
 
 bool Macro::IdentityMacro(const SequenceType& buffer, TermPtr& macro) {
-    return MatchMacro(buffer, macro) != 0;
+    return syntax::identityMacro(m_ctx, buffer, macro);
 }
 
 void Macro::InsertArg_(MacroArgsType& args, std::string name, SequenceType& buffer, size_t pos) {
-
-    if (args.find(name) != args.end()) {
-        throw ParserError("Duplicate arg %s!", name.c_str());
-    }
-
-    SequenceType vect;
-    if (pos == static_cast<size_t>(-1)) {
-        for (auto& elem : buffer) {
-            vect.push_back(elem);
-        }
-    } else {
-        if (pos >= buffer.size()) {
-            throw ParserError("No data for input buffer! Pos %d for size %d!", static_cast<int>(pos), static_cast<int>(buffer.size()));
-        }
-        vect.push_back(buffer[pos]);
-    }
-    args.insert({name, std::move(vect)});
+    syntax::insertArg(args, name, buffer, pos);
 }
 
 SequenceType Macro::SymbolSeparateArg_(const SequenceType& buffer, size_t pos, std::vector<std::string> sym, std::string& error) {
-    error.clear();
-    SequenceType result;
-    size_t skip;
-    while (pos < buffer.size()) {
-        for (auto& elem : sym) {
-            if (buffer[pos]->getTermID() == Term::symbolToID(elem[0])) {
-                return result;
-            }
-        }
-
-        skip = Parser::SkipBrackets(buffer, pos);
-        for (int i = 0; skip && i < static_cast<int>(skip) - 1; i++) {
-            result.push_back(buffer[pos]->Clone());
-            pos++;
-        }
-
-        result.push_back(buffer[pos]->Clone());
-        pos++;
-    }
-
-    for (auto& elem : sym) {
-        if (!error.empty()) {
-            error += " or ";
-        }
-        error += "'";
-        error += elem;
-        error += "'";
-    }
-
-    error.insert(0, "Expected symbol ");
-    error += "!";
-
-    return result;
+    return syntax::symbolSeparateArg(buffer, pos, sym, error);
 }
 
 size_t Macro::ExtractArgs(SequenceType& buffer, TermPtr& term, MacroArgsType& args) {
-
-    ASSERT(term);
-
-    if (!term->isMacro()) {
-        throw ParserError("Term is not a macro! '%s'", term->toString().c_str());
-    }
-
-    args.clear();
-
-    size_t pos_buf = 0;
-    int pos_id = 0;
-
-    std::string arg_name;
-    SequenceType args_dict;
-    SequenceType args_exta;
-
-    size_t arg_count = 0;
-    size_t arg_offset = 0;
-
-    bool arg_ellipsys = false;
-    bool all_args_done = false;
-
-    while (pos_id < GetMacroId(term).size()) {
-
-        if (GetMacroId(term)[pos_id]->getText().compare("$...") == 0) {
-
-            size_t stmt_start = pos_buf;
-            for (int i = pos_buf; i < buffer.size(); i++) {
-                if (buffer[pos_buf]->getTermID() == TermID::END || buffer[pos_buf]->getText().compare(";") == 0) {
-                    break;
-                }
-                pos_buf++;
-            }
-
-            args_exta.insert(args_exta.end(), buffer.begin() + stmt_start, buffer.begin() + pos_buf);
-            pos_id = GetMacroId(term).size();
-            break;
-
-        } else if (isLocalName(GetMacroId(term)[pos_id]->getText())) {
-
-            std::string tmpl_name = GetMacroId(term)[pos_id]->getText();
-            InsertArg_(args, tmpl_name, buffer, pos_buf);
-
-            // Шаблон $name доступен в теле макроса также как @$name
-            if (tmpl_name.compare("$...") != 0) {
-                InsertArg_(args, "@" + tmpl_name, buffer, pos_buf);
-            }
-
-        } else if (GetMacroId(term)[pos_id]->isCall()) {
-
-            if (all_args_done) {
-                throw ParserError("Support single term call only!");
-            }
-            all_args_done = true;
-
-            pos_buf++;
-            if (pos_buf >= buffer.size() || buffer[pos_buf]->getTermID() != TermID::LPAREN) {
-                throw trust::ParserError("Expected '('!");
-            }
-            pos_buf++;
-
-            std::string error_str;
-            SequenceType arg_seq;
-            while (1) {
-                arg_seq = SymbolSeparateArg_(buffer, pos_buf, {")", ","}, error_str);
-
-                if (!error_str.empty()) {
-                    throw trust::ParserError(error_str);
-                }
-
-                if (!arg_seq.empty()) {
-
-                    args_dict.insert(args_dict.end(), arg_seq.begin(), arg_seq.end());
-
-                    pos_buf += arg_seq.size();
-
-                    ASSERT(pos_buf < buffer.size());
-
-                    arg_count++;
-
-                    arg_name = "@$";
-                    arg_name += std::to_string(arg_count);
-                    InsertArg_(args, arg_name, arg_seq);
-
-                    if (arg_count - 1 < GetMacroId(term)[pos_id]->size()) {
-
-                        arg_name = GetMacroId(term)[pos_id]->at(arg_count - 1).second->getText();
-
-                        if (arg_name.compare("...") == 0) {
-
-                            if (arg_ellipsys) {
-                                throw ParserError("Fail ellipsys args in prototype '%s'!", GetMacroId(term)[pos_id]->toString().c_str());
-                            }
-                            arg_ellipsys = true;
-
-                        } else {
-
-                            // Имя аргумента из прототипа может быть записано как с ведущим '$'
-                            // ($name), так и без него (name). Тело макроса всегда ссылается
-                            // на аргумент как @$name, поэтому ключ в args нормализуется:
-                            //   $a  -> @$a
-                            //   arg -> @$arg
-                            if (!arg_name.empty() && arg_name[0] == '$') {
-                                arg_name.insert(0, "@");
-                            } else {
-                                arg_name.insert(0, "@$");
-                            }
-                            InsertArg_(args, arg_name, arg_seq);
-                        }
-                    }
-
-                    if (arg_ellipsys) {
-                        if (!args_exta.empty()) {
-                            args_exta.insert(args_exta.end(), Term::CreateSymbol(','));
-                        }
-                        args_exta.insert(args_exta.end(), arg_seq.begin(), arg_seq.end());
-                    }
-
-                } else if (buffer[pos_buf]->getText() == ",") {
-                    args_dict.push_back(buffer[pos_buf]);
-                    pos_buf++;
-                } else if (buffer[pos_buf]->getText() == ")") {
-                    break;
-                } else {
-                    throw trust::ParserError(std::string("Unexpected symbol ") + buffer[pos_buf]->getText());
-                }
-            }
-        }
-
-        pos_buf++;
-        pos_id++;
-    }
-
-    SequenceType cnt{Term::Create(TermID::INTEGER, std::to_string(arg_count), {}, parser::token_type::INTEGER)};
-    arg_name = "@$#";
-    InsertArg_(args, arg_name, cnt);
-
-    InsertArg_(args, "@$...", args_exta);
-
-    args_dict.insert(args_dict.begin(), Term::CreateSymbol('('));
-    args_dict.push_back(Term::CreateSymbol(','));
-    args_dict.push_back(Term::CreateSymbol(')'));
-
-    InsertArg_(args, "@$*", args_dict);
-
-    // std::string ttt;
-    // for (size_t j = 0; j < GetMacroId(term).size(); j++) {
-    //     if (j) {
-    //         ttt += " ";
-    //     }
-    //     ttt += Macro::toMacroHashName(GetMacroId(term)[j]->getText());
-    // }
-
-    if (((pos_id == GetMacroId(term).size()) || (term->getTermID() == TermID::MACRO_SEQ && pos_id == GetMacroId(term).size())) &&
-        pos_buf + arg_offset <= buffer.size()) {
-        ASSERT(pos_buf + arg_offset <= buffer.size());
-
-        return pos_buf + arg_offset;
-    }
-
-    throw ParserError("Input buffer empty for extract args macros %s (%d+%d)=%d!", term->toString().c_str(), static_cast<int>(pos_buf),
-                      static_cast<int>(arg_offset), static_cast<int>(buffer.size()));
+    return syntax::extractArgs(m_ctx, buffer, term, args);
 }
 
 SequenceType Macro::ExpandMacros(const TermPtr& macro, MacroArgsType& args, Parser& parser, MapperRange callRange) {
-    ASSERT(macro);
-    ASSERT(macro->m_right);
-
-    SequenceType result;
-
-    SequenceType seq = macro->m_right->m_sequence;
-
-    if (macro->m_right->getTermID() != TermID::MACRO_SEQ) {
-        ASSERT(seq.empty());
-        seq.push_back(macro->m_right);
-    }
-
-    for (int i = 0; i < seq.size(); i++) {
-
-        if (seq[i]->getTermID() == TermID::COMMA_LEXEME) {
-            // Лексема @\, (COMMA_LEXEME) в теле макроса при раскрытии превращается
-            // в обычную запятую (TermID::COMMA), чтобы можно было вставить ',' там,
-            // где запятая не должна разделять аргументы самого макроса.
-            TermPtr comma = Term::CreateSymbol(',');
-            comma->m_mapperRange = callRange;
-            result.push_back(comma);
-            continue;
-        }
-
-        if (seq[i]->getTermID() == TermID::MACRO_TOSTR) {
-
-            if (i + 1 >= seq.size()) {
-                throw ParserError("Next element to string not found!");
-            }
-            result.insert(result.end(), seq[i + 1]->Clone());
-
-            if ((*result.rbegin())->getText().find("@$") == 0) {
-                auto iter = args.find((*result.rbegin())->getText());
-                if (iter == args.end()) {
-                    throw ParserError("Argument name '%s' not found!", seq[i]->getText().c_str());
-                }
-                std::string text;
-                for (auto& elem : iter->second) {
-                    text += std::string(elem->getText());
-                }
-                (*result.rbegin())->getText() = text;
-            }
-
-            if (seq[i]->getText().compare("@#\"") == 0) {
-                (*result.rbegin())->m_id = TermID::STRWIDE;
-            } else if (seq[i]->getText().compare("@#'") == 0) {
-                (*result.rbegin())->m_id = TermID::STRCHAR;
-            } else {
-                ASSERT(seq[i]->getText().compare("@#") == 0);
-                // bare @# — стрингификация по умолчанию: узкая строка (StrChar),
-                (*result.rbegin())->m_id = TermID::STRCHAR;
-            }
-            i++;
-
-        } else if (seq[i]->getTermID() == TermID::MACRO_CONCAT) {
-            ASSERT(seq[i]->getText().compare("@##") == 0);
-
-            if (result.empty() || i + 1 >= seq.size()) {
-                throw ParserError("Concat elements not exist!");
-            }
-
-            // Если предыдущий элемент — предопределённый макрос (например @__MODULE_NAME__),
-            // раскрыть его до склейки с локацией сайта вызова, иначе конкатенация склеит
-            // сырое имя макроса (напр. "@__MODULE_NAME__" + "__main__") и результат не раскроется.
-            if (result.back()->getTermID() == TermID::MACRO && result.back()->getText().find("@") == 0) {
-                result.back()->m_mapperRange = callRange;
-                parser.ExpandPredefMacro(result.back());
-            }
-
-            std::string append_text;
-            if (seq[i + 1]->getText().find("@$") == 0) {
-                auto iter = args.find(seq[i + 1]->getText());
-                if (iter == args.end()) {
-                    throw ParserError("Argument name '%s' not found!", seq[i + 1]->getText().c_str());
-                }
-                for (auto& elem : iter->second) {
-                    append_text += std::string(elem->getText());
-                }
-            } else {
-                append_text = std::string(seq[i + 1]->getText());
-            }
-            (*result.rbegin())->getText().append(append_text);
-            i++;
-
-        } else if (seq[i]->getText().find("@$") == 0) {
-
-            auto iter = args.find(seq[i]->getText());
-            if (iter == args.end()) {
-                throw ParserError("Argument name '%s' not found!", seq[i]->getText().c_str());
-            }
-
-            if (seq[i]->getText().compare("@$...") == 0) {
-
-                if (iter->second.empty() && result.rbegin() != result.rend() && std::string((*result.rbegin())->getText()) == ",") {
-                    result.erase(std::prev(result.end()));
-                }
-            }
-
-            for (auto& elem : iter->second) {
-                result.push_back(elem);
-            }
-
-        } else {
-
-            result.insert(result.end(), seq[i]->Clone());
-        }
-    }
-    return result;
-}
-
-std::string ReplaceAll(std::string str, const std::string& from, const std::string& to) {
-    size_t start_pos = 0;
-    while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
-
-        str.replace(start_pos, from.length(), to);
-        start_pos += to.length();
-    }
-    return str;
+    return syntax::expandMacros(macro, args, parser, callRange);
 }
 
 std::string Macro::ExpandString(const TermPtr& macro, MacroArgsType& args) {
-    ASSERT(macro);
-    ASSERT(macro->m_right);
-    if (macro->m_right->m_id != TermID::MACRO_STR) {
-        throw ParserError("Fail convert term type %s as macros string!", toString(macro->m_right->m_id));
-    }
-
-    std::string body(macro->m_right->getText());
-
-    for (auto& elem : args) {
-
-        std::string text;
-        for (auto& lex : elem.second) {
-
-            text += lex->toString();
-            text += " ";
-        }
-
-        body = ReplaceAll(body, elem.first, text);
-    }
-
-    return body;
+    return syntax::expandString(macro, args);
 }
 
 TermPtr Macro::GetMacroById(const SequenceType block) {
-    std::vector<std::string> list;
-    for (auto& elem : block) {
-
-        list.push_back(elem->getText());
-    }
-    return GetMacro(list);
+    return syntax::getMacroById(*this, block);
 }
 
 TermPtr Macro::GetMacro(std::vector<std::string> list) {
-    if (list.empty()) {
-        return nullptr;
-    }
-    SequenceType* macro_list = FindMacroList(toMacroHashName(list[0]));
-    if (!macro_list) {
-        return nullptr;
-    }
+    return syntax::getMacro(*this, list);
+}
 
-    for (SequenceType::iterator iter = macro_list->begin(); iter != macro_list->end(); ++iter) {
+// ════════════════════════════════════════════════════════════════
+//  Классификация макросов для форматтера (MacroKind)
+// ════════════════════════════════════════════════════════════════
 
-        SequenceType names = GetMacroId(*iter);
+// Рекурсивно проверяет, является ли терм (или его поддерево) контрактом:
+// содержит raw-маркер @{ (TRUST_BEGIN) или ссылку на макрос, УЖЕ зарегистрированный как
+// Contract (транзитивно — без хардкода имени: trust_contract → trust_pre → trust_assert...).
+bool Macro::bodyHasContract(const TermPtr& t) const {
+    return syntax::bodyHasContract(*this, t);
+}
 
-        if (names.size() != list.size()) {
-            continue;
-        }
+// Вычисляет класс макроса по его определению: m_sequence (сигнатура) и m_right (тело).
+MacroKind Macro::classifyMacro(const TermPtr& macro) const {
+    return syntax::classifyMacro(*this, macro);
+}
 
-        for (int pos = 0; pos < list.size(); pos++) {
-            if (!CompareMacroName(list[pos].c_str(), names[pos]->getText().c_str())) {
+MacroKind Macro::macroKind(std::string_view name) const {
+    return syntax::macroKind(*this, name);
+}
 
-                goto skip_step;
-            }
-        }
-        return *iter;
-    skip_step:;
-    }
-    return nullptr;
+bool Macro::isNoParenMacro(std::string_view name) const {
+    return syntax::isNoParenMacro(*this, name);
+}
+
+bool Macro::isContractMacro(std::string_view name) const {
+    return syntax::isContractMacro(*this, name);
+}
+
+std::unordered_map<std::string, MacroKind> Macro::macroKinds() const {
+    return syntax::macroKinds(*this);
 }

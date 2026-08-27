@@ -1,0 +1,16 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+
+# Поведенческий флаг можно включить из источника через @__OPTION__("solver-loop-unroll", "on"):
+# цикл без инварианта разворачивается (нет предупреждения -Wsolver-loop, есть ite).
+
+@__OPTION__("solver-loop-unroll", "on");
+sum(n:Int32):Int32 trust_post( sum >= 0 ) := {
+    s := 0; i := 0;
+    @while(i < n){ s := s + 1; i := i + 1; };
+    @return s;
+};
+
+# SM2: (set-logic UFBV)
+# SM2-NOT: loop without an invariant
+# SM2: (assert (not (bvsge (ite
+# SM2: (assert (forall ((sum_n (_ BitVec 32))) (bvsge (sum sum_n) (_ bv0 32))))

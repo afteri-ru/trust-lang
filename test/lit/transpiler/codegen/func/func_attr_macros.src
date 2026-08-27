@@ -1,0 +1,26 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Функции с предустановленным встроенным атрибутом (DSL-макросы func_const/func_pure/
+# func_constexpr/func_sync/func_thread) раскрываются в @[ <attr> ]@ + объявление функции:
+#   func_const     -> @[func_const]@     -> __attribute__((const))
+#   func_pure      -> @[func_pure]@      -> __attribute__((pure))
+#   func_constexpr -> @[constexpr]@      -> constexpr
+#   func_sync      -> @[sync]@,  func_thread -> @[thread]@  (кодгеном не преобразуются).
+
+@func_const g(x:Int32):Int32 { 42 };
+# CHECK: __attribute__((const)) int32_t c_g(int32_t c_x) {
+
+@func_pure h(x:Int32):Int32 { x };
+# CHECK: __attribute__((pure)) int32_t c_h(int32_t c_x) {
+
+@func_constexpr k(x:Int32):Int32 { 7 };
+# CHECK: constexpr int32_t c_k(int32_t c_x) {
+
+# Атрибуты sync/thread задаются, но кодгеном игнорируются (обычная функция).
+@func_sync s(x:Int32):Int32 { x };
+# CHECK: int32_t c_s(int32_t c_x) {
+
+@func_thread t(x:Int32):Int32 { x };
+# CHECK: int32_t c_t(int32_t c_x) {
+
+@main() := { 0 }

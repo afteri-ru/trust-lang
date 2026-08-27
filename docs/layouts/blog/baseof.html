@@ -1,3 +1,7 @@
+{{ if site.Params.maintenance.enabled }}
+{{ partial "maintenance.html" . }}
+{{ else }}
+
 <!doctype html>
 <html itemscope itemtype="http://schema.org/WebPage"
     {{- with .Site.Language.LanguageDirection }} dir="{{ . }}" {{- end -}}
@@ -39,3 +43,4 @@
     {{ partial "scripts.html" . }}
   </body>
 </html>
+{{ end }}

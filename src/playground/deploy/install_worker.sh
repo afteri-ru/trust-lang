@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# install_worker.sh — установка исполнительного VPS (режим worker).
-# Идемпотентный. Требует playground_url и token (выдаётся админом балансировщика).
+# install_worker.sh - установка исполнительного VPS (режим worker).
+# Идемпотентный. Требует token (выдаётся админом балансировщика); playground_url
+# по умолчанию - публичный https://playground.trust-lang.net.
 # Использование:
 #   sudo ./install_worker.sh [options]
-#     --playground-url <u>   URL балансировщика (https://; http:// только для localhost/127.x/::1) — ОБЯЗАТЕЛЕН
-#     --token <t>        Токен воркера (64 hex) — ОБЯЗАТЕЛЕН
+#     --playground-url <u>   URL балансировщика (default: https://playground.trust-lang.net)
+#     --token <t>        Токен воркера (64 hex) - ОБЯЗАТЕЛЕН
 #     --user <u>         Пользователь (default: trust)
 #     --dist <dir>       Каталог с дистрибутивом (default: _build/dist)
 #     --lsp-bin <p>      Путь к trust-lsp (default: из дистрибутива)
@@ -13,7 +14,7 @@
 #     --help             Справка
 set -euo pipefail
 
-PLAYGROUND_URL=""
+PLAYGROUND_URL="https://playground.trust-lang.net"
 TOKEN=""
 APP_USER="trust"
 DIST_DIR="_build/dist"
@@ -30,13 +31,13 @@ while [ $# -gt 0 ]; do
         --lsp-bin)      LSP_BIN="$2"; shift 2 ;;
         --max-parallel) MAX_PARALLEL="$2"; shift 2 ;;
         --project-dir)  PROJECT_DIR="$2"; shift 2 ;;
-        --help)         sed -n '2,16p' "$0"; exit 0 ;;
+        --help)         sed -n '2,14p' "$0"; exit 0 ;;
         *) echo "unknown option: $1" >&2; exit 1 ;;
     esac
 done
 
-if [ -z "$PLAYGROUND_URL" ] || [ -z "$TOKEN" ]; then
-    echo "error: --playground-url and --token are required" >&2
+if [ -z "$TOKEN" ]; then
+    echo "error: --token is required (выдаётся админом балансировщика)" >&2
     exit 1
 fi
 if [ "$(id -u)" -ne 0 ]; then
@@ -48,7 +49,7 @@ INSTALL_DIR="/opt/trust-playground"
 CONF_DIR="/etc/trust-playground"
 CONF="$CONF_DIR/trust-playground.conf"
 
-# ── 1. Пользователь ──
+# -- 1. Пользователь --
 if ! id "$APP_USER" &>/dev/null; then
     useradd --system --create-home --shell /usr/sbin/nologin "$APP_USER"
     echo "[1/4] created user: $APP_USER"
@@ -56,7 +57,7 @@ else
     echo "[1/4] user $APP_USER exists"
 fi
 
-# ── 2. Бинарники + runtime ──
+# -- 2. Бинарники + runtime --
 archive=$(ls -t "$DIST_DIR"/trust-lang-*.tar.gz 2>/dev/null | head -1)
 if [ -z "$archive" ]; then
     echo "error: no trust-lang-*.tar.gz in $DIST_DIR" >&2
@@ -76,7 +77,7 @@ install -m 0644 "$pkg_dir/lib/trust-runtime.a"  "$INSTALL_DIR/lib/trust-runtime.
 chown -R "$APP_USER:$APP_USER" "$INSTALL_DIR"
 echo "[2/4] installed to $INSTALL_DIR (lsp_bin=$LSP_BIN)"
 
-# ── 3. Конфиг (worker-секция) ──
+# -- 3. Конфиг (worker-секция) --
 mkdir -p "$CONF_DIR"
 if [ ! -f "$CONF" ]; then
     cat > "$CONF" <<CONF
@@ -99,7 +100,7 @@ else
     echo "[3/4] config already present (edit it manually if needed)"
 fi
 
-# ── 4. Запуск в консоли (не сервис) ──
+# -- 4. Запуск в консоли (не сервис) --
 echo "[4/4] worker installed. Запуск:"
 echo "   В консоли (с выводом статистики):  /opt/trust-playground/bin/trust-playground --config $CONF"
 echo "   В фоне:                            nohup /opt/trust-playground/bin/trust-playground --config $CONF >> /var/log/trust-playground-worker.log 2>&1 &"

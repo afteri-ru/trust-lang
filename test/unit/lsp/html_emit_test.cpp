@@ -93,12 +93,56 @@ TEST_F(HtmlEmitTest, HtmlFragment_ContainsMonarchInitEditorsAndConfig) {
     EXPECT_NE(html.find("window.__TPG.config"), std::string::npos);
     EXPECT_NE(html.find("window.__TPG.glue"), std::string::npos);
     EXPECT_NE(html.find("window.__TPG.monarch"), std::string::npos);
-    // Исходник и сгенерированный C++ встроены в конфиг (JSON-экранированы).
+    // Исходник примера встроен в конфиг (JSON-экранирован).
     EXPECT_NE(html.find("hello world"), std::string::npos);
-    EXPECT_NE(html.find("trust::trust__print__"), std::string::npos);
+    // Трансляция НЕ хранится в шаблоне страницы: в конфиге нет поля "cpp".
+    EXPECT_EQ(html.find("\"cpp\":"), std::string::npos) << "cpp must not be embedded in config";
+    // Оверлей для центрированного сообщения об ошибке/нет связи присутствует.
+    EXPECT_NE(html.find("tpl-cpp-overlay"), std::string::npos);
+    // glue-JS содержит обработку ошибок связи (очистка панели + сообщение).
+    EXPECT_NE(html.find("resetCppPane"), std::string::npos);
+    EXPECT_NE(html.find("Нет связи с балансировщиком"), std::string::npos);
+    // Индикатор связи песочницы с балансировщиком (публичный пинг /health).
+    EXPECT_NE(html.find("tpl-health"), std::string::npos);
+    EXPECT_NE(html.find("updateHealth"), std::string::npos);
     // Кросс-оконная навигация: обработчики по позиции курсора (клик и стрелки).
     EXPECT_NE(html.find("onDidChangeCursorPosition"), std::string::npos);
     EXPECT_NE(html.find("deltaDecorations"), std::string::npos);
+    // Изменяемый размер окон: вертикальный сплиттер Trust|C++ и горизонтальный над логом.
+    // id/class сплиттеров ДОЛЖНЫ быть обычными кавычками без обратных слешей: иначе
+    // getElementById('tpl-split-v'/'tpl-split-h') вернёт null и ресайз не будет работать,
+    // а в теле страницы останется видимый артефакт "\n"/слеш (двойное экранирование
+    // \\n / \\" в html_emit.cpp).
+    EXPECT_NE(html.find("id=\"tpl-split-v\""), std::string::npos);
+    EXPECT_NE(html.find("id=\"tpl-split-h\""), std::string::npos);
+    EXPECT_NE(html.find("class=\"tpl-splitter-v\""), std::string::npos);
+    EXPECT_NE(html.find("class=\"tpl-splitter-h\""), std::string::npos);
+    // Никаких обратных слешей перед кавычками в разметке сплиттеров.
+    EXPECT_EQ(html.find("id=\\\"tpl-split-v"), std::string::npos);
+    EXPECT_EQ(html.find("id=\\\"tpl-split-h"), std::string::npos);
+    // В CSS после правила сплиттера должен идти РЕАЛЬНЫЙ перевод строки, а не текст \\n.
+    EXPECT_NE(html.find(".tpl-splitter-v{width:6px;cursor:col-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}\n.tpl-splitter-v:hover{"
+                        "background:var(--tpl-border);}"),
+              std::string::npos);
+    EXPECT_NE(html.find(".tpl-splitter-h{height:6px;cursor:row-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}\n.tpl-splitter-h:hover{"
+                        "background:var(--tpl-border);}"),
+              std::string::npos);
+    // glue-JS содержит drag-обработчики сплиттеров (makeSplitter).
+    EXPECT_NE(html.find("makeSplitter"), std::string::npos);
+}
+
+TEST_F(HtmlEmitTest, HtmlFragment_EmbedsLogNavigation) {
+    auto r = trust::lsp::transpileToResult(kHelloSrc, "hello.src", opts);
+    std::string html = trust::lsp::resultToHtml(r, opts);
+    // glue-JS разбирает заголовки диагностик (формат file:line:col: severity: msg)
+    // и делает их кликабельными (переход на строку в исходнике); оверлей строится
+    // через textContent (без innerHTML - строки от сервера не исполняются как HTML).
+    EXPECT_NE(html.find("gotoTrustLine"), std::string::npos);
+    EXPECT_NE(html.find("tpl-log-link"), std::string::npos);
+    EXPECT_NE(html.find("tpl-logline"), std::string::npos);
+    EXPECT_NE(html.find("tpl-log-error"), std::string::npos);
+    EXPECT_NE(html.find("cppOverlay.textContent"), std::string::npos);
+    EXPECT_EQ(html.find("cppOverlay.innerHTML"), std::string::npos);
 }
 
 TEST_F(HtmlEmitTest, HtmlFullPage_WrapsDocument) {
@@ -111,7 +155,32 @@ TEST_F(HtmlEmitTest, HtmlFullPage_WrapsDocument) {
     EXPECT_NE(html.find("tpl-trust-editor"), std::string::npos);
 }
 
+TEST_F(HtmlEmitTest, HtmlFragment_EmbedsUrlShareAndRangeStatus) {
+    auto r = trust::lsp::transpileToResult(kHelloSrc, "hello.src", opts);
+    ASSERT_TRUE(r.ok) << r.error;
+    std::string html = trust::lsp::resultToHtml(r, opts);
+
+    // Статус-бар: вывод диапазона + ссылка-копирование актуального URL в буфер обмена.
+    EXPECT_NE(html.find("id=\"tpl-status\""), std::string::npos);
+    EXPECT_NE(html.find("tpl-copy"), std::string::npos);
+    EXPECT_NE(html.find("showRange"), std::string::npos);
+    EXPECT_NE(html.find("buildShareUrl"), std::string::npos);
+    EXPECT_NE(html.find("copyText"), std::string::npos);
+    EXPECT_NE(html.find("navigator.clipboard"), std::string::npos);
+    EXPECT_NE(html.find("execCommand('copy')"), std::string::npos);
+
+    // URL-параметры песочницы: file (предопределённый файл), win (src|cppt),
+    // line/col (позиция курсора) и toLine/toCol (конец диапазона выделения).
+    EXPECT_NE(html.find("urlParams"), std::string::npos);
+    EXPECT_NE(html.find("location.search"), std::string::npos);
+    EXPECT_NE(html.find("initWindow"), std::string::npos);
+    EXPECT_NE(html.find("applyInitialPosition"), std::string::npos);
+    EXPECT_NE(html.find("initToLine"), std::string::npos);
+    EXPECT_NE(html.find("initToCol"), std::string::npos);
+}
+
 TEST_F(HtmlEmitTest, HtmlFragment_HasExamplesCombobox) {
+
     auto r = trust::lsp::transpileToResult(kHelloSrc, "hello.src", opts);
     ASSERT_TRUE(r.ok) << r.error;
 

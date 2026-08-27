@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Статический индекс после append: размер словаря учитывает добавленные элементы,
+# поэтому `d.5` (после двух append размер 5) - вне диапазона 0..4.
+
+@main() := {
+    d := (1, two=2, name='3',);
+    d []= 999;
+    d []= 'x';
+    print('x={}\n', :String( d.5 ));
+}
+# CHECK: error: static dict index 5 out of range (size 5)

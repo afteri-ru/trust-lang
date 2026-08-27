@@ -53,7 +53,7 @@ std::string OutputBuffer::build(unsigned indentSize) const {
 //                      SourceMapWriter
 // ══════════════════════════════════════════════════════════════
 
-// ── Конструкторы ──
+// -- Конструкторы --
 
 SourceMapWriter::SourceMapWriter()
 : SourceMap() {
@@ -72,7 +72,7 @@ SourceMapWriter::SourceMapWriter(std::string_view basePath, std::string_view tem
     }
 }
 
-// ── Главный (корневой) файл модуля ──
+// -- Главный (корневой) файл модуля --
 
 void SourceMapWriter::setMainModuleFile(MapperFile mainFile) {
     m_mainModuleFile = mainFile;
@@ -80,7 +80,7 @@ void SourceMapWriter::setMainModuleFile(MapperFile mainFile) {
 
 std::string SourceMapWriter::moduleName(MapperFile idx) const {
     std::error_code ec;
-    // filename(idx) — путь, нормализованный относительно baseDirectory (может быть относительным).
+    // filename(idx) - путь, нормализованный относительно baseDirectory (может быть относительным).
     fs::path file = fs::path(filename(idx));
     if (!file.is_absolute()) {
         file = fs::path(m_baseDirectory) / file;
@@ -88,7 +88,7 @@ std::string SourceMapWriter::moduleName(MapperFile idx) const {
     file = file.lexically_normal();
 
     // База отсчёта: каталог главного файла (если задан), иначе baseDirectory.
-    // filename(...) возвращает путь относительно baseDirectory — приводим базу к absolute,
+    // filename(...) возвращает путь относительно baseDirectory - приводим базу к absolute,
     // чтобы fs::relative сравнивал пути одинаковой природы.
     fs::path baseDir;
     if (!m_mainModuleFile.isInvalid()) {
@@ -121,7 +121,7 @@ std::string SourceMapWriter::moduleName(MapperFile idx) const {
     return name;
 }
 
-// ── Утилиты ──
+// -- Утилиты --
 
 bool SourceMapWriter::validateSimpleName(std::string_view name) {
     if (name.empty()) {
@@ -151,7 +151,7 @@ std::string SourceMapWriter::normalizePath(std::string_view path) const {
     return rel.generic_string();
 }
 
-// ── findFileIdx ──
+// -- findFileIdx --
 
 MapperFile SourceMapWriter::findFileIdx(std::string_view filePath) const {
     if (filePath.empty()) {
@@ -163,7 +163,7 @@ MapperFile SourceMapWriter::findFileIdx(std::string_view filePath) const {
     return SourceMap::findFileIdx(norm);
 }
 
-// ── get_prepend ──
+// -- get_prepend --
 
 std::string SourceMapWriter::get_prepend(MapperFile idx, unsigned indentSize) const {
     if (idx.isInvalid()) {
@@ -184,7 +184,7 @@ uint32_t SourceMapWriter::get_output_size(MapperFile idx) const {
     return out.size();
 }
 
-// ── Входные файлы ──
+// -- Входные файлы --
 
 MapperFile SourceMapWriter::add_source(std::string filename, std::string content, bool normalize) {
     if (normalize) {
@@ -193,6 +193,12 @@ MapperFile SourceMapWriter::add_source(std::string filename, std::string content
         if (!validateSimpleName(filename)) {
             FAULT("Filename '{}' not valid!", filename);
         }
+    }
+    // Явная диагностика вместо EXPECT/abort в make_input при исчерпании таблицы источников:
+    // даём читаемое сообщение (разгон/цикл регистрации источников), а не краш.
+    if (m_inputs.size() >= LocationPack::MAX_FILES_INPUT - 1) {
+        throw std::runtime_error("Too many input source files (limit " + std::to_string(LocationPack::MAX_FILES_INPUT) +
+                                 "); possible cyclic or unbounded source registration near '" + filename + "'");
     }
     uint32_t idx = m_inputs.size();
     m_inputs.emplace_back(std::move(filename), std::move(content));
@@ -206,26 +212,34 @@ MapperFile SourceMapWriter::load_file(std::string path) {
         norm = p.generic_string();
     }
 
-    // Проверка на дубликат
+    // Детекция цикла/повторной загрузки файла по данным самого маппера (m_inputs):
+    // загрузка одного файла повторно (в т.ч. цикл A->B->A) - признак циклической зависимости.
     for (uint32_t i = 0; i < m_inputs.size(); ++i) {
         if (m_inputs[i].getFilename() == norm) {
-            FAULT("Module file {} already loaded as index {}!", m_inputs[i].getFilename(), i);
+            FAULT("Cyclic file load: '{}' is already loaded (index {})!", m_inputs[i].getFilename(), i);
         }
+    }
+
+    // Явная диагностика вместо EXPECT/abort при исчерпании таблицы источников.
+    if (m_inputs.size() >= LocationPack::MAX_FILES_INPUT - 1) {
+        throw std::runtime_error("Too many input source files (limit " + std::to_string(LocationPack::MAX_FILES_INPUT) +
+                                 "); possible cyclic or unbounded source registration near '" + norm + "'");
     }
 
     auto content = utils::FileIO::read<std::vector<char>>(norm);
     if (!content) {
         content = utils::FileIO::read<std::vector<char>>(path);
-        if (!content) {
-            FAULT("Module file '{}' not found!", norm);
-        }
+    }
+
+    if (!content) {
+        FAULT("Module file '{}' not found!", norm);
     }
     m_inputs.emplace_back(std::move(norm), std::string(content->data(), content->size()));
     m_reader.reset();
     return MapperFile::make_input(static_cast<uint32_t>(m_inputs.size()) - 1u);
 }
 
-// ── Выходные файлы ──
+// -- Выходные файлы --
 
 MapperFile SourceMapWriter::add_output(std::string filename, bool normalize) {
     if (normalize) {
@@ -341,7 +355,7 @@ bool SourceMapWriter::save_output(std::string_view outputDir) {
     return allOk;
 }
 
-// ── Создание и валидация Location / Range ──
+// -- Создание и валидация Location / Range --
 
 MapperRange SourceMapWriter::makeRange(MapperLocation begin, MapperLocation end) const {
     if (begin.isInvalid() || end.isInvalid()) {
@@ -510,7 +524,7 @@ const SourceMapWriter::MapStartEntry& SourceMapWriter::mapStackTop() const {
 
 MapperRange SourceMapWriter::mapStop(MapperRange from) {
     if (mappingSuppressed()) {
-        return from; // подавлено: mapStart не пушил — нечего закрывать
+        return from; // подавлено: mapStart не пушил - нечего закрывать
     }
     EXPECT(!m_mapStack.empty());
 
@@ -643,7 +657,7 @@ const SourceMapReader* SourceMapWriter::toReader() const {
     offsetPrepends(reader->m_backward, true);
     offsetPrepends(reader->m_forward, false);
 
-    // Ключи m_backward — это cpp-begin (устанавливаются в mapStop как body-выровненные
+    // Ключи m_backward - это cpp-begin (устанавливаются в mapStop как body-выровненные
     // `get_file(to).size()+1`). offsetPrepends сдвинул cpp-RANGE (value) на prependSize,
     // но ключ остался body-выровненным. Без пере-ключения findRangeMap/findRange
     // (upper_bound по ключу) не совпадёт с full-выровненным запросом (lspToLocation),

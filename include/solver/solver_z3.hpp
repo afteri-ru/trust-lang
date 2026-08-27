@@ -28,6 +28,7 @@ class SolverZ3 final : public SolverInterface {
     void defineFun(const std::string& name, const std::vector<SmtSort>& arg_sorts, const SmtSort& result_sort, const SmtTerm& body) override;
     void assertFormula(const SmtTerm& formula) override;
     SolverResult checkSat() override;
+    std::optional<std::string> getModelValue(const std::string& name, const SmtSort& srt) override;
     void push(uint32_t depth = 1) override;
     void pop(uint32_t depth = 1) override;
     std::string getSmtLibText() const override;

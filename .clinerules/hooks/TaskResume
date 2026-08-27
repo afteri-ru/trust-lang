@@ -44,8 +44,8 @@
 # ===============================================================================
 #
 # Actions for tasklog:
-# 1. If .tasklog/<taskId>.md exists — log resume event
-# 2. If no task file exists — act like TaskStart (create from scratch)
+# 1. If .tasklog/<taskId>.md exists - log resume event
+# 2. If no task file exists - act like TaskStart (create from scratch)
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
@@ -73,7 +73,7 @@ TASK_FILE="${TASKLOG_DIR}/${TASK_ID}.md"
 TMP_FILE="${TASKLOG_DIR}/${TASK_ID}.tmp"
 
 if [ -f "$TASK_FILE" ]; then
-  # Task file exists — log resume event via safe_append_to_tasklog
+  # Task file exists - log resume event via safe_append_to_tasklog
   {
     echo ""
     echo ""
@@ -81,7 +81,7 @@ if [ -f "$TASK_FILE" ]; then
     echo ""
   } | safe_append_to_tasklog "$TASK_FILE" "$TMP_FILE"
 else
-  # No task file — create from scratch (same format as TaskStart)
+  # No task file - create from scratch (same format as TaskStart)
   {
     echo ""
     echo "${NOW_ISO} plan taskId=${TASK_ID}"

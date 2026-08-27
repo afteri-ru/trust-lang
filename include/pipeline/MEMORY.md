@@ -2,106 +2,46 @@
 
 > scope: include/pipeline
 > role: persistent-memory
-> last_reviewed: 2026-08-19
+> last_reviewed: 2026-08-25
 > review_period: 30
-> max_size: 20000
+> max_size: 6865
 
-## Конвейер компиляции (Pipeline)
+## Architecture
 
-- **Получение (чтение) данных:** Чтение исходного кода для анализа из строки или главного файла программы и инициализация контекста компиляции (`Context` из модуля `diag`).
-- **Лексический анализ + синтаксический анализ (syntax Parser):** Выполняется единым вызовом `Parser::ParseWithSource(MapperFile)` для реального файла/модуля (через `ModuleLoader::parseSourceModule`) либо `Parser::ParseText(text, sourceName)` для текстовых фрагментов (встроенный DSL `"@dsl"`, прототипы). Фиктивные (in-memory) источники помечаются в source map префиксом `@` — файла на диске нет, искать его не нужно. Внутри используется Flex/Bison (лексер на `syntax/lexer.l` + парсер на `syntax/parser.y.in`). Возвращает `TermPtr` — Term-дерево (дерево `Term`).
-- **Конвертер TermPtr → SyntaxSeq:** класс `TermToAstConverter` в `ast/term_to_ast.hpp` (компонент `ast_lib`, loader-free, **не мутирует исходный Term**), TermID-visitor: рекурсивно обходит `TermPtr` и преобразует каждый узел в `AstNodeBase` с диспетчеризацией по TermID из X-макроса `TERMS` (`dispatchTerm`, метод `visit_<NAME>` на пару `_(NAME, Kind)`), а класс узла для generic-узлов берётся из `PARSER_TOKEN_KINDS` (`node_type_for_kind_t<Kind>`). Нереализованный синтаксис (TermID с Kind=Unimplemented: await/yield/when/filling/parent и т.п.) сообщается диагностикой `Severity::Error` с позицией и узел отбрасывается; `runPipeline` при `errorCount>0` после ParseAST не запускает semantic/transpile (иначе кодогенерация упала бы на незаполненных детях).
-- **Семантический анализ (Semantic Analysis):** Реализован (Phase 1 + extended) через единое однопроходное ядро `NameResolutionPass` (компонент `semantic`): строит временную иерархию вложенности `ScopeStack`, регистрирует объявления, разрешает `Ident` (имя объявляется до использования). Опциональные анализаторы подключаются параллельно к ядру через `InlineAnalysisHook` (например `LintHook`, gate = `FlagKind::Lint`, управляется через `Options`, см. `include/semantic/MEMORY.md`). Проверка *смысла* программы:
-  - Построение таблицы символов (`Symbol Table`).
-  - Создание структур данных и типов.
-  - Инстанцирование шаблонов (`Template Instantiation`).
-  - Проверка типов (`Type Checking`): приведение типов, поиск неявных преобразований, валидация сигнатур.
-  - Разрешение областей видимости (`Scope Resolution`).
-  - **Система эффектов (Effect System):** Проверка ограничений на побочные эффекты функций (чистота, ввод-вывод, исключения).
-  - Доказательство корректности программы (`Trust Checking`): статический анализ на отсутствие циклических и висячих ссылок на уровне типов данных, проверка статических ограничений, контрактов, а также маркировка объектов атрибутами.
-- **Оптимизация и унификация AST:** *Не реализован (planned).*
-- **Генерация C++ кода:** Преобразование оптимизированного AST в исходный код на C++ с сохранением и установкой соответствующих атрибутов. Реализован — `CppTranspiler`.
-- **Компиляция C++ кода:** Компиляция сгенерированного `.cppt` файла выполняется через Makefile. Pipeline генерирует в директории рядом с `.cppt` два файла:
-  - `Makefile` — шаблон, встроенный в trust через CMake-генерируемый заголовок `makefile_build.hpp` (содержит `kMakefileBuild` — `std::string_view` с Makefile-шаблоном).
-  - `build.conf` — конфигурация с опциями компиляции, переданными через командную строку (компилятор, флаги).
-  Параметры Makefile по умолчанию берутся из CMake (компилятор, стандарт `-std=c++23`, include path). Пользователь может переопределить их через `build.conf` или переменные окружения.
-- **Загрузка DSL-макросов:** По умолчанию встроенный `trust/dsl.src` загружается один раз на верхнем уровне — в `Context` (`Context::setMacro`), и каждый `Parser` наследует уже созданный `Macro` через `Context&`. Вложенные парсеры (создаваемые через `Parser::ParseTerm`) также наследуют макросы автоматически. Флаг `--dsl <file>` заменяет встроенный файл пользовательским, а `--no-dsl` отключает загрузку.
-- **Компоновка (Linking):** Makefile содержит цели `object`, `static-lib`, `shared-lib`, `executable` и `clean`.
-  - `-c` (ObjectFile) — цель `object`: компиляция `.cppt → .o`.
-  - `-a` (StaticLib) — цель `static-lib`: `ar rcs` собирает `.a`.
-  - `-l` (SharedLib) — цель `shared-lib`: `ld -shared` собирает `.so`.
-  - без флага (Executable) — цель `executable`: `ld` собирает исполняемый файл.
-  - `--run` — собрать исполняемый файл (Executable) и **запустить его**: после успешной
-    сборки pipeline выполняет полученный бинарник и возвращает его код возврата. Это удобно
-    для запуска `.src`-файлов «в стиле bash-скрипта» через шебанг первой строки
-    `#!../_build/trust --run` (см. examples/). Без `--temp-dir` выходные файлы создаются во
-    временном каталоге `.trust` **текущего** каталога, в ПОДКАТАЛОГЕ с именем компилируемого
-    файла (`./.trust/<stem>/`, создаётся автоматически), чтобы несколько файлов не перезаписывали
-    Makefile/build.conf; `--temp-dir <dir>` переопределяет каталог (должен существовать),
-    `-o <path>` задаёт путь итогового исполняемого файла.
-  - **Кеш `--run`**: запись — первая строка ВСЕГДА версия компилятора `trust-lang\t<TRUST_VERSION_FULL>`,
-    далее список строк `файл\tmd5` (главный файл — 2-я строка, затем импортированные модули) —
-    встраивается в исполняемый файл (ELF-секция `.debug_trust_hash`, та же строка доступна как
-    поле `srcHash` в `__trust_exports`). Пути в записи ОТНОСИТЕЛЬНЫЕ от текущего каталога (CWD),
-    откуда запускается `--run` (для `trust --run prog.src` из каталога исходников — просто
-    `prog.src`/`mymod.src`, без каталога-перехода): запись переносима и не зависит от места сборки.
-    Проверка читает секцию напрямую через `utils::elf::readElfSection` (dlopen для PIE не
-    работает), сверяет строку версии с текущей `TRUST_VERSION_FULL` и пере-хеширует перечисленные
-    файлы относительно CWD. Если версия совпала и все файлы не изменились и бинарник существует —
-    перекомпиляция пропускается и сразу запускается кешированный исполняемый файл: изменение
-    содержимого любого модуля инвалидирует кеш, а добавление/удаление модуля меняет главный файл →
-    его md5 не совпадает → пересборка. Смена версии компилятора (не совпала строка `trust-lang`,
-    в т.ч. записи старого формата/чужого бинарника) тоже инвалидирует кеш. Проверка также сверяет
-    путь главного файла записи с текущим
-    входным файлом: запись, построенная для ДРУГОЙ программы с тем же именем файла (stem) из
-    другого каталога, кеш не применяет — иначе `--run` запустил бы устаревший бинарь чужой
-    программы (A1).
-  - Рантайм-зависимости линкуются отдельной переменной `LIBS`, подставляемой после
-    объектных файлов (`$(LD) $(LDFLAGS) -o $(TARGET) $^ $(LIBS)`). `build.conf` — единый
-    переносимый (одинаковый для локальной сборки и скачиваемого архива trust-lsp
-    `--emit-build-dir`): без абсолютных путей и без запекания компилятора —
-    `CXXFLAGS += -I.` (каталог сборки, где лежат извлечённые `trust/`-заголовки) и
-    `LIBS += -ltrust-runtime -lgmp`. Компилятор локальная сборка передаёт в `make` на
-    командной строке (`CXX=<compiler> LD=<compiler>`, см. `compileAndLink`); для архива
-    компилятор берётся из Makefile (`CXX ?= c++`) или окружения пользователя. Режим
-    `--link-runtime static|shared` (по умолчанию `static`) влияет только на то, какой
-    `trust-runtime` резолвится: для `static` в локальной сборке во временном каталоге
-    создаётся symlink `libtrust-runtime.a` на `trust-runtime.a` (RAII-чистка) и каталог
-    добавляется в `LIBRARY_PATH`/`LD_LIBRARY_PATH` для субпроцесса make — исполняемый файл
-    самодостаточен и не требует `trust-runtime.so` во время выполнения; для `shared` —
-    `libtrust-runtime.so`, во время выполнения `.so` ищется динамическим загрузчиком
-    (LD_LIBRARY_PATH → каталог запуска → кэш ld.so).
-  - **Нативные библиотеки (`@[link("имя")]`)**: транспилятор собирает флаги `-l<имя>`
-    (`linkLibs()`) из атрибутов `@[link]` на нативных декларациях (главный файл + модули);
-    pipeline агрегирует их и дописывает `LIBS += -l<имя>...` в `build.conf`. Флаги `-l<имя>`
-    добавляются в `LIBS` только для целей с шагом линковки (executable / shared-lib /
-    trust-module); для object/static-lib они не пишутся. Существование библиотеки/символа не
-    проверяется — ответственность линковщика.
-  - Исходные модули (загруженные через `\module(...)`) генерируются отдельными `.cppt` (полное тело —
-    определения), перечисляются в `build.conf` как `SRC_MODULES` и компилируются/линкуются вместе с
-    главным файлом (`SRC`, `SRC_MAIN`). Универсальное правило `%.o: %.cppt` покрывает все единицы
-    трансляции. Экспорт-таблица (`__trust_get_exports`/`__trust_export_entries`) встраивается ТОЛЬКО
-    в главный файл (иначе дубли при линковке).
-  Pipeline запускает `make -C <dir> -f Makefile <target>`, передавая `SRC=<name>.cppt`.
-  Реализован в `compileAndLink()` (static function внутри pipeline.cpp).
-  Повторяемость: после сборки в директории с `.cppt` остаются `Makefile` и `build.conf` — сборку можно повторить вручную командой `make`.
-  `build.conf` формируется и записывается одним блоком (без многократных append-открытий файла).
+Pipeline — оркестратор компиляции: чтение источника → syntax Parser (Flex/Bison, единым вызовом;
+встроенный DSL `"@trust/dsl"` — через `Parser::ParseText`) → конвертер `TermToAstConverter`
+(ast_lib, loader-free, НЕ мутирует Term) → semantic → transpile → C++ сборка через Makefile.
+Фиктивные (in-memory) источники помечаются в source map префиксом `@` — файла на диске нет.
+`runPipeline` при `errorCount>0` после ParseAST НЕ запускает semantic/transpile.
 
-### Компоненты Pipeline (текущие)
+Компиляция: pipeline генерирует рядом с `.cppt` `Makefile` (шаблон из `makefile_build.hpp`,
+`kMakefileBuild`) и `build.conf` (опции компиляции). Параметры по умолчанию — из CMake (`-std=c++23`),
+переопределяются через `build.conf`/env.
 
-| Компонент | Ответственность |
-|-----------|----------------|
-| **ModuleLoader** | Оркестрация загрузки модулей. Интегрирован с syntax Parser: `parseSourceModule()` (имя+текст) рекурсивно вызывает Parser с `expand_module=true`, `ensureLoaded()` (по имени) резолвит файл `.trust` (заглушка) или `.src` и вызывает `parseSourceModule()`. Главный файл — тоже модуль; активный модуль хранится в `Context::currentModule()`. Макросы, определённые внутри модуля, изолируются через `Macro::PushScope/PopScope` и удаляются при выходе из модуля; макросы вызывающего модуля и базового dsl-скоупа остаются видимыми. Предоставляет `moduleCount()` и доступ к экспорт-интерфейсу (`interface`/`setInterface`) и сконвертированному телу (`bodyAst`/`setBodyAst`). |
-| **ModuleRegistry** | Хранение записей о модулях: `m_body` (Term-тело), `m_interface` (экспортируемые декларации-термы), `m_bodyAst` (сконвертированное тело); детекция циклических зависимостей. |
-| **syntax Parser** (`trust::Parser`) | Лексический + синтаксический анализ (Flex/Bison). Выполняет макропроцессинг и раскрытие DSL внутри себя. |
-| **Term→Ast конвертация** | Конвертация `TermPtr` (Term-дерево) → `SyntaxSeq` (новый AST). Реализована в **компоненте `ast`** (`ast_lib`): класс `TermToAstConverter` в `ast/term_to_ast.hpp` (TermID-visitor по `TERMS`, loader-free, не мутирует Term). Pipeline только вызывает `TermToAstConverter::termToAst(...)` в `runPipeline`. |
-| **Pipeline** | Оркестрация пайплайна. Реальный файл парсится через `ModuleLoader::parseSourceModule` (→ `Parser::ParseWithSource`), встроенный DSL — через `Parser::ParseText(..., "trust/dsl")`. Выполняет шаги согласно `PipelineSteps` (ParseAST, Semantic, Transpile). **Stateless:** AST возвращается через `PipelineResult`. |
-| **Context** | Предоставляет доступ к ModuleLoader через loader(). |
-### Ошибки парсинга и LSP-режим
+## Facts and invariants
 
-`PipelineOpts::allow_semantic_on_errors` (CLI `--semantic-on-errors`, LSP включает всегда)
-разрешает запускать семантический анализатор на частичном AST при наличии ошибок
-лексера/парсера (guard `errorCount>0` в `runPipeline` релаксируется); Transpile при ошибках
-не выполняется (`runner.run()` возвращает false).
-`Pipeline::releaseTypes()` отдаёт владение `TypeRegistry` вызывающему (для LSP, чтобы `TypeId`
-в `SymbolIndex` оставался валидным). `PipelineResult::symbols` собирается при `FlagKind::Symbols`.
+- **`--run` и кеш:** после успешной сборки бинарник запускается. Кеш — запись «версия + список
+  `файл\tmd5`» встраивается в ELF-секцию `.debug_trust_hash`; пути в записи ОТНОСИТЕЛЬНЫЕ от CWD.
+  Проверка читает секцию через `utils::elf::readElfSection` (dlopen для PIE не работает), сверяет
+  версию `TRUST_VERSION_FULL` и md5 файлов относительно CWD. Запись для другой программы с тем же
+  именем файла из другого каталога кеш НЕ применяет. Без `--temp-dir` выходные файлы — в
+  `./.trust/<stem>/` (подкаталог по имени файла, чтобы не перезаписывали Makefile/build.conf).
+- **Единый CLI: arity-aware парсер (таблица DriverOption).** Опции драйверных бинарников (trust,
+  trust-lsp, trust-dap) объявляются единообразно: `enum XxxOptId` + `vector<DriverOption>` +
+  switch. Парсер `parseDriverArgs` (header-only, `cli.hpp`) потребляет ровно заявленную арность,
+  повторяемые `-l`/`-L` не «доедают» входной файл. `-W<diagnostics>` применяются позже через
+  `applyDiagnostics → Options::parse_argv` (единая точка). Категории `Diagnostics` нет — диагностики
+  это отдельная таблица diag/Options (`-Whelp`), двухсправочная модель.
+- **Общие опции анализа** (`--solver-mode`, `--keywords`, `-fsolver-loop-unroll`) определены ОДИН раз
+  (`commonAnalysisOptions` в cli.hpp). trust-lsp НЕ объявляет их в своей таблице: общий parseDriverArgs
+  при `analysis_passthrough` собирает неизвестные `--name=value`/`-fname` и отдаёт в `applyAnalysisArgs`
+  (`analysis_options.hpp`) — набор общих опций может быть ЛЮБЫМ без доработки LSP.
+- **Макросы:** встроенный `trust/dsl.src` загружается один раз в `Context` (`Context::setMacro`),
+  каждый Parser наследует `Macro` через `Context&`. `--dsl <file>` заменяет, `--no-dsl` отключает.
+- **LSP-режим:** `PipelineOpts::allow_semantic_on_errors` (LSP включает всегда) разрешает семантику
+  на частичном AST; Transpile при ошибках не выполняется. `releaseTypes()` отдаёт владение
+  `TypeRegistry` вызывающему (для LSP, чтобы `TypeId` в `SymbolIndex` оставался валидным).
+- **Декомпозиция:** `pipeline.cpp` разбит на модульные TU (`io`, `runtime_locator`, `build`, `run`,
+  `source_map`, `archive`, `module_info`), `pipeline.hpp` — «зонтик» (включает модульные заголовки).
+  Инвариант: декомпозиция — только перестановка кода, `kEmbeddedDslSrc` (#embed dsl.src) остаётся в
+  `pipeline.cpp`. `-Wno-c23-extensions` нужен и `pipeline.cpp`, и `source_map.cpp` (оба содержат #embed).

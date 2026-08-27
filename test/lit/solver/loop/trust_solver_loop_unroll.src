@@ -1,0 +1,14 @@
+# RUN: %trust --solver-mode=export -fsolver-loop-unroll -o %t.smt2 %s > %t.out 2>&1
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Фаза 2.6: bounded unrolling без инварианта (3 итерации), включён явно через -fsolver-loop-unroll.
+# Цикл-сумматор sum>=0 доказуем -> UNSAT. (По умолчанию цикл без инварианта даёт -Wsolver-loop
+# диагностику и не разворачивается.)
+
+sum(n:Int32):Int32 trust_pre( n >= 0 ) trust_post( sum >= 0 ) := {
+    s := 0; i := 0;
+    @while(i < n){ s := s + 1; i := i + 1; };
+    @return s;
+};
+
+# Z3: unsat

@@ -27,7 +27,7 @@ TermID Term::symbolToID(char sym) {
 #define SYM_CASE_CHAR(name, ch) \
     case ch:                    \
         return TermID::name;
-#define SYM_CASE_NONE(name) /* маркер без символа — пропускаем */
+#define SYM_CASE_NONE(name) /* маркер без символа - пропускаем */
 #define SYM_SELECT(_1, _2, NAME, ...) NAME
 #define SYM_GEN(...) SYM_SELECT(__VA_ARGS__, SYM_CASE_CHAR, SYM_CASE_NONE)(__VA_ARGS__)
         SYMBOL_TOKENS(SYM_GEN)
@@ -45,7 +45,7 @@ parser::token_type Term::tokenFromID(TermID id) {
 #define TK_CASE_CHAR(name, ch) \
     case TermID::name:         \
         return parser::token_type::name;
-#define TK_CASE_NONE(name) /* маркер без символа — пропускаем */
+#define TK_CASE_NONE(name) /* маркер без символа - пропускаем */
 #define TK_SELECT(_1, _2, NAME, ...) NAME
 #define TK_GEN(...) TK_SELECT(__VA_ARGS__, TK_CASE_CHAR, TK_CASE_NONE)(__VA_ARGS__)
         SYMBOL_TOKENS(TK_GEN)
@@ -124,7 +124,7 @@ void Term::dump_items_(std::string& str) const {
             str.append(", ");
         }
         if (elem.second->getTermID() == TermID::ARGUMENT && elem.second->m_left && elem.second->m_right) {
-            // Именованный аргумент: имя:Тип=значение — тип берём из m_type (ЕДИНЫЙ слот,
+            // Именованный аргумент: имя:Тип=значение - тип берём из m_type (ЕДИНЫЙ слот,
             // нормализация грамматики), у значения тип подавляем (иначе задублируется: имя:Int32=1:Int32)
             str.append(elem.first);
             if (elem.second->GetType()) {
@@ -164,7 +164,7 @@ std::string Term::toString(bool nested, bool suppressType) {
 
     case TermID::FIELD:
         // Доступ по имени/статическому индексу: m_left.ключ (объект-как-корень в новой
-        // грамматике). Для поля без объекта — просто текст (как раньше).
+        // грамматике). Для поля без объекта - просто текст (как раньше).
         if (m_left) {
             result = m_left->toString() + "." + (m_right ? m_right->toString() : "");
             return result;
@@ -174,7 +174,7 @@ std::string Term::toString(bool nested, bool suppressType) {
     case TermID::MACRO_STR:
         result = "@@@";
         result += getText();
-        result += "@@@";
+        result += "@@@@";
         return result;
 
     case TermID::ARGS:
@@ -197,7 +197,7 @@ std::string Term::toString(bool nested, bool suppressType) {
             result += m_right->toString(true, true);
             return result;
         }
-        // Лексема $123 — позиционный аргумент, как раньше
+        // Лексема $123 - позиционный аргумент, как раньше
         result += getText();
         if (size()) {
             appendParenItems_(result);
@@ -327,7 +327,7 @@ std::string Term::toString(bool nested, bool suppressType) {
             result += " " + getText() + " ";
         }
         if (m_right) {
-            // Цепочка элементов без m_left — это список (например, using_list), выводим с запятыми
+            // Цепочка элементов без m_left - это список (например, using_list), выводим с запятыми
             if (m_right->m_right && !m_right->m_left) {
                 TermPtr cur = m_right;
                 while (cur) {
@@ -567,6 +567,8 @@ std::string Term::toString(bool nested, bool suppressType) {
     case TermID::SEMICOLON:
     case TermID::COMMA:
     case TermID::COMMA_LEXEME:
+    case TermID::TRUST_ELEM_BEGIN:
+    case TermID::TRUST_ELEM_END:
     case TermID::DOT:
     case TermID::COLON:
     case TermID::EQ:
@@ -585,7 +587,6 @@ std::string Term::toString(bool nested, bool suppressType) {
     case TermID::DOLLAR:
     case TermID::LT:
     case TermID::GT:
-    case TermID::UNKNOWN:
     case TermID::RATIONAL:
     case TermID::COMPLEX:
     case TermID::MACRO_ARGCOUNT:
@@ -675,9 +676,9 @@ TermPtr Term::AppendBlock(const TermPtr& item, TermID id, bool force) {
             result->m_sequence.push_back(item);
         }
     } else {
-        // this — не SEQUENCE (может быть и BLOCK и обычный statement): оборачиваем [this, item]
+        // this - не SEQUENCE (может быть и BLOCK и обычный statement): оборачиваем [this, item]
         // в новую SEQUENCE. Блок как первый элемент последовательности (за ним идёт ещё оператор)
-        // — корректная конструкция, поэтому assert(!isBlock()) не ставим.
+        // - корректная конструкция, поэтому assert(!isBlock()) не ставим.
         result = Term::Create(id, "", item->m_mapperRange);
         result->m_sequence.push_back(shared_from_this());
         if (this != item.get()) {

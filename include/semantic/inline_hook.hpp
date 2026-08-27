@@ -6,17 +6,18 @@
 // обхода и читает временные данные ядра (SymbolTable) через AnalysisContext.
 //
 // Флаг включения проверяется ОДИН раз при подключении в SemanticPassRunner
-// (не в каждом узле); если флаг выключен — хук не добавляется в список активных,
+// (не в каждом узле); если флаг выключен - хук не добавляется в список активных,
 // и его колбэки не вызываются вовсе (ноль накладных расходов).
 //
-// ЭТАЛОН реализации анализатора — ContextMacroExpander (semantic/macro_expander.hpp):
+// ЭТАЛОН реализации анализатора - ContextMacroExpander (semantic/macro_expander.hpp):
 // минимальный рабочий хук с мутирующим onNode(AstNodePtr&) и чтением query-сервисов
 // AnalysisContext (namespacePath/currentFunc/resolveType/...). Новые анализаторы
-// (эффекты, @trust, линт) пишутся по его образцу — см. semantic/MEMORY.md
+// (эффекты, @trust, линт) пишутся по его образцу - см. semantic/MEMORY.md
 // «Как написать анализатор».
 
 #include "diag/options.hpp"
 #include "semantic/symbol_table.hpp"
+#include "semantic/diag.hpp"
 #include "ast/ast_nodes.hpp"
 
 #include <optional>
@@ -27,8 +28,8 @@ class InlineAnalysisHook {
   public:
     virtual ~InlineAnalysisHook() = default;
 
-    /// Флаг, включающий хук; nullopt — подключается всегда.
-    virtual std::optional<FlagKind> gateFlag() const { return std::nullopt; }
+    /// Флаг, включающий хук; nullopt - подключается всегда.
+    virtual std::optional<semantic::FlagKind> gateFlag() const { return std::nullopt; }
 
     /// Вход/выход скоупа (вложенность).
     virtual void enterScope() {}

@@ -5,7 +5,7 @@
 namespace trust {
 namespace {
 
-// ── SymbolTable: стек вложенных скоупов (единая таблица символов) ──
+// -- SymbolTable: стек вложенных скоупов (единая таблица символов) --
 
 TEST(SymbolTable, GlobalScopeAlwaysPresent) {
     SymbolTable st;
@@ -19,7 +19,7 @@ TEST(SymbolTable, GlobalScopeAlwaysPresent) {
     EXPECT_EQ(st.resolve("x")->type, 1);
     EXPECT_EQ(st.resolve("missing"), nullptr);
 
-    // Глобальная таблица (уровень 0) — плоский реестр глобальных имён.
+    // Глобальная таблица (уровень 0) - плоский реестр глобальных имён.
     EXPECT_EQ(st.globalSize(), 1u);
     ASSERT_NE(st.global().lookup("x"), nullptr);
 }
@@ -93,7 +93,7 @@ TEST(SymbolTable, NestedScopeResolveOuter) {
 TEST(SymbolTable, CreatorStoredPerScope) {
     SymbolTable st;
 
-    // Имитация блока: узел-владелец скоупа. Контракт — тождество указателя.
+    // Имитация блока: узел-владелец скоупа. Контракт - тождество указателя.
     auto block = std::make_shared<ScopeBlock>();
     st.push(block.get());
 

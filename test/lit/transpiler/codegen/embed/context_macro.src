@@ -1,0 +1,31 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Раскрытие контекст-макросов в анализаторе:
+#   @::/@__NAMESPACE__ при стрингификации  → строка полной области имён "::ns::"
+#   @__FUNCTION__                          → краткое имя функции
+#   @__FUNCSIG__                           → сигнатура (сразу строковый литерал)
+#   @__FUNCDNAME__                         → декорированное имя (name_to_cpp)
+#   @__FUNCTION__ как метка ++/--          → имя функции (break → return)
+#   @:: foo (квалификатор)                 → полное имя следующего идентификатора
+ns:: {
+    foo():Void := {
+        x := @# @::;
+        fn := @# @__FUNCTION__;
+        sig := @__FUNCSIG__;
+        d := @# @__FUNCDNAME__;
+        @__FUNCTION__ :: ++;
+    };
+    @:: st := 1;
+    ref := @:: st;
+};
+# CHECK: namespace c_ns {
+# CHECK-NEXT:     void c_foo() {
+# CHECK-NEXT:         std::string c_x = "::ns::";
+# CHECK-NEXT:         std::string c_fn = "foo";
+# CHECK-NEXT:         std::string c_sig = "ns::foo():Void";
+# CHECK-NEXT:         std::string c_d = "cpp_ns$$foo";
+# CHECK-NEXT:         return;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     bool cpp_ns$$st = 1;
+# CHECK-NEXT:     bool c_ref = cpp_ns$$st;
+# CHECK-NEXT: }

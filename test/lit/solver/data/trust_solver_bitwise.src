@@ -1,0 +1,27 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Битовые операторы языка (.&. .>>.) в контрактах → BV-операторы (bvand, bvashr для Int32).
+#   f(x:Int32) post f == (x .&. 1) при f==(x .&. 1) → выполняется → UNSAT.
+#   g(x:Int32) post g == (x .>>. 1) при g==(x .>>. 1) → выполняется → UNSAT.
+# Знаковый правый сдвиг (Int32) → bvashr (арифметический); беззнаковый → bvlshr (см. unsigned).
+
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun f_x () (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (= (bvand f_x (_ bv1 32)) (bvand f_x (_ bv1 32)))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((f_x (_ BitVec 32))) (= (f f_x) (bvand f_x (_ bv1 32)))))
+# SM2: (declare-fun g_x () (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (= (bvashr g_x (_ bv1 32)) (bvashr g_x (_ bv1 32)))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((g_x (_ BitVec 32))) (= (g g_x) (bvashr g_x (_ bv1 32)))))
+
+# Z3: unsat
+# Z3: unsat
+
+f(x:Int32):Int32 trust_post( f == (x .&. 1) ) := { return x .&. 1; };
+g(x:Int32):Int32 trust_post( g == (x .>>. 1) ) := { return x .>>. 1; };

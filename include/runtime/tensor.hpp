@@ -19,7 +19,7 @@ class TorchTensor {
     // Produce a TensorHandle suitable for storing the tensor value
     TensorHandle as_var_handle() const;
 
-    // Direct access — no indirection, all torch functions available
+    // Direct access - no indirection, all torch functions available
     at::Tensor& native();
     const at::Tensor& native() const;
 

@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --solver-mode=assert --temp-dir $TD -o $TD/ta %s
+# RUN: ($TD/ta 2> %t.err || true) && %FileCheck %s <%t.err
+
+# Тип-утверждение проверяется ПОСЛЕ присваивания: `x :MyInt := 5` ок, затем `x = -3` нарушает
+# `MyInt > 0` (MyInt - значение типа) → trust::trust__abort__ с `file:line: MyInt > 0`.
+
+# CHECK: trust_type_assign_runtime.src:[[#]]: MyInt > 0
+
+MyInt trust_assert( MyInt > 0 ) ::= :Int32;
+%chk():Void := {
+    x :MyInt := 5;
+    x = -3;
+    ++ _ ++;
+};
+{% int trust_type_assign_runtime__main__() {
+    chk();
+    return 0;
+}
+%}

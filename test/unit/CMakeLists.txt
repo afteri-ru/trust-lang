@@ -1,15 +1,17 @@
-# test/unit/CMakeLists.txt — единый исполняемый файл для всех юнит-тестов
+# test/unit/CMakeLists.txt - единый исполняемый файл для всех юнит-тестов
 
-# ── All test sources ──
+# -- All test sources --
 set(TEST_SOURCES
     unittest.cpp
     diag/diag_test.cpp
     diag/context_test.cpp
+    diag/context_bitpack_test.cpp
     diag/options_test.cpp
     diag/mapping_test.cpp
+    diag/mapping_reader_test.cpp
     diag/mapping_extended_test.cpp
     diag/save_and_read_test.cpp
-    transpiler/e2e/src_map_cli_readback_test.cpp
+    transpiler/src_map_cli_test.cpp
     attr/attr_test.cpp
     ast/visit_test.cpp
     pipeline/module_registry_test.cpp
@@ -19,14 +21,20 @@ set(TEST_SOURCES
     pipeline/pipeline_test.cpp
     pipeline/pipeline_symbol_test.cpp
     pipeline/compile_test.cpp
+    pipeline/analysis_options_test.cpp
     semantic/semantic_test.cpp
+    semantic/semantic_table_test.cpp
+    semantic/semantic_funcdecl_test.cpp
     semantic/symbol_collector_test.cpp
     semantic/scope_test.cpp
     semantic/scope_liveness_test.cpp
     semantic/multilevel_var_test.cpp
     semantic/format_check_test.cpp
-    transpiler/transpiler_test.cpp
-    transpiler/integration/transpile_lsp_test.cpp
+    transpiler/codegen_literal_test.cpp
+    transpiler/codegen_stmt_test.cpp
+    transpiler/codegen_func_test.cpp
+    transpiler/transpile_lsp_test.cpp
+    transpiler/transpile_lsp_mapping_test.cpp
     # pipeline/pipelineopt_test.cpp
     types/numbers_test.cpp
     types/integers_test.cpp
@@ -35,6 +43,7 @@ set(TEST_SOURCES
     types/reftype_test.cpp
     types/type_method_test.cpp
     types/array_type_test.cpp
+    types/trust_flag_test.cpp
     types/runtime_symbols_test.cpp
     runtime/rational_test.cpp
     runtime/dict_test.cpp
@@ -42,12 +51,18 @@ set(TEST_SOURCES
     runtime/checked_cast_test.cpp
     runtime/any_convert_test.cpp
     ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
-    lsp/trust_lsp_test.cpp
+    lsp/lsp_handler_test.cpp
+    lsp/lsp_hover_test.cpp
+    lsp/lsp_completion_test.cpp
+    lsp/lsp_codeaction_test.cpp
     lsp/html_emit_test.cpp
     lsp/builtin_catalog_test.cpp
+    lsp/lsp_options_test.cpp
     playground/server_test.cpp
     playground/config_test.cpp
     playground/dispatch_test.cpp
+    playground/security_test.cpp
+    playground/worker_test.cpp
     utils/cache_test.cpp
     utils/file_io_test.cpp
     utils/strings_test.cpp
@@ -56,10 +71,27 @@ set(TEST_SOURCES
     utils/error_test.cpp
     utils/io_test.cpp
     solver/smt_printer_test.cpp
+    solver/smt_printer_z3_test.cpp
+    solver/smt_op_test.cpp
     # Syntax tests
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_test.cpp
-    ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_macro_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_trust_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_core_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_options_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_mapping_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_stmt_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_expr_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_decl_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_trust_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/predef_pragma_test.cpp
+    # Formatter tests
+    formatter/format_test.cpp
+    formatter/format_comments_test.cpp
+    formatter/format_config_test.cpp
+    formatter/format_contract_test.cpp
+    formatter/format_tail_test.cpp
 )
 
 # Tensor tests (require WITH_TORCH)
@@ -70,7 +102,7 @@ endif()
 add_executable(unit_tests ${TEST_SOURCES})
 
 
-# ── Torch configuration for unit_tests ──
+# -- Torch configuration for unit_tests --
 if(WITH_TORCH)
     target_compile_definitions(unit_tests PRIVATE TRUST_HAS_TORCH)
     target_include_directories(unit_tests SYSTEM PRIVATE ${LIBTORCH_INCLUDE_DIRS})
@@ -80,7 +112,7 @@ if(WITH_TORCH)
     target_sources(unit_tests PRIVATE ${PROJECT_SOURCE_DIR}/runtime/tensor.cpp)
 endif()
 
-# ── Link all libraries ──
+# -- Link all libraries --
 target_link_libraries(unit_tests PRIVATE
     ast_lib
     diag_lib
@@ -94,13 +126,14 @@ target_link_libraries(unit_tests PRIVATE
     playground_lib
     solver_lib
     syntax_lib
+    formatter_lib
     gmp_interface
     GTest::gtest
 )
 
-# ── Test data directory ──
+# -- Test data directory --
 # TEST_DATA_DIR определён как CACHE-переменная в корневом CMakeLists.txt.
-# Локально не переопределяем — используем глобальную.
+# Локально не переопределяем - используем глобальную.
 file(MAKE_DIRECTORY "${TEST_DATA_DIR}")
 
 target_include_directories(unit_tests PRIVATE
@@ -121,7 +154,7 @@ target_compile_definitions(unit_tests PRIVATE
     TRUST_RATIONAL_HPP_PATH="${PROJECT_INCLUDE_DIR}/trust/rational.hpp"
 )
 
-# ── Attach trust module ──
+# -- Attach trust module --
 target_trust_module(unit_tests)
 
 # elf_archive_test needs the built runtime library files to extract headers from.
@@ -133,7 +166,7 @@ target_compile_options(unit_tests PRIVATE
     -Wno-error=switch
 )
 
-# ── Symlink tensor plugin for runtime loading (only when Torch is enabled) ──
+# -- Symlink tensor plugin for runtime loading (only when Torch is enabled) --
 if(WITH_TORCH)
     add_custom_command(TARGET unit_tests POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E create_symlink
@@ -143,9 +176,9 @@ if(WITH_TORCH)
     )
 endif()
 
-# ── Integration test executables for debug component ──
+# -- Integration test executables for debug component --
 
-# gdb_debuggee — standalone программа, используемая как debuggee для GDB
+# gdb_debuggee - standalone программа, используемая как debuggee для GDB
 add_executable(gdb_debuggee
     ${CMAKE_CURRENT_SOURCE_DIR}/debug/gdb_debuggee.cpp
 )
@@ -154,7 +187,7 @@ target_link_libraries(gdb_debuggee PRIVATE utils_lib)
 target_compile_options(gdb_debuggee PRIVATE -g -fno-pie)
 target_link_options(gdb_debuggee PRIVATE -fno-pie -no-pie)
 
-# gdb_main — test GDB via GdbDebug wrapper
+# gdb_main - test GDB via GdbDebug wrapper
 add_executable(gdb_main
     ${CMAKE_CURRENT_SOURCE_DIR}/debug/gdb_main.cpp
 )
@@ -163,7 +196,7 @@ target_include_directories(gdb_main PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/debug
     ${CMAKE_SOURCE_DIR}/include
 )
-# ── CTest registration ──
+# -- CTest registration --
 # unit_tests is registered as a single CTest test: progress stays compact
 # (one line), and `ctest --output-on-failure` shows the full GTest report
 # (including the failing test names) only when the suite fails.
@@ -173,6 +206,7 @@ add_test(NAME unit_tests
 set_tests_properties(unit_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     TIMEOUT 300
-    # Final stage examples_tests runs only after all suites pass (fixture examples_deps).
-    FIXTURES_SETUP examples_deps
+    # Final stage examples_tests runs only after all suites pass (fixture examples_deps);
+    # package_target_test/deb_package_test run after these suites (fixture package_deps).
+    FIXTURES_SETUP "examples_deps;package_deps"
 )

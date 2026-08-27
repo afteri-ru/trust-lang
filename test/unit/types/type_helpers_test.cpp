@@ -42,7 +42,7 @@ TEST(TypeHelperTest, FitsIntegerValue) {
     EXPECT_FALSE(fitsIntegerValue(Group::kUnsigned, 8, 256));
     EXPECT_TRUE(fitsIntegerValue(Group::kUnsigned, 32, 4294967295ULL));
     EXPECT_FALSE(fitsIntegerValue(Group::kUnsigned, 32, 4294967296ULL));
-    // Не-целая группа — целочисленный литерал считается безопасным.
+    // Не-целая группа - целочисленный литерал считается безопасным.
     EXPECT_TRUE(fitsIntegerValue(Group::kNumbers, 64, 123456));
 }
 
@@ -76,7 +76,7 @@ TEST_F(TypeHelpersFixture, LiteralType) {
     EXPECT_EQ(literalType(Literal(ParserToken::Kind::FloatLiteral, "1.5"), reg), reg.getType("Float64"));
     EXPECT_EQ(literalType(Literal(ParserToken::Kind::StrChar, "a"), reg), reg.getType("StrChar"));
     EXPECT_EQ(literalType(Literal(ParserToken::Kind::StrWide, "ab"), reg), reg.getType("StrWide"));
-    // Рациональный литерал `num\den` — отдельная лексема → Rational.
+    // Рациональный литерал `num\den` - отдельная лексема → Rational.
     EXPECT_EQ(literalType(Literal(ParserToken::Kind::RationalLiteral, "1\\1"), reg), reg.getType("Rational"));
     EXPECT_EQ(literalType(Literal(ParserToken::Kind::RationalLiteral, "-55\\3"), reg), reg.getType("Rational"));
     // Не-числовой/не-строковый kind → тип не выведен.
@@ -95,7 +95,7 @@ TEST_F(TypeHelpersFixture, IsAnyType) {
     }
 }
 
-// ── Константность (kConstFlag) — ортогональный квалификатор ──
+// -- Константность (kConstFlag) - ортогональный квалификатор --
 TEST_F(TypeHelpersFixture, ConstFlagMechanics) {
     TypeRegistry& reg = m_ctx.types();
     const TypeId i8 = reg.getType("Int8");
@@ -107,9 +107,9 @@ TEST_F(TypeHelpersFixture, ConstFlagMechanics) {
     EXPECT_EQ(clearConst(c), i8);
     EXPECT_EQ(withConst(i8), c);
 
-    // getIndexFromId снимает const-бит — структурный индекс не меняется.
+    // getIndexFromId снимает const-бит - структурный индекс не меняется.
     EXPECT_EQ(getIndexFromId(c), getIndexFromId(i8));
-    // Каноника снимает const-бит — const T и T разделяют канонический тип.
+    // Каноника снимает const-бит - const T и T разделяют канонический тип.
     EXPECT_EQ(reg.getCanonicalTypeId(c), reg.getCanonicalTypeId(i8));
 
     // getCppTypeName даёт лидирующий `const `.
@@ -125,7 +125,7 @@ TEST_F(TypeHelpersFixture, ConstFlagMechanics) {
 }
 
 TEST_F(TypeHelpersFixture, ConstAndInferredAreIndependent) {
-    // kConstFlag и kInferredFlag — независимые биты одной нижней половины.
+    // kConstFlag и kInferredFlag - независимые биты одной нижней половины.
     const TypeId c = withConst(withInferred(123));
     EXPECT_TRUE(typeIsConst(c));
     EXPECT_TRUE(typeIsInferred(c));
@@ -135,10 +135,10 @@ TEST_F(TypeHelpersFixture, ConstAndInferredAreIndependent) {
     EXPECT_EQ(getIndexFromId(c), getIndexFromId(123));
 }
 
-// ── Dict / Dictionary — регистрация универсального словаря ──
+// -- Dict / Dictionary - регистрация универсального словаря --
 TEST_F(TypeHelpersFixture, DictTypeRegistered) {
     TypeRegistry& reg = m_ctx.types();
-    // Оба имени резолвятся; Dictionary — алиас на Dict.
+    // Оба имени резолвятся; Dictionary - алиас на Dict.
     TypeId dict = reg.getType("Dict");
     TypeId dictionary = reg.getType("Dictionary");
     EXPECT_NE(dict, INVALID_TYPE_ID);
@@ -148,7 +148,7 @@ TEST_F(TypeHelpersFixture, DictTypeRegistered) {
     ASSERT_TRUE(cpp.has_value());
     EXPECT_EQ(*cpp, "trust::Dict");
     EXPECT_EQ(reg.getPreprocInclude(dict), "@trust/dict.hpp");
-    // Группа kDicts — конкретная (Data≠0), категория Containers.
+    // Группа kDicts - конкретная (Data≠0), категория Containers.
     EXPECT_EQ(getGroup(getKindFromId(dict)), Group::kDicts);
     EXPECT_TRUE(getData(getKindFromId(dict)) != 0);
     EXPECT_TRUE(belongsToCategory(getGroup(getKindFromId(dict)), Category::kContainers));

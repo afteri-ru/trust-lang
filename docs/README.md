@@ -1,3 +1,20 @@
+# Документация и сайт trust-lang
+
+Сборка и запуск локального сайта и песочницы, а также публикация статического сайта
+на GitHub выполняются двумя скриптами из каталога `docs/`:
+
+- **`playground_run.sh`** — собирает локальный сайт и запускает локальную песочницу
+  (балансировщик + воркер `trust-playground`) и стартует `hugo server` для просмотра
+  сайта в браузере. Для этого требуется собранный `_build/trust-lsp` и `_build/trust-playground`
+  (`cmake --build ../_build --target trust-lsp trust-playground`). Запуск только из `docs/`:
+  `cd docs && ./playground_run.sh [backend_port] [web_port]`.
+- **`gh-pages_build.sh`** — генерирует статический сайт в `docs/gh-pages` для публикации
+  на GitHub (GitHub Pages). Скрипт пересобирает фрагмент песочницы из актуальных примеров
+  (через `trust-lsp --html`), скачивает Monaco при необходимости и собирает `hugo`
+  в каталог `gh-pages` (это уже настроено и работает).
+
+---
+
 # Docsy Example
 
 [Docsy][] is a [Hugo theme module][] for technical documentation sites, providing easy

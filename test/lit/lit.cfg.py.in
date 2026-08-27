@@ -6,7 +6,7 @@ config.test_format = lit.formats.ShTest(True)
 config.test_source_root = os.path.normpath('@CMAKE_SOURCE_DIR@/test/lit')
 config.test_exec_root = os.path.normpath('@CMAKE_BINARY_DIR@/test/lit/Output')
 
-# ── LLVM binary directory (for `not` and other LLVM tools) ──
+# -- LLVM binary directory (for `not` and other LLVM tools) --
 _llvm_bin = os.path.normpath('/usr/lib/llvm-@CLANG_VERSION@/bin')
 if os.path.isdir(_llvm_bin):
     config.substitutions.append(('%not', os.path.join(_llvm_bin, 'not')))
@@ -15,8 +15,8 @@ else:
     config.substitutions.append(('%not', 'not'))
     config.substitutions.append(('%split-file', 'split-file'))
 
-# ── Tool substitutions ─────────────────────────────────────────────
-_trans_bin = os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@', 'gencpp_from_ast'))
+# -- Tool substitutions ---------------------------------------------
+_trans_bin = os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@'))
 config.substitutions.append(('%trans', _trans_bin))
 
 _libtorch_include = os.path.normpath(os.path.join('@CMAKE_SOURCE_DIR@', 'contrib', 'libtorch', 'include'))
@@ -27,7 +27,7 @@ if os.path.exists(_pch_file):
 config.substitutions.append(('%cxx_torch_pch', '@CMAKE_CXX_COMPILER@ ' + _torch_cxx_flags))
 
 config.substitutions.append(('%cxx', '@CMAKE_CXX_COMPILER@ -std=c++@CMAKE_CXX_STANDARD@'))
-# Чистый путь к бинарю trust (без флагов) — для случаев, где %trust используется как путь (dirname).
+# Чистый путь к бинарю trust (без флагов) - для случаев, где %trust используется как путь (dirname).
 # Определяется ПЕРЕД %trust, чтобы lit выбрал более длинный литерал при подстановке.
 config.substitutions.append(('%trust_bin', os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@', 'trust'))))
 # Все lit-тесты отключают новую опцию -Wembed (предупреждение за сам факт {% ... %}),
@@ -35,10 +35,10 @@ config.substitutions.append(('%trust_bin', os.path.normpath(os.path.join('@CMAKE
 config.substitutions.append(('%trust', os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@', 'trust')) + ' -Wembed=ignore'))
 config.substitutions.append(('%srcroot', os.path.normpath('@CMAKE_SOURCE_DIR@')))
 
-# ── FileCheck ────────────────────────────────────────────────────────
+# -- FileCheck --------------------------------------------------------
 config.substitutions.append(('%FileCheck', '/usr/bin/FileCheck-' + '@CLANG_VERSION@'))
 
-# ── Test file suffixes ────────────────────────────────────────────────
+# -- Test file suffixes ------------------------------------------------
 config.suffixes = ['.ast', '.src']
 config.excludes = [
     'enum_decl.ast',

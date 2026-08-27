@@ -16,6 +16,55 @@ Scanner::Scanner(trust::Context& ctx, trust::MapperFile src)
 Scanner::~Scanner() {
 }
 
+bool Scanner::macroSeqAction(TermPtr& out) {
+    if (m_macro_count == 0) {
+        m_macro_count = 1;
+        m_inMacroSeq = true;
+    } else if (m_macro_count == 1) {
+        m_macro_count = 2;
+    } else {
+        LexerError("Nested '@@' inside macro seq body is not allowed");
+        return false;
+    }
+    out = Term::Create(TermID::MACRO_SEQ, parser::token_type::MACRO_SEQ, "@@", 2, currentTokenRange(yyleng));
+    return true;
+}
+
+bool Scanner::macroStrAction(TermPtr& out) {
+    if (m_macro_count == 1) {
+        // Открытие текстового тела: вход в state_MACRO_STR, токен не эмитится
+        // (лексер продолжает сканирование внутри текстового тела).
+        enterMacroStr();
+        m_content_begin = m_current_pos;
+        return false;
+    }
+    if (m_macro_count == 2) {
+        LexerError("'@@@' inside macro seq body is not allowed: use '@@@@' to close the macro");
+        return false;
+    }
+    LexerError("'@@@' is not allowed outside a macro definition");
+    return false;
+}
+
+bool Scanner::macroDelAction(TermPtr& out) {
+    if (m_macro_count == 1) {
+        // Удаление макроса: `@@ имя @@@@`.
+        m_macro_count = 0;
+        m_inMacroSeq = false;
+        out = Term::Create(TermID::MACRO_DEL, parser::token_type::MACRO_DEL, "@@@@", 4, currentTokenRange(yyleng));
+        return true;
+    }
+    if (m_macro_count == 2) {
+        // Универсальный терминатор `@@@@`: конец seq-тела.
+        m_macro_count = 0;
+        m_inMacroSeq = false;
+        out = Term::Create(TermID::MACRO_DEL, parser::token_type::MACRO_DEL, "@@@@", 4, currentTokenRange(yyleng));
+        return true;
+    }
+    LexerError("'@@@@' is not allowed outside a macro definition");
+    return false;
+}
+
 int Scanner::LexerInput(char* buf, int max_size) {
     auto source = m_ctx.source().source(m_srcIdx);
     if (m_offset >= static_cast<int>(source.size())) {

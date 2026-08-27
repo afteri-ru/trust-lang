@@ -1,4 +1,4 @@
-// module_loader_test.cpp — тесты ModuleLoader: parseSourceModule, ensureLoaded, indexOf
+// module_loader_test.cpp - тесты ModuleLoader: parseSourceModule, ensureLoaded, indexOf
 #include "diag/context.hpp"
 #include "module_loader/module_loader.hpp"
 #include "syntax/macro.h"
@@ -98,20 +98,20 @@ TEST_F(ModuleLoaderTest, MacroScopeIsolationOnModuleLoad) {
 
     {
         Parser p(ctx);
-        p.ParseText("@@base_macro@@ := 1;");
+        p.ParseText("@@base_macro@@ 1 @@@@;");
     }
     ASSERT_EQ(1, macro->ScopeCount());
     ASSERT_TRUE(macro->GetMacro({"base_macro"}));
 
     std::string mainPath = (m_dir / "main.src").string();
     std::ofstream mainOfs(mainPath);
-    mainOfs << "@@main_macro@@ := 1;\n"
+    mainOfs << "@@main_macro@@ 1 @@@@;\n"
             << "\\sub(func);\n";
     mainOfs.close();
 
-    writeSrc("sub", "@@sub_macro@@ := 1;\n");
+    writeSrc("sub", "@@sub_macro@@ 1 @@@@;\n");
 
-    std::string mainSource = "@@main_macro@@ := 1;\n\\sub(func);\n";
+    std::string mainSource = "@@main_macro@@ 1 @@@@;\n\\sub(func);\n";
     MapperFile mainSrc = ctx.source().add_source(mainPath, mainSource);
     std::size_t mainIdx = ctx.loader().parseSourceModule(mainPath, mainSrc);
     ASSERT_TRUE(ctx.loader().isLoaded(mainIdx));

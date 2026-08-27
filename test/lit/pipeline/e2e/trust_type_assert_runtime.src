@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --solver-mode=assert --temp-dir $TD -o $TD/ta %s
+# RUN: ($TD/ta 2> %t.err || true) && %FileCheck %s <%t.err
+
+# Тип данных с trust-условиями (`MyInt trust_assert( MyInt > 10 )`): при создании значения типа
+# (объявление `x :MyInt := 5`, значение 5 нарушает `MyInt > 10`, где `MyInt` - значение типа)
+# trust::trust__abort__ завершает программу с `file:line: MyInt > 10`.
+
+# CHECK: trust_type_assert_runtime.src:[[#]]: MyInt > 10
+
+MyInt trust_assert( MyInt > 10 ) ::= :Int32;
+%chk():Void := {
+    x :MyInt := 5;
+    ++ _ ++;
+};
+{% int trust_type_assert_runtime__main__() {
+    chk();
+    return 0;
+}
+%}

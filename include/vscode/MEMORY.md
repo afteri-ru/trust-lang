@@ -2,134 +2,45 @@
 
 > scope: include/vscode
 > role: persistent-memory
-> last_reviewed: 2026-08-19
+> last_reviewed: 2026-08-26
 > review_period: 30
-> max_size: 15000
+> max_size: 6454
 
-# Архитектура VS Code Extension ↔ trust-dap / trust-lsp
+## Architecture
 
-## Общая схема
+VS Code extension ↔ trust-dap (DAP) / trust-lsp (LSP, через `vscode-languageclient`).
+Debug adapter: `TrustDebugAdapterDescriptorFactory → dap-adapter.js → DebugAdapterExecutable
+(trust-dap [--project-dir])`. Пути к DAP/LSP серверам — из настроек `trust.dapPath`/`trust.lspPath`.
+Сборка при F5 — в `resolveDebugConfiguration` (transpile → compile → trust-dap); preLaunchTask —
+`TrustBuildTask` (тип `'trust-build'`).
 
-```
-VS Code Extension (extension.js)
-    │
-    ├── TrustDebugAdapterDescriptorFactory → dap-adapter.js → DebugAdapterExecutable(trust-dap [--project-dir <dir>])
-    ├── LanguageClient → vscode-languageclient/node → trust-lsp (LSP server via stdin/stdout)
-    ├── trust.openCppFile → customRequest('stackTrace') → trust-dap
-    ├── resetDapPath / resetLspPath → config.update(...)
-    ├── resolveDebugConfiguration → build pipeline (transpile + compile) → debugConfiguration
-    └── provideDebugConfigurations → шаблон для launch.json
-```
+## Facts and invariants
 
-## LSP — vscode-languageclient
-
-LSP-клиент реализован через пакет `vscode-languageclient`. Автоматически управляет жизненным циклом LSP-сервера, регистрирует providers на основе возможностей сервера, отслеживает открытие/закрытие документов, парсит JSON-RPC 2.0, буферизует и диспатчит сообщения.
-
-Путь к LSP серверу берется из настройки `trust.lspPath`. Если путь не задан или файл не существует — показывается `showErrorMessage`.
-
-### Группа «Trust Lang: Developer» и middleware
-
-Флаги для разработчика вынесены в отдельный блок `contributes.configuration` с заголовком **«Trust Lang: Developer»** и префиксом `trust.dev.*`:
-
-- `trust.dev.traceDAP` — детальная трассировка DAP-протокола в канал «Trust Lang».
-- `trust.dev.traceLSP` — при включении в аргументы сервера добавляется `--trace` (детальная трассировка LSP в канал «Trust Lang LSP»).
-- `trust.dev.highlightRanges` — управляет подчёркиванием диапазонов-ссылок (document links) в `.src` и генерируемых `.cppt`. **По умолчанию сброшен.**
-
-Обработка `highlightRanges` — в `clientOptions.middleware.provideDocumentLinks` расширения: когда флаг сброшен, middleware возвращает `[]` (диапазоны не подчёркиваются), иначе вызывает `next(...)` (VSCode сам обрабатывает клик по ссылке). Ховер (Markdown-ссылки в содержимом) и `textDocument/definition` при этом **не затрагиваются** — они продолжают работать независимо от флага, а переход по определению идёт в корректное место.
-
-Внутренние ошибки обработчиков `textDocument/completion` и `textDocument/codeAction` пишутся в stderr **безусловно** (`reportHandlerError`, канал «Trust Lang LSP») — без «молчаливого» глотания, при этом LSP-ответ остаётся корректным (пустой результат).
-
-### Диагностика: корректные диапазоны и быстрые фиксы
-
-- **Лексерные ошибки** (`Unexpected character`, `Unterminated string`, ...) указывают на **реальный символ**, где произошла ошибка. `LexerError` берёт позицию из `tokenStartOffset()` (0-based начало токена, `include/syntax/lexer.h`) → 1-based диапазон токена.
-- **`publishDiagnostics` отправляется на каждый `didOpen`** (не только при ошибках): предупреждения (например, `-Wsigil`) подсвечиваются сразу при открытии файла, а не после первой правки.
-- Предупреждение **«creating a local variable '$x'»** (`OptKind::NoSigil`) сопровождается **быстрым фиксом** — замена bare-имени на `$x` (`ctx.diag().fixit(...)`).
-- Fixits сериализуются в **зарезервированное LSP поле `diagnostic.data`**, а не в кастомное верхнеуровневое поле: `vscode-languageclient` сохраняет у диагностики только стандартные поля + `data`, поэтому кастомное поле отбрасывалось при запросе `codeAction`, и quickfix (лампочка) не появлялся. `handleCodeAction` читает fixits из `data` (с fallback на `fixits` для не-VS Code клиентов).
-
-## Build pipeline (resolveDebugConfiguration)
-
-VSCode extension выполняет сборку при запуске отладки (F5) через `withProgress`:
-
-1. **Транспиляция** — вызов trust-lang компилятора
-2. **Компиляция C++** — вызов C++ компилятора
-3. **Запуск trust-dap** — DAP сервер с аргументом `--project-dir`
-
-Пути к файлам передаются через DAP-запрос `launch`. Временные файлы создаются в каталоге из настройки `trust.tempDir` (по умолчанию `.trust`).
-
-## DAP-адаптер (dap-adapter.js)
-
-Путь к DAP серверу берется из настройки `trust.dapPath`. Если путь не задан — выбрасывается ошибка.
-
-CLI-аргументы trust-dap: только `--project-dir`. Параметры конфигурации отладчика (`sourceFile`, `cppFile`, `targetFile`, `gdbPath`) передаются через DAP-запрос `launch`.
-
-## Build Task Provider (TrustBuildTask — preLaunchTask)
-
-Зарегистрирован task provider с типом `'trust-build'`. Предоставляет три задачи:
-
-1. **Trust: Transpile .src** — запускает trust-lang компилятор
-2. **Trust: Compile .cppt** — запускает C++ компилятор
-3. **Trust: Build all** — последовательно транспиляция + компиляция
-
-Параметры берутся из настроек `trust.*`. Задачи используют `vscode.CustomExecution` с псевдотерминалом.
-
-## Тесты
-
-Тесты находятся в `test/vscode/extension/src/`. Включают `extension.test.js` (команды, DAP, LSP, TrustBuildTask) и `extension-utils.test.js` (утилиты). Используют mock VS Code API и vscode-languageclient.
-
-## Language Configuration (`language-configuration.json`)
-
-Конфигурация языка Trust для VS Code определяет:
-
-- **Комментарии**: однострочные (`#`), блочные (`/* */`)
-- **Скобки**: `()`, `[]`, `{}`, `<>` — используются для авто-отступов
-- **Авто-закрытие пар**: `()`, `[]`, `{}`, `<>`, `""`, `''`, `` `` ``
-- **Окружающие пары**: `()`, `[]`, `{}`, `""`, `''`, `` `` ``
-
-## Подсветка синтаксиса (`trust.tmLanguage.json`)
-
-TextMate-грамматика включает следующие категории:
-
-- **Комментарии**: блочные (`/* */`), строчные (`#`), doc-комментарии (`/** */`, `///`, `##`)
-- **Строки**: двойные кавычки (`""`), одинарные (`''`), символы/рефлексия (`` `` ``), raw (`R"..."`, `R'...'`)
-- **Встроенный код**: `{% ... %}` — native-блоки C++ (scope `meta.embedded.trust`)
-- **Модули**: ссылки `\name` / `\dir\name` (scope `entity.name.module.trust`)
-- **Ключевые слова**: макросы (`@...`), управляющие конструкции, переменные (`$...`), функции (`%...`), типы (`:...`)
-- **Операторы**: все операторы языка Trust
-- **Числа**: целые, с плавающей точкой, рациональные, комплексные (`1+2j`, `1.5e3+2.5e2i`, `1j`)
-- **Макросы `@@...@@`**: выделяются scope `markup.other.trust.macros` с серым подчеркиванием
-- **Переменные**: `__...__` (системные), `__...` (языковые), `_...` (именованные), обычные, mangled (`_$...$_...`)
-
-## Цветовая схема для `.src` файлов (`package.json` → `configurationDefaults`)
-
-Все цвета для scope-ов TextMate-грамматики задаются через `configurationDefaults."[trust]".editor.tokenColorCustomizations.textMateRules` в `package.json`. Это гарантирует, что подсветка работает при любой активной теме VS Code, не требуя переключения на тему "Trust Language".
-
-Список scope-ов и их цветов соответствует тёмной схеме (аналог Dark+).
-
-- Ключевые слова (control, macro): `#C586C0`
-- Функции (support, macro): `#DCDCAA`
-- Переменные: `#9CDCFE` / `#4FC1FF`
-- Типы: `#4EC9B0`
-- Модули (`entity.name.module.trust`): `#4EC9B0`
-- Числа (int, float, rational, complex): `#B5CEA8`
-- Строки: `#CE9178`
-- Символы/рефлексия (`` ` `` `constant.other.symbol.trust`): `#CE9178`
-- Встроенный код (`meta.embedded.trust`): `#CE9178`
-- Комментарии: `#6A9955`
-- Операторы: `#D4D4D4`
-- Escape-символы: `#D7BA7D`
-- Макросы `@@...@@`: `#808080` с подчёркиванием
-
-## Выводы
-
-1. Расширение следует стандартному DAP — все взаимодействие через стандартные DAP-команды.
-2. Сборка выполняется в `resolveDebugConfiguration`.
-3. CLI-аргументы trust-dap: только `--project-dir`, все пути через DAP launch.
-4. LSP — через `vscode-languageclient`, автоматическая регистрация провайдеров.
-5. preLaunchTask — через TrustBuildTask (тип `'trust-build'`).
-6. Language configuration определяет `#` как line comment, `/* */` как block comment, поддерживает все виды скобок и кавычек.
-7. TextMate-грамматика включает подсветку макросов `@@...@@` с scope `markup.other.trust.macros`.
-8. Все цвета для файлов `.src` задаются через `configurationDefaults` и применяются независимо от активной темы VS Code.
-9. Автодополнение — через LSP `textDocument/completion` (capability сервера): имена, типы (`:`), макросы (`@`), члены (`obj.`). `vscode-languageclient` авто-регистрирует completion provider, правки JS не требуются.
-
-- Отдельная цветовая тема "Trust Language" удалена — нет необходимости переключать всю схему ради одного языка.
-- При добавлении нового scope достаточно добавить одно правило в `textMateRules` в `package.json`.
+- **Изоляция сгенерированного C++ от clangd (language id `trusted-cpp`):** `.cppt`/`.hppt`
+  отображаются на ОТДЕЛЬНЫЙ id `trusted-cpp`, НЕ на `cpp` — `cpp` параллельно обслуживает clangd,
+  который падает (краши) на сгенерированном C++. `documentSelector` trust-lsp: `{trust, trusted-cpp}`;
+  тип определяется по расширению, поэтому навигация `.src↔.cppt` работает независимо от названия id.
+- **Настройки:** `trust.shebangMode` (`ignore|shebang-only|env-after-shebang|env-before-shebang`,
+  default `env-after-shebang`) → `--shebang-mode`; `trust.lspArgs` (массив) — дополнительные env-опции
+  анализа; общие опции (`--solver-mode`, `--keywords`, `-fsolver-loop-unroll`) trust-lsp принимает
+  напрямую (разбираются общим `applyAnalysisArgs`). Dev-флаги — в блоке «Trust Lang: Developer»
+  (`trust.dev.*`): `traceDAP`, `traceLSP` (→`--trace`), `highlightRanges` (по умолчанию сброшен;
+  middleware `provideDocumentLinks` возвращает `[]`; hover/definition не затрагиваются).
+- **Fixits сериализуются в `diagnostic.data`** (зарезервированное LSP поле), а НЕ в кастомное
+  верхнеуровневое поле: `vscode-languageclient` сохраняет у диагностики только стандартные поля +
+  `data`, поэтому кастомное поле отбрасывалось при `codeAction` и quickfix не появлялся.
+- **Цветовая тема "Trust Language"** — самодостаточная (`trust-color-theme.json` генерируется на
+  сборке `packager/merge_theme.py` из базы + переопределений; НЕ зависит от `extends` — он в ряде
+  окружений не подхватывается). `configurationDefaults.textMateRules` — fallback и могут не
+  применяться в части окружений. При добавлении scope нужно синхронизировать ОБА списка
+  (textMateRules И тему).
+- **Ловушка грамматики (терминатор макроса):** терминатор — `@@@@` (4 `@`), поэтому `end` ДОЛЖЕН
+  быть `@@@@` (не `@@`/`@@@`) — иначе scope открывается и не закрывается, проглатывая остальной файл.
+- **Упаковка VSIX двумя путями** (CMake `package_vsix.cmake` в `_build/dist/` и
+  `packager/package-extension.sh` в `include/vscode/extensions/trust-lang/`). ОБА обязаны включать
+  `syntaxes/trust.tmLanguage.json` (грамматику; на неё ссылается package.json) и прод-зависимости
+  `node_modules/vscode-languageclient`. Для `vsce package` НЕ использовать `--no-dependencies` и НЕ
+  исключать `node_modules/**` в `.vscodeignore`. Версия VSIX (имя файла и встроенная) —
+  `TRUST_VERSION_FULL` = `VERSION-<git_hash>` (из `cmake/version.cmake`), чтобы в Extensions view
+  отображалась версия с хешем сборки. `include/vscode/CMakeLists.txt` НЕ должен перечитывать
+  VERSION/`git rev-parse` сам — брать готовые `TRUST_VERSION`/`TRUST_VERSION_FULL` из родительского scope.

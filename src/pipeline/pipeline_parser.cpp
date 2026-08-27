@@ -1,23 +1,15 @@
 #include "pipeline/pipeline.hpp"
+#include "pipeline/cli.hpp"
+#include "semantic/solver.hpp"
 #include "trust/version.h"
-#include "utils/io.hpp"
-
-#include <CLI/CLI.hpp>
 #include "utils/io.hpp"
 
 #include <filesystem>
 #include <iostream>
-#include "utils/io.hpp"
 
 namespace trust {
 
-// ── Callbacks ──
-
-static void set_emit_flag(PipelineOpts& opts, EmitFlags flag) {
-    opts.emit_flags = opts.emit_flags | flag;
-}
-
-// ── Pipeline::parseArgs ──
+// -- Pipeline::parseArgs --
 
 ParseResult Pipeline::parseArgs(std::span<char*> argv) {
     ParseResult result;
@@ -29,81 +21,47 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
     // Set default compiler from CMake config
     result.opts.compiler = TRUST_DEFAULT_COMPILER;
 
-    CLI::App app{"trust — Trust language transpiler pipeline"};
-    app.allow_extras();
-    app.allow_windows_style_options(false);
-    app.set_help_flag("");        // отключаем стандартный --help
-    app.set_version_flag("", ""); // отключаем стандартный --version
-    app.require_subcommand(0, 0);
-
-    // ── Позиционный аргумент: входной файл ──
-    app.add_option("input", result.opts.input_file, "Input source file")->type_name("file");
-
-    // ── Флаги ──
-    app.add_flag("-h,--help", result.opts.help_requested, "Show this help message");
-    app.add_flag("--version", result.opts.version_requested, "Show version information");
-    app.add_flag("-v,--verbose", result.opts.verbose, "Verbose output");
-    app.add_flag("-q,--quiet", result.opts.quiet, "Quiet mode (suppress warnings)");
-    app.add_flag("--emit-tokens", [&](int64_t) { set_emit_flag(result.opts, EmitFlags::Tokens); }, "Print tokens after lexing");
-    app.add_flag("--emit-ast", [&](int64_t) { set_emit_flag(result.opts, EmitFlags::AST); }, "Print AST after parsing");
-    app.add_flag("--emit-cpp", [&](int64_t) { set_emit_flag(result.opts, EmitFlags::Cpp); }, "Emit C++ source file");
-    app.add_flag("--emit-lexemes", [&](int64_t) { set_emit_flag(result.opts, EmitFlags::LexemesOnly); }, "Stop after lexing, output lexemes only");
-    app.add_flag("-c", [&](int64_t) { result.opts.compile_mode = CompileMode::ObjectFile; }, "Compile to object file (.o)");
-    app.add_flag("-a,--static-lib", [&](int64_t) { result.opts.compile_mode = CompileMode::StaticLib; }, "Compile to static library (.a)");
-    app.add_flag("-l,--shared-lib", [&](int64_t) { result.opts.compile_mode = CompileMode::SharedLib; }, "Compile to shared library (.so)");
-    app.add_flag("-m,--module", [&](int64_t) { result.opts.compile_mode = CompileMode::TrustModule; }, "Compile to trust module (.trust)");
-    app.add_flag("--module-info", result.opts.module_info_requested, "Show exported symbols and version of a .trust module");
-    // --run: собрать исполняемый файл и запустить его (стиль bash-скрипта с шебангом #!).
-    app.add_flag(
-        "--run",
-        [&](int64_t) {
-            result.opts.compile_mode = CompileMode::Executable;
-            result.opts.run = true;
-        },
-        "Build and run the program (executable)");
-
-    // ── Опции с аргументом ──
-    app.add_option("-o,--output", result.opts.output_file, "Output file (default: stdout)")->type_name("file");
-    app.add_option("--temp-dir", result.opts.temp_dir, "Temporary directory for intermediate files")->type_name("dir");
-    app.add_option("--compiler", result.opts.compiler, "Compiler path")->type_name("path");
-    app.add_option("--options", result.opts.compiler_options, "Additional compiler options (quoted)")->type_name("opts");
-    std::string link_mode = "static";
-    app.add_option("--link-runtime", link_mode, "How to link the trust runtime into the generated executable: static (default) or shared")
-        ->type_name("mode")
-        ->check(CLI::IsMember({"static", "shared"}, CLI::ignore_case));
-
-    // ── Standard library ──
-    app.add_flag("--no-stdlib", [&](int64_t) { result.opts.use_stdlib = false; }, "Disable standard library types");
-
-    // ── DSL macros ──
-    app.add_option("--dsl", result.opts.dsl_file, "Load DSL macros from file instead of embedded trust/dsl.src")->type_name("file");
-    app.add_flag("--no-dsl", result.opts.no_dsl, "Disable loading DSL macros");
-    app.add_flag("--semantic-on-errors", result.opts.allow_semantic_on_errors,
-                 "Run the semantic analyzer even when the lexer/parser produced errors (LSP-style, partial AST)");
-
-    // ── Парсинг ──
-    try {
-        app.parse(static_cast<int>(argv.size()), argv.data());
-    } catch (const CLI::ParseError& e) {
-        result.exit_code = static_cast<int>(e.get_exit_code());
-        if (result.exit_code != 0) {
-            trust::errs() << "error: " << e.what() << "\n";
-        }
+    // Арity-aware табличный парсер опций драйвера (см. cli.hpp): сам собирает -W в
+    // diag_args, позиционные отдельно (не «доедаются» опциями-списками), ошибки -> errs().
+    std::vector<std::string> args;
+    args.reserve(argv.size());
+    for (std::size_t i = 0; i < argv.size(); ++i) {
+        args.emplace_back(argv[i]);
+    }
+    const std::string err = parseDriverArgs(result, args);
+    if (!err.empty()) {
+        trust::errs() << "error: " << err << "\n";
+        result.exit_code = 1;
+    }
+    if (result.exit_code != 0) {
         return result;
     }
 
-    // Apply --link-runtime value (validated by CLI::IsMember above).
-    result.opts.runtime_link = (link_mode == "shared") ? RuntimeLink::Shared : RuntimeLink::Static;
+    // `-Whelp`: справка по диагностикам (печатается в trust.cpp, нужен Context). Здесь
+    // только определяем, что входной файл не требуется. Единый флаг справки -
+    // Options::helpRequested() (set в parse_argv через applyDiagnostics); раннее значение
+    // для пропуска проверки входного файла - ParseResult::diag_help_requested (из парсера).
+    const bool diag_help = result.diag_help_requested;
 
-    // ── Дополнительная обработка после парсинга ──
+    // -- Дополнительная обработка после парсинга --
 
     // --help / --version
     if (result.opts.help_requested) {
-        trust::outs() << app.help();
+        trust::outs() << driverHelp();
         return result;
     }
     if (result.opts.version_requested) {
-        trust::outs() << "trust " << TRUST_VERSION_FULL << "\n";
+        // Брендовое имя проекта (TrustLang), как у Python/rustc - версия печатается
+        // с заглавным именем. Это же имя - единственный уникальный идентификатор
+        // (бинарь `trust` конфликтует с p11-kit trust), по которому shell-completion
+        // отличает наш компилятор от чужого бинаря.
+        trust::outs() << "TrustLang " << TRUST_VERSION_FULL << "\n";
+        return result;
+    }
+
+    // `-Whelp`: справка по диагностикам применяется в trust.cpp (нужен Context/Options);
+    // здесь только пропускаем проверку входного файла.
+    if (diag_help) {
         return result;
     }
 
@@ -118,10 +76,15 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
         return result;
     }
 
+    // --format-dump-config / --complete-options / --complete-files: входной файл не требуется.
+    if (result.opts.format_dump_config || result.opts.complete_options || result.opts.complete_files) {
+        return result;
+    }
+
     // Проверка входного файла (кроме --module-info)
     if (result.opts.input_file.empty()) {
         trust::errs() << "error: no input file specified\n";
-        trust::errs() << app.help();
+        trust::errs() << driverHelp();
         result.exit_code = 1;
         return result;
     }
@@ -133,8 +96,16 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
         return result;
     }
 
-    // Оставшиеся аргументы (неизвестные опции)
-    result.remaining_args = app.remaining();
+    // Валидация значения --solver-mode (см. include/semantic/solver.hpp): только поведенческие режимы.
+    if (!result.opts.solver_mode.empty() && !semantic::parseSolverMode(result.opts.solver_mode)) {
+        trust::errs() << "error: invalid value for --solver-mode: '" << result.opts.solver_mode << "' (expected: assert|export|calculate)\n";
+        result.exit_code = 1;
+        return result;
+    }
+
+    // Оставшиеся аргументы: парсер ошибок не оставляет (неизвестные -> exit_code!=0);
+    // остаются пустыми.
+    result.remaining_args.clear();
 
     // Warn about compile options being used with emit flags
     if (!result.opts.should_compile()) {
@@ -145,7 +116,7 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
             trust::errs() << "warning: --options is ignored when using emit flags\n";
         }
         if (result.opts.compile_mode != CompileMode::Executable) {
-            trust::errs() << "warning: -c/-a/-l is ignored when using emit flags\n";
+            trust::errs() << "warning: -c/-a/--shared-lib is ignored when using emit flags\n";
         }
         if (result.opts.run) {
             trust::errs() << "warning: --run is ignored when using emit flags\n";

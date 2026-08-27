@@ -7,18 +7,18 @@
 
 namespace trust {
 
-// ── TypeId ───────────────────────────────────────────────
+// -- TypeId -----------------------------------------------
 // Полный идентификатор типа:
 //   Upper 32 bits: TypeKind (битовая структура)
 //   Lower 32 bits: registry_index (0 для встроенных типов)
 using TypeId = uint64_t;
 
-// ── Invalid type id ──────────────────────────────────────
+// -- Invalid type id --------------------------------------
 static constexpr TypeId INVALID_TYPE_ID = 0;
 
-// ── Флаг «тип выведен автоматически» (kInferredFlag) ─────
+// -- Флаг «тип выведен автоматически» (kInferredFlag) -----
 // Бит 31 младшей половины TypeId. Структурная идентичность типа интернируется на 63 битах
-// (TypeKind в старших 32 + registry_index в младших 31); этот бит — ортогональный квалификатор
+// (TypeKind в старших 32 + registry_index в младших 31); этот бит - ортогональный квалификатор
 // «тип выведен автоматически (из литерала / inferred-переменной)», а НЕ часть ключа
 // интернирования. Все операции идентичности (getIndexFromId, getCanonicalTypeId, сравнения
 // каноникой) снимают его; маскирование сосредоточено в реестре (см. types/registry.hpp).
@@ -33,12 +33,12 @@ constexpr TypeId clearInferred(TypeId id) noexcept {
     return id & ~kInferredFlag;
 }
 
-// ── Флаг «константность значения/переменной» (kConstFlag) ─
+// -- Флаг «константность значения/переменной» (kConstFlag) -
 // Бит 30 младшей половины TypeId. Ортогональный квалификатор константности (неизменяемости)
-// значения/переменной — по аналогии с kInferredFlag. Может быть установлен двумя способами:
-//  1) «константность в типе» — на самом типе (декларация `x^ := 42` → тип `const T`); тогда
+// значения/переменной - по аналогии с kInferredFlag. Может быть установлен двумя способами:
+//  1) «константность в типе» - на самом типе (декларация `x^ := 42` → тип `const T`); тогда
 //     getCppTypeName даёт префикс `const ` и константность попадает в прототипы функций;
-//  2) «пер-переменная константность» — на Symbol::type по мере анализа узлов AST (аналог
+//  2) «пер-переменная константность» - на Symbol::type по мере анализа узлов AST (аналог
 //     top-level const / Rust `let`): в структурную идентичность и сигнатуры функций НЕ входит,
 //     а при кодогенерации выражается через const_cast<>, когда сам тип не константный.
 // НЕ часть ключа интернирования: структурные операции (getIndexFromId, getCanonicalTypeId)
@@ -54,12 +54,12 @@ constexpr TypeId clearConst(TypeId id) noexcept {
     return id & ~kConstFlag;
 }
 
-// ── Construction ─────────────────────────────────────────
+// -- Construction -----------------------------------------
 constexpr TypeId makeTypeId(TypeKind kind, uint32_t registry_index = 0) noexcept {
     return (static_cast<uint64_t>(kind) << 32) | registry_index;
 }
 
-// ── Field extraction ─────────────────────────────────────
+// -- Field extraction -------------------------------------
 constexpr TypeKind getKindFromId(TypeId id) noexcept {
     return static_cast<TypeKind>(id >> 32);
 }
@@ -69,7 +69,23 @@ constexpr uint32_t getIndexFromId(TypeId id) noexcept {
     return static_cast<uint32_t>(id & ~kInferredFlag & ~kConstFlag);
 }
 
-// ── Classification helpers ───────────────────────────────
+// -- Флаг «тип несёт trust-условия» (kTrustFlag) -----------
+// Бит в TypeKind (верхняя половина TypeId, Reserved). Это СЕМАНТИЧЕСКИЙ дифференциатор
+// идентичности: тип/функция с пред-/пост-условиями/утверждениями не эквивалентен идентичному
+// без условий. В отличие от kInferred/kConst (нижняя половина, квалификаторы вхождения),
+// бит НЕ снимается getIndexFromId/getCanonicalTypeId (маскируют нижнюю половину) и входит в
+// ключи структурного интернирования (TypeKey::kind). Используется для защиты от автоматического
+// вывода типа: переменная, чей выведенный тип несёт trust-условия, обязана иметь явную
+// аннотацию типа (см. types/MEMORY.md, семантика analyzeVarDecl/typeExpr).
+constexpr bool typeIsTrusted(TypeId id) noexcept {
+    return hasTrustFlag(getKindFromId(id));
+}
+constexpr TypeId withTrusted(TypeId id) noexcept {
+    const uint64_t lower = id & 0xFFFFFFFFULL; // сохраняем registry_index + нижние квалификаторы
+    return makeTypeId(setTrustFlag(getKindFromId(id)), static_cast<uint32_t>(lower));
+}
+
+// -- Classification helpers -------------------------------
 constexpr bool isBuiltinTypeId(TypeId id) noexcept {
     return hasBuiltinFlag(getKindFromId(id));
 }
@@ -82,7 +98,7 @@ constexpr bool isConcreteTypeId(TypeId id) noexcept {
     return getIndexFromId(id) != 0;
 }
 
-// ── Hash (for use in unordered containers) ───────────────
+// -- Hash (for use in unordered containers) ---------------
 struct TypeIdHash {
     uint64_t operator()(const TypeId& id) const noexcept { return id; }
 };

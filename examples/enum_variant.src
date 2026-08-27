@@ -1,44 +1,44 @@
 #!../_build/trust --run -q
 #
-# Enum и Variant — типы с членами разных типов данных и классическими методами на типах.
-#   Enum     — ЕДИНЫЙ тип значений у всех членов (числовой / строковый / Rational).
-#   Variant  — каждый член СВОЕГО типа (гетерогенный, → std::variant).
+# Enum и Variant - типы с членами разных типов данных и классическими методами на типах.
+#   Enum     - ЕДИНЫЙ тип значений у всех членов (числовой / строковый / Rational).
+#   Variant  - каждый член СВОЕГО типа (гетерогенный, → std::variant).
 # Методы на типах (работа только через имя типа):
-#   count()            — число членов;
-#   fromName(name)     — член по имени;
-#   fromValue(value)   — член по значению.
+#   count()            - число членов;
+#   fromName(name)     - член по имени;
+#   fromValue(value)   - член по значению.
 # Сравнение членов enum идёт ПО ЗНАЧЕНИЮ (IntEnum-семантика).
 
-## Enum: числовые значения (тип значений — Int64 по общим правилам).
+## Enum: числовые значения (тип значений - Int64 по общим правилам).
 Status ::= (OK=0, ERROR=1, BUSY=2,):Enum;
 
-## Enum: строковые значения (тип значений — StrChar).
+## Enum: строковые значения (тип значений - StrChar).
 Level ::= (LOW='low', HIGH='high',):Enum;
 
-## Variant: гетерогенный — у каждого члена свой тип (Int8, StrChar, Rational).
+## Variant: гетерогенный - у каждого члена свой тип (Int8, StrChar, Rational).
 Data ::= (i=42, s='text', r=1\2,):Variant;
 
-## Enum: ЯВНЫЙ тип члена (`LOW:Int8`) задаёт единый тип значений — Int8 (безнарные → автоинкремент).
+## Enum: ЯВНЫЙ тип члена (`LOW:Int8`) задаёт единый тип значений - Int8 (безнарные → автоинкремент).
 Flag ::= (LOW:Int8, HIGH,):Enum;
 
 @main() := {
 
-    # ── Enum (числовой) ──
+    # -- Enum (числовой) --
     @print('status count      = {}\n', Status.count());
     @print('fromName(OK)==OK  = {}\n', Status.fromName('OK') == Status.OK);
     @print('fromValue(1)==ERR = {}\n', Status.fromValue(1) == Status.ERROR);
     @print('OK < ERROR        = {}\n', Status.OK < Status.ERROR);
 
-    # ── Enum (строковый) ──
+    # -- Enum (строковый) --
     @print('level count       = {}\n', Level.count());
     @print('fromName(LOW)     = {}\n', Level.fromName('LOW') == Level.LOW);
     @print('fromValue(high)   = {}\n', Level.fromValue('high') == Level.HIGH);
 
-    # ── Enum (явный тип члена → Int8) ──
+    # -- Enum (явный тип члена → Int8) --
     @print('flag count         = {}\n', Flag.count());
     @print('Flag.LOW < HIGH    = {}\n', Flag.LOW < Flag.HIGH);
 
-    # ── Variant (гетерогенный) ──
+    # -- Variant (гетерогенный) --
     @print('data count        = {}\n', Data.count());
     @print('Data.i == 42      = {}\n', Data.i == 42);
     @print('Data.s == text    = {}\n', Data.s == 'text');

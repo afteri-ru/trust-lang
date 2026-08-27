@@ -1,4 +1,4 @@
-// runtime/trust_headers.cpp — embeds the public runtime headers
+// runtime/trust_headers.cpp - embeds the public runtime headers
 // ("trust/rational.hpp", "trust/assert.hpp", ...) into trust-runtime.so/.a.
 //
 // The header bytes are placed into an ELF section whose name equals the header

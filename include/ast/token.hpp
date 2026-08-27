@@ -5,8 +5,8 @@
 // Do NOT modify the enum, name() manually.
 //
 // Format: T(name, node_type)
-//   name     — enumerator name (CamelCase)
-//   node_type — C++ class that represents this Kind (e.g. Binary, Scope, IdentName)
+//   name     - enumerator name (CamelCase)
+//   node_type - C++ class that represents this Kind (e.g. Binary, Scope, IdentName)
 
 #pragma once
 
@@ -50,95 +50,101 @@ class MatchStmt;
 class LabelRef;
 class SemicolonStmt;
 class ContextMacro;
+class TrustContract;
+class TrustElem;
 
 // ============================================================================
 // X-macro: all ParserToken kinds.
 //
 // Format: T(name, node_type)
-//   name      — enumerator name (CamelCase)
-//   node_type — C++ class that stores data for this token kind.
+//   name      - enumerator name (CamelCase)
+//   node_type - C++ class that stores data for this token kind.
 //               Multiple kinds can share the same node_type.
 //
 // Grouped by node_type for readability.
 // ============================================================================
-#define PARSER_TOKEN_KINDS(T)           \
-    /* ── Sequence ── */                \
-    T(sequence, Sequence)               \
-    T(Attr, Sequence)                   \
-    /* ── ScopeBlock ── */              \
-    T(ScopeBlock, ScopeBlock)           \
-    /* ── Binary ── */                  \
-    T(TypeDecl, Binary)                 \
-    T(NameDecl, Binary)                 \
-    T(AssignOp, Binary)                 \
-    T(AppendStmt, Binary)               \
-    T(MathOp, Binary)                   \
-    T(BitwiseOp, Binary)                \
-    T(CompareOp, Binary)                \
-    T(LogicalOp, Binary)                \
-    T(MemberAccess, Binary)             \
-    T(ArrayAccess, Binary)              \
-    /* ── IdentName ── */               \
-    T(Ident, IdentName)                 \
-    /* ── IdentType ── */               \
-    T(TypeName, IdentType)              \
-    /* ── CallExpr ── */                \
-    T(CallExpr, CallExpr)               \
-    /* ── JumpStmt ── */                \
-    T(ReturnStmt, JumpStmt)             \
-    T(ThrowStmt, JumpStmt)              \
-    /* ── AstNodeAttr ── */             \
-    T(Program, AstNodeAttr)             \
-    T(VarRef, AstNodeAttr)              \
-    T(EmbedExpr, AstNodeAttr)           \
-    T(Document, AstNodeAttr)            \
-    T(ContextMacro, ContextMacro)       \
-    T(Unimplemented, AstNodeAttr)       \
-    T(NotApplicable, AstNodeAttr)       \
-    T(IntLiteral, Literal)              \
-    T(FloatLiteral, Literal)            \
-    T(StrChar, Literal)                 \
-    T(StrWide, Literal)                 \
-    T(RationalLiteral, Literal)         \
-    T(ArrayInit, DictLiteralNode)       \
-    T(DictLiteral, DictLiteralNode)     \
-    T(Tuple, DictLiteralNode)           \
-    T(RangeExpr, RangeExpr)             \
-    T(RefMakeExpr, Sequence)            \
-    T(RefTakeExpr, Sequence)            \
-    T(Ellipsis, Sequence)               \
-    T(IfStmt, IfStmt)                   \
-    T(WhileStmt, WhileStmt)             \
-    T(AssignmentStmt, AstNodeAttr)      \
-    T(SemicolonStmt, SemicolonStmt)     \
-    T(BlockStmt, AstNodeAttr)           \
-    T(ThenBlock, AstNodeAttr)           \
-    T(ElseBlock, AstNodeAttr)           \
-    T(DoWhileStmt, DoWhileStmt)         \
-    T(WhileElseBlock, AstNodeAttr)      \
-    T(BreakStmt, JumpStmt)              \
-    T(ContinueStmt, JumpStmt)           \
-    T(GotoStmt, LabelRef)               \
-    T(LabelStmt, LabelRef)              \
-    T(TryCatchStmt, Sequence)           \
-    T(CatchBlock, Sequence)             \
-    T(MatchingStmt, MatchStmt)          \
-    T(MatchingCase, AstNodeAttr)        \
-    T(MatchingElseBlock, AstNodeAttr)   \
-    T(FuncDecl, FuncDecl)               \
-    T(VarDecl, VarDecl)                 \
-    T(DestructureDecl, DestructureDecl) \
-    /* ── ArgNode ── */                 \
-    T(ArgNode, ArgNode)                 \
-    T(EnumDecl, Sequence)               \
-    T(EnumMember, Sequence)             \
-    T(StructDecl, Sequence)             \
-    T(StructField, Sequence)            \
-    /* ── ModuleNode ── */              \
+#define PARSER_TOKEN_KINDS(T)                                         \
+    /* -- Sequence -- */                                              \
+    T(sequence, Sequence)                                             \
+    T(Attr, Sequence)                                                 \
+    /* -- ScopeBlock -- */                                            \
+    T(ScopeBlock, ScopeBlock)                                         \
+    /* -- Binary -- */                                                \
+    T(TypeDecl, Binary)                                               \
+    T(NameDecl, Binary)                                               \
+    T(AssignOp, Binary)                                               \
+    T(AppendStmt, Binary)                                             \
+    T(MathOp, Binary)                                                 \
+    T(BitwiseOp, Binary)                                              \
+    T(CompareOp, Binary)                                              \
+    T(LogicalOp, Binary)                                              \
+    T(MemberAccess, Binary)                                           \
+    T(ArrayAccess, Binary)                                            \
+    /* -- IdentName -- */                                             \
+    T(Ident, IdentName)                                               \
+    /* -- IdentType -- */                                             \
+    T(TypeName, IdentType)                                            \
+    /* -- CallExpr -- */                                              \
+    T(CallExpr, CallExpr)                                             \
+    /* -- JumpStmt -- */                                              \
+    T(ReturnStmt, JumpStmt)                                           \
+    T(ThrowStmt, JumpStmt)                                            \
+    /* -- AstNodeAttr -- */                                           \
+    T(Program, AstNodeAttr)                                           \
+    T(VarRef, AstNodeAttr)                                            \
+    T(EmbedExpr, AstNodeAttr)                                         \
+    T(Document, AstNodeAttr)                                          \
+    T(ContextMacro, ContextMacro)                                     \
+    T(Unimplemented, AstNodeAttr)                                     \
+    T(NotApplicable, AstNodeAttr)                                     \
+    T(IntLiteral, Literal)                                            \
+    T(FloatLiteral, Literal)                                          \
+    T(StrChar, Literal)                                               \
+    T(StrWide, Literal)                                               \
+    T(RationalLiteral, Literal)                                       \
+    T(ArrayInit, DictLiteralNode)                                     \
+    T(DictLiteral, DictLiteralNode)                                   \
+    T(Tuple, DictLiteralNode)                                         \
+    T(RangeExpr, RangeExpr)                                           \
+    T(RefMakeExpr, Sequence)                                          \
+    T(RefTakeExpr, Sequence)                                          \
+    T(Ellipsis, Sequence)                                             \
+    T(IfStmt, IfStmt)                                                 \
+    T(WhileStmt, WhileStmt)                                           \
+    T(AssignmentStmt, AstNodeAttr)                                    \
+    T(SemicolonStmt, SemicolonStmt)                                   \
+    T(BlockStmt, AstNodeAttr)                                         \
+    T(ThenBlock, AstNodeAttr)                                         \
+    T(ElseBlock, AstNodeAttr)                                         \
+    T(DoWhileStmt, DoWhileStmt)                                       \
+    T(WhileElseBlock, AstNodeAttr)                                    \
+    T(BreakStmt, JumpStmt)                                            \
+    T(ContinueStmt, JumpStmt)                                         \
+    T(GotoStmt, LabelRef)                                             \
+    T(LabelStmt, LabelRef)                                            \
+    T(TryCatchStmt, Sequence)                                         \
+    T(CatchBlock, Sequence)                                           \
+    T(MatchingStmt, MatchStmt)                                        \
+    T(MatchingCase, AstNodeAttr)                                      \
+    T(MatchingElseBlock, AstNodeAttr)                                 \
+    T(FuncDecl, FuncDecl)                                             \
+    T(VarDecl, VarDecl)                                               \
+    T(DestructureDecl, DestructureDecl)                               \
+    /* -- ArgNode -- */                                               \
+    T(ArgNode, ArgNode)                                               \
+    T(EnumDecl, Sequence)                                             \
+    T(EnumMember, Sequence)                                           \
+    T(StructDecl, Sequence)                                           \
+    T(StructField, Sequence)                                          \
+    /* -- TrustContract (единая trust-конструкция, kind в поле) -- */ \
+    T(TrustContract, TrustContract)                                   \
+    /* -- TrustElem (элемент контрактного программирования) -- */     \
+    T(TrustElem, TrustElem)                                           \
+    /* -- ModuleNode -- */                                            \
     T(ModuleDecl, ModuleNode)
 
 /** Unified enum for all AST node types (CamelCase).
- *  Generated from PARSER_TOKEN_KINDS — do not edit manually. */
+ *  Generated from PARSER_TOKEN_KINDS - do not edit manually. */
 struct ParserToken {
     enum class Kind : int {
         END = 0,
@@ -162,7 +168,7 @@ struct ParserToken {
     }
 };
 
-// ── Kind → C++ type mapping ──
+// -- Kind → C++ type mapping --
 // Each ParserToken::Kind maps to the concrete C++ class that stores its data.
 
 template <ParserToken::Kind K>

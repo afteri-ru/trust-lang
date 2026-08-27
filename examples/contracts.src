@@ -1,0 +1,21 @@
+#!../_build/trust --run -Wsigil=ignore --solver-mode=assert
+#
+
+# Макрос: квадрат числа.
+@@ square($x) @@(@$x * @$x) @@@@;
+
+# Импорт нативной функции с атрибутом линковки.
+@[ link("stdc++") ]@
+fabs(x:Int32):Int32 := %abs ...;
+
+# Функция с SMT-контрактами (без цикла, чтобы остаться исполняемой): сумма квадратов.
+@func sum_squares(n:Int32):Int32
+    @trust_pre(n >= 0)
+    @trust_post(sum_squares >= 0) {
+    return n + square(n);
+};
+
+@main() := {
+    @print('n + square(n) = {}\n', sum_squares(4));
+    @print('fabs(-5) = {}\n', fabs(-5));
+}

@@ -1,4 +1,4 @@
-// trust/io.hpp — I/O helpers for the Trust runtime.
+// trust/io.hpp - I/O helpers for the Trust runtime.
 //
 // Public runtime header: self-contained (standard headers only) so that
 // generated C++ programs can include it without depending on the compiler's

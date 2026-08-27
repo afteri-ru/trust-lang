@@ -1,0 +1,11 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Фаза 2.5: mixed-width BV - операнды расширяются (sign_extend) до сорта результата (Int32).
+# z3 решает без sort-ошибок; свойство f == (y+x) доказуемо (unsat).
+
+f(x:Int8, y:Int32):Int32 trust_post( f == (y + x) ) := { z := x + y; @return z; };
+
+# SM2: (assert (not (= (bvadd ((_ sign_extend 24) f_x) f_y) (bvadd f_y ((_ sign_extend 24) f_x)))))
+
+# Z3: unsat

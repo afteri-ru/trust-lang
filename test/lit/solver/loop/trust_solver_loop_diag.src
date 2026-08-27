@@ -1,0 +1,18 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1
+# RUN: %FileCheck --check-prefix=WARN %s <%t.out
+# RUN: %FileCheck --check-prefix=SM2 %s <%t.smt2
+
+# По умолчанию (без -fsolver-loop-unroll и без инварианта) цикл НЕ разворачивается: выдаётся
+# диагностика `-Wsolver-loop` (default: warning) и цикл не участвует в доказательстве (нет ite).
+# Инвариант или -fsolver-loop-unroll снимают диагностику (см. trust_solver_loop / loop_unroll).
+
+sum(n:Int32):Int32 trust_post( sum >= 0 ) := {
+    s := 0; i := 0;
+    @while(i < n){ s := s + 1; i := i + 1; };
+    @return s;
+};
+
+# WARN: loop without an invariant is not verified by the solver
+# SM2: (set-logic UFBV)
+# SM2-NOT: ite
+# SM2: (assert (not (bvsge (_ bv0 32) (_ bv0 32))))

@@ -1,0 +1,39 @@
+/* Playground CSS (godbolt-стиль). Встраивается в html_emit.cpp через #embed.
+   Светлые дефолты; сайт может переопределить --tpl-* в своём CSS (общая тема). */
+.tpl-pg{--tpl-bg:#ffffff;--tpl-text:#24292f;--tpl-gutter:#6b7280;--tpl-border:#d1d5db;--tpl-toolbar:#f6f8fa;--tpl-linked:#fff3bf;--tpl-error:#dc2626;display:flex;flex-direction:column;gap:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--tpl-bg);color:var(--tpl-text);padding:8px;border:1px solid var(--tpl-border);border-radius:6px;}
+.tpl-row{display:flex;gap:0;min-height:400px;}
+.tpl-pane{flex:1 1 0;display:flex;flex-direction:column;min-width:0;position:relative;border:1px solid var(--tpl-border);border-radius:4px;overflow:hidden;}
+/* Изменяемый размер: вертикальный сплиттер между Trust и Generated C++,
+   горизонтальный - над окном лога. */
+.tpl-splitter-v{width:6px;cursor:col-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}
+.tpl-splitter-v:hover{background:var(--tpl-border);}
+.tpl-splitter-h{height:6px;cursor:row-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}
+.tpl-splitter-h:hover{background:var(--tpl-border);}
+.tpl-toolbar{padding:4px 8px;background:var(--tpl-toolbar);font-size:12px;font-weight:600;user-select:none;display:flex;align-items:center;gap:8px;}
+.tpl-examples{font-size:12px;font-weight:400;max-width:260px;background:var(--tpl-bg);color:var(--tpl-text);border:1px solid var(--tpl-border);border-radius:3px;}
+.tpl-editor{flex:1;min-height:380px;}
+.tpl-status{min-height:1.2em;font-size:12px;color:var(--tpl-gutter);white-space:pre-wrap;}
+.tpl-status.tpl-error{color:var(--tpl-error);}
+.tpl-status a.tpl-copy{color:var(--tpl-gutter);cursor:pointer;text-decoration:underline;white-space:nowrap;}
+.tpl-status a.tpl-copy:hover{color:var(--tpl-text);}
+/* Индикатор связи песочницы с балансировщиком (публичный пинг /health): онлайн/деградация/нет связи. */
+.tpl-health{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--tpl-text);white-space:nowrap;}
+.tpl-health .dot{width:9px;height:9px;border-radius:50%;background:var(--tpl-gutter);flex:none;}
+.tpl-health.ok .dot{background:#2e7d32;}
+.tpl-health.degraded .dot{background:#ef6c00;}
+.tpl-health.down .dot{background:var(--tpl-error);}
+.tpl-linked{background:var(--tpl-linked);}
+.tpl-gutter{box-shadow:inset 3px 0 0 var(--tpl-text);opacity:.55;}
+.tpl-follow{font-size:12px;font-weight:400;display:flex;align-items:center;gap:4px;margin-left:auto;cursor:pointer;user-select:none;}
+.tpl-follow input{accent-color:var(--tpl-text);cursor:pointer;}
+.tpl-btn{font-size:12px;padding:3px 10px;background:var(--tpl-toolbar);color:var(--tpl-text);border:1px solid var(--tpl-border);border-radius:4px;cursor:pointer;text-decoration:none;font-weight:600;}
+.tpl-btn-disabled{opacity:.6;pointer-events:none;}
+.tpl-log{height:120px;min-height:40px;flex:none;overflow:auto;font-size:12px;color:var(--tpl-text);background:var(--tpl-bg);border:1px solid var(--tpl-border);border-radius:4px;padding:6px;white-space:pre-wrap;}
+/* Строки лога: кликабельные заголовки диагностик (переход на строку в исходнике). */
+.tpl-logline{min-height:1.1em;}
+.tpl-log-link{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;}
+.tpl-log-error{color:var(--tpl-error);}
+.tpl-log-warn{color:var(--tpl-text);}
+/* Оверлей правой панели: центрированное сообщение об ошибке/нет связи с сервером
+   песочницы. По умолчанию скрыт (display:none), включается из glue-JS. */
+.tpl-overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;padding:16px;text-align:center;background:var(--tpl-bg);color:var(--tpl-error);font-size:14px;line-height:1.5;z-index:10;}

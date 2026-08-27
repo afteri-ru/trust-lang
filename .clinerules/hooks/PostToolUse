@@ -60,7 +60,7 @@ if [ -n "$TASK_ID" ]; then
 fi
 # ---- End Tool usage log ----
 
-# If cmake command failed — add CMakeLists.txt content to context
+# If cmake command failed - add CMakeLists.txt content to context
 if [[ "$TOOL" == "execute_command" ]] && [[ "$SUCCESS" == "false" ]]; then
   COMMAND=$(echo "$INPUT" | jq -r '.postToolUse.parameters.command // empty')
   if [[ "$COMMAND" == *"cmake"* ]]; then

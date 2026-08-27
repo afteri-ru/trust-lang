@@ -22,20 +22,11 @@ struct ProtocolRange {
     ProtocolPosition end;
 };
 
-/// LSP DiagnosticSeverity: 1=Error, 2=Warning, 3=Info, 4=Hint.
+/// LSP DiagnosticSeverity (1=Error, 2=Warning, 3=Info, 4=Hint).
+/// kSeverityToLsp/kSeverityCount генерируются из SEVERITIES (severity.hpp).
 inline int severityToLsp(Severity sev) {
-    switch (sev) {
-    case Severity::Fatal:
-    case Severity::Error:
-        return 1;
-    case Severity::Warning:
-        return 2;
-    case Severity::Note:
-        return 3;
-    case Severity::Remark:
-        return 4;
-    }
-    return 3; // Info по умолчанию
+    const int i = static_cast<int>(sev);
+    return (i >= 0 && i < kSeverityCount) ? kSeverityToLsp[i] : 3;
 }
 
 /// Конвертирует MapperRange в протокольный диапазон (0-based) через SourceMapWriter.

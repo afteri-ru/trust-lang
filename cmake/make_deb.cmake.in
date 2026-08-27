@@ -1,0 +1,111 @@
+# cmake/make_deb.cmake.in
+# Build-time script (run via `cmake -P` by the `deb` target).
+# Stages a Debian package tree and packs it into a .deb for automatic
+# installation (`sudo apt install ./<name>.deb` or `sudo dpkg -i <name>.deb`).
+
+set(_stem "trust-lang_@TRUST_VERSION@_@TRUST_DEB_ARCH@")
+set(_root "@CMAKE_BINARY_DIR@/deb/${_stem}")
+set(_deb "@CMAKE_BINARY_DIR@/dist/${_stem}.deb")
+
+file(REMOVE_RECURSE "${_root}")
+file(MAKE_DIRECTORY "${_root}/DEBIAN" "${_root}/usr/bin" "${_root}/usr/lib"
+     "${_root}/usr/share/bash-completion/completions")
+
+# dpkg-shlibdeps requires a debian/control in its working directory. It must live
+# OUTSIDE the package tree (dpkg-deb only excludes the uppercase DEBIAN dir; a
+# lowercase debian/ would otherwise be packed into the .deb).
+set(_shlibs_dir "@CMAKE_BINARY_DIR@/deb/${_stem}.shlibs")
+file(REMOVE_RECURSE "${_shlibs_dir}")
+file(MAKE_DIRECTORY "${_shlibs_dir}/debian")
+file(WRITE "${_shlibs_dir}/debian/control" "Source: trust-lang\nBinary: trust-lang\n")
+
+# -- Executables --
+file(COPY "@CMAKE_BINARY_DIR@/trust" DESTINATION "${_root}/usr/bin")
+file(COPY "@CMAKE_BINARY_DIR@/trust-lsp" DESTINATION "${_root}/usr/bin")
+file(COPY "@CMAKE_BINARY_DIR@/trust-playground" DESTINATION "${_root}/usr/bin")
+
+# -- Runtime libraries (shared + static) --
+file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.so" DESTINATION "${_root}/usr/lib")
+file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.a" DESTINATION "${_root}/usr/lib")
+
+# -- Bash completion (auto-loaded by bash-completion for the `trust` command) --
+file(COPY "@CMAKE_SOURCE_DIR@/include/pipeline/trust-completion.bash"
+     DESTINATION "${_root}/usr/share/bash-completion/completions")
+file(RENAME "${_root}/usr/share/bash-completion/completions/trust-completion.bash"
+            "${_root}/usr/share/bash-completion/completions/trust")
+
+# Ensure the executables carry the executable bit inside the package.
+foreach(_bin trust trust-lsp trust-playground)
+    file(CHMOD "${_root}/usr/bin/${_bin}"
+         PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+                     GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+endforeach()
+
+# -- Shared-library dependencies (Depends) computed from the binaries --
+set(_deps "")
+execute_process(
+    COMMAND "@DPKG_SHLIBDEPS_EXECUTABLE@" -O
+            "${_root}/usr/bin/trust" "${_root}/usr/bin/trust-lsp"
+            "${_root}/usr/bin/trust-playground"
+            "${_root}/usr/lib/trust-runtime.so"
+    WORKING_DIRECTORY "${_shlibs_dir}"
+    OUTPUT_VARIABLE _shlibs_out
+    ERROR_VARIABLE _shlibs_err
+    RESULT_VARIABLE _shlibs_res
+)
+if(_shlibs_res EQUAL 0)
+    string(REGEX REPLACE "^shlibs:Depends=" "" _deps "${_shlibs_out}")
+    string(STRIP "${_deps}" _deps)
+endif()
+if(_deps STREQUAL "")
+    # Fallback if dependency resolution failed for any reason.
+    set(_deps "libc6")
+endif()
+
+# -- Installed size (KiB) --
+execute_process(COMMAND du -sk "${_root}/usr" OUTPUT_VARIABLE _du_out)
+string(REGEX REPLACE "[ \t].*" "" _size_kb "${_du_out}")
+string(STRIP "${_size_kb}" _size_kb)
+
+# -- control -- (Version is strictly the release number: a Debian package for a
+# distribution must not carry a build-specific git hash, or apt would see every
+# rebuild as a new version. The hash stays in the tarball artifact instead.)
+set(_control "Package: trust-lang\n")
+string(APPEND _control "Version: @TRUST_VERSION@\n")
+string(APPEND _control "Section: devel\n")
+string(APPEND _control "Priority: optional\n")
+string(APPEND _control "Architecture: @TRUST_DEB_ARCH@\n")
+string(APPEND _control "Maintainer: @TRUST_PKG_MAINTAINER@\n")
+string(APPEND _control "Installed-Size: ${_size_kb}\n")
+string(APPEND _control "Depends: ${_deps}\n")
+string(APPEND _control "Homepage: @TRUST_PKG_HOMEPAGE@\n")
+string(APPEND _control "Description: Trust programming language compiler toolchain\n")
+string(APPEND _control " A compiler and language server for the Trust programming language.\n")
+string(APPEND _control " Installs the trust compiler (trust), language server (trust-lsp),\n")
+string(APPEND _control " playground (trust-playground), the runtime\n")
+string(APPEND _control " libraries and bash completion for the trust CLI.\n")
+file(WRITE "${_root}/DEBIAN/control" "${_control}")
+
+# -- md5sums --
+set(_md5sums "")
+file(GLOB_RECURSE _deb_files RELATIVE "${_root}" "${_root}/usr/*")
+list(SORT _deb_files)
+foreach(_f IN LISTS _deb_files)
+    file(READ "${_root}/${_f}" _data)
+    string(MD5 _md5 "${_data}")
+    string(APPEND _md5sums "${_md5}  ${_f}\n")
+endforeach()
+file(WRITE "${_root}/DEBIAN/md5sums" "${_md5sums}")
+
+# -- Build the .deb --
+execute_process(
+    COMMAND "@DPKG_DEB_EXECUTABLE@" --build "${_root}" "${_deb}"
+    RESULT_VARIABLE _deb_res
+)
+if(NOT _deb_res EQUAL 0)
+    message(FATAL_ERROR "Failed to build deb: ${_deb}")
+endif()
+
+file(SHA256 "${_deb}" _sha)
+message(STATUS "Deb package created: ${_deb}")
+message(STATUS "  sha256: ${_sha}")

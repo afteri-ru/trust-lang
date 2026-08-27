@@ -19,7 +19,7 @@
 
 namespace trust {
 
-// ── Имя float-типа по разрядности (data) ────────────────
+// -- Имя float-типа по разрядности (data) ----------------
 // 16 → Float16, 32 → Float32, прочие (в т.ч. 64/неизвестная) → Float64.
 inline TypeId floatTypeForData(const TypeRegistry& reg, uint8_t data) {
     switch (data) {
@@ -33,7 +33,7 @@ inline TypeId floatTypeForData(const TypeRegistry& reg, uint8_t data) {
     }
 }
 
-// ── Продвижение одиночного конкретного числового типа (для std::any-операнда) ──
+// -- Продвижение одиночного конкретного числового типа (для std::any-операнда) --
 // Малые целые → Int32 (C++ int), 64-битные → Int64; float остаётся собой;
 // беззнаковые → UInt32/UInt64. Не-числовой/неизвестный → INVALID_TYPE_ID.
 inline TypeId promoteSingleNumeric(const TypeRegistry& reg, TypeId id) {
@@ -51,7 +51,7 @@ inline TypeId promoteSingleNumeric(const TypeRegistry& reg, TypeId id) {
     return INVALID_TYPE_ID;
 }
 
-// ── Общий арифметический тип двух операндов (usual arithmetic conversions C++) ──
+// -- Общий арифметический тип двух операндов (usual arithmetic conversions C++) --
 // Присутствие float-операнда → более широкая float-группа; иначе целые:
 // при 64-битном операнде → Int64, иначе малые продвигаются к int → Int32.
 // Операнды должны быть числами (Integers/Unsigned/Numbers); иначе → INVALID_TYPE_ID.

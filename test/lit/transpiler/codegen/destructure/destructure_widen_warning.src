@@ -1,0 +1,22 @@
+# RUN: %trust --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck --check-prefix=CHECK-LOOP %s <%t.out
+# RUN: %trust --temp-dir %T --emit-cpp %s > %t.out2 2>&1 && %FileCheck --check-prefix=CHECK-OUT %s <%t.out2
+# (без -q: предупреждения попадают в 2>&1; проверяем ТЕКСТ предупреждений о widening.)
+
+# Внутри цикла тип деструктурируемого элемента нетипизированного словаря расширяется до МАКСИМАЛЬНОГО
+# среди элементов (Bool/Int8 → Integer) - CHECK-LOOP. Вне цикла (словарь-параметр, тип элементов
+# неизвестен) элемент расширяется до Any с предупреждением - CHECK-OUT (симметрия с циклом).
+
+@main() := {
+    dictionary := (1,2,3,4,5,);
+    @while( dictionary ) {
+        item, dictionary... := ... dictionary;
+    };
+};
+
+# Вне цикла: словарь-параметр, типы элементов неизвестны → Any + предупреждение.
+@first_two(d:Dict) := {
+    a, b := ... d;
+};
+# CHECK-LOOP: warning: destructured element type is not specified; widened to the maximum element type
+# CHECK-OUT: warning: destructured element type for target 'a' is not inferable; widened to the generic type (Any)
+# CHECK-OUT: warning: destructured element type for target 'b' is not inferable; widened to the generic type (Any)

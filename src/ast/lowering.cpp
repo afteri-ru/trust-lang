@@ -1,7 +1,7 @@
 // src/ast/lowering.cpp
 // Реализация понижения: каждый класс узла переопределяет AstNodeBase::lower(self, ctx)
 // согласно своему Kind и понижает своих детей. Свободные функции lowerBody/lowerBodyNode/
-// lowerNode — векторно-ориентированные помощники (оборачивают statement-выражения в SemicolonStmt,
+// lowerNode - векторно-ориентированные помощники (оборачивают statement-выражения в SemicolonStmt,
 // вставляют continue-метки перед первым циклом именованного блока, рекурсивно понижают детей).
 
 #include "ast/lowering.hpp"
@@ -13,7 +13,7 @@
 
 namespace trust {
 
-// ── Вспомогательные ──
+// -- Вспомогательные --
 
 std::string cleanLabelName(std::string_view name) {
     std::string clean;
@@ -72,7 +72,7 @@ void appendLabel(AstNodePtr& bodyNode, const std::string& label) {
     }
 }
 
-// ── Векторные помощники ──
+// -- Векторные помощники --
 
 void lowerNode(AstNodePtr& node, LowerCtx& ctx) {
     if (node) {
@@ -90,11 +90,11 @@ void lowerBody(std::vector<AstNodePtr>& body, LowerCtx& ctx) {
         // continue-метка именованного блока: первый цикл в теле (по DFS) потребляет её.
         if (!ctx.pendingContinue.empty()) {
             if (child->kind() == ParserToken::Kind::WhileStmt) {
-                // while: метка перед циклом — goto переоценивает условие, не повторяя init.
+                // while: метка перед циклом - goto переоценивает условие, не повторяя init.
                 out.push_back(std::make_shared<LabelRef>(ParserToken::Kind::LabelStmt, ctx.pendingContinue));
                 ctx.pendingContinue.clear();
             } else if (child->kind() == ParserToken::Kind::DoWhileStmt) {
-                // do-while: метка в КОНЕЦ тела (перед '}') — goto переходит к проверке условия.
+                // do-while: метка в КОНЕЦ тела (перед '}') - goto переходит к проверке условия.
                 appendLabel(static_cast<DoWhileStmt*>(child.get())->m_body, ctx.pendingContinue);
                 ctx.pendingContinue.clear();
             }
@@ -119,8 +119,8 @@ void lowerBodyNode(AstNodePtr& bodyNode, LowerCtx& ctx) {
     if (!bodyNode) {
         return;
     }
-    // Тело цикла/ветки — НЕ именованный блок: если это блок (Sequence/ScopeBlock/ModuleNode),
-    // обрабатываем его m_body как операторы (без named-block меток); иначе — одиночный оператор.
+    // Тело цикла/ветки - НЕ именованный блок: если это блок (Sequence/ScopeBlock/ModuleNode),
+    // обрабатываем его m_body как операторы (без named-block меток); иначе - одиночный оператор.
     if (is_block_kind(bodyNode->kind())) {
         lowerBody(static_cast<Sequence*>(bodyNode.get())->m_body, ctx);
     } else {
@@ -131,13 +131,13 @@ void lowerBodyNode(AstNodePtr& bodyNode, LowerCtx& ctx) {
     }
 }
 
-// ── Node lower: понижение согласно Kind каждого класса ──
+// -- Node lower: понижение согласно Kind каждого класса --
 
 void AstNodeBase::lower(AstNodePtr&, LowerCtx&) {
 }
 
 void Sequence::lower(AstNodePtr&, LowerCtx& ctx) {
-    // DictLiteral / Tuple / RangeExpr — это Sequence структурно, но их m_body — это операнды
+    // DictLiteral / Tuple / RangeExpr - это Sequence структурно, но их m_body - это операнды
     // (у кортежа/конструкции: [имя=значение, ...]; у диапазона: [start, stop, (step)]),
     // а НЕ список операторов. Поэтому НЕ оборачиваем детей в SemicolonStmt (иначе каждый
     // элемент получил бы ';'), а понижаем их рекурсивно как выражения.
@@ -154,7 +154,7 @@ void ScopeBlock::lower(AstNodePtr&, LowerCtx& ctx) {
     if (ctx.inFunction && !is_anonymous() && !is_hidden()) {
         const std::string clean = cleanLabelName(name());
         if (!clean.empty()) {
-            // Метки именованного блока: break — после тела, continue — первый цикл в теле.
+            // Метки именованного блока: break - после тела, continue - первый цикл в теле.
             const std::string saved = ctx.pendingContinue;
             ctx.pendingContinue = clean + "_continue";
             lowerBody(m_body, ctx);
@@ -171,7 +171,7 @@ void ModuleNode::lower(AstNodePtr&, LowerCtx& ctx) {
 }
 
 void FuncDecl::lower(AstNodePtr&, LowerCtx& ctx) {
-    // Тело функции — вектор операторов (m_body), range блока берётся из m_term->m_right.
+    // Тело функции - вектор операторов (m_body), range блока берётся из m_term->m_right.
     if (m_body) {
         const bool savedInFn = ctx.inFunction;
         const std::string savedFunc = ctx.funcName;

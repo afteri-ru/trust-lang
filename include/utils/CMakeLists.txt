@@ -1,7 +1,7 @@
 # include/utils/CMakeLists.txt
-# Utils — общие вспомогательные утилиты
+# Utils - общие вспомогательные утилиты
 
-# ── Utils library ──
+# -- Utils library --
 add_library(utils_lib STATIC
     ${PROJECT_SOURCE_DIR}/utils/cache.cpp
     ${PROJECT_SOURCE_DIR}/utils/backtrace.cpp

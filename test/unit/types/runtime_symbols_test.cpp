@@ -1,6 +1,6 @@
 // test/unit/types/runtime_symbols_test.cpp
 // Тесты единой таблицы рантайм-символов (types/runtime_symbols.hpp) и инварианта
-// TypeRegistry: рантайм-символы — только не-типовые функции; типы (Dict/Rational)
+// TypeRegistry: рантайм-символы - только не-типовые функции; типы (Dict/Rational)
 // не дублируются как символы (их заголовки подключаются по-типу).
 
 #include "types/registry.hpp"
@@ -28,7 +28,7 @@ TEST(RuntimeSymbolsTest, TableNamesAreTypedAndUnique) {
     for (size_t i = 0; i < static_cast<size_t>(RuntimeSymbolId::kCount); ++i) {
         const auto id = static_cast<RuntimeSymbolId>(i);
         const std::string_view name = runtimeSymbolName(id);
-        // Каждый реальный символ — непустое имя с префиксом trust::.
+        // Каждый реальный символ - непустое имя с префиксом trust::.
         EXPECT_FALSE(name.empty());
         EXPECT_TRUE(name.starts_with("trust::"));
         // Имена уникальны (никакого дублирования строк).
@@ -42,7 +42,7 @@ TEST(RuntimeSymbolsTest, TableHeadersAreNonEmptyRuntimeDirectives) {
         const auto headers = runtimeSymbolHeaders(id);
         EXPECT_FALSE(headers.empty());
         for (const auto h : headers) {
-            // Заголовок — директива с маркером '@' (путь = ELF-секция trust-runtime).
+            // Заголовок - директива с маркером '@' (путь = ELF-секция trust-runtime).
             EXPECT_FALSE(h.empty());
             EXPECT_EQ(h.front(), '@');
         }
@@ -62,7 +62,7 @@ class RuntimeSymbolsFixture : public ::testing::Test {
 
 TEST_F(RuntimeSymbolsFixture, RegistryMatchesCompileTimeTable) {
     const auto& syms = m_ctx.types().runtimeSymbols();
-    // Ровно kCount символов — все из компайлтайм-таблицы (регистрация циклом по kCount).
+    // Ровно kCount символов - все из компайлтайм-таблицы (регистрация циклом по kCount).
     ASSERT_EQ(syms.size(), static_cast<size_t>(RuntimeSymbolId::kCount));
 
     std::set<std::string> tableNames;
@@ -76,7 +76,7 @@ TEST_F(RuntimeSymbolsFixture, RegistryMatchesCompileTimeTable) {
 }
 
 TEST_F(RuntimeSymbolsFixture, DictIsNotARuntimeSymbol) {
-    // Инвариант: trust::Dict — ТИП, а не рантайм-символ (заголовки по-типу).
+    // Инвариант: trust::Dict - ТИП, а не рантайм-символ (заголовки по-типу).
     const auto& syms = m_ctx.types().runtimeSymbols();
     for (const auto& rs : syms) {
         EXPECT_NE(rs.symbol, "trust::Dict");

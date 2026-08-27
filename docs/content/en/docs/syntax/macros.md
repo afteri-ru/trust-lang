@@ -26,7 +26,7 @@ Using the operators **::-** and **:-** creates pure (hygienic) macros, arguments
 
 The body of a macro can be a valid language expression, a sequence of lexemes (enclosed in double at symbols **"@@"**, 
 i.e. **`@@ lexeme1 lexeme2 @@`**), or a regular text string (which should be specified between triple at symbols **"@@@"**, 
-i.e. **`@@@ text string @@@`**).
+i.e. **`@@@ text string @@@@`**).
 
 In the macro name after the first term, one or more templates may be present. 
 A *template* is a term that, when matching a sequence of lexemes with the macro identifier, 
@@ -35,15 +35,15 @@ can be replaced by any other single term (effectively, this is pattern/template 
 To create a template term, a dollar sign should be placed at the beginning of its identifier (which corresponds to a qualifier of a local variable), 
 i.e. the macro name `@@ FUNC $name @@` will correspond to the sequence of lexemes as `FUNC my_func_name` as well as `FUNC other_name_func`.
 
-To remove a macro, a special syntax is used: `@@@@ name @@@@;` or `@@@@ two terms @@@@;`, 
-i.e. you need to specify the macro identifier between four characters **"@@@@"**.
+To remove a macro, a special syntax is used: `@@ name @@@@;` or `@@ two terms @@@@;`, 
+i.e. the macro name is given after the opening `@@`, and the removal is finished by the universal terminator `@@@@`.
 
 ```python
     # Macro body from a text string (as in C/C++ preprocessor)
-    @@macro_str@@ := @@@ string - macro body @@@; # String for the lexer
+    @@ macro_str @@@ string - macro body @@@@; # String for the lexer
 
     # Removing macro @macro_str
-    @@@@ macro_str @@@@;
+    @@ macro_str @@@@;
 ```
 
 ### Macro Arguments and Expansion {#args}
@@ -56,7 +56,7 @@ The **first term of a macro name is the key of a macro *group***: in one group t
 macros with the same first term but different arity** (different number/composition of additional
 terms), e.g. `break`, `break $label`, `break $a $b`. Such macros coexist and do not conflict.
 
-At expansion, among the macros of the group the **longest (most specific) match** is chosen —
+At expansion, among the macros of the group the **longest (most specific) match** is chosen -
 the one that consumes the most terms of the input buffer. The "duplication" diagnostic is emitted
 **only when the full signature (all terms) matches**, not when only the first name coincides.
 Different arities of the same group are not duplicates.

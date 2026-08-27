@@ -13,7 +13,7 @@ using trust::TypedValue;
 
 namespace {
 
-// TypeKind: Group(0-7) | Data/размерность(8-15). Значения групп — кодировка (ABI)
+// TypeKind: Group(0-7) | Data/размерность(8-15). Значения групп - кодировка (ABI)
 // trust::TypedValue; здесь собраны виды, используемые в тестах словаря.
 constexpr uint32_t kInt32 = 3u | (32u << 8);
 constexpr uint32_t kFloat64 = 5u | (64u << 8);
@@ -33,7 +33,7 @@ TEST(DictTest, TypedValueKindDecode) {
 
     const TypedValue tvBool{2u | (1u << 8), true};
     EXPECT_TRUE(tvBool.isBool());
-    EXPECT_FALSE(tvBool.isNumeric()); // Bool — логическая группа, не арифметическая
+    EXPECT_FALSE(tvBool.isNumeric()); // Bool - логическая группа, не арифметическая
 
     const TypedValue tvStr{9u | (1u << 8), std::string("x")};
     EXPECT_TRUE(tvStr.isStrChar());
@@ -54,7 +54,7 @@ TEST(DictTest, DefaultCtorEmpty) {
 }
 
 TEST(DictTest, InitializerListConstruction) {
-    // (1, two=2, name=3,) — безымянный элемент + именованные.
+    // (1, two=2, name=3,) - безымянный элемент + именованные.
     Dict d{{"", TypedValue{kInt32, 1}}, {"two", TypedValue{kInt32, 2}}, {"name", TypedValue{kInt32, 3}}};
     EXPECT_EQ(d.size(), 3u);
     EXPECT_FALSE(d.empty());
@@ -74,7 +74,7 @@ TEST(DictTest, AccessByIndexAndNegativeIndex) {
     Dict d{{"", TypedValue{kInt32, 10}}, {"", TypedValue{kInt32, 20}}, {"", TypedValue{kInt32, 30}}};
     EXPECT_EQ(d.at(0).getAs<int>(), 10);
     EXPECT_EQ(d.at(2).getAs<int>(), 30);
-    // Отрицательный индекс — с конца.
+    // Отрицательный индекс - с конца.
     EXPECT_EQ(d.at(-1).getAs<int>(), 30);
     EXPECT_EQ(d.at(-3).getAs<int>(), 10);
 }
@@ -141,7 +141,7 @@ TEST(DictTest, Equality) {
 }
 
 TEST(DictTest, NestedDict) {
-    // Значение — вложенный словарь (гетерогенность); Dict лежит в std::any-ветке TypedValue.
+    // Значение - вложенный словарь (гетерогенность); Dict лежит в std::any-ветке TypedValue.
     Dict inner{{"k", TypedValue{kInt32, 5}}};
     Dict outer{{"inner", TypedValue{kDict, inner}}};
     const Dict got = outer.at("inner").getAs<Dict>();
@@ -149,7 +149,7 @@ TEST(DictTest, NestedDict) {
 }
 
 TEST(DictTest, RationalInFastBranch) {
-    // Rational — быстрая ветка variant ПО ЗНАЧЕНИЮ (не std::any), как числа/bool/строки.
+    // Rational - быстрая ветка variant ПО ЗНАЧЕНИЮ (не std::any), как числа/bool/строки.
     const TypedValue tv{kRational, Rational("3", "4")};
     EXPECT_TRUE(tv.isRational());
     EXPECT_TRUE(std::holds_alternative<Rational>(tv.storage));
@@ -159,14 +159,14 @@ TEST(DictTest, RationalInFastBranch) {
 
 TEST(DictTest, RationalInDictAccess) {
     Dict d{{"half", TypedValue{kRational, Rational("1", "2")}}};
-    // Доступ по известному типу — напрямую из быстрой ветки (getAs<Rational>).
+    // Доступ по известному типу - напрямую из быстрой ветки (getAs<Rational>).
     const Rational got = d.at("half").getAs<Rational>();
     EXPECT_EQ(got.GetAsString(), "1\\2");
     EXPECT_TRUE(std::holds_alternative<Rational>(d.at("half").storage));
 }
 
 TEST(DictTest, RationalDictCopyAndEqual) {
-    // Копирование Dict с Rational — по значению (внутренний deep-copy Rational, без разделения).
+    // Копирование Dict с Rational - по значению (внутренний deep-copy Rational, без разделения).
     Dict a{{"r", TypedValue{kRational, Rational("1", "2")}}};
     Dict b = a;
     Dict c{{"r", TypedValue{kRational, Rational("3", "4")}}};

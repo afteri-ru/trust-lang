@@ -1,8 +1,10 @@
 #include "lsp/lsp_protocol.h"
+#include "pipeline/cli.hpp"
 #include <iostream>
+#include <vector>
 #include "utils/io.hpp"
 
-// ── LSP Protocol helpers ──
+// -- LSP Protocol helpers --
 
 using json = nlohmann::json;
 
@@ -46,98 +48,127 @@ void sendLspRequest(trust::transport::Transport& transport, const std::string& m
     transport.send(payload);
 }
 
-// ── TCP server helpers (делегированы в trust::transport) ──
+// -- TCP server helpers (делегированы в trust::transport) --
 
-// ── CLI parsing ──
+// -- CLI parsing -- (единый арity-aware парсер драйвера, см. pipeline/cli.hpp)
+
+namespace {
+
+enum class LspOptId { Help, Trace, Json, Html, HtmlFull, MonacoUrl, ServerUrl, ExamplesDir, ProjectDir, TempDir, EmitBuildDir, ShebangMode };
+
+std::vector<trust::DriverOption> lspTable() {
+    using namespace trust;
+    std::vector<DriverOption> out = {
+        {int(LspOptId::Help), "help", "h", CliOpt::Flag, "", "Show this help message", CliCategory::General},
+        {int(LspOptId::Trace), "trace", "", CliOpt::Flag, "", "Trace LSP protocol traffic", CliCategory::General},
+        {int(LspOptId::Json), "json", "", CliOpt::Flag, "", "Transpile Trust to C++ + source map as JSON to stdout (input file optional)",
+         CliCategory::CompileModel},
+        {int(LspOptId::Html), "html", "", CliOpt::Flag, "", "Emit godbolt-style HTML fragment (input file optional)", CliCategory::CompileModel},
+        {int(LspOptId::HtmlFull), "html-full", "", CliOpt::Flag, "", "Wrap --html output in a complete HTML page", CliCategory::CompileModel},
+        {int(LspOptId::MonacoUrl), "monaco-url", "", CliOpt::Value, "url", "Monaco AMD 'vs' base URL for --html", CliCategory::InputOutput},
+        {int(LspOptId::ServerUrl), "server-url", "", CliOpt::Value, "url", "Live-run endpoint for --html", CliCategory::InputOutput},
+        {int(LspOptId::ExamplesDir), "examples-dir", "", CliOpt::Value, "dir", "Directory with *.src examples for --html", CliCategory::InputOutput},
+        {int(LspOptId::ProjectDir), "project-dir", "", CliOpt::Value, "dir", "Project working directory", CliCategory::InputOutput},
+        {int(LspOptId::TempDir), "temp-dir", "", CliOpt::Value, "dir", "Temporary directory for transpiled .cpp files", CliCategory::InputOutput},
+        {int(LspOptId::EmitBuildDir), "emit-build-dir", "", CliOpt::Value, "dir", "Also build a tar.gz of the build dir (without compiling)",
+         CliCategory::ProjectSpecific},
+        {int(LspOptId::ShebangMode), "shebang-mode", "", CliOpt::Value, "mode",
+         "How to apply analysis options from the file shebang (#!...) relative to environment options: "
+         "ignore | shebang-only | env-after-shebang | env-before-shebang (default: env-after-shebang)",
+         CliCategory::ProjectSpecific},
+    };
+    // ОБЩИЕ опции анализа (--solver-mode, --keywords, -fsolver-loop-unroll, -W...) НЕ объявляются
+    // в lspTable: они разбираются ОБЩИМ методом (applyAnalysisArgs, таблица trust). Сюда их
+    // принимаем через analysis_passthrough в parseDriverArgs (см. parseLspOptions ниже) и
+    // отдаём в applyAnalysisArgs как есть - определения не дублируются, набор может быть любым.
+    return out;
+}
+
+} // namespace
 
 void printLspUsage(const char* prog) {
-    trust::errs() << "Usage: " << prog << " [options] [input]\n"
-                  << "\n"
+    trust::errs() << "Usage: " << prog << " [options] [input] [server[=<port>]]\n\n"
                   << "LSP server for Trust language source mapping.\n"
-                  << "By default runs in interactive mode (stdin/stdout).\n"
-                  << "\n"
-                  << "Options:\n"
-                  << "  --help                  Show this help\n"
-                  << "  server[=<port>]         TCP server mode on given port (default: " << LSP_DEFAULT_PORT << ")\n"
-                  << "  --project-dir <path>    Project working directory (default: cwd)\n"
-                  << "  --temp-dir <path>       Directory for temporary transpiled .cpp files (default: none)\n"
-                  << "  --emit-build-dir <dir>  With --json: also build a tar.gz of the build dir (Makefile,\n"
-                  << "                          build.conf, .cppt, trust/) into <dir> without compiling (default: none)\n"
-                  << "  --trace                 Enable LSP protocol tracing\n"
-                  << "\n"
-                  << "Playground output modes (Trust → C++ + source map):\n"
-                  << "  --json [input]          Print {source,cpp,trustToCpp,cppToTrust} as JSON to stdout\n"
-                  << "                          (input = .src file, or omitted/'-' to read stdin)\n"
-                  << "  --html [input]          Print godbolt-style HTML (two Monaco editors + JS navigation)\n"
-                  << "  --html-full             Wrap --html output into a complete HTML page\n"
-                  << "  --monaco-url <url>      Monaco AMD 'vs' base URL for --html (default: jsdelivr CDN)\n"
-                  << "  --server-url <url>      Live-run endpoint (POST Trust text → JSON) for --html\n"
-                  << "  --examples-dir <dir>    Dir with *.src embedded into --html as example combobox\n";
+                  << "By default runs in interactive mode (stdin/stdout).\n\n";
+    trust::errs() << trust::driverHelp(lspTable());
+    trust::errs() << "  server[=<port>]    TCP server mode on given port (default: " << LSP_DEFAULT_PORT << ")\n";
 }
 
 LspOptions parseLspOptions(int argc, const char* argv[]) {
     LspOptions opts;
-
-    for (int i = 1; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--help") == 0) {
-            opts.help = true;
-            return opts;
-        }
-
-        // server[=port] — TCP server mode
-        if (std::strncmp(argv[i], "server", 6) == 0) {
-            opts.mode = LspMode::Server;
-            const char* eq = std::strchr(argv[i], '=');
-            if (eq != nullptr) {
-                opts.port = std::stoi(eq + 1);
-            } else {
-                opts.port = LSP_DEFAULT_PORT;
-            }
-            continue;
-        }
-
-        auto nextArg = [&]() -> std::string {
-            if (++i >= argc) {
-                trust::errs() << "Error: " << argv[i - 1] << " requires an argument\n";
-                std::exit(1);
-            }
-            return argv[i];
-        };
-
-        if (std::strcmp(argv[i], "--json") == 0) {
-            opts.mode = LspMode::Json;
-            if (i + 1 < argc && argv[i + 1][0] != '-') {
-                opts.inputFile = nextArg();
-            }
-        } else if (std::strcmp(argv[i], "--html") == 0) {
-            opts.mode = LspMode::Html;
-            if (i + 1 < argc && argv[i + 1][0] != '-') {
-                opts.inputFile = nextArg();
-            }
-        } else if (std::strcmp(argv[i], "--html-full") == 0) {
-            opts.htmlFull = true;
-        } else if (std::strcmp(argv[i], "--monaco-url") == 0) {
-            opts.monacoUrl = nextArg();
-        } else if (std::strcmp(argv[i], "--server-url") == 0) {
-            opts.serverUrl = nextArg();
-        } else if (std::strcmp(argv[i], "--examples-dir") == 0) {
-            opts.examplesDir = nextArg();
-        } else if (std::strcmp(argv[i], "--project-dir") == 0) {
-            opts.projectDir = nextArg();
-        } else if (std::strcmp(argv[i], "--temp-dir") == 0) {
-            opts.tempDir = nextArg();
-        } else if (std::strcmp(argv[i], "--emit-build-dir") == 0) {
-            opts.emitBuildDir = nextArg();
-        } else if (std::strcmp(argv[i], "--trace") == 0) {
-            opts.trace = true;
-        } else if (std::strncmp(argv[i], "-W", 2) == 0) {
-            // Опции диагностики (-W<name>=<status>) — пробрасываются в pipeline.
-            opts.pipelineArgs.push_back(argv[i]);
-        } else {
-            trust::errs() << "Error: unknown option '" << argv[i] << "'\n";
-            std::exit(1);
-        }
+    std::vector<std::string> args;
+    args.reserve(static_cast<std::size_t>(argc));
+    for (int i = 0; i < argc; ++i) {
+        args.emplace_back(argv[i]);
     }
 
+    // server[=<port>] - подкоманда (не опция), выносим из аргументов (общий helper cli.hpp).
+    int server_port = 0;
+    if (trust::extractServerCommand(args, server_port, LSP_DEFAULT_PORT)) {
+        opts.mode = LspMode::Server;
+        opts.port = server_port;
+    }
+
+    const auto table = lspTable();
+    std::string input_file;
+    bool diag_help = false; // у trust-lsp нет `-Whelp` (playground/-W применяются позже через applyDiagnostics)
+    auto apply = [&](int id, const std::string& v) -> bool {
+        switch (static_cast<LspOptId>(id)) {
+        case LspOptId::Help:
+            opts.help = true;
+            break;
+        case LspOptId::Trace:
+            opts.trace = true;
+            break;
+        case LspOptId::Json:
+            opts.mode = LspMode::Json;
+            break;
+        case LspOptId::Html:
+            opts.mode = LspMode::Html;
+            break;
+        case LspOptId::HtmlFull:
+            opts.htmlFull = true;
+            break;
+        case LspOptId::MonacoUrl:
+            opts.monacoUrl = v;
+            break;
+        case LspOptId::ServerUrl:
+            opts.serverUrl = v;
+            break;
+        case LspOptId::ExamplesDir:
+            opts.examplesDir = v;
+            break;
+        case LspOptId::ProjectDir:
+            opts.projectDir = v;
+            break;
+        case LspOptId::TempDir:
+            opts.tempDir = v;
+            break;
+        case LspOptId::EmitBuildDir:
+            opts.emitBuildDir = v;
+            break;
+        case LspOptId::ShebangMode:
+            if (auto m = ::shebangModeFromName(v)) {
+                opts.shebangMode = *m;
+            } else {
+                // Невалидное значение -> ошибка (no silent fallback).
+                return false;
+            }
+            break;
+        }
+        return true;
+    };
+
+    // analysis_passthrough = &opts.pipelineArgs: ОБЩИЕ опции анализа (--solver-mode=,
+    // -fsolver-loop-unroll, произвольные --name=value/-f...) не объявляются в lspTable, а
+    // собираются в pipelineArgs и разбираются центрально applyAnalysisArgs (таблица trust).
+    const std::string err = trust::parseDriverArgs(args, table, apply, opts.pipelineArgs, input_file, diag_help, &opts.pipelineArgs);
+    if (!err.empty()) {
+        trust::errs() << "error: " << err << "\n";
+        std::exit(1);
+    }
+    if (!input_file.empty()) {
+        opts.inputFile = input_file;
+    }
     return opts;
 }

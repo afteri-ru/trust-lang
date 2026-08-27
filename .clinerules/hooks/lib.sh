@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lib.sh — общая библиотека для .clinerules/hooks/*
+# lib.sh - общая библиотека для .clinerules/hooks/*
 #
 # Содержит функции для:
 #   - парсинга taskId из JSON-входа (taskId = Unix timestamp ms = start time)
@@ -20,8 +20,8 @@ TASKLOG_DIR="${TASKLOG_DIR:-.tasklog}"
 #   taskId является Unix timestamp в миллисекундах (время старта задачи).
 #
 #   Параметры:
-#     json_input — строка с JSON
-#     jq_path   — jq-путь к taskId (например, '.taskId')
+#     json_input - строка с JSON
+#     jq_path   - jq-путь к taskId (например, '.taskId')
 #
 #   Возвращает:
 #     stdout: taskId (числовой Unix timestamp ms)
@@ -54,7 +54,7 @@ extract_task_id() {
 
 # ============================================================
 # normalize_task_id <task_id>
-#   Приводит taskId к числовому виду (старый формат — Unix timestamp ms).
+#   Приводит taskId к числовому виду (старый формат - Unix timestamp ms).
 #
 #   Cline передаёт taskId в двух форматах:
 #     1. Старый: чистое число (например, 1779889607014)
@@ -65,7 +65,7 @@ extract_task_id() {
 #   Для старого формата возвращает значение без изменений.
 #
 #   Параметры:
-#     task_id — сырое значение taskId из JSON
+#     task_id - сырое значение taskId из JSON
 #
 #   Возвращает:
 #     stdout: нормализованный числовой taskId
@@ -84,7 +84,7 @@ normalize_task_id() {
   if [[ "$task_id" =~ ([0-9]{10,13}) ]]; then
     echo "${BASH_REMATCH[1]}"
   else
-    # Старый формат — число или что-то иное: возвращаем как есть.
+    # Старый формат - число или что-то иное: возвращаем как есть.
     echo "$task_id"
   fi
   return 0
@@ -95,7 +95,7 @@ normalize_task_id() {
 #   Преобразует Unix timestamp в миллисекундах в ISO8601 строку.
 #
 #   Параметры:
-#     timestamp_ms — Unix timestamp в миллисекундах
+#     timestamp_ms - Unix timestamp в миллисекундах
 #
 #   Возвращает:
 #     stdout: строка в формате ISO8601 (например, 2026-05-25T08:43:46Z)
@@ -120,19 +120,19 @@ timestamp_to_iso() {
 # verify_snapshot_integrity <task_file> <tmp_file>
 #   Проверяет, что начало task_file совпадает с содержимым tmp_file (снапшот).
 #
-#   Если tmp_file не существует — ничего не делает (снапшот ещё не создан),
+#   Если tmp_file не существует - ничего не делает (снапшот ещё не создан),
 #   возвращает 0.
 #
-#   Если начало task_file совпадает с tmp_file — целостность ОК, возвращает 0.
+#   Если начало task_file совпадает с tmp_file - целостность ОК, возвращает 0.
 #
-#   Если не совпадает — восстанавливает целостность: препендит содержимое
+#   Если не совпадает - восстанавливает целостность: препендит содержимое
 #   tmp_file к task_file, возвращает 0.
 #
-#   При ошибках — возвращает 1.
+#   При ошибках - возвращает 1.
 #
 #   Параметры:
-#     task_file — путь к файлу задачи (.tasklog/<taskId>.md)
-#     tmp_file  — путь к снапшоту (.tasklog/<taskId>.tmp)
+#     task_file - путь к файлу задачи (.tasklog/<taskId>.md)
+#     tmp_file  - путь к снапшоту (.tasklog/<taskId>.tmp)
 #
 #   Возвращает:
 #     return 0 при успехе, 1 при ошибке
@@ -141,7 +141,7 @@ verify_snapshot_integrity() {
   local task_file="$1"
   local tmp_file="$2"
 
-  # Если tmp файла нет — снапшот ещё не создан, ничего не делаем
+  # Если tmp файла нет - снапшот ещё не создан, ничего не делаем
   if [ ! -f "$tmp_file" ]; then
     return 0
   fi
@@ -152,13 +152,13 @@ verify_snapshot_integrity() {
     return 1
   }
 
-  # Пустой tmp — удаляем и выходим
+  # Пустой tmp - удаляем и выходим
   if [ "$head_size" -eq 0 ]; then
     rm -f "$tmp_file"
     return 0
   fi
 
-  # Если task файла нет — создаём из снапшота
+  # Если task файла нет - создаём из снапшота
   if [ ! -f "$task_file" ]; then
     cp "$tmp_file" "$task_file" || {
       echo "[lib.sh] WARNING: verify_snapshot_integrity: failed to restore $task_file from $tmp_file" >&2
@@ -181,11 +181,11 @@ verify_snapshot_integrity() {
   }
 
   if [ "$task_head" = "$tmp_content" ]; then
-    # Снапшот цел — всё в порядке
+    # Снапшот цел - всё в порядке
     return 0
   fi
 
-  # Снапшот не совпадает — препендим его к task_file
+  # Снапшот не совпадает - препендим его к task_file
   # echo "[lib.sh] verify_snapshot_integrity: snapshot mismatch, prepending to $task_file" >&2
   local new_file
   new_file=$(mktemp "${task_file}.new.XXXXXX") || {
@@ -216,8 +216,8 @@ verify_snapshot_integrity() {
 #   актуальное состояние.
 #
 #   Параметры:
-#     task_file — путь к файлу задачи (.tasklog/<taskId>.md)
-#     tmp_file  — путь к снапшоту (.tasklog/<taskId>.tmp)
+#     task_file - путь к файлу задачи (.tasklog/<taskId>.md)
+#     tmp_file  - путь к снапшоту (.tasklog/<taskId>.tmp)
 #
 #   Возвращает:
 #     return 0 при успехе, 1 при ошибке
@@ -242,16 +242,16 @@ update_snapshot() {
 # ============================================================
 # safe_append_to_tasklog <task_file> <tmp_file>
 #   Читает данные из stdin и выполняет атомарную операцию:
-#   1. verify_snapshot_integrity — проверка целостности перед записью
+#   1. verify_snapshot_integrity - проверка целостности перед записью
 #   2. append данных из stdin в task_file
-#   3. update_snapshot — обновление снапшота после записи
+#   3. update_snapshot - обновление снапшота после записи
 #
 #   Использование: echo "data" | safe_append_to_tasklog "$TASK_FILE" "$TMP_FILE"
 #   или многострочный pipe.
 #
 #   Параметры:
-#     task_file — путь к файлу задачи (.tasklog/<taskId>.md)
-#     tmp_file  — путь к снапшоту (.tasklog/<taskId>.tmp)
+#     task_file - путь к файлу задачи (.tasklog/<taskId>.md)
+#     tmp_file  - путь к снапшоту (.tasklog/<taskId>.tmp)
 #
 #   Возвращает:
 #     return 0 при успехе, 1 при ошибке

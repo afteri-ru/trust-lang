@@ -1,6 +1,6 @@
 #include "utils/io.hpp"
 /**
- * gen_test_map.cpp — Generates binary .map files for LSP integration tests.
+ * gen_test_map.cpp - Generates binary .map files for LSP integration tests.
  *
  * Build & run:
  *   cmake --build _build --target gen_test_map

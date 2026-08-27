@@ -3,12 +3,17 @@
 // In-process транспиляция Trust→C++ + построчный source-map → JSON/HTML.
 
 #include "lsp/html_emit.h"
+#include "lsp/lsp_options.hpp"
 
 #include "diag/context.hpp"
 #include "diag/mapper.hpp"
+#include "pipeline/cli.hpp"
 #include "pipeline/pipeline.hpp"
+#include "pipeline/analysis_options.hpp"
 #include "transpiler/transpiler.hpp"
+#include "utils/error.hpp"
 #include "utils/file_io.hpp"
+#include "utils/io.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -26,7 +31,7 @@ namespace trust::lsp {
 
 using json = nlohmann::json;
 
-// ── Экранирование ──
+// -- Экранирование --
 
 std::string jsonEscape(const std::string& s) {
     std::string out = json(s).dump();
@@ -43,7 +48,7 @@ std::string jsonEscape(const std::string& s) {
     return out;
 }
 
-// ── Список примеров (комбобокс playground) ──
+// -- Список примеров (комбобокс playground) --
 
 std::vector<LspExample> loadExamplesFromDir(const std::string& dir) {
     namespace fs = std::filesystem;
@@ -80,7 +85,7 @@ std::vector<LspExample> loadExamplesFromDir(const std::string& dir) {
     return out;
 }
 
-// ── Вспомогательные ──
+// -- Вспомогательные --
 
 static size_t countLines(const std::string& s) {
     if (s.empty()) {
@@ -163,7 +168,7 @@ static void buildLineMapping(const trust::SourceMapReader& reader, trust::Reader
     }
 }
 
-// ── Транспиляция ──
+// -- Транспиляция --
 
 HtmlResult transpileToResult(const std::string& trust_code, const std::string& file_name, const LspOptions& opts) {
     HtmlResult r;
@@ -172,13 +177,14 @@ HtmlResult transpileToResult(const std::string& trust_code, const std::string& f
     const std::string project_dir = opts.projectDir.empty() ? "." : opts.projectDir;
     auto ctx = std::make_unique<trust::Context>(project_dir);
 
-    // Пробрасываем доп. опции (-W<name>=<status>) в pipeline (диагностику).
-    if (!opts.pipelineArgs.empty()) {
-        std::vector<char*> argv;
-        for (const std::string& s : opts.pipelineArgs) {
-            argv.push_back(const_cast<char*>(s.c_str()));
-        }
-        ctx->opts().parse_argv(argv);
+    // Применяем опции анализа ПО ИСТОЧНИКУ (окружение + шебанг файла) по opts.shebangMode:
+    // -W... и поведенческие флаги (--solver-mode, --keywords, -fsolver-loop-unroll), как в trust.
+    // Ошибки опций печатаем в errs() (--json/--html - одноразовый CLI, без publishDiagnostics).
+    {
+        const std::vector<std::string> shebang = extractShebangOptions(trust_code);
+        applyAnalysisArgsBySource(ctx->opts(), opts.pipelineArgs, shebang, opts.shebangMode, [](const std::string& msg, bool fromShebang) {
+            trust::errs() << "error: invalid " << (fromShebang ? "shebang" : "environment") << " analysis options: " << msg << "\n";
+        });
     }
 
     trust::PipelineOpts pipeline_opts{};
@@ -212,7 +218,7 @@ HtmlResult transpileToResult(const std::string& trust_code, const std::string& f
     return r;
 }
 
-// ── JSON ──
+// -- JSON --
 
 std::string resultToJson(const HtmlResult& r) {
     json j;
@@ -225,11 +231,11 @@ std::string resultToJson(const HtmlResult& r) {
     return j.dump();
 }
 
-// ── HTML ──
+// -- HTML --
 // Всё, что нужно для работы, встроено в выводимый HTML: стили, конфиг и
 // glue-JS (Monarch-токенайзер Trust, инициализация двух редакторов Monaco,
 // синхронная навигация, debounced живая пере-транспиляция). Внешней остаётся
-// только сама библиотека Monaco (monaco_url) — она слишком велика для встраивания.
+// только сама библиотека Monaco (monaco_url) - она слишком велика для встраивания.
 
 static const unsigned char kMonarchTrustBytes[] = {
 #embed "trust.monarch.js"
@@ -241,16 +247,31 @@ static const unsigned char kGlueJsBytes[] = {
 };
 static const std::string kGlueJs(reinterpret_cast<const char*>(kGlueJsBytes), sizeof(kGlueJsBytes));
 
+// CSS-правила, HTML-каркас и полная страница вынесены во внешние файлы (#embed),
+// чтобы редактировать их без C++-экранирования и тестировать независимо.
+static const unsigned char kPlaygroundCssBytes[] = {
+#embed "playground.css"
+};
+static const std::string kPlaygroundCss(reinterpret_cast<const char*>(kPlaygroundCssBytes), sizeof(kPlaygroundCssBytes));
+
+static const unsigned char kPlaygroundHtmlBytes[] = {
+#embed "playground.html"
+};
+static const std::string kPlaygroundHtml(reinterpret_cast<const char*>(kPlaygroundHtmlBytes), sizeof(kPlaygroundHtmlBytes));
+
+// Полная HTML-страница; единственный плейсхолдер %%BODY%% заменяется фрагментом.
+static const unsigned char kPlaygroundPageBytes[] = {
+#embed "playground_page.html"
+};
+static const std::string kPlaygroundPage(reinterpret_cast<const char*>(kPlaygroundPageBytes), sizeof(kPlaygroundPageBytes));
+
 static std::string buildConfigJson(const HtmlResult& r, const std::string& monaco_url, const std::string& server_url, const std::vector<LspExample>& examples) {
     std::string cfg = "{";
     cfg += "\"monacoUrl\":" + jsonEscape(monaco_url) + ",";
     cfg += "\"serverUrl\":" + jsonEscape(server_url) + ",";
-    cfg += "\"source\":" + jsonEscape(r.source) + ",";
-    cfg += "\"cpp\":" + jsonEscape(r.cpp) + ",";
-    cfg += "\"ok\":" + (r.ok ? std::string("true") : std::string("false")) + ",";
-    cfg += "\"error\":" + jsonEscape(r.error) + ",";
-    cfg += "\"trustToCpp\":" + json(r.trust_to_cpp).dump() + ",";
-    cfg += "\"cppToTrust\":" + json(r.cpp_to_trust).dump();
+    // Трансляция (cpp/маппинги/ok/error) НЕ хранится в шаблоне страницы -
+    // она получается только от балансировщика при каждом изменении кода.
+    cfg += "\"source\":" + jsonEscape(r.source);
     cfg += ",\"examples\":[";
     for (size_t i = 0; i < examples.size(); ++i) {
         if (i != 0) {
@@ -269,47 +290,10 @@ static std::string buildFragment(const HtmlResult& r, const LspOptions& opts, co
     out.reserve(r.source.size() + r.cpp.size() + 8192);
 
     out += "<style>\n";
-    // Светлые дефолты; сайт может переопределить --tpl-* в своём CSS (общая тема).
-    out += ".tpl-pg{--tpl-bg:#ffffff;--tpl-text:#24292f;--tpl-gutter:#6b7280;"
-           "--tpl-border:#d1d5db;--tpl-toolbar:#f6f8fa;--tpl-linked:#fff3bf;"
-           "--tpl-error:#dc2626;display:flex;flex-direction:column;gap:6px;"
-           "font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;"
-           "background:var(--tpl-bg);color:var(--tpl-text);padding:8px;"
-           "border:1px solid var(--tpl-border);border-radius:6px;}\n";
-    out += ".tpl-row{display:flex;gap:6px;min-height:400px;}\n";
-    out += ".tpl-pane{flex:1;display:flex;flex-direction:column;min-width:0;border:1px solid var(--tpl-border);border-radius:4px;overflow:hidden;}\n";
-    out += ".tpl-toolbar{padding:4px "
-           "8px;background:var(--tpl-toolbar);font-size:12px;font-weight:600;user-select:none;display:flex;align-items:center;gap:8px;}\n";
-    out += ".tpl-examples{font-size:12px;font-weight:400;max-width:260px;background:var(--tpl-bg);color:var(--tpl-text);border:1px solid "
-           "var(--tpl-border);border-radius:3px;}\n";
-    out += ".tpl-editor{flex:1;min-height:380px;}\n";
-    out += ".tpl-status{min-height:1.2em;font-size:12px;color:var(--tpl-gutter);white-space:pre-wrap;}\n";
-    out += ".tpl-status.tpl-error{color:var(--tpl-error);}\n";
-    out += ".tpl-linked{background:var(--tpl-linked);}\n";
-    out += ".tpl-gutter{box-shadow:inset 3px 0 0 var(--tpl-text);opacity:.55;}\n";
-    out += ".tpl-follow{font-size:12px;font-weight:400;display:flex;align-items:center;gap:4px;margin-left:auto;cursor:pointer;user-select:none;}\n";
-    out += ".tpl-follow input{accent-color:var(--tpl-text);cursor:pointer;}\n";
-    out += ".tpl-btn{font-size:12px;padding:3px 10px;background:var(--tpl-toolbar);color:var(--tpl-text);border:1px solid "
-           "var(--tpl-border);border-radius:4px;cursor:pointer;text-decoration:none;font-weight:600;}\n";
-    out += ".tpl-btn-disabled{opacity:.6;pointer-events:none;}\n";
-    out += ".tpl-log{min-height:80px;max-height:160px;overflow:auto;font-size:12px;color:var(--tpl-text);background:var(--tpl-bg);border:1px solid "
-           "var(--tpl-border);border-radius:4px;padding:6px;white-space:pre-wrap;}\n";
+    out += kPlaygroundCss;
     out += "</style>\n";
 
-    out += "<div class=\"tpl-pg\" id=\"trust-playground\">\n";
-    out += "<div class=\"tpl-row\">\n";
-    out += "  <div class=\"tpl-pane\"><div class=\"tpl-toolbar\">Trust"
-           "<select id=\"tpl-examples\" class=\"tpl-examples\" title=\"Load example\"></select></div>"
-           "<div id=\"tpl-trust-editor\" class=\"tpl-editor\"></div></div>\n";
-    out += "  <div class=\"tpl-pane\"><div class=\"tpl-toolbar\">Generated C++"
-           "<a id=\"tpl-download\" class=\"tpl-btn tpl-btn-disabled\" href=\"#\" title=\"Скачать архив сборки\">&#11015; Скачать архив</a>"
-           "<label id=\"tpl-follow\" class=\"tpl-follow\" title=\"Следовать за выбранной строкой (прокручивать вторую панель к ней)\">"
-           "<input type=\"checkbox\" id=\"tpl-follow-cb\" checked>follow</label></div>"
-           "<div id=\"tpl-cpp-editor\" class=\"tpl-editor\"></div></div>\n";
-    out += "</div>\n";
-    out += "<div id=\"tpl-log\" class=\"tpl-log\"></div>\n";
-    out += "<div id=\"tpl-status\" class=\"tpl-status\"></div>\n";
-    out += "</div>\n";
+    out += kPlaygroundHtml;
 
     out += "<script>\n";
     out += "window.__TPG = window.__TPG || {};\n";
@@ -328,14 +312,14 @@ std::string resultToHtml(const HtmlResult& r, const LspOptions& opts, const std:
         return fragment;
     }
 
-    std::string page;
-    page += "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n";
-    page += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
-    page += "<title>Trust Playground</title>\n";
-    page += "<style>html,body{margin:0;padding:0;background:#1e1e1e;}body{display:flex;min-height:100vh;}</style>\n";
-    page += "</head>\n<body style=\"width:100%;\">\n";
-    page += fragment;
-    page += "\n</body>\n</html>\n";
+    std::string page = kPlaygroundPage;
+    // Единственный плейсхолдер шаблона полной страницы - %%BODY%% (вставляется фрагмент).
+    // Если плейсхолдер отсутствует (шаблон испорчен) - это ошибка разработчика, а не
+    // тихий fallback: бросаем диагностику вместо бесшумного дописывания фрагмента.
+    constexpr std::string_view kBodyPlaceholder = "%%BODY%%";
+    const size_t pos = page.find(kBodyPlaceholder);
+    EXPECT(pos != std::string::npos && "playground page template must contain %%BODY%% placeholder");
+    page.replace(pos, kBodyPlaceholder.size(), fragment);
     return page;
 }
 

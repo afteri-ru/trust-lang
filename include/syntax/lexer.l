@@ -49,12 +49,9 @@ typedef trust::parser::token_type token_type;
  * Выполняется перед действием каждого правила, после того, как yytext и yyleng установлены. */
 #define YY_USER_ACTION m_current_pos += yyleng;
 
-/* Создаёт Term с позицией в исходном коде */
-/* Важно: m_current_pos — 0-based (используется и как индекс в исходный текст).
- * Диапазон для source-map/диагностики должен быть 1-based (getText/line_column/CPP
- * используют 1-based; cpp-сторона строится как size+1), поэтому здесь +1. */
-#define YY_MKRANGE(len) \
-    trust::MapperRange(m_srcIdx, m_current_pos - yyleng + 1, m_current_pos - yyleng + (len) + 1)
+/* Создаёт Term с позицией в исходном коде. Диапазон (1-based) строит
+ * Scanner::currentTokenRange() - единственное место конверсии offset→range в лексере. */
+#define YY_MKRANGE(len) currentTokenRange(len)
 
 #define YY_TOKEN(tok) \
     do { \
@@ -62,13 +59,7 @@ typedef trust::parser::token_type token_type;
         return token::tok; \
     } while (0)
 
-#define YY_TOKEN_ONLY(tok) \
-    do { \
-        *yylval = Term::Create(TermID::UNKNOWN, token::tok, tokenText().data(), yyleng, YY_MKRANGE(yyleng)); \
-        return token::tok; \
-    } while (0)
-
-/* Создаёт токен из указателя на данные (ptr, len) — для извлечения из исходного текста.
+/* Создаёт токен из указателя на данные (ptr, len) - для извлечения из исходного текста.
  * Диапазон строится от m_content_begin (0-based индекс в исходник) до конца содержимого.
  * Для source-map диапазон должен быть 1-based → +1 к begin и end. */
 #define YY_TOKEN_SRC(tok, ptr, len) \
@@ -77,6 +68,26 @@ typedef trust::parser::token_type token_type;
         *yylval = Term::Create(TermID::tok, token::tok, (ptr), (len), _rng); \
         return token::tok; \
     } while (0)
+
+/* Новая лексика определения макросов (без оператора `:=`):
+ *   @@ <имя> @@ <seq-тело> @@@@;    - обычный макрос (тело = последовательность лексем)
+ *   @@ <имя> @@@ <str-тело> @@@@;   - текстовый макрос (тело = строка)
+ *   @@ <имя> @@@@;                  - удаление макроса (MACRO_DEL)
+ * Принципы: однозначное начало (`@@`), середина определяет тип тела
+ * (`@@` -> seq, `@@@` -> str), универсальный терминатор (`@@@@`).
+ * Фаза отслеживается счётчиком m_macro_count (владеет только лексер):
+ *   0 - вне макроса; 1 - внутри имени; 2 - внутри seq-тела.
+ *
+ * Лексемы-представители маркеров (инертные токены внутри тел макросов):
+ *   @\@@   -> MACRO_LEXEME     (маркер @@,  действие macroSeqAction)
+ *   @\@@@  -> MACRO_STR_LEXEME (маркер @@@, действие macroStrAction)
+ *   @\@4   -> MACRO_DEL_LEXEME (маркер @@@@, действие macroDelAction)
+ *   @\@@@@ -> MACRO_DEL_LEXEME (алиас @\@4, для совместимости)
+ * Если тело макроса равно ровно одной такой лексеме - имя макроса становится
+ * маркером (привязывается к токену). Распознавание выполняется в GetNextToken
+ * по имени (Macro::MarkerToken), а не правилом flex. Сырые маркеры
+ * @@/@@@/@@@@ обрабатываются лексером напрямую (Scanner::macroSeqAction/...).
+ */
 
 %}
 
@@ -138,17 +149,16 @@ mangled _${mangled_name}?$_{mangled_name}+
 %x state_RAW_STRING
 %x state_RAW_BODY
 
-
 %% /*** Regular Expressions Part ***/
 
-[ \t\r\n]+  /* skip — иначе flex ECHO выводит пробельные символы в yyout (std::cout) и ломает LSP-фрейминг */
+[ \t\r\n]+  /* skip - иначе flex ECHO выводит пробельные символы в yyout (std::cout) и ломает LSP-фрейминг */
 
 "/*"        { yy_push_state(state_COMMENT); }
 
 <state_COMMENT>{
   "/*"      { yy_push_state(state_COMMENT); }
   "*/"      { yy_pop_state(); }
-  <<EOF>>   { LexerError("Unterminated /* */ comment"); }
+  <<EOF>>   { LexerError("Unterminated /* */ comment"); yyterminate(); }
   (.|\n)    /* skip */
 }
 
@@ -172,8 +182,10 @@ mangled _${mangled_name}?$_{mangled_name}+
 "@$"[0-9]+("."[1-9])?  YY_TOKEN(MACRO_ARGPOS);
 
 "@$..."[1-9]?   YY_TOKEN(MACRO_ARGUMENT);
+"@$"[0-9]+"..."   YY_TOKEN(MACRO_ARGUMENT); /* группа G: все элементы (@$1... = группа 1) */
 "@$*"("."[1-9])? YY_TOKEN(MACRO_ARGUMENT);
-"@$#"("."[1-9])? YY_TOKEN(MACRO_ARGCOUNT);
+"@$#"[0-9]*    YY_TOKEN(MACRO_ARGCOUNT); /* @$# - группа 1; @$#G - группа G */
+"@$"[0-9]+".#"  YY_TOKEN(MACRO_ARGCOUNT); /* @$G.# - кол-во группы G (симм. @$G.N) */
 
 "/**/"     /* skip */;
 
@@ -195,7 +207,7 @@ mangled _${mangled_name}?$_{mangled_name}+
                     YY_TOKEN_SRC(DOCUMENT, src.data() + m_content_begin, len);
                 }
 
-<<EOF>>         { LexerError("Unterminated /** */ doc comment"); }
+<<EOF>>         { LexerError("Unterminated /** */ doc comment"); yyterminate(); }
 
 .               /* skip */
 
@@ -231,27 +243,30 @@ mangled _${mangled_name}?$_{mangled_name}+
                     YY_TOKEN_SRC(EMBED, src.data() + m_content_begin, len);
                 }
 
-<<EOF>>         { LexerError("Unterminated source code {% %}"); }
+<<EOF>>         { LexerError("Unterminated source code {% %}"); yyterminate(); }
 
 } /* End of state_EMBED state */
 
 
+
+"@\\@@"         YY_TOKEN(MACRO_LEXEME);
+"@\\@@@"        YY_TOKEN(MACRO_STR_LEXEME);
+"@\\@4"         YY_TOKEN(MACRO_DEL_LEXEME);
+"@\\@@@@"       YY_TOKEN(MACRO_DEL_LEXEME); /* алиас @\\@4 (замена @@@@), для совместимости */
+
 "@@@@"      {
-                m_macro_del++; 
-                YY_TOKEN(MACRO_DEL);
+                TermPtr _t;
+                if (macroDelAction(_t)) { *yylval = std::move(_t); return token::MACRO_DEL; }
             }
 
 "@@@"       {
-                yy_push_state(state_MACRO_STR);
-                m_content_begin = m_current_pos;
+                TermPtr _t;
+                if (macroStrAction(_t)) { *yylval = std::move(_t); return token::MACRO_SEQ; }
             }
 
-"@@"        { 
-                if (!m_braceStack.empty()) {
-                    braceMismatchError(TermID::END, m_braceStack.back());
-                }
-                m_macro_count++; 
-                YY_TOKEN(MACRO_SEQ);
+"@@"        {
+                TermPtr _t;
+                if (macroSeqAction(_t)) { *yylval = std::move(_t); return token::MACRO_SEQ; }
             }
 
 <state_MACRO_STR>{
@@ -260,14 +275,16 @@ mangled _${mangled_name}?$_{mangled_name}+
 
 .               /* skip */
 
-"@@@"           {
+"@@@@"           {
                     yy_pop_state();
+                    m_macro_count = 0;
+                    m_inMacroSeq = false;
                     auto src = m_ctx.source().source(m_srcIdx);
                     int len = m_current_pos - yyleng - m_content_begin;
                     YY_TOKEN_SRC(MACRO_STR, src.data() + m_content_begin, len);
                 }
 
-<<EOF>>         { LexerError("Unterminated macro str @@@ ... @@@"); }
+<<EOF>>         { m_macro_count = 0; m_inMacroSeq = false; LexerError("Unterminated macro str @@@@ ... @@@@"); yyterminate(); }
 
 } /* End of state_MACRO_STR state */
 
@@ -293,14 +310,14 @@ R[']     {
   ")"        { LexerError("Raw string delimiter must be followed by '('"); }
   \n         { LexerError("Newline in raw string delimiter"); }
   .          { LexerError("Invalid character in raw string delimiter"); }
-  <<EOF>>    { LexerError("Unterminated raw string delimiter"); }
+  <<EOF>>    { LexerError("Unterminated raw string delimiter"); yyterminate(); }
 }
 
 <state_RAW_BODY>{
 
-  \n              ; /* skip — flex пропускает, YY_USER_ACTION обновляет позицию */
+  \n              ; /* skip - flex пропускает, YY_USER_ACTION обновляет позицию */
 
-  [^)\n]+         ; /* skip — flex пропускает, YY_USER_ACTION обновляет позицию */
+  [^)\n]+         ; /* skip - flex пропускает, YY_USER_ACTION обновляет позицию */
 
   ")"        {
                  /* Проверяем closing delimiter напрямую в исходном тексте через смещение.
@@ -312,7 +329,7 @@ R[']     {
                  bool match = (pos + closing_len <= static_cast<int>(src.size()) &&
                                src.compare(pos, closing_len, m_raw_closing) == 0);
                  if (match) {
-                     /* Синхронизируем буфер flex — потребляем оставшиеся символы closing delimiter */
+                     /* Синхронизируем буфер flex - потребляем оставшиеся символы closing delimiter */
                      for (int i = 1; i < closing_len; ++i) {
                          yyinput();
                      }
@@ -321,12 +338,12 @@ R[']     {
                      int body_len = (m_current_pos - yyleng) - m_content_begin;
                      YY_TOKEN_SRC(STRWIDE, src.data() + m_content_begin, body_len);
                  }
-                 /* Не совпало — flex сам продолжит сканирование после ')'.
+                 /* Не совпало - flex сам продолжит сканирование после ')'.
                   * Символы не нужно возвращать или сохранять: YY_USER_ACTION уже обновил
                   * m_current_pos, а flex продолжит с позиции после ')'. */
              }
 
-  <<EOF>>    { LexerError("Unterminated raw string"); }
+  <<EOF>>    { LexerError("Unterminated raw string"); yyterminate(); }
 
 } /* End of state_RAW_BODY state */
 
@@ -351,7 +368,7 @@ R[']     {
             LexerError("Unterminated string constant");
         }
 
-\\(.|\n)    /* skip — escape sequences preserved as-is in source */
+\\(.|\n)    /* skip - escape sequences preserved as-is in source */
 [^\\\"\n]+ /* skip */
 
 } /* End of state_STRWIDE state*/
@@ -376,7 +393,7 @@ R[']     {
             LexerError("Unterminated string constant");
         }
 
-\\(.|\n)    /* skip — escape sequences preserved as-is in source */
+\\(.|\n)    /* skip - escape sequences preserved as-is in source */
 [^\\'\n]+   /* skip */
 
 } /* End of state_STRCHAR state*/
@@ -392,7 +409,7 @@ R[']     {
               YY_TOKEN_SRC(REFLECTION, src.data() + m_content_begin, len); }
   [^ \t\r\n`]+ /* skip */
   [ \t\r\n]  LexerError("Whitespace not allowed in SYMBOL");
-  <<EOF>>    LexerError("Unterminated ` SYMBOL");
+  <<EOF>>    LexerError("Unterminated ` SYMBOL"); yyterminate();
 }
 
 
@@ -422,7 +439,7 @@ ${name}"^"? YY_TOKEN(LOCAL);
 "$..."      YY_TOKEN(LOCAL);  /* For statement macros */
 "..."       YY_TOKEN(ELLIPSIS);
 ".."        YY_TOKEN(RANGE);
-"<->"       YY_TOKEN_ONLY(REPEAT);
+"<->"       YY_TOKEN(REPEAT);
 "-->"       YY_TOKEN(FOLLOW);
 "~>"        YY_TOKEN(MATCHING);
 "~~>"       YY_TOKEN(MATCHING);
@@ -450,7 +467,13 @@ ${name}"^"? YY_TOKEN(LOCAL);
 "$::"       YY_TOKEN(MACRO_CONTEXT);
 
 "@["        YY_TOKEN(ATTRIBUTE);
-"]@"        YY_TOKEN_ONLY(ATTR_COMPLETE);
+"]@"        YY_TOKEN(ATTR_COMPLETE);
+
+        /* Trust contracts (единая форма @{ [kind:] expr @}) - маркеры с ведущим @ */
+"@{"        YY_TOKEN(TRUST_BEGIN);
+"@}"        YY_TOKEN(TRUST_END);
+"@("        YY_TOKEN(TRUST_ELEM_BEGIN);
+"@)"        YY_TOKEN(TRUST_ELEM_END);
 
 "@\\,"      YY_TOKEN(COMMA_LEXEME);
 
@@ -462,15 +485,15 @@ ${name}"^"? YY_TOKEN(LOCAL);
 "+-"        YY_TOKEN(INT_REPEAT);
 
         /* Blocks */
-"{*"        m_braceStack.push_back(TermID::BLOCK_TRY); YY_TOKEN_ONLY(TRY_ALL_BEGIN);
-"*}"        checkBraceClose(TermID::BLOCK_TRY); YY_TOKEN_ONLY(TRY_ALL_END);
-"{+"        m_braceStack.push_back(TermID::BLOCK_PLUS); YY_TOKEN_ONLY(TRY_PLUS_BEGIN);
-"+}"        checkBraceClose(TermID::BLOCK_PLUS); YY_TOKEN_ONLY(TRY_PLUS_END);
-"{-"        m_braceStack.push_back(TermID::BLOCK_MINUS); YY_TOKEN_ONLY(TRY_MINUS_BEGIN);
-"-}"        checkBraceClose(TermID::BLOCK_MINUS); YY_TOKEN_ONLY(TRY_MINUS_END);
+"{*"        m_braceStack.push_back(TermID::BLOCK_TRY); YY_TOKEN(TRY_ALL_BEGIN);
+"*}"        checkBraceClose(TermID::BLOCK_TRY); YY_TOKEN(TRY_ALL_END);
+"{+"        m_braceStack.push_back(TermID::BLOCK_PLUS); YY_TOKEN(TRY_PLUS_BEGIN);
+"+}"        checkBraceClose(TermID::BLOCK_PLUS); YY_TOKEN(TRY_PLUS_END);
+"{-"        m_braceStack.push_back(TermID::BLOCK_MINUS); YY_TOKEN(TRY_MINUS_BEGIN);
+"-}"        checkBraceClose(TermID::BLOCK_MINUS); YY_TOKEN(TRY_MINUS_END);
 
 
-"//"        YY_TOKEN_ONLY(OPERATOR_DIV);
+"//"        YY_TOKEN(OPERATOR_DIV);
 "+="        YY_TOKEN(OP_MATH);
 "-="        YY_TOKEN(OP_MATH);
 "*="        YY_TOKEN(OP_MATH);
@@ -481,18 +504,18 @@ ${name}"^"? YY_TOKEN(LOCAL);
 
 "||"        YY_TOKEN(OP_LOGICAL);
 "^^"        YY_TOKEN(OP_LOGICAL);
-"&&"        YY_TOKEN_ONLY(OPERATOR_AND);
+"&&"        YY_TOKEN(OPERATOR_AND);
 
     /* Links and dereference */
 "&"[0-9]+"^"?   YY_TOKEN(OPERATOR_PTR);
-"&^"        YY_TOKEN_ONLY(OPERATOR_PTR);
-"&&^"       YY_TOKEN_ONLY(OPERATOR_PTR);
-"&*"        YY_TOKEN_ONLY(OPERATOR_PTR);
-"&*^"       YY_TOKEN_ONLY(OPERATOR_PTR);
-"&?"        YY_TOKEN_ONLY(OPERATOR_PTR);
-"&?^"       YY_TOKEN_ONLY(OPERATOR_PTR);
+"&^"        YY_TOKEN(OPERATOR_PTR);
+"&&^"       YY_TOKEN(OPERATOR_PTR);
+"&*"        YY_TOKEN(OPERATOR_PTR);
+"&*^"       YY_TOKEN(OPERATOR_PTR);
+"&?"        YY_TOKEN(OPERATOR_PTR);
+"&?^"       YY_TOKEN(OPERATOR_PTR);
 
-"*^"        YY_TOKEN_ONLY(TAKE_CONST);
+"*^"        YY_TOKEN(TAKE_CONST);
 "**"        YY_TOKEN(WITH);
 
 
@@ -506,9 +529,9 @@ ${name}"^"? YY_TOKEN(LOCAL);
 ".~."        YY_TOKEN(OP_BITWISE);
 
 "!~~~"      YY_TOKEN(OP_COMPARE);
-"~~~"       YY_TOKEN_ONLY(OPERATOR_DUCK);
+"~~~"       YY_TOKEN(OPERATOR_DUCK);
 "!~~"       YY_TOKEN(OP_COMPARE);
-"~~"        YY_TOKEN_ONLY(OPERATOR_DUCK);
+"~~"        YY_TOKEN(OPERATOR_DUCK);
 "!~"        YY_TOKEN(OP_COMPARE);
 "==="       YY_TOKEN(OP_COMPARE);
 "=="        YY_TOKEN(OP_COMPARE);
@@ -516,24 +539,25 @@ ${name}"^"? YY_TOKEN(LOCAL);
 "!="        YY_TOKEN(OP_COMPARE);
 "=/="       YY_TOKEN(OP_COMPARE);
 "<="        YY_TOKEN(OP_COMPARE);
-">="        YY_TOKEN_ONLY(OPERATOR_ANGLE_EQ);
+">="        YY_TOKEN(OPERATOR_ANGLE_EQ);
 
     /* Async  */
 "[*]"       YY_TOKEN(AWAIT);
 "[++]"      YY_TOKEN(YIELD);
-"[++"       YY_TOKEN_ONLY(YIELD_BEGIN);
-"++]"       YY_TOKEN_ONLY(YIELD_END);
+"[++"       YY_TOKEN(YIELD_BEGIN);
+"++]"       YY_TOKEN(YIELD_END);
 "[**]"      YY_TOKEN(WHEN_ALL);
 "[***]"     YY_TOKEN(WHEN_ANY);
 
 "??"        YY_TOKEN(ITERATOR);
 
 "{"     {
-            m_braceStack.push_back(TermID::LBRACE);
+            // терм-маркер внутри @@ ... @@: не открывающий блок
+            if (!m_inMacroSeq) m_braceStack.push_back(TermID::LBRACE);
             YY_TOKEN(LBRACE);
         }
 "}"     {
-            checkBraceClose(TermID::LBRACE);
+            if (!m_inMacroSeq) checkBraceClose(TermID::LBRACE);
             YY_TOKEN(RBRACE);
         }
 
@@ -578,4 +602,8 @@ ${name}"^"? YY_TOKEN(LOCAL);
     LexerError("Unexpected character");
 }
 
-%% /*** Additional Code ***/
+%%
+
+void Scanner::enterMacroStr() {
+    yy_push_state(state_MACRO_STR);
+}

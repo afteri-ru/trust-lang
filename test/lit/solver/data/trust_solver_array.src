@@ -1,0 +1,12 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Фаза 2.8: массивы. Литерал [5,6,7]:Int32 -> store-цепочка; a[0]==5 доказуемо -> UNSAT.
+
+g():Int32 := { a := [5, 6, 7,]:Int32; @{ a[0] == 5 @}; @return 0; };
+
+# SM2: (set-logic AUFBV)
+# SM2: (declare-fun __arr0 () (Array (_ BitVec 64) (_ BitVec 32)))
+# SM2: (assert (not (= (select (store (store (store __arr0 (_ bv0 64) (_ bv5 32)) (_ bv1 64) (_ bv6 32)) (_ bv2 64) (_ bv7 32)) ((_ zero_extend 32) (_ bv0 32))) (_ bv5 32))))
+
+# Z3: unsat

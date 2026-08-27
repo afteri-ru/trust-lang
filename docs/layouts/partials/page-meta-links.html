@@ -8,7 +8,11 @@
 {{ $gh_subdir := $.Param "github_subdir" | default "" -}}
 {{ $gh_project_repo := $.Param "github_project_repo" -}}
 {{ $gh_branch := $.Param "github_branch" | default "main" -}}
+{{ $vscode_edit := $.Param "vscode_edit" | default false -}}
 <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+{{ if and $vscode_edit hugo.IsServer -}}
+  <a href="vscode://file/{{ replaceRE " " "%20" $.File.Filename }}" class="td-page-meta--vscode td-page-meta__vscode" target="_blank" rel="noopener"><i class="fa-solid fa-pen-to-square fa-fw"></i> {{ T "post_edit_vscode" }}</a>
+{{ end -}}
 {{ if $gh_url -}}
   {{ warnf "Warning: use of `github_url` is deprecated. For details, see https://www.docsy.dev/docs/adding-content/repository-links/#github_url-optional" -}}
   <a href="{{ $gh_url }}" target="_blank"><i class="fa-solid fa-pen-to-square fa-fw"></i> {{ T "post_edit_this" }}</a>

@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --solver-mode=assert --temp-dir $TD -o $TD/va %s
+# RUN: ($TD/va 2> %t.err || true) && %FileCheck %s <%t.err
+
+# Утверждение переменной (`y @{ y < 0 @} := 5;`): при инициализации y=5 нарушает `y < 0` →
+# trust::trust__abort__ завершает программу с сообщением `file:line: y < 0`.
+
+# CHECK: trust_var_assert_runtime.src:[[#]]: y < 0
+
+%chk():Void := {
+    y @{ y < 0 @} := 5;
+    ++ _ ++;
+};
+{% int trust_var_assert_runtime__main__() {
+    chk();
+    return 0;
+}
+%}

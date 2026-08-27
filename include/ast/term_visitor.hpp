@@ -2,12 +2,12 @@
 // TermID-visitor: вход ПО TERMID (из X-макроса TERMS).
 //
 // Это отдельный механизм от KindVisitor (вход по Kind из PARSER_TOKEN_KINDS):
-//   - TermID-visitor (этот файл) — КОНВЕРТАЦИЯ Term -> AstNode (TermToAstConverter).
-//   - Kind-visitor (kind_visitor.hpp) — АНАЛИЗ и ГЕНЕРАЦИЯ КОДА (analyzeNode, CppTranspiler).
+//   - TermID-visitor (этот файл) - КОНВЕРТАЦИЯ Term -> AstNode (TermToAstConverter).
+//   - Kind-visitor (kind_visitor.hpp) - АНАЛИЗ и ГЕНЕРАЦИЯ КОДА (analyzeNode, CppTranspiler).
 //
 // Интерфейс: по одному методу visit_<NAME> на каждую пару _(NAME, Kind) из TERMS
-// (записи _(NAME) без Kind и TermID::END в интерфейс НЕ попадают — такие TermID не должны
-// конвертироваться в AstNode). Диспетчер dispatchTerm — исчерпывающий switch по TermID.
+// (записи _(NAME) без Kind и TermID::END в интерфейс НЕ попадают - такие TermID не должны
+// конвертироваться в AstNode). Диспетчер dispatchTerm - исчерпывающий switch по TermID.
 //
 // «Типовые» visit-методы (группы TermID с общим построением: Ident, TypeName, FuncDecl,
 // control-flow) генерируются из x-macro автоматически через convertForKind<Kind> (класс узла
@@ -43,12 +43,12 @@ struct TermVisitor {
 };
 
 /// Диспетчер по TermID: switch(term->getTermID()) из TERMS.
-/// Записи _(NAME) без Kind и TermID::END — default: FAULT (не конвертируются).
-/// Определение — в term_to_ast.cpp (нужен полный тип trust::Term).
+/// Записи _(NAME) без Kind и TermID::END - default: FAULT (не конвертируются).
+/// Определение - в term_to_ast.cpp (нужен полный тип trust::Term).
 AstNodePtr dispatchTerm(const trust::TermPtr& term, TermVisitor& visitor, Context& ctx);
 
 /// Базовая реализация TermID-visitor: каждый visit_<NAME> строится через convertForKind<Kind>
-/// (generic-путь). Определения методов — в term_to_ast.cpp (нужны полные типы узлов).
+/// (generic-путь). Определения методов - в term_to_ast.cpp (нужны полные типы узлов).
 struct TermVisitorDefault : TermVisitor {
 #define TRUST_TVD_NOCASE(name)
 #define TRUST_TVD_GENCASE(name, kind) AstNodePtr visit_##name(const trust::TermPtr& term, Context& ctx) override;
@@ -69,7 +69,7 @@ struct TermVisitorDefault : TermVisitor {
   protected:
     /// Типовое построение узла по Kind: Ident→класс-селекция (CallExpr vs IdentName),
     /// control-flow→make_shared<node_type_for_kind_t<K>>+expandControlFlowRange,
-    /// прочее→make_shared<node_type_for_kind_t<K>>(K, term, &ctx). Класс узла — из PARSER_TOKEN_KINDS;
+    /// прочее→make_shared<node_type_for_kind_t<K>>(K, term, &ctx). Класс узла - из PARSER_TOKEN_KINDS;
     /// раскладку детей строят сами терм-конструкторы узлов.
     template <ParserToken::Kind K>
     AstNodePtr convertForKind(const trust::TermPtr& term, Context& ctx);

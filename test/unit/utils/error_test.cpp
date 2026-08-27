@@ -1,6 +1,6 @@
 // Test file: public runtime error/abort helpers (trust/assert.hpp).
-//   - trust::formatMessage — форматирование диагностического сообщения.
-//   - trust__abort__ — печать в errs() и завершение через SIGABRT (в дочернем
+//   - trust::formatMessage - форматирование диагностического сообщения.
+//   - trust__abort__ - печать в errs() и завершение через SIGABRT (в дочернем
 //     процессе, с захватом stderr через pipe).
 //   - секция "trust/assert.hpp" встроена в trust-runtime.so/.a.
 
@@ -17,7 +17,7 @@
 
 namespace {
 
-// ── formatMessage ───────────────────────────────────────────
+// -- formatMessage -------------------------------------------
 
 TEST(FormatMessageTest, PrefixBasenameAndArgs) {
     auto s = trust::formatMessage("/a/b/file.cpp", 42, "val={}", 7);
@@ -34,10 +34,10 @@ TEST(FormatMessageTest, MultipleArgs) {
     EXPECT_EQ(s, "x:1: a 2 c");
 }
 
-// ── trust__abort__ (дочерний процесс) ──────────────────────
+// -- trust__abort__ (дочерний процесс) ----------------------
 
 // Запускает trust__abort__ в дочернем процессе, захватывая stderr через pipe.
-// Возвращает raw wait-статус; текст stderr — в capturedErr.
+// Возвращает raw wait-статус; текст stderr - в capturedErr.
 int runAbort(const std::string& msg, bool trace, std::string& capturedErr) {
     int fds[2];
     if (::pipe(fds) != 0) {
@@ -83,7 +83,7 @@ TEST(AbortTest, TraceAddsBacktrace) {
     EXPECT_NE(err.find('#'), std::string::npos) << "backtrace should contain frames";
 }
 
-// ── Секция "trust/assert.hpp" в рантайм-библиотеке ─────────
+// -- Секция "trust/assert.hpp" в рантайм-библиотеке ---------
 
 TEST(RuntimeHeaderTest, AssertHeaderEmbeddedInSharedAndStatic) {
     auto so = trust::utils::readSectionFromLibrary(TRUST_RUNTIME_SHARED_PATH, "trust/assert.hpp");

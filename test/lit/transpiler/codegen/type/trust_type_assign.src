@@ -1,0 +1,17 @@
+# RUN: %trust -q --emit-cpp --solver-mode=assert %s > %t.out && %FileCheck %s <%t.out
+
+# Тип-утверждение (`MyInt trust_assert( MyInt > 0 )`): проверяется при создании значения типа
+# (объявление `x :MyInt := ...`) и ПОСЛЕ присваивания (значение изменилось). Имя типа в условии -
+# плейсхолдер значения, подставляется как переменная (c_x).
+
+MyInt trust_assert( MyInt > 0 ) ::= :Int32;
+%f():Void := {
+    x :MyInt := 5;
+    x = 10;
+    ++ _ ++;
+};
+
+# CHECK: c_MyInt c_x = 5;
+# CHECK: if (!((c_x > 0))) trust::trust__abort__("{{.*}}trust_type_assign.src", {{[0-9]+}}, "MyInt > 0", 1);
+# CHECK: c_x = 10;
+# CHECK: if (!((c_x > 0))) trust::trust__abort__("{{.*}}trust_type_assign.src", {{[0-9]+}}, "MyInt > 0", 1);

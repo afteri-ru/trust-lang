@@ -1,4 +1,4 @@
-// trust/rational.hpp — arbitrary-precision rational numbers.
+// trust/rational.hpp - arbitrary-precision rational numbers.
 //
 // Public runtime header for the Trust runtime. Implemented in
 // src/runtime/rational.cpp (part of trust-runtime.so).

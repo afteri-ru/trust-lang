@@ -39,8 +39,8 @@ void SymbolCollectorHook::finalize() {
         SymbolInfo si;
         si.name = std::move(e.name);
 
-        // Финальный тип: у VarDecl — выведенный (VarDecl::inferredType, post-order);
-        // у прочих (FuncDecl/TypeDecl/ArgNode) — тип из Symbol::type.
+        // Финальный тип: у VarDecl - выведенный (VarDecl::inferredType, post-order);
+        // у прочих (FuncDecl/TypeDecl/ArgNode) - тип из Symbol::type.
         TypeId t = e.type;
         if (auto* vd = dynamic_cast<VarDecl*>(e.decl)) {
             if (vd->inferredType != INVALID_TYPE_ID) {
@@ -50,8 +50,8 @@ void SymbolCollectorHook::finalize() {
         si.type = clearInferred(t);
         si.typeName = m_actx.ctx().types().getFullTypeName(si.type);
 
-        // Поля словаря/кортежа из инициализатора-литерала `x := (a=1, b=2,)` — для
-        // member-завершения `x.`. Тип такого литерала — универсальный Dict (поля в нём
+        // Поля словаря/кортежа из инициализатора-литерала `x := (a=1, b=2,)` - для
+        // member-завершения `x.`. Тип такого литерала - универсальный Dict (поля в нём
         // не хранятся), поэтому имена полей берём из узла DictLiteral (AssignOp m_left).
         if (auto* vd = dynamic_cast<VarDecl*>(e.decl)) {
             if (vd->m_initializer && vd->m_initializer->kind() == ParserToken::Kind::DictLiteral) {
@@ -69,7 +69,7 @@ void SymbolCollectorHook::finalize() {
             }
         }
 
-        // Диапазон имени: у VarDecl — точный (nameRange); у прочих — диапазон узла объявления.
+        // Диапазон имени: у VarDecl - точный (nameRange); у прочих - диапазон узла объявления.
         si.nameRange = e.decl->range();
         if (auto* vd = dynamic_cast<VarDecl*>(e.decl)) {
             const MapperRange nr = vd->nameRange();

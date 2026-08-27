@@ -1,7 +1,7 @@
-// attr_pool.hpp — AttrPool (mutable registry) for attributes
+// attr_pool.hpp - AttrPool (mutable registry) for attributes
 //
 // AttrPool is the single point of registration for both built-in and
-// user-defined attributes. There is no AttrType distinction — every
+// user-defined attributes. There is no AttrType distinction - every
 // attribute is simply a name + optional default parameter values.
 //
 // Built-in attributes are registered with register_builtin_attr (no source
@@ -32,18 +32,18 @@
 
 namespace trust {
 
-// ────────────────────────────────────────────────────────────────────────────
-// StringViewHash — transparent hash for std::string_view (to avoid copying)
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// StringViewHash - transparent hash for std::string_view (to avoid copying)
+// ----------------------------------------------------------------------------
 
 struct StringViewHash {
     using is_transparent = void;
     [[nodiscard]] auto operator()(std::string_view s) const noexcept { return std::hash<std::string_view>{}(s); }
 };
 
-// ────────────────────────────────────────────────────────────────────────────
-// AttrPool — mutable attribute registry
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AttrPool - mutable attribute registry
+// ----------------------------------------------------------------------------
 
 class AttrPool {
   public:
@@ -60,7 +60,7 @@ class AttrPool {
     AttrPool(AttrPool&&) noexcept = default;
     AttrPool& operator=(AttrPool&&) noexcept = default;
 
-    // ── Attribute registration ──
+    // -- Attribute registration --
 
     /// Register a user-defined attribute with given name and default parameter values.
     /// Parameters are stored as string_view values.
@@ -73,7 +73,7 @@ class AttrPool {
     /// FAULT if an attribute with the same name already exists.
     AttrId register_builtin_attr(std::string_view name, std::vector<std::string_view> default_params = {});
 
-    // ── Queries ──
+    // -- Queries --
 
     /// Look up an attribute by name, return AttrId or nullopt if not found (O(1)).
     [[nodiscard]] std::optional<AttrId> lookup(std::string_view name) const noexcept;

@@ -1,6 +1,9 @@
-// src/trust.cpp — точка входа в компилятор/транспилятор Trust
+// src/trust.cpp - точка входа в компилятор/транспилятор Trust
 #include "pipeline/pipeline.hpp"
+#include "pipeline/cli.hpp"
+#include "pipeline/analysis_options.hpp"
 #include "diag/diag.hpp"
+#include "utils/io.hpp"
 
 #include <sstream>
 #include <string>
@@ -10,7 +13,7 @@ int main(int argc, char* argv[], char* envp[]) {
     (void)envp;
 
     // Linux-хешбанг передаёт ВЕСЬ текст после интерпретатора ОДНИМ аргументом
-    // (например "--run -Wembed=ignore" — один argv-токен, т.к. ядро не разбивает пробелы).
+    // (например "--run -Wembed=ignore" - один argv-токен, т.к. ядро не разбивает пробелы).
     // Разбиваем option-аргументы (начинающиеся с '-'), содержащие пробелы, на отдельные токены,
     // чтобы --run и -W опции распознавались корректно. Не-option аргументы (пути) не трогаем.
     std::vector<std::string> argStrs;
@@ -35,24 +38,29 @@ int main(int argc, char* argv[], char* envp[]) {
     // Парсинг аргументов командной строки
     auto result = trust::Pipeline::parseArgs(static_cast<int>(newArgv.size()), newArgv.data());
 
-    // Help/version/errors — выходим сразу
+    // Help/version/errors - выходим сразу
     if (trust::Pipeline::isSpecialExit(result)) {
         return result.exit_code;
     }
 
     // Создаём контекст и передаём его в Pipeline
     trust::Context ctx;
-    // Применяем -W<option> (severity-опции и feature-флаги, напр. -Wno-comments) из
-    // неизвестных CLI-аргументов. parse_argv останавливается на первом не -W аргументе.
+    // Единая точка применения опций анализа: -W<option> (severity и feature-флаги) +
+    // поведенческие флаги (--solver-mode, --keywords, -fsolver-loop-unroll). Реализация -
+    // applyAnalysisOptions (include/pipeline/analysis_options.hpp), общая для trust и trust-lsp.
+    // `-Whelp` печатает список диагностик и завершает.
     {
-        std::vector<char*> wargv;
-        for (auto& s : result.remaining_args) {
-            if (s.starts_with("-W")) {
-                wargv.push_back(s.data());
-            }
+        try {
+            trust::applyAnalysisOptions(ctx.opts(), result);
+        } catch (const std::invalid_argument& e) {
+            // Неизвестная -W-опция.
+            // Диагностика уже выведена в diag(); здесь только конвертируем в код выхода.
+            (void)e;
+            return 1;
         }
-        if (!wargv.empty()) {
-            ctx.opts().parse_argv(wargv);
+        if (ctx.opts().helpRequested()) {
+            ctx.opts().printHelp(trust::outs());
+            return 0;
         }
     }
     trust::Pipeline pipeline(ctx, result.opts);

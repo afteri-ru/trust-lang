@@ -3,7 +3,7 @@
 # Required variables: VSIX_SOURCE_DIR, VSIX_OUTPUT_DIR, VSIX_OUTPUT_FILE, VSIX_ID, VSIX_VERSION, VSIX_PUBLISHER, VSIX_DISPLAY_NAME, VSIX_DESCRIPTION
 # Optional variables: VSIX_LANGUAGE, VSIX_TEMPLATE_DIR
 
-# Required variables — fail early if not set
+# Required variables - fail early if not set
 if(NOT DEFINED VSIX_ID)
     message(FATAL_ERROR "VSIX_ID is not defined")
 endif()

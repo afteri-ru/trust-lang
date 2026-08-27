@@ -1,0 +1,26 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Правила вывода сигилов имён + возврат кортежа + линковка:
+#  - bare `fib` в вызове резолвится в нативную функцию `%fib` → C++-имя `fib`;
+#  - `$n` резолвится в параметр `n` → C++ `c_n`;
+#  - определение функции (с телом) НЕ получает `extern "C"` (C-линковка - только forward).
+
+%fib(n:Rational):Tuple(sum:Rational, fib:Rational) := {
+    p := fib(n-1);
+    @return (p.0 + p.1, p.sum,):Tuple;
+};
+
+%calc(n:Rational):Void := {
+    result := fib($n);
+    x := result.0;
+};
+
+@main() := {
+    calc(100);
+};
+# CHECK: auto fib(trust::Rational c_n) {
+# CHECK-NEXT:     auto c_p = fib((c_n - 1));
+# CHECK: void calc(trust::Rational c_n) {
+# CHECK-NEXT:     auto c_result = fib(c_n);
+# CHECK:     calc(100);
+# CHECK-NOT: extern "C"

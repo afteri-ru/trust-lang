@@ -1,0 +1,9 @@
+# RUN: %trust --emit-lexemes %s > %t.out 2> %t.err
+# RUN: %FileCheck %s --input-file=%t.err
+# RUN: %trust --emit-lexemes --keywords=test %s > %t2.out 2> %t2.err
+# RUN: %not grep "missing '@' sigil" %t2.err
+@@ test @@ 42 @@@@;
+@main() := {
+    a := test;
+}
+# CHECK: warning: macro 'test' is missing '@' sigil

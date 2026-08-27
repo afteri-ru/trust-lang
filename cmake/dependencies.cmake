@@ -1,23 +1,20 @@
 # cmake/dependencies.cmake
 # Find required tools, libraries and create utility targets
 
-# ── Required tools ──
+# -- Required tools --
 find_package(GTest REQUIRED)
 find_program(FLEX_EXECUTABLE flex REQUIRED)
 find_program(BISON_EXECUTABLE NAMES bison REQUIRED)
 find_program(LIT_EXECUTABLE NAMES lit REQUIRED)
 
-# ── Required libraries ──
+# -- Required libraries --
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(ZSTD REQUIRED IMPORTED_TARGET libzstd)
 pkg_check_modules(GMP REQUIRED gmp)
 
 find_package(nlohmann_json REQUIRED)
 
-# ── CLI11 (для парсинга аргументов командной строки) ──
-find_package(CLI11 REQUIRED)
-
-# ── msgpack-c (для бинарного source mapping) — статическая линковка ──
+# -- msgpack-c (для бинарного source mapping) - статическая линковка --
 pkg_check_modules(MSGPACK REQUIRED msgpack-c)
 find_library(MSGPACK_STATIC_LIB
     NAMES libmsgpack-c.a msgpack-c.a
@@ -35,16 +32,16 @@ set_target_properties(msgpack-c-static PROPERTIES
     INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${MSGPACK_INCLUDE_DIRS}"
 )
 
-# ── LLVM (for MD5/ArrayRef utilities) ──
+# -- LLVM (for MD5/ArrayRef utilities) --
 list(APPEND CMAKE_PREFIX_PATH "/usr/lib/llvm-22/lib/cmake")
 find_package(LLVM REQUIRED CONFIG)
 
-# ── GMP interface target ──
+# -- GMP interface target --
 add_library(gmp_interface INTERFACE)
 target_include_directories(gmp_interface SYSTEM INTERFACE ${GMP_INCLUDE_DIRS})
 target_link_libraries(gmp_interface INTERFACE ${GMP_LIBRARIES})
 
-# ── Z3 (optional SMT solver for formal verification) ──
+# -- Z3 (optional SMT solver for formal verification) --
 if(WITH_SOLVER)
     find_package(Z3 REQUIRED)
     message(STATUS "Z3: ${Z3_VERSION_STRING} at ${Z3_INCLUDE_DIR}")

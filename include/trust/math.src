@@ -1,6 +1,6 @@
 
-@@ math_attr  @@ := @@ @[ include("math.h") ]@ @[ libstd ]@  @@;
-@@ cmath_attr  @@ := @@ @[ include("cmath") ]@ @@;
+@@ math_attr  @@  @[ include("math.h") ]@ @[ libstd ]@  @@@@;
+@@ cmath_attr  @@  @[ include("cmath") ]@ @@@@;
 
 
 @math_attr
@@ -12,7 +12,7 @@ sqrt(:Number):Number := %sqrt...;
 
 
 
-@@ algorithm_attr @@ := @@ @[ include("algorithm") ]@ @@;
+@@ algorithm_attr @@ @[ include("algorithm") ]@ @@@@;
 
 @algorithm_attr
 <T:Arithmetics>

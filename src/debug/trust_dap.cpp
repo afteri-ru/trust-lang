@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------
-// trust-dap — DAP-сервер для отладки trust-lang (точка входа)
+// trust-dap - DAP-сервер для отладки trust-lang (точка входа)
 //
 // Запускается VSCode, читает JSON-RPC из stdin (interactive) или из TCP
 // (server), пишет в stdout / TCP.
@@ -21,7 +21,7 @@
 
 using json = nlohmann::json;
 
-// ── Main ──
+// -- Main --
 int main(int argc, const char* argv[]) {
     DapOptions opts = parseDapOptions(argc, argv);
 

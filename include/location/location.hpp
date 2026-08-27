@@ -7,13 +7,13 @@
 
 namespace trust {
 
-// ── Константы формата упаковки TaggedFile и TaggedLocation ──
+// -- Константы формата упаковки TaggedFile и TaggedLocation --
 // Полная замена битовой раскладки, без обратной совместимости.
-// ── TaggedFile.raw ──
-//   raw = 0                         — невалидный
+// -- TaggedFile.raw --
+//   raw = 0                         - невалидный
 //   bit 31 = 0: входной файл:       raw = index + 1 (1..511)
 //   bit 31 = 1: выходной файл:      raw = (index + 1) | OUTPUT_FILE_BIT (1..31)
-// ── TaggedLocation.packed ──
+// -- TaggedLocation.packed --
 //   bit 31 = 0: входной файл:       bits 30-22 = index+1 (9 бит, 511)
 //                                   bits 21-0  = offset (22 бита, ~4MB)
 //   bit 31 = 1: выходной файл:      bits 30-26 = index+1 (5 бит, 31)
@@ -21,7 +21,7 @@ namespace trust {
 struct LocationPack {
     using RawType = uint32_t;
 
-    // ── Для TaggedFile ──
+    // -- Для TaggedFile --
     static constexpr int FILE_BITS_INPUT = 9;
     static constexpr int MAX_FILES_INPUT = (1 << FILE_BITS_INPUT) - 1; // 511
 
@@ -30,11 +30,11 @@ struct LocationPack {
 
     static constexpr RawType OUTPUT_FILE_BIT = 1u << 31; // флаг выходного файла (в TaggedFile и TaggedLocation)
 
-    // ── Для TaggedLocation: входные файлы ──
+    // -- Для TaggedLocation: входные файлы --
     static constexpr int OFFSET_BITS_INPUT = 22;
     static constexpr int MAX_OFFSET_INPUT = (1 << OFFSET_BITS_INPUT) - 1; // 4'194'303 (~4MB)
 
-    // ── Для TaggedLocation: выходные файлы ──
+    // -- Для TaggedLocation: выходные файлы --
     static constexpr int OFFSET_BITS_OUTPUT = 26;
     static constexpr int MAX_OFFSET_OUTPUT = (1 << OFFSET_BITS_OUTPUT) - 1; // 67'108'863 (~64MB)
 };
@@ -47,7 +47,7 @@ static_assert(LocationPack::FILE_BITS_OUTPUT + LocationPack::OFFSET_BITS_OUTPUT 
 static_assert(LocationPack::MAX_FILES_OUTPUT == 31);
 static_assert(LocationPack::MAX_OFFSET_OUTPUT == 67'108'863);
 
-// TaggedFile — шаблонный идентификатор файла (входного или выходного).
+// TaggedFile - шаблонный идентификатор файла (входного или выходного).
 template <typename Tag>
 struct TaggedFile {
     explicit constexpr TaggedFile()
@@ -115,7 +115,7 @@ struct TaggedFile {
     LocationPack::RawType raw = 0;
 };
 
-// ── Теги для tagged-типов ──
+// -- Теги для tagged-типов --
 struct MapperFileTag {};
 struct ReaderFileTag {};
 
@@ -173,7 +173,7 @@ struct TaggedLocation {
     // Публичный доступ к упакованному значению (для SourceMapReader и маппингов)
     [[nodiscard]] constexpr LocationPack::RawType asPacked() const { return packed; }
 
-    // Публичный доступ к offset (read-only) — смещение в файле (1-based)
+    // Публичный доступ к offset (read-only) - смещение в файле (1-based)
     [[nodiscard]] constexpr LocationPack::RawType offset() const {
         if (isOutput()) {
             return packed & LocationPack::MAX_OFFSET_OUTPUT;
@@ -182,13 +182,13 @@ struct TaggedLocation {
         }
     }
 
-    // ── Операторы сравнения (C++20 spaceship) — сравниваем (fileIdx, offset)
+    // -- Операторы сравнения (C++20 spaceship) - сравниваем (fileIdx, offset)
     friend constexpr bool operator==(const Location& a, size_t b) { return a.offset() == b; }
     friend constexpr bool operator==(size_t a, const Location& b) { return a == b.offset(); }
     friend constexpr auto operator<=>(const Location& a, size_t b) { return a.offset() <=> b; }
     friend constexpr auto operator<=>(size_t a, const Location& b) { return a <=> b.offset(); }
 
-    // ── Арифметические операторы (offset + смещение)
+    // -- Арифметические операторы (offset + смещение)
     friend constexpr LocationPack::RawType operator+(const Location& loc, size_t val) { return loc.offset() + val; }
     friend constexpr LocationPack::RawType operator+(size_t val, const Location& loc) { return val + loc.offset(); }
     friend constexpr LocationPack::RawType operator-(const Location& loc, size_t val) {
@@ -273,7 +273,7 @@ struct TaggedLocation {
     }
 };
 
-// ── Псевдонимы для двух пространств ──
+// -- Псевдонимы для двух пространств --
 using MapperLocation = TaggedLocation<MapperFile>::Location;
 using MapperRange = TaggedLocation<MapperFile>::RangeType;
 

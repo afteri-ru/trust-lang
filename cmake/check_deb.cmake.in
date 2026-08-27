@@ -1,0 +1,64 @@
+# cmake/check_deb.cmake.in
+# CTest script for the `deb` target: builds the Debian package (incrementally),
+# then verifies the archive name, its control fields and its members.
+
+set(_stem "trust-lang_@TRUST_VERSION@_@TRUST_DEB_ARCH@")
+set(_deb "@CMAKE_BINARY_DIR@/dist/${_stem}.deb")
+
+# Ensure the package is built (incremental when binaries already exist).
+execute_process(
+    COMMAND "@CMAKE_COMMAND@" --build "@CMAKE_BINARY_DIR@" --target deb
+    RESULT_VARIABLE _build_res
+)
+if(NOT _build_res EQUAL 0)
+    message(FATAL_ERROR "deb target failed to build")
+endif()
+
+if(NOT EXISTS "${_deb}")
+    message(FATAL_ERROR "debian package not found: ${_deb}")
+endif()
+
+# -- Verify control fields (Version / Architecture) --
+execute_process(
+    COMMAND "@DPKG_DEB_EXECUTABLE@" -f "${_deb}" Version
+    OUTPUT_VARIABLE _ver OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE _ver_res
+)
+if(NOT _ver_res EQUAL 0 OR NOT _ver STREQUAL "@TRUST_VERSION@")
+    message(FATAL_ERROR "bad deb Version: '${_ver}' (expected @TRUST_VERSION@)")
+endif()
+
+execute_process(
+    COMMAND "@DPKG_DEB_EXECUTABLE@" -f "${_deb}" Architecture
+    OUTPUT_VARIABLE _arch OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE _arch_res
+)
+if(NOT _arch_res EQUAL 0 OR NOT _arch STREQUAL "@TRUST_DEB_ARCH@")
+    message(FATAL_ERROR "bad deb Architecture: '${_arch}' (expected @TRUST_DEB_ARCH@)")
+endif()
+
+# -- List package members --
+execute_process(
+    COMMAND "@DPKG_DEB_EXECUTABLE@" -c "${_deb}"
+    OUTPUT_VARIABLE _list
+    RESULT_VARIABLE _c_res
+)
+if(NOT _c_res EQUAL 0)
+    message(FATAL_ERROR "dpkg-deb -c failed on ${_deb}")
+endif()
+
+set(_required
+    "usr/bin/trust"
+    "usr/bin/trust-lsp"
+    "usr/bin/trust-playground"
+    "usr/lib/trust-runtime.a"
+    "usr/lib/trust-runtime.so"
+    "usr/share/bash-completion/completions/trust"
+)
+foreach(_need IN LISTS _required)
+    if(NOT _list MATCHES "${_need}")
+        message(FATAL_ERROR "deb missing member: ${_need}")
+    endif()
+endforeach()
+
+message(STATUS "deb_package_test PASSED: ${_deb}")

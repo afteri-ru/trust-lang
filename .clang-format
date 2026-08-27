@@ -10,10 +10,10 @@ IncludeBlocks:  Preserve
 SortIncludes:   Never
 IndentPPDirectives: None
 
-# ── Braces (Attach: opening on same line) ──
+# -- Braces (Attach: opening on same line) --
 BreakBeforeBraces: Attach
 # Всегда фигурные скобки для тел if/else/for/while/do даже из одного оператора
-# (включает InsertBraces — механическое проставление скобок однострочным веткам).
+# (включает InsertBraces - механическое проставление скобок однострочным веткам).
 InsertBraces: true
 AllowShortFunctionsOnASingleLine:  InlineOnly
 AllowShortIfStatementsOnASingleLine: false
@@ -21,28 +21,28 @@ AllowShortLoopsOnASingleLine: false
 AlwaysBreakTemplateDeclarations:    Yes
 AlignEscapedNewlines: Left
 
-# ── Spacing ──
+# -- Spacing --
 SpaceBeforeParens: ControlStatements
 SpaceAfterTemplateKeyword: true
 SpacesInAngles: Never
 PointerAlignment: Left
 ReferenceAlignment: Left
 
-# ── Initializer lists ──
+# -- Initializer lists --
 ConstructorInitializerAllOnOneLineOrOnePerLine: false
 ConstructorInitializerIndentWidth: 0
 BreakConstructorInitializersBeforeComma: true
 BreakConstructorInitializers: BeforeColon
 
-# ── Comments ──
+# -- Comments --
 AlignTrailingComments: true
 
-# ── Namespaces ──
+# -- Namespaces --
 FixNamespaceComments: true
 NamespaceIndentation: None
 
-# ── Empty lines ──
+# -- Empty lines --
 MaxEmptyLinesToKeep: 1
 
-# ── Standard ──
+# -- Standard --
 Standard: c++20

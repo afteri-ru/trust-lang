@@ -11,10 +11,12 @@
 
 namespace {
 
+using trust::playground::generateToken;
 using trust::playground::isLoopbackHost;
 using trust::playground::isValidToken;
 using trust::playground::loadConfig;
 using trust::playground::PlaygroundConfig;
+using trust::playground::unquote;
 using trust::playground::validateWorkerPlaygroundUrl;
 using trust::playground::workerLabelForToken;
 
@@ -73,6 +75,38 @@ TEST(ConfigTest, IsValidTokenChecksLengthAndHex) {
     EXPECT_TRUE(isValidToken(std::string(64, 'f')));
 }
 
+TEST(ConfigTest, DefaultPlaygroundUrl) {
+    const PlaygroundConfig cfg;
+    EXPECT_EQ(cfg.playgroundUrl, "https://playground.trust-lang.net");
+}
+
+TEST(ConfigTest, UnquoteStripsSurroundingQuotes) {
+    EXPECT_EQ(unquote("'8'"), "8");
+    EXPECT_EQ(unquote("\"8\""), "8");
+    EXPECT_EQ(unquote("8"), "8");
+    EXPECT_EQ(unquote("'8"), "'8"); // несбалансированные - не срезаем
+    EXPECT_EQ(unquote("''"), "");
+}
+
+TEST(ConfigTest, ParsesQuotedWorkerValues) {
+    // Значение с кавычками (например, '8' / "https://...") не должно ломать парсинг.
+    const std::string path = writeTempConfig("worker.max_parallel='8'\n"
+                                             "worker.playground_url=\"https://run.example.net\"\n");
+    PlaygroundConfig cfg;
+    std::string error;
+    ASSERT_TRUE(loadConfig(path, cfg, error)) << error;
+    EXPECT_EQ(cfg.maxParallel, 8);
+    EXPECT_EQ(cfg.playgroundUrl, "https://run.example.net");
+}
+
+TEST(ConfigTest, GenerateTokenProducesValidDistinctTokens) {
+    const std::string tok = generateToken();
+    EXPECT_EQ(tok.size(), 64u);
+    EXPECT_TRUE(isValidToken(tok));
+    // Два вызова дают разные токены (случайность из /dev/urandom).
+    EXPECT_NE(tok, generateToken());
+}
+
 TEST(ConfigTest, IgnoresCommentsAndBlankLines) {
     const std::string path = writeTempConfig("# comment\n"
                                              "\n"
@@ -83,6 +117,34 @@ TEST(ConfigTest, IgnoresCommentsAndBlankLines) {
     std::string error;
     ASSERT_TRUE(loadConfig(path, cfg, error)) << error;
     EXPECT_EQ(cfg.port, 7000);
+}
+
+TEST(ConfigTest, StripsInlineCommentsBeforeNumericConversion) {
+    // Строчный комментарий после значения не должен попадать в parseInt: иначе
+    // "8    # ..." дало бы "invalid integer" (см. saveWorkerConfig, который пишет
+    // значения с хвостовым "# desc (default: ...)").
+    const std::string path = writeTempConfig("worker.max_parallel=8    # максимум параллельных задач (default: 4)\n"
+                                             "playground.port=9090   # порт балансировщика\n"
+                                             "worker.job_timeout=30\n"
+                                             "worker.lsp_bin=/opt/trust/bin/trust-lsp # путь к trust-lsp\n");
+    PlaygroundConfig cfg;
+    std::string error;
+    ASSERT_TRUE(loadConfig(path, cfg, error)) << error;
+    EXPECT_EQ(cfg.maxParallel, 8);
+    EXPECT_EQ(cfg.port, 9090);
+    EXPECT_EQ(cfg.workerJobTimeoutSec, 30);
+    EXPECT_EQ(cfg.lspBin, "/opt/trust/bin/trust-lsp");
+}
+
+TEST(ConfigTest, HashInsideQuotedValueIsNotAComment) {
+    // '#' внутри кавычек - часть значения, комментарием не считается.
+    const std::string path = writeTempConfig("worker.playground_url=\"https://example.net/path#frag\"\n"
+                                             "worker.lsp_bin='/opt/trust/bin/trust-lsp'\n");
+    PlaygroundConfig cfg;
+    std::string error;
+    ASSERT_TRUE(loadConfig(path, cfg, error)) << error;
+    EXPECT_EQ(cfg.playgroundUrl, "https://example.net/path#frag");
+    EXPECT_EQ(cfg.lspBin, "/opt/trust/bin/trust-lsp");
 }
 
 TEST(ConfigTest, LoopbackHostDetection) {
@@ -105,13 +167,36 @@ TEST(ConfigTest, WorkerUrlRequiresTlsForNonLoopback) {
     EXPECT_TRUE(validateWorkerPlaygroundUrl("http://localhost", err));
     EXPECT_TRUE(validateWorkerPlaygroundUrl("http://[::1]:8080", err));
     EXPECT_TRUE(validateWorkerPlaygroundUrl("http://127.5.6.7", err));
-    // http:// для не-loopback — запрещено (утечка токена/полезной нагрузки).
+    // http:// для не-loopback - запрещено (утечка токена/полезной нагрузки).
     EXPECT_FALSE(validateWorkerPlaygroundUrl("http://run.example.net", err));
     EXPECT_FALSE(validateWorkerPlaygroundUrl("http://192.168.1.10:8080", err));
     // Некорректные URL.
     EXPECT_FALSE(validateWorkerPlaygroundUrl("run.example.net", err));
     EXPECT_FALSE(validateWorkerPlaygroundUrl("ftp://run.example.net", err));
     EXPECT_FALSE(validateWorkerPlaygroundUrl("http://", err));
+}
+
+TEST(ConfigTest, EmptyWorkerLspOptsIsAllowed) {
+    // worker.lsp_opts может быть пустым (доп. опции trust-lsp не обязательны):
+    // saveWorkerConfig пишет его как "worker.lsp_opts=", и это НЕ должно ломать загрузку.
+    const std::string path = writeTempConfig("worker.playground_url=https://run.example.net\n"
+                                             "worker.token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+                                             "worker.lsp_bin=/opt/trust/bin/trust-lsp\n"
+                                             "worker.lsp_opts=\n");
+    PlaygroundConfig cfg;
+    std::string error;
+    ASSERT_TRUE(loadConfig(path, cfg, error)) << error;
+    EXPECT_TRUE(cfg.lspOpts.empty());
+}
+
+TEST(ConfigTest, ParsesWorkerLspOpts) {
+    const std::string path = writeTempConfig("worker.lsp_opts=-Wsigil=ignore,-Wcomments\n");
+    PlaygroundConfig cfg;
+    std::string error;
+    ASSERT_TRUE(loadConfig(path, cfg, error)) << error;
+    ASSERT_EQ(cfg.lspOpts.size(), 2u);
+    EXPECT_EQ(cfg.lspOpts[0], "-Wsigil=ignore");
+    EXPECT_EQ(cfg.lspOpts[1], "-Wcomments");
 }
 
 } // namespace

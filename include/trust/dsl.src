@@ -1,73 +1,145 @@
 @__OPTION_PUSH__;
 @__OPTION__("macro-redefined", "ignore");
 
+## Мнемонический маркер определения макроса (вместо @@)
+## Сокращения и шаблоны для исорпльзования в макросе:
+##  $name -> @$name имя/шаблон (один токен)
+##  (...) -> @$... скобочные аргументы через запятую
+##  @$* - все аргументы в скобках с завершающей запятой
+##  $...  -> @$1... групповые элементы (@$G - G-ая шгруппа)
+##  @$G...   все элементы группы G (G - целое число)
+##  @$G.N    элемент N в группе G (N - целое число)
+##  @$G.#    количество элементов группы G
+@@ macro @@ @\@@ @@@@;
+## Тело макроса - последовательсность лексем (вместо @@)
+@@ macro_body @@ @\@@ @@@@;
+## Тело макроса - текстовая строка (вместо @@@)
+@@ macro_text @@ @\@@@ @@@@;
+## Завершение макроса (вместо @@@@).
+@@ macro_end @@ @\@4 @@@@;
+## Удаление макроса (исопльуется @\@4 - чтобы не ломать подсветку)
+@@ macro_del (...) @@ @\@4 @$... @\@4 @@@@;
+
+
+## Мнемоническая команда установки атрубита
+@@ attr(...) @@ @[ @$... ]@ @@@@;
+
 ## Проверка утверждений: `assert(cond)` / `verify(cond)`.
 ## Управление: -Wassert / -Wno-assert (вкл/выкл проверку), -Wbacktrace / -Wno-backtrace (trace).
-## При провале печатается `file:line: <выражение>` и стек вызовов (backtrace включён по умолчанию,
-## отключение — -Wno-backtrace), затем trust::trust__abort__ завершает программу БЕЗ core-dump
-## (std::_Exit(EXIT_FAILURE), exit 1).
-## Вызов trust__abort__ происходит ТОЛЬКО при ложном cond (short-circuit `cond || ...`).
-## При -Wno-assert: assert → no-op, verify → `(cond)` (условие вычисляется, без проверки).
-
-# ВНИМАНИЕ!!!
-# Юнит тест HandleHover_MacroDefLinkFirst_WholeRange проверяет наличие
-# определения макроса @assert; строка находится динамически (по "@@ assert("),
-# поэтому этот макрос можно перемещать/вставлять другие макросы до/после.
-
-@@ assert( $cond ) @@ := @@ 
-@__OPTION_TRUE__("assert" (@$cond) || %trust::trust__abort__( @__FILE_NAME__, @__FILE_LINE__, @# @$cond, @__OPTION_IIF__("backtrace", 1, 0) ))
+## При -Wno-assert: assert → no-op
+@@ assert( $cond ) @@
+@__OPTION_TRUE__("assert" trust::intrinsic_assert( @$cond, @# @$cond ))
 @__OPTION_FALSE__("assert")
-@@;
+@@@@;
 
-@@ verify( $cond ) @@ := @@
-@__OPTION_TRUE__("assert" (@$cond) || %trust::trust__abort__( @__FILE_NAME__, @__FILE_LINE__, @# @$cond, @__OPTION_IIF__("backtrace", 1, 0) ))
+## Проверка утверждений: `assert(cond)` / `verify(cond)`.
+## Управление: -Wassert / -Wno-assert (вкл/выкл проверку), -Wbacktrace / -Wno-backtrace (trace).
+## При -Wno-assert: verify → `(cond)` (условие вычисляется, без проверки).
+@@ verify( $cond ) @@
+@__OPTION_TRUE__("assert" trust::intrinsic_assert( @$cond, @# @$cond ))
 @__OPTION_FALSE__("assert" ( @$cond ))
-@@;
+@@@@;
+
+
+## Trust-контракты - мнемонические имена для единого маркера 
+## `@{ [kind:] expr @}`, где kind задаётся явно (`@{ pre: expr @}`) 
+## либо выводится из места привязки (цикл->invariant, тип->type и т.д.).
+##   trust_contract( <kind>, <expr> ) -> @{ <kind>: <expr> @}   - универсальный (kind параметром)
+##   trust_pre( <expr> )    -> @{ pre:    <expr> @}              - предусловие
+##   trust_post( <expr> )   -> @{ post:   <expr> @}              - постусловие
+##   trust_assert( <expr> ) -> @{ check:  <expr> @}              - утверждение
+##   trust_invariant( <expr> ) -> @{ invariant: <expr> @}        - инвариант (цикла/типа/...)
+## Обработка условий определяется severity-опцией `-Wsolver=[ignore|warning|error]` (presence-
+## диагностика) и поведенческим флагом `--solver-mode=[assert|export|calculate]`.
+@@ trust_contract( $kind, $expr ) @@ @{ @$kind: @$expr @} @@@@;
+## Предусловие
+@@ trust_pre( $expr ) @@ trust_contract(pre, @$expr) @@@@;
+## Постусловие (возвращаемый результат функции - имя самой функции)
+@@ trust_post( $expr ) @@ trust_contract(post, @$expr) @@@@;
+## Упроверка утверждения
+@@ trust_assert( $expr ) @@ trust_contract(check, @$expr) @@@@;
+## Инвариант (например для циклов)
+@@ trust_invariant( $expr ) @@ trust_contract(invariant, @$expr) @@@@;
+
+# Термины КОНКРЕТНОГО решателя (SMT/Z3) внутри контрактов
+# мнемоники над маркером @( term, args... ). 
+# У другого решателя набор может отличаться.
+## Предыдущее значение переменной
+@macro z3_old( $x )      @@ @( old, @$x @) @@@@;
+## Для всех значений (для всего типа)
+@macro z3_forall( $i, $P ) @@ @( forall, @$i, @$P @) @@@@;
+## Создание нового значения (новые данные в куче)
+@macro z3_fresh( $x )    @@ @( fresh, @$x @) @@@@;
+## Размер (словаря/массива)
+@macro z3_length( $x )   @@ @( length, @$x @) @@@@;
+## Возврат функции
+@macro z3_result         @@ @( result @) @@@@;
+@macro z3_unroll( $n )   @@ @( unroll, @$n @) @@@@;
+@macro z3_exists( $i, $P ) @@ @( exists, @$i, @$P @) @@@@;
+
+
+## Мнемоническая команда определения функции без оператора `:=`
+@@ func $... { @@ @$... := { @@@@;
+
+## Функции с предустановленным встроенным атрибутом: обёртки над @attr(...) + паттерном @func.
+## Атрибут задаётся хелпером @attr(...) (→ @[ ... ]@), функция - по образцу тела @func
+## (`@$... := {`); `func` ПОСЛЕ атрибута не раскрывается (атрибут предваряет объявление с `:=`),
+## поэтому тело собирается как @attr(<attr>) + голова `$...` + `:= {`.
+##   @func_const foo(x:Int32):Int32 { body }  ->  @[func_const]@ foo(x:Int32):Int32 := { body }
+##   @func_pure    foo(...) { body }          ->  @[func_pure]@ foo(...) := { body }
+##   @func_constexpr foo(...) { body }        ->  @[constexpr]@ foo(...) := { body }
+##   @func_sync    foo(...) { body }          ->  @[sync]@ foo(...) := { body }
+##   @func_thread  foo(...) { body }          ->  @[thread]@ foo(...) := { body }
+@@ func_const $... { @@ @attr(func_const) @$... := { @@@@;
+@@ func_pure $... { @@ @attr(func_pure) @$... := { @@@@;
+@@ func_constexpr $... { @@ @attr(constexpr) @$... := { @@@@;
+@@ func_sync $... { @@ @attr(sync) @$... := { @@@@;
+@@ func_thread $... { @@ @attr(thread) @$... := { @@@@;
 
 ## Импорт нативного имени (связывание trust-имени с нативным символом):
 ##   @extern abs(x:Int32):Int32  →  abs(x:Int32):Int32 := %abs ...
-## trust-имя = нативное имя (без префикса '%'); сигнатура — после имени.
-@@ extern $name $... @@ := @@ @$name @$... := % @$name ... @@;
+## trust-имя = нативное имя (без префикса '%'); сигнатура - после имени.
+@macro extern $name $... @macro_body @$name @$... := % @$name ... @macro_end;
 
 ## Предварительное объявление (forward-declaration):
 ##   @forward open(path:StrChar, flags:Int32):Int32  →  open(path:StrChar, flags:Int32):Int32 := ...
 ##   @forward x :Int32                               →  x :Int32 := ...
-## Имя указывается ПЕРВЫМ, тип/сигнатура — после него; тело — многоточие.
-@@ forward $name $... @@ := @@ @$name @$... := ... @@;
+## Имя указывается ПЕРВЫМ, тип/сигнатура - после него; тело - многоточие.
+@macro forward $name $... @macro_body @$name @$... := ... @macro_end;
 
 
 
 
 
-@@ true @@ := 1;
-@@ yes @@ := 1;
-@@ false @@ := 0;
-@@ no @@ := 0;
+@@ true @@ 1 @@@@;
+@@ yes @@ 1 @@@@;
+@@ false @@ 0 @@@@;
+@@ no @@ 0 @@@@;
 
-@@ none @@ := _;
+@@ none @@ _ @@@@;
 
-@@ if( ... ) @@ := @@ [ @$... ] --> @@;
-@@ elif( ... ) @@ := @@ ,[ @$... ] --> @@;
-@@ else @@ := @@ ,[...] --> @@;
+@@ if( ... ) @@ [ @$... ] --> @@@@;
+@@ elif( ... ) @@ ,[ @$... ] --> @@@@;
+@@ else @@ ,[...] --> @@@@;
 
-@@ while( ... ) @@ := @@ [ @$... ] <-> @@;
-@@ dowhile( ... ) @@ := @@ <-> [ @$... ] @@;
-@@ loop @@ := @@ [ 1 ] <-> @@;
+@@ while( ... ) @@ [ @$... ] <-> @@@@;
+@@ dowhile( ... ) @@ <-> [ @$... ] @@@@;
+@@ loop @@ [ 1 ] <-> @@@@;
 
-@@ module @@ := @@ @__MODULE_NAME__ @@; ##< Имя текущего модуля (без расширения, относительно главного файла)
-@@ main @@ := @@ @__MODULE_NAME__ @## __main__ @@; ##< Точка входа в модуль
+@@ module @@ @__MODULE_NAME__ @@@@; ##< Имя текущего модуля (без расширения, относительно главного файла)
+@@ main @@ @__MODULE_NAME__ @## __main__ @@@@; ##< Точка входа в модуль
 
-@@ return @@ := @@ @__FUNCTION__ ++ @@;            ##<  return; → void (ОДИН ++)
-@@ return $... @@ := @@ @__FUNCTION__ ++ @$... ++ @@; ##<  return <значение|кортеж (a,b,)>;
-@@ break @@ := @@ ++ @@;                           ##<  break;
-@@ break $label @@ := @@ @$label ++ @@;            ##<  break <метка>;
-@@ continue @@ := @@ -+ @@;                        ##<  continue;
-@@ continue $label @@ := @@ @$label -+ @@;         ##<  continue <метка>;
+@@ return @@ @__FUNCTION__ ++ @@@@;            ##<  return; → void (ОДИН ++)
+@@ return $... @@ @__FUNCTION__ ++ @$... ++ @@@@; ##<  return <значение|кортеж (a,b,)>;
+@@ break @@ ++ @@@@;                           ##<  break;
+@@ break $label @@ @$label ++ @@@@;            ##<  break <метка>;
+@@ continue @@ -+ @@@@;                        ##<  continue;
+@@ continue $label @@ @$label -+ @@@@;         ##<  continue <метка>;
 
 
-@@ match( ... ) @@ := @@ [ @$... ] @@; # @__PRAGMA_EXPECTED__( @\\ =>, @\\ ==>, @\\ ===>, @\\ ~>, @\\ ~~>, @\\ ~~~> ) @@;
-@@ case( ... ) @@ := @@ [ @$... ] --> @@;
-@@ default @@ := @@ [...] --> @@;
+@@ match( ... ) @@ [ @$... ] @__PRAGMA_EXPECTED__( "=>", "==>", "===>", "~>", "~~>", "~~~>" ) @@@@;
+@@ case( ... ) @@ [ @$... ] --> @@@@;
+@@ default @@ [...] --> @@@@;
 
 
 # @@ this @@ ::= @@ $0 @@ ##< This object (self);
@@ -106,7 +178,12 @@
 
 ## Вывод в stdout (trust::outs) в стиле std::format: `print(fmt, args...)`.
 ## Форматная строка должна быть строковым литералом (компиляционная проверка std::format).
-@@ print( ... ) @@ ::= @@ ( %trust::trust__print__( @$... ) ) @@;
+@@ print( ... ) @@ ( %trust::trust__print__( @$... ) ) @@@@;
 
 
 @__OPTION_POP__;
+
+## Дефолтный список макросов, допустимых без сигила '@' (keywords). Ставим ПОСЛЕ @__OPTION_POP__,
+## чтобы значение пережило PUSH/POP (иначе сбросилось бы). Переопределяется .trust-format
+## `Keywords:` и CLI `--keywords=` (приоритет: CLI > .trust-format > этот дефолт).
+@__OPTION__("keywords", "func,extern,forward,if,elif,else,while,dowhile,loop,module,return,break,continue,match,case,default,namespace,func_const,func_pure,func_constexpr,func_sync,func_thread");

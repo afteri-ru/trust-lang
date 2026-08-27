@@ -5,7 +5,7 @@
 // бинарных операций по семантике C++ (обычные арифметические преобразования:
 // Int16+Int16 → Int32, '//'/'//=' → Int64, Compare/Logical → Bool, std::any-операнды).
 // Числовое продвижение (общий арифметический тип, продвижение одиночного операнда,
-// float по разрядности) — единый TypeId-aware источник `types/promotion.hpp`.
+// float по разрядности) - единый TypeId-aware источник `types/promotion.hpp`.
 
 #include "ast/token.hpp"
 #include "ast/ast_nodes.hpp"
@@ -21,9 +21,9 @@
 
 namespace trust {
 
-// ── Парсинг беззнакового целого литерала ────────────────
+// -- Парсинг беззнакового целого литерала ----------------
 // Единый хелпер для literalType и проверки сужения литерала в целевую цель
-// (intFitsTarget). base 0 — десятичные/шестнадцатеричные/восьмеричные литералы C++.
+// (intFitsTarget). base 0 - десятичные/шестнадцатеричные/восьмеричные литералы C++.
 // Текст с ведущим '-' или не являющийся целым числом → false (не типизируем).
 inline bool parseDecimalUInt(std::string_view text, unsigned long long& out) noexcept {
     if (text.empty() || text[0] == '-') {
@@ -38,12 +38,12 @@ inline bool parseDecimalUInt(std::string_view text, unsigned long long& out) noe
     }
 }
 
-// ── Диапазоны целых литералов ─────────────────────────────
+// -- Диапазоны целых литералов -----------------------------
 // Границы целых типов и соответствие ширина↔тип вынесены в единый источник
 // `types/int_literal.hpp` (fitsIntegerValue / intTypeForWidth / intTypeForLiteral);
 // здесь остаётся только операторная семантика (литералы, Compare/Logical, any, //).
 
-// ── Тип литерала ─────────────────────────────────────────
+// -- Тип литерала -----------------------------------------
 // IntLiteral → минимальный конкретный знаковый Int, вмещающий значение (Int8/16/32/64);
 // 0 и 1 → Bool (логические литералы). FloatLiteral → Float64 (наибольший поддерживаемый).
 // StrChar ('…', узкая строка) → StrChar; StrWide ("…", широкая строка) → StrWide.
@@ -55,7 +55,7 @@ inline TypeId literalType(const Literal& lit, const TypeRegistry& reg) {
         if (!parseDecimalUInt(lit.text(), v)) {
             return INVALID_TYPE_ID;
         }
-        // 0 и 1 — логические литералы (Bool); остальные — минимальный знаковый Int, вмещающий значение.
+        // 0 и 1 - логические литералы (Bool); остальные - минимальный знаковый Int, вмещающий значение.
         if (v == 0ULL || v == 1ULL) {
             return reg.getType(type::Bool);
         }
@@ -64,10 +64,10 @@ inline TypeId literalType(const Literal& lit, const TypeRegistry& reg) {
     case ParserToken::Kind::FloatLiteral:
         return reg.getType(type::Float64);
     case ParserToken::Kind::StrChar:
-        // Строка в одинарных кавычках '…' (STRCHAR) — узкая → StrChar.
+        // Строка в одинарных кавычках '…' (STRCHAR) - узкая → StrChar.
         return reg.getType(type::StrChar);
     case ParserToken::Kind::StrWide:
-        // Строка в двойных кавычках "…" (STRWIDE) — широкая → StrWide.
+        // Строка в двойных кавычках "…" (STRWIDE) - широкая → StrWide.
         return reg.getType(type::StrWide);
     case ParserToken::Kind::RationalLiteral:
         // Рациональный литерал `num\den` (отдельная лексема RATIONAL) → Rational.
@@ -77,13 +77,13 @@ inline TypeId literalType(const Literal& lit, const TypeRegistry& reg) {
     }
 }
 
-// ── Тип результата бинарной операции ─────────────────────
+// -- Тип результата бинарной операции ---------------------
 // По обычным арифметическим преобразованиям C++:
 //   * Compare/Logical → Bool;
 //   * MathOp "//" (целочисленное деление) → Int64 (кодогенерация кастует операнды к int64_t);
 //   * один операнд std::any + конкретный числовой → продвинутый конкретный (для any_cast);
 //   * оба any → INVALID (тип невыводим);
-//   * числа (Integers/Unsigned/Numbers): если есть float — более широкая float-группа;
+//   * числа (Integers/Unsigned/Numbers): если есть float - более широкая float-группа;
 //     иначе целое: при наличии 64-битного операнда → Int64, иначе → Int32;
 //   * не-арифметические/неизвестные операнды → INVALID_TYPE_ID.
 inline TypeId resultTypeBinary(ParserToken::Kind kind, std::string_view op, TypeId lhs, TypeId rhs, const TypeRegistry& reg) {
@@ -116,7 +116,7 @@ inline TypeId resultTypeBinary(ParserToken::Kind kind, std::string_view op, Type
         return promoteSingleNumeric(reg, lc);
     }
     if (lAny || rAny) {
-        return INVALID_TYPE_ID; // оба any — тип невыводим
+        return INVALID_TYPE_ID; // оба any - тип невыводим
     }
     if (!lNum || !rNum) {
         return INVALID_TYPE_ID;

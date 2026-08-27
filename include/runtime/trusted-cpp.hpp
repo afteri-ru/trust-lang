@@ -372,7 +372,7 @@ class Weak {
         return T::make_auto(shared, true, timeout);
     }
 
-    /// Non-blocking lock attempt — returns nullopt if expired or lock failed
+    /// Non-blocking lock attempt - returns nullopt if expired or lock failed
     [[nodiscard]]
     std::optional<Locker<ValueType>> try_lock(const SyncTimeoutType& timeout = SyncTimeoutNoWait) const {
         SharedType shared = weak_ptr_.lock();
@@ -386,7 +386,7 @@ class Weak {
         }
     }
 
-    /// Non-blocking const lock attempt — returns nullopt if expired or lock failed
+    /// Non-blocking const lock attempt - returns nullopt if expired or lock failed
     [[nodiscard]]
     std::optional<Locker<ValueType>> try_lock_const(const SyncTimeoutType& timeout = SyncTimeoutNoWait) const {
         SharedType shared = weak_ptr_.lock();

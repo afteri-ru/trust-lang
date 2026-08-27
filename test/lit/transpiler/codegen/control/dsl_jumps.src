@@ -1,0 +1,43 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# DSL-макросы return / break / continue: void и со значением, без метки и с меткой.
+# return = break по имени функции (@__FUNCTION__); label блока - один идентификатор без '::'.
+
+%f(x:Int32):Int32 := {
+    @return x;
+};
+# CHECK: int32_t f(int32_t c_x) {
+# CHECK-NEXT:     return c_x;
+# CHECK-NEXT: }
+
+%g():Void := {
+    @return;
+};
+# CHECK: void g() {
+# CHECK-NEXT:     return;
+# CHECK-NEXT: }
+
+%h():Void := {
+    outer {
+        z:Int32 := 0;
+        [z < 3] <-> {
+            @break outer;
+            @continue outer;
+            @break;
+            @continue;
+        };
+    };
+};
+# CHECK: void h() {
+# CHECK-NEXT:     {
+# CHECK-NEXT:         int32_t c_z = 0;
+# CHECK-NEXT:         outer_continue:;
+# CHECK-NEXT:         while ((c_z < 3)) {
+# CHECK-NEXT:             goto outer_break;
+# CHECK-NEXT:             goto outer_continue;
+# CHECK-NEXT:             break;
+# CHECK-NEXT:             continue;
+# CHECK-NEXT:         }
+# CHECK-NEXT:         outer_break:;
+# CHECK-NEXT:     }
+# CHECK-NEXT: }

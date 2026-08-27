@@ -1,0 +1,34 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Фаза 2.2/2.3: if/else SSA-merge через ite + автономные/переменные утверждения.
+#   f: if(x>=0){return x;} else {return 0;} => ite; доказуемое пост-условие f>=x -> UNSAT.
+#   g: автономное @{ y >= x @}; при y=x всегда выполняется -> UNSAT.
+#   h: переменное z trust_assert(z==x):=x всегда выполняется -> UNSAT.
+
+f(x:Int32):Int32 trust_post( f >= x ) := { @if(x >= 0){ @return x; } @else { @return 0; }; };
+g(x:Int32):Int32 := { y := x; @{ y >= x @}; @return y; };
+h(x:Int32):Int32 := { z trust_assert( z == x ) := x; @return z; };
+
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun f_x () (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (bvsge (ite (bvsge f_x (_ bv0 32)) f_x (_ bv0 32)) f_x)))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((f_x (_ BitVec 32))) (bvsge (f f_x) f_x)))
+# SM2: (declare-fun g_x () (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (bvsge g_x g_x)))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (declare-fun h_x () (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (= h_x h_x)))
+# SM2: (check-sat)
+# SM2: (pop 1)
+
+# Z3: unsat
+# Z3: unsat
+# Z3: unsat
+

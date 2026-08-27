@@ -1,21 +1,127 @@
-# trust-playground nginx-сайт для балансировщика: проксирует живой запуск
-# playground на localhost-порт. TLS обычно терминируется certbot (HTTP/2).
+# trust-playground nginx-сайт для балансировщика (HTTPS).
+#
+# ПРОКСИ: все публичные эндпоинты playground проксируются на балансировщик,
+# который слушает 127.0.0.1:@PORT@ (loopback). БЕЗ этих location страница
+# «не видит» балансировщик - nginx вернёт собственную страницу (например,
+# «Welcome to nginx») вместо JSON, и статус-строка покажет «нет связи с балансировщиком».
+#
+# TLS (Let's Encrypt). Получить сертификат ПЕРЕД применением этого конфига
+# (подробности - в комментариях install_playground.sh, шаг nginx):
+#   sudo apt-get install -y certbot
+#   sudo certbot certonly --webroot -w /var/www/html -d @DOMAIN@
+#   # или (если nginx остановлен):  sudo certbot certonly --standalone -d @DOMAIN@
+# Сертификат окажется в: /etc/letsencrypt/live/@DOMAIN@/{fullchain.pem,privkey.pem}
+
+# Зоны лимитов (per-IP): против флуда на публичных браузерных эндпоинтах.
+# Значения - разумные дефолты; при необходимости подправьте под нагрузку.
+limit_req_zone $binary_remote_addr zone=tpl_req:10m rate=10r/s;
+limit_conn_zone $binary_remote_addr zone=tpl_conn:10m;
+
+# -- HTTP (порт 80): ACME-челлендж для certbot + редирект на HTTPS --
 server {
     listen 80;
     server_name @DOMAIN@;
 
+    # Для certbot --webroot (отдаёт токен проверки владения доменом)
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # Всё остальное - принудительно HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# -- HTTPS (порт 443): проксирование всех эндпоинтов на балансировщик --
+server {
+    listen 443 ssl;
+    server_name @DOMAIN@;
+    # http2 on;   # включите при nginx >= 1.25.1 (или используйте `listen 443 ssl http2;` на старых)
+
+    ssl_certificate     /etc/letsencrypt/live/@DOMAIN@/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/@DOMAIN@/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    # Безопасные заголовки (JSON/redirect; страница статики живёт на GitHub Pages).
+    add_header X-Content-Type-Options nosniff always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
     # Живой запуск playground: POST Trust-код (text/plain) → JSON-контракт
+    # Доменная привязка на балансировщике требует, чтобы Origin/Referer доехали.
     location = /run {
+        limit_req zone=tpl_req burst=20 nodelay;
+        limit_conn tpl_conn 8;
         proxy_pass http://127.0.0.1:@PORT@/run;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Origin $http_origin;
+        proxy_set_header Referer $http_referer;
         client_max_body_size @BODY_LIMIT@k;
         proxy_read_timeout @TIMEOUT@s;
     }
 
+    # Публичный пинг готовности (статус-строка песочницы): онлайн + число воркеров
     location = /health {
         proxy_pass http://127.0.0.1:@PORT@/health;
         proxy_set_header Host $host;
+    }
+
+    # Кнопка «Скачать build-архив» на странице playground
+    location = /download {
+        limit_req zone=tpl_req burst=20 nodelay;
+        limit_conn tpl_conn 8;
+        proxy_pass http://127.0.0.1:@PORT@/download;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Origin $http_origin;
+        proxy_set_header Referer $http_referer;
+        client_max_body_size @BODY_LIMIT@k;
+        proxy_read_timeout @TIMEOUT@s;
+    }
+
+    # PoW-челлендж (публичный)
+    location = /challenge {
+        limit_req zone=tpl_req burst=20 nodelay;
+        proxy_pass http://127.0.0.1:@PORT@/challenge;
+        proxy_set_header Host $host;
+        proxy_set_header Origin $http_origin;
+        proxy_set_header Referer $http_referer;
+    }
+
+    # Статистика балансировщика: форма входа / JSON (X-Stats-Token) / cookie-сессия
+    location = /stats {
+        limit_req zone=tpl_req burst=5 nodelay;
+        proxy_pass http://127.0.0.1:@PORT@/stats;
+        proxy_set_header Host $host;
+    }
+    location = /stats/login {
+        limit_req zone=tpl_req burst=5 nodelay;
+        proxy_pass http://127.0.0.1:@PORT@/stats/login;
+        proxy_set_header Host $host;
+    }
+    location = /stats/logout {
+        limit_req zone=tpl_req burst=5 nodelay;
+        proxy_pass http://127.0.0.1:@PORT@/stats/logout;
+        proxy_set_header Host $host;
+    }
+
+    # Воркер: reverse long-poll за задачей (соединение может держаться до poll_timeout)
+    location = /poll {
+        proxy_pass http://127.0.0.1:@PORT@/poll;
+        proxy_set_header Host $host;
+        client_max_body_size 16k;
+        proxy_read_timeout 120s;
+    }
+
+    # Воркер: отправка результата задачи
+    location = /result {
+        proxy_pass http://127.0.0.1:@PORT@/result;
+        proxy_set_header Host $host;
+        client_max_body_size @BODY_LIMIT@k;
+        proxy_read_timeout @TIMEOUT@s;
     }
 }

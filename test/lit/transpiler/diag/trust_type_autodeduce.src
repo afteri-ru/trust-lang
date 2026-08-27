@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Тип данных с trust-условиями (trust_assert на алиасе): НЕ может быть выведен автоматически -
+# переменная, чей выведенный тип несёт trust, обязана иметь явную аннотацию типа.
+# Явная аннотация `x :MyInt := ...` - допустима (см. trust_type_explicit.src).
+# В условии тип используется как значение (плейсхолдер значения типа).
+
+MyInt trust_assert( MyInt > 0 ) ::= :Int32;
+a :MyInt := 5;
+b := a;
+
+# CHECK: error: type 'MyInt' carries trust conditions and cannot be auto-deduced; annotate the variable type explicitly

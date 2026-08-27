@@ -1,0 +1,9 @@
+# RUN: %trust -q --emit-cpp --solver-mode=assert %s > %t.out && %FileCheck %s <%t.out
+
+# Утверждение ПЕРЕМЕННОЙ (`y @{ cond @} := ...`): генерируется сразу после объявления/инициализации
+# через единый интринсик intrinsic_assert → trust::trust__abort__.
+
+y @{ y < 0 @} := 5;
+
+# CHECK: int8_t c_y = 5;
+# CHECK: if (!((c_y < 0))) trust::trust__abort__("{{.*}}trust_var_assert.src", {{[0-9]+}}, "y < 0", 1);

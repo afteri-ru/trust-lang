@@ -8,7 +8,7 @@
 
 namespace trust::utils {
 
-// ── URL-encoding для пути (только спецсимволы) ──
+// -- URL-encoding для пути (только спецсимволы) --
 // Кодирует в %XX символы, которые недопустимы в URI-пути: управляющие,
 // не-ASCII, а также резервированные символы из набора RFC 3986.
 inline std::string uriEncodePath(const std::string& path) {
@@ -29,7 +29,7 @@ inline std::string uriEncodePath(const std::string& path) {
     return result;
 }
 
-// ── Преобразование file:// URI в путь с URL-decoding ──
+// -- Преобразование file:// URI в путь с URL-decoding --
 // Отсекает фрагмент #L{line},{col}-{line},{col} если есть
 inline std::string uriToFilePath(const std::string& uri) {
     if (uri.rfind("file://", 0) != 0) {
@@ -62,7 +62,7 @@ inline std::string uriToFilePath(const std::string& uri) {
     return decoded;
 }
 
-// ── Преобразование пути в "file://" URI ──
+// -- Преобразование пути в "file://" URI --
 inline std::string filePathToUri(const std::string& path) {
     if (path.rfind("file://", 0) == 0) {
         return path;
@@ -70,7 +70,7 @@ inline std::string filePathToUri(const std::string& path) {
     return "file://" + uriEncodePath(std::filesystem::absolute(path).string());
 }
 
-// ── Превращает относительный путь в абсолютный, используя projectDir ──
+// -- Превращает относительный путь в абсолютный, используя projectDir --
 inline std::string resolvePath(const std::string& path, const std::string& projectDir) {
     if (path.empty() || path[0] == '/') {
         return path;

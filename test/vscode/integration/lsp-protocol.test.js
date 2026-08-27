@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * lsp-protocol.test.js — Integration tests for trust-lsp LSP server
+ * lsp-protocol.test.js - Integration tests for trust-lsp LSP server
  *
  * Launches trust-lsp as a child process, sends LSP (JSON-RPC 2.0) packets
  * via stdin, reads responses from stdout, and validates the protocol flow.
@@ -16,7 +16,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
-// ── Test configuration ──
+// -- Test configuration --
 const SUITE_TIMEOUT = 120000;
 
 // Parse CLI args
@@ -47,7 +47,7 @@ function parseArgs() {
     return opts;
 }
 
-// ── LSP (JSON-RPC 2.0) Protocol helpers ──
+// -- LSP (JSON-RPC 2.0) Protocol helpers --
 let lspId = 0;
 function nextId() { return ++lspId; }
 
@@ -90,7 +90,7 @@ function parseLspResponse(data) {
     return { packets, remaining: buf.slice(pos) };
 }
 
-// ── Test framework ──
+// -- Test framework --
 let testsPassed = 0;
 let testsFailed = 0;
 
@@ -108,7 +108,7 @@ function assert(condition, message) {
     if (!condition) throw new Error(message || 'Assertion failed');
 }
 
-// ── LSP Client ──
+// -- LSP Client --
 class LspClient {
     constructor(lspPath, args) {
         this.lspPath = lspPath;
@@ -256,7 +256,7 @@ class LspClient {
     }
 }
 
-// ── Helper: run an LSP suite ──
+// -- Helper: run an LSP suite --
 async function runSuite(lspPath, suiteName, lspArgs, fn) {
     const client = new LspClient(lspPath, lspArgs);
     await client.start();
@@ -267,13 +267,13 @@ async function runSuite(lspPath, suiteName, lspArgs, fn) {
     }
 }
 
-// ── Main test suite ──
+// -- Main test suite --
 async function main() {
     const opts = parseArgs();
     let tmpDir = null;
 
     try {
-        // ── Validate required args ──
+        // -- Validate required args --
         if (!opts.srcFile) {
             console.error('Error: --src is required');
             console.error('Usage: node lsp-protocol.test.js --src <file> [--lsp-path <path>]');
@@ -308,7 +308,7 @@ async function main() {
         // Общие аргументы LSP сервера (--project-dir)
         const lspArgs = ['--project-dir', projectDir];
 
-        // ── Test 1: LSP initialize sequence ──
+        // -- Test 1: LSP initialize sequence --
         await runSuite(lspPath, 'LSP Initialize Sequence', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -349,7 +349,7 @@ async function main() {
         const hoverTestFile = path.join(__dirname, 'test_hover.src');
         const hoverTestContent = fs.readFileSync(hoverTestFile, 'utf-8');
 
-        // ── Test 2: LSP textDocument/didOpen + definition ──
+        // -- Test 2: LSP textDocument/didOpen + definition --
         await runSuite(lspPath, 'LSP Definition Provider', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -387,11 +387,11 @@ async function main() {
             });
             test('definition points to cpp file', () => {
                 const loc = Array.isArray(defResp.result) ? defResp.result[0] : defResp.result;
-                assert(loc.uri.includes('.cpp'), `expected cpp file, got ${loc.uri}`);
+                assert(loc.uri.includes('.cppt'), `expected cpp file, got ${loc.uri}`);
             });
         });
 
-        // ── Test 3: LSP textDocument/hover ──
+        // -- Test 3: LSP textDocument/hover --
         await runSuite(lspPath, 'LSP Hover', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -436,7 +436,7 @@ async function main() {
             });
         });
 
-        // ── Test 3b: LSP textDocument/completion ──
+        // -- Test 3b: LSP textDocument/completion --
         await runSuite(lspPath, 'LSP Completion', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -488,7 +488,7 @@ async function main() {
         // and warnings, e.g. -Wsigil), not only on transpile errors. Fixits travel in diagnostic
         // "data" (reserved LSP field) so vscode-languageclient round-trips them for codeAction.
 
-        // ── Test 4: LSP shutdown ──
+        // -- Test 4: LSP shutdown --
         await runSuite(lspPath, 'LSP Shutdown', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -514,7 +514,7 @@ async function main() {
             });
         });
 
-        // ── Test 5: LSP textDocument/documentLink — Trust → C++ ──
+        // -- Test 5: LSP textDocument/documentLink - Trust → C++ --
         await runSuite(lspPath, 'LSP DocumentLink Trust→Cpp', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -548,12 +548,12 @@ async function main() {
             });
             test('documentLink links to cpp file', () => {
                 const link = docLinkResp.result[0];
-                assert(link.target && link.target.includes('.cpp'),
+                assert(link.target && link.target.includes('.cppt'),
                     `expected cpp target, got ${JSON.stringify(link)}`);
             });
         });
 
-        // ── Test 6: LSP textDocument/didChange ──
+        // -- Test 6: LSP textDocument/didChange --
         await runSuite(lspPath, 'LSP didChange', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -609,7 +609,7 @@ async function main() {
             });
         });
 
-        // ── Test 6b: LSP didChange обновляет documentLink + hover для НОВЫХ операций ──
+        // -- Test 6b: LSP didChange обновляет documentLink + hover для НОВЫХ операций --
         // Воспроизводит сценарий «правка в редакторе без сохранения → новые операции
         // должны получить подчёркивание (documentLink) и hover».
         await runSuite(lspPath, 'LSP didChange refresh links', lspArgs, async (client) => {
@@ -648,7 +648,7 @@ async function main() {
                 contentChanges: [{ text: changedContent }]
             });
 
-            // documentLink после изменения — должна появиться ссылка на новой строке
+            // documentLink после изменения - должна появиться ссылка на новой строке
             const dlId2 = client.sendRequest('textDocument/documentLink', { textDocument: { uri: `file://${hoverTestFile}` } });
             const dlResp2 = await client.waitForResponse(dlId2);
             const linksAfter = Array.isArray(dlResp2.result) ? dlResp2.result : [];
@@ -657,7 +657,7 @@ async function main() {
                 assert(hasNew, `expected a link on new line ${newLineIndex} after didChange, got ${JSON.stringify(linksAfter)}`);
             });
 
-            // hover по новой строке — должен вернуть содержимое (буфер учтён)
+            // hover по новой строке - должен вернуть содержимое (буфер учтён)
             const hoverId = client.sendRequest('textDocument/hover', {
                 textDocument: { uri: `file://${hoverTestFile}` },
                 position: { line: newLineIndex, character: 1 }
@@ -670,7 +670,7 @@ async function main() {
             });
         });
 
-        // ── Test 7: LSP textDocument/hover — reverse (на C++ файле) ──
+        // -- Test 7: LSP textDocument/hover - reverse (на C++ файле) --
         await runSuite(lspPath, 'LSP Hover Reverse (Cpp→Trust)', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -714,7 +714,7 @@ async function main() {
             }
         });
 
-        // ── Test 8: LSP textDocument/definition — reverse (C++ → Trust) ──
+        // -- Test 8: LSP textDocument/definition - reverse (C++ → Trust) --
         await runSuite(lspPath, 'LSP Definition Reverse', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -762,7 +762,7 @@ async function main() {
             }
         });
 
-        // ── Test 9: LSP invalid syntax → diagnostics ──
+        // -- Test 9: LSP invalid syntax → diagnostics --
         await runSuite(lspPath, 'LSP Invalid Syntax Diagnostics', lspArgs, async (client) => {
             const initId = client.sendRequest('initialize', {
                 processId: process.pid,
@@ -804,7 +804,200 @@ async function main() {
             try { fs.rmSync(tmpDir2, { recursive: true }); } catch (_) {}
         });
 
-        // ── Test 10: LSP --help ──
+        // -- Test 9b: LSP shebang options drive diagnostics (--solver-mode / -Wsigil) --
+        // Файл со строкой шебанга `#!... --solver-mode=assert -Wsigil=ignore` должен подавлять
+        // предупреждения `trust condition(s) present` и `missing '@' sigil` в режиме по умолчанию
+        // (env-after-shebang), и показывать их при `--shebang-mode=ignore`.
+        const shebangSrc = '#!trust --run -Wsigil=ignore --solver-mode=assert\n' +
+            '%add(x:Int32):Int32\n' +
+            '    trust_pre(x >= 0)\n' +
+            '    trust_post(add >= 0) := {\n' +
+            '    return x + 1;\n' +
+            '};\n' +
+            '@main() := { @print(\'{}\\n\', add(3)); }\n';
+        const shebangTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trust-lsp-shebang-'));
+        const shebangFilePath = path.join(shebangTmpDir, 'contract.src');
+        const shebangUri = `file://${shebangFilePath}`;
+        fs.writeFileSync(shebangFilePath, shebangSrc);
+
+        // 9b-1: default (env-after-shebang) — опции из шебанга применяются
+        await runSuite(lspPath, 'LSP Shebang default suppresses', lspArgs, async (client) => {
+            const initId = client.sendRequest('initialize', {
+                processId: process.pid,
+                rootUri: `file://${shebangTmpDir}`,
+                capabilities: {}
+            });
+            await client.waitForResponse(initId);
+            client.sendNotification('initialized', {});
+
+            client.sendNotification('textDocument/didOpen', {
+                textDocument: { uri: shebangUri, languageId: 'trust', version: 1, text: shebangSrc }
+            });
+            const diag = await client.waitForNotification('textDocument/publishDiagnostics', 10000);
+            const messages = ((diag.params && diag.params.diagnostics) || []).map(d => d.message || '').join('\n');
+            test('shebang default: no trust condition(s) present', () => {
+                assert(!messages.includes('trust condition(s) present'),
+                    `expected absence, got:\n${messages}`);
+            });
+            test('shebang default: no missing sigil', () => {
+                assert(!messages.includes("missing '@' sigil"),
+                    `expected absence, got:\n${messages}`);
+            });
+        });
+
+        // 9b-2: --shebang-mode=ignore — опции из шебанга НЕ применяются
+        const ignoreArgs = ['--project-dir', shebangTmpDir, '--shebang-mode', 'ignore'];
+        await runSuite(lspPath, 'LSP Shebang ignore shows', ignoreArgs, async (client) => {
+            const initId = client.sendRequest('initialize', {
+                processId: process.pid,
+                rootUri: `file://${shebangTmpDir}`,
+                capabilities: {}
+            });
+            await client.waitForResponse(initId);
+            client.sendNotification('initialized', {});
+
+            client.sendNotification('textDocument/didOpen', {
+                textDocument: { uri: shebangUri, languageId: 'trust', version: 1, text: shebangSrc }
+            });
+            const diag = await client.waitForNotification('textDocument/publishDiagnostics', 10000);
+            const messages = ((diag.params && diag.params.diagnostics) || []).map(d => d.message || '').join('\n');
+            test('shebang ignore: shows trust condition(s) present', () => {
+                assert(messages.includes('trust condition(s) present'),
+                    `expected present, got:\n${messages}`);
+            });
+        });
+
+        // Cleanup
+        try { fs.rmSync(shebangTmpDir, { recursive: true }); } catch (_) {}
+
+        // -- Test 9c: LSP env analysis options (--solver-mode) applied to file WITHOUT shebang --
+        // Файл без шебанга; опция --solver-mode=assert передаётся trust-lsp как env-опция
+        // (принимается через lspTable/общие опции и применяется центрально).
+        const noShebangSrc = '%add(x:Int32):Int32\n' +
+            '    trust_pre(x >= 0)\n' +
+            '    trust_post(add >= 0) := {\n' +
+            '    return x + 1;\n' +
+            '};\n' +
+            '@main() := { @print(\'{}\\n\', add(3)); }\n';
+        const envTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trust-lsp-env-'));
+        const envFilePath = path.join(envTmpDir, 'noshebang.src');
+        const envUri = `file://${envFilePath}`;
+        fs.writeFileSync(envFilePath, noShebangSrc);
+
+        const envArgs = ['--project-dir', envTmpDir, '--solver-mode=assert'];
+        await runSuite(lspPath, 'LSP env solver-mode suppresses', envArgs, async (client) => {
+            const initId = client.sendRequest('initialize', {
+                processId: process.pid,
+                rootUri: `file://${envTmpDir}`,
+                capabilities: {}
+            });
+            await client.waitForResponse(initId);
+            client.sendNotification('initialized', {});
+
+            client.sendNotification('textDocument/didOpen', {
+                textDocument: { uri: envUri, languageId: 'trust', version: 1, text: noShebangSrc }
+            });
+            const diag = await client.waitForNotification('textDocument/publishDiagnostics', 10000);
+            const messages = ((diag.params && diag.params.diagnostics) || []).map(d => d.message || '').join('\n');
+            test('env --solver-mode=assert: no trust condition(s) present', () => {
+                assert(!messages.includes('trust condition(s) present'),
+                    `expected absence, got:\n${messages}`);
+            });
+        });
+
+        // -- Test 9d: LSP broken shebang option -> Error diagnostic on the shebang line --
+        const brokenShebangSrc = '#!trust --solver-mode=bogus\n' +
+            '%add(x:Int32):Int32\n' +
+            '    trust_pre(x >= 0) := {\n' +
+            '    return x + 1;\n' +
+            '};\n' +
+            '@main() := { @print(\'{}\\n\', add(3)); }\n';
+        const brokenTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trust-lsp-broken-'));
+        const brokenFilePath = path.join(brokenTmpDir, 'broken.src');
+        const brokenUri = `file://${brokenFilePath}`;
+        fs.writeFileSync(brokenFilePath, brokenShebangSrc);
+
+        await runSuite(lspPath, 'LSP broken shebang diagnostic', lspArgs, async (client) => {
+            const initId = client.sendRequest('initialize', {
+                processId: process.pid,
+                rootUri: `file://${brokenTmpDir}`,
+                capabilities: {}
+            });
+            await client.waitForResponse(initId);
+            client.sendNotification('initialized', {});
+
+            client.sendNotification('textDocument/didOpen', {
+                textDocument: { uri: brokenUri, languageId: 'trust', version: 1, text: brokenShebangSrc }
+            });
+            const diag = await client.waitForNotification('textDocument/publishDiagnostics', 10000);
+            const diags = (diag.params && diag.params.diagnostics) || [];
+            const optErr = diags.find(d => (d.message || '').includes('invalid analysis options in shebang'));
+            test('broken shebang: Error diagnostic published', () => {
+                assert(optErr != null,
+                    `expected invalid-options diagnostic, got:\n${diags.map(d => d.message).join('\n')}`);
+            });
+            test('broken shebang: diagnostic is severity Error (=1) and mentions solver-mode', () => {
+                assert(optErr && optErr.severity === 1 && optErr.message.includes('solver-mode'),
+                    `expected Error severity + solver-mode, got: ${JSON.stringify(optErr)}`);
+            });
+            test('broken shebang: diagnostic range is the shebang line', () => {
+                assert(optErr && optErr.range && optErr.range.start && optErr.range.start.line === 0,
+                    `expected shebang line, got: ${JSON.stringify(optErr && optErr.range)}`);
+            });
+        });
+
+        // Cleanup
+        try { fs.rmSync(envTmpDir, { recursive: true }); } catch (_) {}
+        try { fs.rmSync(brokenTmpDir, { recursive: true }); } catch (_) {}
+
+        // -- Test 10: LSP textDocument/formatting -- 
+        await runSuite(lspPath, 'LSP Formatting', lspArgs, async (client) => {
+            const initId = client.sendRequest('initialize', {
+                processId: process.pid,
+                rootUri: `file://${tmpDir}`,
+                capabilities: { textDocument: {} }
+            });
+            const initResp = await client.waitForResponse(initId);
+            test('initialize declares documentFormattingProvider', () => {
+                assert(initResp.result && initResp.result.capabilities &&
+                    initResp.result.capabilities.documentFormattingProvider === true,
+                    `expected documentFormattingProvider=true, got ${JSON.stringify(initResp.result)}`);
+            });
+            client.sendNotification('initialized', {});
+
+            const fmtFile = path.join(tmpDir, 'format_test.src');
+            const fmtSrc = 'func add(a,b) { c:=a+b; return c; }\n@main() := { x:=add(1,2); @print(\'x={}\\n\',x); }\n';
+            const fmtUri = `file://${fmtFile}`;
+            client.sendNotification('textDocument/didOpen', {
+                textDocument: { uri: fmtUri, languageId: 'trust', version: 1, text: fmtSrc }
+            });
+
+            const fmtId = client.sendRequest('textDocument/formatting', {
+                textDocument: { uri: fmtUri },
+                options: { tabSize: 4, insertSpaces: true }
+            });
+            const fmtResp = await client.waitForResponse(fmtId);
+            test('formatting responds with TextEdit array', () => {
+                assert(fmtResp && fmtResp.result && Array.isArray(fmtResp.result) && fmtResp.result.length === 1,
+                    `expected single TextEdit, got ${JSON.stringify(fmtResp)}`);
+            });
+            test('formatting normalizes indentation and spacing', () => {
+                if (fmtResp && fmtResp.result && fmtResp.result.length === 1) {
+                    const newText = fmtResp.result[0].newText || '';
+                    assert(newText.includes('func add(a, b) {\n    c := a + b;\n'),
+                        `expected formatted body, got: ${JSON.stringify(newText)}`);
+                }
+            });
+            test('formatting has whole-document range', () => {
+                if (fmtResp && fmtResp.result && fmtResp.result.length === 1) {
+                    const range = fmtResp.result[0].range;
+                    assert(range && range.start && range.start.line === 0 && range.start.character === 0,
+                        `expected start (0,0), got ${JSON.stringify(range)}`);
+                }
+            });
+        });
+
+        // -- Test 11: LSP --help --
         {
             const cp = require('child_process');
             const result = cp.spawnSync(lspPath, ['--help'], { encoding: 'utf-8', timeout: 5000 });
@@ -828,7 +1021,7 @@ async function main() {
         console.error(err.stack);
         testsFailed++;
     } finally {
-        // Don't clean up tmpDir — it points to pre-existing test data directory
+        // Don't clean up tmpDir - it points to pre-existing test data directory
     }
 
     process.exit(testsFailed > 0 ? 1 : 0);

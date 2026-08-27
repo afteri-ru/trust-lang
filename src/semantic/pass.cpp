@@ -3,6 +3,7 @@
 
 #include "semantic/type_inference.hpp"
 #include "diag/diag.hpp"
+#include "types/intrinsics.hpp"
 #include "types/registry.hpp"
 #include "utils/strings.hpp"
 
@@ -16,11 +17,11 @@ bool AnalysisContext::hasErrors() const {
     return m_ctx.diag().errorCount() > 0;
 }
 
-// ── Контекст области имён и текущей функции (из скоуп-стека SymbolTable) ──
+// -- Контекст области имён и текущей функции (из скоуп-стека SymbolTable) --
 
 std::string AnalysisContext::namespacePath() const {
     // Сегменты каждой области имён собираются по скоупам (внутри наружу), затем
-    // последовательность скоупов разворачивается: путь — от внешней к внутренней.
+    // последовательность скоупов разворачивается: путь - от внешней к внутренней.
     std::vector<std::vector<std::string>> scopeSegs;
     m_symbols.forEachScope([&](const SymbolTable::Scope& s) {
         if (!s.creator || s.creator->kind() != ParserToken::Kind::ScopeBlock) {
@@ -34,7 +35,7 @@ std::string AnalysisContext::namespacePath() const {
         if (isCodeBlock || isLabel || sb.is_hidden() || isGlobalNs) {
             return;
         }
-        // Область имён: "ns::name::" / "::ns::name". Сегменты — непустые части по "::".
+        // Область имён: "ns::name::" / "::ns::name". Сегменты - непустые части по "::".
         std::vector<std::string> segs;
         std::size_t pos = 0;
         while (pos <= text.size()) {
@@ -69,7 +70,7 @@ std::string AnalysisContext::namespaceFull() const {
 
 const FuncDecl* AnalysisContext::currentFunc() const {
     const FuncDecl* result = nullptr;
-    // forEachScope идёт от внутреннего скоупа к глобальному — первый FuncDecl и есть текущий.
+    // forEachScope идёт от внутреннего скоупа к глобальному - первый FuncDecl и есть текущий.
     m_symbols.forEachScope([&](const SymbolTable::Scope& s) {
         if (!result && s.creator && s.creator->kind() == ParserToken::Kind::FuncDecl) {
             result = static_cast<const FuncDecl*>(s.creator);
@@ -83,7 +84,7 @@ std::string AnalysisContext::funcShortName() const {
     if (!f) {
         return {};
     }
-    // Нативный %-префикс срезается (единый источник — utils::strip_native_prefix).
+    // Нативный %-префикс срезается (единый источник - utils::strip_native_prefix).
     return std::string(utils::strip_native_prefix(f->text()));
 }
 
@@ -107,7 +108,7 @@ bool AnalysisContext::requireFunction(const AstNodeBase& node, const char* macro
     return false;
 }
 
-// ── Резолв типов и runtime-символов ──
+// -- Резолв типов и runtime-символов --
 
 std::optional<TypeId> AnalysisContext::resolveType(const AstNodeBase& type_node) const {
     if (type_node.kind() != ParserToken::Kind::TypeName) {
@@ -118,10 +119,10 @@ std::optional<TypeId> AnalysisContext::resolveType(const AstNodeBase& type_node)
     if (!name.empty() && name[0] == ':') {
         name.remove_prefix(1);
     }
-    // Параметризованный кортеж `Tuple(:Rational, :Rational)` / `Tuple(sum:Rational, ...)` —
+    // Параметризованный кортеж `Tuple(:Rational, :Rational)` / `Tuple(sum:Rational, ...)` -
     // аннотация структурного Tuple-типа: строим тип через getOrCreateTupleType (элементы
     // позиционные имя="" или именованные). Такой тип становится возвращаемым типом функции →
-    // getOrCreateFunctionType интернирует функции по нему. Распознавание — по типу из реестра
+    // getOrCreateFunctionType интернирует функции по нему. Распознавание - по типу из реестра
     // (TypeId), а НЕ по строковому сравнению имени.
     if (it.params() && !it.params()->empty()) {
         auto& reg = m_ctx.types();
@@ -155,14 +156,14 @@ std::optional<TypeId> AnalysisContext::resolveType(const AstNodeBase& type_node)
             return s->type;
         }
     }
-    // Builtin-типы и глобальные алиасы — в реестре типов.
+    // Builtin-типы и глобальные алиасы - в реестре типов.
     auto base = m_ctx.types().findType(name);
     if (!base.has_value()) {
         return std::nullopt;
     }
     // Тип-определение массива `:Elem[3]` / `:Elem[3,4]`: размерности из `[...]` (без финальной
     // запятой) → структурный Array<Elem, dims> (ArrayTypeData). Определения N-D (`[3,4]`) работают
-    // без кодогенерации (диагностика «не реализовано» при генерации); 1D (`[3]`) — фиксированный
+    // без кодогенерации (диагностика «не реализовано» при генерации); 1D (`[3]`) - фиксированный
     // (std::array). Размерности кладутся в данные типа.
     if (it.dims() && !it.dims()->empty()) {
         std::vector<uint64_t> dims;
@@ -181,7 +182,7 @@ std::optional<TypeId> AnalysisContext::resolveType(const AstNodeBase& type_node)
         if (!dims.empty()) {
             // Определение типа массива `:Elem[3]`: изменяемый массив (std::vector) с известной
             // размерностью (для проверки границ при доступе). N-D определения работают без
-            // кодогенерации (при генерации — диагностика «не реализовано»).
+            // кодогенерации (при генерации - диагностика «не реализовано»).
             return m_ctx.types().getOrCreateArrayType(*base, std::move(dims));
         }
     }
@@ -208,7 +209,7 @@ TypeId AnalysisContext::resolvedType(const AstNodeBase& node) const {
     case ParserToken::Kind::DictLiteral:
     case ParserToken::Kind::Tuple: {
         // Кортеж (`kind==Tuple`): структурный тип уже создан и закеширован в analyzeDictLiteral
-        // (мутирующем); здесь — const-фолбэк при пустом кеше → плоский Tuple-тип. В C++ → auto/std::tuple.
+        // (мутирующем); здесь - const-фолбэк при пустом кеше → плоский Tuple-тип. В C++ → auto/std::tuple.
         if (node.kind() == ParserToken::Kind::Tuple) {
             return m_ctx.types().getType(type_category::Tuple);
         }
@@ -224,10 +225,10 @@ TypeId AnalysisContext::resolvedType(const AstNodeBase& node) const {
         return static_cast<const DictLiteralNode&>(node).arrayType;
     case ParserToken::Kind::MemberAccess:
     case ParserToken::Kind::ArrayAccess:
-        // Результат доступа к элементу словаря — std::any (Any).
+        // Результат доступа к элементу словаря - std::any (Any).
         return m_ctx.types().getType(type_generic::Any);
     case ParserToken::Kind::Ident: {
-        // Тип переменной — живой тип символа в скоуп-стеке (во время анализа).
+        // Тип переменной - живой тип символа в скоуп-стеке (во время анализа).
         const Symbol* s = m_symbols.resolve(node.text());
         return s ? s->type : INVALID_TYPE_ID;
     }
@@ -263,7 +264,9 @@ TypeId AnalysisContext::buildFuncType(const FuncDecl& func_node) const {
         returnType = resolveType(*func_node.m_type).value_or(INVALID_TYPE_ID);
     }
 
-    return m_ctx.types().getOrCreateFunctionType(returnType, paramTypes);
+    // Функция с trust-условиями (пред/пост, m_trust) получает ОТДЕЛЬНЫЙ функциональный TypeId
+    // от идентичной сигнатуры без условий (бит kTrustFlag в TypeKind, см. registry.hpp).
+    return m_ctx.types().getOrCreateFunctionType(returnType, paramTypes, INVALID_TYPE_ID, !func_node.m_trust.empty());
 }
 
 bool AnalysisContext::isRegisteredRuntimeSymbol(std::string_view name) const {
@@ -277,6 +280,11 @@ bool AnalysisContext::isRegisteredRuntimeSymbol(std::string_view name) const {
         }
     }
     return false;
+}
+
+bool AnalysisContext::isRegisteredIntrinsic(std::string_view name) const {
+    // Интринсик - НЕ нативная функция (без префикса '%'); имя сопоставляется дословно.
+    return findIntrinsicByName(name).has_value();
 }
 
 } // namespace trust

@@ -1,4 +1,4 @@
-// trust/assert.hpp — runtime error helpers for the Trust runtime.
+// trust/assert.hpp - runtime error helpers for the Trust runtime.
 //
 // Public runtime header: self-contained (standard headers only) so that
 // generated C++ programs can include it without depending on the compiler's
@@ -45,7 +45,7 @@ std::string formatMessage(std::string_view file, int line, std::format_string<Ar
 /// в макросе: печатает сообщение вида `file:line: expr` в trust::errs() (и, если trace == true,
 /// стек вызовов) и завершает процесс БЕЗ core-dump (std::_Exit(EXIT_FAILURE)).
 /// `[[noreturn]]` и возврат `bool` нужны, чтобы использовать её как правый операнд `||`
-/// (при ложном cond вызов происходит, при истинном — short-circuit пропускает вызов).
+/// (при ложном cond вызов происходит, при истинном - short-circuit пропускает вызов).
 [[noreturn]] inline bool trust__abort__(std::string_view file, int line, std::string_view expr, bool trace = true) {
     std::string_view fname = file;
     if (auto pos = file.rfind('/'); pos != std::string_view::npos) {

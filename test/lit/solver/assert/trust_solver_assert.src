@@ -1,0 +1,24 @@
+# RUN: %trust -q --emit-cpp --solver-mode=assert %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# --solver-mode=assert: пред-условие в начале тела, пост-условие перед каждым `return <value>` (имя
+# функции связывается с возвращаемым значением), утверждение в месте, утверждение переменной
+# после объявления. Проверки - единый интринсик intrinsic_assert → trust::trust__abort__
+# (из trust/assert.hpp); сообщение - исходный текст условия.
+
+# CHECK: #include "trust/assert.hpp"
+
+add(x:Int32):Int32 trust_pre( x > 0 ) trust_post( add >= 0 ) := {
+    r := x + 1;
+    trust_assert( r > 0 );
+    return r;
+};
+y trust_assert( y > 0 ) := add(5);
+
+# CHECK: int32_t c_add(int32_t c_x) {
+# CHECK: if (!((c_x > 0))) trust::trust__abort__("{{.*}}trust_solver_assert.src", {{[0-9]+}}, "x > 0", 1);
+# CHECK: if (!((c_r > 0))) trust::trust__abort__("{{.*}}trust_solver_assert.src", {{[0-9]+}}, "r > 0", 1);
+# CHECK: auto __trust_res_{{[0-9]+}} = c_r;
+# CHECK: if (!((__trust_res_{{[0-9]+}} >= 0))) trust::trust__abort__("{{.*}}trust_solver_assert.src", {{[0-9]+}}, "add >= 0", 1);
+# CHECK: return __trust_res_{{[0-9]+}};
+# CHECK: int32_t c_y = c_add(5);
+# CHECK: if (!((c_y > 0))) trust::trust__abort__("{{.*}}trust_solver_assert.src", {{[0-9]+}}, "y > 0", 1);

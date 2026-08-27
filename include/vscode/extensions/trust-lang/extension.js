@@ -11,7 +11,7 @@ let isDebugging = false;
 let lspClient = null;
 let buildStatusBar = null;
 
-// ── Output channel for tracing (re-export from dap-adapter) ──
+// -- Output channel for tracing (re-export from dap-adapter) --
 let traceChannel = null;
 
 // Функция trace для совместимости с существующими вызовами (всегда пишет диагностику)
@@ -20,7 +20,7 @@ function trace(msg) {
 }
 
 
-// ── DAP Wrapper for custom request with tracing ──
+// -- DAP Wrapper for custom request with tracing --
 async function sendCustomRequest(session, command, args) {
     trace(`[DAP-CUSTOM] Sending '${command}': ${JSON.stringify(args)}`);
     try {
@@ -33,7 +33,7 @@ async function sendCustomRequest(session, command, args) {
     }
 }
 
-// ── Reset setting helper ──
+// -- Reset setting helper --
 function registerResetCommand(context, settingKey, commandId) {
     const cmd = vscode.commands.registerCommand(commandId, () => {
         vscode.workspace.getConfiguration('trust').update(settingKey, undefined, vscode.ConfigurationTarget.Global);
@@ -91,7 +91,7 @@ function activate(context) {
         vscode.debug.registerDebugAdapterDescriptorFactory('trust', factory)
     );
 
-    // ── Register DebugAdapterTrackerFactory for DAP tracing ──
+    // -- Register DebugAdapterTrackerFactory for DAP tracing --
     context.subscriptions.push(
         vscode.debug.registerDebugAdapterTrackerFactory('trust', {
             createDebugAdapterTracker(session) {
@@ -124,7 +124,7 @@ function activate(context) {
         })
     );
 
-    // ── Open C++ File command ──
+    // -- Open C++ File command --
     const openCppCmd = vscode.commands.registerCommand('trust.openCppFile', async () => {
         trace(`[CMD] trust.openCppFile triggered`);
 
@@ -145,7 +145,7 @@ function activate(context) {
         const session = vscode.debug.activeDebugSession;
         if (session && session.type === 'trust') {
             try {
-                const result = await sendCustomRequest(session, 'stackTrace', { startFrame: 0, levels: 1 });
+                const result = await sendCustomRequest(session, 'stackTrace', { startFrame: 0, levels: 1, sourceKind: 'cpp' });
                 const stackFrame = result?.body?.stackFrames?.[0];
                 if (stackFrame?.source?.path) {
                     cppFile = stackFrame.source.path;
@@ -164,7 +164,7 @@ function activate(context) {
             const tempDir = config.get('tempDir', '.trust');
             const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder, tempDir);
             const baseName = path.basename(editor.document.fileName, '.src');
-            cppFile = path.join(resolvedTempDir, baseName + '.cpp');
+            cppFile = path.join(resolvedTempDir, baseName + '.cppt');
             cppLine = cppLine || 1;
             trace(`[OPEN-CPP] Fallback computed path: ${cppFile}`);
         }
@@ -195,7 +195,7 @@ function activate(context) {
 
     context.subscriptions.push(openCppCmd);
 
-    // ── Provide debug configuration (предлагаемые launch.json шаблоны) ──
+    // -- Provide debug configuration (предлагаемые launch.json шаблоны) --
     context.subscriptions.push(
         vscode.debug.registerDebugConfigurationProvider('trust', {
             provideDebugConfigurations(folder) {
@@ -208,7 +208,7 @@ function activate(context) {
                     request: 'launch',
                     name: 'Trust Debug (current file)',
                     sourceFile: '${file}',
-                    cppFile: '${workspaceFolder}/' + tempDir + '/${fileBasenameNoExtension}.cpp',
+                    cppFile: '${workspaceFolder}/' + tempDir + '/${fileBasenameNoExtension}.cppt',
                     targetFile: '${workspaceFolder}/' + tempDir + '/${fileBasenameNoExtension}',
                     gdbPath: ''
                 };
@@ -242,7 +242,7 @@ function activate(context) {
                         request: 'launch',
                         name: `Trust Debug (${baseName})`,
                         sourceFile: fileName,
-                        cppFile: path.join(resolvedTempDir, baseName + '.cpp'),
+                        cppFile: path.join(resolvedTempDir, baseName + '.cppt'),
                         targetFile: path.join(resolvedTempDir, baseName),
                         gdbPath: ''
                     };
@@ -269,7 +269,7 @@ function activate(context) {
                     const tempDir = config.get('tempDir', '.trust');
                     const baseName = path.basename(activeFile, '.src');
                     const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder, tempDir);
-                    debugConfiguration.cppFile = path.join(resolvedTempDir, baseName + '.cpp');
+                    debugConfiguration.cppFile = path.join(resolvedTempDir, baseName + '.cppt');
                     debugConfiguration.targetFile = path.join(resolvedTempDir, baseName);
                 } else {
                     debugConfiguration.cppFile = resolveDapVariables(debugConfiguration.cppFile, workspaceFolder, activeFile);
@@ -277,11 +277,11 @@ function activate(context) {
                 }
                 debugConfiguration.gdbPath = resolveDapVariables(debugConfiguration.gdbPath || '', workspaceFolder, activeFile);
 
-                // ── Build pipeline: transpile + compile ──
+                // -- Build pipeline: transpile + compile --
                 // NOTE: Если используется preLaunchTask в launch.json, этот блок всё равно выполняется
-                // для случая без launch.json (F5 сразу). Когда есть preLaunchTask — VSCode запускает
+                // для случая без launch.json (F5 сразу). Когда есть preLaunchTask - VSCode запускает
                 // сборку через него, но resolveDebugConfiguration всё равно вызывается.
-                // Здесь buildForDebug — fallback, если preLaunchTask не отработал.
+                // Здесь buildForDebug - fallback, если preLaunchTask не отработал.
                 trace(`[CONFIG] Starting build pipeline for: ${activeFile}`);
                 const config = vscode.workspace.getConfiguration('trust');
 
@@ -315,7 +315,7 @@ function activate(context) {
         })
     );
 
-    // ── Build task provider для preLaunchTask ──
+    // -- Build task provider для preLaunchTask --
     // Предоставляет задачи "Trust: Transpile .src", "Trust: Compile .cpp" и "Trust: Build all"
     const buildTaskProvider = vscode.tasks.registerTaskProvider(TrustBuildTask.buildTaskType, {
         provideTasks(token) {
@@ -338,11 +338,11 @@ function activate(context) {
     });
     context.subscriptions.push(buildTaskProvider);
 
-    // ── Reset commands ──
+    // -- Reset commands --
     registerResetCommand(context, 'dapPath', 'trust.resetDapPath');
     registerResetCommand(context, 'lspPath', 'trust.resetLspPath');
 
-    // ── LSP Client (vscode-languageclient) ──
+    // -- LSP Client (vscode-languageclient) --
     const config = vscode.workspace.getConfiguration('trust');
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || '';
     const lspOutputChannel = vscode.window.createOutputChannel('Trust Lang LSP');
@@ -356,7 +356,7 @@ function activate(context) {
         lspOutputChannel.show(true);
         updateLspStatusBar(LspStatus.ERROR, lspStatusBar);
         vscode.window.showErrorMessage(msg);
-        // Пропускаем, но не прерываем активацию расширения — остальные функции продолжают работать
+        // Пропускаем, но не прерываем активацию расширения - остальные функции продолжают работать
     } else {
         const lspArgs = [];
         if (workspaceFolder) {
@@ -370,6 +370,20 @@ function activate(context) {
         if (config.get('dev.traceLSP', false)) {
             lspArgs.push('--trace');
         }
+        // --shebang-mode: режим применения опций анализа из шебанга файла относительно
+        // опций окружения (по умолчанию env-after-shebang).
+        const shebangMode = config.get('shebangMode', 'env-after-shebang');
+        lspArgs.push('--shebang-mode', shebangMode);
+        // trust.lspArgs: дополнительные env-опции анализа (например --solver-mode=assert,
+        // -Wsigil=ignore), передаются trust-lsp как есть.
+        const extraLspArgs = config.get('lspArgs', []);
+        if (Array.isArray(extraLspArgs)) {
+            for (const a of extraLspArgs) {
+                if (typeof a === 'string' && a) {
+                    lspArgs.push(a);
+                }
+            }
+        }
 
         const serverOptions = {
             command: lspPath,
@@ -378,9 +392,9 @@ function activate(context) {
         };
 
         // Промежуточное ПО: documentLink (подчёркнутые диапазоны) управляется флагом
-        // `trust.dev.highlightRanges`. Когда флаг сброшен (по умолчанию) — ссылки НЕ
+        // `trust.dev.highlightRanges`. Когда флаг сброшен (по умолчанию) - ссылки НЕ
         // подчёркиваются в .src/.cppt, но hover (с Markdown-ссылками) и go-to-definition
-        // продолжают работать. Когда флаг включён — возвращаем ссылки как есть (VSCode
+        // продолжают работать. Когда флаг включён - возвращаем ссылки как есть (VSCode
         // сам обработает клик по ссылке и откроет целевой файл).
         const lspMiddleware = {
             provideDocumentLinks(document, token, next) {
@@ -395,7 +409,7 @@ function activate(context) {
         const clientOptions = {
             documentSelector: [
                 { scheme: 'file', language: 'trust' },
-                { scheme: 'file', language: 'cpp' }
+                { scheme: 'file', language: 'trusted-cpp' }
             ],
             synchronize: {
                 configurationSection: 'trust'

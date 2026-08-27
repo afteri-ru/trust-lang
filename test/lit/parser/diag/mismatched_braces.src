@@ -1,4 +1,4 @@
 # RUN: %not %trust -q --emit-macros %s > %t.out 2>&1 && %FileCheck %s <%t.out
 { }
 }
-# CHECK: fatal: Brace mismatch
+# CHECK: error: Brace mismatch

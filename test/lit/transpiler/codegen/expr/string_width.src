@@ -1,0 +1,17 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Ширина строк: одинарные кавычки '…' → StrChar (узкая, "…");
+# двойные "…" → StrWide (широкая, L"…").
+# Несколько символов в любых кавычках - это строка (не одиночный char).
+a := 'abc';
+# CHECK: std::string c_a = "abc";
+
+b := "abc";
+# CHECK-NEXT: std::wstring c_b = L"abc";
+
+# Явные аннотации ширины.
+c:StrChar := 'x';
+# CHECK-NEXT: std::string c_c = "x";
+
+d:StrWide := "y";
+# CHECK-NEXT: std::wstring c_d = L"y";

@@ -44,7 +44,9 @@ pygmentsStyle = "tango"
 
 # Configure how URLs look like per section.
 [permalinks]
-blog = "/:section/:slug/"
+# blog posts now live in category subfolders (theory/, comparison/, ...), so the
+# natural path is used (e.g. /ru/blog/theory/turing-machine/). A fixed
+# "/:section/:slug/" permalink would collapse them back to the blog root.
 
 # Image processing configuration.
 [imaging]
@@ -68,6 +70,7 @@ weight = 1
 [languages.en.params]
 title = "TrustLang"
 description = "TrustLang site"
+maintenance_message = "The site is under construction"
 
 [languages.ru]
 languageName ="Русский"
@@ -75,6 +78,7 @@ contentDir = "content/ru"
 [languages.ru.params]
 title = "TrustLang"
 description = "TrustLang сайт"
+maintenance_message = "Сайт находится в разработке"
 time_format_default = "02.01.2006"
 time_format_blog = "02.01.2006"
 
@@ -108,6 +112,18 @@ section = ["HTML", "print", "RSS"]
 copyright = "The TrustLang Authors"
 math = true
 # privacy_policy = "https://policies.google.com/privacy"
+
+# Кнопка «Edit this page»: открыть исходный .md страницы для редактирования
+# в VSCode через URL-схему vscode://file/<абсолютный путь на хосте сборки>.
+# Включение добавляет кнопку «Edit in VSCode» (partial
+# layouts/partials/page-meta-links.html). Путь берётся из $.File.Filename.
+#
+# Кнопка рендерится ТОЛЬКО при локальном запуске dev-сервера (hugo server):
+# в шаблоне условие `and vscode_edit hugo.IsServer`. Боевая сборка
+# (`hugo -d gh-pages`, см. gh-pages_build.sh) выполняется не через server,
+# поэтому `hugo.IsServer = false` и кнопка с локальным путём vscode://
+# НЕ попадает в публикуемый сайт.
+vscode_edit = true
 
 # First one is picked as the Twitter card image if not set on page.
 # images = ["images/project-illustration.png"]
@@ -222,6 +238,12 @@ enable = false
 #  url = "https://example.org/mail"
 #  icon = "fa fa-envelope"
 #  desc = "Discuss development issues around the project"
+
+# Maintenance mode: при enabled=true на каждой странице выводится баннер
+# "Сайт находится в разработке" (partials/maintenance.html). Текст баннера -
+# по-язычный maintenance_message в [languages.*.params].
+[params.maintenance]
+  enabled = false
 
 # hugo module configuration
 

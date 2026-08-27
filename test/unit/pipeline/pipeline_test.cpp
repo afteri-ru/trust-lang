@@ -1,9 +1,11 @@
 #include "pipeline/pipeline.hpp"
+#include "pipeline/cli.hpp"
 #include <gtest/gtest.h>
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <unistd.h>
@@ -127,6 +129,11 @@ TEST(Parser, EmitTokens) {
     EXPECT_TRUE(static_cast<int>(r.opts.emit_flags & EmitFlags::Tokens));
 }
 
+TEST(Parser, EmitMacros) {
+    auto r = do_parse({"trust", "--emit-macros", "input.src"});
+    EXPECT_TRUE(static_cast<int>(r.opts.emit_flags & EmitFlags::Macros));
+}
+
 TEST(Parser, EmitAST) {
     auto r = do_parse({"trust", "--emit-ast", "input.src"});
     EXPECT_TRUE(static_cast<int>(r.opts.emit_flags & EmitFlags::AST));
@@ -150,14 +157,9 @@ TEST(Parser, NoInputFile) {
 }
 
 TEST(Parser, UnknownShort) {
+    // Арity-aware парсер (как gcc/clang) ошибкой отклоняет неизвестные опции.
     auto r = do_parse({"trust", "-x", "input.src"});
-    bool found = false;
-    for (auto& a : r.remaining_args) {
-        if (a == "-x") {
-            found = true;
-        }
-    }
-    EXPECT_TRUE(found);
+    EXPECT_EQ(r.exit_code, 1);
 }
 
 TEST(Parser, CombinedFlags) {
@@ -167,10 +169,11 @@ TEST(Parser, CombinedFlags) {
 }
 
 TEST(Parser, DiagOptionAsRemaining) {
-    auto r = do_parse({"trust", "-Wunused-var", "input.src"});
+    // -W<diagnostics> собираются в diag_args (применяются позже через Options::parse_argv).
+    auto r = do_parse({"trust", "-Wunused-variable", "input.src"});
     bool found = false;
-    for (auto& a : r.remaining_args) {
-        if (a == "-Wunused-var") {
+    for (auto& a : r.diag_args) {
+        if (a == "-Wunused-variable") {
             found = true;
         }
     }
@@ -252,15 +255,51 @@ TEST(Parser, StaticLibLong) {
     EXPECT_EQ(r.opts.compile_mode, CompileMode::StaticLib);
 }
 
-TEST(Parser, SharedLibShort) {
-    auto r = do_parse({"trust", "-l", "input.src"});
-    EXPECT_EQ(r.opts.compile_mode, CompileMode::SharedLib);
-    EXPECT_NE(r.opts.compile_mode, CompileMode::StaticLib);
-}
-
 TEST(Parser, SharedLibLong) {
     auto r = do_parse({"trust", "--shared-lib", "input.src"});
     EXPECT_EQ(r.opts.compile_mode, CompileMode::SharedLib);
+}
+
+// -l<name> теперь (по конвенции gcc/clang) - библиотека линковки, а не shared-lib.
+// Повторяемые -l накапливаются в link_libs_cli (пересечение с @[link] из исходника).
+TEST(Parser, LinkLibParsing) {
+    auto r = do_parse({"trust", "-l", "mylib", "-l", "gmp", "-L", "/opt/libs", "input.src"});
+    EXPECT_EQ(r.opts.compile_mode, CompileMode::Executable);
+    ASSERT_EQ(r.opts.link_libs_cli.size(), 2u);
+    EXPECT_EQ(r.opts.link_libs_cli[0], "mylib");
+    EXPECT_EQ(r.opts.link_libs_cli[1], "gmp");
+    ASSERT_EQ(r.opts.link_dirs.size(), 1u);
+    EXPECT_EQ(r.opts.link_dirs[0], "/opt/libs");
+}
+
+TEST(Parser, DriverHelpGroupedByCategory) {
+    // Справка генерируется из таблицы DriverOption и сгруппирована по категориям.
+    const std::string help = driverHelp();
+    EXPECT_NE(help.find("General:"), std::string::npos);
+    EXPECT_NE(help.find("Input & Output:"), std::string::npos);
+    EXPECT_NE(help.find("Compilation model:"), std::string::npos);
+    EXPECT_NE(help.find("Linking:"), std::string::npos);
+    EXPECT_NE(help.find("--shared-lib"), std::string::npos);
+    EXPECT_NE(help.find("-l"), std::string::npos);
+}
+
+TEST(Parser, CompletionTokens) {
+    // Списки для shell-completion берутся из той же таблицы DriverOption.
+    const std::vector<std::string> opts = driverOptionTokens();
+    EXPECT_NE(std::find(opts.begin(), opts.end(), "--format"), opts.end());
+    EXPECT_NE(std::find(opts.begin(), opts.end(), "--keywords"), opts.end());
+    EXPECT_NE(std::find(opts.begin(), opts.end(), "-o"), opts.end());
+
+    // --complete-files: только опции со значением-файлом/путём (type ∈ {file,dir,path}).
+    const std::vector<std::string> files = driverFileValueTokens();
+    EXPECT_NE(std::find(files.begin(), files.end(), "--format-config"), files.end());
+    EXPECT_NE(std::find(files.begin(), files.end(), "--dsl"), files.end());
+    EXPECT_NE(std::find(files.begin(), files.end(), "-o"), files.end());
+    // value-опции, НЕ являющиеся файлом/путём, в список не входят.
+    EXPECT_EQ(std::find(files.begin(), files.end(), "--keywords"), files.end());
+    EXPECT_EQ(std::find(files.begin(), files.end(), "--format-style"), files.end());
+    EXPECT_EQ(std::find(files.begin(), files.end(), "--options"), files.end());
+    EXPECT_EQ(std::find(files.begin(), files.end(), "--link-runtime"), files.end());
 }
 
 TEST(Parser, DslDefault) {

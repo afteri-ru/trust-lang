@@ -25,21 +25,21 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
     // не накапливались между run() (SymbolTable пер-ран; типы должны быть согласованы).
     m_ctx.types().reset();
 
-    // ── Единое ядро разрешения имён (однопроходный NameResolutionPass). ──
+    // -- Единое ядро разрешения имён (однопроходный NameResolutionPass). --
     // Раскрытие контекст-макросов выполняет всегда-подключённый хук ContextMacroExpander
     // в том же обходе (в начале обработки каждого узла). Опциональные анализаторы
     // подключаются ПАРАЛЛЕЛЬНО к ядру. Флаг включения проверяется ОДИН раз здесь;
     // отключённый хук в список активных не попадает и его колбэки в узлах не вызываются.
     NameResolutionPass core(*m_analysis);
-    // Раскрытие контекст-макросов — ВСЕГДА (обязательная часть семантики, не опциональный
+    // Раскрытие контекст-макросов - ВСЕГДА (обязательная часть семантики, не опциональный
     // анализатор). Подключается ПЕРВЫМ, чтобы его onNode раскрывал ContextMacro/квалификатор
     // @:: до обработки ядра.
     core.addHook(std::make_unique<ContextMacroExpander>(*m_analysis));
-    if (m_ctx.opts().is_enabled(FlagKind::Lint)) {
+    if (m_ctx.opts().is_enabled(semantic::FlagKind::Lint)) {
         core.addHook(std::make_unique<LintHook>(*m_analysis));
     }
-    // Сбор символов (имя+тип+диапазоны) для LSP — по флагу --Wsymbols / LSP-режим.
-    if (m_ctx.opts().is_enabled(FlagKind::Symbols)) {
+    // Сбор символов (имя+тип+диапазоны) для LSP - по флагу --Wsymbols / LSP-режим.
+    if (m_ctx.opts().is_enabled(semantic::FlagKind::Symbols)) {
         core.addHook(std::make_unique<SymbolCollectorHook>(*m_analysis));
     }
 
@@ -56,7 +56,7 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
     }
     core.finalize();
 
-    // ── Lowering: последним, только при отсутствии блокирующих ошибок. ──
+    // -- Lowering: последним, только при отсутствии блокирующих ошибок. --
     if (!m_analysis->hasErrors()) {
         LowerCtx lower_ctx;
         lowerBody(ast_nodes, lower_ctx);

@@ -31,9 +31,10 @@ endif()
 set(_required
     "bin/trust"
     "bin/trust-lsp"
-    "bin/trust-dap"
+    "bin/trust-playground"
     "lib/trust-runtime.a"
     "lib/trust-runtime.so"
+    "share/bash-completion/completions/trust"
     "manifest.txt"
 )
 foreach(_need IN LISTS _required)

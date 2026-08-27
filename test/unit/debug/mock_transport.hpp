@@ -6,7 +6,7 @@
 
 using json = nlohmann::json;
 
-// ── MockTransport: эмулирует клиента для тестов ──
+// -- MockTransport: эмулирует клиента для тестов --
 class MockTransport : public trust::transport::Transport {
   public:
     std::string mockInput;      // сырые данные (заголовки + тело)
@@ -20,8 +20,9 @@ class MockTransport : public trust::transport::Transport {
 
     // Имитирует реальный транспорт: парсит Content-Length и возвращает тело
     std::string readPacket() override {
-        if (consumed >= mockInput.size())
+        if (consumed >= mockInput.size()) {
             return {};
+        }
 
         // Парсим заголовки из mockInput, начиная с consumed
         size_t pos = consumed;
@@ -29,16 +30,19 @@ class MockTransport : public trust::transport::Transport {
 
         while (pos < mockInput.size()) {
             size_t eol = mockInput.find('\n', pos);
-            if (eol == std::string::npos)
+            if (eol == std::string::npos) {
                 break;
+            }
 
             std::string line = mockInput.substr(pos, eol - pos);
-            if (!line.empty() && line.back() == '\r')
+            if (!line.empty() && line.back() == '\r') {
                 line.pop_back();
+            }
             pos = eol + 1;
 
-            if (line.empty())
+            if (line.empty()) {
                 break;
+            }
 
             if (line.rfind("Content-Length:", 0) == 0) {
                 size_t colon = line.find(':');

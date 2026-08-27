@@ -1,0 +1,18 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Trust-контракты: пред-/пост-условия после имени функции, утверждение после имени
+# переменной и утверждение как автономный оператор. Единая форма `@{ [kind:] expr @}`:
+#   kind=pre   - предусловие
+#   kind=post  - постусловие
+#   kind=check - утверждение
+
+%add(x:Int):Int @{ pre: x > 0 @} @{ post: r >= 0 @} := { r := x + 1; };
+y @{ check: y > 0 @} := 42;
+@{ check: data != null @};
+
+# CHECK: FuncDecl '%add'
+# CHECK: trust:{{.*}}TrustContract kind=pre
+# CHECK: trust:{{.*}}TrustContract kind=post
+# CHECK: VarDecl 'y'
+# CHECK: trust:{{.*}}TrustContract kind=check
+# CHECK: TrustContract kind=check

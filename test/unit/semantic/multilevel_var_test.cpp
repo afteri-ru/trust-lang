@@ -40,15 +40,15 @@ class VarTypeFixture : public ::testing::Test {
     Context m_ctx;
     std::unique_ptr<TypeRegistry> m_types;
 
-    /// x:Type := lit  — типизированное объявление переменной.
+    /// x:Type := lit  - типизированное объявление переменной.
     AstNodePtr typedVar(const std::string& name, const std::string& type, const std::string& lit) {
         return std::make_shared<VarDecl>(name, std::make_shared<IdentType>(type), std::make_shared<Literal>(ParserToken::Kind::IntLiteral, lit));
     }
 
-    /// x := ident  — объявление с инициализатором-ссылкой на другую переменную.
+    /// x := ident  - объявление с инициализатором-ссылкой на другую переменную.
     AstNodePtr refVar(const std::string& name, const std::string& ref) { return std::make_shared<VarDecl>(name, nullptr, std::make_shared<IdentName>(ref)); }
 
-    /// myType ::= base  — алиас типа (TypeDecl).
+    /// myType ::= base  - алиас типа (TypeDecl).
     AstNodePtr typeAlias(const std::string& name, const std::string& base) {
         return std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>(name), std::make_shared<IdentType>(base));
     }
@@ -56,7 +56,7 @@ class VarTypeFixture : public ::testing::Test {
     TypeId int32Id() { return m_ctx.types().getType("Int32"); }
 };
 
-// ── Переменные на нескольких уровнях вложенности ───────────────
+// -- Переменные на нескольких уровнях вложенности ---------------
 
 TEST_F(VarTypeFixture, GlobalAndNestedBlocks) {
     // g:Int32 := 1;  { a:Int32 := 2; { b:Int32 := 3; } }
@@ -82,7 +82,7 @@ TEST_F(VarTypeFixture, GlobalAndNestedBlocks) {
     EXPECT_NE(g->type, INVALID_TYPE_ID);
 
     // Вложенные переменные были объявлены во вложенных скоупах и корректно
-    // удалены после выхода из них (run() == true без ошибок — типы резолвятся).
+    // удалены после выхода из них (run() == true без ошибок - типы резолвятся).
     EXPECT_EQ(runner.analysis().symbols().resolve("a"), nullptr);
     EXPECT_EQ(runner.analysis().symbols().resolve("b"), nullptr);
 }
@@ -101,7 +101,7 @@ TEST_F(VarTypeFixture, NestedScopeShadowing) {
     seq.push_back(std::move(outer));
 
     SemanticPassRunner runner(m_ctx);
-    EXPECT_TRUE(runner.run(seq)); // shadowing на разных уровнях — не ошибка
+    EXPECT_TRUE(runner.run(seq)); // shadowing на разных уровнях - не ошибка
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
     const Symbol* g = runner.analysis().symbols().global().lookup("x");
@@ -110,7 +110,7 @@ TEST_F(VarTypeFixture, NestedScopeShadowing) {
 }
 
 TEST_F(VarTypeFixture, DuplicateInSameNestedScope) {
-    // { x:Int32 := 1; x:Int64 := 2; } — дубликат в одном скоупе → ошибка.
+    // { x:Int32 := 1; x:Int64 := 2; } - дубликат в одном скоупе → ошибка.
     auto block = std::make_shared<ScopeBlock>(std::string(""));
     block->m_body.push_back(typedVar("x", "Int32", "1"));
     block->m_body.push_back(typedVar("x", "Int64", "2"));
@@ -124,7 +124,7 @@ TEST_F(VarTypeFixture, DuplicateInSameNestedScope) {
 }
 
 TEST_F(VarTypeFixture, UndefinedNameInNestedScope) {
-    // { y := z; } — z не объявлена внутри блока → ошибка undefined name.
+    // { y := z; } - z не объявлена внутри блока → ошибка undefined name.
     auto block = std::make_shared<ScopeBlock>(std::string(""));
     block->m_body.push_back(refVar("y", "z"));
 
@@ -136,7 +136,7 @@ TEST_F(VarTypeFixture, UndefinedNameInNestedScope) {
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
 
-// ── Регистрация нового типа-синонима (Int32) ───────────────────
+// -- Регистрация нового типа-синонима (Int32) -------------------
 
 TEST_F(VarTypeFixture, TypeAliasIntSynonym) {
     // MyInt ::= Int32;
@@ -154,10 +154,10 @@ TEST_F(VarTypeFixture, TypeAliasIntSynonym) {
     EXPECT_EQ(sym->decl->kind(), ParserToken::Kind::TypeDecl);
     TypeId alias = sym->type;
     EXPECT_NE(alias, INVALID_TYPE_ID);
-    EXPECT_NE(alias, int32Id()); // алиас — отдельный TypeId
+    EXPECT_NE(alias, int32Id()); // алиас - отдельный TypeId
 
     // Проверка через реестр типов: канонический тип и C++-имя.
-    // У алиаса нет собственного C++-имени — оно берётся у канонического типа.
+    // У алиаса нет собственного C++-имени - оно берётся у канонического типа.
     EXPECT_EQ(m_ctx.types().getCanonicalTypeId(alias), int32Id());
     EXPECT_TRUE(m_ctx.types().findType("MyInt").has_value());
     EXPECT_EQ(m_ctx.types().getCppTypeName(m_ctx.types().getCanonicalTypeId(alias)).value_or(""), "int32_t");

@@ -23,9 +23,9 @@ namespace trust {
 class DiagnosticEngine;
 class Options;
 
-// ── TypeData — дополнительные данные для разных категорий типов ──
+// -- TypeData - дополнительные данные для разных категорий типов --
 
-// 1. Простой тип (примитив/алиас) — дополнительных данных не нужно
+// 1. Простой тип (примитив/алиас) - дополнительных данных не нужно
 struct SimpleTypeData {};
 
 // 2. Функция / прототип вызова: return + параметры + variadic type
@@ -49,8 +49,8 @@ struct ArrayTypeData {
     TypeId elementType;
     std::vector<uint64_t> dimensions; // пусто = incomplete, [n] = constant
     bool isVariadic{false};           // срез/открытый массив
-    // Константность/фиксированность (`:Array^` → std::array) НЕ хранится здесь — это бит
-    // kConstFlag в TypeId (withConst), как у любых типов; mutable (std::vector) — без бита.
+    // Константность/фиксированность (`:Array^` → std::array) НЕ хранится здесь - это бит
+    // kConstFlag в TypeId (withConst), как у любых типов; mutable (std::vector) - без бита.
 };
 
 // 5. Указатель на член структуры
@@ -60,9 +60,9 @@ struct MemberPointerTypeData {
 };
 
 // 6. Ссылочный/указательный составной тип (вложенность). Первая ссылка на тип без
-//    признака — fast-path бит (withRefType); ссылка на уже ссылочный тип (вложенность,
-//    например shared<ptr<Int32>>) — узел с pointeeType-ребёнком. Вид ссылки несёт
-//    сам TypeKind (RefType узла), pointeeType — тип, на который ссылаются.
+//    признака - fast-path бит (withRefType); ссылка на уже ссылочный тип (вложенность,
+//    например shared<ptr<Int32>>) - узел с pointeeType-ребёнком. Вид ссылки несёт
+//    сам TypeKind (RefType узла), pointeeType - тип, на который ссылаются.
 struct RefTypeData {
     TypeId pointeeType; // тип, на который ссылается этот узел
 };
@@ -72,19 +72,19 @@ struct PackExpansionTypeData {
     TypeId pattern; // тип, который повторяется
 };
 
-// ── Элементные данные членов живут в РЕЕСТРЕ, а не в AST ─────────────────────
+// -- Элементные данные членов живут в РЕЕСТРЕ, а не в AST ---------------------
 // Tuple/Enum/Variant хранят СИНТАКСИЧЕСКУЮ форму членов в AST: DictLiteralNode.m_body =
 // std::vector<ArgNode> (имя в text(), явный тип в m_type, значение в m_value; строится
-// term_to_ast::appendDictElementsFromArgs). Здесь — КАНОНИЧЕСКИЕ, нормализованные семантические
+// term_to_ast::appendDictElementsFromArgs). Здесь - КАНОНИЧЕСКИЕ, нормализованные семантические
 // данные: уже разрешённые TypeId (и, для Enum, вычисленные значения-скаляры, см. ниже). Данные
 // НЕ расширяют поля AST-узлов по тем же причинам, что у Dict/Tuple: AST пер-файловый, изменяемый
-// (lowering, setKind) и является ВХОДОМ семантики; реестр — интернированный (getOrCreateTupleType),
+// (lowering, setKind) и является ВХОДОМ семантики; реестр - интернированный (getOrCreateTupleType),
 // иммутабельный, переживает границу модуля (ModuleApi сериализует реестр, а не AST) и на него
-// ссылаются TypeId/символы/методы. Чтение члена (имя/тип/значение) — напрямую из ArgNode.
+// ссылаются TypeId/символы/методы. Чтение члена (имя/тип/значение) - напрямую из ArgNode.
 
-// 8. Кортеж (структурный тип): упорядоченные элементы (имя, тип). Имя "" — позиционный
+// 8. Кортеж (структурный тип): упорядоченные элементы (имя, тип). Имя "" - позиционный
 // элемент. Имена входят в структурную идентичность (см. getOrCreateTupleType / TypeKey::names).
-// Значения-выражения элементов — в AST (dict.m_body), как у Dict; здесь только разрешённый тип.
+// Значения-выражения элементов - в AST (dict.m_body), как у Dict; здесь только разрешённый тип.
 struct TupleElementData {
     std::string name;
     TypeId type;
@@ -94,20 +94,20 @@ struct TupleTypeData {
 };
 
 // 8b. Параметризованный диапазон Range<Elem>: структурный тип, интернируемый по элементному
-// типу Elem (TypeKey children = [Elem]), данные — TemplateTypeData{templateTypeId=:Range,
+// типу Elem (TypeKey children = [Elem]), данные - TemplateTypeData{templateTypeId=:Range,
 // args=[Elem]}. Элементный тип читается из args[0] (единый механизм параметризованных типов).
 // Методы Range объявлены ОДИН раз на абстрактном `:Range` (ключ с '%'/'^', напр. "%count^") и
 // подставляются (T→Elem) при резолве для конкретного Range<Elem> (C++-модель шаблонов).
 
 // 9. Типобезопасное перечисление (enum): единый тип значений + упорядоченный список членов.
-//    valueType — тип значений членов (может быть нечисловым, напр. StrChar); члены хранятся в
-//    порядке объявления (порядок = ordinal). Универсальное имя типа значений — вложенный алиас
-//    `Color.Value` (аналог underlying_type). Члены — static constexpr константы типа enum;
+//    valueType - тип значений членов (может быть нечисловым, напр. StrChar); члены хранятся в
+//    порядке объявления (порядок = ordinal). Универсальное имя типа значений - вложенный алиас
+//    `Color.Value` (аналог underlying_type). Члены - static constexpr константы типа enum;
 //    вся работа с enum идёт ТОЛЬКО через имя типа (см. MEMORY.md, осознанное решение).
-//    В отличие от Variant/Dict/Tuple, значение члена Enum — ВЫЧИСЛЯЕМЫЙ скаляр (автоинкремент/
+//    В отличие от Variant/Dict/Tuple, значение члена Enum - ВЫЧИСЛЯЕМЫЙ скаляр (автоинкремент/
 //    ординал/единый тип значений), он не привязан к AST-выражению и нормализуется сюда
-//    (EnumMemberData.value). Синтаксическая форма членов — DictLiteralNode.m_body (см. принцип
-//    выше, раздел 8). Реестр хранит тип значений и вычисленные значения; AST — только вход.
+//    (EnumMemberData.value). Синтаксическая форма членов - DictLiteralNode.m_body (см. принцип
+//    выше, раздел 8). Реестр хранит тип значений и вычисленные значения; AST - только вход.
 struct EnumMemberData {
     std::string name;  // имя члена (e.g. "RED")
     std::string value; // вычисленное значение члена (текст литерала/автоинкремент); пусто = нет значения
@@ -120,8 +120,8 @@ struct EnumTypeData {
 // 10. Гетерогенный вариант (Variant, → std::variant): каждый член имеет СВОЙ тип.
 //    В отличие от Enum (единый тип значений), члены варианта разнотипны; тип члена выводится
 //    из его значения (или аннотации `:Type`). Узел `:Variant(name:Type=value, ...)` (как Tuple).
-//    Здесь хранится только РАЗРЕШЁННЫЙ ТИП члена; ЗНАЧЕНИЕ члена — AST-выражение своего типа
-//    (источник истины — ArgNode.m_value, читается в emitVariantStruct напрямую из ArgNode),
+//    Здесь хранится только РАЗРЕШЁННЫЙ ТИП члена; ЗНАЧЕНИЕ члена - AST-выражение своего типа
+//    (источник истины - ArgNode.m_value, читается в emitVariantStruct напрямую из ArgNode),
 //    т.к. в отличие от Enum оно не вычисляется, а задаётся в исходнике.
 struct VariantMemberData {
     std::string name; // имя члена (e.g. "RED")
@@ -131,11 +131,11 @@ struct VariantTypeData {
     std::vector<VariantMemberData> members; // члены в порядке объявления
 };
 
-// ── Объединение вариантов ──
+// -- Объединение вариантов --
 using TypeData = std::variant<SimpleTypeData, FunctionTypeData, TemplateTypeData, ArrayTypeData, MemberPointerTypeData, RefTypeData, PackExpansionTypeData,
                               TupleTypeData, EnumTypeData, VariantTypeData>;
 
-// ── TypeDataKind — идентификатор варианта TypeData ──────────
+// -- TypeDataKind - идентификатор варианта TypeData ----------
 enum class TypeDataKind : uint8_t {
     kSimple,
     kFunction,
@@ -149,11 +149,11 @@ enum class TypeDataKind : uint8_t {
     kVariant,
 };
 
-// ── TypeKey для структурного интернирования ──────────────
+// -- TypeKey для структурного интернирования --------------
 struct TypeKey {
     TypeKind kind;                  // TypeKind без registry_index
     std::vector<TypeId> children;   // все дочерние TypeId для сравнения
-    std::vector<std::string> names; // имена (для Tuple — имена элементов; у прочих пусто)
+    std::vector<std::string> names; // имена (для Tuple - имена элементов; у прочих пусто)
 
     bool operator==(const TypeKey& other) const noexcept { return kind == other.kind && children == other.children && names == other.names; }
 };
@@ -171,37 +171,37 @@ struct TypeKeyHash {
     }
 };
 
-// ── Метод типа ────────────────────────────────────────────
+// -- Метод типа --------------------------------------------
 // Описание метода `obj.method(...)` хранится как полный ключ-имя → интернированный
-// функциональный тип (TypeId). Ключ кодирует нативность и константность: ведущий '%' —
-// нативный член, хвостовой '^' — константный (напр. "%count^"). Нативность/константность
-// ВЫВОДЯТСЯ из ключа, отдельно не хранятся (TypeId — интернированная сигнатура). Алиас —
+// функциональный тип (TypeId). Ключ кодирует нативность и константность: ведущий '%' -
+// нативный член, хвостовой '^' - константный (напр. "%count^"). Нативность/константность
+// ВЫВОДЯТСЯ из ключа, отдельно не хранятся (TypeId - интернированная сигнатура). Алиас -
 // просто другое имя существующего метода: доверенное имя → целевой ключ (обязан повторять
 // семантику цели: нативность и константность совпадают, проверяется EXPECT при регистрации).
 
-// ── Type descriptor ──────────────────────────────────────
+// -- Type descriptor --------------------------------------
 struct TypeDescriptor {
-    std::string name;                         // canonical name (e.g., "Int32", "Vector") — владеющая копия
+    std::string name;                         // canonical name (e.g., "Int32", "Vector") - владеющая копия
                                               // (для пользовательских алиасов имя из временной строки analyzeTypeDecl)
     std::vector<AttrId> attrs;                // атрибуты
     MapperRange sourceRange{};                // position of type declaration in source file
     std::string cppName;                      // C++ имя для codegen (e.g. "int32_t")
-    std::vector<std::string> preprocIncludes; // директивы препроцессора для C++ кода; первый — основной
+    std::vector<std::string> preprocIncludes; // директивы препроцессора для C++ кода; первый - основной
                                               // (e.g. "#include <cstdint>" / "@trust/dict.hpp"), пусто если не требуется
     TypeId baseType{INVALID_TYPE_ID};         // для алиас-цепочки: A → Byte → Int32
     std::optional<TypeData> data;             // nullopt = forward declaration (incomplete type)
     // Методы типа (obj.method): полный ключ (native '%', const '^') → интернированный
-    // функциональный тип (FunctionTypeData). Нативность/константность — из ключа.
+    // функциональный тип (FunctionTypeData). Нативность/константность - из ключа.
     std::map<std::string, TypeId> methods;
     // Алиасы методов: bare-имя алиаса → полный ключ цели (напр. "length" → "%count^").
-    // Алиас обязан повторять семантику цели (native/const) — проверяется при регистрации.
+    // Алиас обязан повторять семантику цели (native/const) - проверяется при регистрации.
     std::map<std::string, std::string> methodAliases;
 };
 
-// ── Runtime symbol ─────────────────────────────────────────
+// -- Runtime symbol -----------------------------------------
 // C++-символ, присутствие которого в сгенерированном коде требует линковки
 // trust-runtime библиотеки (и, как правило, инклуда её публичного заголовка).
-// Символ ищется как подстрока в тексте сгенерированного файла; runtimeHeader —
+// Символ ищется как подстрока в тексте сгенерированного файла; runtimeHeader -
 // директива препроцессора с ведущим '@' (путь заголовка, совпадающий с именем
 // ELF-секции внутри trust-runtime.so/.a).
 struct RuntimeSymbol {
@@ -211,7 +211,7 @@ struct RuntimeSymbol {
     std::vector<std::string> runtimeHeaders;
 };
 
-// ── TypeRegistry ─────────────────────────────────────────
+// -- TypeRegistry -----------------------------------------
 class TypeRegistry {
   public:
     explicit TypeRegistry(DiagnosticEngine& diag, const Options& opts);
@@ -221,7 +221,7 @@ class TypeRegistry {
     /// Вызывается на каждый запуск семантики, чтобы типы не накапливались между run().
     void reset();
 
-    // ── Основные операции ──
+    // -- Основные операции --
 
     TypeId getType(std::string_view name) const;
     std::optional<TypeId> findType(std::string_view name) const noexcept;
@@ -242,18 +242,18 @@ class TypeRegistry {
     /// stores name + attrs + sourceRange + preprocInclude in m_descriptors.
     /// @return TypeId of the new type, or INVALID_TYPE_ID on duplicate.
     TypeId registerType(std::string_view name, TypeId baseTypeId, std::vector<AttrId> attrs = {}, MapperRange sourceRange = {},
-                        std::string_view preprocInclude = {});
+                        std::string_view preprocInclude = {}, bool hasTrust = false);
 
     /// Регистрирует пользовательский enum-тип (Group::kEnums, EnumTypeData).
-    /// valueType — единый тип значений членов (Color.Value); members — члены в порядке
+    /// valueType - единый тип значений членов (Color.Value); members - члены в порядке
     /// объявления. НЕ алиас (baseType=INVALID, canonical = сам тип); имя уникально.
     /// @return TypeId нового типа, или INVALID_TYPE_ID при дубликате имени.
-    TypeId registerEnumType(std::string_view name, TypeId valueType, std::vector<EnumMemberData> members, MapperRange sourceRange = {});
+    TypeId registerEnumType(std::string_view name, TypeId valueType, std::vector<EnumMemberData> members, MapperRange sourceRange = {}, bool hasTrust = false);
 
     /// Регистрирует пользовательский Variant-тип (Group::kVariants, VariantTypeData).
     /// Каждый член имеет СВОЙ тип (гетерогенный, → std::variant). НЕ алиас; имя уникально.
     /// @return TypeId нового типа, или INVALID_TYPE_ID при дубликате имени.
-    TypeId registerVariantType(std::string_view name, std::vector<VariantMemberData> members, MapperRange sourceRange = {});
+    TypeId registerVariantType(std::string_view name, std::vector<VariantMemberData> members, MapperRange sourceRange = {}, bool hasTrust = false);
 
     /// Structural uniquing: create or retrieve a structural type identified by
     /// kind + children (+ имена для Tuple). Used for FunctionType, TemplateType, ArrayType, etc.
@@ -262,13 +262,13 @@ class TypeRegistry {
 
     /// Create or retrieve a structural Tuple type by elements (name, type).
     /// Имена элементов входят в структурную идентичность (TypeKey::names): два кортежа с
-    /// одинаковыми типами, но разными именами полей — разные типы. Имена входят и в
-    /// TupleTypeData (для резолва `t.name`). C++-представление — std::tuple (auto в коде).
+    /// одинаковыми типами, но разными именами полей - разные типы. Имена входят и в
+    /// TupleTypeData (для резолва `t.name`). C++-представление - std::tuple (auto в коде).
     TypeId getOrCreateTupleType(std::vector<std::pair<std::string, TypeId>> elements);
 
     /// Create or retrieve a structural parameterized Range type `Range<Elem>` (Group::kRanges,
     /// Data=1) by element type. Интернируется по elementType (как Tuple): Range<Int64> и
-    /// Range<Rational> — разные типы. Методы Range объявлены на абстрактном `:Range` с типовым
+    /// Range<Rational> - разные типы. Методы Range объявлены на абстрактном `:Range` с типовым
     /// параметром T и подставляются при резолве (см. instantiateRangeMethod). Заголовки
     /// `@trust/range.hpp` + транзитивные dict/rational.
     TypeId getOrCreateRangeType(TypeId elementType);
@@ -276,30 +276,30 @@ class TypeRegistry {
     /// true для параметризованного структурного типа `Range<Elem>` (TemplateTypeData с
     /// templateTypeId == :Range).
     bool isRangeType(TypeId id) const noexcept;
-    /// Тип элемента диапазона (TemplateTypeData::args[0]); INVALID — не Range-тип.
+    /// Тип элемента диапазона (TemplateTypeData::args[0]); INVALID - не Range-тип.
     TypeId rangeElementType(TypeId id) const noexcept;
-    /// Подставляет элементный тип в сигнатуру метода Range: для конкретного `Range<Elem>` —
-    /// элементный тип Elem; для абстрактного `:Range` — Any. Возвращает интернированный
+    /// Подставляет элементный тип в сигнатуру метода Range: для конкретного `Range<Elem>` -
+    /// элементный тип Elem; для абстрактного `:Range` - Any. Возвращает интернированный
     /// функциональный тип с T→Elem (интернирование мутирует реестр → метод не const).
-    /// funcType не-функциональный — возвращается как есть.
+    /// funcType не-функциональный - возвращается как есть.
     TypeId instantiateRangeMethod(TypeId objType, TypeId templateFuncType);
 
     /// Create or retrieve a structural parameterized Array type `Array<Elem>` (Group::kContainers,
-    /// Data=1) by element type. dims — известная размерность ([] = динамическая/неизвестная).
-    /// Интернируется по (elementType, dims). Константная (фиксированная) форма `:Array^` — это
-    /// kConstFlag-бит в TypeId (withConst), как у любых типов; mutable (std::vector) — без бита.
+    /// Data=1) by element type. dims - известная размерность ([] = динамическая/неизвестная).
+    /// Интернируется по (elementType, dims). Константная (фиксированная) форма `:Array^` - это
+    /// kConstFlag-бит в TypeId (withConst), как у любых типов; mutable (std::vector) - без бита.
     /// Методы Array объявлены на абстрактном `:Array` (см. registerBuiltinTypes) и подставляются
     /// при резолве (instantiateArrayMethod).
     TypeId getOrCreateArrayType(TypeId elementType, std::vector<uint64_t> dimensions = {});
 
     /// true для параметризованного структурного типа `Array<Elem>` (ArrayTypeData).
     bool isArrayType(TypeId id) const noexcept;
-    /// Тип элемента массива (ArrayTypeData::elementType); INVALID — не Array-тип.
+    /// Тип элемента массива (ArrayTypeData::elementType); INVALID - не Array-тип.
     TypeId arrayElementType(TypeId id) const noexcept;
-    /// Размерности массива (ArrayTypeData::dimensions); пусто — динамический/неизвестный.
+    /// Размерности массива (ArrayTypeData::dimensions); пусто - динамический/неизвестный.
     const std::vector<uint64_t>& arrayDimensions(TypeId id) const noexcept;
-    /// Подставляет элементный тип в сигнатуру метода Array: для конкретного `Array<Elem>` —
-    /// элементный тип Elem; для абстрактного `:Array` — Any. Возвращает интернированный
+    /// Подставляет элементный тип в сигнатуру метода Array: для конкретного `Array<Elem>` -
+    /// элементный тип Elem; для абстрактного `:Array` - Any. Возвращает интернированный
     /// функциональный тип с T→Elem (мутирует реестр → метод не const).
     TypeId instantiateArrayMethod(TypeId objType, TypeId templateFuncType);
 
@@ -307,45 +307,47 @@ class TypeRegistry {
     /// @param returnType  TypeId of the return type (INVALID_TYPE_ID = Void).
     /// @param paramTypes  List of parameter TypeIds.
     /// @param variadicType INVALID_TYPE_ID = not variadic.
+    /// @param hasTrust  true - функция несёт trust-условия (пред/пост): даёт ОТДЕЛЬНЫЙ
+    ///   функциональный TypeId от идентичной сигнатуры без условий (бит kTrustFlag в TypeKind).
     /// @return TypeId of the created FunctionType.
-    TypeId getOrCreateFunctionType(TypeId returnType, std::vector<TypeId> paramTypes, TypeId variadicType = INVALID_TYPE_ID);
+    TypeId getOrCreateFunctionType(TypeId returnType, std::vector<TypeId> paramTypes, TypeId variadicType = INVALID_TYPE_ID, bool hasTrust = false);
 
     /// Get or create a structural reference/pointer type: node with a given RefType and a
     /// single pointee child. Used for nested references (a reference to an already-referenced
-    /// type). Первая ссылка на тип без признака — fast-path бит withRefType (без узла).
+    /// type). Первая ссылка на тип без признака - fast-path бит withRefType (без узла).
     TypeId getOrCreateRefType(RefType kind, TypeId pointee);
 
-    /// Применяет вид ссылки к типу: первая ссылка на тип без признака — fast-path бит
+    /// Применяет вид ссылки к типу: первая ссылка на тип без признака - fast-path бит
     /// withRefType (сохраняет нижние 32 бита TypeId: registry_index + флаги kConst/kInferred);
-    /// ссылка на уже ссылочный тип — составной узел getOrCreateRefType. Единый источник
+    /// ссылка на уже ссылочный тип - составной узел getOrCreateRefType. Единый источник
     /// применения @[reftype(...)] для семантики и транспилятора.
     TypeId applyRefType(TypeId base, RefType kind);
 
-    // ── Методы типов (obj.method(...)) ──
+    // -- Методы типов (obj.method(...)) --
 
     /// Результат поиска метода: совпавший полный ключ (native '%'/const '^') + интернированный
     /// функциональный тип. Нативность/константность выводятся из key (не хранятся отдельно).
     struct MethodRef {
-        std::string key; // полный ключ цели (напр. "%count^"); для алиаса — ключ цели
+        std::string key; // полный ключ цели (напр. "%count^"); для алиаса - ключ цели
         TypeId funcType; // интернированная сигнатура (FunctionTypeData)
     };
 
-    /// Регистрирует метод на типе. name — полный ключ: нативность ('%' в начале), константность
-    /// ('^' в конце), напр. "%count^". funcType — интернированная сигнатура. aliases — доп.
+    /// Регистрирует метод на типе. name - полный ключ: нативность ('%' в начале), константность
+    /// ('^' в конце), напр. "%count^". funcType - интернированная сигнатура. aliases - доп.
     /// доверенные имена этого метода (полные ключи, напр. {"%length^"}); каждый алиас обязан
-    /// повторять семантику цели (нативность и константность совпадают — иначе EXPECT с явной
+    /// повторять семантику цели (нативность и константность совпадают - иначе EXPECT с явной
     /// диагностикой); нативное C++-имя для кодгена берётся из ЦЕЛЕВОГО ключа (name). Дубликат
-    /// (то же bare-имя + та же константность, независимо от '%') — ошибка EXPECT.
+    /// (то же bare-имя + та же константность, независимо от '%') - ошибка EXPECT.
     void addMethod(TypeId type, std::string_view name, TypeId funcType, std::vector<std::string_view> aliases = {});
 
     /// Ищет метод по доверенному имени (нормализация срезом '%'/'^'), возвращает полный ключ +
     /// интернированный функциональный тип. Для алиаса возвращается ключ ЦЕЛИ (нативное имя из него).
     /// Для параметризованного Range<Elem> методы ищутся на абстрактном `:Range` (fallback).
-    /// nullopt — метод не найден.
+    /// nullopt - метод не найден.
     [[nodiscard]] std::optional<MethodRef> findMethodInfo(TypeId type, std::string_view name) const;
 
     /// Ищет метод по имени и возвращает его интернированный функциональный тип (funcType из
-    /// findMethodInfo). INVALID_TYPE_ID — метод не найден.
+    /// findMethodInfo). INVALID_TYPE_ID - метод не найден.
     [[nodiscard]] TypeId findMethod(TypeId type, std::string_view name) const;
 
     /// Returns the primary preprocInclude (первый из списка) for a registered type (by TypeId).
@@ -355,13 +357,13 @@ class TypeRegistry {
     /// Returns the full list of preproc includes (директив) for a registered type.
     const std::vector<std::string>& getPreprocIncludes(TypeId id) const noexcept;
 
-    // ── Runtime symbols (линьковка рантайм-библиотеки) ──
+    // -- Runtime symbols (линьковка рантайм-библиотеки) --
 
     /// Регистрирует рантайм-символ по типизированному идентификатору (единый источник
-    /// имён/заголовков — types/runtime_symbols.hpp).
+    /// имён/заголовков - types/runtime_symbols.hpp).
     /// Инвариант: символ НЕ должен дублировать тип, зарегистрированный через
     /// registerBuiltinType (заголовки типа уже покрываются по-типу, механизм №1).
-    /// Нарушение — явная ошибка EXPECT при инициализации реестра (в т.ч. в тестах).
+    /// Нарушение - явная ошибка EXPECT при инициализации реестра (в т.ч. в тестах).
     void registerRuntimeSymbol(RuntimeSymbolId id);
 
     /// Список зарегистрированных рантайм-символов.
@@ -376,20 +378,20 @@ class TypeRegistry {
     /// For structural types (no baseType) returns id unchanged.
     TypeId getCanonicalTypeId(TypeId id) const noexcept;
 
-    // ── Type info accessors ──
+    // -- Type info accessors --
 
     /// Returns the baseType from TypeDescriptor, or INVALID_TYPE_ID if not an alias.
     TypeId getBaseType(TypeId id) const noexcept;
 
     /// True для пользовательского типа (алиас, зарегистрированный семантикой), false для
     /// машинных типов и встроенных алиасов (Integer, String, Char...). Различие по registry_index:
-    /// машинные типы регистрируются первыми (слоты 1..m_builtinCount), пользовательские — позже (>N).
+    /// машинные типы регистрируются первыми (слоты 1..m_builtinCount), пользовательские - позже (>N).
     bool isUserDefinedType(TypeId id) const noexcept;
 
     /// Safely access TypeData from TypeDescriptor.
     const std::optional<TypeData>& getTypeData(TypeId id) const noexcept;
 
-    /// Typed accessor — returns pointer to the requested TypeData variant,
+    /// Typed accessor - returns pointer to the requested TypeData variant,
     /// or nullptr if the type is not of the requested kind.
     template <typename T>
     const T* getTypeDataAs(TypeId id) const noexcept {
@@ -414,22 +416,28 @@ class TypeRegistry {
                                std::vector<std::string> preprocIncludes = {});
     void registerBuiltinTypes();
 
-    // ── Общее иммутабельное ядро встроенных типов (полное определение — в registry.cpp) ──
-    struct BuiltinTypeCore;
+    // -- Общее иммутабельное ядро встроенных типов (полное определение здесь, в заголовке:
+    //    его используют и registry.cpp, и builtin_types.cpp) --
+    struct BuiltinTypeCore {
+        std::vector<TypeDescriptor> descriptors;            // встроенные дескрипторы (index = registry_index-1)
+        std::unordered_map<std::string, TypeId> name_to_id; // встроенные имена (+ cpp-имена, алиасы)
+        std::vector<RuntimeSymbol> runtimeSymbols;          // встроенные рантайм-символы
+        size_t builtinCount = 0;                            // = descriptors.size()
+    };
     enum class BuiltinSeedTag {};
     /// Seed-конструктор: строит встроенное ядро В ЭТОМ экземпляре (один раз, внутри builtinCore()).
     TypeRegistry(DiagnosticEngine& diag, const Options& opts, BuiltinSeedTag);
     /// Возвращает общее иммутабельное ядро встроенных типов (ленивый, thread-safe).
     static const BuiltinTypeCore& builtinCore();
-    /// Роутинг дескриптора по TypeId: встроенный — из ядра, пользовательский — из m_descriptors.
+    /// Роутинг дескриптора по TypeId: встроенный - из ядра, пользовательский - из m_descriptors.
     const TypeDescriptor* descriptorOf(TypeId id) const noexcept;
-    /// Мутабельный дескриптор ПОЛЬЗОВАТЕЛЬСКОГО типа; для встроенного — nullptr (иммутабельно).
+    /// Мутабельный дескриптор ПОЛЬЗОВАТЕЛЬСКОГО типа; для встроенного - nullptr (иммутабельно).
     TypeDescriptor* userDescriptorOf(TypeId id) noexcept;
 
     DiagnosticEngine& m_diag;
     const Options& m_opts;
 
-    // ── Lookup by name ──
+    // -- Lookup by name --
     std::unordered_map<std::string, TypeId> m_name_to_id;
     std::vector<TypeDescriptor> m_descriptors;
 
@@ -438,14 +446,14 @@ class TypeRegistry {
     /// Кол-во встроенных дескрипторов (= m_builtin->builtinCount); пользовательские типы всегда > N.
     size_t m_builtinCount = 0;
 
-    // ── Structural uniquing ──
+    // -- Structural uniquing --
     std::unordered_map<TypeKey, TypeId, TypeKeyHash> m_structural;
 
-    // ── Runtime symbols ──
+    // -- Runtime symbols --
     std::vector<RuntimeSymbol> m_runtimeSymbols;
 };
 
-// ── Проверка «std::any»-типа ──────────────────────────────
+// -- Проверка «std::any»-типа ------------------------------
 // Истина, если TypeId после раскрытия цепочки алиасов (канонизации) относится к
 // Group::kAny (std::any). Единый источник проверки «any-операнд» для семантики
 // выражений и кодогенерации (std::any_cast). INVALID_TYPE_ID → false.
@@ -453,7 +461,7 @@ inline bool isAnyType(TypeId id, const TypeRegistry& reg) noexcept {
     return id != INVALID_TYPE_ID && getGroup(getKindFromId(reg.getCanonicalTypeId(id))) == Group::kAny;
 }
 
-// ── Проверка «enum-тип» ─────────────────────────────────────
+// -- Проверка «enum-тип» -------------------------------------
 // Истина, если TypeId после канонизации относится к Group::kEnums (типобезопасное
 // перечисление, EnumTypeData). Единый источник для семантики (резолв Color.RED / Color[k],
 // типизация CompareOp) и кодогенерации (эмиссия enum-структуры и операторов). INVALID → false.
@@ -461,7 +469,7 @@ inline bool isEnumType(TypeId id, const TypeRegistry& reg) noexcept {
     return id != INVALID_TYPE_ID && getGroup(getKindFromId(reg.getCanonicalTypeId(id))) == Group::kEnums;
 }
 
-// ── Проверка «Variant-тип» ──────────────────────────────────
+// -- Проверка «Variant-тип» ----------------------------------
 // Истина, если TypeId после канонизации относится к Group::kVariants (гетерогенный вариант,
 // VariantTypeData; каждый член своего типа). Единый источник для семантики (резолв Value.RED →
 // тип члена) и кодогенерации (эмиссия std::variant<...>). INVALID → false.
@@ -469,8 +477,8 @@ inline bool isVariantType(TypeId id, const TypeRegistry& reg) noexcept {
     return id != INVALID_TYPE_ID && getGroup(getKindFromId(reg.getCanonicalTypeId(id))) == Group::kVariants;
 }
 
-// ── Проверка «многомерный массив» ───────────────────────────
-// Истина, если TypeId — структурный Array-тип с НЕСКОЛЬКИМИ размерностями (`:Bool[3,4]`) ИЛИ
+// -- Проверка «многомерный массив» ---------------------------
+// Истина, если TypeId - структурный Array-тип с НЕСКОЛЬКИМИ размерностями (`:Bool[3,4]`) ИЛИ
 // элементный тип сам является массивом (вложенный `[[1,2],[3,4]]`). Многомерные массивы
 // регистрируются в реестре, но генерация C++ (тензоры LibTorch) не реализована → диагностика.
 inline bool isMultiDimArray(TypeId id, const TypeRegistry& reg) noexcept {

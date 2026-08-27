@@ -1,4 +1,4 @@
-// attr_test.cpp — tests for attribute parsing and AttrId bitmask
+// attr_test.cpp - tests for attribute parsing and AttrId bitmask
 #include "ast/attr_parser.hpp"
 #include "ast/attr_builtin.hpp"
 #include "ast/token.hpp"
@@ -34,7 +34,7 @@ TEST_F(AttrParserTest, ParseSimpleNameAttr) {
 }
 
 TEST_F(AttrParserTest, ParseAttrWithoutParamsDefaultNullopt) {
-    // parse_attr(ctx, range, name) — params defaults to nullopt
+    // parse_attr(ctx, range, name) - params defaults to nullopt
     auto result = parse_attr(m_ctx, m_range, "readonly");
     ASSERT_TRUE(result.has_value());
 
@@ -43,7 +43,7 @@ TEST_F(AttrParserTest, ParseAttrWithoutParamsDefaultNullopt) {
 }
 
 TEST_F(AttrParserTest, ParseAttrWithStringParam) {
-    // @[my_attr(42)] — the attribute must be registered first.
+    // @[my_attr(42)] - the attribute must be registered first.
     AttrId reg = m_ctx.attrs().register_attr("my_attr", {"42"}, m_range);
     ASSERT_FALSE(detail::is_builtin(reg));
 
@@ -60,7 +60,7 @@ TEST_F(AttrParserTest, ParseAttrWithStringParam) {
 }
 
 TEST_F(AttrParserTest, ParseAttrWithStringParamFromString) {
-    // @[labeled("warning")] — the attribute must be registered first.
+    // @[labeled("warning")] - the attribute must be registered first.
     AttrId reg = m_ctx.attrs().register_attr("labeled", {"warning"}, m_range);
     ASSERT_FALSE(detail::is_builtin(reg));
 
@@ -70,23 +70,8 @@ TEST_F(AttrParserTest, ParseAttrWithStringParamFromString) {
     EXPECT_EQ(*result, reg);
 }
 
-TEST_F(AttrParserTest, ParseBuiltinTrustWithStringParam) {
-    // @[trust("x > 0")] — встроенные строковые атрибуты (trust/link и др.) зарегистрированы
-    // с одним пустым (wildcard) дефолт-параметром: он принимает ЛЮБОЕ строковое значение.
-    // Раньше произвольные строковые параметры отклонялись ("mismatched parameters");
-    // теперь пустой дефолт = wildcard (см. Attr::matches_params).
-    std::vector<std::string_view> params = {"x > 0"};
-    auto result = parse_attr(m_ctx, m_range, "trust", params);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(m_ctx.attrs().get(*result).m_name, "trust");
-
-    // Без параметров строковый атрибут тоже резолвится.
-    auto noParams = parse_attr(m_ctx, m_range, "trust");
-    ASSERT_TRUE(noParams.has_value());
-}
-
 TEST_F(AttrParserTest, ParseLinkAttrWithArbitraryValue) {
-    // @[link("m")] — имя нативной библиотеки; произвольное строковое значение.
+    // @[link("m")] - имя нативной библиотеки; произвольное строковое значение.
     auto result = parse_attr(m_ctx, m_range, "link", std::vector<std::string_view>{"m"});
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(m_ctx.attrs().get(*result).m_name, attr::Link);
@@ -98,13 +83,13 @@ TEST_F(AttrParserTest, ParseLinkAttrWithArbitraryValue) {
     // при предоставлении параметров), но значения не несёт.
     auto none = parse_attr(m_ctx, m_range, "link");
     ASSERT_TRUE(none.has_value());
-    // Неверная арность (2 параметра при зарегистрированной 1) — не совпадает → ошибка.
+    // Неверная арность (2 параметра при зарегистрированной 1) - не совпадает → ошибка.
     auto two = parse_attr(m_ctx, m_range, "link", std::vector<std::string_view>{"a", "b"});
     EXPECT_FALSE(two.has_value());
 }
 
 TEST_F(AttrParserTest, AttrValueStorageOnNode) {
-    // set_attr_args/attr_args — хранение списка аргументов атрибута на узле.
+    // set_attr_args/attr_args - хранение списка аргументов атрибута на узле.
     auto link_id = m_ctx.attrs().lookup(attr::Link);
     ASSERT_TRUE(link_id.has_value());
 
@@ -146,7 +131,7 @@ TEST_F(AttrParserTest, ParseUnknownAttrReturnsNulloptWithDiagnostic) {
 }
 
 TEST_F(AttrParserTest, ParseTwiceWithSameNameReturnsSameId) {
-    // Register dynamic(1) — the same name always maps to the same AttrId.
+    // Register dynamic(1) - the same name always maps to the same AttrId.
     AttrId reg = m_ctx.attrs().register_attr("dynamic", {"1"}, m_range);
 
     std::vector<std::string_view> p1 = {"1"};

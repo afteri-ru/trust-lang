@@ -13,8 +13,8 @@ namespace trust {
 // ══════════════════════════════════════════════════════════════
 
 enum : uint8_t {
-    kFieldMajor = 0,        // uint8 — TRUST_VERSION_MAJOR
-    kFieldMinor = 1,        // uint8 — TRUST_VERSION_MINOR
+    kFieldMajor = 0,        // uint8 - TRUST_VERSION_MAJOR
+    kFieldMinor = 1,        // uint8 - TRUST_VERSION_MINOR
     kFieldInputFiles = 2,   // array of strings
     kFieldOutputFiles = 3,  // array of strings
     kFieldInputHashes = 4,  // array of uint64
@@ -32,7 +32,7 @@ enum : uint8_t {
 // Формат: [[[beginOff, delta, cppBeginOff, cppDelta], ...], ...]
 //
 // Группировка: двухуровневая (input → output).
-// trustFileIdx и cppFileIdx не хранятся — вычисляются из позиции:
+// trustFileIdx и cppFileIdx не хранятся - вычисляются из позиции:
 //   trustFileIdx = inputIdx + 1
 //   cppFileIdx   = outputIdx + 1 с флагом FILE_BITS
 //
@@ -75,8 +75,8 @@ enum : uint8_t {
 // Группировка: двухуровневая (input → input).
 // Оба FileIdx вычисляются как input (без флага OUTPUT_BIT).
 //
-// body — диапазон тела макроса (куда сработал макрос),
-// def  — диапазон определения макроса.
+// body - диапазон тела макроса (куда сработал макрос),
+// def  - диапазон определения макроса.
 
 enum : uint8_t {
     kMacroGroupFieldBodyBeginOff = 0,
@@ -134,7 +134,7 @@ class MsgpackWriter {
         return *this;
     }
 
-    // ── Методы упаковки ──
+    // -- Методы упаковки --
 
     void packArray(uint32_t n) { msgpack_pack_array(m_packer, n); }
     void packUint8(uint8_t v) { msgpack_pack_uint8(m_packer, v); }
@@ -145,7 +145,7 @@ class MsgpackWriter {
         msgpack_pack_str_body(m_packer, sv.data(), sv.size());
     }
 
-    // ── Доступ к данным msgpack_sbuffer (rvalue-квалифицированный) ──
+    // -- Доступ к данным msgpack_sbuffer (rvalue-квалифицированный) --
     // После вызова writer переходит в moved-from состояние.
     msgpack_sbuffer take_sbuf() && {
         msgpack_sbuffer result = m_sbuf;

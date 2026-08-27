@@ -11,11 +11,11 @@
 namespace trust::utils {
 
 // ══════════════════════════════════════════════════════════════
-//  FileIO — утилитарный класс для работы с файлами
+//  FileIO - утилитарный класс для работы с файлами
 //
-//  read<std::vector<char>>(path)    — читает файл целиком в std::vector<char>
-//  read<std::string>(path)          — читает файл целиком в std::string
-//  write(path, data)                — записывает данные в файл (создаёт или
+//  read<std::vector<char>>(path)    - читает файл целиком в std::vector<char>
+//  read<std::string>(path)          - читает файл целиком в std::string
+//  write(path, data)                - записывает данные в файл (создаёт или
 //                                     перезаписывает). Поддерживает только
 //                                     контейнеры с value_type = char.
 // ══════════════════════════════════════════════════════════════
@@ -34,7 +34,7 @@ class FileIO {
     static std::optional<std::vector<char>> readImpl(const std::string& path);
 };
 
-// ── read ──
+// -- read --
 
 template <typename T>
 std::optional<T> FileIO::read(const std::string& path) {
@@ -50,7 +50,7 @@ std::optional<T> FileIO::read(const std::string& path) {
     }
 }
 
-// ── write ──
+// -- write --
 
 template <typename Container>
 bool FileIO::write(const std::string& path, const Container& data) {

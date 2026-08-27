@@ -1,7 +1,10 @@
 #include "debug/dap_transport.h"
+#include "pipeline/cli.hpp"
 #include "utils/io.hpp"
 
-// ── DAP Protocol helpers ──
+#include <vector>
+
+// -- DAP Protocol helpers --
 
 static int dapSeq = 0;
 
@@ -41,7 +44,7 @@ void sendDapResponse(trust::transport::Transport& transport, int requestSeq, con
 
 void sendDapEvent(trust::transport::Transport& transport, const std::string& eventName, const json& body) {
     json evt = {{"type", "event"}, {"event", eventName}, {"seq", nextDapSeq()}};
-    // Всегда добавляем body, даже пустой — DAP spec этого не запрещает,
+    // Всегда добавляем body, даже пустой - DAP spec этого не запрещает,
     // а VSCode ожидает наличие поля
     evt["body"] = body;
     std::string payload = evt.dump();
@@ -58,60 +61,70 @@ void sendBreakpointEvent(trust::transport::Transport& transport, const std::stri
         {{"reason", verified ? "changed" : "new"}, {"breakpoint", {{"id", bpId}, {"verified", verified}, {"source", {{"path", srcPath}}}, {"line", line}}}});
 }
 
-// ── TCP server helpers (делегированы в trust::transport) ──
+// -- TCP server helpers (делегированы в trust::transport) --
 
-// ── CLI parsing ──
+// -- CLI parsing -- (единый арity-aware парсер драйвера, см. pipeline/cli.hpp)
+
+namespace {
+
+enum class DapOptId { Help, ProjectDir, Gdb };
+
+std::vector<trust::DriverOption> dapTable() {
+    using namespace trust;
+    return {
+        {int(DapOptId::Help), "help", "h", CliOpt::Flag, "", "Show this help message", CliCategory::General},
+        {int(DapOptId::ProjectDir), "project-dir", "", CliOpt::Value, "dir", "Project working directory", CliCategory::InputOutput},
+        {int(DapOptId::Gdb), "gdb", "", CliOpt::Value, "path", "Path to gdb binary (default: gdb)", CliCategory::Toolchain},
+    };
+}
+
+} // namespace
 
 void printUsage(const char* prog) {
-    trust::errs() << "Usage: " << prog << " [options]\n"
-                  << "\n"
+    trust::errs() << "Usage: " << prog << " [options] [server[=<port>]]\n\n"
                   << "DAP server for debugging Trust language programs.\n"
-                  << "By default runs in interactive mode (stdin/stdout).\n"
-                  << "\n"
-                  << "Options:\n"
-                  << "  --help                  Show this help\n"
-                  << "  server[=<port>]         TCP server mode on given port (default: " << DAP_DEFAULT_PORT << ")\n"
-                  << "  --project-dir <path>    Project working directory (default: cwd)\n"
-                  << "  --gdb <path>            Path to gdb binary (default: gdb)\n";
+                  << "By default runs in interactive mode (stdin/stdout).\n\n";
+    trust::errs() << trust::driverHelp(dapTable());
+    trust::errs() << "  server[=<port>]   TCP server mode on given port (default: " << DAP_DEFAULT_PORT << ")\n";
 }
 
 DapOptions parseDapOptions(int argc, const char* argv[]) {
     DapOptions opts;
-
-    for (int i = 1; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--help") == 0) {
-            opts.help = true;
-            return opts;
-        }
-
-        // server[=port] — TCP server mode
-        if (std::strncmp(argv[i], "server", 6) == 0) {
-            const char* eq = std::strchr(argv[i], '=');
-            if (eq != nullptr) {
-                opts.port = std::stoi(eq + 1);
-            } else {
-                opts.port = DAP_DEFAULT_PORT;
-            }
-            continue;
-        }
-
-        auto nextArg = [&]() -> std::string {
-            if (++i >= argc) {
-                trust::errs() << "Error: " << argv[i - 1] << " requires an argument\n";
-                std::exit(1);
-            }
-            return argv[i];
-        };
-
-        if (std::strcmp(argv[i], "--project-dir") == 0) {
-            opts.projectDir = nextArg();
-        } else if (std::strcmp(argv[i], "--gdb") == 0) {
-            opts.gdbPath = nextArg();
-        } else {
-            trust::errs() << "Error: unknown option '" << argv[i] << "'\n";
-            std::exit(1);
-        }
+    std::vector<std::string> args;
+    args.reserve(static_cast<std::size_t>(argc));
+    for (int i = 0; i < argc; ++i) {
+        args.emplace_back(argv[i]);
     }
 
+    // server[=<port>] - подкоманда (не опция), выносим из аргументов (общий helper cli.hpp).
+    int server_port = 0;
+    if (trust::extractServerCommand(args, server_port, DAP_DEFAULT_PORT)) {
+        opts.port = server_port;
+    }
+
+    const auto table = dapTable();
+    std::vector<std::string> diag; // у dap нет -W-диагностик
+    std::string input_file;        // у dap нет позиционного входа
+    bool diag_help = false;        // у dap нет `-Whelp`
+    auto apply = [&](int id, const std::string& v) -> bool {
+        switch (static_cast<DapOptId>(id)) {
+        case DapOptId::Help:
+            opts.help = true;
+            break;
+        case DapOptId::ProjectDir:
+            opts.projectDir = v;
+            break;
+        case DapOptId::Gdb:
+            opts.gdbPath = v;
+            break;
+        }
+        return true;
+    };
+
+    const std::string err = trust::parseDriverArgs(args, table, apply, diag, input_file, diag_help);
+    if (!err.empty()) {
+        trust::errs() << "error: " << err << "\n";
+        std::exit(1);
+    }
     return opts;
 }

@@ -120,7 +120,7 @@ if [ -f "$TOOLS_FILE" ]; then
   rm -f "$TOOLS_FILE"
 fi
 
-# Task завершена — удаляем снепшот
+# Task завершена - удаляем снепшот
 rm -f "$TMP_FILE"
 
 # echo '{"cancel":false,"contextModification":"","errorMessage":""}'

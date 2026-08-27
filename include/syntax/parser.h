@@ -1,6 +1,8 @@
 #ifndef TRUST_SYNTAX_PARSER_H_
 #define TRUST_SYNTAX_PARSER_H_
 
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -12,6 +14,9 @@ class Context;
 
 #include "syntax/types.h"
 
+#include "syntax/predef_macro.hpp"
+#include "syntax/pragma_evaluator.hpp"
+
 #include "syntax/warning_push.h"
 #include "parser.yy.h"
 #include "syntax/warning_pop.h"
@@ -19,12 +24,41 @@ class Context;
 namespace trust {
 TermPtr ProcessMacro(Parser& parser, TermPtr& term);
 
+// Лимиты раскрытия макросов (защита от бесконечной рекурсии):
+// - kMacroNestingLimit   - максимальная ГЛУБИНА вложенности в одной цепочке раскрытий;
+// - kMacroExpansionLimit - максимальное СУММАРНОЕ число раскрытий в пределах одного оператора
+//   (ловит самовоспроизведение макроса через границы чтений парсера, когда глубина не копится).
+inline constexpr std::size_t kMacroNestingLimit = 100;
+inline constexpr std::size_t kMacroExpansionLimit = 1000;
+
 enum class ExpandMacroResult : uint8_t {
     Continue,
     Break,
     Goto,
 };
 ExpandMacroResult ExpandTermMacro(Parser& parser);
+
+/** Последние токены, реально потреблённые bison, для позиции синтаксической ошибки.
+ *  Лексер читает токены упреждающе в m_macro_analisys_buff (до ';'), поэтому flex-курсор
+ *  в момент error() «убегает» вперёд и непригоден; надёжная позиция - здесь, у токенов,
+ *  реально отданных bison через GetNextToken. */
+struct RecentTokens {
+    trust::MapperRange cur{};  ///< последний отданный bison токен (текущий lookahead)
+    trust::MapperRange prev{}; ///< предыдущий (последний корректно сдвинутый)
+
+    void set(trust::MapperRange r) noexcept {
+        prev = cur;
+        cur = r;
+    }
+    void setEndOfLast() noexcept { set(trust::MapperRange(cur.end, cur.end)); }
+    void reset() noexcept {
+        cur = {};
+        prev = {};
+    }
+
+    /** Диапазон синтаксической ошибки (реализация - в src/syntax/parser.cpp). */
+    trust::MapperRange syntaxErrorRange(const trust::Context& ctx) const;
+};
 
 /** The Driver class brings together all components. It creates an instance of
  * the Parser and Scanner classes and connects them. Then the input stream is
@@ -38,17 +72,12 @@ class Parser {
 
     virtual ~Parser() {}
 
-    parser::token_type ExpandPredefMacro(TermPtr& term);
-
-    static int m_counter;
-    // Единый реестр предопределённых макросов (@__...__ и др.) — static, чтобы
-    // LSP-автодополнение могло перечислять его без инстанса парсера.
-    static std::map<std::string, std::string> m_predef_macro;
-    static bool RegisterPredefMacro(const char* name, const char* desc);
-    static void InitPredefMacro();
-    /// Имена предопределённых макросов (ключи m_predef_macro) — для автодополнения.
-    static std::vector<std::string> PredefMacroNames();
-    bool CheckPredefMacro(const TermPtr& term);
+    /// Реестр предопределённых макросов (@__...__) и их раскрытие.
+    syntax::PredefMacroResolver& predef() { return m_predef; }
+    const syntax::PredefMacroResolver& predef() const { return m_predef; }
+    /// Обработчик прагм (@__PRAGMA_*, @__OPTION_*, @__HYGIENIC__).
+    syntax::PragmaEvaluator& pragma() { return m_pragma; }
+    const syntax::PragmaEvaluator& pragma() const { return m_pragma; }
 
     // To demonstrate pure handling of parse errors, instead of
     // simply dumping them on the standard error output, we will pass
@@ -71,48 +100,52 @@ class Parser {
 
     void AstAddTerm(TermPtr val);
 
+    /// Контекст, с которым работает парсер (макросы, source, опции).
+    trust::Context& context() const { return m_ctx; }
+
+    /// Коллбек: сырой терм, прочитанный из лексера (до раскрытия макроса), в порядке обработки.
+    /// Вызывается в GetNextToken для КАЖДОГО raw-токена (включая токены макроопределений,
+    /// буферные и т.п.) — парсер продолжает работать как обычно, событие лишь передаётся
+    /// внешнему потребителю (напр. форматтеру) для раскладки.
+    std::function<void(const Term&)> on_token;
+
     TermPtr GetAst();
 
     SequenceType m_macro_analisys_buff; ///< Последовательность лексем для анализа на наличие макросов
 
-    // TODO(cleanup): unused — commented out, see task 1785696533477
-    // TermPtr m_expected;
-    // TermPtr m_unexpected;
-    // TODO(cleanup): unused — commented out, see task 1785675437901
-    // TermPtr m_finalize;
-    // int m_finalize_counter;
-    // TODO(cleanup): unused — only for m_annotation pragmas, commented out, see task 1785678668891
-    // TermPtr m_annotation;
+    /// Последние токены, реально потреблённые bison - единственный источник позиции
+    /// синтаксической ошибки (flex-курсор при упреждающей буферизации GetNextToken
+    /// «убегает» вперёд и для позиции ошибки непригоден).
+    RecentTokens m_recent;
+
     bool m_no_macro;
     bool m_enable_pragma;
     bool m_expand_module = false; ///< Разрешает загрузку модулей при парсинге
 
+    /// Признак нахождения внутри скобок атрибута `@[ ... ]@` (между ATTRIBUTE и ATTR_COMPLETE).
+    /// Внутри атрибута макро-имена НЕ раскрываются: содержимое атрибута - имя атрибута и
+    /// параметры-литералы (не код). Это нужно, чтобы имя встроенного атрибута, совпадающее
+    /// с именем keyword-макроса (напр. func_const), не раскрывалось (иначе бесконечная рекурсия).
+    /// Явный `@`-макрос внутри атрибута - ошибка (см. parser.cpp GetNextToken).
+    bool m_in_attr = false;
+
     /// Глубина раскрытия макросов (защита от бесконечной рекурсии)
     size_t m_macro_depth = 0;
 
-    /// Гигиенические имена: ident -> сгенерированное имя в пределах одного раскрытия макроса
-    std::map<std::string, std::string> m_hygienic_names;
-    /// Глобальный счётчик гигиенических имён (начинается с 1)
-    int m_hygienic_counter = 0;
+    /// Суммарное число раскрытий макросов в текущем операторе (защита от самовоспроизведения
+    /// через границы чтений). Сбрасывается на границе оператора (буфер анализа пуст) в GetNextToken.
+    size_t m_macro_expansion_total = 0;
+
+    /// Один раз на оператор уже выдан отчёт о рекурсивном макросе (guard в macro.cpp ExpandTermMacro),
+    /// чтобы не спамить ошибкой на каждом раскрытии. Сбрасывается на границе оператора.
+    bool m_macro_recursion_reported = false;
 
     parser::token_type GetNextToken(TermPtr* yylval);
     //        TermPtr MacroEval(const TermPtr &term);
 
-    // Проверяет термин на наличие команды препроцессора (прагмы)
-    bool PragmaCheck(const TermPtr& term);
-    // Выполняет команду препроцессора (прагму)
-    bool PragmaEval(const TermPtr& term, SequenceType& buffer, SequenceType& seq);
-
-    /// Специальная обработка @__OPTION_TRUE__/@__OPTION_FALSE__ прямо в GetNextToken:
-    /// содержимое после имени флага берётся «сырым» (токены до закрывающей скобки), без
-    /// разбивки по запятым и без ParseTerm-пре-парсинга. При срабатывании флага токены
-    /// вставляются как есть (преdef-макросы раскрываются на сайте вызова, локация не
-    /// «запекается»). Возвращает true, если прагма распознана и обработана.
-    bool EvalOptionTrueFalseRaw();
-
     /// Парсит текстовый фрагмент (не файл/модуль) под указанным «фиктивным» именем
     /// источника. Имена фиктивных источников помечаются префиксом '@' (in-memory,
-    /// файла на диске нет). По умолчанию "@input"; для встроенного DSL — "@dsl".
+    /// файла на диске нет). По умолчанию "@input"; для встроенного DSL - "@trust/dsl".
     TermPtr ParseText(std::string_view text, std::string_view sourceName = "@input", bool expand_module = false);
 
     /// Парсит из уже зарегистрированного source-файла (не создавая in-memory
@@ -128,29 +161,20 @@ class Parser {
                             bool macro_expand = true);
     static TermPtr ParseTerm(const char* proto, trust::Context& ctx, bool pragma_enable = true, bool macro_expand = true);
 
-    // TODO(cleanup): unused — commented out, see task 1785675437901
-    // inline static bool IsBracket(const std::string_view str) { return str.size() > 0 && (str[0] == '(' || str[0] == '[' || str[0] == '<'); }
-
-    static std::string GetCurrentDate(time_t ts = std::time(NULL));
-    static std::string GetCurrentTime(time_t ts = std::time(NULL));
-    static std::string GetCurrentTimeStamp(time_t ts = std::time(NULL));
-    static std::string GetCurrentTimeStampISO(time_t ts = std::time(NULL));
-
     TermPtr CheckModuleTerm(const TermPtr& term);
 
     static size_t SkipBrackets(const SequenceType& buffer, size_t offset);
 
-    time_t m_timestamp;
-
     trust::Context& m_ctx;
+
+    syntax::PredefMacroResolver m_predef;
+    syntax::PragmaEvaluator m_pragma;
 
     MacroPtr m_macro;
     bool m_is_lexer_complete;
 
   private:
     TermPtr m_ast;
-    // TODO(cleanup): unused — commented out, see task 1785675437901
-    // bool m_is_runing;
     PostLexerType* m_postlex;
 };
 

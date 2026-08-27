@@ -29,6 +29,8 @@ _build/
 *.o
 *.d
 *.src_map
+*.cppt
+build.conf
 
 # Binaries
 *.exe

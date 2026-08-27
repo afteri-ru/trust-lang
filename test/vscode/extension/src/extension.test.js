@@ -1,5 +1,5 @@
 /**
- * Unit tests for extension.js — activation, commands, DAP adapter factory
+ * Unit tests for extension.js - activation, commands, DAP adapter factory
  *
  * moduleNameMapper in jest.config.js provides the vscode mock.
  *
@@ -39,10 +39,10 @@ jest.mock('extension-utils', () => {
         ...actual,
         buildForDebug: jest.fn().mockResolvedValue({
             success: true,
-            cppFile: '/test/workspace/.trust/test.cpp',
+            cppFile: '/test/workspace/.trust/test.cppt',
             targetFile: '/test/workspace/.trust/test'
         }),
-        transpileSource: jest.fn().mockReturnValue({ success: true, cppFile: '/test/workspace/.trust/test.cpp' }),
+        transpileSource: jest.fn().mockReturnValue({ success: true, cppFile: '/test/workspace/.trust/test.cppt' }),
         compileCpp: jest.fn().mockReturnValue({ success: true, targetFile: '/test/workspace/.trust/test' })
     };
 });
@@ -210,7 +210,7 @@ describe('resolveDebugConfiguration', () => {
         expect(result).toBeDefined();
         expect(result.sourceFile).toBe('/test/workspace/test.src');
         // cppFile and targetFile are filled by buildForDebug mock
-        expect(result.cppFile).toBe('/test/workspace/.trust/test.cpp');
+        expect(result.cppFile).toBe('/test/workspace/.trust/test.cppt');
         expect(result.targetFile).toBe('/test/workspace/.trust/test');
     });
 
@@ -510,6 +510,26 @@ describe('LSP client configuration', () => {
         config.get.mockRestore();
     });
 
+    test('documentSelector serves trust and trusted-cpp (not cpp, so clangd does not touch .cppt)', () => {
+        const config = setLspPath('trust-lsp');
+        const ctx = { subscriptions: [] };
+        extension.activate(ctx);
+
+        const { LanguageClient } = require('vscode-languageclient/node');
+        const calls = LanguageClient.mock.calls;
+        const lastCall = calls[calls.length - 1];
+        const client = lastCall[3]; // clientOptions
+
+        const langs = (client.documentSelector || []).map(sel => sel.language);
+        expect(langs).toContain('trust');
+        expect(langs).toContain('trusted-cpp');
+        // Критично: trust-lsp не должен претендовать на язык 'cpp' — его берёт clangd
+        // и падает на сгенерированных .cppt/.hppt. Сгенерированный C++ изолирован в 'trusted-cpp'.
+        expect(langs).not.toContain('cpp');
+
+        config.get.mockRestore();
+    });
+
     test('start() is called on LanguageClient (with lspPath set)', () => {
         const config = setLspPath('trust-lsp');
         const ctx = { subscriptions: [] };
@@ -646,7 +666,7 @@ describe('Diagnostics: LSP path errors', () => {
         const allStarts = startCalls.flatMap(s => s.calls);
         expect(allStarts.length).toBeGreaterThan(0);
 
-        // Status bar — starting
+        // Status bar - starting
         const lspStatusBars = vscode.window._statusBarItems.filter(
             item => item.text && item.text.includes('Trust LSP')
         );
@@ -698,7 +718,7 @@ describe('Diagnostics: LSP path errors', () => {
         expect(lspChannel.content).toContain('[ERROR]');
         expect(lspChannel.content).toContain('unexpectedly');
 
-        // Status bar — error
+        // Status bar - error
         const lspStatusBars = vscode.window._statusBarItems.filter(
             item => item.text && item.text.includes('Trust LSP')
         );
@@ -729,7 +749,7 @@ describe('TrustBuildTask', () => {
         const ws = { uri: { fsPath: '/test/workspace' } };
         const task = TrustBuildTask.getCompileTask('/test/workspace/test.src', ws);
         expect(task.definition.type).toBe('trust-build');
-        expect(task.name).toBe('Trust: Compile .cpp');
+        expect(task.name).toBe('Trust: Compile .cppt');
         expect(task.source).toBe('trust');
         expect(task.group).toBe(vscode.TaskGroup.Build);
     });
@@ -1137,6 +1157,117 @@ describe('LSP trace output on error (dev.traceLSP)', () => {
         expect(lastCall[2].args).toContain('--trace');
 
         cfg.get.mockRestore();
+    });
+});
+
+
+describe('Syntax highlighting: trust.tmLanguage.json macro pattern', () => {
+    const fs = require('fs');
+    const path = require('path');
+
+    function loadGrammar() {
+        // Test runs from test/vscode/extension; tmLanguage lives in include/vscode/syntaxes/.
+        const tmPath = path.resolve(__dirname, '../../../../include/vscode/syntaxes/trust.tmLanguage.json');
+        return JSON.parse(fs.readFileSync(tmPath, 'utf8'));
+    }
+
+    // Эмулирует begin/end TextMate-токенизацию: находим begin, затем первый end,
+    // помечаем регион как "highlighted". Остальное - обычный код.
+    function highlight(source, beginRe, endRe) {
+        const regions = [];
+        let i = 0;
+        while (i < source.length) {
+            const m = beginRe.exec(source.slice(i));
+            if (!m) break;
+            const start = i + m.index;
+            const body = source.slice(start + m[0].length);
+            const e = endRe.exec(body);
+            if (!e) { regions.push([start, source.length]); break; }
+            const end = start + m[0].length + e.index + e[0].length;
+            regions.push([start, end]);
+            i = end;
+        }
+        return regions;
+    }
+
+    test('uses a single unified begin/end pair @@...@@@@ for macro definitions', () => {
+        const g = loadGrammar();
+        const macros = g.repository.macros;
+        expect(macros).toBeDefined();
+        expect(macros.patterns.length).toBe(1);
+        const p = macros.patterns[0];
+        expect(p.begin).toBe('@@(?![@\\\\])');
+        expect(p.end).toBe('@@@@');
+        expect(p.name).toBe('meta.macro.trust');
+    });
+
+    test('highlights all macro definition forms as one region without leaking', () => {
+        const g = loadGrammar();
+        const p = g.repository.macros.patterns[0];
+        const begin = new RegExp(p.begin);
+        const end = new RegExp(p.end);
+        const src = [
+            'x := 1;',                                        // обычный код до макроса
+            '@@ square($x) @@ (@$x * @$x) @@@@;',             // seq-макрос
+            '@@ txt @@@ some @@@ body @@@@;',                 // text-макрос (внутри тела @@@)
+            '@@ gone @@@@;',                                  // удаление
+            '@@ macro_end @@ @\\@4 @@@@;',                    // мнемоника (эскейп-лексема)
+            'y := 2;',                                        // код после макросов
+        ].join('\n');
+
+        const regions = highlight(src, begin, end);
+        expect(regions.length).toBe(4);
+        // Ни один регион не должен "проглотить" следующий за ним код: конец каждого
+        // региона обязан лежать на терминаторе @@@4.
+        for (const [s, e] of regions) {
+            const frag = src.slice(e - 4, e);
+            expect(frag).toBe('@@@@');
+        }
+        // Код до первого и после последнего макроса остаётся вне регионов.
+        expect(src.slice(0, regions[0][0])).toContain('x := 1;');
+        expect(src.slice(regions[regions.length - 1][1])).toContain('y := 2;');
+    });
+
+    test('grammar distinguishes control keywords, plain macros, natives, locals, strings and shebang', () => {
+        const g = loadGrammar();
+        const kw = g.repository.keywords.patterns;
+
+        // Управляющие ключевые слова (if/while/return/func/...) выделяются и с '@', и без '@'.
+        const ctrlNoAt = kw.find(p => p.name === 'keyword.control.trust' && p.match.includes('?:func') && !p.match.includes('@'));
+        expect(ctrlNoAt).toBeDefined();
+        const ctrlAt = kw.find(p => p.name === 'keyword.control.trust' && p.match.startsWith('@'));
+        expect(ctrlAt).toBeDefined();
+
+        // Прочие макросы @name — отдельный scope keyword.macro.trust (не keyword.control).
+        expect(kw.some(p => p.name === 'keyword.macro.trust' && p.match.startsWith('@['))).toBe(true);
+
+        // Нативные %name и локальные $name — отдельные scope.
+        expect(kw.some(p => p.name === 'support.function.trust' && p.match.startsWith('%'))).toBe(true);
+        expect(kw.some(p => p.name === 'variable.language.trust' && p.match.includes('$'))).toBe(true);
+
+        // Шебанг #! — отдельный comment scope, обрабатывается раньше общего #.*$.
+        const cm = g.repository.comments.patterns;
+        const shebangIdx = cm.findIndex(p => p.name === 'comment.line.shebang.trust');
+        const hashIdx = cm.findIndex(p => p.name === 'comment.line.number-sign.trust');
+        expect(shebangIdx).toBeGreaterThan(-1);
+        expect(shebangIdx).toBeLessThan(hashIdx);
+
+        // Строки в двойных и одинарных кавычках — разные scope.
+        expect(g.repository.strings.patterns.some(p => p.name === 'string.quoted.double.trust')).toBe(true);
+        expect(g.repository.strings.patterns.some(p => p.name === 'string.quoted.single.trust')).toBe(true);
+    });
+
+    test('macro block is meta.macro with punctuation delimiters and nested element rules', () => {
+        const g = loadGrammar();
+        const macros = g.repository.macros.patterns[0];
+        expect(macros.name).toBe('meta.macro.trust');
+        expect(macros.beginCaptures['0'].name).toBe('punctuation.definition.macro.begin.trust');
+        expect(macros.endCaptures['0'].name).toBe('punctuation.definition.macro.end.trust');
+        const sep = macros.patterns.find(p => p.name === 'punctuation.definition.macro.separator.trust');
+        expect(sep).toBeDefined();
+        // содержимое макроса должно подсвечиваться вложенными правилами
+        expect(macros.patterns.some(p => p.include === '#keywords')).toBe(true);
+        expect(macros.patterns.some(p => p.include === '#variables')).toBe(true);
     });
 });
 

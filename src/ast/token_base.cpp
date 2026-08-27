@@ -1,4 +1,4 @@
-// token_base.cpp — AstNodeBase and AstNodeAttr implementation for methods that require AttrPool.
+// token_base.cpp - AstNodeBase and AstNodeAttr implementation for methods that require AttrPool.
 //
 // These methods are separated here to avoid circular dependencies.
 // Dump methods for specialized nodes live in ast_nodes.cpp and ident_name.cpp.
@@ -10,10 +10,10 @@
 
 namespace trust {
 
-// ────────────────────────────────────────────────────────────────────────────
-// AstNodeBase::text / range — читаются из исходного Term (m_term).
-// Узел без m_term при обращении к text()/range() — ошибка логики.
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AstNodeBase::text / range - читаются из исходного Term (m_term).
+// Узел без m_term при обращении к text()/range() - ошибка логики.
+// ----------------------------------------------------------------------------
 
 std::string_view AstNodeBase::text() const {
     EXPECT(m_term && "text() requires a source Term");
@@ -23,24 +23,34 @@ std::string_view AstNodeBase::text() const {
 MapperRange AstNodeBase::range() const {
     // Узел без m_term (ручной/test-only, синтетический) не имеет исходного диапазона:
     // возвращаем invalid range вместо EXPECT. Это необходимо, т.к. диапазоны родителей
-    // вычисляются на лету по узлам-детям (spanOfNodes) — ручные дети обязаны «мягко»
+    // вычисляются на лету по узлам-детям (spanOfNodes) - ручные дети обязаны «мягко»
     // сообщать об отсутствии source-range, а не бросать.
     return m_term ? m_term->m_mapperRange : MapperRange{};
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// AstNodeBase::dump — default dump for base token
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AstNodeBase::dump - default dump for base token
+// ----------------------------------------------------------------------------
 
 std::string AstNodeBase::dump(size_t indent) const {
     std::string result(indent, ' ');
     result += ParserToken::name(kind());
+    if (!m_trust.empty()) {
+        for (const auto& t : m_trust) {
+            if (t) {
+                result += "\n";
+                result += std::string(indent, ' ');
+                result += "trust: ";
+                result += t->dump(indent + 2);
+            }
+        }
+    }
     return result;
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 // AstNodeAttr::has_attr (by name)
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 
 bool AstNodeAttr::has_attr(const AttrPool& pool, std::string_view name) const {
     auto id = pool.lookup(name);
@@ -50,10 +60,10 @@ bool AstNodeAttr::has_attr(const AttrPool& pool, std::string_view name) const {
     return has_attr(id.value());
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// AstNodeAttr::set_attr_args / attr_args — аргументы атрибута (напр. @[link("m")] → ["m"]).
+// ----------------------------------------------------------------------------
+// AstNodeAttr::set_attr_args / attr_args - аргументы атрибута (напр. @[link("m")] → ["m"]).
 // Хранятся по индексу атрибута в пуле (id & kAttrIndexMask).
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
 
 void AstNodeAttr::set_attr_args(AttrId id, std::vector<std::string> args) {
     const AttrId key = id & detail::kAttrIndexMask;
@@ -69,9 +79,9 @@ const std::vector<std::string>* AstNodeAttr::attr_args(AttrId id) const noexcept
     return &it->second;
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// AstNodeAttr::dump — default dump for attribute-aware token
-// ────────────────────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// AstNodeAttr::dump - default dump for attribute-aware token
+// ----------------------------------------------------------------------------
 
 std::string AstNodeAttr::dump(size_t indent) const {
     return AstNodeBase::dump(indent);

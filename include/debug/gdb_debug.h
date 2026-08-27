@@ -5,7 +5,7 @@
 #include <memory>
 
 // ---------------------------------------------------------------------------
-// GdbDebug — lightweight wrapper around GDB/MI subprocess
+// GdbDebug - lightweight wrapper around GDB/MI subprocess
 // Does NOT depend on LLDB, communicates with GDB via pipes (GDB/MI2 protocol)
 // ---------------------------------------------------------------------------
 class GdbDebug {

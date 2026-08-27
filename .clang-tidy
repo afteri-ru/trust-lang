@@ -11,7 +11,7 @@ Checks: >
     readability-identifier-naming,
 
 CheckOptions:
-  # ── Naming conventions (readability-identifier-naming) ──
+  # -- Naming conventions (readability-identifier-naming) --
   readability-identifier-naming.ClassCase:           CamelCase
   readability-identifier-naming.StructCase:          CamelCase
   readability-identifier-naming.EnumCase:            CamelCase

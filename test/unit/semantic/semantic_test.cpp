@@ -1,49 +1,6 @@
-#include "utils/io.hpp"
-#include "semantic/pass_runner.hpp"
-#include "semantic/name_resolution.hpp"
-#include "semantic/inline_hook.hpp"
-#include "semantic/symbol_table.hpp"
-#include "ast/ast_nodes.hpp"
-#include "ast/attr_builtin.hpp"
-#include "ast/ident_name.hpp"
-#include "ast/token.hpp"
-#include "ast/token_type.hpp"
-#include "diag/context.hpp"
-#include "diag/diag.hpp"
-#include "types/registry.hpp"
-#include "types/type_names.hpp"
-#include "syntax/term.h"
-#include "syntax/term_types.h"
-#include "gtest/gtest.h"
-#include <sstream>
-#include <string>
-#include <vector>
-#include <set>
+#include "semantic/semantic_test_fixture.hpp"
 
 namespace trust {
-namespace {
-
-class ErrsFixture : public ::testing::Test {
-  protected:
-    void SetUp() override {
-        m_stream.str("");
-        m_prev_err = setErrs(&m_stream);
-        m_types = std::make_unique<TypeRegistry>(m_ctx.diag(), m_ctx.opts());
-        m_ctx.setTypes(m_types.get());
-    }
-
-    void TearDown() override { setErrs(m_prev_err); }
-
-    std::ostream* m_prev_err = nullptr;
-    std::ostringstream m_stream;
-    Context m_ctx;
-    std::unique_ptr<TypeRegistry> m_types;
-};
-
-// ── Variable tests ───────────────────────────────────────
-
-class SemanticTest : public ErrsFixture {};
-
 TEST_F(SemanticTest, VarDeclSimple) {
     // x := 42
     const std::string name = "x";
@@ -67,7 +24,7 @@ TEST_F(SemanticTest, VarDeclSimple) {
 }
 
 // @[reftype("ptr")] перед объявлением переменной с аннотацией типа устанавливает вид ссылки
-// (RefType) на тип переменной — fast-path бит (первая ссылка на тип без признака).
+// (RefType) на тип переменной - fast-path бит (первая ссылка на тип без признака).
 TEST_F(SemanticTest, VarDeclReftypeSetsRefType) {
     MapperFile input_file = m_ctx.source().add_source("reftype.src", "x:Int32 := 42;", true);
     MapperRange nameRange(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 2));
@@ -93,7 +50,7 @@ TEST_F(SemanticTest, VarDeclReftypeSetsRefType) {
 }
 
 // Проверка утверждений: runtime-символы (trust::trust__abort__ / trust::formatMessage)
-// зарегистрированы в TypeRegistry — это база для распознавания их вызовов
+// зарегистрированы в TypeRegistry - это база для распознавания их вызовов
 // (%trust::trust__abort__ и т.п.) как известных нативных функций (не «undefined name»).
 TEST_F(SemanticTest, RuntimeSymbolsRegistered) {
     std::set<std::string> names;
@@ -104,8 +61,8 @@ TEST_F(SemanticTest, RuntimeSymbolsRegistered) {
     EXPECT_NE(names.find("trust::formatMessage"), names.end());
 }
 
-// Диапазон `start..stop`: элементный тип — join типов операндов (Int+Int → Int64); тип
-// выражения/переменной — ПАРАМЕТРИЗОВАННЫЙ структурный `Range<Int64>` (не абстрактный `:Range`).
+// Диапазон `start..stop`: элементный тип - join типов операндов (Int+Int → Int64); тип
+// выражения/переменной - ПАРАМЕТРИЗОВАННЫЙ структурный `Range<Int64>` (не абстрактный `:Range`).
 TEST_F(SemanticTest, RangeExprElementTypeJoin) {
     auto rng = std::make_shared<RangeExpr>(ParserToken::Kind::RangeExpr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1"),
                                            std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "10"));
@@ -117,9 +74,9 @@ TEST_F(SemanticTest, RangeExprElementTypeJoin) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    // Элементный тип диапазона — Int64 (join двух Int-литералов).
+    // Элементный тип диапазона - Int64 (join двух Int-литералов).
     EXPECT_EQ(rng->elementType, m_ctx.types().getType(type::Int64));
-    // Тип переменной — структурный Range<Int64> (не абстрактный :Range).
+    // Тип переменной - структурный Range<Int64> (не абстрактный :Range).
     auto* sym = runner.analysis().symbols().resolve("r");
     ASSERT_NE(sym, nullptr);
     const TypeId expected = m_ctx.types().getOrCreateRangeType(m_ctx.types().getType(type::Int64));
@@ -150,7 +107,7 @@ TEST_F(SemanticTest, DupDeclError) {
 }
 
 TEST_F(SemanticTest, UndefinedNameRef) {
-    // y := z; — error: undefined name
+    // y := z; - error: undefined name
     const std::string name = "y";
     auto term = Term::Create(TermID::NAME, name, {}, parser::token_type::NAME);
 
@@ -203,13 +160,11 @@ TEST_F(SemanticTest, LiteralStandalone) {
     EXPECT_TRUE(ok);
 }
 
-// ── SymbolTable tests ────────────────────────────────────
-// Единая таблица символов: стек вложенных скоупов. Создаётся без DiagnosticEngine —
+// -- SymbolTable tests ------------------------------------
+// Единая таблица символов: стек вложенных скоупов. Создаётся без DiagnosticEngine -
 // диагностику дубликатов формирует ядро (ему нужен range).
 
-class SymbolTableTest : public ErrsFixture {};
-
-// Helper: Color ::= :Enum(RED=1, GREEN=2,) — TypeDecl(left=Ident, right=DictLiteral с аннотацией «Enum»).
+// Helper: Color ::= :Enum(RED=1, GREEN=2,) - TypeDecl(left=Ident, right=DictLiteral с аннотацией «Enum»).
 static std::shared_ptr<Binary> makeEnumTypeDecl(const char* name, std::initializer_list<std::pair<const char*, const char*>> ms) {
     auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
     dict->m_type = std::make_shared<IdentType>(std::string("Enum"));
@@ -249,7 +204,7 @@ TEST_F(SemanticTest, EnumDeclRegistersType) {
 }
 
 TEST_F(SemanticTest, EnumMemberAccessResolvesToEnumType) {
-    // Color.RED — значение типа Color (работа только через имя типа); несуществующий член → ошибка.
+    // Color.RED - значение типа Color (работа только через имя типа); несуществующий член → ошибка.
     auto enumDecl = makeEnumTypeDecl("Color", {{"RED", "1"}, {"GREEN", "2"}});
 
     auto memberRef = [](const std::string& mname) {
@@ -258,7 +213,7 @@ TEST_F(SemanticTest, EnumMemberAccessResolvesToEnumType) {
         return std::make_shared<Binary>(ParserToken::Kind::MemberAccess, std::move(left), std::move(right));
     };
 
-    // 1) b : Color := Color.RED — допустимо, ошибок нет.
+    // 1) b : Color := Color.RED - допустимо, ошибок нет.
     {
         std::vector<AstNodePtr> seq;
         seq.push_back(std::make_shared<Binary>(*enumDecl));
@@ -269,7 +224,7 @@ TEST_F(SemanticTest, EnumMemberAccessResolvesToEnumType) {
         EXPECT_TRUE(runner.run(seq));
         EXPECT_EQ(m_ctx.diag().errorCount(), 0);
     }
-    // 2) b : Color := Color.BLUE — несуществующий член → ошибка «enum has no member».
+    // 2) b : Color := Color.BLUE - несуществующий член → ошибка «enum has no member».
     {
         m_ctx.diag().clear();
         std::vector<AstNodePtr> seq;
@@ -284,7 +239,7 @@ TEST_F(SemanticTest, EnumMemberAccessResolvesToEnumType) {
 
 TEST_F(SemanticTest, VariantDeclRegistersType) {
     // Value ::= :Variant(RED=5, GREEN='g',) → TypeDecl+DictLiteral(аннотация Variant).
-    // Каждый член имеет СВОЙ тип (Int8 и StrChar) — гетерогенный вариант.
+    // Каждый член имеет СВОЙ тип (Int8 и StrChar) - гетерогенный вариант.
     auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
     dict->m_type = std::make_shared<IdentType>(std::string("Variant"));
     dict->m_body.push_back(std::make_shared<ArgNode>(std::string("RED"), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5")));
@@ -311,12 +266,12 @@ TEST_F(SemanticTest, VariantDeclRegistersType) {
 }
 
 TEST_F(SemanticTest, VariantUnknownMemberTypeReportsError) {
-    // Value ::= :Variant(OK=5, BAD:NonExistentType,) — явный тип члена не резолвится → ОШИБКА
+    // Value ::= :Variant(OK=5, BAD:NonExistentType,) - явный тип члена не резолвится → ОШИБКА
     // «unknown member type» (симметрично enum), а не тихий fallback на тип из значения/ординал.
     auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
     dict->m_type = std::make_shared<IdentType>(std::string("Variant"));
     dict->m_body.push_back(std::make_shared<ArgNode>(std::string("OK"), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5")));
-    // Явный тип `BAD:NonExistentType` — тип в ArgNode.m_type (без обёртки значения).
+    // Явный тип `BAD:NonExistentType` - тип в ArgNode.m_type (без обёртки значения).
     dict->m_body.push_back(std::make_shared<ArgNode>(std::string("BAD"), std::make_shared<IdentType>(std::string("NonExistentType")), nullptr));
     auto variantDecl = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>(std::string("Value")), std::move(dict));
 
@@ -329,14 +284,14 @@ TEST_F(SemanticTest, VariantUnknownMemberTypeReportsError) {
 }
 
 TEST_F(SemanticTest, EnumTypedAndBareMembersViaArgNode) {
-    // Flag ::= (LOW:Int8, HIGH,):Enum — явный тип члена (ArgNode.m_type) + безнарный член
+    // Flag ::= (LOW:Int8, HIGH,):Enum - явный тип члена (ArgNode.m_type) + безнарный член
     // (имя в value-Ident). Проверяет каноническое чтение членов из ArgNode (enumVariantMember).
     auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
     dict->m_type = std::make_shared<IdentType>(std::string("Enum"));
-    // LOW:Int8 — безнарный типизированный член: имя в value-Ident, тип в m_type.
+    // LOW:Int8 - безнарный типизированный член: имя в value-Ident, тип в m_type.
     dict->m_body.push_back(
         std::make_shared<ArgNode>(std::string(""), std::make_shared<IdentType>(std::string("Int8")), std::make_shared<IdentName>(std::string("LOW"))));
-    // HIGH — безнарный член: имя в value-Ident, без типа/значения.
+    // HIGH - безнарный член: имя в value-Ident, без типа/значения.
     dict->m_body.push_back(std::make_shared<ArgNode>(std::string(""), nullptr, std::make_shared<IdentName>(std::string("HIGH"))));
     auto enumDecl = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>(std::string("Flag")), std::move(dict));
 
@@ -359,283 +314,6 @@ TEST_F(SemanticTest, EnumTypedAndBareMembersViaArgNode) {
     EXPECT_EQ(m_types->getCanonicalTypeId(ed->valueType), m_types->getType(type::Int8));
 }
 
-TEST_F(SymbolTableTest, DeclareResolveGlobal) {
-    SymbolTable symtab;
-    Symbol sym;
-    sym.name = "x";
-    auto node = std::make_shared<VarDecl>("x");
-    sym.decl = node.get();
-
-    EXPECT_TRUE(symtab.declare(sym));
-    EXPECT_EQ(symtab.globalSize(), 1u);
-    EXPECT_NE(symtab.resolve("x"), nullptr);
-}
-
-TEST_F(SymbolTableTest, DupRejectedInScope) {
-    SymbolTable symtab;
-    Symbol s1, s2;
-    s1.name = "x";
-    s2.name = "x";
-    auto n1 = std::make_shared<VarDecl>("x");
-    auto n2 = std::make_shared<VarDecl>("x");
-    s1.decl = n1.get();
-    s2.decl = n2.get();
-
-    EXPECT_TRUE(symtab.declare(s1));
-    EXPECT_FALSE(symtab.declare(s2)); // дубликат в том же скоупе
-}
-
-TEST_F(SymbolTableTest, ResolveNotFound) {
-    SymbolTable symtab;
-    EXPECT_EQ(symtab.resolve("nonexistent"), nullptr);
-}
-
-// ── Function forward declaration tests ───────────────────
-
-class FuncDeclTest : public ErrsFixture {};
-
-TEST_F(FuncDeclTest, ForwardDeclNoReturn) {
-    // func(arg:Int32) := ... ;
-    const std::string funcName = "func";
-    auto funcTerm = Term::Create(TermID::NAME, funcName, {}, parser::token_type::NAME);
-    auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
-    func->m_params = std::vector<AstNodePtr>{};
-
-    auto paramType = std::make_shared<IdentType>("Int32");
-    func->m_params->push_back(std::make_shared<ArgNode>("arg", paramType));
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(func));
-
-    SemanticPassRunner runner(m_ctx);
-    bool ok = runner.run(seq);
-
-    EXPECT_TRUE(ok);
-    EXPECT_EQ(runner.analysis().symbols().globalSize(), 1);
-
-    auto* sym = runner.analysis().symbols().resolve("func");
-    ASSERT_NE(sym, nullptr);
-    EXPECT_EQ(sym->name, "func");
-}
-
-TEST_F(FuncDeclTest, ForwardDeclWithReturn) {
-    // func(arg:Int32):Int32 := ... ;
-    const std::string funcName = "func";
-    auto funcTerm = Term::Create(TermID::NAME, funcName, {}, parser::token_type::NAME);
-    auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
-    func->m_params = std::vector<AstNodePtr>{};
-
-    auto paramType = std::make_shared<IdentType>("Int32");
-    func->m_params->push_back(std::make_shared<ArgNode>("arg", paramType));
-    func->m_type = std::make_shared<IdentType>("Int32");
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(func));
-
-    SemanticPassRunner runner(m_ctx);
-    bool ok = runner.run(seq);
-
-    EXPECT_TRUE(ok);
-    EXPECT_EQ(runner.analysis().symbols().globalSize(), 1);
-
-    auto* sym = runner.analysis().symbols().resolve("func");
-    ASSERT_NE(sym, nullptr);
-}
-
-TEST_F(FuncDeclTest, ForwardDeclMultipleParams) {
-    // func(a:Int8, b:String) := ... ;
-    const std::string funcName = "func";
-    auto funcTerm = Term::Create(TermID::NAME, funcName, {}, parser::token_type::NAME);
-    auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
-    func->m_params = std::vector<AstNodePtr>{};
-
-    auto paType = std::make_shared<IdentType>("Int8");
-    func->m_params->push_back(std::make_shared<ArgNode>("a", paType));
-    auto pbType = std::make_shared<IdentType>("String");
-    func->m_params->push_back(std::make_shared<ArgNode>("b", pbType));
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(func));
-
-    SemanticPassRunner runner(m_ctx);
-    bool ok = runner.run(seq);
-
-    EXPECT_TRUE(ok);
-    EXPECT_EQ(runner.analysis().symbols().globalSize(), 1);
-
-    auto* sym = runner.analysis().symbols().resolve("func");
-    ASSERT_NE(sym, nullptr);
-}
-
-TEST_F(FuncDeclTest, ForwardDeclNoParams) {
-    // func() := ... ;
-    const std::string funcName = "func";
-    auto funcTerm = Term::Create(TermID::NAME, funcName, {}, parser::token_type::NAME);
-    auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
-    // no m_params / m_body = forward declaration
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(func));
-
-    SemanticPassRunner runner(m_ctx);
-    bool ok = runner.run(seq);
-
-    EXPECT_TRUE(ok);
-    EXPECT_EQ(runner.analysis().symbols().globalSize(), 1);
-
-    auto* sym = runner.analysis().symbols().resolve("func");
-    ASSERT_NE(sym, nullptr);
-}
-
-TEST_F(FuncDeclTest, DuplicateFuncName) {
-    // func(x:Int32) := ... ; func(y:Int32) := ... ;
-    const std::string f1Name = "func";
-    auto f1Term = Term::Create(TermID::NAME, f1Name, {}, parser::token_type::NAME);
-    auto f1 = std::make_shared<FuncDecl>(std::move(f1Term));
-    f1->m_params = std::vector<AstNodePtr>{};
-    auto p1Type = std::make_shared<IdentType>("Int32");
-    f1->m_params->push_back(std::make_shared<ArgNode>("x", p1Type));
-
-    const std::string f2Name = "func";
-    auto f2Term = Term::Create(TermID::NAME, f2Name, {}, parser::token_type::NAME);
-    auto f2 = std::make_shared<FuncDecl>(std::move(f2Term));
-    f2->m_params = std::vector<AstNodePtr>{};
-    auto p2Type = std::make_shared<IdentType>("Int32");
-    f2->m_params->push_back(std::make_shared<ArgNode>("y", p2Type));
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(f1));
-    seq.push_back(std::move(f2));
-
-    SemanticPassRunner runner(m_ctx);
-    bool ok = runner.run(seq);
-
-    EXPECT_FALSE(ok);
-    EXPECT_GT(m_ctx.diag().errorCount(), 0);
-}
-
-TEST_F(FuncDeclTest, FuncAndVarSameName) {
-    // func(x:Int32) := ... ; func := 42; — error: duplicate
-    const std::string fName = "func";
-    auto fTerm = Term::Create(TermID::NAME, fName, {}, parser::token_type::NAME);
-    auto f1 = std::make_shared<FuncDecl>(std::move(fTerm));
-    f1->m_params = std::vector<AstNodePtr>{};
-    auto pType = std::make_shared<IdentType>("Int32");
-    f1->m_params->push_back(std::make_shared<ArgNode>("x", pType));
-
-    const std::string vName = "func";
-    auto vTerm = Term::Create(TermID::NAME, vName, {}, parser::token_type::NAME);
-    auto v1 = std::make_shared<VarDecl>(std::move(vTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(f1));
-    seq.push_back(std::move(v1));
-
-    SemanticPassRunner runner(m_ctx);
-    bool ok = runner.run(seq);
-
-    EXPECT_FALSE(ok);
-    EXPECT_GT(m_ctx.diag().errorCount(), 0);
-}
-
-// ── Интеграция таблицы типов с анализом ──
-
-TEST_F(FuncDeclTest, BuildsFunctionType) {
-    // func(arg:Int32):Bool := ... ; — строится FunctionTypeId сигнатуры.
-    auto funcTerm = Term::Create(TermID::NAME, "func", {}, parser::token_type::NAME);
-    auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
-    func->m_params = std::vector<AstNodePtr>{};
-    func->m_params->push_back(std::make_shared<ArgNode>("arg", std::make_shared<IdentType>("Int32")));
-    func->m_type = std::make_shared<IdentType>("Bool");
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(func));
-
-    SemanticPassRunner runner(m_ctx);
-    ASSERT_TRUE(runner.run(seq));
-
-    auto* sym = runner.analysis().symbols().resolve("func");
-    ASSERT_NE(sym, nullptr);
-    EXPECT_NE(sym->type, INVALID_TYPE_ID);
-
-    const auto* ft = m_ctx.types().getTypeDataAs<FunctionTypeData>(sym->type);
-    ASSERT_NE(ft, nullptr);
-    auto int32 = m_ctx.types().findType("Int32");
-    auto bool_id = m_ctx.types().findType("Bool");
-    ASSERT_TRUE(int32.has_value());
-    ASSERT_TRUE(bool_id.has_value());
-    EXPECT_EQ(ft->returnType, *bool_id);
-    ASSERT_EQ(ft->paramTypes.size(), 1u);
-    EXPECT_EQ(ft->paramTypes[0], *int32);
-}
-
-// Forward-объявление функции `%f(a:Int32):Int32 := ...;` — нативная функция с типом возврата
-// регистрируется без ошибки (FunctionTypeId сигнатуры).
-TEST_F(FuncDeclTest, NativeForwardFuncWithReturnType) {
-    auto funcTerm = Term::Create(TermID::NAME, "%f", {}, parser::token_type::NAME);
-    auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
-    func->m_params = std::vector<AstNodePtr>{};
-    func->m_params->push_back(std::make_shared<ArgNode>("a", std::make_shared<IdentType>("Int32")));
-    func->m_type = std::make_shared<IdentType>("Int32");
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(func));
-
-    SemanticPassRunner runner(m_ctx);
-    EXPECT_TRUE(runner.run(seq));
-    auto* sym = runner.analysis().symbols().resolve("%f");
-    ASSERT_NE(sym, nullptr);
-    EXPECT_NE(sym->type, INVALID_TYPE_ID);
-}
-
-// Forward-объявление нативной функции `%f() := ...;` без типа возврата → ошибка (нативные имена
-// транслируются в C++ напрямую, поэтому тип обязателен).
-TEST_F(FuncDeclTest, NativeForwardFuncNoReturnTypeError) {
-    auto funcTerm = Term::Create(TermID::NAME, "%f", {}, parser::token_type::NAME);
-    auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
-    func->m_params = std::vector<AstNodePtr>{}; // no return type (m_type = nullptr)
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(func));
-
-    SemanticPassRunner runner(m_ctx);
-    EXPECT_FALSE(runner.run(seq));
-    EXPECT_GT(m_ctx.diag().errorCount(), 0);
-}
-
-// Forward-объявление функции завершается определением того же имени в том же скоупе
-// (declareOrComplete → Completed): не ошибка, у символа появляется тело.
-TEST_F(FuncDeclTest, ForwardFuncCompletedByDefinition) {
-    auto mk = [] {
-        auto t = Term::Create(TermID::NAME, "%f", {}, parser::token_type::NAME);
-        auto f = std::make_shared<FuncDecl>(std::move(t));
-        f->m_params = std::vector<AstNodePtr>{};
-        f->m_params->push_back(std::make_shared<ArgNode>("a", std::make_shared<IdentType>("Int32")));
-        f->m_type = std::make_shared<IdentType>("Int32");
-        return f;
-    };
-    auto fwd = mk();
-    auto def = mk();
-    auto retTerm = Term::Create(TermID::UNKNOWN, "++", {}, parser::token_type::END);
-    auto ret = std::make_shared<JumpStmt>(ParserToken::Kind::ReturnStmt, std::move(retTerm));
-    ret->m_value = std::make_shared<IdentName>("a");
-    def->m_body = std::vector<AstNodePtr>{std::move(ret)};
-
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(fwd));
-    seq.push_back(std::move(def));
-
-    SemanticPassRunner runner(m_ctx);
-    EXPECT_TRUE(runner.run(seq));
-    auto* sym = runner.analysis().symbols().resolve("%f");
-    ASSERT_NE(sym, nullptr);
-    ASSERT_NE(sym->decl, nullptr);
-    EXPECT_EQ(sym->decl->kind(), ParserToken::Kind::FuncDecl);
-    EXPECT_TRUE(static_cast<const FuncDecl&>(*sym->decl).m_body.has_value()) << "определение должно заменить forward-объявление";
-}
-
-// Forward-объявление переменной `x:Int32 := ...;` (без инициализатора) — регистрируется в
-// текущем скоупе без ошибки, тип берётся из аннотации.
 TEST_F(SemanticTest, ForwardVarDecl) {
     auto var = std::make_shared<VarDecl>("x", std::make_shared<IdentType>("Int32"), nullptr);
 
@@ -652,7 +330,7 @@ TEST_F(SemanticTest, ForwardVarDecl) {
     EXPECT_FALSE(static_cast<const VarDecl&>(*sym->decl).m_initializer) << "forward-переменная без инициализатора";
 }
 
-// Forward-объявление ненативной переменной без типа `y := ...;` — тип опционален, ошибки нет.
+// Forward-объявление ненативной переменной без типа `y := ...;` - тип опционален, ошибки нет.
 TEST_F(SemanticTest, ForwardVarDeclNoType) {
     auto var = std::make_shared<VarDecl>("y", nullptr, nullptr);
 
@@ -726,7 +404,7 @@ TEST_F(SemanticTest, DefinitionThenForwardError) {
 }
 
 TEST_F(SemanticTest, TypeAliasBoundInScopeAndResolvable) {
-    // y ::= Int32;  x:y := 1; — алиас связан в скоуп-стеке и резолвится как тип переменной.
+    // y ::= Int32;  x:y := 1; - алиас связан в скоуп-стеке и резолвится как тип переменной.
     auto opTerm = Term::Create(TermID::CREATE_TYPE, "::=", {}, parser::token_type::END);
     auto typeDecl = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::move(opTerm));
     typeDecl->m_left = std::make_shared<IdentName>("y");
@@ -756,7 +434,7 @@ TEST_F(SemanticTest, TypeAliasBoundInScopeAndResolvable) {
 }
 
 TEST_F(SemanticTest, TypeAliasCollidesWithVar) {
-    // y ::= Int32; y := 1; — имя типа и переменной в одном скоупе → ошибка.
+    // y ::= Int32; y := 1; - имя типа и переменной в одном скоупе → ошибка.
     auto opTerm = Term::Create(TermID::CREATE_TYPE, "::=", {}, parser::token_type::END);
     auto typeDecl = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::move(opTerm));
     typeDecl->m_left = std::make_shared<IdentName>("y");
@@ -774,7 +452,7 @@ TEST_F(SemanticTest, TypeAliasCollidesWithVar) {
 }
 
 TEST_F(SemanticTest, TypeRegistryResetPerRun) {
-    // y ::= Int32; — первый run регистрирует алиас в реестре.
+    // y ::= Int32; - первый run регистрирует алиас в реестре.
     auto opTerm = Term::Create(TermID::CREATE_TYPE, "::=", {}, parser::token_type::END);
     auto typeDecl = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::move(opTerm));
     typeDecl->m_left = std::make_shared<IdentName>("y");
@@ -815,7 +493,7 @@ TEST_F(SemanticTest, LoweringWrapsSemicolonStmt) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    // После lowering: [VarDecl x, SemicolonStmt(AssignOp)] — statement-выражение обёрнуто в SemicolonStmt.
+    // После lowering: [VarDecl x, SemicolonStmt(AssignOp)] - statement-выражение обёрнуто в SemicolonStmt.
     ASSERT_EQ(seq.size(), 2u);
     ASSERT_EQ(seq[0]->kind(), ParserToken::Kind::VarDecl);
     ASSERT_EQ(seq[1]->kind(), ParserToken::Kind::SemicolonStmt);
@@ -823,9 +501,9 @@ TEST_F(SemanticTest, LoweringWrapsSemicolonStmt) {
     ASSERT_NE(es->m_expr, nullptr);
     EXPECT_EQ(es->m_expr->kind(), ParserToken::Kind::AssignOp);
 }
-// Именованные элементы словаря `(1, two=2, name='3',)` — метки полей, НЕ переменные:
+// Именованные элементы словаря `(1, two=2, name='3',)` - метки полей, НЕ переменные:
 // их имена не резолвятся как ссылки (нет «undefined name») и НЕ регистрируются
-// в таблице символов (регистрация имён — только для аргументов функций).
+// в таблице символов (регистрация имён - только для аргументов функций).
 TEST_F(SemanticTest, DictLiteralNamedElementsNotRegistered) {
     auto dictTerm = Term::Create(TermID::DICT, "", {}, parser::token_type::END);
     auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::move(dictTerm));
@@ -884,7 +562,7 @@ TEST_F(SemanticTest, DictFieldTypeInference) {
 
     const TypeId int8 = m_types->findType(type::Int8).value_or(INVALID_TYPE_ID);
     const TypeId boolT = m_types->findType(type::Bool).value_or(INVALID_TYPE_ID);
-    // d.two → Int8; d[0] → Bool (элемент 0 — `1` → Bool).
+    // d.two → Int8; d[0] → Bool (элемент 0 - `1` → Bool).
     EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType, int8);
     EXPECT_EQ(static_cast<VarDecl&>(*seq[2]).inferredType, boolT);
     // На символе d: размерность и типы полей.
@@ -1007,10 +685,10 @@ TEST_F(SemanticTest, LoweringRewritesNamedBreakToGoto) {
     EXPECT_EQ(gs->m_name, "L_break");
 }
 
-// ── Опциональный анализатор LintHook (управляется флагом FlagKind::Lint) ──
+// -- Опциональный анализатор LintHook (управляется флагом semantic::FlagKind::Lint) --
 
 TEST_F(SemanticTest, LintDisabledByDefault) {
-    // x := 42; — lint выключен по умолчанию → диагностик unused-var нет.
+    // x := 42; - lint выключен по умолчанию → диагностик unused-variable нет.
     auto t = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(t), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
     std::vector<AstNodePtr> seq;
@@ -1022,8 +700,8 @@ TEST_F(SemanticTest, LintDisabledByDefault) {
 }
 
 TEST_F(SemanticTest, LintUnusedVarWarning) {
-    // -Wlint → включён LintHook: неиспользуемая x порождает warning (OptKind::UnusedVar).
-    m_ctx.opts().set_enabled(FlagKind::Lint, true);
+    // -Wlint → включён LintHook: неиспользуемая x порождает warning (semantic::DiagId::UnusedVariable).
+    m_ctx.opts().set_enabled(semantic::FlagKind::Lint, true);
     auto t = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(t), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
     std::vector<AstNodePtr> seq;
@@ -1035,8 +713,8 @@ TEST_F(SemanticTest, LintUnusedVarWarning) {
 }
 
 TEST_F(SemanticTest, LintUsedVarNoWarning) {
-    // -Wlint: a используется в b := a → a без warning, b (неиспользуемый) — с warning.
-    m_ctx.opts().set_enabled(FlagKind::Lint, true);
+    // -Wlint: a используется в b := a → a без warning, b (неиспользуемый) - с warning.
+    m_ctx.opts().set_enabled(semantic::FlagKind::Lint, true);
 
     auto ta = Term::Create(TermID::NAME, "a", {}, parser::token_type::NAME);
     auto a = std::make_shared<VarDecl>(std::move(ta), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1"));
@@ -1050,7 +728,7 @@ TEST_F(SemanticTest, LintUsedVarNoWarning) {
     SemanticPassRunner runner(m_ctx);
     EXPECT_TRUE(runner.run(seq));
 
-    // Ровно одно unused-var (b); a используется в инициализаторе b.
+    // Ровно одно unused-variable (b); a используется в инициализаторе b.
     int unusedWarnings = 0;
     for (const auto& d : m_ctx.diag().diagnostics()) {
         if (d.severity == Severity::Warning && d.message.find("unused variable") != std::string::npos) {
@@ -1061,8 +739,8 @@ TEST_F(SemanticTest, LintUsedVarNoWarning) {
 }
 
 TEST_F(SemanticTest, LintUnusedVarInModule) {
-    // -Wlint: корневой узел реального pipeline — ModuleNode; ядро обходит m_body модуля.
-    m_ctx.opts().set_enabled(FlagKind::Lint, true);
+    // -Wlint: корневой узел реального pipeline - ModuleNode; ядро обходит m_body модуля.
+    m_ctx.opts().set_enabled(semantic::FlagKind::Lint, true);
 
     auto t = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(t), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
@@ -1077,7 +755,31 @@ TEST_F(SemanticTest, LintUnusedVarInModule) {
     EXPECT_GT(m_ctx.diag().warningCount(), 0);
 }
 
-// ── Контекст-макросы (@::, @__FUNCTION__, @__FUNCSIG__, @__FUNCDNAME__) ──
+TEST_F(SemanticTest, LintUnusedParameterWarning) {
+    // -Wlint: неиспользуемый параметр функции → диагностика semantic::DiagId::UnusedParameter
+    // ("unused parameter"), отдельная от unused-variable.
+    m_ctx.opts().set_enabled(semantic::FlagKind::Lint, true);
+
+    auto funcTerm = Term::Create(TermID::NAME, "func", {}, parser::token_type::NAME);
+    auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
+    func->m_params = std::vector<AstNodePtr>{};
+    func->m_params->push_back(std::make_shared<ArgNode>("arg", std::make_shared<IdentType>("Int32")));
+    func->m_type = std::make_shared<IdentType>("Int32");
+
+    std::vector<AstNodePtr> seq;
+    seq.push_back(std::move(func));
+
+    SemanticPassRunner runner(m_ctx);
+    ASSERT_TRUE(runner.run(seq));
+
+    int paramWarnings = 0;
+    for (const auto& d : m_ctx.diag().diagnostics()) {
+        if (d.severity == Severity::Warning && d.message.find("unused parameter") != std::string::npos) {
+            ++paramWarnings;
+        }
+    }
+    EXPECT_GT(paramWarnings, 0);
+}
 
 TEST_F(SemanticTest, ContextMacroNamespaceStringified) {
     // ns:: { x := @# @::; };  → инициализатор становится StrChar "::ns::"
@@ -1129,7 +831,7 @@ TEST_F(SemanticTest, ContextMacroFuncOutsideFunctionError) {
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
 
-// ── Инференс типов выражений (inferred vs explicit) ──
+// -- Инференс типов выражений (inferred vs explicit) --
 
 TEST_F(SemanticTest, InferredLiteralType) {
     // x := 42  →  выведенный минимальный Int8 (42 ≤ 127); тип на узле и в Symbol.
@@ -1146,7 +848,7 @@ TEST_F(SemanticTest, InferredLiteralType) {
     ASSERT_NE(sym, nullptr);
     EXPECT_TRUE(typeIsInferred(sym->type));
     EXPECT_EQ(clearInferred(sym->type), int8);
-    // Выведенный тип записан на узле объявления — для кодогенерации после сброса скоуп-стека.
+    // Выведенный тип записан на узле объявления - для кодогенерации после сброса скоуп-стека.
     EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType, int8);
 }
 
@@ -1263,13 +965,13 @@ TEST_F(SemanticTest, ExplicitTypeNotWidened) {
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
     EXPECT_FALSE(typeIsInferred(sym->type));
-    EXPECT_EQ(sym->type, int32); // явный тип — структурный, без бита inferred
+    EXPECT_EQ(sym->type, int32); // явный тип - структурный, без бита inferred
 }
 
-// ── Константность (kConstFlag) на переменных ('^' → attr::ReadOnly) ──
+// -- Константность (kConstFlag) на переменных ('^' → attr::ReadOnly) --
 
 TEST_F(SemanticTest, ReadOnlyVarSetsConstBitTyped) {
-    // x^: Int32 := 1 → тип несёт бит kConstFlag («константность в типе»); структурный базис — Int32.
+    // x^: Int32 := 1 → тип несёт бит kConstFlag («константность в типе»); структурный базис - Int32.
     auto t = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(t), std::make_shared<IdentType>("Int32"), std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1"));
     var->add_attr(m_ctx.attrs().lookup(attr::ReadOnly).value());
@@ -1284,7 +986,7 @@ TEST_F(SemanticTest, ReadOnlyVarSetsConstBitTyped) {
     ASSERT_NE(sym, nullptr);
     EXPECT_TRUE(typeIsConst(sym->type));
     EXPECT_EQ(clearConst(sym->type), int32);
-    EXPECT_FALSE(typeIsInferred(sym->type)); // явный тип — без бита inferred
+    EXPECT_FALSE(typeIsInferred(sym->type)); // явный тип - без бита inferred
 }
 
 TEST_F(SemanticTest, ReadOnlyVarSetsConstBitUntyped) {
@@ -1304,11 +1006,11 @@ TEST_F(SemanticTest, ReadOnlyVarSetsConstBitUntyped) {
     EXPECT_TRUE(typeIsConst(sym->type));
     EXPECT_TRUE(typeIsInferred(sym->type));
     EXPECT_EQ(clearConst(clearInferred(sym->type)), int8);
-    // inferredType на узле — структурный (без битов), для кодогенерации.
+    // inferredType на узле - структурный (без битов), для кодогенерации.
     EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType, int8);
 }
 
-// ── Become-const (`x^ = ...`) и защита от записи в константу ──
+// -- Become-const (`x^ = ...`) и защита от записи в константу --
 namespace {
 AttrId ReadOnlyAttr(Context& ctx) {
     auto id = ctx.attrs().lookup(attr::ReadOnly);
@@ -1322,7 +1024,7 @@ TEST_F(SemanticTest, BecomeConstViaCaretAssignment) {
     auto t = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(t), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
 
-    // x^ += 1 — LHS IdentName с attr::ReadOnly (как после парсинга каретки на имени).
+    // x^ += 1 - LHS IdentName с attr::ReadOnly (как после парсинга каретки на имени).
     auto opTerm = Term::Create(TermID::ASSIGN, "+=", {}, parser::token_type::END);
     auto assign = std::make_shared<Binary>(ParserToken::Kind::AssignOp, std::move(opTerm));
     auto lhs = std::make_shared<IdentName>("x");
@@ -1363,7 +1065,7 @@ TEST_F(SemanticTest, WriteToConstDeclarationIsError) {
 }
 
 TEST_F(SemanticTest, WriteToBecomeConstIsError) {
-    // x := 42; x^ += 1; x = 5 → x константна после x^ += 1, запись — ошибка.
+    // x := 42; x^ += 1; x = 5 → x константна после x^ += 1, запись - ошибка.
     auto t = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(t), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
 
@@ -1392,7 +1094,7 @@ TEST_F(SemanticTest, WriteToBecomeConstIsError) {
 
 TEST_F(SemanticTest, NarrowingVariableErrorWithFixit) {
     // a:Int64 := 5; b:Int8 := a;  →  сужение Int64→Int8: ошибка.
-    // (fixit-подсказка «use cast :Int8(a)» проверяется в lit-тесте narrowing_error.src —
+    // (fixit-подсказка «use cast :Int8(a)» проверяется в lit-тесте narrowing_error.src -
     //  для ручных узлов range невалиден, и fixit не прикрепляется.)
     auto ta = Term::Create(TermID::NAME, "a", {}, parser::token_type::NAME);
     auto avar = std::make_shared<VarDecl>(std::move(ta), std::make_shared<IdentType>("Int64"), std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5"));
@@ -1545,7 +1247,7 @@ TEST_F(SemanticTest, ExplicitBoolInArithmeticError) {
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
 
-// ── Storage (месторасположение переменной) + нормализация имён без сигила ──
+// -- Storage (месторасположение переменной) + нормализация имён без сигила --
 
 // Хук, записывающий месторасположение (storage) объявляемых переменных во время обхода.
 class StorageProbe : public InlineAnalysisHook {
@@ -1574,7 +1276,7 @@ TEST_F(SemanticTest, StorageGlobalIsGlobal) {
 }
 
 TEST_F(SemanticTest, StorageLocalNormalizedToSigil) {
-    // f() { x := 1; } — локальная переменная без сигила нормализуется в $x, Storage::Local.
+    // f() { x := 1; } - локальная переменная без сигила нормализуется в $x, Storage::Local.
     AnalysisContext actx(m_ctx);
     NameResolutionPass core(actx);
     auto probe = std::make_unique<StorageProbe>();
@@ -1597,7 +1299,7 @@ TEST_F(SemanticTest, StorageLocalNormalizedToSigil) {
 }
 
 TEST_F(SemanticTest, StorageNamespaceIsStatic) {
-    // ns::x := 1; — имя с областью имён (::) → Storage::Static, без нормализации в $.
+    // ns::x := 1; - имя с областью имён (::) → Storage::Static, без нормализации в $.
     AnalysisContext actx(m_ctx);
     NameResolutionPass core(actx);
     auto probe = std::make_unique<StorageProbe>();
@@ -1615,7 +1317,7 @@ TEST_F(SemanticTest, StorageNamespaceIsStatic) {
 }
 
 TEST_F(SemanticTest, NoSigilLocalResolution) {
-    // f() { x := 1; y := x; } — x/y нормализуются в $x/$y; ссылка x резолвится в $x
+    // f() { x := 1; y := x; } - x/y нормализуются в $x/$y; ссылка x резолвится в $x
     // (без «undefined name»), единый алгоритм разрешения простых имён.
     AnalysisContext actx(m_ctx);
     NameResolutionPass core(actx);
@@ -1635,8 +1337,8 @@ TEST_F(SemanticTest, NoSigilLocalResolution) {
 }
 
 TEST_F(SemanticTest, BareNameInfersSigilForFunctionAndParam) {
-    // %f(n:Int32):Void := { x := f($n); }; — bare `f` в вызове резолвится в нативную `%f`,
-    // а `$n` — в параметр `n` (правила вывода сигилов). Никаких «undefined name».
+    // %f(n:Int32):Void := { x := f($n); }; - bare `f` в вызове резолвится в нативную `%f`,
+    // а `$n` - в параметр `n` (правила вывода сигилов). Никаких «undefined name».
     AnalysisContext actx(m_ctx);
     NameResolutionPass core(actx);
 
@@ -1673,7 +1375,7 @@ TEST_F(SemanticTest, EmbedUsageOptionDefaultWarns) {
 
 TEST_F(SemanticTest, EmbedUsageOptionIgnore) {
     // -Wembed=ignore → предупреждение за сам факт {% ... %} подавляется.
-    m_ctx.opts().set(OptKind::Embed, std::nullopt);
+    m_ctx.opts().set(semantic::DiagId::Embed, std::nullopt);
     auto embedTerm = Term::Create(TermID::EMBED, "int x = 5;", {}, parser::token_type::END);
     auto embed = std::make_shared<AstNodeAttr>(ParserToken::Kind::EmbedExpr, std::move(embedTerm));
     std::vector<AstNodePtr> seq;
@@ -1684,5 +1386,4 @@ TEST_F(SemanticTest, EmbedUsageOptionIgnore) {
     EXPECT_EQ(m_ctx.diag().warningCount(), before);
 }
 
-} // namespace
 } // namespace trust

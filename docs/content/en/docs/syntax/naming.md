@@ -20,9 +20,9 @@ An object identifier that does not contain a qualifier is called *simple*:
 - '**::**' - the double colon serves as a separator for [namespaces](/en/docs/syntax/namespace/) and indicates a *static* object, the memory space for which is allocated during the compilation of the application or module. If the name starts with '**::**', the object's scope will be global and it will be accessible throughout the application. Otherwise, the object's visibility will be limited to the current [program module](/en/docs/syntax/modules/).
 - '**.**' - the *dot* prefix is used when accessing a module or class field (limits the scope to the current object). The *dot* prefix can be used when defining (calling) a function to explicitly identify a named argument, preventing it from being overridden by a preprocessor macro.
 - '**\\**' - the *backslash* at the beginning of a term denotes the name of a [program module](/en/docs/syntax/modules/), and also separates directory names in the hierarchy of program module placement.
-- '**:**' — colon at the beginning of the term denotes the name of a [data type](/en/docs/types/) or a [class constructor](/en/docs/types/class/)
-- '**%**' — the *percent sign* prefix is used for [imported symbols (native variables and functions)](/en/docs/types/native/)
-- '**^**' — the caret symbol after the name is used to give immutability (constancy, non-modifiability) to the object.
+- '**:**' - colon at the beginning of the term denotes the name of a [data type](/en/docs/types/) or a [class constructor](/en/docs/types/class/)
+- '**%**' - the *percent sign* prefix is used for [imported symbols (native variables and functions)](/en/docs/types/native/)
+- '**^**' - the caret symbol after the name is used to give immutability (constancy, non-modifiability) to the object.
 
 ### Name Lookup {#name-lookup}
 If the object name does not contain a [qualifier](/en/docs/syntax/naming/#sigil), it is called *simple*. Creating an object with a *simple* name is equivalent to creating a local object.

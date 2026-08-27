@@ -1,6 +1,6 @@
 /**
- * build-task.js — TrustBuildTask для preLaunchTask
- * Предоставляет задачи "Trust: Transpile .src", "Trust: Compile .cpp" и "Trust: Build all"
+ * build-task.js - TrustBuildTask для preLaunchTask
+ * Предоставляет задачи "Trust: Transpile .src", "Trust: Compile .cppt" и "Trust: Build all"
  */
 
 const vscode = require('vscode');
@@ -23,7 +23,7 @@ class TrustBuildTask {
                 const tempDir = config.get('tempDir', '.trust');
                 const cwd = workspaceFolder.uri.fsPath;
                 const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(cwd, tempDir);
-                const cppFile = path.join(resolvedTempDir, baseName + '.cpp');
+                const cppFile = path.join(resolvedTempDir, baseName + '.cppt');
 
                 fs.mkdirSync(resolvedTempDir, { recursive: true });
 
@@ -45,7 +45,7 @@ class TrustBuildTask {
         const task = new vscode.Task(
             { type: TrustBuildTask.buildTaskType },
             workspaceFolder,
-            'Trust: Compile .cpp',
+            'Trust: Compile .cppt',
             'trust',
             new vscode.CustomExecution(async () => {
                 const config = vscode.workspace.getConfiguration('trust');
@@ -53,15 +53,15 @@ class TrustBuildTask {
                 const tempDir = config.get('tempDir', '.trust');
                 const cwd = workspaceFolder.uri.fsPath;
                 const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(cwd, tempDir);
-                const cppFile = path.join(resolvedTempDir, baseName + '.cpp');
+                const cppFile = path.join(resolvedTempDir, baseName + '.cppt');
                 const targetFile = path.join(resolvedTempDir, baseName);
 
                 const cppCompilerPath = resolveConfigPath(config.get('cppCompilerPath', 'clang++-22'), cwd);
                 const cppCompilerOptions = (config.get('cppCompilerOptions', '-std=c++23 -g3 -O0') || '').split(/\s+/).filter(s => s);
-                const compileArgs = [...cppCompilerOptions, '-o', targetFile, cppFile];
+                const compileArgs = ['-x', 'c++', ...cppCompilerOptions, '-o', targetFile, cppFile];
 
                 return createPseudoterminal(
-                    'Compiling ' + baseName + '.cpp',
+                    'Compiling ' + baseName + '.cppt',
                     cppCompilerPath,
                     compileArgs,
                     cwd
@@ -85,7 +85,7 @@ class TrustBuildTask {
                 const tempDir = config.get('tempDir', '.trust');
                 const cwd = workspaceFolder.uri.fsPath;
                 const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(cwd, tempDir);
-                const cppFile = path.join(resolvedTempDir, baseName + '.cpp');
+                const cppFile = path.join(resolvedTempDir, baseName + '.cppt');
                 const targetFile = path.join(resolvedTempDir, baseName);
 
                 fs.mkdirSync(resolvedTempDir, { recursive: true });
@@ -93,7 +93,7 @@ class TrustBuildTask {
                 const compilerPath = resolveConfigPath(config.get('compilerPath', 'trust'), cwd);
                 const cppCompilerPath = resolveConfigPath(config.get('cppCompilerPath', 'clang++-22'), cwd);
                 const cppCompilerOptions = (config.get('cppCompilerOptions', '-std=c++23 -g3 -O0') || '').split(/\s+/).filter(s => s);
-                const compileArgs = [...cppCompilerOptions, '-o', targetFile, cppFile];
+                const compileArgs = ['-x', 'c++', ...cppCompilerOptions, '-o', targetFile, cppFile];
 
                 const writeEmitter = new vscode.EventEmitter();
                 const closeEmitter = new vscode.EventEmitter();

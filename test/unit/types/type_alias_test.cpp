@@ -32,11 +32,11 @@ TEST_F(TypeAliasFixture, RegisterSynonymOfInt) {
     // Регистрация нового типа-синонима на базе Int32.
     TypeId alias = reg.registerType("Age", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
-    // Алиас — отдельный TypeId, но канонически — Int32.
+    // Алиас - отдельный TypeId, но канонически - Int32.
     EXPECT_NE(alias, int32Id());
     EXPECT_EQ(reg.getCanonicalTypeId(alias), int32Id());
 
-    // Тип ищется по имени; C++-имя — у канонического (базового) типа.
+    // Тип ищется по имени; C++-имя - у канонического (базового) типа.
     auto found = reg.findType("Age");
     ASSERT_TRUE(found.has_value());
     EXPECT_EQ(*found, alias);
@@ -49,7 +49,7 @@ TEST_F(TypeAliasFixture, DuplicateRegisterFails) {
     TypeId alias = reg.registerType("Age", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
 
-    // Повторная регистрация того же имени — ошибка (INVALID_TYPE_ID).
+    // Повторная регистрация того же имени - ошибка (INVALID_TYPE_ID).
     EXPECT_EQ(reg.registerType("Age", int32Id()), INVALID_TYPE_ID);
 }
 
@@ -84,21 +84,21 @@ TEST_F(TypeAliasFixture, GetFullTypeNameUserAlias) {
 
     TypeId alias = reg.registerType("MyInt", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
-    // Имя владеющее — getFullTypeName возвращает точное имя, а не мусор (латентный баг string_view).
+    // Имя владеющее - getFullTypeName возвращает точное имя, а не мусор (латентный баг string_view).
     EXPECT_EQ(reg.getFullTypeName(alias), "MyInt");
-    // Пользовательский алиас — это пользовательский тип.
+    // Пользовательский алиас - это пользовательский тип.
     EXPECT_TRUE(reg.isUserDefinedType(alias));
 }
 
 TEST_F(TypeAliasFixture, IsUserDefinedDistinguishesBuiltinAndUser) {
     TypeRegistry& reg = m_ctx.types();
 
-    // Машинные типы и встроенные алиасы — НЕ пользовательские.
+    // Машинные типы и встроенные алиасы - НЕ пользовательские.
     EXPECT_FALSE(reg.isUserDefinedType(reg.getType("Int32")));
     EXPECT_FALSE(reg.isUserDefinedType(reg.getType("Integer")));
     EXPECT_FALSE(reg.isUserDefinedType(reg.getType("String")));
 
-    // Пользовательский алиас — пользовательский.
+    // Пользовательский алиас - пользовательский.
     TypeId alias = reg.registerType("MyInt", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
     EXPECT_TRUE(reg.isUserDefinedType(alias));

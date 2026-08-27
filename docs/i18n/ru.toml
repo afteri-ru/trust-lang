@@ -1,0 +1,4 @@
+# Локализация уровня проекта, объединяется с i18n темы Docsy.
+# Кнопка «Edit in VSCode» включается параметром vscode_edit в hugo.toml.
+[post_edit_vscode]
+other = "Редактировать в VSCode"

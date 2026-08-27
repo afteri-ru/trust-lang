@@ -1,5 +1,5 @@
 // Test file: public runtime I/O helper (trust/io.hpp).
-//   - trust::trust__print__ — форматирование в стиле std::format и вывод в trust::outs()
+//   - trust::trust__print__ - форматирование в стиле std::format и вывод в trust::outs()
 //     (бэкенд DSL-макроса `print`).
 //   - Rational форматируется как символьная строка "num\den" через std::format / print.
 //   - секция "trust/io.hpp" встроена в trust-runtime.so/.a.
@@ -68,8 +68,8 @@ TEST(PrintTest, RationalFormatsWithPadding) {
 }
 
 // Точность для рационального не имеет числового смысла (символьная строка
-// "num\den") — она отклоняется, а не молча обрезает. Для литеральной форматной
-// строки это ошибка компиляции; для runtime-строки (std::vformat) — format_error.
+// "num\den") - она отклоняется, а не молча обрезает. Для литеральной форматной
+// строки это ошибка компиляции; для runtime-строки (std::vformat) - format_error.
 TEST(PrintTest, RationalRejectsPrecision) {
     trust::Rational r("3", "4");
     EXPECT_THROW(std::vformat("{:.2}", std::make_format_args(r)), std::format_error);
@@ -89,7 +89,7 @@ TEST(PrintTest, RationalRejectsOverflowWidth) {
     EXPECT_THROW(std::vformat("{:99999999999999999999}", std::make_format_args(r)), std::format_error);
 }
 
-// ── Секция "trust/io.hpp" в рантайм-библиотеке ─────────
+// -- Секция "trust/io.hpp" в рантайм-библиотеке ---------
 
 TEST(RuntimeHeaderTest, IoHeaderEmbeddedInSharedAndStatic) {
     auto so = trust::utils::readSectionFromLibrary(TRUST_RUNTIME_SHARED_PATH, "trust/io.hpp");

@@ -1,0 +1,19 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Trust-контракты через DSL-мнемоники trust_pre/trust_post/trust_assert.
+#   trust_pre( <expr> )  ->  @{ pre: <expr> @}
+#   trust_post( <expr> ) ->  @{ post: <expr> @}
+#   trust_assert( <expr> ) -> @{ check: <expr> @}
+# Сырой маркер @{ [kind:] expr @} обрабатывается лексером; мнемоники - макросы-обёртки
+# над универсальным trust_contract(kind, expr).
+
+%add(x:Int):Int trust_pre( x > 0 ) trust_post( r >= 0 ) := { r := x + 1; };
+y trust_assert( y > 0 ) := 42;
+trust_assert( data != null );
+
+# CHECK: FuncDecl '%add'
+# CHECK: trust:{{.*}}TrustContract kind=pre
+# CHECK: trust:{{.*}}TrustContract kind=post
+# CHECK: VarDecl 'y'
+# CHECK: trust:{{.*}}TrustContract kind=check
+# CHECK: TrustContract kind=check

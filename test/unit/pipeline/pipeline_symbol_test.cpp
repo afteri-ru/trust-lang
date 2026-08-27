@@ -1,6 +1,7 @@
 #include "pipeline/pipeline.hpp"
 #include "diag/context.hpp"
 #include "diag/diag.hpp"
+#include "semantic/diag.hpp"
 #include "types/registry.hpp"
 #include "gtest/gtest.h"
 
@@ -14,14 +15,14 @@ TEST(PipelineSymbol, AllowSemanticOnErrorsCollectsSymbols) {
     Context ctx;
     TypeRegistry reg(ctx.diag(), ctx.opts());
     ctx.setTypes(&reg);
-    ctx.opts().set_enabled(FlagKind::Symbols, true);
+    ctx.opts().set_enabled(semantic::FlagKind::Symbols, true);
 
     PipelineOpts opts;
     opts.allow_semantic_on_errors = true;
     Pipeline pipeline(ctx, opts);
 
     // Валидная переменная + мягкая ошибка парсера (пустая последовательность макроса).
-    MapperFile src = ctx.source().add_source("test.src", "x : Int32 := 42;\n@@@@ @@@@");
+    MapperFile src = ctx.source().add_source("test.src", "x : Int32 := 42;\n@@@@ @@@@@");
     PipelineResult result = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic, src);
 
     EXPECT_GT(ctx.diag().errorCount(), 0);   // мягкая ошибка парсера зафиксирована
@@ -37,17 +38,17 @@ TEST(PipelineSymbol, AllowSemanticOnErrorsCollectsSymbols) {
     EXPECT_TRUE(found);
 }
 
-// Без флага при ошибке парсера семантика не запускается — символов нет.
+// Без флага при ошибке парсера семантика не запускается - символов нет.
 TEST(PipelineSymbol, DefaultSkipsSemanticOnErrors) {
     Context ctx;
     TypeRegistry reg(ctx.diag(), ctx.opts());
     ctx.setTypes(&reg);
-    ctx.opts().set_enabled(FlagKind::Symbols, true);
+    ctx.opts().set_enabled(semantic::FlagKind::Symbols, true);
 
     PipelineOpts opts; // allow_semantic_on_errors = false (по умолчанию)
     Pipeline pipeline(ctx, opts);
 
-    MapperFile src = ctx.source().add_source("test.src", "x : Int32 := 42;\n@@@@ @@@@");
+    MapperFile src = ctx.source().add_source("test.src", "x : Int32 := 42;\n@@@@ @@@@@");
     PipelineResult result = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic, src);
 
     EXPECT_GT(ctx.diag().errorCount(), 0);
@@ -60,12 +61,12 @@ TEST(PipelineSymbol, CollectsMacroNames) {
     Context ctx;
     TypeRegistry reg(ctx.diag(), ctx.opts());
     ctx.setTypes(&reg);
-    ctx.opts().set_enabled(FlagKind::Symbols, true);
+    ctx.opts().set_enabled(semantic::FlagKind::Symbols, true);
 
     PipelineOpts opts;
     Pipeline pipeline(ctx, opts);
 
-    MapperFile src = ctx.source().add_source("test.src", "@@ greet @@ ::= 42; x := 1;");
+    MapperFile src = ctx.source().add_source("test.src", "@@ greet @@ 42 @@@@; x := 1;");
     PipelineResult result = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic, src);
 
     ASSERT_TRUE(result.symbols.has_value());
@@ -83,7 +84,7 @@ TEST(PipelineSymbol, AttachesDocCommentToSymbol) {
     Context ctx;
     TypeRegistry reg(ctx.diag(), ctx.opts());
     ctx.setTypes(&reg);
-    ctx.opts().set_enabled(FlagKind::Symbols, true);
+    ctx.opts().set_enabled(semantic::FlagKind::Symbols, true);
 
     PipelineOpts opts;
     Pipeline pipeline(ctx, opts);
@@ -108,7 +109,7 @@ TEST(PipelineSymbol, AttachesTrailingDocCommentToSymbol) {
     Context ctx;
     TypeRegistry reg(ctx.diag(), ctx.opts());
     ctx.setTypes(&reg);
-    ctx.opts().set_enabled(FlagKind::Symbols, true);
+    ctx.opts().set_enabled(semantic::FlagKind::Symbols, true);
 
     PipelineOpts opts;
     Pipeline pipeline(ctx, opts);

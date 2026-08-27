@@ -43,6 +43,14 @@ class Scanner : public NewLangFlexLexer {
     /** Вычисляет смещение начала текущего токена в исходном коде */
     int tokenStartOffset() const { return m_current_pos - yyleng; }
 
+    /** Диапазон формируемого сейчас токена (1-based, для source-map/diag).
+     *  len < 0 → весь токен (yyleng). Единственное место конверсии offset→range в лексере. */
+    trust::MapperRange currentTokenRange(int len = -1) const {
+        const int start = tokenStartOffset(); // 0-based начало токена
+        const int end = (len < 0) ? tokenStartOffset() + yyleng : tokenStartOffset() + len;
+        return trust::MapperRange(m_srcIdx, start + 1, end + 1);
+    }
+
     /** Возвращает текст текущего токена (или его фрагмент со смещением skip и длиной len).
      *  Значение len < 0 означает «весь оставшийся текст токена после skip». */
     std::string_view tokenText(size_t skip = 0, int len = -1) const {
@@ -62,6 +70,11 @@ class Scanner : public NewLangFlexLexer {
     size_t m_macro_count;
     size_t m_macro_del;
     TermPtr m_macro_body;
+
+    /// true, когда лексер находится ВНУТРИ `@@ ... @@` (имя или тело макроса, между парой `@@`).
+    /// Отдельный от m_macro_count флаг: m_macro_count мутирует и парсер (GetNextToken),
+    /// поэтому его паритет ненадёжен для определения «внутри макроса». Тумблится в правиле `@@`.
+    bool m_inMacroSeq{false};
 
     static SequenceType ParseLexem(trust::Context& ctx, const std::string str);
 
@@ -87,19 +100,26 @@ class Scanner : public NewLangFlexLexer {
      * calls this virtual function to fetch new tokens. */
     virtual parser::token_type lex(TermPtr* yylval);
 
-    // TODO(cleanup): unused — commented out, see task 1785675437901
-    // /** Enable debug output (via arg_yyout) if compiled into the scanner. */
-    // void set_debug(bool b);
+    // -- Действия маркеров обрамления макросов. Вызываются напрямую из правил сырых
+    //    маркеров `@@`/`@@@`/`@@@@`, а также из Parser::GetNextToken для маркерных
+    //    макросов (имя с телом-лексемой @\@@/@\@@@/@\@@@@), привязанных к токену.
+    //    Меняют состояние лексера (m_macro_count/m_macro_del/m_inMacroSeq, вход в
+    //    state_MACRO_STR) и, если нужно, эмитят маркерный токен в `out`.
+    //    Возвращают true, если токен сформирован (его надо вернуть из lex()),
+    //    и false, если токен не нужен (например, вход в текстовое тело - лексер продолжает).
+    bool macroSeqAction(TermPtr& out); // @@ : open (count 0->1) | name-close/seq-open (count 1->2) -> MACRO_SEQ
+    bool macroStrAction(TermPtr& out); // @@@ : text-open (count 1) -> вход в MACRO_STR (токен не эмитится)
+    bool macroDelAction(TermPtr& out); // @@@@ : del (count 1->0) | seq-terminator (count 2->0) -> MACRO_DEL
+    // Вход в flex-состояние state_MACRO_STR. Определён в lexer.l (flex-специфично: константа
+    // state_MACRO_STR видна только внутри сгенерированного сканера, дублировать её нельзя).
+    void enterMacroStr();
 
     void LexerError(const char* msg) override {
-        // ВАЖНО: позиция должна указывать на ТЕКУЩИЙ токен (tokenStartOffset), а не на
-        // m_offset — курсор заполнения буфера flex (число скормленных байт = конец файла).
+        // ВАЖНО: позиция должна указывать на ТЕКУЩИЙ токен (currentTokenRange), а не на
+        // m_offset - курсор заполнения буфера flex (число скормленных байт = конец файла).
         // Иначе ЛЮБАЯ ошибка лексера ("Unexpected character", "Unterminated string", ...)
-        // рисовалась бы на последнем символе файла. tokenStartOffset() — 0-based начало
-        // токена; +1 → 1-based позиция (диапазоны source-map 1-based).
-        const int begin = std::max(1, tokenStartOffset() + 1);
-        const int end = std::max(begin, tokenStartOffset() + yyleng + 1);
-        m_ctx.diag().report(trust::Severity::Error, trust::MapperRange(m_srcIdx, begin, end), "{}", msg);
+        // рисовалась бы на последнем символе файла.
+        m_ctx.diag().report(trust::Severity::Error, currentTokenRange(), "{}", msg);
     }
 
     // Override Flex C++ scanner input to read from SourceMapper

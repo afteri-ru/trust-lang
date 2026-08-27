@@ -1,0 +1,11 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Импорт нативной функции - АЛИАС: `fabs(x:Int32):Int32 := %abs...;`
+# C++-функция `fabs` НЕ эмитится; вызовы `fabs(...)` переписываются в прямой вызов `abs(...)`.
+%abs(x:Int32):Int32 := ...;
+
+fabs(x:Int32):Int32 := %abs...;
+
+n := fabs(-7);
+# CHECK: abs(-7)
+# CHECK-NOT: c_fabs

@@ -37,9 +37,9 @@ struct LowerCtx;
     case ParserToken::Kind::NameDecl:    // x^ := ...
     case ParserToken::Kind::FuncDecl:    // func^
     case ParserToken::Kind::StructDecl:  // class^
-    case ParserToken::Kind::RefTakeExpr: // *^ — take с иммутабельностью
-    case ParserToken::Kind::RefMakeExpr: // &^ — ptr с иммутабельностью
-    case ParserToken::Kind::CallExpr:    // method^() — const-вызов: '^' на имени callee (ReadOnly на вызове)
+    case ParserToken::Kind::RefTakeExpr: // *^ - take с иммутабельностью
+    case ParserToken::Kind::RefMakeExpr: // &^ - ptr с иммутабельностью
+    case ParserToken::Kind::CallExpr:    // method^() - const-вызов: '^' на имени callee (ReadOnly на вызове)
         return true;
     default:
         return false;
@@ -49,7 +49,7 @@ struct LowerCtx;
 /// Нормализация текста имени из сырого Term при построении терм-конструктором.
 /// Повторяет прежнюю нормализацию в makeNode:
 ///   - TypeName: срезается ведущее ':' (\":Int8\" → \"Int8\");
-///   - '^' срезается ВСЕГДА (для kinds с иммутабельностью — квалификатор; для прочих —
+///   - '^' срезается ВСЕГДА (для kinds с иммутабельностью - квалификатор; для прочих -
 ///     ошибка синтеза, диагностируется в makeNode). Признак '^' (attr::ReadOnly) применяется
 ///     отдельно (convertAttrsToNode по сырому term-тексту).
 [[nodiscard]] inline std::string normalizeTermText(ParserToken::Kind kind, std::string_view raw) {
@@ -63,9 +63,9 @@ struct LowerCtx;
     return s;
 }
 
-/// AstNodeBase — базовый класс для всех узлов AST.
+/// AstNodeBase - базовый класс для всех узлов AST.
 /// Хранит только kind и указатель на исходный Term (m_term), из которого узел построен.
-/// Текст (text()) и диапазон (range()) читаются из m_term; узел без m_term — ошибка логики.
+/// Текст (text()) и диапазон (range()) читаются из m_term; узел без m_term - ошибка логики.
 class AstNodeBase {
   public:
     ParserToken::Kind kind() const noexcept { return m_kind; }
@@ -81,7 +81,7 @@ class AstNodeBase {
     [[nodiscard]] virtual std::string_view text() const;
 
     /// Диапазон в исходном файле. Для узла с m_term возвращает его range; для узла БЕЗ m_term
-    /// (ручной/test-only, синтетический) — НЕВАЛИДНЫЙ range ({}), без EXPECT: родительские узлы
+    /// (ручной/test-only, синтетический) - НЕВАЛИДНЫЙ range ({}), без EXPECT: родительские узлы
     /// вычисляют свой охват на лету по ранжам детей (см. Binary/ControlFlowStmt/MatchStmt/
     /// VarDecl/FuncDecl::range), поэтому ручные дети обязаны мягко сообщать отсутствие
     /// source-range. Виртуальный: синтетические узлы (LabelRef/SemicolonStmt/JumpStmt-lowering)
@@ -97,27 +97,27 @@ class AstNodeBase {
     [[nodiscard]] virtual AstNodeAttr* as_attr() noexcept { return nullptr; }
     [[nodiscard]] virtual const AstNodeAttr* as_attr() const noexcept { return nullptr; }
 
-    /// If this node is a Sequence (or derived — ScopeBlock/ModuleNode), returns itself;
+    /// If this node is a Sequence (or derived - ScopeBlock/ModuleNode), returns itself;
     /// otherwise nullptr. Позволяет обходчикам получать m_body без kind/static_cast.
     [[nodiscard]] virtual Sequence* as_sequence() noexcept { return nullptr; }
     [[nodiscard]] virtual const Sequence* as_sequence() const noexcept { return nullptr; }
 
     /// Единый источник истины «kind → дети»: заполняет out указателями на дочерние
     /// слоты (позволяет заменять узлы при обходе, напр. раскрытие ContextMacro).
-    /// Для листов — пусто. Не мутирует дерево. Определён в ast_nodes.cpp.
+    /// Для листов - пусто. Не мутирует дерево. Определён в ast_children.cpp.
     void collectChildren(std::vector<AstNodePtr*>& out);
 
-    /// Все дочерние узлы AST (обобщённый обход) — const-обёртка над collectChildren,
-    /// возвращает копии узлов. Для листов — пустой вектор.
-    /// Определён в ast_nodes.cpp (нужны полные типы узлов).
+    /// Все дочерние узлы AST (обобщённый обход) - const-обёртка над collectChildren,
+    /// возвращает копии узлов. Для листов - пустой вектор.
+    /// Определён в ast_children.cpp (нужны полные типы узлов).
     [[nodiscard]] std::vector<AstNodePtr> children() const;
 
     /// Dump token contents for debugging
     [[nodiscard]] virtual std::string dump(size_t indent = 0) const;
 
     /// Понижение узла согласно его Kind: каждый класс переопределяет и рекурсивно понижает
-    /// своих детей (см. ast/lowering.hpp). По умолчанию — no-op (лист без детей).
-    /// self — shared_ptr на этот узел (нужен для подмены, напр. break→goto).
+    /// своих детей (см. ast/lowering.hpp). По умолчанию - no-op (лист без детей).
+    /// self - shared_ptr на этот узел (нужен для подмены, напр. break→goto).
     virtual void lower(AstNodePtr& self, LowerCtx& ctx);
 
     /// Документирующий комментарий (`///`, `##`, `/**`, т.ч. хвостовой `///<`/`##<`),
@@ -126,10 +126,16 @@ class AstNodeBase {
     /// Пуст, если у объявления нет документирующего комментария.
     std::string documentation;
 
+    /// Trust-конструкции (pre/post/assert), привязанные к объявлению (`@( ... @)` и т.п.
+    /// после имени в `:=`/`::=`). НЕ входят в children()/collectChildren - анализатор и
+    /// транспилятор полностью их игнорируют. Заполняется TermToAstConverter::convert
+    /// из конд-термов в name->m_sequence (см. include/syntax/term.h). Пуст по умолчанию.
+    std::vector<AstNodePtr> m_trust;
+
     AstNodeBase() = default;
 
     /// Kind is set at construction and (normally) never changes (like Clang's StmtClass).
-    /// Единственное исключение — `setKind`, используемое анализатором для уточнения
+    /// Единственное исключение - `setKind`, используемое анализатором для уточнения
     /// механически созданного kind (DictLiteral -> Tuple) по типу из реестра.
     virtual ~AstNodeBase() = default;
 
@@ -153,12 +159,12 @@ class AstNodeBase {
     TermPtr m_term;
 };
 
-/// Истина, если kind — объявление (для привязки документирующего комментария к узлу).
+/// Истина, если kind - объявление (для привязки документирующего комментария к узлу).
 inline bool isDeclKindForDocs(ParserToken::Kind k) {
     return k == ParserToken::Kind::VarDecl || k == ParserToken::Kind::FuncDecl || k == ParserToken::Kind::TypeDecl || k == ParserToken::Kind::ArgNode;
 }
 
-/// AstNodeAttr — расширение AstNodeBase с поддержкой атрибутов.
+/// AstNodeAttr - расширение AstNodeBase с поддержкой атрибутов.
 class AstNodeAttr : public AstNodeBase {
   public:
     /// Read-only access to attributes
@@ -173,7 +179,7 @@ class AstNodeAttr : public AstNodeBase {
     : AstNodeBase(k, std::move(term)) {}
 
     /// Uniform term-constructor for the generated factory (kind + source Term).
-    /// AstNodeAttr хранит только attrs/docs — детей не строит (ctx игнорируется).
+    /// AstNodeAttr хранит только attrs/docs - детей не строит (ctx игнорируется).
     AstNodeAttr(ParserToken::Kind k, TermPtr term, Context* /*ctx*/)
     : AstNodeBase(k, std::move(term)) {}
 
@@ -182,7 +188,7 @@ class AstNodeAttr : public AstNodeBase {
     : AstNodeBase(k) {}
 
     /// Add an attribute ID to this token.
-    /// @param manual — set the manual bit (source-level attribute, default true).
+    /// @param manual - set the manual bit (source-level attribute, default true).
     void add_attr(AttrId id, bool manual = true) { m_attrs.push_back(manual ? detail::with_manual(id) : id); }
 
     /// Check if this token has a specific attribute by ID.
@@ -198,7 +204,7 @@ class AstNodeAttr : public AstNodeBase {
 
     /// Хранит список строковых аргументов атрибута (`@[link("m")]` → ["m"]).
     /// Атрибут может иметь один или несколько аргументов; аргументы конвертируются
-    /// в строки при создании AstNode (convertAttrsToNode). Ключ — индекс атрибута
+    /// в строки при создании AstNode (convertAttrsToNode). Ключ - индекс атрибута
     /// (id & kAttrIndexMask). Пуст, если атрибут аргументов не несёт.
     void set_attr_args(AttrId id, std::vector<std::string> args);
 
@@ -217,22 +223,22 @@ class AstNodeAttr : public AstNodeBase {
     std::map<AttrId, std::vector<std::string>> m_attrArgs;
 };
 
-/// HasText — промежуточный базовый класс для узлов, хранящих текст локально в m_text.
+/// HasText - промежуточный базовый класс для узлов, хранящих текст локально в m_text.
 /// Устраняет дублирование поля m_text и override text() между Literal/Sequence/ArgNode
 /// и IdentName (и узлами, наследующими их). Текст НЕ читается из m_term (в отличие от
 /// Binary/JumpStmt). ЕДИНЫЙ носитель локального текста узла в иерархии AST.
 ///
 /// Две группы конструкторов (правило: никаких гибридов term+данные):
-///   - терм-конструктор `HasText(Kind, TermPtr)` — текст читается из m_term и нормализуется
+///   - терм-конструктор `HasText(Kind, TermPtr)` - текст читается из m_term и нормализуется
 ///     (задаётся в .cpp), m_term хранится для range();
-///   - manual-конструктор `HasText(Kind, std::string)` — БЕЗ TermPtr (text() работает,
+///   - manual-конструктор `HasText(Kind, std::string)` - БЕЗ TermPtr (text() работает,
 ///     range() вернёт invalid range).
 class HasText : public AstNodeAttr {
   public:
     HasText() = default;
 
     /// Терм-конструктор: текст читается из Term и нормализуется по kind (см. normalizeTermText).
-    /// Объявлен здесь, определён в ast_nodes.cpp (нужен полный тип Term).
+    /// Объявлен здесь, определён в ast_children.cpp (нужен полный тип Term).
     HasText(ParserToken::Kind k, TermPtr term);
 
     /// Manual-конструктор: текст задан явно, без TermPtr.
@@ -272,7 +278,7 @@ namespace detail {
 /// «суффикс '^' ⇒ квалификатор ReadOnly» не дублировалась.
 /// Сам '^' из текста НЕ срезает (это делает normalizeTermText при построении узла).
 /// Возвращает true, если ReadOnly действительно применён (raw имеет '^' И kind допускает
-/// квалификатор). Определён в ast_nodes.cpp (нужен полный тип AttrPool).
+/// квалификатор). Определён в ast_children.cpp (нужен полный тип AttrPool).
 bool applyReadonlyFromCaret(AstNodeAttr& node, std::string_view raw, AttrPool* pool);
 
 } // namespace trust

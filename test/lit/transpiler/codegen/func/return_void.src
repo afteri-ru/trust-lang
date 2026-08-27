@@ -1,0 +1,15 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка return: со значением (++ N ++) и void (++ _ ++) - именованный переход на имя функции.
+%f():Int32 := {
+    ++ 42 ++;
+};
+# CHECK: int32_t f() {
+# CHECK-NEXT:     return 42;
+# CHECK-NEXT: }
+%g():Void := {
+    ++ _ ++;
+};
+# CHECK: void g() {
+# CHECK-NEXT:     return;
+# CHECK-NEXT: }

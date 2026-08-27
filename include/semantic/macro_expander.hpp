@@ -8,7 +8,7 @@
 // макросов (стрингификация @#/@#'/@#", имя-аналог, метка, квалификатор @::) в одном
 // месте вместо разрозненных методов ядра.
 //
-// Контекст области имён и текущей функции НЕ выводится здесь повторно — это общие
+// Контекст области имён и текущей функции НЕ выводится здесь повторно - это общие
 // методы AnalysisContext (namespacePath/currentFunc/funcShortName/...), которые строят
 // ядро через скоуп-стек SymbolTable и доступны любому хук-анализатору. Хук вызывается
 // ядром в начале обработки каждого узла (до регистрации объявлений и резолва имён),
@@ -26,7 +26,7 @@ class ContextMacroExpander : public InlineAnalysisHook {
     explicit ContextMacroExpander(AnalysisContext& actx);
 
     /// Всегда подключается (ядро не зависит от feature-флага).
-    std::optional<FlagKind> gateFlag() const override { return std::nullopt; }
+    std::optional<semantic::FlagKind> gateFlag() const override { return std::nullopt; }
 
     /// Мутирующий обход узла: раскрывает контекст-макросы и квалификатор @::.
     /// Возвращает true, если узел был ПОЛНОСТЬЮ заменён (ContextMacro → Literal/IdentName):
@@ -39,7 +39,7 @@ class ContextMacroExpander : public InlineAnalysisHook {
     void expandContextMacro(AstNodePtr& self);
     /// Раскрытие ведущего квалификатора @:: в имени-идентификаторе (in-place).
     void expandQualifierName(AstNodePtr& self);
-    /// Раскрытие квалификатора @:: в имени объявления (VarDecl/FuncDecl — имя в text()).
+    /// Раскрытие квалификатора @:: в имени объявления (VarDecl/FuncDecl - имя в text()).
     void expandDeclName(AstNodePtr& self);
     /// Раскрытие метки @__FUNCTION__/@::/@__FUNCDNAME__ (JumpStmt::m_label).
     void expandLabel(AstNodePtr& self);

@@ -6,9 +6,10 @@
 
 ## Особенности реализации
 
-- **Тип файла** — регистрирует `.src` как trust-lang исходный код с syntax highlighting.
-- **Debug adapter** — запуск trust-dap как DAP-сервера с параметрами из настроек расширения.
-- **Build task** — pre-launch транспиляция (trust → C++) и компиляция (C++ → ELF) с отображением прогресса.
-- **Контекстное меню** — команда "Trust: Open Generated C++ File" для двухоконной навигации.
-- **Автодополнение** — LSP `textDocument/completion`: имена переменных/функций/параметров, типы (`:Имя`), макросы (`@...`), методы/поля (`obj.`), с учётом видимости по позиции курсора.
-- **Breakpoints** — поддержка SetBreakpoints (F9) с трансляцией позиций через source-map.
+- **Тип файла** - регистрирует `.src` как trust-lang исходный код с syntax highlighting; включена единая светлая цветовая тема **"Trust Language"** — `contributes.themes` → `themes/trust-color-theme.json` (`type: light`).
+- **Сгенерированный C++** - `.cppt`/`.hppt` выделены в отдельный language id `trusted-cpp` (а не `cpp`), чтобы clangd (Clang Language Server) не анализировал сгенерированный код и не падал на нём. Навигацию `.src↔.cppt` по-прежнему обеспечивает trust-lsp через свой LSP-клиент.
+- **Debug adapter** - запуск trust-dap как DAP-сервера с параметрами из настроек расширения.
+- **Build task** - pre-launch транспиляция (trust → C++) и компиляция (C++ → ELF) с отображением прогресса.
+- **Контекстное меню** - команда "Trust: Open Generated C++ File" для двухоконной навигации.
+- **Автодополнение** - LSP `textDocument/completion`: имена переменных/функций/параметров, типы (`:Имя`), макросы (`@...`), методы/поля (`obj.`), с учётом видимости по позиции курсора.
+- **Breakpoints** - поддержка SetBreakpoints (F9) с трансляцией позиций через source-map.

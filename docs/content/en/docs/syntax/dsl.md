@@ -16,6 +16,28 @@ Because of this, it makes sense to use not a "pure" basic syntax, but a more fam
 a set of predefined keywords as in classical programming languages,
 which can be adapted or supplemented to suit your own subject area.
 
+## Mnemonic commands (`@func`)
+
+To avoid memorizing grammar rules and special symbols, some DSL macros are arranged as
+**mnemonic commands** - command-macros with a convenient name instead of combinations of special symbols.
+
+The `@func` command - function definition without the need to remember the `:=` operator:
+
+```trust
+@func myfn ( a:Int32 ) { print(a); };
+@func add ( a:Int32, b:Int32 ): Int32 { @return a + b; };
+# → void myfn(int32_t a);  int32_t add(int32_t a, int32_t b);
+```
+
+- `@func <name> ( <args> ) { <body> }` - function definition (Void). Expands to
+  `<name>( <args> ) := { <body> }`.
+- `@func <name> ( <args> ): <type> { <body> }` - function definition with a return type.
+  Expands to `<name>( <args> ): <type> := { <body> }`. `<type>` may be compound
+  (e.g. `Tuple(Int32, Int32)`).
+
+> **Note:** the name `func` is reserved by the DSL (like `main`, `module`, `return`, `if`, etc.),
+> so do not use it as a function/variable name.
+
 ### Constants
 - *@true* - 1
 - *@yes*  - 1

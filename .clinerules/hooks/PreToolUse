@@ -50,7 +50,7 @@ output_json() {
   fi
 }
 
-# Check: cmake --build with non-_build directory — warn via contextModification
+# Check: cmake --build with non-_build directory - warn via contextModification
 if [[ "$TOOL" == "execute_command" ]] && [[ "$COMMAND" =~ cmake[[:space:]]+--build ]]; then
   # Case 1: cmake --build _build [...] → allowed, no modification
   if [[ "$COMMAND" =~ cmake[[:space:]]+--build[[:space:]]+(_build)([[:space:]]|$) ]]; then
@@ -72,11 +72,11 @@ fi
 # Git check: allow only defensive search filters (--exclude-dir=.git, grep -v "\.git").
 # Any other occurrence of "git" (including ".git" and git commands) is forbidden.
 if [[ "$TOOL" == "execute_command" ]] && [[ "$COMMAND" == *"git"* ]]; then
-  # Allowing check — defensive filters that exclude the .git dir, not a git usage
+  # Allowing check - defensive filters that exclude the .git dir, not a git usage
   if [[ "$COMMAND" =~ '--exclude-dir=.git' ]] || [[ "$COMMAND" =~ 'grep -v "\.git"' ]] || [[ "$COMMAND" =~ 'grep -v ".git"' ]] || [[ "$COMMAND" =~ "grep -v '.git'" ]] ; then
-    : # pass — these are directory-exclusion filters, not git usage
+    : # pass - these are directory-exclusion filters, not git usage
   else
-    # Forbidding check — any other "git" occurrence (including ".git" and git commands)
+    # Forbidding check - any other "git" occurrence (including ".git" and git commands)
     echo '{"cancel":true,"errorMessage":"Использование Git запрещено (см. AGENTS.md п.8)."}'
     exit 0
   fi
@@ -84,7 +84,7 @@ fi
 
 # Grep check: рекурсивный grep должен исключать временные/производные каталоги,
 # иначе захватывает мусор из _build/.tasklog/.git/.trust. Предупреждение через
-# contextModification (не блокируем — у одиночного файлового grep фильтр не нужен).
+# contextModification (не блокируем - у одиночного файлового grep фильтр не нужен).
 if [[ "$TOOL" == "execute_command" ]] && [[ "$COMMAND" == *"grep"* ]]; then
   if [[ "$COMMAND" != *"--exclude-dir"* ]] && [[ "$COMMAND" =~ (^|[[:space:]])-r ]]; then
     CTX="ВНИМАНИЕ: рекурсивный grep без --exclude-dir может захватить мусор из _build/.tasklog/.git/.trust. Добавьте --exclude-dir={_build,.tasklog,.git,_trust,.trust,node_modules} и сузьте корень поиска до src/include/test/examples (AGENTS.md п.8)."

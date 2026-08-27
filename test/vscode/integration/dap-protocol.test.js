@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * dap-protocol.test.js — Integration tests for trust-dap DAP server
+ * dap-protocol.test.js - Integration tests for trust-dap DAP server
  *
  * Launches trust-dap as a child process, sends DAP JSON-RPC packets via stdin,
  * reads responses from stdout, and validates the protocol flow.
@@ -9,7 +9,7 @@
 const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 
-// ── Test configuration ──
+// -- Test configuration --
 let testsPassed = 0;
 let testsFailed = 0;
 
@@ -98,7 +98,7 @@ function runTrustDap(packets, timeoutMs = 10000) {
     });
 }
 
-// ── Tests ──
+// -- Tests --
 
 async function testInitialize() {
     const { stdout, stderr } = await runTrustDap([

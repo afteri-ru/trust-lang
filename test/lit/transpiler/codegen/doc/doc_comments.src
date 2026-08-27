@@ -1,0 +1,47 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Документирующие комментарии в разных позициях попадают в C++-вывод (с сохранением маркеров).
+
+/// Документация переменной
+x := 42;
+# CHECK: /// Документация переменной
+# CHECK-NEXT: int8_t c_x = 42;
+
+/// Строка один
+/// Строка два
+%foo():Void := {
+    ++ 7 ++;
+};
+# CHECK: /// Строка один
+# CHECK-NEXT: /// Строка два
+# CHECK-NEXT: void foo() {
+# CHECK-NEXT:     return 7;
+# CHECK-NEXT: }
+
+/// Тип-алиас
+MyInt ::= :Int32;
+# CHECK: /// Тип-алиас
+# CHECK-NEXT: using c_MyInt = int32_t;
+
+%g():Void := {
+    v := 1;
+    /// внутренний комментарий
+};
+# CHECK: void g() {
+# CHECK-NEXT:     bool c_v = 1;
+# CHECK-NEXT:     /// внутренний комментарий
+# CHECK-NEXT: }
+
+/** блочный док в любом месте */
+%blockdoc():Void := {
+    ++ 1 ++;
+};
+# CHECK: /** блочный док в любом месте */
+# CHECK-NEXT: void blockdoc() {
+# CHECK-NEXT:     return 1;
+# CHECK-NEXT: }
+
+## док с решёткой (Trust-синтаксис, в C++ невалиден) → нормализуется в ///
+y := 7;
+# CHECK: /// док с решёткой (Trust-синтаксис, в C++ невалиден) → нормализуется в ///
+# CHECK-NEXT: int8_t c_y = 7;

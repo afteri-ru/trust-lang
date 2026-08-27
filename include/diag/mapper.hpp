@@ -21,7 +21,7 @@
 namespace trust {
 
 // ══════════════════════════════════════════════════════════════
-//  FileEntry — запись о файле (входном или выходном)
+//  FileEntry - запись о файле (входном или выходном)
 // ══════════════════════════════════════════════════════════════
 class FileEntry {
   public:
@@ -33,7 +33,7 @@ class FileEntry {
     FileEntry(std::string filename, std::string source = "");
     FileEntry() = default;
 
-    // ── Accessors ──
+    // -- Accessors --
     [[nodiscard]] const std::string& getFilename() const noexcept { return m_filename; }
     [[nodiscard]] const std::string& getSource() const noexcept { return m_source; }
     [[nodiscard]] LocationPack::RawType size() const {
@@ -42,7 +42,7 @@ class FileEntry {
     }
     [[nodiscard]] uint64_t getHash() const noexcept;
 
-    // ── Mutators ──
+    // -- Mutators --
     void setFilename(std::string f);
     void setSource(std::string s);
     void appendSource(std::string_view text);
@@ -58,13 +58,13 @@ class FileEntry {
     friend struct SourceMap;
     friend class SourceMapReader;
 
-    // ── Вычисление по offset (1-based) → (line, column) ──
+    // -- Вычисление по offset (1-based) → (line, column) --
     [[nodiscard]] LineColumn calc_column(size_t offset) const;
 
-    // ── Вычисление по line (1-based) → offset (1-based) ──
+    // -- Вычисление по line (1-based) → offset (1-based) --
     [[nodiscard]] size_t calc_line_offset(size_t line) const;
 
-    // ── Количество строк в файле ──
+    // -- Количество строк в файле --
     [[nodiscard]] size_t calc_line_count() const { return std::count(m_source.begin(), m_source.end(), '\n') + 1; }
 
   private:
@@ -133,44 +133,44 @@ struct SourceMap {
     std::vector<NameMap> m_nameMappings;
     std::unordered_multimap<std::string, std::string> m_nameBackward;
 
-    // ── Файловая информация ──
+    // -- Файловая информация --
     std::vector<FileEntry> m_inputs;
     std::vector<FileEntry> m_outputs;
 
-    // ── Доступ к файловым записям (по FileIdx) ──
+    // -- Доступ к файловым записям (по FileIdx) --
     FileEntry& get_file(FileIdx idx);
     const FileEntry& get_file(FileIdx idx) const { return const_cast<SourceMap*>(this)->get_file(idx); }
 
-    // ── Поиск FileIdx по точному совпадению имени файла ──
+    // -- Поиск FileIdx по точному совпадению имени файла --
     FileIdx findFileIdx(std::string_view name) const;
 
-    // ── Поиск FileIdx по basename (без пути) ──
+    // -- Поиск FileIdx по basename (без пути) --
     // Ищет среди input и output файлов, сравнивая filename() с name или
     // std::filesystem::path(filename()).filename() с name.
     FileIdx findFileIdxByBasename(std::string_view name) const;
 
-    // ── filename/source по FileIdx ──
+    // -- filename/source по FileIdx --
     [[nodiscard]] std::string_view filename(FileIdx idx) const;
     [[nodiscard]] std::string_view source(FileIdx idx) const;
 
-    // ── line_column/loc_from_line с LRU-кешем ──
+    // -- line_column/loc_from_line с LRU-кешем --
     // Работают с Location (= TaggedLocation<FileIdx>)
     [[nodiscard]] FileEntry::LineColumn line_column(Location loc) const;
     [[nodiscard]] uint32_t line(Location loc) const { return line_column(loc).line; }
     [[nodiscard]] uint32_t column(Location loc) const { return line_column(loc).column; }
     [[nodiscard]] Location loc_from_line(FileIdx idx, size_t line) const;
 
-    // ── Количество строк в файле по FileIdx ──
+    // -- Количество строк в файле по FileIdx --
     [[nodiscard]] uint32_t lineCount(FileIdx idx) const { return static_cast<uint32_t>(get_file(idx).calc_line_count()); }
 
-    // ── Контрольная сумма файла по FileIdx ──
+    // -- Контрольная сумма файла по FileIdx --
     [[nodiscard]] uint64_t getFileHash(FileIdx idx) const;
 
     uint32_t input_count() const { return static_cast<uint32_t>(m_inputs.size()); }
     uint32_t output_count() const { return static_cast<uint32_t>(m_outputs.size()); }
     uint32_t file_count() const { return static_cast<uint32_t>(m_inputs.size()); }
 
-    // ── Создание Location (доступно через friend location.hpp) ──
+    // -- Создание Location (доступно через friend location.hpp) --
     [[nodiscard]] Location makeLoc(FileIdx idx, uint32_t offset) const;
 
     RangeMap makeMap(Range from, Range to) {
@@ -182,7 +182,7 @@ struct SourceMap {
         return RangeMap(from, to);
     }
 
-    // makeMap с int-параметрами — удобная обёртка
+    // makeMap с int-параметрами - удобная обёртка
     Range makeMap(FileIdx from, size_t from_begin, size_t from_end, FileIdx to, size_t to_begin, size_t to_end) {
         // clang-format off
         return makeMap(
@@ -211,7 +211,7 @@ struct SourceMap {
     mutable LruCache<LocCacheKey, Location> m_loc_cache;
 };
 
-// ── Forward declarations ──
+// -- Forward declarations --
 class SourceMapReader;
 struct OutputBuffer;
 
@@ -231,7 +231,7 @@ struct OutputBuffer {
 };
 
 // ══════════════════════════════════════════════════════════════
-//  SourceMapWriter: mutable (writer space) — интеграция всего
+//  SourceMapWriter: mutable (writer space) - интеграция всего
 //  функционала из бывшего Context, связанного с SourceMap.
 // ══════════════════════════════════════════════════════════════
 
@@ -245,11 +245,11 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     SourceMapWriter(const SourceMapWriter&) = delete;
     SourceMapWriter& operator=(const SourceMapWriter&) = delete;
 
-    // ── Входные файлы ──
+    // -- Входные файлы --
 
     // Добавляет содержимое источника из памяти.
     // Если normalize == true: path нормализуется (приводится к относительному от baseDir).
-    // Если normalize == false: filename проверяется — должен содержать только [a-zA-Z0-9_].
+    // Если normalize == false: filename проверяется - должен содержать только [a-zA-Z0-9_].
     // Возвращает MapperFile или {0} при ошибке.
     [[nodiscard]] MapperFile add_source(std::string filename, std::string content, bool normalize = true);
 
@@ -258,7 +258,7 @@ class SourceMapWriter : public SourceMap<MapperFile> {
 
     uint32_t file_count() const { return static_cast<uint32_t>(m_inputs.size()); }
 
-    // ── Выходные файлы ──
+    // -- Выходные файлы --
 
     // add_output: регистрирует выходной файл.
     [[nodiscard]] MapperFile add_output(std::string filename, bool normalize = true);
@@ -270,17 +270,17 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     [[nodiscard]] bool save_output(std::string_view outputDir);
     uint32_t output_count() const { return static_cast<uint32_t>(m_outputs.size()); }
 
-    // ── Создание и валидация Location / Range ──
+    // -- Создание и валидация Location / Range --
     [[nodiscard]] MapperRange makeRange(MapperLocation begin, MapperLocation end) const;
     [[nodiscard]] bool isValid(MapperLocation loc) const;
     [[nodiscard]] bool isValid(MapperRange range) const;
 
-    // ── Методы маппинга (SourceMapWriter) ──
+    // -- Методы маппинга (SourceMapWriter) --
     bool addRangeMapping(MapperRange trustRange, MapperRange cppRange);
     bool addNameMapping(MapperRange trustRange, MapperRange cppRange, std::string_view trustName, std::string_view cppName);
     bool addMacroMapping(MapperRange bodyRange, MapperRange defRange);
 
-    // ── Стек для mapStart/mapStop ──
+    // -- Стек для mapStart/mapStop --
     struct MapStartEntry {
         MapperRange inputRange;
         MapperLocation outputBegin;
@@ -291,10 +291,10 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     MapperRange mapStop(MapperRange from);
     const MapStartEntry& mapStackTop() const;
 
-    // ── toReader ──
+    // -- toReader --
     const SourceMapReader* toReader() const;
 
-    // ── Информация об источнике ──
+    // -- Информация об источнике --
     [[nodiscard]] std::string_view filename(MapperLocation loc) const;
     [[nodiscard]] std::string_view source(MapperLocation loc) const;
     using SourceMap::column;
@@ -310,30 +310,30 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     using SourceMap::makeLoc;
     using SourceMap::source;
 
-    // ── Поиск FileIdx по пути с нормализацией ──
+    // -- Поиск FileIdx по пути с нормализацией --
     MapperFile findFileIdx(std::string_view filePath) const;
 
     void setBaseDirectory(std::string_view path);
     [[nodiscard]] const std::string& baseDirectory() const noexcept { return m_baseDirectory; }
 
-    // ── Главный (корневой) файл модуля ──
+    // -- Главный (корневой) файл модуля --
     /// Устанавливает путь главного файла программы/модуля. Имя модуля любого файла
     /// (см. moduleName) вычисляется относительно каталога главного файла.
     void setMainModuleFile(MapperFile mainFile);
     /// Имя модуля по FileIdx: путь текущего файла относительно каталога главного файла,
     /// без расширения; разделители каталога ('/' и '\\') заменяются на '_'.
-    /// Если главный файл не задан — используется baseDirectory.
+    /// Если главный файл не задан - используется baseDirectory.
     [[nodiscard]] std::string moduleName(MapperFile idx) const;
 
-    // ── Подавление маппинга (для синтетических узлов, напр. forward-decl на сайте импорта) ──
-    // Пока счётчик > 0, addRangeMapping/addNameMapping/mapStart/mapStop/addMacroMapping — no-op.
+    // -- Подавление маппинга (для синтетических узлов, напр. forward-decl на сайте импорта) --
+    // Пока счётчик > 0, addRangeMapping/addNameMapping/mapStart/mapStop/addMacroMapping - no-op.
     void suppressMapping() { ++m_mappingSuppressed; }
     void resumeMapping() {
         EXPECT(m_mappingSuppressed > 0);
         --m_mappingSuppressed;
     }
     [[nodiscard]] bool mappingSuppressed() const noexcept { return m_mappingSuppressed > 0; }
-    /// True, если mapStart уже выполнен (стек маппинга не пуст) — т.е. можно безопасно
+    /// True, если mapStart уже выполнен (стек маппинга не пуст) - т.е. можно безопасно
     /// вызывать mapDeclaredName (иначе mapStackTop FAULT). Используется для опционального
     /// маппинга синтетических узлов без исходного range.
     [[nodiscard]] bool mappingActive() const noexcept { return !m_mapStack.empty(); }
@@ -358,6 +358,28 @@ class SourceMapWriter : public SourceMap<MapperFile> {
 };
 
 // ══════════════════════════════════════════════════════════════
+//  Общий помощник «файл:строка» из диапазона
+// ══════════════════════════════════════════════════════════════
+
+/// Имя файла и номер строки исходного .src для диапазона (через SourceMap).
+/// ЕДИНЫЙ источник «файл:строка» для парсера (контекст-макросы `@__FILE_NAME__`/`@__FILE_LINE__`)
+/// и транспилятора (разворачивание интринсика `intrinsic_assert`, см. CppTranspiler::emitIntrinsic).
+/// При невалидном диапазоне - пустое имя файла и строка 0.
+struct SourceLocation {
+    std::string file;
+    int line = 0;
+};
+
+[[nodiscard]] inline SourceLocation sourceLocation(const SourceMapWriter& map, MapperRange range) {
+    SourceLocation loc;
+    if (!range.begin.isInvalid()) {
+        loc.file = std::string(map.get_file(range.begin.fileIdx()).getFilename());
+        loc.line = static_cast<int>(map.line_column(range.begin).line);
+    }
+    return loc;
+}
+
+// ══════════════════════════════════════════════════════════════
 //  SourceMapReader: read-only (reader space)
 // ══════════════════════════════════════════════════════════════
 
@@ -370,13 +392,13 @@ class SourceMapReader : public SourceMap<ReaderFile> {
 
     SourceMapReader() = default;
 
-    // ── Factory methods ──
+    // -- Factory methods --
     static std::unique_ptr<SourceMapReader> fromMsgpack(const unsigned char* data, size_t size);
     /// Читает embedded source map из ELF-секции .debug_trust_map
     /// Возвращает nullptr, если ELF невалиден, секция не найдена или данные повреждены.
     static std::unique_ptr<SourceMapReader> fromElf(const std::string& elfPath);
 
-    // ── Чтение файлов с диска после десериализации ──
+    // -- Чтение файлов с диска после десериализации --
     static bool readFileArray(msgpack_object array, std::vector<FileEntry>& files, bool filenames);
 
     bool readFilesFromDisk(std::string_view baseDir);
@@ -384,40 +406,40 @@ class SourceMapReader : public SourceMap<ReaderFile> {
     // Проверяет хеш файла с заданным индексом.
     [[nodiscard]] bool verifyHash(ReaderFile idx) const;
 
-    // ── Поиск диапазона по позиции ──
+    // -- Поиск диапазона по позиции --
     std::optional<Range> getMapTrustToCpp(Location trustLoc) const;
     std::optional<Range> getMapCppToTrust(Location cppLoc) const;
 
-    // ── Поиск всех диапазонов по строке/колонке ──
+    // -- Поиск всех диапазонов по строке/колонке --
     std::vector<Range> findRangesByLine(ReaderFile idx, uint32_t line, std::optional<uint32_t> column = std::nullopt) const;
 
-    // ── Поиск имени по позиции ──
+    // -- Поиск имени по позиции --
     std::optional<NameMap> getCppName(Location trustLoc, std::string_view trustName) const;
     std::optional<NameMap> getTrustName(Location cppLoc, std::string_view cppName) const;
 
-    // ── Итерация маппингов по файлу ──
+    // -- Итерация маппингов по файлу --
     std::vector<RangeMap> getTrustFileMappings(ReaderFile trustFileIdx) const;
 
-    // ── Доступ к nameMappings ──
+    // -- Доступ к nameMappings --
     [[nodiscard]] const std::vector<NameMap>& getNameMappings() const { return m_nameMappings; }
 
-    // ── Доступ к маппингам ──
+    // -- Доступ к маппингам --
     [[nodiscard]] const std::map<uint32_t, RangeMap>& getForwardMappings() const { return m_forward; }
     [[nodiscard]] const std::map<uint32_t, RangeMap>& getBackwardMappings() const { return m_backward; }
 
-    // ── Поиск макросов ──
+    // -- Поиск макросов --
     std::optional<Range> getMacroDefRange(Location bodyLoc) const;
 
-    // ── Извлечение слова под курсором ──
+    // -- Извлечение слова под курсором --
     [[nodiscard]] std::optional<std::string> getWordAt(Location loc) const;
 
-    // ── LSP convenience ──
+    // -- LSP convenience --
     [[nodiscard]] Location lspToLocation(ReaderFile idx, int line, int character) const;
 
-    // ── Фрагмент URL ──
+    // -- Фрагмент URL --
     [[nodiscard]] std::string rangeToFragmentString(Range range) const;
 
-    // ── Поиск полного RangeMap по позиции ──
+    // -- Поиск полного RangeMap по позиции --
     [[nodiscard]] std::optional<RangeMap> findRangeMap(Location loc) const;
 
     // ══════════════════════════════════════════════════════════════
@@ -427,14 +449,14 @@ class SourceMapReader : public SourceMap<ReaderFile> {
     [[nodiscard]] static bool isTrustFileExt(const std::string& path) noexcept;
     [[nodiscard]] static bool isCppFileExt(const std::string& path) noexcept;
     /// True, если имя source-map файла помечено как фиктивный (in-memory) источник
-    /// префиксом '@' — такого файла нет на диске, искать его не нужно.
+    /// префиксом '@' - такого файла нет на диске, искать его не нужно.
     [[nodiscard]] static bool isInMemoryName(std::string_view name) noexcept;
     [[nodiscard]] ReaderFile findFile(const std::string& path) const;
     [[nodiscard]] std::optional<Range> findTrustToCpp(const std::string& trustPath, int line) const;
     [[nodiscard]] std::optional<Range> findCppToTrust(const std::string& cppPath, int line) const;
     [[nodiscard]] std::optional<std::pair<std::string, int>> calcCppToTrustLine(const std::string& cppPath, int cppLine) const;
 
-    // ── Сериализация (msgpack) ──
+    // -- Сериализация (msgpack) --
     void packRanges(MsgpackWriter& wr, const std::map<uint32_t, RangeMap>& forward) const;
     void packNames(MsgpackWriter& wr, const std::vector<NameMap>& nameMappings) const;
     void packMacros(MsgpackWriter& wr) const;
@@ -543,7 +565,7 @@ std::string_view SourceMap<FileIdx>::source(FileIdx idx) const {
 
 template <typename FileIdx>
 FileEntry::LineColumn SourceMap<FileIdx>::line_column(Location loc) const {
-    // Ключ включает fileIdx — иначе при нескольких input/output файлах кэш
+    // Ключ включает fileIdx - иначе при нескольких input/output файлах кэш
     // коллизирует по одинаковым offset'ам разных файлов (даёт неверные line/col).
     LcCacheKey key = (static_cast<LcCacheKey>(loc.fileIdx().raw) << sizeof(LocationPack::RawType) * 8) | static_cast<LcCacheKey>(loc.offset());
     const auto* cached = m_lc_cache.lookup(key);
@@ -586,7 +608,7 @@ uint64_t SourceMap<FileIdx>::getFileHash(FileIdx idx) const {
     return get_file(idx).getHash();
 }
 
-// ── SourceMapReader template methods ──
+// -- SourceMapReader template methods --
 
 template <typename NameMatcher>
 std::optional<SourceMapReader::NameMap> SourceMapReader::findNameInMappings(const std::vector<NameMap>& nameMappings, uint32_t locPacked,

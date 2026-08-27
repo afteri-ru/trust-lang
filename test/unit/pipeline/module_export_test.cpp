@@ -1,4 +1,4 @@
-// module_export_test.cpp — тесты сбора экспорт-интерфейса и glob-фильтра модулей
+// module_export_test.cpp - тесты сбора экспорт-интерфейса и glob-фильтра модулей
 #include "module_loader/module_export.hpp"
 #include "module_loader/module_loader.hpp"
 #include "ast/term_to_ast.hpp"
@@ -34,7 +34,7 @@ TEST(ModuleExportTest, GlobAnyMask) {
     EXPECT_TRUE(matchesAnyMask("a,,b", "a")); // пустая маска между запятыми = без фильтра
 }
 
-// ── Интеграция: сбор экспортов из загруженного модуля ──
+// -- Интеграция: сбор экспортов из загруженного модуля --
 
 class ModuleExportIntegrationTest : public ::testing::Test {
   protected:
@@ -57,7 +57,7 @@ class ModuleExportIntegrationTest : public ::testing::Test {
 };
 
 TEST_F(ModuleExportIntegrationTest, CollectsGlobalExportsExcludingAnonymous) {
-    // x и func — экспортируемые; hidden в анонимной области `_` — нет.
+    // x и func - экспортируемые; hidden в анонимной области `_` - нет.
     auto all = collect("x:Int32 := 42;\n%func():Int32 := { 42 };\n_ { hidden:Int32 := 1; };\n", "");
     EXPECT_EQ(all.size(), 2u);
 }
@@ -65,7 +65,7 @@ TEST_F(ModuleExportIntegrationTest, CollectsGlobalExportsExcludingAnonymous) {
 TEST_F(ModuleExportIntegrationTest, FilterByMask) {
     auto funcs = collect("x:Int32 := 42;\n%func():Int32 := { 42 };\n", "func");
     ASSERT_EQ(funcs.size(), 1u);
-    // Имя функции — без `%`-префикса в сопоставлении масок; терм-источник нативного func.
+    // Имя функции - без `%`-префикса в сопоставлении масок; терм-источник нативного func.
     auto x = collect("x:Int32 := 42;\n%func():Int32 := { 42 };\n", "x");
     ASSERT_EQ(x.size(), 1u);
     auto none = collect("x:Int32 := 42;\n", "nope");

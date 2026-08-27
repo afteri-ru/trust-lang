@@ -18,7 +18,7 @@
 namespace trust {
 namespace transport {
 
-// ── Базовый абстрактный интерфейс транспорта (общий для DAP и LSP) ──
+// -- Базовый абстрактный интерфейс транспорта (общий для DAP и LSP) --
 class Transport {
   public:
     virtual ~Transport() = default;
@@ -30,24 +30,24 @@ class Transport {
     virtual int pollFd() const { return -1; }
 
     // Ожидание входных данных с таймаутом (мс).
-    // Возвращает 1 — данные готовы, 0 — таймаут, -1 — ошибка.
+    // Возвращает 1 - данные готовы, 0 - таймаут, -1 - ошибка.
     virtual int waitInput(int timeoutMs) const {
         int fd = pollFd();
         if (fd < 0) {
-            return 1; // транспорт не поллится — считаем данные всегда готовыми
+            return 1; // транспорт не поллится - считаем данные всегда готовыми
         }
         struct pollfd p{fd, POLLIN, 0};
         for (;;) {
             int r = ::poll(&p, 1, timeoutMs);
             if (r < 0 && errno == EINTR) {
-                continue; // прерывание сигналом — повторяем ожидание
+                continue; // прерывание сигналом - повторяем ожидание
             }
             return r;
         }
     }
 };
 
-// ── Content-Length чтение (общий для LSP и DAP) ──
+// -- Content-Length чтение (общий для LSP и DAP) --
 //
 // Максимальный размер одного LSP/DAP-пакета (байт). Защита от атаки
 // «Content-Length: <огромное>», которая иначе приводит к аллокации всего
@@ -68,7 +68,7 @@ inline bool isContentLength(const std::string& line) {
 }
 
 // Разбирает заголовок Content-Length из строки, возвращает длину или 0
-// (0 также возвращается при отсутствии/невалидном/переполнившемся значении — без исключений).
+// (0 также возвращается при отсутствии/невалидном/переполнившемся значении - без исключений).
 inline int parseContentLength(const std::string& line) {
     size_t pos = line.find(':');
     if (pos == std::string::npos) {
@@ -81,7 +81,7 @@ inline int parseContentLength(const std::string& line) {
             continue;
         }
         if (c < '0' || c > '9') {
-            return 0; // нецифровой символ — невалидная длина
+            return 0; // нецифровой символ - невалидная длина
         }
         // Защита от переполнения int при накоплении.
         if (result > (std::numeric_limits<int>::max() - (c - '0')) / 10) {
@@ -92,8 +92,8 @@ inline int parseContentLength(const std::string& line) {
     return static_cast<int>(result);
 }
 
-// ── StdioTransport (stdin/stdout) ──
-// Читает пакеты НАПРЯМУЮ из fd 0 (без std::cin), чтобы poll на fd 0 был надёжным —
+// -- StdioTransport (stdin/stdout) --
+// Читает пакеты НАПРЯМУЮ из fd 0 (без std::cin), чтобы poll на fd 0 был надёжным -
 // смешивание iostreams-буфера std::cin и poll(fd0) приводило к пропуску пакетов.
 class StdioTransport : public Transport {
   public:
@@ -154,7 +154,7 @@ class StdioTransport : public Transport {
     }
 };
 
-// ── TcpTransport ──
+// -- TcpTransport --
 class TcpTransport : public Transport {
   public:
     explicit TcpTransport(int fd)
@@ -244,7 +244,7 @@ class TcpTransport : public Transport {
     int fd_ = -1;
 };
 
-// ── TCP server helpers ──
+// -- TCP server helpers --
 
 inline int createTcpServer(int port) {
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);

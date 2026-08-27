@@ -4,7 +4,7 @@
 find_program(NODE node)
 find_program(NPX npx)
 
-# ── CTest registration ──
+# -- CTest registration --
 # Each VSCode suite is a single CTest test.
 add_test(NAME vscode_unit
     COMMAND timeout --kill-after=10 120 ${NPX} jest --config ${CMAKE_CURRENT_SOURCE_DIR}/extension/jest.config.js
@@ -12,24 +12,28 @@ add_test(NAME vscode_unit
 set_tests_properties(vscode_unit PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/extension
     TIMEOUT 120
-    # Final stage examples_tests runs only after all suites pass (fixture examples_deps).
-    FIXTURES_SETUP examples_deps
+    # examples_tests (final stage) runs after all suites pass; package tests after these
+    # suites - via fixtures examples_deps/package_deps.
+    FIXTURES_SETUP "examples_deps;package_deps"
 )
 
-add_test(NAME vscode_dap
-    COMMAND timeout --kill-after=10 60 ${NODE} ${CMAKE_CURRENT_SOURCE_DIR}/integration/dap-protocol.test.js
-            --dap-path ${CMAKE_BINARY_DIR}/trust-dap
-            --src "${TEST_SRC}"
-            --cpp "${TEST_CPP}"
-            --map "${TEST_MAP}"
-            --binary "${TEST_BINARY}"
-)
-set_tests_properties(vscode_dap PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/integration
-    TIMEOUT 60
-    # Final stage examples_tests runs only after all suites pass (fixture examples_deps).
-    FIXTURES_SETUP examples_deps
-)
+if(TRUST_BUILD_DAP)
+    add_test(NAME vscode_dap
+        COMMAND timeout --kill-after=10 60 ${NODE} ${CMAKE_CURRENT_SOURCE_DIR}/integration/dap-protocol.test.js
+                --dap-path ${CMAKE_BINARY_DIR}/trust-dap
+                --src "${TEST_SRC}"
+                --cpp "${TEST_CPP}"
+                --map "${TEST_MAP}"
+                --binary "${TEST_BINARY}"
+    )
+    set_tests_properties(vscode_dap PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/integration
+        TIMEOUT 60
+        # examples_tests (final stage) runs after all suites pass; package tests after these
+        # suites - via fixtures examples_deps/package_deps.
+        FIXTURES_SETUP "examples_deps;package_deps"
+    )
+endif()
 
 add_test(NAME vscode_lsp
     COMMAND timeout --kill-after=10 60 ${NODE} ${CMAKE_CURRENT_SOURCE_DIR}/integration/lsp-protocol.test.js
@@ -39,6 +43,7 @@ add_test(NAME vscode_lsp
 set_tests_properties(vscode_lsp PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/integration
     TIMEOUT 60
-    # Final stage examples_tests runs only after all suites pass (fixture examples_deps).
-    FIXTURES_SETUP examples_deps
+    # examples_tests (final stage) runs after all suites pass; package tests after these
+    # suites - via fixtures examples_deps/package_deps.
+    FIXTURES_SETUP "examples_deps;package_deps"
 )

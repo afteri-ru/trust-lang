@@ -29,7 +29,7 @@ TEST(RefTypeTest, StringMapping) {
     EXPECT_EQ(refTypeFromString("rref"), RefType::kRref);
     EXPECT_EQ(refTypeFromString("ptrptr"), RefType::kPtrPtr);
     EXPECT_EQ(refTypeFromString("take"), RefType::kTake);
-    // Неизвестное имя — nullopt (без тихого fallback).
+    // Неизвестное имя - nullopt (без тихого fallback).
     EXPECT_EQ(refTypeFromString("raw"), std::nullopt);
     EXPECT_EQ(refTypeFromString(""), std::nullopt);
 }
@@ -71,7 +71,7 @@ TEST_F(RefTypeFixture, RefTypeNode) {
     TypeRegistry& reg = m_ctx.types();
     const TypeId int32 = reg.getType("Int32");
 
-    // Первый уровень — узел с видом kPtr над Int32.
+    // Первый уровень - узел с видом kPtr над Int32.
     const TypeId p = reg.getOrCreateRefType(RefType::kPtr, int32);
     EXPECT_NE(p, INVALID_TYPE_ID);
     EXPECT_NE(p, int32);
@@ -84,10 +84,10 @@ TEST_F(RefTypeFixture, RefTypeNode) {
     // Интернирование: одинаковый (вид, pointee) → тот же id.
     EXPECT_EQ(reg.getOrCreateRefType(RefType::kPtr, int32), p);
 
-    // Другой вид над тем же pointee — другой тип.
+    // Другой вид над тем же pointee - другой тип.
     EXPECT_NE(reg.getOrCreateRefType(RefType::kShared, int32), p);
 
-    // Вложенность: shared<ptr<Int32>> — отдельный узел, а НЕ перезапись вида.
+    // Вложенность: shared<ptr<Int32>> - отдельный узел, а НЕ перезапись вида.
     const TypeId sp = reg.getOrCreateRefType(RefType::kShared, p);
     EXPECT_NE(sp, p);
     EXPECT_EQ(getRefType(getKindFromId(sp)), RefType::kShared);
@@ -106,7 +106,7 @@ TEST_F(RefTypeFixture, ReftypeAttrRegistered) {
     EXPECT_TRUE(m_ctx.attrs().get(*id).has_params());
 }
 
-// ── Кодогенерация: эмиссия C++-имени для RefType (getCppTypeName) ──
+// -- Кодогенерация: эмиссия C++-имени для RefType (getCppTypeName) --
 TEST_F(RefTypeFixture, GetCppTypeNameRefKinds) {
     TypeRegistry& reg = m_ctx.types();
     const TypeId int32 = reg.getType("Int32");
@@ -131,7 +131,7 @@ TEST_F(RefTypeFixture, GetCppTypeNameNestedRef) {
     TypeRegistry& reg = m_ctx.types();
     const TypeId int32 = reg.getType("Int32");
 
-    // Вложенность: shared<ptr<Int32>> — узел RefTypeData, рекурсивная эмиссия.
+    // Вложенность: shared<ptr<Int32>> - узел RefTypeData, рекурсивная эмиссия.
     const TypeId p = reg.getOrCreateRefType(RefType::kPtr, int32);
     const TypeId sp = reg.getOrCreateRefType(RefType::kShared, p);
     EXPECT_EQ(reg.getCppTypeName(p).value(), "int32_t*");

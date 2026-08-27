@@ -1,192 +1,196 @@
 #pragma once
 
 #include "diag/severity.hpp"
+#include "diag/options_decl.hpp"
 
 #include <algorithm>
 #include <functional>
 #include <initializer_list>
 #include <optional>
+#include <ostream>
 #include <span>
 #include <stack>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
 namespace trust {
 
-// X-macro для compile-time определения опций.
-// Формат: M(EnumName, "cli-name", DefaultSeverityName)
-// DefaultSeverityName — имя Severity без префикса (например Warning, Error).
-// Переопределите OPTIONS_LIST до включения заголовка, чтобы добавить свои опции.
-#ifndef OPTIONS_LIST
-#define OPTIONS_LIST(M)                         \
-    M(UnusedVar, "unused-var", Warning)         \
-    M(Deprecated, "deprecated", Warning)        \
-    M(ParseError, "parse-error", Error)         \
-    M(MacroRedefined, "macro-redefined", Fatal) \
-    M(Embed, "embed", Warning)                  \
-    M(NoSigil, "sigil", Warning)                \
-    M(Format, "format", Error)                  \
-    M(WidenAny, "widen-any", Warning)           \
-    M(All, "all", Warning)
-#endif
-
-// X-macro для булевых feature-флагов (НЕ severity-диагностик): формат M(EnumName, "cli-name").
-// Используется для опций кодогенерации (например подавление комментариев в C++-выводе) и
-// для опциональных уровней анализа (переключаются через pass-менеджер семантики).
-// Флаг может нести необязательное строковое значение: -W<flag>=<value> (как в clang).
-// Переопределите OPTIONS_FLAGS до включения заголовка, чтобы добавить свои флаги.
-#ifndef OPTIONS_FLAGS
-#define OPTIONS_FLAGS(M)    \
-    M(Comments, "comments") \
-    M(Lint, "lint")         \
-    M(Effect, "effect")     \
-    M(Trust, "trust")       \
-    M(Extended, "extended") \
-    M(Symbols, "symbols")   \
-    M(Assert, "assert")     \
-    M(Backtrace, "backtrace")
-
-#endif
-
 class DiagnosticEngine;
 
-enum class OptKind : int {
-#define OPT_ENUM(name, str, sev) name,
-    OPTIONS_LIST(OPT_ENUM)
-#undef OPT_ENUM
-};
-
-constexpr std::string_view OptName(OptKind k) {
-    switch (k) {
-#define OPT_CASE(name, str, sev) \
-    case OptKind::name:          \
-        return str;
-        OPTIONS_LIST(OPT_CASE)
-#undef OPT_CASE
-    }
-    return {};
-}
-
-constexpr Severity OptDefaultSeverity(OptKind k) {
-    switch (k) {
-#define OPT_CASE(name, str, sev) \
-    case OptKind::name:          \
-        return Severity::sev;
-        OPTIONS_LIST(OPT_CASE)
-#undef OPT_CASE
-    }
-    return Severity::Warning;
-}
-
-static constexpr int NumOptions = static_cast<int>(OptKind::All) + 1;
-
-/// Булев feature-флаг (не severity-диагностика), генерируется из OPTIONS_FLAGS.
-enum class FlagKind : int {
-#define FLAG_ENUM(name, cli) name,
-    OPTIONS_FLAGS(FLAG_ENUM)
-#undef FLAG_ENUM
-};
-
-constexpr std::string_view FlagName(FlagKind k) {
-    switch (k) {
-#define FLAG_CASE(name, cli) \
-    case FlagKind::name:     \
-        return cli;
-        OPTIONS_FLAGS(FLAG_CASE)
-#undef FLAG_CASE
-    }
-    return {};
-}
-
-struct OptionInitInfo {
-    OptKind kind;
-    Severity severity;
-};
-
+// Options - реестр диагностик/флагов, ключуется по cli-имени.
+// Каждая компонента объявляет СВОИ диагностики/флаги в своём заголовке через
+// TRUST_DIAG_SET/TRUST_FLAG_SET (diag/diag_set.hpp) и регистрирует их через
+// Options::add<T> / Options::add_flag<T> (метаданные берутся через ADL из пер-компонентной
+// декларации; diag остаётся листом - не включает заголовки компонентов).
 class Options {
   public:
     explicit Options(DiagnosticEngine& diag);
-    Options();
 
-    void add_option(OptKind kind, std::optional<Severity> default_severity = std::nullopt);
+    // -- Регистрация (шаблоны; ADL-доступы из namespace компоненты) --
 
-    // ── Булевые feature-флаги (см. OPTIONS_FLAGS) ──
-    /// Регистрирует feature-флаг (по умолчанию выключен).
-    void register_flag(FlagKind kind);
-    /// Проверяет, является ли cli-имя флагом (а не severity-опцией).
-    [[nodiscard]] bool is_flag(std::string_view name) const;
-    /// Текущее состояние флага (незарегистрированный = false).
-    [[nodiscard]] bool is_enabled(FlagKind kind) const;
+    /// Регистрирует severity-диагностику. Метаданные через ADL: diagName/diagHelp/
+    /// diagDefaultSeverity/diagWarnGroups/diagCategory (id - пер-компонентный enum).
+    template <typename T>
+        requires std::is_enum_v<T>
+    void add(T id) {
+        add_impl(diagName(id), diagHelp(id), diagDefaultSeverity(id), diagWarnGroups(id), diagCategory(id));
+    }
+
+    /// Регистрирует feature-флаг (по умолчанию выключен). Метаданные через ADL:
+    /// flagName/flagHelp/flagCategory (id - пер-компонентный enum).
+    template <typename T>
+        requires std::is_enum_v<T>
+    void add_flag(T id) {
+        add_flag_impl(flagName(id), flagHelp(id), flagCategory(id));
+    }
+
+    // -- Severity-опции: шаблоны (пер-компонентный id) и name-методы (cli-имя) --
+
+    /// Текущий уровень severity (учитывает -Werror); nullopt = ignore.
+    template <typename T>
+        requires std::is_enum_v<T>
+    std::optional<Severity> get(T id) const {
+        return getByName(diagName(id));
+    }
+    /// Текущий уровень severity по cli-имени; nullopt = ignore; бросает, если не зарегистрирована.
+    [[nodiscard]] std::optional<Severity> getByName(std::string_view name) const;
+
+    template <typename T>
+        requires std::is_enum_v<T>
+    void set(T id, std::optional<Severity> severity) {
+        setByName(diagName(id), severity);
+    }
+    void setByName(std::string_view name, std::optional<Severity> severity);
+
+    template <typename T>
+        requires std::is_enum_v<T>
+    bool is_registered(T id) const {
+        return isRegisteredByName(diagName(id));
+    }
+    [[nodiscard]] bool isRegisteredByName(std::string_view name) const;
+
+    template <typename T>
+        requires std::is_enum_v<T>
+    WarnGroup warn_groups(T id) const {
+        return warnGroupsByName(diagName(id));
+    }
+    /// Группы-агрегаты, к которым привязана диагностика (из зарегистрированной записи).
+    [[nodiscard]] WarnGroup warnGroupsByName(std::string_view name) const;
+
+    // -- Feature-флаги: шаблоны (пер-компонентный id) и name-методы (cli-имя) --
+
+    /// true, если cli-имя является флагом (а не severity-опцией).
+    [[nodiscard]] bool isFlagByName(std::string_view name) const;
+
+    template <typename T>
+        requires std::is_enum_v<T>
+    bool is_enabled(T id) const {
+        return isEnabledByName(flagName(id));
+    }
     /// Текущее состояние флага по cli-имени (незарегистрированный = false).
-    [[nodiscard]] bool is_enabled(std::string_view name) const;
-    void set_enabled(FlagKind kind, bool enabled);
-    /// Включить флаг по cli-имени; false, если флаг не найден.
-    bool set_enabled(std::string_view name, bool enabled);
-    /// Строковое значение флага (nullopt, если не задано).
-    [[nodiscard]] std::optional<std::string_view> flag_value(FlagKind kind) const;
-    /// Установить значение флага по id (неявно включает флаг).
-    void set_flag_value(FlagKind kind, std::string_view value);
-    /// Установить значение флага по cli-имени; false, если флаг не найден.
-    bool set_flag_value(std::string_view name, std::string_view value);
+    [[nodiscard]] bool isEnabledByName(std::string_view name) const;
 
-    void set(OptKind kind, std::optional<Severity> severity);
-    void set(std::string_view name, std::optional<Severity> severity);
+    /// Включить/выключить флаг; false, если флаг не найден.
+    template <typename T>
+        requires std::is_enum_v<T>
+    bool set_enabled(T id, bool enabled) {
+        return setEnabledByName(flagName(id), enabled);
+    }
+    bool setEnabledByName(std::string_view name, bool enabled);
 
-    std::optional<Severity> get(OptKind kind) const;
-    std::optional<Severity> get(std::string_view name) const;
+    template <typename T>
+        requires std::is_enum_v<T>
+    std::optional<std::string_view> flag_value(T id) const {
+        return flagValueByName(flagName(id));
+    }
+    [[nodiscard]] std::optional<std::string_view> flagValueByName(std::string_view name) const;
+
+    /// Установить значение флага (неявно включает); false, если флаг не найден.
+    template <typename T>
+        requires std::is_enum_v<T>
+    bool set_flag_value(T id, std::string_view value) {
+        return setFlagValueByName(flagName(id), value);
+    }
+    bool setFlagValueByName(std::string_view name, std::string_view value);
+
+    /// Валидатор допустимых значений value-флага. Если зарегистрирован, setFlagValueByName
+    /// отклоняет недопустимые значения (возвращает false - вызывающий выдаёт ошибку). Это
+    /// гарантирует «no silent fallback»: потребитель флага видит только валидные значения.
+    using FlagValidator = std::function<bool(std::string_view)>;
+    template <typename T>
+        requires std::is_enum_v<T>
+    bool set_flag_validator(T id, FlagValidator validator) {
+        return setFlagValidatorByName(flagName(id), std::move(validator));
+    }
+    bool setFlagValidatorByName(std::string_view name, FlagValidator validator);
+
+    // -- CLI-парсинг и справка --
 
     std::span<char*> parse_argv(std::span<char*> argv);
+
+    /// true, если в CLI встретилась команда `-Whelp` / `-Whelp` (справка по диагностикам).
+    [[nodiscard]] bool helpRequested() const { return help_requested_; }
+
+    /// Печатает список всех зарегистрированных диагностик (severity-опции и feature-флаги)
+    /// в едином формате. Используется для `-Whelp`.
+    void printHelp(std::ostream& os) const;
+
+    /// Все зарегистрированные cli-имена (severity-опции и флаги) с префиксом `-W` — для
+    /// shell-completion (`trust --complete-options`).
+    [[nodiscard]] std::vector<std::string> allWNames() const;
 
     void push();
     void pop();
 
-    [[nodiscard]] std::optional<Severity> severity(OptKind kind) const;
-    [[nodiscard]] std::optional<Severity> severity(std::string_view name) const;
-
-    [[nodiscard]] bool is_registered(OptKind kind) const;
-    [[nodiscard]] bool is_registered(std::string_view name) const;
-
-    [[nodiscard]] std::string_view name(OptKind kind) const;
-
-    static Options make(std::initializer_list<OptionInitInfo> opts);
-
-    /// Парсит строковое имя severity ("fatal", "error", "warning", "remark", "note", "ignore").
-    /// Для "ignore" возвращает nullopt.
-    [[nodiscard]] static std::optional<Severity> parseSeverityName(std::string_view name) noexcept;
+    /// CLI-суффикс группы → WarnGroup ("all"→WG_Wall, "unused"→WG_Wunused, ...);
+    /// WG_None, если имя не является группой.
+    [[nodiscard]] static WarnGroup warnGroupFromCli(std::string_view cli);
 
   private:
     struct OptionEntry {
-        OptKind kind;
-        std::optional<Severity> severity;
         std::string_view name;
+        std::string_view help;                         ///< подсказка для `-Whelp`
+        Severity default_severity = Severity::Warning; ///< уровень по умолчанию (для -Wall сброса)
+        std::optional<Severity> severity;              ///< текущий уровень (мутабельный)
+        WarnGroup warn_groups = WG_None;               ///< группы-агрегаты
+        DiagGroup category = DiagGroup::Diagnostics;   ///< категория `-Whelp`
     };
 
     struct OptionDelta {
-        OptKind kind;
+        std::string_view name; ///< cli-имя (литерал, стабильно)
         std::optional<Severity> previous_severity;
     };
 
-    /// Запись булевого feature-флага: вкл/выкл + необязательное строковое значение.
+    /// Запись булевого feature-флага: вкл/выкл + необязательное строковое значение + метаданные.
     struct FlagEntry {
+        std::string_view name;
+        std::string_view help;                    ///< подсказка для `-Whelp`
+        DiagGroup category = DiagGroup::Analysis; ///< категория `-Whelp`
         bool enabled = false;
         std::optional<std::string> value;
+        FlagValidator validator; ///< валидатор допустимых значений value-флага (nullptr = нет)
     };
 
     /// Дельта изменения флага для отката push/pop.
     struct FlagDelta {
-        FlagKind kind;
+        std::string_view name;
         bool previous_enabled;
         std::optional<std::string> previous_value;
     };
 
-    std::unordered_map<OptKind, OptionEntry> by_kind_;
-    std::unordered_map<std::string, OptKind> name_to_kind_;
-    std::unordered_map<FlagKind, FlagEntry> flags_;
-    std::unordered_map<std::string, FlagKind> flag_name_to_kind_;
+    void add_impl(std::string_view name, std::string_view help, Severity default_severity, WarnGroup warn_groups, DiagGroup category);
+    void add_flag_impl(std::string_view name, std::string_view help, DiagGroup category);
+
+    std::unordered_map<std::string_view, OptionEntry> by_name_;
+    std::unordered_map<std::string_view, FlagEntry> flags_;
     std::stack<std::vector<OptionDelta>> history_;
     std::stack<std::vector<FlagDelta>> flag_history_;
+    bool help_requested_ = false;
+    /// Глобальный `-Werror`: повышает все предупреждения до ошибок (стиль clang/gcc).
+    bool m_werror = false;
     DiagnosticEngine* m_diag = nullptr;
 };
 

@@ -1,4 +1,4 @@
-// trust/dict.hpp — universal heterogeneous dictionary for the Trust runtime.
+// trust/dict.hpp - universal heterogeneous dictionary for the Trust runtime.
 //
 // Public runtime header: self-contained (standard headers only) so that generated
 // C++ programs can include it without depending on the compiler's include tree.
@@ -14,7 +14,7 @@
 //     value of any type, including a nested Dict.
 //   - Elements are accessed by integer index (0-based; negative = from the end)
 //     or by name when present (empty name = unnamed positional element).
-//   - It is deliberately not the fastest container — the goal is maximum
+//   - It is deliberately not the fastest container - the goal is maximum
 //     universality and easy conversion to/from any concrete data type.
 //   - Errors are reported with standard exceptions (std::out_of_range /
 //     std::bad_any_cast) so the header stays self-contained and usable without
@@ -35,12 +35,12 @@
 #include <variant>
 #include <vector>
 
-// Rational (pimpl, полный тип без gmp.h) — встраивается по значению в быструю ветку variant.
+// Rational (pimpl, полный тип без gmp.h) - встраивается по значению в быструю ветку variant.
 #include "rational.hpp"
 
 namespace trust {
 
-// Логический тип TrustLang — TypeKind (кодировка Group(0-7)|Data(8-15)|…), тот же тип-алиас,
+// Логический тип TrustLang - TypeKind (кодировка Group(0-7)|Data(8-15)|…), тот же тип-алиас,
 // что и в компиляторе (types/typekind.hpp: `using TypeKind = uint32_t`). Рантайм-заголовок
 // самодостаточен и не включает дерево компилятора, поэтому алиас объявлен здесь (один и тот же
 // формат). Поле kind объявлено через TypeKind, а не голый uint32_t, чтобы тип-намерение был
@@ -55,17 +55,17 @@ template <typename T>
 [[nodiscard]] T typedGet(const TypedValue& tv);
 } // namespace detail
 
-/// Типизированное значение элемента словаря: само значение + kind — TypeKind (логический
+/// Типизированное значение элемента словаря: само значение + kind - TypeKind (логический
 /// тип TrustLang, закодирован как Group|Data).
 ///
 /// Значение хранится в std::variant из ОБОБЩЁННЫХ C++-типов (быстрая ветка для заранее
 /// известных категорий: числа/bool/строки/Rational) + std::any (открытые/реестровые типы, в т.ч.
-/// вложенный Dict — из-за круговой зависимости TypedValue↔Dict по значению). Rational хранится
-/// ПО ЗНАЧЕНИЮ (pimpl, полный тип без gmp.h); копирование — внутренний deep-copy, без разделения.
+/// вложенный Dict - из-за круговой зависимости TypedValue↔Dict по значению). Rational хранится
+/// ПО ЗНАЧЕНИЮ (pimpl, полный тип без gmp.h); копирование - внутренний deep-copy, без разделения.
 /// Точный тип и размерность всегда в kind (Group|Data); storage хранит только обобщение:
 /// int8..int64 → int64_t, uint8..uint64 → uint64_t, float/double → double. Такой доступ не требует
 /// typeid-каскада: ветка выбирается по группе (std::get), размерность кастуется static_cast по
-/// data() из kind. Декодирование kind — автономно, без TypeRegistry: кодировка самодостаточна.
+/// data() из kind. Декодирование kind - автономно, без TypeRegistry: кодировка самодостаточна.
 struct TypedValue {
     TypeKind kind = 0; ///< TypeKind: Group(0-7) | Data/размерность(8-15).
     std::variant<std::monostate, bool, std::int64_t, std::uint64_t, double, std::string, std::wstring, std::any, Rational>
@@ -75,17 +75,17 @@ struct TypedValue {
 
     /// Конструирует значение с типом kind. В быструю ветку variant кладёт значение, если его
     /// C++-тип соответствует группе kind (число → обобщение, строка → строка, bool → bool);
-    /// иначе — в std::any (в т.ч. вложенный Dict и реестровые/открытые типы).
+    /// иначе - в std::any (в т.ч. вложенный Dict и реестровые/открытые типы).
     template <typename T>
     TypedValue(TypeKind k, T&& v)
     : kind(k) {
         store(std::forward<T>(v));
     }
 
-    /// ── Декодирование TypeKind (биты, как в types/typekind.hpp) ──
+    /// -- Декодирование TypeKind (биты, как в types/typekind.hpp) --
     /// Группа (логическая категория), биты 0-7.
     [[nodiscard]] uint8_t group() const noexcept { return static_cast<uint8_t>(kind & 0xFFu); }
-    /// Data — размерность в битах / код, биты 8-15.
+    /// Data - размерность в битах / код, биты 8-15.
     [[nodiscard]] uint8_t data() const noexcept { return static_cast<uint8_t>((kind >> 8) & 0xFFu); }
 
     [[nodiscard]] bool isBool() const noexcept { return group() == kGroupLogical; }
@@ -170,7 +170,7 @@ struct TypedValue {
             }
         } else if constexpr (std::is_same_v<DT, Rational>) {
             if (g == kGroupRationals) {
-                storage = std::forward<T>(v); // по значению; копирование — внутренний deep-copy Rational
+                storage = std::forward<T>(v); // по значению; копирование - внутренний deep-copy Rational
                 return;
             }
         }
@@ -178,7 +178,7 @@ struct TypedValue {
     }
 
   private:
-    // Значения Group из types/group.hpp — кодировка TypeKind (ABI рантайма).
+    // Значения Group из types/group.hpp - кодировка TypeKind (ABI рантайма).
     static constexpr uint8_t kGroupLogical = 2;
     static constexpr uint8_t kGroupIntegers = 3;
     static constexpr uint8_t kGroupUnsigned = 4;
@@ -202,7 +202,7 @@ class Dict {
     Dict(std::initializer_list<element_type> items)
     : m_items(items) {}
 
-    /// Доступ по целочисленному индексу (0-базовый; отрицательный — с конца).
+    /// Доступ по целочисленному индексу (0-базовый; отрицательный - с конца).
     value_type& at(int64_t index);
     const value_type& at(int64_t index) const;
 
@@ -222,7 +222,7 @@ class Dict {
     /// чтобы избежать случайных неявных конверсий в арифметике.
     [[nodiscard]] explicit operator bool() const noexcept { return !m_items.empty(); }
 
-    /// Добавление элемента (имя может быть пустым — позиционный элемент).
+    /// Добавление элемента (имя может быть пустым - позиционный элемент).
     void push_back(std::string name, value_type value) { m_items.emplace_back(std::move(name), std::move(value)); }
 
     /// Слияние: добор всех элементов другого словаря (копия пар «имя, значение»).
@@ -298,7 +298,7 @@ class Dict {
     container_type m_items;
 };
 
-// ── inline implementations ────────────────────────────────────────────────
+// -- inline implementations ------------------------------------------------
 
 inline TypedValue& Dict::at(int64_t index) {
     return m_items[normalize_index(index, m_items.size())].second;
@@ -443,9 +443,9 @@ namespace detail {
     return std::to_string(anyToDouble(v));
 }
 
-/// ── Типизированный доступ по TypeKind (быстрая ветка std::variant) ──
+/// -- Типизированный доступ по TypeKind (быстрая ветка std::variant) --
 /// Ветка выбирается по группе (std::get_if), без typeid-каскада; размерность кастуется по
-/// data() из kind. std::any-ветка (открытые/реестровые типы) — прежний anyTo* путь.
+/// data() из kind. std::any-ветка (открытые/реестровые типы) - прежний anyTo* путь.
 
 /// Приведение TypedValue к int64_t по группе (числа/bool/строки).
 [[nodiscard]] inline int64_t typedToInt64(const TypedValue& tv) {
@@ -489,7 +489,7 @@ namespace detail {
             return p->GetAsInteger();
         }
     }
-    // std::any-ветка (несоответствие типа при конструировании) — прежний anyToInt64.
+    // std::any-ветка (несоответствие типа при конструировании) - прежний anyToInt64.
     if (const std::any* a = std::get_if<std::any>(&tv.storage)) {
         return anyToInt64(*a);
     }
@@ -552,7 +552,7 @@ namespace detail {
 
 /// Сравнение двух std::any по значению (std::any не имеет operator==).
 /// Для типов, не перечисленных ниже, значения считаются равными только при
-/// совпадении type() и отсутствии значения. Универсальность — важнее полноты.
+/// совпадении type() и отсутствии значения. Универсальность - важнее полноты.
 [[nodiscard]] inline bool anyEqual(const std::any& a, const std::any& b) {
     if (a.type() != b.type()) {
         return false;
@@ -588,12 +588,12 @@ namespace detail {
     if (t == typeid(Dict)) {
         return std::any_cast<Dict>(a) == std::any_cast<Dict>(b);
     }
-    return false; // неизвестный тип — консервативно: не равны
+    return false; // неизвестный тип - консервативно: не равны
 }
 
 /// Сравнение двух TypedValue по значению: сравнение хранимой ветки variant напрямую
-/// (числа/bool/строки — без typeid) либо std::any через anyEqual. kind сравнивается отдельно
-/// в Dict::operator==; здесь — только значения.
+/// (числа/bool/строки - без typeid) либо std::any через anyEqual. kind сравнивается отдельно
+/// в Dict::operator==; здесь - только значения.
 [[nodiscard]] inline bool typedEqual(const TypedValue& a, const TypedValue& b) {
     if (const bool* x = std::get_if<bool>(&a.storage)) {
         const bool* y = std::get_if<bool>(&b.storage);
@@ -632,7 +632,7 @@ namespace detail {
 }
 
 /// Типизированный доступ к значению TypedValue по C++-типу T. Для быстрой ветки variant
-/// выбирается альтернатива по категории T (без typeid); для прочих типов — std::any_cast из
+/// выбирается альтернатива по категории T (без typeid); для прочих типов - std::any_cast из
 /// std::any-ветки. Несовпадение категории T с хранимой веткой → std::bad_any_cast.
 template <typename T>
 [[nodiscard]] inline T typedGet(const TypedValue& tv) {
@@ -721,7 +721,7 @@ template <typename T>
     if (tv.isRational()) {
         return typedToStr(tv); // Rational::GetAsString() → "num\den"
     }
-    // Вложенный Dict и открытые типы — в std::any-ветке.
+    // Вложенный Dict и открытые типы - в std::any-ветке.
     if (const std::any* a = std::get_if<std::any>(&tv.storage); a && a->has_value()) {
         if (a->type() == typeid(Dict)) {
             return dictToString(std::any_cast<const Dict&>(*a));
@@ -792,7 +792,7 @@ struct formatter<::trust::TypedValue> : formatter<string> {
 
 // Специализация std::formatter для trust::Dict: печать целого словаря через print/std::format
 // в виде литерала `(имя=значение, ...)` (как dictToString). Позволяет выводить словарь целиком
-// с именами элементов — в отличие от одиночного доступа `d.name` (только значение).
+// с именами элементов - в отличие от одиночного доступа `d.name` (только значение).
 template <>
 struct formatter<::trust::Dict> : formatter<string> {
     auto format(const ::trust::Dict& d, format_context& ctx) const { return formatter<string>::format(::trust::detail::dictToString(d), ctx); }

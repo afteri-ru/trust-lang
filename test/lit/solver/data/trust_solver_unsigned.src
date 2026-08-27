@@ -1,0 +1,27 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Беззнаковые целые (UInt32 → kUnsigned → BitVec) используют БЕЗЗНАКОВЫЕ BV-операторы
+# (bvult/bvugt/bvuge), а не знаковые bvs*: корректность контрактов над беззнаковыми.
+#   f(x:UInt32) post f < x при f==x → x<x (x==x) — нарушение → SAT.
+#   g(x:UInt32) pre x>0, post g>=x при g==x → x>=x — выполняется → UNSAT.
+
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun f_x () (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (bvult f_x f_x)))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((f_x (_ BitVec 32))) (bvult (f f_x) f_x)))
+# SM2: (declare-fun g_x () (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (and (bvugt g_x (_ bv0 32)) (not (bvuge g_x g_x))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((g_x (_ BitVec 32))) (=> (bvugt g_x (_ bv0 32)) (bvuge (g g_x) g_x))))
+
+# Z3: sat
+# Z3: unsat
+
+f(x:UInt32):UInt32 trust_post( f < x ) := { return x; };
+g(x:UInt32):UInt32 trust_pre( x > 0 ) trust_post( g >= x ) := { return x; };

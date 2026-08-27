@@ -2,14 +2,16 @@
 
 // include/semantic/lint.hpp
 // Опциональный анализатор (InlineAnalysisHook), подключаемый параллельно к ядру
-// разрешения имён. Сообщает о неиспользуемых переменных. Режим задаётся строковым
-// значением флага FlagKind::Lint:
-//   - (пусто/не задано) — severity из OptKind::UnusedVar;
-//   - "aggressive"      — диагностика становится Error (жёсткая проверка).
+// разрешения имён. Сообщает о неиспользуемых переменных (semantic::DiagId::UnusedVariable)
+// и параметрах функций (semantic::DiagId::UnusedParameter). Режим задаётся строковым
+// значением флага semantic::FlagKind::Lint:
+//   - (пусто/не задано) - severity из semantic::DiagId::UnusedVariable/UnusedParameter;
+//   - "aggressive"      - диагностика становится Error (жёсткая проверка).
 
 #include "semantic/inline_hook.hpp"
 #include "semantic/pass.hpp"
 #include "semantic/symbol_table.hpp"
+#include "semantic/diag.hpp"
 
 #include <map>
 #include <set>
@@ -21,7 +23,7 @@ class LintHook : public InlineAnalysisHook {
   public:
     explicit LintHook(AnalysisContext& actx);
 
-    std::optional<FlagKind> gateFlag() const override { return FlagKind::Lint; }
+    std::optional<semantic::FlagKind> gateFlag() const override { return semantic::FlagKind::Lint; }
 
     void onDeclare(const Symbol& sym) override;
     void onResolve(const AstNodeBase& node, const Symbol* sym) override;
@@ -30,7 +32,8 @@ class LintHook : public InlineAnalysisHook {
   private:
     AnalysisContext& m_actx;
     bool m_aggressive;
-    std::map<std::string, MapperRange> m_declared;
+    /// name -> {is_parameter, range}
+    std::map<std::string, std::pair<bool, MapperRange>> m_declared;
     std::set<std::string> m_used;
 };
 
