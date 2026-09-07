@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Whole-if область: маркер @__CHECK_AREA__(if) ВНЕ if (в теле функции) -> ошибка.
+# CHECK: error: @__CHECK_AREA__: macro allowed only inside area 'if', but current area is 'function, module'
+@f() : Int32 := {
+    @__CHECK_AREA__(if, error);
+    return 0;
+};

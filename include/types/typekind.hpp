@@ -9,139 +9,169 @@ namespace trust {
 // -- Forward declarations --------------------------------
 enum class Group : uint8_t;
 enum class TypeClass : uint8_t;
-enum class RefType : uint8_t;
+// ИНВАРИАНТ (двухосевая модель): RefType смешивает две независимые оси - ВЛАДЕНИЕ временем
+// жизни (value/shared/weak/unique) и ДОСТУП к объекту (сырой `&`/`*` против охраняемого
+// `locker`). `kLocker` - охраняемый доступ ТОЛЬКО к reference-wrapper (trust::Shared/Weak,
+// результат lock()/lock_const()); сырые ссылки (ptr/ref/rref) и unique_ptr локера НЕ имеют
+// (другая идеология - прямой доступ без guard'а). Null-безопасность - отдельная ось (контракт
+// типа), а не guard-объект.
+//
+// ИНВАРИАНТ (одноуровневое пересечение в операторе): многоуровневая ссылочность как ТИП
+// разрешена (каждый уровень - отдельно объявленный тип, напр. `Locker<Locker<T>>`), НО
+// пересечение нескольких уровней в ОДНОМ операторе/инструкции запрещено: каждый уровень
+// обрабатывается отдельной операцией над отдельным типом (сначала один, потом следующий).
+// Цепочечного `**`/`ref.lock().lock()` в одном выражении нет.
+//
 
-// -- SizeUnit (bits or bytes) ----------------------------
-enum class SizeUnit : uint8_t {
-    kBits = 0,
-    kBytes = 1,
-};
-
-// -- TypeKind ---------------------------------------------
-// 32-bit: Group(8) + Data(8) + RefType(4) + TypeClass(2) + SizeUnit(1) + Reserved(9)
+// -- TypeKind: uint32_t, упакованные характеристики типа (битовая структура - types/TYPE.md) --
 using TypeKind = uint32_t;
 
-// -- Bit positions ----------------------------------------
+// Сдвиги/маски битовых полей TypeKind (TYPE.md «Битовая структура TypeKind»):
+//   [0-7] Group | [8-15] Data | [16-19] RefType | [20-21] TypeClass | [22] SizeUnit |
+//   [23] BuiltinFlag | [24] TrustFlag | [25] HasAttrsFlag | [26-31] reserved
 constexpr uint32_t kTypeKindGroupShift = 0;
-constexpr uint32_t kTypeKindGroupMask = 0xFFU << kTypeKindGroupShift;
-
+constexpr uint32_t kTypeKindGroupMask = 0x000000FFu;
 constexpr uint32_t kTypeKindDataShift = 8;
-constexpr uint32_t kTypeKindDataMask = 0xFFU << kTypeKindDataShift;
-
+constexpr uint32_t kTypeKindDataMask = 0x0000FF00u;
 constexpr uint32_t kTypeKindRefTypeShift = 16;
-constexpr uint32_t kTypeKindRefTypeMask = 0xFU << kTypeKindRefTypeShift;
-
+constexpr uint32_t kTypeKindRefTypeMask = 0x000F0000u;
 constexpr uint32_t kTypeKindClassShift = 20;
-constexpr uint32_t kTypeKindClassMask = 0x3U << kTypeKindClassShift;
-
+constexpr uint32_t kTypeKindClassMask = 0x00300000u;
 constexpr uint32_t kTypeKindSizeUnitShift = 22;
-constexpr uint32_t kTypeKindSizeUnitMask = 0x1U << kTypeKindSizeUnitShift;
+constexpr uint32_t kTypeKindSizeUnitMask = 0x00400000u;
+constexpr uint32_t kTypeKindBuiltinFlagShift = 23;
+constexpr uint32_t kTypeKindBuiltinFlagMask = 0x00800000u;
+constexpr uint32_t kTypeKindTrustFlagShift = 24;
+constexpr uint32_t kTypeKindTrustFlagMask = 0x01000000u;
+// HasAttrsFlag: признак «тип несёт атрибуты» (привязка к типу в реестре). Используется как
+// fast-path-сигнал при сравнении типов: если у ОБОИХ типов флага нет, сравнение по TypeId
+// (без реестра); если флаг есть хоть у одного - требуется доступ к TypeRegistry
+// (TypeRegistry::typesEqual). Аналогичен kTrustFlag (семантический дифференциатор).
+constexpr uint32_t kTypeKindAttrsFlagShift = 25;
+constexpr uint32_t kTypeKindAttrsFlagMask = 0x02000000u;
 
-constexpr uint32_t kTypeKindReservedShift = 23;
-constexpr uint32_t kTypeKindReservedMask = 0x1FFU << kTypeKindReservedShift;
-
-// -- Builtin flag ------------------------------------------
-// Бит флага "встроенный тип". Устанавливается registerBuiltinType(),
-// позволяет определить builtin-тип по TypeKind без доступа к TypeRegistry.
-constexpr uint32_t kTypeKindBuiltinFlag = 0x1U << kTypeKindReservedShift;
-constexpr uint32_t kTypeKindBuiltinMask = kTypeKindBuiltinFlag;
-
-constexpr TypeKind setBuiltinFlag(TypeKind k) noexcept {
-    return static_cast<TypeKind>(static_cast<uint32_t>(k) | kTypeKindBuiltinFlag);
-}
-
-constexpr bool hasBuiltinFlag(TypeKind k) noexcept {
-    return (static_cast<uint32_t>(k) & kTypeKindBuiltinFlag) != 0;
-}
-// -- TypeClass --------------------------------------------
+// -- TypeClass (0..3) --------------------------------------
 enum class TypeClass : uint8_t {
-    kTrivial = 0,     // memcpy ok, no ctor/dtor
-    kRelocatable = 1, // memcpy + destroy old
-    kComplex = 2,     // full ctor/dtor/move
-    kPolymorphic = 3, // vtable, dynamic_cast
+    kTrivial = 0,     // trivially copyable/relocatable
+    kRelocatable = 1, // relocatable (move = memcpy)
+    kComplex = 2,     // non-trivial copy/move
+    kPolymorphic = 3, // virtual (polymorphic)
 };
 
-// -- RefType ----------------------------------------------
-// Плоский enum «вид ссылки». ОДИН признак ссылки на объявление - осознанное решение
-// для упрощения понимания системы ссылочных типов (НЕ следствие 4-битного поля),
-// подробно: types/REFType.md. Первая ссылка на тип без признака - fast-path бит
-// (withRefType); для вложенности (ссылку на уже ссылочный тип) создаётся составной
-// узел getOrCreateRefType (types/registry.hpp). Сырые C++-виды (ptr/ref/rref/mptr/ptrptr)
-// напрямую операторами не используются - только через атрибут `@[reftype("...")]`;
-// классические операторы дают безопасные виды (value/shared/weak/unique).
+// -- SizeUnit (0..1) ---------------------------------------
+enum class SizeUnit : uint8_t {
+    kBits = 0, // Data - в битах
+    kBytes = 1 // Data - в байтах
+};
+
+// -- Builtin / Trust flag helpers --------------------------
+constexpr bool hasBuiltinFlag(TypeKind k) noexcept {
+    return (k & kTypeKindBuiltinFlagMask) != 0;
+}
+constexpr TypeKind setBuiltinFlag(TypeKind k) noexcept {
+    return static_cast<TypeKind>(k | kTypeKindBuiltinFlagMask);
+}
+constexpr bool hasTrustFlag(TypeKind k) noexcept {
+    return (k & kTypeKindTrustFlagMask) != 0;
+}
+constexpr TypeKind setTrustFlag(TypeKind k) noexcept {
+    return static_cast<TypeKind>(k | kTypeKindTrustFlagMask);
+}
+// HasAttrsFlag - признак «тип несёт атрибуты» (быстрый путь при сравнении типов).
+constexpr bool hasAttrsFlag(TypeKind k) noexcept {
+    return (k & kTypeKindAttrsFlagMask) != 0;
+}
+constexpr TypeKind setAttrsFlag(TypeKind k) noexcept {
+    return static_cast<TypeKind>(k | kTypeKindAttrsFlagMask);
+}
+
+// X-macro: единый источник для вида ссылки (RefType). Каждая запись несёт:
+//   (kind, мнемоническое имя, значение бита, C++-имя шаблона-обёртки).
+// Мнемоническое имя используется в `@[reftype("...")]` и диагностике; C++-имя обёртки
+// (trust::Shared / trust::Weak / trust::Locker / std::unique_ptr) - в кодогенерации
+// getCppTypeName (registry.cpp), чтобы НЕ хардкодить имя класса вручную.
+// Для не-обёрточных видов (value/ptr/mptr/ref/rref/ptrptr) C++-имя шаблона пустое.
+#define TRUST_REF_TYPE_TYPES(X)                \
+    X(kValue, "value", 0, /*cpp*/ "")          \
+    X(kShared, "shared", 1, "trust::Shared")   \
+    X(kWeak, "weak", 2, "trust::Weak")         \
+    X(kUnique, "unique", 3, "std::unique_ptr") \
+    X(kPtr, "ptr", 4, /*cpp*/ "")              \
+    X(kMptr, "mptr", 5, /*cpp*/ "")            \
+    X(kRef, "ref", 6, /*cpp*/ "")              \
+    X(kRref, "rref", 7, /*cpp*/ "")            \
+    X(kPtrPtr, "ptrptr", 8, /*cpp*/ "")        \
+    X(kLocker, "locker", 9, "trust::Locker")
+
 enum class RefType : uint8_t {
-    kValue = 0,  // value  - владение значением (без ссылки)
-    kShared = 1, // shared - совместное владение
-    kWeak = 2,   // weak   - слабая (не владеющая) ссылка
-    kUnique = 3, // unique - исключительное владение
-    kPtr = 4,    // ptr    - сырой указатель (*), только через атрибут
-    kMptr = 5,   // mptr   - указатель на член (::*), MemberPointerTypeData
-    kRef = 6,    // ref    - ссылка (&), только через атрибут
-    kRref = 7,   // rref   - rvalue-ссылка (&&), только через атрибут
-    kPtrPtr = 8, // ptrptr - указатель на указатель (**)
-    kTake = 9,   // take   - владеющая в рамках текущего скоупа (RAII-охранник, результат take)
-    // 10-15 reserved
+#define TRUST_REF_TYPE_GEN_ENUM(kind, name, value, cpp) kind = value,
+    TRUST_REF_TYPE_TYPES(TRUST_REF_TYPE_GEN_ENUM)
+#undef TRUST_REF_TYPE_GEN_ENUM
 };
 
-// -- Строковые имена видов ссылок (для @[reftype("...")] и диагностики) --
+// -- Строковое имя вида ссылки (для @[reftype("...")] и диагностики) --
 [[nodiscard]] constexpr std::string_view refTypeName(RefType r) noexcept {
     switch (r) {
-    case RefType::kValue:
-        return "value";
-    case RefType::kShared:
-        return "shared";
-    case RefType::kWeak:
-        return "weak";
-    case RefType::kUnique:
-        return "unique";
-    case RefType::kPtr:
-        return "ptr";
-    case RefType::kMptr:
-        return "mptr";
-    case RefType::kRef:
-        return "ref";
-    case RefType::kRref:
-        return "rref";
-    case RefType::kPtrPtr:
-        return "ptrptr";
-    case RefType::kTake:
-        return "take";
+#define TRUST_REF_TYPE_GEN_NAME(kind, name, value, cpp) \
+    case RefType::kind:                                 \
+        return name;
+        TRUST_REF_TYPE_TYPES(TRUST_REF_TYPE_GEN_NAME)
+#undef TRUST_REF_TYPE_GEN_NAME
     }
     return "unknown";
+}
+
+// -- C++-имя шаблона-обёртки (для кодогена getCppTypeName); пусто для не-обёрточных видов --
+[[nodiscard]] constexpr std::string_view refTypeCppTemplateName(RefType r) noexcept {
+    switch (r) {
+#define TRUST_REF_TYPE_GEN_CPP(kind, name, value, cpp) \
+    case RefType::kind:                                \
+        return cpp;
+        TRUST_REF_TYPE_TYPES(TRUST_REF_TYPE_GEN_CPP)
+#undef TRUST_REF_TYPE_GEN_CPP
+    }
+    return "";
 }
 
 // Обратный маппинг строки → RefType. Неизвестное имя → std::nullopt (вызывающая
 // сторона обязана выдать диагностику, см. AGENTS п.5: без тихого fallback).
 [[nodiscard]] inline std::optional<RefType> refTypeFromString(std::string_view s) noexcept {
-    if (s == "value") {
-        return RefType::kValue;
+#define TRUST_REF_TYPE_GEN_MAP(kind, name, value, cpp) {name, RefType::kind},
+    static constexpr std::pair<std::string_view, RefType> kRefTypeMap[] = {TRUST_REF_TYPE_TYPES(TRUST_REF_TYPE_GEN_MAP)};
+#undef TRUST_REF_TYPE_GEN_MAP
+    for (const auto& [n, k] : kRefTypeMap) {
+        if (s == n) {
+            return k;
+        }
     }
-    if (s == "shared") {
+    return std::nullopt;
+}
+
+// ЕДИНЫЙ источник отображения СИМВОЛИЧЕСКОГО сигла ссылочного типа (позиция декларации/типа)
+// на вид ссылки (RefType). Сигл - текст ref-оператора, который всегда начинается с `&`
+// (`&&` → shared, `&*` → unique, `&?` → weak); вид ссылки задаётся ПЕРЕД именем переменной
+// (`&& x : Int32`) или в аннотации (`x : &&Int32`). Одиночные `&`/`*` в позиции объявления НЕ
+// используются (это операторы: `&` - address-of, `*` - разыменование, см. SYNTAX.md).
+// Нативные (сырые) C++-операторы: `%&` → kRef (`Type&`, нативная ссылка; в выражении - address-of,
+// контекст `T&`/`T*` задаёт левый оператор создания/присваивания), `%*` → kPtr (`Type*`, указатель).
+// `%&&` и константные `%&^`/`%&&^`/`%*^` удалены: константность - через атрибут @[readonly@] (`^` на
+// имени), вид нативной ссылки - один оператор `%&`. В выражении `&`/`*` - операторы (см. SYNTAX.md).
+// Неизвестный сигл → std::nullopt (вызывающая сторона обязана выдать диагностику).
+[[nodiscard]] inline std::optional<RefType> refTypeFromTypeSigil(std::string_view sigil) noexcept {
+    if (sigil == "&&") {
         return RefType::kShared;
     }
-    if (s == "weak") {
-        return RefType::kWeak;
-    }
-    if (s == "unique") {
+    if (sigil == "&*") {
         return RefType::kUnique;
     }
-    if (s == "ptr") {
-        return RefType::kPtr;
+    if (sigil == "&?") {
+        return RefType::kWeak;
     }
-    if (s == "mptr") {
-        return RefType::kMptr;
-    }
-    if (s == "ref") {
+    if (sigil == "%&") {
         return RefType::kRef;
     }
-    if (s == "rref") {
-        return RefType::kRref;
-    }
-    if (s == "ptrptr") {
-        return RefType::kPtrPtr;
-    }
-    if (s == "take") {
-        return RefType::kTake;
+    if (sigil == "%*") {
+        return RefType::kPtr;
     }
     return std::nullopt;
 }

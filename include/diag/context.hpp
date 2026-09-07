@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <expected>
 #include <format>
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -89,6 +90,26 @@ class Context {
     /// Все зарегистрированные макроопределения (не теряются после PopScope модуля).
     const std::vector<MacroDef>& macroDefs() const noexcept { return m_macroDefs; }
 
+    // -- ЕДИНОЕ глобальное хранилище доков макросов --
+    /// Переопределяет док УЖЕ СУЩЕСТВУЮЩЕГО макроса (прагма `@__PRAGMA_DOC__`).
+    /// Ключ нормализуется (ведущий '@' срезается - ключ группы = первый терм).
+    /// Возвращает false, если такого макроса (ключа) в хранилище нет - ничего не пишет
+    /// (прагма выдаёт error). Ограничение: один док на макрос; для группы с разными
+    /// арностями (break, break $label, break $a $b) побеждает последняя запись.
+    static bool setMacroDoc(std::string name, std::string doc);
+    /// Вставляет/обновляет док макроса (для записи `##`-доков через recordMacro и
+    /// сидирования дефолтов предdef-макросов). Ключ нормализуется так же.
+    static void addMacroDoc(std::string name, std::string doc);
+    /// Док макроса по ключу - читается и с ведущим '@', и без (нормализуется).
+    /// nullptr, если дока нет.
+    static const std::string* macroDoc(std::string_view name) noexcept;
+    /// Единственный источник доков макросов (ключ = первый терм без '@').
+    /// Используется LSP (BuiltinCatalog::macroDocs(), hover/completion) напрямую - БЕЗ копии.
+    /// Карта с прозрачным компаратором std::less<> - поиск по string_view без временной строки.
+    static const std::map<std::string, std::string, std::less<>>& macroDocs() noexcept { return m_macroDocs; }
+    /// Очищает глобальное хранилище доков (для тестов).
+    static void clearMacroDocs() noexcept { m_macroDocs.clear(); }
+
     // -- Макро-счётчики --
     /// Возвращает текущее значение счётчика макросов и инкрементирует его.
     int nextMacroCounter() { return m_macroCounter++; }
@@ -106,13 +127,15 @@ class Context {
     void resetBlockCounter(int val = 1) { m_blockCounter = val; }
 
     // report - convenience-метод: берёт severity из Options, вызывает DiagnosticEngine::report.
-    template <typename... Args>
-    void report(MapperRange range, OptKind kind, std::format_string<Args...> fmt, Args&&... args) {
-        auto sev = opts().severity(kind);
-        if (!sev.has_value()) {
+    // kind - пер-компонентный id (ADL: diagName(kind) из namespace компоненты).
+    template <typename T, typename... Args>
+        requires std::is_enum_v<T>
+    void report(MapperRange range, T kind, std::format_string<Args...> fmt, Args&&... args) {
+        const Severity sev = opts().getByName(diagName(kind));
+        if (sev == Severity::Ignore) {
             return;
         }
-        diag().report(*sev, range, std::move(fmt), std::forward<Args>(args)...);
+        diag().report(sev, range, std::move(fmt), std::forward<Args>(args)...);
     }
 
   private:
@@ -125,6 +148,11 @@ class Context {
     ModuleLoader* m_moduleLoader = nullptr;  ///< Невладеющий: внедряется через setLoader()
     std::shared_ptr<Macro> m_macro;
     std::vector<MacroDef> m_macroDefs; ///< Реестр макроопределений для LSP
+
+    // Единое глобальное хранилище доков макросов (ключ = первый терм без '@').
+    // Статическое, т.к. это общий источник для всех контекстов/парсеров и LSP-каталога.
+    // Прозрачный компаратор std::less<> - heterogeneous lookup (поиск по string_view без аллокации).
+    static std::map<std::string, std::string, std::less<>> m_macroDocs;
 
     std::optional<std::size_t> m_currentModule; ///< Индекс текущего (активного) модуля
 

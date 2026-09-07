@@ -123,7 +123,7 @@ function computeBuildPaths(sourceFile, workspaceFolder, config) {
     const baseName = path.basename(sourceFile, '.src');
     const tempDir = config.get('tempDir', '.trust');
     const resolvedTempDir = resolveTempDir(tempDir, workspaceFolder);
-    const cppFile = path.join(resolvedTempDir, baseName + '.cpp');
+    const cppFile = path.join(resolvedTempDir, baseName + '.cppt');
     const targetFile = path.join(resolvedTempDir, baseName);
     return { cppFile, targetFile, tempDir: resolvedTempDir };
 }
@@ -138,7 +138,7 @@ function computeBuildPaths(sourceFile, workspaceFolder, config) {
  */
 function transpileSource(sourceFile, tempDir, compilerPath, workspaceFolder) {
     const baseName = path.basename(sourceFile, '.src');
-    const cppFile = path.join(tempDir, baseName + '.cpp');
+    const cppFile = path.join(tempDir, baseName + '.cppt');
 
     fs.mkdirSync(tempDir, { recursive: true });
 
@@ -172,7 +172,9 @@ function transpileSource(sourceFile, tempDir, compilerPath, workspaceFolder) {
  */
 function compileCpp(cppFile, targetFile, cppCompilerPath, cppCompilerOptions, workspaceFolder) {
     const options = (cppCompilerOptions || '-std=c++23 -g3 -O0').split(/\s+/).filter(s => s);
-    const args = [...options, '-o', targetFile, cppFile];
+    // -x c++ обязателен: сгенерированный файл имеет расширение .cppt, которое
+    // clang++ не распознаёт как C++ по расширению.
+    const args = ['-x', 'c++', ...options, '-o', targetFile, cppFile];
 
     try {
         const result = execSync(`"${cppCompilerPath}" ${args.map(a => `"${a}"`).join(' ')}`, {

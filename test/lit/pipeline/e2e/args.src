@@ -1,0 +1,25 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/args %s
+# RUN: $TD/args one two --name=World --flag --trust:verbosity=2 three > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: argv.size()=3
+# CHECK: argv[0]=one
+# CHECK: name=World
+# CHECK: flag=true
+#
+# Аргументы командной строки скомпилированной trust-программы:
+#   argv (Dict) - позиционные аргументы (элементы с пустым именем, доступ argv[0]);
+#   args (Dict) - именованные опции: --key=value / --key value / --flag -> "true"
+#                 (доступ args['key']).
+# Аргументы с префиксом среды "--trust:" (напр. --trust:verbosity=2) отделяются рантаймом
+# в `main()` и в argv/args НЕ попадают. Параметры объявлены read-only (`^`) - в C++
+# эмитится `const trust::Dict` (мутация невозможна). Разделитель `--`: всё после него -
+# позиционные аргументы.
+
+@main(argv^: Dict, args^: Dict) := {
+    @print('argv.size()={}\n', :Int32( {% $argv.size() %} ));
+    @print('argv[0]={}\n', argv[0]);
+    @print('name={}\n', args['name']);
+    @print('flag={}\n', args['flag']);
+    @return 0;
+}

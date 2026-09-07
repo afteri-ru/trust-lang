@@ -1,0 +1,10 @@
+# RUN: %trust --emit-cpp --solver-mode=assert %s > %t.cppt 2> %t.err
+# RUN: %FileCheck --implicit-check-not='trust condition(s) present' %s <%t.err
+
+# Вариант 1 (конвенция): когда активен явный поведенческий режим `--solver-mode=assert`,
+# presence-диагностика `-Wsolver` («trust condition(s) present») НЕ выдаётся (нет шума) -
+# пользователь явно верифицирует условия. Рантайм-проверки при этом генерируются
+# (см. trust_solver_assert.src).
+
+add(x:Int32):Int32 trust_pre( x > 0 ) trust_post( add >= 0 ) := { r := x + 1; return r; };
+y trust_assert( y > 0 ) := add(5);

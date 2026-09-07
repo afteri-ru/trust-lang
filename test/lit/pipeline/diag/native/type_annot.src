@@ -1,0 +1,14 @@
+# RUN: %trust -q --emit-cpp -Wnative-ref=ignore -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out --implicit-check-not='native (raw)'
+
+# Тип-аннотация нативных ссылок: `%name : %& type` → `type & name`, `%name : %* type` → `type * name`.
+# (маркер нативного вида ставится ТОЛЬКО перед типом данных; носитель нативной ссылки - нативная
+# переменная `%name`).
+@main() := {
+    x : Int32 := 5;
+    %r : %& Int32 := %& x;
+    %p : %* Int32 := %& x;
+    @print('r={}, p={}\n', %r, *%p);
+}
+# CHECK: This file was generated automatically
+# CHECK: int32_t& r = (c_x);
+# CHECK: int32_t* p = &(c_x);

@@ -1,0 +1,28 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Значение типа перечисления в match → C++ switch по лежащему целочисленному значению
+# (switch (_matchN.value)); шаблоны - члены enum (Color.RED) резолвятся в скалярные case-метки.
+# Несколько членов одного условия (@case(Color.GREEN, Color.BLUE)) → несколько case-меток ветки.
+Color ::= (RED=1, GREEN=2, BLUE=3,):Enum;
+c:Color := Color.GREEN;
+@match(c) ==> {
+    @case(Color.RED) { y := 1; };
+    @case(Color.GREEN, Color.BLUE) { y := 2; };
+    @default { y := 0; };
+};
+# CHECK: const c_Color c__match1 = c_c;
+# CHECK-NEXT: switch (c__match1.value) {
+# CHECK-NEXT:     case 1: {
+# CHECK-NEXT:         int8_t c_y = 1;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     break;
+# CHECK-NEXT:     case 2:
+# CHECK-NEXT:     case 3: {
+# CHECK-NEXT:         int8_t c_y = 2;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     break;
+# CHECK-NEXT:     default: {
+# CHECK-NEXT:         int8_t c_y = 0;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     break;
+# CHECK-NEXT: }

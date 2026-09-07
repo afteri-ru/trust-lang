@@ -21,6 +21,8 @@
 - No features beyond what was asked. No unrequested abstractions or "flexibility".
 - No error handling for impossible scenarios.
 - If you write 200-500 lines and it could be 50, rewrite.
+- Если размер исходного файла превышает 40-50кБ, то это кандидат для рефакторинга и раздления файла на по зонам ответственности (класам или логике).
+- Если размер исходного стал более 100кБ, то должен быть предолжен пран по его упрощению (раздлениею) на неслколько.
 
 ### 3. Surgical Changes
 
@@ -164,12 +166,15 @@ memory server**.
 
 ### Rules (summary)
 
-- The authoritative format - mandatory header metadata (`scope`, `role`, `last_reviewed`,
-  `review_period`, `max_size`) and required sections (`## Architecture`, `## Facts and
-  invariants`, `## Decisions`, `## Relations`), plus full rules on the size limit and periodic
-  review - is defined in `.clinerules/README.md`.
-- Detailed criteria of what may/must be stored in `MEMORY.md` - see `.clinerules/TASK.md`
-  («Component knowledge check»).
-- Key principles: store only briefly the facts **difficult to deduce** from the code/API/docs;
-  no temporary data, no bug/task status, no plans (those belong to `.tasklog/`); keep the file
-  under `max_size`; on each review update `last_reviewed`; check for duplicates before adding.
+- Authoritative format - mandatory header metadata (`scope`, `role`, `last_reviewed`,
+
+`review_period`, `max_size`) and mandatory sections (`## Architecture`, `## Facts and
+invariants`, `## Decisions`, `## Relations`), as well as full rules for size limits and periodic
+checks - are defined in `.clinerules/README.md`.
+
+- Detailed criteria for what can/should be stored in `MEMORY.md` - see `.clinerules/TASK.md`
+
+("Component Knowledge Check").
+
+- Key principles: store only brief facts that are **difficult to determine** from code/API/documentation;
+no timestamps, no error/task statuses, no plans (these should be in `.tasklog/`); the file must adhere to the `max_size` limit; Before adding, check for duplicates and, if necessary, shorten the information in the file, keeping the most important information in a more compact form; update the `last_reviewed` value after each review;

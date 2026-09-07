@@ -27,6 +27,137 @@
     // Имя текущего выбранного примера (для кеша на балансировщике: X-Example-Name).
     var curExampleName = '';
 
+    // --- Опциональные URL-параметры песочницы ---
+    // Позволяют открыть страницу в конкретном состоянии:
+    //   file=<имя примера>    - выбрать предопределённый файл из cfg.examples
+    //   win=src|cppt          - активное окно (Trust | Generated C++); default src
+    //   line=<n>, col=<m>     - позиция курсора (1-based; col default 1)
+    //   toLine=<n>, toCol=<m> - конец диапазона выделения (если заданы -> выделение)
+    // Все параметры опциональны; если line отсутствует - позицию не трогаем.
+    function parseUrlParams() {
+      var q = {};
+      var s = (location.search || '').replace(/^[?]/, '');
+      if (!s) { return q; }
+      var parts = s.split('&');
+      for (var i = 0; i < parts.length; i++) {
+        var kv = parts[i].split('=');
+        if (!kv[0]) { continue; }
+        var k, v = '';
+        try { k = decodeURIComponent(kv[0].replace(/\+/g, ' ')); } catch (e) { continue; }
+        if (kv.length > 1) { try { v = decodeURIComponent(kv.slice(1).join('=').replace(/\+/g, ' ')); } catch (e) {} }
+        q[k] = v;
+      }
+      return q;
+    }
+    var urlParams = parseUrlParams();
+    // Инициализируемый по URL пример (заполняется в populateExamples, читается в initEditors).
+    var initialExample = null;
+    function urlPos(v) { var n = parseInt(v, 10); return (isFinite(n) && n > 0) ? n : 0; }
+    var initLine = urlPos(urlParams.line);
+    var initCol = urlPos(urlParams.col) || 1;
+    var initToLine = urlPos(urlParams.toLine);
+    var initToCol = urlPos(urlParams.toCol) || 1;
+    // Окно, в которое ставим начальный курсор/выделение.
+    var initWindow = (urlParams.win === 'cppt' || urlParams.win === 'cpp') ? 'cppt' : 'src';
+    // Окно, в котором находится курсор (для построения share-URL). default src.
+    var activeWindow = 'src';
+    // Применено ли начальное состояние (cppt применяется после первой пере-транспиляции).
+    var initApplied = false;
+
+    // Применяет начальную позицию/выделение к указанному редактору, если окно совпало.
+    function applyInitialPosition(editor, which) {
+      if (which !== initWindow || initApplied) { return; }
+      if (!initLine || !editor || !editor.setPosition) { return; }
+      if (initLine > editor.getModel().getLineCount()) { return; }
+      activeWindow = which;
+      if (initToLine) {
+        editor.setSelection(new monaco.Range(initLine, initCol, initToLine, initToCol));
+      } else {
+        editor.setPosition({ lineNumber: initLine, column: initCol });
+      }
+      editor.revealLineInCenter(initLine);
+      editor.focus();
+      initApplied = true;
+    }
+
+    // Строит URL текущего состояния песочницы для копирования в буфер обмена.
+    // file включается только если текст не изменён относительно загруженного примера
+    // (иначе комбобокс показал бы «Custom», и file-параметр был бы некорректен).
+    function buildShareUrl() {
+      var ed = (activeWindow === 'cppt') ? cppEditor : trustEditor;
+      var base = location.href.split('#')[0].split('?')[0];
+      var parts = [];
+      function add(k, v) { if (v !== '' && v != null) { parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v)); } }
+      var fname = '';
+      if (curExampleName) {
+        var txt = (trustEditor && trustEditor.getValue) ? trustEditor.getValue() : '';
+        if (txt === loadedSource) { fname = curExampleName; }
+      }
+      add('file', fname);
+      add('win', activeWindow);
+      if (ed && ed.getSelection) {
+        var sel = ed.getSelection();
+        if (sel) {
+          add('line', sel.startLineNumber);
+          add('col', sel.startColumn);
+          if (sel.startLineNumber !== sel.endLineNumber || sel.startColumn !== sel.endColumn) {
+            add('toLine', sel.endLineNumber);
+            add('toCol', sel.endColumn);
+          }
+        }
+      }
+      return parts.length ? base + '?' + parts.join('&') : base;
+    }
+
+    // Копирование текста в буфер обмена: navigator.clipboard + фолбэк (textarea/execCommand).
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function (resolve, reject) {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          var ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          if (ok) { resolve(); } else { reject(new Error('copy failed')); }
+        } catch (e) { reject(e); }
+      });
+    }
+
+    // Показывает в статус-баре текст диапазона + ссылку-копирование актуального URL.
+    function appendShareLink() {
+      if (!status) { return; }
+      var a = document.createElement('a');
+      a.className = 'tpl-copy';
+      a.href = '#';
+      a.title = 'Скопировать ссылку на текущее состояние песочницы';
+      a.textContent = '🔗 скопировать ссылку';
+      a.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var url = buildShareUrl();
+        copyText(url).then(function () {
+          var old = a.textContent;
+          a.textContent = '✓ скопировано';
+          setTimeout(function () { a.textContent = old; }, 1500);
+        }).catch(function () {
+          a.textContent = 'ошибка копирования';
+          setTimeout(function () { a.textContent = '🔗 скопировать ссылку'; }, 2000);
+        });
+      });
+      status.appendChild(a);
+    }
+    function showRange(text) {
+      if (!status) { return; }
+      status.textContent = '';
+      if (text) { status.appendChild(document.createTextNode(text + '  ')); }
+      appendShareLink();
+    }
+
     // Диагностики trust-lsp в логе приходят из stderr в формате
     // "файл:строка:колонка: severity: сообщение" (см. src/diag/diag.cpp). Такие строки
     // делаем кликабельными: клик переводит курсор редактора Trust на строку в исходнике.
@@ -170,17 +301,23 @@
     function populateExamples() {
       if (!examplesSel || !cfg.examples || cfg.examples.length === 0) { return; }
       var matched = -1;
+      var wantName = urlParams.file || '';
       for (var i = 0; i < cfg.examples.length; i++) {
         var opt = document.createElement('option');
         opt.value = i;
         opt.textContent = cfg.examples[i].name;
         examplesSel.appendChild(opt);
-        if (cfg.examples[i].source === cfg.source) { matched = i; }
+        // Приоритет: явный URL-параметр file; иначе - пример, совпадающий с cfg.source.
+        if (wantName && cfg.examples[i].name === wantName) { matched = i; }
+        else if (!wantName && cfg.examples[i].source === cfg.source) { matched = i; }
       }
       if (matched >= 0) {
         curExIndex = matched;
         curExampleName = cfg.examples[matched].name;
         examplesSel.selectedIndex = matched;
+        // Инициализируемый по URL (или дефолтный) пример: исходник подставим в initEditors,
+        // чтобы редактор Trust стартовал именно с него (и кеш-заголовок X-Example-Name был верным).
+        initialExample = cfg.examples[matched];
       } else {
         // Текущий текст не совпадает ни с одним примером → отключённая опция «Custom».
         var custom = document.createElement('option');
@@ -290,10 +427,19 @@
           monaco.languages.setMonarchTokensProvider('trust', __MONARCH__);
 
           trustEditor = monaco.editor.create(trustHost, {
-            value: cfg.source, language: 'trust', theme: 'vs',
+            // Стартовый текст: пример, выбранный URL-параметром file (или дефолтный cfg.source).
+            value: (initialExample ? initialExample.source : cfg.source), language: 'trust', theme: 'vs',
             readOnly: false, automaticLayout: true, scrollBeyondLastLine: false,
             minimap: { enabled: true }
           });
+          if (initialExample) {
+            // Синхронизируем состояние «загруженного примера» с фактическим исходником редактора,
+            // чтобы кеш-заголовок X-Example-Name и share-URL (file=) были корректны.
+            loadedSource = initialExample.source;
+            curExampleName = initialExample.name;
+          }
+          // Применяем начальную позицию/выделение для окна src сразу (контент уже в редакторе).
+          applyInitialPosition(trustEditor, 'src');
           cppEditor = monaco.editor.create(cppHost, {
             // Трансляция НЕ хранится в шаблоне страницы - правый редактор
             // стартует пустым и заполняется только из ответа балансировщика.
@@ -336,23 +482,26 @@
           }
 
           // Навигация + breadcrumb: подсветить соответствующие строки, прокрутить (если follow),
-          // и показать маппинг ТЕКУЩЕЙ строки в статус-баре («→ cpp: N»).
+          // показать маппинг ТЕКУЩЕЙ строки в статус-баре («→ cpp: N») и ссылку-копирование URL.
+          // activeWindow фиксирует окно с курсором для построения share-URL.
           trustEditor.onDidChangeCursorPosition(function (e) {
+            activeWindow = 'src';
             var l = e.position.lineNumber;
             var lines = (t2c[l] || []);
             cppDec = cppEditor.deltaDecorations(cppDec, mkDeco(lines, 'tpl-linked'));
             if (lines.length) {
               revealThrottled(cppEditor, lines[0], 'cpp');
-              setStatus('→ cpp: ' + lines.join(', '));
+              showRange('→ cpp: ' + lines.join(', '));
             }
           });
           cppEditor.onDidChangeCursorPosition(function (e) {
+            activeWindow = 'cppt';
             var l = e.position.lineNumber;
             var lines = (c2t[l] || []);
             trustDec = trustEditor.deltaDecorations(trustDec, mkDeco(lines, 'tpl-linked'));
             if (lines.length) {
               revealThrottled(trustEditor, lines[0], 'trust');
-              setStatus('→ trust: ' + lines.join(', '));
+              showRange('→ trust: ' + lines.join(', '));
             }
           });
 
@@ -433,6 +582,9 @@
               }
               cppEditor.setValue(data.cpp);
               t2c = data.trustToCpp || {}; c2t = data.cppToTrust || {};
+              // Для окна cppt начальную позицию/выделение применяем только после того,
+              // как правый редактор заполнен ответом балансировщика (guard initApplied).
+              applyInitialPosition(cppEditor, 'cppt');
               cppDec = cppEditor.deltaDecorations(cppDec, []);
               clearCppOverlay();
               setDownloadDisabled(false);

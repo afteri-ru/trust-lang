@@ -1,0 +1,57 @@
+#!../_build/trust --run -Wsigil=ignore
+#
+# Ссылочные переменные владения (умные ссылки) и основные операции с ними.
+# Маркер вида стоит ПЕРЕД именем переменной (и/или перед типом) и начинается с '&':
+#   `&&` - shared (trust::Shared, совместное владение),
+#   `&*` - unique (std::unique_ptr, исключительное владение),
+#   `&?` - weak   (trust::Weak, слабая, только из shared через `& var`).
+#
+# Доступ/мутация значения - разыменование `*var` (lock / checked_deref).
+# Swap-оператор `:=:`:
+#   `a :=: b`   - обмен САМИХ ссылок одного вида (std::swap ссылок);
+#   `*a :=: *b` - обмен ЗНАЧЕНИЙ (pointee) по ссылкам, в т.ч. ссылок РАЗНЫХ видов.
+# `with(l1 = *r1, l2 = *r2) { ... }` - одновременный захват (блокировка) нескольких
+# ссылок на весь блок.
+
+@main():Int32 := {
+    && s := 5:Int32;              # shared
+    &? w := & s;                  # weak (из shared через address-of `& s`)
+    &* u := 10:Int32;             # unique
+
+    @print('s={} w={} u={}\n', *s, *w, *u);
+
+    *s = 7;                       # мутация через shared (lock) - видна и weak
+    @print('s=7 -> w={} (weak видит тот же объект)\n', *w);
+
+    *u = 11;                      # мутация через unique (checked_deref)
+    @print('unique={}\n', *u);
+
+    # Обмен САМИХ ссылок одного вида (shared) - std::swap ссылок
+    && a := 1:Int32;
+    && b := 2:Int32;
+    a :=: b;
+    @print('swap refs (a<->b): a={} b={}\n', *a, *b);
+
+    &? c := & a;                  # ещё одна weak из shared
+    @print('weak c={}\n', *c);
+
+    # Обмен ЗНАЧЕНИЙ (pointee) по ссылкам РАЗНЫХ видов (shared и unique)
+    && p := 100:Int32;            # shared
+    &* q := 200:Int32;            # unique
+    @print('value-swap before: *p={} *q={}\n', *p, *q);
+    *p :=: *q;                    # std::swap данных (не самих ссылок)
+    @print('value-swap after : *p={} *q={}\n', *p, *q);
+
+    # with: одновременный захват (блокировка) нескольких ссылок
+    && m := 1:Int32;
+    && n := 2:Int32;
+    with(lm = *m, ln = *n) {      # два Locker удерживаются на весь блок
+        lm = lm + 10;             # мутация через лок lm
+        ln = ln + 20;             # мутация через лок ln
+    } else {
+        @print('capture failed\n');
+    };
+    @print('after with: m={} n={}\n', *m, *n);
+
+    return 0;
+}

@@ -1,0 +1,18 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Нативный класс с методами-интерфейсом (forward `:= ...`): методы `%size/%empty` регистрируются
+# на типе, доступ `s.%size()` эмитит `(c_s).size()` (нативное имя без '%'), инклуд on-use.
+@include("string")
+MyStr ::= %std::string {
+    %size(): UInt64 := ...;
+    %empty(): Bool := ...;
+};
+
+s: MyStr := 0;
+n: UInt64 := s.%size();
+b: Bool := s.%empty();
+
+# CHECK: #include <string>
+# CHECK: std::string c_s = 0;
+# CHECK: uint64_t c_n = (c_s).size();
+# CHECK: bool c_b = (c_s).empty();

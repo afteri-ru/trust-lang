@@ -1,0 +1,9 @@
+# RUN: %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Whole-match область: маркер @__CHECK_AREA__(match) внутри ветки match проходит и удаляется.
+# CHECK: switch (c__match1) {
+x:Int32 := 5;
+@match(x) ==> {
+    @case(1) { @__CHECK_AREA__(match, error); y := 1; };
+    @default { y := 0; };
+};

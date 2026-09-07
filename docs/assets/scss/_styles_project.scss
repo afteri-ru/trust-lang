@@ -1,0 +1,290 @@
+/* ---------------------------------------------------------------------------
+ * TrustLang: стили сайта (единая светлая гамма с песочницей).
+ *
+ * Здесь определена CSS-палитра `--site-*` (общий источник цвета для сайта и
+ * песочницы: `.tpl-*` берут `--site-*` из своего CSS через var(--site-*, …)),
+ * раскладка (cover/футер на всю ширину, ограничение только текста), рамка
+ * разделения сайта от фона краёв и пропорциональная типографика главной.
+ *
+ * SCSS-переменные Bootstrap/Docsy (кнопки, навбар, блоки) — в
+ * `_variables_project.scss`. Значения hex согласованы между обоими файлами.
+ * ------------------------------------------------------------------------- */
+
+:root {
+  /* ── Единая светлая палитра (согласована с песочницей) ── */
+  --site-bg: #ffffff;
+  --site-bg-alt: #f6f8fa;      /* тулбары, фон чередующихся блоков */
+  --site-bg-muted: #eef1f4;    /* фон краёв страницы (пустые полосы) */
+  --site-text: #24292f;
+  --site-muted: #6b7280;       /* вторичный текст, gutter песочницы */
+  --site-border: #d1d5db;
+  --site-toolbar: #f6f8fa;
+  --site-linked: #fff3bf;      /* подсветка связанных строк (песочница) */
+  --site-accent: #0969da;      /* кнопки/ссылки */
+  --site-accent-hover: #0550ae;
+  --site-error: #dc2626;
+  --site-cover: #24292f;       /* тёмный фон cover (под фоновой картинкой) */
+
+  /* ── Ширина контента ── */
+  --site-content-max: 1280px;  /* ограничение ширины основного сайта (текст) */
+  --site-home-content-max: calc(var(--site-content-max) * 0.65); /* главная: 65% */
+
+  /* Прокидываем палитру в переменные Bootstrap (ссылки, кнопки, тело). */
+  --bs-body-bg: var(--site-bg);
+  --bs-body-color: var(--site-text);
+  --bs-border-color: var(--site-border);
+  --bs-link-color: var(--site-accent);
+  --bs-link-hover-color: var(--site-accent-hover);
+  --bs-primary: var(--site-accent);
+  --bs-primary-rgb: 9, 105, 218;
+  --bs-secondary: var(--site-muted);
+  --bs-secondary-rgb: 111, 114, 128;
+  --bs-tertiary-bg: var(--site-bg-alt);
+  --bs-tertiary-bg-rgb: 246, 248, 250;
+}
+
+/* ── Фон страницы: пустые полосы по краям отличаются от белого контента ────
+   Когда контент ограничен по ширине, по бокам виден этот фон; сам контент
+   белый, а тонкая рамка визуально разделяет сайт и пустое место. */
+body {
+  background-color: var(--site-bg-muted);
+}
+
+/* ── Раскладка: cover, навбар и футер — на всю ширину экрана ───────────────
+   Ограничение ширины касается только текстового контента (см. ниже), поэтому
+   у обёртки никакого max-width: фон подвала и верхняя картинка заполняют
+   экран полностью без белых полей. */
+.td-outer {
+  max-width: none;
+}
+
+/* ── Ограничение ширины применяется только к тексту ─────────────────────── */
+/* Внутренние страницы: основной контент. */
+.td-outer .td-content {
+  max-width: var(--site-content-max);
+}
+
+/* Главная страница: контент 65% от ширины основного сайта. */
+body.td-home .td-box {
+  max-width: var(--site-home-content-max);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Рамка-разделитель сайта от фона краёв ───────────────────────────────── */
+.td-outer .td-content {
+  background-color: var(--site-bg);
+/*  border-left: 1px solid var(--site-border);
+  border-right: 1px solid var(--site-border); */
+}
+body.td-home .td-box {
+  border-top: 1px solid var(--site-border);
+}
+
+/* Песочница — берёт гамму из --site-* (дефолты --tpl-* заданы в её CSS). */
+.tpl-pg {
+  background: var(--site-bg);
+  color: var(--site-text);
+}
+
+/* ── Пропорциональная типографика главной страницы ─────────────────────────
+   Раньше заголовок cover был display-1 (~80px, в 5-7 раз больше текста).
+   Приводим все заголовки к согласованным пропорциям (clamp: плавно на всех
+   ширинах, от мобильного до широкого экрана). */
+.td-cover-block h1 {
+  font-size: clamp(1.9rem, 4.5vw, 2.6rem);
+  line-height: 1.2;
+}
+
+.td-cover-block .display-2 {
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  letter-spacing: 0.02em;
+}
+
+.td-cover-block .lead {
+  font-size: clamp(1rem, 2vw, 1.15rem);
+}
+
+/* Заголовки внутри цветных блоков главной страницы */
+.td-box h2 {
+  font-size: clamp(1.4rem, 3vw, 1.7rem);
+}
+.td-box h3 {
+  font-size: clamp(1.2rem, 2.6vw, 1.4rem);
+}
+.td-box h4 {
+  font-size: clamp(1.05rem, 2.2vw, 1.2rem);
+}
+
+/* Кнопки на главной странице — умеренного размера (не btn-lg). */
+.td-cover-block .btn,
+.td-box .btn {
+  font-size: 0.95rem;
+  padding: 0.45rem 1rem;
+}
+
+/* Cover-блок: плавный переход (тёмная подложка под фоновой картинкой). */
+.td-cover-block {
+  background-color: var(--site-cover);
+}
+
+/* ── Нижний футер: высота как у верхнего меню (~4rem), а не 10rem ────────── */
+.td-footer {
+  --td-footer-min-height: 4rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  align-items: center;
+}
+
+/* ── Ссылки верхнего меню: лёгкий фон + небольшая рамка (как у поиска) ───── */
+.td-navbar .nav-link {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  padding: 0.3rem 0.75rem;
+  margin: 0.15rem 0.2rem;
+}
+
+
+/* ── Футер: фон на всю ширину, содержимое шириной как контент главной ────── */
+.td-footer .container-fluid {
+  max-width: var(--site-home-content-max);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Заголовки статей в документации и блогах: не крупнее текста ─────────── */
+.td-content h1 {
+  font-size: clamp(1.5rem, 3vw, 1.85rem);
+}
+
+/* ── Убираем гигантский паддинг Docsy у блоков главной страницы ────────────
+   Docsy задаёт всем `main section` padding-top/bottom: 4rem (5rem на md+) и
+   `.td-box .row { padding: 5vw }` — из-за этого кнопки в блоках «съезжают».
+   Переопределяем с высокой специфичностью и !important, НЕ затрагивая cover. */
+body.td-home main section.td-box {
+  padding: 1.25rem 0.5rem !important;
+  margin-top: 1.5rem !important;
+  margin-bottom: 1.5rem !important;
+}
+body.td-home .td-box .row {
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+body.td-home .td-box .container {
+  padding-left: 0.5rem !important;
+  padding-right: 0.5rem !important;
+}
+.td-content h2 {
+  font-size: clamp(1.25rem, 2.6vw, 1.5rem);
+}
+.td-content h3 {
+  font-size: clamp(1.1rem, 2.2vw, 1.25rem);
+}
+
+/* ── Нижние кнопки перехода (prev/next в блогах): компактный блок с фоном ── */
+.td-pager {
+  margin-top: 1.5rem;
+  padding: 0.6rem 1rem;
+  background-color: var(--site-bg-alt);
+  border: 1px solid var(--site-border);
+  border-radius: 6px;
+}
+
+/* ── Стрелка «Подробнее» (link-down) на тёмном cover — хорошо видима ─────── */
+.td-cover-block a.btn-link {
+  color: #ffffff;
+  opacity: 0.92;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+
+/* ── Подсветка Trust-кода на сайте (Monarch-токенайзер, как в песочнице) ───
+   Классы токенов задаёт docs/static/js/trust-highlight.js для
+   `<code class="language-trust">`. Цвета согласованы с песочницей
+   (Monaco), адаптированы под светлый фон сайта. */
+code.language-trust .t-comment { color: #008000; }
+code.language-trust .t-macro   { color: #af00db; }
+code.language-trust .t-control { color: #0000ff; }
+code.language-trust .t-func    { color: #795e26; }
+code.language-trust .t-string  { color: #a31515; }
+code.language-trust .t-number  { color: #098658; }
+code.language-trust .t-type    { color: #267f99; }
+code.language-trust .t-varlang { color: #001080; }
+code.language-trust .t-var     { color: #001080; }
+code.language-trust .t-op      { color: #24292f; }
+code.language-trust .t-bracket { color: #24292f; }
+code.language-trust .t-ident   { color: #24292f; }
+
+/* ---------------------------------------------------------------------------
+ * Docs: скрытие/показ всего левого сайдбара (списка разделов) мышью.
+ *
+ * Только desktop (>= xl) и только на страницах раздела `docs` (маркер
+ * `.td-docs-layout` на `.row` в layouts/docs/baseof.html). Прогрессивное
+ * улучшение: сайдбар скрывает/раскрывает клик по кнопке-«табу» у левого края
+ * контента. Кнопку и классы `.td-sidebar--ready` / `.td-sidebar--collapsed`
+ * добавляет docs/static/js/sidebar-collapse.js. Без JS (или ниже xl, или при
+ * печати) раскладка остаётся штатной Docsy, ничего не меняется.
+ * ------------------------------------------------------------------------- */
+.td-docs-layout {
+  position: relative; /* точка отсчёта для кнопки-«таба» */
+}
+
+.td-sidebar__collapse {
+  /* Кнопка-«таб» у левого края; позиционируется скриптом по границе сайдбара. */
+  position: absolute;
+  top: 1.5rem;
+  left: 0;
+  display: none; /* показываем только >= xl и после инициализации JS */
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--site-border);
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+  background-color: var(--site-bg);
+  color: var(--site-muted);
+  cursor: pointer;
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.06);
+  z-index: 30;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--site-accent);
+    background-color: var(--site-bg-alt);
+    outline: none;
+  }
+}
+
+@media (min-width: 1200px) {
+  .td-docs-layout.td-sidebar--ready .td-sidebar__collapse {
+    display: flex;
+  }
+
+  /* Скрытое состояние: убираем всю левую колонку и растягиваем контент на
+     освободившееся место; правый TOC (.td-sidebar-toc, col-xl-2) остаётся. */
+  .td-docs-layout.td-sidebar--collapsed > .td-sidebar {
+    display: none;
+  }
+
+  .td-docs-layout.td-sidebar--collapsed > main {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+}
+
+@media print {
+  .td-sidebar__collapse {
+    display: none !important;
+  }
+}
+
+
+/* ── Логотип (талисман) слева от названия проекта в навбаре ──────────────── */
+.td-navbar .navbar-brand__logo img.navbar-logo-img {
+  border-radius: 8px;
+  margin-right: 0.4rem;
+}

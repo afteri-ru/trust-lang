@@ -1,0 +1,23 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# Экземплярные члены с ведущей точкой регистрируются как методы/поля нативного класса:
+#   .method() / .field / .%method() / .%field
+# Доступ: s.method(), s.field, s.%method(), s.%field → (c_s).name (нативное имя без '%').
+@include("string")
+MyStr ::= %std::string {
+    .size(): UInt64 := ...;
+    .data: CString := ...;
+    .%length(): UInt64 := ...;
+    .%c_str(): CString := ...;
+};
+
+s: MyStr := 0;
+n: UInt64 := s.size();
+d: CString := s.data;
+n2: UInt64 := s.length();
+d2: CString := s.c_str();
+
+# CHECK: #include <string>
+# CHECK: uint64_t c_n = (c_s).size();
+# CHECK: const char* c_d = (c_s).data;
+# CHECK: uint64_t c_n2 = (c_s).length();
+# CHECK: const char* c_d2 = (c_s).c_str();

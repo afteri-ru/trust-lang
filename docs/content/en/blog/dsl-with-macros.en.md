@@ -11,7 +11,7 @@ description: >
 
 Attention!!!
 
-This article contains a description of the NewLnag syntax of the previous version.
+This article contains a description of the NewLang syntax of the previous version.
 
 Publication source https://habr.com/articles/720416/
 

@@ -1,0 +1,17 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Ошибки строгой типизации BigInteger/Rational и статической типизации литералов:
+#   * смешивание Rational/BigInteger с float → нужен явный каст;
+#   * целочисленное деление // на BigInteger/Rational → недоступно;
+#   * `5 :Bool` → не 0/1.
+
+r:Rational := 1;
+s := r + 1.5;
+# CHECK: error: cannot mix BigInteger/Rational with a floating-point number without an explicit cast
+
+x:BigInteger := 7; y:BigInteger := 2;
+z := x // y;
+# CHECK: error: integer division '//' is not supported for BigInteger/Rational
+
+b := 5 :Bool;
+# CHECK: error: boolean literal must be 0 or 1 (found '5')

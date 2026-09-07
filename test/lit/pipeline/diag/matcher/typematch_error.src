@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# @[matcher(...)] неприменим к сопоставлению по ТИПУ (~>): матчер переопределяет сравнение по значению.
+# CHECK: error: @[matcher("m")] is not applicable to type-matching operator '~>'; matcher overrides value comparison
+@func m(a:Int32, b:Int32):Bool { @return true; };
+x:Int32 := 5;
+[x] @[matcher("m")@] ~> {
+    @case(:Int32) { y := 1; };
+    @default { y := 0; };
+};

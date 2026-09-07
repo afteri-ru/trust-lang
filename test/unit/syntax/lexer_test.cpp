@@ -1,59 +1,4 @@
-
-#include "syntax/warning_push.h"
-#include <gtest/gtest.h>
-#include "syntax/warning_pop.h"
-
-#include "syntax/term.h"
-#include "syntax/lexer.h"
-#include "syntax/parser.h"
-#include "syntax/macro.h"
-
-using namespace trust;
-
-class Lexer : public ::testing::Test {
-  protected:
-    std::vector<TermPtr> tokens;
-    trust::Context ctx;
-
-    void SetUp() { ctx.diag().clear(); }
-
-    void TearDown() {}
-
-    int64_t TokenParse(const char* str) {
-        trust::MapperFile src = ctx.source().add_source("test", str);
-
-        Scanner lexer(ctx, src);
-
-        tokens.clear();
-        TermPtr tok;
-        while (lexer.lex(&tok) != parser::token::END) {
-            tokens.push_back(tok);
-        }
-        return tokens.size();
-    }
-
-    int Count(TermID token_id) {
-        int result = 0;
-        for (size_t i = 0; i < tokens.size(); i++) {
-            if (tokens[i]->getTermID() == token_id) {
-                result++;
-            }
-        }
-        return result;
-    }
-
-    std::string Dump() {
-        std::string result;
-        for (int i = 0; i < tokens.size(); i++) {
-            result += tokens[i]->getText();
-            result += ":";
-            result += toString(tokens[i]->m_id);
-            result += " ";
-        }
-        return result;
-    }
-};
-
+#include "syntax/lexer_test_fixture.hpp"
 TEST_F(Lexer, Word) {
     ASSERT_EQ(1, TokenParse("alpha  "));
     EXPECT_EQ(1, Count(TermID::NAME));
@@ -360,20 +305,22 @@ TEST_F(Lexer, Arg) {
 TEST_F(Lexer, Args) {
     ASSERT_EQ(11, TokenParse("$0 $1 $22 $333 $4sss $sss1 -- ++ $* $^  ")) << Dump();
     EXPECT_EQ(5, Count(TermID::ARGUMENT)) << Dump();
-    EXPECT_EQ(2, Count(TermID::ARGS)) << Dump();
+    // `$^` (псевдопеременная «результат последней операции») — НЕ аргумент: лексится как NAME (как `$$`),
+    // чтобы доходить до AST обычным IdentName('$^'), а не ArgNode (см. is_last_result / token_base).
+    EXPECT_EQ(1, Count(TermID::ARGS)) << Dump();
     EXPECT_EQ(1, Count(TermID::INT_PLUS)) << Dump();
     EXPECT_EQ(1, Count(TermID::INT_MINUS)) << Dump();
-    EXPECT_EQ(1, Count(TermID::NAME)) << Dump();
+    EXPECT_EQ(2, Count(TermID::NAME)) << Dump();
     EXPECT_EQ(1, Count(TermID::LOCAL)) << Dump();
 }
 
 TEST_F(Lexer, MutArgs) {
     ASSERT_EQ(11, TokenParse("$0^ $1^ $22 $333 $4sss^ $sss1^ -- ++ $* $^  ")) << Dump();
     EXPECT_EQ(5, Count(TermID::ARGUMENT)) << Dump();
-    EXPECT_EQ(2, Count(TermID::ARGS)) << Dump();
+    EXPECT_EQ(1, Count(TermID::ARGS)) << Dump();
     EXPECT_EQ(1, Count(TermID::INT_PLUS)) << Dump();
     EXPECT_EQ(1, Count(TermID::INT_MINUS)) << Dump();
-    EXPECT_EQ(1, Count(TermID::NAME)) << Dump();
+    EXPECT_EQ(2, Count(TermID::NAME)) << Dump();
     EXPECT_EQ(1, Count(TermID::LOCAL)) << Dump();
 }
 
@@ -434,7 +381,7 @@ TEST_F(Lexer, Alias) {
     ASSERT_EQ(4, TokenParse("@alias := @ALIAS;")) << Dump();
     EXPECT_EQ(2, Count(TermID::MACRO)) << Dump();
 
-    ASSERT_EQ(7, TokenParse("/** Comment */@@   alias2   @@      ALIAS2@@///< Комментарий")) << Dump();
+    ASSERT_EQ(7, TokenParse("/** Comment */@@   alias2   @@      ALIAS2 @@@@///< Комментарий")) << Dump();
     EXPECT_EQ(2, Count(TermID::DOCUMENT));
     EXPECT_EQ(2, Count(TermID::NAME));
     EXPECT_FALSE(tokens[0]->m_mapperRange.begin.isInvalid()) << Dump();
@@ -447,118 +394,90 @@ TEST_F(Lexer, Alias) {
     EXPECT_FALSE(tokens[1]->m_mapperRange.begin.isInvalid());
 }
 
-TEST_F(Lexer, DocCommentFullText) {
-    // Доки сохраняются целиком, включая маркеры (string_view в m_text).
-    ASSERT_EQ(1, TokenParse("/** Block doc */"));
-    ASSERT_EQ(1, Count(TermID::DOCUMENT));
-    EXPECT_EQ("/** Block doc */", std::string(tokens[0]->getText())) << Dump();
+// --- Перенос длинных литералов '\' + перевод строки (склейка строк) ---
 
-    ASSERT_EQ(1, TokenParse("/// line doc"));
-    ASSERT_EQ(1, Count(TermID::DOCUMENT));
-    EXPECT_EQ("/// line doc", std::string(tokens[0]->getText())) << Dump();
-
-    ASSERT_EQ(2, TokenParse("x ///< trailing"));
-    ASSERT_EQ(1, Count(TermID::DOCUMENT));
-    EXPECT_EQ("///< trailing", std::string(tokens[1]->getText())) << Dump();
-
-    ASSERT_EQ(1, TokenParse("## hash doc"));
-    ASSERT_EQ(1, Count(TermID::DOCUMENT));
-    EXPECT_EQ("## hash doc", std::string(tokens[0]->getText())) << Dump();
+TEST_F(Lexer, PlainIntegerNoContinuationNoWarning) {
+    ctx.diag().clear();
+    ASSERT_EQ(1, TokenParse("12345")) << Dump();
+    EXPECT_EQ(1, Count(TermID::INTEGER)) << Dump();
+    EXPECT_EQ("12345", tokens[0]->getText());
+    EXPECT_EQ(0, ctx.diag().errorCount());
+    EXPECT_EQ(0, ctx.diag().warningCount());
 }
 
-TEST_F(Lexer, Macro) {
-
-    ASSERT_EQ(1, TokenParse("@$arg")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO_ARGNAME)) << Dump();
-
-    ASSERT_EQ(1, TokenParse("@$1")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO_ARGPOS)) << Dump();
-
-    //    ASSERT_EQ(1, TokenParse("@$name(*)")) << Dump();
-    //    EXPECT_EQ(1, Count(TermID::MACRO_ARGUMENT));
-    //    ASSERT_EQ(1, TokenParse("@$name[*]")) << Dump();
-    //    EXPECT_EQ(1, Count(TermID::MACRO_ARGUMENT));
-    //    ASSERT_EQ(1, TokenParse("@$name<*>")) << Dump();
-    //    EXPECT_EQ(1, Count(TermID::MACRO_ARGUMENT));
-    //
-    //    ASSERT_EQ(1, TokenParse("@$name(#)")) << Dump();
-    //    EXPECT_EQ(1, Count(TermID::MACRO_ARGCOUNT));
-    //    ASSERT_EQ(1, TokenParse("@$name[#]")) << Dump();
-    //    EXPECT_EQ(1, Count(TermID::MACRO_ARGCOUNT));
-    //    ASSERT_EQ(1, TokenParse("@$name<#>")) << Dump();
-    //    EXPECT_EQ(1, Count(TermID::MACRO_ARGCOUNT));
-
-    ASSERT_EQ(1, TokenParse("@#")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO_TOSTR));
-
-    ASSERT_EQ(1, TokenParse("@#'")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO_TOSTR));
-    ASSERT_EQ(1, TokenParse("@#\"")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO_TOSTR));
-
-    ASSERT_EQ(1, TokenParse("@##")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO_CONCAT));
-
-    ASSERT_EQ(1, TokenParse("@$...")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO_ARGUMENT));
-    ASSERT_EQ(1, TokenParse("@$*")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO_ARGUMENT));
-    ASSERT_EQ(1, TokenParse("@$#")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO_ARGCOUNT));
-
-    ASSERT_EQ(7, TokenParse("@macro := @@123 ... 456@@")) << Dump();
-    EXPECT_EQ(1, Count(TermID::MACRO)) << Dump();
-    EXPECT_EQ(2, Count(TermID::MACRO_SEQ)) << Dump();
-
-    ASSERT_EQ(3, TokenParse("@macro := @@@123 ... 456@@@"));
-    EXPECT_EQ(1, Count(TermID::MACRO));
-    EXPECT_EQ(1, Count(TermID::MACRO_STR));
-    EXPECT_EQ("@macro", tokens[0]->getText());
-    EXPECT_EQ("123 ... 456", tokens[2]->getText());
-    EXPECT_FALSE(tokens[0]->m_mapperRange.begin.isInvalid()) << Dump();
-    EXPECT_FALSE(tokens[2]->m_mapperRange.begin.isInvalid()) << Dump();
-
-    ASSERT_EQ(6, TokenParse("@macro (name) := @@@123 \n \n ... 456@@@ # Комментарий"));
-    EXPECT_EQ(1, Count(TermID::NAME));
-    EXPECT_EQ(1, Count(TermID::MACRO));
-    EXPECT_EQ(1, Count(TermID::LPAREN));
-    EXPECT_EQ(1, Count(TermID::RPAREN));
-    EXPECT_EQ(1, Count(TermID::MACRO_STR));
-    EXPECT_EQ("@macro", tokens[0]->getText());
-    EXPECT_EQ("123 \n \n ... 456", tokens[5]->getText());
-    EXPECT_FALSE(tokens[0]->m_mapperRange.begin.isInvalid());
-    EXPECT_FALSE(tokens[5]->m_mapperRange.begin.isInvalid());
-
-    // ASSERT_EQ(6, TokenParse("@if($args) := @@ [@$args] --> @@")) << Dump();
-    // EXPECT_EQ(1, Count(TermID::MACRO));
-    // EXPECT_EQ(2, Count(TermID::LPAREN) + Count(TermID::RPAREN));
-    // EXPECT_EQ(1, Count(TermID::LOCAL));
-    // EXPECT_EQ(1, Count(TermID::CREATE_NAME));
-    // EXPECT_EQ(1, Count(TermID::MACRO_SEQ));
+TEST_F(Lexer, ContinuationLongInteger) {
+    ctx.diag().clear();
+    ASSERT_EQ(1, TokenParse("12345678901\\\n2345")) << Dump();
+    EXPECT_EQ(1, Count(TermID::INTEGER)) << Dump();
+    EXPECT_EQ("123456789012345", tokens[0]->getText()) << tokens[0]->getText();
+    EXPECT_EQ(0, ctx.diag().errorCount());
+    EXPECT_EQ(0, ctx.diag().warningCount()); // 15 цифр >= 9 - без предупреждения
 }
 
-TEST_F(Lexer, Mangled) {
-    ASSERT_EQ(1, TokenParse("_$$_123$")) << Dump();
-    ASSERT_EQ(1, Count(TermID::MANGLED)) << Dump();
-
-    ASSERT_EQ(1, TokenParse("_$name_$_123$")) << Dump();
-    ASSERT_EQ(1, Count(TermID::MANGLED)) << Dump();
-
-    ASSERT_EQ(1, TokenParse("_$na12me_$_name$$$")) << Dump();
-    ASSERT_EQ(1, Count(TermID::MANGLED)) << Dump();
-
-    ASSERT_EQ(1, TokenParse("_$na$_12me_$_name$$$")) << Dump();
-    ASSERT_EQ(1, Count(TermID::MANGLED)) << Dump();
+TEST_F(Lexer, ContinuationShortIntegerWarns) {
+    ctx.diag().clear();
+    ASSERT_EQ(1, TokenParse("123\\\n45")) << Dump();
+    EXPECT_EQ(1, Count(TermID::INTEGER)) << Dump();
+    EXPECT_EQ("12345", tokens[0]->getText()) << tokens[0]->getText();
+    EXPECT_EQ(0, ctx.diag().errorCount());
+    EXPECT_EQ(1, ctx.diag().warningCount()); // 5 цифр < 9 - предупреждение
 }
 
-TEST_F(Lexer, ParseLexem) {
-    Macro macro(ctx);
+TEST_F(Lexer, ContinuationRationalNumerator) {
+    ctx.diag().clear();
+    ASSERT_EQ(1, TokenParse("12345\\\n67890\\7")) << Dump();
+    EXPECT_EQ(1, Count(TermID::RATIONAL)) << Dump();
+    EXPECT_EQ("1234567890\\7", tokens[0]->getText()) << tokens[0]->getText();
+    EXPECT_EQ(0, ctx.diag().errorCount());
+    EXPECT_EQ(0, ctx.diag().warningCount()); // 11 цифр >= 9
+}
 
-    SequenceType arr = Scanner::ParseLexem(ctx, "1 2 3 4 5");
+TEST_F(Lexer, ContinuationRationalDenominator) {
+    ctx.diag().clear();
+    ASSERT_EQ(1, TokenParse("5\\1234567890\\\n1")) << Dump();
+    EXPECT_EQ(1, Count(TermID::RATIONAL)) << Dump();
+    EXPECT_EQ("5\\12345678901", tokens[0]->getText()) << tokens[0]->getText();
+    EXPECT_EQ(0, ctx.diag().errorCount());
+    EXPECT_EQ(0, ctx.diag().warningCount()); // 12 цифр >= 9
+}
 
-    ASSERT_EQ(5, arr.size()) << macro.DumpText(arr).c_str();
-    ASSERT_EQ("1 2 3 4 5", macro.DumpText(arr));
+TEST_F(Lexer, ContinuationShortRationalWarns) {
+    ctx.diag().clear();
+    ASSERT_EQ(1, TokenParse("12\\\n3\\4")) << Dump();
+    EXPECT_EQ(1, Count(TermID::RATIONAL)) << Dump();
+    EXPECT_EQ("123\\4", tokens[0]->getText()) << tokens[0]->getText();
+    EXPECT_EQ(0, ctx.diag().errorCount());
+    EXPECT_EQ(1, ctx.diag().warningCount()); // 4 цифры < 9 - предупреждение
+}
 
-    arr = Scanner::ParseLexem(ctx, "macro    @test(1,2,3,...):type; next \n; # sssssss\n @only lexem((((;;     ;");
-    ASSERT_EQ("macro @test ( 1 , 2 , 3 , ... ) : type ; next ; @only lexem ( ( ( ( ; ; ;", macro.DumpText(arr));
+TEST_F(Lexer, ContinuationStrWide) {
+    ctx.diag().clear();
+    ASSERT_EQ(1, TokenParse("\"ab\\\ncd\"")) << Dump();
+    EXPECT_EQ(1, Count(TermID::STRWIDE)) << Dump();
+    EXPECT_EQ("abcd", tokens[0]->getText()) << tokens[0]->getText();
+    EXPECT_EQ(0, ctx.diag().errorCount());
+    EXPECT_EQ(0, ctx.diag().warningCount());
+}
+
+TEST_F(Lexer, ContinuationStrChar) {
+    ctx.diag().clear();
+    ASSERT_EQ(1, TokenParse("'ab\\\ncd'")) << Dump();
+    EXPECT_EQ(1, Count(TermID::STRCHAR)) << Dump();
+    EXPECT_EQ("abcd", tokens[0]->getText()) << tokens[0]->getText();
+    EXPECT_EQ(0, ctx.diag().errorCount());
+    EXPECT_EQ(0, ctx.diag().warningCount());
+}
+
+TEST_F(Lexer, ContinuationSpaceBetweenErrorStrWide) {
+    ctx.diag().clear();
+    TokenParse("\"ab\\ \ncd\"");
+    EXPECT_GT(ctx.diag().errorCount(), 0)
+        << "whitespace between '\\' and newline inside a string must be a lexer error";
+}
+
+TEST_F(Lexer, ContinuationSpaceBetweenErrorInteger) {
+    ctx.diag().clear();
+    TokenParse("12\\ \n3");
+    EXPECT_GT(ctx.diag().errorCount(), 0)
+        << "whitespace between '\\' and newline after an integer must be a lexer error";
 }

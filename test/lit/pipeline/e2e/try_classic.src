@@ -1,0 +1,24 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/try_classic %s
+# RUN: $TD/try_classic > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: caught=1
+
+# Классический синтаксис try/catch через МАКРОСЫ (НЕ нативные {- ... -}): try_error { ... }
+# открывает {- @__PRAGMA_TRY_CLOSE__ ... , catch(_) → [ _ ] --> (IntAny), else → если прерываний
+# не было. При исполнении это покрывает путь прагмы @__PRAGMA_TRY_CLOSE__ end-to-end.
+
+%chk():Void := {
+    try_error {
+        -- 1 --;
+    } catch(_) {
+        print('caught=1');
+    } else {
+        print('else=BAD');
+    };
+};
+{% int try_classic__main__() {
+    chk();
+    return 0;
+}
+%}

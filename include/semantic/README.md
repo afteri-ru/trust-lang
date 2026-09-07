@@ -13,7 +13,10 @@ feature-флагами `diag::Options`. Phase 1 охватывает объяв�
   строит единую таблицу символов `SymbolTable` (стек вложенных скоупов), регистрирует объявления
   в текущем скоупе и разрешает `Ident` поиском вверх. Семантика однопроходная: имя объявляется до
   использования. Объединяет бывшие `SymbolCollectorPass`+`NameResolverPass`, а также бывшие
-  раздельные `ScopeStack` и плоскую `SymbolTable`.
+  раздельные `ScopeStack` и плоскую `SymbolTable`. Ядро - **драйвер**; тяжёлая анализ-логика
+  вынесена в компоненты-анализаторы `DeclAnalyzer`/`ExprTyper`/`AccessResolver`/`TrustAnalyzer`
+  (`semantic/*_analyzer.hpp/.cpp`), разделяющие `AnalysisContext`; общие хелперы -
+  в `semantic/analysis_common.hpp`.
 - **Параллельные анализаторы** - `InlineAnalysisHook` (`semantic/inline_hook.hpp`):
   опциональные анализаторы подключаются к ядру и получают события в реальном времени обхода
   (`enterScope`/`exitScope`/`onDeclare`/`onResolve`/`onNode`/`finalize`), читая временные данные
@@ -22,6 +25,12 @@ feature-флагами `diag::Options`. Phase 1 охватывает объяв�
   хук в список активных не попадает, его колбэки в узлах не вызываются.
 - **Анализатор Lint** - `LintHook` (`semantic/lint.hpp`), gate = `FlagKind::Lint`; сообщает о
   неиспользуемых переменных; режим задаётся строковым значением флага `-Wlint=aggressive`.
+- **Анализ нативных ссылок + отслеживание инвалидации** - `NativeRefHook` (`semantic/nativeref.hpp`),
+  условный атрибут
+  `@[reftrace@]` на класс/тип или метод + автоматическое отслеживание переменных чисто ссылочных
+  типов (kRef/kRref/kPtr/kPtrPtr), индекса `obj[i]` и методов, возвращающих ссылочный тип. Любая
+  мутация источника (присваивание ИЛИ вызов не-const метода) инвалидирует зависимые, рождённые до
+  неё; использование зависимой после мутации - диагностика severity `-Wreftrace=ignore|warning|error`.
 - **SymbolTable (единая таблица символов)** - стек вложенных скоупов (`semantic/symbol_table.hpp`):
   каждый уровень - `Scope` с `std::map` имён и невладеющим `creator` (узел AST, открывший скоуп);
   глобальный скоуп (уровень 0) - плоская таблица глобальных имён. `push`/`pop`/`declare`/`resolve`/

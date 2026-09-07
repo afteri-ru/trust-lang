@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Макрос @case (ветка match) допустим ТОЛЬКО внутри match. Сам макрос требует тело в фигурных
+# скобках и вставляет @__CHECK_AREA__(match, error) первым оператором тела ветки. Вне match
+# ([1] --> разбирается как if) маркер не находит области match -> чистая диагностика.
+# CHECK: error: @__CHECK_AREA__: macro allowed only inside area 'match'
+@func f() : Int32 {
+    @case(1) { y := 1; };
+    return 0;
+};

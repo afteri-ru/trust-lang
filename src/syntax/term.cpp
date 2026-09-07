@@ -174,7 +174,7 @@ std::string Term::toString(bool nested, bool suppressType) {
     case TermID::MACRO_STR:
         result = "@@@";
         result += getText();
-        result += "@@@";
+        result += "@@@@";
         return result;
 
     case TermID::ARGS:
@@ -236,7 +236,7 @@ std::string Term::toString(bool nested, bool suppressType) {
 
     case TermID::TAKE:
     case TermID::OPERATOR_PTR:
-        // Префиксный оператор (&, *) над типом: ':&Int8', ':*Int8'
+        // Префиксный оператор (&&, &*, ...) над типом: ':&&Int8', ':&*Int8'
         if (m_right && m_right->getTermID() == TermID::TYPE) {
             result = std::string(":") + std::string(getText());
             result += m_right->toString(true).substr(1);
@@ -567,6 +567,8 @@ std::string Term::toString(bool nested, bool suppressType) {
     case TermID::SEMICOLON:
     case TermID::COMMA:
     case TermID::COMMA_LEXEME:
+    case TermID::TRUST_ELEM_BEGIN:
+    case TermID::TRUST_ELEM_END:
     case TermID::DOT:
     case TermID::COLON:
     case TermID::EQ:
@@ -585,7 +587,6 @@ std::string Term::toString(bool nested, bool suppressType) {
     case TermID::DOLLAR:
     case TermID::LT:
     case TermID::GT:
-    case TermID::UNKNOWN:
     case TermID::RATIONAL:
     case TermID::COMPLEX:
     case TermID::MACRO_ARGCOUNT:

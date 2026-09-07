@@ -129,6 +129,19 @@ TEST_F(HtmlEmitTest, HtmlFragment_ContainsMonarchInitEditorsAndConfig) {
               std::string::npos);
     // glue-JS содержит drag-обработчики сплиттеров (makeSplitter).
     EXPECT_NE(html.find("makeSplitter"), std::string::npos);
+    // Горизонтальный сплиттер (над окном лога) лежит ВНЕ .tpl-row и идёт ПЕРЕД
+    // #tpl-log: только тогда перетаскивание меняет высоту лога, а не превращается
+    // в вертикальную полосу в правом углу панелей.
+    const size_t splitH = html.find("id=\"tpl-split-h\"");
+    const size_t logPos = html.find("id=\"tpl-log\"");
+    EXPECT_NE(splitH, std::string::npos);
+    EXPECT_NE(logPos, std::string::npos);
+    EXPECT_LT(splitH, logPos) << "horizontal splitter must be placed before the log window";
+    // Песочница растягивается на высоту окна: .tpl-pg задаёт height, а .tpl-row и
+    // .tpl-editor растягиваются (flex), у редактора убран min-height:380px.
+    EXPECT_NE(html.find(".tpl-pg{--tpl-bg:var(--site-bg"), std::string::npos);
+    EXPECT_NE(html.find(".tpl-row{display:flex;gap:0;flex:1 1 auto;min-height:0;}"), std::string::npos);
+    EXPECT_NE(html.find(".tpl-editor{flex:1;min-height:0;}"), std::string::npos);
 }
 
 TEST_F(HtmlEmitTest, HtmlFragment_EmbedsLogNavigation) {
@@ -155,7 +168,32 @@ TEST_F(HtmlEmitTest, HtmlFullPage_WrapsDocument) {
     EXPECT_NE(html.find("tpl-trust-editor"), std::string::npos);
 }
 
+TEST_F(HtmlEmitTest, HtmlFragment_EmbedsUrlShareAndRangeStatus) {
+    auto r = trust::lsp::transpileToResult(kHelloSrc, "hello.src", opts);
+    ASSERT_TRUE(r.ok) << r.error;
+    std::string html = trust::lsp::resultToHtml(r, opts);
+
+    // Статус-бар: вывод диапазона + ссылка-копирование актуального URL в буфер обмена.
+    EXPECT_NE(html.find("id=\"tpl-status\""), std::string::npos);
+    EXPECT_NE(html.find("tpl-copy"), std::string::npos);
+    EXPECT_NE(html.find("showRange"), std::string::npos);
+    EXPECT_NE(html.find("buildShareUrl"), std::string::npos);
+    EXPECT_NE(html.find("copyText"), std::string::npos);
+    EXPECT_NE(html.find("navigator.clipboard"), std::string::npos);
+    EXPECT_NE(html.find("execCommand('copy')"), std::string::npos);
+
+    // URL-параметры песочницы: file (предопределённый файл), win (src|cppt),
+    // line/col (позиция курсора) и toLine/toCol (конец диапазона выделения).
+    EXPECT_NE(html.find("urlParams"), std::string::npos);
+    EXPECT_NE(html.find("location.search"), std::string::npos);
+    EXPECT_NE(html.find("initWindow"), std::string::npos);
+    EXPECT_NE(html.find("applyInitialPosition"), std::string::npos);
+    EXPECT_NE(html.find("initToLine"), std::string::npos);
+    EXPECT_NE(html.find("initToCol"), std::string::npos);
+}
+
 TEST_F(HtmlEmitTest, HtmlFragment_HasExamplesCombobox) {
+
     auto r = trust::lsp::transpileToResult(kHelloSrc, "hello.src", opts);
     ASSERT_TRUE(r.ok) << r.error;
 

@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# match без @default неисчерпывающ: запись только в @case не покрывает все пути → Error при чтении.
+@main() := {
+    v := 2;
+    x := _;
+    @match(v) ==> {
+        @case(1) { x = 5; };
+    };
+    @print('{}', x);
+};
+# CHECK: error: variable 'x' is read before it is initialized

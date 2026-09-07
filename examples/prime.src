@@ -1,0 +1,160 @@
+#!../_build/trust --run -Wsigil=ignore -Wembed=ignore --stack-check=explicit 
+#
+# Рекурсивная проверка простоты числа для демонстрации контроля переполнения стека и
+# сравнение скорости выполнения обычной и защищенной реализации функции.
+#
+# Работает на числах произвольной точности (BigInteger) и начальное число может
+# выходить далеко за пределы Int64.
+#
+# Аргументы командной строки (обязательные):
+#   prime <start_number> <count>
+#     <start_number> - начальное число (>= 2), BigInteger
+#     <count>        - сколько простых чисел найти (> 0)
+#
+# Защищённая рекурсия (функция с атрибутом @[ stack_check @]) 
+# добавляет ПЕРЕД каждым вызовом проверку свободного места на стеке. 
+#
+# При недостатке свобдного места (т.е. ДО фактического переполения стека и его разрушения)
+# бросается обычное программное исключение, которое перехватывается try { ... } catch(_){ ... }
+
+# Нативная функция для замера скорости работы
+@forward %clock():Int64;
+
+# Парсинг строки в Int64 (C++-вставка только для вызова std::stoll
+@func parse_i64(s:StrChar):Int64 {
+    try {
+        {% return (int64_t)std::stoll(c_s); %};
+    } catch(:StdException) {
+        return -1;
+    };
+    return -1;
+};
+
+# Парсинг строки в BigInteger (C++-вставка только для вызова конструктора)
+@func parse_bigint(s:StrChar):BigInteger {
+    try {
+        {% return trust::BigInteger(c_s); %};
+    } catch(:StdException) {
+        return :BigInteger(-1);
+    };
+    return :BigInteger(-1);
+};
+
+# Счётчики глубины рекурсии и числа вызовов
+currentDepth:Int64 := 0;
+maxDepth:Int64 := 0;
+callCount:Int64 := 0;
+
+# Функции проверки простоты в виде макроса (одно и тоже тело), где имя функции - единственный параметр
+@@ primeFn $fname @@
+@func @$fname(n:BigInteger, divisor:BigInteger):Bool {
+    callCount = callCount + 1;
+    currentDepth = currentDepth + 1;
+    if (currentDepth > maxDepth) {
+        maxDepth = currentDepth;
+    };
+    if (n < 2) {
+        currentDepth = currentDepth - 1;
+        @return false;
+    };
+    if (divisor > n / divisor) {
+        currentDepth = currentDepth - 1;
+        @return true;
+    };
+    if ((n / divisor) * divisor == n) {
+        currentDepth = currentDepth - 1;
+        @return false;
+    };
+    $r := @$fname(n, divisor + 1);
+    currentDepth = currentDepth - 1;
+    return $r;
+};
+@@@@;
+
+# Незащищённая рекурсивная проверка простоты числа
+@primeFn isPrime;
+
+# Защищённая рекурсивная проверка простоты (атрибут @[ stack_check @])
+@[ stack_check @]
+@primeFn isPrimeSafe;
+
+
+@main(argv^:Dict, args^:Dict) := {
+    # --- Валидация аргументов (без дефолтов) ---
+    if (:Int32({% $argv.size() %}) < 2) {
+        @print('Usage: prime <start_number> <count>\n');
+        @print('  <start_number> - start number (>= 2), BigInteger\n');
+        @print('  <count>        - how many primes to find (> 0)\n');
+        @return 1;
+    };
+    $start := parse_bigint(:StrChar(argv[0]));
+    $count := parse_i64(:StrChar(argv[1]));
+    if ($start < 2) {
+        @print('Error: invalid <start_number>: "{}" (expected integer >= 2)\n', argv[0]);
+        return 1;
+    };
+    if ($count < 1) {
+        @print('Error: invalid <count>: "{}" (expected integer > 0)\n', argv[1]);
+        return 1;
+    };
+
+    @print('Searching for {} primes starting from {}:\n', $count, $start);
+
+    # ЗАЩИЩЁННАЯ версия, при переполнение -> stack_overflow
+    callCount = 0;
+    maxDepth = 0;
+    currentDepth = 0;
+    $t0 := %clock();
+    try_error {
+        
+        $n := $start;
+        $found := 0;
+        while ($found < $count) {
+            if (isPrimeSafe($n, 2)) {
+                @print('  prime: {}\n', $n);
+                $found += 1;
+            };
+            $n += 1;
+        };
+
+        # Копируем измеренные значения защищённой версии в локальные переменные.
+        $t1 := %clock();
+        $safeMax := maxDepth;
+        $safeCalls := callCount;
+    } catch(_) {
+
+        # Обработка любого исключения (в данном случае - переполение стека)
+        @print('safe: STACK OVERFLOW caught at max depth={}, calls={}\n', maxDepth, callCount);
+        @print('safe: time until overflow = {} ticks\n', %clock() - $t0);
+        @return 0;
+
+    } else {
+
+        @print('safe: completed, max depth={}, calls={}, time={} ticks\n', $safeMax, $safeCalls, $t1 - $t0);
+
+        # НЕЗАЩИЩЁННАЯ версия выполняется только если безопасная завершилась
+        callCount = 0;
+        maxDepth = 0;
+        currentDepth = 0;
+        $t2 := %clock();
+        $n2 := $start;
+        $found2 := 0;
+        while ($found2 < $count) {
+            if (isPrime($n2, 2)) {
+                @print('  prime: {}\n', $n2);
+                $found2 += 1;
+            };
+            $n2 += 1;
+        };
+        $t3 := %clock();
+        $unprotMax := maxDepth;
+        $unprotCalls := callCount;
+        @print('unprotected: completed, max depth={}, calls={}, time={} ticks\n', $unprotMax, $unprotCalls, $t3 - $t2);
+
+        $du := $t3 - $t2;
+        if ($du > 0) {
+            @print('difference: protected is {:.2f}% slower\n',1000.0*($t1 - $t0 - $du) / (10 * $du));
+        };
+        return 0;
+    };
+}

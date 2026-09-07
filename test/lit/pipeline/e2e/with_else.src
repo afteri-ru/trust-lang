@@ -1,0 +1,52 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/with_else %s
+# RUN: $TD/with_else > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: body=1
+# CHECK: else=1
+# CHECK: body_throw=1
+
+# Семантика RAII-менеджера `with(a=expr,...){...} else {...}`:
+#   * при УСПЕШНОМ захвате всех биндингов выполняется тело, else НЕ выполняется;
+#   * при исключении в ЛЮБОМ инициализаторе выполняется else (объекты уже уничтожены);
+#   * исключение в ТЕЛЕ пробрасывается наружу (else НЕ выполняется) - его ловит внешний блок.
+
+%MaybeThrow():Int32 := {
+    -- 1 --;      # бросает «отрицательное» прерывание (IntMinus)
+    return 0;
+};
+
+%test_success():Void := {
+    with(a = 1) {
+        print('body=1');
+    } else {
+        print('else=BAD');
+    };
+};
+
+%test_capture_fail():Void := {
+    with(a = 1, b = MaybeThrow()) {
+        print('body=BAD');
+    } else {
+        print('else=1');
+    };
+};
+
+%test_body_throw():Void := {
+    {-
+        with(a = 1) {
+            -- 1 --;      # исключение в теле -> else НЕ выполняется, проброс наружу
+        } else {
+            print('else=BAD');
+        };
+    -};
+    print('body_throw=1');
+};
+
+{% int with_else__main__() {
+    test_success();
+    test_capture_fail();
+    test_body_throw();
+    return 0;
+}
+%}

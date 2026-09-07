@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/sc --stack-check=explicit %s
+# RUN: $TD/sc && echo "PASS"
+# CHECK: guarded_size = 42
+# CHECK: guarded_limit = 42
+# CHECK: PASS
+
+# Контроль переполнения стека в рантайме (режим explicit). Сгенерированная программа
+# компилируется с -fstack-size-section и -lpthread (см. pipeline/build.cpp), TLS `info`
+# определяется в _main.cppt; перед каждым вызовом защищаемой функции вставляется проверка.
+# Отдельные функции %trust_stack_check / %trust_stack_check_set_reserve /
+# %trust_stack_check_get_reserve / %trust_stack_check_get_limit / %trust_stack_check_set_limit -
+# реальные C++-функции рантайма, явные вызовы в коде.
+
+@[stack_check(4096)@]
+@func guarded_size(n:Int32):Int32 { return n * 2; };
+
+@[stack_check@]
+@func guarded_limit(n:Int32):Int32 { return n + 1; };
+
+@main() := {
+    %trust_stack_check(2048);
+    %trust_stack_check_set_reserve(8192);
+    %trust_stack_check_set_limit(guarded_size, guarded_limit);
+    @print('guarded_size = {}\n', guarded_size(21));
+    @print('guarded_limit = {}\n', guarded_limit(41));
+}

@@ -1,0 +1,13 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Swap `:=:` - интринсик обмена (std::swap); типы операндов должны быть СОВМЕСТИМЫ (не обязательно
+# ссылки). Обмен несовместимых типов - ошибка.
+
+@main():Int32 := {
+    a : Int32 := 1;
+    b : StrChar := 'x';
+    a :=: b;
+    return 0;
+};
+# CHECK: error: swap ':=:' requires operands of compatible types, got 'Int32' and 'StrChar' (values can be swapped via '*lhs :=: *rhs')
+

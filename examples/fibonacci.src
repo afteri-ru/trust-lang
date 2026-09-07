@@ -1,23 +1,56 @@
-#!../_build/trust --run -Wsigil=ignore
+#!../_build/trust --run --stack-check=explicit -Wsigil=ignore
+#
+# Числа Фибоначчи произвольной точности
+#
+# Рекурсивная fib() защищена атрибутом @[stack_check@] (режим --stack-check=explicit):
+# при слишком большом n переполнение стека превращается в перехватываемую ошибку, а не в segfault. 
+# Переполнение стека  ловится классическим try_error { ... } catch(_){ ... }
 
-%fib(n:Rational):Tuple(sum:Rational, fib:Rational) := {
-    @if(n < 3){
-        @return :Tuple(1\1, 1\1);
+# Парсинг строки в BigInteger (C++-вставка только для вызова конструктора; ошибки
+# конверсии ловятся обобщённым catch(:StdException) → `catch (std::exception&)`).
+@func parse_bigint(s:StrChar):BigInteger {
+    try {
+        {% return trust::BigInteger(c_s); %};
+    } catch(:StdException) {
+        return :BigInteger(-1);
     };
-    p := fib(n-1);
-    @return (p.0 + p.1, p.sum,):Tuple;
+    return :BigInteger(-1);
 };
 
-%calc(n:Rational):Void := {
+@[ stack_check @]
+%fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {
+    if (n < 3) {
+        $one:BigInteger := 1;
+        return :Tuple($one, $one);
+    };
+    p := fib(n - 1);
+    return (p.0 + p.1, p.sum,):Tuple;
+};
+
+%calc(n:BigInteger):Void := {
     result := fib(n);
-    $value := '{0}'( result.fib );
+    $value := '{0}'(result.fib);
     @print('{}: {}\n{}\n', n, $value.size(), $value);
 };
 
-@main() := {
-    calc(3000);
-};
+@main(argv^:Dict, args^:Dict) := {
+    # --- Валидация аргументов (без дефолтов) ---
+    if (:Int32({% $argv.size() %}) < 1) {
+        @print('Usage: fibonacci <n>\n');
+        @print('  <n> - compute the n-th Fibonacci number (> 0)\n');
+        return 1;
+    };
+    $n := parse_bigint(:StrChar(argv[0]));
+    if ($n < 1) {
+        @print('Error: invalid <n>: "{}" (expected integer > 0)\n', argv[0]);
+        return 1;
+    };
 
-# и за 0.3 секунды на неторопливой машине для баловства получил 11494 знака числа Фибоначчи номер 55,000. 
-# С номером 60,000 - как предупреждают в статье. 
-# Для сравнения, на Python облом уже на 1,000.
+    # --- Вычисление (переполнение стека при слишком большом n -> stack_overflow, ловится) ---
+    try_error {
+        calc($n);
+    } catch(_) {
+        @print('STACK OVERFLOW caught computing fibonacci({})\n', $n);
+    };
+    return 0;
+};

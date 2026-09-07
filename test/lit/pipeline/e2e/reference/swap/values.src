@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ref_swapvals %s
+# RUN: $TD/ref_swapvals > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: a=2 b=1
+# CHECK: moved=0
+
+# Swap `:=:` работает и с обычными (не ссылочными) значениями: `a :=: b` → std::swap(a, b);
+# форма `var :=: _` → std::move(var) (перемещение значения в discard - оставляет объект в
+# moved-from состоянии; для Int32 практический эффект не виден).
+
+@main():Int32 := {
+    a : Int32 := 1;
+    b : Int32 := 2;
+    a :=: b;
+    print('a={} b={}\n', a, b);
+    m := 0;
+    m :=: _;
+    print('moved={}\n', m);
+    return 0;
+};

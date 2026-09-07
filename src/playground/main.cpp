@@ -11,15 +11,16 @@
 #include "playground/server.h"
 #include "playground/worker.h"
 
+#include "pipeline/cli.hpp"
 #include "utils/io.hpp"
 
 #include <algorithm>
 #include <csignal>
 #include <cstdio>
-#include <cstdlib>
-#include <cstring>
 #include <signal.h>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -50,19 +51,43 @@ void installSignalHandlers() {
     ::sigaction(SIGTERM, &sa, nullptr);
 }
 
+// -- Единый арity-aware парсер драйвера (см. pipeline/cli.hpp) --
+// Опции playground объявлены таблицей DriverOption - единый источник для парсера и справки.
+
+enum class PlaygroundOptId {
+    Help,
+    Config,
+    Playground,
+    PlaygroundUrl,
+    Token,
+    MaxParallel,
+    Lsp,
+    SaveConfig,
+    GenToken,
+};
+
+std::vector<trust::DriverOption> playgroundTable() {
+    using namespace trust;
+    return {
+        {int(PlaygroundOptId::Help), "help", "h", CliOpt::Flag, "", "Show this help message", CliCategory::General},
+        {int(PlaygroundOptId::Config), "config", "", CliOpt::Value, "path", "Config file (default: <binary dir>/trust-playground.conf)",
+         CliCategory::InputOutput},
+        {int(PlaygroundOptId::Playground), "playground", "", CliOpt::Flag, "", "Run as playground (balancer) server", CliCategory::ProjectSpecific},
+        {int(PlaygroundOptId::PlaygroundUrl), "playground-url", "", CliOpt::Value, "url", "Balancer URL (worker; saved to config)",
+         CliCategory::ProjectSpecific},
+        {int(PlaygroundOptId::Token), "token", "", CliOpt::Value, "hex", "Worker token (worker; saved to config)", CliCategory::ProjectSpecific},
+        {int(PlaygroundOptId::MaxParallel), "max-parallel", "", CliOpt::Value, "n", "Parallel tasks (worker)", CliCategory::ProjectSpecific},
+        {int(PlaygroundOptId::Lsp), "lsp", "", CliOpt::Value, "path", "Path to trust-lsp binary (worker)", CliCategory::ProjectSpecific},
+        {int(PlaygroundOptId::SaveConfig), "save-config", "", CliOpt::Flag, "", "Save effective worker settings to config file", CliCategory::ProjectSpecific},
+        {int(PlaygroundOptId::GenToken), "gen-token", "", CliOpt::OptionalValue, "n", "Generate worker token(s); --gen-token=10 for 10 (default 1)",
+         CliCategory::ProjectSpecific},
+    };
+}
+
 void printUsage(const char* prog) {
-    trust::errs() << "Usage: " << prog << " [options]\n"
-                  << "\n"
-                  << "trust-playground: playground (balancer) or executor (worker).\n"
-                  << "  --playground                Run as playground (balancer) server\n"
-                  << "  --config <path>             Config file (default: <binary dir>/trust-playground.conf)\n"
-                  << "  --playground-url <url>      Balancer URL (worker; saved to config)\n"
-                  << "  --token <hex>               Worker token (worker; saved to config)\n"
-                  << "  --max-parallel <n>          Parallel tasks (worker)\n"
-                  << "  --lsp <path>                Path to trust-lsp binary (worker)\n"
-                  << "  --save-config               Save effective worker settings to config file\n"
-                  << "  --gen-token [n]             Generate n (default 1) worker tokens (64 hex)\n"
-                  << "  --help                      Show this help\n";
+    trust::errs() << "Usage: " << prog << " [options]\n\n"
+                  << "trust-playground: playground (balancer) or executor (worker).\n\n";
+    trust::errs() << trust::driverHelp(playgroundTable());
 }
 
 // Возвращает каталог, в котором находится бинарник (для дефолтного пути конфига).
@@ -99,55 +124,71 @@ int main(int argc, const char* argv[]) {
     bool save_config = false;
     bool help = false;
 
-    auto next_arg = [&](int& i) -> std::string {
-        if (++i >= argc) {
-            trust::errs() << "Error: " << argv[i - 1] << " requires an argument\n";
-            std::exit(1);
-        }
-        return trust::playground::unquote(argv[i]);
-    };
-
-    for (int i = 1; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--playground") == 0) {
+    // Единый арity-aware парсер драйвера (см. pipeline/cli.hpp). Позиционных и `-W` у playground
+    // нет (input_file/diag/diag_help остаются пустыми). `--gen-token` - OptionalValue: значение
+    // задаётся ТОЛЬКО через `=` (`--gen-token=10`), следующий токен не потребляется.
+    std::vector<std::string> args;
+    args.reserve(static_cast<std::size_t>(argc));
+    for (int i = 0; i < argc; ++i) {
+        args.emplace_back(argv[i]);
+    }
+    const auto table = playgroundTable();
+    std::vector<std::string> diag;
+    std::string input_file;
+    bool diag_help = false;
+    auto apply = [&](int id, const std::string& v) -> bool {
+        switch (static_cast<PlaygroundOptId>(id)) {
+        case PlaygroundOptId::Help:
+            help = true;
+            break;
+        case PlaygroundOptId::Config:
+            config_path = trust::playground::unquote(v);
+            break;
+        case PlaygroundOptId::Playground:
             playground_mode = true;
-        } else if (std::strcmp(argv[i], "--config") == 0) {
-            config_path = next_arg(i);
-        } else if (std::strcmp(argv[i], "--playground-url") == 0) {
-            playground_url = next_arg(i);
-        } else if (std::strcmp(argv[i], "--token") == 0) {
-            token = next_arg(i);
-        } else if (std::strcmp(argv[i], "--max-parallel") == 0) {
-            const std::string mp = next_arg(i);
+            break;
+        case PlaygroundOptId::PlaygroundUrl:
+            playground_url = trust::playground::unquote(v);
+            break;
+        case PlaygroundOptId::Token:
+            token = trust::playground::unquote(v);
+            break;
+        case PlaygroundOptId::MaxParallel:
             try {
-                max_parallel = std::stoi(mp);
+                max_parallel = std::stoi(v);
             } catch (const std::exception&) {
-                trust::errs() << "Error: invalid integer for --max-parallel: '" << mp << "'\n";
-                return 1;
+                trust::errs() << "Error: invalid integer for --max-parallel: '" << v << "'\n";
+                return false;
             }
-        } else if (std::strcmp(argv[i], "--lsp") == 0) {
-            lsp_bin = next_arg(i);
-        } else if (std::strcmp(argv[i], "--save-config") == 0) {
+            break;
+        case PlaygroundOptId::Lsp:
+            lsp_bin = trust::playground::unquote(v);
+            break;
+        case PlaygroundOptId::SaveConfig:
             save_config = true;
-        } else if (std::strcmp(argv[i], "--gen-token") == 0) {
+            break;
+        case PlaygroundOptId::GenToken:
             gen_token = true;
-            // Необязательный счётчик: потребляем следующий аргумент, только если это число.
-            if (i + 1 < argc) {
-                const std::string next = argv[i + 1];
-                if (!next.empty() && next.find_first_not_of("0123456789") == std::string::npos) {
-                    try {
-                        gen_count = std::clamp(std::stoi(next), 1, 1000);
-                        ++i;
-                    } catch (const std::exception&) {
-                        gen_count = 1;
-                    }
+            gen_count = 1;
+            if (!v.empty()) {
+                try {
+                    gen_count = std::clamp(std::stoi(v), 1, 1000);
+                } catch (const std::exception&) {
+                    gen_count = 1;
                 }
             }
-        } else if (std::strcmp(argv[i], "--help") == 0) {
-            help = true;
-        } else {
-            trust::errs() << "Error: unknown option '" << argv[i] << "'\n";
-            return 1;
+            break;
         }
+        return true;
+    };
+    const std::string err = trust::parseDriverArgs(args, table, apply, diag, input_file, diag_help);
+    if (!err.empty()) {
+        trust::errs() << "Error: " << err << "\n";
+        return 1;
+    }
+    if (!input_file.empty()) {
+        trust::errs() << "Error: unexpected argument '" << input_file << "'\n";
+        return 1;
     }
 
     if (help) {

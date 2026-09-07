@@ -43,11 +43,21 @@ class IdentType : public IdentName {
     const auto& dims() const noexcept { return m_dims; }
     const auto& params() const noexcept { return m_params; }
 
+    /// Истина, если это нативный шаблон-тип `vector<Int32>` (template-аргументы в m_templateArgs).
+    /// Отличие от кортежных параметров `:Type(...)` (m_params).
+    [[nodiscard]] bool isTemplate() const noexcept { return m_templateArgs.has_value(); }
+    const auto& templateArgs() const noexcept { return m_templateArgs; }
+    /// Устанавливает типовые аргументы нативного шаблона (visit_TYPE для `vector<Int32>`).
+    void setTemplateArgs(std::vector<AstNodePtr> args) { m_templateArgs = std::move(args); }
+
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
   protected:
     std::optional<std::vector<AstNodePtr>> m_dims;   ///< Из [...] в `:TypeName[...](...)`
     std::optional<std::vector<AstNodePtr>> m_params; ///< Из (...) в `:TypeName[...](...)`
+    /// Типовые аргументы нативного шаблона `vector<Int32>` (из `LT template_args GT`).
+    /// Каждый аргумент - узел типа (IdentType/IdentName). Наличие = это шаблон-тип.
+    std::optional<std::vector<AstNodePtr>> m_templateArgs;
 };
 
 } // namespace trust

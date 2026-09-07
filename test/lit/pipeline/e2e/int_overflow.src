@@ -1,0 +1,16 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Сверхразрядный целочисленный литерал (вне Int64) типизируется как BigInteger (сам по себе
+# валиден, см. big_rational_arith.src). В ФИКСИРОВАННУЮ целую цель (Int64) не влезает →
+# ошибка переполнения с подсказкой использовать BigInteger или Double.
+# Разделители разрядов '_' учитываются (срезаются перед проверкой значения).
+
+v:Int64 := 9223372036854775808;
+# CHECK: error: integer literal '9223372036854775808' exceeds the range of Integer (Int64); use BigInteger or a Double (floating point)
+
+w:Int64 := 9_223_372_036_854_775_808;
+# CHECK: error: integer literal '9_223_372_036_854_775_808' exceeds the range of Integer (Int64); use BigInteger or a Double (floating point)
+
+# Граничное значение Int64_MAX влезает - ошибки нет (проверка границы).
+ok:Int64 := 9223372036854775807;
+# CHECK-NOT: exceeds the range of Integer

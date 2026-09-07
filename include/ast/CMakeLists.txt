@@ -5,7 +5,12 @@
 # -- AST library --
 add_library(ast_lib STATIC
     ${PROJECT_SOURCE_DIR}/ast/ident_name.cpp
-    ${PROJECT_SOURCE_DIR}/ast/ast_nodes.cpp
+    ${PROJECT_SOURCE_DIR}/ast/ast_children.cpp
+    ${PROJECT_SOURCE_DIR}/ast/ast_base.cpp
+    ${PROJECT_SOURCE_DIR}/ast/ast_expr.cpp
+    ${PROJECT_SOURCE_DIR}/ast/ast_decl.cpp
+    ${PROJECT_SOURCE_DIR}/ast/ast_stmt.cpp
+    ${PROJECT_SOURCE_DIR}/ast/ast_contract.cpp
     ${PROJECT_SOURCE_DIR}/ast/token_base.cpp
     ${PROJECT_SOURCE_DIR}/ast/token_type.cpp
     ${PROJECT_SOURCE_DIR}/ast/attr_pool.cpp

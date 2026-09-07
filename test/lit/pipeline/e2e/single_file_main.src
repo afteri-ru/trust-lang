@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir/sf && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s 7 > %t.out
+# RUN: %FileCheck %s <%t.out
+# RUN: test -x $TD/single_file_main
+# RUN: ! test -e $TD/single_file_main_main.cppt
+# RUN: ! grep -q "single_file_main_main" $TD/build.conf
+
+# Однофайловый режим генерации (`-fsingle-file`, включён по умолчанию при `--run`):
+# программа с точкой входа @main(argv, args) собирается как ЕДИНЫЙ самодостаточный `.cppt`
+# (main-обёртка встроена в тот же файл) - отдельный `_main.cppt` и `SRC_MAIN` в build.conf
+# НЕ создаются, исполняемый файл компилируется/линкуется из одного модуля.
+# Аргументы командной строки (после входного файла) доходят до @main через argv.
+# Отключение однофайлового режима - `-fno-single-file` (многофайловый путь с _main.cppt).
+
+# CHECK: got 7
+
+@main(argv^: Dict, args^: Dict) := {
+    $a0 := :StrChar(argv[0]);
+    @print('got {}\n', $a0);
+    return 0;
+}

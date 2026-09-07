@@ -18,6 +18,7 @@ class SolverStub final : public SolverInterface {
     void defineFun(const std::string& /*name*/, const std::vector<SmtSort>& /*arg_sorts*/, const SmtSort& /*result_sort*/, const SmtTerm& /*body*/) override {}
     void assertFormula(const SmtTerm& /*formula*/) override {}
     SolverResult checkSat() override { return SolverResult::kUnsupported; }
+    std::optional<std::string> getModelValue(const std::string& /*name*/, const SmtSort& /*srt*/) override { return std::nullopt; }
     void push(uint32_t /*depth*/) override {}
     void pop(uint32_t /*depth*/) override {}
     std::string getSmtLibText() const override { return ""; }

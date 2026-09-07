@@ -8,7 +8,7 @@
 // «Типовые» visit-методы генерируются из x-macro автоматически (TermVisitorDefault);
 // здесь переопределяются только спец-термы (MODULE, CREATE_TYPE, CREATE_NAME, ARGUMENT),
 // которые выполняют класс-селекцию узла. Раскладку детей строят сами терм-конструкторы
-// узлов (ast_nodes.cpp, тот же ast_lib) через этот класс.
+// узлов (категорийные ast_*.cpp, тот же ast_lib) через этот класс.
 
 #include "ast/term_visitor.hpp"
 
@@ -44,9 +44,16 @@ class TermToAstConverter : public TermVisitorDefault {
     // -- Спец-термы (остальные visit_<NAME> генерируются из x-macro) --
     AstNodePtr visit_MODULE(const trust::TermPtr& term, Context& ctx) override;
     AstNodePtr visit_CREATE_NAME(const trust::TermPtr& term, Context&) override;
+    /// `::=` тип-определение. RHS может быть forward-объявлением (нативного) класса
+    /// (`Pair ::= %std::pair<T1,T2>{...};`): RHS-терм CLASS с m_left = ИМЯ (native/голое), а не
+    /// type_class (`:Base`) пользовательского класса → right = ClassDecl; иначе generic.
+    AstNodePtr visit_CREATE_TYPE(const trust::TermPtr& term, Context& ctx) override;
     /// `a, b = ... source;` - деструктуризация-присваивание (многоимённый LHS + `=`): построить
     /// DestructureDecl(m_isAssign=true); одиночный `a = expr` - обычный AssignOp (generic).
     AstNodePtr visit_ASSIGN(const trust::TermPtr& term, Context& ctx) override;
+    /// `x :=: y` - swap двух переменных/ссылок → единый узел Binary(AssignOp) с оператором ":=":;
+    /// семантика проверяет ссылочный контракт (typeBinaryResult), транспилятор эмитит std::swap.
+    AstNodePtr visit_SWAP(const trust::TermPtr& term, Context& ctx) override;
     AstNodePtr visit_ARGUMENT(const trust::TermPtr& term, Context&) override;
     /// `:Type(...)`/`(...):Type` - единый узел DictLiteralNode с аннотацией типа (m_type);
     /// класс (кортеж/каст/конструктор) определяет анализатор по типу из реестра. `:Type` без
@@ -68,12 +75,26 @@ class TermToAstConverter : public TermVisitorDefault {
     /// терма-операнда в RangeExpr::operandTypes (для учёта в analyzeRangeExpr, напр. `0..100:Rational`).
     AstNodePtr visit_RANGE(const trust::TermPtr& term, Context& ctx) override;
 
+    /// `&`/`&&`/`&?` (умные) → RefMakeExpr; нативные `%&`/`%&&` (сырые C++-операторы, текст с
+    /// ведущим '%') → отдельные узлы NativeRefMakeExpr (kind/const из текста оператора).
+    AstNodePtr visit_OPERATOR_PTR(const trust::TermPtr& term, Context& ctx) override;
+    /// `*`/`*^` (умные) → RefTakeExpr; нативные `%*`/`%*^` (разименование нативного указателя)
+    /// → отдельные узлы NativeRefTakeExpr.
+    AstNodePtr visit_TAKE(const trust::TermPtr& term, Context& ctx) override;
+
+    /// Блоки перехвата прерываний `{+ ... +}`/`{- ... -}`/`{* ... *}` (BLOCK_PLUS/BLOCK_MINUS/
+    /// BLOCK_TRY) → TryCatchStmt (Sequence). Класс перехватываемого прерывания закодирован в
+    /// text() узла ('{+'/'{-'/'{*'); НЕ ScopeBlock (как обычный { ... }).
+    AstNodePtr visit_BLOCK_PLUS(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_BLOCK_MINUS(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_BLOCK_TRY(const trust::TermPtr& term, Context& ctx) override;
+
     Context& m_ctx;
 };
 
 /// Сконвертировать один Term в AstNode (рекурсивно) через свежий конвертер.
 /// Устраняет повторяющийся паттерн `TermToAstConverter conv{ctx}; return conv.convert(t);`
-/// в терм-конструкторах узлов (ast_nodes.cpp). nullptr для null/END.
+/// в терм-конструкторах узлов (категорийные ast_*.cpp). nullptr для null/END.
 AstNodePtr convertChild(Context& ctx, const trust::TermPtr& term);
 
 /// Сконвертировать детей Term (m_sequence, m_args, m_left, m_right) и добавить в out.

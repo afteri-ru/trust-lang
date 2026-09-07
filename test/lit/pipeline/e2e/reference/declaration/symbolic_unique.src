@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ref_unique %s
+# RUN: $TD/ref_unique > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: a=2 b=1
+
+# Маркер `&* u` → std::unique_ptr<T> (исключительное владение, авто-вывод). `*` здесь -
+# доступ к ДАННЫМ в unique (безопасный trust::checked_deref, без UB на nullptr). unique_ptr
+# создаётся из значения (std::make_unique), swap unique - через `:=:` (std::swap).
+
+@main():Int32 := {
+    &* a := 1:Int32;
+    &* b := 2:Int32;
+    a :=: b;
+    print('a={} b={}\n', *a, *b);
+    return 0;
+};

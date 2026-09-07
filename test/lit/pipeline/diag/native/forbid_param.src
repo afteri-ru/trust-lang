@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# D7: нативные адрес/ссылка (%& / %*) запрещены в определениях функций и их аргументов
+# (там допускаются только атрибут-указатели ссылок).
+@func foo(a : %* Int32) { return; };
+@main():Int32 := { return 0; }
+# CHECK: error: native reference is not allowed in a function parameter

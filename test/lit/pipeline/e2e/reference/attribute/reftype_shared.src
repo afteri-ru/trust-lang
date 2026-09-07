@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/reference_shared %s
+# RUN: $TD/reference_shared > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: weak=5
+# CHECK: shared=7
+
+# Reference-переменные @[reftype("shared"/"weak")@] транслируются в trust::Shared/trust::Weak
+# (заголовок trust/trusted-cpp.hpp извлекается pipeline). Оператор take `*ref` захватывает
+# ссылку (lock) и разыменовывает; `*x = 7` мутирует значение под блокировкой. Слабая ссылка
+# наблюдает тот же объект, поэтому до мутации *w == 5.
+
+@main():Int32 := {
+    x : @[reftype("shared")@] Int32 := 5;
+    w : @[reftype("weak")@] Int32 := x;
+    print('weak={}\n', *w);
+    *x = 7;
+    print('shared={}\n', *x);
+    return 0;
+};

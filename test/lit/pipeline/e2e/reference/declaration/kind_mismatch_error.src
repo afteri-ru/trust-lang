@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Ссылочный тип может быть указан ПЕРЕД именем переменной (`&& x`) и/или ПЕРЕД именем типа
+# (`x : &&Int32`). Если заданы оба - они обязаны совпадать; иначе - ошибка (диагностика).
+
+@main():Int32 := {
+    && x : &* Int32 := 5;
+    return 0;
+};
+# CHECK: error: reference kind mismatch: variable is 'shared' but its type is 'unique'

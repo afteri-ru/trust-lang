@@ -1,0 +1,13 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Тип-алиас на типизированный шаблон `copy ::= :vector<Int32>;`: RHS `::=` - ЧИСТЫЙ ТИП (нет
+# арифметики), алиас становится `std::vector<int32_t>` (резолвится через `:Array`).
+@include("vector")
+<T> %std::vector() := ...;
+
+copy ::= :vector<Int32>;
+x:copy := [1, 2, 3,];
+
+# CHECK: #include <vector>
+# CHECK: using c_copy = std::vector<int32_t>;
+# CHECK: std::vector<int32_t> c_x = std::vector<int32_t>{1, 2, 3};

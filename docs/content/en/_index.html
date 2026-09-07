@@ -9,23 +9,23 @@ title: TrustLang
 
 {{< blocks/cover title="Welcome to the TrustLang project website!" image_anchor="top" height="auto" >}}
 
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/en/docs/">
+<a class="btn btn-primary me-3 mb-4" href="/en/docs/">
     Documentation <i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="/en/blog/">
+<a class="btn btn-secondary me-3 mb-4" href="/en/blog/">
     Articles <i class="fas fa-arrow-alt-circle-right ms-2 "></i>
 </a>
 
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="/en/playground/">
+<a class="btn btn-secondary me-3 mb-4" href="/en/playground/">
     Playground<i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
+<a class="btn btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
     GitHub <i class="fab fa-github ms-2 "></i>
 </a>
 
-{{< blocks/link-down color="info" >}}
+{{< blocks/link-down color="light" >}}
 {{< /blocks/cover >}}
 
 
@@ -152,13 +152,11 @@ and rational numbers using <a href="https://github.com/openssl/openssl/blob/mast
 <h4>Hello world script example in TrustLang</h4>
 
 <br>
-<code>
-    <pre>
+<pre><code class="language-trust">
     #!../output/nlc
 
     printf('Hello, world!');
-    </pre>
-</code>
+</code></pre>
 
 Output:
 <code><pre>
@@ -170,8 +168,7 @@ Output:
 <h4>An example of calculating factorial 40 on TrustLang (base syntax)</h4>
 
 <br>
-<code>
-    <pre>
+<pre><code class="language-trust">
         #!../output/nlc 
 
         ### Example of calculating factorial of 40 using basic syntax
@@ -185,8 +182,7 @@ Output:
         @assert(fact == 815915283247897734345611269596115894272000000000\1);
 
         fact    # Return final result
-    </pre>
-</code>
+</code></pre>
 
 Output:
 <code>
@@ -200,8 +196,7 @@ Output:
 <h4>Same code using <a href="/en/docs/syntax/dsl/">DSL syntax</a></h4>
 
 <br>
-<code>
-    <pre>
+<pre><code class="language-trust">
         #!../output/nlc 
 
         ### Example of calculating factorial 40 using DSL syntax
@@ -215,8 +210,7 @@ Output:
         @assert(fact == 815915283247897734345611269596115894272000000000\1);
 
         fact    # Return final result    
-    </pre>
-</code>
+</code></pre>
 
 
 Output:
@@ -230,16 +224,16 @@ Output:
 
 {{% blocks/section %}}
 
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/en/playground/">
+<a class="btn btn-primary me-3 mb-4" href="/en/playground/">
     More code examples<i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/en/docs/">
+<a class="btn btn-primary me-3 mb-4" href="/en/docs/">
     All documentation<i class="fas fa-arrow-alt-circle-right ms-2"></i>
 </a>
 
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="/doxygen/index.html">
-    Doxygen docs<i class="fas fa-arrow-alt-circle-right ms-2 "></i>
+<a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
+    Discuss on Reddit<i class="fab fa-reddit ms-2"></i>
 </a>
 
 {{% /blocks/section %}}

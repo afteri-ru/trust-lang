@@ -5,11 +5,13 @@ set(TEST_SOURCES
     unittest.cpp
     diag/diag_test.cpp
     diag/context_test.cpp
+    diag/context_bitpack_test.cpp
     diag/options_test.cpp
     diag/mapping_test.cpp
+    diag/mapping_reader_test.cpp
     diag/mapping_extended_test.cpp
     diag/save_and_read_test.cpp
-    transpiler/e2e/src_map_cli_readback_test.cpp
+    transpiler/src_map_cli_test.cpp
     attr/attr_test.cpp
     ast/visit_test.cpp
     pipeline/module_registry_test.cpp
@@ -18,33 +20,53 @@ set(TEST_SOURCES
     #  parser/token_gen_test.cpp
     pipeline/pipeline_test.cpp
     pipeline/pipeline_symbol_test.cpp
+    pipeline/uninit_inference_test.cpp
     pipeline/compile_test.cpp
+    pipeline/analysis_options_test.cpp
     semantic/semantic_test.cpp
+    semantic/semantic_table_test.cpp
+    semantic/semantic_funcdecl_test.cpp
     semantic/symbol_collector_test.cpp
     semantic/scope_test.cpp
     semantic/scope_liveness_test.cpp
     semantic/multilevel_var_test.cpp
     semantic/format_check_test.cpp
-    transpiler/transpiler_test.cpp
-    transpiler/integration/transpile_lsp_test.cpp
+    transpiler/codegen_literal_test.cpp
+    transpiler/codegen_stmt_test.cpp
+    transpiler/codegen_func_test.cpp
+    transpiler/transpile_lsp_test.cpp
+    transpiler/transpile_lsp_mapping_test.cpp
     # pipeline/pipelineopt_test.cpp
-    types/numbers_test.cpp
-    types/integers_test.cpp
     types/type_alias_test.cpp
     types/type_helpers_test.cpp
     types/reftype_test.cpp
     types/type_method_test.cpp
     types/array_type_test.cpp
+    types/native_template_test.cpp
+    types/native_class_test.cpp
+    types/trust_flag_test.cpp
     types/runtime_symbols_test.cpp
+    types/stack_check_test.cpp
     runtime/rational_test.cpp
+    runtime/big_integer_test.cpp
     runtime/dict_test.cpp
     runtime/range_test.cpp
     runtime/checked_cast_test.cpp
     runtime/any_convert_test.cpp
+    runtime/stack_check_runtime_test.cpp
+    runtime/trusted_cpp_test.cpp
+    runtime/trusted_cpp_shared_test.cpp
+    runtime/trusted_cpp_shared_weak_test.cpp
+    runtime/trusted_cpp_correctness_test.cpp
     ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
-    lsp/trust_lsp_test.cpp
+    ${PROJECT_SOURCE_DIR}/runtime/big_integer.cpp
+    lsp/lsp_handler_test.cpp
+    lsp/lsp_hover_test.cpp
+    lsp/lsp_completion_test.cpp
+    lsp/lsp_codeaction_test.cpp
     lsp/html_emit_test.cpp
     lsp/builtin_catalog_test.cpp
+    lsp/lsp_options_test.cpp
     playground/server_test.cpp
     playground/config_test.cpp
     playground/dispatch_test.cpp
@@ -58,10 +80,27 @@ set(TEST_SOURCES
     utils/error_test.cpp
     utils/io_test.cpp
     solver/smt_printer_test.cpp
+    solver/smt_printer_z3_test.cpp
+    solver/smt_op_test.cpp
     # Syntax tests
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_test.cpp
-    ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_macro_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_trust_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_core_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_options_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_mapping_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_stmt_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_expr_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_decl_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_trust_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/predef_pragma_test.cpp
+    # Formatter tests
+    formatter/format_test.cpp
+    formatter/format_comments_test.cpp
+    formatter/format_config_test.cpp
+    formatter/format_contract_test.cpp
+    formatter/format_tail_test.cpp
 )
 
 # Tensor tests (require WITH_TORCH)
@@ -96,6 +135,7 @@ target_link_libraries(unit_tests PRIVATE
     playground_lib
     solver_lib
     syntax_lib
+    formatter_lib
     gmp_interface
     GTest::gtest
 )
@@ -133,6 +173,13 @@ target_compile_options(unit_tests PRIVATE
     -Wno-unused-result
     -Wno-error=old-style-cast
     -Wno-error=switch
+)
+
+# stack_check_runtime_test.cpp автономно тестирует trust::stack_check: для
+# get_stack_limit()/check_stack_limit() нужна секция .stack_sizes (только этот файл).
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/runtime/stack_check_runtime_test.cpp
+    PROPERTIES COMPILE_OPTIONS "-fstack-size-section"
 )
 
 # -- Symlink tensor plugin for runtime loading (only when Torch is enabled) --
@@ -175,6 +222,7 @@ add_test(NAME unit_tests
 set_tests_properties(unit_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     TIMEOUT 300
-    # Final stage examples_tests runs only after all suites pass (fixture examples_deps).
-    FIXTURES_SETUP examples_deps
+    # Final stage examples_tests runs only after all suites pass (fixture examples_deps);
+    # package_target_test/deb_package_test run after these suites (fixture package_deps).
+    FIXTURES_SETUP "examples_deps;package_deps"
 )

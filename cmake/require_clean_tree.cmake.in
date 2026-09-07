@@ -1,0 +1,14 @@
+# cmake/require_clean_tree.cmake.in
+# Clean-tree pre-check for artifact targets (package / deb / VSIX), run via `cmake -P` as the first
+# COMMAND of those custom targets. Thin wrapper: the actual porcelain check and its messages live in
+# the shared cmake/clean_tree.cmake (same logic is reused by the release gate at configure time).
+#
+# Severity (@TRUST_CLEAN_SEVERITY@, baked at configure time from the build mode):
+#   - "error"   (release build): artifacts are part of the default release build -> FATAL_ERROR.
+#   - "warning" (dev build):     artifacts are force-enabled on a dev build -> warning only.
+
+set(_src_dir "@CMAKE_SOURCE_DIR@")
+set(_severity "@TRUST_CLEAN_SEVERITY@")
+
+include("${_src_dir}/cmake/clean_tree.cmake")
+trust_check_clean_tree("${_src_dir}" "${_severity}")

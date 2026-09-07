@@ -1,0 +1,14 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Цикл while - недоказуемый definite-assignment путь (тело может не выполниться): чтение после
+# цикла → Error (консервативно, никакого тихого пропуска).
+@main() := {
+    x := _;
+    $i := 0;
+    while ($i < 3) {
+        x = 5;
+        $i += 1;
+    };
+    @print('{}', x);
+};
+# CHECK: error: variable 'x' is read before it is initialized

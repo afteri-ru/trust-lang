@@ -1,0 +1,12 @@
+# RUN: %not %trust --emit-cpp -Wreftrace=error -Wnative-ref=ignore -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Нативные ссылки и reftrace: `y : %* Int8 := %& vect[0]` - нативный указатель в буфер vect
+# (зависимая); `vect = [...]` (мутация источника) инвалидирует y; `*y` ПОСЛЕ мутации -> диагностика.
+@main() := {
+    vect := [1, 2, 3,];
+    %y : %* Int8 := %& vect[0];        # T* y = &vect[0]  (нативный указатель в буфер) -> зависимая
+    vect = [10, 20, 30,];      # мутация источника
+    @print('{}\n', *%y);        # использование зависимой после мутации -> error
+}
+# CHECK: error: using the dependent variable '%y' after changing the main variable 'vect'!
+# CHECK: note: using main variable 'vect'

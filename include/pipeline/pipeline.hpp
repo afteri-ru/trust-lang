@@ -7,6 +7,7 @@
 #include "ast/ast_nodes.hpp"
 #include "transpiler/transpiler.hpp"
 #include "semantic/symbol_index.hpp"
+#include "solver/smt_ast.hpp"
 
 namespace trust {
 class Macro;
@@ -33,6 +34,7 @@ enum class EmitFlags {
     AST = 1 << 1,
     Cpp = 1 << 2,
     LexemesOnly = 1 << 3,
+    Macros = 1 << 4, ///< --emit-macros: напечатать макроопределения после парсинга
 };
 
 inline constexpr EmitFlags operator|(EmitFlags a, EmitFlags b) {
@@ -47,9 +49,10 @@ inline constexpr EmitFlags operator&(EmitFlags a, EmitFlags b) {
 
 enum class PipelineSteps {
     None = 0,
-    ParseAST = 1 << 0,  // Parser (lexing + parsing done together in legacy)
+    ParseAST = 1 << 0,  // Parser (lexing + parsing together)
     Semantic = 1 << 1,  // pass-менеджер семантики (SemanticPassRunner)
     Transpile = 1 << 2, // CppTranspiler
+    Solver = 1 << 3,    // генерация SMT-LIB 2 (TrustToSmt) для --solver-mode=export/calculate
 };
 
 inline constexpr PipelineSteps operator|(PipelineSteps a, PipelineSteps b) {
@@ -99,12 +102,61 @@ struct PipelineOpts {
     std::string compiler_options;
     CompileMode compile_mode = CompileMode::Executable;
     RuntimeLink runtime_link = RuntimeLink::Static;
+    /// Поведенческий режим обработки trust-конструкций: `--solver-mode=<mode>` (assert|export|calculate).
+    /// Пустая строка = опция не передана (флаг FlagKind::SolverMode не задан - никакое поведение).
+    /// Severity-диагностика «присутствуют trust-условия» управляется отдельно через `-Wsolver`.
+    std::string solver_mode;
+    /// Поведенческий флаг `--solver-loop-unroll`: глобально разворачивать циклы без инварианта
+    /// (bounded). Не диагностика (не severity). По умолчанию выключен - циклы без инварианта дают
+    /// диагностику `-Wsolver-loop`.
+    bool solver_loop_unroll = false;
+    /// Поведенческий режим контроля переполнения стека: `--stack-check=<mode>` (off|explicit|recursion|auto).
+    /// Пустая строка = опция не передана (используется дефолт explicit из флага FlagKind::StackCheck).
+    std::string stack_check_mode;
+    /// Минимальный резерв стека (reserve) в байтах: `--stack-check-reserve=<bytes>`. Пустая строка =
+    /// опция не передана (используется рантайм-дефолт 8192).
+    std::string stack_check_reserve;
+    /// Перечень функций (comma-separated trust-имена), ограничивающих m_stack_limit для limit-проверок:
+    /// `--stack-check-functions=<names>`. Пусто = все функции .stack_sizes.
+    std::string stack_check_functions;
+    /// Compile-time дефолт таймаута детектора взаимной блокировки для синхронизированных ссылок:
+    /// `-fsync-deadlock=<ms|s|us|ns|nano>` (без суффикса = секунды; дефолт рантайма 5s). Пустая строка =
+    /// опция не передана. Встраивается в начало main через trust::runtime::setSyncDeadlockFromString.
+    std::string sync_deadlock_timeout;
     bool run = false; ///< --run: после сборки исполняемого файла запустить его
+    /// Аргументы командной строки, передаваемые запущенной программе при --run.
+    /// Собираются из позиционных аргументов ПОСЛЕ входного файла (шебанг: ./prog.src a b).
+    std::vector<std::string> run_args;
     /// Собрать build-каталог (.cppt/_main.cppt/Makefile/build.conf/trust/LICENSE) БЕЗ
     /// компиляции/линковки. Используется trust-lsp `--emit-build-dir` для скачиваемого
     /// архива. build.conf при этом формируется переносимым (без абсолютных путей и
     /// привязки к рантайм-библиотеке).
     bool emit_build_dir_only = false;
+    /// Однофайловый режим генерации исполняемой программы (`-fsingle-file`/`-fno-single-file`):
+    /// `int main`-обёртка встраивается в тот же `.cppt`, отдельный `_main.cppt` не создаётся.
+    /// По умолчанию включается при `--run` (резолв - в pipeline_parser.cpp). Скрипт без
+    /// `__main__` в этом режиме пока не поддерживается - выводится диагностика (включение
+    /// даст будущий функционал «модуль-скрипт»).
+    bool single_file = false;
+    /// true, если флаг задан явно (`-fsingle-file`/`--single-file`/`-fno-single-file`). Если
+    /// не задан - применяется дефолт (включить при `--run`). Нужен, чтобы `-fno-single-file`
+    /// мог явно отключить авто-дефолт для `--run` (многофайловая сборка).
+    bool single_file_set = false;
+
+    /// Поведенческий флаг `-fcomments`/`-fno-comments` (не диагностика): вставлять ли
+    /// документирующие комментарии в генерируемый C++-код. По умолчанию true (добавлять).
+    bool comments = true;
+    /// Поведенческий флаг `-fsourcemap`/`-fno-sourcemap` (не диагностика): добавлять ли
+    /// маппинг (source map) и экспорт-таблицу в генерируемый C++-файл. Файл `.src_map`
+    /// генерируется всегда; флаг управляет только `#embed "<name>.src_map"` и экспорт-таблицей.
+    bool embed_source_map = true;
+
+    // -- Linking options (CLI-пересечение с @[link(...)] из исходника) --
+    /// Дополнительные библиотеки линковки из CLI (`-l<name>`). Объединяются с
+    /// `@[link("имя")]` из кода (linkLibs()) перед записью в build.conf (LIBS += ...).
+    std::vector<std::string> link_libs_cli;
+    /// Каталоги поиска библиотек из CLI (`-L<dir>`), пишутся в build.conf LDFLAGS.
+    std::vector<std::string> link_dirs;
 
     // Standard library options
     bool use_stdlib = true; // false если --no-stdlib
@@ -118,6 +170,23 @@ struct PipelineOpts {
     // отсекается (runner.run() вернёт false при ошибках). CLI по умолчанию выключен.
     bool allow_semantic_on_errors = false; // --semantic-on-errors
 
+    // -- Форматирование (pretty-print) --
+    bool format_requested = false;   ///< --format: отформатировать входной файл (вывод в stdout)
+    bool format_check = false;       ///< --format-check: проверить, отформатирован ли файл
+    bool format_dump_config = false; ///< --format-dump-config: вывести настройки с дефолтами/комментариями
+    /// --keywords=<list>: имена макросов, допустимые без '@' (запятая без пробелов). Пишется в
+    /// значение флага FlagKind::Keywords (управляет подавлением -Wsigil для bare-макросов).
+    std::string keywords;
+    /// --keyword-sigil=<mode>: remove|add|none — обработка '@'-сигила ключевых слов в форматтере
+    /// (default = remove, убирать '@'). Пустая строка = CLI не задан (используется .trust-format).
+    std::string keyword_sigil;
+    // Переопределения форматирования: только выбор конфига/стиля. Значения IndentWidth/UseTabs/
+    // ColumnLimit задаются в .trust-format (не через CLI-флаги переопределения).
+    std::string format_config;     ///< --format-config=<file>
+    bool format_no_config = false; ///< --format-style=none
+    bool complete_options = false; ///< --complete-options: вывести имена опций для shell-completion
+    bool complete_files = false;   ///< --complete-files: вывести опции со значением-файлом для shell-completion
+
     // True if no emit flags specified (full compile mode)
     bool should_compile() const { return emit_flags == EmitFlags::None; }
 };
@@ -126,6 +195,15 @@ struct PipelineOpts {
 struct ParseResult {
     PipelineOpts opts;
     std::vector<std::string> remaining_args;
+    /// CLI-диагностики `-W...` (в т.ч. `-Whelp`), собранные арity-aware парсером
+    /// `parseDriverArgs` (см. cli.hpp). Применяются через applyDiagnostics ->
+    /// Options::parse_argv. Справка по диагностикам печатается в trust.cpp через
+    /// Options::helpRequested() (единый флаг, set в parse_argv).
+    std::vector<std::string> diag_args;
+    /// true, если в diag_args есть `-Whelp` (справка по диагностикам). Выставляется
+    /// парсером parseDriverArgs (единый источник для раннего пропуска проверки входного
+    /// файла в Pipeline::parseArgs; сама справка - через Options::helpRequested()).
+    bool diag_help_requested = false;
     int exit_code = 0; // 0 = OK, 1 = error
 };
 
@@ -134,7 +212,7 @@ struct ParseResult {
 struct PipelineResult {
     std::optional<std::vector<AstNodePtr>> astNodes;
     /// Собранные семантикой символы (имя→тип/диапазоны) для LSP; заполняется при
-    /// FlagKind::Symbols (даже при ошибках лексера/парсера, на частичном AST).
+    /// semantic::FlagKind::Symbols (даже при ошибках лексера/парсера, на частичном AST).
     std::optional<SymbolIndex> symbols;
 
     bool isValid() const { return astNodes.has_value(); }
@@ -170,6 +248,11 @@ class Pipeline {
     /// ядро TypeRegistry (без дублирования), пер-инстансовые - только пользовательские.
     std::unique_ptr<TypeRegistry> releaseTypes();
 
+    /// Загружает DSL (если включён; уважает --dsl/--no-dsl) и возвращает эффективный список
+    /// keywords (приоритет CLI --keywords > .trust-format "Keywords:" > дефолт dsl.src).
+    /// Используется и для диагностики -Wsigil, и для форматирования (набор «ключевых слов»).
+    std::vector<std::string> effectiveKeywords();
+
     // -- Базовый runPipeline (без Transpile) --
     // Выполняет ParseAST, Semantic.
     // Transpile без cppOut - FAULT.
@@ -178,8 +261,9 @@ class Pipeline {
 
     // -- runPipeline с Transpile --
     // Дополнительно выполняет CppTranspiler, записывая результат в cppOut.
-    PipelineResult runPipeline(PipelineSteps steps, MapperFile inputFile, MapperFile cppOut, std::vector<CppTranspiler::ExportEntry>* out_exports = nullptr,
-                               std::vector<std::string>* out_runtime_headers = nullptr, std::vector<std::string>* out_link_libs = nullptr);
+    PipelineResult runPipeline(PipelineSteps steps, MapperFile inputFile, MapperFile cppOut, std::vector<ExportEntry>* out_exports = nullptr,
+                               std::vector<std::string>* out_runtime_headers = nullptr, std::vector<std::string>* out_link_libs = nullptr,
+                               solver::SmtScript* out_script = nullptr, std::string* out_entry_params = nullptr, bool* out_saw_entry = nullptr);
 
     // -- Статические методы для CLI --
     static ParseResult parseArgs(int argc, char* argv[]);
@@ -205,12 +289,19 @@ class Pipeline {
     struct TranspileOutput {
         MapperFile outputIdx;
         std::filesystem::path cpptPath;
-        std::vector<CppTranspiler::ExportEntry> exports;
+        std::vector<ExportEntry> exports;
         /// Рантайм-заголовки (напр. "trust/rational.hpp"), реально использованные
         /// сгенерированным кодом - pipeline извлечёт их из trust-runtime.so.
         std::vector<std::string> runtimeHeaders;
         /// Флаги линковки нативных библиотек (`-l<имя>`) из `@[link("имя")]`.
         std::vector<std::string> linkLibs;
+        /// C++-типы параметров entry-функции (`<модуль>__main__`, без имён, через \", \").
+        /// Пусто, если entry без параметров. Используется для генерации совпадающего extern
+        /// в `_main.cppt` (обёртка main обязана объявить ту же сигнатуру, что и тело entry).
+        std::string entryParams;
+        /// True, если модуль содержит entry-функцию (`<module>__main__`) - отличает программу
+        /// от библиотеки/скрипта (entryParams пуст и для `@main()` без параметров).
+        bool hasEntry = false;
         bool valid = false;
     };
     TranspileOutput runTranspileAndSave(MapperFile inputFile);
@@ -239,39 +330,16 @@ inline bool Pipeline::isSpecialExit(const ParseResult& r) {
     return r.opts.help_requested || r.opts.version_requested || r.exit_code != 0;
 }
 
-// -- Свободные функции --
-
-// Сохранение .cppt + .src_map рядом + #embed + export table
-// embed_export_table=false - не встраивать экспорт-таблицу (модуль-исходник, линкуемый
-// в программу: таблица принадлежит главному файлу, иначе дубли __trust_get_exports).
-// program_record - запись кеша --run: первая строка ВСЕГДА версия компилятора
-// "trust-lang\t<TRUST_VERSION_FULL>", далее строки "файл\tmd5" - главный файл (2-я строка),
-// затем импортированные модули (встраивается в секцию .debug_trust_hash главного файла).
-bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::filesystem::path& cppt_path, bool verbose,
-                              const std::vector<CppTranspiler::ExportEntry>& exports = {}, bool embed_export_table = true,
-                              const std::string& program_record = {});
-
-// Вычисление build_dir = temp_dir (если задан) или директория входного файла
-std::filesystem::path computeBuildDir(const PipelineOpts& opts);
-
-// cppt_path = build_dir / <input_stem>.cppt
-std::filesystem::path computeCpptPath(const PipelineOpts& opts);
-
-// -- Генерация build-каталога / архива для скачивания (trust-lsp --emit-build-dir) --
-
-// Генерирует build-файлы (Makefile, build.conf, _main.cppt, LICENSE и trust/ рантайм-
-// заголовки) в build_dir рядом с .cppt. НЕ компилирует и не линкует. Вызывается и
-// `trust build` (compileAndLink), и trust-lsp `--emit-build-dir`.
-// build.conf - единый переносимый (без абсолютных путей и привязки к .so/.a):
-// include-путь `-I.` (каталог сборки) + `LIBS += -ltrust-runtime -lgmp`. Локальная
-// сборка резолвит `-ltrust-runtime` через LIBRARY_PATH (см. compileAndLink).
-bool writeBuildFiles(const PipelineOpts& opts, const std::filesystem::path& cppt_path, const std::vector<std::filesystem::path>& module_cppt_paths,
-                     const std::vector<std::string>& runtime_headers, const std::vector<std::string>& link_libs, const std::string& entry_func_name);
-
-// Транспилирует trust_code и собирает tar.gz-архив build-каталога по пути
-// <emit_dir>/trust-lang-<версия>-generated.tar.gz (без компиляции). Временные файлы
-// build-каталога удаляются (RAII). Возвращает путь к архиву; пусто при ошибке (причина в
-// out_error).
-std::filesystem::path emitBuildDirArchive(const std::string& trust_code, const std::filesystem::path& emit_dir, std::string& out_error);
-
 } // namespace trust
+
+// -- Модули конвейера (декомпозиция pipeline.cpp) --
+// Свободные функции, ранее жившие в pipeline.cpp, разнесены по модулям по зонам
+// ответственности. pipeline.hpp остаётся «зонтиком» и включает их, поэтому все
+// потребители `pipeline/pipeline.hpp` видят прежний набор функций без правок.
+#include "pipeline/io.hpp"
+#include "pipeline/runtime_locator.hpp"
+#include "pipeline/build.hpp"
+#include "pipeline/run.hpp"
+#include "pipeline/source_map.hpp"
+#include "pipeline/archive.hpp"
+#include "pipeline/module_info.hpp"

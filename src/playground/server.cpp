@@ -2,7 +2,9 @@
 // trust-playground: реализация балансировщика (см. include/playground/server.h).
 
 #include "playground/server.h"
+#include "playground/util.h"
 #include "trust/version.h"
+#include "utils/error.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -21,6 +23,25 @@
 #include <ctime>
 #include <sstream>
 #include <thread>
+
+// Встроенные HTML-страницы (login / 403 / шаблон stats) вынесены во внешние файлы через
+// #embed (co-location - файлы лежат рядом с server.cpp в src/playground/). Это позволяет
+// редактировать HTML/CSS без C++-экранирования и тестировать независимо.
+static const unsigned char kLoginHtmlBytes[] = {
+#embed "login.html"
+};
+static const std::string kLoginHtml(reinterpret_cast<const char*>(kLoginHtmlBytes), sizeof(kLoginHtmlBytes));
+
+static const unsigned char kError403HtmlBytes[] = {
+#embed "error403.html"
+};
+static const std::string kError403Html(reinterpret_cast<const char*>(kError403HtmlBytes), sizeof(kError403HtmlBytes));
+
+// Шаблон stats-страницы; плейсхолдеры %%TIME%% и %%BODY%% заменяются в buildStatsHtmlLocked.
+static const unsigned char kStatsPageBytes[] = {
+#embed "stats_page.html"
+};
+static const std::string kStatsPage(reinterpret_cast<const char*>(kStatsPageBytes), sizeof(kStatsPageBytes));
 
 namespace trust {
 namespace playground {
@@ -163,37 +184,16 @@ bool writeAll(int fd, const std::string& data) {
 }
 
 // Криптографически случайные байты из /dev/urandom.
-std::string randomBytes(size_t n) {
-    std::string out(n, '\0');
-    FILE* f = std::fopen("/dev/urandom", "rb");
-    if (f != nullptr) {
-        if (std::fread(&out[0], 1, n, f) != n) {
-            out.assign(n, '\0');
-        }
-        std::fclose(f);
-    }
-    return out;
-}
-
 // Случайный 64-битный job id (непоследовательный, не угадываемый по соседним).
+// Случайные байты берём из общих утилит (playground/util.h, randomBytes).
 int64_t randomJobId() {
-    const std::string b = randomBytes(sizeof(uint64_t));
+    const std::string b = trust::playground::randomBytes(sizeof(uint64_t));
     uint64_t v = 0;
     for (size_t i = 0; i < sizeof(uint64_t); ++i) {
         v = (v << 8) | static_cast<uint8_t>(b[i]);
     }
     v &= static_cast<uint64_t>(INT64_MAX);
     return (v == 0) ? 1 : static_cast<int64_t>(v);
-}
-
-// Текущая дата/время в ISO-подобном формате UTC.
-std::string utcNowString() {
-    char buf[40];
-    const std::time_t t = std::time(nullptr);
-    std::tm tm{};
-    gmtime_r(&t, &tm);
-    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &tm);
-    return buf;
 }
 
 // Ограничивает число соединений разумным диапазоном [1, kMaxConnSemaphore] (верх = потолок
@@ -275,47 +275,14 @@ bool isLoopbackOrigin(const std::string& origin) {
     return host.rfind("127.", 0) == 0;
 }
 
-// Отправляет письмо через alert_cmd (по умолчанию sendmail -t), читающий письмо из stdin.
-// Возвращает false при пустом получателе или ошибке команды.
-bool sendMail(const std::string& cmd, const std::string& from, const std::string& to, const std::string& subject, const std::string& body) {
-    if (to.empty() || cmd.empty()) {
-        return false;
-    }
-    char date[64];
-    const std::time_t t = std::time(nullptr);
-    std::tm tm{};
-    gmtime_r(&t, &tm);
-    std::strftime(date, sizeof(date), "%a, %d %b %Y %H:%M:%S %z", &tm);
-    const std::string msg = "From: " + from +
-                            "\r\n"
-                            "To: " +
-                            to +
-                            "\r\n"
-                            "Subject: " +
-                            subject +
-                            "\r\n"
-                            "Date: " +
-                            date +
-                            "\r\n"
-                            "Content-Type: text/plain; charset=utf-8\r\n"
-                            "\r\n" +
-                            body;
-    FILE* pipe = ::popen(cmd.c_str(), "w");
-    if (pipe == nullptr) {
-        return false;
-    }
-    const size_t n = std::fwrite(msg.data(), 1, msg.size(), pipe);
-    const int rc = ::pclose(pipe);
-    return n == msg.size() && rc == 0;
-}
-
 } // namespace
 
 PlaygroundServer::PlaygroundServer(const PlaygroundConfig& cfg)
 : cfg_(cfg)
 , connSlots_(clampConnLimit(cfg.maxConns))
 , clientConnSlots_(clampConnLimit(cfg.maxClientConns))
-, workerConnSlots_(clampConnLimit(cfg.maxWorkerConns)) {
+, workerConnSlots_(clampConnLimit(cfg.maxWorkerConns))
+, alertNotifier_(cfg.alertCmd, cfg.alertFrom, cfg.alertEmail) {
     // Проверка потолка и распределения лимитов соединений.
     //  cap = kMaxConnSemaphore - compile-time потолок семафора (для САМОГО max_conns).
     //  global = эффективный глобальный кап (max_conns после клампа в cap) - общий лимит на
@@ -437,78 +404,6 @@ std::string PlaygroundServer::effectiveClientIp(const HttpRequest& req, const st
     return peer_ip;
 }
 
-std::string PlaygroundServer::cacheGetLocked(const std::string& key, const std::string& code) {
-    const auto now = std::chrono::steady_clock::now();
-    auto it = cache_.find(key);
-    if (it == cache_.end()) {
-        return std::string();
-    }
-    const int ttl = cfg_.cacheTtlSec > 0 ? cfg_.cacheTtlSec : 0;
-    if (ttl > 0 && now - it->second.created >= std::chrono::seconds(ttl)) {
-        cache_.erase(it);
-        return std::string();
-    }
-    // Защита от отравления кеша: результат отдаём, только если код совпадает с тем,
-    // для которого он был закеширован (иначе злоумышленник подложил бы чужой вывод
-    // под имя дефолтного примера).
-    if (it->second.code != code) {
-        cache_.erase(it);
-        return std::string();
-    }
-    it->second.lastAccess = now;
-    return it->second.result;
-}
-
-void PlaygroundServer::cachePutLocked(const std::string& key, const std::string& code, const std::string& result) {
-    if (key.empty() || result.empty()) {
-        return;
-    }
-    if (cfg_.cacheMaxEntries <= 0 && cfg_.cacheMaxMb <= 0) {
-        return; // кеш отключён
-    }
-    const auto now = std::chrono::steady_clock::now();
-    auto& e = cache_[key];
-    e.code = code;
-    e.result = result;
-    e.size = result.size();
-    e.created = now;
-    e.lastAccess = now;
-    cacheEvictLocked();
-}
-
-void PlaygroundServer::cacheEvictLocked() {
-    const auto now = std::chrono::steady_clock::now();
-    const int ttl = cfg_.cacheTtlSec > 0 ? cfg_.cacheTtlSec : 0;
-    const size_t maxBytes = static_cast<size_t>(cfg_.cacheMaxMb) * 1024 * 1024;
-    const size_t maxEntries = static_cast<size_t>(cfg_.cacheMaxEntries);
-    for (auto it = cache_.begin(); it != cache_.end();) {
-        if (ttl > 0 && now - it->second.created >= std::chrono::seconds(ttl)) {
-            it = cache_.erase(it);
-        } else {
-            ++it;
-        }
-    }
-    const auto totalBytes = [&]() {
-        size_t s = 0;
-        for (const auto& kv : cache_) {
-            s += kv.second.size;
-        }
-        return s;
-    };
-    while ((maxEntries > 0 && cache_.size() > maxEntries) || (maxBytes > 0 && totalBytes() > maxBytes)) {
-        auto lru = cache_.begin();
-        for (auto it = cache_.begin(); it != cache_.end(); ++it) {
-            if (it->second.lastAccess < lru->second.lastAccess) {
-                lru = it;
-            }
-        }
-        if (lru == cache_.end()) {
-            break;
-        }
-        cache_.erase(lru);
-    }
-}
-
 int PlaygroundServer::currentPowDifficulty() {
     if (cfg_.powMinDifficulty <= 0) {
         return 0;
@@ -527,124 +422,6 @@ int PlaygroundServer::currentPowDifficulty() {
         diff = cfg_.powMaxDifficulty;
     }
     return diff;
-}
-
-std::string PlaygroundServer::issuePowChallengeLocked(int difficulty) {
-    static constexpr const char* kHex = "0123456789abcdef";
-    const std::string bytes = randomBytes(16);
-    std::string nonce;
-    nonce.reserve(32);
-    for (const unsigned char c : bytes) {
-        nonce += kHex[c >> 4];
-        nonce += kHex[c & 0x0f];
-    }
-    PowChallenge ch;
-    ch.difficulty = difficulty;
-    ch.created = std::chrono::steady_clock::now();
-    ch.uses = 0;
-    powChallenges_[nonce] = ch;
-    const int ttl = cfg_.powNonceTtlSec > 0 ? cfg_.powNonceTtlSec : 60;
-    const auto now = std::chrono::steady_clock::now();
-    for (auto it = powChallenges_.begin(); it != powChallenges_.end();) {
-        if (now - it->second.created >= std::chrono::seconds(ttl)) {
-            it = powChallenges_.erase(it);
-        } else {
-            ++it;
-        }
-    }
-    return nonce;
-}
-
-bool PlaygroundServer::verifyPowLocked(const std::string& header, int required_difficulty) {
-    if (required_difficulty <= 0) {
-        return true;
-    }
-    if (header.empty()) {
-        return false;
-    }
-    const size_t colon = header.find(':');
-    if (colon == std::string::npos) {
-        return false;
-    }
-    const std::string nonce = header.substr(0, colon);
-    const std::string solution = header.substr(colon + 1);
-    auto it = powChallenges_.find(nonce);
-    if (it == powChallenges_.end()) {
-        return false;
-    }
-    const int ttl = cfg_.powNonceTtlSec > 0 ? cfg_.powNonceTtlSec : 60;
-    if (std::chrono::steady_clock::now() - it->second.created >= std::chrono::seconds(ttl)) {
-        powChallenges_.erase(it);
-        return false;
-    }
-    if (it->second.difficulty < required_difficulty) {
-        powChallenges_.erase(it);
-        return false;
-    }
-    const int maxUses = cfg_.powMaxUsesPerNonce > 0 ? cfg_.powMaxUsesPerNonce : 1;
-    if (it->second.uses >= maxUses) {
-        powChallenges_.erase(it);
-        return false;
-    }
-    // Решение валидно, если sha256(nonce + solution) начинается с required_difficulty
-    // нулевых бит. Проверяем по старшим нибблам hex-строки.
-    const std::string hash = trust::playground::sha256Hex(nonce + solution);
-    static const int kLz[16] = {4, 3, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0};
-    int zeros = 0;
-    for (const char c : hash) {
-        const int v = (c >= '0' && c <= '9') ? (c - '0') : (c - 'a' + 10);
-        const int n = kLz[v & 0x0f];
-        if (zeros + n >= required_difficulty) {
-            it->second.uses++;
-            return true;
-        }
-        if (n == 0) {
-            return false;
-        }
-        zeros += n;
-    }
-    return zeros >= required_difficulty;
-}
-
-bool PlaygroundServer::statsSessionOkLocked(const std::string& session_id) {
-    if (session_id.empty()) {
-        return false;
-    }
-    auto it = statsSessions_.find(session_id);
-    if (it == statsSessions_.end()) {
-        return false;
-    }
-    const auto now = std::chrono::steady_clock::now();
-    const int ttl = cfg_.statsSessionTtlSec > 0 ? cfg_.statsSessionTtlSec : 600;
-    const int max = cfg_.statsSessionMaxSec;
-    if (now - it->second.lastAccess >= std::chrono::seconds(ttl) || (max > 0 && now - it->second.created >= std::chrono::seconds(max))) {
-        statsSessions_.erase(it);
-        return false;
-    }
-    it->second.lastAccess = now; // sliding refresh
-    return true;
-}
-
-std::string PlaygroundServer::createStatsSessionLocked() {
-    static constexpr const char* kHex = "0123456789abcdef";
-    const std::string bytes = randomBytes(16);
-    std::string id;
-    id.reserve(32);
-    for (const unsigned char c : bytes) {
-        id += kHex[c >> 4];
-        id += kHex[c & 0x0f];
-    }
-    StatsSession s;
-    s.created = std::chrono::steady_clock::now();
-    s.lastAccess = s.created;
-    statsSessions_[id] = s;
-    return id;
-}
-
-void PlaygroundServer::destroyStatsSessionLocked(const std::string& session_id) {
-    if (!session_id.empty()) {
-        statsSessions_.erase(session_id);
-    }
 }
 
 std::string PlaygroundServer::cookieSessionId(const HttpRequest& req) {
@@ -711,22 +488,16 @@ bool PlaygroundServer::hasConnectedWorkerLocked() const {
     return false;
 }
 
-bool PlaygroundServer::rateLimitExceeded(const std::string& ip) {
+int PlaygroundServer::countConnectedLocked() const {
     const auto now = std::chrono::steady_clock::now();
-    std::lock_guard<std::mutex> lock(mu_);
-    // Ограничиваем рост карты уникальных IP (защита от переполнения при флуде).
-    if (ipHits_.size() >= static_cast<size_t>(cfg_.maxRateLimitIps) && ipHits_.find(ip) == ipHits_.end()) {
-        ipHits_.clear();
-        rateLimitResets_.fetch_add(1); // считаем сбросы (видно в /stats)
+    int connected = 0;
+    for (const auto& [tok, w] : workers_) {
+        (void)tok;
+        if ((now - w.lastSeen) < std::chrono::seconds(cfg_.pollTimeoutSec * 3)) {
+            connected++;
+        }
     }
-    std::vector<std::chrono::steady_clock::time_point>& hits = ipHits_[ip];
-    const auto cutoff = now - std::chrono::seconds(60);
-    hits.erase(std::remove_if(hits.begin(), hits.end(), [&](const std::chrono::steady_clock::time_point& t) { return t < cutoff; }), hits.end());
-    if (static_cast<int>(hits.size()) >= cfg_.rateLimitPerIp) {
-        return true;
-    }
-    hits.push_back(now);
-    return false;
+    return connected;
 }
 HttpResponse PlaygroundServer::handle(const HttpRequest& req, const std::string& peer_ip) {
     HttpResponse resp;
@@ -839,9 +610,8 @@ HttpResponse PlaygroundServer::handleRun(const HttpRequest& req, const std::stri
     if (cfg_.powMinDifficulty > 0) {
         const int diff = currentPowDifficulty();
         if (diff > 0) {
-            std::lock_guard<std::mutex> plock(mu_);
-            if (!verifyPowLocked(req.xPow, diff)) {
-                const std::string nonce = issuePowChallengeLocked(diff);
+            if (!powGuard_.verify(req.xPow, diff, cfg_.powNonceTtlSec, cfg_.powMaxUsesPerNonce)) {
+                const std::string nonce = powGuard_.issue(diff, cfg_.powNonceTtlSec);
                 nlohmann::json j{{"ok", false}, {"error", "proof-of-work required"}, {"nonce", nonce}, {"difficulty", diff}, {"ttl_sec", cfg_.powNonceTtlSec}};
                 resp.status = 402;
                 resp.body = j.dump();
@@ -852,34 +622,35 @@ HttpResponse PlaygroundServer::handleRun(const HttpRequest& req, const std::stri
 
     // Rate-limit по РЕАЛЬНОМУ клиентскому IP: за nginx peer всегда 127.0.0.1, поэтому
     // используем первый hop X-Forwarded-For (доверяем только с loopback).
-    if (rateLimitExceeded(effectiveClientIp(req, peer_ip))) {
+    if (rateLimiter_.exceeded(effectiveClientIp(req, peer_ip), static_cast<size_t>(cfg_.maxRateLimitIps), cfg_.rateLimitPerIp)) {
         resp.status = 429;
         resp.body = "{\"error\":\"rate limit exceeded\"}";
         return resp;
     }
 
-    const std::string example_key = req.exampleName;
-    std::unique_lock<std::mutex> lock(mu_);
     // Кеш примеров: если фронтенд прислал имя примера (X-Example-Name), кешируем ПО ИМЕНИ
     // (без хеширования и LRU - число примеров фиксировано). Пустое имя = произвольный код,
     // сразу на выполнение, без кеша. Заполнение кеша делает воркер при первом запросе.
+    // Кеш - отдельный компонент (ResultCache) с собственным мьютексом - обращаемся до mu_.
+    const std::string example_key = req.exampleName;
     if (!example_key.empty()) {
-        const std::string cached = cacheGetLocked(example_key, req.body);
+        const std::string cached = resultCache_.get(example_key, req.body, cfg_.cacheTtlSec);
         if (!cached.empty()) {
             resp.status = 200;
             resp.body = cached;
             return resp;
         }
     }
+    std::unique_lock<std::mutex> lock(mu_);
     if (!hasConnectedWorkerLocked()) {
-        notifyAlert("no workers connected", buildStatsTextLocked());
+        alertNotifier_.notify("no workers connected", buildStatsTextLocked(), cfg_.alertIntervalSec);
         nlohmann::json j{{"ok", false}, {"unavailable", true}, {"error", "no workers connected"}, {"instructionsUrl", kInstructionsUrl}};
         resp.status = 503;
         resp.body = j.dump();
         return resp;
     }
     if (static_cast<int>(queue_.size()) >= cfg_.maxQueue) {
-        notifyAlert("queue full", buildStatsTextLocked());
+        alertNotifier_.notify("queue full", buildStatsTextLocked(), cfg_.alertIntervalSec);
         resp.status = 503;
         resp.body = "{\"error\":\"queue full\"}";
         return resp;
@@ -950,9 +721,8 @@ HttpResponse PlaygroundServer::handleDownload(const HttpRequest& req, const std:
     if (cfg_.powMinDifficulty > 0) {
         const int diff = currentPowDifficulty();
         if (diff > 0) {
-            std::lock_guard<std::mutex> plock(mu_);
-            if (!verifyPowLocked(req.xPow, diff)) {
-                const std::string nonce = issuePowChallengeLocked(diff);
+            if (!powGuard_.verify(req.xPow, diff, cfg_.powNonceTtlSec, cfg_.powMaxUsesPerNonce)) {
+                const std::string nonce = powGuard_.issue(diff, cfg_.powNonceTtlSec);
                 nlohmann::json j{{"ok", false}, {"error", "proof-of-work required"}, {"nonce", nonce}, {"difficulty", diff}, {"ttl_sec", cfg_.powNonceTtlSec}};
                 resp.status = 402;
                 resp.body = j.dump();
@@ -963,7 +733,7 @@ HttpResponse PlaygroundServer::handleDownload(const HttpRequest& req, const std:
 
     // Флуд-защита: каждое «Скачать» запускает сборку на воркере - ограничиваем частоту
     // по реальному клиентскому IP (первый hop X-Forwarded-For за nginx).
-    if (rateLimitExceeded(effectiveClientIp(req, peer_ip))) {
+    if (rateLimiter_.exceeded(effectiveClientIp(req, peer_ip), static_cast<size_t>(cfg_.maxRateLimitIps), cfg_.rateLimitPerIp)) {
         resp.status = 429;
         resp.body = "{\"error\":\"rate limit exceeded\"}";
         return resp;
@@ -971,14 +741,14 @@ HttpResponse PlaygroundServer::handleDownload(const HttpRequest& req, const std:
 
     std::unique_lock<std::mutex> lock(mu_);
     if (!hasConnectedWorkerLocked()) {
-        notifyAlert("no workers connected", buildStatsTextLocked());
+        alertNotifier_.notify("no workers connected", buildStatsTextLocked(), cfg_.alertIntervalSec);
         nlohmann::json j{{"ok", false}, {"unavailable", true}, {"error", "no workers connected"}, {"instructionsUrl", kInstructionsUrl}};
         resp.status = 503;
         resp.body = j.dump();
         return resp;
     }
     if (static_cast<int>(queue_.size()) >= cfg_.maxQueue) {
-        notifyAlert("queue full", buildStatsTextLocked());
+        alertNotifier_.notify("queue full", buildStatsTextLocked(), cfg_.alertIntervalSec);
         resp.status = 503;
         resp.body = "{\"error\":\"queue full\"}";
         return resp;
@@ -1038,7 +808,7 @@ HttpResponse PlaygroundServer::handleDownload(const HttpRequest& req, const std:
         resp.status = 200;
         resp.content_type = "application/gzip";
         resp.cors = true; // XHR (blob) с браузерной страницы на другом домене
-        resp.content_disposition = sanitizeFilename(j.value("archiveName", std::string("trust-lang-") + TRUST_VERSION_FULL + "-generated.tar.gz"));
+        resp.content_disposition = sanitizeFilename(j.value("archiveName", std::string("trust-lang-") + TRUST_VERSION + "-generated.tar.gz"));
         resp.body = bytes;
         return resp;
     } catch (const std::exception&) {
@@ -1084,7 +854,8 @@ HttpResponse PlaygroundServer::handlePoll(const HttpRequest& req) {
         }
     }
     ws.lastSeen = std::chrono::steady_clock::now();
-    trackWorkerPresenceLocked(); // фиксируем переходы «все воркеры отключились / восстановились»
+    // Фиксируем переходы «все воркеры отключились / восстановились» (под mu_).
+    alertNotifier_.onWorkerCountChange(countConnectedLocked(), buildStatsTextLocked(), cfg_.alertIntervalSec);
 
     // Ретрай: задачи, назначенные «пропавшим» воркерам (перестали поллить), возвращаем
     // в очередь (до cfg.retry попыток) и освобождаем слот - иначе задача теряется.
@@ -1142,7 +913,7 @@ HttpResponse PlaygroundServer::handleResult(const HttpRequest& req) {
     // «собрать архив» (POST /download) допустимый размер - с учётом max_archive_kb.
     const size_t result_limit_kb = static_cast<size_t>(std::max(cfg_.maxResultKb, (cfg_.maxArchiveKb * 4 + 2) / 3));
     if (req.body.size() > result_limit_kb * 1024) {
-        notifyAlert("result body too large", buildStatsTextLocked());
+        alertNotifier_.notify("result body too large", buildStatsTextLocked(), cfg_.alertIntervalSec);
         resp.status = 413;
         resp.body = "{\"error\":\"result body too large\"}";
         return resp;
@@ -1176,7 +947,8 @@ HttpResponse PlaygroundServer::handleResult(const HttpRequest& req) {
         // Кеш примеров: запись по имени примера (X-Example-Name) делает ВОРКЕР при первом
         // запросе. Для произвольного кода (имя пусто) и для build-архива (/download) кеша нет.
         if (!it->second->buildArchive && !it->second->exampleName.empty()) {
-            cachePutLocked(it->second->exampleName, it->second->code, result);
+            resultCache_.put(it->second->exampleName, it->second->code, result, cfg_.cacheTtlSec, static_cast<size_t>(cfg_.cacheMaxEntries),
+                             static_cast<size_t>(cfg_.cacheMaxMb));
         }
         releaseJobSlot(it->second);
         cv_.notify_all();
@@ -1204,8 +976,7 @@ HttpResponse PlaygroundServer::handleStats(const HttpRequest& req) {
             authorized = true;
         }
         if (!authorized) {
-            std::lock_guard<std::mutex> lock(mu_);
-            authorized = statsSessionOkLocked(cookieSessionId(req));
+            authorized = statsSessions_.ok(cookieSessionId(req), cfg_.statsSessionTtlSec, cfg_.statsSessionMaxSec);
         }
     }
     if (!authorized) {
@@ -1239,8 +1010,7 @@ HttpResponse PlaygroundServer::handleChallenge(const HttpRequest& req) {
         return resp;
     }
     const int diff = currentPowDifficulty();
-    std::lock_guard<std::mutex> lock(mu_);
-    const std::string nonce = issuePowChallengeLocked(diff);
+    const std::string nonce = powGuard_.issue(diff, cfg_.powNonceTtlSec);
     nlohmann::json j{{"ok", true}, {"required", true}, {"nonce", nonce}, {"difficulty", diff}, {"ttl_sec", cfg_.powNonceTtlSec}};
     resp.status = 200;
     resp.body = j.dump();
@@ -1253,16 +1023,7 @@ HttpResponse PlaygroundServer::handleStatsLogin(const HttpRequest& req) {
     if (req.method == "GET") {
         // Форма входа (токен доступа к статистике).
         resp.status = 200;
-        resp.body = "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
-                    "<title>trust-playground admin</title>"
-                    "<style>body{font-family:ui-monospace,monospace;margin:20px;color:#24292f;}form{display:flex;flex-direction:column;gap:8px;max-width:320px;"
-                    "}input{padding:6px;}button{padding:6px 12px;cursor:pointer;}</style>"
-                    "</head><body><h1>trust-playground admin</h1>"
-                    "<p>Введите токен доступа к статистике:</p>"
-                    "<form method=\"post\" action=\"/stats/login\">"
-                    "<input type=\"password\" name=\"token\" autocomplete=\"off\" autofocus required>"
-                    "<button type=\"submit\">Войти</button>"
-                    "</form></body></html>";
+        resp.body = kLoginHtml;
         return resp;
     }
     // POST: принимаем токен из формы (application/x-www-form-urlencoded "token=<value>")
@@ -1293,15 +1054,10 @@ HttpResponse PlaygroundServer::handleStatsLogin(const HttpRequest& req) {
     }
     if (cfg_.statsToken.empty() || !trust::playground::constantTimeEqual(token, cfg_.statsToken)) {
         resp.status = 403;
-        resp.body = "<!doctype html><html lang=\"ru\"><body><h1>403</h1><p>Неверный токен. "
-                    "<a href=\"/stats/login\">Попробовать снова</a></p></body></html>";
+        resp.body = kError403Html;
         return resp;
     }
-    std::string session_id;
-    {
-        std::lock_guard<std::mutex> lock(mu_);
-        session_id = createStatsSessionLocked();
-    }
+    const std::string session_id = statsSessions_.create();
     const int ttl = cfg_.statsSessionTtlSec > 0 ? cfg_.statsSessionTtlSec : 600;
     resp.status = 302;
     resp.location = "/stats?format=html";
@@ -1314,10 +1070,7 @@ HttpResponse PlaygroundServer::handleStatsLogout(const HttpRequest& req) {
     HttpResponse resp;
     resp.content_type = "text/html; charset=utf-8";
     const std::string sid = cookieSessionId(req);
-    {
-        std::lock_guard<std::mutex> lock(mu_);
-        destroyStatsSessionLocked(sid);
-    }
+    statsSessions_.destroy(sid);
     resp.status = 302;
     resp.location = "/stats/login";
     resp.extraHeaders.push_back("Set-Cookie: tpg_stats=; HttpOnly; Path=/stats; SameSite=Strict; Max-Age=0");
@@ -1334,8 +1087,8 @@ nlohmann::json PlaygroundServer::statsJsonLocked() {
     out["balancer"]["queue"] = static_cast<int>(queue_.size());
     out["balancer"]["in_flight"] = static_cast<int>(inFlight_.size());
     out["balancer"]["max_queue"] = cfg_.maxQueue;
-    out["balancer"]["rate_limit_ips_tracked"] = static_cast<int>(ipHits_.size());
-    out["balancer"]["rate_limit_resets"] = rateLimitResets_.load();
+    out["balancer"]["rate_limit_ips_tracked"] = static_cast<int>(rateLimiter_.trackedCount());
+    out["balancer"]["rate_limit_resets"] = rateLimiter_.resets();
     out["balancer"]["archives_requested"] = archivesRequested_.load();
     // Соединения: текущее занято / ПИК утилизации (и % от лимита) по глобальному и
     // раздельным (клиент/воркер) пулам. Сам лимит известен из конфига.
@@ -1422,15 +1175,9 @@ std::string PlaygroundServer::buildStatsTextLocked() {
 // HTML-страница статистики (GET /stats?format=html). Требует mu_.
 std::string PlaygroundServer::buildStatsHtmlLocked() {
     nlohmann::json j = statsJsonLocked();
+    // Динамическое тело (таблицы Balancer/Workers) собирается в h и вставляется
+    // в шаблон kStatsPage (плейсхолдеры %%TIME%% / %%BODY%%).
     std::ostringstream h;
-    h << "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
-      << "<title>trust-playground stats</title>"
-      << "<style>body{font-family:ui-monospace,monospace;margin:20px;color:#24292f;}"
-      << "table{border-collapse:collapse;margin:12px 0;}th,td{border:1px solid #d1d5db;padding:4px 10px;text-align:left;font-size:13px;}"
-      << "th{background:#f6f8fa;}h2{font-size:18px;}.on{color:#16a34a;}.off{color:#dc2626;font-weight:600;}"
-      << ".logout{margin-left:12px;font-size:12px;}</style></head><body>"
-      << "<h1>trust-playground statistics <form method=\"post\" action=\"/stats/logout\" style=\"display:inline\">"
-      << "<button type=\"submit\" class=\"logout\">Выйти</button></form></h1><p>Time: " << utcNowString() << "</p>";
     const auto& b = j["balancer"];
     h << "<h2>Balancer</h2><table>"
       << "<tr><th>workers known</th><td>" << b.value("workers_known", 0) << "</td></tr>"
@@ -1464,8 +1211,21 @@ std::string PlaygroundServer::buildStatsHtmlLocked() {
         }
         h << "</td></tr>";
     }
-    h << "</table></body></html>";
-    return h.str();
+    h << "</table>";
+
+    // Подстановка динамических данных в шаблон stats-страницы.
+    // Плейсхолдеры %%TIME%% / %%BODY%% обязаны присутствовать в шаблоне; их отсутствие -
+    // ошибка разработчика (тихий пропуск запрещён, см. AGENTS.md правило 5).
+    std::string page = kStatsPage;
+    const std::string kTimePlaceholder = "%%TIME%%";
+    const size_t tpos = page.find(kTimePlaceholder);
+    EXPECT(tpos != std::string::npos && "stats page template must contain %%TIME%% placeholder");
+    page.replace(tpos, kTimePlaceholder.size(), utcNowString());
+    const std::string kBodyPlaceholder = "%%BODY%%";
+    const size_t bpos = page.find(kBodyPlaceholder);
+    EXPECT(bpos != std::string::npos && "stats page template must contain %%BODY%% placeholder");
+    page.replace(bpos, kBodyPlaceholder.size(), h.str());
+    return page;
 }
 
 std::string PlaygroundServer::currentStatsText() {
@@ -1478,31 +1238,8 @@ std::string PlaygroundServer::currentStatsHtml() {
     return buildStatsHtmlLocked();
 }
 
-void PlaygroundServer::notifyAlert(const std::string& reason, const std::string& stats_text) {
-    if (cfg_.alertEmail.empty()) {
-        return;
-    }
-    // НЕМЕДЛЕННО при первом появлении события; повтор того же события в течение
-    // alert_interval_sec не шлём (per-reason dedup), чтобы «нет воркеров» не спамило.
-    const int cooldown_sec = cfg_.alertIntervalSec > 0 ? cfg_.alertIntervalSec : 86400;
-    {
-        std::lock_guard<std::mutex> al(alertMutex_);
-        const auto now = std::chrono::steady_clock::now();
-        auto it = lastAlertAt_.find(reason);
-        if (it != lastAlertAt_.end() && now - it->second < std::chrono::seconds(cooldown_sec)) {
-            return;
-        }
-        lastAlertAt_[reason] = now;
-    }
-    const std::string body = "trust-playground: " + reason + "\nTime: " + utcNowString() + "\n\n" + stats_text;
-    const std::string subj = "trust-playground: " + reason;
-    // Отправка в отдельном потоке - не блокирует обработчик запроса.
-    const std::string cmd = cfg_.alertCmd, from = cfg_.alertFrom, to = cfg_.alertEmail;
-    std::thread([cmd, from, to, subj, body] { sendMail(cmd, from, to, subj, body); }).detach();
-}
-
 void PlaygroundServer::alertLoop() {
-    if (cfg_.alertEmail.empty()) {
+    if (!alertNotifier_.enabled()) {
         return;
     }
     const int interval = cfg_.alertIntervalSec > 0 ? cfg_.alertIntervalSec : 86400;
@@ -1514,30 +1251,7 @@ void PlaygroundServer::alertLoop() {
         if (stop_.load()) {
             break;
         }
-        const std::string body = "trust-playground periodic stats\n"
-                                 "Time: " +
-                                 utcNowString() + "\n\n" + currentStatsText();
-        const std::string cmd = cfg_.alertCmd, from = cfg_.alertFrom, to = cfg_.alertEmail;
-        const std::string subj = "trust-playground periodic stats";
-        std::thread([cmd, from, to, subj, body] { sendMail(cmd, from, to, subj, body); }).detach();
-    }
-}
-
-void PlaygroundServer::trackWorkerPresenceLocked() {
-    const auto now = std::chrono::steady_clock::now();
-    int connected = 0;
-    for (const auto& [tok, w] : workers_) {
-        if ((now - w.lastSeen) < std::chrono::seconds(cfg_.pollTimeoutSec * 3)) {
-            connected++;
-        }
-    }
-    if (connected != connectedWorkersLast_) {
-        if (connectedWorkersLast_ > 0 && connected == 0) {
-            notifyAlert("all workers disconnected", buildStatsTextLocked()); // переход в «все воркеры отключились»
-        } else if (connectedWorkersLast_ == 0 && connected > 0) {
-            notifyAlert("workers reconnected", buildStatsTextLocked());
-        }
-        connectedWorkersLast_ = connected;
+        alertNotifier_.sendPeriodic(currentStatsText());
     }
 }
 

@@ -331,6 +331,16 @@ inline std::string_view strip_native_prefix(std::string_view name) noexcept {
     return name;
 }
 
+/// Срезает ведущий '@' (сигил макроса) у trust-имени. Имена макросов в потоке токенов могут
+/// быть с '@' (@return, @trust_pre) или без (return, trust_pre); единый источник среза для
+/// классификации макросов (форматтер, LSP).
+inline std::string_view strip_macro_sigil(std::string_view name) noexcept {
+    if (!name.empty() && name.front() == '@') {
+        name.remove_prefix(1);
+    }
+    return name;
+}
+
 /// Полный ключ метода кодирует нативность (ведущий '%') и константность (хвостовой '^'),
 /// напр. "%count^". bare-имя - ключ без '%'/'^' (идентичность метода при поиске и проверке
 /// дубликатов). '%' срезается единым источником strip_native_prefix; '^' - как в
@@ -349,6 +359,11 @@ inline bool is_native_name(std::string_view name) {
 /// Имя константное (хвостовой '^') - срез '^' в IdentName::bare_name()/normalizeTermText.
 inline bool is_const_name(std::string_view name) {
     return !name.empty() && name.back() == '^';
+}
+/// Имя - СТАТИЧЕСКИЙ член класса (содержит '::'; статика задаётся `@::name` → ns::Class::name,
+/// ключ = полное имя с '::'). Проверяется по ЗАРЕГИСТРИРОВАННОМУ имени (ключу), а не по имени члена.
+inline bool is_static_name(std::string_view name) {
+    return name.find("::") != std::string_view::npos;
 }
 
 inline std::string name_to_cpp(std::string_view name) {

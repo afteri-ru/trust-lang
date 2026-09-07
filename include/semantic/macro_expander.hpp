@@ -26,7 +26,7 @@ class ContextMacroExpander : public InlineAnalysisHook {
     explicit ContextMacroExpander(AnalysisContext& actx);
 
     /// Всегда подключается (ядро не зависит от feature-флага).
-    std::optional<FlagKind> gateFlag() const override { return std::nullopt; }
+    std::optional<semantic::FlagKind> gateFlag() const override { return std::nullopt; }
 
     /// Мутирующий обход узла: раскрывает контекст-макросы и квалификатор @::.
     /// Возвращает true, если узел был ПОЛНОСТЬЮ заменён (ContextMacro → Literal/IdentName):

@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Ветвление с записью не на всех путях: чтение после `if` без `else` недоказуемо → Error.
+@main() := {
+    x := _;
+    if (1) {
+        x = 5;
+    };
+    @print('{}', x);
+};
+# CHECK: error: variable 'x' is read before it is initialized

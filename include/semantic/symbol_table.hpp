@@ -79,6 +79,21 @@ class SymbolTable {
     struct Scope {
         const AstNodeBase* creator = nullptr;  ///< Узел AST, открывший скоуп (nullptr = глобальный).
         std::map<std::string, Symbol> symbols; ///< Имена в пределах этого скоупа.
+        /// Области имён, зарегистрированные оператором `... = X` (using) для поиска имён:
+        /// префиксы (`std`, `ns::name::name2`), по которым при резолве голого имени `n`
+        /// дополнительно пробуются квалифицированные `prefix::n`.
+        std::vector<std::string> importedNamespaces;
+
+        /// Регистрирует область имён для поиска (оператор `... = X`). Дубликаты игнорируются.
+        void importNamespace(std::string_view path) {
+            const std::string p(path);
+            for (const auto& e : importedNamespaces) {
+                if (e == p) {
+                    return;
+                }
+            }
+            importedNamespaces.push_back(p);
+        }
 
         /// Поиск в пределах одного скоупа. nullptr - не найдено.
         const Symbol* lookup(std::string_view name) const;
@@ -106,6 +121,12 @@ class SymbolTable {
     /// Регистрирует символ в текущем скоупе. false - имя уже объявлено в этом скоупе
     /// (дубликат). Диагностику формирует вызывающий (ядро), т.к. ему нужен range.
     bool declare(const Symbol& sym);
+
+    /// Регистрирует символ в ГЛОБАЛЬНОМ скоупе (уровень 0), не перезаписывая существующий.
+    /// Используется для КВАЛИФИЦИРОВАННЫХ алиасов нативных шаблонов/классов (поиск по
+    /// зарегистрированным оператором `... = X` областям имён: `... = std` + `vector` →
+    /// `std::vector`). Алиас переживает pop вложенных скоупов (в отличие от локальных).
+    void declareGlobal(const Symbol& sym) { m_scopes.front().symbols.try_emplace(sym.name, sym); }
 
     /// Классифицирует символ как предварительное (forward) объявление: узел объявления
     /// без определения - переменная без инициализатора (VarDecl.m_initializer == nullptr)
@@ -136,6 +157,15 @@ class SymbolTable {
     /// скоупов вместо параллельного состояния.
     template <typename F>
     void forEachScope(F&& f) const {
+        for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
+            f(*it);
+        }
+    }
+
+    /// Не-const вариант forEachScope (для снапшотов/мутации пер-Symbol признаков definite-assignment:
+    /// напр. анализ покрытия инициализации по веткам изменяет Uninit-бит на живых Symbol).
+    template <typename F>
+    void forEachScopeMutable(F&& f) {
         for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
             f(*it);
         }

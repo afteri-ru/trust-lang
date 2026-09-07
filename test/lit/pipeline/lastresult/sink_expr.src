@@ -1,0 +1,15 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+#
+# sink - составное выражение, где `$^` операнд: `x := $^ + 1;` (лист $^ внутри init).
+%f():Int32 := {
+    a := 10;
+    a + 5;
+    x := $^ + 1;
+    return x;
+};
+# CHECK: int32_t f() {
+# CHECK-NEXT:     int8_t c_a = 10;
+# CHECK-NEXT:     int32_t c___trust_last_1 = (c_a + 5);
+# CHECK-NEXT:     int32_t c_x = (c___trust_last_1 + 1);
+# CHECK-NEXT:     return c_x;
+# CHECK-NEXT: }

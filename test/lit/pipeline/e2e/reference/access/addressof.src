@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ref_addr %s
+# RUN: $TD/ref_addr > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: w=9 x=9
+
+# Оператор взятия ссылки `& shared_var` (address-of/borrow) → слабая ссылка (weak). Доступ к
+# значению слабой ссылки - через локер `*w` (lock). Мутация shared-объекта через `*x` видна.
+
+@main():Int32 := {
+    && x := 5;
+    &? w := & x;
+    *x = 9;
+    print('w={} x={}\n', *w, *x);
+    return 0;
+};

@@ -57,12 +57,39 @@ inline constexpr std::string_view CString = "CString";
 // -- Rational ----------------------------------------------
 inline constexpr std::string_view Rational = "Rational";
 
+// -- BigInteger (arbitrary-precision integer; part of Rational) ------
+// Та же группа kArbitraryPrecision, что и у Rational (Data: Rational=1, BigInteger=2).
+inline constexpr std::string_view BigInteger = "BigInteger";
+
+// -- Interruptions (runtime classes перехвата прерываний) ----
+// C++-классы прерываний потока (IntAny - база, IntPlus - возврат, IntMinus - ошибка).
+// Транслируются в `trust::IntAny`/`trust::IntPlus`/`trust::IntMinus` (реестр, cpp_name).
+inline constexpr std::string_view IntAny = "IntAny";
+inline constexpr std::string_view IntPlus = "IntPlus";
+inline constexpr std::string_view IntMinus = "IntMinus";
+
+// Базовый C++-класс исключений (catch(:StdException) → `catch (std::exception&)`).
+// Ловит ЛЮБОЕ std::exception-производное (в т.ч. ошибки конверсии std::stoll/BigInteger
+// и trust::IntMinus, т.к. тот наследует std::runtime_error). catch - обобщённый аргумент,
+// не только IntAny/IntPlus/IntMinus.
+inline constexpr std::string_view StdException = "StdException";
+
 // -- Dict (universal heterogeneous dictionary) ------------
 inline constexpr std::string_view Dict = "Dict";
 inline constexpr std::string_view Dictionary = "Dictionary";
 
 // -- Array (universal mutable array, → std::vector) -------
 inline constexpr std::string_view Array = "Array";
+
+// -- Встроенные политики синхронизации доступа (trust/trusted-cpp-sync.hpp) ---
+// Группа Group::kSyncPolicy; cppName = trust::Sync*Policy. Имя в реестре = РЕАЛЬНОЕ имя класса:
+// 2-й аргумент reftype (`@[reftype("shared", SyncMutexPolicy)@]`) резолвится через findType.
+inline constexpr std::string_view SyncMutexPolicy = "SyncMutexPolicy";
+inline constexpr std::string_view SyncRwMutexPolicy = "SyncRwMutexPolicy";
+inline constexpr std::string_view SyncSingleThreadPolicy = "SyncSingleThreadPolicy";
+/// Обёртка синхронизированной сильной ссылки (cppName trust::SyncShared). Имя берётся из реестра
+/// (findType/emitTypeName), НЕ хардкодится строкой в кодогенерации.
+inline constexpr std::string_view SyncShared = "SyncShared";
 
 // -- Integer/float aliases ---------------------------------
 inline constexpr std::string_view Char = "Char";

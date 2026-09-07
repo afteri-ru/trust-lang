@@ -1,8 +1,10 @@
 #include "semantic/pass.hpp"
 #include "ast/token_type.hpp"
 
+#include "semantic/analysis_common.hpp"
 #include "semantic/type_inference.hpp"
 #include "diag/diag.hpp"
+#include "types/intrinsics.hpp"
 #include "types/registry.hpp"
 #include "utils/strings.hpp"
 
@@ -23,6 +25,13 @@ std::string AnalysisContext::namespacePath() const {
     // последовательность скоупов разворачивается: путь - от внешней к внутренней.
     std::vector<std::vector<std::string>> scopeSegs;
     m_symbols.forEachScope([&](const SymbolTable::Scope& s) {
+        // Класс (скоуп с creator=ClassDecl, см. analyzeClassDecl): имя класса - сегмент области
+        // имён, чтобы `@::`/`@__NAMESPACE__` внутри класса раскрывались в `ns::Class`, а статический
+        // член `@::field` → `ns::Class::field` (затем регистрируется как статическая переменная).
+        if (s.creator && s.creator->kind() == ParserToken::Kind::ClassDecl) {
+            scopeSegs.push_back({std::string(static_cast<const ClassDecl*>(s.creator)->text())});
+            return;
+        }
         if (!s.creator || s.creator->kind() != ParserToken::Kind::ScopeBlock) {
             return;
         }
@@ -78,6 +87,17 @@ const FuncDecl* AnalysisContext::currentFunc() const {
     return result;
 }
 
+const ClassDecl* AnalysisContext::currentClass() const {
+    const ClassDecl* result = nullptr;
+    // forEachScope идёт от внутреннего скоупа к глобальному - первый ClassDecl и есть текущий.
+    m_symbols.forEachScope([&](const SymbolTable::Scope& s) {
+        if (!result && s.creator && s.creator->kind() == ParserToken::Kind::ClassDecl) {
+            result = static_cast<const ClassDecl*>(s.creator);
+        }
+    });
+    return result;
+}
+
 std::string AnalysisContext::funcShortName() const {
     const FuncDecl* f = currentFunc();
     if (!f) {
@@ -110,6 +130,26 @@ bool AnalysisContext::requireFunction(const AstNodeBase& node, const char* macro
 // -- Резолв типов и runtime-символов --
 
 std::optional<TypeId> AnalysisContext::resolveType(const AstNodeBase& type_node) const {
+    // Символический сигл ссылочного типа в аннотации (`x : &Int32` / `*Int32` / `&?Int32`):
+    // `&`/`&?` → RefMakeExpr, `*` → RefTakeExpr (грамматика `COLON STAR NAME` → TAKE). Единственный
+    // ребёнок - pointee-тип; сигл (text()) отображается на вид ссылки и применяется к pointee
+    // (первая ссылка - fast-path бит, вложенность - составной узел, см. TypeRegistry::applyRefType).
+    if (type_node.kind() == ParserToken::Kind::RefMakeExpr || type_node.kind() == ParserToken::Kind::RefTakeExpr) {
+        const auto& seq = static_cast<const Sequence&>(type_node);
+        if (seq.m_body.empty()) {
+            return INVALID_TYPE_ID;
+        }
+        const auto kind = refTypeFromTypeSigil(type_node.text());
+        if (!kind) {
+            m_ctx.diag().report(Severity::Error, type_node.range(), "unsupported reference sigil '{}' in type annotation", type_node.text());
+            return INVALID_TYPE_ID;
+        }
+        const auto pointee = resolveType(*seq.m_body[0]);
+        if (!pointee.has_value() || *pointee == INVALID_TYPE_ID) {
+            return INVALID_TYPE_ID;
+        }
+        return m_ctx.types().applyRefType(*pointee, *kind);
+    }
     if (type_node.kind() != ParserToken::Kind::TypeName) {
         return std::nullopt;
     }
@@ -117,6 +157,45 @@ std::optional<TypeId> AnalysisContext::resolveType(const AstNodeBase& type_node)
     std::string_view name = it.text();
     if (!name.empty() && name[0] == ':') {
         name.remove_prefix(1);
+    }
+    // Нативный шаблон-тип `vector<Int32>` (IdentType::isTemplate): резолв абстрактного шаблона по
+    // имени + интернирование конкретной инстанциации. Встроенные контейнеры (`std::vector` →
+    // `:Array`) инстанцируются через Array-структуру (объединение с `:Array`); прочие - через
+    // NativeTemplateTypeData. Если базы-шаблона нет - это ошибка (в т.ч. shift→template
+    // переработал сравнение `:Int8 < 5` в `:Int8<5>`, где Int8 не шаблон).
+    if (it.isTemplate()) {
+        auto& reg = m_ctx.types();
+        auto base = reg.findType(name);
+        if (!base.has_value() || !reg.isNativeTemplateType(*base)) {
+            m_ctx.diag().report(Severity::Error, it.range(), "type '{}' is not a native template", name);
+            return INVALID_TYPE_ID;
+        }
+        const std::string cppTpl = std::string(reg.nativeTemplateCppName(*base));
+        std::vector<TypeId> args;
+        if (it.templateArgs()) {
+            for (const auto& a : *it.templateArgs()) {
+                if (!a) {
+                    continue;
+                }
+                TypeId at = INVALID_TYPE_ID;
+                if (a->kind() == ParserToken::Kind::TypeName) {
+                    at = resolveType(*a).value_or(INVALID_TYPE_ID); // `:Int32`, `:MyClass<:Int8>`
+                } else if (a->kind() == ParserToken::Kind::Ident) {
+                    at = reg.findType(a->text()).value_or(INVALID_TYPE_ID); // голое `Int32`
+                }
+                if (at != INVALID_TYPE_ID) {
+                    args.push_back(clearFlag(at, SymbolFlag::Inferred));
+                }
+            }
+        }
+        // Встроенные контейнеры: `std::vector` → `:Array` (mutable, std::vector<Elem>); `std::array`
+        // → константный `:Array^` (B2, std::array<Elem,N>). Инстанциация объединяется с `:Array`.
+        if (cppTpl == "std::vector" && !args.empty()) {
+            return reg.getOrCreateArrayType(args[0]);
+        }
+        // Общий нативный шаблон (`std::pair` и т.п.): инклуд из абстрактного шаблона (on-use).
+        std::string_view inc = reg.getPreprocInclude(*base);
+        return reg.getOrCreateNativeTemplateType(cppTpl, std::move(args), inc);
     }
     // Параметризованный кортеж `Tuple(:Rational, :Rational)` / `Tuple(sum:Rational, ...)` -
     // аннотация структурного Tuple-типа: строим тип через getOrCreateTupleType (элементы
@@ -144,7 +223,7 @@ std::optional<TypeId> AnalysisContext::resolveType(const AstNodeBase& type_node)
                         et = resolveType(*pd.m_type).value_or(INVALID_TYPE_ID);
                     }
                 }
-                elems.emplace_back(ename, clearInferred(et));
+                elems.emplace_back(ename, clearFlag(et, SymbolFlag::Inferred));
             }
             return reg.getOrCreateTupleType(std::move(elems));
         }
@@ -172,7 +251,7 @@ std::optional<TypeId> AnalysisContext::resolveType(const AstNodeBase& type_node)
             }
             unsigned long long v = 0;
             try {
-                v = std::stoull(std::string(d->text()), nullptr, 0);
+                v = std::stoull(stripDigitSeparators(d->text()), nullptr, 0);
             } catch (...) {
                 v = 0;
             }
@@ -189,6 +268,31 @@ std::optional<TypeId> AnalysisContext::resolveType(const AstNodeBase& type_node)
 }
 
 TypeId AnalysisContext::resolvedType(const AstNodeBase& node) const {
+    // Ident — ЖИВОЙ тип символа в скоуп-стеке, мутирующий по мере анализа (записи снимают/взводят
+    // Uninit, widening меняет тип). Поэтому обрабатываем его ДО общего кеша m_exprTypes: кеш вернул
+    // бы зафиксированный ранее тип и «спрятал» бы текущее чтение (ложное отсутствие диагностики
+    // «чтение до инициализации»). Чистая запись `x = <expr>` LHS здесь не приходит (typeBinaryResult
+    // берёт тип цели из символа напрямую), поэтому данная ветка = реальное чтение значения.
+    if (node.kind() == ParserToken::Kind::Ident) {
+        const Symbol* s = m_symbols.resolve(node.text());
+        if (s && testFlag(s->type, SymbolFlag::Uninit) && m_uninitReadReported.insert(&node).second) {
+            // Чтение значения переменной, объявленной без инициализации (`x := _` / сброс `x = _`)
+            // до гарантированной записи → Error (никаких silent-fallback/UB). Срабатывает только
+            // при реально взведённом Uninit, поэтому существующие тесты (без `_`) не затрагиваются.
+            std::string_view disp = node.text();
+            if (!disp.empty() && disp.front() == '$') { // DSL-сигил: показываем имя без служебного '$'
+                disp.remove_prefix(1);
+            }
+            m_ctx.diag().report(Severity::Error, node.range(),
+                                "variable '{}' is read before it is initialized (declared/reset without a value); "
+                                "assign a value before reading it",
+                                disp);
+            if (s->decl) {
+                m_uninitVarReportedDecls.insert(s->decl);
+            }
+        }
+        return s ? clearFlag(s->type, SymbolFlag::Uninit) : INVALID_TYPE_ID;
+    }
     // Составное выражение уже типизировано пост-порядково → из кеша.
     auto it = m_exprTypes.find(&node);
     if (it != m_exprTypes.end()) {
@@ -198,9 +302,18 @@ TypeId AnalysisContext::resolvedType(const AstNodeBase& node) const {
     if (is_binary_expr_kind(node.kind())) {
         return static_cast<const Binary&>(node).resultType;
     }
-    // Литерал → выведенный тип (единый предикат литералов is_literal_kind).
+    // Литерал → выведенный тип (единый предикат литералов is_literal_kind). Для литерала с
+    // постфиксной аннотацией `literal :Type` тип выбирает ЕДИНЫЙ решатель annotatedLiteralType
+    // (annotation-aware, БЕЗ fallback на текст-тип): невалидная аннотация → INVALID (диагностику
+    // даёт авторитетный typeExpr/reportLiteralAnnotProblem). Обычно литерал уже в кеше
+    // (типизирован typeExpr) — эта ветка лишь запасной путь для ещё не типизированных узлов.
     if (is_literal_kind(node.kind())) {
-        return literalType(static_cast<const Literal&>(node), m_ctx.types());
+        const auto& lit = static_cast<const Literal&>(node);
+        const TypeRegistry& reg = m_ctx.types();
+        if (lit.typeAnnotation) {
+            return annotatedLiteralType(lit, resolveType(*lit.typeAnnotation), reg).type;
+        }
+        return literalType(lit, reg);
     }
     switch (node.kind()) {
     case ParserToken::Kind::VarDecl:
@@ -226,11 +339,6 @@ TypeId AnalysisContext::resolvedType(const AstNodeBase& node) const {
     case ParserToken::Kind::ArrayAccess:
         // Результат доступа к элементу словаря - std::any (Any).
         return m_ctx.types().getType(type_generic::Any);
-    case ParserToken::Kind::Ident: {
-        // Тип переменной - живой тип символа в скоуп-стеке (во время анализа).
-        const Symbol* s = m_symbols.resolve(node.text());
-        return s ? s->type : INVALID_TYPE_ID;
-    }
     default:
         return INVALID_TYPE_ID;
     }
@@ -240,6 +348,10 @@ void AnalysisContext::setExprType(const AstNodeBase* node, TypeId id) {
     if (node) {
         m_exprTypes[node] = id;
     }
+}
+
+bool AnalysisContext::uninitVarReported(const AstNodeBase* decl) const {
+    return decl != nullptr && m_uninitVarReportedDecls.count(decl) != 0;
 }
 
 TypeId AnalysisContext::buildFuncType(const FuncDecl& func_node) const {
@@ -263,7 +375,9 @@ TypeId AnalysisContext::buildFuncType(const FuncDecl& func_node) const {
         returnType = resolveType(*func_node.m_type).value_or(INVALID_TYPE_ID);
     }
 
-    return m_ctx.types().getOrCreateFunctionType(returnType, paramTypes);
+    // Функция с trust-условиями (пред/пост, m_trust) получает ОТДЕЛЬНЫЙ функциональный TypeId
+    // от идентичной сигнатуры без условий (бит kTrustFlag в TypeKind, см. registry.hpp).
+    return m_ctx.types().getOrCreateFunctionType(returnType, paramTypes, INVALID_TYPE_ID, !func_node.m_trust.empty());
 }
 
 bool AnalysisContext::isRegisteredRuntimeSymbol(std::string_view name) const {
@@ -277,6 +391,19 @@ bool AnalysisContext::isRegisteredRuntimeSymbol(std::string_view name) const {
         }
     }
     return false;
+}
+
+bool AnalysisContext::isRegisteredIntrinsic(std::string_view name) const {
+    // Интринсик - НЕ нативная функция (без префикса '%'); имя сопоставляется дословно.
+    if (findIntrinsicByName(name).has_value()) {
+        return true;
+    }
+    // Отдельные функции контроля стека (%trust_stack_check, %trust_stack_check_set_reserve,
+    // %trust_stack_check_get_reserve, %trust_stack_check_get_limit, %trust_stack_check_set_limit) -
+    // реальные C++-функции рантайма (transpiler: ExprEmitter::handleStackCheckNative); не должны
+    // давать «undefined name».
+    return name == "%trust_stack_check" || name == "%trust_stack_check_set_reserve" || name == "%trust_stack_check_get_reserve" ||
+           name == "%trust_stack_check_get_limit" || name == "%trust_stack_check_set_limit";
 }
 
 } // namespace trust

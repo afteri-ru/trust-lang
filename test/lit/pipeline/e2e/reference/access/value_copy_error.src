@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Контракт value-vs-reference: копирование ссылки в ЗНАЧЕНИЕ - нарушение контракта
+# (диагностика + fixit `*<name>` - локер для получения значения).
+
+@main():Int32 := {
+    && x := 5:Int32;
+    z : Int32 := x;
+    return 0;
+};
+# CHECK: error: cannot copy a reference 'Int32' into a value variable '$z'; use '*$x' (locker) to access the value
+# CHECK: fix-it: replace with '*$x'

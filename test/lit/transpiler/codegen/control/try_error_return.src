@@ -1,0 +1,31 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# try_error/try_return (классический синтаксис): try_error { } → {- ... -} (IntMinus),
+# try_return { } → {+ ... +} (IntPlus). Класс блока задаёт try-ключевое слово; ветки — общий catch.
+try_error {
+    a := 1;
+} catch(:IntMinus) {
+    b := 2;
+} else {
+    c := 3;
+};
+try_return {
+    d := 4;
+} catch(:IntPlus) {
+    e := 5;
+};
+# CHECK: #include "trust/interrupt.hpp"
+# CHECK: try {
+# CHECK:     int8_t c_a = 1;
+# CHECK:     // else
+# CHECK:     int8_t c_c = 3;
+# CHECK: }
+# CHECK-NEXT: catch (trust::IntMinus&) {
+# CHECK-NEXT:     int8_t c_b = 2;
+# CHECK-NEXT: }
+# CHECK: try {
+# CHECK:     int8_t c_d = 4;
+# CHECK: }
+# CHECK-NEXT: catch (trust::IntPlus&) {
+# CHECK-NEXT:     int8_t c_e = 5;
+# CHECK-NEXT: }

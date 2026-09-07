@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp -Wsolver=warning %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# В пред-условии (trust_pre) использование имени самой функции (возвращаемое значение) - ошибка;
+# в пост-условии (trust_post) имя функции легально (это возврат).
+
+bad(x:Int32):Int32 trust_pre( bad > 0 ) trust_post( bad >= 0 ) := { r := x + 1; return r; };
+
+# CHECK: error: cannot use function 'bad' (return value) in a precondition; use it only in a postcondition

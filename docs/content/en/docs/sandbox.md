@@ -54,6 +54,26 @@ At the bottom of the page there is a persistent balancer connectivity indicator:
 
 ## How to run your own worker
 
+## Linking to sandbox state (URL parameters)
+
+You can open the page in a specific state by passing optional parameters in the URL
+(query string). All parameters are optional; without `line` the cursor position is untouched:
+
+- `file=<example name>` - select a predefined file from the examples dropdown;
+- `win=src|cppt` - window where to place the cursor (`src` - the Trust source,
+  `cppt` - the generated C++; default `src`);
+- `line=<n>`, `col=<m>` - cursor position (1-based rows/columns; `col` defaults to 1);
+- `toLine=<n>`, `toCol=<m>` - end of a selection range (if given, a selection from
+  `line:col` to `toLine:toCol` is made, otherwise just the cursor).
+
+Example: `…/playground/?file=hello&win=src&line=3&col=1`.
+
+**Copy link**: while navigating rows, the status line at the bottom shows the range
+(`→ cpp: N` / `→ trust: N`) and a "🔗 copy link" link. Clicking it copies the current
+page-state URL (selected file, window and cursor position/selection) to the clipboard
+so you can share it.
+
+
 You can help the project and run your own executor node in a few minutes. To do this you need:
 
 - A Linux server (VPS) with `systemd` and outbound TCP access to the balancer (regular internet).

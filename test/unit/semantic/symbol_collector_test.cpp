@@ -27,7 +27,7 @@ class SymbolCollectorTest : public ::testing::Test {
         m_prev_err = setErrs(&m_stream);
         m_types = std::make_unique<TypeRegistry>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
-        m_ctx.opts().set_enabled(FlagKind::Symbols, true);
+        m_ctx.opts().set_enabled(semantic::FlagKind::Symbols, true);
     }
     void TearDown() override { setErrs(m_prev_err); }
 
@@ -52,7 +52,7 @@ TEST_F(SymbolCollectorTest, CollectsTypedAndInferred) {
     SemanticPassRunner runner(m_ctx);
     runner.run(seq);
 
-    EXPECT_TRUE(m_ctx.opts().is_enabled(FlagKind::Symbols));
+    EXPECT_TRUE(m_ctx.opts().is_enabled(semantic::FlagKind::Symbols));
     EXPECT_EQ(runner.analysis().symbols().globalSize(), 2u); // семантика обработала обе переменные
 
     const auto& idx = runner.analysis().symbolIndex();
@@ -70,7 +70,7 @@ TEST_F(SymbolCollectorTest, CollectsTypedAndInferred) {
 }
 
 TEST_F(SymbolCollectorTest, FlagDisabledCollectsNothing) {
-    m_ctx.opts().set_enabled(FlagKind::Symbols, false);
+    m_ctx.opts().set_enabled(semantic::FlagKind::Symbols, false);
     auto x = std::make_shared<VarDecl>(Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME), nullptr,
                                        std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
     std::vector<AstNodePtr> seq;

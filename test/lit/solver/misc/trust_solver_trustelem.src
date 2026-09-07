@@ -1,0 +1,48 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+
+# Термины решателя @( term, args... @) (макросы z3_old/z3_forall/z3_exists/@( result @)):
+#   old(x)    → начальное значение x (константа входа func_param) — старый x;
+#   result    → результат функции (терм возврата при закодированном теле);
+#   forall    → ∀ (квантор; тип связки — из РАНЕЕ объявленной переменной i:Int32);
+#   exists    → ∃ (то же).
+# z3 не проверяется: ложный постусловный квантор (∀i. i>0) даёт ложную ГЛОБАЛЬНУЮ аксиому
+# контракта, которая делает весь скрипт несовместным (предсуществующее поведение глобальных
+# аксиом). Проверяется генерация текста (корректность маппинга).
+
+# SM2: (set-logic UFBV)
+# dec: old(x) → dec_x (константа входа), результат dec → (bvsub dec_x (_ bv1 32)).
+# SM2: (declare-fun dec_x () (_ BitVec 32))
+# SM2: (declare-fun dec ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (bvslt (bvsub dec_x (_ bv1 32)) dec_x)))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((dec_x (_ BitVec 32))) (bvslt (dec dec_x) dec_x)))
+# keep: result → терм возврата x, old(x) → keep_x; keep == old(x) при x==x.
+# SM2: (declare-fun keep_x () (_ BitVec 32))
+# SM2: (declare-fun keep ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (= keep_x keep_x)))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((keep_x (_ BitVec 32))) (= (keep keep_x) keep_x)))
+# pos: forall с bound-переменной i (тип из РАНЕЕ объявленной глобальной i:Int32 → BitVec 32).
+# SM2: (declare-fun pos ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (forall ((i (_ BitVec 32))) (bvsgt i (_ bv0 32)))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((pos_x (_ BitVec 32))) (forall ((i (_ BitVec 32))) (bvsgt i (_ bv0 32)))))
+# neg: exists с bound-переменной i (тип из глобальной i:Int32 → BitVec 32).
+# SM2: (declare-fun neg ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (exists ((i (_ BitVec 32))) (bvslt i (_ bv0 32)))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((neg_x (_ BitVec 32))) (exists ((i (_ BitVec 32))) (bvslt i (_ bv0 32)))))
+
+i:Int32 := 0;
+dec(x:Int32):Int32 trust_post( dec < z3_old(x) ) := { return x - 1; };
+keep(x:Int32):Int32 trust_post( keep == z3_old(x) ) := { return x; };
+pos(x:Int32):Int32 trust_post( z3_forall(i, i > 0) ) := { return x; };
+neg(x:Int32):Int32 trust_post( z3_exists(i, i < 0) ) := { return x; };

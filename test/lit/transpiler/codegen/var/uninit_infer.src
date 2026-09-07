@@ -1,0 +1,31 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Вывод типа нетипизированной `x := _;` из последующих записей (монотонно, НЕ std::any);
+# типизированный путь `x:Int32 := _;` (конкретный тип, определение без инициализатора);
+# `x:Any := _;` (явный std::any); сброс `x = _;` НЕ эмитит запись значения.
+@main() := {
+    a:Int32 := _;
+    a = 5;
+    @print('{}', a);
+    # CHECK: int32_t c_a;
+    # CHECK: c_a = 5;
+
+    b := _;
+    b = 6;
+    @print('{}', b);
+    # CHECK: int8_t c_b;
+    # CHECK: c_b = 6;
+
+    c:Any := _;
+    c = 7;
+    @print('{}', c);
+    # CHECK: std::any c_c;
+    # CHECK: c_c = 7;
+
+    d := 5;
+    d = _;
+    d = 8;
+    @print('{}', d);
+    # CHECK: int8_t c_d = 5;
+    # CHECK: c_d = 8;
+};

@@ -1,0 +1,16 @@
+# RUN: %trust -q --run %s 2 10 > %t.out
+# RUN: %FileCheck %s <%t.out
+# RUN: %not %trust %s 99
+
+# `trust --run <src> <args...>` собирает аргументы ПОСЛЕ входного файла и передаёт их
+# запускаемой программе (в том числе при запуске через шебанг `./prog.src a b`).
+# Без `--run` лишний позиционный аргумент - ошибка (проверяется строкой `%not`).
+
+# CHECK: a0=2 a1=10
+
+@main(argv^: Dict, args^: Dict) := {
+    $a0 := :StrChar(argv[0]);
+    $a1 := :StrChar(argv[1]);
+    @print('a0={} a1={}\n', $a0, $a1);
+    return 0;
+}

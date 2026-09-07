@@ -7,6 +7,7 @@
 
 #include "semantic/inline_hook.hpp"
 #include "semantic/symbol_index.hpp"
+#include "semantic/diag.hpp"
 #include "ast/ast_nodes.hpp"
 
 #include <string>
@@ -20,7 +21,7 @@ class SymbolCollectorHook : public InlineAnalysisHook {
   public:
     explicit SymbolCollectorHook(AnalysisContext& actx);
 
-    std::optional<FlagKind> gateFlag() const override { return FlagKind::Symbols; }
+    std::optional<semantic::FlagKind> gateFlag() const override { return semantic::FlagKind::Symbols; }
 
     void onDeclare(const Symbol& sym) override;
     void finalize() override;

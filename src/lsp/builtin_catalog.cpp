@@ -6,6 +6,7 @@
 #include "utils/strings.hpp"
 #include "syntax/macro.h"
 #include "syntax/parser.h"
+#include "syntax/predef_macro.hpp"
 
 namespace trust {
 
@@ -61,18 +62,21 @@ BuiltinCatalog::BuiltinCatalog() {
         });
     }
 
-    // 2) Предопределённые макросы (@__...__ и др.) - из статического реестра парсера
-    //    (PredefMacroNames сам вызывает InitPredefMacro).
-    m_predefMacros = Parser::PredefMacroNames();
+    // 2) Предопределённые макросы (@__...__ и др.) - из статического реестра резолвера.
+    //    predefMacroNames строит реестры из x-macro TRUST_VALUE_MACROS / TRUST_CONTEXT_MACROS
+    //    (плюс прагмы) и сидирует дефолты доков в ЕДИНОЕ хранилище Context::macroDocs().
+    m_predefMacros = trust::syntax::PredefMacroResolver::predefMacroNames();
 
     // 3) Встроенные DSL-макросы: один раз грузим встроенный DSL и собираем имена
-    //    (повторяет pipeline::loadDslMacros: Context + Macro + ParseText "@dsl").
+    //    (повторяет pipeline::loadDslMacros: Context + Macro + ParseText "@trust/dsl").
+    //    Доки DSL-макросов (##-комментарии) и переопределения прагмой @__PRAGMA_DOC__
+    //    записываются в ЕДИНОЕ хранилище Context::macroDocs() через recordMacro/прагму.
     {
         Context ctx(".");
         auto macro = std::make_shared<Macro>(ctx);
         ctx.setMacro(macro);
         Parser parser(ctx);
-        TermPtr term = parser.ParseText(std::string_view(kEmbeddedDslSrc, sizeof(kEmbeddedDslSrc) - 1), "@dsl");
+        TermPtr term = parser.ParseText(std::string_view(kEmbeddedDslSrc, sizeof(kEmbeddedDslSrc) - 1), "@trust/dsl");
         if (term) {
             for (const auto& n : macro->MacroNames()) {
                 m_dslMacros.insert(n);

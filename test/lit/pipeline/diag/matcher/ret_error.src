@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Матчер обязан возвращать bool (логический тип). Void-возврат - ошибка.
+# CHECK: error: @[matcher("no_ret")]: predicate must return bool (got 'Void')
+@func no_ret(a:Int32, b:Int32):Void { };
+x:Int32 := 5;
+[x] @[matcher("no_ret")@] ==> {
+    @case(1) { y := 1; };
+    @default { y := 0; };
+};

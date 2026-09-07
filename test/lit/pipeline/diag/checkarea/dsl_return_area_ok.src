@@ -1,0 +1,8 @@
+# RUN: %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Маркер @__CHECK_AREA__ В ТЕЛЕ DSL-макроса return (dsl.src) работает на сайте вызова.
+# return внутри функции -> area function, маркер проходит, код обычный.
+# CHECK: return 42;
+@f() : Int32 := {
+    return 42;
+};

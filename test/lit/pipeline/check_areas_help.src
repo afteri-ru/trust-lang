@@ -1,0 +1,11 @@
+# RUN: %trust -Whelp-check-areas > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Справка -Whelp-check-areas перечисляет детектируемые области @__CHECK_AREA__
+# (whole-if/whole-match; отдельные elseif/else/case убраны до per-branch-детекции).
+# CHECK: Syntactic areas checkable via @__CHECK_AREA__
+# CHECK:   function  -  Free function body
+# CHECK:   if  -  if statement (whole if
+# CHECK:   match  -  match statement (whole match
+# CHECK: behavior: default | ignore | warning | error
+# CHECK-NOT: elseif
+# CHECK-NOT: match case

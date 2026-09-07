@@ -21,7 +21,15 @@
 #include <string_view>
 #include <vector>
 
-namespace trust::lsp::completion {
+struct LspOptions; // глобальный тип (определён в lsp/lsp_protocol.h), НЕ в trust::lsp
+
+namespace trust {
+namespace transport {
+class Transport;
+}
+namespace lsp {
+class DocumentManager;
+namespace completion {
 
 // LSP CompletionItemKind
 inline constexpr int kKindMethod = 2;
@@ -36,7 +44,10 @@ std::string_view stripSigil(std::string_view s);
 bool matchesPrefix(std::string_view insertText, std::string_view prefix);
 
 // Item автодополнения с явным textEdit (диапазон = набранный префикс в UTF-16).
-nlohmann::json makeCompletionItem(const std::string& insertText, int kind, const std::string& detail, int line, int utf16Start, int utf16End);
+// Необязательный `documentation` - текст документирующего комментария, показываемый
+// в выпадающей подсказке IDE при начале ввода (для мнемонических макросов @...).
+nlohmann::json makeCompletionItem(const std::string& insertText, int kind, const std::string& detail, int line, int utf16Start, int utf16End,
+                                  const std::string& documentation = "");
 
 // Текст строки (0-based line) документа.
 std::string lineAt(const std::string& doc, int line);
@@ -65,4 +76,11 @@ void collectMemberItems(const trust::TypeRegistry* reg, const trust::BuiltinCata
 // Стабильная сортировка по label.
 nlohmann::json sortCompletionItems(nlohmann::json items);
 
-} // namespace trust::lsp::completion
+// textDocument/completion: обработчик автодополнения (glue поверх collect*Items и
+// сортировки). Вынесен из монолита TrustLsp (src/lsp/trust_lsp.cpp). Stateless —
+// принимает transport/documents/opts и сам отправляет ответ (как hover::/navigation::).
+void handleCompletion(trust::transport::Transport& transport, DocumentManager& documents, LspOptions& opts, const nlohmann::json& req);
+
+} // namespace completion
+} // namespace lsp
+} // namespace trust

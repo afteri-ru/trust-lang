@@ -1,0 +1,16 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --emit-cpp --solver-mode=assert %s > %t.assert 2>&1 && %FileCheck --check-prefix=ASSERT %s <%t.assert
+
+# Тип данных с trust-условиями: авто-вывод запрещён (см. trust_type_autodeduce.src), НО явная
+# аннотация типа допустима. В условии имя типа - значение типа (плейсхолдер): при создании значения
+# (объявление переменной этого типа) генерируется проверка, где имя типа подставлено как значение.
+
+MyInt trust_assert( MyInt > 0 ) ::= :Int32;
+x :MyInt := 5;
+
+# CHECK: using c_MyInt = int32_t;
+# CHECK: c_MyInt c_x = 5;
+
+# ASSERT: using c_MyInt = int32_t;
+# ASSERT: c_MyInt c_x = 5;
+# ASSERT: if (!((c_x > 0))) trust::trust__abort__("{{.*}}trust_type_explicit.src", {{[0-9]+}}, "MyInt > 0", 1);

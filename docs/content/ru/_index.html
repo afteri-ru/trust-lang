@@ -2,219 +2,169 @@
 title: TrustLang
 ---
 
-<div class="alert alert-warning" role="alert" style="border-radius: 0; margin-bottom: 0;">
-    <strong>Сайт находится в переработке.</strong> Возможны нарушения в его работе и несоответствия
-    документации текущей реализации языка.
+{{< blocks/cover title="TrustLang" image_anchor="top" height="auto" >}}
+
+<p class="lead" style="max-width: 46rem; margin: 0 auto;font-size: 125%;">
+    Высокоуровневый язык общего назначения для доверенной (trusted) разработки
+    с&nbsp;безопасным управлением памятью и&nbsp; обнаруженим ошибок, включая гонки данных, 
+    на&nbsp;этапе компиляции и&nbsp; полная совместимость 
+    со&nbsp;всей экосистемой&nbsp;<nobr>C/C++</nobr>, 
+    включая непосредственную вставку фрагментов <nobr>C++</nobr> кода.
+</p>
+
+<div class="pt-3">
+    <a class="btn btn-primary me-3 mb-4" href="/ru/docs/">
+        О проекте<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="/ru/playground/">
+        Playground <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
+        Обсудить на Reddit<i class="fab fa-reddit ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
+        GitHub <i class="fab fa-github ms-2"></i>
+    </a>
 </div>
 
-{{< blocks/cover title="Добро пожаловать на сайт проекта TrustLang!" image_anchor="top" height="auto" >}}
-
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/ru/docs/">
-    Документация <i class="fas fa-arrow-alt-circle-right ms-2"></i>
-</a>
-
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="/ru/blog/">
-    Статьи <i class="fas fa-arrow-alt-circle-right ms-2 "></i>
-</a>
-
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="/ru/playground/">
-    Playground<i class="fas fa-arrow-alt-circle-right ms-2"></i>
-</a>
-
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
-    GitHub <i class="fab fa-github ms-2 "></i>
-</a>
-
-{{< blocks/link-down color="info" >}}
+{{< blocks/link-down color="light" >}}
 {{< /blocks/cover >}}
-
 
 {{% blocks/lead %}}
 
-<p class="lead"><em>TrustLang</em> - это язык программирования высокого уровня общего назначения c синтаксисом на основе грамматических правил
-    без использования ключевых слов что позволяет создать любые варинты собственного синтаксиса (<a href="/ru/docs/syntax/dsl/">DSL</a>). 
-</p>
-
-<p class="lead"><em>TrustLang</em> реализован как транспилер <a href="https://en.wikipedia.org/wiki/Source-to-source_compiler">(source-to-source translator)</a> 
-    в код C++ и совместим ним на низком уровне, разрешая непосредственные вставки кода на языке С++ в тексте программы,
-    прямые вызовы С/С++ функций и наоборот, вызовы функции <em>TrustLang</em> из С++.
-</p>
-
-<p class="lead">В языке <em>TrustLang</em> на уровне синтаксиса языка реализована <a href="/ru/docs/4_operators/async/">вытесняющая и кооперативная</a> многозадачность 
-    (т.е. многопоточное и асинхронное программирование).
-</p>
-
-<p class="lead">Тензорные вычисления и рациональные числа не ограниченной точности реализованы 
-    как базовые типы данных и поддерживаются синтаксисом языка без подключения дополнительных библиотек.
-    Тензорные вычисления сделаны на базе библиотеки <a href="https://pytorch.org/">libtorch</a>, 
-    а рациональные числа неограниченной точности с помощью <a href="https://github.com/openssl/openssl/blob/master/crypto/bn/README.pod">OpenSSL</a>.
-</p>
-
-<p class="lead">В <em>TrustLang</em> реализовано автоматическое безопасное управление памятью без сборщика мусора 
-    и гарантируется отсуствие ошибок при управлени памятью на этапе компиляции исходного текста программы.
+<p class="lead" style="max-width: 50rem; margin: 0 auto;">
+    <p class="lead">
+    У&nbsp;всех современных языков программирования синтаксис постоянно 
+    усложняется с&nbsp;выходом каждой новой версии (стандарта).
+    Это вынужденная плата за развитие языка и постоянное повышение "налога" на вход для новичков.
+    </p>
+    <p class="lead">
+    TrustLang&nbsp;&mdash; это язык-«надстройка» над&nbsp;<nobr>C++</nobr>, который предназначен 
+    для пользования всеми богатыми возможностями <nobr>C++</nobr> , но без его недостатков 
+    в&nbsp;виде очень сложного синтаксиса, неопределного поведения и прочих подводных камней.
+    </p>
+    <p class="lead">
+    Синтаксис языка построен на&nbsp;основе грамматических правилах без&nbsp;использования 
+    ключевых слов, а&nbspвстроенный макропроцессор способен реализовать какой угодно синтаксис 
+    или расширить уже существующий DSL диалект.
+    </p>
+    <p class="lead">
+    Безопасная работа с&nbsp;памятью, тензоры и рациональные чилса неограниченной точности доступны «из&nbsp;коробки», 
+    а скомпилированный код&nbsp;&mdash; это обычный&nbsp;<nobr>C++</nobr> , поэтому всё, что умеет
+    <nobr>C++</nobr> , доступно и&nbsp;здесь. Подробнее&nbsp;&mdash; в&nbsp;<a href="/ru/docs/">концепциях языка</a>.
+    </p>
 </p>
 
 {{% /blocks/lead %}}
 
-
 {{% blocks/section %}}
 
-<h3>
-    Основные свойства и особенности языка:
-</h3>
+<h2>Почему TrustLang?</h2>
 
-<ul>
-    <li>возможность работы как в режиме интерпретатора, так и компилятора<b>*</b>
-    </li>
+<div class="row pt-4">
+    <div class="col-lg-4 mb-4">
+        <h4>Безопасная память без сборщика мусора</h4>
+        <p>
+            Управление памятью в стиле <nobr>C++</nobr> с&nbsp;помощью сильных и&nbsp;слабых ссылкок (RAII).
+            Выявление ошибок, включая гонки данных, на&nbsp;этапе компиляции 
+            и обработка <a href="/ru/playground/?file=prime">stack overflow</a>
+            как обычного исключения вместо <i>segfault</i>.
+            <a href="/ru/docs/syntax/memory/">Модель памяти&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Синтаксис без ключевых слов + DSL</h4>
+        <p>
+            Грамматические правила вместо ключевых слов&nbsp;&mdash; это простой и быстрый парсер,
+            а&nbsp;макросы позволяют расширять синтаксис и использовать привычные ключевые слова.
+            <a href="/ru/docs/syntax/dsl/">Макросы и&nbsp;DSL&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Система типов</h4>
+        <p>
+            Статическая и динамическая типизация.
+            Тип можно указать явно или оставить автоматический вывод из контекста. 
+            Импорт нативных типов и шаблонов <nobr>C++</nobr>.
+            <a href="/ru/docs/types/type_system/">Система типов&nbsp;&rarr;</a>
+        </p>
+    </div>
+</div>
 
-    <li>динамическая и статическая типизация с возможностью указания типов в явном виде
-    </li>
-
-    <li>статическая типизация является условно-строгой 
-        <em>(автоматическое приведение типов отсутствует, но допускается преобразование между некоторыми типами данных. 
-            Например, целое число может быть автоматически преобразовано в вещественное или рациональное, но не наоборот)</em>
-    </li>
-
-    <li><a href="/ru/docs/syntax/memory/">автоматическое управление памятью без сборщика мусора на основе сильных и слабых указателей</a>
-    </li>
-
-    <li>ООП* в виде явного наследования классов и «утиная типизация»
-    </li>
-
-    <li><a href="/ru/docs/types/funcs/">на уровне синтаксиса поддерживается несколько типов функций (обычные и чистые функции без побочных эффектов)</a>
-    </li>
-
-    <li>необязательные и именованные параметры функций
-    </li>
-
-    <li>простая интеграция с уже существующими программными библиотеками 
-        (в том числе импорт нативных переменных, функций и классов* из С/С++.)
-    </li>
-
-    <li>имеется <a href="https://ru.wikipedia.org/wiki/REPL">REPL (read-eval-print loop - «цикл: чтение - вычисление - вывод»)</a>
-    </li>
-    
-</ul>
-
-<hr>
-<b>*</b>) Данные возможности запланированы к реализации
-<br>
-
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <h4>Числа «из коробки»</h4>
+        <p>
+            Рациональные числа неограниченной точности и&nbsp;тензоры (LibTorch)&nbsp;&mdash;
+            базовые типы данных с&nbsp;поддержкой на&nbsp;уровне синтаксисе.
+            <a href="/ru/docs/overview/features/">Возможности&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Интеграция с <nobr>C/C++</nobr></h4>
+        <p>
+            Непосредственные вызовы <nobr>C++</nobr> функций, вставки <nobr>C++</nobr>-кода, (а внтури него даже ассемблера) и&nbsp;использование стандартной
+            библиотеки без&nbsp;FFI-обвязок.
+            <a href="/ru/docs/syntax/cpp-interop/">Интеграция&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Формальная верификация</h4>
+        <p>
+            Контрактрное программирование (пред/пост-условия, утверждения). 
+            Экспорт кода и контрактов в SMT-решатель (Z3).
+            <a href="/ru/docs/syntax/proof/">Верификация&nbsp;&rarr;</a>
+        </p>
+    </div>
+</div>
 
 {{% /blocks/section %}}
 
 {{% blocks/section %}}
 
-<h2>Зачем нужен <em>TrustLang</em>?
-</h2>
+<h2>Как это выглядит</h2>
 
 <p>
-    У всех современных языков программирования происходит постоянное <a href="/ru/blog/complex-prog/">развитие (усложнение) синтаксиса</a> по мере выхода новых версий.<br> 
-    Это является своего рода платой за появление новых возможностей языка и воспринимается пользователями как естественное явление.
-<p>
-
-<p>
-    Но одновременно является и серьезной проблемой, так как с выходом новых версий языка в него добавляются новые ключевые слова 
-    и синтаксические конструкции, что неизбежно повышает порог входа для всех новых пользователей.
-<p>    
-<p>
-    Еще одним следствием этого процесса становится постоянное увеличение сложности разработки и поддержки уже созданных программных продуктов, 
-    когда старый программный код дорабатывается с применением уже новых стандартов и постоянным увеличением старого легаси кода.
+    Пример простой программы на&nbsp;TrustLang с&nbsp;числами неограниченной
+    точности, автоматическим выводом типов и&nbsp;привычными ключевыми словами из DSL-макросов:
 </p>
 
-<p>
-    <em>TrustLang</em> разработан как "надстройка" над языком C++ с сохранением всех его возможностей и характеристик,
-    но лишенный его недостатков в виде очень сложной лексики, адресной арифметики, ручного управления памятью и 
-    ограниченностью <em>встроенных</em> типов данных. 
-</p>
-<p>
-    Тензорные вычисления и рациональные числа неограниченной точности доступны «из коробки» 
-    и поддерживаются на уровне синтаксиса для удобной записи литералов.
-    Тензорные вычисления сделаны на базе библиотеки <a href="https://pytorch.org/">libtorch</a>, 
-    а рациональные числа неограниченной точности с помощью <a href="https://github.com/openssl/openssl/blob/master/crypto/bn/README.pod">OpenSSL</a>.
-</p>
+<pre><code class="language-trust">
+    #!../_build/trust --run -Wsigil=ignore
 
+    fact := 1:BigIteger;
+    mult := 1;
 
-{{% /blocks/section %}}
-
-{{% blocks/section %}}
-
-<h4>Пример скрипта Hello world! на TrustLang</h4>
-
-<br>
-<code>
-    <pre>
-    hello(str:StrChar) := {
-        @print('call: {}\n', str);
-        str;
+    while( mult &lt;= 40 ) {
+        fact *= mult;   # факториал 40, точность не теряется
+        mult += 1;
     };
 
-    @main() := {
-        hello('Привет, мир!');
-    };
-    </pre>
-</code>
+    @print('{}', fact);
+</code></pre>
 
-Вывод:   
-<code><pre>
-    call: Привет, мир!
-    Привет, мир!
-    </pre></code>
+<p>Вывод:</p>
 
+<pre><code class="language-trust">    815915283247897734345611269596115894272000000000</code></pre>
 
-<h4>Пример вычисления факториала 40 на TrustLang с использованием DSL синтаксиса</h4>
-
-<br>
-<code>
-    <pre>
-    #!../_build/trust --run
-
-    @main() := {
-
-        $fact := 1\1; # Рациональное число 1 (без ограничения точности)
-        $mult := 1;
-
-        @while( mult <= 40 ) {
-            fact *= mult;
-            mult += 1;
-        };
-
-        # Print result
-        @print('{}', fact);
-    }
-
-    </pre>
-</code>
-
-Вывод:
-<code>
-    <pre>
-    815915283247897734345611269596115894272000000000\1
-    </pre>
-</code>
-
-
-
-
-{{% blocks/section %}}
-
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/ru/playground/">
-    Еще примеры кода<i class="fas fa-arrow-alt-circle-right ms-2"></i>
-</a>
-
-<a class="btn btn-lg btn-primary me-3 mb-4" href="/ru/docs/">
-    Вся документация<i class="fas fa-arrow-alt-circle-right ms-2"></i>
-</a>
-
-<a class="btn btn-lg btn-secondary me-3 mb-4" href="/doxygen/index.html">
-    Doxygen docs<i class="fas fa-arrow-alt-circle-right ms-2 "></i>
-</a>
+<p>
+    Еще примеры и итоговый сгененрированный <nobr>C++</nobr> код <a href="/ru/playground/?file=rational">в&nbsp;песочнице</a>.
+</p>
 
 {{% /blocks/section %}}
 
-{{% /blocks/lead %}}
+{{% blocks/section %}}
 
+<div class="text-center">
+    <a class="btn btn-primary me-3 mb-4" href="/ru/playground/">
+        Открыть песочницу<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="/ru/docs/">
+        Вся документация<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
+        Обсудить на Reddit<i class="fab fa-reddit ms-2"></i>
+    </a>
+</div>
 
-
-
-
+{{% /blocks/section %}}

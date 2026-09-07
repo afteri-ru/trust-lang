@@ -34,6 +34,15 @@
   src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
   integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
   crossorigin="anonymous"></script>
+{{/* Language support for the offline (lunr) search. lunr's default pipeline is
+   English-only (ASCII trimmer), so Cyrillic is discarded unless the Russian
+   stemmer/trimmer support is enabled. Files are vendored (lunr-languages
+   v1.21.0) and must be loaded in this order: stemmer.support -> ru -> multi.
+   The index builder in assets/js/offline-search.js enables en+ru via
+   lunr.multiLanguage('en','ru'). */ -}}
+<script defer src="{{ (resources.Get "js/lunr-languages/lunr.stemmer.support.js").RelPermalink }}"></script>
+<script defer src="{{ (resources.Get "js/lunr-languages/lunr.ru.js").RelPermalink }}"></script>
+<script defer src="{{ (resources.Get "js/lunr-languages/lunr.multi.js").RelPermalink }}"></script>
 {{ end -}}
 
 {{ if .Site.Params.prism_syntax_highlighting -}}

@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Нативные (сырые) C++ ссылки (`%&`/`%*`) допустимы ТОЛЬКО у НАТИВНЫХ переменных: носитель
+# нативного ссылочного типа обязан иметь ведущий '%' (`%r : %& Int32 := %& x`). Обычная
+# trust-переменная не может владеть сырым указателем/ссылкой (нет отслеживания жизни).
+@main():Int32 := {
+    x : Int32 := 5;
+    r : %& Int32 := %& x;
+    return 0;
+}
+# CHECK: error: native reference requires a native variable (name must begin with '%'); declare '%r' instead of 'r'
+# CHECK: fix-it: replace with '%r'

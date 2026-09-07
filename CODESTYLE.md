@@ -1,5 +1,10 @@
 # TrustLang Coding Style
 
+## 0. Версионирование
+
+Проект использует семантическое версионирование MAJOR.MINOR.PATCH. Во время начального этапа разработки (MAJOR = 0) нумерация сдвинута на один разряд вправо. Релизные версии всегда начинаются с первого номера (x.1.x или 0.x.1 на начальном этапе разработки).
+
+
 ## 1. Naming
 
 | Entity | Pattern | Example |
@@ -11,13 +16,16 @@
 | Member field | `m_snake_case` | `m_token_list` |
 | Static member | `s_snake_case` | `s_instance` |
 | Global variable | `g_snake_case` | `g_verbosity` |
-| Constant | `kPascalCase` | `kMaxTokens` |
-| `enum class` value | `PascalCase` | `Integer` |
-| Plain `enum` value | `ALL_CAPS` | `TOKEN_EOF` |
+| `enum` or `enum class`  value | `PascalCase` | `Integer` |
+| Single Constant | `kPascalCase` | `kMaxTokens` |
 | Namespace | snake_case | `trust::parser` |
 | File | snake_case ≤15 chars | `token_info.hpp` |
 
-All macro in TrustLang *.src files MUST have `@` sigil prefix!
+All macro in TrustLang *.src files MUST have `@` sigil prefix, except keyword list in trust/dsl.src!
+
+**Исключение:** макросы, перечисленные в списке ключевых слов `keywords` в `std/dsl.src`
+(`if`, `else`, `while`, `match`, `try`, `catch`, `return`, `break`, …), записываются **БЕЗ**
+ведущего `@` (это и есть «ключевые слова» — bare-вызовы). Все остальные макросы — с `@`.
 
 Identifiers must be self-documenting. Function names must contain a verb.
 

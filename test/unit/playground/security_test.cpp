@@ -195,8 +195,24 @@ TEST(PowTest, ChallengeRequiredAndVerified) {
     EXPECT_EQ(server.handle(ok, "10.0.0.1").status, 503);
 
     // С неверным решением -> 402.
+    // Ищем решение, чей sha256(nonce+sol) имеет НОЛЬ ведущих нулевых бит: первый
+    // hex-ниббл >= 8 (старший бит = 1). Это гарантированно не проходит требуемую
+    // сложность (>=8) - слепой фикс-соль (например, "zzz") на низкой сложности с
+    // вероятностью ~2^-8 случайно проходил бы проверку, делая тест флаки.
+    std::string bad_sol;
+    for (long long i = 0; i < 2000000 && bad_sol.empty(); ++i) {
+        const std::string sol = std::to_string(i);
+        const std::string h = trust::playground::sha256Hex(nonce + sol);
+        if (!h.empty()) {
+            const int v0 = (h[0] >= '0' && h[0] <= '9') ? (h[0] - '0') : (h[0] - 'a' + 10);
+            if (v0 >= 8) {
+                bad_sol = sol;
+            }
+        }
+    }
+    ASSERT_FALSE(bad_sol.empty());
     HttpRequest bad = makeReq("POST", "/run", "print 1");
-    bad.xPow = nonce + ":zzz";
+    bad.xPow = nonce + ":" + bad_sol;
     EXPECT_EQ(server.handle(bad, "10.0.0.1").status, 402);
 }
 

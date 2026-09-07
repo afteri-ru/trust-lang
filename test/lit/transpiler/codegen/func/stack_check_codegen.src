@@ -1,0 +1,23 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %T --emit-cpp -Wno-stack-check %s > %t.off && %FileCheck --check-prefix=NO %s <%t.off
+
+# Атрибуты контроля переполнения стека (режим по умолчанию - explicit):
+#   @[stack_check@]        -> trust::stack_check::check_stack_limit() перед каждым вызовом (free >= m_stack_limit + reserve)
+#   @[stack_check(N)@]     -> trust::stack_check::check_overflow(N)       (free >= N + reserve)
+# Резерв `reserve` (мин. размер стека для исключения) всегда добавляется к проверкам.
+# При -Wno-stack-check (режим off) вставки не производятся, заголовок не подключается.
+
+@[stack_check@]
+@func guard_limit(x:Int32):Int32 { x };
+
+@[stack_check(4096)@]
+@func guard_size(x:Int32):Int32 { x };
+
+@main() := {
+    @print('{} {}\n', guard_limit(1), guard_size(2));
+}
+# CHECK: #include "trust/stack_check.hpp"
+# CHECK: (trust::stack_check::check_stack_limit(), c_guard_limit(1))
+# CHECK: (trust::stack_check::check_overflow(4096), c_guard_size(2))
+# NO-NOT: trust::stack_check::check_
+# NO-NOT: trust/stack_check.hpp

@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/across %s
+# RUN: $TD/across > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: a=20 b=10
+
+# Обмен ЗНАЧЕНИЙ между разными видами ссылок (unique и shared) через `*lhs :=: *rhs`:
+# разыменование unique - trust::checked_deref(c_u.get()) (с проверкой nullptr), shared -
+# *(c_x.lock()) (Locker); оба дают T&, std::swap обменивает данные.
+
+@main():Int32 := {
+    &* a := 10:Int32;
+    && b := 20:Int32;
+    *a :=: *b;
+    print('a={} b={}\n', *a, *b);
+    return 0;
+};

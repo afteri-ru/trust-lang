@@ -26,7 +26,7 @@ Using the operators **::-** and **:-** creates pure (hygienic) macros, arguments
 
 The body of a macro can be a valid language expression, a sequence of lexemes (enclosed in double at symbols **"@@"**, 
 i.e. **`@@ lexeme1 lexeme2 @@`**), or a regular text string (which should be specified between triple at symbols **"@@@"**, 
-i.e. **`@@@ text string @@@`**).
+i.e. **`@@@ text string @@@@`**).
 
 In the macro name after the first term, one or more templates may be present. 
 A *template* is a term that, when matching a sequence of lexemes with the macro identifier, 
@@ -35,15 +35,15 @@ can be replaced by any other single term (effectively, this is pattern/template 
 To create a template term, a dollar sign should be placed at the beginning of its identifier (which corresponds to a qualifier of a local variable), 
 i.e. the macro name `@@ FUNC $name @@` will correspond to the sequence of lexemes as `FUNC my_func_name` as well as `FUNC other_name_func`.
 
-To remove a macro, a special syntax is used: `@@@@ name @@@@;` or `@@@@ two terms @@@@;`, 
-i.e. you need to specify the macro identifier between four characters **"@@@@"**.
+To remove a macro, a special syntax is used: `@@ name @@@@;` or `@@ two terms @@@@;`, 
+i.e. the macro name is given after the opening `@@`, and the removal is finished by the universal terminator `@@@@`.
 
 ```python
     # Macro body from a text string (as in C/C++ preprocessor)
-    @@macro_str@@ := @@@ string - macro body @@@; # String for the lexer
+    @@ macro_str @@@ string - macro body @@@@; # String for the lexer
 
     # Removing macro @macro_str
-    @@@@ macro_str @@@@;
+    @@ macro_str @@@@;
 ```
 
 ### Macro Arguments and Expansion {#args}
@@ -134,4 +134,28 @@ This will look more familiar:
         };
         count += 1;
     };
+```
+### Restricting the macro's application area (`@__CHECK_AREA__`)
+
+The built-in context macro `@__CHECK_AREA__(<area> [, <behavior>] [, <attr>...])` restricts the
+area in which a macro (or a plain statement) may be used. It is convenient to place it as the first
+token of a DSL macro body — the check runs at the expansion site.
+
+- `<area>` — a syntactic area (`function`, `method`, `loop`, `if`, `match`, `class`, …); the full
+  list of detectable areas is printed by `-Whelp-check-areas`.
+- `<behavior>` (optional) — strictly `default | ignore | warning | error`; `default` (or omitting the
+  argument) means the severity of the `-Wcheck-area=<ignore|warning|error>` option.
+- `<attr>...` (optional) — names of attributes the current area must carry (for example require
+  `@[pure@]`/`@[readonly@]` on a function).
+
+The marker emits no code: the analyzer checks the current area (derived from the single scope stack
+of scope creators) and removes the marker. Branching constructs (`if`, `match`) are detected as one
+whole "inside the construct" area (branches `elseif`/`else`/`case` are not distinguished separately yet).
+
+```trust
+@f() : Int32 := {
+    @__CHECK_AREA__(function, error);   # ok: inside a function; the marker is removed, no code
+    @__CHECK_AREA__(loop,    error);    # error: outside a loop
+    return 0;
+};
 ```

@@ -1,0 +1,13 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# `$^` после вызова функции, возвращающей void (нет значения) -> явная диагностика в semantic
+# (тип источника известен только там; НЕ общая «unable to generate C++ type 'Any'»).
+# CHECK: error: pseudo-variable '$^' (result of the last operation): the preceding statement produces no value to capture (void)
+%g():Void := {
+    g ++ _ ++;
+};
+%h():Int32 := {
+    g();
+    r := $^;
+    return 0;
+};

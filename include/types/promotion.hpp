@@ -76,4 +76,36 @@ inline TypeId commonArithmeticType(const TypeRegistry& reg, TypeId lhs, TypeId r
     return reg.getType(type::Int32);
 }
 
+// -- Тип результата арифметики для группы произвольной точности (BigInteger/Rational) --
+// BigInteger/Rational - кастомные runtime-типы и НЕ участвуют в C++ usual arithmetic
+// conversions (isArithmeticGroup), поэтому отдельная ветка. Правила:
+//   * BigInteger op BigInteger → BigInteger; Rational op Rational → Rational;
+//   * BigInteger op Rational → Rational (Rational "шире" - Rational построен на BigInteger);
+//   * X op машинное целое (Integers/Unsigned) → X (машинное целое точно входит в X);
+//   * X op float (Numbers) → НЕДОПУСТИМО без явного каста → INVALID_TYPE_ID (диагностика
+//     у вызывающего: «cannot mix BigInteger/Rational with a floating-point number»);
+//   * не-числовые/несводимые операнды → INVALID_TYPE_ID.
+inline TypeId arbitraryPrecisionArithmeticType(const TypeRegistry& reg, TypeId lhs, TypeId rhs) {
+    const TypeId lc = reg.getCanonicalTypeId(lhs);
+    const TypeId rc = reg.getCanonicalTypeId(rhs);
+    const TypeId rat = reg.getCanonicalTypeId(reg.getType(type::Rational));
+    // «Уровень точности»: Rational(2) > BigInteger(1) > машинное целое(0); float/не-число = -1.
+    auto level = [&](const TypeId id) -> int {
+        const Group g = getGroup(getKindFromId(id));
+        if (g == Group::kArbitraryPrecision) {
+            return reg.getCanonicalTypeId(id) == rat ? 2 : 1;
+        }
+        if (g == Group::kIntegers || g == Group::kUnsigned) {
+            return 0;
+        }
+        return -1; // float (Numbers) или не-числовой → смешивание запрещено без явного каста
+    };
+    const int ll = level(lc);
+    const int rl = level(rc);
+    if (ll < 0 || rl < 0) {
+        return INVALID_TYPE_ID;
+    }
+    return (ll >= rl) ? lc : rc;
+}
+
 } // namespace trust

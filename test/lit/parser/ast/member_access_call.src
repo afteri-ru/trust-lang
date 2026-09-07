@@ -1,0 +1,13 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Доступ к полю/методу после вызова: `f(a).b` и чейнинг `g().x.y` (method chaining).
+
+x := f(a).b;
+y := g().x.y;
+
+# CHECK: VarDecl 'x'
+# CHECK: MemberAccess
+# CHECK: CallExpr
+# CHECK: VarDecl 'y'
+# CHECK: MemberAccess
+# CHECK: MemberAccess

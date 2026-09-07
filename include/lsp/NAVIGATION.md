@@ -77,15 +77,15 @@ C++-именем на противоположной стороне.
 Имя помечается префиксом `@` (`isInMemoryName`). Пример - встроенный DSL:
 
 - Загружается в `Pipeline::loadDslMacros()` через
-  `parser.ParseText(source, "@dsl")` и регистрируется как input `@dsl`.
-- **Определения макросов** (`def_range`) лежат именно в `@dsl`.
+  `parser.ParseText(source, "@trust/dsl")` и регистрируется как input `@trust/dsl`.
+- **Определения макросов** (`def_range`) лежат именно в `@trust/dsl`.
 
-Если строить ссылку на `@dsl` напрямую - фрагмент `#L..` из координат `@dsl`
+Если строить ссылку на `@trust/dsl` напрямую - фрагмент `#L..` из координат `@trust/dsl`
 применится к пользовательскому `.src` (или несуществующему файлу) и уведёт в
 неверное место. Поэтому:
 
-> **Правило:** диапазоны в `@dsl` НЕ должны использоваться как цели ссылок,
-> пока `@dsl` не сохранён на диск. Иначе ссылка не навигируема.
+> **Правило:** диапазоны в `@trust/dsl` НЕ должны использоваться как цели ссылок,
+> пока `@trust/dsl` не сохранён на диск. Иначе ссылка не навигируема.
 
 ### 2.2 Сохранение `dsl.src` на диск (для навигации по макросам)
 
@@ -93,23 +93,23 @@ C++-именем на противоположной стороне.
 файла необходимо сохранить DSL **вместе с остальными заголовками**:
 
 - В `TrustLsp::transpileSource()`, когда `saveToDisk` (`tempDir` задан):
-  - из reader (`ctx.source().toReader()`) найти input `@dsl` через `findFile("@dsl")`;
+  - из reader (`ctx.source().toReader()`) найти input `@trust/dsl` через `findFile("@trust/dsl")`;
   - его содержимое (`reader->source(dslIdx)`) записать в `<tempDir>/trust/dsl.src`
     (каталог `trust/` рядом с `.cppt` - там же, где раскладываются остальные
     заголовки рантайма, напр. `trust/rational.hpp`).
 - Ссылки «Macro:» на определения макросов строятся с `basePath = dslFilePath`
-  (см. §4.1), потому что координаты `def_range` относятся именно к `@dsl`.
+  (см. §4.1), потому что координаты `def_range` относятся именно к `@trust/dsl`.
   Путь к `dsl.src` **выводится из `cppFilePath`** (уже хранящего полный путь к
   `.cppt`): `<каталог cppt>/trust/dsl.src`. Отдельное поле в `CachedSource` не
   нужно - расположение `dsl.src` детерминировано относительно `.cppt`.
 
-> **Инвариант:** содержимое `@dsl` в source map должно побайтово совпадать с
+> **Инвариант:** содержимое `@trust/dsl` в source map должно побайтово совпадать с
 > сохранённым `dsl.src`, иначе строка/колонка фрагмента разъедутся.
 
 > **Про in-memory имя:** в source map DSL всегда остаётся фиктивным источником
-> `@dsl` (префикс `@` - `isInMemoryName`, `readFilesFromDisk` его пропускает).
+> `@trust/dsl` (префикс `@` - `isInMemoryName`, `readFilesFromDisk` его пропускает).
 > Это **не** путь на диске; реальное место хранения - `<tempDir>/trust/dsl.src`.
-> Менять `@dsl` на реальный путь нельзя - CLI-чтение source map (`.src_map`/ELF)
+> Менять `@trust/dsl` на реальный путь нельзя - CLI-чтение source map (`.src_map`/ELF)
 > полагается на `@`-префикс для пропуска in-memory источников.
 
 ---
@@ -208,7 +208,7 @@ buildHoverContents(reader, isCppRequest, cursorLoc, hoverText, hoverLang,
     **для макросов и операторов цель одна - раскрытый код в `.cppt`** (клик
     ведёт только в `.cppt`). Определение макроса навигируемо из ховера
     (ссылка «Macro:»), а **не** из documentLink: раньше для макроса цель
-    строилась с `basePath=filePath`, но координаты определения из `@dsl`
+    строилась с `basePath=filePath`, но координаты определения из `@trust/dsl`
     применялись к `.src` → переход уводил в конец файла.
 - **Фильтр надмножеств:** из documentLink убираются диапазоны, являющиеся
   строгим надмножеством другого диапазона (например, маппинг всей функции
@@ -225,7 +225,7 @@ buildHoverContents(reader, isCppRequest, cursorLoc, hoverText, hoverLang,
 
 ## 6. Тесты
 
-Правила покрываются в `test/unit/lsp/trust_lsp_test.cpp`:
+Правила покрываются в `test/unit/lsp/lsp_handler_test.cpp` / `test/unit/lsp/lsp_hover_test.cpp`:
 
 - `HandleHover_CppReverseLinkForRationalExample`:
   - cpp→trust обратные ховеры (decl, макрос `@assert`, вложенные выражения);
@@ -237,7 +237,7 @@ buildHoverContents(reader, isCppRequest, cursorLoc, hoverText, hoverLang,
 
 ## 7. Чек-лист при изменениях маппинга/ховера
 
-1. Любой новый диапазон в in-memory источнике (`@dsl`) - сделать его
+1. Любой новый диапазон в in-memory источнике (`@trust/dsl`) - сделать его
    навигируемым: сохранить файл на диск и использовать его путь как `basePath`.
 2. Для макроса всегда давать **обе** ссылки: «→ C++» (в `.cppt`) и «Macro:»
    (в `dsl.src`).

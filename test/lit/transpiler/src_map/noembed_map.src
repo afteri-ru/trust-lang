@@ -1,0 +1,12 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp -fno-sourcemap %s >/dev/null && test -f %T/noembed_map.src_map && echo "PASS map-exists"
+# RUN: ! grep -q "#embed" %T/noembed_map.cppt && echo "PASS no-embed"
+# RUN: ! grep -q "__trust_export_entries" %T/noembed_map.cppt && echo "PASS no-export"
+# RUN: ! grep -q "__trust_get_exports" %T/noembed_map.cppt && echo "PASS no-export-fn"
+# CHECK: PASS map-exists
+# CHECK: PASS no-embed
+# CHECK: PASS no-export
+# CHECK: PASS no-export-fn
+
+# Флаг -fno-sourcemap: файл .src_map генерируется ВСЕГДА, но `#embed "<name>.src_map"` и
+# экспорт-таблица (__trust_export_entries / __trust_get_exports) в C++-код НЕ встраиваются.
+x := 42;

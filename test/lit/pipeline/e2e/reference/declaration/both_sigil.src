@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ref_both %s
+# RUN: $TD/ref_both > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: x=5 w=5 u=10
+
+# Ссылочный тип можно указать И перед именем переменной, И перед именем типа - это эквивалентно,
+# если виды совпадают (`&& x : && Int32`, `&? w : &? Int32`, `&* u : &* Int32`).
+
+@main():Int32 := {
+    && x : && Int32 := 5;
+    &? w : &? Int32 := & x;
+    &* u : &* Int32 := 10;
+    print('x={} w={} u={}\n', *x, *w, *u);
+    return 0;
+};

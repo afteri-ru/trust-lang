@@ -1,0 +1,10 @@
+# RUN: %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Whole-if область: маркер @__CHECK_AREA__(if) внутри if проходит и удаляется (кода не даёт).
+# CHECK: int32_t c_@f()
+@f() : Int32 := {
+    if (true) {
+        @__CHECK_AREA__(if, error);
+    };
+    return 0;
+};

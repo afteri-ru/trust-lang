@@ -1,0 +1,15 @@
+# RUN: %trust --emit-cpp %s > /dev/null 2> %t.err && %FileCheck %s --check-prefix=ERR --input-file=%t.err
+
+# Проверка «признака обработки» атрибута (см. detail::is_handled). Атрибут, у которого не
+# установлен ни analyzer-, ни codegen-флаг, диагностируется -Wunhandled-attr (default warning).
+# @func_sync/@func_thread (DSL) раскрываются в @[sync@]/@[thread@] перед функцией; эти атрибуты
+# не обрабатываются ни одной стадией (кодгеном не преобразуются) -> оба помечаются.
+# func_pure (attr::FuncPure) обрабатывается кодогенератором (__attribute__((pure))) - не помечается.
+@func_sync s(x:Int32):Int32 { x };
+@func_thread t(x:Int32):Int32 { x };
+@func_pure p(x:Int32):Int32 { x };
+@main() := { 0 }
+# ERR-DAG: attribute 'sync' is not handled by the analyzer or the C++ code generator
+# ERR-DAG: attribute 'thread' is not handled by the analyzer or the C++ code generator
+# ERR-NOT: attribute 'func_pure' is not handled by the analyzer or the C++ code generator
+

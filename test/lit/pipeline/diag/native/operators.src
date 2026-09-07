@@ -1,0 +1,16 @@
+# RUN: %trust -q --emit-cpp -Wnative-ref=ignore -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out --implicit-check-not='native (raw)'
+
+# Нативные (сырые) C++ операторы ссылок: `%&` (нативная ссылка T&; в выражении address-of),
+# `%*` (указатель T*), `*` (общий разименование). Тип нативной ссылки указывается перед типом
+# данных (`%r : %& Int32`, `%p : %* Int32`) - маркер перед именем и авто-вывод запрещены, носитель
+# нативной ссылки обязан быть нативной переменной `%name`.
+# -Wnative-ref=ignore полностью глушит диагностику; код генерируется корректно.
+@main() := {
+    x : Int32 := 5;
+    %r : %& Int32 := %& x;        # T& r = x
+    %p : %* Int32 := %& x;        # T* p = &x
+    @print('r={}, p={}\n', %r, *%p);
+}
+# CHECK: This file was generated automatically
+# CHECK: int32_t& r = (c_x);
+# CHECK: int32_t* p = &(c_x);

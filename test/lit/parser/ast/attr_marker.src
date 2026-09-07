@@ -1,0 +1,25 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Маркерный атрибут перед оператором (Вариант 2): [cond] @[attr@] МАРКЕР ... .
+# Атрибут декорирует сам управляющий оператор (аналог [[likely]]/[[unlikely]] на if/цикле в C++).
+i := 0;
+
+# if: [cond] @[attr@] --> body
+[ i < 3 ] @[pure@] --> { i := i + 1 };
+# CHECK: IfStmt
+
+# while: [cond] @[attr@] <-> body
+[ i < 3 ] @[pure@] <-> { i := i + 1 };
+# CHECK: WhileStmt
+
+# match: [cond] @[attr@] ~> { ... }
+[ 0 ] @[pure@] ~> { [ 0 ] --> { 0 }; };
+# CHECK: MatchingStmt
+
+# do-цикл: { body } @[attr@] <-> [cond]  (attr_body: тело-блок)
+{ i := i + 1 } @[pure@] <-> [ i < 3 ];
+# CHECK: DoWhileStmt
+
+# match по значению-выражению: value @[attr@] ~> { ... }  (attr_body: условие-выражение)
+i @[pure@] ~> { [ 0 ] --> { 1 }; };
+# CHECK: MatchingStmt

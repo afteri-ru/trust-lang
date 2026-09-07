@@ -1,0 +1,28 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/try_catch_stdexception %s
+# RUN: $TD/try_catch_stdexception > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: bad=-1 ok=123
+
+# Обобщённый catch(:StdException) ловит C++-исключение конверсии (std::stoll бросает
+# std::invalid_argument/out_of_range - НЕ прерывания trust), а не только IntAny/IntPlus/IntMinus.
+
+@func parse_i64(s:StrChar):Int64 {
+    try {
+        {% return (int64_t)std::stoll(c_s); %};
+    } catch(:StdException) {
+        return -1;
+    };
+    return -1;
+};
+
+%chk():Void := {
+    $bad := parse_i64('not a number');
+    $ok := parse_i64('123');
+    print('bad={} ok={}', $bad, $ok);
+};
+{% int try_catch_stdexception__main__() {
+    chk();
+    return 0;
+}
+%}

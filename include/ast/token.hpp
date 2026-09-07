@@ -33,6 +33,10 @@ class Sequence;
 class ScopeBlock;
 class DictLiteralNode;
 class RangeExpr;
+class RefMakeExpr;
+class RefTakeExpr;
+class NativeRefMakeExpr;
+class NativeRefTakeExpr;
 class IdentName;
 class IdentType;
 class Decl;
@@ -42,14 +46,23 @@ class ModuleNode;
 class ArgNode;
 class FuncDecl;
 class VarDecl;
+class ClassDecl;
 class DestructureDecl;
 class IfStmt;
 class WhileStmt;
 class DoWhileStmt;
 class MatchStmt;
+class WithStmt;
+class TryCatchStmt;
+class CatchBlock;
 class LabelRef;
 class SemicolonStmt;
+class LastResultCapture;
+class ErrorExpr;
 class ContextMacro;
+class TrustContract;
+class TrustElem;
+class CheckAreaStmt;
 
 // ============================================================================
 // X-macro: all ParserToken kinds.
@@ -61,80 +74,93 @@ class ContextMacro;
 //
 // Grouped by node_type for readability.
 // ============================================================================
-#define PARSER_TOKEN_KINDS(T)           \
-    /* -- Sequence -- */                \
-    T(sequence, Sequence)               \
-    T(Attr, Sequence)                   \
-    /* -- ScopeBlock -- */              \
-    T(ScopeBlock, ScopeBlock)           \
-    /* -- Binary -- */                  \
-    T(TypeDecl, Binary)                 \
-    T(NameDecl, Binary)                 \
-    T(AssignOp, Binary)                 \
-    T(AppendStmt, Binary)               \
-    T(MathOp, Binary)                   \
-    T(BitwiseOp, Binary)                \
-    T(CompareOp, Binary)                \
-    T(LogicalOp, Binary)                \
-    T(MemberAccess, Binary)             \
-    T(ArrayAccess, Binary)              \
-    /* -- IdentName -- */               \
-    T(Ident, IdentName)                 \
-    /* -- IdentType -- */               \
-    T(TypeName, IdentType)              \
-    /* -- CallExpr -- */                \
-    T(CallExpr, CallExpr)               \
-    /* -- JumpStmt -- */                \
-    T(ReturnStmt, JumpStmt)             \
-    T(ThrowStmt, JumpStmt)              \
-    /* -- AstNodeAttr -- */             \
-    T(Program, AstNodeAttr)             \
-    T(VarRef, AstNodeAttr)              \
-    T(EmbedExpr, AstNodeAttr)           \
-    T(Document, AstNodeAttr)            \
-    T(ContextMacro, ContextMacro)       \
-    T(Unimplemented, AstNodeAttr)       \
-    T(NotApplicable, AstNodeAttr)       \
-    T(IntLiteral, Literal)              \
-    T(FloatLiteral, Literal)            \
-    T(StrChar, Literal)                 \
-    T(StrWide, Literal)                 \
-    T(RationalLiteral, Literal)         \
-    T(ArrayInit, DictLiteralNode)       \
-    T(DictLiteral, DictLiteralNode)     \
-    T(Tuple, DictLiteralNode)           \
-    T(RangeExpr, RangeExpr)             \
-    T(RefMakeExpr, Sequence)            \
-    T(RefTakeExpr, Sequence)            \
-    T(Ellipsis, Sequence)               \
-    T(IfStmt, IfStmt)                   \
-    T(WhileStmt, WhileStmt)             \
-    T(AssignmentStmt, AstNodeAttr)      \
-    T(SemicolonStmt, SemicolonStmt)     \
-    T(BlockStmt, AstNodeAttr)           \
-    T(ThenBlock, AstNodeAttr)           \
-    T(ElseBlock, AstNodeAttr)           \
-    T(DoWhileStmt, DoWhileStmt)         \
-    T(WhileElseBlock, AstNodeAttr)      \
-    T(BreakStmt, JumpStmt)              \
-    T(ContinueStmt, JumpStmt)           \
-    T(GotoStmt, LabelRef)               \
-    T(LabelStmt, LabelRef)              \
-    T(TryCatchStmt, Sequence)           \
-    T(CatchBlock, Sequence)             \
-    T(MatchingStmt, MatchStmt)          \
-    T(MatchingCase, AstNodeAttr)        \
-    T(MatchingElseBlock, AstNodeAttr)   \
-    T(FuncDecl, FuncDecl)               \
-    T(VarDecl, VarDecl)                 \
-    T(DestructureDecl, DestructureDecl) \
-    /* -- ArgNode -- */                 \
-    T(ArgNode, ArgNode)                 \
-    T(EnumDecl, Sequence)               \
-    T(EnumMember, Sequence)             \
-    T(StructDecl, Sequence)             \
-    T(StructField, Sequence)            \
-    /* -- ModuleNode -- */              \
+#define PARSER_TOKEN_KINDS(T)                                         \
+    /* -- Sequence -- */                                              \
+    T(sequence, Sequence)                                             \
+    T(Attr, Sequence)                                                 \
+    /* -- ScopeBlock -- */                                            \
+    T(ScopeBlock, ScopeBlock)                                         \
+    /* -- Binary -- */                                                \
+    T(TypeDecl, Binary)                                               \
+    T(NameDecl, Binary)                                               \
+    T(AssignOp, Binary)                                               \
+    T(AppendStmt, Binary)                                             \
+    T(MathOp, Binary)                                                 \
+    T(BitwiseOp, Binary)                                              \
+    T(CompareOp, Binary)                                              \
+    T(LogicalOp, Binary)                                              \
+    T(MemberAccess, Binary)                                           \
+    T(ArrayAccess, Binary)                                            \
+    /* -- IdentName -- */                                             \
+    T(Ident, IdentName)                                               \
+    /* -- IdentType -- */                                             \
+    T(TypeName, IdentType)                                            \
+    /* -- CallExpr -- */                                              \
+    T(CallExpr, CallExpr)                                             \
+    /* -- JumpStmt -- */                                              \
+    T(ReturnStmt, JumpStmt)                                           \
+    T(ThrowStmt, JumpStmt)                                            \
+    /* -- AstNodeAttr -- */                                           \
+    T(Program, AstNodeAttr)                                           \
+    T(VarRef, AstNodeAttr)                                            \
+    T(EmbedExpr, AstNodeAttr)                                         \
+    T(Document, AstNodeAttr)                                          \
+    T(ContextMacro, ContextMacro)                                     \
+    T(CheckAreaStmt, CheckAreaStmt)                                   \
+    T(Unimplemented, AstNodeAttr)                                     \
+    T(NotApplicable, AstNodeAttr)                                     \
+    T(IntLiteral, Literal)                                            \
+    T(FloatLiteral, Literal)                                          \
+    T(StrChar, Literal)                                               \
+    T(StrWide, Literal)                                               \
+    T(RationalLiteral, Literal)                                       \
+    T(ArrayInit, DictLiteralNode)                                     \
+    T(DictLiteral, DictLiteralNode)                                   \
+    T(Tuple, DictLiteralNode)                                         \
+    T(RangeExpr, RangeExpr)                                           \
+    T(RefMakeExpr, RefMakeExpr)                                       \
+    T(RefTakeExpr, RefTakeExpr)                                       \
+    T(NativeRefMakeExpr, NativeRefMakeExpr)                           \
+    T(NativeRefTakeExpr, NativeRefTakeExpr)                           \
+    T(RefLockExpr, Sequence)                                          \
+    T(RefLockDeref, Sequence)                                         \
+    T(Ellipsis, Sequence)                                             \
+    T(IfStmt, IfStmt)                                                 \
+    T(WhileStmt, WhileStmt)                                           \
+    T(AssignmentStmt, AstNodeAttr)                                    \
+    T(SemicolonStmt, SemicolonStmt)                                   \
+    T(LastResultCapture, LastResultCapture)                           \
+    T(ErrorExpr, ErrorExpr)                                           \
+    T(BlockStmt, AstNodeAttr)                                         \
+    T(ThenBlock, AstNodeAttr)                                         \
+    T(ElseBlock, AstNodeAttr)                                         \
+    T(DoWhileStmt, DoWhileStmt)                                       \
+    T(WhileElseBlock, AstNodeAttr)                                    \
+    T(BreakStmt, JumpStmt)                                            \
+    T(ContinueStmt, JumpStmt)                                         \
+    T(GotoStmt, LabelRef)                                             \
+    T(LabelStmt, LabelRef)                                            \
+    T(TryCatchStmt, TryCatchStmt)                                     \
+    T(CatchBlock, CatchBlock)                                         \
+    T(MatchingStmt, MatchStmt)                                        \
+    T(WithStmt, WithStmt)                                             \
+    T(MatchingCase, AstNodeAttr)                                      \
+    T(MatchingElseBlock, AstNodeAttr)                                 \
+    T(FuncDecl, FuncDecl)                                             \
+    T(VarDecl, VarDecl)                                               \
+    T(ClassDecl, ClassDecl)                                           \
+    T(DestructureDecl, DestructureDecl)                               \
+    /* -- ArgNode -- */                                               \
+    T(ArgNode, ArgNode)                                               \
+    T(EnumDecl, Sequence)                                             \
+    T(EnumMember, Sequence)                                           \
+    T(StructDecl, Sequence)                                           \
+    T(StructField, Sequence)                                          \
+    /* -- TrustContract (единая trust-конструкция, kind в поле) -- */ \
+    T(TrustContract, TrustContract)                                   \
+    /* -- TrustElem (элемент контрактного программирования) -- */     \
+    T(TrustElem, TrustElem)                                           \
+    /* -- ModuleNode -- */                                            \
     T(ModuleDecl, ModuleNode)
 
 /** Unified enum for all AST node types (CamelCase).

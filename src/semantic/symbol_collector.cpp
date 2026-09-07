@@ -47,7 +47,7 @@ void SymbolCollectorHook::finalize() {
                 t = vd->inferredType;
             }
         }
-        si.type = clearInferred(t);
+        si.type = clearFlag(t, SymbolFlag::Inferred);
         si.typeName = m_actx.ctx().types().getFullTypeName(si.type);
 
         // Поля словаря/кортежа из инициализатора-литерала `x := (a=1, b=2,)` - для

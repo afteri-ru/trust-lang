@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Маркер ссылки должен быть СОГЛАСОВАН: если указан у типа, то обязан быть и у переменной (и наоборот,
+# при явной аннотации типа). Несогласованные формы - ошибка.
+
+@main():Int32 := {
+    && x : Int32 := 5;   # маркер у переменной, но тип - обычное значение
+    y : &&Int32 := 5;    # маркер у типа, но переменная не объявлена ссылочной
+    return 0;
+};
+# CHECK: error: reference variable 'x' requires the type annotation to be a reference type too (e.g. '&& x : && Int32'), or omit the type to auto-deduce ('&& x := ...')
+# CHECK: error: reference marker before the type must be paired with the same marker on the variable (e.g. '&& x : && Int32'), or omit the type to auto-deduce ('&& x := ...')

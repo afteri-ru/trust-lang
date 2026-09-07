@@ -19,6 +19,9 @@ _output/
 contrib/
 build/
 _build/
+examples/trust/
+examples/LICENSE
+*.src_map
 
 
 # Compiler generated files
@@ -29,6 +32,8 @@ _build/
 *.o
 *.d
 *.src_map
+*.cppt
+build.conf
 
 # Binaries
 *.exe

@@ -6,6 +6,7 @@ add_library(diag_lib STATIC
     ${PROJECT_SOURCE_DIR}/diag/context.cpp
     ${PROJECT_SOURCE_DIR}/diag/diag.cpp
     ${PROJECT_SOURCE_DIR}/diag/options.cpp
+    ${PROJECT_SOURCE_DIR}/diag/registry.cpp
     ${PROJECT_SOURCE_DIR}/diag/reader.cpp
     ${PROJECT_SOURCE_DIR}/diag/mapper.cpp
 )

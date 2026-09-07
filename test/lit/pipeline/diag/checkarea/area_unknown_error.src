@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Неизвестная область -> строгая ошибка разбора.
+# CHECK: error: @__CHECK_AREA__: unknown area 'no_such_area'
+@f() : Int32 := {
+    @__CHECK_AREA__(no_such_area, error);
+    return 0;
+};

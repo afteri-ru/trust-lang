@@ -1,0 +1,19 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ref_sym %s
+# RUN: $TD/ref_sym > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: val=5
+# CHECK: shared=7
+
+# Символические маркеры ссылочных типов (ПЕРЕД именем переменной): `&& x := 5` (авто-вывод pointee),
+# `&? w := & x` → trust::Weak<...> из shared (address-of). Маркер - НЕ «сигл» (не часть имени).
+# Локер `*ref` даёт доступ к значению (lock); мутация через `*x` видна и слабой ссылке.
+
+@main():Int32 := {
+    && x := 5;
+    &? w := & x;
+    print('val={}\n', *w);
+    *x = 7;
+    print('shared={}\n', *x);
+    return 0;
+};

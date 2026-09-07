@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Взятие слабой ссылки из shared-переменной (`w := & x`) требует маркера слабой ссылки `&?`
+# перед именем: `&? w := & x`. Без маркера - ошибка + fixit.
+@main() := {
+    && x := 5;
+    w := & x;
+    @print('{}\\n', *w);
+}
+# CHECK: error: taking a weak reference from a shared variable requires the weak-reference marker; declare '&? w' instead of 'w'
+# CHECK: note: fix-it: replace with '&? w'

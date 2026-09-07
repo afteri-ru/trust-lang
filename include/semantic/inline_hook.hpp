@@ -17,6 +17,7 @@
 
 #include "diag/options.hpp"
 #include "semantic/symbol_table.hpp"
+#include "semantic/diag.hpp"
 #include "ast/ast_nodes.hpp"
 
 #include <optional>
@@ -28,7 +29,7 @@ class InlineAnalysisHook {
     virtual ~InlineAnalysisHook() = default;
 
     /// Флаг, включающий хук; nullopt - подключается всегда.
-    virtual std::optional<FlagKind> gateFlag() const { return std::nullopt; }
+    virtual std::optional<semantic::FlagKind> gateFlag() const { return std::nullopt; }
 
     /// Вход/выход скоупа (вложенность).
     virtual void enterScope() {}

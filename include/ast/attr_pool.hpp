@@ -66,12 +66,18 @@ class AttrPool {
     /// Parameters are stored as string_view values.
     /// def_range must be valid (the definition site in source).
     /// FAULT if an attribute with the same name already exists.
-    AttrId register_attr(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range);
+    /// User-defined attributes are NOT processed by the built-in analyzer/codegen stages
+    /// by default (analyzer_supported/codegen_supported = false) - see detail::is_handled.
+    AttrId register_attr(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range,
+                         bool analyzer_supported = false, bool codegen_supported = false);
 
     /// Register a built-in attribute with given name and default parameter values.
     /// The def_range is invalid, so the built-in bit is set in the returned AttrId.
+    /// analyzer_supported/codegen_supported mark the attribute as processed by the
+    /// analyzer (semantic) and/or the C++ code generator (transpiler) respectively.
     /// FAULT if an attribute with the same name already exists.
-    AttrId register_builtin_attr(std::string_view name, std::vector<std::string_view> default_params = {});
+    AttrId register_builtin_attr(std::string_view name, std::vector<std::string_view> default_params = {},
+                                 bool analyzer_supported = false, bool codegen_supported = false);
 
     // -- Queries --
 
@@ -110,7 +116,9 @@ class AttrPool {
   private:
     /// Core registration shared by register_attr and register_builtin_attr.
     /// The built-in bit is derived from def_range.isInvalid().
-    AttrId register_attr_impl(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range);
+    /// analyzer_supported/codegen_supported set the respective processing flags.
+    AttrId register_attr_impl(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range,
+                              bool analyzer_supported, bool codegen_supported);
 
     std::vector<Attr> m_attrs;
     std::set<std::string, std::less<>> m_strings; // deduplicated string storage (stable references, hetero lookup)

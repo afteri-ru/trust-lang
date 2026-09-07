@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ref_auto %s
+# RUN: $TD/ref_auto > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: x=5 u=10 w=5
+
+# Ссылочная переменная может быть объявлена БЕЗ явного типа (авто-вывод pointee из инициализатора):
+#   `&& x := 5` → trust::Shared<T> (T из литерала);
+#   `&* u := 10` → std::unique_ptr<T>;
+#   `&? w := & x` → trust::Weak<...> (weak из shared через address-of).
+
+@main():Int32 := {
+    && x := 5;
+    &* u := 10;
+    &? w := & x;
+    print('x={} u={} w={}\n', *x, *u, *w);
+    return 0;
+};

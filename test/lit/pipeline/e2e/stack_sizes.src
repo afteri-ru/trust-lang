@@ -1,0 +1,34 @@
+# RUN: TD=%t.dir && mkdir -p $TD/ss_o0 $TD/ss_o3
+# RUN: %trust -q --temp-dir $TD/ss_o0 --stack-check=explicit --options "-O0" -o $TD/ss_o0/ss %s
+# RUN: $TD/ss_o0/ss > %t.o0
+# RUN: %trust -q --temp-dir $TD/ss_o3 --stack-check=explicit --options "-O3" -o $TD/ss_o3/ss %s
+# RUN: $TD/ss_o3/ss > %t.o3
+# RUN: %FileCheck %s --check-prefix=O0 < %t.o0
+# RUN: %FileCheck %s --check-prefix=O3 < %t.o3
+# RUN: sed -n 's/^limit=//p' %t.o0 > %t.o0v
+# RUN: sed -n 's/^limit=//p' %t.o3 > %t.o3v
+# RUN: awk 'NR==FNR{a=$0; next} { exit !(a > $0) }' %t.o0v %t.o3v
+
+# Секция .stack_sizes читается корректно на РАЗНЫХ уровнях оптимизации C++.
+# %trust_stack_check_get_limit() возвращает максимум размера стека функций из .stack_sizes
+# (генерация секции включается автоматически через -fstack-size-section, см. pipeline/build.cpp).
+# big_frame() имеет кадр ~1024 байта (буфер в {% %}-вставке); на -O0 буфер сохраняется (limit
+# большой), на -O3 оптимизатор элидирует неиспользуемый буфер (limit меньше). Последняя RUN-строка
+# проверяет O0 limit > O3 limit (оптимизация уменьшает размер стека функции).
+
+@func big_frame() : Int32 {
+    {% char buf[1024] = {0}; (void)buf; %};
+    return 0;
+};
+
+@func small_frame() : Int32 { return 0; };
+
+@main() := {
+    big_frame();
+    small_frame();
+    @print('limit={}\n', %trust_stack_check_get_limit());
+    return 0;
+}
+
+# O0: limit={{[0-9]+}}
+# O3: limit={{[0-9]+}}

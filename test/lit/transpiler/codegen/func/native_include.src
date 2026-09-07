@@ -1,0 +1,16 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Атрибут @[include("header")@] на нативной декларации → директива `#include <header>`
+# в сгенерированном C++. Заголовок подтягивается только для объявления с атрибутом.
+@[include("cstdlib")@]
+%abort(x:Int32):Void := ...;
+
+# Мнемонический макрос @include("name") → атрибут @[include("name")@] на следующем объявлении
+# (без ';', как @extern/@forward). Голое имя → угловой инклуд `#include <vector>`.
+@include("vector")
+%mkv(x:Int32):Void := ...;
+
+# CHECK: #include <cstdlib>
+# CHECK: #include <vector>
+# CHECK: extern "C" void abort(int32_t c_x);
+# CHECK: extern "C" void mkv(int32_t c_x);

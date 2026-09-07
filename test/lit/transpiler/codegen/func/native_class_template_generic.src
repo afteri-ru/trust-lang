@@ -1,0 +1,13 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# Forward-объявление НАТИВНОГО шаблон-класса (ОБОБЩЁННАЯ форма): `<T1,T2> Pair ::= <T1,T2> %std::pair {...};`.
+# Маппинг типовых параметров 1:1 (Pair<A,B> → std::pair<A,B>), как у явной реализации.
+@include("utility")
+<T1,T2> Pair ::= <T1,T2> %std::pair {
+    %first(): T1 := ...;
+    %second(): T2 := ...;
+};
+
+p: Pair<Int32, StrChar> := 0;
+
+# CHECK: #include <utility>
+# CHECK: std::pair<int32_t, std::string> c_p = 0;

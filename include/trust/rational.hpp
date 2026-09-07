@@ -19,6 +19,8 @@
 
 namespace trust {
 
+class BigInteger; // для Rational(const BigInteger&) - Rational построен на BigInteger
+
 // Arbitrary-precision rational number built on GMP.
 // The implementation is hidden behind a pimpl (Impl) to keep the ABI stable and
 // to avoid exposing GMP types in this public header.
@@ -26,6 +28,9 @@ class Rational {
   public:
     Rational() noexcept;
     Rational(int64_t value) noexcept;
+    // BigInteger → Rational(value/1): неявная конверсия для смешанной арифметики
+    // (BigInteger + Rational, Rational + BigInteger) и присваивания Rational := BigInteger.
+    Rational(const BigInteger& value) noexcept;
     Rational(std::string_view numerator, std::string_view denominator);
     // Однострочная форма рационального литерала "num\den" (парсинг выполняется внутри).
     Rational(std::string_view value);

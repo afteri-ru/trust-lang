@@ -111,7 +111,7 @@ TEST(ServerTest, FullDispatchPollRunResult) {
 TEST(ServerTest, LazyDownloadBuildsArchive) {
     PlaygroundServer server(makeConfig(5, 5));
     // Имя файла формируется из актуальной версии (TRUST_VERSION), не хардкодится.
-    const std::string expected_name = std::string("trust-lang-") + TRUST_VERSION_FULL + "-generated.tar.gz";
+    const std::string expected_name = std::string("trust-lang-") + TRUST_VERSION + "-generated.tar.gz";
     const std::string archive_json = "{\"ok\":true,\"archive\":\"aGVsbG8=\",\"archiveName\":\"" + expected_name + "\"}"; // archive = "hello"
 
     std::thread worker([&] {

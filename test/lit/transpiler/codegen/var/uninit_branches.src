@@ -1,0 +1,27 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Запись на всех путях ветвления (if/else, match с default) → переменная инициализирована на
+# всех путях, чтение после конструкта валидно; тип выводится по записям (int8_t, не std::any).
+@main() := {
+    x := _;
+    if (1) {
+        x = 5;
+    } else {
+        x = 6;
+    };
+    @print('{}', x);
+    # CHECK: int8_t c_x;
+    # CHECK: c_x = 5;
+    # CHECK: c_x = 6;
+
+    v := 2;
+    y := _;
+    @match(v) ==> {
+        @case(1) { y = 5; };
+        @default { y = 6; };
+    };
+    @print('{}', y);
+    # CHECK: int8_t c_y;
+    # CHECK: c_y = 5;
+    # CHECK: c_y = 6;
+};

@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/literal_annotation %s
+# RUN: $TD/literal_annotation > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: b=true r=5\1 bi=9223372036854775808 i=256
+
+# Статическая типизация числовых литералов постфиксной аннотацией `literal :Type`:
+#   * 1 :Bool → явный Bool (снимает неоднозначность 0/1);
+#   * 5 :Rational → Rational;
+#   * 9223372036854775808 :BigInteger → BigInteger (сверхразрядный, без ошибки переполнения);
+#   * 256 :Int16 → Int16.
+
+%chk():Void := {
+    b := 1 :Bool;
+    r := 5 :Rational;
+    bi := 9223372036854775808 :BigInteger;
+    i := 256 :Int16;
+    print('b={} r={} bi={} i={}', b, r, bi, i);
+};
+{% int literal_annotation__main__() { chk(); return 0; } %}

@@ -1,0 +1,12 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Нативный шаблон-тип: `@include("vector") <T> %std::vector() := ...;` объявляет тип `vector<T>`.
+# Использование `vector<Int32>` эмитит `std::vector<int32_t>` (массив-литерал коэрцируется к типу
+# элемента цели) + on-use `#include <vector>`.
+@include("vector")
+<T> %std::vector() := ...;
+
+v: vector<Int32> := [1, 2, 3,];
+
+# CHECK: #include <vector>
+# CHECK: std::vector<int32_t> c_v = std::vector<int32_t>{1, 2, 3};

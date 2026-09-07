@@ -39,6 +39,8 @@ struct LowerCtx;
     case ParserToken::Kind::StructDecl:  // class^
     case ParserToken::Kind::RefTakeExpr: // *^ - take с иммутабельностью
     case ParserToken::Kind::RefMakeExpr: // &^ - ptr с иммутабельностью
+    case ParserToken::Kind::NativeRefTakeExpr: // %*^ - нативное разименование с иммутабельностью
+    case ParserToken::Kind::NativeRefMakeExpr: // %&^/%&&^ - нативный указатель/ссылка с иммутабельностью
     case ParserToken::Kind::CallExpr:    // method^() - const-вызов: '^' на имени callee (ReadOnly на вызове)
         return true;
     default:
@@ -57,7 +59,10 @@ struct LowerCtx;
     if (kind == ParserToken::Kind::TypeName && !s.empty() && s[0] == ':') {
         s.erase(0, 1);
     }
-    if (!s.empty() && s.back() == '^') {
+    // Специальное имя "$^" (виртуальная переменная «результат последней операции»): его '^' - часть
+    // имени (как и у прочих special-имён, см. IdentName::is_special), а НЕ суффикс иммутабельности.
+    // Без этого guard срез '^' превращал бы "$^" в "$", ломая распознавание is_last_result().
+    if (!s.empty() && s.back() == '^' && s != "$^") {
         s.pop_back();
     }
     return s;
@@ -104,12 +109,12 @@ class AstNodeBase {
 
     /// Единый источник истины «kind → дети»: заполняет out указателями на дочерние
     /// слоты (позволяет заменять узлы при обходе, напр. раскрытие ContextMacro).
-    /// Для листов - пусто. Не мутирует дерево. Определён в ast_nodes.cpp.
+    /// Для листов - пусто. Не мутирует дерево. Определён в ast_children.cpp.
     void collectChildren(std::vector<AstNodePtr*>& out);
 
     /// Все дочерние узлы AST (обобщённый обход) - const-обёртка над collectChildren,
     /// возвращает копии узлов. Для листов - пустой вектор.
-    /// Определён в ast_nodes.cpp (нужны полные типы узлов).
+    /// Определён в ast_children.cpp (нужны полные типы узлов).
     [[nodiscard]] std::vector<AstNodePtr> children() const;
 
     /// Dump token contents for debugging
@@ -125,6 +130,12 @@ class AstNodeBase {
     /// (см. include/syntax/term.h); для LSP hover/док (SymbolCollectorHook::finalize).
     /// Пуст, если у объявления нет документирующего комментария.
     std::string documentation;
+
+    /// Trust-конструкции (pre/post/assert), привязанные к объявлению (`@( ... @)` и т.п.
+    /// после имени в `:=`/`::=`). НЕ входят в children()/collectChildren - анализатор и
+    /// транспилятор полностью их игнорируют. Заполняется TermToAstConverter::convert
+    /// из конд-термов в name->m_sequence (см. include/syntax/term.h). Пуст по умолчанию.
+    std::vector<AstNodePtr> m_trust;
 
     AstNodeBase() = default;
 
@@ -156,6 +167,15 @@ class AstNodeBase {
 /// Истина, если kind - объявление (для привязки документирующего комментария к узлу).
 inline bool isDeclKindForDocs(ParserToken::Kind k) {
     return k == ParserToken::Kind::VarDecl || k == ParserToken::Kind::FuncDecl || k == ParserToken::Kind::TypeDecl || k == ParserToken::Kind::ArgNode;
+}
+
+/// Истина, если узел - маркер `_` (none-значение / «не инициализировано»). Это НЕ признак
+/// «без m_initializer»: `_` - ФОРМАЛЬНЫЙ инициализатор (`x := _;` / `x = _;`), который по смыслу
+/// означает «объявить/сбросить без значения». Единый предикат для всех потребителей (семантика,
+/// кодоген), чтобы не копипастить проверку. text() требует source-терм, поэтому term() проверяем
+/// ДО text() (ручные тестовые узлы без терма не дают «_» и не роняют text()).
+[[nodiscard]] inline bool isNoneMarker(const AstNodeBase* n) noexcept {
+    return n && n->kind() == ParserToken::Kind::Ident && n->term() && n->text() == "_";
 }
 
 /// AstNodeAttr - расширение AstNodeBase с поддержкой атрибутов.
@@ -232,7 +252,7 @@ class HasText : public AstNodeAttr {
     HasText() = default;
 
     /// Терм-конструктор: текст читается из Term и нормализуется по kind (см. normalizeTermText).
-    /// Объявлен здесь, определён в ast_nodes.cpp (нужен полный тип Term).
+    /// Объявлен здесь, определён в ast_children.cpp (нужен полный тип Term).
     HasText(ParserToken::Kind k, TermPtr term);
 
     /// Manual-конструктор: текст задан явно, без TermPtr.
@@ -272,7 +292,7 @@ namespace detail {
 /// «суффикс '^' ⇒ квалификатор ReadOnly» не дублировалась.
 /// Сам '^' из текста НЕ срезает (это делает normalizeTermText при построении узла).
 /// Возвращает true, если ReadOnly действительно применён (raw имеет '^' И kind допускает
-/// квалификатор). Определён в ast_nodes.cpp (нужен полный тип AttrPool).
+/// квалификатор). Определён в ast_children.cpp (нужен полный тип AttrPool).
 bool applyReadonlyFromCaret(AstNodeAttr& node, std::string_view raw, AttrPool* pool);
 
 } // namespace trust

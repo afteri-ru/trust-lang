@@ -3,7 +3,10 @@
 #include "semantic/name_resolution.hpp"
 #include "semantic/macro_expander.hpp"
 #include "semantic/lint.hpp"
+#include "semantic/stack_check.hpp"
+#include "semantic/stack_check_infer.hpp"
 #include "semantic/symbol_collector.hpp"
+#include "semantic/nativeref.hpp"
 #include "ast/lowering.hpp"
 #include "ast/ast_nodes.hpp"
 #include "diag/options.hpp"
@@ -35,12 +38,33 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
     // анализатор). Подключается ПЕРВЫМ, чтобы его onNode раскрывал ContextMacro/квалификатор
     // @:: до обработки ядра.
     core.addHook(std::make_unique<ContextMacroExpander>(*m_analysis));
-    if (m_ctx.opts().is_enabled(FlagKind::Lint)) {
+    if (m_ctx.opts().is_enabled(semantic::FlagKind::Lint)) {
         core.addHook(std::make_unique<LintHook>(*m_analysis));
     }
+    // Контроль переполнения стека для рекурсивных функций: только в режимах recursion/auto.
+    {
+        const auto scm = semantic::stackCheckModeFromOptions(m_ctx.opts());
+        if (scm == semantic::StackCheckMode::kRecursion || scm == semantic::StackCheckMode::kAuto) {
+            core.addHook(std::make_unique<StackCheckInferHook>(*m_analysis));
+        }
+    }
     // Сбор символов (имя+тип+диапазоны) для LSP - по флагу --Wsymbols / LSP-режим.
-    if (m_ctx.opts().is_enabled(FlagKind::Symbols)) {
+    if (m_ctx.opts().is_enabled(semantic::FlagKind::Symbols)) {
         core.addHook(std::make_unique<SymbolCollectorHook>(*m_analysis));
+    }
+    // Отслеживание инвалидации ссылок (условный атрибут @[reftrace@], -Wreftrace=).
+    // Всегда подключён: решает по структурным признакам и диагностику выдаёт только для
+    // отслеживаемых сущностей; поведение (error|warning|ignore) - из -Wreftrace=.
+    core.addHook(std::make_unique<NativeRefHook>(*m_analysis));
+
+    // -- Capture «$^ = результат последней операции» (простой случай): ПРЕ-семантическое
+    //    структурное переписывание пары [оператор-выражение E / декларация x:=E; sink с $^] -> обычный
+    //    код. Неподдержанные обращения `$^` проход сообщает САМ (в момент выявления, здесь известен
+    //    предыдущий сиблинг) и заменяет лист `$^` на ErrorExpr-заглушку (семантика не дублирует ошибку).
+    {
+        LowerCtx lower_ctx;
+        lower_ctx.ctx = &m_ctx; // AttrPool (для потенциальной пометки временных readonly/const)
+        captureLastResult(ast_nodes, lower_ctx);
     }
 
     // Дожимаем finalize() даже если ядро бросило исключение на повреждённом AST
@@ -59,6 +83,7 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
     // -- Lowering: последним, только при отсутствии блокирующих ошибок. --
     if (!m_analysis->hasErrors()) {
         LowerCtx lower_ctx;
+        lower_ctx.ctx = &m_ctx; // AttrPool для пометки синтезированных временных readonly/const
         lowerBody(ast_nodes, lower_ctx);
     }
 

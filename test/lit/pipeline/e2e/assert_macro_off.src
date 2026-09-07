@@ -7,7 +7,6 @@
 
 %chk():Void := {
     assert( 1 == 0 );
-    ++ _ ++;
 };
 {% int assert_macro_off__main__() {
     chk();

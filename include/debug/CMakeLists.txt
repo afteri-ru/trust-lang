@@ -19,14 +19,18 @@ target_link_libraries(debug_lib PRIVATE
     msgpack-c-static
 )
 
-# Для доступа к trust/version.h (генерируется в build/include)
-target_include_directories(debug_lib PRIVATE ${CMAKE_BINARY_DIR}/include)
+# Для доступа к trust/version.h (генерируется в build/include) - он уже приходит транзитивно
+# через trust_include_dirs (INTERFACE: include/ + ${CMAKE_BINARY_DIR}/include), поэтому отдельный
+# PRIVATE build/include не нужен.
 
 target_include_directories(debug_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # -- trust-dap: DAP server для trust-lang debugging --
+# Собирается только при TRUST_BUILD_DAP (по умолчанию OFF). debug_lib выше остаётся
+# всегда - он нужен lsp_lib.
+if(TRUST_BUILD_DAP)
 add_executable(trust-dap
     ${PROJECT_SOURCE_DIR}/debug/trust_dap.cpp
 )
@@ -40,3 +44,4 @@ target_include_directories(trust-dap PRIVATE
     ${CMAKE_BINARY_DIR}/include
     ${PROJECT_INCLUDE_DIR}
 )
+endif()

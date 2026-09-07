@@ -70,21 +70,6 @@ TEST_F(AttrParserTest, ParseAttrWithStringParamFromString) {
     EXPECT_EQ(*result, reg);
 }
 
-TEST_F(AttrParserTest, ParseBuiltinTrustWithStringParam) {
-    // @[trust("x > 0")] - встроенные строковые атрибуты (trust/link и др.) зарегистрированы
-    // с одним пустым (wildcard) дефолт-параметром: он принимает ЛЮБОЕ строковое значение.
-    // Раньше произвольные строковые параметры отклонялись ("mismatched parameters");
-    // теперь пустой дефолт = wildcard (см. Attr::matches_params).
-    std::vector<std::string_view> params = {"x > 0"};
-    auto result = parse_attr(m_ctx, m_range, "trust", params);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(m_ctx.attrs().get(*result).m_name, "trust");
-
-    // Без параметров строковый атрибут тоже резолвится.
-    auto noParams = parse_attr(m_ctx, m_range, "trust");
-    ASSERT_TRUE(noParams.has_value());
-}
-
 TEST_F(AttrParserTest, ParseLinkAttrWithArbitraryValue) {
     // @[link("m")] - имя нативной библиотеки; произвольное строковое значение.
     auto result = parse_attr(m_ctx, m_range, "link", std::vector<std::string_view>{"m"});
@@ -273,6 +258,98 @@ TEST_F(AttrParserTest, AttrIdHelpers) {
     // Clearing works too
     EXPECT_FALSE(detail::is_builtin(detail::with_builtin(b, false)));
     EXPECT_FALSE(detail::is_manual(detail::with_manual(m, false)));
+}
+
+TEST_F(AttrParserTest, AttrCapabilityHelpers) {
+    AttrId idx = 7;
+    EXPECT_FALSE(detail::is_analyzer_supported(idx));
+    EXPECT_FALSE(detail::is_codegen_supported(idx));
+    EXPECT_FALSE(detail::is_handled(idx));
+
+    AttrId a = detail::with_analyzer(idx);
+    EXPECT_TRUE(detail::is_analyzer_supported(a));
+    EXPECT_FALSE(detail::is_codegen_supported(a));
+    EXPECT_TRUE(detail::is_handled(a)) << "analyzer-only attribute must be handled";
+
+    AttrId g = detail::with_codegen(idx);
+    EXPECT_TRUE(detail::is_codegen_supported(g));
+    EXPECT_FALSE(detail::is_analyzer_supported(g));
+    EXPECT_TRUE(detail::is_handled(g));
+
+    AttrId both = detail::with_analyzer(detail::with_codegen(idx));
+    EXPECT_TRUE(detail::is_handled(both));
+
+    // Clearing works
+    EXPECT_FALSE(detail::is_analyzer_supported(detail::with_analyzer(a, false)));
+    EXPECT_FALSE(detail::is_codegen_supported(detail::with_codegen(g, false)));
+
+    // Capability bits must not disturb the index / manual bits.
+    EXPECT_EQ(both & detail::kAttrIndexMask, idx);
+    AttrId ma = detail::with_manual(a);
+    EXPECT_TRUE(detail::is_manual(ma));
+    EXPECT_TRUE(detail::is_analyzer_supported(ma));
+    EXPECT_TRUE(detail::is_handled(ma));
+}
+
+TEST_F(AttrParserTest, RegisterAttrWithCapabilityFlags) {
+    AttrId both = m_ctx.attrs().register_builtin_attr("cap_both", {}, /*analyzer=*/true, /*codegen=*/true);
+    EXPECT_TRUE(detail::is_builtin(both));
+    EXPECT_TRUE(detail::is_analyzer_supported(both));
+    EXPECT_TRUE(detail::is_codegen_supported(both));
+    EXPECT_TRUE(detail::is_handled(both));
+
+    AttrId analyzer = m_ctx.attrs().register_builtin_attr("cap_analyzer", {}, /*analyzer=*/true, /*codegen=*/false);
+    EXPECT_TRUE(detail::is_analyzer_supported(analyzer));
+    EXPECT_FALSE(detail::is_codegen_supported(analyzer));
+    EXPECT_TRUE(detail::is_handled(analyzer));
+
+    AttrId codegen = m_ctx.attrs().register_builtin_attr("cap_codegen", {}, /*analyzer=*/false, /*codegen=*/true);
+    EXPECT_FALSE(detail::is_analyzer_supported(codegen));
+    EXPECT_TRUE(detail::is_codegen_supported(codegen));
+
+    AttrId none = m_ctx.attrs().register_builtin_attr("cap_none", {});
+    EXPECT_FALSE(detail::is_analyzer_supported(none));
+    EXPECT_FALSE(detail::is_codegen_supported(none));
+    EXPECT_FALSE(detail::is_handled(none)) << "attribute without any processing stage is unhandled";
+
+    // User-defined attribute: not processed by the built-in stages -> unhandled by default.
+    AttrId user = m_ctx.attrs().register_attr("cap_user", {}, m_range);
+    EXPECT_FALSE(detail::is_handled(user));
+}
+
+TEST_F(AttrParserTest, BuiltinHandlingFlags) {
+    // readonly обрабатывается и анализатором, и кодогенератором.
+    auto ro = m_ctx.attrs().lookup(attr::ReadOnly);
+    ASSERT_TRUE(ro.has_value());
+    EXPECT_TRUE(detail::is_analyzer_supported(*ro));
+    EXPECT_TRUE(detail::is_codegen_supported(*ro));
+    EXPECT_TRUE(detail::is_handled(*ro));
+
+    // format обрабатывается только анализатором.
+    auto fmt = m_ctx.attrs().lookup(attr::Format);
+    ASSERT_TRUE(fmt.has_value());
+    EXPECT_TRUE(detail::is_analyzer_supported(*fmt));
+    EXPECT_FALSE(detail::is_codegen_supported(*fmt));
+    EXPECT_TRUE(detail::is_handled(*fmt));
+
+    // pure пока не обрабатывается ни одной стадией -> необработан.
+    auto pure = m_ctx.attrs().lookup(attr::Pure);
+    ASSERT_TRUE(pure.has_value());
+    EXPECT_FALSE(detail::is_handled(*pure));
+}
+
+TEST_F(AttrParserTest, AddAttrKeepsCapabilityFlags) {
+    auto ro = m_ctx.attrs().lookup(attr::ReadOnly);
+    ASSERT_TRUE(ro.has_value());
+
+    auto node = std::make_shared<AstNodeAttr>(ParserToken::Kind::SemicolonStmt);
+    node->add_attr(*ro); // manual=true по умолчанию
+    ASSERT_EQ(node->attrs().size(), 1u);
+    // add_attr выставляет ручной бит, но НЕ должен затирать capability-флаги атрибута.
+    EXPECT_TRUE(detail::is_manual(node->attrs()[0]));
+    EXPECT_TRUE(detail::is_analyzer_supported(node->attrs()[0]));
+    EXPECT_TRUE(detail::is_codegen_supported(node->attrs()[0]));
+    EXPECT_TRUE(detail::is_handled(node->attrs()[0]));
 }
 
 } // namespace trust

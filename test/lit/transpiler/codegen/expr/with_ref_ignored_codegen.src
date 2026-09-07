@@ -1,0 +1,14 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# with(_ = *ref){...} - игнорируемый биндинг: только Locker-темп `auto __cap_N = ref.lock();`
+# (без объявления значения `_`). Захват на всё тело блока.
+
+@main():Int32 := {
+    x : @[reftype("shared")@] Int32 := 5;
+    with(_ = *x) {
+        *x = 9;
+    };
+    return *x;
+}
+# CHECK: auto c___cap_1 = c_x.lock();
+# CHECK-NOT: int32_t& c__ =

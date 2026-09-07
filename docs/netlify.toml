@@ -1,11 +1,11 @@
-# Netlify build: runs ./gh-pages_build.sh (генерирует playground-фрагменты из уже
-# закоммиченных docs/fragments, скачивает Monaco, собирает hugo БЕЗ --minify -
+# Netlify build: runs ./site_build.sh (генерирует playground-фрагменты из актуальных
+# примеров, скачивает Monaco, собирает hugo БЕЗ --minify -
 # встроенный JS-минификатор hugo не разбирает inline-JS playground).
 # netlify.toml лежит в docs/, поэтому Netlify использует docs/ как base;
-# скрипт gh-pages_build.sh тоже в docs/ и обязан запускаться из docs/.
+# скрипт site_build.sh тоже в docs/ и обязан запускаться из docs/.
 
 [build]
-command = "./gh-pages_build.sh"
+command = "./site_build.sh"
 publish = "gh-pages"
 
 [build.environment]

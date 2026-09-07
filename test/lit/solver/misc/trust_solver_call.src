@@ -1,0 +1,26 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Фаза 2.4: интерпроцедурность. add имеет контракт (аксиома ∀add_x. add_x<1000 -> add(add_x)>add_x);
+# twice вызывает add и доказуемо удовлетворяет контракту через аксиому (не инлайн тела).
+
+add(x:Int32):Int32 trust_pre( x < 1000 ) trust_post( add > x ) := { r := x + 1; @return r; };
+twice(y:Int32):Int32 trust_pre( y < 1000 ) trust_post( twice > y ) := { @return add(y); };
+
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun add_x () (_ BitVec 32))
+# SM2: (declare-fun add ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (and (bvslt add_x (_ bv1000 32)) (not (bvsgt (bvadd add_x (_ bv1 32)) add_x))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((add_x (_ BitVec 32))) (=> (bvslt add_x (_ bv1000 32)) (bvsgt (add add_x) add_x))))
+# SM2: (declare-fun twice_y () (_ BitVec 32))
+# SM2: (declare-fun twice ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (and (bvslt twice_y (_ bv1000 32)) (not (bvsgt (add twice_y) twice_y))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+
+# Z3: unsat
+# Z3: unsat
