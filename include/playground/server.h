@@ -4,8 +4,13 @@
 // статического сайта (POST /run), ведёт реестр воркеров и диспетчеризует задачи
 // на них через reverse long-poll (/poll, /result). Вычислений не выполняет.
 
+#include "playground/alert_notifier.h"
 #include "playground/config.h"
 #include "playground/http.h"
+#include "playground/pow_guard.h"
+#include "playground/rate_limiter.h"
+#include "playground/result_cache.h"
+#include "playground/stats_session_store.h"
 
 #include <atomic>
 #include <chrono>
@@ -77,12 +82,14 @@ class PlaygroundServer {
     HttpResponse handleStatsLogin(const HttpRequest& req);
     HttpResponse handleStatsLogout(const HttpRequest& req);
 
-    bool rateLimitExceeded(const std::string& ip);
     bool isWorkerToken(const std::string& token) const;
     // Есть ли хотя бы один ПОДКЛЮЧЁННЫЙ воркер (поллил в пределах pollTimeoutSec*3).
     // Требует mu_. Если подключённых нет - /run и /download отвечают «нет воркеров» СРАЗУ,
     // не ставя задачу в очередь и не дожидаясь таймаута.
     bool hasConnectedWorkerLocked() const;
+    // Число подключённых воркеров (поллили в пределах pollTimeoutSec*3). Требует mu_.
+    // Используется для отслеживания переходов «все воркеры отключились / восстановились».
+    int countConnectedLocked() const;
     // Освобождает слот воркера под задачей (уменьшает inFlight) - не более одного раза.
     void releaseJobSlot(const std::shared_ptr<Job>& job);
 
@@ -96,28 +103,12 @@ class PlaygroundServer {
     // (или X-Real-IP); иначе - peer (XFF нельзя доверять с внешнего адреса).
     std::string effectiveClientIp(const HttpRequest& req, const std::string& peer_ip) const;
 
-    // -- Кеш примеров (/run, ключ = имя примера) --
-    // Требуют удержания mu_. getCached возвращает результат ТОЛЬКО если код совпадает
-    // с закешированным (защита от «отравления» кеша произвольным телом под именем примера);
-    // пусто - записи нет/истекла/код не совпал.
-    std::string cacheGetLocked(const std::string& key, const std::string& code);
-    void cachePutLocked(const std::string& key, const std::string& code, const std::string& result);
-    void cacheEvictLocked(); // вытеснение по лимитам (entries / mb / ttl)
-
-    // -- PoW --
     // Вычисляет текущую сложность (ведущих нулевых бит) из нагрузки. 0 = PoW выключен.
+    // Сама выдача/проверка челленджей - в компоненте PowGuard (powGuard_).
     int currentPowDifficulty();
-    // Выпускает новый челлендж (nonce), возвращает его; требует mu_.
-    std::string issuePowChallengeLocked(int difficulty);
-    // Проверяет X-PoW (nonce:solution). Потребляет nonce (лимит использований). Требует mu_.
-    bool verifyPowLocked(const std::string& header, int required_difficulty);
 
     // -- Админ-сессии /stats --
-    // Проверяет cookie-сессию (sliding refresh + потолок). Требует mu_.
-    bool statsSessionOkLocked(const std::string& session_id);
-    // Создаёт сессию, возвращает session_id (случайный hex). Требует mu_.
-    std::string createStatsSessionLocked();
-    void destroyStatsSessionLocked(const std::string& session_id);
+    // Сессии хранятся в компоненте StatsSessionStore (statsSessions_).
     // Извлекает session_id из Cookie-заголовка (tpg_stats=<id>; ...).
     static std::string cookieSessionId(const HttpRequest& req);
     // Экранирует строку для безопасной вставки в HTML (/stats?format=html, формы логина).
@@ -135,15 +126,10 @@ class PlaygroundServer {
     std::string currentStatsJson();     // захватывает mu_ и вызывает buildStatsJsonLocked()
     std::string currentStatsText();     // захватывает mu_ и вызывает buildStatsTextLocked()
     std::string currentStatsHtml();     // захватывает mu_ и вызывает buildStatsHtmlLocked()
-    // Отправка письма-алерта НЕМЕДЛЕННО при первом появлении события; повтор того же события
-    // в течение alert_interval_sec НЕ отправляется (per-reason dedup). НЕ захватывает mu_
-    // (вызывается из обработчиков, держащих mu_); stats_text - уже собранная статистика
-    // (buildStatsTextLocked), т.к. внутри нельзя взять mu_.
-    void notifyAlert(const std::string& reason, const std::string& stats_text);
-    // Периодическая отправка письма со статистикой (раз в alertIntervalSec).
+    // Периодическая отправка письма со статистикой (раз в alertIntervalSec). Алерты по
+    // событиям и переходы «все воркеры отключились / восстановились» - в AlertNotifier
+    // (alertNotifier_): notify() / onWorkerCountChange().
     void alertLoop();
-    // Фиксирует переходы «все воркеры отключились / восстановились» (в handlePoll под mu_).
-    void trackWorkerPresenceLocked();
 
     PlaygroundConfig cfg_;
     std::mutex mu_;
@@ -151,42 +137,15 @@ class PlaygroundServer {
     std::map<std::string, WorkerState> workers_;
     std::deque<std::shared_ptr<Job>> queue_;
     std::unordered_map<int64_t, std::shared_ptr<Job>> inFlight_;
-    std::map<std::string, std::vector<std::chrono::steady_clock::time_point>> ipHits_;
-    // Счётчик сбросов rate-limit карты при переполнении (maxRateLimitIps).
-    std::atomic<uint64_t> rateLimitResets_{0};
-    // Кеш транспилированных файлов /run: SHA-256 кода -> результат (JSON-контракт).
-    // Под mu_. Вытеснение LRU по cache_max_entries / cache_max_mb / cache_ttl_sec.
-    struct CacheEntry {
-        std::string code; // код, для которого закеширован результат (защита от отравления кеша)
-        std::string result;
-        size_t size = 0;
-        std::chrono::steady_clock::time_point created{};
-        std::chrono::steady_clock::time_point lastAccess{};
-    };
-    std::unordered_map<std::string, CacheEntry> cache_;
-    // PoW-челленджи: nonce -> {сложность, created, uses}. Под mu_. TTL pow_nonce_ttl_sec.
-    struct PowChallenge {
-        int difficulty = 0;
-        std::chrono::steady_clock::time_point created{};
-        int uses = 0;
-    };
-    std::unordered_map<std::string, PowChallenge> powChallenges_;
-    // Админ-сессии /stats: session_id -> {created, lastAccess}. Под mu_. TTL sliding.
-    struct StatsSession {
-        std::chrono::steady_clock::time_point created{};
-        std::chrono::steady_clock::time_point lastAccess{};
-    };
-    std::unordered_map<std::string, StatsSession> statsSessions_;
     // Счётчик запрошенных build-архивов (POST /download - ленивая сборка по коду).
     std::atomic<uint64_t> archivesRequested_{0};
-    // Состояние алертов (почта). Отдельный мьютекс: notifyAlert вызывается под mu_,
-    // но не должен блокировать запрос на отправке письма.
-    std::mutex alertMutex_;
-    // Время последней отправки письма по каждому событию (per-reason dedup: повтор того же
-    // события в течение alert_interval_sec не шлём). Защищено alertMutex_.
-    std::map<std::string, std::chrono::steady_clock::time_point> lastAlertAt_;
-    int connectedWorkersLast_{-1}; // -1 = неизвестно (старт) - при первом поллинге не шлём алерт
     std::atomic<bool> stop_{false};
+    // -- Сервисы (вынесенные зоны ответственности, каждая с собственным мьютексом) --
+    RateLimiter rateLimiter_;         // rate-limit по IP (ipHits_/rateLimitResets_)
+    ResultCache resultCache_;         // LRU-кеш результатов /run (cache_)
+    StatsSessionStore statsSessions_; // админ-сессии /stats (statsSessions_)
+    PowGuard powGuard_;               // PoW-челленджи /run и /download (powChallenges_)
+    AlertNotifier alertNotifier_;     // почтовые алерты (alertMutex_/lastAlertAt_/connectedWorkersLast_)
     // -- Пределы одновременных соединений (раздельные пулы, см. run()) --
     // Инициализируются из конфига в конструкторе.
     // Глобальный ЖЁСТКИЙ кап на ВСЕ соединения (потоки/файловые дескрипторы) - защита от

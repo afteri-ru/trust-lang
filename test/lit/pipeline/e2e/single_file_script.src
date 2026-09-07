@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir/script && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out
+# RUN: %FileCheck %s <%t.out
+# RUN: test -x $TD/single_file_script
+# RUN: ! test -e $TD/single_file_script_main.cppt
+# RUN: ! grep -q "single_file_script_main" $TD/build.conf
+
+# Однофайловый режим + «модуль-скрипт»: файл БЕЗ entry-функции (@main отсутствует) - верхний уровень
+# является телом программы (python-подобно). top-level определения (функции) остаются на namespace,
+# top-level операторы (вкл. `x := ...`, `if`) оборачиваются в синтезируемую entry `<модуль>__main__`;
+# pipeline дописывает `int main(){ return <модуль>__main__(); }`. Отдельный `_main.cppt` не создаётся.
+
+# CHECK: triple_ok=12
+
+@func triple(x:Int32):Int32 {
+    return x * 3;
+};
+
+v := triple(4);
+if (v >= 10) {
+    @print('triple_ok={}\n', v);
+}

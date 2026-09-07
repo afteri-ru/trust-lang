@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# D3: возврат нативной ссылки из функции как значения возврата - запрещён.
+@func foo() : %& Int32 { return 0; };
+@main():Int32 := { return 0; }
+# CHECK: error: native reference cannot be returned from a function

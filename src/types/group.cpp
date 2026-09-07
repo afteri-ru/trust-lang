@@ -31,7 +31,7 @@ const CategoryMask kGroupCategoryMask[256] = {
     // Group::kComplex (7)
     (1u << static_cast<uint8_t>(Category::kArithmetics)),
 
-    // Group::kRationals (8)
+    // Group::kArbitraryPrecision (8)
     (1u << static_cast<uint8_t>(Category::kArithmetics)),
 
     // Group::kStrChar (9)
@@ -96,6 +96,15 @@ const CategoryMask kGroupCategoryMask[256] = {
 
     // Group::kVariants (29)
     (1u << static_cast<uint8_t>(Category::kStructured)),
+
+    // Group::kNativeTemplate (30)
+    (1u << static_cast<uint8_t>(Category::kContainers)),
+
+    // Group::kSyncPolicy (31)
+    (1u << static_cast<uint8_t>(Category::kSync)),
+
+    // Group::kNativeClass (32) - forward-объявление нативного класса (категория kNative)
+    (1u << static_cast<uint8_t>(Category::kNative)),
 
     // The rest are implicitly zero (no category)
     // Up to index 255

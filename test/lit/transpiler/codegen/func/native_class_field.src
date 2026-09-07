@@ -1,0 +1,17 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Поле нативного класса `%field:Type` регистрируется как типизированный член; доступ `obj.%field`
+# эмитит `(obj).field` (нативное имя без '%') с типом поля, а не словарный `.at(...)`.
+@include("string")
+MyStr ::= %std::string {
+    %data: CString := ...;
+    %size(): UInt64 := ...;
+};
+s: MyStr := 0;
+d: CString := s.%data;
+n: UInt64 := s.%size();
+
+# CHECK: #include <string>
+# CHECK: std::string c_s = 0;
+# CHECK: const char* c_d = (c_s).data;
+# CHECK: uint64_t c_n = (c_s).size();

@@ -1,0 +1,16 @@
+# RUN: %trust --temp-dir %T --emit-cpp --stack-check=recursion %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# (без -q: предупреждение -Wstack-check-infer попадает в 2>&1.)
+
+# Рекурсивная функция без явной защиты: в режиме --stack-check=recursion семантика выдаёт
+# диагностику -Wstack-check-infer (warning) — пользователь должен сам пометить @[stack_check@]
+# либо включить --stack-check=auto.
+
+@func recurse(n:Int32):Int32 {
+    @if(n <= 0) {
+        @return 0;
+    };
+    @return recurse(n - 1) + 1;
+};
+
+@main() := { @print('d={}\n', recurse(100)); };
+# CHECK: warning: recursive function 'recurse' is not protected against stack overflow

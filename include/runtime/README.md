@@ -81,9 +81,13 @@ Makefile после объектных файлов.
 
 ## Компоненты (header-only)
 
-- `trusted-cpp.hpp` - синхронизируемые разделяемые переменные: `Sync`/`SyncSingleThread`/
-  `SyncTimedMutex`/`SyncTimedShared`, RAII-блокировка `Locker`, контейнер `Shared` и
-  слабые ссылки `Weak`.
+- `trust/trusted-cpp.hpp` - базовые ссылочные типы рантайма БЕЗ межпотоковой синхронизации (plain,
+  всегда при ссылке): сильная ссылка `Shared<V>` (лёгкий, `shared_ptr<V>`, прямой доступ),
+  слабая `Weak<T>`, RAII-охранник `Locker<V,ReadOnly>` (результат `lock()/lock_const()`, shared-захват,
+  compile-time read-only режим). Самодостаточен (только std-заголовки, без threading); встраивается в
+  trust-runtime (секция `trust/trusted-cpp.hpp`) и извлекается pipeline при использовании ссылочных
+  типов/TAKE. МЕЖПОТОКОВАЯ синхронизация - отдельный заголовок `trust/trusted-cpp-sync.hpp`
+  (`SyncShared<V,Mutex>`, секция `trust/trusted-cpp-sync.hpp`), подключается только когда нужна.
 - `trust/dict.hpp` - универсальный гетерогенный словарь `trust::Dict` (элементы
   `(имя, TypedValue{kind, std::any})` - тип элемента закодирован в `kind` (TypeKind:
   группа+размерность), декодируется методами `TypedValue` (`group()`/`data()`/предикаты
@@ -120,6 +124,9 @@ Makefile после объектных файлов.
 ## Зависимости
 
 - `trust-runtime.so` - GMP.
-- `trusted-cpp.hpp` использует механизм ошибок `FAULT`/`EXPECT`, объявленный в
-  `diag/error.hpp`. `trust/dict.hpp` - самодостаточен (только std-заголовки) и
-  сообщает об ошибках стандартными исключениями (`std::out_of_range`/`std::bad_any_cast`).
+- `trust/trusted-cpp.hpp` - самодостаточен (только std-заголовки, без threading), ошибки сообщает
+  стандартными исключениями (`std::runtime_error`). `trust/trusted-cpp-sync.hpp` - самодостаточен,
+  но подключает threading-заголовки (`<mutex>`/`<shared_mutex>`/`<thread>`/`<chrono>`); ошибки -
+  `std::runtime_error`. `trust/dict.hpp` - самодостаточен (только
+  std-заголовки) и сообщает об ошибках стандартными исключениями
+  (`std::out_of_range`/`std::bad_any_cast`).

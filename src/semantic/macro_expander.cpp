@@ -76,40 +76,38 @@ void ContextMacroExpander::expandContextMacro(AstNodePtr& self) {
         return;
     }
 
-    if (stringified) {
-        // Стрингификация: маркер превращает имя-аналог в литерал.
-        std::string value;
-        if (text == "@__NAMESPACE__" || text == "@::") {
-            value = m_actx.namespaceFull();
-        } else if (text == "@__FUNCTION__") {
-            if (m_actx.requireFunction(cm, "@__FUNCTION__")) {
-                value = m_actx.funcShortName();
-            }
-        } else if (text == "@__FUNCDNAME__") {
-            if (m_actx.requireFunction(cm, "@__FUNCDNAME__")) {
-                value = utils::name_to_cpp(m_actx.qualifiedFuncName());
-            }
-        } else {
-            value = std::string(cm.text()); // неизвестный контекст-макрос
-        }
-        self = std::make_shared<Literal>(ParserToken::Kind::StrChar, value);
-        return;
-    }
-
-    // Без стрингификации - имя-аналог (NAME).
+    // Один и тот же набор предопределённых контекст-макросов независимо от стрингификации:
+    // вычисляем значение имени ОДИН раз, затем оборачиваем в Literal (стрингификация) или IdentName.
+    std::string value;
+    bool resolved = true;
     if (text == "@__NAMESPACE__" || text == "@::") {
-        self = std::make_shared<IdentName>(m_actx.namespacePath());
+        // Стрингификация - полная область (::ns::name::), имя-аналог - путь (ns::name).
+        value = stringified ? std::string(m_actx.namespaceFull()) : std::string(m_actx.namespacePath());
     } else if (text == "@__FUNCTION__") {
-        if (m_actx.requireFunction(cm, "@__FUNCTION__")) {
-            self = std::make_shared<IdentName>(m_actx.funcShortName());
+        resolved = m_actx.requireFunction(cm, "@__FUNCTION__");
+        if (resolved) {
+            value = m_actx.funcShortName();
+        }
+    } else if (text == "@__CLASS__") {
+        if (const ClassDecl* c = m_actx.currentClass()) {
+            value = std::string(c->text());
         }
     } else if (text == "@__FUNCDNAME__") {
-        if (m_actx.requireFunction(cm, "@__FUNCDNAME__")) {
-            self = std::make_shared<IdentName>(utils::name_to_cpp(m_actx.qualifiedFuncName()));
+        resolved = m_actx.requireFunction(cm, "@__FUNCDNAME__");
+        if (resolved) {
+            value = utils::name_to_cpp(m_actx.qualifiedFuncName());
         }
     } else {
         // Прочие MACRO_CONTEXT ($::, @$$ и т.п.) - не раскрываем, оставляем как имя.
-        self = std::make_shared<IdentName>(text);
+        value = text;
+    }
+    if (!resolved) {
+        return; // @__FUNCTION__/@__FUNCDNAME__ вне функции - уже выдана диагностика
+    }
+    if (stringified) {
+        self = std::make_shared<Literal>(ParserToken::Kind::StrChar, value);
+    } else {
+        self = std::make_shared<IdentName>(value);
     }
 }
 

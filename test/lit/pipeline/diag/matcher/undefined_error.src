@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Матчер обязан быть ОБЪЯВЛЕННОЙ функцией (однопроходная семантика: до этого match).
+# CHECK: error: @[matcher("nope")]: 'nope' is not a declared function; a matcher predicate must be declared before this match
+x:StrChar := 'hello';
+[x] @[matcher("nope")@] ==> {
+    @case('h') { y := 1; };
+    @default { y := 0; };
+};

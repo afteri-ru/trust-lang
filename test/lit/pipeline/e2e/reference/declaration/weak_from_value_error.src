@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Взятие слабой ссылки (`&? z : Int32 := & y`) допустимо ТОЛЬКО из shared-переменной.
+# Если `y` - value-переменная (не ссылочная) - ошибка.
+
+@main():Int32 := {
+    y : Int32 := 5;
+    &? z := & y;
+    return 0;
+};
+# CHECK: error: operator '&' (address-of/borrow) requires a reference variable (shared), got 'Int32'

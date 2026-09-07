@@ -2,10 +2,19 @@
 # Distribution archive target.
 #
 # Produces a self-contained tarball for installation/distribution with an
-# identifier that embeds the build attributes: version, git hash, target OS and
-# architecture, build date. The archive name and the file list are platform
+# identifier that embeds the build attributes: effective version (release -> clean,
+# without git hash), target OS and architecture, build date. The git hash stays
+# available inside the archive manifest. The archive name and the file list are platform
 # derived (CMAKE_SYSTEM_NAME / CMAKE_SYSTEM_PROCESSOR), so the same logic works
 # for a native Linux build, a WSL2 build and, later, a native Windows build.
+
+# Gated by the top-level option TRUST_BUILD_PACKAGE (default ON for release builds,
+# OFF for dev): the `package`/`deb` targets (and the configured build/check scripts)
+# exist only when the option is ON. Without it the distribution archive and the Debian
+# package are neither built nor tested. Normally the archive + .deb are produced ONLY in
+# release builds (CMAKE_BUILD_TYPE=Release); the option can be forced ON on a dev build to
+# run/verify the package tests.
+if(TRUST_BUILD_PACKAGE)
 
 # -- Target OS tag (lowercase, short) --
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -29,7 +38,10 @@ else()
 endif()
 
 # -- Archive identity --
-set(TRUST_PKG_STEM "trust-lang-${TRUST_VERSION_FULL}-${TRUST_PKG_OS}-${TRUST_PKG_ARCH}")
+# Name uses the EFFECTIVE version (TRUST_VERSION): on a release build that is the clean
+# short version (no git hash), which is exactly the release artifact naming we want.
+# The git hash remains traceable via the manifest inside the archive (VersionFull/GitHash).
+set(TRUST_PKG_STEM "trust-lang-${TRUST_VERSION}-${TRUST_PKG_OS}-${TRUST_PKG_ARCH}")
 # Distribution artifacts (tarball + .vsix) live in a dedicated _build/dist directory.
 set(TRUST_PKG_DIST_DIR "${CMAKE_BINARY_DIR}/dist")
 file(MAKE_DIRECTORY "${TRUST_PKG_DIST_DIR}")
@@ -50,9 +62,12 @@ configure_file(
 # `ALL`: архив собирается как часть обычной сборки (`cmake --build _build`),
 # независимо от шагов выполнения тестов (test-бинарники и ctest не требуются).
 # Явный запуск по-прежнему возможен: `cmake --build _build --target package`.
+# Первый COMMAND - clean-tree pre-check (см. require_clean_tree.cmake): архив записывает
+# GitHash/версию в manifest, поэтому строится только из чистого закоммиченного дерева.
 add_custom_target(package ALL
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/make_package.cmake
-    DEPENDS trust trust-lsp trust-dap trust-playground trust_runtime trust_runtime_static
+    DEPENDS trust trust-lsp trust-playground trust_runtime trust_runtime_static
     COMMENT "Building distribution archive ${TRUST_PKG_ARCHIVE}"
 )
 
@@ -63,3 +78,50 @@ configure_file(
     ${CMAKE_BINARY_DIR}/cmake/check_package.cmake
     @ONLY
 )
+
+# -- Debian package (.deb) for automatic installation (apt/dpkg) --
+# Only enabled when the dpkg tooling is available (Linux/Ubuntu/Debian hosts).
+find_program(DPKG_DEB_EXECUTABLE NAMES dpkg-deb)
+find_program(DPKG_SHLIBDEPS_EXECUTABLE NAMES dpkg-shlibdeps)
+
+# Deb architecture names differ from our normalized arch tag.
+if(TRUST_PKG_ARCH STREQUAL "x86_64")
+    set(TRUST_DEB_ARCH "amd64")
+elseif(TRUST_PKG_ARCH STREQUAL "aarch64")
+    set(TRUST_DEB_ARCH "arm64")
+else()
+    set(TRUST_DEB_ARCH "${TRUST_PKG_ARCH}")
+endif()
+set(TRUST_PKG_MAINTAINER "Trust Language Developers")
+set(TRUST_PKG_HOMEPAGE "https://github.com/afteri-ru/trust-lang")
+
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/make_deb.cmake.in
+    ${CMAKE_BINARY_DIR}/cmake/make_deb.cmake
+    @ONLY
+)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_deb.cmake.in
+    ${CMAKE_BINARY_DIR}/cmake/check_deb.cmake
+    @ONLY
+)
+
+if(DPKG_DEB_EXECUTABLE)
+    # `ALL` only when dpkg tooling is present; otherwise a normal build must not
+    # depend on Debian-only tools.
+    add_custom_target(deb ALL
+        # Clean-tree pre-check (same as `package`): a .deb is a release artifact.
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/make_deb.cmake
+        DEPENDS trust trust-lsp trust-playground trust_runtime trust_runtime_static
+        COMMENT "Building Debian package (trust-lang_<version>_<arch>.deb)"
+    )
+    message(STATUS "Deb package enabled (dpkg-deb: ${DPKG_DEB_EXECUTABLE})")
+else()
+    add_custom_target(deb
+        COMMAND ${CMAKE_COMMAND} -E echo "dpkg-deb not found; .deb package target disabled"
+    )
+    message(STATUS "dpkg-deb not found; .deb package target disabled")
+endif() # DPKG_DEB_EXECUTABLE
+
+endif() # TRUST_BUILD_PACKAGE

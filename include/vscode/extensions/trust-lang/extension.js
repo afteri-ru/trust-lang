@@ -145,7 +145,7 @@ function activate(context) {
         const session = vscode.debug.activeDebugSession;
         if (session && session.type === 'trust') {
             try {
-                const result = await sendCustomRequest(session, 'stackTrace', { startFrame: 0, levels: 1 });
+                const result = await sendCustomRequest(session, 'stackTrace', { startFrame: 0, levels: 1, sourceKind: 'cpp' });
                 const stackFrame = result?.body?.stackFrames?.[0];
                 if (stackFrame?.source?.path) {
                     cppFile = stackFrame.source.path;
@@ -164,7 +164,7 @@ function activate(context) {
             const tempDir = config.get('tempDir', '.trust');
             const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder, tempDir);
             const baseName = path.basename(editor.document.fileName, '.src');
-            cppFile = path.join(resolvedTempDir, baseName + '.cpp');
+            cppFile = path.join(resolvedTempDir, baseName + '.cppt');
             cppLine = cppLine || 1;
             trace(`[OPEN-CPP] Fallback computed path: ${cppFile}`);
         }
@@ -208,7 +208,7 @@ function activate(context) {
                     request: 'launch',
                     name: 'Trust Debug (current file)',
                     sourceFile: '${file}',
-                    cppFile: '${workspaceFolder}/' + tempDir + '/${fileBasenameNoExtension}.cpp',
+                    cppFile: '${workspaceFolder}/' + tempDir + '/${fileBasenameNoExtension}.cppt',
                     targetFile: '${workspaceFolder}/' + tempDir + '/${fileBasenameNoExtension}',
                     gdbPath: ''
                 };
@@ -242,7 +242,7 @@ function activate(context) {
                         request: 'launch',
                         name: `Trust Debug (${baseName})`,
                         sourceFile: fileName,
-                        cppFile: path.join(resolvedTempDir, baseName + '.cpp'),
+                        cppFile: path.join(resolvedTempDir, baseName + '.cppt'),
                         targetFile: path.join(resolvedTempDir, baseName),
                         gdbPath: ''
                     };
@@ -269,7 +269,7 @@ function activate(context) {
                     const tempDir = config.get('tempDir', '.trust');
                     const baseName = path.basename(activeFile, '.src');
                     const resolvedTempDir = path.isAbsolute(tempDir) ? tempDir : path.join(workspaceFolder, tempDir);
-                    debugConfiguration.cppFile = path.join(resolvedTempDir, baseName + '.cpp');
+                    debugConfiguration.cppFile = path.join(resolvedTempDir, baseName + '.cppt');
                     debugConfiguration.targetFile = path.join(resolvedTempDir, baseName);
                 } else {
                     debugConfiguration.cppFile = resolveDapVariables(debugConfiguration.cppFile, workspaceFolder, activeFile);
@@ -370,6 +370,20 @@ function activate(context) {
         if (config.get('dev.traceLSP', false)) {
             lspArgs.push('--trace');
         }
+        // --shebang-mode: режим применения опций анализа из шебанга файла относительно
+        // опций окружения (по умолчанию env-after-shebang).
+        const shebangMode = config.get('shebangMode', 'env-after-shebang');
+        lspArgs.push('--shebang-mode', shebangMode);
+        // trust.lspArgs: дополнительные env-опции анализа (например --solver-mode=assert,
+        // -Wsigil=ignore), передаются trust-lsp как есть.
+        const extraLspArgs = config.get('lspArgs', []);
+        if (Array.isArray(extraLspArgs)) {
+            for (const a of extraLspArgs) {
+                if (typeof a === 'string' && a) {
+                    lspArgs.push(a);
+                }
+            }
+        }
 
         const serverOptions = {
             command: lspPath,
@@ -395,7 +409,7 @@ function activate(context) {
         const clientOptions = {
             documentSelector: [
                 { scheme: 'file', language: 'trust' },
-                { scheme: 'file', language: 'cpp' }
+                { scheme: 'file', language: 'trusted-cpp' }
             ],
             synchronize: {
                 configurationSection: 'trust'

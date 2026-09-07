@@ -1,0 +1,23 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+#
+# Проверка генерации C++ для RAII-менеджера контекста `with(a=expr, b=expr){...} else {...}`.
+# В C++ нет «else при исключении в инициализаторе»: else эмулируется флагом «все биндинги
+# захвачены» (`bool _wN := 0;`), флаг создаёт LOWERING (временные — уровень анализатора).
+with(x = 1, y = 2) {
+    z := x + y;
+} else {
+    z := -1;
+};
+# CHECK: bool c__w1 = 0;
+# CHECK-NEXT: try {
+# CHECK-NEXT:     int8_t c_x = 1;
+# CHECK-NEXT:     int8_t c_y = 2;
+# CHECK-NEXT:     c__w1 = true;
+# CHECK-NEXT: {
+# CHECK-NEXT:         int32_t c_z = (c_x + c_y);
+# CHECK-NEXT:     }} catch (...) {
+# CHECK-NEXT:     if (c__w1) throw;
+# CHECK-NEXT: {
+# CHECK-NEXT:         int8_t c_z = -1;
+# CHECK-NEXT:     }}
+

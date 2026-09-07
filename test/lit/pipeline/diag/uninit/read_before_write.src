@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Чтение нетипизированной `x := _;` до записи → Error (нет silent-UB / тихого std::any).
+@main() := {
+    x := _;
+    @print('{}', x);
+};
+# CHECK: error: variable 'x' is read before it is initialized

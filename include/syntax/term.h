@@ -83,7 +83,7 @@ class Term : public std::enable_shared_from_this<Term> {
         return false;
     }
 
-    inline bool isMacro() const { return m_id == TermID::MACRO_DEL || (isCreate() && m_left && m_left->m_id == TermID::MACRO_SEQ); }
+    inline bool isMacro() const { return m_id == TermID::MACRO_DEL || (m_id == TermID::MACRO_SEQ && m_right != nullptr); }
 
     // Used in toString() - kept
     inline bool isBlock() const {
@@ -144,6 +144,12 @@ class Term : public std::enable_shared_from_this<Term> {
     /// док остаётся отдельным sibling-узлом (makeDocBundle/appendDocs), этот слот пуст.
     /// Источник для AstNodeBase::documentation (см. TermToAstConverter::convert).
     std::vector<TermPtr> m_docs;
+
+    /// Нативный шаблон-тип. Наличие (has_value) - отличительный признак шаблона, значение -
+    /// список типов-параметров (объявление `<T> %... := ...;`) либо типов-аргументов
+    /// (использование `vector<Int32>`). Различает template-аргументы от кортежных параметров
+    /// `:Type(...)` в visit_TYPE и помечает тип-конструктор в visit_CREATE_NAME.
+    std::optional<ArgsList> m_template;
 
     std::optional<ArgsList> m_args;
 

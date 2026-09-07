@@ -1,0 +1,11 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Forward-объявление НАТИВНОГО класса `MyStr ::= %std::string { ... };`: trust-имя MyStr
+# отображается на C++ `std::string`, C++-struct НЕ генерируется, инклуд - on-use из @[include].
+@include("string")
+MyStr ::= %std::string { };
+
+s: MyStr := 0;
+
+# CHECK: #include <string>
+# CHECK: std::string c_s = 0;

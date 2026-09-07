@@ -190,13 +190,13 @@ TEST(ConfigTest, EmptyWorkerLspOptsIsAllowed) {
 }
 
 TEST(ConfigTest, ParsesWorkerLspOpts) {
-    const std::string path = writeTempConfig("worker.lsp_opts=-Wsigil=ignore,-Wcomments\n");
+    const std::string path = writeTempConfig("worker.lsp_opts=-Wsigil=ignore,-fcomments\n");
     PlaygroundConfig cfg;
     std::string error;
     ASSERT_TRUE(loadConfig(path, cfg, error)) << error;
     ASSERT_EQ(cfg.lspOpts.size(), 2u);
     EXPECT_EQ(cfg.lspOpts[0], "-Wsigil=ignore");
-    EXPECT_EQ(cfg.lspOpts[1], "-Wcomments");
+    EXPECT_EQ(cfg.lspOpts[1], "-fcomments");
 }
 
 } // namespace

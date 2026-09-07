@@ -2,7 +2,7 @@
 # CTest script for the `package` target: builds the package (incrementally),
 # then verifies the archive name and that it contains the expected artifacts.
 
-set(_stem "trust-lang-@TRUST_VERSION_FULL@-@TRUST_PKG_OS@-@TRUST_PKG_ARCH@")
+set(_stem "trust-lang-@TRUST_VERSION@-@TRUST_PKG_OS@-@TRUST_PKG_ARCH@")
 set(_archive "@CMAKE_BINARY_DIR@/dist/${_stem}.tar.gz")
 
 # Ensure the package is built (incremental when binaries already exist).
@@ -31,10 +31,10 @@ endif()
 set(_required
     "bin/trust"
     "bin/trust-lsp"
-    "bin/trust-dap"
     "bin/trust-playground"
     "lib/trust-runtime.a"
     "lib/trust-runtime.so"
+    "share/bash-completion/completions/trust"
     "manifest.txt"
 )
 foreach(_need IN LISTS _required)

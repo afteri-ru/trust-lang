@@ -1,0 +1,13 @@
+# RUN: %not %trust --emit-cpp -Wreftrace=error -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Инвалидация слабой ссылки (аналог reftrace): `w := & x` держит ссылку на данные объекта `x`;
+# `x = 42` - мутация источника (новое значение) инвалидирует `w`. Использование `*w` после
+# мутации - диагностика severity -Wreftrace=error.
+@main() := {
+    && x := 5;
+    w := & x;
+    x = 42;
+    @print('{}\n', *w);   # w использована после мутации x -> error
+}
+# CHECK: error: using the dependent variable 'w' after changing the main variable 'x'!
+# CHECK: note: using main variable 'x'

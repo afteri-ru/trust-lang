@@ -2,516 +2,193 @@
 
 > scope: include/semantic
 > role: persistent-memory
-> last_reviewed: 2026-08-19
+> last_reviewed: 2026-09-05
 > review_period: 30
-> max_size: 60000
+> max_size: 13400
 
-# Semantic Analyzer Architecture
+## Architecture
 
-## Purpose
-Semantic analyzer walks the AST produced by the parser, builds a symbol table,
-performs name binding and consistency checks. Implemented as a **pass manager**:
-a mandatory core (symbol collection, name resolution) plus optional quality-control
-passes gated by `diag::Options` feature flags. Reports errors via `diag`.
+Pass manager: единое однопроходное ядро `NameResolutionPass` (обход + скоуп-стек `SymbolTable` + резолв
+имён) плюс опциональные анализаторы через `InlineAnalysisHook` (LintHook). Семантика **однопроходная**:
+имя должно быть объявлено до использования (forward references исключены синтаксисом). Пайплайн:
+`Parser → SemanticPassRunner → [успех] → CppTranspiler`.
 
-## Scope (Phase 1)
-- Variable declarations with initialization (`x := 42;`, `x : Int32 := 42;`)
-- Literals in expressions
-- Validation: duplicate names, undefined names, undefined types, missing initializer
-
-## Pipeline Position
-
-`Parser → SemanticPassRunner → [on success] → CppTranspiler`.
-
-## Единое ядро разрешения имён (NameResolutionPass)
-
-`SemanticPassRunner` (`semantic/pass_runner.hpp`) создаёт единое **однопроходное** ядро
-`NameResolutionPass` (`semantic/name_resolution.hpp`), которое за один обход AST:
-
-- строит единую таблицу символов `SymbolTable` (`semantic/symbol_table.hpp`) - стек вложенных
-  скоупов: вход в `ModuleDecl`/`ScopeBlock`/блок → `push`, выход → `pop`;
-- регистрирует объявления (`VarDecl`/`FuncDecl`/`TypeDecl`) в текущем скоупе
-  (`duplicate declaration` при коллизии в скоупе);
-- разрешает `Ident` поиском вверх по стеку (`undefined name` при отсутствии).
-
-Семантика **однопроходная**: имя должно быть объявлено до использования (forward references
-исключены синтаксисом). Это объединяет `SymbolCollectorPass`+`NameResolverPass`, а также
-раздельные `ScopeStack` и плоскую `SymbolTable` в одну структуру, которая служит
-одновременно и реестром объявлений, и иерархией вложенности для разрешения имён.
-
-## Валидация имён из C++-вставок (EmbedExpr)
-
-`NameResolutionPass::handleNode` для узла `kind=EmbedExpr` (`{% ... %}`) извлекает trust-имена,
-на которые ссылается вставка через маркеры `$name`/`@name` (`utils::extract_embed_names`, чтение
-через `extract_name`), и проверяет каждое на доступность в таблице символов
-(`SymbolTable::resolve`). Имя не найдено - `Severity::Warning`
-(`embed references name '...' not declared in trust code`). Для квалифицированных имён
-(`@ns::x`) таблица - плоский стек, поэтому проверяется последний сегмент. Саму конвертацию
-`$`/`@` в C++-имена выполняет транспилятор (`transform_embed_cpp` → `name_to_cpp`).
-
-## Параллельные анализаторы (InlineAnalysisHook)
-
-Опциональные анализаторы подключаются **параллельно к ядру** через `InlineAnalysisHook`
-(`semantic/inline_hook.hpp`): получают события в реальном времени обхода
-(`enterScope`/`exitScope`/`onDeclare`/`onResolve`/`onNode`/`finalize`) и читают временные данные
-ядра (`SymbolTable`, таблицы) через `AnalysisContext` - без повторного построения иерархии.
-Мутирующий `onNode(AstNodePtr&)` позволяет хуку заменять узлы (возврат `true` = узел потреблён).
-
-**`NameResolutionPass` НЕ является `InlineAnalysisHook` и намеренно не унифицируется с хуками**: это
-**драйвер** (издатель событий) - он владеет обходом и скоуп-стеком и публикует события
-подписчикам; хуки - **подписчики** (пассивные анализаторы). Такое разделение ролей исключает
-дублирование без насильственной унификации интерфейсов: обход - единый `collectChildren`; контекст
-и query-сервисы - единый `AnalysisContext`; раскрытие макросов - единый `ContextMacroExpander`.
-Если новому анализатору понадобится полный обход - это сигнал вынести обход в переиспользуемый
-хелпер (а не превращать ядро в хук).
-
-Кроме опциональных есть **всегда-подключённый** `ContextMacroExpander` (`semantic/macro_expander.hpp`):
-раскрывает контекст-макросы в том же обходе (см. ниже). Флаг включения опциональных хуков
-проверяется **один раз** при подключении в `SemanticPassRunner`; отключённый хук в список активных
-не попадает, и его колбэки в узлах не вызываются (ноль накладных расходов). Всегда подключается
-`ContextMacroExpander`, опционально - `LintHook` (по флагу `FlagKind::Lint`).
-
-`run()` возвращает `false` при блокирующих ошибках ядра (транспиляция не запускается);
-`Lowering` - последним при отсутствии ошибок.
-
-### Как написать анализатор (эталон: ContextMacroExpander)
-
-`ContextMacroExpander` (`semantic/macro_expander.hpp`) - минимальный рабочий пример
-анализатора-хука, по которому следует писать новые проверки (система эффектов, `@trust`,
-линт и т.п.). Он демонстрирует полный цикл:
-
-1. **Наследовать `InlineAnalysisHook`**; включение - через `gateFlag()` (опциональный хук,
-   отключается по feature-флагу) либо `std::nullopt` (всегда, как макро-хук).
-2. **Переопределить нужные события**: `onNode(AstNodePtr&)` - для узлов (может заменять узел;
-   возврат `true` = узел потреблён, ядро пропускает `handleNode`), `onDeclare`/`onResolve` -
-   для объявлений/резолва, `enterScope`/`exitScope` - для вложенности, `finalize()` - итоговый
-   отчёт (как `LintHook::finalize` для неиспользуемых переменных).
-3. **Читать состояние через общий `AnalysisContext`**: `symbols()` (таблица символов), `ctx()`
-   (диагностика/типы) и query-сервисы `namespacePath()/currentFunc()/funcShortName()/
-   qualifiedFuncName()/resolveType()/isRegisteredRuntimeSymbol()` - **без повторного разбора**
-   скоуп-стека и реестра типов.
-4. **Подключить в `SemanticPassRunner`**: `core.addHook(std::make_unique<MyHook>(*m_analysis));`
-   до `core.run()`. Всегда-подключённый хук добавляется ПЕРВЫМ (как `ContextMacroExpander`),
-   чтобы его `onNode` выполнялся до обработки ядра.
-
-## AnalysisContext
-
-Общий контекст семантики (`semantic/pass.hpp`): владеет единой таблицей символов `SymbolTable`
-(стек вложенных скоупов); даёт доступ к `Context` (диагностики, типы, опции). Создаётся в
-`SemanticPassRunner` заново на каждый `run()`; доступен через `runner.analysis().symbols()`.
-
-Кроме данных `AnalysisContext` предоставляет **общие query-сервисы** (единый источник для ядра
-и всех хуков - без повторного разбора скоуп-стека/реестра типов в каждом потребителе):
-
-- **Контекст области имён/функции**: `namespacePath()` (путь текущей области имён),
-  `namespaceFull()` (`"::ns::name::"`), `currentFunc()` (ближайшая функция), `funcShortName()`,
-  `qualifiedFuncName()`, `requireFunction(node, macro)` (диагностика вне функции).
-- **Резолв типов**: `resolveType(node)` - `TypeName` → `TypeId` (скоуп-стек алиасов с shadowing,
-  затем реестр типов); `buildFuncType(func)` - `FunctionTypeId` по сигнатуре.
-- **Runtime-символы**: `isRegisteredRuntimeSymbol(name)` - нативные функции из публичного
-  runtime-заголовка (не дают «undefined name»).
-
-## Components
-
-### SymbolTable (единая таблица символов: стек вложенных скоупов)
-Объединяет `SymbolTable` и `ScopeStack` в одну структуру (`semantic/symbol_table.hpp`),
-которая служит одновременно и реестром объявлений, и иерархией вложенности для разрешения имён.
-Каждый вложенный скоуп (модуль, блок, функция, будущий метод класса) - это `SymbolTable::Scope`:
-
-- `std::map<std::string, Symbol> symbols` - имена уровня (детерминированный порядок → стабильные
-  диагностики);
-- `const AstNodeBase* creator` - невладеющий указатель на узел AST, открывший скоуп
-  (nullptr для глобального), для диагностик и хуков;
-- `Scope::lookup(name)` - поиск в пределах одного скоупа.
-
-Глобальный скоуп (уровень 0) всегда присутствует (`depth() >= 1`, `pop` его не удаляет) и является
-плоской таблицей глобальных/статических имён (`global()`/`globalSize()`). `SymbolTable::declare`
-регистрирует символ в текущем скоупе (дубликат - в пределах скоупа, false; диагностику формирует
-ядро, т.к. ему нужен range); `SymbolTable::resolve` ищет от текущего скоупа вверх по стеку
-(учитывает вложенность и shadowing). `SymbolTable` не владеет `DiagnosticEngine`.
-
-Владение символами - у `SymbolTable` (по значению в `Scope::symbols`). `SymbolTable` владеется
-`AnalysisContext` (value-член) и доступен через `runner.analysis().symbols()`. Указатели на
-`Symbol`, возвращаемые `lookup()`/`resolve()`, невладеющие и валидны, пока скоуп не удалён (`pop`)
-или таблица не пересоздана. `Context::symbols()` НЕ существует. Генератор кода (`CppTranspiler`)
-работает с типами через `ctx.types()`, а при передаче разрешённой таблицы символов
-(`CppTranspiler(ctx, &runner.analysis().symbols())`) использует тот же TypeId, что и анализ.
-Стек скоупов - внутренняя реализация `SymbolTable` и наружу не экспонируется.
-
-### Месторасположение переменной (`Symbol::storage`) и нормализация имён без сигила
-`Symbol` несёт `Storage storage` (Global/Local/Static/ThreadLocal) - физическую память переменной,
-фиксируемую анализатором при объявлении (`analyzeVarDecl`; параметры - `Local`):
-- `ThreadLocal` - атрибут `@[thread_local]`;
-- `Static` - имя содержит область имён (`::`);
-- `Local` - объявление внутри функции (в стеке скоупов есть `FuncDecl`);
-- иначе - `Global`.
-
-Опция `-Wsigil` (severity `OptKind::NoSigil`, default Warning) управляет нормализацией простого имени
-без сигила, объявленного в **локальном** скоупе через `:=`: имя нормализуется к `$<name>` (символ
-регистрируется как `$x`, текст узла VarDecl перезаписывается через `HasText::set_text`) и выдаётся
-предупреждение «creating a local variable '$x'» с **быстрым фиксом** (замена bare-имени на `$<name>`,
-`ctx.diag().fixit(...)` → LSP quickfix). Глобальный уровень и `::=` (типы) не трогаются.
-
-**Единый алгоритм разрешения простого имени** (`resolveSimple`/`resolveSimpleRead`, используются в
-`lookupOrError` и при резолве LHS присваивания/append) применяет **правила вывода сигилов**:
-- bare-имя `x` ищется как `$x` (локальная; при попадании текст узла-ссылки нормализуется на `$x`),
-  затем как `x` (глобал/параметр), затем как `%x` (нативная функция; текст узла нормализуется на
-  `%x`) - так `%fib` можно вызывать как `fib`;
-- `$`-имя `$x` - сначала `$x`; если нет, то bare `x` (параметр/локальная без сигила): `n` и `$n` -
-  одно локальное имя;
-- квалифицированные/сигилные/нативные имена, найденные напрямую, резолвятся как есть.
-Не найдено ни одной формы → «undefined name».
-
-### NameResolutionPass (ядро)
-Однопроходный обход AST (см. «Единое ядро разрешения имён» выше). Обработка узла по kind
-выполняется в `handleNode()`, а **полный обход всех детей - через единый `AstNodeBase::collectChildren`**
-(ссылки на слоты; `children()` - его const-обёртка): `analyzeNode()` сначала вызывает хук
-`ContextMacroExpander`, обрабатывает узел, затем гарантированно рекурсивно обходит каждого
-ребёнка. Это обеспечивает посещение КАЖДОГО узла
-AST (в т.ч. идентификаторов в выражениях/условиях/`return`), а не только достижимых через
-контейнерные kinds. Проход использует собственный `switch (node.kind())`, а не наследует
-строгий `KindVisitor` (`include/ast/kind_visitor.hpp`) - это осознанное отклонение, применимое
-к проходам, обрабатывающим подмножество kinds. Корневой узел реального pipeline - `ModuleNode`;
-ядро обходит его `m_body`. Имя функции регистрируется во внешнем скоупе, параметры - во
-внутреннем (скоупе функции), чтобы имена в теле резолвились.
-
-### Интеграция таблицы типов (TypeRegistry)
-Ядро связано с `TypeRegistry` (`ctx.types()`) следующим образом:
-
-- **Единый резолв типа** - `AnalysisContext::resolveType(node)` возвращает `TypeId` по
-  аннотации (kind=TypeName): сначала по скоуп-стеку (пользовательские алиасы, с учётом shadowing),
-  затем - в реестре (builtin). Используется для аннотаций переменных, параметров и возврата функции.
-- **Алиасы типов** - `analyzeTypeDecl` (`y ::= Int`) регистрирует алиас в реестре (`registerType`)
-  и **связывает имя в текущем скоупе** как `Symbol` (decl = узел `TypeDecl`, `Symbol.type = aliasId`).
-  Это даёт shadowing и коллизии имени типа с переменной/функцией через скоуп-стек.
-- **Функциональные типы** - `analyzeFuncDecl` строит сигнатуру через `AnalysisContext::buildFuncType` →
-  `TypeRegistry::getOrCreateFunctionType(returnType, paramTypes)` и сохраняет `FunctionTypeId`
-  в `Symbol.type` (параметры и возврат резолвятся через `resolveType`).
-- **Forward-объявления** - синтаксис `<name> := ...;` (многоточие вместо тела функции /
-  инициализатора переменной) регистрирует имя и тип без тела/инициализатора. `Symbol` хранит
-  невладеющий указатель на узел объявления (`Symbol.decl`) - источник истины: kind, range, атрибуты
-  и определение. Forward-признак определяется по узлу (`isForwardDecl`): `VarDecl.m_initializer ==
-  nullptr` или `FuncDecl.m_body == nullopt`. Для **нативных имён** (`%...`,
-  транслируются в C++ напрямую) в forward-объявлении тип обязателен: нативная переменная без
-  `m_type` и нативная функция без типа возврата дают ошибку; для обычных имён тип опционален.
-- **Завершение forward определением** - `SymbolTable::declareOrComplete(sym)` возвращает
-  `DeclResult{Inserted, Completed, Duplicate}`. Завершение (`Completed`) допустимо, когда
-  существующий символ в текущем скоупе - forward-объявление (`isForwardDecl`), новый - определение,
-  и kinds совпадают (kind узла `decl`): определение заменяет forward-символ in-place. Два определения,
-  два forward и конфликт kinds (func vs var) → `Duplicate`. `analyzeVarDecl`/`analyzeFuncDecl`
-  используют `declareOrComplete` вместо `declare`. Тип завершающего определения не сверяется с
-  forward (это future refinement); параметры объявляются через plain `declare` (без завершения).
-- **Жизненный цикл** - `SemanticPassRunner::run()` вызывает `TypeRegistry::reset()` в начале,
-  чтобы алиасы и функциональные типы не накапливались между run() (согласовано с пер-ран SymbolTable).
-- **Проброс в кодогенерацию** - `CppTranspiler` при наличии разрешённой `SymbolTable`
-  (`&runner.analysis().symbols()`) в `resolveCppType` сначала берёт TypeId из неё, затем - из реестра.
-
-
-### InlineAnalysisHook / LintHook
-`LintHook` (`semantic/lint.hpp`) - опциональный анализатор неиспользуемых переменных
-(gate = `FlagKind::Lint`); режим `-Wlint=aggressive` → Error. Будущие анализаторы (Effect/Trust)
-реализуются так же через `InlineAnalysisHook` + `gateFlag()` и подключаются по флагу в
-`SemanticPassRunner`.
-
-#### Раскрытие контекст-макросов (хук ContextMacroExpander)
-
-Контекст-макросы (`@::`/`@__NAMESPACE__`, `@__FUNCTION__`, `@__FUNCSIG__`, `@__FUNCDNAME__`)
-раскрываются **в том же однопроходном обходе** `NameResolutionPass`, но **отдельным
-всегда-подключённым хуком** `ContextMacroExpander` (`semantic/macro_expander.hpp`), а не ядром:
-ядро остаётся чистым разрешителем имён. Хук вызывается ядром в начале обработки каждого узла
-(`analyzeNode`), заменяет узел `ContextMacro` (его создаёт парсер, см. `ast/MEMORY.md`) на
-`Literal`/`IdentName` и раскрывает квалификатор `@::`. Контекст области имён и текущей функции
-**не хранится отдельно** - это общие методы `AnalysisContext` (`semantic/pass.hpp`), выводимые из
-скоуп-стека `SymbolTable` (итерация `forEachScope` по создателям скоупов, сравнение kind снизу
-вверх): `namespacePath()` - сегменты namespace-`ScopeBlock`,
-`currentFunc()` - ближайший `FuncDecl`:
-
-- **value/стрингификация** - узел `ContextMacro` заменяется на `Literal(StrChar)`:
-  - `@::`/`@__NAMESPACE__` → полная область имён `"::ns::name::"` (глобальная → `"::"`);
-  - `@__FUNCTION__` → краткое имя функции;
-  - `@__FUNCSIG__` → сигнатура `"ns::func(arg:Type):Ret"` (всегда строковый литерал);
-  - `@__FUNCDNAME__` → `utils::name_to_cpp(<полное имя функции>)`;
-- **имя-аналог** (без стрингификации) - `@__FUNCTION__`/`@__FUNCDNAME__` → `IdentName` с
-  раскрытым именем; `@::`/`@__NAMESPACE__` - имя области;
-- **метка** `++`/`--` - `@__FUNCTION__` в `JumpStmt::m_label` → имя функции;
-- **квалификатор** `@:: foo` - маркер уже свёрнут в текст идентификатора (`@::foo`
-  `FinalizeAndTest`); раскрывается текстовой заменой `@::` → текущая область имён (`ns::foo`),
-  в т.ч. в имени объявления (`@:: x := 1` → `ns::x`).
-
-Стрингификация помечается ведущими маркерами `@#`/`@#'`/`@#"` в `text()` узла (их может быть
-несколько). Функциональные макросы (`@__FUNCTION__`, `@__FUNCSIG__`, `@__FUNCDNAME__`) вне
-функции - диагностика `Severity::Error`. Транспилятор узлы `ContextMacro` не обрабатывает
-(после прохода их нет; `visit_ContextMacro` = `FAULT`).
-
-Обход мутирующий: `ContextMacroExpander::onNode(AstNodePtr&)` вызывается ядром в начале
-обработки каждого узла и возвращает true, если узел заменён (ядро пропускает `handleNode`,
-но продолжает обход детей). Сам обход детей - через единый `AstNodeBase::collectChildren`
-(ссылки на слоты, чтобы можно было заменять `ContextMacro` на `Literal`/`IdentName`).
-
-Логика раскрытия инкапсулирована в узлах: сигнатуру строит `FuncDecl::signature(ns)`,
-раскрытие квалификатора `@::` - `IdentName::expandQualified(ns)`; `name_to_cpp` - утилита.
-
-#### Lowering (вставка синтетических узлов для транспилятора)
-
-`SemanticPassRunner::run()` после успешной семантики запускает проход **lowering**
-(`lowerBody`), который переносит в AST всю «анализирующую» логику, чтобы транспилятор остался только кодогенератором. Понижение реализовано **в классах
-узлов** (компонент `ast`, `ast/lowering.hpp` + `src/ast/lowering.cpp`): каждый класс
-переопределяет `virtual AstNodeBase::lower(self, ctx)` согласно своему Kind и рекурсивно
-понижает своих детей; runner только запускает `lowerBody` на корневом векторе операторов:
-
-- **Точка с запятой для statement-выражений** - statement-позиции выражений (бинарные kinds,
-  литералы, `CallExpr`) оборачиваются в `SemicolonStmt` (содержит `m_expr`; range делегируется ребёнку).
-- **Метки goto (именованные break/continue)** - именованный `BreakStmt` переписывается в
-  `GotoStmt(<имя>_break)`, `ContinueStmt` - в `GotoStmt(<имя>_continue)`; break по имени текущей
-  функции - в синтетический void-`return;` (узел без Term, невалидный range - без source-map,
-  как LabelRef/прочие узлы lowering). Безымянные break/continue остаются как есть.
-- **Метки именованных блоков** - именованный `ScopeBlock` внутри функции получает
-  `LabelStmt(<имя>_break)` после тела; continue-метка `LabelStmt(<имя>_continue)` ставится
-  первому циклу в теле (перед `while`, в конец тела `do-while`). Вне функций метки не вставляются.
-
-Контекст lowering `LowerCtx` несёт `inFunction`, имя текущей функции и pending continue-метку
-именованного блока. Класс `LabelRef` (kinds `GotoStmt`/`LabelStmt`) - синтетические узлы без
-исходного trust-текста: их `range()` возвращает НЕВАЛИДНЫЙ range (не маппятся), т.к. сопоставлять
-сгенерированные `goto`/метку с исходником не нужно. `SemicolonStmt` делегирует `range()` обёрнутому
-выражению (валиден) - `;` принадлежит реальному source-выражению.
-
-Extended analysis (beyond Phase 1):
-- `NameResolutionPass::analyzeVarDecl` - variable declarations (`:=`) with type/name validation
-- `NameResolutionPass::analyzeTypeDecl` - type aliases (`::=`) with type resolution
-- `NameResolutionPass::analyzeFuncDecl` - function declarations (имя + duplicate check)
-- `NameResolutionPass::lookupOrError` - symbol lookup with diagnostic on failure (через ScopeStack)
-
-## Инференс типов выражений (post-order)
-
-`NameResolutionPass` дополнительно выполняет **типизацию выражений в пост-порядке**
-(после обхода детей), см. `typeExpr` + `semantic/type_inference.hpp`. Тип узла
-вычисляется единым query-сервисом `AnalysisContext::resolvedType(node)` (лист - литерал/
-символ/каст, составное выражение - из кеша, заполняемого ядром через `setExprType`):
-
-- **Литералы** (`literalType`): IntLiteral → минимальный конкретный знаковый Int,
-  вмещающий значение (Int8/16/32/64); FloatLiteral → Float64; StrChar ('…') → StrChar;
-  StrWide ("…") → StrWide; RationalLiteral (`num\den`, отдельная лексема RATIONAL) → Rational.
-  Вычисленный `TypeId` кешируется на узле (`Literal::typeId`) - часть сознательной архитектуры
-  «аннотации типов на узлах AST» (см. TYPE_INFERENCE.md §2.10), НЕ side-table.
-- **Литерал словаря/кортежа/конструкции** `(1, two=2, name='3',)` / `:Tuple(...)` / `:Type(...)` →
-  AST-узел `DictLiteralNode` (подкласс `Sequence`, поле `m_type` - аннотация типа; никаких строк/enum).
-  Контракт: все элементы m_body - единый узел `ArgNode` (имя в text(), явный тип в m_type, значение
-  в m_value), строятся из канонических пар грамматики `args` (см. `term_to_ast::visit_DICT`);
-  (единая форма ArgNode, без raw/AssignOp/ParamDecl). `analyzeDictLiteral`: значение каждого элемента анализируется полностью; имя-метка
-  НЕ резолвится как ссылка на переменную и НЕ регистрируется в таблице символов. Класс узла решает
-  анализатор ПО ТИПУ из реестра: если `m_type` резолвится в `Tuple` - `setKind(Tuple)` и тип выражения -
-  интернированный структурный кортеж (в C++ → `auto`, `std::tuple`); если аннотации нет - универсальный
-  словарь `Dict`; если `m_type` резолвится в скаляр/класс - типизированная конструкция/каст
-  (решение в кодогенерации). Тип значения элемента сохраняется на элементе
-  (`Binary::resultType` из `resolvedType`) - единый источник для кодогенерации `TypedValue`
-  (покрывает литералы, вложенные словари и выводимые выражения, не только `Literal::typeId`).
-- **Аннотация структурного кортежа** `Tuple(:Rational, :Rational)` / `name:Type` в позиции типа
-  (возвращаемый тип функции, тип переменной) → `resolveType` строит структурный Tuple-тип через
-  `getOrCreateTupleType` (позиционные имя="", именованные - ArgNode(name, type)). Такой тип
-  становится возвращаемым типом функции → `getOrCreateFunctionType` интернирует функции по нему.
-- **Распространение return-типа вызова**: `p := f(...)` типизируется возвращаемым типом функции
-  (typeExpr CallExpr → FunctionTypeData.returnType); результат вызова не сводится к std::any. Для
-  кортежного возврата `p` получает структурный Tuple-тип, `p.0`/`p.name` резолвятся через std::get.
-- **Доступ к элементу словаря** (`d.two` / `d.1` / `d[0]`) → узлы MemberAccess/ArrayAccess
-  (объект в m_left, ключ/индекс в m_right). `analyzeAccess`: объект анализируется, поле-имя
-  справа от '.' НЕ резолвится как переменная; статический индекс `d.1` проверяется по
-  статической размерности (`Symbol::dims`, копируется из литерала-инициализатора) - размер
-  неизвестен или индекс вне диапазона → ошибка компиляции. Оператор `[]=` (`AppendStmt`)
-  увеличивает `Symbol::dims` известного словаря на 1 для одиночного элемента (см. `handleNode`);
-  при spread-merge `d []= ... dict` (RHS - узел `Ellipsis`) размер растёт на число элементов
-  распаковываемого словаря, а его типы полей переносятся в `Symbol::dictFieldTypes` цели (для
-  литерала-операнда - по элементам, для переменной-словаря с известным размером - копированием
-  `dictFieldTypes`). Поэтому статическая проверка `d.N` далее по тексту учитывает добавленные
-  элементы (после двух append размер 3 → 5,
-  `d.4` допустим, `d.5` - вне диапазона). Тип результата доступа - **тип
-  поля**: выводится из литерала (`Symbol::dictFieldTypes`: имя/позиция → TypeId элемента,
-  напр. `d.two` → Int8, `d[0]` → Bool) или `Any` (гетерогенный/неизвестный). `Symbol::dims` -
-  компиляционное свойство размера, `Symbol::dictFieldTypes` - типы полей (см. модель Dims).
-- **Деструктуризация `t1, ..., tN := [... ]source;`** → узел `DestructureDecl` (терм `:=` с
-  многоимённым LHS; цели как `IdentName` из термов lval; `m_isSpread` - был ли RHS `...`; суффикс `...`
-  у цели (`rest...`) - «остаток», `_...` - отброс остатка, `_` - skip одного). Семантика
-  `analyzeDestructure`: источник анализируется; проверка типа источника (спред - только Dict, иначе
-  Error «must be a dictionary») и статической арности (`dictSizeOf`). **Без маркера - точная привязка**
-  (Python/Rust/Go/C++/Haskell): число целей == числу элементов для статически-известного размера;
-  **кортеж** - связывание по индексу с типом элемента, арность проверяется; `rest...` - остаток
-  (для кортежа - под-кортеж), `_...` - отброс остатка. Цель остатка, совпадающая с источником, -
-  мутация `pop_front` (отдельного объявления нет). **Per-element типизация целей** (как кортеж):
-  `dictElementTypes` даёт тип каждого элемента → `naturalRuntimeType` (Int8..Int64 → Int64, Float →
-  Double, Bool, Str...), цель типизируется своим runtime-типом. **В цикле** (`isInLoop`, циклы создают
-  скоуп) тип расширяется до МАКСИМАЛЬНОГО среди элементов (`joinElementTypes`: Bool+Int → Integer,
-  float → Double) и присваивается runtime-конвертером; предупреждение `OptKind::WidenAny`. `Any` -
-  только если тип не выводим. Кодген - `pop_front()` (Dict) / `std::get<N>` (кортеж). Вложенная
-  деструктуризация (`a, (b, c) := t;`) не поддерживается - только отдельные переменные (грамматика
-  `assign_item`: `lval` / `lval ELLIPSIS`). **Присваивание** (`t1, ..., tN = [... ]source;`,
-  `DestructureDecl::m_isAssign`) - цели НЕ объявляются: `assignDestructureTarget` резолвит существующую
-  переменную (несуществующая / константа `^` - Error), тип цели кладётся в `m_targetTypes` (для кодгена
-  `any_cast<T>`); rest == источник - мутация pop_front. **Явная аннотация типа цели** (`a:Type`,
-  `m_targetTypeNodes`, `explicitTargetType`) фиксирует тип ДЕКЛАРИРУЕМОЙ переменной
-  (`m_targetDeclaredTypes`; кортеж: `int32_t c_a` вместо `auto`), а тип `any_cast` берётся из
-  `m_targetTypes` = natural runtime тип элемента (Dict хранит int как int64_t), иначе тип выводится.
-  **Валидация rest-цели** (`restTargetNameAllowed`/`canonicalTargetName` - сигил-нормализация без
-  мутации узла): переиспользование имени именованной rest-цели допустимо ТОЛЬКО как мутация-идиома
-  spread-словаря (`item, dict... := ... dict`, rest == источник); прочее переиспользование (в т.ч.
-  кортеж `a, t... := t`) - Error (кодген без этого даёт C++-redefinition/UB). **Аннотация типа
-  на rest-цели** (`rest:Type...`) - Error «rest type is inferred» (тип остатка всегда выводится:
-  Dict / под-кортеж). **Вне цикла** невыводимый тип элемента словаря
-  (naturalRuntimeType → INVALID, напр. словарь-параметр) → предупреждение OptKind::WidenAny + Any
-  (симметрия с цикловым widening; без тихого fallback).
-- **Тип переменной** (признак «выведен» - бит `kInferredFlag` в TypeId, см. `types/MEMORY.md`):
-  нетипизированная `x := expr` получает тип из инициализатора с битом `withInferred`; по истории
-  присвоений (`=`, `+=`, ...) тип **монотонно расширяется** (join: `x := 1; x = 1000;` → Int16).
-  Инициализатор без выводимого типа (C++-вставка `{% %}`, вызов с неизвестным результатом,
-  отрицательный литерал) **явно маркируется типом `std::any`** (`VarDecl::inferredType` и
-  `Symbol::type`), чтобы транспилятор не угадывал тип тихим fallback - `INVALID` у переменной
-  с инициализатором в кодогенерации трактуется как ошибка вывода (без fallback на `std::any`).
-  Голый тип-имя в правой части `:=` (`x := :Int32`) - **ошибка** (в `:=` справа значение, тип
-  объявляется через `::=`); диагностируется в `analyzeVarDecl`.
-  Авто-выведенный `Bool` (`mult := 1`), используемый в составной числовой арифметике
-  (`mult += 1`), расширяется до максимального Int (`Int64`); явный `:Bool` так НЕ расширяется -
-  для него это ошибка. Явно-типизированная (`x:Type :=`) - фиксирована (без бита, присвоения не
-  расширяют). Живой тип хранится на символе (`Symbol::type`), финальный структурный - на узле.
-- **Результат бинарной операции** (`resultTypeBinary`) - по обычным арифметическим
-  преобразованиям C++: `Int16 + Int16 → Int32`, `//`/`//=` → Int64, Compare/Logical → Bool,
-  присутствие float-операнда → более широкая float-группа. Один операнд `std::any` + конкретный
-  числовой → результат = продвинутый конкретный (для `std::any_cast` при кодогенерации).
-  Типы операндов/результата сохраняются на узле `Binary` (`lhsType/rhsType/resultType/commonType`).
-- **Продвижение auto-Bool в арифметике** (`typeBinaryResult`): если операнд имеет тип Bool и
-  **выведен автоматически** (`typeIsInferred`, из литерала `0/1` или inferred-переменной) - он
-  продвигается по общим правилам приведения (C++ `bool→int` → Int32), и результат вычисляется с
-  продвинутым типом (`d := (1, 2); d[0] + d[1]` → Int32; `1 + 2` → Int32). **Явный Bool**
-  (`:Bool`, результат сравнения/логики) в арифметике - ошибка компиляции (нельзя привести).
-- **Константность переменной** (бит `kConstFlag` в TypeId, см. `types/MEMORY.md`): при `^` на имени
-  или `@[readonly]@` (атрибут `attr::ReadOnly`) семантика ставит бит на тип переменной
-  (`Symbol::type`) - «константность в типе» (`x^ := 42` → `const int8_t`). Для типизированных бит
-  ставится в `analyzeVarDecl`, для нетипизированных - в `typeExpr` при выводе типа из инициализатора
-  (структурный `VarDecl::inferredType` остаётся без бита). `resolveCppTypeId`/кодогенерация читают
-  бит для префикса `const `; пер-переменная константность (ставится по мере анализа) и мост
-  `const_cast<>` - см. `types/CONST.md`.
-- **Вид ссылки** (`RefType`, биты 16–19 `TypeKind`, см. `types/REFType.md`): атрибут
-  `@[reftype(имя)]` перед объявлением (типизированная переменная) ставит признак на
-  `Symbol::type` в `analyzeVarDecl`. Первая ссылка на тип без признака - fast-path бит
-  (пересборка `TypeId` с сохранением registry_index/флагов); ссылка на уже ссылочный тип -
-  составной узел `TypeRegistry::getOrCreateRefType` (`RefTypeData`, группа `kReftype`).
-  Неизвестное имя вида или отсутствие параметра - диагностика ошибки.
-- **Become-const и защита от записи** (в `typeExpr` для присваиваний `=`/`+=`/…): LHS с `^`
-  (`attr::ReadOnly` на узле `Ident`/`IdentName`) - финальная запись, помечающая переменную константной
-  (`x := 42; x^ += 1;` → далее `x` неизменяема, бит `kConstFlag` на `Symbol::type`). Обычная запись
-  (без `^`) в уже константную переменную - диагностика ошибки «cannot assign to constant variable».
-  Декларация такой переменной остаётся не-const (кодогенерация берёт const объявления из атрибута узла).
-- Выведенный конкретный тип сохраняется в **`VarDecl::inferredType`** на узле объявления -
-  транспилятор читает его при кодогенерации, т.к. скоуп-стек к этому моменту уже сброшен
-  (модульные имена из popped-скоупов недоступны через `SymbolTable::resolve`).
-
-Типы результатов составных выражений кешируются в `AnalysisContext::m_exprTypes`
-(карта `node → TypeId`) для рекурсивной типизации вложенных выражений: ядро пишет через
-`setExprType`, единый `resolvedType` читает. Бинарные kinds типизируются одним хелпером
-`NameResolutionPass::typeBinaryResult` (объединяет MathOp-группу и AssignOp:
-вычисляет `lhsType/rhsType/resultType/commonType`, кладёт результат в кеш); сужение в явную
-цель и расширение выводимой цели выполняет `typeExpr`. AppendStmt (`X []= v`) - исключение:
-типизируется в `typeExpr` отдельной веткой (append не меняет тип цели; `lhsType`=тип контейнера,
-`rhsType`/`resultType`=тип значения), чтобы оператор `[]=` не попадал в сужение/расширение
-составного присваивания. Spread-merge `X []= ... dict` (RHS - узел `Ellipsis`) единичным
-значением не является: `resultType` остаётся INVALID, и кодогенерация идёт в ветку `extend`;
-проверяется, что контейнер-цель - словарь (иначе ошибка). Числовое продвижение - единый
-TypeId-aware источник `types/promotion.hpp` (см. `types/MEMORY.md`). Классификация операторов
-(целочисленное деление `//`/`//=`, составное и простое присваивание) - единый источник
-`utils/operators.hpp` (`isIntDivOp`/`isCompoundAssignOp`/`isPlainAssignOp`), используемый
-и семантикой, и транспилятором вместо дублирования операторных строк.
-
-**Единые источники типизации (устранение дублирования):** набор «типизируемых бинарных kinds»
-(`MathOp|BitwiseOp|CompareOp|LogicalOp|NameDecl|AssignOp|AppendStmt`) - единый предикат
-`ast::is_binary_expr_kind` (используется в `resolvedType` и `typeExpr`); числовые группы -
-`types::isArithmeticGroup`; проверка «std::any»-операнда - `types::isAnyType` (единый для семантики
-и транспилятора). Диапазоны целых литералов (`literalType` и сужение `intFitsTarget`) -
-единый `types/int_literal.hpp` (`fitsIntegerValue`/`intTypeForWidth`/`intTypeForLiteral`). Типы
-литералов кешируются в `m_exprTypes` (как и составных выражений), чтобы `resolvedType` не
-пересчитывал `literalType`.
-
-## Сужение в типизированную цель (checkAssignmentNarrowing)
-
-При присвоении/инициализации значения в **ЯВНО-типизированную** переменную
-(`x:Type := expr`, `x = expr`, `x += expr`) анализатор проверяет сужение по ширине целого типа:
-- литерал, влезающий в целевой тип → безопасно (без диагностики);
-- литерал, не влезающий (`x:Int8 := 1000`) → ошибка;
-- переменная/неизвестное шире цели (`b:Int8 := a` при `a:Int64`) → **ошибка по умолчанию**
-  + fixit «use cast `:Type(expr)`» (через `DiagnosticEngine::fixit`).
-Inferred-цели (без аннотации) не проверяются - их тип монотонно расширяется (join), см. выше.
-
-## Компиляйт-тайм проверка printf-формата (@[format("printf", ...)])
-
-Атрибут `@[format("printf", <string_index>, <first_to_check>)]` (GCC-аналог
-`__attribute__((format(...)))`) включает проверку типов аргументов нативного вызова на
-соответствие форматной строке printf. Индексы - 1-based (конвенция GCC).
-
-- **Парсер и сверка** - `semantic/format_check.hpp/.cpp`: `parse_printf_format` разбирает
-  printf-спецификаторы (`%[flags][width][.prec][length]conv`, `%%` - литерал) в список
-  ожидаемых категорий; `arg_matches_expect` сверяет категорию с фактическим типом аргумента
-  (integer/unsigned/float/string/pointer).
-- **Точка проверки** - `NameResolutionPass::checkFormatArgs` вызывается из `typeExpr`
-  (`case CallExpr`) **пост-порядково**, когда типы аргументов уже вычислены (`resolvedType`).
-  Для callee-функции с атрибутом `format`: читаются `(string_index, first_to_check)`,
-  формат-строка обязана быть **строковым литералом** (иначе «format string is not a string
-  literal»), затем каждая конверсия сверяется с типом соответствующего аргумента.
-- **Опция** - `OptKind::Format` (`-Wformat=error|warning|ignore`), default `Error`.
-
-Связанные изменения: `emitTypeNameForNode`/`resolveCppTypeId` учитывают атрибуты узла типа
-(`reftype`, `ReadOnly`), спецправило `StrChar + ptr + const → const char*`
-(`TypeRegistry::resolveCppTypeId`); вариативный параметр `...` эмитится в C++ как `...`;
-для `%s` ожидается C-строка `const char*` (тип `CString`), `StrChar`-литерал допустим,
-`StrChar`-переменная требует явного `.c_str()`.
-
-## Методы на встроенных типах (obj.method)
-
-- **Реестр** - нативные методы на типах хранятся в `TypeRegistry` (`TypeDescriptor::methods`:
-  `std::map<std::string, TypeId>` имя → функциональный тип, `addMethod`/`findMethod`). Метод и
-  функция - одно и то же: сигнатура хранится как `FunctionTypeData` (через
-  `getOrCreateFunctionType`, структурное интернирование). Нативность метода - по `%` в имени
-  (`%c_str`): при генерации C++ вставляется идентификатор без `%`.
-- **Инвариант «одна форма имени»** - `addMethod` отклоняет регистрацию имени, если уже
-  присутствует его вторая форма (`c_str` vs `%c_str`) или точный дубль: EXPECT при инициализации
-  реестра (в т.ч. в тестах).
-- **Поиск** `findMethod` - ОДНОСТОРОННИЙ (как разрешение имён trust): обычное имя (`c_str`)
-  находит и обычный, и нативный (`%c_str`) метод; нативное имя (`%c_str`) - только точное.
-  Возвращает функциональный тип метода или `INVALID_TYPE_ID`.
-- **Семантика** - `NameResolutionPass::handleMethodCall` (из `analyzeAccess`, при
-  `MemberAccess` с `CallExpr`-справа): по типу объекта ищет метод, проверяет наличие
-  (диагностика «type 'X' has no method 'Y'») и число аргументов по `FunctionTypeData::paramTypes`,
-  типизирует результат возвращаемым типом - ВСЁ до генерации C++.
-- **Кодогенерация** - `CppTranspiler::visit_MemberAccess`: `s.c_str()` → `(c_s).c_str()`.
-- **Пример** - `StrChar.%c_str(): CString` (тип `CString` - невладеющий `const char*`,
-  см. `types/REFType.md`).
-
-## Сбор символов для LSP (SymbolCollectorHook)
-
-`SymbolCollectorHook` (`semantic/symbol_collector.hpp`) - `InlineAnalysisHook`, включаемый флагом
-`FlagKind::Symbols` (`-Wsymbols`). На `onDeclare` запоминает `{name, type, decl, scopeRange}`
-(имя берётся из `sym.decl->text()`, т.к. `declareOrComplete` перемещает `Symbol` в таблицу и
-`sym.name` на onDeclare уже moved-from), в `finalize` пишет в `AnalysisContext::symbolIndex()`
-(`SymbolIndex` = `vector<SymbolInfo{name, type(TypeId), typeName, nameRange, scopeRange, isMacro, documentation}>`).
-Документирующий комментарий (`///`/`##`/`/**`, т.ч. хвостовой `///<`/`##<`) копируется из
-`decl->documentation` (`AstNodeBase`): его заполняет грамматика через `term->m_docs` (см.
-`include/syntax/MEMORY.md`) и переносит в узел `TermToAstConverter::convert`. Для не-объявлений
-док остаётся отдельным sibling-узлом `Document`, к символам не привязывается.
-
-`SemanticPassRunner::takeSymbolIndex()` отдаёт собранное (перемещением). Pipeline помещает его
-в `PipelineResult::symbols` **даже при ошибках** (на частичном AST), если флаг включён.
+`NameResolutionPass` — драйвер (издатель событий, НЕ хук): владеет обходом и скоуп-стеком. Тяжёлая
+логика — в `DeclAnalyzer`/`ExprTyper`/`AccessResolver`/`TrustAnalyzer`, разделяющих `AnalysisContext`
+(m_actx), через `m_core` (дружба). Всегда-подключённый хук — `ContextMacroExpander` (эталон новых
+анализаторов). `AnalysisContext` (`semantic/pass.hpp`) — единые query-сервисы; типы выражений кешируются
+в `m_exprTypes`.
 
 ## Facts and invariants
 
-- **Массивы (Array<Elem>)**: литерал `[1,2,3,]`/`[...]:Type` (kind=ArrayInit, node_type
-  DictLiteralNode) и конструкция `:Array(...)`/`:Array^(...):Elem` интернируют структурный
-  `Array<Elem>` через `getOrCreateArrayType`. Тип элемента: `]:Type` > аннотация элемента
-  (`2:Int8`) > `arrayElementJoin` (узкая разрядность: `[1,2,3,]` → Int8, `[100,300,]` → Int16);
-  const-контейнер (`^` → attr::ReadOnly) → `withConst(arr)` (kConstFlag-бит TypeId → std::array).
-  Вложенные литералы/многомерные `:Elem[N,M]` строят многомерный Array-тип (анализ работает;
-  «не реализовано» - только на кодогенерации, `isMultiDimArray`). Индексный доступ `a[i]`
-  (left - Array-тип) → `resolveArrayAccess` (тип = elementType, статический индекс по размерности).
-  Методы объявлены на абстрактном `:Array` (T→Elem через `instantiateArrayMethod`).
+- **lowering переносит «анализирующую» логику в AST** (транспилятор — только кодогенератор): statement-
+  выражения → `SemicolonStmt`, именованные break/continue → `GotoStmt`/`LabelStmt`, break по имени
+  функции → синтетический void-return. Синтетические узлы (LabelRef) имеют невалидный range (не маппятся).
+- **⚠ `@__CHECK_AREA__` маркер удаляется В семантике (до транспилятора не доходит):** `CheckAreaStmt`
+  (лист) обрабатывает `analyzeCheckAreaStmt` по ЕДИНОМУ скоуп-стеку создателей областей (без отдельного
+  стека областей) и заменяется пустым узлом (кода не даёт; транспилятор: FAULT, если дожил). Текущая
+  область = список `AreaKind` по creator-скоупам от внутреннего к глобальному (функция внутри класса
+  даёт и Function, и Method; module-скоуп есть всегда).
+- **⚠ whole-if/whole-match:** `IfStmt`/`MatchingStmt` открывают скоуп ХВОСТОМ (`enterScope(self)` вокруг
+  `handleNode`+`analyzeChildren` в analyzeNode, НЕ в ранней enterScope-группе — та возвращает до typeExpr
+  и теряет scrutinee-пост-обработку match). Creator = `IfStmt`→`AreaKind::If`, `MatchingStmt`→`AreaKind::Match`
+  («внутри конструкта», любая ветка). Отдельные elseif/else/case НЕ заявляются (убраны из реестра и
+  `-Whelp-check-areas`) до появления per-branch-детекции.
+- **Оператор `... = X` (using) — регистрация областей ПОИСКА, не импорт:** `AssignOp` с левым `Ellipsis`
+  (`... = ns::name::name2` / макрос `using $...`) регистрирует пути как префиксы поиска в текущем скоупе
+  (`Scope::importedNamespaces`) и заменяется пустым узлом (кода не генерирует). Резолв голого имени `n`,
+  не найденного напрямую, пробует `prefix::n` (fallback внутри `resolveSimple`). Действует ТОЛЬКО для
+  TRUST-имён, нативные C++-имена (`%std::...`) при импорте/forward-объявлении НЕ резолвит. Требует
+  персистентных квалифицированных trust-символов: статические члены регистрируются глобально
+  (`ns::Class::name`), т.к. скоуп класса pop-ается.
+- **trust-контракты** `collectChildren()` НЕ отдают — ядро обрабатывает их ЯВНО. `processTrustConditions`
+  — единая точка по ДВУМ ортогональным опциям: severity `-Wsolver` (выдаётся только когда `--solver-mode`
+  НЕ задан) и поведенческий `--solver-mode`. export/calculate НЕ генерируются здесь — сбор VC в SMT-LIB 2
+  делает `PipelineSteps::Solver`. В Pre имя самой функции — ошибка; в Post — имя функции = возврат (легально).
+- **Защита от авто-вывода:** тип с trust-условиями (`kTrustFlag`) не выводится автоматически — ошибка с
+  требованием явной аннотации.
+- **⚠ trap (enum):** члены сравниваются ПО ЗНАЧЕНИЮ, но type-safe (нельзя `Weight.ZERO == 0`). Enum —
+  единый тип у всех членов; Variant — каждый член своего типа. Явный тип члена — в `ArgNode.m_type`.
+- **Тип переменной — монотонное расширение:** нетипизированная `x := expr` — тип из инициализатора
+  (`withInferred`); по присвоениям join. Невозможный вывод (C++-вставка `{% %}`, неизвестный вызов,
+  отриц. литерал) — явно `std::any`; INVALID с инициализатором = ошибка вывода. Голый тип-имя справа в
+  `:=` — ошибка (тип через `::=`).
+- **⚠ trap (классификация операторов):** `isCompoundAssignOp` — ЯВНЫЙ список `op=` (`+=`,…,`^=`), НЕ
+  по суффиксу `=`. Иначе сравнения `==`, `<=`, `>=` (тоже оканчиваются на `=`) трактовались бы как
+  составные присваивания и расширяли выводимый тип LHS до типа результата (Bool) — в т.ч. меняя тип
+  декларации (`x := 5` рядом со сравнением становился bool). Операторы сравнения LHS не расширяют.
 
+- **Auto-Bool vs явный Bool:** auto-Bool — Bool в НЕтипизированной переменной (`b := 1 :Bool`,
+  `b := (x > 0)`): в составной числовой арифметике продвигается до максимального Int. Буквальные
+  0/1 выводятся как Int8 (не Bool). Явный `:Bool` (в т.ч. как тип переменной/литерала `1 :Bool`)
+  так не расширяется (для него — ошибка).
+- **Константность:** `^`/`@[readonly@]` ставит бит на `Symbol::type`; запись в уже константную — ошибка.
+- **Сужение (checkAssignmentNarrowing):** в явно-типизированную цель по ширине (fixit «use cast»);
+  inferred-цели не проверяются.
+- **⚠ тип литерала с постфиксной аннотацией `literal :Type` — ЕДИНЫЙ решатель `annotatedLiteralType`
+  (analysis_common.hpp)** для всех путей (typeExpr / dictElementType / resolvedType): выбор типа +
+  причина ошибки, БЕЗ диагностики и БЕЗ fallback на текст-тип/«сырой» номинал аннотации для
+  невалидного (невалидный → INVALID). `resolveType` сам НЕ диагностирует неизвестный тип
+  (pass.hpp: диагностику формирует вызывающий). ЕДИНСТВЕННЫЙ репортёр ошибки — авторитетный проход
+  `typeExpr`/`reportLiteralAnnotProblem` (ровно один раз на узел); провизионные читатели
+  (dictElementType, литеральный fallback resolvedType) решают тем же решателем, но НЕ репортят —
+  иначе «1 :BadType» внутри dict/append давал бы дубли, а голый вне dict был бы тих
+  (`1 :BadType` → Int8 без ошибки).
+- **Деструктуризация `t1..tN := [...]:`** — точная привязка по арности; вложенная не поддерживается;
+  rest-цель == источник — `pop_front` (единственное допустимое переиспользование); аннотация типа на
+  rest-цели — Error.
+- **Методы:** `findMethod` ОДНОСТОРОННИЙ (обычное имя находит и обычный, и `%native`; нативное — точное).
+  `addMethod` — инвариант «одна форма имени».
+- **Формат-проверка `@[format("printf", strIdx, firstToCheck)]`** — индексы 1-based (GCC-конвенция);
+  для `%s` ожидается `const char*` (CString), StrChar требует явного `.c_str()`.
+- **SymbolCollectorHook:** имя из `sym.decl->text()` (на onDeclare `sym.name` уже moved-from).
+- **`@[reftrace@]` (NativeRefHook) - отслеживание инвалидации ссылок + диагностики нативных ссылок.** Атрибут ставится на КЛАСС/ТИП
+  или МЕТОД (не на переменную): класс — любая переменная такого типа всегда держит ссылку/указатель
+  на чужие данные (span/base_iterator) → автоматически зависимая; метод — возвращает ссылку во
+  внутренние данные → результат зависим. БЕЗ атрибута отслеживаются: переменные чисто ссылочных
+  типов (kRef/kRref/kPtr/kPtrPtr; умные shared/weak/unique/locker — НЕ), индекс `obj[i]`, метод,
+  возвращающий чисто ссылочный тип. Любая мутация источника (assign ИЛИ не-const метод) инвалидирует
+  зависимые, рождённые ДО мутации (epoch/born_epoch). Диагностика — severity `-Wreftrace=`. Ограничение:
+  «зависимая» решается СТРУКТУРНО по инициализатору/типу (типы выражений к моменту onNode ещё не
+  выведены); транзитивность сводится к корневому источнику.⚠: имена зависимых/источников — «bare»
+  (без `$`): VarDecl/init на onNode несигильные, sym->name в onResolve нормализован `$x`.
+- **Нативные C++ операторы ссылок.** `%&` — нативная ссылка (kRef, `T&`; в выражении — address-of),
+  `%*` — нативный указатель (kPtr, `T*`, маркер в типе/декларации); `*` — ОБЩИЙ оператор
+  разименования для всех видов ссылок (для нативных — `-Wnative-ref`). **Грамматика:** нативный вид
+  указывается ТОЛЬКО перед типом данных — `r : %& Int32 := %& x` → `T& r = x`, `p : %* Int32 := %& x`
+  → `T* p = &x`; маркер перед именем (`%& r := ...`) и авто-вывод нативных ЗАПРЕЩЕНЫ (тип обязателен;
+  маркер перед именем — только у умных ссылок для авто-вывода). `%&&` и const-варианты `%&^`/`%&&^`/`%*^`
+  УДАЛЕНЫ: константность — только атрибут @[readonly@] (`^` на имени), без ручного парсинга. Узлы:
+  NativeRefMakeExpr (`%& var`; вид результата kRef/kPtr — ЕДИНСТВЕННЫЙ источник m_resultType, без
+  отдельных полей m_kind/m_address; кодоген: kRef → `(operand)`, kPtr → `&(operand)`). Раздельные токены
+  NATIVE_REF_MAKE (`%&`)/NATIVE_REF_PTR (`%*`). Вид нативной цели в VarDecl — из аннотации типа
+  (refTypeFromTypeSigil на m_type). **Запрещённые операции (Error):** адресная арифметика (общая проверка
+  «арифметика над ссылкой» в ExprTyper), не-const нативная ссылка с const-объекта (D2, const-correctness),
+  возврат нативной ссылки из ОПРЕДЕЛЕНИЯ функции (D3/D7 — к forward-объявлениям внешних нативных функций
+  НЕ применяются), нативная ссылка в static/global (D4), сохранение в переменную внешнего скоупа
+  (D5; включает сохранение результата вызова нативной функции, уже возвращающей нативную ссылку),
+  swap нативных ссылок разных скоупов (D6), нативные маркеры в параметрах/возврате определений функций
+  (D7), смешение нативных и умных ссылок (D8). Диагностики: `-Wnative-ref` (warning «об использовании»)
+  + `-Wreftrace` (инвалидация: `y : %* Int8 := %& vect[0]` — нативный указатель в буфер → зависимая).
+  `w := & x` (слабая ссылка без маркера) — ошибка + fixit `&? w`.
+- **Ловушка (ContextMacroExpander):** обход детей — через `collectChildren` (ссылки на слоты для замены
+  ContextMacro → Literal/IdentName); мутирующий `onNode` возвращает true если заменён (ядро пропускает
+  handleNode, но обходит детей).
 
-> ⚠ trap: enum-члены сравниваются **ПО ЗНАЧЕНИЮ**, но type-safe (оба операнда - enum; нельзя `Weight.ZERO == 0`).
-
-- **Enum** - единый тип значений у всех членов (valueType выводится по общим правилам: явная аннотация члена / resolvedType значений / минимальный Int по числу членов); **Variant** - каждый член СВОЕГО типа (из аннотации / значения / Int по позиции).
-- **Явный тип члена `name:Type` в enum/variant** хранится в `ArgNode.m_type` (отдельный слот) и читается НАПРЯМУЮ (подробнее см. `ast/MEMORY.md`).
-- **НОРМАЛИЗАЦИЯ ГРАММАТИКИ (parser.y.in):** правила типизированных аргументов `name type_item named_rhs` и `ptr name type_item named_rhs` кладут тип в ЕДИНЫЙ слот `m_type` ARGUMENT-терма (а НЕ в `m_right->SetType` / `$4->SetType`). `Term::toString()` для ARGUMENT печатает тип из `m_type`. Безымянный `name:Type` (без =value) и голые значения остаются НЕ-ARGUMENT (нормализует в ArgNode конвертер, `appendDictElementsFromArgs`).
-
+- **Стек:** value-флаги StackCheck (+Reserve, +Functions) + severity `StackCheckInfer`. ⚠:
+  `@__OPTION__("stack-check","off")` сбрасывает enabled и значение → `stackCheckModeFromOptions` обязан
+  возвращать kOff при отключённом флаге. `StackCheckInferHook` (recursion/auto): граф вызовов по
+  разрешённым CallExpr; auto → `add_attr(stack_check)` на рекурсивный FuncDecl.
+- **Нативные шаблоны-типы:** `<T> %std::vector() := ...;` — `analyzeNativeTemplateDecl` (НЕ как функция);
+  резолв `vector<Int32>` интернирует инстанциацию. Дубль C++-имени со встроенным — Warning. **Инвертированный
+  ввод в грамматике:** `type_name_tmpl` (с `vector<Int32>`) — только в аннотации; путь типизированного
+  литерала без шаблона → `1:Bool < 5` парсится как СРАВНЕНИЕ (канонический bool-литерал), а не `:Bool<5>`.
+  Один S/R-конфликт `name type_class • LT` (shift→шаблон).
+- **Forward-объявление классов/шаблон-классов:** `String ::= %std::string {...};`,
+  `<T1,T2> Pair ::= %std::pair<T1,T2> {...};` — узел `ClassDecl` (не «NativeClass»: RHS — любое имя,
+  native = `%`), обрабатывается `analyzeClassDecl` из `analyzeTypeDecl` при RHS = ClassDecl (узел-
+  ребёнок ClassDecl в analyzeNode — no-op, иначе двойная регистрация). Регистрирует тип (kNativeClass
+  cppName или kNativeTemplate для шаблона), биндит trust-имя, методы — через `addMethod` (ключи `%...`),
+  поля (VarDecl-члены) — тоже `addMethod` (нулевая сигнатура, returnType = тип поля); доступ к полю
+  `s.%field` в analyzeAccess ставит lhsType (кодген: `(obj).field`); **поле без явного типа или
+  не-найденное — ERROR, НЕ `Any`**. Конструктор: вызов имени класса `MyStr(...)` типизируется как
+  возврат класса (кодген: `std::string(...)`).
+  **Члены класса:** статический — имя с `::` (`@::name` раскрывается в `ns::Class::name` через
+  `namespacePath()`; КЛЮЧ = полное имя с `::`, `is_static_name` проверяет по ключу `::`; поиск —
+  `TypeRegistry::findStaticMethod` по последнему сегменту), экземплярный — без `::` (ключ = bare).
+  Правильная регистрация экземплярного — ведущая `.`; без неё — `-Wclass-member-dot` (default ignore).
+  Доступ `Cls.field` → `cppName::name` + `-Wstatic-member-as-field` (default Warning); `Cls::name` —
+  без предупреждения. `@__CLASS__` (как `@__FUNCTION__`) и `currentClass()` — из скоуп-стека.
+  Шаблонность и generic-признак ВЫВОДЯТСЯ из m_template (ClassDecl::isGenericTemplate(): `m_templateParams`
+  (std::optional, как у FuncDecl) has_value + аргументов реализации пусто ⇒ обобщённая), НЕ флагом. Типовые параметры шаблона
+  (T1,T2) связываются в скоупе с `kTemplateParam` (`type_category::TemplateParam`), чтобы сигнатуры
+  методов резолвились. Обобщённая форма `<T1,T2> имя` → диагностика «not implemented» (сахар, отложена).
+- **⚠ trap (маркеры ссылки - НЕ «сиглы», позиция определяет смысл):** `&&`/`&*`/`&?` - маркеры/операторы
+  ссылки (сигл - первый символ ИМЕНИ, ссылка частью имени не является). Все маркеры начинаются с `&`;
+  второй символ задаёт вид: `&&`=shared, `&*`=unique, `&?`=weak. Одиночные `&`/`*` в позиции объявления
+  НЕ используются (в выражениях это операторы address-of/разыменования). Вид ссылки - часть ТИПА:
+  задаётся маркером ПЕРЕД именем переменной (`&& x : && Int32`/`&* u := 10`/`&? w := & x`) -
+  `visit_CREATE_NAME` кладёт атрибут `@[reftype]` на узел переменной; маркер ПЕРЕД типом
+  (`x : &&Int32`) - резолвит `resolveType`. МАРКЕР ДОЛЖЕН БЫТЬ СОГЛАСОВАН: `x : &&Int32` (только у типа),
+  `&& x : Int32` (у переменной, тип - значение) - ошибки в analyzeVarDecl; `&& x : &* Int32` (разные) -
+  ошибка в `applyRefAttrs`. `@[reftype]`-атрибут на ТИПЕ (`x : @[reftype] Int32`) - отдельный явный
+  спецификатор (вид в аннотации типа), проверками не затрагивается. Нативная ссылка (`%&`/`%*` →
+  kRef/kPtr) допустима ТОЛЬКО у НАТИВНОЙ переменной (`%r : %& Int32 := %& x`) - analyzeVarDecl требует
+  ведущий '%' у имени носителя. Без явного типа pointee
+  выводится из инициализатора (typeExpr VarDecl: value → оборачивается видом, уже-ссылочный тип
+  должен совпадать). В ВЫРАЖЕНИИ `&` — address-of (weak из shared), `*` — доступ к данным.
+- **⚠ trap (UNKNOWN-тип не должен доходить до кодогенерации):** `resolveCppTypeId` (type_emit) при
+  INVALID_TYPE_ID выводит явную диагностику + FAULT (вместо тихого `auto`); `emitTypeName(INVALID)`
+  возвращает nullopt, вызовы decl_emit репортят «unable to generate C++ type». Абстрактные типы
+  (Tuple/Range/Array/Dict) легитимно дают `auto` - это НЕ UNKNOWN.
+- **⚠ trap (транспилятору локальные символы недоступны):** `RefMakeExpr` и `RefTakeExpr` — ОТДЕЛЬНЫЕ
+  узлы (kind→class в token.hpp); семантика сохраняет тип результата `& x` (weak) в
+  `RefMakeExpr::m_resultType` и вид операнда `*ref` в `RefTakeExpr::m_opRefKind`; иначе кодоген не
+  смог бы вывести weak-тип / выбрать lock() vs `checked_deref` (скоуп-стек сброшен к глобальному).
+- **`*` (доступ к данным) - БЕЗ UB на nullptr:** unique/ptr разыменовываются через
+  `trust::checked_deref(c_u.get())` (рантайм-хелпер, бросает `trust::IntMinus` на нулевом
+  указателе); shared/weak - через `*(ref.lock())` (lock() сам бросает на истёкшей). Сырой `*c_u`
+  НЕ эмитится (UB на null). `refTypeFromTypeSigil`/`refTypeName` — единый источник сигл→вид/имя
+  атрибута (types/typekind.hpp, общий для семантики и term_to_ast).
+- **swap `:=:` — интринсик** (`Binary(AssignOp)` с текстом `:=:`, `utils::isSwapOp`; грамматика
+  `assign_seq: assign_items SWAP assign_items`, term_to_ast `visit_SWAP`). `a :=: b` → std::swap(a,b)
+  (возвращает &a; типы СОВМЕСТИМЫ, не обязательно ссылки; несовместимые — ошибка); `var :=: _` →
+  std::move(var) (дискриминант - правый Ident "_"; lookupOrError для "_" возвращает nullptr без
+  ошибки). `:=:` — НЕ арифметика и НЕ простое `=`, нужна явная ветка до общей типизации.
+- **Контракт value-vs-reference в `checkAssignmentNarrowing`:** цель-ссылка + значение — валидно
+  (обёртка shared/unique), weak из значения — ошибка; источник-ссылка + цель-значение — ошибка +
+  fixit `*<name>`; обе ссылки — оси и pointee должны совпадать. Для `@[reftype]`-пути цель надо
+  брать из `Symbol::type` (resolveType(*m_type) reftype НЕ применяет).
+- **⚠ trap (нетипизированная локальная `x := _;` — НЕ std::any по умолчанию, монотонный вывод по записям):**
+  `typeExpr` (VarDecl, `_`-инициализатор, без типа, Storage::Local) ставит на Symbol `Uninit|Inferred` с
+  INVALID-структурой (без Any); первую/последующие записи ведёт `widenInferredTarget` (бит Inferred)
+  → конкретный C++-тип пишется в `VarDecl::inferredType` (как у `x := 5`). Последующая запись НЕСОВМЕСТИМОЙ
+  категории (напр. int потом string) → Error с требованием `x:Any := _` (правило применяется только к
+  untyped-`_`; обычные inferred-переменные с инициализатором перезаписывают живой тип записью без ограничения
+  категории). `x := _` без записей и без использований → Error «cannot infer type» при выходе скоупа
+  (`finishUntypedUnderscoreDecls` в `exitScope`), это НЕ `-Wunused-variable` (типа нет); дедуп с
+  «read before it is initialized» — `AnalysisContext::uninitVarReported` (если переменную уже прочитали до
+  записи, отдельную «cannot infer» не дублируем). Глобальная/модульная/статическая untyped `:= _` (вне
+  функции) → Error «non-local … requires an explicit type» только в `typeExpr`; leftover-проверка
+  `finishUntypedUnderscoreDecls` работает только для Storage::Local. Типизированные `x:T := _`/`x:Any := _`
+  не затрагиваются (Uninit ставит decl_analyzer при известном типе).

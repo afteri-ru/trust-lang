@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/with_ref %s
+# RUN: $TD/with_ref > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: after=7
+
+# with(lock = *ref){...} - захват-блокировка: `lock` удерживает Locker на весь блок
+# (trust::Shared.try_lock + auto& c_lock = **__cap), мутация через lock видна и слабой ссылке.
+# else при сбое захвата НЕ выполняется (захват успешен).
+
+@main():Int32 := {
+    x : @[reftype("shared")@] Int32 := 5;
+    w : @[reftype("weak")@] Int32 := x;
+    with(lock = *x) {
+        lock = 7;
+    } else {
+        return 0;
+    };
+    print('after={}\n', *w);
+    return 0;
+};

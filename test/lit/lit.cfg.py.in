@@ -16,7 +16,7 @@ else:
     config.substitutions.append(('%split-file', 'split-file'))
 
 # -- Tool substitutions ---------------------------------------------
-_trans_bin = os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@', 'gencpp_from_ast'))
+_trans_bin = os.path.normpath(os.path.join('@CMAKE_BINARY_DIR@'))
 config.substitutions.append(('%trans', _trans_bin))
 
 _libtorch_include = os.path.normpath(os.path.join('@CMAKE_SOURCE_DIR@', 'contrib', 'libtorch', 'include'))

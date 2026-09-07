@@ -14,7 +14,13 @@ set_source_files_properties(
 add_library(syntax_lib STATIC
     ${PROJECT_SOURCE_DIR}/syntax/lexer.cpp
     ${PROJECT_SOURCE_DIR}/syntax/macro.cpp
+    ${PROJECT_SOURCE_DIR}/syntax/macro_arg_parser.cpp
+    ${PROJECT_SOURCE_DIR}/syntax/macro_expander.cpp
+    ${PROJECT_SOURCE_DIR}/syntax/macro_matcher.cpp
+    ${PROJECT_SOURCE_DIR}/syntax/macro_validator.cpp
     ${PROJECT_SOURCE_DIR}/syntax/parser.cpp
+    ${PROJECT_SOURCE_DIR}/syntax/pragma_evaluator.cpp
+    ${PROJECT_SOURCE_DIR}/syntax/predef_macro.cpp
     ${PROJECT_SOURCE_DIR}/syntax/term.cpp
     ${PROJECT_SOURCE_DIR}/syntax/types.cpp
     "${SYNTAX_GEN_DIR}/lexer.yy.cpp"
@@ -28,10 +34,10 @@ add_dependencies(syntax_lib gen_syntax_parsers)
 target_include_directories(syntax_lib PUBLIC
     ${PROJECT_INCLUDE_DIR}
 )
+# build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.
 target_include_directories(syntax_lib PRIVATE
     ${SYNTAX_GEN_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_BINARY_DIR}/include
 )
 target_include_directories(syntax_lib SYSTEM PRIVATE
     ${LLVM_INCLUDE_DIRS}

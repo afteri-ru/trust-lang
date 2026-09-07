@@ -180,7 +180,7 @@ inline constexpr uint32_t kRangeGroupLogical = 2u;
 inline constexpr uint32_t kRangeGroupIntegers = 3u;
 inline constexpr uint32_t kRangeGroupUnsigned = 4u;
 inline constexpr uint32_t kRangeGroupNumbers = 5u;
-inline constexpr uint32_t kRangeGroupRationals = 8u;
+inline constexpr uint32_t kRangeGroupArbitraryPrecision = 8u;
 
 } // namespace detail
 
@@ -436,7 +436,7 @@ class Range {
     /// Элемент T → trust::TypedValue с естественным TypeKind (для toDict).
     static TypedValue rangeTypedValue_(const T& v) {
         if constexpr (std::is_same_v<T, trust::Rational>) {
-            return TypedValue(detail::kRangeGroupRationals | (1u << 8), v);
+            return TypedValue(detail::kRangeGroupArbitraryPrecision | (1u << 8), v);
         } else if constexpr (std::is_same_v<T, bool>) {
             return TypedValue(detail::kRangeGroupLogical | (1u << 8), v);
         } else if constexpr (std::is_floating_point_v<T>) {

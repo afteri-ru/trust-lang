@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Нетипизированная `x := _;` без записей и без использований → Error «cannot infer type»
+# (это НЕ -Wunused-variable: типа нет).
+@main() := {
+    x := _;
+};
+# CHECK: error: cannot infer the type of untyped 'x := _' from any assignment

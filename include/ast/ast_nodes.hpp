@@ -41,7 +41,11 @@
 
 #include "ast/token_base.hpp"
 #include "ast/token.hpp"
+#include "ast/check_area.hpp"
 #include "ast/ident_name.hpp"
+#include "diag/severity.hpp"
+#include "ast/trust_prop.hpp"
+#include "ast/z3_term.hpp"
 #include "types/type_id.hpp"
 #include "utils/error.hpp"
 #include <memory>
@@ -78,12 +82,18 @@ class Literal : public HasText {
     /// Класс литерала: IntLiteral | FloatLiteral | StrChar ('…', узкая строка) | StrWide ("…", широкая строка).
     /// Ширина строки задаётся Kind (вариант выбирается Kind), поле-флаг не нужен.
 
-    /// Тип литерала (TypeId), вычисленный семантикой (NameResolutionPass::typeExpr →
-    /// literalType) и кешированный на узле, чтобы транспилятор (литерал словаря →
-    /// TypedValue{kind, значение}) не пересчитывал тип и не дублировал логику диапазонов
-    /// литералов. Из TypeId получается и kind (getKindFromId), и C++-имя (TypeRegistry).
+    /// Тип литерала (TypeId), вычисленный семантикой (NameResolutionPass::typeExpr → единый
+    /// решатель annotatedLiteralType / literalType) и кешированный на узле, чтобы транспилятор
+    /// (литерал словаря → TypedValue{kind, значение}) не пересчитывал тип и не дублировал логику
+    /// диапазонов литералов. Из TypeId получается и kind (getKindFromId), и C++-имя (TypeRegistry).
     /// INVALID_TYPE_ID - тип не выведен.
     TypeId typeId = INVALID_TYPE_ID;
+
+    /// Постфиксная аннотация типа литерала `literal :Type` (напр. `0 :Bool`, `5 :Rational`,
+    /// `5 :BigInteger`, `256 :Int16`). Переносится из term->m_type (грамматика
+    /// `digits_literal type_item`) в term_to_ast; семантика задаёт литералу аннотированный
+    /// тип (статическая типизация литералов). nullptr - аннотации нет.
+    AstNodePtr typeAnnotation = nullptr;
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 };
@@ -105,6 +115,39 @@ class ContextMacro : public HasText {
     /// Manual-конструктор: текст задан явно, без TermPtr (range() вернёт invalid range).
     ContextMacro(ParserToken::Kind k, std::string text)
     : HasText(k, std::move(text)) {}
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+};
+
+/// CheckAreaStmt - встроенный контекст-маркер `@__CHECK_AREA__(<area> [, <behavior>]
+/// [, <attr>...])`, встречающийся в теле макроса (на сайте раскрытия). Лист-маркер:
+/// НЕ генерирует код; проверяется анализатором (NameResolutionPass) по текущей области,
+/// выводимой из единого скоуп-стека (создатели скоупов), и затем УДАЛЯЕТСЯ
+/// (заменяется пустым узлом). kind = CheckAreaStmt.
+/// area - требуемая область; behavior - переопределение severity (empty/\"default\" ->
+/// брать из -W<опции>); requiredAttrs - имена атрибутов, которыми должна обладать текущая область.
+class CheckAreaStmt : public HasText {
+  public:
+    CheckAreaStmt() = default;
+
+    /// Uniform term-constructor for the generated factory (ctx игнорируется - лист;
+    /// поля-ограничения заполняются конвертером/семантикой, т.к. из Term напрямую не читаются).
+    CheckAreaStmt(ParserToken::Kind k, TermPtr term, Context* /*ctx*/)
+    : HasText(k, std::move(term)) {}
+
+    /// Manual-конструктор: текст задан явно, без TermPtr (range() вернёт invalid range).
+    CheckAreaStmt(ParserToken::Kind k, std::string text)
+    : HasText(k, std::move(text)) {}
+
+    /// Требуемая область применения (первый аргумент макроса); nullopt - не задана.
+    std::optional<AreaKind> area;
+    /// Переопределение severity (второй аргумент). nullopt (Default) - дефолт из -W-опции
+    /// (semantic::DiagId::CheckArea). Значение Severity (вкл. Severity::Ignore) - явный override:
+    /// напр. Severity::Error ужесточает, Severity::Ignore подавляет независимо от -W.
+    std::optional<Severity> behavior;
+    // Требуемые атрибуты текущей области НЕ хранятся отдельным полем: они кладутся в собственный
+    // список атрибутов узла (AstNodeAttr::add_attr / attrs()) - AttrId уже известны на момент
+    // анализа (AttrPool). Семантика читает required-список как st->attrs() узла-маркера.
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 };
@@ -154,6 +197,12 @@ class Binary : public AstNodeAttr {
     /// Для MemberAccess/ArrayAccess по кортежу `t.name`/`t.0`: индекс элемента в TupleTypeData
     /// (резолвит семантика в resolveTupleAccess). -1 - не кортежный доступ (словарь/прочее).
     int64_t tupleIndex{-1};
+
+    /// Узел декларации ТИПА (TypeDecl) для присваивания в переменную доверенного типа
+    /// (`x = ...`, где `x :MyInt`). Ставит NameResolutionPass (typeBinaryResult, AssignOp) для
+    /// typeIsTrusted-целей; условия типа читаются из него как `m_typeDecl->m_trust`. Не владеющая
+    /// ссылка в AST модуля - переживает таблицу символов. nullptr - нет/нетрастовый/не-AssignOp.
+    const AstNodeBase* m_typeDecl = nullptr;
 };
 
 /// Является ли kind «блочным» узлом (имеет собственный обход тела с отступами:
@@ -287,6 +336,66 @@ class Sequence : public HasText {
     [[nodiscard]] const Sequence* as_sequence() const noexcept override { return this; }
 
     std::vector<AstNodePtr> m_body; ///< Тело/содержимое узла
+};
+
+/// RefTakeExpr - узел оператора `*` (разыменование/доступ к данным). kind = RefTakeExpr.
+/// Двойная роль по позиции:
+///   - сигл ТИПА `x : *Int32` (unique_ptr) - грамматика `COLON STAR NAME` → TAKE; операнд - pointee-тип;
+///   - ВЫРАЖЕНИЕ `*ref` - разыменование ссылочного операнда: прямой доступ к данным (semantic
+///     std::reference_wrapper / std::unique_ptr::operator*), для shared/weak - через lock().
+/// Наследует Sequence: m_body = [pointee-тип] в позиции типа или [операнд] в выражении.
+/// Вид ссылки операнда (m_opRefKind) ставит семантика (typeExpr) для кодогенерации: транспилятору
+/// локальные символы недоступны (скоуп-стек сброшен), поэтому он не может сам различить
+/// `*c_x.lock()` (shared/weak) от `*c_u` (unique/ptr).
+class RefTakeExpr : public Sequence {
+  public:
+    using Sequence::Sequence;
+
+    /// Вид ссылки операнда `*ref` в выражении (для кодогенерации): kShared/kWeak → `*(op.lock())`,
+    /// kUnique/kPtr → `*op` (прямой доступ). Для сигла ТИПА - не используется (INVALID-эквивалент).
+    RefType m_opRefKind = RefType::kValue;
+};
+
+/// RefMakeExpr - узел ссылочного оператора `&` (сигл в позиции ТИПА `x : &Int32`/`&?Int32` ИЛИ
+/// address-of/заимствование в выражении `& shared_var`). kind = RefMakeExpr.
+/// Наследует Sequence: m_body = [pointee-тип] в позиции типа (грамматика `COLON ptr NAME`,
+/// `ptr` привязывает тип справа) или [операнд] в выражении. text() - сигл (`&`/`&?`/...).
+/// В выражении результат - слабая ссылка (weak) из shared-переменной; тип результата резолвит
+/// семантика (typeExpr) и сохраняет в m_resultType для кодогенерации (локальные символы в
+/// транспиляторе недоступны - скоуп-стек сброшен к глобальному).
+class RefMakeExpr : public Sequence {
+  public:
+    using Sequence::Sequence;
+
+    /// Тип результата `& expr` (weak-ссылка из shared-переменной), вычисленный семантикой.
+    /// Для позиции типа (сигл в аннотации) - INVALID (там тип выводит resolveType по pointee).
+    TypeId m_resultType{INVALID_TYPE_ID};
+};
+
+/// NativeRefMakeExpr - нативный (сырой) C++ оператор ссылки `%& var` (address-of). Результат -
+/// нативная ссылка; конкретный C++-контекст (`T& name = var` или `T* ptr = &var`) задаёт ЛЕВЫЙ
+/// оператор создания/присваивания (маркер декларации). kind = NativeRefMakeExpr.
+/// Наследует Sequence: m_body = [операнд] (lvalue-выражение). text() - оператор (`%&`).
+/// Константность - НЕ поле узла: только атрибут @[readonly@] (`^` на имени).
+/// Вид результата (kRef для `T& name`, kPtr для `T* ptr`) - ЕДИНСТВЕННЫЙ источник, хранится в
+/// m_resultType (не дублируется в отдельном поле); кодоген выводит эмиссию из getRefType(m_resultType).
+class NativeRefMakeExpr : public Sequence {
+  public:
+    using Sequence::Sequence;
+
+    /// Тип результата `%& var`: kRef(pointee) по умолчанию, либо kPtr(pointee), когда LHS-цель -
+    /// нативный указатель (`%* ptr := %& var`). Ставит семантика. INVALID - не выведено.
+    /// Вид (kRef/kPtr) определяет кодоген: kRef → `(operand)`, kPtr → `&(operand)`.
+    TypeId m_resultType{INVALID_TYPE_ID};
+};
+
+/// NativeRefTakeExpr - нативное (сырое) разыменование `%* ref` (и `%*^ ref` - константное).
+/// kind = NativeRefTakeExpr. Наследует Sequence: m_body = [операнд] (нативный указатель `%&`/kPtr).
+/// Отдельный узел (не RefTakeExpr): `%*` допустим ТОЛЬКО для нативного указателя (`%&`, kPtr),
+/// проверяет анализатор (помимо reftrace). Константность - атрибут @[readonly@], НЕ поле.
+class NativeRefTakeExpr : public Sequence {
+  public:
+    using Sequence::Sequence;
 };
 
 /// DictLiteral - литерал словаря/набора элементов (и типизированная конструкция/кортеж).
@@ -551,6 +660,68 @@ class FuncDecl : public Decl {
 
     /// C++-имя импортируемой нативной функции (без ведущего '%'), напр. "abs" или "std::sqrt".
     std::string m_nativeName;
+
+    /// Объявление нативного шаблона-ТИПА `<T> %std::vector() := ...;` - тип-конструктор.
+    /// Регистрирует параметризованный тип (structural), а НЕ функцию: `vector<Int32>` эмитится как
+    /// `std::vector<int64_t>` с on-use инклудом. m_nativeName = C++-имя шаблона ("std::vector").
+    bool m_isNativeTemplateCtor = false;
+
+    /// Типовые параметры объявленного нативного шаблона (`<T>` → [ArgNode("T")]). Каждый - ArgNode
+    /// (имя в text(), при B2/B3 - тип value-параметра / ограничение в m_type, дефолт в m_value).
+    /// Пусто = шаблон без типовых параметров (допускается). B1 - только типовые без ограничений.
+    std::optional<std::vector<AstNodePtr>> m_templateParams;
+};
+
+/// ClassDecl - forward-объявление (нативного) класса через `::=`:
+///   @include("string")  String ::= %std::string { ... };            - нативный класс (RHS-имя с '%')
+///   @include("utility") <T1,T2> Pair ::= %std::pair<T1,T2> { ... }; - ЯВНАЯ реализация шаблона
+///   @include("utility") <T1,T2> Pair ::= <T1,T2> %std::pair { ... };- ОБОБЩЁННАЯ (сахар, отложена)
+/// trust-имя класса - в text() (слева от `::=`), RHS-имя (native/обычное) - в m_nativeName
+/// (C++-имя без ведущего '%'). Класс НЕ имеет тела на Trust-стороне: члены (методы/поля/
+/// конструкторы/статич-члены) - forward-объявления (`:= ...`), хранятся в m_body; реализация
+/// класса находится в C++-заголовке (инклуд - из @[include], см. attr::Include). Транспилятор
+/// НЕ эмитит `struct`, а использует нативное C++-имя (инклуд on-use).
+class ClassDecl : public Decl {
+  public:
+    ClassDecl() { m_kind = ParserToken::Kind::ClassDecl; }
+
+    /// Терм-конструктор: читает из операторного терма `::=` (m_left = trust-имя с типовыми
+    /// параметрами шаблона, m_right = RHS CLASS-терм с нативным именем/аргументами/членами).
+    /// Объявлен здесь, определён в ast_nodes.cpp.
+    ClassDecl(ParserToken::Kind k, TermPtr term, Context* ctx = nullptr);
+
+    /// Manual-конструктор (test-only): trust-имя задано явно.
+    explicit ClassDecl(std::string text)
+    : Decl(std::move(text)) {
+        m_kind = ParserToken::Kind::ClassDecl;
+    }
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    /// C++-имя класса (без '%'): "std::string" / "std::pair". Пусто - не native (обычное имя).
+    std::string m_nativeName;
+
+    /// Типовые параметры trust-шаблона (`<T1,T2>` слева → [ArgNode("T1"), ArgNode("T2")]).
+    /// nullopt - НЕ шаблон; has_value (в т.ч. пустой вектор) - шаблон (может быть без типовых
+    /// параметров). Как у FuncDecl::m_templateParams. Шаблонность - по has_value, а не флагом.
+    std::optional<std::vector<AstNodePtr>> m_templateParams;
+
+    /// Параметры/аргументы реализации (`%std::pair<T1,T2>`): имена из RHS-списка. Для явной
+    /// формы 1:1 совпадают с m_templateParams. nullopt - НЕТ явных аргументов реализации
+    /// (обобщённая форма `<T1,T2> name ::= <T1,T2> %std::pair`). Хранится для будущих не-1:1
+    /// отображений; кодоген не требует заполнения (тип регистрируется по cppName + типовые
+    /// параметры).
+    std::optional<std::vector<std::string>> m_templateArgs;
+
+    /// true - ОБОБЩЁННАЯ форма `<T1,T2> name ::= <T1,T2> %std::pair` (шаблон + НЕТ явных
+    /// аргументов реализации) → маппинг типовых параметров 1:1; false - явная реализация
+    /// `name<T1,T2>` (аргументы в m_templateArgs). ВЫВОДИТСЯ из заполненности m_template,
+    /// как у любого шаблона: это шаблон (m_templateParams.has_value()) и НЕТ явных
+    /// аргументов реализации (m_templateArgs = nullopt) ⇒ обобщённая привязка.
+    [[nodiscard]] bool isGenericTemplate() const noexcept { return m_templateParams.has_value() && !m_templateArgs.has_value(); }
+
+    /// Члены интерфейса (методы/поля/конструкторы/статич-члены): FuncDecl/VarDecl, forward (`:= ...`).
+    std::vector<AstNodePtr> m_body;
 };
 
 /// JumpStmt - инструкция перехода (return / throw).
@@ -581,6 +752,20 @@ class JumpStmt : public AstNodeAttr {
 
     AstNodePtr m_label{}; ///< Optional label (IdentName) before ::
     AstNodePtr m_value{}; ///< Optional return/throw value expression (nullptr = void)
+
+    /// Определение функции, в которой находится этот return (для ReturnStmt). Заполняется
+    /// семантическим анализатором (NameResolutionPass) для КАЖДОГО return: узел самодостаточен -
+    /// транспилятор знает функцию (пост-условия, имя функции = возвращаемое значение) без
+    /// отслеживания текущего контекста. nullptr для не-return jump'ов и ручных/тестовых узлов.
+    const FuncDecl* m_funcDecl = nullptr;
+
+    /// Синтезированная СЕМАНТИКОЙ временная const-переменная `__trust_res_N := <m_value>;`
+    /// (hoist возвращаемого значения для пост-условий: выражение вычисляется один раз, имя
+    /// функции связывается со значением). Создаётся только для ИМЕНОВАННОГО return (m_label) из
+    /// функции с пост-условиями. Семантика выводит её тип в VarDecl::inferredType
+    /// (resolvedType(*m_value)); транспилятор эмитит её как обычный VarDecl и читает имя.
+    /// Инвариант: временные создаёт анализатор, транспилятор их не синтезирует. nullptr - не синтезирована.
+    AstNodePtr m_tempDecl{};
 };
 
 /// VarDecl - объявление переменной.
@@ -630,6 +815,23 @@ class VarDecl : public Decl {
     /// INVALID_TYPE_ID - тип не выведен. Заполняется NameResolutionPass (typeExpr) и читается
     /// транспилятором для кодогенерации (чтобы не зависеть от скоуп-стека, сброшенного после анализа).
     TypeId inferredType{INVALID_TYPE_ID};
+
+    /// Узел декларации ТИПА (TypeDecl) для типизированных переменных доверенного типа
+    /// (`x :MyInt := ...`). Ставит NameResolutionPass (analyzeVarDecl) для typeIsTrusted-типов;
+    /// условия типа читаются из него как `m_typeDecl->m_trust` (источник один, без копий).
+    /// Не владеющая ссылка в AST модуля - переживает таблицу символов. nullptr - нет/нетрастовый.
+    const AstNodeBase* m_typeDecl = nullptr;
+
+    /// Синтетический признак «переменная - биндинг оператора `with`». Ставит конструктор
+    /// WithStmt для пары (lock, binding). Используется семантикой для диагностики: биндинг
+    /// ссылочного типа без захвата (`with(v = ref)` без `*`/`*^`) - предупреждение.
+    bool m_inWith = false;
+
+    /// Синтетическая временная прохода capture `$^` (`__trust_last_N := <source>;`). Ставит
+    /// captureLastResult. Семантика использует для точечной диагностики void/no-value источника:
+    /// если выведенный тип временной - «нет значения» (Void/None), обращение к `$^` — ошибка
+    /// «no value to capture» (а не общая "unable to generate C++ type 'Any'").
+    bool m_lastResultTemp = false;
 };
 
 /// DestructureDecl - деструктуризация из коллекции/кортежа: `t1, ..., tN := ... source;` (spread,
@@ -683,6 +885,13 @@ class DestructureDecl : public AstNodeAttr {
     /// расширяет тип элемента до максимального (Integer/Double) - для foreach-паттерна; кодген
     /// использует runtime-конвертеры (anyToInt64/anyToDouble), а не строгий any_cast.
     bool m_inLoop = false;
+
+    /// Синтезированная lowering временная копия источника `auto _trust_dst_N := <m_source>;` (при
+    /// НЕ-mutating-rest: источник-выражение оценивается один раз, pop'ы идут в копию). Создаёт
+    /// lowering (инвариант «временные — уровень анализатора»); транспилятор эмитит её (auto) и
+    /// читает имя. nullptr - mutating-rest (попы идут прямо в источник) / не синтезирована.
+    AstNodePtr m_sourceTemp{};
+    void lower(AstNodePtr& self, LowerCtx& ctx) override;
 };
 
 /// ControlFlowStmt - общий базовый класс для операторов управления потоком
@@ -749,6 +958,11 @@ class WhileStmt : public ControlFlowStmt {
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
     void lower(AstNodePtr& self, LowerCtx& ctx) override;
+
+    /// Синтезированный lowering флаг while-else `bool _weN := 0;` (в C++ нет while...else; else
+    /// эмулируется флагом «вошёл ли цикл хотя бы раз»). Создаёт lowering (инвариант «временные —
+    /// уровень анализатора»), транспилятор эмитит его и читает имя. nullptr - нет else/не синтезирован.
+    AstNodePtr m_elseFlag{};
 };
 
 /// DoWhileStmt - цикл do-while.
@@ -798,9 +1012,96 @@ class MatchStmt : public AstNodeAttr {
     /// охват match-оператора. Вычисляется на лету (без мутации Term) в ast_nodes.cpp.
     [[nodiscard]] MapperRange range() const override;
 
-    AstNodePtr m_value{};           ///< Выражение для сопоставления
+    AstNodePtr m_value{}; ///< Выражение для сопоставления (после анализа — ссылка на временную _matchN)
+    /// Синтезированная СЕМАНТИКОЙ временная const-переменная `_matchN := <m_value>;` (scrutinee
+    /// вычисляется один раз). Семантика выводит её тип в VarDecl::inferredType (resolvedType(*m_value));
+    /// транспилятор эмитит её как обычный VarDecl и читает тип для выбора switch/enum/if. Инвариант:
+    /// временные создаёт анализатор, транспилятор их не синтезирует. nullptr - не синтезирована.
+    AstNodePtr m_tempDecl{};
     std::vector<MatchCase> m_cases; ///< Ветки (порядок важен)
     AstNodePtr m_default{};         ///< Тело else (nullptr если нет)
+
+    /// Оператор сопоставления (текст MATCHING-терма): "==>", "===>", "=>", "~>", "~~>", "~~~>".
+    /// Пустой - по умолчанию сравнение по значению ("=="). Терм-конструктор заполняет из
+    /// m_term->getText(); manual-конструкторы оставляют пустым (==).
+    std::string m_op;
+};
+
+/// WithStmt - менеджер контекста `with(name=expr, ...){ body } else { ... };` (RAII).
+/// kind = WithStmt.
+/// Раскладка из Term (parser.y `with`): m_args = биндинги (каждый ARGUMENT-терм `name=value`),
+/// m_right = тело (BLOCK → ScopeBlock); m_sequence[0] = ветка else (BLOCK; nullptr если нет).
+/// Семантика: биндинги вычисляются слева направо как ЛОКАЛЬНЫЕ VarDecl (регистрируются в скоупе,
+/// проверка shadow/duplicate - стандартный путь analyzeVarDecl); видимы в теле; ветка else НЕ
+/// видит биндинги. При исключении в любом инициализаторе выполняется else (объекты уже
+/// уничтожены); исключение в теле пробрасывается (else НЕ выполняется). RAII: объекты
+/// автоуничтожаются при выходе из блока.
+///
+/// m_locks - ЕДИНЫЙ список пар `(lock, binding)`:
+///   - `lock`   = RefLockExpr (источник захвата) или nullptr (обычный value-биндинг);
+///   - `binding`= VarDecl, удерживающий значение до конца тела, или nullptr.
+///   `with(lock = *ref)` → (RefLockExpr, VarDecl lock); `with(_ = *ref)` → (RefLockExpr, VarDecl _);
+///   `with(*ref)` → (RefLockExpr, nullptr) - временный лок (снимается сразу);
+///   `with(a = 1)` → (nullptr, VarDecl a).
+class WithStmt : public AstNodeAttr {
+  public:
+    WithStmt() = default;
+
+    WithStmt(ParserToken::Kind k, TermPtr term)
+    : AstNodeAttr(k, std::move(term)) {}
+
+    /// Терм-конструктор: при `ctx != nullptr` сам строит детей (m_locks/m_body/m_else)
+    /// из WITH-терма (раскладка parser.y). Форма `WITH lval` (блокировка ссылки) вне скоупа -
+    /// диагностика «not implemented».
+    WithStmt(ParserToken::Kind k, TermPtr term, Context* ctx);
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+    void lower(AstNodePtr& self, LowerCtx& ctx) override;
+
+    /// range: [min-begin, max-end] по детям (биндинги/тело/else) - полный охват оператора.
+    [[nodiscard]] MapperRange range() const override;
+
+    /// Список пар (lock, binding) - см. комментарий класса.
+    std::vector<std::pair<AstNodePtr, AstNodePtr>> m_locks{};
+    AstNodePtr m_body{}; ///< Тело блока (ScopeBlock)
+    AstNodePtr m_else{}; ///< Ветка else при исключении в инициализаторе (nullptr если нет)
+    /// Синтезированный LOWERING флаг `bool _wN := 0;` (в C++ `catch(...){ if(_wN) throw; else }`).
+    /// Создаёт lowering (инвариант «временные - уровень анализатора»), транспилятор эмитит его и
+    /// читает имя. nullptr - нет else/не синтезирован.
+    AstNodePtr m_failFlag{};
+};
+
+/// CatchBlock - ветка catch оператора try/catch (Вариант A, нативный C++ catch).
+/// kind = CatchBlock. m_body = тело ветки.
+/// m_binding - ЕДИНЫЙ узел catch-аргумента (имя+тип «в одном блоке»):
+///   VarDecl(e, T) - `catch(e:Type)` (связывает перехваченное значение как локальную e);
+///   IdentType(T)  - `catch(:Type)` (тип без связывания имени);
+///   nullptr       - `catch(_)`/`catch(...)` (catch-any → IntAny).
+/// Анализатор регистрирует имя (если VarDecl) как локальную переменную скоупа ветки;
+/// кодогенерация диспетчеризует: VarDecl → `catch (T& e)`, IdentType → `catch (T&)`, nullptr → `catch (trust::IntAny&)`.
+class CatchBlock : public Sequence {
+  public:
+    using Sequence::Sequence;
+
+    AstNodePtr m_binding{}; ///< catch-аргумент: VarDecl(e,T) | IdentType(T) | nullptr (catch-any)
+};
+
+/// TryCatchStmt - оператор перехвата `try { A } catch(:T){B} catch(...){C} else{D};`.
+/// kind = TryCatchStmt. m_body = тело try (последовательность операторов).
+/// m_catches - ветки catch (порядок важен; catch(...)/IntAny должна быть последней).
+/// m_else - тело else (выполняется, если прерываний НЕ было); nullptr если нет.
+class TryCatchStmt : public Sequence {
+  public:
+    TryCatchStmt() = default;
+    TryCatchStmt(ParserToken::Kind k, TermPtr term)
+    : Sequence(k, std::move(term)) {}
+    /// Терм-конструктор: при ctx != nullptr сам строит m_body (тело try), m_catches и m_else
+    /// из BLOCK_TRY-терма (m_sequence[0] = тело, m_sequence[1..] = ветки catch, m_right = else).
+    TryCatchStmt(ParserToken::Kind k, TermPtr term, Context* ctx);
+    void lower(AstNodePtr& self, LowerCtx& ctx) override;
+
+    std::vector<AstNodePtr> m_catches; ///< Ветки catch (каждая - CatchBlock; порядок важен)
+    AstNodePtr m_else{};               ///< Тело else (нет прерываний) или nullptr
 };
 
 /// GotoStmt - безусловный переход к метке. СИНТЕТИЧЕСКИЙ узел: вставляется анализатором
@@ -853,6 +1154,123 @@ class SemicolonStmt : public AstNodeAttr {
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
     AstNodePtr m_expr{}; ///< Выражение-оператор (эмитится без скобок, затем ';')
+};
+
+/// LastResultCapture - СИНТЕТИЧЕСКИЙ узел «результат последней операции» (read-only псевдо-
+/// переменная `$^`). Вставляется АНАЛИЗАТОРОМ (семантика), когда в операторе найден лист `$^`:
+/// вокруг предыдущего сиблинга (m_source) и оператора-потребителя (m_sink) создаётся этот узел,
+/// открывающий собственный скоуп. На кодогенерации в начале узла объявляется неинициализированная
+/// временная `m_temp` (синтетический const VarDecl `__trust_last_N`), в m_source перед выходом
+/// значение пишется во временную, а в m_sink лист `$^` заменён ссылкой на неё. Временная
+/// автоматически удаляется при закрытии скоупа узла. Парсер узел НЕ создаёт (без m_term,
+/// невалидный range). kind = LastResultCapture.
+class LastResultCapture : public AstNodeAttr {
+  public:
+    LastResultCapture() { m_kind = ParserToken::Kind::LastResultCapture; }
+
+    /// Manual-конструктор (синтетический): источник (прежний «предыдущий сиблинг»), потребитель
+    /// (оператор с `$^`), временная-носитель захваченного значения.
+    LastResultCapture(AstNodePtr source, AstNodePtr sink, AstNodePtr temp)
+    : AstNodeAttr(ParserToken::Kind::LastResultCapture)
+    , m_source(std::move(source))
+    , m_sink(std::move(sink))
+    , m_temp(std::move(temp)) {}
+
+    /// range делегируется источнику (нет собственного Term); у синтетического узла может быть невалидным.
+    [[nodiscard]] MapperRange range() const noexcept override { return m_source ? m_source->range() : MapperRange{}; }
+
+    /// text узла не используется (синтетический).
+    [[nodiscard]] std::string_view text() const noexcept override { return {}; }
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    AstNodePtr m_source{}; ///< Предыдущий сиблинг (источник значения, захватываемого в `$^`).
+    AstNodePtr m_sink{};   ///< Оператор-потребитель, где лист `$^` заменён ссылкой на m_temp.
+    AstNodePtr m_temp{};   ///< Синтетическая временная (`const VarDecl`, `__trust_last_N`).
+};
+
+/// ErrorExpr - УНИВЕРСАЛЬНАЯ error/recovery-заглушка (архитектурное решение для диагностики, НЕ
+/// привязано к `$^`). Принцип: пасс, который первым обнаружил ошибку и обладает нужным контекстом,
+/// сообщает её СРАЗУ в момент выявления и заменяет ошибочный под-узел на ErrorExpr-владельца, чтобы:
+///   - последующие пассы (семантика/транспилятор) НЕ эмитили повторную/каскадную диагностику по
+///     содержимому (m_original не входит в children()/collectChildren → игнорируется);
+///   - заменённый узел НЕ удалялся, а сохранялся (владение в m_original) для дампов/диагностик.
+/// Использовать этот же механизм в других анализаторах при «diagnose-then-replace», вместо того чтобы
+/// тащить причину в следующий пасс. kind = ErrorExpr; парсер узел НЕ создаёт.
+class ErrorExpr : public AstNodeAttr {
+  public:
+    ErrorExpr() { m_kind = ParserToken::Kind::ErrorExpr; }
+
+    /// Manual-конструктор (синтетический): владелец заменённого (уже-ошибочного) узла.
+    explicit ErrorExpr(AstNodePtr original)
+    : AstNodeAttr(ParserToken::Kind::ErrorExpr)
+    , m_original(std::move(original)) {}
+
+    /// range/text делегируются заменённому узлу (своего Term у заглушки нет).
+    [[nodiscard]] MapperRange range() const noexcept override { return m_original ? m_original->range() : MapperRange{}; }
+    [[nodiscard]] std::string_view text() const noexcept override { return m_original ? m_original->text() : std::string_view{}; }
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    AstNodePtr m_original{}; ///< Владеемое (заменённое) под-дерево; НЕ входит в children()/collectChildren.
+};
+
+/// TrustContract - единый узел trust-контракта (pre/post/assert/invariant/type).
+/// Хранит СТРОГО ОДНО логическое выражение (m_expr), разобранное парсером как полноценное
+/// логическое выражение (нетерминал `logical`). Тип контракта - в поле kind (PropertyKind);
+/// может быть задан явно (`@{ pre --> expr @}` — kind одиночным именем после `@{`, разделитель -->)
+/// либо выведен из места привязки. Может находиться:
+///   - в m_trust узла-объявления (функция, переменная, тип, цикл);
+///   - автономным узлом в последовательности (assert в позиции выражения, `@{ check --> expr @};`).
+/// КОНТРАКТ: m_expr НЕ входит в children()/collectChildren (AstNodeBase по умолчанию пуст) -
+/// анализатор и транспилятор полностью игнорируют узел и его содержимое.
+class TrustContract : public AstNodeBase {
+  public:
+    TrustContract() { m_kind = ParserToken::Kind::TrustContract; }
+
+    /// Терм-конструктор: выражение строится из term->m_right (грамматика
+    /// `trust_contract: BEGIN [kind COLON] logical END`); kind резолвится из префикса
+    /// `IDENT COLON` (см. ast_nodes.cpp). Объявлен здесь, определён в ast_nodes.cpp.
+    TrustContract(ParserToken::Kind k, TermPtr term, Context* ctx = nullptr);
+
+    /// Manual-конструктор: выражение задано явно, без TermPtr (test-only/синтетический).
+    TrustContract(ParserToken::Kind k, AstNodePtr expr, PropertyKind kind = PropertyKind::kUnknown)
+    : AstNodeBase(k)
+    , m_expr(std::move(expr))
+    , kind(kind) {}
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    AstNodePtr m_expr{};                        ///< Логическое выражение контракта (или nullptr для ручного пустого)
+    PropertyKind kind = PropertyKind::kUnknown; ///< Тип контракта (kUnknown - автовывод из места)
+};
+
+/// TrustElem - узел термина решателя (SMT/Z3) внутри выражения trust-контракта:
+/// `@( term, args... @)` → old/forall/exists/fresh/length/result. Первый аргумент
+/// (маркер) резолвится в Z3TermKind::kind; остальные - в m_args. Для кванторов (Forall/Exists)
+/// первый аргумент m_args - переменная-связка, последний - тело. НЕ входит в children().
+class TrustElem : public AstNodeBase {
+  public:
+    TrustElem() { m_kind = ParserToken::Kind::TrustElem; }
+
+    /// Терм-конструктор: kind резолвится из первого аргумента (маркера), остальные аргументы -
+    /// в m_args. Объявлен здесь, определён в ast_nodes.cpp.
+    TrustElem(ParserToken::Kind k, TermPtr term, Context* ctx = nullptr);
+
+    /// Manual-конструктор (test-only/синтетический).
+    TrustElem(ParserToken::Kind k, Z3TermKind term, std::vector<AstNodePtr> args)
+    : AstNodeBase(k)
+    , kind(term)
+    , m_args(std::move(args)) {}
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    Z3TermKind kind = Z3TermKind::kUnknown; ///< Маркер термина решателя (резолвится из первого аргумента).
+    std::vector<AstNodePtr> m_args;         ///< Аргументы (для forall/exists: [var, body]).
+    /// Разрешённый тип переменной-связки квантора (`@( forall, i, P @)`): берётся из объявления
+    /// `i` ранее (разрешение имён), НЕ выводится. Ставит семантика; solver читает его как сорт.
+    /// INVALID_TYPE_ID - не установлен (ошибка на этапе semantic). Переживает таблицу символов.
+    TypeId m_boundVarType = INVALID_TYPE_ID;
 };
 
 } // namespace trust

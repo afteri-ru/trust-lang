@@ -41,6 +41,11 @@ class SolverInterface {
     /// Check satisfiability of current assertions
     virtual SolverResult checkSat() = 0;
 
+    /// Значение именованной константы в модели последнего (SAT) check-sat - для отчёта о
+    /// контрпримере. nullopt - недоступно (нет модели/бэкенд stub/не константа). srt - сорт
+    /// константы (для корректной интерпретации значения).
+    virtual std::optional<std::string> getModelValue(const std::string& name, const SmtSort& srt) = 0;
+
     /// Push/pop stack
     virtual void push(uint32_t depth = 1) = 0;
     virtual void pop(uint32_t depth = 1) = 0;
@@ -55,6 +60,12 @@ class SolverInterface {
 /// Create a solver instance.
 /// With WITH_SOLVER=ON returns SolverZ3, otherwise returns SolverStub.
 std::unique_ptr<SolverInterface> createSolver();
+
+/// Выполняет SMT-LIB 2 скрипт через бэкенд: set-logic/declare-fun/assert/check-sat (get-model и
+/// прочие команды игнорируются). Возвращает результат последнего check-sat; если check-sat не
+/// выполнялся (нет условий) - kError. При SAT (найден контрпример) в out_model (если не nullptr)
+/// собираются значения 0-арных констант (параметры func_param) из модели - для отчёта о контрпримере.
+SolverResult runScript(SolverInterface& solver, const SmtScript& script, std::vector<std::pair<std::string, std::string>>* out_model = nullptr);
 
 } // namespace solver
 } // namespace trust

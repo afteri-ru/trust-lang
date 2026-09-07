@@ -1,0 +1,5 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Глобальная/модульная нетипизированная `:= _` (вне потока функции) → Error: нужен явный тип.
+g := _;
+# CHECK: error: non-local 'g := _' requires an explicit type annotation

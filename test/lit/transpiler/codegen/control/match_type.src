@@ -1,0 +1,17 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка генерации C++ для оператора match по ТИПУ (~>) через DSL-макросы @match/@case/@default.
+# Оператор ~> эмитит trust::typeMatches<T>(tmp): для полиморфных значений - dynamic_cast (подтипы),
+# для не-полиморфных (скаляр) - точное typeid-сравнение. Требует #include "trust/interrupt.hpp".
+x:Int32 := 5;
+@match(x) ~> {
+    @case(:Int32) { y := 1; };
+    @default { y := 0; };
+};
+# CHECK: #include "trust/interrupt.hpp"
+# CHECK: const int32_t c__match1 = c_x;
+# CHECK-NEXT: if (trust::typeMatches<int32_t>(c__match1)) {
+# CHECK-NEXT:     int8_t c_y = 1;
+# CHECK-NEXT: } else {
+# CHECK-NEXT:     int8_t c_y = 0;
+# CHECK-NEXT: }

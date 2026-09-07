@@ -131,9 +131,28 @@ struct VariantTypeData {
     std::vector<VariantMemberData> members; // члены в порядке объявления
 };
 
+// 11. Пользовательский нативный шаблон-тип (объявление `<T> %std::vector() := ...;` и его
+//     инстанциация `vector<Int32>`). cppTemplate - C++-имя шаблона ("std::vector"), args - типовые
+//     аргументы (типы). Значение-аргументы (value-параметры, `array<Int32, 4>`) - в Этапе B2
+//     (кодируются в TypeKey::names, как размерности у Array). Абстрактный шаблон (объявление) -
+//     args пуст; конкретная инстанциация - args непусто. Инклуд - из `@[include]` в preprocIncludes.
+struct NativeTemplateTypeData {
+    std::string cppTemplate;  // C++-имя шаблона, напр. "std::vector" / "std::pair"
+    std::vector<TypeId> args; // типовые аргументы (TypeId); пусто = абстрактный шаблон
+};
+
+// 12. Forward-объявление НАТИВНОГО класса (`String ::= %std::string { ... };`) - тип, отображаемый
+//     на существующее C++-имя (cppName). Класс определён в C++-заголовке (инклуд из @[include] в
+//     preprocIncludes); C++-struct НЕ генерируется. Члены-интерфейс (методы/поля/конструкторы/
+//     статич-члены) - в TypeDescriptor::methods (как у встроенных типов). trust-имя класса - в
+//     TypeDescriptor::name; отображается на cppName при использовании типа (resolveCppTypeId).
+struct NativeClassTypeData {
+    std::string cppName; // C++-имя класса, напр. "std::string" / "std::pair"
+};
+
 // -- Объединение вариантов --
 using TypeData = std::variant<SimpleTypeData, FunctionTypeData, TemplateTypeData, ArrayTypeData, MemberPointerTypeData, RefTypeData, PackExpansionTypeData,
-                              TupleTypeData, EnumTypeData, VariantTypeData>;
+                              TupleTypeData, EnumTypeData, VariantTypeData, NativeTemplateTypeData, NativeClassTypeData>;
 
 // -- TypeDataKind - идентификатор варианта TypeData ----------
 enum class TypeDataKind : uint8_t {
@@ -147,6 +166,8 @@ enum class TypeDataKind : uint8_t {
     kTuple,
     kEnum,
     kVariant,
+    kNativeTemplate,
+    kNativeClass,
 };
 
 // -- TypeKey для структурного интернирования --------------
@@ -242,18 +263,18 @@ class TypeRegistry {
     /// stores name + attrs + sourceRange + preprocInclude in m_descriptors.
     /// @return TypeId of the new type, or INVALID_TYPE_ID on duplicate.
     TypeId registerType(std::string_view name, TypeId baseTypeId, std::vector<AttrId> attrs = {}, MapperRange sourceRange = {},
-                        std::string_view preprocInclude = {});
+                        std::string_view preprocInclude = {}, bool hasTrust = false);
 
     /// Регистрирует пользовательский enum-тип (Group::kEnums, EnumTypeData).
     /// valueType - единый тип значений членов (Color.Value); members - члены в порядке
     /// объявления. НЕ алиас (baseType=INVALID, canonical = сам тип); имя уникально.
     /// @return TypeId нового типа, или INVALID_TYPE_ID при дубликате имени.
-    TypeId registerEnumType(std::string_view name, TypeId valueType, std::vector<EnumMemberData> members, MapperRange sourceRange = {});
+    TypeId registerEnumType(std::string_view name, TypeId valueType, std::vector<EnumMemberData> members, MapperRange sourceRange = {}, bool hasTrust = false);
 
     /// Регистрирует пользовательский Variant-тип (Group::kVariants, VariantTypeData).
     /// Каждый член имеет СВОЙ тип (гетерогенный, → std::variant). НЕ алиас; имя уникально.
     /// @return TypeId нового типа, или INVALID_TYPE_ID при дубликате имени.
-    TypeId registerVariantType(std::string_view name, std::vector<VariantMemberData> members, MapperRange sourceRange = {});
+    TypeId registerVariantType(std::string_view name, std::vector<VariantMemberData> members, MapperRange sourceRange = {}, bool hasTrust = false);
 
     /// Structural uniquing: create or retrieve a structural type identified by
     /// kind + children (+ имена для Tuple). Used for FunctionType, TemplateType, ArrayType, etc.
@@ -303,12 +324,48 @@ class TypeRegistry {
     /// функциональный тип с T→Elem (мутирует реестр → метод не const).
     TypeId instantiateArrayMethod(TypeId objType, TypeId templateFuncType);
 
+    // -- Пользовательские нативные шаблоны-типы (`<T> %std::vector() := ...;`) --
+
+    /// Регистрирует объявленный нативный шаблон-тип как АБСТРАКТНЫЙ структурный тип
+    /// (Group::kNativeTemplate, Data=0, name=cppTemplate): `vector<Int32>` (инстанциация) при
+    /// резолве находит его по trust-имени и интернирует конкретный NativeTemplateTypeData-тип.
+    /// preprocIncludes - из `@[include]` (инклуд on-use при использовании типа). Возвращает
+    /// INVALID_TYPE_ID при дубликате имени (диагностика уже сформирована).
+    TypeId registerNativeTemplate(std::string_view name, std::string_view cppTemplate, MapperRange sourceRange, std::string_view preprocInclude = {});
+
+    /// Интернирует КОНКРЕТНУЮ инстанциацию нативного шаблона `vector<Int32>`: структурный тип
+    /// (Group::kNativeTemplate, Data=1) с NativeTemplateTypeData{cppTemplate, args}. Идентичность
+    /// - по (kind, children=args) через TypeKey; preprocIncludes (заголовок шаблона) добавляется.
+    TypeId getOrCreateNativeTemplateType(std::string_view cppTemplate, std::vector<TypeId> args, std::string_view preprocInclude = {});
+
+    /// true для нативного шаблона-типа (абстрактного или инстанциации) - Group::kNativeTemplate.
+    bool isNativeTemplateType(TypeId id) const noexcept;
+    /// C++-имя нативного шаблона (NativeTemplateTypeData::cppTemplate); пусто - не нативный шаблон.
+    std::string_view nativeTemplateCppName(TypeId id) const noexcept;
+    /// Типовые аргументы инстанциации (NativeTemplateTypeData::args).
+    const std::vector<TypeId>& nativeTemplateArgs(TypeId id) const noexcept;
+
+    // -- Forward-объявления нативных классов (`String ::= %std::string { ... };`) --
+
+    /// Регистрирует нативный класс (Group::kNativeClass, NativeClassTypeData{cppName}) под trust-
+    /// именем. C++-struct НЕ генерируется: при использовании типа эмитится cppName + инклуд из
+    /// @[include] (preprocIncludes, on-use). Методы/поля-интерфейс добавляются через addMethod.
+    /// Возвращает INVALID_TYPE_ID при дубликате имени (диагностика уже сформирована).
+    TypeId registerNativeClass(std::string_view name, std::string_view cppName, MapperRange sourceRange, std::string_view preprocInclude = {});
+
+    /// true для нативного класса (Group::kNativeClass).
+    bool isNativeClassType(TypeId id) const noexcept;
+    /// C++-имя нативного класса (NativeClassTypeData::cppName); пусто - не нативный класс.
+    std::string_view nativeClassCppName(TypeId id) const noexcept;
+
     /// Create or retrieve a FunctionType by structural uniquing.
     /// @param returnType  TypeId of the return type (INVALID_TYPE_ID = Void).
     /// @param paramTypes  List of parameter TypeIds.
     /// @param variadicType INVALID_TYPE_ID = not variadic.
+    /// @param hasTrust  true - функция несёт trust-условия (пред/пост): даёт ОТДЕЛЬНЫЙ
+    ///   функциональный TypeId от идентичной сигнатуры без условий (бит kTrustFlag в TypeKind).
     /// @return TypeId of the created FunctionType.
-    TypeId getOrCreateFunctionType(TypeId returnType, std::vector<TypeId> paramTypes, TypeId variadicType = INVALID_TYPE_ID);
+    TypeId getOrCreateFunctionType(TypeId returnType, std::vector<TypeId> paramTypes, TypeId variadicType = INVALID_TYPE_ID, bool hasTrust = false);
 
     /// Get or create a structural reference/pointer type: node with a given RefType and a
     /// single pointee child. Used for nested references (a reference to an already-referenced
@@ -320,6 +377,14 @@ class TypeRegistry {
     /// ссылка на уже ссылочный тип - составной узел getOrCreateRefType. Единый источник
     /// применения @[reftype(...)] для семантики и транспилятора.
     TypeId applyRefType(TypeId base, RefType kind);
+
+    /// true для встроенной политики синхронизации доступа (Group::kSyncPolicy, Data=1..3).
+    bool isSyncPolicyType(TypeId id) const noexcept;
+
+    /// Сравнение типов с учётом признака наличия атрибутов (kHasAttrsFlag). Fast-path: если
+    /// НИ у одного из типов флага нет - сравнение по TypeId (без обращения к реестру). Если флаг
+    /// есть хоть у одного - полное сравнение через реестр (канонический тип + атрибуты + данные).
+    bool typesEqual(TypeId a, TypeId b) const;
 
     // -- Методы типов (obj.method(...)) --
 
@@ -347,6 +412,11 @@ class TypeRegistry {
     /// Ищет метод по имени и возвращает его интернированный функциональный тип (funcType из
     /// findMethodInfo). INVALID_TYPE_ID - метод не найден.
     [[nodiscard]] TypeId findMethod(TypeId type, std::string_view name) const;
+
+    /// Ищет СТАТИЧЕСКИЙ член нативного класса (зарегистрированный ключ содержит '::', вид
+    /// `ns::Class::name`) по последнему сегменту имени. Возвращает интернированный функциональный
+    /// тип члена (у поля returnType = тип поля) или INVALID_TYPE_ID, если статический член не найден.
+    [[nodiscard]] TypeId findStaticMethod(TypeId type, std::string_view name) const;
 
     /// Returns the primary preprocInclude (первый из списка) for a registered type (by TypeId).
     /// For builtin types (no descriptor) returns empty string_view.
@@ -381,6 +451,11 @@ class TypeRegistry {
     /// Returns the baseType from TypeDescriptor, or INVALID_TYPE_ID if not an alias.
     TypeId getBaseType(TypeId id) const noexcept;
 
+    /// Returns the pointee/value type a reference (RefType) points to: for a structural
+    /// RefTypeData node - its pointeeType; for a fast-path reference bit - the same type with
+    /// the reference bits cleared. For a non-reference type returns id unchanged.
+    TypeId getPointeeType(TypeId id) const noexcept;
+
     /// True для пользовательского типа (алиас, зарегистрированный семантикой), false для
     /// машинных типов и встроенных алиасов (Integer, String, Char...). Различие по registry_index:
     /// машинные типы регистрируются первыми (слоты 1..m_builtinCount), пользовательские - позже (>N).
@@ -411,11 +486,17 @@ class TypeRegistry {
 
   private:
     TypeId registerBuiltinType(std::string_view name, Group group, uint8_t data = 0, std::string_view cpp_name = {},
-                               std::vector<std::string> preprocIncludes = {});
+                               std::vector<std::string> preprocIncludes = {}, bool markAttrs = false);
     void registerBuiltinTypes();
 
-    // -- Общее иммутабельное ядро встроенных типов (полное определение - в registry.cpp) --
-    struct BuiltinTypeCore;
+    // -- Общее иммутабельное ядро встроенных типов (полное определение здесь, в заголовке:
+    //    его используют и registry.cpp, и builtin_types.cpp) --
+    struct BuiltinTypeCore {
+        std::vector<TypeDescriptor> descriptors;            // встроенные дескрипторы (index = registry_index-1)
+        std::unordered_map<std::string, TypeId> name_to_id; // встроенные имена (+ cpp-имена, алиасы)
+        std::vector<RuntimeSymbol> runtimeSymbols;          // встроенные рантайм-символы
+        size_t builtinCount = 0;                            // = descriptors.size()
+    };
     enum class BuiltinSeedTag {};
     /// Seed-конструктор: строит встроенное ядро В ЭТОМ экземпляре (один раз, внутри builtinCore()).
     TypeRegistry(DiagnosticEngine& diag, const Options& opts, BuiltinSeedTag);

@@ -1,0 +1,27 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Проверка генерации C++ для оператора match через DSL-макросы @match/@case/@default.
+# Scrutivee вычисляется один раз во временную const-переменную (создаёт LOWERING, не транспилятор);
+# целочисленный тип значения → C++ switch. Несколько элементов условия (@case(2, 3)) → несколько case.
+x:Int32 := 5;
+@match(x) ==> {
+    @case(1) { y := 1; };
+    @case(2, 3) { y := 2; };
+    @default { y := 0; };
+};
+# CHECK: const int32_t c__match1 = c_x;
+# CHECK-NEXT: switch (c__match1) {
+# CHECK-NEXT:     case 1: {
+# CHECK-NEXT:         int8_t c_y = 1;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     break;
+# CHECK-NEXT:     case 2:
+# CHECK-NEXT:     case 3: {
+# CHECK-NEXT:         int8_t c_y = 2;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     break;
+# CHECK-NEXT:     default: {
+# CHECK-NEXT:         int8_t c_y = 0;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     break;
+# CHECK-NEXT: }

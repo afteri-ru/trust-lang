@@ -25,7 +25,14 @@
 | 6 | `kRef` | ссылка (`&`), только через атрибут |
 | 7 | `kRref` | rvalue-ссылка (`&&`), только через атрибут |
 | 8 | `kPtrPtr` | указатель на указатель (`**`) |
-| 9 | `kTake` | владеющая в рамках текущего скоупа (RAII-охранник, результат take) |
+| 9 | `kLocker` | охраняемый доступ к reference-wrapper (`Shared`/`Weak`): RAII-охранник (результат `lock()/lock_const()`) |
+
+**Двухосевая модель.** `RefType` смешивает две независимые оси: **владение временем жизни**
+(`value`/`shared`/`weak`/`unique`) и **доступ к объекту** (сырой `&`/`*` против охраняемого
+`locker`). `kLocker` — охраняемый доступ **только** к reference-wrapper (`trust::Shared`/`trust::Weak`),
+результат `lock()/lock_const()`. Сырые ссылки (`ptr`/`ref`/`rref`) и `unique_ptr` локера **не имеют**
+— это другая идеология (прямой доступ без guard). Null-безопасность — отдельная ось (контракт типа),
+а не guard-объект.
 
 **Центральное правило:** один признак ссылки на объявление. Это **осознанное решение** для
 упрощения понимания системы ссылочных типов (а не следствие 4-битного поля). Читатель и
@@ -58,7 +65,7 @@
 ### Источник признака: атрибут `@[reftype("...")]`
 
 Вид ссылки задаётся атрибутом `@[reftype(<имя>)]` **перед переменной/типом**. Имя - одно из
-мнемонических: `value/shared/weak/unique/ptr/mptr/ref/rref/ptrptr/take`. Неизвестное имя или
+мнемонических: `value/shared/weak/unique/ptr/mptr/ref/rref/ptrptr/locker`. Неизвестное имя или
 отсутствие параметра - **диагностика ошибки** (без тихого fallback).
 
 **Форма записи.** Параметры атрибутов хранятся как текст, поэтому имя вида можно указывать
@@ -143,10 +150,12 @@
 - Трансляция в `NameResolutionPass::analyzeVarDecl`: fast-path бит / узел для вложенности,
   диагностика неизвестного вида (`semantic/name_resolution.cpp`).
 - Кодогенерация C++-имени: `TypeRegistry::getCppTypeName` эмитит `T*`/`T&`/`T&&`/`T**`,
-  `std::shared_ptr<T>`/`std::weak_ptr<T>`/`std::unique_ptr<T>`, `MemberType Class::*` (mptr)
-  и рекурсивно для вложенных `RefTypeData`-узлов; `CppTranspiler::collectTypeIncludes` добавляет
-  `#include <memory>` для shared/weak/unique (`types/registry.cpp`, `transpiler/transpiler.cpp`).
-- **Спецслучай C-строки**: `StrChar + ptr + const` (`fmt: @[reftype(ptr)]@ StrChar^`) - это
+  `trust::Shared<T>` (kShared)/`trust::Weak<trust::Shared<T>>` (kWeak)/`std::unique_ptr<T>`
+  (kUnique)/`trust::Locker<T>` (kLocker), `MemberType Class::*` (mptr) и рекурсивно для вложенных
+  `RefTypeData`-узлов; `CppTranspiler::collectTypeIncludes` добавляет `@trust/trusted-cpp.hpp`
+  для shared/weak и `#include <memory>` для unique (`types/registry.cpp`,
+  `transpiler/type_emit.cpp`).
+- **Спецслучай C-строки**: `StrChar + ptr + const` (`fmt: @[reftype(ptr)@] StrChar^`) - это
   `const char*` (а не `const std::string*`): `TypeRegistry::applyRefType` (единый источник
   fast-path/вложенности для семантики и транспилятора), спецправило в `resolveCppTypeId`
   (`types/registry.cpp`, `transpiler/transpiler.cpp`).
@@ -162,6 +171,50 @@
   EXPECT). Семантика проверяет наличие метода, число аргументов и тип возврата ДО генерации
   (`NameResolutionPass::handleMethodCall`).
 - Тесты: `test/unit/types/reftype_test.cpp`, `test/unit/types/type_method_test.cpp`.
+
+### Символический синтаксис ссылок (реализовано)
+
+Помимо атрибута `@[reftype("...")]` ссылочные типы задаются символическими **маркерами/операторами**
+(НЕ «сиглы» - сигл это первый символ ИМЕНИ, ссылка частью имени не является). **Позиция определяет
+смысл** (см. `include/syntax/SYNTAX.md` «Ссылочные типы»):
+
+- **Слева от `:=`/`=` - маркер ссылки (должен быть СОГЛАСОВАН)**:
+  - маркер ПЕРЕД именем переменной (`&& x : && Int32`, `&* u := 10`, `&? w := & x`), при явном типе
+    тип обязан нести тот же маркер (`&& x : && Int32`), либо тип опускается (авто-вывод pointee из
+    инициализатора: `&& x := 5`);
+  - несогласованные формы - ошибки: `x : &&Int32` (маркер только у типа), `&& x : Int32` (маркер у
+    переменной, тип - значение), `&& x : &* Int32` (разные маркеры, `reference kind mismatch`).
+  Терм `ptr lval` (`&&`/`&*`/`&?` → OPERATOR_PTR) разворачивается в
+  `TermToAstConverter::visit_CREATE_NAME`: имя берётся из lval, маркер превращается в атрибут
+  `@[reftype("...")]` на объявлении (вид ссылки - часть ТИПА, маркер задаёт его у переменной);
+  дальше работают стандартные `applyRefAttrs` (семантика, включая проверку согласованности с видом
+  у типа и недвойное применение при совпадении) и reftype-ветка `DeclEmitter` (кодоген).
+  Кодогенерация: shared/weak - конструктор `trust::Shared/Weak<...>(init)` (для address-of-инициализатора
+  `& x` - копирующая `= <init>`, чтобы избежать most-vexing-parse), unique -
+  `std::unique_ptr<PoT> x = std::make_unique<PoT>(init)`; для авто-вывода pointee берётся из
+  выведенного типа (getPointeeType).
+- **Справа/в выражении**:
+  - `& expr` (address-of/borrow) - взятие ссылки; допустимо ТОЛЬКО для ссылочной переменной,
+    weak получается ТОЛЬКО из shared (`& shared_var`); unique → ошибка, не-ссылка → ошибка.
+    Типизация - `ExprTyper` (case `RefMakeExpr`), тип результата (weak) сохраняется в
+    `RefMakeExpr::m_resultType` (транспилятору локальные символы недоступны), кодоген - эмиссия
+    `trust::Weak<...>(c_x)` (`ExprEmitter::visit_RefMakeExpr`).
+  - `* expr` - доступ к ДАННЫМ ссылочного операнда (семантика std::reference_wrapper<T>::get() -
+    ссылка на данные). Для shared/weak - `*(ref.lock())` (под защитой/через weak; lock() бросает на
+    истёкшей ссылке); для unique/ptr - `trust::checked_deref(c_u.get())` / `trust::checked_deref(c_p)`
+    (БЕЗ UB на nullptr: `trust::checked_deref` бросает `trust::IntMinus` на нулевом указателе).
+    Вид операнда (m_opRefKind) ставит семантика в `RefTakeExpr`, кодоген - `ExprEmitter::visit_RefTakeExpr`.
+  - `a :=: b` - swap (интринсик `std::swap`), возвращает `&a`; типы должны быть совместимы
+    (не обязательно ссылки). `var :=: _` → `std::move(var)` (перемещение в discard). Грамматика
+    `assign_seq: assign_items SWAP assign_items`, узел `Binary(AssignOp)` с текстом `:=:`
+    (term_to_ast `visit_SWAP`), семантика - `typeBinaryResult` (`utils::isSwapOp`), кодоген -
+    `ExprEmitter::emitBinaryOpRaw`.
+- **Контракт value-vs-reference** (`ExprTyper::checkAssignmentNarrowing` + `typeBinaryResult`):
+  копирование ссылки в значение - ошибка + fixit `*<name>`; weak из unique - ошибка (ось
+  владения); арифметика/сравнение над ссылками - ошибка (нет ссылочной арифметики) + fixit
+  `*<name>`; swap - ошибка при несовместимых типах.
+
+
 
 ---
 

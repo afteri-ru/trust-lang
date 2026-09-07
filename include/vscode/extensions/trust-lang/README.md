@@ -4,7 +4,7 @@ Language support and debugger for [Trust language](https://github.com/afteri-ru/
 
 ## Features
 
-- **Syntax highlighting** for `.src` files
+- **Syntax highlighting** for `.src` files - includes the **"Trust Language"** color theme (enable via *Preferences: Color Theme*)
 - **Language Server Protocol (LSP)** - diagnostics, completions, hover info
 - **Debug Adapter Protocol (DAP)** - full debugging via GDB
 - **Tasks** - build and run `.src` files directly from VS Code

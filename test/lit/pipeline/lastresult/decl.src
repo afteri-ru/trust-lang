@@ -1,0 +1,14 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+#
+# `$^` = значение последнего оператора. Источник - декларация `x := 1;` (результат - значение `x`):
+# временная НЕ нужна, `$^` в sink переписывается прямо на `x` (c_r = c_x).
+%f():Int32 := {
+    x := 1;
+    r := $^;
+    return r;
+};
+# CHECK: int32_t f() {
+# CHECK-NEXT:     int8_t c_x = 1;
+# CHECK-NEXT:     int8_t c_r = c_x;
+# CHECK-NEXT:     return c_r;
+# CHECK-NEXT: }

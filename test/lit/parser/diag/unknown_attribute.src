@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-ast %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Неизвестный (незарегистрированный) атрибут -> диагностика (по умолчанию Error).
+# Управляется -Wunknown-attributes (default error; silence -Wunknown-attributes=ignore).
+@[nosuchattr@] x := 1;
+# CHECK: error: unknown attribute 'nosuchattr'

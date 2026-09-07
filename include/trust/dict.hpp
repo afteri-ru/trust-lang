@@ -97,7 +97,7 @@ struct TypedValue {
     [[nodiscard]] bool isStrWide() const noexcept { return group() == kGroupStrWide; }
     [[nodiscard]] bool isString() const noexcept { return isStrChar() || isStrWide(); }
     [[nodiscard]] bool isDict() const noexcept { return group() == kGroupDicts; }
-    [[nodiscard]] bool isRational() const noexcept { return group() == kGroupRationals; }
+    [[nodiscard]] bool isRational() const noexcept { return group() == kGroupArbitraryPrecision; }
 
     /// Типизированный доступ к значению по C++-типу T (быстрая ветка variant или std::any).
     /// Несовпадение категории T с группой значения → std::bad_any_cast.
@@ -169,7 +169,7 @@ struct TypedValue {
                 return;
             }
         } else if constexpr (std::is_same_v<DT, Rational>) {
-            if (g == kGroupRationals) {
+            if (g == kGroupArbitraryPrecision) {
                 storage = std::forward<T>(v); // по значению; копирование - внутренний deep-copy Rational
                 return;
             }
@@ -179,6 +179,7 @@ struct TypedValue {
 
   private:
     // Значения Group из types/group.hpp - кодировка TypeKind (ABI рантайма).
+    // Группа 8 = произвольная точность (kArbitraryPrecision): Rational (и BigInteger).
     static constexpr uint8_t kGroupLogical = 2;
     static constexpr uint8_t kGroupIntegers = 3;
     static constexpr uint8_t kGroupUnsigned = 4;
@@ -186,7 +187,7 @@ struct TypedValue {
     static constexpr uint8_t kGroupStrChar = 9;
     static constexpr uint8_t kGroupStrWide = 10;
     static constexpr uint8_t kGroupDicts = 11;
-    static constexpr uint8_t kGroupRationals = 8;
+    static constexpr uint8_t kGroupArbitraryPrecision = 8;
 };
 
 class Dict {

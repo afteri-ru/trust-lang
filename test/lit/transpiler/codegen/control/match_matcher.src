@@ -1,0 +1,17 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+#
+# Переопределённая функция сравнения match (атрибут @[matcher("fn")@]): вместо (tmp == pattern)
+# в каждой ветке эмитится вызов fn(tmp, pattern). Scrutinee по-прежнему вычисляется один раз во
+# временную const-переменную. Switch неприменим (шаблоны - не константы) - всегда if/else-цепочка;
+# несколько шаблонов одной ветки объединяются через ||.
+@func has_suffix(s:StrChar, p:StrChar):Bool { @return false; };
+s:StrChar := 'hello';
+[s] @[matcher("has_suffix")@] ==> {
+    @case('lo') { y := 1; };
+    @case('a', 'b') { y := 2; };
+    @default { y := 0; };
+};
+# CHECK: const std::string c__match1 = c_s;
+# CHECK-NEXT: if (c_has_suffix(c__match1, "lo")) {
+# CHECK: } else if (c_has_suffix(c__match1, "a") || c_has_suffix(c__match1, "b")) {
+# CHECK: } else {

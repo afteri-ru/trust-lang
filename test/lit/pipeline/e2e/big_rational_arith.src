@@ -1,0 +1,26 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/big_rational_arith %s
+# RUN: $TD/big_rational_arith > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: z=12 q=3 rq=3\2 m=16\1 big=9223372036854775808
+
+# Строгая арифметика BigInteger/Rational (НЕ std::any):
+#   * BigInteger*BigInteger → BigInteger (z=12);
+#   * BigInteger/BigInteger → BigInteger (целочисленное q=3);
+#   * Rational/Rational → Rational (rq=3\2, точное деление);
+#   * BigInteger*Rational → Rational (m=16\1);
+#   * standalone сверхразрядный литерал `big := <huge>` → BigInteger (без ошибки переполнения).
+
+%chk():Void := {
+    x:BigInteger := 3; y:BigInteger := 4;
+    z := x * y;
+    a:BigInteger := 9; b:BigInteger := 3;
+    q := a / b;
+    r1:Rational := 3; r2:Rational := 2;
+    rq := r1 / r2;
+    bi:BigInteger := 8; rn:Rational := 2;
+    m := bi * rn;
+    big := 9223372036854775808;
+    print('z={} q={} rq={} m={} big={}', z, q, rq, m, big);
+};
+{% int big_rational_arith__main__() { chk(); return 0; } %}

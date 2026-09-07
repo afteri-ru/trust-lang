@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/native_template_vector %s
+# RUN: $TD/native_template_vector > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: first=1 size=3
+
+# Нативный шаблон-тип `@include("vector") <T> %std::vector() := ...;` объявляет тип `vector<T>`.
+# Использование `vector<Int32>` эмитит `std::vector<int32_t>` (инстанциация объединяется с `:Array`)
+# + on-use `#include <vector>`; реальная программа компилируется и линкуется с рантаймом.
+@include("vector")
+<T> %std::vector() := ...;
+
+@main() := {
+    v: vector<Int32> := [1, 2, 3,];
+    @print('first={} size={}\n', v[0], :Int64( {% $v.size() %} ));
+    @return 0;
+}

@@ -17,50 +17,30 @@
 #include "types/type_names.hpp"
 #include "utils/operators.hpp"
 
+#include <algorithm>
+#include <string>
 #include <string_view>
 
 namespace trust {
 
-// -- Парсинг беззнакового целого литерала ----------------
-// Единый хелпер для literalType и проверки сужения литерала в целевую цель
-// (intFitsTarget). base 0 - десятичные/шестнадцатеричные/восьмеричные литералы C++.
-// Текст с ведущим '-' или не являющийся целым числом → false (не типизируем).
-inline bool parseDecimalUInt(std::string_view text, unsigned long long& out) noexcept {
-    if (text.empty() || text[0] == '-') {
-        return false;
-    }
-    try {
-        std::size_t pos = 0;
-        out = std::stoull(std::string(text), &pos, 0);
-        return pos == text.size();
-    } catch (...) {
-        return false;
-    }
-}
-
 // -- Диапазоны целых литералов -----------------------------
 // Границы целых типов и соответствие ширина↔тип вынесены в единый источник
-// `types/int_literal.hpp` (fitsIntegerValue / intTypeForWidth / intTypeForLiteral);
-// здесь остаётся только операторная семантика (литералы, Compare/Logical, any, //).
+// `types/int_literal.hpp` (fitsSignedIntMagnitude / intTypeForSignedMagnitude / intTypeForWidth /
+// intTypeForLiteral / intLiteralType); здесь остаётся только операторная семантика
+// (литералы, Compare/Logical, any, //).
 
 // -- Тип литерала -----------------------------------------
-// IntLiteral → минимальный конкретный знаковый Int, вмещающий значение (Int8/16/32/64);
-// 0 и 1 → Bool (логические литералы). FloatLiteral → Float64 (наибольший поддерживаемый).
+// IntLiteral → единый конвертер intLiteralType: минимальный конкретный знаковый Int,
+// вмещающий значение (Int8/16/32/64); 0 и 1 → Int8 (цифры НЕ выводятся как Bool; Bool —
+// только явная аннотация `0 :Bool`); сверхразрядный (модуль > INT64_MAX) → BigInteger.
+// FloatLiteral → Float64 (наибольший поддерживаемый).
 // StrChar ('…', узкая строка) → StrChar; StrWide ("…", широкая строка) → StrWide.
 // Прочие/неизвестные → INVALID_TYPE_ID.
 inline TypeId literalType(const Literal& lit, const TypeRegistry& reg) {
     switch (lit.kind()) {
-    case ParserToken::Kind::IntLiteral: {
-        unsigned long long v = 0;
-        if (!parseDecimalUInt(lit.text(), v)) {
-            return INVALID_TYPE_ID;
-        }
-        // 0 и 1 - логические литералы (Bool); остальные - минимальный знаковый Int, вмещающий значение.
-        if (v == 0ULL || v == 1ULL) {
-            return reg.getType(type::Bool);
-        }
-        return intTypeForLiteral(reg, v); // единая таблица ширина/границ (types/int_literal.hpp)
-    }
+    case ParserToken::Kind::IntLiteral:
+        // Единый конвертер (types/int_literal.hpp): включает выбор Int/Bool/BigInteger.
+        return intLiteralType(reg, lit.text());
     case ParserToken::Kind::FloatLiteral:
         return reg.getType(type::Float64);
     case ParserToken::Kind::StrChar:
@@ -80,6 +60,8 @@ inline TypeId literalType(const Literal& lit, const TypeRegistry& reg) {
 // -- Тип результата бинарной операции ---------------------
 // По обычным арифметическим преобразованиям C++:
 //   * Compare/Logical → Bool;
+//   * BigInteger/Rational (kArbitraryPrecision) - отдельная ветка (кастомные runtime-типы):
+//     `//` для них недоступно; +/-/*// → точный тип (BigInteger/Rational; Rational "шире");
 //   * MathOp "//" (целочисленное деление) → Int64 (кодогенерация кастует операнды к int64_t);
 //   * один операнд std::any + конкретный числовой → продвинутый конкретный (для any_cast);
 //   * оба any → INVALID (тип невыводим);
@@ -93,15 +75,27 @@ inline TypeId resultTypeBinary(ParserToken::Kind kind, std::string_view op, Type
     if (lhs == INVALID_TYPE_ID || rhs == INVALID_TYPE_ID) {
         return INVALID_TYPE_ID;
     }
-    // Целочисленное деление // и //= → результат Int64 (см. кодогенерацию: static_cast<int64_t>).
-    if (utils::isIntDivOp(op)) {
-        return reg.getType(type::Int64);
-    }
 
     const TypeId lc = reg.getCanonicalTypeId(lhs);
     const TypeId rc = reg.getCanonicalTypeId(rhs);
     const Group lg = getGroup(getKindFromId(lc));
     const Group rg = getGroup(getKindFromId(rc));
+
+    // BigInteger/Rational: отдельная ветка (см. arbitraryPrecisionArithmeticType). Целочисленное
+    // деление `//` для них недоступно (нет int64-каста); смешивание с float - ошибка.
+    const bool lAP = lg == Group::kArbitraryPrecision;
+    const bool rAP = rg == Group::kArbitraryPrecision;
+    if (lAP || rAP) {
+        if (utils::isIntDivOp(op)) {
+            return INVALID_TYPE_ID;
+        }
+        return arbitraryPrecisionArithmeticType(reg, lc, rc);
+    }
+
+    // Целочисленное деление // и //= → результат Int64 (см. кодогенерацию: static_cast<int64_t>).
+    if (utils::isIntDivOp(op)) {
+        return reg.getType(type::Int64);
+    }
 
     const bool lAny = isAnyType(lhs, reg);
     const bool rAny = isAnyType(rhs, reg);

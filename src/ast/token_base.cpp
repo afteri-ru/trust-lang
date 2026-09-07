@@ -35,6 +35,16 @@ MapperRange AstNodeBase::range() const {
 std::string AstNodeBase::dump(size_t indent) const {
     std::string result(indent, ' ');
     result += ParserToken::name(kind());
+    if (!m_trust.empty()) {
+        for (const auto& t : m_trust) {
+            if (t) {
+                result += "\n";
+                result += std::string(indent, ' ');
+                result += "trust: ";
+                result += t->dump(indent + 2);
+            }
+        }
+    }
     return result;
 }
 

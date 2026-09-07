@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/try_through %s
+# RUN: $TD/try_through > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: after
+
+# Сквозной положительный возврат: неименованный `++ 'x' ++` в Level2 бросает trust::IntPlus,
+# пробрасывается через Level1 (нет перехватчика IntPlus) и ловится блоком {+ ... +} в Test.
+# Значение перехваченного прерывания на текущем этапе поглощается; выполнение продолжается.
+
+%Level2():Void := {
+    ++ 'from-L2' ++;
+};
+%Level1():Void := {
+    Level2();
+};
+%Test():Void := {
+    {+ 
+        Level1();
+    +};
+    print('after');
+};
+{% int try_through_functions__main__() {
+    Test();
+    return 0;
+}
+%}

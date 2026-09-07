@@ -1,0 +1,8 @@
+# RUN: %not %trust --dsl %S/recursive_macro.dsl --emit-ast %s > %t.out 2> %t.err
+# RUN: %FileCheck %s --input-file=%t.err
+
+# Самовоспроизведение макроса (`@recurse` -> `recurse` -> `recurse` -> ...) должно давать
+# мягкую Error-диагностику (общий предохранитель от рекурсии, parser::m_macro_expansion_total), а не зависать.
+@recurse;
+# CHECK: error: recursive macro
+# CHECK: possible self-recursion

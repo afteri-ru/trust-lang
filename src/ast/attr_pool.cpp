@@ -29,7 +29,8 @@ AttrPool::AttrPool()
 // AttrPool::register_attr_impl - shared registration (FAULT on duplicate name)
 // ----------------------------------------------------------------------------
 
-AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range) {
+AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range,
+                                    bool analyzer_supported, bool codegen_supported) {
     std::string_view interned_name = intern(name);
 
     // Intern string params
@@ -48,6 +49,8 @@ AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::stri
     bool builtin = def_range.isInvalid();
     Attr attr;
     attr.m_id = detail::with_builtin(static_cast<AttrId>(m_attrs.size()), builtin);
+    attr.m_id = detail::with_analyzer(attr.m_id, analyzer_supported);
+    attr.m_id = detail::with_codegen(attr.m_id, codegen_supported);
     attr.m_name = interned_name;
     attr.m_default_params = std::move(default_params);
     attr.m_def_range = def_range;
@@ -64,16 +67,18 @@ AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::stri
 // AttrPool::register_attr - user-defined attribute
 // ----------------------------------------------------------------------------
 
-AttrId AttrPool::register_attr(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range) {
-    return register_attr_impl(name, std::move(default_params), def_range);
+AttrId AttrPool::register_attr(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range,
+                               bool analyzer_supported, bool codegen_supported) {
+    return register_attr_impl(name, std::move(default_params), def_range, analyzer_supported, codegen_supported);
 }
 
 // ----------------------------------------------------------------------------
 // AttrPool::register_builtin_attr - built-in attribute
 // ----------------------------------------------------------------------------
 
-AttrId AttrPool::register_builtin_attr(std::string_view name, std::vector<std::string_view> default_params) {
-    return register_attr_impl(name, std::move(default_params), MapperRange{});
+AttrId AttrPool::register_builtin_attr(std::string_view name, std::vector<std::string_view> default_params,
+                                       bool analyzer_supported, bool codegen_supported) {
+    return register_attr_impl(name, std::move(default_params), MapperRange{}, analyzer_supported, codegen_supported);
 }
 
 // ----------------------------------------------------------------------------

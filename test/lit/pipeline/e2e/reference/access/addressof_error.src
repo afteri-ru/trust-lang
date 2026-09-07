@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Оператор взятия ссылки `&` допустим ТОЛЬКО для переменной, объявленной как ссылочная.
+# Взятие `&` от value-переменной - ошибка.
+
+@main():Int32 := {
+    v : Int32 := 5;
+    w := & v;
+    return 0;
+};
+# CHECK: error: operator '&' (address-of/borrow) requires a reference variable (shared), got 'Int32'

@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Записи несовместимых категорий (число потом строка) в нетипизированную `:= _` нельзя вывести
+# монотонно → Error с требованием явной аннотации `x:Any := _` (никакого тихого std::any).
+@main() := {
+    x := _;
+    x = 5;
+    x = "s";
+    @print('{}', x);
+};
+# CHECK: error: cannot assign type 'StrWide'
+# CHECK: untyped 'x := _' declaration; use explicit 'x :Any := _'

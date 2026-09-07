@@ -1,17 +1,20 @@
 # test/examples/CMakeLists.txt
-# Examples as the FINAL CTest stage.
+# Examples as a late CTest stage.
 #
 # examples/ contains standalone programs (run/pause individually, e.g. for
 # debugging) - NOT lit tests. Each is run one-by-one via `trust --run`.
 #
-# This subdirectory is added LAST (after test/unit, test/lit, test/vscode), so
-# examples_tests is numbered sequentially last in the CTest list. It is also
-# gated by the `examples_deps` fixture (FIXTURES_REQUIRED), so it runs only after
-# ALL prior suites (package_target_test, unit_tests, lit_tests, vscode_*) complete
-# successfully; if any of them fails, ctest marks examples_tests "Not Run".
+# This subdirectory is added after test/unit, test/lit and test/vscode (and before
+# test/integration / test/package - see the root CMakeLists.txt). It is gated by the
+# `examples_deps` fixture (FIXTURES_REQUIRED), so it runs only after
+# the unit/lit/vscode suites complete successfully; if any of them fails, ctest
+# marks examples_tests "Not Run".
 
-file(GLOB EXAMPLE_SOURCES "${CMAKE_SOURCE_DIR}/examples/*.src")
+file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/examples/*.src")
 list(SORT EXAMPLE_SOURCES)
+# prime.src и fibonacci.src требуют аргументов командной строки (без дефолтов);
+# указываем их для автозапуска в examples-гарнессе (см. cmake/run_examples.cmake.in).
+set(EXAMPLE_RUN_ARGS "prime:2 10;fibonacci:3000")
 
 # Substituted into run_examples.cmake by configure_file(@ONLY).
 set(TRUST_BIN "${CMAKE_BINARY_DIR}/trust")
@@ -29,7 +32,7 @@ add_test(NAME examples_tests
 )
 set_tests_properties(examples_tests PROPERTIES
     FIXTURES_REQUIRED examples_deps
-    FIXTURES_SETUP playground_integration_deps
+    FIXTURES_SETUP integration_deps
     RUN_SERIAL TRUE
     TIMEOUT 600
 )

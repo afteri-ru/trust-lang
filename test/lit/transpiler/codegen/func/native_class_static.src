@@ -1,0 +1,13 @@
+# RUN: %trust --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Статический член `@::count` (имя с '::') раскрывается в ns::Class::count; доступ `MyStr.count` →
+# `std::string::count` + диагностика -Wstatic-member-as-field (default Warning; без -q выводится).
+@include("string")
+MyStr ::= %std::string {
+    @::count: Int32 := ...;
+    %size(): UInt64 := ...;
+};
+c: Int32 := MyStr.count;
+
+# CHECK: warning: static member 'count' accessed as an instance field; use 'MyStr::count'
+# CHECK: int32_t c_c = std::string::count;

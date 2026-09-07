@@ -1,6 +1,34 @@
 /*
+ * Единая светлая цветовая гамма сайта и песочницы (TrustLang).
+ *
+ * Основной источник цвета для SCSS-переменных Bootstrap/Docsy (кнопки, навбар,
+ * ссылки, палитра блоков главной страницы). CSS-переменные `--site-*`, на
+ * которые опирается песочница (--tpl-*), определены в `_styles_project.scss`.
+ */
 
-Add styles or override variables from the theme here.
+// ── Светлая гамма (GitHub-стиль, согласована с песочницей) ────────────────
+$body-bg: #ffffff;
+$body-color: #24292f;
+$border-color: #d1d5db;
 
-*/
+$primary: #0969da;      // приглушённый синий (акцент кнопок/ссылок)
+$primary-hover: #0550ae;
+$secondary: #57606a;
+$info: #6b7280;         // приглушённый серо-голубой (стрелка link-down и пр.)
+$dark: #24292f;         // тёмный (навбар / cover)
+$success: #1a7f37;
+$warning: #9a6700;
+$danger: #cf222e;
+
+$link-color: $primary;
+$link-hover-color: $primary-hover;
+$link-decoration: none;
+$link-shade-percentage: 20%;
+
+// ── Блоки главной страницы ($td-box-colors): нейтральная гамма ────────────
+// Убирает яркие переходы цвета между блоками (было: синий/голубой/зелёный/
+// жёлтый/красный). Все блоки — белые/светло-серые, плавный переход.
+$td-box-colors:
+  #ffffff, #f6f8fa, #eef1f4, #ffffff, #f6f8fa, #eef1f4,
+  #ffffff, #f6f8fa, #eef1f4, #ffffff, #f6f8fa, #ffffff, #f6f8fa, #eef1f4 !default;
 

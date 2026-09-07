@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Переменная catch (e) регистрируется только в скоупе своей ветки; снаружи она недоступна
+# («undefined name»). Внутри ветки e резолвится (см. try_catch_var.src).
+
+try_error {
+    a := 1;
+} catch(e:IntMinus) {
+    b := 2;
+};
+print('{}', e);   # e вне catch → undefined name 'e'
+# CHECK: error: undefined name 'e'

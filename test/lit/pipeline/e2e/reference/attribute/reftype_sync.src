@@ -1,0 +1,24 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/reference_sync %s
+# RUN: $TD/reference_sync > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: sync=14
+
+# Синхронизированная ссылка: @[reftype("shared"|"weak", <policy>[, <timeout>])] транслируется в
+# trust::SyncShared<T, Policy> (shared) / trust::Weak<trust::SyncShared<T, Policy>> (weak);
+# заголовок trust/trusted-cpp-sync.hpp извлекается pipeline. Второй аргумент - РЕАЛЬНОЕ имя класса
+# политики, зарегистрированное в TypeRegistry (Group::kSyncPolicy): SyncMutexPolicy /
+# SyncRwMutexPolicy / SyncSingleThreadPolicy (резолв через реестр, НЕ строковый маппинг).
+# Третий (опциональный) - пер-объектный таймаут детектора (перекрывает глобальный 5s; парсится
+# trust::runtime::syncTimeoutFromString). Захват `*ref` идёт через lock()/lock_const().
+# Слабая ссылка w разделяет тот же синхронизированный объект, что и x (одинаковая политика).
+
+@main():Int32 := {
+    x : @[reftype("shared", "SyncMutexPolicy", "500ms")@] Int32 := 5;
+    w : @[reftype("weak", "SyncMutexPolicy")@] Int32 := x;
+    *x = 7;
+    a := *x;
+    b := *w;
+    print('sync={}\n', a + b);
+    return 0;
+};

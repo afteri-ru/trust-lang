@@ -1,0 +1,12 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# Оператор `using` (макрос `@@ using $... @@ ... = @$... @@@@;` → реальный `... = X`)
+# регистрирует область имён для поиска: голое имя `count` резолвится как `MyStr::count`
+# (статический член, зарегистрированный персистентно). Кода оператор не генерирует.
+@include("string")
+MyStr ::= %std::string {
+    @::count: Int32 := ...;
+};
+using MyStr;
+x: Int32 := count;
+
+# CHECK: int32_t c_x = c_count;

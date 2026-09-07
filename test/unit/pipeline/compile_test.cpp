@@ -138,3 +138,35 @@ TEST(Compile, DISABLED_CustomOptions) {
 TEST(Compile, DISABLED_SourceMapGenerated) {
     FAIL();
 }
+
+// -- Единый builder main-обёртки (buildEntryMainSource): используется многофайловым путём
+//    (_main.cppt) и однофайловым режимом -fsingle-file (встраивание в тот же .cppt).
+
+TEST(Compile, EntryMainSourceNoParams) {
+    PipelineOpts o;
+    const std::string s = buildEntryMainSource(o, /*usesStackCheck=*/false, /*usesSync=*/false, "mod__main__", "");
+    EXPECT_NE(s.find("extern int mod__main__();"), std::string::npos);
+    EXPECT_NE(s.find("int main() {"), std::string::npos);
+    EXPECT_NE(s.find("return mod__main__();"), std::string::npos);
+    EXPECT_EQ(s.find("parseArgs"), std::string::npos); // без параметров разбор аргументов не нужен
+}
+
+TEST(Compile, EntryMainSourceWithParamsStackCheckSync) {
+    PipelineOpts o;
+    o.sync_deadlock_timeout = "3s";
+    const std::string s = buildEntryMainSource(o, /*usesStackCheck=*/true, /*usesSync=*/true, "mod__main__",
+                                               "const trust::Dict, const trust::Dict");
+    // stack-check: TLS `info` определяется в этой же TU
+    EXPECT_NE(s.find("trust/stack_check.hpp"), std::string::npos);
+    EXPECT_NE(s.find("const thread_local trust::stack_check trust::stack_check::info;"), std::string::npos);
+    // args + parseArgs + передача argv/args в entry
+    EXPECT_NE(s.find("trust/args.hpp"), std::string::npos);
+    EXPECT_NE(s.find("extern int mod__main__(const trust::Dict, const trust::Dict);"), std::string::npos);
+    EXPECT_NE(s.find("trust::runtime::parseArgs(argc, argv, \"--trust:\");"), std::string::npos);
+    EXPECT_NE(s.find("return mod__main__(__trust_parsed.argv, __trust_parsed.args);"), std::string::npos);
+    // sync: дефолт детектора + применение системных опций среды
+    EXPECT_NE(s.find("trusted-cpp-sync.hpp"), std::string::npos);
+    EXPECT_NE(s.find("setSyncDeadlockFromString(\"3s\");"), std::string::npos);
+    EXPECT_NE(s.find("applySystemEnv(__trust_parsed.env);"), std::string::npos);
+}
+

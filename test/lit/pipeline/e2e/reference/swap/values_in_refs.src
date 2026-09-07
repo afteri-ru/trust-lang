@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ref_swapval %s
+# RUN: $TD/ref_swapval > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: swap значений: a = 2, b = 1
+
+# Swap работает не только со ссылками (`a :=: b`), но и со ЗНАЧЕНИЯМИ внутри ссылок:
+# `*a :=: *b` → std::swap(*c_a, *c_b) обменивает данные (pointee) двух ссылок.
+
+@main():Int32 := {
+    && a : && Int32 := 1;
+    && b : && Int32 := 2;
+    *a :=: *b;
+    print('swap значений: a = {}, b = {}\n', *a, *b);
+    return 0;
+};

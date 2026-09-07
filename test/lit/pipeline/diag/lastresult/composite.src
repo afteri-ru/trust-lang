@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# `$^` после составного оператора (if) - источник пока не реализован (явная диагностика).
+# CHECK: error: pseudo-variable '$^' (result of the last operation): capture from/after a composite statement (if/loop/match/try/block) is not implemented yet
+%h():Int32 := {
+    a := 1;
+    if (a > 0) {
+        c := a + 1;
+    };
+    r := $^;
+    return r;
+};

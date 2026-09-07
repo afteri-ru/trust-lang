@@ -2,9 +2,33 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "cmake: configure + build (full)",
+            "label": "cmake: configure (dev)",
             "type": "shell",
-            "command": "cmake -B _build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && cmake --build _build",
+            "command": "cmake -B _build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug -DTRUST_BUILD_VSIX=ON",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "cmake: configure (release)",
+            "type": "shell",
+            "command": "cmake -B _build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Release",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "cmake: build",
+            "type": "shell",
+            "command": "cmake --build _build",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -14,24 +38,15 @@
             ]
         },
         {
-            "label": "cmake: build test binaries only",
-            "type": "shell",
-            "command": "cmake -B _build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug && cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py",
-            "group": "build",
-            "problemMatcher": [
-                "$gcc"
-            ]
-        },
-        {
             "label": "test: all (run all via ctest)",
             "type": "shell",
-            "command": "cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py && /usr/local/bin/ctest --test-dir _build --output-on-failure -Q",
+            "command": "cmake --build _build --target test-binaries && /usr/local/bin/ctest --test-dir _build --output-on-failure -Q",
             "group": "test"
         },
         {
             "label": "test: all verbose (full output)",
             "type": "shell",
-            "command": "cmake --build _build --target unit_tests trust trust-dap trust-lsp generate_lit_cfg_py && /usr/local/bin/ctest --test-dir _build --output-on-failure",
+            "command": "cmake --build _build --target test-binaries && /usr/local/bin/ctest --test-dir _build --output-on-failure",
             "group": "test"
         },
         {
@@ -42,3 +57,4 @@
         }
     ]
 }
+

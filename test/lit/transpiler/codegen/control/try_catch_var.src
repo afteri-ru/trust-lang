@@ -1,0 +1,22 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Связывание переменной catch: catch(e:IntMinus) регистрирует e как ЛОКАЛЬНУЮ в скоупе своей
+# ветки (анализатор имён) и манглит её как обычную локальную (e → c_e) в C++-параметре:
+#   catch (trust::IntMinus& c_e). Ссылка на e из тела ветки резолвится и эмитится как c_e.
+
+try_error {
+    a := 1;
+} catch(e:IntMinus) {
+    b := e;   # e видна в теле catch → C++: trust::IntMinus c_b = c_e;
+} else {
+    c := 3;
+};
+# CHECK: #include "trust/interrupt.hpp"
+# CHECK: try {
+# CHECK-NEXT:     int8_t c_a = 1;
+# CHECK-NEXT:     // else
+# CHECK-NEXT:     int8_t c_c = 3;
+# CHECK-NEXT: }
+# CHECK-NEXT: catch (trust::IntMinus& c_e) {
+# CHECK-NEXT:     trust::IntMinus c_b = c_e;
+# CHECK-NEXT: }

@@ -1,0 +1,4 @@
+# Project-level translation overrides merged with the Docsy theme i18n.
+# See https://gohugo.io/functions/i18n/ and hugo.toml [params] vscode_edit.
+[post_edit_vscode]
+other = "Edit in VSCode"

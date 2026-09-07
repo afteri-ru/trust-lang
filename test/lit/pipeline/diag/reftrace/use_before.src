@@ -1,0 +1,11 @@
+# RUN: %trust -q --emit-cpp -Wreftrace=error -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out --implicit-check-not='using the dependent variable'
+
+# Использование зависимой ДО мутации источника - легально (без диагностики даже в режиме error):
+# `w` использована до `x = 42`.
+@main() := {
+    && x := 5;
+    &? w := & x;
+    @print('{}\n', *w);   # OK: до мутации
+    x = 42;
+}
+# CHECK: This file was generated automatically

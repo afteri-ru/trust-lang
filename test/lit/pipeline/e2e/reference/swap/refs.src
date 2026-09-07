@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ref_swap %s
+# RUN: $TD/ref_swap > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: a=2 b=1
+
+# Оператор swap `:=:` для ссылок: обмен владения/значений двух ссылок (std::swap).
+
+@main():Int32 := {
+    && a := 1:Int32;
+    && b := 2:Int32;
+    a :=: b;
+    print('a={} b={}\n', *a, *b);
+    return 0;
+};

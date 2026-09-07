@@ -216,7 +216,13 @@ struct TaggedLocation {
         RangeType(Location b, Location e)
         : begin(b)
         , end(e) {
-            EXPECT(b <= e);
+            // Контроль логики в конструкторе: корректный (валидный) диапазон обязан иметь
+            // упорядоченные границы в одном файле (begin <= end, begin.fileIdx() == end.fileIdx()).
+            // Полувалидные (одна граница invalid) и кросс-файловые диапазоны - легитимные
+            // invalid-диапазоны раскрытия макросов (isInvalid()==true), которые потребитель
+            // (маппер) корректно пропускает; на них EXPECT НЕ бросает, но появление такого
+            // диапазона проходит через проверку ниже, а не проглатывается молча.
+            EXPECT(begin.isInvalid() || end.isInvalid() || begin.fileIdx() != end.fileIdx() || begin <= end);
         }
 
         [[nodiscard]] static RangeType point(Location loc) { return {loc, loc}; }

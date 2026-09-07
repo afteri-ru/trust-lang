@@ -1,0 +1,16 @@
+# RUN: %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Whole-match область находится ВНЕШНИМ поиском по скоуп-стеку (как поиск охватывающей функции):
+# маркер @__CHECK_AREA__(match) внутри default -> вложенный блок -> внутри case проходит, т.к. match
+# выше по стеку скоупов. Маркер block там же тоже проходит (текущий блок). Grammar не меняется.
+x:Int32 := 5;
+@match(x) ==> {
+    @case(1) {
+        { @__CHECK_AREA__(match, error); @__CHECK_AREA__(block, error); a := 1; };
+    };
+    @default {
+        @__CHECK_AREA__(match, error);
+        y := 0;
+    };
+};
+# CHECK: switch (c__match1) {

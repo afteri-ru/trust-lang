@@ -34,34 +34,29 @@ void DiagnosticEngine::clear() {
     m_diagnostics.clear();
 }
 
-// severityToString - маппинг enum → строка. Должен соответствовать порядку Severity.
+// severityToString - маппинг enum → строка, генерируется из x-macro SEVERITIES (severityName);
+// отдельный switch не нужен (источник имён один - severity.hpp).
 static const char* severityToString(Severity sev) {
-    switch (sev) {
-    case Severity::Remark:
-        return "remark";
-    case Severity::Note:
-        return "note";
-    case Severity::Warning:
-        return "warning";
-    case Severity::Error:
-        return "error";
-    case Severity::Fatal:
-        return "fatal";
-    }
-    return "unknown";
+    const std::string_view n = severityName(sev);
+    return n.empty() ? "unknown" : n.data();
 }
 
-DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, OptKind opt, std::string_view msg) {
+DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, std::string_view opt_name, std::string_view msg) {
+    // Ignore - не диагностика: не выводится и не сохраняется (страховка; уровень игнора
+    // обычно отсекается раньше - в Options::get / report с привязкой к опции).
+    if (sev == Severity::Ignore) {
+        return nullptr;
+    }
     // Fatal - не фильтруется ни опциями, ни minSeverity: всегда выводится и прерывает выполнение.
     if (sev != Severity::Fatal) {
-        // Если опция задана и есть Options - проверяем severity через Options.
-        if (m_opts && opt != OptKind::All) {
-            auto opt_sev = m_opts->severity(opt);
-            if (!opt_sev.has_value()) {
-                // opt is "ignore" - не выводим диагностику
+        // Если опция задана (opt_name не пусто) и есть Options - проверяем severity через Options.
+        if (m_opts && !opt_name.empty()) {
+            const Severity opt_sev = m_opts->getByName(opt_name);
+            if (opt_sev == Severity::Ignore) {
+                // opt = "ignore" - не выводим диагностику
                 return nullptr;
             }
-            sev = *opt_sev;
+            sev = opt_sev;
         }
 
         if (sev < m_minSeverity) {
@@ -78,7 +73,7 @@ DiagnosticEntry* DiagnosticEngine::output(Severity sev, MapperRange range, OptKi
     }
 
     // Сохраняем диагностику для последующего извлечения
-    m_diagnostics.push_back({range, sev, opt, std::string(msg), {}});
+    m_diagnostics.push_back({range, sev, opt_name, std::string(msg), {}});
     DiagnosticEntry& entry = m_diagnostics.back();
 
     std::ostream& out = errs();
@@ -149,7 +144,7 @@ void DiagnosticEngine::fixit(DiagnosticEntry* entry, MapperRange range, std::str
         return;
     }
 
-    // Консольный вывод (как было)
+    // Консольный вывод fixit-диагностики
     auto fname = m_ctx->source().get_file(range.begin.fileIdx()).getFilename();
     auto lc = m_ctx->source().line_column(range.begin);
     auto& out = errs();

@@ -1,0 +1,13 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Ссылочные типы НЕ участвуют в арифметике (в языке отсутствует класс ссылочной арифметики;
+# сырые указатели - только для интеграции с C++). Использование незахваченной ссылки в
+# выражении как значения - ошибка + fixit `*<name>` (локер для доступа к значению).
+
+@main():Int32 := {
+    && x := 5;
+    y := x + 1;
+    return 0;
+};
+# CHECK: error: arithmetic '+' on a reference is not allowed (no pointer/reference arithmetic); use '*$x' (locker) to access the value
+# CHECK: fix-it: replace with '*$x'

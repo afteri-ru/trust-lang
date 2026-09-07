@@ -1,0 +1,22 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+#
+# `$^` однороден для всех выражений, ВКЛЮЧАЯ вызов функции: источник `f();` -> временная
+# `__trust_last_1 := f();` (значение = возврат f).
+%f():Int32 := {
+    f:: ++ 42 ++;
+};
+%g():Int32 := {
+    a := 7;
+    f();
+    r := $^;
+    return r + a;
+};
+# CHECK: int32_t f() {
+# CHECK-NEXT:     return 42;
+# CHECK-NEXT: }
+# CHECK: int32_t g() {
+# CHECK-NEXT:     int8_t c_a = 7;
+# CHECK-NEXT:     int32_t c___trust_last_1 = f();
+# CHECK-NEXT:     int32_t c_r = c___trust_last_1;
+# CHECK-NEXT:     return (c_r + c_a);
+# CHECK-NEXT: }

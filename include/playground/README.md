@@ -63,7 +63,7 @@ cmake --build _build --target trust-playground trust-lsp
   `Content-Disposition`.
 - `GET /stats` - JSON-статистика балансировщика. Токен НЕ передаётся в URL: браузер -
   через форму `/stats/login` (cookie-сессия), скрипты - через заголовок `X-Stats-Token`;
-  URL логина печатается при старте (`stats: http://…/stats/login`) и в `playground_run.sh`.
+  URL логина печатается при старте (`stats: http://…/stats/login`) и в `site_playground_run.sh`.
 
 ## Реализация
 
@@ -81,7 +81,8 @@ cmake --build _build --target trust-playground trust-lsp
   что и реальные задачи; при провале - не регистрируется, а выдаёт диагностику и
   завершается (fail-fast, напр. если нет `tar` или не находится `trust-runtime`).
 - `lsp/html_emit.cpp` - glue-JS (комбобокс, лог, кнопка скачивания) и `trust-lsp`
-  принимает `-W...` и пробрасывает их в pipeline (`ctx->opts().parse_argv`).
+  принимает `-W...` и пробрасывает их в pipeline через единую точку `applyDiagnostics`
+  (`applyDiagnostics` → `Options::parse_argv`).
 
 ## Развёртывание
 
@@ -118,13 +119,15 @@ cmake --build _build --target trust-playground trust-lsp
 
 ## Локальная разработка playground в Hugo
 
-`docs/playground_run.sh` поднимает локальную среду за один запуск
-(бэкенд: балансировщик + воркер; страница: hugo server). Скрипт НЕ генерирует
-сайт/фрагменты - только запускает песочницу и hugo. Запуск обязателен из каталога `docs/`:
+`docs/site_playground_run.sh` поднимает локальную среду за один запуск
+(бэкенд: балансировщик + воркер; страница: hugo server). Генерацию контента сайта
+(фрагмент playground с локальным server-url и статику) скрипт делегирует единому
+`docs/site_build.sh`, вызывая его с локальными настройками (out-dir в отдельный каталог
+`../_build/dev-site`, прод-каталог `gh-pages` не трогается). Запуск обязателен из каталога `docs/`:
 
 ```sh
 # из каталога docs/ (после сборки trust-playground и trust-lsp)
-cd docs && ./playground_run.sh            # [backend_port] [web_port]
+cd docs && ./site_playground_run.sh            # [backend_port] [web_port]
 ```
 
 После запуска в консоли печатается адрес для открытия в браузере:
@@ -155,12 +158,12 @@ pkill -f 'hugo server --source docs'   # hugo (если запущен)
 конфига (префиксы/валидация); `dispatch_test.cpp` - диспетчеризация балансировщика
 (реестр/«нет воркеров»/полный цикл poll-run-result).
 
-`test/playground_integration/` - **последний этап CTest** (после `examples_tests`):
+`test/integration/` (драйвер `playground_main.cpp`) - **последний этап CTest** (после `examples_tests`):
 реальный запуск `trust-playground --playground` + воркер + `trust-lsp`, проверка
 полной цепочки `запрос → server → worker → lsp → worker → server → ответ`, а также
 обработки ошибок (нет воркеров → 503+unavailable, неверный токен → 403, ошибка
-транспиляции → ok:false с диагностикой). Валидный код читается из `examples/hello.src`,
-запуск - просто процесс (не сервис), конфиг - временный.
+транспиляции → ok:false с диагностикой). Валидный код читается из `*.src`-файлов
+каталога `examples/`, запуск - просто процесс (не сервис), конфиг - временный.
 
 ---
 
@@ -236,9 +239,11 @@ pkill -f 'hugo server --source docs'   # hugo (если запущен)
 
 ## 6. Build-архив
 
-- Генерирует **trust-lsp** (`--emit-build-dir`): build-каталог pipeline - `.cppt` /
-  `_main.cppt` / `Makefile` / `build.conf` / `LICENSE` / `trust/` (рантайм-заголовки
-  извлекаются из trust-runtime). Временные файлы удаляются.
+- Генерирует **trust-lsp** (`--emit-build-dir`): build-каталог pipeline в однофайловом режиме
+  `-fsingle-file` (как `--run`) - `.cppt` (в него встроены и entry `<модуль>__main__`, и обёртка
+  `int main()`; для «модуль-скрипта» - top-level код без `__main__` - entry синтезируется
+  транспилятором) / `Makefile` / `build.conf` / `LICENSE` / `trust/` (рантайм-заголовки
+  извлекаются из trust-runtime). Отдельный `_main.cppt` не создаётся. Временные файлы удаляются.
 - `build.conf` - **единый переносимый** (идентичен локальной сборке `trust build`):
   без абсолютных путей и без запекания компилятора - `CXXFLAGS += -I.` +
   `LIBS += -ltrust-runtime -lgmp`. Компилятор берётся из Makefile (`CXX ?= c++`) либо
@@ -307,12 +312,13 @@ pkill -f 'hugo server --source docs'   # hugo (если запущен)
 
 ## 10. Развёртывание и тесты
 
-- `playground_run.sh` (docs/) - локальная среда (балансировщик + воркер + hugo server);
+- `site_playground_run.sh` (docs/) - локальная среда (балансировщик + воркер + hugo server);
+  контент сайта генерирует единый `site_build.sh` с локальными настройками;
   печатает адреса страницы и статистики.
 - `install_playground.sh` - балансировщик (бинарник, конфиг, systemd, nginx+TLS).
 - `install_worker.sh` - исполнительный VPS (бинарник + `trust-lsp`, конфиг;
   запуск в консоли/фоне, systemd не используется).
 - Тесты: `test/unit/playground/{server_test,config_test,dispatch_test}.cpp`;
-  `test/playground_integration/` - реальная полная цепочка (последний этап CTest).
+  `test/integration/` (`playground_main.cpp`) - реальная полная цепочка (последний этап CTest).
 
 

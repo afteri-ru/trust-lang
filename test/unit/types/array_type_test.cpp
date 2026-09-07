@@ -42,7 +42,7 @@ TEST_F(ArrayTypeFixture, GetOrCreateArrayType_Interning) {
     // Разная размерность → разный тип.
     EXPECT_NE(reg.getOrCreateArrayType(int32, {4}), a1);
     // Константность - отдельный бит kConstFlag в TypeId (withConst), структурно тот же массив.
-    const TypeId constA1 = withConst(a1);
+    const TypeId constA1 = setFlag(a1, SymbolFlag::Const);
     EXPECT_NE(constA1, a1);
     EXPECT_EQ(reg.getCanonicalTypeId(constA1), a1);
 }
@@ -56,12 +56,12 @@ TEST_F(ArrayTypeFixture, ArrayAccessors) {
     EXPECT_TRUE(reg.isArrayType(arr));
     EXPECT_EQ(reg.arrayElementType(arr), int32);
     EXPECT_EQ(reg.arrayDimensions(arr), (std::vector<uint64_t>{3}));
-    EXPECT_FALSE(typeIsConst(arr));
+    EXPECT_FALSE(testFlag(arr, SymbolFlag::Const));
 
     // Константная форма `:Array^` - kConstFlag-бит в TypeId (withConst), а не поле типа.
-    const TypeId constArr = withConst(reg.getOrCreateArrayType(int32, {5}));
+    const TypeId constArr = setFlag(reg.getOrCreateArrayType(int32, {5}), SymbolFlag::Const);
     EXPECT_TRUE(reg.isArrayType(constArr));
-    EXPECT_TRUE(typeIsConst(constArr));
+    EXPECT_TRUE(testFlag(constArr, SymbolFlag::Const));
     EXPECT_EQ(reg.arrayDimensions(constArr), (std::vector<uint64_t>{5}));
 
     // Не-массив → аксессоры безопасны (INVALID/пусто/false).
@@ -78,7 +78,7 @@ TEST_F(ArrayTypeFixture, ArrayDynamicDims) {
     ASSERT_NE(dyn, INVALID_TYPE_ID);
     EXPECT_TRUE(reg.isArrayType(dyn));
     EXPECT_TRUE(reg.arrayDimensions(dyn).empty());
-    EXPECT_FALSE(typeIsConst(dyn));
+    EXPECT_FALSE(testFlag(dyn, SymbolFlag::Const));
 }
 
 TEST_F(ArrayTypeFixture, ArrayMethodsRegistered) {

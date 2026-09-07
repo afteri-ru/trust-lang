@@ -1,0 +1,9 @@
+# RUN: %not %trust -q -Wclass-member-dot=error --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# -Wclass-member-dot (по умолчанию ignore): экземплярный член без ведущей '.' → диагностика.
+@include("string")
+MyStr ::= %std::string {
+    %size(): UInt64 := ...;
+};
+
+# CHECK: error: class member '%size' should be registered with a leading '.' (use '.size')

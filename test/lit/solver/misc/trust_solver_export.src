@@ -1,0 +1,24 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+
+# --solver-mode=export: генерация SMT-LIB 2 файла (VC контрактов функций) для z3.
+# Целые → BitVec (единая точка sortOf); тело кодируется SSA (функция заменяется термом возврата,
+# declare-fun не нужен); параметры - константы (уникальные имена func_param);
+# VC = (and pre (not post)); check-sat/get-model. Файл корректен и проверяется z3.
+
+add(x:Int32):Int32 trust_pre( x > 0 ) trust_post( add >= 0 ) := { r := x + 1; return r; };
+neg(x:Int32):Int32 trust_pre( x <= 0 ) trust_post( neg < 0 ) := { return x - 1; };
+
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun add_x () (_ BitVec 32))
+# SM2: (declare-fun add ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (and (bvsgt add_x (_ bv0 32)) (not (bvsge (bvadd add_x (_ bv1 32)) (_ bv0 32)))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (assert (forall ((add_x (_ BitVec 32))) (=> (bvsgt add_x (_ bv0 32)) (bvsge (add add_x) (_ bv0 32)))))
+# SM2: (declare-fun neg_x () (_ BitVec 32))
+# SM2: (declare-fun neg ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (and (bvsle neg_x (_ bv0 32)) (not (bvslt (bvsub neg_x (_ bv1 32)) (_ bv0 32)))))
+# SM2: (check-sat)
+# SM2: (pop 1)

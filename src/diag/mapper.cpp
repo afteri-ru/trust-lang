@@ -194,6 +194,12 @@ MapperFile SourceMapWriter::add_source(std::string filename, std::string content
             FAULT("Filename '{}' not valid!", filename);
         }
     }
+    // Явная диагностика вместо EXPECT/abort в make_input при исчерпании таблицы источников:
+    // даём читаемое сообщение (разгон/цикл регистрации источников), а не краш.
+    if (m_inputs.size() >= LocationPack::MAX_FILES_INPUT - 1) {
+        throw std::runtime_error("Too many input source files (limit " + std::to_string(LocationPack::MAX_FILES_INPUT) +
+                                 "); possible cyclic or unbounded source registration near '" + filename + "'");
+    }
     uint32_t idx = m_inputs.size();
     m_inputs.emplace_back(std::move(filename), std::move(content));
     return MapperFile::make_input(idx);
@@ -206,19 +212,27 @@ MapperFile SourceMapWriter::load_file(std::string path) {
         norm = p.generic_string();
     }
 
-    // Проверка на дубликат
+    // Детекция цикла/повторной загрузки файла по данным самого маппера (m_inputs):
+    // загрузка одного файла повторно (в т.ч. цикл A->B->A) - признак циклической зависимости.
     for (uint32_t i = 0; i < m_inputs.size(); ++i) {
         if (m_inputs[i].getFilename() == norm) {
-            FAULT("Module file {} already loaded as index {}!", m_inputs[i].getFilename(), i);
+            FAULT("Cyclic file load: '{}' is already loaded (index {})!", m_inputs[i].getFilename(), i);
         }
+    }
+
+    // Явная диагностика вместо EXPECT/abort при исчерпании таблицы источников.
+    if (m_inputs.size() >= LocationPack::MAX_FILES_INPUT - 1) {
+        throw std::runtime_error("Too many input source files (limit " + std::to_string(LocationPack::MAX_FILES_INPUT) +
+                                 "); possible cyclic or unbounded source registration near '" + norm + "'");
     }
 
     auto content = utils::FileIO::read<std::vector<char>>(norm);
     if (!content) {
         content = utils::FileIO::read<std::vector<char>>(path);
-        if (!content) {
-            FAULT("Module file '{}' not found!", norm);
-        }
+    }
+
+    if (!content) {
+        FAULT("Module file '{}' not found!", norm);
     }
     m_inputs.emplace_back(std::move(norm), std::string(content->data(), content->size()));
     m_reader.reset();

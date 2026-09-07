@@ -10,8 +10,8 @@ add_library(module_loader_lib STATIC
 )
 target_link_libraries(module_loader_lib PUBLIC trust_include_dirs ast_lib)
 target_link_libraries(module_loader_lib PRIVATE syntax_lib)
+# build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.
 target_include_directories(module_loader_lib PRIVATE
-    ${CMAKE_BINARY_DIR}/include
     ${SYNTAX_GEN_DIR}
 )
 # module_loader.cpp includes syntax headers (macro.h → term.h)

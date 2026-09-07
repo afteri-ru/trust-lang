@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/try_nested %s
+# RUN: $TD/try_nested > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: caught=1
+
+# Блок `{+ ... +}` перехватывает ТОЛЬКО «положительные» прерывания; отрицательные (IntMinus)
+# он не ловит - C++ пробрасывает их насквозь, и их перехватывает внешний `{- ... -}`.
+
+%chk():Void := {
+    {- 
+        {+ -- 1 --; +};
+    -};
+    print('caught=1');
+};
+{% int try_nested__main__() {
+    chk();
+    return 0;
+}
+%}

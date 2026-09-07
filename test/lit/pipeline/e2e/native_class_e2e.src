@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/native_class_e2e %s
+# RUN: $TD/native_class_e2e > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: size=5 empty=false
+
+# Forward-объявление нативного класса `MyStr ::= %std::string { ... };`: trust-класс MyStr ↔ C++
+# std::string (инклуд из @include, on-use); конструирование через имя класса `MyStr('hello')` →
+# std::string("hello"); методы `%size/%empty` → (c_s).size()/(c_s).empty(). Реальная программа
+# компилируется и линкуется с рантаймом.
+@include("string")
+MyStr ::= %std::string {
+    %size(): UInt64 := ...;
+    %empty(): Bool := ...;
+};
+
+@main() := {
+    s: MyStr := MyStr('hello');
+    @print('size={} empty={}\n', s.%size(), s.%empty());
+    @return 0;
+}

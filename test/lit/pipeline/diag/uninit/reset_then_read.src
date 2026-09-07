@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Сброс `x = _;` возвращает переменную в неинициализированное состояние → чтение даёт Error.
+@main() := {
+    x := 5;
+    x = _;
+    @print('{}', x);
+};
+# CHECK: error: variable 'x' is read before it is initialized

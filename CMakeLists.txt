@@ -21,7 +21,7 @@
 #     visibility: PUBLIC propagates upstream, PRIVATE for impl details
 #
 #  4. Executables (tools)
-#     name: prefixed by purpose (trust_cli, stdlib, gencpp_from_ast, ...)
+#     name: prefixed by purpose (trust_cli, stdlib, ...)
 #     CMAKE_RUNTIME_OUTPUT_DIRECTORY = ${CMAKE_BINARY_DIR} (all binaries flat).
 #
 #  5. Test categories
@@ -35,12 +35,15 @@
 #     │           Sources under test/lit/, registered in test/lit/CMakeLists.txt.
 #     ├ vscode/ - VSCode extension unit & integration tests
 #     │           (run by jest/node, registered in test/vscode/CMakeLists.txt).
-#     └ examples/ - standalone programs (examples/*.src), run one-by-one via
-#                   `trust --run` as the FINAL CTest stage `examples_tests`
-#                   (registered in the root CMakeLists.txt). Runs only after all
-#                   prior suites pass (gated via the `examples_deps` fixture);
-#                   if any prior suite fails, examples_tests is marked "Not Run".
-#                   These are NOT lit tests - individual run/pause programs.
+#     ├ examples/ - standalone programs (examples/*.src), run one-by-one via
+#     │           `trust --run` as a late CTest stage `examples_tests` (after
+#     │           unit/lit/vscode, gated via the `examples_deps` fixture). NOT lit tests.
+#     ├ integration/ - playground end-to-end chain (after examples; fixture integration_deps).
+#     └ package/ - Distribution archive + Debian package tests (test/package/),
+#                   registered as the LAST test subdirectory, so they run only once
+#                   all prior suites pass (FIXTURES_REQUIRED package_deps).
+#                   Built/tested ONLY on release builds (default TRUST_BUILD_PACKAGE=ON
+#                   when CMAKE_BUILD_TYPE=Release, OFF otherwise); see cmake/package.cmake.
 #
 #  6. Debug executables (gdb_debuggee / gdb_main)
 #     - Declared in test/unit/CMakeLists.txt (standalone debuggee + GDB harness).
@@ -66,15 +69,18 @@
 #
 # 10. VSCode tasks.json
 #     The project root must always contain an up-to-date .vscode/tasks.json.
-#     Required tasks:
-#     - Project build ("cmake: configure + build (full)")
-#       Combine configure and build in a single command (generator: Unix Makefiles,
-#       build dir: _build/).
-#     - Build only test binaries ("cmake: build test binaries only")
-#       (unit_tests, trust, trust-dap, trust-lsp, generate_lit_cfg_py).
-#     - All tests via CTest ("test: all via ctest (only failures)")
+#     Configuration is a SEPARATE step from build/test. Both configure tasks use ONE
+#     build dir (_build/); the active build type is the one configured last:
+#     - "cmake: configure (dev)"      -> cmake -B _build -DCMAKE_BUILD_TYPE=Debug
+#     - "cmake: configure (release)"  -> cmake -B _build -DCMAKE_BUILD_TYPE=Release
+#     Build/test tasks never re-run configure; they operate on the pre-configured _build/:
+#     - "cmake: build (full)"            (default build)
+#     - "cmake: build test binaries"     (unit_tests, trust, trust-dap, trust-lsp, ...)
+#     - "test: all via ctest" / verbose
 #     - Direct execution of unit_tests with shuffle and filter
-#     There may be more tasks, but these must be present.
+#     There may be more tasks, but these must be present. To build/test a RELEASE, run
+#     "cmake: configure (release)" first (it reconfigures _build as Release), then use the
+#     same build/test tasks on _build/.
 #
 # 11. Common build commands
 #     ----------------------------------------------------------
@@ -129,7 +135,7 @@
 #
 #     # 5) Запуск тестов ОБЯЗАТЕЛЬНО с timeout (антизависание):
 #     timeout 600 ctest --test-dir _build --output-on-failure   # все тесты (включая examples - финальная стадия)
-#     timeout 300 cmake --build _build --target run_tests       # собрать бинарники + ctest
+#     timeout 600 cmake --build _build --target run_tests       # собрать бинарники + ctest
 #
 #     # 5a) Финальная стадия examples (examples/*.src - standalone-программы).
 #     #     Выполнится только если все предыдущие суиты прошли (fixture examples_deps);
@@ -148,9 +154,12 @@
 #     #   clang/clang++-22, CMake >= 3.28, GTest, flex, bison, lit,
 #     #   libzstd, gmp, nlohmann_json, CLI11, msgpack-c (static), LLVM 22.
 #     # Опции конфигурации (задаются на шаге configure):
+#     #   -DCMAKE_BUILD_TYPE=Release  релизная сборка (архив + .deb собираются только здесь)
+#     #   -DCMAKE_BUILD_TYPE=Debug     сборка разработки (default, версия с git-хешем)
 #     #   -DWITH_TORCH=ON        libtorch (tensor_cpu plugin)
 #     #   -DWITH_SOLVER=ON       SMT solver Z3
 #     #   -DTRUST_BUILD_VSIX=OFF  отключить сборку .vsix (требует Node.js/npm)
+#     #   -DTRUST_BUILD_PACKAGE=ON  архив + deb даже на dev-сборке (default: ON в Release)
 #
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -186,9 +195,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 # Exceptions are made for:
 #   - System/external headers: marked as SYSTEM include directories
 #     (see cmake/dependencies.cmake and component CMakeLists.txt)
-#   - Generated files (lex.yy.cpp, parser.tab.cpp): use
+#   - Generated files (lexer.yy.cpp, parser.yy.cpp): use
 #     set_source_files_properties(... COMPILE_OPTIONS "-Wno-old-style-cast")
-#     (see include/parser/CMakeLists.txt, test/unit/CMakeLists.txt)
+#     (see include/syntax/CMakeLists.txt, test/unit/CMakeLists.txt)
 #   - test/unit/unit_tests: additional -Wno-unused-result
 add_compile_options(
     -Werror
@@ -203,10 +212,59 @@ add_compile_options(
 # в стеке вызовов. Применяем ко всем исполняемым файлам.
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
 
+# -- Module path & version module --
+# CMAKE_MODULE_PATH must be set before any include(<cmake module>). cmake/version.cmake is
+# included BEFORE the options below because option defaults (TRUST_BUILD_PACKAGE /
+# TRUST_BUILD_VSIX) depend on the effective build mode computed there - the SINGLE source of
+# truth for TRUST_BUILD_MODE (release == CMAKE_BUILD_TYPE=Release; Debug / unset => dev).
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(version)
+include(release_checks)
+
+# -- Release-mode flag: single source of truth used by the release gate below, the
+# distribution-artifact option defaults and the clean-tree severity. TRUST_BUILD_MODE is computed
+# in cmake/version.cmake (release == CMAKE_BUILD_TYPE=Release; Debug / unset => dev).
+set(_trust_mode_release OFF)
+if(TRUST_BUILD_MODE STREQUAL "release")
+    set(_trust_mode_release ON)
+endif()
+
+# Release-consistency gate (configuration time): a release build embeds the clean release
+# number, so it is allowed only on a release branch 'release/<MAJOR>.<MINOR>.X' or
+# 'release/<MAJOR>.X' (number matches VERSION) with HEAD exactly on the ANNOTATED release tag
+# 'v<X.Y.Z>', a fully clean tree (git status --porcelain empty) and a matching '[Release v<X.Y.Z>]'
+# entry in CHANGELOG.md (or detached at that tag). Any other git state -> configuration error
+# ending with a `git` fix command. Runs only for CMAKE_BUILD_TYPE=Release.
+if(_trust_mode_release)
+    trust_check_release_consistency()
+endif()
+
 # -- Options --
 option(WITH_TORCH "Enable libtorch support (builds libtensor_cpu.so)" OFF)
 option(WITH_SOLVER "Enable SMT solver (Z3) for formal verification" OFF)
-option(TRUST_BUILD_VSIX "Build trust-lang VSIX package (requires Node.js)" ON)
+# Distribution artifacts (VSIX / archive + .deb) are part of the default build only in release
+# builds, so their option defaults follow the release-mode flag; they can still be forced on a
+# dev build (-DTRUST_BUILD_VSIX=ON / -DTRUST_BUILD_PACKAGE=ON) to run their tests.
+option(TRUST_BUILD_VSIX "Build trust-lang VSIX package (requires Node.js)" ${_trust_mode_release})
+option(TRUST_BUILD_DAP "Build trust-dap debug adapter (requires GDB)" OFF)
+option(TRUST_BUILD_PACKAGE "Build distribution archive and Debian package (and run their tests)" ${_trust_mode_release})
+
+# -- Clean-tree pre-check severity for artifact targets (package / deb / VSIX) --
+# Artifacts that embed VERSION/TRUST_VERSION must correspond to a committed state: hard error in
+# release builds (artifacts in the default build), warning when force-enabled on a dev build.
+# require_clean_tree.cmake.in is configured once here; referenced by cmake/package.cmake and
+# include/vscode/CMakeLists.txt (and the root `extension_vsix` target below).
+if(_trust_mode_release)
+    set(TRUST_CLEAN_SEVERITY "error")
+else()
+    set(TRUST_CLEAN_SEVERITY "warning")
+endif()
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/require_clean_tree.cmake.in
+    ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
+    @ONLY
+)
+
 
 if(WITH_TORCH)
     set(LIBTORCH_ROOT "${CMAKE_SOURCE_DIR}/contrib/libtorch")
@@ -217,11 +275,12 @@ if(WITH_TORCH)
     set(LIBTORCH_LIB_DIRS ${LIBTORCH_ROOT}/lib)
 endif()
 
-# -- Module path --
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-
-# -- Modules --
-include(version)
+# -- Modules (dependencies / generated files / packaging) --
+# (cmake/version.cmake and cmake/release_checks.cmake are included above, before the options.)
+set(TRUST_LICENSE "LGPL+commercial")
+set(_trust_ext_dir "${CMAKE_CURRENT_SOURCE_DIR}/include/vscode/extensions/trust-lang")
+configure_file("${_trust_ext_dir}/package.json.in" "${_trust_ext_dir}/package.json" @ONLY)
+configure_file("${_trust_ext_dir}/package-lock.json.in" "${_trust_ext_dir}/package-lock.json" @ONLY)
 include(dependencies)
 include(generate_files)
 include(generate_parsers)
@@ -234,12 +293,14 @@ message(STATUS "  C++ Compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "  C Compiler:   ${CMAKE_C_COMPILER}")
 message(STATUS "  C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "  Build Type:   ${CMAKE_BUILD_TYPE}")
+message(STATUS "  Build Mode:   ${TRUST_BUILD_MODE} (release|dev)")
 message(STATUS "  Build Dir:    ${CMAKE_BINARY_DIR}")
 message(STATUS "  lit:          ${LIT_EXECUTABLE}")
 message(STATUS "  Flex:         ${FLEX_EXECUTABLE}")
 message(STATUS "  nlohmann_json: ${nlohmann_json_VERSION}")
 message(STATUS "  LLVM:         ${LLVM_VERSION}")
-message(STATUS "  Version:      ${TRUST_VERSION_FULL}")
+message(STATUS "  Version:      ${TRUST_VERSION}")
+
 message(STATUS "═══════════════════════════════════════════════════")
 
 # -- Interface targets --
@@ -273,6 +334,7 @@ add_subdirectory(include/lsp)
 add_subdirectory(include/playground)
 add_subdirectory(include/vscode)
 add_subdirectory(include/syntax)
+add_subdirectory(include/formatter)
 
 # -- Общие пути для тестовых данных --
 # Определены здесь (до test-поддиректорий), чтобы быть доступными во всех test/CMakeLists.txt
@@ -284,18 +346,6 @@ set(TEST_BINARY   "${TEST_DATA_DIR}/simple_example" CACHE INTERNAL "Compiled ELF
 
 # -- Enable CTest (must precede add_test in the test subdirectories) --
 enable_testing()
-
-# -- Distribution archive test (uses the package target + check_package.cmake) --
-add_test(NAME package_target_test
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/check_package.cmake
-)
-# Fixture: examples_tests (final stage) runs only if ALL prior suites pass.
-# FIXTURES_SETUP examples_deps also set on unit_tests/lit_tests/vscode_* in their
-# subdirectories; see FIXTURES_REQUIRED on examples_tests below.
-set_tests_properties(package_target_test PROPERTIES
-    TIMEOUT 600
-    FIXTURES_SETUP examples_deps
-)
 
 # -- Unit tests --
 add_subdirectory(test/unit)
@@ -309,29 +359,65 @@ add_subdirectory(test/vscode)
 # -- Top-level test target -- (см. конец файла: должен определяться ПОСЛЕ всех
 # add_subdirectory, чтобы DEPENDS на все тестовые/плейграунд target'ы были валидны)
 
-# -- Examples as a final CTest stage --
+# -- Examples (после unit/lit/vscode) --
 # examples/ contains standalone programs (run/pause individually, e.g. for
 # debugging) - NOT lit tests. Each is run one-by-one via `trust --run`.
-# Registered in test/examples LAST (after unit/lit/vscode subdirs) and gated by
-# the `examples_deps` fixture, so CTest numbers it sequentially last and runs it
-# only after ALL prior suites (package_target_test, unit_tests, lit_tests, vscode_*).
+# Registered here (after unit/lit/vscode) and gated by the `examples_deps` fixture.
 add_subdirectory(test/examples)
 
 # -- Playground integration (после examples) --
 # Реальная цепочка server→worker→lsp→worker→server. Запускается только после
-# examples_tests (фикстура playground_integration_deps).
-add_subdirectory(test/playground_integration)
+# examples_tests (фикстура integration_deps).
+add_subdirectory(test/integration)
 
-# -- Top-level test target (определяется ПОСЛЕ всех add_subdirectory, чтобы DEPENDS
+# -- Distribution archive / Debian package tests (see test/package/CMakeLists.txt) --
+# Registered in the LAST test subdirectory, so their CTest numbers are the final ones
+# (after integration_tests). They still run only after the unit/lit/vscode suites pass
+# (FIXTURES_REQUIRED package_deps).
+# Built and tested ONLY when TRUST_BUILD_PACKAGE=ON (see cmake/package.cmake); otherwise
+# neither the package/deb targets nor these tests exist.
+if(TRUST_BUILD_PACKAGE)
+    add_subdirectory(test/package)
+endif()
+
+# -- Top-level test targets (определяются ПОСЛЕ всех add_subdirectory, чтобы DEPENDS
 # на все тестовые/плейграунд target'ы были валидны) --
-# Собирает тот же набор артефактов, что и обычная сборка (включая trust-playground и
-# playground_integration), и запускает ВСЕ зарегистрированные CTest-тесты.
-# CTest - единая точка входа для запуска тестов. Явный шаг сборки (COMMAND) гарантирует,
-# что тесты всегда идут на актуальных бинарниках.
-add_custom_target(run_tests
-    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
-            --target unit_tests trust trust-dap trust-lsp trust-playground playground_integration generate_lit_cfg_py
-    COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${CMAKE_BINARY_DIR} --output-on-failure
-    DEPENDS unit_tests trust trust-dap trust-lsp trust-playground playground_integration generate_lit_cfg_py
-    COMMENT "Build test binaries + playground, then run all tests via CTest (unit + lit + vscode + playground_integration)"
+# Список тестовых бинарников - ЕДИНСТВЕННОЕ место определения зависимостей тестов.
+# Задачи редактора (VSCode tasks.json) ссылаются ТОЛЬКО на готовые target'ы
+# (test-binaries / run_tests), а НЕ перечисляют бинарники вручную.
+# trust-dap НЕ входит в сборку тестов (собирается отдельно и только при TRUST_BUILD_DAP=ON).
+set(_run_tests_targets unit_tests trust trust-lsp trust-playground integration generate_lit_cfg_py)
+
+# Только сборка тестовых бинарников (без запуска ctest).
+add_custom_target(test-binaries
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${_run_tests_targets}
+    DEPENDS ${_run_tests_targets}
+    COMMENT "Build test binaries (unit/lit/vscode/integration), no ctest"
 )
+
+# Собирает тестовые бинарники и запускает ВСЕ зарегистрированные CTest-тесты.
+add_custom_target(run_tests
+    COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${CMAKE_BINARY_DIR} --output-on-failure
+    DEPENDS test-binaries
+    COMMENT "Build test binaries, then run all tests via CTest (unit + lit + vscode + integration)"
+)
+
+
+# -- Упаковка VS Code расширения (VSIX) --
+# Версия для имени пакета берётся из файла VERSION (см. include/vscode/packager/package-extension.sh), а не из
+# жёстко заданной include/vscode/extensions/trust-lang/package.json, поэтому имя .vsix всегда
+# соответствует актуальной версии проекта (не нужно править вручную при каждом изменении).
+# Запуск: cmake --build _build --target extension_vsix
+find_program(NPX_EXECUTABLE npx)
+if(NPX_EXECUTABLE)
+    add_custom_target(extension_vsix
+        # Clean-tree pre-check: VSIX embeds the version (with git hash on dev builds), so it must
+        # correspond to a committed state (error in release, warning in dev - see require_clean_tree.cmake).
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
+        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/include/vscode/packager/package-extension.sh
+        COMMENT "Package Trust VS Code extension VSIX (version from VERSION file)"
+        VERBATIM
+    )
+else()
+    message(WARNING "npx not found - target 'extension_vsix' (VS Code extension packaging) is unavailable")
+endif()

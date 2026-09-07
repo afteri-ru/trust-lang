@@ -1,0 +1,32 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/try_nested_macro %s
+# RUN: $TD/try_nested_macro > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: inner=1
+# CHECK: after-inner
+# CHECK: outer_else=1
+
+# Вложенный try через МАКРОСЫ (стек кадров @__PRAGMA_TRY_CLOSE__). Внутренний try_error
+# перехватывает IntMinus; внешний try_error завершается нормально → срабатывает его else.
+
+%chk():Void := {
+    try_error {
+        try_error {
+            -- 1 --;
+        } catch(_) {
+            print('inner=1');
+        } else {
+            print('inner_else=BAD');
+        };
+        print('after-inner');
+    } catch(_) {
+        print('outer_catch=BAD');
+    } else {
+        print('outer_else=1');
+    };
+};
+{% int try_nested_macro__main__() {
+    chk();
+    return 0;
+}
+%}

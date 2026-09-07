@@ -1,6 +1,12 @@
 # RUN: %trust -q --emit-lexemes %s > %t.out && %FileCheck %s <%t.out
-@@ add($x, $y) @@ ::= @$x + @$y;
-# CHECK: ::=	CREATE_TYPE
+@@ add($x, $y) @@ @$x + @$y @@@@;
+# CHECK: @@	MACRO_SEQ
+# CHECK-NEXT: add	NAME
+# CHECK-NEXT: (	LPAREN
+# CHECK-NEXT: $x	LOCAL
+# CHECK-NEXT: ,	COMMA
+# CHECK-NEXT: $y	LOCAL
+# CHECK-NEXT: )	RPAREN
 # CHECK-NEXT: @@	MACRO_SEQ
 # CHECK-NEXT: add	NAME
 # CHECK-NEXT: (	LPAREN
@@ -8,6 +14,7 @@
 # CHECK-NEXT: ,	COMMA
 # CHECK-NEXT: $y	LOCAL
 # CHECK-NEXT: )	RPAREN
-# CHECK-NEXT: +	OP_MATH
+# CHECK-NEXT: @@	MACRO_SEQ
 # CHECK-NEXT: @$x	MACRO_ARGNAME
+# CHECK-NEXT: +	PLUS
 # CHECK-NEXT: @$y	MACRO_ARGNAME

@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Биндинги `with` регистрируются в скоупе оператора (стандартный путь analyzeVarDecl):
+# точный дубликат в одном скоупе - ошибка (declareOrComplete → DeclResult::Duplicate).
+
+with(x = 1, x = 2){     # duplicate: x объявлена дважды в одном скоупе
+};
+# CHECK: error: duplicate declaration 'x'
+

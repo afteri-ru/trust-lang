@@ -2,8 +2,11 @@
 //
 // Key Entities:
 //   AttrId (uint32_t)    - attribute identifier with a bitmask:
-//                           bits 0-29  = index in AttrPool.
-//                           bit  30    = built-in (1) or user-defined (0).
+//                           bits 0-23  = index in AttrPool.
+//                           bit  24    = built-in (1) or user-defined (0).
+//                           bit  25    = supported by the analyzer (semantic).
+//                           bit  26    = supported by the C++ code generator (transpiler).
+//                           bits 27-30 = reserved for future use.
 //                           bit  31    = set manually (1) or automatically (0).
 //   Attr                 - registered attribute descriptor with name and default params.
 //
@@ -21,6 +24,10 @@
 // 4. AttrId is a compact reference stored in AstNodeBase.
 // 5. The built-in flag is set at registration time; the manual flag is set
 //    automatically when an attribute is attached to a node (add_attr with manual=true).
+// 6. Two "processing" flags (analyzer / codegen support) declare which stage handles
+//    the attribute. An attribute with NEITHER set is "unhandled" - a diagnostic
+//    (-Wunhandled-attr) flags its use anywhere in the AST (see is_handled below).
+
 
 #pragma once
 
@@ -36,6 +43,11 @@
 
 namespace trust {
 
+// Wildcard-признак параметра атрибута (пустая строка = принимает любое значение).
+inline bool attrParamIsWildcard(std::string_view d) noexcept {
+    return d.empty();
+}
+
 // ----------------------------------------------------------------------------
 // AttrId - attribute identifier
 // ----------------------------------------------------------------------------
@@ -43,19 +55,36 @@ namespace trust {
 using AttrId = uint32_t;
 
 // Layout:
-//   bit  30:   1 = built-in, 0 = user-defined
+//   bit  24:   1 = built-in, 0 = user-defined
+//   bit  25:   1 = supported by the analyzer (semantic)
+//   bit  26:   1 = supported by the C++ code generator (transpiler)
+//   bits 27-30: reserved for future use
 //   bit  31:   1 = set manually, 0 = set automatically
-//   bits 0-29: index in AttrPool
+//   bits 0-23 : index in AttrPool
 namespace detail {
-static constexpr AttrId kAttrBuiltinFlag = 1u << 30;
+static constexpr AttrId kAttrIndexMask = (1u << 24) - 1; // 24-bit index (3 bytes)
+static constexpr AttrId kAttrBuiltinFlag = 1u << 24;
+static constexpr AttrId kAttrAnalyzerFlag = 1u << 25;
+static constexpr AttrId kAttrCodegenFlag = 1u << 26;
 static constexpr AttrId kAttrManualFlag = 1u << 31;
-static constexpr AttrId kAttrIndexMask = (1u << 30) - 1;
 
 [[nodiscard]] constexpr bool is_builtin(AttrId id) noexcept {
     return (id & kAttrBuiltinFlag) != 0;
 }
 [[nodiscard]] constexpr bool is_manual(AttrId id) noexcept {
     return (id & kAttrManualFlag) != 0;
+}
+[[nodiscard]] constexpr bool is_analyzer_supported(AttrId id) noexcept {
+    return (id & kAttrAnalyzerFlag) != 0;
+}
+[[nodiscard]] constexpr bool is_codegen_supported(AttrId id) noexcept {
+    return (id & kAttrCodegenFlag) != 0;
+}
+
+/// Whether the attribute is processed by at least one stage (analyzer or codegen).
+/// An attribute with neither flag set is "unhandled" -> -Wunhandled-attr diagnostic.
+[[nodiscard]] constexpr bool is_handled(AttrId id) noexcept {
+    return (id & (kAttrAnalyzerFlag | kAttrCodegenFlag)) != 0;
 }
 
 /// Return id with the built-in flag set (or cleared).
@@ -66,6 +95,16 @@ static constexpr AttrId kAttrIndexMask = (1u << 30) - 1;
 /// Return id with the manual flag set (or cleared).
 [[nodiscard]] constexpr AttrId with_manual(AttrId id, bool manual = true) noexcept {
     return manual ? (id | kAttrManualFlag) : (id & ~kAttrManualFlag);
+}
+
+/// Return id with the analyzer-support flag set (or cleared).
+[[nodiscard]] constexpr AttrId with_analyzer(AttrId id, bool analyzer = true) noexcept {
+    return analyzer ? (id | kAttrAnalyzerFlag) : (id & ~kAttrAnalyzerFlag);
+}
+
+/// Return id with the codegen-support flag set (or cleared).
+[[nodiscard]] constexpr AttrId with_codegen(AttrId id, bool codegen = true) noexcept {
+    return codegen ? (id | kAttrCodegenFlag) : (id & ~kAttrCodegenFlag);
 }
 } // namespace detail
 
@@ -91,6 +130,15 @@ struct Attr {
     /// принимают произвольные значения (`@[link("m")]`), а не только фиксированные.
     /// Число параметров при этом должно совпадать.
     [[nodiscard]] bool matches_params(const std::vector<std::string_view>& params) const noexcept {
+        const bool all_wildcard = std::all_of(m_default_params.begin(), m_default_params.end(), attrParamIsWildcard);
+        if (all_wildcard) {
+            // Аргументный атрибут (все дефолты - wildcard): параметры опциональны по количеству
+            // (от 1 до числа дефолтов), напр. @[reftype("shared", <policy>, <timeout>)] - 1..3.
+            if (m_default_params.empty()) {
+                return params.empty();
+            }
+            return params.size() >= 1 && params.size() <= m_default_params.size();
+        }
         if (m_default_params.size() != params.size()) {
             return false;
         }

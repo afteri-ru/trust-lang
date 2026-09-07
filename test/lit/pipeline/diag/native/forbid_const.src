@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# D2: запрещено брать не-константную нативную ссылку с константного объекта.
+@main():Int32 := {
+    x^ : Int32 := 5;
+    %p : %* Int32 := %& x;
+    return 0;
+}
+# CHECK: error: cannot take a non-const native reference to a const object

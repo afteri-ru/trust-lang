@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/big_integer_literal %s
+# RUN: $TD/big_integer_literal > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: x=9223372036854775808
+# CHECK: y=9223372036854775810
+
+# Сверхразрядный целочисленный литерал (вне Int64) валиден ТОЛЬКО в BigInteger-контексте:
+#   - типизированное присваивание `x:BigInteger := <huge>`;
+#   - каст `:BigInteger(<huge>)`.
+# Эмитится `trust::BigInteger("...")`; значение печатается как десятичная строка.
+
+%chk():Void := {
+    x:BigInteger := 9223372036854775808;
+    y := :BigInteger(9223372036854775810);
+    print('x={} y={}', x, y);
+};
+{% int big_integer_literal__main__() { chk(); return 0; } %}

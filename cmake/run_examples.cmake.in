@@ -5,11 +5,15 @@
 # exit code or timeout. Examples are real standalone programs (run/pause manually,
 # e.g. for debugging) - NOT lit tests.
 #
-# Configured by configure_file(@ONLY) in the root CMakeLists.txt.
+# Examples, требующие аргументов командной строки (--run их не принимает), компилируются
+# в бинарь и запускаются с указанными аргументами (см. @EXAMPLE_RUN_ARGS@, "stem:args").
+#
+# Configured by configure_file(@ONLY) in test/examples/CMakeLists.txt.
 # Substituted variables:
 #   @TRUST_BIN@          - path to the built `trust` binary
 #   @RUN_DIR@            - per-example working dir root (under CMAKE_BINARY_DIR)
 #   @EXAMPLE_SOURCES@    - semicolon list of absolute paths to examples/*.src
+#   @EXAMPLE_RUN_ARGS@   - semicolon list of "stem:args" for examples needing CLI args (empty otherwise)
 #   @EXAMPLES_TIMEOUT@   - per-example timeout (seconds)
 
 if(NOT EXISTS "@TRUST_BIN@")
@@ -22,6 +26,7 @@ file(MAKE_DIRECTORY "@RUN_DIR@")
 
 # foreach IN LISTS не итерирует литеральный список - сначала кладём его в переменную.
 set(_examples @EXAMPLE_SOURCES@)
+set(_args_map "@EXAMPLE_RUN_ARGS@")
 set(_count 0)
 foreach(_src IN LISTS _examples)
     get_filename_component(_stem "${_src}" NAME_WE)
@@ -32,13 +37,47 @@ foreach(_src IN LISTS _examples)
     set(_dir "@RUN_DIR@/${_stem}")
     file(MAKE_DIRECTORY "${_dir}")
 
-    message(STATUS "[examples] running: @TRUST_BIN@ -q --run ${_name}")
-    execute_process(
-        COMMAND "@TRUST_BIN@" -q --run "${_src}"
-        WORKING_DIRECTORY "${_dir}"
-        RESULT_VARIABLE _rc
-        TIMEOUT "@EXAMPLES_TIMEOUT@"
-    )
+    # Аргументы командной строки для конкретного примера (формат "stem:args").
+    set(_this_args "")
+    foreach(_entry IN LISTS _args_map)
+        if(_entry MATCHES "^${_stem}:(.*)$")
+            set(_this_args "${CMAKE_MATCH_1}")
+        endif()
+    endforeach()
+
+    if(NOT _this_args STREQUAL "")
+        # "2 10" -> список {2;10} (в CMake пробел не разделитель списка).
+        separate_arguments(_this_args_list NATIVE_COMMAND "${_this_args}")
+    else()
+        set(_this_args_list "")
+    endif()
+
+    if(_this_args STREQUAL "")
+        message(STATUS "[examples] running: @TRUST_BIN@ -q --run ${_name}")
+        execute_process(
+            COMMAND "@TRUST_BIN@" -q --run "${_src}"
+            WORKING_DIRECTORY "${_dir}"
+            RESULT_VARIABLE _rc
+            TIMEOUT "@EXAMPLES_TIMEOUT@"
+        )
+    else()
+        # Пример с аргументами: компилируем в бинарь, затем запускаем с аргументами.
+        message(STATUS "[examples] running: @TRUST_BIN@ -q ${_name} -o ${_dir}/${_stem}; ${_dir}/${_stem} ${_this_args}")
+        execute_process(
+            COMMAND "@TRUST_BIN@" -q "${_src}" -o "${_dir}/${_stem}"
+            WORKING_DIRECTORY "${_dir}"
+            RESULT_VARIABLE _rc
+            TIMEOUT "@EXAMPLES_TIMEOUT@"
+        )
+        if(_rc EQUAL 0)
+            execute_process(
+                COMMAND "${_dir}/${_stem}" ${_this_args_list}
+                WORKING_DIRECTORY "${_dir}"
+                RESULT_VARIABLE _rc
+                TIMEOUT "@EXAMPLES_TIMEOUT@"
+            )
+        endif()
+    endif()
 
     if(NOT _rc EQUAL 0)
         message(FATAL_ERROR "[examples] FAILED (rc=${_rc}): ${_name}")
@@ -47,3 +86,4 @@ foreach(_src IN LISTS _examples)
 endforeach()
 
 message(STATUS "[examples] OK: ${_count} example(s) passed")
+

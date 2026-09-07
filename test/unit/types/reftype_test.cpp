@@ -5,6 +5,7 @@
 
 #include "types/typekind.hpp"
 #include "types/type_id.hpp"
+#include "types/type_names.hpp"
 #include "types/registry.hpp"
 #include "ast/attr.hpp"
 #include "ast/attr_builtin.hpp"
@@ -28,15 +29,30 @@ TEST(RefTypeTest, StringMapping) {
     EXPECT_EQ(refTypeFromString("ref"), RefType::kRef);
     EXPECT_EQ(refTypeFromString("rref"), RefType::kRref);
     EXPECT_EQ(refTypeFromString("ptrptr"), RefType::kPtrPtr);
-    EXPECT_EQ(refTypeFromString("take"), RefType::kTake);
+    EXPECT_EQ(refTypeFromString("locker"), RefType::kLocker);
     // Неизвестное имя - nullopt (без тихого fallback).
     EXPECT_EQ(refTypeFromString("raw"), std::nullopt);
     EXPECT_EQ(refTypeFromString(""), std::nullopt);
 }
 
+TEST(RefTypeTest, TypeSigilMapping) {
+    // Символические сиглы декларации ссылочного типа всегда начинаются с `&`:
+    // `&& x` (shared) / `&* u` (unique) / `&? w` (weak). Нативные `%&`/`%*` - C++-ссылка/указатель.
+    EXPECT_EQ(refTypeFromTypeSigil("&&"), RefType::kShared);
+    EXPECT_EQ(refTypeFromTypeSigil("&*"), RefType::kUnique);
+    EXPECT_EQ(refTypeFromTypeSigil("&?"), RefType::kWeak);
+    EXPECT_EQ(refTypeFromTypeSigil("%&"), RefType::kRef);
+    EXPECT_EQ(refTypeFromTypeSigil("%*"), RefType::kPtr);
+    // Одиночные `&`/`*` - операторы address-of/разыменования, не сиглы декларации - nullopt.
+    EXPECT_EQ(refTypeFromTypeSigil("&"), std::nullopt);
+    EXPECT_EQ(refTypeFromTypeSigil("*"), std::nullopt);
+    // Неизвестный сигл - nullopt.
+    EXPECT_EQ(refTypeFromTypeSigil(""), std::nullopt);
+}
+
 TEST(RefTypeTest, NameRoundTrip) {
     for (RefType k : {RefType::kValue, RefType::kShared, RefType::kWeak, RefType::kUnique, RefType::kPtr, RefType::kMptr, RefType::kRef, RefType::kRref,
-                      RefType::kPtrPtr, RefType::kTake}) {
+                      RefType::kPtrPtr, RefType::kLocker}) {
         EXPECT_EQ(refTypeFromString(refTypeName(k)), k);
     }
 }
@@ -46,8 +62,8 @@ TEST(RefTypeTest, WithGetRefTypeRoundTrip) {
     EXPECT_EQ(getRefType(base), RefType::kValue);
     // Разные виды дают разные TypeKind; round-trip сохраняет вид.
     TypeKind prev = base;
-    for (RefType k :
-         {RefType::kShared, RefType::kWeak, RefType::kUnique, RefType::kPtr, RefType::kMptr, RefType::kRef, RefType::kRref, RefType::kPtrPtr, RefType::kTake}) {
+    for (RefType k : {RefType::kShared, RefType::kWeak, RefType::kUnique, RefType::kPtr, RefType::kMptr, RefType::kRef, RefType::kRref, RefType::kPtrPtr,
+                      RefType::kLocker}) {
         const TypeKind with = withRefType(base, k);
         EXPECT_EQ(getRefType(with), k);
         EXPECT_NE(with, prev);
@@ -118,13 +134,13 @@ TEST_F(RefTypeFixture, GetCppTypeNameRefKinds) {
     EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kPtrPtr)).value(), "int32_t**");
     EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kRef)).value(), "int32_t&");
     EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kRref)).value(), "int32_t&&");
-    EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kShared)).value(), "std::shared_ptr<int32_t>");
-    EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kWeak)).value(), "std::weak_ptr<int32_t>");
+    EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kShared)).value(), "trust::Shared<int32_t>");
+    EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kWeak)).value(), "trust::Weak<trust::Shared<int32_t>>");
     EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kUnique)).value(), "std::unique_ptr<int32_t>");
-    EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kTake)).value(), "trust::Take<int32_t>");
+    EXPECT_EQ(reg.getCppTypeName(refTyped(int32, RefType::kLocker)).value(), "trust::Locker<int32_t>");
 
     // const + ptr → `const int32_t*` (const применяется к pointee перед суффиксом).
-    EXPECT_EQ(reg.getCppTypeName(withConst(refTyped(int32, RefType::kPtr))).value(), "const int32_t*");
+    EXPECT_EQ(reg.getCppTypeName(setFlag(refTyped(int32, RefType::kPtr), SymbolFlag::Const)).value(), "const int32_t*");
 }
 
 TEST_F(RefTypeFixture, GetCppTypeNameNestedRef) {
@@ -135,7 +151,57 @@ TEST_F(RefTypeFixture, GetCppTypeNameNestedRef) {
     const TypeId p = reg.getOrCreateRefType(RefType::kPtr, int32);
     const TypeId sp = reg.getOrCreateRefType(RefType::kShared, p);
     EXPECT_EQ(reg.getCppTypeName(p).value(), "int32_t*");
-    EXPECT_EQ(reg.getCppTypeName(sp).value(), "std::shared_ptr<int32_t*>");
+    EXPECT_EQ(reg.getCppTypeName(sp).value(), "trust::Shared<int32_t*>");
+}
+
+// -- Встроенные политики синхронизации доступа (Group::kSyncPolicy) --
+TEST_F(RefTypeFixture, SyncPoliciesRegistered) {
+    TypeRegistry& reg = m_ctx.types();
+    for (const char* name : {"SyncMutexPolicy", "SyncRwMutexPolicy", "SyncSingleThreadPolicy"}) {
+        const auto id = reg.findType(name);
+        ASSERT_TRUE(id.has_value()) << name;
+        EXPECT_TRUE(reg.isSyncPolicyType(*id)) << name;
+        // Признак «тип несёт атрибуты» (kHasAttrsFlag) выставлен у политик sync.
+        EXPECT_TRUE(hasAttrsFlag(getKindFromId(*id))) << name;
+        // C++-имя из реестра (cppName), НЕ строковый маппинг.
+        EXPECT_EQ(reg.getCppTypeName(*id).value(), std::string("trust::") + name);
+    }
+    // Не-политика - не sync-политика.
+    EXPECT_FALSE(reg.isSyncPolicyType(reg.getType("Int32")));
+}
+
+TEST_F(RefTypeFixture, SyncPoliciesDistinctViaRegistry) {
+    TypeRegistry& reg = m_ctx.types();
+    const TypeId a = reg.getType(type::SyncMutexPolicy);
+    const TypeId b = reg.getType(type::SyncRwMutexPolicy);
+    // Оба несут kHasAttrsFlag -> сравнение через реестр даёт «различны» (разные политики).
+    EXPECT_FALSE(reg.typesEqual(a, b));
+    EXPECT_TRUE(reg.typesEqual(a, a));
+}
+
+TEST_F(RefTypeFixture, TypesEqualFastPathNoAttrs) {
+    TypeRegistry& reg = m_ctx.types();
+    const TypeId int32 = reg.getType("Int32");
+    const TypeId int64 = reg.getType("Int64");
+    // Fast-path: ни у одного типа нет флага -> сравнение по TypeId (без реестра).
+    EXPECT_FALSE(hasAttrsFlag(getKindFromId(int32)));
+    EXPECT_TRUE(reg.typesEqual(int32, int32));
+    EXPECT_FALSE(reg.typesEqual(int32, int64));
+}
+
+TEST_F(RefTypeFixture, HasAttrsFlagSetOnAttrsType) {
+    TypeRegistry& reg = m_ctx.types();
+    const TypeId base = reg.getType("Int32");
+    const auto sync_attr = m_ctx.attrs().lookup(attr::Sync);
+    ASSERT_TRUE(sync_attr.has_value());
+    // Пользовательский тип с атрибутами получает признак kHasAttrsFlag.
+    const TypeId with_attr = reg.registerType("MySync", base, {*sync_attr}, MapperRange{});
+    ASSERT_NE(with_attr, INVALID_TYPE_ID);
+    EXPECT_TRUE(hasAttrsFlag(getKindFromId(with_attr)));
+    // Тип без атрибутов - без флага.
+    const TypeId plain = reg.registerType("MyPlain", base, {}, MapperRange{});
+    ASSERT_NE(plain, INVALID_TYPE_ID);
+    EXPECT_FALSE(hasAttrsFlag(getKindFromId(plain)));
 }
 
 } // namespace

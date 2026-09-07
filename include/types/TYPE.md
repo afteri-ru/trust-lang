@@ -10,7 +10,7 @@
 
 Типы разделяются на два класса:
 
-- **Встроенные (22 типа)** - закодированы в TypeKind (Data≠0). Integers, Unsigned, Numbers, BFloat, Complex, Rationals, Logical, Void, StrChar, StrWide.
+- **Встроенные (23 типа)** - закодированы в TypeKind (Data≠0). Integers, Unsigned, Numbers, BFloat, Complex, ArbitraryPrecision, Logical, Void, StrChar, StrWide.
 - **Реестровые** - хранятся в TypeRegistry (Data=0). Tensors, Containers, Structured, Callable, Classes, Ranges, Iterators, DateTime, Async, Sync, Exceptions, Native. Конкретные экземпляры создаются при инициализации.
 
 Корень всех типов - `:Any` (Group::kAny, Data=0). Кроме этого есть два служебных типа:
@@ -35,7 +35,7 @@
  │   │                                    (:Single)  (:Double)
  │   ├- :BFloat             →  :BFloat16
  │   ├- :Complex            →  :Complex32 → :Complex64
- │   └- :Rationals          →  :Rational
+ │   └- :ArbitraryPrecision →  :BigInteger, :Rational  (Rational построен на BigInteger)
  │
  ├- :Strings                                         - строковые типы
  │   ├- :StrChar             (:FmtChar - printf-формат)
@@ -143,7 +143,7 @@
 | Numbers | Arithmetics | 16,32,64 | Числа с плавающей точкой |
 | BFloat | Arithmetics | 16=BFloat16 | BFloat16 |
 | Complex | Arithmetics | 32,64 | Комплексные числа |
-| Rationals | Arithmetics | 1=Rational | Рациональные числа |
+| ArbitraryPrecision | Arithmetics | 1=Rational, 2=BigInteger | Произвольная точность (Rational построен на BigInteger) |
 | StrChar | Strings | 1=StrChar | UTF-8 строки |
 | StrWide | Strings | 1=StrWide | Широкие строки |
 | Dicts | Containers | 1=Dict | Универсальный словарь (гетерогенный контейнер) |
@@ -217,6 +217,11 @@ AST-узел `RangeExpr`; элементный тип (Int→Int64, Float→Doub
 (рекомендуется - как в Rust `#[repr(C)]`, D `@safe`) или **в строке** `@[reftype("имя")]`:
 параметры атрибутов хранятся как текст, обе формы эквивалентны. Подробная модель ссылок, причины
 выбора и ограничения - в [REFType.md](REFType.md).
+Альтернативно вид ссылки задаётся символическим сиглам ПЕРЕД именем переменной (позиция определяет
+смысл, см. `syntax/SYNTAX.md` «Ссылочные типы»): `&& x : Int32` → shared, `&* u : Int32` → unique,
+`&? w : Int32 := & x` → weak; в выражении `& expr` - взятие слабой ссылки (weak), `* expr` - доступ
+к данным, `a :=: b` - swap (std::swap), `var :=: _` - std::move(var).
+
 
 ## Битовая структура TypeKind
 
@@ -230,13 +235,22 @@ AST-узел `RangeExpr`; элементный тип (Int→Int64, Float→Doub
 | 20–21 | TypeClass | 2 | 0..3 | Класс жизненного цикла: Trivial/Relocatable/Complex/Polymorphic |
 | 22 | SizeUnit | 1 | 0..1 | Единица Data: 0 = bits, 1 = bytes |
 | 23 | BuiltinFlag | 1 | 0..1 | Флаг «встроенный тип» (устанавливает `registerBuiltinType()`) |
-| 24–31 | Reserved | 8 | 0..255 | Будущие флаги |
+| 24 | TrustFlag | 1 | 0..1 | Флаг «тип несёт trust-условия» (семантический дифференциатор: тип с условиями ≠ идентичный без) |
+| 25 | HasAttrsFlag | 1 | 0..1 | Флаг «тип несёт атрибуты» (признак для сравнения типов: требует обращения к реестру) |
+| 26–31 | Reserved | 6 | 0..63 | Будущие флаги |
 
 - **Data=0 → абстрактный тип (группа); Data≠0 → конкретный встроенный тип.** Проверка:
   `isBuiltinConcrete(k) == (getData(k) != 0)`.
 - **TypeId** (`uint64_t`) = { TypeKind (верхние 32) | registry_index (нижние 32) }. Нижняя половина
   дополнительно несёт ортогональные квалификаторы `kInferredFlag` (bit 31) и `kConstFlag` (bit 30),
   которые **не входят** в структурную идентичность и снимаются `getIndexFromId`/`getCanonicalTypeId`.
+- **HasAttrsFlag (bit 25)** — признак «в типе привязаны атрибуты» (тип зарегистрирован с атрибутами,
+  напр. встроенные политики синхронизации `Group::kSyncPolicy`). Используется `TypeRegistry::typesEqual`
+  как fast-path: если **ни у одного** из сравниваемых типов флага нет, сравнение идёт по `TypeId`
+  (дёшево, **без** обращения к реестру); если флаг есть **хотя бы у одного** — полное сравнение через
+  реестр (канонический тип + атрибуты + данные). Это ровно тот же принцип, что и `TrustFlag`.
+- **TrustFlag (bit 24)** — тип несёт доверительные условия: интернируется/сравнивается раздельно от
+  идентичного типа без условий (`TypeKey::kind` включает бит).
 
 ## Правила автоматического приведения (promotion)
 

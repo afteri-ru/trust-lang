@@ -1,7 +1,9 @@
 #ifndef TRUST_LSP_PROTOCOL_H
 #define TRUST_LSP_PROTOCOL_H
 
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "utils/transport.hpp"
@@ -23,6 +25,51 @@ struct LspExample {
     std::string source; // полный исходный Trust-текст примера
 };
 
+// Режим работы LSP со строкой шебанга файла (`#!<interpreter> [options]`):
+// как применять опции анализа из шебанга относительно опций окружения
+// (CLI-аргументы trust-lsp / настройки расширения).
+// Для trust строка `#!` - комментарий для лексера; опции доходят до компилятора через
+// argv ОС при запуске скрипта. LSP, открывающий файл как текст, сам извлекает эти
+// опции, чтобы анализ (диагностики/форматирование) соответствовал реальному запуску.
+enum class ShebangMode {
+    Ignore,           ///< никогда не читать шебанг (применяются только опции окружения)
+    ShebangOnly,      ///< применять ТОЛЬКО опции из шебанга
+    EnvAfterShebang,  ///< env ПОСЛЕ шебанга: шебанг применяется первым, env переопределяет
+    EnvBeforeShebang, ///< env ПЕРЕД шебангом: шебанг применяется последним и переопределяет env
+};
+
+/// Разбор строкового значения `--shebang-mode`. Неизвестное значение - nullopt (ошибка).
+inline std::optional<ShebangMode> shebangModeFromName(std::string_view v) noexcept {
+    if (v == "ignore") {
+        return ShebangMode::Ignore;
+    }
+    if (v == "shebang-only") {
+        return ShebangMode::ShebangOnly;
+    }
+    if (v == "env-after-shebang") {
+        return ShebangMode::EnvAfterShebang;
+    }
+    if (v == "env-before-shebang") {
+        return ShebangMode::EnvBeforeShebang;
+    }
+    return std::nullopt;
+}
+
+/// Человекочитаемое имя режима (для справки/конфигурации).
+inline std::string_view shebangModeName(ShebangMode m) noexcept {
+    switch (m) {
+    case ShebangMode::Ignore:
+        return "ignore";
+    case ShebangMode::ShebangOnly:
+        return "shebang-only";
+    case ShebangMode::EnvAfterShebang:
+        return "env-after-shebang";
+    case ShebangMode::EnvBeforeShebang:
+        return "env-before-shebang";
+    }
+    return "unknown";
+}
+
 struct LspOptions {
     LspMode mode = LspMode::Interactive;
     int port = -1;                         // -1 = interactive (stdin/stdout), >0 = TCP server
@@ -38,6 +85,8 @@ struct LspOptions {
     bool htmlFull = false;                 // --html-full: обернуть фрагмент в полную HTML-страницу
     bool trace = false;                    // трассировка LSP
     bool help = false;
+    /// Режим применения опций анализа из шебанга файла относительно опций окружения.
+    ShebangMode shebangMode = ShebangMode::EnvAfterShebang;
 };
 
 static constexpr int LSP_DEFAULT_PORT = 4712;

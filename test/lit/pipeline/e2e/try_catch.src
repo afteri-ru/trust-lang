@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/try_catch %s
+# RUN: $TD/try_catch > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: caught=1
+
+# Блок `{- ... -}` перехватывает «отрицательные» прерывания (-- err --, ошибки):
+# IntMinus бросается внутри try-блока и поглощается catch, программа продолжается.
+
+%chk():Void := {
+    {- 
+        -- 1 --;
+    -};
+    print('caught=1');
+};
+{% int try_catch__main__() {
+    chk();
+    return 0;
+}
+%}

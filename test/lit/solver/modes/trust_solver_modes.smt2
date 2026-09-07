@@ -1,0 +1,5 @@
+(set-logic QF_UFBV)
+(declare-fun add ((_ BitVec 32)) (_ BitVec 32))
+(declare-fun add_x () (_ BitVec 32))
+(check-sat)
+(get-model)

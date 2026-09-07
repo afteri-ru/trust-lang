@@ -1,0 +1,12 @@
+# RUN: %trust --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Повторное объявление нативного шаблона, C++-имя которого совпадает со встроенным контейнером
+# (`std::vector` от `:Array`) - мягкая диагностика (warning), без жёсткой ошибки и без повторной
+# регистрации дублирующего типа: `vector<Int32>` резолвится через встроенный `:Array`, код компилируется.
+@include("vector")
+<T> %std::vector() := ...;
+
+v: vector<:Int32> := [1, 2, 3,];
+
+# CHECK: warning: native template 'std::vector' is a builtin container (use ':Array' / ':Array^' without declaration)
+# CHECK: std::vector<int32_t> c_v = std::vector<int32_t>{1, 2, 3};

@@ -1,0 +1,15 @@
+# RUN: %trust -Whelp-predef-macros > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -Whelp-dsl > %t.dsl.out && %FileCheck --check-prefix=DSL %s <%t.dsl.out
+#
+# Справка по предопределённым макросам (@__...__) и по макросам загруженного DSL.
+# Эти команды не требуют входного файла (аналог `-Whelp`).
+# CHECK: Predefined macros (@__...__) with their descriptions:
+# CHECK: @__CLASS__  Current class name
+# CHECK: @__FUNCTION__  Current function name
+# CHECK: @__MODULE_NAME__
+# CHECK: @__OPTION__
+# CHECK: @__PRAGMA_DOC__
+# DSL: DSL macros (names from the loaded DSL
+# DSL:   assert
+# DSL:   func
+# DSL:   print

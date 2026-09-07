@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Матчер обязан иметь ровно 2 параметра (T_value, T_pattern).
+# CHECK: error: @[matcher("one_arg")]: predicate must take exactly 2 arguments (T_value, T_pattern), got 1
+@func one_arg(a:Int32):Bool { @return true; };
+x:Int32 := 5;
+[x] @[matcher("one_arg")@] ==> {
+    @case(1) { y := 1; };
+    @default { y := 0; };
+};

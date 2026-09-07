@@ -1,0 +1,81 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# DSL-макросы: if / elif / else
+x:Int32 := 5;
+@if(x > 0) {
+    a := 1;
+} @elif(x < 0) {
+    b := -1;
+} @else {
+    c := 0;
+};
+# CHECK: if ((c_x > 0)) {
+# CHECK-NEXT:     int8_t c_a = 1;
+# CHECK-NEXT: } else if ((c_x < 0)) {
+# CHECK-NEXT:     int8_t c_b = -1;
+# CHECK-NEXT: } else {
+# CHECK-NEXT:     int8_t c_c = 0;
+# CHECK-NEXT: }
+
+# DSL while
+z:Int32 := 0;
+@while(z < 5) {
+    z := z + 1;
+};
+# CHECK: while ((c_z < 5)) {
+# CHECK-NEXT:     std::any c_z = (c_z + 1);
+# CHECK-NEXT: }
+
+# DSL while-else (@while ... @else) - в C++ нет while...else; else эмулируется флагом,
+# который создаёт LOWERING (временные — уровень анализатора), не транспилятор.
+w:Int32 := 0;
+@while(w < 3) {
+    w := w + 1;
+} @else {
+    w := -1;
+};
+# CHECK: bool c__we1 = 0;
+# CHECK-NEXT: while ((c_w < 3)) {
+# CHECK-NEXT:     c__we1 = true;
+# CHECK-NEXT:     std::any c_w = (c_w + 1);
+# CHECK-NEXT: }
+# CHECK-NEXT: if (!c__we1) {
+# CHECK-NEXT:     int8_t c_w = -1;
+# CHECK-NEXT: }
+
+# DSL dowhile (тело перед макросом)
+{ z := z + 1; } @dowhile(z < 8);
+# CHECK: do {
+# CHECK-NEXT:     std::any c_z = (c_z + 1);
+# CHECK-NEXT: } while ((c_z < 8));
+
+# DSL loop (бесконечный цикл)
+@loop {
+    ++;
+};
+# CHECK: while (1) {
+# CHECK-NEXT:     break;
+# CHECK-NEXT: }
+
+# DSL match / case / default
+@match(x) ==> {
+    @case(1) { y := 1; };
+    @case(2, 3) { y := 2; };
+    @default { y := 0; };
+};
+# CHECK: const int32_t c__match1 = c_x;
+# CHECK-NEXT: switch (c__match1) {
+# CHECK-NEXT:     case 1: {
+# CHECK-NEXT:         int8_t c_y = 1;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     break;
+# CHECK-NEXT:     case 2:
+# CHECK-NEXT:     case 3: {
+# CHECK-NEXT:         int8_t c_y = 2;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     break;
+# CHECK-NEXT:     default: {
+# CHECK-NEXT:         int8_t c_y = 0;
+# CHECK-NEXT:     }
+# CHECK-NEXT:     break;
+# CHECK-NEXT: }

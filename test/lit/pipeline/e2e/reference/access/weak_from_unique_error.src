@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Контракт value-vs-reference (двухосевая модель): weak (слабая ссылка) получается ТОЛЬКО из
+# shared-ссылки. Инициализация weak из unique - ошибка (разные оси владения).
+
+@main():Int32 := {
+    &* u := 5:Int32;
+    &? w : &? Int32 := u;
+    return 0;
+};
+# CHECK: error: reference ownership mismatch: cannot assign 'Int32' to 'Int32' (shared/weak and unique are different ownership axes)

@@ -153,8 +153,8 @@ std::string describeExit(int status) {
 
 // Возвращает base64 build-архива, собранного trust-lsp --emit-build-dir. Архив ищем по
 // маске *.tar.gz в emit_dir (имя формирует trust-lsp: trust-lang-<версия>-generated.tar.gz),
-// чтобы не зависеть от совпадения версий бинарников воркера и trust-lsp (TRUST_VERSION_FULL
-// содержит git-хэш). В out_name кладём фактическое имя файла.
+// чтобы не зависеть от совпадения версий бинарников воркера и trust-lsp (имя несёт
+// эффективную версию TRUST_VERSION). В out_name кладём фактическое имя файла.
 std::string readArchiveBase64(const std::string& emit_dir, std::string& out_name) {
     out_name.clear();
     if (emit_dir.empty()) {

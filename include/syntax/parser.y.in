@@ -39,11 +39,35 @@ TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt);
 /* start symbol is named "start" */
 %start start
 
-/* Грамматика без reduce/reduce-конфликтов и без shift/reduce-конфликтов (%expect 0).
+/* Грамматика с ОДНИМ задокументированным shift/reduce-конфликтом (%expect 1).
+ * kind trust-контракта — одиночный NAME после `@{`, отделённый стрелкой `-->` (FOLLOW):
+ * `@{ kind --> expr @}` (например `@{ pre --> x > 0 @}`). Голой формы `@{ expr @}` НЕТ (kind всегда
+ * явный). `-->` (FOLLOW) — существующий токен-стрелка («маппинг» в catch/if `[...] --> body`); в
+ * контракте он стоит после NAME внутри `@{}` — единственная такая позиция, поэтому с `[...] --> body`
+ * (FOLLOW после `]`) состояния не сливаются. NAME внутри `@{` не конфликтует с расширением имени.
  *
- * %expect 0 защищает от случайного изменения грамматики (при появлении конфликта bison упадёт).
+ * ── shift/reduce-конфликты (2): оба — `type_class • LT` (токен LT), разрешение shift→шаблон ─
+ * Нативный шаблон-тип (`vector<Int32>`) вводится ИНВЕРТИРОВАННО: базовый `type_name` шаблона НЕ
+ * содержит (путь типизированного литерала `digits_literal type_item` и голый тип `lval_var: type_item`
+ * остаются БЕЗ шаблона → `1:Bool < var` парсится как СРАВНЕНИЕ канонического bool-литерала, а не
+ * `:Bool<var>`). `type_name_tmpl: type_name | type_class LT template_args GT` переиспользует
+ * type_name (нет reduce/reduce) и используется в аннотациях типа и конструкции `:vector<Int32>(...)`.
+ *
+ * Конфликт 1 — `name types` (аннотация `v: vector`, объявл. через `lval_var`, который также
+ * операнд-выражение): после `name :Type` `<` двоится между шаблоном (shift) и сравнением типизированного
+ * lvalue `(v:Type) < expr` (reduce). Разрешение — shift (шаблон). Обоснование: типизированный lvalue
+ * `v:Type < expr` (тип-имя в сравнении) НЕ используется в коде; нешаблон в `X<...>` анализатор
+ * отклоняет ERROR «не нативный шаблон». Валидная декларация `v: vector<Int32> := ...` не затрагивается.
+ * Внутри `<>` голый `logical` не разрешён (чтобы не сталкивать `<` сравнения с template-open);
+ * логические/арифметические операторы в value-аргументах - в скобках `(expr)`.
+ *
+ * Конфликт 2 — `class_item: type_class • LT` (шаблонная база-вызов конструктора `:Class<:T>(100)`):
+ * после `type_class` в позиции базы-вызова `<` двоится между шаблоном (shift) и типом как-есть
+ * (reduce `type_name → type_class`). Разрешение — shift (шаблон): `:Class<...>` в конструкторе
+ * всегда читается как шаблонный базовый класс. Нешаблонная база `:Class(...)` не затрагивается
+ * (идёт по `type_call` без `<`).
  */
-%expect 0
+%expect 2
 
 /* write out a header file containing the token defines */
 %defines
@@ -162,6 +186,12 @@ ns_part:  NAME
             {
                 $$ = $1;
             }
+        | NONE
+            {
+                // «_» - лексема NONE: в name-позиции это обычный идентификатор `_`
+                // (none-значение, скрытая область, имя функции `_()` и т.п.) - как NAME.
+                $$ = Term::Create(TermID::NAME, "_", {}, parser::token_type::NAME);
+            }
         | MACRO_CONTEXT   NAME
             {
                 $$ = $2;
@@ -236,7 +266,7 @@ name_attr:  name_no_attr
     |  attr  native
             {
                 // Атрибуты перед нативным идентификатором (%...) - напр. forward-декларация
-                // нативной функции `@[format("printf",1,2)]@ %printf(...) := ...;`.
+                // нативной функции `@[format("printf",1,2)@] %printf(...) := ...;`.
                 $$ = $2;
                 TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
                 TERM($$)->FinalizeAndTest(TERM($$)->m_id);
@@ -367,7 +397,7 @@ type_class:  COLON  name_no_attr
             }
         | COLON  attr  name_no_attr
             {
-                // Атрибуты перед именем типа (напр. `fmt: @[reftype(ptr)]@ StrChar^`):
+                // Атрибуты перед именем типа (напр. `fmt: @[reftype(ptr)@] StrChar^`):
                 // атрибут относится к типу (m_attr), см. convertAttrsToNode/семантику.
                 $$ = $3;
                 TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($2)->m_attr.begin(), TERM($2)->m_attr.end());
@@ -421,6 +451,18 @@ ptr: AMP
             $$ = $1;
             TERM($$)->m_id = TermID::OPERATOR_PTR;
         }
+    | NATIVE_REF_MAKE
+        {
+            // Нативный `%&` (нативная ссылка T& / address-of): маркер как OPERATOR_PTR с текстом `%&`.
+            $$ = $1;
+            TERM($$)->m_id = TermID::OPERATOR_PTR;
+        }
+    | NATIVE_REF_PTR
+        {
+            // Нативный `%*` (указатель T*): маркер как OPERATOR_PTR с текстом `%*`.
+            $$ = $1;
+            TERM($$)->m_id = TermID::OPERATOR_PTR;
+        }
     
 
 type_name:  type_class
@@ -434,7 +476,7 @@ type_name:  type_class
             }
         | COLON  ptr  NAME
             {
-                // Префиксный оператор (&, &&, &*, ...) над типом: ':&Int8'
+                // Префиксный оператор (&&, &*, ...) над типом: ':&&Int8'
                 $$ = $3;
                 TERM($$)->AppendLeft(TERM($1));
                 TERM($$)->FinalizeAndTest(TermID::TYPE);
@@ -443,7 +485,7 @@ type_name:  type_class
             }
         | COLON  ptr  NAME   LBRACKET  type_dims   RBRACKET
             {
-                // Префиксный оператор над типом с размерностями: ':&Int8[2]'
+                // Префиксный оператор над типом с размерностями: ':&&Int8[2]'
                 $$ = $3;
                 TERM($$)->AppendLeft(TERM($1));
                 TERM($$)->FinalizeAndTest(TermID::TYPE);
@@ -494,17 +536,50 @@ type_item:  type_name
                 $$ = $1;
             }
 
-types:  type_name
+types:  type_name_tmpl
             {
                 $$ = $1;
+                // Узел-оператор (&, *) уже корень типа - не перезаписываем m_id.
+                // Прежнее отдельное правило type_item_tmpl (= type_name_tmpl | type_call_tmpl)
+                // было структурно идентично `types` и поглощено им - дубль удалён.
+                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE)
+                    TERM($$)->m_id = TermID::TYPE;
             }
-        | type_call
+        | type_call_tmpl
             {
                 // Параметризованный тип в позиции возвращаемого типа / аннотации:
                 // `%fib(n:Rational):Tuple(sum:Rational, fib:Rational) := {...}`.
                 $$ = $1;
             }
-        
+
+/* Нативный шаблон-тип (`vector<Int32>`) ДОСТУПЕН ТОЛЬКО в позициях аннотации типа (декларации,
+ * параметры, возвраты) и конструкции (`:vector<Int32>(...)`). ИНВЕРТИРОВАННЫЙ вариант B:
+ * базовый `type_name` шаблона НЕ содержит (путь типизированного литерала `digits_literal type_item`
+ * и голый тип `lval_var: type_item` остаются без шаблона → `1:Bool < var` парсится как сравнение,
+ * а не `:Bool<var>`). type_name_tmpl ПЕРЕИСПОЛЬЗУЕТ type_name (нет дублирования type_class →
+ * нет reduce/reduce) и добавляет `type_class LT template_args GT`. %expect 0 сохраняется. */
+type_name_tmpl:  type_name
+            {
+                $$ = $1;
+            }
+        |  type_class   LT  template_args   GT
+            {
+                // Нативный шаблон-тип `vector<Int32>`: type_class (`:vector`) + типовые аргументы.
+                // Признак шаблона и список аргументов - в m_template (отличие от кортежных
+                // параметров `:Type(...)` в m_args, см. term_to_ast.cpp).
+                $$ = $1;
+                TERM($$)->m_template = TERM($template_args)->m_args;
+                TERM($$)->m_mapperRange.end = TERM($4)->m_mapperRange.end;
+            }
+type_call_tmpl:  type_name_tmpl   call
+            {
+                // Конструкция значения нативного шаблона `:vector<Int32>(1, 2, 3)` (type_call).
+                $$ = $1;
+                TERM($$)->m_args.swap(TERM($2)->m_args);
+                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE)
+                    TERM($$)->m_id = TermID::TYPE;
+            }
+
 
 digits_literal: INTEGER
             {
@@ -621,7 +696,7 @@ strtype: strwide
                 // Predefined контекст-макрос приходит токеном MACRO - раскрываем его в
                 // MACRO_CONTEXT (иначе не отличим контекст-макрос от обычного имени).
                 if (TERM($2)->getTermID() == trust::TermID::MACRO) {
-                    driver.ExpandPredefMacro(TERM($2));
+                    driver.predef().expandPredefMacro(TERM($2));
                 }
                 if (TERM($2)->getTermID() == trust::TermID::MACRO_CONTEXT) {
                     // Стрингификация контекст-макроса (@# @__X__ / @#' / @#"): маркер
@@ -722,6 +797,19 @@ field_name:  NAME
                 $$ = $1;
                 TERM($$)->m_args.swap(TERM($call)->m_args);
             }
+        | native  types
+            {
+                // Нативное поле с типом: `obj.%data:CString` → MemberAccess(left=obj, right=Ident(%data)).
+                $$ = $1;
+                TERM($$)->m_type = TERM($types);
+            }
+        | native  call  types
+            {
+                // Нативный метод с типом возврата: `obj.%c_str():CString`.
+                $$ = $1;
+                TERM($$)->m_args.swap(TERM($call)->m_args);
+                TERM($$)->m_type = TERM($types);
+            }
 
 field:  DOT  field_name
             {
@@ -768,6 +856,42 @@ native:  PERCENT  ns_part
                 TERM($$)->FinalizeAndTest(TermID::NATIVE);
             }
         
+/* Типовые параметры нативного шаблона-типа: `<T>` / `<T, U, ...>` (Этап B1 - только типовые,
+ * без ограничений и value-параметров). Список накапливается в m_template (ArgsList). */
+template_param:  NAME
+            {
+                $$ = $1;
+            }
+template_params:  template_param
+            {
+                $$ = Term::Create(TermID::ARGS, "", TERM($1)->m_mapperRange);
+                TERM($$)->m_template.emplace();
+                TERM($$)->m_template->push_back({ std::string(TERM($1)->getText()), TERM($1) });
+            }
+        | template_params  COMMA  template_param
+            {
+                $$ = $1;
+                TERM($$)->m_template->push_back({ std::string(TERM($3)->getText()), TERM($3) });
+                TERM($$)->m_mapperRange.end = TERM($3)->m_mapperRange.end;
+            }
+template_param_list:  LT  template_params  GT
+            {
+                $$ = $2;
+                TERM($$)->m_mapperRange.end = TERM($3)->m_mapperRange.end;
+            }
+
+/* Префикс нативного шаблона-типа: `<T> %std::vector() := ...;` (без атрибута или с `@[include]`
+ * перед `<T>`). ARGS-holder: типовые параметры в m_template, атрибуты - в m_attr. */
+template_prefix:  template_param_list
+            {
+                $$ = $1;
+            }
+        | attr  template_param_list
+            {
+                $$ = $2;
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
+            }
+        
 lval_obj: assign_name
             {
                 $$ = $1;
@@ -795,6 +919,14 @@ lval_obj: assign_name
                 TERM($field)->m_left = TERM($1);
                 $$ = $field;
             }        
+        |  lval_call
+            {
+                // Вызов как объект доступа к полю/методу: `f(a).b`, `f(a).b().c` (method chaining).
+                // Позволяет `lval_obj field` применяться после вызова.
+                $$ = $1;
+            }
+
+
         
         
 take:   TAKE_CONST  /*  *^  */
@@ -820,18 +952,23 @@ lval_var:  lval_obj
                 TERM($$)->AppendRight(TERM($rval_name));
             } 
         |  type_item
-            {   
-                $$ = $type_item; 
+            {
+                // Голый тип как lvalue/операнд (`:Type`) и конструкция `:Type(...)` (type_call).
+                // БЕЗ нативного шаблона: шаблон-тип в RHS `::=` обеспечивает type_def_rhs.
+                $$ = $type_item;
             }
         |  type_item  type_item
             {   
                 $$ = $1; 
                 TERM($$)->m_type = TERM($2);
             }
-        |  name  type_item
+        |  name  types
             {   
+                // Аннотация типа переменной `v: vector<Int32>` - нативный шаблон ДОПУСТИМ
+                // (и типизированное lvalue/чтение `x:Type`). Даёт задокументированный S/R
+                // `name type_class • LT` (shift→шаблон; `v:Type < expr` в сравнении не используется).
                 $$ = $1; 
-                TERM($$)->m_type = TERM($type_item);
+                TERM($$)->m_type = TERM($types);
             }
 
 /* Допустимые lvalue объекты */
@@ -856,10 +993,6 @@ lval_call:  take  call
         
 
 lval: lval_var
-        {       
-            $$ = $1;
-        }
-    | lval_call
         {       
             $$ = $1;
         }
@@ -899,6 +1032,10 @@ eval:  REFLECTION
         {
             $$ = $1;
             TERM($$)->m_args.swap(TERM($2)->m_args);
+        }
+    | trust_elem
+        {
+            $$ = $1;
         }
     
 rval_var:  rval_range
@@ -1011,14 +1148,14 @@ arg: ptr arg_name named_rhs
             TERM($$)->m_right = TERM($ptr);
             TERM($ptr)->AppendRight(TERM($3));
         }
-    | ptr name type_item named_rhs
+    | ptr name types named_rhs
         { // Именованный аргумент со ссылкой и типом
             $$ = Term::Create(TermID::ARGUMENT, "", trust::MapperRange{TERM($ptr)->m_mapperRange.begin, TERM($4)->m_mapperRange.end});
             TERM($$)->m_left = TERM($name);
             TERM($$)->m_right = TERM($ptr);
             TERM($ptr)->AppendRight(TERM($4));
             // НОРМАЛИЗАЦИЯ: тип аргумента - ЕДИНЫЙ слот m_type (не m_right->SetType / $4->SetType).
-            TERM($$)->m_type = TERM($type_item);
+            TERM($$)->m_type = TERM($types);
         }
     | arg_name named_rhs
         { // Именованный аргумент
@@ -1026,13 +1163,13 @@ arg: ptr arg_name named_rhs
             TERM($$)->m_left = TERM($1);
             TERM($$)->m_right = TERM($2);
         }
-    | name type_item named_rhs
+    | name types named_rhs
         { // Именованный аргумент с типом
             $$ = Term::Create(TermID::ARGUMENT, "", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($3)->m_mapperRange.end});
             TERM($$)->m_left = TERM($1);
             TERM($$)->m_right = TERM($3);
             // НОРМАЛИЗАЦИЯ: тип аргумента - ЕДИНЫЙ слот m_type (не m_right->SetType).
-            TERM($$)->m_type = TERM($type_item);
+            TERM($$)->m_type = TERM($types);
         }
     | logical
         {
@@ -1088,6 +1225,50 @@ args:   arg
                 std::string argName3 = (TERM($3)->getTermID() == TermID::ARGUMENT && TERM($3)->m_left) ? std::string(TERM($3)->m_left->getText()) : "";
                 TERM($$)->push_back(TERM($3), argName3);
             }
+
+/* Типовые аргументы нативного шаблона-типа `vector<Int32>` / `array<Int32, 4>`:
+ *   - `name` (голое имя, `Int32`) - принимается, но с мягким предупреждением «нужен сигил ':'»;
+ *   - `type_name_tmpl` (`:Int32`, `:MyClass`, `:MyClass<:Int8>` вложенные) - явный тип;
+ *   - `digits_literal` (`4`) - value-аргумент (B2, `array<Int32, 4>`);
+ *   - `LPAREN logical RPAREN` (`(1+2)`, `(a<b)`) - value-выражение в СКОБКАХ (логический/арифметический
+ *     оператор; голый `logical` в `<>` не разрешён, чтобы не сталкивать `<` сравнения с template-open).
+ * Каждый аргумент хранится как ArgsPair (имя в getText, терм-значение). */
+template_arg:  name
+            {
+                $$ = $1;
+                // Голое имя `Int32` без сигила ':' - тип аргумента подразумевается; мягкое
+                // предупреждение (не ошибка). Рекомендуемая форма - `:Int32` (type_class).
+                driver.m_ctx.diag().report(Severity::Warning, TERM($1)->m_mapperRange,
+                                          "type argument '{}' without type sigil ':' - use ':{}'", TERM($1)->getText(), TERM($1)->getText());
+            }
+        | type_name_tmpl
+            {
+                $$ = $1;
+            }
+        | digits_literal
+            {
+                // value-аргумент `array<Int32, 4>` (B2).
+                $$ = $1;
+            }
+        | LPAREN  logical  RPAREN
+            {
+                // value-выражение в скобках `array<Int32, (1+2)>` (B2).
+                $$ = Term::Create(TermID::ARGS, "", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($3)->m_mapperRange.end});
+                TERM($$)->m_right = TERM($2);
+            }
+template_args:  template_arg
+            {
+                $$ = Term::Create(TermID::ARGS, "", TERM($1)->m_mapperRange);
+                TERM($$)->m_args.emplace();
+                TERM($$)->m_args->push_back({ std::string(TERM($1)->getText()), TERM($1) });
+            }
+        | template_args  COMMA  template_arg
+            {
+                $$ = $1;
+                TERM($$)->m_args->push_back({ std::string(TERM($3)->getText()), TERM($3) });
+                TERM($$)->m_mapperRange.end = TERM($3)->m_mapperRange.end;
+            }
+
         
 call:  LPAREN  RPAREN
             {   
@@ -1108,20 +1289,20 @@ array: LBRACKET  args  COMMA  RBRACKET
                 TERM($$)->m_id = TermID::TENSOR;
                 TERM($$)->m_args.swap(TERM($args)->m_args);
             }
-        | LBRACKET  args  COMMA  RBRACKET  type_item
+        | LBRACKET  args  COMMA  RBRACKET  types
             {
                 $$ = $1;
                 TERM($$)->getText().clear();
                 TERM($$)->m_id = TermID::TENSOR;
                 TERM($$)->m_args.swap(TERM($args)->m_args);
-                TERM($$)->m_type = TERM($type_item);
+                TERM($$)->m_type = TERM($types);
             }
-        | LBRACKET  COMMA  RBRACKET  type_item
+        | LBRACKET  COMMA  RBRACKET  types
             {
                 $$ = $1;
                 TERM($$)->getText().clear();
                 TERM($$)->m_id = TermID::TENSOR;
-                TERM($$)->m_type = TERM($type_item);
+                TERM($$)->m_type = TERM($types);
             }
 
             
@@ -1165,14 +1346,113 @@ collection: array
                 $$ = $1;
             }
         
-class_props: assign_lval
+class_props: class_member
             {
                 $$ = $1;
             }
-        | class_props   separator   assign_lval
+        | class_props   separator   class_member
             {
                 $$ = $1;
                 TERM($$)->AppendRight(TERM($3));
+            }
+
+/* Имя члена класса (декларация): имя с необязательным вызовом и типом возврата.
+ * Покрывает `%size():UInt64`, `%data:CString`, `size()`, `@::field:T` (static-член).
+ * Отделено от выражения-lvalue: НЕ содержит dot-доступа (см. dot_member_name), чтобы
+ * декларация члена `.name` не путалась с доступом к полю `.name` в выражениях. */
+member_name:  name
+            {
+                $$ = $1;
+            }
+        |  name  call
+            {
+                $$ = $1;
+                TERM($$)->m_args.swap(TERM($call)->m_args);
+            }
+        |  name  call  types
+            {
+                $$ = $1;
+                TERM($$)->m_args.swap(TERM($call)->m_args);
+                TERM($$)->m_type = TERM($types);
+            }
+        |  name  types
+            {
+                $$ = $1;
+                TERM($$)->m_type = TERM($types);
+            }
+
+/* Имя члена класса с ведущей точкой (экземплярный член): `.name`, `.name()`, `.name():T`,
+ * `.%name`, `.%name():T`. Строит NAME/FuncDecl-терм с ведущей '.' в тексте (как native
+ * добавляет '%'): без '.' dot-член давал VarDecl с именем "." (bare пуст → молча пропускался),
+ * а ведущая '.' в тексте - признак экземплярного члена для анализатора (-Wclass-member-dot). */
+dot_member_name:  DOT  name
+            {
+                $$ = $2;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->FinalizeAndTest(TERM($$)->m_id);
+            }
+        |  DOT  name  call
+            {
+                $$ = $2;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->m_args.swap(TERM($call)->m_args);
+                TERM($$)->FinalizeAndTest(TERM($$)->m_id);
+            }
+        |  DOT  name  call  types
+            {
+                $$ = $2;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->m_args.swap(TERM($call)->m_args);
+                TERM($$)->m_type = TERM($types);
+                TERM($$)->FinalizeAndTest(TERM($$)->m_id);
+            }
+        |  DOT  name  types
+            {
+                $$ = $2;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->m_type = TERM($types);
+                TERM($$)->FinalizeAndTest(TERM($$)->m_id);
+            }
+
+class_member:  member_name  assign_op  assign_expr
+            {
+                // Член без точки (native/обычный/static): `%size():UInt64 := ...;` → := (left=имя, right=тело).
+                $$ = $2;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->AppendRight(TERM($3));
+            }
+        |  member_name  EQ  assign_expr
+            {
+                // Член с присваиванием `=`: `field = expr;` (в т.ч. в пользовательских классах).
+                $$ = Term::Create(TermID::ASSIGN, "=", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($3)->m_mapperRange.end}, token::EQ);
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->AppendRight(TERM($3));
+            }
+        |  dot_member_name  assign_op  assign_expr
+            {
+                // Экземплярный член с ведущей точкой: `.method():T := ...;` / `.%field:T := ...;`.
+                $$ = $2;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->AppendRight(TERM($3));
+            }
+        |  dot_member_name  EQ  assign_expr
+            {
+                // Экземплярный член с присваиванием `=`: `.field = expr;`.
+                $$ = Term::Create(TermID::ASSIGN, "=", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($3)->m_mapperRange.end}, token::EQ);
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->AppendRight(TERM($3));
+            }
+        |  TILDE  name  call  assign_op  assign_expr
+            {
+                // Деструктор `~Name() := { };` - метод с маркером `~` в левом крае имени.
+                // Структура как у assign_lval: корень - assign_op (:=), left = `~Name()`,
+                // right = тело. Отличие - `~` в m_left имени (семантика распознаёт деструктор).
+                TermPtr dtor = $2;                       // имя Name
+                TERM(dtor)->m_args.swap(TERM($3)->m_args); // вызов ()
+                TERM(dtor)->AppendLeft(TERM($1));        // `~` перед именем
+                $$ = $4;                                 // :=
+                TERM($$)->AppendLeft(dtor);
+                TERM($$)->AppendRight(TERM($5));         // тело { }
             }
 
 class_item:  type_call
@@ -1183,6 +1463,16 @@ class_item:  type_call
             {
                 $$ = $1;
                 TERM($$)->m_args.swap(TERM($call)->m_args);
+            }
+        |  type_class  LT  template_args  GT  call
+            {
+                // Шаблонная база-вызов `:Class<:T>(100)` в конструкторе (type_call_tmpl-эквивалент,
+                // но без переиспользования type_name_tmpl, чтобы не плодить shift/reduce).
+                $$ = $1;
+                TERM($$)->m_template = TERM($template_args)->m_args;
+                TERM($$)->m_args.swap(TERM($call)->m_args);
+                TERM($$)->m_mapperRange.end = TERM($5)->m_mapperRange.end;
+                TERM($$)->m_id = TermID::TYPE;
             }
 
 class_base: class_item
@@ -1207,14 +1497,92 @@ class_def:  class_base  LBRACE  RBRACE
                 TERM($$)->m_id = TermID::CLASS;
                 TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
             }
-        
 
-        
-assign_op: CREATE_NAME /* := */
+/* Определение класса через `::=` (ветка type_def_rhs): `:Name ::= :Class1, :Class<:T>{ ... };`.
+ * Базы - типы-ссылки БЕЗ скобок (в отличие от базы-вызова конструктора в class_def), допускают
+ * шаблонные аргументы `:Class<:T>`. Множественное наследование - через запятую. */
+class_type_def:  class_type_bases  LBRACE  RBRACE
+            {
+                $$ = $class_type_bases;
+                TERM($$)->m_id = TermID::CLASS;
+            }
+        | class_type_bases LBRACE class_props  separator  RBRACE
+            {
+                $$ = $class_type_bases;
+                TERM($$)->m_id = TermID::CLASS;
+                TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
+            }
+class_type_bases:  class_type_base
             {
                 $$ = $1;
             }
-        | CREATE_TYPE /* ::= */
+        | class_type_bases  COMMA  class_type_base
+            {
+                $$ = $1;
+                TERM($$)->AppendRight(TERM($3));
+            }
+class_type_base:  type_name_tmpl
+            {
+                $$ = $1;
+            }
+        
+/* Forward-объявление класса / шаблона-класса через `::=`:
+ *   @include("string")  String ::= %std::string { ... };             (нативный класс)
+ *   @include("utility") <T1,T2> Pair ::= %std::pair<T1,T2> { ... };  (ЯВНАЯ реализация)
+ *   @include("utility") <T1,T2> Pair ::= <T1,T2> %std::pair { ... }; (ОБОБЩЁННАЯ, сахар)
+ * trust-имя класса - слева от `::=`; RHS - ЛЮБОЕ имя (нативное - с ведущим '%': C++-имя без '%'),
+ * члены тела - class_props (как у class_type_def). Класс - это forward-объявление: члены всегда
+ * `:= ...`, тела нет (класс определён в C++-заголовке, инклуд - из @[include]).
+ * Терм: m_id=CLASS, RHS-имя - САМ ТЕРМ ($$ = имя, текст = связывание; НЕ m_left), типовые
+ * параметры реализации - в m_template, члены тела - в m_sequence (RightToBlock). */
+native_class_fwd:  name  LBRACE  RBRACE
+            {
+                $$ = $1;
+                TERM($$)->m_id = TermID::CLASS;
+            }
+        |  name  LBRACE  class_props  separator  RBRACE
+            {
+                $$ = $1;
+                TERM($$)->m_id = TermID::CLASS;
+                TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
+            }
+        |  name  LT  template_params  GT  LBRACE  RBRACE
+            {
+                // ЯВНАЯ реализация `%std::pair<T1,T2>`: параметры реализации - в m_template.
+                $$ = $1;
+                TERM($$)->m_id = TermID::CLASS;
+                TERM($$)->m_template = TERM($template_params)->m_template;
+                TERM($$)->m_mapperRange.end = TERM($4)->m_mapperRange.end;
+            }
+        |  name  LT  template_params  GT  LBRACE  class_props  separator  RBRACE
+            {
+                $$ = $1;
+                TERM($$)->m_id = TermID::CLASS;
+                TERM($$)->m_template = TERM($template_params)->m_template;
+                TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
+                TERM($$)->m_mapperRange.end = TERM($4)->m_mapperRange.end;
+            }
+        |  LT  template_params  GT  name  LBRACE  RBRACE
+            {
+                // ОБОБЩЁННАЯ форма `<T1,T2> имя { ... }` (сахар, отложена): шаблон привязывается
+                // обобщённо (без явных аргументов реализации). Шаблонность определяется левым
+                // `::=`->m_template; здесь m_template RHS НЕ заполняем → m_templateArgs пуст,
+                // ClassDecl выводит generic = (есть типовые параметры) && (нет аргументов реализации).
+                $$ = $4;
+                TERM($$)->m_id = TermID::CLASS;
+                TERM($$)->m_mapperRange.end = TERM($3)->m_mapperRange.end;
+            }
+        |  LT  template_params  GT  name  LBRACE  class_props  separator  RBRACE
+            {
+                $$ = $4;
+                TERM($$)->m_id = TermID::CLASS;
+                TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
+                TERM($$)->m_mapperRange.end = TERM($3)->m_mapperRange.end;
+            }
+
+
+        
+assign_op: CREATE_NAME /* := */
             {
                 $$ = $1;
             }
@@ -1249,10 +1617,6 @@ assign_expr:  body
                     TERM($$)->m_mapperRange.end = TERM($rval)->m_mapperRange.end;
                 }
             | class_def
-                {
-                    $$ = $1;  
-                }
-            |  MACRO_SEQ
                 {
                     $$ = $1;  
                 }
@@ -1310,10 +1674,6 @@ assign_item:  lval
                     $$ = $ptr;
                     TERM($$)->AppendRight(TERM($3));
                 }   
-            |  MACRO_SEQ
-                {
-                    $$ = $1;
-                }
             
 /*
  * Для применения в определениях классов и в качестве rval
@@ -1347,11 +1707,77 @@ assign_items: assign_item
                     TERM($$)->AppendLeft(TERM($3));
                 }
 
-assign_seq:  assign_items  assign_op  assign_expr
+/* Trust-конструкции: пред-/пост-условия и утверждения.
+ * Каждая содержит СТРОГО ОДНО логическое выражение (нетерминал `logical`).
+ * Маркеры с ведущим '@': @( ... @) | @< ... @> | @{ ... @}.
+ * kind — одиночный NAME после `@{`, отделённый стрелкой `-->` (FOLLOW): `@{ kind --> expr @}`
+ * (голой `@{ expr @}` НЕТ; kind всегда явный). */
+trust_contract: TRUST_BEGIN  NAME  FOLLOW  logical  TRUST_END
             {
-                $$ = $2;  
-                TERM($$)->AppendLeft(TERM($1)); 
-                TERM($$)->AppendRight(TERM($3)); 
+                // `@{ kind --> expr @}`: m_left = идентификатор kind (NAME после @{),
+                // m_right = выражение. Разделитель `-->` (FOLLOW) — «стрелка-отношение»,
+                // как в catch/if `[...] --> body`.
+                $$ = $1;
+                TERM($$)->m_id = TermID::TRUST_CONTRACT;
+                TERM($$)->m_left = TERM($2);
+                TERM($$)->m_right = TERM($logical);
+                TERM($$)->m_mapperRange.end = TERM($5)->m_mapperRange.end;
+            }
+
+/* Термин решателя: @( term, args... ). Первый аргумент - СТРОГО маркер (name_no_attr,
+ * резолвится в Z3TermKind::kind), остальные (после COMMA) - args. */
+trust_elem: TRUST_ELEM_BEGIN  name_no_attr  TRUST_ELEM_END
+            {
+                // Безаргументный термин (result): @( result @).
+                $$ = $1;
+                TERM($$)->m_id = TermID::TRUST_ELEM;
+                TERM($$)->m_left = TERM($2);
+                TERM($$)->m_mapperRange.end = TERM($3)->m_mapperRange.end;
+            }
+        | TRUST_ELEM_BEGIN  name_no_attr  COMMA  args  TRUST_ELEM_END
+            {
+                // С аргументами: @( old, x @) / @( forall, i, P @).
+                $$ = $1;
+                TERM($$)->m_id = TermID::TRUST_ELEM;
+                TERM($$)->m_left = TERM($2);            // маркер (old/forall/...)
+                TERM($$)->m_args = TERM($4)->m_args;    // аргументы (args-терм хранит их в m_args)
+                TERM($$)->m_mapperRange.end = TERM($5)->m_mapperRange.end;
+            }
+
+/* Последовательность trust-контрактов после имени объявления (без разделителей).
+ * Единая правая рекурсия от пустого: голова - первый контракт (если есть), остальные - в m_sequence.
+ * НЕЛЬЗЯ добавлять отдельную альтернативу `trust_contract` (единственный путь от ε) - иначе
+ * shift/reduce-конфликт после assign_items (см. %expect 0). */
+trust_cond_seq: %empty
+            {
+                $$ = nullptr;
+            }
+        | trust_cond_seq  trust_contract
+            {
+                if ($1) {
+                    $$ = $1;
+                    TERM($$)->m_sequence.push_back(TERM($2));
+                } else {
+                    $$ = $2; // первый контракт становится головой
+                }
+            }
+
+assign_seq:  assign_items  trust_cond_seq  assign_op  assign_expr
+            {
+                // Trust-конструкции (pre/post/assert) после имени привязываем к терму-имени
+                // ($1) - в его m_sequence. Конвертер переносит их на узел идентификатора и
+                // выявляет недопустимое использование (напр. перед `[]=`). hasConvertibleChildren
+                // пропускает TRUST_* -термы, чтобы имя не стало CallExpr.
+                if ($2) {
+                    auto& seq = TERM($1)->m_sequence;
+                    seq.push_back(TERM($2)); // голова (первый конд)
+                    seq.insert(seq.end(),
+                               TERM($2)->m_sequence.begin(),
+                               TERM($2)->m_sequence.end()); // остальные
+                }
+                $$ = $3;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->AppendRight(TERM($4));
 
                 if(TERM($$)->isMacro()){
                     $$ = ProcessMacro(driver, TERM($$));
@@ -1367,12 +1793,76 @@ assign_seq:  assign_items  assign_op  assign_expr
                     $$ = ProcessMacro(driver, TERM($$));
                 }
             }
+        | assign_items  SWAP  assign_items
+            {
+                // Swap `x :=: y` - обмен двух ссылок/переменных. Единый узел Binary(AssignOp)
+                // с оператором ":=:" (терм SWAP): семантика проверяет ссылочный контракт
+                // (typeBinaryResult), транспилятор эмитит std::swap (emitBinaryOpRaw).
+                $$ = $2;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->AppendRight(TERM($3));
+            }
         | MACRO_DEL
             {
                 $$ = ProcessMacro(driver, TERM($1));
             }
+        | MACRO_SEQ
+            {
+                // Определение макроса (новая лексика без оператора `:=`):
+                // терм MACRO_SEQ с сигнатурой в m_sequence и телом в m_right,
+                // собранный парсером в GetNextToken. Обрабатываем (регистрируем).
+                $$ = ProcessMacro(driver, TERM($1));
+            }
+
 
         
+/* Тип-определение `::=` = CREATE_TYPE: RHS - ТОЛЬКО ТИП (у `::=` нет арифметики/`logical`).
+ *  - `types` - алиас-тип, в т.ч. типизированный шаблон `copy ::= :vector<Int32>`;
+ *  - `dictionary type_class` - enum/variant из словаря-литерала `Level ::= (LOW=..):Enum`;
+ *  - `class_type_def` - определение класса `:Name ::= :Class1, :Class<:T>{ ... };`.
+ * Вызов/строка в RHS `::=` - ОШИБКА (RHS не тип). Узел = Binary(CREATE_TYPE, left, right). */
+type_def_seq:  assign_items  trust_cond_seq  CREATE_TYPE  type_def_rhs
+            {
+                // Trust-конструкции после имени типа - как в assign_seq (в m_sequence имени).
+                if ($2) {
+                    auto& seq = TERM($1)->m_sequence;
+                    seq.push_back(TERM($2));
+                    seq.insert(seq.end(), TERM($2)->m_sequence.begin(), TERM($2)->m_sequence.end());
+                }
+                $$ = $3;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->AppendRight(TERM($4));
+                if (TERM($$)->isMacro()) {
+                    $$ = ProcessMacro(driver, TERM($$));
+                }
+            }
+type_def_rhs:  types
+            {
+                $$ = $1;
+            }
+        |  dictionary  type_class
+            {
+                // Enum/Variant: `(OK=0,):Enum` - словарь с аннотацией типа-класса.
+                $$ = $1;
+                TERM($$)->m_type = TERM($type_class);
+                TERM($$)->GetType()->FinalizeAndTest(TermID::TYPE);
+            }
+        |  name
+            {
+                // Алиас на существующий тип по голому имени `copy ::= term;` (анализ проверит, что это тип).
+                $$ = $1;
+            }
+        | class_type_def
+            {
+                // Определение класса `:Name ::= :Class1, :Class<:T>{ ... };` (см. class_type_def).
+                $$ = $1;
+            }
+        | native_class_fwd
+            {
+                // Forward-объявление НАТИВНОГО класса/шаблона-класса `Name ::= %std::name { ... };`.
+                $$ = $1;
+            }
+
 block:  LBRACE  RBRACE
             {
                 $$ = $1; 
@@ -1383,6 +1873,7 @@ block:  LBRACE  RBRACE
                 TERM($1)->m_id = TermID::BLOCK;
                 $$ = TERM($1)->AppendBlock(TERM($sequence), TermID::BLOCK, true);
             }
+
 
 block_any: block
             {
@@ -1461,12 +1952,27 @@ body:  condition
                 $$ = $1;
             }
 
+// attr_body - тело, допустимое ПЕРЕД атрибутом оператора (do/body-формы match/цикла).
+// НЕ содержит exit: exit «пористый» (может продолжаться хвостовым условием с атрибутированным
+// именем), из-за чего `attr` после него неоднозначен (shift/reduce на ATTRIBUTE). Ограничение
+// атрибутных body-форм телом condition|block_type устраняет конфликт (локально, без изменения body).
+attr_body:  condition
+            {
+                $$ = $1;
+            }
+        |  block_type
+            {
+                $$ = $1;
+            }
+
+
 body_else: COMMA  LBRACKET  ELLIPSIS  RBRACKET  FOLLOW  body
             {
                 $$ = $FOLLOW; 
                 TERM($$)->AppendLeft(TERM($ELLIPSIS)); 
                 TERM($$)->AppendRight(TERM($body)); 
             }
+
 
 
 try_all: TRY_ALL_BEGIN  TRY_ALL_END
@@ -1478,6 +1984,81 @@ try_all: TRY_ALL_BEGIN  TRY_ALL_END
             {
                 TERM($1)->m_id = TermID::BLOCK_TRY;
                 $$ = TERM($1)->AppendBlock(TERM($sequence), TermID::BLOCK_TRY, true);
+            }
+
+/* Оператор перехвата `try { A } catch(:T){B} catch(_){C} else{D};` (классический синтаксис).
+ * `try {` → {* (прагма @__PRAGMA_TRY_CLOSE__ делает финальную } → *}), т.е. try_all полный.
+ * try_tail ТРЕБУЕТ хотя бы одну ветку (catch или else): голый `try {A}` → {*A*} = try_all (standalone).
+ * catch_clause = match-item `[ value:Type ] -->`; catch_arg: :Type | e:Type | NONE(_ → IntAny). */
+try_stmt: try_any  try_tail
+            {
+                $$ = $1; // BLOCK_TRY/PLUS/MINUS (try_all/try_plus/try_minus)
+                if ($2) {
+                    for (const auto& c : TERM($2)->m_sequence) {
+                        TERM($$)->m_sequence.push_back(c);
+                    }
+                    if (TERM($2)->m_right) {
+                        TERM($$)->m_right = TERM($2)->m_right;
+                    }
+                }
+            }
+
+try_tail: catch_tail  else_part
+            {
+                $$ = $1; // catch_tail (SEQUENCE с ветками в m_sequence)
+                if ($2) {
+                    TERM($$)->m_right = TERM($2)->m_right ? TERM($2)->m_right : TERM($2);
+                }
+            }
+        | else_body
+            {
+                $$ = Term::Create(TermID::SEQUENCE, "");
+                TERM($$)->m_right = TERM($1)->m_right ? TERM($1)->m_right : TERM($1);
+            }
+
+catch_tail: catch_clause
+            {
+                $$ = Term::Create(TermID::SEQUENCE, "");
+                TERM($$)->m_sequence.push_back(TERM($1));
+            }
+        | catch_tail  catch_clause
+            {
+                $$ = $1;
+                TERM($$)->m_sequence.push_back(TERM($2));
+            }
+
+catch_clause: LBRACKET  catch_arg  RBRACKET  FOLLOW  block
+            {
+                $$ = $FOLLOW;
+                TERM($$)->m_id = TermID::FOLLOW;
+                TERM($$)->AppendLeft(TERM($catch_arg));
+                TERM($$)->AppendRight(TERM($block));
+            }
+
+catch_arg: type_item
+            {
+                $$ = $1;
+            }
+        | name  types
+            {
+                $$ = $1;
+                TERM($$)->m_type = TERM($types);
+            }
+        | NONE
+            {
+                // catch(_) / catch(none) → catch-any (IntAny). Лексема NONE отделена от NAME:
+                // «_» распознаётся грамматикой как catch-any на этапе парсера, а не по тексту
+                // в анализаторе.
+                $$ = Term::Create(TermID::NONE, "_", {}, parser::token_type::NONE);
+            }
+
+else_part: /* пусто */
+            {
+                $$ = nullptr;
+            }
+        | else_body
+            {
+                $$ = $1;
             }
 
 try_plus: TRY_PLUS_BEGIN  TRY_PLUS_END
@@ -1713,11 +2294,20 @@ if_then:  match_cond  FOLLOW  body
                 TERM($$)->AppendLeft(TERM($1)); 
                 TERM($$)->AppendRight(TERM($3)); 
             }
+        | match_cond  attr  FOLLOW  body
+            {
+                // Атрибут перед маркером FOLLOW (-->) - атрибут оператора if (Вариант 2).
+                // $$ = FOLLOW-терм ветви; m_attr переносим на него, далее follow копирует в if.
+                $$=$3;
+                TERM($$)->AppendLeft(TERM($1)); 
+                TERM($$)->AppendRight(TERM($4));
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($2)->m_attr.begin(), TERM($2)->m_attr.end());
+            }
 
-else_body: COMMA  LBRACKET  ELLIPSIS  RBRACKET  FOLLOW  body
+else_body: COMMA  LBRACKET  ELLIPSIS  RBRACKET  FOLLOW  block
             {
                 // else: тело else (маркер ELLIPSIS в AST не нужен - else ложится в m_right)
-                $$ = $body;
+                $$ = $block;
             }
 
 follow: if_then
@@ -1726,6 +2316,10 @@ follow: if_then
                 $$=Term::Create(TermID::FOLLOW, "if", TERM($1)->m_mapperRange, token::FOLLOW);
                 TERM($$)->m_left = TERM($1)->m_left;
                 TERM($$)->m_sequence.push_back(TERM($1)->m_right);
+                // Проброс атрибутов оператора if (attr перед -->) на итоговый терм if.
+                if (!TERM($1)->m_attr.empty()) {
+                    TERM($$)->m_attr = std::move(TERM($1)->m_attr);
+                }
             }
         | follow  COMMA  if_then
             {
@@ -1747,6 +2341,17 @@ repeat: body  REPEAT  match_cond
                 TERM($$)->m_left = TERM($match_cond);
                 TERM($$)->m_sequence.push_back(TERM($body));
             }
+        | attr_body  attr  REPEAT  match_cond
+            {
+                // do-цикл с атрибутом: тело (condition|block_type) @[x@] <-> [cond].
+                // attr_body (без exit) - чтобы attr после тела не был неоднозначен (см. attr_body).
+                $$=$3;
+                TERM($$)->m_id = TermID::DOWHILE;
+                TERM($$)->m_left = TERM($4);
+                TERM($$)->m_sequence.push_back(TERM($1));
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($2)->m_attr.begin(), TERM($2)->m_attr.end());
+            }
+
         | match_cond  REPEAT  body
             {
                 $$=$2;
@@ -1761,6 +2366,25 @@ repeat: body  REPEAT  match_cond
                 TERM($$)->m_left = TERM($match_cond);
                 TERM($$)->m_sequence.push_back(TERM($body));
                 TERM($$)->m_right = TERM($else_body);
+            }
+        | match_cond  attr  REPEAT  body
+            {
+                // Атрибут перед маркером REPEAT (while) - атрибут оператора цикла (Вариант 2).
+                $$=$3;
+                TERM($$)->m_id = TermID::WHILE;
+                TERM($$)->m_left = TERM($1);
+                TERM($$)->m_sequence.push_back(TERM($4));
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($2)->m_attr.begin(), TERM($2)->m_attr.end());
+            }
+        | match_cond  attr  REPEAT  body  else_body
+            {
+                // Атрибут перед REPEAT (while-else) - атрибут оператора цикла (Вариант 2).
+                $$=$3;
+                TERM($$)->m_id = TermID::WHILE;
+                TERM($$)->m_left = TERM($1);
+                TERM($$)->m_sequence.push_back(TERM($4));
+                TERM($$)->m_right = TERM($5);
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($2)->m_attr.begin(), TERM($2)->m_attr.end());
             }
 
 matches:  rval_range
@@ -1852,12 +2476,30 @@ match:  match_cond   MATCHING  match_body
                 TERM($$)->AppendLeft(TERM($1)); 
                 TERM($$)->AppendRight(TERM($3));
             }
+        |  match_cond  attr  MATCHING  match_body
+            {
+                // Атрибут перед маркером MATCHING - атрибут оператора match (Вариант 2).
+                $$=$3;
+                TERM($$)->AppendLeft(TERM($1)); 
+                TERM($$)->AppendRight(TERM($4));
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($2)->m_attr.begin(), TERM($2)->m_attr.end());
+            }
         |  body  MATCHING  match_body
             {
                 $$=$2;
                 TERM($$)->AppendLeft(TERM($1)); 
                 TERM($$)->AppendRight(TERM($3));
             }
+        |  attr_body  attr  MATCHING  match_body
+            {
+                // match по значению-выражению с атрибутом: <value> @[x@] ~> { ... }.
+                // attr_body (condition|block_type, без exit) - attr после тела однозначен (см. attr_body).
+                $$=$3;
+                TERM($$)->AppendLeft(TERM($1)); 
+                TERM($$)->AppendRight(TERM($4));
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($2)->m_attr.begin(), TERM($2)->m_attr.end());
+            }
+
 
 interrupt: INT_PLUS 
             {
@@ -1877,7 +2519,7 @@ exit_part:  interrupt
         {
             $$ = $1;
         }
-    |  interrupt   rval_var   interrupt
+    |  interrupt   condition   interrupt
         {
             $$ = $1;
             TERM($$)->AppendRight(TERM($2)); 
@@ -1935,29 +2577,29 @@ exit:   exit_part
         }
 
 
-with_op:  WITH
-        {
-            $$ = $1;
-        }
-
-    
-with: with_op  lval
+with: WITH  lval
         {
                 $$ = $1;
                 TERM($$)->AppendRight(TERM($2)); 
         }
-    | with_op  LPAREN  RPAREN   body
+    | WITH  LPAREN  RPAREN   body
         {
                 $$ = $1;
                 TERM($$)->AppendRight(TERM($4)); 
         }
-    | with_op  LPAREN  args  RPAREN  body
+    | WITH  LPAREN  RPAREN   body  body_else
+        {
+                $$ = $1;
+                TERM($$)->AppendRight(TERM($4)); 
+                TERM($$)->m_sequence.push_back(TERM($body_else)); 
+        }
+    | WITH  LPAREN  args  RPAREN  body
         {
                 $$ = $1; 
                 TERM($$)->m_args.swap(TERM($3)->m_args);
                 TERM($$)->AppendRight(TERM($5)); 
         }
-    |  with_op  LPAREN  args  RPAREN  body  body_else
+    |  WITH  LPAREN  args  RPAREN  body  body_else
         {
                 $$ = $1; 
                 TERM($$)->m_args.swap(TERM($3)->m_args);
@@ -2067,6 +2709,35 @@ expression: assign_seq
             {
                 $$ = $1;
             }
+        | type_def_seq
+            {
+                // Тип-определение `copy ::= :vector<Int32>;` (RHS - только тип).
+                $$ = $1;
+            }
+        | template_prefix  assign_seq
+            {
+                // Объявление нативного шаблона-типа `<T> %std::vector() := ...;`: префикс с
+                // типовыми параметрами и (опц.) атрибутами + тело (CREATE_NAME `:=`). Признак и
+                // список типовых параметров - в m_template оператора. Атрибуты переносим на терм-
+                // имени (m_left `:=`), чтобы convertAttrsToNode прочитал их для FuncDecl.
+                $$ = $2;
+                TERM($$)->m_template = TERM($1)->m_template;
+                TERM($$)->m_left->m_attr.insert(TERM($$)->m_left->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
+                TERM($1)->m_attr.clear(); // не дублировать: уже перенесены в m_left->m_attr
+            }
+        | template_prefix  type_def_seq
+            {
+                // Forward-объявление нативного шаблонного класса `<T1,T2> Pair ::= %std::pair<T1,T2>{...};`
+                // или `<T1,T2> Pair ::= <T1,T2> %std::pair{...};`: префикс с типовыми параметрами
+                // (объявление trust-шаблона `Pair`) + тело (CREATE_TYPE `::=`). Типовые параметры
+                // - в m_template терма `::=`; атрибуты переносим на терм-имени (m_left `::=`).
+                $$ = $2;
+                TERM($$)->m_template = TERM($1)->m_template;
+                if (TERM($$)->m_left) {
+                    TERM($$)->m_left->m_attr.insert(TERM($$)->m_left->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
+                }
+                TERM($1)->m_attr.clear();
+            }
         | doc_list
             {
                 $$ = makeDocBundle(TERM($1), nullptr);
@@ -2081,6 +2752,10 @@ expression: assign_seq
         | follow
             {
                 $$ = $1; 
+            }
+        | try_stmt
+            {
+                $$ = $1;
             }
         | match
             {
@@ -2126,7 +2801,50 @@ expression: assign_seq
             {            
                 $$ = $1;
             }
+        |  trust_contract
+            {
+                // Trust-контракт в позиции выражения: автономный узел в последовательности
+                // (после него обязательна ';' по правилам `sequence`). kind выводится из места
+                // привязки (цикл/assert) или задан явно в маркере `@{ kind: expr @}`.
+                $$ = $1;
+            }
         
+        // Атрибуты перед структурными операторами с зарезервированным началом (ведущий префикс):
+        //   try_stmt(1979)  try/catch {+..+}/{-..-}/{*..*};  with(2505);  yield(2541);  await(2535);
+        //   when(2561). Голые блоки `{...}` (block_type) и выражения атрибут НЕ принимают.
+        // Для if/match/while (условие [cond] + маркер) атрибут ставится ПЕРЕД токеном-маркером
+        // (FOLLOW --> / MATCHING ~> / REPEAT <->) - см. if_then/match/repeat (Вариант 2): новые
+        // альтернативы-дубли, базовая грамматика не меняется. Необработанные атрибуты (без
+        // признака обработки) диагностируются -Wunhandled-attr.
+        | attr  try_stmt
+            {
+                $$ = $2;
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
+            }
+
+        | attr  with
+            {
+                $$ = $2;
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
+            }
+        | attr  yield
+            {
+                $$ = $2;
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
+            }
+        | attr  await
+            {
+                $$ = $2;
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
+            }
+        | attr  when
+            {
+                $$ = $2;
+                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($1)->m_attr.begin(), TERM($1)->m_attr.end());
+            }
+
+
+
 sequence:  expression
             {
                 $$ = $1;

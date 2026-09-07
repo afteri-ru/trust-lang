@@ -1,5 +1,6 @@
 ---
 title: Playground and example code
+tags: [getting-started]
 linkTitle: Playground
 menu: main
 weight: 25

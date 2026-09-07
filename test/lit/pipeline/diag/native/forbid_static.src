@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# D4: сохранение нативной ссылки в статическую/глобальную переменную - запрещено (утечка времени жизни).
+x : Int32 := 5;
+%r : %& Int32 := %& x;
+@main():Int32 := { return 0; }
+# CHECK: error: native reference cannot be stored in a static/global variable

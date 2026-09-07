@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Грамматика нативных ссылок: вид нативной ссылки указывается ТОЛЬКО перед типом данных
+# (`r : %& Int32 := ...`). Маркер перед именем переменной запрещён (авто-вывод нативных запрещён).
+@main() := {
+    x : Int32 := 5;
+    %& r := %& x;
+}
+# CHECK: error: native reference marker before the name is not allowed

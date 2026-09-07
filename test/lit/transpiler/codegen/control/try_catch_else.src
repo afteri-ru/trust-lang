@@ -1,0 +1,26 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# try/catch/else (классический синтаксис): try { ... } catch(:T){...} catch(_){...} else {...}.
+# Прагма @__PRAGMA_TRY_CLOSE__ превращает финальную '}' try-блока в '*}', ветки - match-item'ы
+# `[ value:Type ] -->`. else сворачивается последним оператором try; catch(_) → IntAny.
+try {
+    a := 1;
+} catch(:IntMinus) {
+    b := 2;
+} catch(_) {
+    c := 3;
+} else {
+    d := 4;
+};
+# CHECK: #include "trust/interrupt.hpp"
+# CHECK: try {
+# CHECK:     int8_t c_a = 1;
+# CHECK:     // else
+# CHECK:     int8_t c_d = 4;
+# CHECK: }
+# CHECK-NEXT: catch (trust::IntMinus&) {
+# CHECK-NEXT:     int8_t c_b = 2;
+# CHECK-NEXT: }
+# CHECK-NEXT: catch (trust::IntAny&) {
+# CHECK-NEXT:     int8_t c_c = 3;
+# CHECK-NEXT: }

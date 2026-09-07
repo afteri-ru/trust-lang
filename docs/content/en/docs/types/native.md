@@ -42,3 +42,67 @@ The following description is under development.
 
 {{% /pageinfo %}}
 
+
+## Forward declaration of native classes {#native-class}
+
+A native C++ class (non-template) can be used in TrustLang via a **forward declaration** analogous
+to forward declarations of functions: the trust class name is bound to the native C++ name, and the
+member interface (methods, fields, constructors, static members) is described in the `{ ... }` body.
+The body does **not** contain implementations — every member is a forward declaration (`:= ...`); the
+class is defined in a C++ header pulled in on-use via the `@[include]` attribute.
+
+```trust
+@include("string")
+String ::= %std::string {          # trust class String ↔ C++ std::string
+    %size(): UInt64 := ...;        # object method → s.size()
+    %empty(): Bool := ...;         # object method → s.empty()
+    %data: CString := ...;         # object field → s.data
+};
+```
+
+Syntax:
+
+- `String ::= %std::string { ... };` — the RHS is any name; native ones start with `%` (C++ name
+  without `%`). The trust class name is on the left of `::=`.
+- Members (all forward, `:= ...`): `%method(...):Ret` — object method → `obj.method(...)`;
+  `@::st(...):Ret` — static method → `String::st(...)`; `%field:Type` — object field → `obj.field`;
+  `@::static_field:Type` — static field → `String::static_field`;
+  `%String(...):String` — constructor (name == class) → `std::string(...)`.
+- `@[include("header")@]` (or `@include("header")`) before the declaration pulls the C++ header
+  only when the type is used (on-use).
+
+A C++ `struct` for a native class is **not generated** — the existing C++ name is used.
+
+```trust
+@include("string")
+MyStr ::= %std::string {
+    %size(): UInt64 := ...;
+    %data: CString := ...;   # object field → s.data
+};
+
+s: MyStr := MyStr('hello');              # constructor → std::string("hello")
+n: UInt64 := s.%size();                  # method → (c_s).size()
+d: CString := s.%data;                   # field → (c_s).data
+# → #include <string>
+```
+
+## Forward declaration of native template classes {#native-class-template}
+
+A native C++ template class is declared the same way, but with template parameters on the left and an
+**explicit realization** through instantiation `%std::pair<T1,T2>` on the right (primary form):
+
+```trust
+@include("utility")
+<T1,T2> Pair ::= %std::pair<T1,T2> {    # trust template Pair ↔ std::pair
+    %first(): T1 := ...;                # Pair<A,B>.first
+    %second(): T2 := ...;               # Pair<A,B>.second
+};
+
+p: Pair<Int32, StrChar> := ...;
+# → std::pair<int32_t, std::string> + #include <utility>
+```
+
+The generic form `<T1,T2> Pair ::= <T1,T2> %std::pair { ... }` (the template is bound generically,
+without an explicit argument list in the RHS) is sugar whose **implementation is deferred**:
+parsing it emits a "not implemented" diagnostic; use the explicit form `%std::pair<T1,T2>`. The record
+format is the same for native and non-native names and differs only by the presence/absence of `%`.

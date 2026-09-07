@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/digit_separators %s
+# RUN: $TD/digit_separators > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: a=10000 b=2147483647 c=2147483648
+
+# Разделители разрядов '_' в целочисленных литералах корректно обрабатываются
+# сквозным образом: лексер допускает '_', типизация срезает их (единый хелпер
+# stripDigitSeparators в parseDecimalUInt), кодогенерация выдаёт значение
+# (C++14+ допускает '_' в числовых литералах).
+
+%chk():Void := {
+    a :Int16 := 10_000;
+    b :Int32 := 2_147_483_647;
+    c :Int64 := 2_147_483_648;
+    print('a={} b={} c={}', a, b, c);
+};
+{% int digit_separators__main__() {
+    chk();
+    return 0;
+}
+%}

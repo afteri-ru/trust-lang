@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# НЕподдержанное обращение к псевдопеременной `$^` обязано давать ТОЧЕЧНУЮ диагностику, а НЕ
+# generic-fallback. Здесь `$^` - первый оператор тела: предшествующего оператора-выражения (источника)
+# нет, поэтому capture-проход его не переписывает, а семантический guard (с контекстом предыдущего
+# сиблинга из пре-семантического прохода) даёт «no preceding statement to capture».
+# CHECK: error: pseudo-variable '$^' (result of the last operation) has no preceding statement to capture
+%f():Int32 := {
+    r := $^;
+    return r;
+};
+

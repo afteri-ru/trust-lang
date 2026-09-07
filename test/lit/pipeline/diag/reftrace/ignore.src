@@ -1,0 +1,11 @@
+# RUN: %trust -q --emit-cpp -Wreftrace=ignore -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out --implicit-check-not='using the dependent variable'
+
+# -Wreftrace=ignore полностью глушит диагностику инвалидации ссылок: та же программа, что и
+# reftrace_invalidate.src, но ошибка не выдаётся (код успешно транспилируется).
+@main() := {
+    && x := 5;
+    &? w := & x;
+    x = 42;
+    @print('{}\n', *w);
+}
+# CHECK: This file was generated automatically

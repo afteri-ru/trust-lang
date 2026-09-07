@@ -7,7 +7,6 @@
 
 %chk():Void := {
     verify( 1 == 0 );
-    ++ _ ++;
 };
 {% int verify_macro__main__() {
     chk();

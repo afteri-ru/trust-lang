@@ -1,0 +1,14 @@
+# Шаблоны генерации package.json/package-lock.json (верс. из VERSION) - не включать в VSIX
+package.json.in
+package-lock.json.in
+# Производные/лишнее
+.gitignore
+.#*        # git/emacs lock-файлы (.#.gitignore) ломают vsce package
+coverage/**
+# Исходники темы: в VSIX идёт только сгенерированный самодостаточный trust-color-theme.json
+# (база Default Light+ + Trust-переопределения сливаются при сборке - см. merge_theme.py).
+themes/trust-color-theme.src.json
+themes/trust-base-light.json
+# node_modules НЕ исключаем: vscode-languageclient - прод-зависимость и должна
+# попадать в VSIX (иначе extension.js падает на require и LSP/навигация не работают).
+**/*.map

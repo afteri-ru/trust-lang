@@ -1,0 +1,11 @@
+#!../_build/trust --run -Wsigil=ignore
+#
+# Аргументы командной строки
+
+@main(argv^: Dict, args^: Dict) := {
+    @print('argv.size()={}\n', :Int32( {% $argv.size() %} ));
+    @print('args.size()={}\n', :Int32( {% $args.size() %} ));
+    @print('argv={}\n', argv);
+    @print('args={}\n', args);
+    @return 0;
+}

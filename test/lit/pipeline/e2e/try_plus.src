@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/try_plus %s
+# RUN: $TD/try_plus > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: after_plus
+
+# Неименованный `++ _ ++` ВСЕГДА - «положительное прерывание» (throw trust::IntPlus),
+# независимо от контекста. Здесь его перехватывает блок {+ ... +}, выполнение продолжается.
+
+%chk():Void := {
+    {+ 
+        ++ _ ++;
+    +};
+    print('after_plus');
+
+};
+{% int try_plus__main__() {
+    chk();
+    return 0;
+}
+%}
