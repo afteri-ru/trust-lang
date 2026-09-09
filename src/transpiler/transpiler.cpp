@@ -1,16 +1,16 @@
 // Generated: src/transpiler/transpiler.cpp (driver)
 #include "transpiler/transpiler.hpp"
+#include "diag/flag_values.hpp"
 #include "transpiler/emit_common.hpp"
 #include "ast/ast_nodes.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
 #include "ast/ident_name.hpp"
 #include "ast/kind_visitor.hpp"
 #include "ast/token_type.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
-#include "semantic/symbol_table.hpp"
-#include "semantic/solver.hpp"
+#include "analysis/symbol_table.hpp"
 #include "syntax/term.h"
 #include "types/registry.hpp"
 #include "types/runtime_symbols.hpp"
@@ -18,7 +18,6 @@
 #include "types/type_id.hpp"
 #include "types/type_names.hpp"
 #include "transpiler/diag.hpp"
-#include "utils/operators.hpp"
 #include "utils/strings.hpp"
 #include <format>
 #include <memory>
@@ -39,6 +38,12 @@ struct TranspilerDiagnosticsRegistrar {
             // Comments — ПОВЕДЕНЧЕСКИЙ флаг компилятора (НЕ диагностика): управляется через
             // -fcomments/-fno-comments, а не -Wcomments/-Wno-comments (add_flag_nonw → w_diagnostic=false).
             opts.add_flag_nonw(trust::transpiler::FlagKind::Comments);
+            opts.set_flag_validator(trust::transpiler::FlagKind::Comments, [](std::string_view v) { return parseBoolFlagValue(v).has_value(); });
+            // Overflow-check - ПОВЕДЕНЧЕСКИЙ флаг (НЕ диагностика): детекция знакового
+            // целочисленного переполнения в арифметике (+,-,* и +=,-=,*=) с runtime-IntMinus.
+            // Управляется через -foverflow-check/-fno-overflow-check (add_flag_nonw → w_diagnostic=false).
+            opts.add_flag_nonw(trust::transpiler::FlagKind::OverflowCheck);
+            opts.set_flag_validator(trust::transpiler::FlagKind::OverflowCheck, [](std::string_view v) { return parseBoolFlagValue(v).has_value(); });
             // Проверки `assert`/`verify` включены по умолчанию (безопасность по умолчанию);
             // отключаются через `-Wno-assert`.
             opts.set_enabled(transpiler::FlagKind::Assert, true);
@@ -47,14 +52,17 @@ struct TranspilerDiagnosticsRegistrar {
             // Комментарии в C++-выводе выводятся по умолчанию; подавление - через -fno-comments
             // (флаг «comments» выключен = подавлять). См. TRANSPILER_FLAG_LIST(Comments).
             opts.set_enabled(transpiler::FlagKind::Comments, true);
+            // Контроль целочисленного переполнения включён по умолчанию (безопасность по умолчанию);
+            // отключается через -fno-overflow-check.
+            opts.set_enabled(transpiler::FlagKind::OverflowCheck, true);
         });
     }
 };
 const TranspilerDiagnosticsRegistrar kTranspilerDiagnostics;
 } // namespace
 
-CppTranspiler::CppTranspiler(Context& ctx, const SymbolTable* resolvedTypes)
-: m_ectx(ctx, resolvedTypes)
+CppTranspiler::CppTranspiler(Context& ctx, const SymbolTable* resolvedTypes, analysis::BehavioralModes behavioral)
+: m_ectx(ctx, resolvedTypes, std::move(behavioral))
 , m_type(m_ectx, *this)
 , m_decl(m_ectx, *this)
 , m_stmt(m_ectx, *this)
@@ -119,8 +127,12 @@ void CppTranspiler::generateToFile(const std::vector<AstNodePtr>& ast_nodes, Map
     }
     // МЕХАНИЗМ №1 - ПО ТИПУ: только ПОСЛЕ полного обхода AST формируем инклуды из собранных
     // типов (m_ectx.m_usedTypes), затем препендим все директивы (emitCollectedIncludes).
+    // POD-проверки инстанциаций Struct-шаблонов собираем ДО emitCollectedIncludes (чтобы попало
+    // <type_traits>), а эмитим - ПОСЛЕ инклудов (в конце файла).
     m_type.collectTypeIncludes();
+    m_type.collectStructPodAsserts();
     m_type.emitCollectedIncludes(output_idx);
+    m_type.emitStructPodAsserts(output_idx);
 }
 
 void CppTranspiler::emitBlockSeparator(const AstNodeBase* prev, const AstNodeBase& node, MapperFile output_idx) {
@@ -365,6 +377,16 @@ void CppTranspiler::visit_Unimplemented(const AstNodeAttr&) {
 void CppTranspiler::visit_NotApplicable(const AstNodeAttr&) {
 }
 
+// Kind=TypeSet: набор типов (`:A + :B`) НЕ эмитится как узел - определения наборов пропускаются,
+// а функции с набором в сигнатуре разворачиваются в N определений на уровне term_to_ast
+// (visit_TYPE_SET сообщает ошибку, если набор дошёл до значения). Метод - no-op (контракт KindVisitor).
+// Kind=TypeSet: набор типов (`:A + :B`) допустим ТОЛЬКО как тип (определение/параметр/возврат).
+// Узел доходит до кодогена лишь при использовании набора КАК ЗНАЧЕНИЯ → явная ошибка
+// (без молчаливой пустой инициализации).
+void CppTranspiler::visit_TypeSet(const Sequence& node) {
+    m_ectx.m_ctx.report(node.range(), diag::DiagId::ParseError, "type set is allowed only as a type, not as a value");
+}
+
 void CppTranspiler::visit_ModuleDecl(const ModuleNode& n) {
     m_decl.visit_ModuleDecl(n);
 }
@@ -393,7 +415,7 @@ void CppTranspiler::visit_EnumMember(const Sequence& n) {
     m_decl.visit_EnumMember(n);
 }
 
-void CppTranspiler::visit_StructDecl(const Sequence& n) {
+void CppTranspiler::visit_StructDecl(const RecordDecl& n) {
     m_decl.visit_StructDecl(n);
 }
 
@@ -577,6 +599,13 @@ void CppTranspiler::visit_CheckAreaStmt(const CheckAreaStmt& n) {
     FAULT("CheckAreaStmt reached the transpiler (must be removed by the analyzer)");
 }
 
+void CppTranspiler::visit_DebugStmt(const DebugStmt& n) {
+    // Маркеры @__DEBUG__/@__DEBUG_SCOPE__ должны быть удалены анализатором (NameResolutionPass).
+    // Если они дожили до кодогенерации - ошибка логики, а не тихий пропуск.
+    (void)n;
+    FAULT("DebugStmt reached the transpiler (must be removed by the analyzer)");
+}
+
 void CppTranspiler::visit_EmbedExpr(const AstNodeAttr& n) {
     m_expr.visit_EmbedExpr(n);
 }
@@ -625,14 +654,6 @@ void CppTranspiler::visit_RefTakeExpr(const RefTakeExpr& n) {
     m_expr.visit_RefTakeExpr(n);
 }
 
-void CppTranspiler::visit_NativeRefMakeExpr(const NativeRefMakeExpr& n) {
-    m_expr.visit_NativeRefMakeExpr(n);
-}
-
-void CppTranspiler::visit_NativeRefTakeExpr(const NativeRefTakeExpr& n) {
-    m_expr.visit_NativeRefTakeExpr(n);
-}
-
 void CppTranspiler::visit_RefLockExpr(const Sequence& n) {
     m_expr.visit_RefLockExpr(n);
 }
@@ -643,6 +664,10 @@ void CppTranspiler::visit_RefLockDeref(const Sequence& n) {
 
 void CppTranspiler::visit_Ellipsis(const Sequence& n) {
     m_expr.visit_Ellipsis(n);
+}
+
+void CppTranspiler::visit_Filling(const Sequence& n) {
+    m_expr.visit_Filling(n);
 }
 
 void CppTranspiler::visit_TrustContract(const TrustContract& n) {

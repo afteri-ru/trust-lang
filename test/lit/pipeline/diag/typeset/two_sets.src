@@ -1,0 +1,5 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: type set definitions are not implemented yet
+
+a ::= :Int8 + :Int16;
+@main() := { @return 0; }

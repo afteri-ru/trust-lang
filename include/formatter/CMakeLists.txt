@@ -13,6 +13,8 @@ target_link_libraries(formatter_lib PUBLIC
     trust_include_dirs
     syntax_lib
     diag_lib
+    session_lib
+    sourcemap_lib
     utils_lib
 )
 
@@ -28,3 +30,6 @@ target_compile_options(formatter_lib PRIVATE
 )
 
 add_dependencies(formatter_lib gen_syntax_parsers)
+
+# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
+target_link_libraries(formatter_lib PRIVATE trust_pch)

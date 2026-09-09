@@ -199,9 +199,13 @@ TEST_F(SemanticTest, EnumDeclRegistersType) {
     // Тип значений по СТАНДАРТНЫМ правилам: 1→Int8, 2→Int8 → valueType Int8.
     EXPECT_EQ(m_types->getCanonicalTypeId(ed->valueType), m_types->getType(type::Int8));
     // Классические методы зарегистрированы (резолвятся семантикой): count/fromName/fromValue.
-    EXPECT_NE(m_types->findMethod(*tid, "count"), INVALID_TYPE_ID);
-    EXPECT_NE(m_types->findMethod(*tid, "fromName"), INVALID_TYPE_ID);
-    EXPECT_NE(m_types->findMethod(*tid, "fromValue"), INVALID_TYPE_ID);
+    const auto hasMethod = [&](std::string_view n) {
+        const auto m = m_types->findMethodInfo(*tid, n);
+        return m.has_value() && !m->signatures.empty();
+    };
+    EXPECT_TRUE(hasMethod("count"));
+    EXPECT_TRUE(hasMethod("fromName"));
+    EXPECT_TRUE(hasMethod("fromValue"));
 }
 
 TEST_F(SemanticTest, EnumMemberAccessResolvesToEnumType) {
@@ -278,6 +282,111 @@ TEST_F(SemanticTest, VariantUnknownMemberTypeReportsError) {
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(variantDecl));
+
+    SemanticPassRunner runner(m_ctx);
+    EXPECT_FALSE(runner.run(seq));
+    EXPECT_GT(m_ctx.diag().errorCount(), 0);
+}
+
+// Helper: RecordDecl (Struct/Class) - TypeDecl(left=Ident, right=RecordDecl с базой и полями).
+// Инициализатор поля: Default (литерал 0), None (образ `_` - нет значения), Forward (`...`).
+enum class FieldInit { Default, None, Forward };
+static AstNodePtr makeFieldInit(FieldInit init) {
+    switch (init) {
+    case FieldInit::Default:
+        return std::make_shared<Literal>(ParserToken::Kind::IntLiteral, std::string("0"));
+    case FieldInit::None: {
+        auto t = Term::Create(TermID::NONE, "_", {}, parser::token_type::END);
+        return std::make_shared<IdentName>(ParserToken::Kind::Ident, std::move(t), nullptr);
+    }
+    case FieldInit::Forward:
+        return nullptr;
+    }
+    return nullptr;
+}
+static std::shared_ptr<Binary> makeRecordTypeDecl(const char* name, const char* base, std::initializer_list<std::pair<const char*, const char*>> fields,
+                                                  FieldInit init = FieldInit::Default) {
+    auto rec = std::make_shared<RecordDecl>(std::string(name));
+    rec->m_baseTypes.push_back(std::make_shared<IdentType>(std::string(base)));
+    rec->m_body.emplace();
+    for (const auto& [fname, ftype] : fields) {
+        rec->m_body->push_back(std::make_shared<VarDecl>(std::string(fname), std::make_shared<IdentType>(std::string(ftype)), makeFieldInit(init)));
+    }
+    return std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>(std::string(name)), std::move(rec));
+}
+
+TEST_F(SemanticTest, StructDeclRegistersPodRecord) {
+    // Point ::= :Struct{ x:Int32 := _; y:Int32 := _; } → Struct (Group::kStructs); поля БЕЗ значений.
+    auto d = makeRecordTypeDecl("Point", "Struct", {{"x", "Int32"}, {"y", "Int32"}}, FieldInit::None);
+
+    std::vector<AstNodePtr> seq;
+    seq.push_back(std::move(d));
+
+    SemanticPassRunner runner(m_ctx);
+    EXPECT_TRUE(runner.run(seq));
+    EXPECT_EQ(m_ctx.diag().errorCount(), 0);
+
+    auto tid = m_types->findType("Point");
+    ASSERT_TRUE(tid.has_value());
+    EXPECT_TRUE(m_types->isStructType(*tid));
+    EXPECT_FALSE(m_types->isClassType(*tid));
+    const auto* rd = m_types->recordData(*tid);
+    ASSERT_NE(rd, nullptr);
+    ASSERT_EQ(rd->fields.size(), 2u);
+    EXPECT_EQ(rd->fields[0].name, "x");
+    EXPECT_EQ(m_types->getCanonicalTypeId(rd->fields[0].type), m_types->getType(type::Int32));
+    EXPECT_TRUE(m_types->baseClasses(*tid).empty());
+}
+
+TEST_F(SemanticTest, StructFieldWithDefaultIsError) {
+    // Struct - POD: default-значение поля запрещено (NSDMI ломает тривиальность) - анализатор ошибка.
+    auto d = makeRecordTypeDecl("Point", "Struct", {{"x", "Int32"}}, FieldInit::Default);
+    std::vector<AstNodePtr> seq;
+    seq.push_back(std::move(d));
+    SemanticPassRunner runner(m_ctx);
+    EXPECT_FALSE(runner.run(seq));
+    EXPECT_GT(m_ctx.diag().errorCount(), 0);
+}
+
+TEST_F(SemanticTest, ClassDeclRegistersAndInherits) {
+    // Animal ::= :Class{name}; Dog ::= :Animal{age} → C++-наследование; поле базы видно через цепочку.
+    std::vector<AstNodePtr> seq;
+    seq.push_back(makeRecordTypeDecl("Animal", "Class", {{"name", "Int32"}}));
+    seq.push_back(makeRecordTypeDecl("Dog", "Animal", {{"age", "Int32"}}));
+
+    SemanticPassRunner runner(m_ctx);
+    EXPECT_TRUE(runner.run(seq));
+    EXPECT_EQ(m_ctx.diag().errorCount(), 0);
+
+    auto animal = m_types->findType("Animal");
+    auto dog = m_types->findType("Dog");
+    ASSERT_TRUE(animal.has_value());
+    ASSERT_TRUE(dog.has_value());
+    EXPECT_TRUE(m_types->isClassType(*dog));
+    EXPECT_FALSE(m_types->isStructType(*dog));
+    ASSERT_EQ(m_types->baseClasses(*dog).size(), 1u);
+    EXPECT_EQ(m_types->getCanonicalTypeId(m_types->baseClasses(*dog)[0]), m_types->getCanonicalTypeId(*animal));
+    EXPECT_NE(m_types->findField(*dog, "name"), INVALID_TYPE_ID); // унаследованное поле
+    EXPECT_NE(m_types->findField(*dog, "age"), INVALID_TYPE_ID);
+    EXPECT_EQ(m_types->findField(*dog, "missing"), INVALID_TYPE_ID);
+}
+
+TEST_F(SemanticTest, ClassFieldMayBeUninitialized) {
+    // Class: значение поля НЕ проверяется - допустимо и `:= 0` (default), и `:= _` (без значения).
+    std::vector<AstNodePtr> seq;
+    seq.push_back(makeRecordTypeDecl("A", "Class", {{"x", "Int32"}}, FieldInit::None));
+    seq.push_back(makeRecordTypeDecl("B", "Class", {{"y", "Int32"}}, FieldInit::Default));
+
+    SemanticPassRunner runner(m_ctx);
+    EXPECT_TRUE(runner.run(seq));
+    EXPECT_EQ(m_ctx.diag().errorCount(), 0);
+}
+
+TEST_F(SemanticTest, StructCannotInherit) {
+    // Struct - строго POD: наследование от Struct запрещено (ошибка, не тихий fallback).
+    std::vector<AstNodePtr> seq;
+    seq.push_back(makeRecordTypeDecl("Base", "Struct", {{"a", "Int32"}}, FieldInit::None));
+    seq.push_back(makeRecordTypeDecl("Derived", "Base", {{"b", "Int32"}}, FieldInit::None));
 
     SemanticPassRunner runner(m_ctx);
     EXPECT_FALSE(runner.run(seq));
@@ -1325,8 +1434,7 @@ TEST_F(SemanticTest, ExplicitBoolInArithmeticError) {
 class StorageProbe : public InlineAnalysisHook {
   public:
     void onDeclare(const Symbol& sym) override {
-        // ВНИМАНИЕ: declareOrComplete делает std::move(sym), поэтому sym.name опустошён
-        // (moved-from); имя читаем из узла объявления (storage/decl не перемещаются).
+        // sym не moved-from (declareOrComplete копирует): storage/decl и name валидны.
         if (sym.decl && sym.decl->kind() == ParserToken::Kind::VarDecl) {
             m_storage[std::string(sym.decl->text())] = sym.storage;
         }

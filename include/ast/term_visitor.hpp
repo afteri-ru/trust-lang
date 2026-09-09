@@ -17,7 +17,7 @@
 #pragma once
 
 #include "ast/token.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "syntax/term_types.h"
 #include "utils/error.hpp"
 

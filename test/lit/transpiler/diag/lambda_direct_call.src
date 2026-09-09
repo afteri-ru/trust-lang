@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# ПРЯМАЯ форма немедленного вызова лямбды НЕ поддерживается - требуется обёртка `( lambda )(args)`.
+@main() := {
+    y := [](x : Int32) : Int32 { ++ x * x ++ }(5);
+}
+# CHECK: error: directly-invoked lambda is not supported; wrap the lambda and call it: ( lambda )(args)

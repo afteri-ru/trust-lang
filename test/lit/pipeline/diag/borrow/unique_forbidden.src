@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Монопольное владение `unique`: заём `& u` запрещён (alias нарушает монополию) — допустимы
+# только move/swap (`:=:`/`@move`). `b := & u` -> ошибка анализатора.
+@main() := {
+    && u := 5:Int32;
+    b := & u;
+    @print('{}\n', *b);
+}
+# CHECK: error: cannot take a reference to a monopolistic 'unique' owner

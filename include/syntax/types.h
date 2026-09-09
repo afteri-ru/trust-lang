@@ -1,53 +1,15 @@
 #ifndef INCLUDED_TYPES_H_
 #define INCLUDED_TYPES_H_
 
-#include <map>
-#include <set>
-#include <iosfwd>
-#include <memory>
-#include <vector>
-#include <deque>
-#include <iterator>
-#include <iomanip>
-#include <variant>
 #include <algorithm>
+#include <cctype>
+#include <cstdarg>
+#include <cstdio>
+#include <memory>
 #include <stdexcept>
-#include <type_traits>
+#include <string>
 #include <string_view>
-#include <cmath>
-#include <random>
-#include <typeindex>
-#include <locale>
-#include <codecvt>
-#include <functional>
-#include <regex>
-#include <filesystem>
-#include <utility>
-#include <cstdlib>
-#include <ctime>
-#include <complex>
-#include <source_location>
-
-#include <sstream>
-#include <iostream>
-#include <fstream>
-#include <fcntl.h>
-
-#include <stdarg.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <linux/limits.h>
-
-#ifdef _MSC_VER
-#include <windows.h>
-#include <wchar.h>
-#else
-#include <wait.h>
-#include <dlfcn.h>
-#include <sys/param.h>
-#include <sys/utsname.h>
-#include <unistd.h>
-#endif
+#include <vector>
 
 #include "syntax/term_types.h"
 #include "utils/error.hpp"

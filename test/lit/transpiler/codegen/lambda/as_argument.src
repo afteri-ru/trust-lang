@@ -1,0 +1,9 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Лямбда как АРГУМЕНТ вызова: эмитится как C++-лямбда в списке аргументов.
+sink(v) := { @return 0; };
+@main() := {
+    sink([](x : Int32) : Int32 { @return x; });
+}
+# CHECK: c_sink([](int32_t c_x) -> int32_t {
+# CHECK: return

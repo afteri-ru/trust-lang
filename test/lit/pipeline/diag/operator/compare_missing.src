@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Использование `==` для пользовательского типа требует ОБЪЯВЛЕННОГО оператора
+# (раньше молча типизировалось Bool и падало уже в C++).
+:P ::= :Class{ x: Int32 := _; };
+@main() := {
+    a : P := :P(1);
+    b : P := :P(2);
+    @print('{}\n', a == b);
+    @return 0;
+}
+# CHECK: error: no matching operator '==' for types 'P' and 'P'

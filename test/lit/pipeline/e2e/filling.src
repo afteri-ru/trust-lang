@@ -1,0 +1,38 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/filling %s
+# RUN: $TD/filling > %t.out
+# RUN: %FileCheck %s <%t.out
+
+# FILLING `... expr ...`: заполнение массива до размера из типа-цели и добивание аргументов
+# вызова до числа параметров. Операнд перевычисляется на каждую позицию (счётчик next()).
+
+n := 0;
+@func next():Int32 {
+    n += 1;
+    @return n;
+};
+
+@func f(a:Int32, b:Int32, c:Int32):Int32 {
+    @return a + b + c;
+};
+
+# Метод класса - тот же путь заполнения аргументов, что у функций (единый примитив).
+:Acc ::= :Class{
+    base:Int32 := 100;
+    add(a:Int32, b:Int32):Int32 := { return base + a + b; };
+};
+
+@main():Int32 := {
+    v:Int32[5] := [1, 2, ... 7 ...,];
+    b:Int32[4] := [10, ... next() ...,];
+    a:Acc := Acc();
+    print('v={} {} {} {} {}\n', v[0], v[1], v[2], v[3], v[4]);
+    print('b={} {} {} {}\n', b[0], b[1], b[2], b[3]);
+    print('f={}\n', f(5, ... 2 ...));
+    print('m={} {}\n', a.add(1, ... 2 ...), a.add(... 3 ...));
+    return 0;
+}
+# CHECK: v=1 2 7 7 7
+# CHECK: b=10 1 2 3
+# CHECK: f=9
+# CHECK: m=103 106

@@ -13,6 +13,8 @@ namespace trust {
 Binary::Binary(ParserToken::Kind k, TermPtr term, Context* ctx)
 : AstNodeAttr(k, std::move(term)) {
     EXPECT(m_term && "Binary term-constructor requires a source Term");
+    // Единая точка заполнения enum-opcode конкретного оператора (Term->AST).
+    m_op = parseBinaryOp(m_term->getText());
     if (ctx) {
         if (m_term->m_left) {
             m_left = convertChild(*ctx, m_term->m_left);
@@ -81,6 +83,20 @@ std::string CheckAreaStmt::dump(size_t indent) const {
         result.append(severityName(*behavior));
     } else {
         result += "default";
+    }
+    return result;
+}
+
+// -- DebugStmt::dump --
+
+std::string DebugStmt::dump(size_t indent) const {
+    std::string result = std::string(indent, ' ');
+    result += ParserToken::name(kind());
+    result += (mode == DebugMode::Scope) ? " scope" : " filter";
+    for (const auto& a : args) {
+        result += " '";
+        result += a;
+        result += "'";
     }
     return result;
 }

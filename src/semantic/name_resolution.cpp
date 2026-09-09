@@ -1,12 +1,16 @@
 // Generated: src/semantic/name_resolution.cpp (driver)
 #include "semantic/name_resolution.hpp"
+#include "diag/flag_values.hpp"
 #include "semantic/analysis_common.hpp"
+#include "semantic/ellipsis.hpp"
 #include "semantic/format_check.hpp"
 #include "semantic/solver.hpp"
 #include "semantic/stack_check.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "semantic/type_inference.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
+#include "ast/ref_syntax.hpp"
+#include "semantic/ref_kind.hpp"
 #include "ast/token.hpp"
 #include "diag/diag.hpp"
 #include "diag/options.hpp"
@@ -15,8 +19,9 @@
 #include "types/promotion.hpp"
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
-#include "utils/operators.hpp"
+#include "types/type_names.hpp"
 #include "utils/strings.hpp"
+#include "utils/trace.hpp"
 #include <algorithm>
 #include <format>
 #include <string>
@@ -45,6 +50,7 @@ struct SemanticDiagnosticsRegistrar {
             // гарантируют «no silent fallback»: потребитель видит только валидные значения).
             opts.set_flag_validator(semantic::FlagKind::SolverMode, [](std::string_view v) { return semantic::parseSolverMode(v).has_value(); });
             opts.set_flag_validator(semantic::FlagKind::SolverLoop, [](std::string_view v) { return semantic::parseSolverLoopMode(v).has_value(); });
+            opts.set_flag_validator(semantic::FlagKind::SolverLoopUnroll, [](std::string_view v) { return parseBoolFlagValue(v).has_value(); });
             // Контроль переполнения стека: режим (off|explicit|recursion|auto), резерв (десятичное число)
             // и перечень функций (comma-separated trust-имена).
             opts.set_flag_validator(semantic::FlagKind::StackCheck, [](std::string_view v) { return semantic::parseStackCheckMode(v).has_value(); });
@@ -121,12 +127,16 @@ void NameResolutionPass::finalize() {
 
 void NameResolutionPass::enterScope(const AstNodeBase& node) {
     m_actx.symbols().push(&node);
+    TRUST_DEBUG("scope", "enter {} depth={}", ParserToken::name(node.kind()), m_actx.symbols().depth());
     for (auto& hook : m_hooks) {
         hook->enterScope();
     }
 }
 
 void NameResolutionPass::exitScope() {
+    TRUST_DEBUG("scope", "exit {} depth={}",
+                ParserToken::name(m_actx.symbols().currentCreator() ? m_actx.symbols().currentCreator()->kind() : ParserToken::Kind::Program),
+                m_actx.symbols().depth());
     for (auto& hook : m_hooks) {
         hook->exitScope();
     }
@@ -180,6 +190,10 @@ void NameResolutionPass::run(std::vector<AstNodePtr>& ast_nodes) {
             analyzeNode(node);
         }
     }
+    // Пост-проход: нераскрытые многоточия в СПИСКОВЫХ позициях (аргументы вызова/элементы
+    // коллекций) - явные диагностики. Разворот выполняется по ходу анализа (где известно число
+    // позиций); оставшиеся случаи (нет размера/сигнатуры, `... <источник>`) диагностируются здесь.
+    reportUnresolvedEllipsis(m_actx, ast_nodes);
 }
 
 // Однопроходный обход: имя должно быть объявлено до использования. Модуль, блоки
@@ -207,186 +221,97 @@ void NameResolutionPass::analyzeNode(AstNodePtr& self) {
     // ЛЮБОЙ блок (в т.ч. цикл while/do-while) создаёт скоуп - это локальность переменных:
     // объявленные в теле цикла видны только внутри него. Детекция цикла (для диагностик
     // деструктуризации) - по creator-скоупа в стеке (isInLoop).
-    switch (self->kind()) {
-    case ParserToken::Kind::ModuleDecl:
-    case ParserToken::Kind::sequence:
-    case ParserToken::Kind::ScopeBlock:
-    case ParserToken::Kind::TryCatchStmt:
-        enterScope(*self);
-        analyzeChildren(self);
-        exitScope();
+    const ParserToken::Kind self_kind = self->kind();
+    if (self_kind == ParserToken::Kind::ModuleDecl || self_kind == ParserToken::Kind::sequence || self_kind == ParserToken::Kind::ScopeBlock ||
+        self_kind == ParserToken::Kind::TryCatchStmt) {
+        analyzeScopeContainer(self);
         return;
-    case ParserToken::Kind::WhileStmt:
+    }
+    if (self_kind == ParserToken::Kind::WhileStmt) {
         analyzeLoopConstruct(self, /*isDoWhile=*/false);
         return;
-    case ParserToken::Kind::DoWhileStmt:
+    }
+    if (self_kind == ParserToken::Kind::DoWhileStmt) {
         analyzeLoopConstruct(self, /*isDoWhile=*/true);
         return;
-    case ParserToken::Kind::WithStmt: {
-        // `with(a=f(), b=g()){...}else{...}` (RAII-менеджер контекста):
-        //   - биндинги (VarDecl) регистрируются в скоупе оператора стандартным путём analyzeVarDecl
-        //     (кейс VarDecl в handleNode): declareOrComplete → duplicate-ошибка при совпадении в том
-        //     же скоупе, -Wshadow-предупреждение при затенении внешнего имени, onDeclare-хуки,
-        //     sigil-нормализация `$x`, Storage::Local, вывод типа из инициализатора;
-        //   - тело (ScopeBlock) анализируется во вложенном скоупе - видит биндинги;
-        //   - ветка else - в СВОЁМ скоупе ПОСЛЕ выхода из скоупа оператора: биндинги НЕ видит.
-        auto& w = static_cast<WithStmt&>(*self);
-        enterScope(*self);
-        // m_locks - пары (lock, binding): анализируем и источник захвата (lock, RefTakeExpr),
-        // и переменную-значение (binding, VarDecl) - обе должны зарезолвить свои имена.
-        for (auto& [lock, binding] : w.m_locks) {
-            if (lock) {
-                analyzeNode(lock);
-            }
-            if (binding) {
-                analyzeNode(binding);
-            }
-        }
-        if (w.m_body) {
-            analyzeNode(w.m_body);
-        }
-        exitScope();
-        if (w.m_else) {
-            analyzeNode(w.m_else);
-        }
+    }
+    if (self_kind == ParserToken::Kind::WithStmt) {
+        analyzeWithStmt(self);
         return;
     }
-    case ParserToken::Kind::FuncDecl: {
-        // Объявление нативного шаблона-ТИПА `<T> %std::vector() := ...;` - регистрирует
-        // параметризованный тип (а НЕ функцию): никакого скоупа функции и тела нет.
-        auto& f = static_cast<FuncDecl&>(*self);
-        if (f.m_isNativeTemplateCtor) {
-            m_decl.analyzeNativeTemplateDecl(f);
-            return;
-        }
-        // Имя функции регистрируется в ТЕКУЩЕМ (внешнем) скоупе, затем открывается
-        // скоуп функции, в котором видны параметры и тело.
-        m_decl.analyzeFuncDecl(f);
-        enterScope(f);
-        m_decl.declareFuncParams(f);
-        // Trust-условия (пред/пост): резолв имён в скоупе функции (параметры видны; имя
-        // функции = возврат в пост-условии, запрещено в пред-условии - см. lookupOrError).
-        m_trust.processTrustConditions(f.m_trust, f);
-        analyzeChildren(self);
-        exitScope();
+    if (self_kind == ParserToken::Kind::FuncDecl) {
+        analyzeFuncDeclNode(self);
         return;
     }
-    case ParserToken::Kind::ClassDecl: {
+    if (self_kind == ParserToken::Kind::ClassDecl) {
         // Forward-объявление (нативного) класса - обрабатывается целиком в analyzeTypeDecl
         // (регистрирует тип + члены-интерфейс). Здесь как дочерний узел TypeDecl - no-op:
         // детей (членов) НЕ обходим, иначе они стали бы отдельными функциями/переменными
         // верхнего уровня, а не членами класса.
         return;
     }
-    case ParserToken::Kind::CatchBlock: {
-        // Каждая ветка catch - отдельный вложенный скоуп (как в C++). Связанная переменная
-        // `catch(e:Type)` (VarDecl в m_binding) регистрируется здесь как ЛОКАЛЬНАЯ и видна
-        // только в теле ветки; `catch(:Type)`/`catch(_)`/`catch(...)` не связывают имя.
-        auto& cb = static_cast<CatchBlock&>(*self);
-        enterScope(*self);
-        if (cb.m_binding && cb.m_binding->kind() == ParserToken::Kind::VarDecl) {
-            auto& vd = static_cast<VarDecl&>(*cb.m_binding);
-            Symbol sym;
-            sym.name = std::string(vd.text());
-            if (vd.m_type) {
-                const auto tid = m_actx.resolveType(*vd.m_type);
-                if (tid.has_value()) {
-                    sym.type = *tid;
-                } else {
-                    m_actx.ctx().diag().report(Severity::Error, vd.m_type->range(), "unknown catch type '{}'", vd.m_type->text());
-                }
-            }
-            sym.decl = &vd;
-            sym.storage = Storage::Local;
-            m_actx.symbols().declare(sym);
-        }
-        analyzeChildren(self);
-        exitScope();
+    if (self_kind == ParserToken::Kind::StructDecl) {
+        // Объявление пользовательского Struct/Class - обрабатывается целиком в analyzeTypeDecl
+        // (analyzeRecordDecl: регистрирует тип + поля/методы). Здесь как дочерний узел TypeDecl -
+        // no-op: членов НЕ обходим повторно (они уже проанализированы в класc-скоупе).
         return;
     }
-    case ParserToken::Kind::DestructureDecl:
+    if (self_kind == ParserToken::Kind::CatchBlock) {
+        analyzeCatchBlockNode(self);
+        return;
+    }
+    if (self_kind == ParserToken::Kind::DestructureDecl) {
         // Деструктуризация `item, dict := ... source;`: первый target объявляется локальной
         // std::any-переменной (первый элемент), источник мутируется pop_front. Цели не обходим
         // общим механизмом (это объявления, не ссылки).
-        m_decl.analyzeDestructure(static_cast<DestructureDecl&>(*self));
+        m_decl.analyzeDestructure(*self->as<DestructureDecl>());
         return;
-    case ParserToken::Kind::DictLiteral:
+    }
+    if (self_kind == ParserToken::Kind::DictLiteral) {
         // Литерал словаря: анализируем значения элементов (имена-метки не резолвим).
-        m_typer.analyzeDictLiteral(static_cast<Sequence&>(*self));
+        m_typer.analyzeDictLiteral(*self->as<Sequence>());
         return;
-    case ParserToken::Kind::ArrayInit:
+    }
+    if (self_kind == ParserToken::Kind::ArrayInit) {
         // Литерал массива `[1,2,3,]` / `[1,2,3,]:Int32`: анализ элементов + вывод типа
         // элемента + интернирование структурного Array<Elem> (см. analyzeArrayInit).
-        m_typer.analyzeArrayInit(static_cast<DictLiteralNode&>(*self));
+        m_typer.analyzeArrayInit(*self->as<DictLiteralNode>());
         return;
-    case ParserToken::Kind::RangeExpr:
+    }
+    if (self_kind == ParserToken::Kind::RangeExpr) {
         // Литерал диапазона: резолв/типизация операндов + элементный тип (join).
-        m_typer.analyzeRangeExpr(static_cast<RangeExpr&>(*self));
+        m_typer.analyzeRangeExpr(*self->as<RangeExpr>());
         return;
-    case ParserToken::Kind::CheckAreaStmt:
+    }
+    if (self_kind == ParserToken::Kind::CheckAreaStmt) {
         // Встроенный маркер `@__CHECK_AREA__(area[, behavior][, attrs...])` из тела макроса.
         // Проверяет текущую область (из единого скоуп-стека) и УДАЛЯЕТ маркер (кода не даёт).
         analyzeCheckAreaStmt(self);
         return;
-    case ParserToken::Kind::TrustContract:
+    }
+    if (self_kind == ParserToken::Kind::DebugStmt) {
+        // Встроенные маркеры отладочного вывода `@__DEBUG__(...)`/`@__DEBUG_SCOPE__(...)`:
+        // применяет эффект (фильтр вывода / дамп скоупа) и УДАЛЯЕТ маркер (кода не даёт).
+        analyzeDebugStmt(self);
+        return;
+    }
+    if (self_kind == ParserToken::Kind::TrustContract) {
         // Автономный trust-контракт `@{ [kind:] expr @};` в последовательности (не привязан
         // к объявлению). Обработка по -Wsolver/--solver-mode (см. processTrustConditions).
         m_trust.processTrustConditions({self}, *self);
         return;
-    case ParserToken::Kind::TrustElem: {
-        // Термин решателя `@( term, args... @)` внутри контракта: резолв имён аргументов.
-        // Для кванторов (forall/exists) первый аргумент - переменная-связка: она обязана быть
-        // переменной, ОБЪЯВЛЕННОЙ РАНЕЕ (разрешение имён). Тип связки берётся из её объявления,
-        // НЕ выводится; не объявлена или тип выведен автоматически (kInferredFlag) - ошибка.
-        // Сам узел-связка не анализируется (это связка, не ссылка).
-        auto& te = static_cast<TrustElem&>(*self);
-        if (te.kind == Z3TermKind::Forall || te.kind == Z3TermKind::Exists) {
-            if (!te.m_args.empty() && te.m_args[0]) {
-                const std::string bname(te.m_args[0]->text());
-                const Symbol* declared = resolveSimple(nullptr, bname);
-                if (!declared) {
-                    m_actx.ctx().diag().report(Severity::Error, te.m_args[0]->range(), "quantifier bound variable '{}' must be a variable declared earlier",
-                                               bname);
-                    return;
-                }
-                if (testFlag(declared->type, SymbolFlag::Inferred)) {
-                    m_actx.ctx().diag().report(Severity::Error, te.m_args[0]->range(),
-                                               "quantifier bound variable '{}' has an inferred type; declare it with an explicit type", bname);
-                    return;
-                }
-                const TypeId bt = clearFlag(declared->type, SymbolFlag::Inferred);
-                te.m_boundVarType = bt; // результат разрешения имён: тип из объявления (переживает таблицу)
-                enterScope(*self);
-                Symbol sym;
-                sym.name = bname; // связка как в исходнике (без сигила)
-                sym.type = bt;
-                sym.decl = te.m_args[0].get();
-                sym.storage = Storage::Local;
-                m_actx.symbols().declareOrComplete(sym);
-                // Тело (P) анализируем со связкой в скоупе (индексы с 1).
-                for (std::size_t i = 1; i < te.m_args.size(); ++i) {
-                    if (te.m_args[i]) {
-                        analyzeNode(te.m_args[i]);
-                    }
-                }
-                exitScope();
-                return;
-            }
-        }
-        for (std::size_t i = 0; i < te.m_args.size(); ++i) {
-            if (te.m_args[i]) {
-                analyzeNode(te.m_args[i]);
-            }
-        }
+    }
+    if (self_kind == ParserToken::Kind::TrustElem) {
+        analyzeTrustElemNode(self);
         return;
     }
-    case ParserToken::Kind::MemberAccess:
-    case ParserToken::Kind::ArrayAccess:
+    if (self_kind == ParserToken::Kind::MemberAccess || self_kind == ParserToken::Kind::ArrayAccess) {
         // Доступ к элементу словаря: объект анализируется, поле-имя не резолвится,
         // статический индекс проверяется по размерности объекта.
-        m_access.analyzeAccess(static_cast<Binary&>(*self));
+        m_access.analyzeAccess(*self->as<Binary>());
         return;
-    case ParserToken::Kind::AssignOp:
+    }
+    if (self_kind == ParserToken::Kind::AssignOp) {
         // Оператор `... = X` (using): регистрирует область/области имён RHS для поиска
         // имён, RHS НЕ резолвится как значение. Заменяется пустым узлом (compile-time
         // директива, кода не генерирует). Иначе - обычное присваивание.
@@ -394,9 +319,7 @@ void NameResolutionPass::analyzeNode(AstNodePtr& self) {
             self = std::make_shared<Sequence>();
             return;
         }
-        break;
-    default:
-        break;
+        // иначе - обычное присваивание: продолжаем общую пост-обработку ниже
     }
 
     // Ветвящиеся statement'ы (if / match) открывают вложенный скоуп НА ВРЕМЯ обхода детей:
@@ -422,86 +345,8 @@ void NameResolutionPass::analyzeNode(AstNodePtr& self) {
         exitScope();
     }
 
-    // Пост-порядковая типизация выражения/объявления (после того как дети уже
-    // проанализированы и типизированы): вычисляет тип результата выражения и
-    // расширяет выводимый (inferred) тип целевой переменной по истории присвоений.
-    m_typer.typeExpr(self.get());
-
-    // `$^` (простой случай): синтетическая временная `__trust_last_N` из источника, который НЕ даёт
-    // значения (void-функция/unit) ⇒ у `$^` нечего захватывать. Пре-семантический проход не знает тип
-    // вызова, поэтому здесь (тип известен) выдаём ТОЧЕЧНУЮ диагностику вместо общей "unable to generate
-    // C++ type 'Any'". Тип источника - Void/None либо не выводится (INVALID).
-    if (self->kind() == ParserToken::Kind::VarDecl) {
-        VarDecl& vd = static_cast<VarDecl&>(*self);
-        if (vd.m_lastResultTemp && vd.m_initializer) {
-            const TypeId src = m_actx.resolvedType(*vd.m_initializer);
-            const TypeId voidId = m_actx.ctx().types().getType("Void");
-            if (src == INVALID_TYPE_ID || (voidId != INVALID_TYPE_ID && src == voidId)) {
-                m_actx.ctx().diag().report(Severity::Error, self->range(),
-                                           "pseudo-variable '$^' (result of the last operation): the "
-                                           "preceding statement produces no value to capture (void)");
-            }
-        }
-    }
-
-    // MatchStmt: scrutinee вычисляется один раз во временную const-переменную. Временную создаёт
-    // СЕМАНТИКА (инвариант «временные — уровень анализатора»): синтезируется const VarDecl
-    // `_matchN := <m_value>;` (тип из resolvedType → VarDecl::inferredType), m_value заменяется
-    // ссылкой на неё (Ident _matchN). Транспилятор эмитит её как обычный VarDecl и читает тип для
-    // выбора switch/enum/if. (Создаёт семантика, а не lowering, т.к. только у неё есть тип значения.)
-    if (self->kind() == ParserToken::Kind::MatchingStmt) {
-        auto& match = static_cast<MatchStmt&>(*self);
-        if (match.m_value) {
-            const TypeId vt = m_actx.resolvedType(*match.m_value);
-            const std::string tmpName = "_match" + std::to_string(m_actx.nextMatchTempId());
-            auto tmp = std::make_shared<VarDecl>(tmpName, nullptr, std::move(match.m_value));
-            if (vt != INVALID_TYPE_ID) {
-                tmp->inferredType = clearFlag(vt, SymbolFlag::Inferred);
-            }
-            if (const auto ro = m_actx.ctx().attrs().lookup(attr::ReadOnly); ro.has_value()) {
-                tmp->add_attr(*ro); // const-временная (как '^' на имени)
-            }
-            match.m_tempDecl = tmp;
-            match.m_value = std::make_shared<IdentName>(tmpName);
-        }
-        // Атрибут @[matcher("fn")]: переопределение функции сравнения (по значению). Проверяем
-        // имя функции-предиката и совместимость оператора match (не type-match).
-        analyzeMatchMatcher(match);
-    }
-
-    // ReturnStmt: hoist возвращаемого значения в const-временную `__trust_res_N` (для пост-условий:
-    // выражение вычисляется один раз, имя функции связывается со значением). Временную создаёт
-    // СЕМАНТИКА (инвариант «временные — уровень анализатора»): синтезируется const VarDecl
-    // `__trust_res_N := <m_value>;` (тип из resolvedType → inferredType), m_value заменяется ссылкой
-    // на неё (Ident __trust_res_N). Транспилятор эмитит её как обычный VarDecl и читает имя.
-    // Создаётся только для ИМЕНОВАННОГО return (m_label) из функции с пост-условиями — точно по
-    // логике visit_ReturnStmt (void/неименованный `++ _ ++` не трогаем).
-    if (self->kind() == ParserToken::Kind::ReturnStmt) {
-        auto& js = static_cast<JumpStmt&>(*self);
-        if (js.m_label && js.m_funcDecl && js.m_value) {
-            bool hasPost = false;
-            for (const auto& t : js.m_funcDecl->m_trust) {
-                const auto* tc = dynamic_cast<const TrustContract*>(t.get());
-                if (t && tc && tc->kind == PropertyKind::Post) {
-                    hasPost = true;
-                    break;
-                }
-            }
-            if (hasPost) {
-                const TypeId vt = m_actx.resolvedType(*js.m_value);
-                const std::string tmpName = "__trust_res_" + std::to_string(m_actx.nextResultTempId());
-                auto tmp = std::make_shared<VarDecl>(tmpName, nullptr, std::move(js.m_value));
-                if (vt != INVALID_TYPE_ID) {
-                    tmp->inferredType = clearFlag(vt, SymbolFlag::Inferred);
-                }
-                if (const auto ro = m_actx.ctx().attrs().lookup(attr::ReadOnly); ro.has_value()) {
-                    tmp->add_attr(*ro); // const-временная (как '^' на имени)
-                }
-                js.m_tempDecl = tmp;
-                js.m_value = std::make_shared<IdentName>(tmpName);
-            }
-        }
-    }
+    // Пост-порядковая типизация и синтетические временные ($^ / match / return).
+    analyzeNodeTail(self);
 }
 
 // Обход реальных детей через единый источник AstNodeBase::collectChildren (ссылки на
@@ -695,17 +540,19 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
         m_actx.ctx().diag().report(Severity::Error, self->range(), "pseudo-variable '$^' (result of the last operation) is not implemented yet");
         return;
     }
-    switch (self->kind()) {
-    case ParserToken::Kind::VarDecl:
-        m_decl.analyzeVarDecl(static_cast<VarDecl&>(*self));
-        break;
-    case ParserToken::Kind::TypeDecl:
-        m_decl.analyzeTypeDecl(static_cast<Binary&>(*self));
-        break;
-    case ParserToken::Kind::ReturnStmt: {
+    const ParserToken::Kind self_kind = self->kind();
+    if (self_kind == ParserToken::Kind::VarDecl) {
+        m_decl.analyzeVarDecl(*self->as<VarDecl>());
+        return;
+    }
+    if (self_kind == ParserToken::Kind::TypeDecl) {
+        m_decl.analyzeTypeDecl(*self->as<Binary>());
+        return;
+    }
+    if (self_kind == ParserToken::Kind::ReturnStmt) {
         // Помечаем return ссылкой на определение функции (для пост-условий в кодогенерации:
         // узел самодостаточен, транспилятору не нужен текущий контекст функции).
-        auto& js = static_cast<JumpStmt&>(*self);
+        auto& js = *self->as<JumpStmt>();
         js.m_funcDecl = currentFuncDecl();
         // Именованное положительное прерывание `name ++ value ++` = return по имени функции:
         // метка обязана быть текущей функцией либо глобальной `::` (exit/проброс). Иначе ошибка.
@@ -720,14 +567,15 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
                 }
             }
         }
-        break;
+        return;
     }
-    case ParserToken::Kind::Ident:
+    if (self_kind == ParserToken::Kind::Ident) {
         // Квалификатор @:: foo уже раскрыт хук-ом ContextMacroExpander (в analyzeNode);
         // здесь только резолвим имя.
         lookupOrError(*self);
-        break;
-    case ParserToken::Kind::EmbedExpr: {
+        return;
+    }
+    if (self_kind == ParserToken::Kind::EmbedExpr) {
         // Опция -Wembed (default Warning): предупреждение за сам факт использования C++-вставки
         // {% ... %} независимо от имён внутри. `-Wembed=ignore` подавляет вывод. Вызывается
         // ровно один раз на узел (обход семантики), в отличие от кодогенерации (рекурсия через emitExpr).
@@ -749,9 +597,9 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
                 m_actx.ctx().diag().report(Severity::Warning, embed.range(), "embed references name '{}' not declared in trust code", nm);
             }
         }
-        break;
+        return;
     }
-    case ParserToken::Kind::AppendStmt: {
+    if (self_kind == ParserToken::Kind::AppendStmt) {
         // Учёт `[]=` в статическом размере словаря: `d []= v` увеличивает известный размер
         // (dims) целевого словаря - чтобы статическая проверка `d.N` далее по тексту видела
         // выросший размер (после двух append размер 3 → 5). LHS - простой Ident (вложенный
@@ -761,19 +609,19 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
         // операнда, поэтому dims растёт на число элементов операнда, а типы полей переносятся
         // в dictFieldTypes цели. Без `...` - одиночный элемент (прежнее поведение: dims += 1,
         // типы полей не регистрируются - сохранение «Any» для добавленных позиционных).
-        auto& append = static_cast<Binary&>(*self);
+        auto& append = *self->as<Binary>();
         if (append.m_left && append.m_left->kind() == ParserToken::Kind::Ident) {
             if (Symbol* s = resolveSimple(append.m_left.get(), append.m_left->text())) {
                 if (s->dims < 0) {
-                    break; // статический размер цели неизвестен - отслеживать нечего
+                    return; // статический размер цели неизвестен - отслеживать нечего
                 }
                 const AstNodeBase* rhs = append.m_right.get();
                 if (rhs && rhs->kind() == ParserToken::Kind::Ellipsis) {
-                    const auto& ell = static_cast<const Sequence&>(*rhs);
+                    const auto& ell = *rhs->as<Sequence>();
                     const AstNodeBase* operand = ell.m_body.empty() ? nullptr : ell.m_body[0].get();
                     if (operand && operand->kind() == ParserToken::Kind::DictLiteral) {
                         // Компиляционно известный словарь-литерал: каждый элемент - новый элемент.
-                        const auto& dl = static_cast<const Sequence&>(*operand);
+                        const auto& dl = *operand->as<Sequence>();
                         for (const auto& el : dl.m_body) {
                             if (!el) {
                                 continue;
@@ -797,7 +645,7 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
                         }
                     }
                     // Прочий dict-операнд (выражение): статический размер неизвестен - не меняем.
-                    break;
+                    return;
                 }
                 // Одиночный элемент (не spread): размер +1 и регистрация типа поля по позиции,
                 // чтобы dictFieldTypes оставался выровнен по dims (инвариант: число записей
@@ -807,10 +655,7 @@ void NameResolutionPass::handleNode(AstNodePtr& self) {
                 s->dictFieldTypes.emplace_back("", rhs ? m_typer.dictElementType(rhs) : INVALID_TYPE_ID);
             }
         }
-        break;
-    }
-    default:
-        break; // прочие kinds обрабатываются только обходом детей
+        return;
     }
 }
 
@@ -839,263 +684,6 @@ bool NameResolutionPass::isInLoop() const {
 }
 
 // -- Встроенный маркер `@__CHECK_AREA__` -- -----------------------------------------
-// Проверка области применения макроса: маркер встречается в теле макроса на сайте раскрытия.
-// Текущая область выводится из ЕДИНОГО скоуп-стека (создатели скоупов) - без отдельного
-// параллельного стека областей. Маркер не генерирует код и УДАЛЯЕТСЯ после проверки.
-void NameResolutionPass::analyzeCheckAreaStmt(AstNodePtr& self) {
-    if (!self || self->kind() != ParserToken::Kind::CheckAreaStmt) {
-        self = nullptr;
-        return;
-    }
-    auto st = std::static_pointer_cast<CheckAreaStmt>(self);
-    const MapperRange rng = st->range();
-    if (!st->area.has_value()) { // область не задана - нечего проверять
-        self = nullptr;
-        return;
-    }
-    const AreaKind required = *st->area;
-
-    // Текущие области из ЕДИНОГО скоуп-стека (creator-узлы, от внутреннего к глобальному).
-    std::vector<const AstNodeBase*> creators;
-    m_actx.symbols().forEachScope([&](const SymbolTable::Scope& s) {
-        if (s.creator) {
-            creators.push_back(s.creator);
-        }
-    });
-    bool hasClass = false;
-    for (const AstNodeBase* n : creators) {
-        if (n->kind() == ParserToken::Kind::ClassDecl) {
-            hasClass = true;
-        }
-    }
-    std::vector<AreaKind> cur;
-    for (const AstNodeBase* n : creators) {
-        switch (n->kind()) {
-        case ParserToken::Kind::ModuleDecl:
-            cur.push_back(AreaKind::Module);
-            break;
-        case ParserToken::Kind::ScopeBlock:
-        case ParserToken::Kind::sequence:
-            cur.push_back(AreaKind::Block);
-            break;
-        case ParserToken::Kind::FuncDecl:
-            cur.push_back(AreaKind::Function);
-            if (hasClass) {
-                cur.push_back(AreaKind::Method);
-            }
-            break;
-        case ParserToken::Kind::ClassDecl:
-            cur.push_back(AreaKind::Class);
-            break;
-        case ParserToken::Kind::WhileStmt:
-            cur.push_back(AreaKind::While);
-            cur.push_back(AreaKind::Loop);
-            break;
-        case ParserToken::Kind::DoWhileStmt:
-            cur.push_back(AreaKind::DoWhile);
-            cur.push_back(AreaKind::Loop);
-            break;
-        case ParserToken::Kind::WithStmt:
-            cur.push_back(AreaKind::With);
-            break;
-        case ParserToken::Kind::TryCatchStmt:
-            cur.push_back(AreaKind::Try);
-            break;
-        case ParserToken::Kind::CatchBlock:
-            cur.push_back(AreaKind::Catch);
-            break;
-        case ParserToken::Kind::IfStmt:
-            // Whole-if: создатель IfStmt-скоупа означает «внутри if» (then/elseif/else - не
-            // различаются, ветки отдельных скоупов не открывают). Отдельных elseif/else НЕ
-            // заявляем (см. TRUST_CHECK_AREAS), пока не реализована per-branch-детекция.
-            cur.push_back(AreaKind::If);
-            break;
-        case ParserToken::Kind::MatchingStmt:
-            // Whole-match: создатель MatchingStmt-скоупа = «внутри match» (любая ветка/default).
-            cur.push_back(AreaKind::Match);
-            break;
-        default:
-            break;
-        }
-    }
-
-    bool inside = false;
-    for (const auto& c : cur) {
-        if (c == required) {
-            inside = true;
-            break;
-        }
-    }
-
-    // Атрибуты (AttrId) на ближайшем creator, несущем атрибуты.
-    bool attrsOk = true;
-    const AstNodeBase* areaNode = nullptr;
-    for (const AstNodeBase* n : creators) {
-        if (n->as_attr()) {
-            areaNode = n;
-            break;
-        }
-    }
-    if (!st->attrs().empty()) {
-        if (!areaNode) {
-            attrsOk = false;
-        } else {
-            const AstNodeAttr* an = areaNode->as_attr();
-            for (const AttrId id : st->attrs()) { // требуемые атрибуты лежат в attrs() самого маркера
-                if (!an->has_attr(id)) {
-                    attrsOk = false;
-                    break;
-                }
-            }
-        }
-    }
-
-    if (inside && attrsOk) {
-        self = nullptr; // ограничение выполнено - маркер удаляем (кода не даёт)
-        return;
-    }
-
-    // Severity: явный override (behavior) -> default -> -W-опция (nullopt = ignore).
-    std::optional<Severity> sevOpt = st->behavior.has_value() ? st->behavior : std::optional<Severity>(m_actx.ctx().opts().get(semantic::DiagId::CheckArea));
-    self = nullptr; // маркер всегда удаляется (не генератор кода)
-
-    if (!sevOpt.has_value() || *sevOpt == Severity::Ignore || *sevOpt == Severity::Remark || *sevOpt == Severity::Note) {
-        return; // ignore/низкий severity - без диагностики
-    }
-    const Severity sev = *sevOpt;
-
-    std::string curList;
-    for (const auto& c : cur) {
-        if (!curList.empty()) {
-            curList += ", ";
-        }
-        curList.append(areaKindName(c));
-    }
-    if (curList.empty()) {
-        curList = "module(top-level)";
-    }
-    if (!attrsOk) {
-        m_actx.ctx().diag().report(sev, rng, "@__CHECK_AREA__: current area '{}' lacks required attribute(s)", curList);
-    } else {
-        m_actx.ctx().diag().report(sev, rng, "@__CHECK_AREA__: macro allowed only inside area '{}', but current area is '{}'", areaKindName(required), curList);
-    }
-}
-
-// -- Атрибут @[matcher("fn")] на операторе match -------------------------------
-// Переопределяет сравнение по значению (==/===>): вместо (tmp == pattern) в каждой ветке
-// кодогенерация эмитит вызов fn(tmp, pattern). Семантика резолвит имя функции и проверяет,
-// что это объявленная функция-предикат с сигнатурой `bool fn(T_value, T_pattern)`.
-void NameResolutionPass::analyzeMatchMatcher(MatchStmt& match) {
-    const AttrPool& pool = m_actx.ctx().attrs();
-    const auto matcher_id = pool.lookup(attr::Matcher);
-    if (!matcher_id.has_value() || !match.has_attr(*matcher_id)) {
-        return; // атрибута нет - ничего не делаем
-    }
-    const MapperRange rng = match.range();
-    const std::vector<std::string>* args = match.attr_args(*matcher_id);
-    if (!args || args->empty() || (*args)[0].empty()) {
-        m_actx.ctx().diag().report(Severity::Error, rng,
-                                   "@[matcher(...)] expects one argument - the name of a predicate function 'bool fn(T_value, T_pattern)'");
-        return;
-    }
-    const std::string name = (*args)[0];
-
-    // Matcher переопределяет сравнение ПО ЗНАЧЕНИЮ; сопоставление по типу несовместимо.
-    const bool typeMatch = (match.m_op == "~>" || match.m_op == "~~>" || match.m_op == "~~~>");
-    if (typeMatch) {
-        m_actx.ctx().diag().report(Severity::Error, rng,
-                                   "@[matcher(\"{}\")] is not applicable to type-matching operator '{}'; matcher overrides value comparison", name, match.m_op);
-        return;
-    }
-    // Нативный C++-символ (%...) - резолвить нельзя, сигнатуру не проверяем (кодоген эмитит как есть).
-    if (!name.empty() && name.front() == '%') {
-        return;
-    }
-    Symbol* s = resolveSimple(nullptr, name);
-    if (!s || !s->decl || s->decl->kind() != ParserToken::Kind::FuncDecl) {
-        m_actx.ctx().diag().report(Severity::Error, rng,
-                                   "@[matcher(\"{}\")]: '{}' is not a declared function; a matcher predicate must be declared before this match", name, name);
-        return;
-    }
-    TypeRegistry& reg = m_actx.ctx().types();
-    const auto* fd = reg.getTypeDataAs<FunctionTypeData>(s->type);
-    if (!fd) {
-        return; // сигнатура неизвестна (обобщённая/шаблон) - кодоген эмитит вызов как есть
-    }
-    if (fd->paramTypes.size() != 2) {
-        m_actx.ctx().diag().report(Severity::Error, rng, "@[matcher(\"{}\")]: predicate must take exactly 2 arguments (T_value, T_pattern), got {}", name,
-                                   fd->paramTypes.size());
-        return;
-    }
-    const TypeId rt = fd->returnType == INVALID_TYPE_ID ? INVALID_TYPE_ID : reg.getCanonicalTypeId(fd->returnType);
-    const bool returnsBool = rt != INVALID_TYPE_ID && getGroup(getKindFromId(rt)) == Group::kLogical;
-    if (!returnsBool) {
-        m_actx.ctx().diag().report(Severity::Error, rng, "@[matcher(\"{}\")]: predicate must return bool (got '{}')", name,
-                                   fd->returnType == INVALID_TYPE_ID ? "void" : std::string(reg.getFullTypeName(fd->returnType)));
-    }
-}
-
-// -- Применение ортогональных квалификаторов типа (const + вид ссылки) --
-// Единый источник для переменных (analyzeVarDecl) и параметров (declareFuncParams).
-TypeId NameResolutionPass::applyRefAttrs(TypeId base, const AstNodeAttr& node, MapperRange range) {
-    if (base == INVALID_TYPE_ID) {
-        return base;
-    }
-    const AttrPool& attrs = m_actx.ctx().attrs();
-    // Константность ('^' → attr::ReadOnly): бит kConstFlag → `const T` в C++ (getCppTypeName).
-    if (node.has_attr(attrs, attr::ReadOnly)) {
-        base = setFlag(base, SymbolFlag::Const);
-    }
-    // Вид ссылки (@[reftype("ptr")]) - плоский enum RefType. Первая ссылка - fast-path бит,
-    // вложенность - составной узел (единый источник: TypeRegistry::applyRefType).
-    // Вид может быть задан ЛИБО у типа (`x : &Int32` → тип уже несёт признак), ЛИБО у переменной
-    // (`& x : Int32` → атрибут reftype на узле переменной). Если задан у обоих - они ОБЯЗАНЫ
-    // совпадать (иначе - ошибка); если только у переменной - применяем к pointee.
-    auto reftype_id = attrs.lookup(attr::Reftype);
-    if (reftype_id.has_value() && node.has_attr(*reftype_id)) {
-        const std::vector<std::string>* rargs = node.attr_args(*reftype_id);
-        if (!rargs || rargs->empty()) {
-            m_actx.ctx().diag().report(Severity::Error, range, "attribute 'reftype' requires a reference-kind parameter, e.g. @[reftype(\"ptr\")]");
-        } else {
-            auto refkind = refTypeFromString(rargs->front());
-            if (!refkind) {
-                m_actx.ctx().diag().report(Severity::Error, range, "unknown reference kind '{}'", rargs->front());
-            } else {
-                // Расширенная форма: @[reftype("shared"/"weak"[, <sync_policy>][, <timeout>])].
-                // Второй аргумент - имя класса синхронизации доступа, зарегистрированного в реестре
-                // (встроенная политика Group::kSyncPolicy или класс, помеченный атрибутом `sync`),
-                // допустим ТОЛЬКО для видов shared/weak. Третий (опциональный) - пер-объектный
-                // таймаут детектора взаимной блокировки (<ms|s|nano>), перекрывает глобальный.
-                if (rargs->size() > 3) {
-                    m_actx.ctx().diag().report(Severity::Error, range, "attribute 'reftype' accepts at most 3 arguments: kind[, sync_policy[, timeout]]");
-                } else if (rargs->size() > 1 && *refkind != RefType::kShared && *refkind != RefType::kWeak) {
-                    m_actx.ctx().diag().report(Severity::Error, range, "sync access policy is only valid for reference kinds 'shared'/'weak', got '{}'",
-                                               refTypeName(*refkind));
-                } else if (rargs->size() > 1) {
-                    // Политика - имя типа в реестре (реальная регистрация, без строкового маппинга).
-                    const TypeRegistry& reg = m_actx.ctx().types();
-                    const auto pid = reg.findType(rargs->at(1));
-                    if (!pid.has_value() || !reg.isSyncPolicyType(*pid)) {
-                        m_actx.ctx().diag().report(
-                            Severity::Error, range,
-                            "unknown sync access policy type '{}' (expected a type registered in the TypeRegistry, e.g. SyncMutexPolicy)", rargs->at(1));
-                    }
-                }
-                const RefType baseKind = getRefType(getKindFromId(base));
-                if (baseKind != RefType::kValue && baseKind != *refkind) {
-                    // У переменной и у типа указаны РАЗНЫЕ виды ссылок - диагностика.
-                    m_actx.ctx().diag().report(Severity::Error, range, "reference kind mismatch: variable is '{}' but its type is '{}'", refTypeName(*refkind),
-                                               refTypeName(baseKind));
-                } else if (baseKind == RefType::kValue) {
-                    // Тип не несёт признака (pointee-значение) - применяем вид переменной.
-                    base = m_actx.ctx().types().applyRefType(base, *refkind);
-                }
-                // baseKind == *refkind: тип уже несёт тот же признак - не применяем повторно.
-            }
-        }
-    }
-    return base;
-}
 
 // -- Trust-условия (пред/пост/утверждение) -------------------------
 
@@ -1159,6 +747,7 @@ const Symbol* NameResolutionPass::lookupOrError(AstNodeBase& node) {
     // runtime-заголовок / распознаваемые компилятором); «undefined name» для них не выдаём
     // (транспилер эмитит их разворачиванием на этапе генерации, см. CppTranspiler::emitIntrinsic).
     const bool isRuntime = !sym && (m_actx.isRegisteredRuntimeSymbol(name) || m_actx.isRegisteredIntrinsic(name));
+    TRUST_DEBUG("resolve", "name '{}' -> {}", name, sym ? "resolved" : (isRuntime ? "runtime" : "undefined"));
     for (auto& hook : m_hooks) {
         hook->onResolve(node, sym);
     }

@@ -75,12 +75,12 @@ class TermToAstConverter : public TermVisitorDefault {
     /// терма-операнда в RangeExpr::operandTypes (для учёта в analyzeRangeExpr, напр. `0..100:Rational`).
     AstNodePtr visit_RANGE(const trust::TermPtr& term, Context& ctx) override;
 
-    /// `&`/`&&`/`&?` (умные) → RefMakeExpr; нативные `%&`/`%&&` (сырые C++-операторы, текст с
-    /// ведущим '%') → отдельные узлы NativeRefMakeExpr (kind/const из текста оператора).
-    AstNodePtr visit_OPERATOR_PTR(const trust::TermPtr& term, Context& ctx) override;
-    /// `*`/`*^` (умные) → RefTakeExpr; нативные `%*`/`%*^` (разименование нативного указателя)
-    /// → отдельные узлы NativeRefTakeExpr.
-    AstNodePtr visit_TAKE(const trust::TermPtr& term, Context& ctx) override;
+    /// Немедленный вызов лямбды `( lambda )(args)` (TermID::LAMBDA_CALL): callee - не идентификатор,
+    /// а лямбда-терм (m_left), поэтому generic-путь (callee=IdentName) не подходит. Аргументы - m_args.
+    AstNodePtr visit_LAMBDA_CALL(const trust::TermPtr& term, Context& ctx) override;
+
+    /// `&`/`&&`/`&*`/`&?` (умные маркеры) → RefMakeExpr (см. TermVisitorDefault).
+    /// `*`/`*^` → RefTakeExpr (см. TermVisitorDefault).
 
     /// Блоки перехвата прерываний `{+ ... +}`/`{- ... -}`/`{* ... *}` (BLOCK_PLUS/BLOCK_MINUS/
     /// BLOCK_TRY) → TryCatchStmt (Sequence). Класс перехватываемого прерывания закодирован в

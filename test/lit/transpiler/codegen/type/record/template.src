@@ -1,0 +1,37 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/template.o %s && test -f $TD/template.o
+
+# Пользовательские шаблон-классы: `<T> :Box ::= :Class{...}` → C++ `template <typename T> struct c_Box`
+# с полями/методами, типизированными типовым параметром. Инстанциация `Box<Int32>` → `c_Box<int32_t>`
+# (реестр типов интернирует конкретную инстанциацию; конструктор `Box(...)` эмитится по типу-цели).
+
+<T> :Box ::= :Class{
+    value: T := _;
+    get(): T := { return value; };
+    set(v: T) := { value = v; };
+};
+# CHECK: template <typename T>
+# CHECK-NEXT: struct c_Box {
+# CHECK-NEXT:     T c_value;
+# CHECK: T c_get() {
+# CHECK: void c_set(T c_v) {
+# CHECK:     c_value = c_v;
+
+<T,U> :Pair ::= :Class{
+    first: T := _;
+    second: U := _;
+    getFirst(): T := { return first; };
+};
+# CHECK: template <typename T, typename U>
+# CHECK-NEXT: struct c_Pair {
+# CHECK-NEXT:     T c_first;
+# CHECK-NEXT:     U c_second;
+
+b : Box<Int32> := Box();
+# CHECK: c_Box<int32_t> c_b = c_Box<int32_t>();
+b2 : Box<Int32> := Box();
+b2 = Box(7);
+# CHECK: c_Box<int32_t> c_b2 = c_Box<int32_t>();
+# CHECK: c_b2 = c_Box<int32_t>(7);
+p : Pair<Int32, Int64> := Pair(1, 2);
+# CHECK: c_Pair<int32_t, int64_t> c_p = c_Pair<int32_t, int64_t>(1, 2);

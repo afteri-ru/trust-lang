@@ -1,4 +1,4 @@
-# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 #
 # `$^` однороден для всех выражений, ВКЛЮЧАЯ вызов функции: источник `f();` -> временная
 # `__trust_last_1 := f();` (значение = возврат f).

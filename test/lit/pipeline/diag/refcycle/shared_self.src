@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Self-ссылка сильной (shared) ссылкой: цикл владения -> refcount-утечка.
+# Диагностика -Wrecursive-shared (default error).
+:Node ::= :Class{ next : @[reftype("shared")@] Node := _; };
+@main():Int32 := { return 0; };
+# CHECK: error: recursive strong (shared) reference cycle in class fields
+# CHECK: Node

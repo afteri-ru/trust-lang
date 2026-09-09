@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: type 'Int32' is not a subtype of the type set branch start
+
+# Исключать можно только ПОДТИП (уже): :Int32 ШИРЕ :Int8.
+x ::= :Int8 + :Int16 - :Int32;
+@main() := { @return 0; }

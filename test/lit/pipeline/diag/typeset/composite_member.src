@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: composite types are not supported inside a type set
+
+# Составной тип-член (шаблон) внутри набора - «составное внутри составного» не поддержано.
+x ::= :Int8 + :vector<Int32>;
+@main() := { @return 0; }

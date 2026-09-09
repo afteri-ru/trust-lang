@@ -1,5 +1,5 @@
 // module_loader_test.cpp - тесты ModuleLoader: parseSourceModule, ensureLoaded, indexOf
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "module_loader/module_loader.hpp"
 #include "syntax/macro.h"
 #include "syntax/parser.h"
@@ -9,15 +9,15 @@
 #include <filesystem>
 #include <fstream>
 
+#include "test_data.hpp"
+
 namespace trust {
 namespace {
 
 class ModuleLoaderTest : public ::testing::Test {
   protected:
     void SetUp() override {
-        namespace fs = std::filesystem;
-        m_dir = fs::path(TEST_DATA_DIR) / "module_loader_test";
-        fs::create_directories(m_dir);
+        m_dir = trust::test::makeTestDataDir("module_loader_test");
     }
 
     std::string writeSrc(const std::string& name, const std::string& content) {

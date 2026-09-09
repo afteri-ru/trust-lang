@@ -39,6 +39,7 @@ add_test(NAME vscode_lsp
     COMMAND timeout --kill-after=10 60 ${NODE} ${CMAKE_CURRENT_SOURCE_DIR}/integration/lsp-protocol.test.js
             --lsp-path ${CMAKE_BINARY_DIR}/trust-lsp
             --src "${TEST_SRC}"
+            --work-dir "${TEST_DATA_DIR}/vscode_lsp"
 )
 set_tests_properties(vscode_lsp PROPERTIES
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/integration

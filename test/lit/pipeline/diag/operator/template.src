@@ -1,0 +1,5 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Оператор-ШАБЛОН не реализован: явная ошибка (раньше объявление МОЛЧА пропускалось).
+<T> `==`(a: T, b: T): Bool := { return true; };
+# CHECK: error: template operators are not implemented

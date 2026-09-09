@@ -1,0 +1,23 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# FILLING у ВЫЗОВА МЕТОДА - единый путь с вызовами функций (capacity из сигнатуры метода,
+# решение в CallExpr::argFillCount, эмиссия - общим emitCallArgsWithFilling).
+# Важно: операнд внутри FILLING - это ВЫРАЖЕНИЕ, а не оператор (без лишней ';').
+
+:Calc ::= :Class{
+    base:Int32 := 100;
+    add(a:Int32, b:Int32):Int32 := { return base + a + b; };
+};
+
+@main():Int32 := {
+    c:Calc := Calc();
+    a:Int32[3] := [1, 2,];
+    a.push_back(... 5 ...);
+    c.add(1, ... 7 ...);
+    y := c.add(2, ... 8 ...);
+    return 0;
+}
+
+# CHECK: (c_a).push_back(5);
+# CHECK: (c_c).c_add(1, 7);
+# CHECK: int32_t c_y = (c_c).c_add(2, 8);

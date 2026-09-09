@@ -1,9 +1,9 @@
 #include "semantic/stack_check_infer.hpp"
 
 #include "semantic/stack_check.hpp"
-#include "semantic/symbol_table.hpp"
-#include "ast/attr_builtin.hpp"
-#include "diag/context.hpp"
+#include "analysis/symbol_table.hpp"
+#include "attrs/attr_builtin.hpp"
+#include "session/context.hpp"
 
 #include <unordered_set>
 

@@ -1,5 +1,7 @@
 // src/pipeline/runtime_locator.cpp
 #include "pipeline/runtime_locator.hpp"
+#include "assets/asset_catalog.hpp"
+#include "assets/asset_provider.hpp"
 #include "utils/io.hpp"
 #include "utils/elf.hpp"
 #include <cstdlib>
@@ -69,8 +71,49 @@ std::filesystem::path locateRuntimeLibrary(RuntimeLink link) {
     return {};
 }
 
+namespace {
+
+// Запись содержимого заголовка в buildDir/<headerPath> (с созданием подкаталогов).
+// Единая точка записи для обоих источников - stdlib-ассетов и секций trust-runtime.
+bool writeBuildHeader(const std::filesystem::path& buildDir, const std::string& headerPath, std::string_view content) {
+    namespace fs = std::filesystem;
+    fs::path outPath = buildDir / headerPath;
+    std::error_code ec;
+    fs::create_directories(outPath.parent_path(), ec);
+    std::ofstream ofs(outPath, std::ios::binary);
+    if (!ofs) {
+        trust::errs() << "error: cannot write runtime header '" << outPath << "'\n";
+        return false;
+    }
+    ofs.write(content.data(), static_cast<std::streamsize>(content.size()));
+    return static_cast<bool>(ofs);
+}
+
+} // namespace
+
 bool extractRuntimeHeader(const std::string& headerPath, const std::filesystem::path& buildDir, RuntimeLink link) {
     namespace fs = std::filesystem;
+
+    // Единый каталог ассетов определяет ИСТОЧНИК содержимого: ассеты стандартной библиотеки вшиты
+    // в компилятор (#embed), заголовки встроенных типов — ELF-секции trust-runtime. Неизвестное имя —
+    // ошибка (без неявного поиска/тихого fallback).
+    const auto asset = findAsset(headerPath);
+    if (!asset) {
+        trust::errs() << "error: unknown runtime header '" << headerPath << "'\n";
+        return false;
+    }
+
+    // Источник 1: ассеты стандартной библиотеки (путь "stdlib/…", префикс "@stdlib/…" в источнике).
+    if (assetSource(*asset) == AssetSource::kCompilerEmbedded) {
+        const std::string_view content = embeddedAssetContent(*asset);
+        if (content.empty()) {
+            trust::errs() << "error: embedded asset '" << headerPath << "' is empty\n";
+            return false;
+        }
+        return writeBuildHeader(buildDir, headerPath, content);
+    }
+
+    // Источник 2: рантайм-заголовки ВСТРОЕННЫХ типов - ELF-секции trust-runtime (путь "trust/…").
     const fs::path lib_path = locateRuntimeLibrary(link);
     if (lib_path.empty()) {
         trust::errs() << "error: cannot locate trust-runtime library (" << runtimeLibraryFileName(link).string()
@@ -86,16 +129,7 @@ bool extractRuntimeHeader(const std::string& headerPath, const std::filesystem::
     while (!section->empty() && section->back() == '\0') {
         section->pop_back();
     }
-
-    fs::path outPath = buildDir / headerPath;
-    std::error_code ec;
-    fs::create_directories(outPath.parent_path(), ec);
-    std::ofstream ofs(outPath, std::ios::binary);
-    if (!ofs) {
-        trust::errs() << "error: cannot write runtime header '" << outPath << "'\n";
-        return false;
-    }
-    ofs.write(reinterpret_cast<const char*>(section->data()), static_cast<std::streamsize>(section->size()));
-    return static_cast<bool>(ofs);
+    return writeBuildHeader(buildDir, headerPath,
+                            std::string_view(reinterpret_cast<const char*>(section->data()), section->size()));
 }
 } // namespace trust

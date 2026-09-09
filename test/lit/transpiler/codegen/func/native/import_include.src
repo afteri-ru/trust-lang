@@ -1,0 +1,13 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# @include на НАТИВНОМ ИМПОРТЕ (`name := %native...;`) должен подтягивать заголовок.
+# Нативные импорты не эмитят C++-функцию и выходят ранним return - сбор @include/@link
+# перенесён В НАЧАЛО generateFuncDeclToFile (иначе заголовок молча терялся).
+
+@include("cstdio")
+getpid_v():Int32 := %getpid...;
+
+@main():Int32 := {
+    return getpid_v();
+};
+# CHECK: #include <cstdio>

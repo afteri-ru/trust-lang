@@ -14,6 +14,9 @@ target_link_libraries(debug_lib PUBLIC
 
 target_link_libraries(debug_lib PUBLIC
     diag_lib
+    driver_lib
+    session_lib
+    sourcemap_lib
 )
 target_link_libraries(debug_lib PRIVATE
     msgpack-c-static
@@ -43,5 +46,9 @@ target_link_libraries(trust-dap PRIVATE
 target_include_directories(trust-dap PRIVATE
     ${CMAKE_BINARY_DIR}/include
     ${PROJECT_INCLUDE_DIR}
+    ${PROJECT_INCLUDE_DIR}/runtime
 )
 endif()
+
+# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
+target_link_libraries(debug_lib PRIVATE trust_pch)

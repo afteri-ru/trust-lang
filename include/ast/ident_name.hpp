@@ -5,7 +5,7 @@
 #pragma once
 
 #include "ast/token_base.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
 #include <filesystem>
 #include <string>
 #include <string_view>

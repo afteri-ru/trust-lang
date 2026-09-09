@@ -1,0 +1,46 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Пользовательские шаблон-классы: инстанциация, поля/методы с типовым параметром и
+# наследование шаблон-классов (`<T> :Derived ::= :Base<:T>{...}`). Программа собирается
+# и запускается (--run); проверяем вывод.
+
+# CHECK: box=42
+# CHECK: base=7 extra=0
+# CHECK: pt=3 4
+# CHECK: explicit=9
+
+<T> :Box ::= :Class{
+    value: T := _;
+    set(v: T) := { value = v; };
+    get(): T := { return value; };
+};
+
+b : Box<Int32> := Box();
+b.set(42);
+@print('box={}\n', b.get());
+
+<T> :Base ::= :Class{
+    value: T := _;
+    set(v: T) := { value = v; };
+    get(): T := { return value; };
+};
+
+<T> :Derived ::= :Base<:T>{
+    extra: T := _;
+    getExtra(): T := { return extra; };
+};
+
+d : Derived<Int32> := Derived();
+d.set(7);
+@print('base={} extra={}\n', d.get(), d.getExtra());
+
+# Struct-шаблон: POD-проверка на конкретной инстанциации, поля-параметры.
+<T> :Point ::= :Struct{ x: T := _; y: T := _; };
+pt : Point<Int32> := Point(3, 4);
+@print('pt={} {}\n', pt.x, pt.y);
+
+# Явная конструкция `:Box<Int32>(...)` (RHS-форма).
+be : Box<Int32> := :Box<Int32>(9);
+@print('explicit={}\n', be.get());

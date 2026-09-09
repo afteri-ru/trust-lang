@@ -48,4 +48,8 @@
     X(ModuleName, "@__MODULE_NAME__", ("Current module name (without extension, relative to the main file, separators replaced with '_')")) \
     X(BareNamespace, "@$$", ("Current namespace (bare)"))                            \
     X(CheckArea, "@__CHECK_AREA__",                                                  \
-      ("Restrict the enclosing macro/site to an allowed syntactic area: @__CHECK_AREA__(<area> [, <behavior>] [, <attr>...]). The marker is validated by the analyzer and emits no code."))
+      ("Restrict the enclosing macro/site to an allowed syntactic area: @__CHECK_AREA__(<area> [, <behavior>] [, <attr>...]). The marker is validated by the analyzer and emits no code.")) \
+    X(Debug, "@__DEBUG__",                                                           \
+      ("Control the FILTER for debug messages produced by the compiler via TRUST_DEBUG (dev builds only): @__DEBUG__(<masks>) enables output for the given keyword/mask list, @__DEBUG__() disables it. Does NOT affect @__DEBUG_SCOPE__ dumps. In a release build the macro emits no output.")) \
+    X(DebugScope, "@__DEBUG_SCOPE__",                                                \
+      ("Print the current analyzer STATE at this point (dev builds only), independently of the @__DEBUG__ message filter: @__DEBUG_SCOPE__([<name-mask>...] [, key=value...]). Positional arguments are ONLY name-mask filters (empty call = full dump); named options: level=current|all, types=on|off, max=<N>, count=only. Option values may be unquoted (level=all, max=10). Unsupported names/values are reported at parse time with the full option list. In a release build the macro emits no output."))

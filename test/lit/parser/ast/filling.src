@@ -1,0 +1,16 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+#
+# FILLING `... expr ...` - заполнение оставшихся позиций приёмника значением операнда.
+# Единый узел (kind Filling, класс Sequence, операнд - единственный ребёнок) распознаётся
+# ОДИНАКОВО в литерале массива и в аргументах вызова (общее правило грамматики `arg`).
+
+@func f(a:Int32, b:Int32):Void { @print('{}\n', a); };
+@main() := {
+    v:Int32[3] := [1, 2, ... 7 ...,];
+    f(1, ... 9 ...);
+    @return 0;
+}
+# CHECK:      Filling
+# CHECK-NEXT: IntLiteral 7
+# CHECK:      Filling
+# CHECK-NEXT: IntLiteral 9

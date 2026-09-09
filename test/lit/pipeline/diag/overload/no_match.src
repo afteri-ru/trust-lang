@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Нет подходящей перегрузки: тип аргумента (StrChar) не совместим ни с одной сигнатурой → явная
+# ошибка компиляции (без молчаливого выбора/Any-fallback).
+f(a:Int32):Int32 := { @return 1; };
+f(a:Int64):Int32 := { @return 2; };
+@main() := {
+    s : StrChar := 'x';
+    @print('{}\n', f(s));
+    @return 0;
+}
+# CHECK: error: no matching overload for function 'f'

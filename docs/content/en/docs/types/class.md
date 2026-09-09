@@ -1,163 +1,101 @@
 ---
-title: Классы
-# linkTitle: Docs
-# menu: {main: {weight: 20}}
-weight: 35
-#categories: [типыExamples, Placeholders]
-tags: [типы данных, ООП, коллекции]
-
+title: Classes
+weight: 5
+tags: [types, oop, collections]
 ---
 
-> Ответ прост: классы не строго необходимы для ООП. Знаю, это может шокировать.
-> 
-> Разумеется, нам нужна возможность создания новых объектов, 
-> и языки на основе классов, очевидно, распространены сильнее. Однако это не единственный способ достижения цели.
-> 
-> В языках наподобие JavaScript (хотя ES6 добавил в язык классы6, 7) 
-> и Lua используется концепция ООП на основе прототипов или прототипного ООП. 
-> Вместо создания схемы для конструирования новых объектов мы используем существующий объект в качестве прототипа. 
-> Такой подход даже может иметь реальные преимущества, поскольку снижает сложность языка8.
+The data type `:Class` is similar to a dictionary, but all its fields must have names (access to properties by
+index is also possible). When creating an instance of a class, a new type is created that copies the properties and
+methods of all parents. Unlike a dictionary, the set of fields of a class is determined at compile time
+and can only be extended relative to the parent types.
 
+**Status:** the basic `:Struct` (strictly POD) and `:Class` (inheritance) are implemented, generated in C++ as
+`struct`; full-fledged OOP (virtual methods/override, constructors/destructors, static members)
+is not implemented in the current version. Of the "object-oriented" types, the enumerations
+`:Enum`, the variants `:Variant` and the tuples `:Tuple` are also implemented (see [Dictionaries and sets](dicts/)), as well as
+the forward declaration of native C++ classes (`String ::= %std::string { ... };` — see
+[Native types](native/)) and user **template classes** (`<T> :Box ::= :Class{...}` — see
+[Generic programming](generics/#class-template)). The current implementation boundaries — in
+[Implementation status](../status/).
 
-Тип данных *:Class* аналогичен словарю, но все его поля обязаны иметь имена (хотя доступ к свойствам класса по индексу так же возможен).
-При создании экземпляра класса, создается новая переменная, для которой копируются свойства и методы всех родителей. 
-
-Создание нового сложного типа (класса), происходит согласно [правилам синтаксиса](/en/docs/ops/create/) как создание функции
-в пользовательском [пространстве имен](/en/docs/syntax/namespace/). 
-Имя функции является именем нового класса, а сама функция будет выступает в роли конструктора экземпляров класса.
-
-Синтаксис создание класса выглядит следующим образом:
-```python
-# Новый тип (класс) :NewClass
-ns::NewClass() := :Class() { # Родительские класс или несколько классов через запятую
-
-    # Конструктор класса - весь блок кода с определением полей и методов
-
-    @::static := 1; # Поле класса (у всех объектов одно значение)
-    static := 1; # Поле класса (у всех объектов одно значение)
-    .field := 1; # Поле объекта
-    func() := {}; # Метод класса всегда статический
-    #.method() := {}; # Метод объекта (у каждого объекта свой)
-
-    ~NewClass() ::= { # Деструктор класса
-
-    };
-};
-obj := ns::NewClass(); # Экземпляр класса
-```
-
-Так как *TrustLang* реализует полный набор вариантов проверок при создании объектов, 
-то переопределения наследуемых функций не требует никаких ключевых слов:
-```python
-NewClass2() := NewClass() { # Новый класс на базе существующего
-    .field ::= 2;    # Будет ошибка, т.к. поле field уже есть в базовом классе
-    method() = {};  # Аналог override, т.к. method должен существовать в базовом классе
-};
-```
-
-
-### Scope
-
-The underscore symbol, as well as an underscore at the beginning of a name or double underscores at the beginning and end of a name, have special meanings.
-
-A single underscore corresponds to a protected, and two underscores to a private scope of an object within a module or class, in accordance with the conventions in the Python language.
-
-However, just like in Python, scopes are more of a "gentleman's agreement," and with explicit naming, access to protected objects can be obtained by simply specifying the full object name.
-
-In addition, there are also system fields and objects that start and end with two underscores.
-
-- '**$**' - The dollar sign at the beginning of a name denotes a system (local) name of a temporary variable, 
-the memory space for which is allocated during execution, and the lifetime is limited by the language semantics.
-- '**::**' - Double colons serve as a separator when specifying namespaces. 
-Explicit namespace specification is a sign of a static object, the memory space for which is allocated during the compilation 
-of the application or module. 
-
-
-
-
-## Интерфейсы, именование методов классов и пространства имен
-Для создания уникальных идентификаторов на основе имен методов классов, *TrustLang* использует подход, похожий на применяемый в языке Python. 
-При создании метода класса, создается глобальная функция с именем класса и именем метода, объединенные через разделитель области имен. 
-Например, в классе `NewClass2` при создании метода `method` будет создана функция с именем `::NewClass2::method`.
-
-Такая схема наименований методов полностью соответствует именованию функций в пространствах имен, 
-и тем самым позволяет определять классы c чистыми виртуальными функциями (методами без реализации), 
-а в последствии определять их в пространстве имен или указав полное имя в явном виде.
+The declaration of `:Struct`/`:Class` — via `::=` with a body whose members are specified by the operator `:=`
+(`Name ::= :Base{ ... };`):
 
 ```python
-ns:: {
-    NewClass3 := NewClass() { # Новый класс на базе существующего
-        virtual() := _; # Виртуальный метод
-    };
-};
-
-obj := ns::NewClass3(); # объект создать нельзя, будет ошибка
-
-# Определить функцию для виртуального метода
-ns::NewClass3::virtual() := {}; 
-
-obj := ns::NewClass3(); # ОК
+Point ::= :Struct{ x:Int32 := _; y:Int32 := _; };      # strictly POD; fields WITHOUT a value (`:= _`)
+Animal ::= :Class{ name:Int32 := 0; speak():Int32 := { ... }; };  # Class: default is allowed
+Dog ::= :Animal{ age:Int32 := _; };                    # inheritance (Class)
+Iface ::= :Class ...;                                  # forward declaration (form without a body)
 ```
 
-## Конструкторы, деструкторы и финализаторы у объектов
+Both types are generated as a C++ `struct` (all members are public); `:Struct` additionally gets a
+`static_assert` for POD (`std::is_trivial_v && std::is_standard_layout_v`). Fields/methods with a leading `_`
+(protected) and `__` (private) are supported at the level of a naming convention — they affect only
+autocompletion; in C++ they are generated without changing access. A bare member name (`obj.field`, `obj.method()`)
+is transferred into a direct access to the `struct` member.
+
+Rules of values and declarations:
+
+- `member := ...` — a **method prototype** (a declaration without a body) inside a class definition. A class with a body
+  (even if all methods are prototypes) is a **complete definition** (`struct c_Name { ... };`) —
+  in C++ prototypes exist only inside a definition, not in a forward declaration.
+- `member := _` — **absence of a value** (a field without a default value).
+- `field:Type := <value>` — a field with a default value.
+- `:Name ::= :Base ...;` (the form **without a body**) — a **forward declaration** → C++ incomplete type
+  `struct c_Name;`. The type name is already registered and visible, therefore **later the same name can be
+  defined further** (`:Name ::= :Base { ... };`); a repeated *definition* is an error. In C++ a forward declaration
+  contains no members (neither fields nor methods); the type is incomplete.
+- **Self-references are allowed:** the record type name is visible inside its own body (an analog of the C++
+  injected-class-name), therefore `:Node ::= :Class{ next : @[reftype("shared")@] Node := _; }` is correct.
+  References (`shared`/`weak`/`unique`-pointer) to an incomplete type are allowed; a value field of itself is
+  an infinite-size error (see below).
+- `field := ...` is not allowed: in C++ a data member cannot be forward-declared (it exists only in a definition).
+
+**Recursive/cyclic references in fields** are forbidden statically (the analyzer `RefCycleHook`) so as not to
+allow leaks and inexpressible types: `-Wrecursive-shared` — a cycle with a `shared` edge (refcount leak;
+broken by a `weak` back-reference), `-Wrecursive-unique` — mutual `unique` ownership of two types,
+`-Wrecursive-value` — recursion by value (`value`/default `unique` = inline, infinite size). All —
+default `error`, switched by `-Wrecursive-*=ignore|warning|error`. Self-reference by a `unique` pointer is a
+legal owned list and is not diagnosed.
+
+For **`:Struct`** (strictly POD) a default field value is **forbidden** by the analyzer (NSDMI violates
+triviality): the field is declared as `field:Type := _;`. For **`:Class`** the field value is not checked —
+both `:= <value>` (emitted as a C++ default member initializer) and `:= _` (without an initializer) are allowed.
+
+Virtual methods (`@[virtual]`) and overriding (`@[override]`) are **not implemented** in the current version —
+their use leads to an explicit compilation error (rather than silent ignoring).
+
+## Operator overloading {#operators}
+
+An operator is declared by a **symbol name in backticks** (the `REFLECTION` lexeme): in the class body —
+as a method, at the top level of a module — as a free function. The body and signature are like those of an ordinary method.
+
 ```python
-ns::NewClass() :=  Class() {    # Новый класс на базе существующего
-
-    # Блок кода функции - конструктор объекта
-
-    __NewClass__() = {...}; # Метод с системным именем типа - деструктор объекта (вызывается сразу после удаления)
-
-    _NewClass() := {...}; # Скрытый метод с именем типа - защищенный конструктор объекта ?????????????????
-    __NewClass() := {...}; # Скрытый метод с именем типа - приватный конструктор объекта ?????????????????
-
-    :NewClass(type) ::= {...}:NewClass; # Функция для приведения типа объекта $type к типу :NewClass
-    ~NewClass() = {...}; # Скрытый метод - финализатор (вызывается перед освобождением памяти)
-
-    __equals__(obj):Bool = { __compare__($obj) == 0 };
-    __compare__(obj):Int8 =  { :: __compare__(@this, $obj) };
-
-
-    _() := {...}; # ?????????????????????????????????????
-    
+Point ::= :Class{
+    x: Int32 := _;
+    `==`(o: Point): Bool := { ... };      # member → C++ operator==
+    `()`(i: Int32): Int32 := { ... };     # operator()  (member only)
+    `[]`(i: Int32): Int32 := { ... };     # operator[]  (member only)
 };
+
+`!=`(a: Point, b: Point): Bool := { ... };   # free operator (all operands are parameters)
 ```
 
-extension methods !
+The symbol is transferred into the C++ `operator<sym>` (`` `==` `` → `operator==`, `` `()` `` → `operator()`);
+the expressions `a == b` / `a != b` for user types are resolved by C++ overloading, therefore
+the operator can be used in ordinary expressions.
 
-> Пишу на С++ последние лет 20, до этого ещё Delphi лет 10. С годами полностью отошёл от ООП в сторону data-driven design. 
-> Классы - практически структуры, из методов как правило только декоративные геттеры. 
-> Всё остальное - это просто функции с понятными названиями, сигнатурами и операндами-объектами таких вот классов-носителей данных и состояния. 
-> Получается, очень легко дышится и чистенько - состояния изолированы в структуры, логика изолирована в функции. 
-> Конечно, в C++ всё довольно печально с ООП как таковым, поскольку нет механизма **extension methods - это когда вы собираете методы в класс из разных единиц трансляции**
-> из-за этого, обычные функции C++ значительно удобнее методов класса
+Usage in TrustLang code: `a == b` (comparisons), `a(5)` (calling a value — the `()` operator),
+`a[i]` (indexing — the `[]` operator). Each form is transferred into the corresponding C++ operation
+(`a(5)` → `a(5)`, `a[i]` → `(a)[i]`) and resolved by C++ overloading.
 
+Implemented: comparisons `== != < > <= >=` (both as a member and free) and call/index `()` / `[]`
+(**member only** — a C++ requirement; `[]` accepts exactly one parameter). The arity is checked
+(a comparison — one parameter for a member and two for a free one), a repeated symbol in a type is forbidden.
 
+The usage is checked at the analysis stage: a comparison/call/indexing requires a declared operator
+on the type (otherwise — a compilation error, not a C++ error); the arity of the call is checked against the declaration;
+a conflict "member + free function" of the same symbol is diagnosed as ambiguity. Operators
+support **contracts** (`trust_pre`/`trust_post`, like functions and methods). Template operators
+(`<T> \`==\`(...)`) are not implemented — an explicit error.
 
-
-> Основная мысль, которая почти всегда теряется при обсуждении ООП, это то, зачем он нужен и в чем его суть. Все сводится к инструментам, их правильном и неправильном использовании, практичных архитектурах и оверинженеринге.
-> 
-> Мне кажется самая главная мысль очень проста. Сложная программа это сложное состояние.
-> Проблема в том, что сложно следить за всей возможной суперпозицией всех деталей состояния.
-> Небольшое состояние гораздо проще валидировать и постоянно поддерживать целостным.
-> Если ты собираешь сложное состояние из простых целостных состояний, то его тоже проще поддерживать целостным (потому что нужно следить только за высокоуровневым состоянием, но не за всеми деталями)
-> 
-> Соответственно ООП - это способ описания программы как набора иерархии изолированных состояний, где операции по изменению состояний максимально приближены к состоянию.
-> 
-> 
-> Точно так же как сложную функцию можно представить как последовательность простых, так и сложное состояние можно представить комбинацией простых состояний.
-> Изоляция и контроль состояний и есть основная идея ООП.
-> 
-> ФП подходит с другой стороны - максимально старается избежать состояния и работать только с текущим контекстом. Подход не лишен логики, но любая программа - это прежде всего состояние.
-> 
-> Все остальное - лишь инструменты и особенности реализации. ООП может быть реализовано почти на любом языке самыми разными инструментами и не обязательно требует интерфейсов, классов, сообщений, инкапсуляции и т.д. Но разумеется современные ООП языки хорошо адаптированы для такого способа описания. В конечном итоге если подсказки или области видимости действительно не дают тебе менять состояние объекта - это и есть прямая польза на этапе понимания и доработки твоего кода. Тебе просто не нужно думать и знать о состоянии объекта, когда ты с ним не работаешь.
-
-
-
-
-> Главное в ООП - это то, что есть данные, и есть методы которые напрямую работают с этими данными. Это то, что можно засунуть в один объект. Другой объект, который хочет получить данные из первого объекта, обязан пользоваться публичными методами.
-> 
-> Это упрощает поддержку обратной совместимости, упрощает изоляцию объектов, упрощает версионирование в случае многократного использования одними объектами других объектов.
-> 
-> И опять таки, суть не в том, что это чем-то напоминает рест-апи или библиотеки, а в том, что это парадигма программирования, которая упрощает организацию разработки сложных проектов, в которых задействовано много разработчиков.
-> 
-> Все остальные штуки - наследование, интерфейсы и все другое - это не суть ООП, а различные варианты решения или оптимизации различных кейсов

@@ -3,7 +3,7 @@
 // Перенесено из trust::Ident, работа через text()/m_text вместо *this.
 
 #include "ast/ident_name.hpp"
-#include "ast/attr_pool.hpp"
+#include "attrs/attr_pool.hpp"
 #include "syntax/term.h"
 #include "utils/error.hpp"
 

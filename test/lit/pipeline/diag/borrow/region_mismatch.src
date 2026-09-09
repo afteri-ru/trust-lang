@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp -Wborrow-region-mismatch=error -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# R1: регион view (`thread`, @[thread_local]) больше региона anchor'а (`scope`) ->
+# view переживает anchor -> borrow-region-mismatch (default Error).
+@main() := {
+    &* x : Int32 := 5;
+    @[thread_local@] w : &?Int32 := & x;
+    @print('{}\n', *w);
+}
+# CHECK: error: borrowed view 'w' (region 'thread') outlives its anchor 'x' (region 'scope')

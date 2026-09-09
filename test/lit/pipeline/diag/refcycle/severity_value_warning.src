@@ -1,0 +1,9 @@
+# RUN: %trust --emit-cpp -Wsigil=ignore -Wrecursive-value=warning %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Управление severity: -Wrecursive-value=warning -> предупреждение (сборка успешна).
+:B ::= :Class ...;
+:A ::= :Class{ b : B := _; };
+:B ::= :Class{ a : A := _; };
+@main():Int32 := { return 0; };
+# CHECK: warning: recursive value containment in class fields

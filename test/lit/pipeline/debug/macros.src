@@ -1,0 +1,38 @@
+# RUN: %trust --emit-cpp %s 2>&1 | %FileCheck %s
+# REQUIRES: not-release
+
+#
+# Разделение ответственности (dev-сборка компилятора):
+#   @__DEBUG__("scope,resolve") - фильтр СООБЩЕНИЙ компилятора (TRUST_DEBUG из src/semantic/*);
+#   @__DEBUG__()                - выключить сообщения;
+#   @__DEBUG_SCOPE__()          - печатает СОСТОЯНИЕ анализатора и НЕ зависит от фильтра сообщений.
+# Формат строк:
+#   - вывод TRUST_DEBUG - префикс `компиляторный файл:строка: ` (место вызова TRUST_DEBUG);
+#   - вывод @__DEBUG__/@__DEBUG_SCOPE__ - префикс `<.src>:строка: ` (локация САМОГО макроса),
+#     включая ЭХО применённого фильтра (ENABLED/DISABLED).
+# Проверяемый вывод размещён НЕПОСРЕДСТВЕННО после макроса, который его генерирует.
+#
+@__DEBUG__("scope,resolve");
+# Эхо применения фильтра (префикс - локация самого макроса в .src):
+# CHECK: .../macros.src:{{[0-9]+}}: @__DEBUG__: debug messages ENABLED, filter='scope,resolve'
+f() : Int32 := {
+    # Сообщение анализатора (префикс - место вызова TRUST_DEBUG в компиляторе):
+    # CHECK: {{.*}}: enter FuncDecl depth=
+    a := 1;
+    # Дамп состояния: КАЖДАЯ строка с префиксом локации макроса; печатается независимо от фильтра:
+    # CHECK: .../macros.src:{{[0-9]+}}: scope: depth=
+    # CHECK: .../macros.src:{{[0-9]+}}:   [2] FuncDecl
+    @__DEBUG_SCOPE__();
+    # CHECK: {{.*}}: name 'a' -> resolved
+    b := a;
+    @__DEBUG__();
+    # Эхо выключения фильтра + дамп всё равно печатается:
+    # CHECK: .../macros.src:{{[0-9]+}}: @__DEBUG__: debug messages DISABLED (empty filter)
+    # CHECK: .../macros.src:{{[0-9]+}}: scope: depth=
+    # CHECK: .../macros.src:{{[0-9]+}}:   [2] FuncDecl
+    @__DEBUG_SCOPE__();
+    # ... а сообщения после выключения фильтра - НЕ печатаются (в т.ч. выход из скоупа):
+    # CHECK-NOT: name 'b' -> resolved
+    # CHECK-NOT: exit FuncDecl depth=
+    return b;
+};

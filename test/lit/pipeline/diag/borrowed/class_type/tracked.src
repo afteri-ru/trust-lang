@@ -1,0 +1,16 @@
+# RUN: %not %trust -q --emit-cpp -Wborrowed=error -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# @[borrowed] на КЛАССЕ: любая переменная типа Opt автоматически зависима от источника,
+# без атрибута на переменной или методе (атрибут наследуется самим типом).
+@include("optional")
+@[borrowed@]
+Opt ::= %std::optional<Int32> { };
+
+@main():Int32 := {
+    a : Int32 := 1;
+    d : Opt := Opt(a);
+    a = 2;
+    @print('{}\n', d);
+    return 0;
+}
+# CHECK: error: using the dependent variable 'd' after changing the main variable 'a'

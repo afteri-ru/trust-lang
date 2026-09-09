@@ -1,0 +1,45 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/struct_class.o %s && test -f $TD/struct_class.o
+
+# Struct (строго POD) и Class (наследование) - единый C++ `struct`. Различаются только базой:
+# `:Struct` → POD + static_assert, поля БЕЗ значений (`:= _`); `:Class`/пользовательская база →
+# обычный struct (поля могут иметь default → NSDMI). Члены публичные, имена манглятся (c_).
+# Предварительное объявление (все члены forward `:= ...`) → C++ incomplete `struct c_Name;`.
+
+:Point ::= :Struct{ x:Int32 := _; y:Int32 := _; };
+# CHECK: struct c_Point {
+# CHECK-NEXT:     int32_t c_x;
+# CHECK-NEXT:     int32_t c_y;
+# CHECK-NEXT: };
+# CHECK: static_assert(std::is_trivial_v<c_Point> && std::is_standard_layout_v<c_Point>, "trust: Struct 'Point' must be POD");
+
+:Animal ::= :Class{
+    name:Int32 := 1;
+    speak():Int32 := { return name + 10; };
+};
+# CHECK: struct c_Animal {
+# CHECK-NEXT:     int32_t c_name{1};
+
+:Dog ::= :Animal{ age:Int32 := _; };
+# CHECK: struct c_Dog : public c_Animal {
+# CHECK-NEXT:     int32_t c_age;
+# CHECK-NEXT: };
+
+# Предварительное объявление (форма БЕЗ тела `...`) → C++ incomplete type.
+:Iface ::= :Class ...;
+# CHECK: struct c_Iface;
+
+# Определение с прототипом метода (`:= ...`) - это ПОЛНОЕ определение (не forward): прототип внутри struct.
+:Proto ::= :Class{ run():Int32 := ...; };
+# CHECK: struct c_Proto {
+# CHECK-NEXT: int32_t c_run();};
+
+p:Point := Point(1, 2);
+# CHECK: c_Point c_p = c_Point(1, 2);
+
+d:Dog := Dog();
+# CHECK: c_Dog c_d = c_Dog();
+
+@print('{} {} {}', p.x, d.name, d.speak());
+# CHECK: trust__print__("{} {} {}", (c_p).c_x, (c_d).c_name, (c_d).c_speak());
+

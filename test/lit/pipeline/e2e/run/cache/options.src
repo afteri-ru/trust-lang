@@ -1,0 +1,19 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: cp %s $TD/prog.src
+# RUN: %not %trust -q --run --temp-dir $TD $TD/prog.src > %t.on.out 2>&1
+# RUN: %trust -q --run --temp-dir $TD -fno-overflow-check $TD/prog.src > %t.off.out
+# RUN: %FileCheck %s --check-prefix=OFF <%t.off.out
+# OFF: s=-294967296
+
+# Кеш --run учитывает codegen-опции: смена -foverflow-check на неизменном исходнике
+# инвалидирует кеш (пересборка). Первый запуск (default on) падает на переполнении;
+# второй (-fno-overflow-check) пересобирается и печатает знаковый wrap.
+
+#!/usr/bin/env trust
+@main() := {
+    a:Int32 := 2000000000;
+    b:Int32 := 2000000000;
+    s:Int32 := a + b;
+    @print('s={}\n', s);
+    @return 0;
+}

@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# @[deleter(D)] допустим ТОЛЬКО на владеющих видах (unique/shared). Без reftype вид = value
+# (не владеющий) -> диагностика ошибки.
+@main():Int32 := {
+    x : @[deleter(FreeDeleter)@] Int32 := 0;
+    return 0;
+};
+# CHECK: error: attribute 'deleter' is only valid for owning reference kinds 'unique'/'shared', got 'value'

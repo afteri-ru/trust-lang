@@ -1,0 +1,19 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Контроль знакового целочисленного переполнения (default on): +,-,* в value-позиции
+# генерируются лямбдой-IIFE с встроенным __builtin_*_overflow; на переполнение -
+# throw trust::IntMinus (тип из доверенного trust/interrupt.hpp).
+
+x:Int32 := 1000000;
+y:Int32 := 2000000;
+s := x + y;
+# CHECK: #include "trust/interrupt.hpp"
+# CHECK: int32_t c_s = (([&]{ int32_t __a = c_x; int32_t __b = c_y; int32_t __r; if (__builtin_add_overflow(__a, __b, &__r)) throw trust::IntMinus(trust::formatMessage("{{[^\"]*}}", 9, "integer overflow in '+'")); return __r; }()));
+
+d := x - y;
+# CHECK: __builtin_sub_overflow(__a, __b, &__r)
+# CHECK: integer overflow in '-'
+
+p := x * y;
+# CHECK: __builtin_mul_overflow(__a, __b, &__r)
+# CHECK: integer overflow in '*'

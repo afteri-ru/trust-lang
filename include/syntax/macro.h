@@ -1,7 +1,7 @@
 #ifndef TRUST_SYNTAX_MACRO_H_
 #define TRUST_SYNTAX_MACRO_H_
 
-#include "diag/context.hpp"
+#include "session/context.hpp"
 
 #include "syntax/term.h"
 

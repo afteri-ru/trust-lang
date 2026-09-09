@@ -15,7 +15,7 @@
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
 #include "types/type_names.hpp"
-#include "utils/operators.hpp"
+#include "ast/binary_op.hpp"
 
 #include <algorithm>
 #include <string>
@@ -68,7 +68,7 @@ inline TypeId literalType(const Literal& lit, const TypeRegistry& reg) {
 //   * числа (Integers/Unsigned/Numbers): если есть float - более широкая float-группа;
 //     иначе целое: при наличии 64-битного операнда → Int64, иначе → Int32;
 //   * не-арифметические/неизвестные операнды → INVALID_TYPE_ID.
-inline TypeId resultTypeBinary(ParserToken::Kind kind, std::string_view op, TypeId lhs, TypeId rhs, const TypeRegistry& reg) {
+inline TypeId resultTypeBinary(ParserToken::Kind kind, BinaryOp op, TypeId lhs, TypeId rhs, const TypeRegistry& reg) {
     if (kind == ParserToken::Kind::CompareOp || kind == ParserToken::Kind::LogicalOp) {
         return reg.getType(type::Bool);
     }
@@ -86,14 +86,14 @@ inline TypeId resultTypeBinary(ParserToken::Kind kind, std::string_view op, Type
     const bool lAP = lg == Group::kArbitraryPrecision;
     const bool rAP = rg == Group::kArbitraryPrecision;
     if (lAP || rAP) {
-        if (utils::isIntDivOp(op)) {
+        if (isIntDivOp(op)) {
             return INVALID_TYPE_ID;
         }
         return arbitraryPrecisionArithmeticType(reg, lc, rc);
     }
 
     // Целочисленное деление // и //= → результат Int64 (см. кодогенерацию: static_cast<int64_t>).
-    if (utils::isIntDivOp(op)) {
+    if (isIntDivOp(op)) {
         return reg.getType(type::Int64);
     }
 

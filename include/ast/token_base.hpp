@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ast/token.hpp"
-#include "ast/attr.hpp"
+#include "attrs/attr.hpp"
 #include "location/location.hpp"
 #include "utils/error.hpp"
 #include <cstddef>
@@ -16,7 +16,7 @@ namespace trust {
 class Term;
 using TermPtr = std::shared_ptr<Term>;
 
-// Forward declaration (full definition in diag/context.hpp). Нужен для uniform
+// Forward declaration (full definition in session/context.hpp). Нужен для uniform
 // терм-конструктора (kind, term, Context* ctx) генерируемой фабрики.
 class Context;
 
@@ -25,6 +25,7 @@ class AttrPool;
 class AstNodeAttr;
 class Sequence;
 struct LowerCtx;
+enum class PropertyKind; // ast/trust_prop.hpp (тип trust-контракта: pre/post/check/...)
 
 /// Может ли узел данного kind нести признак иммутабельности (суффикс '^' в тексте имени)?
 /// kind-вариант прежнего `canHaveImmutableQualifier(term, kind)` (там использовался только kind).
@@ -39,8 +40,6 @@ struct LowerCtx;
     case ParserToken::Kind::StructDecl:  // class^
     case ParserToken::Kind::RefTakeExpr: // *^ - take с иммутабельностью
     case ParserToken::Kind::RefMakeExpr: // &^ - ptr с иммутабельностью
-    case ParserToken::Kind::NativeRefTakeExpr: // %*^ - нативное разименование с иммутабельностью
-    case ParserToken::Kind::NativeRefMakeExpr: // %&^/%&&^ - нативный указатель/ссылка с иммутабельностью
     case ParserToken::Kind::CallExpr:    // method^() - const-вызов: '^' на имени callee (ReadOnly на вызове)
         return true;
     default:
@@ -106,6 +105,28 @@ class AstNodeBase {
     /// otherwise nullptr. Позволяет обходчикам получать m_body без kind/static_cast.
     [[nodiscard]] virtual Sequence* as_sequence() noexcept { return nullptr; }
     [[nodiscard]] virtual const Sequence* as_sequence() const noexcept { return nullptr; }
+
+    /// Типизированный доступ к узлу БЕЗ RTTI (замена dynamic_cast/static_pointer_cast):
+    ///   is<T>() - true, если динамический класс узла - T или ПРОИЗВОДНЫЙ от T (проверка
+    ///             базового класса тоже работает: is<IdentName>() верно для IdentType/VarDecl/
+    ///             FuncDecl). Отображение kind->класс - из PARSER_TOKEN_KINDS.
+    ///   as<T>() - downcast; при неверном kind/классе - FAULT (НЕ тихий nullptr).
+    /// T обязан быть классом из AST_NODE_CLASS_LIST (см. ast/token.hpp).
+    /// Определения - в конце ast_nodes.hpp (нужны полные типы классов).
+    template <class T>
+    [[nodiscard]] bool is() const noexcept;
+    template <class T>
+    [[nodiscard]] T* as();
+    template <class T>
+    [[nodiscard]] const T* as() const;
+
+    /// Типизированный доступ к trust-контрактам объявления (`m_trust`): отдаёт ТОЛЬКО узлы
+    /// TrustContract (без RTTI), устраняя повторяющийся фильтр dynamic_cast у потребителей.
+    /// Пусто, если контрактов нет.
+    [[nodiscard]] std::vector<const TrustContract*> trustContracts() const;
+    [[nodiscard]] std::vector<TrustContract*> trustContracts();
+    /// Есть ли trust-контракт указанного типа (pre/post/check/invariant/type).
+    [[nodiscard]] bool hasTrustProperty(PropertyKind kind) const;
 
     /// Единый источник истины «kind → дети»: заполняет out указателями на дочерние
     /// слоты (позволяет заменять узлы при обходе, напр. раскрытие ContextMacro).
@@ -176,6 +197,16 @@ inline bool isDeclKindForDocs(ParserToken::Kind k) {
 /// ДО text() (ручные тестовые узлы без терма не дают «_» и не роняют text()).
 [[nodiscard]] inline bool isNoneMarker(const AstNodeBase* n) noexcept {
     return n && n->kind() == ParserToken::Kind::Ident && n->term() && n->text() == "_";
+}
+
+/// Истина, если узел - ВАРИАТИВНЫЙ маркер `...` в списке ПАРАМЕТРОВ прототипа (`f(a:Int32, ...)`).
+/// Параметр представляется `ArgNode` с текстом "..." (TermID::ELLIPSIS теряется при конверсии в
+/// ArgNode - ast_decl создаёт ArgNode из терма), поэтому проверка текстовая (как isNoneMarker).
+/// ЕДИНЫЙ предикат для семантики (`buildFuncType`) и кодогена (`decl_func_emit`), чтобы не
+/// копипастить сравнение со строкой. НЕ путать с многоточием в АРГУМЕНТАХ вызова (там узел имеет
+/// `ParserToken::Kind::Ellipsis`/`Filling`, см. semantic/ellipsis).
+[[nodiscard]] inline bool isVariadicParamMarker(const AstNodeBase* n) noexcept {
+    return n && n->kind() == ParserToken::Kind::ArgNode && n->text() == "...";
 }
 
 /// AstNodeAttr - расширение AstNodeBase с поддержкой атрибутов.

@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Дубликат имени в списке захватов - ошибка.
+@main() := {
+    z := 1;
+    g := [z, z](x : Int32) : Int32 { @return x; };
+}
+# CHECK: error: duplicate lambda capture 'z'

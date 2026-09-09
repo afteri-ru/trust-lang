@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/free %s
+# RUN: $TD/free > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: v=7
+
+# Встроенный deleter FreeDeleter (trust/resource.hpp): ресурс (malloc) освобождается при выходе
+# из области видимости владельца trust::Unique<T,FreeDeleter>. Заголовок trust/resource.hpp
+# извлекается pipeline (как trust/trusted-cpp.hpp). Инициализатор - сырой handle ({% %}).
+@main():Int32 := {
+    h : @[reftype("unique")@] @[deleter(FreeDeleter)@] Int32 := {% static_cast<int*>(std::malloc(sizeof(int))) %};
+    *h = 7;
+    print('v={}\n', *h);
+    return 0;
+};

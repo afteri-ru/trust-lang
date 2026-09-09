@@ -135,18 +135,18 @@
       var a = document.createElement('a');
       a.className = 'tpl-copy';
       a.href = '#';
-      a.title = 'Скопировать ссылку на текущее состояние песочницы';
-      a.textContent = '🔗 скопировать ссылку';
+      a.title = 'Copy link to the current playground state';
+      a.textContent = '🔗 copy link';
       a.addEventListener('click', function (ev) {
         ev.preventDefault();
         var url = buildShareUrl();
         copyText(url).then(function () {
           var old = a.textContent;
-          a.textContent = '✓ скопировано';
+          a.textContent = '✓ copied';
           setTimeout(function () { a.textContent = old; }, 1500);
         }).catch(function () {
-          a.textContent = 'ошибка копирования';
-          setTimeout(function () { a.textContent = '🔗 скопировать ссылку'; }, 2000);
+          a.textContent = 'copy failed';
+          setTimeout(function () { a.textContent = '🔗 copy link'; }, 2000);
         });
       });
       status.appendChild(a);
@@ -198,7 +198,7 @@
           var link = document.createElement('span');
           link.className = 'tpl-log-link ' + (isErr ? 'tpl-log-error' : 'tpl-log-warn');
           link.textContent = text;
-          link.title = 'Перейти к строке ' + ln;
+          link.title = 'Go to line ' + ln;
           link.addEventListener('click', (function (ll, lc) {
             return function () { gotoTrustLine(ll, lc); };
           })(ln, col));
@@ -334,7 +334,7 @@
         if (!cfg.examples[idx]) { return; }
         var ex = cfg.examples[idx];
         if (trustEditor && trustEditor.getValue() !== loadedSource) {
-          if (!confirm('Текущий текст будет заменён на пример "' + ex.name + '". Продолжить?')) {
+          if (!confirm('The current text will be replaced with example "' + ex.name + '". Continue?')) {
             if (curExIndex >= 0) { examplesSel.selectedIndex = curExIndex; }
             else { examplesSel.selectedIndex = 0; }
             return;
@@ -375,28 +375,28 @@
     // просто без счётчика (поле появилось в новой версии /health).
     function updateHealth() {
       if (!healthEl) { return; }
-      if (!cfg.serverUrl) { setHealth('down', 'нет связи с балансировщиком'); return; }
+      if (!cfg.serverUrl) { setHealth('down', 'no connection to the balancer'); return; }
       fetch(serverOrigin + '/health', { method: 'GET' }).then(function (res) {
         if (!res.ok) {
           console.warn('[trust-playground] /health HTTP ' + res.status + ' at ' + serverOrigin);
-          setHealth('down', 'нет связи с балансировщиком (HTTP ' + res.status + ')'); return;
+          setHealth('down', 'no connection to the balancer (HTTP ' + res.status + ')'); return;
         }
         return res.json().catch(function () {
-          console.warn('[trust-playground] /health вернул не JSON (вероятно, статическая страница вместо балансировщика): ' + serverOrigin);
+          console.warn('[trust-playground] /health returned non-JSON (probably a static page instead of the balancer): ' + serverOrigin);
           return null;
         });
       }).then(function (d) {
         if (!d || d.status !== 'ok') {
-          console.warn('[trust-playground] /health ответ без status=ok:', d);
-          setHealth('down', 'нет связи с балансировщиком'); return;
+          console.warn('[trust-playground] /health response without status=ok:', d);
+          setHealth('down', 'no connection to the balancer'); return;
         }
         var n = (typeof d.workers_connected === 'number') ? d.workers_connected : null;
-        if (n === null) { setHealth('ok', 'балансировщик онлайн'); }
-        else if (n > 0) { setHealth('ok', 'балансировщик онлайн · воркеров: ' + n); }
-        else { setHealth('degraded', 'балансировщик онлайн · нет воркеров'); }
+        if (n === null) { setHealth('ok', 'balancer online'); }
+        else if (n > 0) { setHealth('ok', 'balancer online · workers: ' + n); }
+        else { setHealth('degraded', 'balancer online · no workers'); }
       }).catch(function (e) {
         console.warn('[trust-playground] /health fetch failed at ' + serverOrigin + ':', e);
-        setHealth('down', 'нет связи с балансировщиком');
+        setHealth('down', 'no connection to the balancer');
       });
     }
 
@@ -555,24 +555,24 @@
               if (data && data.unavailable) {
                 // Нет доступных воркеров (балансировщик онлайн, но ни один воркер не
                 // подключён/не свободен). Отличаем от «Нет связи с балансировщиком».
-                var umsg = 'Нет доступных воркеров';
+                var umsg = 'No workers available';
                 var uLink = null;
                 if (data.instructionsUrl) { uLink = localizeLink(data.instructionsUrl); }
                 appendLog((data && data.error) ? data.error : umsg);
                 setStatus(umsg);
-                resetCppPane(umsg, uLink, 'запустите свой узел');
+                resetCppPane(umsg, uLink, 'run your own node');
                 return;
               }
               if (!rr.ok) {
                 // Балансировщик/прокси вернул HTTP-ошибку без валидного JSON-контракта.
-                var herr = (data && data.error) ? data.error : ('Нет связи с балансировщиком (HTTP ' + rr.status + ')');
+                var herr = (data && data.error) ? data.error : ('No connection to the balancer (HTTP ' + rr.status + ')');
                 setStatus(herr);
                 appendLog(herr);
                 resetCppPane(herr);
                 return;
               }
               if (!data || !data.ok) {
-                var err = (data && data.error) ? data.error : 'Ошибка транспиляции';
+                var err = (data && data.error) ? data.error : 'Transpilation error';
                 setStatus(err);
                 appendLog(err);
                 if (data && data.log) { appendLog(data.log); }
@@ -595,8 +595,8 @@
             }).catch(function (err) {
               // Сетевой сбой (нет связи с балансировщиком) - НЕ путать с «нет воркеров».
               appendLog('request failed: ' + err);
-              resetCppPane('Нет связи с балансировщиком');
-              setStatus('Нет связи с балансировщиком');
+              resetCppPane('No connection to the balancer');
+              setStatus('No connection to the balancer');
             });
           }
 

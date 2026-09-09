@@ -3,25 +3,23 @@
 #include "transpiler/transpiler.hpp"
 #include "transpiler/emit_common.hpp"
 #include "ast/ast_nodes.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
+#include "ast/ref_syntax.hpp"
 #include "ast/ident_name.hpp"
 #include "ast/kind_visitor.hpp"
 #include "ast/token_type.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
-#include "semantic/symbol_table.hpp"
-#include "semantic/analysis_common.hpp"
-#include "semantic/solver.hpp"
-#include "semantic/stack_check.hpp"
+#include "analysis/symbol_table.hpp"
 #include "syntax/term.h"
 #include "types/registry.hpp"
+#include "types/ref_type.hpp"
 #include "types/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/type_id.hpp"
 #include "types/type_names.hpp"
 #include "transpiler/diag.hpp"
-#include "utils/operators.hpp"
 #include "utils/strings.hpp"
 #include <cstdint>
 #include <format>
@@ -31,325 +29,10 @@
 
 namespace trust {
 
-void DeclEmitter::generateVarDeclToFile(const VarDecl& var_node, MapperFile output_idx) {
-    // Флаг линковки нативной библиотеки из @[link("имя")].
-    m_driver.m_type.collectLinkLib(var_node);
-    // Зависимый C++-заголовок из @[include(\"header\")@] на нативной переменной/типе.
-    m_driver.m_type.collectInclude(var_node);
-
-    // Манглинг trust-имени в C++-идентификатор (срез '%' у нативных имён).
-    std::string var_name = utils::name_to_cpp(var_node.text());
-    if (var_name.empty()) {
-        return;
-    }
-
-    // Семантический тип переменной и его RefType. Единый источник для C++-имени и формы
-    // инициализации reference-wrapper (trust::Shared/Weak/Take): семантика применила reftype
-    // и с узла переменной (ведущий @[reftype(...)@]), и с аннотации типа (`x : @[reftype(...)@] T`).
-    // Локальные символы в транспиляторе НЕ резолвятся (скоуп-стек сброшен к глобальному),
-    // поэтому RefType читаем из атрибутов узла переменной и аннотации типа (как emitTypeNameForNode).
-    RefType var_rt = RefType::kValue;
-    std::string sync_policy;  // 2-й аргумент reftype: имя класса синхронизации (пусто = обычный shared)
-    std::string sync_timeout; // 3-й аргумент reftype: пер-объектный таймаут детектора (пусто = глобальный)
-    const AttrPool& attrs = m_ectx.m_ctx.attrs();
-    const auto apply_reftype_attr = [&](const AstNodeAttr* a) {
-        if (!a) {
-            return;
-        }
-        const auto rid = attrs.lookup(attr::Reftype);
-        if (!rid.has_value() || !a->has_attr(*rid)) {
-            return;
-        }
-        const auto* args = a->attr_args(*rid);
-        if (!args || args->empty()) {
-            return;
-        }
-        if (auto rk = refTypeFromString(args->front())) {
-            var_rt = *rk;
-        }
-        // Расширенная форма @[reftype("shared", <sync_policy>[, <timeout>])].
-        if (args->size() > 1) {
-            sync_policy = args->at(1);
-        }
-        if (args->size() > 2) {
-            sync_timeout = args->at(2);
-        }
-    };
-    apply_reftype_attr(var_node.m_type ? var_node.m_type->as_attr() : nullptr);
-    apply_reftype_attr(&var_node);
-    // Символический сигл ссылочного типа (`x : &Int32` / `*Int32` / `&?Int32`): аннотация - узел
-    // RefMakeExpr (`&`/`&?`) или RefTakeExpr (`*`, грамматика COLON STAR NAME → TAKE) с единственным
-    // ребёнком - pointee-типом. Вид - из сигла (text(), единый источник refTypeFromTypeSigil),
-    // базовое имя типа - из ребёнка (для resolveTypeIdByName). Покрывает и `@[reftype(...)@]`-форму.
-    const AstNodeBase* sigil_pointee = nullptr;
-    if (var_node.m_type && (var_node.m_type->kind() == ParserToken::Kind::RefMakeExpr || var_node.m_type->kind() == ParserToken::Kind::RefTakeExpr)) {
-        if (const auto rk = refTypeFromTypeSigil(var_node.m_type->text())) {
-            var_rt = *rk;
-            const auto& seq = static_cast<const Sequence&>(*var_node.m_type);
-            if (!seq.m_body.empty()) {
-                sigil_pointee = seq.m_body[0].get();
-            }
-        }
-    }
-    const bool ref_wrapper = (var_rt == RefType::kShared || var_rt == RefType::kWeak || var_rt == RefType::kLocker);
-    const bool ref_unique = (var_rt == RefType::kUnique);
-
-    // Determine type: типизированное имя → тип аннотации; нетипизированное → выведенный
-    // анализатором конкретный тип (inferred join по истории присвоений), иначе std::any.
-    std::string cpp_type;
-    // Базовый (pointee) TypeId и его C++-имя для ссылочных переменных (shared/weak/unique):
-    // нужны для std::make_unique<PoT> у unique_ptr и для уникальной эмиссии инициализатора.
-    std::optional<TypeId> ref_base_id;
-    std::string ref_pointee_cpp;
-    const bool typed = var_node.m_type && (var_node.m_type->kind() == ParserToken::Kind::TypeName || sigil_pointee != nullptr);
-    if (typed) {
-        // Reference-wrapper (shared/weak/take): C++-имя из базового типа аннотации + применённый
-        // reftype. Базовый тип берём из реестра (resolveTypeIdByName по имени), reftype - из
-        // атрибутов (аннотации m_type ИЛИ ведущего @[reftype(...)@] на узле переменной) -
-        // единообразно для обеих форм. Для остальных типов - emitTypeNameForNode (нативные
-        // шаблоны, размерности массивов, const/reftype атрибуты самой аннотации).
-        if (ref_wrapper || ref_unique) {
-            const AstNodeBase* base_node = sigil_pointee ? sigil_pointee : var_node.m_type.get();
-            ref_base_id = m_driver.m_type.resolveTypeIdByName(base_node->text());
-            if (!ref_base_id.has_value()) {
-                m_ectx.m_ctx.report(base_node->range(), diag::DiagId::ParseError, "unable to generate C++ type '{}'", base_node->text());
-                return;
-            }
-            const TypeId applied = m_ectx.m_ctx.types().applyRefType(*ref_base_id, var_rt);
-            auto nm = m_driver.m_type.emitTypeName(applied, var_node.text());
-            if (!nm || nm->empty()) {
-                m_ectx.m_ctx.report(base_node->range(), diag::DiagId::ParseError, "unable to generate C++ type '{}'", base_node->text());
-                return;
-            }
-            cpp_type = std::move(*nm);
-            // Pointee C++-имя (для std::make_unique<PoT> у unique_ptr).
-            if (auto pn = m_driver.m_type.emitTypeName(*ref_base_id, "")) {
-                ref_pointee_cpp = *pn;
-            } else {
-                ref_pointee_cpp = "std::any";
-            }
-        } else if (var_rt == RefType::kRef || var_rt == RefType::kPtr || var_rt == RefType::kRref || var_rt == RefType::kPtrPtr) {
-            // Нативные (сырые) ссылки (`%&`/`%*`): аннотация `%& Int32`/`%* Int32` - узел
-            // RefMakeExpr (не TypeName), который emitTypeNameForNode не рендерит. Имя строим как
-            // в wrapper-ветке: база из pointee (resolveTypeIdByName) + применённый вид (applyRefType):
-            // kRef → "int32_t&", kPtr → "int32_t*".
-            const AstNodeBase* base_node = sigil_pointee ? sigil_pointee : var_node.m_type.get();
-            ref_base_id = m_driver.m_type.resolveTypeIdByName(base_node->text());
-            if (!ref_base_id.has_value()) {
-                m_ectx.m_ctx.report(base_node->range(), diag::DiagId::ParseError, "unable to generate C++ type '{}'", base_node->text());
-                return;
-            }
-            auto nm = m_driver.m_type.emitTypeName(m_ectx.m_ctx.types().applyRefType(*ref_base_id, var_rt), var_node.text());
-            if (!nm || nm->empty()) {
-                m_ectx.m_ctx.report(base_node->range(), diag::DiagId::ParseError, "unable to generate C++ type '{}'", base_node->text());
-                return;
-            }
-            cpp_type = std::move(*nm);
-        } else {
-            cpp_type = m_driver.m_type.emitTypeNameForNode(var_node.m_type.get());
-            if (cpp_type.empty()) {
-                return;
-            }
-        }
-    } else {
-        // Нетипизированная переменная: выведенный семантикой конкретный тип, либо ЯВНО помеченный
-        // std::any (семантика маркирует Any для тип-less инициализаторов - тип-имя, embed, вызов
-        // с неизвестным результатом, отрицательный литерал - и для forward-объявлений без типа).
-        // Any - обычный выводимый тип → эмитим единообразно emitTypeName(inferred). INVALID у
-        // переменной - ошибка вывода: тихий fallback на std::any запрещён (AGENTS rule 5).
-        TypeId inferred = var_node.inferredType;
-        // Страховка: forward-объявление, чей тип семантика не пометила (напр. stdlib/Any не
-        // зарегистрирован), мог быть завершён последующим определением - добиваем по символу.
-        if (inferred == INVALID_TYPE_ID && m_ectx.m_resolvedTypes) {
-            if (const Symbol* s = m_ectx.m_resolvedTypes->resolve(var_node.text())) {
-                inferred = s->type;
-            }
-        }
-        if (inferred == INVALID_TYPE_ID) {
-            if (var_node.m_initializer) {
-                m_ectx.m_ctx.report(var_node.range(), diag::DiagId::ParseError, "unable to infer type for variable '{}'", var_node.text());
-            } else {
-                m_ectx.m_ctx.report(var_node.range(), diag::DiagId::ParseError, "unable to generate C++ type '{}'", type_generic::Any);
-            }
-            return;
-        }
-        // Ссылочная переменная без явного типа (`&& x := 5`): inferred уже несёт полный ссылочный тип
-        // (semantic обернул pointee видом из префиксного сигла). Базу (pointee) берём из типа.
-        if (ref_wrapper || ref_unique) {
-            const TypeRegistry& reg = m_ectx.m_ctx.types();
-            const TypeId pointee = reg.getPointeeType(inferred);
-            if (pointee != INVALID_TYPE_ID) {
-                ref_base_id = pointee;
-            } else {
-                ref_base_id = inferred; // fallback: inferred и есть pointee
-            }
-            if (auto pn = m_driver.m_type.emitTypeName(*ref_base_id, "")) {
-                ref_pointee_cpp = *pn;
-            } else {
-                ref_pointee_cpp = "std::any";
-            }
-        }
-        std::optional<std::string> name = m_driver.m_type.emitTypeName(inferred, var_node.text());
-        if (!name || name->empty()) {
-            m_ectx.m_ctx.report(var_node.range(), diag::DiagId::ParseError, "unable to generate C++ type '{}'", type_generic::Any);
-            return;
-        }
-        cpp_type = std::move(*name);
-    }
-
-    // Синхронизированная ссылка: @[reftype("shared"/"weak", <policy>[, <timeout>])].
-    // shared → <SyncShared><T, Policy>; weak → <Weak><<SyncShared><T, Policy>>.
-    // Имена ОБЁРТОК берутся из реестра/X-macro (не хардкодятся строкой):
-    //   SyncShared - встроенный тип (cppName trust::SyncShared) через resolveTypeIdByName;
-    //   Weak       - refTypeCppTemplateName(RefType::kWeak) (X-macro TRUST_REF_TYPE_TYPES);
-    //   политика   - имя типа в реестре (kSyncPolicy), C++-имя из emitTypeName.
-    const bool is_sync = (var_rt == RefType::kShared || var_rt == RefType::kWeak) && !sync_policy.empty();
-    if (is_sync && !ref_pointee_cpp.empty()) {
-        std::string policy_cpp;
-        if (auto pid = m_driver.m_type.resolveTypeIdByName(sync_policy)) {
-            if (auto pn = m_driver.m_type.emitTypeName(*pid, "")) {
-                policy_cpp = *pn;
-            }
-        }
-        // Обёртка синхронизированной сильной ссылки: из реестра (тип SyncShared, cppName trust::SyncShared).
-        std::string sync_shared_cpp;
-        if (auto sid = m_driver.m_type.resolveTypeIdByName(type::SyncShared)) {
-            if (auto sn = m_driver.m_type.emitTypeName(*sid, "")) {
-                sync_shared_cpp = *sn;
-            }
-        }
-        if (policy_cpp.empty()) {
-            m_ectx.m_ctx.report(var_node.range(), diag::DiagId::ParseError, "unknown sync access policy type '{}'", sync_policy);
-        } else if (sync_shared_cpp.empty()) {
-            m_ectx.m_ctx.report(var_node.range(), diag::DiagId::ParseError, "sync wrapper type '{}' not found in the TypeRegistry", type::SyncShared);
-        } else {
-            std::string sync_type = sync_shared_cpp + "<" + ref_pointee_cpp + ", " + policy_cpp + ">";
-            if (var_rt == RefType::kWeak) {
-                // Weak - имя обёртки из X-macro (единый источник C++-имён RefType).
-                sync_type = std::string(refTypeCppTemplateName(RefType::kWeak)) + "<" + sync_type + ">";
-            }
-            cpp_type = std::move(sync_type);
-            m_driver.m_type.recordRequiredInclude("@trust/trusted-cpp-sync.hpp");
-        }
-    }
-
-    // Инклуды типа не нужны здесь: emitTypeName отметил тип (m_ectx.m_usedTypes), инклуды будут
-    // сформированы из них ПОСЛЕ обхода AST (collectTypeIncludes).
-
-    MapperScope scope(m_ectx.m_ctx.source(), var_node.range(), output_idx);
-    // Константность ОБЪЯВЛЕНИЯ переменной - attr::ReadOnly на узле ('^' на имени или
-    // @[readonly@]). НЕ берётся из бита Symbol::type: переменная может стать константной
-    // позже (became-const, `x := 42; x^ += 1;`), но её ДЕКЛАРАЦИЯ обязана остаться не-const
-    // (переменная мутировалась до финализации). Признак на узле = const «в типе» объявления.
-    // Префикс влияет на смещение имени в выводе (source-map): имя идёт после "<prefix> <cpp_type> ".
-    std::string prefix;
-    if (var_node.has_attr(m_ectx.m_ctx.attrs(), attr::ReadOnly)) {
-        prefix += "const ";
-    }
-    if (var_node.has_attr(m_ectx.m_ctx.attrs(), attr::ThreadLocal)) {
-        prefix += "thread_local ";
-    }
-    // Forward-объявление `x:Type := ...;` → C++ extern-декларация переменной (объявление без
-    // определения); иначе - определение с инициализатором. Смещение имени в выводе зависит
-    // от наличия префикса "extern " (source-map).
-    // Маркер `_` в позиции инициализатора (`x := _;` / `x:Type := _;`) - «объявить без значения»,
-    // не инициализатор-значение: кодоген эмитит определение без инициализатора `T c_x;`
-    // (запись до чтения гарантирует анализатор). Проверяем по kind (Ident) ДО text(), т.к.
-    // text() требует source-терм, а ручные тестовые узлы (RangeExpr/CallExpr и т.п.) его не имеют.
-    const bool noneInit = isNoneMarker(var_node.m_initializer.get());
-    uint32_t namePrefixLen = static_cast<uint32_t>(prefix.length()) + static_cast<uint32_t>(cpp_type.length()) + 1;
-    if (!var_node.m_initializer || m_ectx.m_forwardDeclOnly) {
-        m_ectx.m_ctx.source().output_append(output_idx, "extern " + prefix + cpp_type + " " + var_name + ";");
-        namePrefixLen += 7; // strlen("extern ")
-    } else {
-        // Reference-wrapper (trust::Shared/Weak/Take): explicit-конструкторы, поэтому инициализируем
-        // конструкторным стилем `cpp_type name(<init>);` (покрывает и создание нового объекта
-        // `Shared<int>(5)`, и копирование из существующей ссылки). Прочие типы - как раньше.
-        if (ref_wrapper) {
-            // Инициализатор - адресная операция `& shared_var` (RefMakeExpr, даёт weak-временное
-            // `trust::Weak<...>(c_x)`): конструкторный стиль `Weak<...> c_w(Weak<...>(c_x))` дал бы
-            // most-vexing-parse (тип-внутри-типа) → используем копирующую `cpp_type name = <init>;`
-            // (с временного Weak это валидно). Прочие - конструкторный стиль `name(<init>);`.
-            const bool addrInit = var_node.m_initializer && var_node.m_initializer->kind() == ParserToken::Kind::RefMakeExpr;
-            if (addrInit) {
-                m_ectx.m_ctx.source().output_append(output_idx, prefix + cpp_type + " " + var_name + " = ");
-                m_driver.emitExpr(var_node.m_initializer.get());
-                m_ectx.m_ctx.source().output_append(output_idx, ";");
-            } else {
-                m_ectx.m_ctx.source().output_append(output_idx, prefix + cpp_type + " " + var_name + "(");
-                m_driver.emitExpr(var_node.m_initializer.get());
-                // Пер-объектный таймаут детектора (3-й аргумент reftype) → второй аргумент
-                // конструктора trust::SyncShared (перекрывает глобальный дефолт). Парсит рантайм
-                // (trust::runtime::syncTimeoutFromString) - ЕДИНЫЙ источник, без дублирования.
-                if (is_sync && !sync_timeout.empty()) {
-                    m_ectx.m_ctx.source().output_append(output_idx, ", trust::runtime::syncTimeoutFromString(\"" + sync_timeout +
-                                                                        "\", trust::runtime::syncDeadlockTimeout())");
-                }
-                m_ectx.m_ctx.source().output_append(output_idx, ");");
-            }
-        } else if (ref_unique) {
-            // std::unique_ptr<PoT> name = std::make_unique<PoT>(<init>); - unique_ptr не имеет
-            // конструктора от значения (в отличие от trust::Shared/Weak), владение создаётся явно.
-            m_ectx.m_ctx.source().output_append(output_idx, prefix + cpp_type + " " + var_name + " = std::make_unique<" + ref_pointee_cpp + ">(");
-            m_driver.emitExpr(var_node.m_initializer.get());
-            m_ectx.m_ctx.source().output_append(output_idx, ");");
-        } else {
-            // Локальная переменная без инициализатора (`x:Type := _;`): маркер `_` в позиции
-            // инициализатора означает «объявить без значения». Эмитим определение без
-            // инициализатора `T c_x;` (НЕ extern). Анализатор гарантирует запись до чтения,
-            // иначе - диагностика Error (чтение неинициализированной переменной).
-            const bool noInitDef = noneInit; // var_node.m_initializer - маркер `_`
-            if (noInitDef) {
-                m_ectx.m_ctx.source().output_append(output_idx, prefix + cpp_type + " " + var_name + ";");
-            } else {
-                m_ectx.m_ctx.source().output_append(output_idx, prefix + cpp_type + " " + var_name + " = ");
-                m_driver.emitExpr(var_node.m_initializer.get());
-                m_ectx.m_ctx.source().output_append(output_idx, ";");
-            }
-        }
-        // Trust-условия переменной (--solver-mode=assert): проверка сразу после объявления/инициализации.
-        if (!var_node.m_trust.empty()) {
-            m_ectx.m_ctx.source().output_append(output_idx, "\n"); // проверка - на отдельной строке
-            m_driver.m_contract.emitTrustChecks(var_node.m_trust);
-        }
-        // Тип-условия (тип с trust_assert): при создании значения типа (объявление переменной
-        // этого типа) проверяем значение - имя типа подставляется как значение переменной.
-        // Источник условий - узел декларации типа (VarDecl::m_typeDecl, ставит семантика);
-        // trust-имя типа - из аннотации переменной. Без копий и без карт.
-        if (var_node.m_typeDecl && var_node.m_initializer && !noneInit && !var_node.m_typeDecl->m_trust.empty()) {
-            m_driver.m_contract.emitTypeTrustChecks(var_node.m_typeDecl->m_trust, var_node.m_type->text(), var_name);
-        }
-    }
-
-    // Добавляем маппинг имени переменной для hover-ссылок.
-    // Диапазон trust-имени: nameRange() берёт диапазон реального имени из m_term->m_left
-    // (важно при макро-раскрытии, где range() самого узла - оператор). Fallback - имя
-    // в начале range() (когда range() покрывает всю строку, m_term->m_left отсутствует).
-    MapperRange trustNameRange = var_node.nameRange();
-    // Fallback на range() узла (имя в начале range) - только если range() валиден, иначе
-    // makeLoc с невалидным fileIdx упадёт. Финальную проверку делает mapDeclaredName.
-    if (trustNameRange.isInvalid() && !var_node.range().isInvalid()) {
-        MapperLocation trustNameBegin = m_ectx.m_ctx.source().makeLoc(var_node.range().begin.fileIdx(), var_node.range().begin.offset());
-        MapperLocation trustNameEnd = m_ectx.m_ctx.source().makeLoc(
-            trustNameBegin.fileIdx(), trustNameBegin.offset() + static_cast<uint32_t>(utils::strip_native_prefix(var_node.text()).size()));
-        trustNameRange = MapperRange(trustNameBegin, trustNameEnd);
-    }
-    // Имя выводится сразу после префикса "<cpp_type> " (или "extern <cpp_type> " для forward).
-    // trust-имя в маппинге - исходное (var_node.text(), для нативных с '%'), cpp-имя - манглированное.
-    mapDeclaredName(output_idx, trustNameRange, namePrefixLen, var_node.text(), var_name);
-
-    // Экспортируются ОПРЕДЕЛЕНИЯ на верхнем уровне модуля в НЕ анонимной области имён
-    // (глобальная '::' и именованные 'ns::' - с квалификацией, напр. "ns::x").
-    // Локальные (внутри функций/блоков кода), скрытая область '_' и forward-объявления
-    // (нет инициализатора → нет определения, `&::name` не связался бы) - не экспортируются.
-    if (var_node.m_initializer && !var_name.empty() && !m_ectx.m_inCppBlock && m_ectx.m_hiddenNamespaceDepth == 0) {
-        m_ectx.m_exports.push_back({std::string(var_node.text()), m_ectx.qualifiedCppName(var_name), buildTrustForwardDecl(var_node)});
-    }
-}
-
 void DeclEmitter::generateTypeDeclToFile(const Binary& binary_node, MapperFile output_idx) {
     auto* left = binary_node.m_left.get();
-    if (!left || left->kind() != ParserToken::Kind::Ident) {
+    // Имя типа слева от `::=`: `Name` (Ident) или `:Name` (TypeName, напр. в `:Point ::= :Struct{...}`).
+    if (!left || (left->kind() != ParserToken::Kind::Ident && left->kind() != ParserToken::Kind::TypeName)) {
         m_ectx.m_ctx.report(binary_node.range(), diag::DiagId::ParseError, "type declaration must have a name on the left");
         return;
     }
@@ -362,7 +45,7 @@ void DeclEmitter::generateTypeDeclToFile(const Binary& binary_node, MapperFile o
     // `(...):Variant` - правая часть DictLiteral с аннотацией типа «Enum»/«Variant».
     if (right && right->kind() == ParserToken::Kind::DictLiteral) {
         const auto& dl = static_cast<const DictLiteralNode&>(*right);
-        if (dl.m_type && dl.m_type->text() == "Enum") {
+        if (dl.m_type && dl.m_type->text() == type_category::Enum) {
             // Тип обязан быть зарегистрирован семантикой (analyzeEnumDecl). Если его нет -
             // инвариантное нарушение: без диагностики молча ничего не эмитим.
             auto tid = m_ectx.m_ctx.types().findType(left->text());
@@ -380,7 +63,7 @@ void DeclEmitter::generateTypeDeclToFile(const Binary& binary_node, MapperFile o
             emitEnumStruct(left->text(), dl, *tid, output_idx, left->range());
             return;
         }
-        if (dl.m_type && dl.m_type->text() == "Variant") {
+        if (dl.m_type && dl.m_type->text() == type_category::Variant) {
             auto tid = m_ectx.m_ctx.types().findType(left->text());
             if (!tid) {
                 m_ectx.m_ctx.report(binary_node.range(), diag::DiagId::ParseError, "variant type '{}' is not registered", left->text());
@@ -393,6 +76,23 @@ void DeclEmitter::generateTypeDeclToFile(const Binary& binary_node, MapperFile o
             emitVariantStruct(left->text(), dl, *tid, output_idx, left->range());
             return;
         }
+    }
+    // Объявление пользовательского Record-типа (Struct/Class): RHS - RecordDecl. Struct vs Class
+    // уже закодирован группой зарегистрированного типа (kStructs/kClassDefs) - emitRecordDecl
+    // различает по ней (static_assert только для Struct).
+    if (right && right->kind() == ParserToken::Kind::StructDecl) {
+        const auto& rec = static_cast<const RecordDecl&>(*right);
+        auto tid = m_ectx.m_ctx.types().findType(rec.text());
+        if (!tid) {
+            m_ectx.m_ctx.report(binary_node.range(), diag::DiagId::ParseError, "record type '{}' is not registered", rec.text());
+            return;
+        }
+        std::unique_ptr<MapperScope> recScope;
+        if (!binary_node.range().begin.isInvalid()) {
+            recScope = std::make_unique<MapperScope>(m_ectx.m_ctx.source(), binary_node.range(), output_idx);
+        }
+        emitRecordDecl(rec, *tid, output_idx, left->range());
+        return;
     }
     // Forward-объявление НАТИВНОГО класса `MyStr ::= %std::string { ... };`: C++-struct НЕ
     // эмитится (класс определён в C++-заголовке); конкретное C++-имя (`std::string`) эмитится
@@ -642,6 +342,154 @@ void DeclEmitter::emitVariantStruct(std::string_view variant_trust, const DictLi
     m_ectx.m_ctx.source().output_append(output_idx, out);
 }
 
+// Эмиссия пользовательского Record-типа (Struct/Class): единый `struct c_Name [: public c_Base...] {
+// поля; методы };`. Struct (Group::kStructs) дополнительно получает static_assert POD; Class
+// (Group::kClassDefs) - нет (виртуальные/наследование допустимы). Все члены публичные.
+void DeclEmitter::emitRecordDecl(const RecordDecl& rec, TypeId rec_id, MapperFile output_idx, MapperRange typeNameRange) {
+    const std::string rec_cpp = utils::name_to_cpp(rec.text());
+
+    // Пользовательский шаблон-класс (`<T> :Box ::= :Class{...}`): заголовок
+    // `template <typename T, ...>` и активные имена параметров на время эмиссии членов
+    // (аннотации `: T` рендерятся как `T`; см. TypeEmitter::emitTypeNameForNode). Параметры
+    // берём из реестра (доступны и для объявленного-но-не-определённого шаблона).
+    std::vector<std::string> paramNames;
+    std::string tplHeader;
+    for (const TypeId p : m_ectx.m_ctx.types().recordTemplateParams(rec_id)) {
+        const std::string_view pn = m_ectx.m_ctx.types().templateParamName(p);
+        paramNames.emplace_back(pn);
+    }
+    if (!paramNames.empty()) {
+        tplHeader = "template <";
+        for (size_t i = 0; i < paramNames.size(); ++i) {
+            if (i) {
+                tplHeader += ", ";
+            }
+            tplHeader += "typename " + paramNames[i];
+        }
+        tplHeader += ">\n";
+    }
+
+    // Предварительное объявление (все члены - forward): C++ - incomplete type `struct c_Name;`
+    // (полное определение будет в другом месте). Полное определение - ниже.
+    if (!rec.m_body.has_value()) {
+        const std::string fwd = tplHeader + "struct " + rec_cpp + ";\n";
+        m_ectx.m_ctx.source().output_append(output_idx, fwd);
+        if (m_ectx.m_ctx.source().mappingActive() && !typeNameRange.begin.isInvalid()) {
+            mapDeclaredName(output_idx, typeNameRange, static_cast<uint32_t>(tplHeader.size() + 7) /* "struct " */, rec.text(), rec_cpp);
+        }
+        return;
+    }
+
+    const auto* rd = m_ectx.m_ctx.types().recordData(rec_id);
+    if (!rd) {
+        m_ectx.m_ctx.report(rec.range(), diag::DiagId::ParseError, "record '{}' has no member data", rec.text());
+        return;
+    }
+    const bool isPod = m_ectx.m_ctx.types().isStructType(rec_id);
+
+    // C++-имена типов полей (инклуды записывает emitTypeName).
+    std::vector<std::string> fieldCpp;
+    fieldCpp.reserve(rd->fields.size());
+    for (const auto& f : rd->fields) {
+        auto tn = m_driver.m_type.emitTypeName(f.type, m_ectx.m_ctx.types().getFullTypeName(f.type));
+        if (!tn) {
+            m_ectx.m_ctx.report(rec.range(), diag::DiagId::ParseError, "unable to generate C++ type for field '{}' of record '{}'", f.name, rec.text());
+            return;
+        }
+        fieldCpp.push_back(std::move(*tn));
+    }
+    // Базовые классы: C++-имена (абстрактные маркеры `:Struct`/`:Class` семантика в baseClasses не кладёт).
+    std::vector<std::string> baseCpp;
+    for (const TypeId b : m_ectx.m_ctx.types().baseClasses(rec_id)) {
+        auto bn = m_driver.m_type.resolveCppTypeId(b, m_ectx.m_ctx.types().getFullTypeName(b));
+        if (!bn) {
+            m_ectx.m_ctx.report(rec.range(), diag::DiagId::ParseError, "unable to generate C++ base type for record '{}'", rec.text());
+            return;
+        }
+        baseCpp.push_back(std::move(bn->first));
+    }
+
+    // Активные имена типовых параметров - на время эмиссии членов (снимаются в конце).
+    m_ectx.m_activeTemplateParams = paramNames;
+
+    std::string out;
+    out += tplHeader;
+    out += "struct ";
+    const uint32_t typeNameOff = static_cast<uint32_t>(out.size());
+    out += rec_cpp;
+    if (!baseCpp.empty()) {
+        out += " : public " + baseCpp.front();
+        for (size_t i = 1; i < baseCpp.size(); ++i) {
+            out += ", public " + baseCpp[i];
+        }
+    }
+    out += " {\n";
+    // Поля: `<T> c_<field>{};` + name-маппинг (источник диапазона - VarDecl-члены rec.m_body в
+    // порядке rd->fields). Методы пропускаются (эмитятся ниже).
+    {
+        size_t fi = 0;
+        for (const auto& m : *rec.m_body) {
+            if (!m || m->kind() != ParserToken::Kind::VarDecl) {
+                continue;
+            }
+            if (fi >= rd->fields.size()) {
+                break;
+            }
+            const std::string cname = utils::name_to_cpp(rd->fields[fi].name);
+            out += "    " + fieldCpp[fi] + " ";
+            const uint32_t nameOff = static_cast<uint32_t>(out.size());
+            // Struct - строго POD: NSDMI (`{...}`) делает тип нетривиальным → поле БЕЗ инициализатора
+            // (анализатор запретил default у Struct-полей, допустимо только `:= _`).
+            // Class: `:= <literal>` → NSDMI `{<value>}`; `:= _` → без инициализатора.
+            const auto& vd = static_cast<const VarDecl&>(*m);
+            std::string init;
+            if (!isPod && vd.m_initializer && !isNoneMarker(vd.m_initializer.get())) {
+                const ParserToken::Kind ik = vd.m_initializer->kind();
+                if (ik == ParserToken::Kind::IntLiteral || ik == ParserToken::Kind::FloatLiteral) {
+                    init = "{" + std::string(vd.m_initializer->text()) + "};";
+                } else {
+                    init = "{};";
+                }
+            } else {
+                init = ";";
+            }
+            out += cname + init + "\n";
+            if (m_ectx.m_ctx.source().mappingActive() && !m->range().begin.isInvalid()) {
+                mapDeclaredName(output_idx, m->range(), nameOff, rd->fields[fi].name, cname);
+            }
+            ++fi;
+        }
+    }
+    m_ectx.m_ctx.source().output_append(output_idx, out);
+
+    // Методы: переиспользуем генерацию функции (метод - член struct). Метод НЕ является
+    // экспортом модуля - откатываем возможные записи в m_exports после генерации.
+    const size_t exportsBefore = m_ectx.m_exports.size();
+    for (const auto& m : *rec.m_body) {
+        if (!m || m->kind() != ParserToken::Kind::FuncDecl) {
+            continue;
+        }
+        generateFuncDeclToFile(static_cast<const FuncDecl&>(*m), output_idx);
+    }
+    if (m_ectx.m_exports.size() > exportsBefore) {
+        m_ectx.m_exports.resize(exportsBefore);
+    }
+
+    std::string tail = "};\n";
+    // POD-проверка - только для КОНКРЕТНЫХ Struct (не для шаблона: static_assert над шаблоном
+    // невыразим/зависит от T). Для Struct-шаблонов assert эмитится на инстанциациях.
+    if (isPod && paramNames.empty()) {
+        m_driver.m_type.recordRequiredInclude("#include <type_traits>");
+        tail += "static_assert(std::is_trivial_v<" + rec_cpp + "> && std::is_standard_layout_v<" + rec_cpp + ">, \"trust: Struct '" + std::string(rec.text()) +
+                "' must be POD\");\n";
+    }
+    if (m_ectx.m_ctx.source().mappingActive() && !typeNameRange.begin.isInvalid()) {
+        mapDeclaredName(output_idx, typeNameRange, typeNameOff, rec.text(), rec_cpp);
+    }
+    m_ectx.m_ctx.source().output_append(output_idx, tail);
+    m_ectx.m_activeTemplateParams.clear();
+}
+
 void DeclEmitter::mapDeclaredName(MapperFile output_idx, MapperRange trustRange, uint32_t prefixLen, std::string_view name, std::string_view cppName) {
     // Подавленный маппинг (forward-decl на сайте импорта): mapStart не пушил стек, маппить нечего.
     if (m_ectx.m_ctx.source().mappingSuppressed()) {
@@ -661,315 +509,6 @@ void DeclEmitter::mapDeclaredName(MapperFile output_idx, MapperRange trustRange,
     MapperLocation nameEnd = m_ectx.m_ctx.source().makeLoc(output_idx, nameOffset + static_cast<uint32_t>(cppName.length()));
     MapperRange cppNameRange(nameBegin, nameEnd);
     m_ectx.m_ctx.source().addNameMapping(trustRange, cppNameRange, name, cppName);
-}
-
-void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile output_idx) {
-    // Объявление нативного шаблона-ТИПА `<T> %std::vector() := ...;` - это тип, а НЕ функция:
-    // C++-функция не эмитится; конкретное C++-имя (`std::vector<int64_t>`) эмитится при
-    // использовании типа (resolveCppTypeId), инклуд - on-use через preprocIncludes типа.
-    if (func_node.m_isNativeTemplateCtor) {
-        return;
-    }
-    // Нативный импорт `<name>(...) := %native...;` - алиас: C++-функция НЕ эмитится.
-    // Регистрируем trust-имя → нативное C++-имя; вызовы name(...) будут переписаны в native(...).
-    if (func_node.m_isNativeImport) {
-        m_ectx.m_nativeImports[std::string(func_node.text())] = func_node.m_nativeName;
-        return;
-    }
-    const bool funcRangeValid = !func_node.range().isInvalid();
-    if (funcRangeValid) {
-        m_ectx.m_ctx.source().mapStart(func_node.range(), output_idx);
-    }
-    // Зависимый C++-заголовок из @[include(\"header\")@] на нативной функции/типе.
-    m_driver.m_type.collectInclude(func_node);
-
-    // Флаг линковки нативной библиотеки из @[link("имя")].
-    m_driver.m_type.collectLinkLib(func_node);
-
-    // Точка входа модуля: DSL-макрос `@main` раскрывается в `<имя_модуля>__main__`. Pipeline
-    // генерирует `_main.cppt` с `extern int <имя_модуля>__main__(); int main(){ return …; }`,
-    // поэтому entry-функция эмитится с СЫРЫМ именем (без манглинга `c_`) и типом возврата `int`.
-    const std::string trust_name = std::string(func_node.text());
-    const bool isEntry = func_node.m_body && !m_ectx.m_inCppBlock && m_ectx.m_hiddenNamespaceDepth == 0 && trust_name.ends_with("__main__");
-
-    // Контроль переполнения стека: собираем защищаемые функции (атрибут @[stack_check@])
-    // в контекст, чтобы при вызове (ExprEmitter::stackCheckExpr) вставить проверку перед callee.
-    // size==0 (без аргумента = limit) → check_stack_limit(); size>0 → check_overflow(size).
-    {
-        const AttrPool& sattrs = m_ectx.m_ctx.attrs();
-        if (auto sc = sattrs.lookup(attr::StackCheck); sc.has_value() && func_node.has_attr(*sc)) {
-            StackCheckGuard g;
-            if (const auto* args = func_node.attr_args(*sc); args && !args->empty()) {
-                // Семантика уже валидирует неотрицательное целое (DeclAnalyzer::analyzeFuncDecl);
-                // здесь парсим размер для check_overflow(N). При переполнении long (астрономически
-                // большой N) насыщаем до большого значения: остаёмся «явной большой проверкой», а НЕ
-                // тихо вырождаемся в limit-режим (size==0 → check_stack_limit, существенно слабее).
-                try {
-                    const long v = std::stol(args->at(0));
-                    g.size = (v < 0) ? 0 : v;
-                } catch (const std::exception&) {
-                    g.size = 1000000000L; // ~1 ГБ свободного стека — на реальном стеке всегда бросок
-                }
-            }
-            m_ectx.m_stackCheck[trust_name] = g;
-        }
-    }
-    // Имена функций модуля - для резолва адресов `--stack-check-functions` в точке входа.
-    m_ectx.m_functionNames.insert(trust_name);
-    // Function name: манглинг trust-имени в C++-идентификатор (срез '%' у нативных функций).
-    // Entry - без манглинга, иначе не совпадёт с `extern int <имя>__main__()` в _main.cppt.
-    std::string name = isEntry ? std::string(utils::strip_native_prefix(trust_name)) : utils::name_to_cpp(trust_name);
-
-    // Return type (инклуды типа записываются через emitTypeName). None/Void → "void"; нет аннотации → "void".
-    // Явный, но нерезолвящийся тип → emitTypeNameForNode выводит диагностику, прерываем функцию.
-    std::string ret_type = "void";
-    if (func_node.m_type && func_node.m_type->kind() == ParserToken::Kind::TypeName) {
-        const std::string_view rt = func_node.m_type->text();
-        if (rt == "Void" || rt == "None") {
-            ret_type = "void";
-        } else {
-            ret_type = m_driver.m_type.emitTypeNameForNode(func_node.m_type.get());
-            if (ret_type.empty()) {
-                return; // emitTypeNameForNode уже вывел диагностику
-            }
-        }
-    }
-    // Entry-функция без явного типа возврата должна быть `int` (иначе не слинкуется
-    // `extern int <имя>__main__()` из _main.cppt).
-    if (isEntry && func_node.m_type == nullptr) {
-        ret_type = "int";
-    }
-
-    // Квалификаторы функции из атрибутов. Лидирующие (до типа возврата): FuncConst ->
-    // __attribute__((const)), FuncPure -> __attribute__((pure)), FuncConstexpr -> constexpr.
-    // Завершающий (после ')'): NoExcept -> noexcept. ReadOnly у функций не обрабатывается.
-    std::string lead;
-    if (func_node.has_attr(m_ectx.m_ctx.attrs(), attr::FuncConst)) {
-        lead += "__attribute__((const)) ";
-    }
-    if (func_node.has_attr(m_ectx.m_ctx.attrs(), attr::FuncPure)) {
-        lead += "__attribute__((pure)) ";
-    }
-    if (func_node.has_attr(m_ectx.m_ctx.attrs(), attr::FuncConstexpr)) {
-        lead += "constexpr ";
-    }
-    std::string trail;
-    if (func_node.has_attr(m_ectx.m_ctx.attrs(), attr::NoExcept)) {
-        trail += " noexcept";
-    }
-
-    // Нативная декларация (`%...`): правило линковки - без '::' линкуется как C-символ
-    // (extern "C", напр. libc/libm `sqrt`, `open`, `abs`); с '::' - C++-линковка (`std::...`).
-    // Импорт-алиасы (`name(...) := %sym...;`) вернулись выше - сюда попадают только
-    // forward-decl и определения.
-    // extern "C" добавляется ТОЛЬКО forward-декларациям (нет тела): это настоящие C-символы.
-    // Определения (с телом) - пользовательские C++-функции; extern "C" для них неверен
-    // (напр. auto-возврат кортежа несовместим с C-линковкой) и не нужен - при наличии
-    // forward-объявления определение наследует C-линковку по правилу [dcl.link].
-    if (trust_name.starts_with('%') && !func_node.m_body.has_value() && utils::strip_native_prefix(trust_name).find("::") == std::string::npos) {
-        lead = "extern \"C\" " + lead;
-    }
-
-    // Parameters
-    std::string params_str;
-    // Для entry-функции (`<модуль>__main__`) - типы параметров ТОЛЬКО (без имён): ими
-    // pipeline генерирует совпадающий extern в `_main.cppt`. Имена не нужны - extern и вызов
-    // оперируют позициями, а типы обязаны совпасть с эмиссией тела.
-    std::string entry_param_types;
-    std::vector<std::pair<const ArgNode*, uint32_t>> param_name_positions; // (node, name offset within signature)
-    if (func_node.m_params) {
-        const uint32_t sig_prefix =
-            static_cast<uint32_t>(lead.length()) + static_cast<uint32_t>(ret_type.length()) + 1 + static_cast<uint32_t>(name.length()) + 1;
-        for (size_t i = 0; i < func_node.m_params->size(); ++i) {
-            if (i > 0) {
-                params_str += ", ";
-                if (isEntry) {
-                    entry_param_types += ", ";
-                }
-            }
-            auto* param_node = static_cast<const ArgNode*>((*func_node.m_params)[i].get());
-            if (!param_node || param_node->kind() != ParserToken::Kind::ArgNode) {
-                params_str += "std::any"; // дефектный узел (семантика отсекает) - тип Any
-                if (isEntry) {
-                    entry_param_types += "std::any";
-                }
-                continue;
-            }
-            if (param_node->text() == "...") {
-                // Вариативность: trust `...` - свойство компилятора (произвольное число
-                // аргументов); в C++ это чистая variadic-метка `...` (без имени и типа).
-                // C++ требует `...` последним параметром, что и гарантируется грамматикой.
-                params_str += "...";
-                if (isEntry) {
-                    entry_param_types += "...";
-                }
-                continue;
-            }
-            // Param type (инклуды записываются через emitTypeName); None/Void → "void";
-            // без аннотации типа → :Any (std::any). Явный, но нерезолвящийся тип → ошибка.
-            std::string param_type;
-            if (param_node->m_type && param_node->m_type->kind() == ParserToken::Kind::TypeName) {
-                const std::string_view pt = param_node->m_type->text();
-                if (pt == "Void" || pt == "None") {
-                    param_type = "void";
-                } else {
-                    param_type = m_driver.m_type.emitTypeNameForNode(param_node->m_type.get());
-                    if (param_type.empty()) {
-                        return; // emitTypeNameForNode уже вывел диагностику - функция невалидна
-                    }
-                }
-            } else if (auto aid = m_ectx.m_ctx.types().findType(type_generic::Any)) {
-                // Нетипизированный параметр - тип :Any (std::any); инклуд записывает emitTypeName.
-                auto anyName = m_driver.m_type.emitTypeName(*aid, type_generic::Any);
-                EXPECT(anyName.has_value() && "untyped parameter: Any type must have a C++ name");
-                param_type = std::move(*anyName);
-            } else {
-                EXPECT(false && "untyped parameter: Any type must be registered");
-            }
-            // Read-only параметр (`^` в имени) → `const <тип>` (как для переменных: attr::ReadOnly
-            // → "const "). Для `void` конст-квалификатор недопустим.
-            const bool param_readonly = param_node->has_attr(m_ectx.m_ctx.attrs(), attr::ReadOnly);
-            const std::string param_cpp_type = (param_readonly && param_type != "void") ? "const " + param_type : param_type;
-            // Entry: запоминаем тип параметра (с учётом const) для extern в `_main.cppt`.
-            if (isEntry) {
-                entry_param_types += param_cpp_type;
-            }
-            // Param name: манглинг trust-имени параметра в C++-идентификатор (a → c_a).
-            // Безымянный параметр (только тип) эмитится без имени - C++ это допускает
-            // (void f(int32_t)), и к нему нельзя обратиться из тела.
-            std::string param_name = utils::name_to_cpp(param_node->text());
-            if (param_name.empty()) {
-                params_str += param_cpp_type;
-            } else {
-                // Name offset within signature: params_str already holds everything emitted so far
-                // (separators, previous params), so the type size is taken directly.
-                uint32_t name_pos = sig_prefix + static_cast<uint32_t>(params_str.size()) + static_cast<uint32_t>(param_cpp_type.length()) + 1;
-                params_str += param_cpp_type + " " + param_name;
-                param_name_positions.emplace_back(param_node, name_pos);
-            }
-        }
-    }
-    // Entry-функция: фиксируем C++-типы параметров (без имён, с учётом const) для extern
-    // в `_main.cppt` - обёртка main обязана объявить ту же сигнатуру, что и тело entry.
-    // m_sawEntry отмечает факт эмиссии entry (важно для однофайлового режима -fsingle-file,
-    // где pipeline по нему отличает программу от библиотеки/скрипта без `__main__`).
-    if (isEntry) {
-        m_ectx.m_entryParams = entry_param_types;
-        m_ectx.m_sawEntry = true;
-    }
-
-    // Emit function signature
-    std::string sig = std::format("{}{} {}({}){}", lead, ret_type, name, params_str, trail);
-    m_ectx.m_ctx.source().output_append(output_idx, sig);
-
-    // Add name mappings (function name + parameter names) for hover links.
-    // Имя функции выводится сразу после "<lead>ret_type " (offset = lead.length()+ret_type.length()+1).
-    // При невалидном диапазоне функции (напр. функция из раскрытия макроса без валидного
-    // первого токена) имя НЕ маппим - makeLoc требует валидный fileIdx.
-    if (funcRangeValid && !name.empty()) {
-        MapperLocation trustFnBegin = m_ectx.m_ctx.source().makeLoc(func_node.range().begin.fileIdx(), func_node.range().begin.offset());
-        MapperLocation trustFnEnd = m_ectx.m_ctx.source().makeLoc(
-            trustFnBegin.fileIdx(), trustFnBegin.offset() + static_cast<uint32_t>(utils::strip_native_prefix(func_node.text()).size()));
-        MapperRange trustFnNameRange(trustFnBegin, trustFnEnd);
-        mapDeclaredName(output_idx, trustFnNameRange, static_cast<uint32_t>(lead.length()) + static_cast<uint32_t>(ret_type.length()) + 1, func_node.text(),
-                        name);
-    }
-
-    // Parameter names: name_pos - оффсет имени от начала сигнатуры (= начала mapStart).
-    for (const auto& [param_node, name_pos] : param_name_positions) {
-        std::string raw_param = std::string(param_node->text());
-        if (raw_param.empty()) {
-            continue; // placeholder argN is not backed by a real source name
-        }
-        std::string cpp_param = utils::name_to_cpp(raw_param);
-        mapDeclaredName(output_idx, param_node->range(), name_pos, raw_param, cpp_param);
-    }
-
-    // Сигнатура (src [имя, оператор]) смапплена - закрываем её отдельно от тела.
-    if (funcRangeValid) {
-        m_ectx.m_ctx.source().mapStop(func_node.range());
-    }
-
-    // Body or forward declaration
-    if (func_node.m_body && !m_ectx.m_forwardDeclOnly) {
-        // Зеркалируем раскладку исходника: '{' и '}' размещаются по строкам блока,
-        // переносы между '{' и первым оператором / последним оператором и '}' зависят
-        // от того, на одной ли они строке исходника.
-        MapperRange blockRange = func_node.blockRange();
-
-        // Тело функции: convertSeq уже развернул SEQUENCE-контейнер тела, поэтому
-        // func_node.m_body - плоский список операторов; пользовательские блоки остаются
-        // ScopeBlock-узлами и оборачиваются visit_ScopeBlock. Отдельного сплющивания не нужно.
-        // Entry-функция без явного `return` в конце получает `return 0;` перед '}' (иначе
-        // «control reaches end of non-void function»).
-        std::string beforeClose;
-        if (isEntry && !bodyEndsWithReturn(*func_node.m_body)) {
-            beforeClose = "return 0;";
-        }
-        // Контроль переполнения стека: в точке входа устанавливаем минимальный резерв (reserve) из
-        // опции (--stack-check-reserve / @__OPTION__("stack-check-reserve", ...)) и, при заданном
-        // --stack-check-functions, перечень функций для m_stack_limit (как функция %trust_stack_check_set_limit).
-        // Выполняется до любых проверок. Заголовок подключаем явно (даже если проверки эмитятся в других модулях).
-        std::string afterOpen;
-        if (isEntry && semantic::stackCheckActive(m_ectx.m_ctx.opts())) {
-            std::string init;
-            // include-список: адреса перечисленных функций (ограничивают m_stack_limit для limit-проверок).
-            const auto funcs = semantic::stackCheckFunctionsFromOptions(m_ectx.m_ctx.opts());
-            if (!funcs.empty()) {
-                const auto addrs = m_ectx.resolveStackCheckAddresses(funcs);
-                if (!addrs.empty()) {
-                    std::string list;
-                    for (size_t i = 0; i < addrs.size(); ++i) {
-                        if (i) {
-                            list += ", ";
-                        }
-                        list += addrs[i];
-                    }
-                    init += "trust::stack_check::set_limit({" + list + "});\n";
-                }
-            }
-            if (auto reserve = semantic::stackCheckReserveFromOptions(m_ectx.m_ctx.opts())) {
-                init += "trust::stack_check::set_reserve(" + std::to_string(*reserve) + ");\n";
-            }
-            if (!init.empty()) {
-                m_driver.m_type.recordRequiredInclude("@trust/stack_check.hpp");
-                afterOpen = init;
-            }
-        }
-        // Trust-контракты функции (--solver-mode=assert): пред-условия (kind=Pre) и утверждение на
-        // функции (kind=Assert) - проверяются при входе; пост-условия (kind=Post) - перед каждым
-        // `return <value>` (не-void) со связыванием возвращаемого значения, либо в конце тела (void).
-        std::vector<AstNodePtr> preTrust, postTrust;
-        for (const auto& t : func_node.m_trust) {
-            if (!t) {
-                continue;
-            }
-            const auto* tc = dynamic_cast<const TrustContract*>(t.get());
-            if (tc && tc->kind == PropertyKind::Post) {
-                postTrust.push_back(t);
-            } else {
-                preTrust.push_back(t);
-            }
-        }
-        // Не-void функция: пост-условия эмитятся visit_ReturnStmt перед каждым return (имя функции
-        // = возвращаемое значение; ReturnStmt сам знает свою функцию через m_funcDecl).
-        // Void-функция: пост-условие эмитится в конце тела (перед '}').
-        const bool isVoidFunc = (ret_type == "void");
-        m_ectx.m_scopeStack.push_back({m_ectx.indentLevel()});
-        m_driver.m_stmt.emitBlockBodyToFile(*func_node.m_body, blockRange, output_idx, /*mapBlock=*/true, beforeClose, afterOpen,
-                                            preTrust.empty() ? nullptr : &preTrust, (isVoidFunc && !postTrust.empty()) ? &postTrust : nullptr);
-        m_ectx.m_scopeStack.pop_back();
-    } else {
-        // Forward declaration
-        m_ectx.m_ctx.source().output_append(output_idx, ";");
-    }
-
-    // Экспортируются ОПРЕДЕЛЕНИЯ функций на верхнем уровне модуля в НЕ анонимной области имён
-    // (квалифицированно для 'ns::'); из '_' и локальных, а также forward-объявления
-    // (нет тела → нет определения, `&::name` не связался бы) - не экспортируются.
-    if (func_node.m_body && !name.empty() && !m_ectx.m_inCppBlock && m_ectx.m_hiddenNamespaceDepth == 0) {
-        m_ectx.m_exports.push_back({std::string(func_node.text()), m_ectx.qualifiedCppName(name), buildTrustForwardDecl(func_node)});
-    }
 }
 
 void DeclEmitter::visit_ModuleDecl(const ModuleNode& n) {
@@ -1066,19 +605,14 @@ void DeclEmitter::emitImportScope(const std::vector<AstNodePtr>& body, const std
             continue;
         }
         m_ectx.m_ctx.source().output_append(out, m_ectx.indentPrefix());
-        switch (node->kind()) {
-        case ParserToken::Kind::VarDecl:
-            generateVarDeclToFile(static_cast<const VarDecl&>(*node), out);
-            break;
-        case ParserToken::Kind::FuncDecl:
-            generateFuncDeclToFile(static_cast<const FuncDecl&>(*node), out);
-            break;
-        case ParserToken::Kind::TypeDecl:
-            generateTypeDeclToFile(static_cast<const Binary&>(*node), out);
-            break;
-        default:
-            break; // прочие экспорт-формы пока не эмитятся
+        if (node->is<VarDecl>()) {
+            generateVarDeclToFile(*node->as<VarDecl>(), out);
+        } else if (node->is<FuncDecl>()) {
+            generateFuncDeclToFile(*node->as<FuncDecl>(), out);
+        } else if (node->kind() == ParserToken::Kind::TypeDecl) {
+            generateTypeDeclToFile(*node->as<Binary>(), out);
         }
+        // прочие экспорт-формы пока не эмитятся
         m_ectx.m_ctx.source().output_append(out, "\n");
     }
 }
@@ -1086,9 +620,8 @@ void DeclEmitter::emitImportScope(const std::vector<AstNodePtr>& body, const std
 // -- Реконструкция Trust-синтаксиса предварительного объявления экспортируемого узла --
 
 std::string DeclEmitter::buildTrustForwardDecl(const AstNodeBase& node) const {
-    switch (node.kind()) {
-    case ParserToken::Kind::VarDecl: {
-        const auto& v = static_cast<const VarDecl&>(node);
+    if (node.is<VarDecl>()) {
+        const auto& v = *node.as<VarDecl>();
         std::string s(v.text());
         if (v.m_type) {
             s += ":";
@@ -1097,9 +630,18 @@ std::string DeclEmitter::buildTrustForwardDecl(const AstNodeBase& node) const {
         s += " := ...;";
         return s;
     }
-    case ParserToken::Kind::FuncDecl: {
-        const auto& f = static_cast<const FuncDecl&>(node);
-        std::string s(f.text()); // e.g. "%func"
+    if (node.is<FuncDecl>()) {
+        const auto& f = *node.as<FuncDecl>();
+        // Оператор - имя-СИМВОЛ в обратных кавычках: forward-decl в Trust-синтаксисе обязан быть
+        // парсируемым (иначе импорт оператора из другого модуля не сработал бы).
+        std::string s;
+        if (f.m_isOperator) {
+            s += "`";
+            s += std::string(f.text());
+            s += "`";
+        } else {
+            s = std::string(f.text()); // e.g. "%func"
+        }
         s += "(";
         if (f.m_params) {
             bool first = true;
@@ -1107,7 +649,7 @@ std::string DeclEmitter::buildTrustForwardDecl(const AstNodeBase& node) const {
                 if (!p || p->kind() != ParserToken::Kind::ArgNode) {
                     continue;
                 }
-                const auto& pd = static_cast<const ArgNode&>(*p);
+                const auto& pd = *p->as<ArgNode>();
                 if (!first) {
                     s += ", ";
                 }
@@ -1127,15 +669,13 @@ std::string DeclEmitter::buildTrustForwardDecl(const AstNodeBase& node) const {
         s += " := ...;";
         return s;
     }
-    case ParserToken::Kind::TypeDecl: {
-        const auto& b = static_cast<const Binary&>(node);
+    if (node.kind() == ParserToken::Kind::TypeDecl) {
+        const auto& b = *node.as<Binary>();
         std::string s = (b.m_left) ? std::string(b.m_left->text()) : std::string(node.text());
         s += " ::= ...;";
         return s;
     }
-    default:
-        return std::string(node.text()) + " := ...;";
-    }
+    return std::string(node.text()) + " := ...;";
 }
 
 // Объявления.
@@ -1144,6 +684,11 @@ void DeclEmitter::visit_VarDecl(const VarDecl& n) {
 }
 
 void DeclEmitter::visit_FuncDecl(const FuncDecl& n) {
+    // Лямбда-выражение в позиции значения: специализированный эмиттер (НЕ top-level определение).
+    if (n.isLambda()) {
+        emitLambdaExpr(n);
+        return;
+    }
     generateFuncDeclToFile(n, m_ectx.m_out);
 }
 
@@ -1165,7 +710,9 @@ void DeclEmitter::visit_EnumDecl(const Sequence&) {
 void DeclEmitter::visit_EnumMember(const Sequence&) {
 }
 
-void DeclEmitter::visit_StructDecl(const Sequence&) {
+void DeclEmitter::visit_StructDecl(const RecordDecl&) {
+    // Объявление Struct/Class эмитится через generateTypeDeclToFile (ветка RHS=RecordDecl →
+    // emitRecordDecl); отдельного обхода узла нет (как у EnumDecl).
 }
 
 void DeclEmitter::visit_ClassDecl(const ClassDecl&) {

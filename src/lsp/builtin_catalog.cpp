@@ -1,7 +1,9 @@
 #include "lsp/builtin_catalog.h"
 
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "diag/options.hpp"
+#include "assets/asset_catalog.hpp"
+#include "assets/asset_provider.hpp"
 #include "types/registry.hpp"
 #include "utils/strings.hpp"
 #include "syntax/macro.h"
@@ -10,13 +12,9 @@
 
 namespace trust {
 
-namespace {
-// Встроенный trust/dsl.src: компилируется в бинарник через #embed (как в pipeline.cpp).
-// Относительный путь от каталога исходника (src/lsp/ → include/trust/).
-static constexpr char kEmbeddedDslSrc[] = {
-#embed "../../include/trust/dsl.src"
-    , 0};
-} // namespace
+// Ассеты stdlib (dsl.src) берутся из единого провайдера компонента stdlib
+// (src/assets/asset_provider.cpp, каталог include/assets/asset_catalog.hpp): локального #embed здесь нет,
+// иначе содержимое дублировалось бы с pipeline.cpp.
 
 BuiltinCatalog::BuiltinCatalog() {
     // 1) Встроенные типы и их методы - из общего иммутабельного ядра. Один лёгкий
@@ -76,7 +74,7 @@ BuiltinCatalog::BuiltinCatalog() {
         auto macro = std::make_shared<Macro>(ctx);
         ctx.setMacro(macro);
         Parser parser(ctx);
-        TermPtr term = parser.ParseText(std::string_view(kEmbeddedDslSrc, sizeof(kEmbeddedDslSrc) - 1), "@trust/dsl");
+        TermPtr term = parser.ParseText(embeddedAssetContent(AssetId::kStdlibDslSrc), "@stdlib/dsl");
         if (term) {
             for (const auto& n : macro->MacroNames()) {
                 m_dslMacros.insert(n);

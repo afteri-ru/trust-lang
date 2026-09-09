@@ -6,7 +6,7 @@
 #include "types/registry.hpp"
 #include "types/runtime_symbols.hpp"
 #include "types/type_names.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "gtest/gtest.h"
 
 #include <set>

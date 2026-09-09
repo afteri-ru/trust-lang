@@ -15,8 +15,9 @@
 // Полный список флагов транспилятора (для генерации enum/desc через TRUST_FLAG_SET).
 // Comments включён в enum, но НЕ управляется через -W — только через -fcomments/-fno-comments
 // (регистрируется отдельно через add_flag_nonw; см. registrar в transpiler.cpp).
-#define TRANSPILER_FLAG_LIST(M)                                                                         \
-    M(Comments, "comments", "", DiagGroup::Codegen, "Emit documentation comments in the generated C++") \
+#define TRANSPILER_FLAG_LIST(M)                                                                                                                           \
+    M(Comments, "comments", "", DiagGroup::Codegen, "Emit documentation comments in the generated C++")                                                   \
+    M(OverflowCheck, "overflow-check", "", DiagGroup::Codegen, "Detect signed integer overflow in arithmetic (+,-,*,+=,-=,*=) and throw trust::IntMinus") \
     TRANSPILER_W_FLAG_LIST(M)
 
 TRUST_FLAG_SET(trust::transpiler, FlagKind, TRANSPILER_FLAG_LIST)

@@ -130,6 +130,32 @@ double BigInteger::GetAsNumber() const noexcept {
     return mpz_get_d(m_pimpl->value);
 }
 
+std::string BigInteger::display(int64_t head_tail) const {
+    if (head_tail < 1) {
+        throw std::invalid_argument("BigInteger::display: L must be >= 1");
+    }
+    const std::size_t l = static_cast<std::size_t>(head_tail);
+    std::string s = GetAsString();
+    const bool neg = !s.empty() && s.front() == '-';
+    const std::string_view digits = neg ? std::string_view(s).substr(1) : std::string_view(s);
+    const std::size_t n = digits.size();
+    if (n <= 2 * l + 1) {
+        return s; // голова+хвост покрывают число - показываем полностью
+    }
+    std::string out;
+    out.reserve(2 * l + 24);
+    if (neg) {
+        out.push_back('-');
+    }
+    out.append(digits, 0, l);
+    out += "...";
+    out.append(digits, n - l, l);
+    out += " (";
+    out += std::to_string(n);
+    out.push_back(')');
+    return out;
+}
+
 bool BigInteger::isZero() const noexcept {
     return m_pimpl->isZero();
 }

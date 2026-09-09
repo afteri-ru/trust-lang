@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Индексация `a[i]` record-типа без объявленного `[]` → явная ошибка
+# (раньше уходило в словарный путь `.at()`, невалидный для struct).
+:P ::= :Class{ x: Int32 := _; };
+@main() := {
+    a : P := :P(1);
+    @print('{}\n', a[0]);
+    @return 0;
+}
+# CHECK: error: type 'P' has no operator '[]'

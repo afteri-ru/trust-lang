@@ -22,6 +22,11 @@ target_link_libraries(lsp_lib PUBLIC
     semantic_lib
     transpiler_lib
     pipeline_lib
+    stdlib_lib
+    driver_lib
+    analysis_lib
+    session_lib
+    sourcemap_lib
 )
 
 target_link_libraries(lsp_lib PRIVATE
@@ -39,12 +44,13 @@ target_include_directories(lsp_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# #embed (встроенный trust/dsl.src) - расширение Clang в режиме C++23; выключаем
-# предупреждение как в pipeline_lib (см. include/pipeline/CMakeLists.txt).
+# #embed (ассеты playground) - расширение Clang в режиме C++23; выключаем предупреждение.
+# Ассеты stdlib (dsl.src) в lsp больше не вшиваются - приходят из stdlib_lib
+# (src/assets/asset_provider.cpp).
 set_target_properties(lsp_lib PROPERTIES COMPILE_OPTIONS "-Wno-c23-extensions")
 
 # ИНВАРИАНТ: зависимости от #embed-файлов (glue.js, trust.monarch.js, playground.css/html,
-# playground_page.html, include/trust/dsl.src) НЕ прописываются вручную (нет OBJECT_DEPENDS):
+# playground_page.html) НЕ прописываются вручную (нет OBJECT_DEPENDS):
 # clang >= 19 пишет #embed в depfile, и CMake пересобирает .cpp автоматически. Проверено по
 # _build/*.o.d (содержат все #embed-файлы). НЕ добавлять OBJECT_DEPENDS.
 
@@ -60,4 +66,7 @@ target_link_libraries(trust-lsp PRIVATE
 
 target_include_directories(trust-lsp PRIVATE
     ${PROJECT_INCLUDE_DIR}
+    ${PROJECT_INCLUDE_DIR}/runtime
 )
+# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
+target_link_libraries(lsp_lib PRIVATE trust_pch)

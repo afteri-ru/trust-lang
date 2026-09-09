@@ -1,0 +1,17 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Эксклюзивное владение (`unique` -> trust::Unique) - move-only: владелец единственный,
+# копирование запрещено (без диагностики кодогенератор выдал бы C++-ошибку копии non-copyable).
+# Создание из значения валидно (`&& u := 10`); перенос владения - только swap `a :=: b` /
+# discard `a :=: _`. Покрыты: авто-вывод, явно-типизированное объявление и присваивание.
+@main():Int32 := {
+    && a := 1:Int32;
+    d := a;                       # авто-вывод из unique -> ошибка
+    && e : && Int32 := a;         # типизированное объявление -> ошибка
+    && b := 2:Int32;
+    b = a;                        # присваивание -> ошибка
+    return 0;
+}
+# CHECK: error: cannot initialize an exclusive (unique) reference 'd' from another exclusive reference
+# CHECK: error: cannot copy an exclusive (unique) reference 'unique<Int32>' into 'unique<Int32>'
+# CHECK: error: cannot copy an exclusive (unique) reference 'unique<Int32>' into 'unique<Int32>'

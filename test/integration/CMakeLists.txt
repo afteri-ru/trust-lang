@@ -21,6 +21,13 @@ target_include_directories(integration PRIVATE
 # Бинарники должны быть собраны до запуска теста.
 add_dependencies(integration trust-playground trust-lsp)
 
+# Отдельный каталог в build-дереве для интеграционного теста: и бинарник, и его
+# временный конфиг (tmp-dir = $<TARGET_FILE_DIR:integration>) лежат здесь, а не в
+# корне _build. См. test/integration/playground_main.cpp (tmp_dir + "/trust_pg_int.conf").
+set_target_properties(integration PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+
 add_test(NAME integration_tests
     COMMAND $<TARGET_FILE:integration>
             $<TARGET_FILE:trust-playground>

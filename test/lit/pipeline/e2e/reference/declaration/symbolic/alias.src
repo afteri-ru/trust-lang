@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ref_alias_sym %s
+# RUN: $TD/ref_alias_sym > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: s=5
+# CHECK: w=5
+# CHECK: u=7
+
+# Символические маркеры ссылки над алиасом (`&* s : &* MyInt`, `&? w : &? MyInt`, `&& u : && MyInt`):
+# вид ссылки применяется к алиасу «как написан» (trust::Shared<c_MyInt> и т.д.).
+
+MyInt ::= :Int32;
+
+@main():Int32 := {
+    &* s : &* MyInt := 5;
+    &? w : &? MyInt := & s;
+    && u : && MyInt := 7;
+    print('s={} w={} u={}\n', *s, *w, *u);
+    return 0;
+};

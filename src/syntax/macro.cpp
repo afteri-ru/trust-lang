@@ -3,7 +3,7 @@
 #include "syntax/macro.h"
 #include "syntax/macro_split.hpp"
 #include "syntax/parser.h"
-#include "diag/mapper.hpp"
+#include "sourcemap/mapper.hpp"
 #include "syntax/diag.hpp"
 #include "utils/strings.hpp"
 
@@ -112,333 +112,6 @@ TermPtr trust::ProcessMacro(Parser& parser, TermPtr& term) {
 }
 
 // replase
-
-ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
-
-    if (parser.m_macro) {
-
-        // Макрос должне начинаться всегда с термина
-        if (!(parser.m_macro_analisys_buff[0]->getTermID() == TermID::MACRO || parser.m_macro_analisys_buff[0]->getTermID() == TermID::NAME)) {
-            return ExpandMacroResult::Break;
-        }
-
-        TermPtr macro_done = nullptr;
-
-        // Список макросов, один из которых может соответствовать текущему буферу (по первому термину буфера)
-        SequenceType* macro_list = parser.m_macro->FindMacroList(parser.m_macro->toMacroHash(parser.m_macro_analisys_buff[0]));
-
-        if (!macro_list) {
-            return ExpandMacroResult::Break;
-        }
-
-        macro_done.reset();
-        size_t macro_best = 0;
-        // Перебрать все макросы группы (общий первый терм) и выбрать самый длинный
-        // (longest-match по числу потреблённых термов буфера). Совпадение короткого макроса
-        // (только первый терм) не отбрасывает более специфичный макрос той же группы.
-        for (auto iter = macro_list->begin(); iter != macro_list->end(); ++iter) {
-
-            const size_t matched = parser.m_macro->MatchMacro(parser.m_macro_analisys_buff, *iter);
-            if (matched == 0) {
-                continue;
-            }
-
-            if (matched > macro_best) {
-                macro_done = *iter;
-                macro_best = matched;
-            } else if (matched == macro_best && *iter != macro_done) {
-                // Два РАЗНЫХ макроса группы потребляют одинаковое число термов - настоящая
-                // неоднозначность выбора (не путать с разными арностями одной группы).
-                parser.m_ctx.diag().report(Severity::Error, macro_done->m_mapperRange, "Macro duplication '{}' and '{}'!", macro_done->toString(),
-                                           (*iter)->toString());
-            }
-        }
-
-        ASSERT(macro_list);
-
-        if (macro_done) {
-            // -Wsigil: макрос вызван БЕЗ '@' (bare NAME) и не подавлен флагом "keywords".
-            // Подавление одностороннее: имя в keywords как запись без ведущего '@' супрессит
-            // warning; запись с '@' супресс не даёт. Диагностика и fixit «добавить @».
-            {
-                const auto& call0 = parser.m_macro_analisys_buff[0];
-                if (call0 && call0->getTermID() == TermID::NAME && !isKeywordSigilSuppressed(parser.m_ctx, call0->getText())) {
-                    if (parser.m_ctx.opts().isRegisteredByName("sigil")) {
-                        const Severity sev = parser.m_ctx.opts().getByName("sigil");
-                        if (sev != Severity::Ignore) {
-                            auto* entry = parser.m_ctx.diag().report(sev, call0->m_mapperRange, "macro '{}' is missing '@' sigil", call0->getText());
-                            if (entry != nullptr && !call0->m_mapperRange.isInvalid()) {
-                                parser.m_ctx.diag().fixit(entry, call0->m_mapperRange, "@" + call0->getText());
-                            }
-                        }
-                    }
-                }
-            }
-            // Защита от бесконечной рекурсии при раскрытии макросов:
-            // - kMacroNestingLimit   - глубина вложенности в одной цепочке раскрытий (вложенная рекурсия);
-            // - kMacroExpansionLimit - суммарное число раскрытий в текущем операторе (самовоспроизведение
-            //   через границы чтений парсера, когда глубина не копится).
-            // Обе ошибки - Severity::Error (мягкие, как прочие ошибки программы): макрос дальше НЕ раскрываем
-            // (return Break - иначе бесконечный цикл), разбор продолжается на оставшихся токенах (bison
-            // error-recovery). Отчёт - один раз за оператор (m_macro_recursion_reported). Локация - call site
-            // текущего раскрытия, имя макроса - первый терм сигнатуры (а не определение в DSL).
-            const auto& call0 = parser.m_macro_analisys_buff[0];
-            const std::string mname = (!macro_done->m_sequence.empty()) ? std::string(macro_done->m_sequence.front()->getText()) : macro_done->toString();
-            if (parser.m_macro_depth >= kMacroNestingLimit && !parser.m_macro_recursion_reported) {
-                parser.m_macro_recursion_reported = true;
-                parser.m_ctx.diag().report(Severity::Error, call0->m_mapperRange, "recursive macro '{}' (nesting too deep)", mname);
-                return ExpandMacroResult::Break;
-            }
-            if (++parser.m_macro_expansion_total >= kMacroExpansionLimit) {
-                if (!parser.m_macro_recursion_reported) {
-                    parser.m_macro_recursion_reported = true;
-                    parser.m_ctx.diag().report(Severity::Error, call0->m_mapperRange,
-                                               "recursive macro '{}' (expansion did not terminate; possible self-recursion)", mname);
-                }
-                return ExpandMacroResult::Break;
-            }
-
-            // Новое дерево раскрытия макроса - сброс кэша гигиенических имён
-            if (parser.m_macro_depth == 0) {
-                parser.pragma().clearHygienicNames();
-            }
-
-            parser.m_macro_depth++;
-
-            ASSERT(parser.m_macro_analisys_buff.size() >= macro_done->m_sequence.size());
-            ASSERT(macro_done->m_right);
-
-            MacroArgsType macro_args;
-            size_t size_remove = parser.m_macro->ExtractArgs(parser.m_macro_analisys_buff, macro_done, macro_args);
-
-            ASSERT(size_remove >= 1 && size_remove <= parser.m_macro_analisys_buff.size());
-
-            // Диапазон вызова макроса: от начала первого токена до конца последнего
-            // потреблённого токена (индекс size_remove-1). Токен на индексе size_remove
-            // уже НЕ входит в вызов - использовать его нельзя (для операторных макросов
-            // $... он может выйти за границы буфера).
-            const auto& last_call_term = parser.m_macro_analisys_buff[size_remove - 1];
-
-            // Диапазон определения макроса: от начала имени (m_sequence) до конца тела.
-            // Раньше бралось только тело (m_right), поэтому при переходе по ссылке
-            // выделялась лишь часть макроса, а не весь макрос целиком.
-            MapperRange def_range;
-            if (macro_done->m_right->getTermID() == TermID::MACRO_SEQ && !macro_done->m_right->m_sequence.empty()) {
-                def_range.end = macro_done->m_right->m_sequence.back()->m_mapperRange.end;
-            } else {
-                def_range.end = macro_done->m_right->m_mapperRange.end;
-            }
-            // Начало - открывающий маркер `@@` определения макроса (сам терм macro_done),
-            // но только если он в том же файле, что и конец тела (иначе кросс-файловый range → EXPECT).
-            if (!macro_done->m_mapperRange.begin.isInvalid() && macro_done->m_mapperRange.begin.fileIdx() == def_range.end.fileIdx()) {
-                def_range.begin = macro_done->m_mapperRange.begin;
-            } else if (!macro_done->m_sequence.empty() && !macro_done->m_sequence.front()->m_mapperRange.begin.isInvalid() &&
-                       macro_done->m_sequence.front()->m_mapperRange.begin.fileIdx() == def_range.end.fileIdx()) {
-                def_range.begin = macro_done->m_sequence.front()->m_mapperRange.begin;
-            } else if (macro_done->m_right->getTermID() == TermID::MACRO_SEQ && !macro_done->m_right->m_sequence.empty()) {
-                def_range.begin = macro_done->m_right->m_sequence.front()->m_mapperRange.begin;
-            } else {
-                def_range.begin = macro_done->m_right->m_mapperRange.begin;
-            }
-
-            // Реальный range замещаемого фрагмента (вызова макроса). Только первый и последний
-            // вставляемые токены раскрытого тела получают его location (место использования в
-            // исходнике); промежуточные токены шаблона DSL-определения получают invalid range,
-            // чтобы не порождать ни коллизий source-map (несколько узлов с одним call_range),
-            // ни диапазонов begin > end / кросс-файловых (EXPECT b<=e при комбинации range).
-            MapperRange call_range{};
-            bool callRangeValid = false;
-            {
-                const auto& b0r = parser.m_macro_analisys_buff.front()->m_mapperRange;
-                const auto& lcr = last_call_term->m_mapperRange;
-                if (!b0r.begin.isInvalid() && !lcr.end.isInvalid() && b0r.begin.fileIdx() == lcr.end.fileIdx() && b0r.begin <= lcr.end) {
-                    call_range = MapperRange{b0r.begin, lcr.end};
-                    callRangeValid = true;
-                }
-            }
-
-            // Токен уже лежит внутри call_range (реальный пользовательский аргумент макроса,
-            // подставленный в тело) → сохраняем его точную позицию для диагностики.
-            auto in_call_range = [&](const trust::TermPtr& t) -> bool {
-                if (!t || !callRangeValid) {
-                    return false;
-                }
-                if (t->m_mapperRange.begin.isInvalid() || t->m_mapperRange.end.isInvalid()) {
-                    return false;
-                }
-                return t->m_mapperRange.begin.fileIdx() == call_range.begin.fileIdx() && t->m_mapperRange.begin >= call_range.begin &&
-                       t->m_mapperRange.end <= call_range.end;
-            };
-
-            // Назначает диапазоны токенам раскрытого тела: только первый и последний вставляемые
-            // токены получают range вызова (место использования в исходнике); промежуточные -
-            // invalid (не регистрируются в source-map). Правило применяется ко ВСЕМ токенам,
-            // включая реальные аргументы: они НЕ сохраняют точную позицию сайта вызова, т.к. тело
-            // макроса может переставлять аргументы (`@$cm = @$cd` при обратном порядке аргументов
-            // на сайте вызова даёт begin > end в ASSIGN). Токены предопределённых макросов
-            // (напр. @__MODULE_NAME__) получают range сайта вызова (граница или промежуточный).
-            auto assign_call_site_ranges = [&](SequenceType& block) {
-                const size_t n = block.size();
-                for (size_t i = 0; i < n; ++i) {
-                    auto& t = block[i];
-                    if (!t) {
-                        continue;
-                    }
-                    if (callRangeValid && (i == 0 || i == n - 1)) {
-                        t->m_mapperRange = call_range;
-                    } else {
-                        t->m_mapperRange = {};
-                    }
-                }
-            };
-
-            if (callRangeValid) {
-                parser.m_ctx.source().addMacroMapping(call_range, {def_range.begin, def_range.end});
-            }
-
-            // Сохраняем m_docs токена-вызова (напр. `@func`) ДО erase: после раскрытия вложенного
-            // макроса перенесём их на первый термин раскрытия, чтобы документирующий комментарий
-            // макроса (`## expanded macro ...`) дошёл до итогового терма-объявления.
-            std::vector<TermPtr> callDocs;
-            if (!parser.m_macro_analisys_buff.empty()) {
-                const auto& call0 = parser.m_macro_analisys_buff[0];
-                if (call0 && !call0->m_docs.empty()) {
-                    callDocs = call0->m_docs;
-                }
-            }
-
-            parser.m_macro_analisys_buff.erase(parser.m_macro_analisys_buff.begin(), parser.m_macro_analisys_buff.begin() + size_remove);
-
-            SequenceType macro_block;
-            if (macro_done->m_right->getTermID() == TermID::MACRO_STR) {
-                auto expanded_str = parser.m_macro->ExpandString(macro_done, macro_args);
-                macro_block = Scanner::ParseLexem(parser.lexer->m_ctx, expanded_str);
-            } else {
-                ASSERT(macro_done->m_right);
-                macro_block = parser.m_macro->ExpandMacros(macro_done, macro_args, parser, call_range);
-            }
-
-            // Переносим m_docs токена-вызова на первый термин раскрытия (цепочка вложенных
-            // макросов: @primeFn -> @func -> терм-объявление). Если в раскрытии есть оператор
-            // присваивания `:=` (CREATE_NAME) или `=` (ASSIGN), m_docs кладём на него: в правиле
-            // assign_seq результат = сам оператор (`:=`), поэтому док дойдёт до терма-объявления;
-            // иначе - на первый термин.
-            if (!callDocs.empty() && !macro_block.empty()) {
-                TermPtr dst = nullptr;
-                for (const auto& t : macro_block) {
-                    if (t && (t->getTermID() == TermID::CREATE_NAME || t->getTermID() == TermID::ASSIGN)) {
-                        dst = t;
-                        break;
-                    }
-                }
-                if (!dst) {
-                    dst = macro_block.front();
-                }
-                if (dst) {
-                    for (const auto& d : callDocs) {
-                        dst->m_docs.push_back(d);
-                    }
-                }
-            }
-
-            // Многострочный макрос (раскрытое тело содержит ';'): только первый и последний
-            // вставляемые токены получают range вызова, промежуточные - invalid (не регистрируются
-            // в source-map), чтобы исключить коллизии между несколькими узлами/операторами, и
-            // вокруг тела добавляются документирующие комментарии-границы. Одиночный (однострочный)
-            // макрос порождает один узел - коллизий нет, поэтому всем вставленным токенам оставляем
-            // range вызова (как раньше), не ломая source-map одиночных вызовов (напр. print).
-            const bool multiline =
-                std::any_of(macro_block.begin(), macro_block.end(), [](const TermPtr& t) { return t && t->getTermID() == TermID::SEMICOLON; });
-            if (multiline) {
-                assign_call_site_ranges(macro_block);
-            } else {
-                for (auto& t : macro_block) {
-                    if (t && !in_call_range(t)) {
-                        t->m_mapperRange = call_range;
-                    }
-                }
-            }
-
-            // Документирующий комментарий многострочного макроса: присоединяем его к ПЕРВОМУ термину
-            // раскрытия через m_docs (без вставки отдельного Document-узла - отдельный узел перед
-            // телом разрывал связь предшествующего атрибута `@[ stack_check @]` с функцией).
-            // term_to_ast превратит m_docs объявляющего термина в AstNodeBase::documentation.
-            // Текст: описание макроса (если есть) + `## expanded macro '<имя>' defined at <файл>:<строка>`
-            // (локация определения макроса - def_range). Перенос m_docs через вложенные макросы
-            // (@func) реализован в expandMacros/parser (см. макрос `func` в dsl).
-            if (multiline && !macro_block.empty()) {
-                std::string desc;
-                if (!macro_done->m_sequence.empty() && !macro_done->m_sequence.front()->m_docs.empty()) {
-                    for (const auto& d : macro_done->m_sequence.front()->m_docs) {
-                        desc += std::string(d->getText());
-                    }
-                } else {
-                    for (const auto& d : macro_done->m_docs) {
-                        desc += std::string(d->getText());
-                    }
-                }
-                const SourceLocation loc = sourceLocation(parser.m_ctx.source(), def_range);
-                std::string text;
-                if (!desc.empty()) {
-                    text += desc;
-                    text += "\n";
-                }
-                text += "## expanded macro '" + mname + "' defined at ";
-                text += loc.file.empty() ? "?" : (loc.file + ":" + std::to_string(loc.line));
-                const TermPtr doc = Term::Create(TermID::DOCUMENT, std::move(text), def_range, parser::token_type::DOCUMENT);
-                macro_block.front()->m_docs.push_back(doc);
-            }
-
-            parser.m_macro_analisys_buff.insert(parser.m_macro_analisys_buff.begin(), macro_block.begin(), macro_block.end());
-
-            parser.m_macro_depth--;
-
-            return ExpandMacroResult::Continue;
-
-        } else {
-            // Имя макроса присутствует в группе, но ни один шаблон не сопоставился с вызовом.
-            // Находим «ближайший» кандидат (максимум совпавших термов сигнатуры до провала),
-            // чтобы дать конкретную причину рассинхрона + список всех доступных паттернов.
-            // Это ВСЕГДА диагностика макропроцессора (а не анализатора).
-            MacroMismatch best;
-            TermPtr bestMacro;
-            for (auto iter = macro_list->begin(); iter != macro_list->end(); ++iter) {
-                MacroMismatch mm;
-                if (parser.m_macro->MatchMacro(parser.m_macro_analisys_buff, *iter, &mm) != 0) {
-                    continue; // совпал - в эту ветку попадать не должен
-                }
-                if (!bestMacro || mm.matched_terms > best.matched_terms) {
-                    best = mm;
-                    bestMacro = *iter;
-                }
-            }
-
-            const std::string call_name = parser.m_macro_analisys_buff[0]->toString();
-            const std::string exp_str = (best.expected.empty() || best.expected == "@@") ? "end of pattern" : "'" + best.expected + "'";
-            const std::string found_str = (best.found.empty() || best.found.rfind("@@", 0) == 0) ? "end of input" : "'" + best.found + "'";
-            std::string msg = "macro '" + call_name +
-                              "' does not match any pattern.\n"
-                              "Closest pattern: expected " +
-                              exp_str + " but found " + found_str +
-                              ".\n"
-                              "The following macro mapping are available:\n" +
-                              parser.m_macro->GetMacroMaping(parser.m_macro->toMacroHash(parser.m_macro_analisys_buff[0]), "\n");
-            auto* entry = parser.m_ctx.diag().report(Severity::Error, parser.m_macro_analisys_buff[0]->m_mapperRange, "{}", msg);
-
-            // Fix-it: если рассинхрон на реальном токене буфера и ожидаемый терм - простой литерал
-            // (не шаблон/EOF-маркер), предлагаем заменить найденный токен на ожидаемый.
-            if (entry && bestMacro && best.buffer_pos < parser.m_macro_analisys_buff.size()) {
-                const std::string& exp = best.expected;
-                const bool literal = !exp.empty() && exp != "@@" && exp.find('$') == std::string::npos && exp.find('(') == std::string::npos &&
-                                     !best.found.empty() && best.found.rfind("@@", 0) != 0;
-                if (literal) {
-                    parser.m_ctx.diag().fixit(entry, parser.m_macro_analisys_buff[best.buffer_pos]->m_mapperRange, exp);
-                }
-            }
-        }
-    }
-    return ExpandMacroResult::Break;
-}
 
 SequenceType Macro::MakeMacroId(const SequenceType& seq) {
     return syntax::makeMacroId(m_ctx, seq);
@@ -906,4 +579,331 @@ bool Macro::isContractMacro(std::string_view name) const {
 
 std::unordered_map<std::string, MacroKind> Macro::macroKinds() const {
     return syntax::macroKinds(*this);
+}
+
+ExpandMacroResult trust::ExpandTermMacro(Parser& parser) {
+
+    if (parser.m_macro) {
+
+        // Макрос должне начинаться всегда с термина
+        if (!(parser.m_macro_analisys_buff[0]->getTermID() == TermID::MACRO || parser.m_macro_analisys_buff[0]->getTermID() == TermID::NAME)) {
+            return ExpandMacroResult::Break;
+        }
+
+        TermPtr macro_done = nullptr;
+
+        // Список макросов, один из которых может соответствовать текущему буферу (по первому термину буфера)
+        SequenceType* macro_list = parser.m_macro->FindMacroList(parser.m_macro->toMacroHash(parser.m_macro_analisys_buff[0]));
+
+        if (!macro_list) {
+            return ExpandMacroResult::Break;
+        }
+
+        macro_done.reset();
+        size_t macro_best = 0;
+        // Перебрать все макросы группы (общий первый терм) и выбрать самый длинный
+        // (longest-match по числу потреблённых термов буфера). Совпадение короткого макроса
+        // (только первый терм) не отбрасывает более специфичный макрос той же группы.
+        for (auto iter = macro_list->begin(); iter != macro_list->end(); ++iter) {
+
+            const size_t matched = parser.m_macro->MatchMacro(parser.m_macro_analisys_buff, *iter);
+            if (matched == 0) {
+                continue;
+            }
+
+            if (matched > macro_best) {
+                macro_done = *iter;
+                macro_best = matched;
+            } else if (matched == macro_best && *iter != macro_done) {
+                // Два РАЗНЫХ макроса группы потребляют одинаковое число термов - настоящая
+                // неоднозначность выбора (не путать с разными арностями одной группы).
+                parser.m_ctx.diag().report(Severity::Error, macro_done->m_mapperRange, "Macro duplication '{}' and '{}'!", macro_done->toString(),
+                                           (*iter)->toString());
+            }
+        }
+
+        ASSERT(macro_list);
+
+        if (macro_done) {
+            // -Wsigil: макрос вызван БЕЗ '@' (bare NAME) и не подавлен флагом "keywords".
+            // Подавление одностороннее: имя в keywords как запись без ведущего '@' супрессит
+            // warning; запись с '@' супресс не даёт. Диагностика и fixit «добавить @».
+            {
+                const auto& call0 = parser.m_macro_analisys_buff[0];
+                if (call0 && call0->getTermID() == TermID::NAME && !isKeywordSigilSuppressed(parser.m_ctx, call0->getText())) {
+                    if (parser.m_ctx.opts().isRegisteredByName("sigil")) {
+                        const Severity sev = parser.m_ctx.opts().getByName("sigil");
+                        if (sev != Severity::Ignore) {
+                            auto* entry = parser.m_ctx.diag().report(sev, call0->m_mapperRange, "macro '{}' is missing '@' sigil", call0->getText());
+                            if (entry != nullptr && !call0->m_mapperRange.isInvalid()) {
+                                parser.m_ctx.diag().fixit(entry, call0->m_mapperRange, "@" + call0->getText());
+                            }
+                        }
+                    }
+                }
+            }
+            // Защита от бесконечной рекурсии при раскрытии макросов:
+            // - kMacroNestingLimit   - глубина вложенности в одной цепочке раскрытий (вложенная рекурсия);
+            // - kMacroExpansionLimit - суммарное число раскрытий в текущем операторе (самовоспроизведение
+            //   через границы чтений парсера, когда глубина не копится).
+            // Обе ошибки - Severity::Error (мягкие, как прочие ошибки программы): макрос дальше НЕ раскрываем
+            // (return Break - иначе бесконечный цикл), разбор продолжается на оставшихся токенах (bison
+            // error-recovery). Отчёт - один раз за оператор (m_macro_recursion_reported). Локация - call site
+            // текущего раскрытия, имя макроса - первый терм сигнатуры (а не определение в DSL).
+            const auto& call0 = parser.m_macro_analisys_buff[0];
+            const std::string mname = (!macro_done->m_sequence.empty()) ? std::string(macro_done->m_sequence.front()->getText()) : macro_done->toString();
+            if (parser.m_macro_depth >= kMacroNestingLimit && !parser.m_macro_recursion_reported) {
+                parser.m_macro_recursion_reported = true;
+                parser.m_ctx.diag().report(Severity::Error, call0->m_mapperRange, "recursive macro '{}' (nesting too deep)", mname);
+                return ExpandMacroResult::Break;
+            }
+            if (++parser.m_macro_expansion_total >= kMacroExpansionLimit) {
+                if (!parser.m_macro_recursion_reported) {
+                    parser.m_macro_recursion_reported = true;
+                    parser.m_ctx.diag().report(Severity::Error, call0->m_mapperRange,
+                                               "recursive macro '{}' (expansion did not terminate; possible self-recursion)", mname);
+                }
+                return ExpandMacroResult::Break;
+            }
+
+            // Новое дерево раскрытия макроса - сброс кэша гигиенических имён
+            if (parser.m_macro_depth == 0) {
+                parser.pragma().clearHygienicNames();
+            }
+
+            parser.m_macro_depth++;
+
+            ASSERT(parser.m_macro_analisys_buff.size() >= macro_done->m_sequence.size());
+            ASSERT(macro_done->m_right);
+
+            MacroArgsType macro_args;
+            size_t size_remove = parser.m_macro->ExtractArgs(parser.m_macro_analisys_buff, macro_done, macro_args);
+
+            ASSERT(size_remove >= 1 && size_remove <= parser.m_macro_analisys_buff.size());
+
+            // Диапазон вызова макроса: от начала первого токена до конца последнего
+            // потреблённого токена (индекс size_remove-1). Токен на индексе size_remove
+            // уже НЕ входит в вызов - использовать его нельзя (для операторных макросов
+            // $... он может выйти за границы буфера).
+            const auto& last_call_term = parser.m_macro_analisys_buff[size_remove - 1];
+
+            // Диапазон определения макроса: от начала имени (m_sequence) до конца тела.
+            // Раньше бралось только тело (m_right), поэтому при переходе по ссылке
+            // выделялась лишь часть макроса, а не весь макрос целиком.
+            MapperRange def_range;
+            if (macro_done->m_right->getTermID() == TermID::MACRO_SEQ && !macro_done->m_right->m_sequence.empty()) {
+                def_range.end = macro_done->m_right->m_sequence.back()->m_mapperRange.end;
+            } else {
+                def_range.end = macro_done->m_right->m_mapperRange.end;
+            }
+            // Начало - открывающий маркер `@@` определения макроса (сам терм macro_done),
+            // но только если он в том же файле, что и конец тела (иначе кросс-файловый range → EXPECT).
+            if (!macro_done->m_mapperRange.begin.isInvalid() && macro_done->m_mapperRange.begin.fileIdx() == def_range.end.fileIdx()) {
+                def_range.begin = macro_done->m_mapperRange.begin;
+            } else if (!macro_done->m_sequence.empty() && !macro_done->m_sequence.front()->m_mapperRange.begin.isInvalid() &&
+                       macro_done->m_sequence.front()->m_mapperRange.begin.fileIdx() == def_range.end.fileIdx()) {
+                def_range.begin = macro_done->m_sequence.front()->m_mapperRange.begin;
+            } else if (macro_done->m_right->getTermID() == TermID::MACRO_SEQ && !macro_done->m_right->m_sequence.empty()) {
+                def_range.begin = macro_done->m_right->m_sequence.front()->m_mapperRange.begin;
+            } else {
+                def_range.begin = macro_done->m_right->m_mapperRange.begin;
+            }
+
+            // Реальный range замещаемого фрагмента (вызова макроса). Только первый и последний
+            // вставляемые токены раскрытого тела получают его location (место использования в
+            // исходнике); промежуточные токены шаблона DSL-определения получают invalid range,
+            // чтобы не порождать ни коллизий source-map (несколько узлов с одним call_range),
+            // ни диапазонов begin > end / кросс-файловых (EXPECT b<=e при комбинации range).
+            MapperRange call_range{};
+            bool callRangeValid = false;
+            {
+                const auto& b0r = parser.m_macro_analisys_buff.front()->m_mapperRange;
+                const auto& lcr = last_call_term->m_mapperRange;
+                if (!b0r.begin.isInvalid() && !lcr.end.isInvalid() && b0r.begin.fileIdx() == lcr.end.fileIdx() && b0r.begin <= lcr.end) {
+                    call_range = MapperRange{b0r.begin, lcr.end};
+                    callRangeValid = true;
+                }
+            }
+
+            // Токен уже лежит внутри call_range (реальный пользовательский аргумент макроса,
+            // подставленный в тело) → сохраняем его точную позицию для диагностики.
+            auto in_call_range = [&](const trust::TermPtr& t) -> bool {
+                if (!t || !callRangeValid) {
+                    return false;
+                }
+                if (t->m_mapperRange.begin.isInvalid() || t->m_mapperRange.end.isInvalid()) {
+                    return false;
+                }
+                return t->m_mapperRange.begin.fileIdx() == call_range.begin.fileIdx() && t->m_mapperRange.begin >= call_range.begin &&
+                       t->m_mapperRange.end <= call_range.end;
+            };
+
+            // Назначает диапазоны токенам раскрытого тела: только первый и последний вставляемые
+            // токены получают range вызова (место использования в исходнике); промежуточные -
+            // invalid (не регистрируются в source-map). Правило применяется ко ВСЕМ токенам,
+            // включая реальные аргументы: они НЕ сохраняют точную позицию сайта вызова, т.к. тело
+            // макроса может переставлять аргументы (`@$cm = @$cd` при обратном порядке аргументов
+            // на сайте вызова даёт begin > end в ASSIGN). Токены предопределённых макросов
+            // (напр. @__MODULE_NAME__) получают range сайта вызова (граница или промежуточный).
+            auto assign_call_site_ranges = [&](SequenceType& block) {
+                const size_t n = block.size();
+                for (size_t i = 0; i < n; ++i) {
+                    auto& t = block[i];
+                    if (!t) {
+                        continue;
+                    }
+                    if (callRangeValid && (i == 0 || i == n - 1)) {
+                        t->m_mapperRange = call_range;
+                    } else {
+                        t->m_mapperRange = {};
+                    }
+                }
+            };
+
+            if (callRangeValid) {
+                parser.m_ctx.source().addMacroMapping(call_range, {def_range.begin, def_range.end});
+            }
+
+            // Сохраняем m_docs токена-вызова (напр. `@func`) ДО erase: после раскрытия вложенного
+            // макроса перенесём их на первый термин раскрытия, чтобы документирующий комментарий
+            // макроса (`## expanded macro ...`) дошёл до итогового терма-объявления.
+            std::vector<TermPtr> callDocs;
+            if (!parser.m_macro_analisys_buff.empty()) {
+                const auto& call0 = parser.m_macro_analisys_buff[0];
+                if (call0 && !call0->m_docs.empty()) {
+                    callDocs = call0->m_docs;
+                }
+            }
+
+            parser.m_macro_analisys_buff.erase(parser.m_macro_analisys_buff.begin(), parser.m_macro_analisys_buff.begin() + size_remove);
+
+            SequenceType macro_block;
+            if (macro_done->m_right->getTermID() == TermID::MACRO_STR) {
+                auto expanded_str = parser.m_macro->ExpandString(macro_done, macro_args);
+                macro_block = Scanner::ParseLexem(parser.lexer->m_ctx, expanded_str);
+            } else {
+                ASSERT(macro_done->m_right);
+                macro_block = parser.m_macro->ExpandMacros(macro_done, macro_args, parser, call_range);
+            }
+
+            // Переносим m_docs токена-вызова на первый термин раскрытия (цепочка вложенных
+            // макросов: @primeFn -> @func -> терм-объявление). Если в раскрытии есть оператор
+            // присваивания `:=` (CREATE_NAME) или `=` (ASSIGN), m_docs кладём на него: в правиле
+            // assign_seq результат = сам оператор (`:=`), поэтому док дойдёт до терма-объявления;
+            // иначе - на первый термин.
+            if (!callDocs.empty() && !macro_block.empty()) {
+                TermPtr dst = nullptr;
+                for (const auto& t : macro_block) {
+                    if (t && (t->getTermID() == TermID::CREATE_NAME || t->getTermID() == TermID::ASSIGN)) {
+                        dst = t;
+                        break;
+                    }
+                }
+                if (!dst) {
+                    dst = macro_block.front();
+                }
+                if (dst) {
+                    for (const auto& d : callDocs) {
+                        dst->m_docs.push_back(d);
+                    }
+                }
+            }
+
+            // Многострочный макрос (раскрытое тело содержит ';'): только первый и последний
+            // вставляемые токены получают range вызова, промежуточные - invalid (не регистрируются
+            // в source-map), чтобы исключить коллизии между несколькими узлами/операторами, и
+            // вокруг тела добавляются документирующие комментарии-границы. Одиночный (однострочный)
+            // макрос порождает один узел - коллизий нет, поэтому всем вставленным токенам оставляем
+            // range вызова (как раньше), не ломая source-map одиночных вызовов (напр. print).
+            const bool multiline =
+                std::any_of(macro_block.begin(), macro_block.end(), [](const TermPtr& t) { return t && t->getTermID() == TermID::SEMICOLON; });
+            if (multiline) {
+                assign_call_site_ranges(macro_block);
+            } else {
+                for (auto& t : macro_block) {
+                    if (t && !in_call_range(t)) {
+                        t->m_mapperRange = call_range;
+                    }
+                }
+            }
+
+            // Документирующий комментарий многострочного макроса: присоединяем его к ПЕРВОМУ термину
+            // раскрытия через m_docs (без вставки отдельного Document-узла - отдельный узел перед
+            // телом разрывал связь предшествующего атрибута `@[ stack_check @]` с функцией).
+            // term_to_ast превратит m_docs объявляющего термина в AstNodeBase::documentation.
+            // Текст: описание макроса (если есть) + `## expanded macro '<имя>' defined at <файл>:<строка>`
+            // (локация определения макроса - def_range). Перенос m_docs через вложенные макросы
+            // (@func) реализован в expandMacros/parser (см. макрос `func` в dsl).
+            if (multiline && !macro_block.empty()) {
+                std::string desc;
+                if (!macro_done->m_sequence.empty() && !macro_done->m_sequence.front()->m_docs.empty()) {
+                    for (const auto& d : macro_done->m_sequence.front()->m_docs) {
+                        desc += std::string(d->getText());
+                    }
+                } else {
+                    for (const auto& d : macro_done->m_docs) {
+                        desc += std::string(d->getText());
+                    }
+                }
+                const SourceLocation loc = sourceLocation(parser.m_ctx.source(), def_range);
+                std::string text;
+                if (!desc.empty()) {
+                    text += desc;
+                    text += "\n";
+                }
+                text += "## expanded macro '" + mname + "' defined at ";
+                text += loc.file.empty() ? "?" : (loc.file + ":" + std::to_string(loc.line));
+                const TermPtr doc = Term::Create(TermID::DOCUMENT, std::move(text), def_range, parser::token_type::DOCUMENT);
+                macro_block.front()->m_docs.push_back(doc);
+            }
+
+            parser.m_macro_analisys_buff.insert(parser.m_macro_analisys_buff.begin(), macro_block.begin(), macro_block.end());
+
+            parser.m_macro_depth--;
+
+            return ExpandMacroResult::Continue;
+
+        } else {
+            // Имя макроса присутствует в группе, но ни один шаблон не сопоставился с вызовом.
+            // Находим «ближайший» кандидат (максимум совпавших термов сигнатуры до провала),
+            // чтобы дать конкретную причину рассинхрона + список всех доступных паттернов.
+            // Это ВСЕГДА диагностика макропроцессора (а не анализатора).
+            MacroMismatch best;
+            TermPtr bestMacro;
+            for (auto iter = macro_list->begin(); iter != macro_list->end(); ++iter) {
+                MacroMismatch mm;
+                if (parser.m_macro->MatchMacro(parser.m_macro_analisys_buff, *iter, &mm) != 0) {
+                    continue; // совпал - в эту ветку попадать не должен
+                }
+                if (!bestMacro || mm.matched_terms > best.matched_terms) {
+                    best = mm;
+                    bestMacro = *iter;
+                }
+            }
+
+            const std::string call_name = parser.m_macro_analisys_buff[0]->toString();
+            const std::string exp_str = (best.expected.empty() || best.expected == "@@") ? "end of pattern" : "'" + best.expected + "'";
+            const std::string found_str = (best.found.empty() || best.found.rfind("@@", 0) == 0) ? "end of input" : "'" + best.found + "'";
+            std::string msg = "macro '" + call_name +
+                              "' does not match any pattern.\n"
+                              "Closest pattern: expected " +
+                              exp_str + " but found " + found_str +
+                              ".\n"
+                              "The following macro mapping are available:\n" +
+                              parser.m_macro->GetMacroMaping(parser.m_macro->toMacroHash(parser.m_macro_analisys_buff[0]), "\n");
+            auto* entry = parser.m_ctx.diag().report(Severity::Error, parser.m_macro_analisys_buff[0]->m_mapperRange, "{}", msg);
+
+            // Fix-it: если рассинхрон на реальном токене буфера и ожидаемый терм - простой литерал
+            // (не шаблон/EOF-маркер), предлагаем заменить найденный токен на ожидаемый.
+            if (entry && bestMacro && best.buffer_pos < parser.m_macro_analisys_buff.size()) {
+                const std::string& exp = best.expected;
+                const bool literal = !exp.empty() && exp != "@@" && exp.find('$') == std::string::npos && exp.find('(') == std::string::npos &&
+                                     !best.found.empty() && best.found.rfind("@@", 0) != 0;
+                if (literal) {
+                    parser.m_ctx.diag().fixit(entry, parser.m_macro_analisys_buff[best.buffer_pos]->m_mapperRange, exp);
+                }
+            }
+        }
+    }
+    return ExpandMacroResult::Break;
 }

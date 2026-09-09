@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Для area param/var/named второй аргумент (имя) ОБЯЗАТЕЛЕН.
+@main():Int32 := {
+    x : @[reftype("ptr")@] @[lifetime("param")@] Int32 := 0;
+    return 0;
+};
+# CHECK: error: attribute 'lifetime' area 'param' requires a name as the second argument

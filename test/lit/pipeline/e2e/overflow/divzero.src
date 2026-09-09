@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/divzero %s
+# RUN: $TD/divzero > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: divzero-caught
+
+# Целочисленное деление на ноль (UB) -> trust::IntMinus, ловится {- ... -}.
+
+%chk():Void := {
+    a:Int32 := 10;
+    b:Int32 := 0;
+    {-
+        z := a // b;
+    -};
+    print('divzero-caught');
+};
+{% int divzero__main__() {
+    chk();
+    return 0;
+}
+%}

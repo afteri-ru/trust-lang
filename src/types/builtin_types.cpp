@@ -94,11 +94,16 @@ void TypeRegistry::registerBuiltinTypes() {
     // Rational: runtime-backed type. The preproc include starts with '@' = marker
     // "needs the trust-runtime library"; the rest is the header path (also the ELF
     // section name inside trust-runtime.so from which the header is extracted).
-    registerBuiltinType(type::Rational, Group::kArbitraryPrecision, 1, "trust::Rational", {"@trust/rational.hpp"});
+    auto rationalId = registerBuiltinType(type::Rational, Group::kArbitraryPrecision, 1, "trust::Rational", {"@trust/rational.hpp"});
     // BigInteger: arbitrary-precision integer, runtime-backed. Он - составная часть
     // Rational (числитель/знаменатель Rational - BigInteger). Живёт в той же группе
     // kArbitraryPrecision (Data: Rational=1, BigInteger=2).
-    registerBuiltinType(type::BigInteger, Group::kArbitraryPrecision, 2, "trust::BigInteger", {"@trust/big_integer.hpp"});
+    auto bigIntegerId = registerBuiltinType(type::BigInteger, Group::kArbitraryPrecision, 2, "trust::BigInteger", {"@trust/big_integer.hpp"});
+    // Метод показа BigInteger: `x.display(L)` → StrChar, голова = хвост = L цифр (только для
+    // вывода, не round-trip). Const-метод (как Dict.%size^); параметр L - Int64.
+    addMethod(bigIntegerId, "%display^", getOrCreateFunctionType(strCharId, {m_name_to_id.at(std::string(type::Int64))}));
+    // Метод показа Rational: `x.display(L)` → StrChar; каждый из num\den сокращается как BigInteger.
+    addMethod(rationalId, "%display^", getOrCreateFunctionType(strCharId, {m_name_to_id.at(std::string(type::Int64))}));
     // Dict: universal heterogeneous dictionary (runtime-backed type, header-only).
     // The preproc include starts with '@' = marker "needs the trust-runtime library";
     // the rest is the header path (also the ELF section name inside trust-runtime.so
@@ -106,18 +111,27 @@ void TypeRegistry::registerBuiltinTypes() {
     auto dictId = registerBuiltinType(type::Dict, Group::kDicts, 1, "trust::Dict", {"@trust/dict.hpp", "@trust/rational.hpp"});
     registerType(type::Dictionary, dictId);
 
-    // Встроенные политики синхронизации доступа (trust/trusted-cpp-sync.hpp). Регистрируются как
-    // встроенные типы группы Group::kSyncPolicy (Data=1..3), cppName = trust::Sync*Policy,
+    // Встроенные политики доступа (trust/trusted-cpp-sync.hpp). Регистрируются как
+    // встроенные типы группы Group::kAccessPolicy (Data=1..3), cppName = trust::Sync*Policy,
     // инклуд @trust/trusted-cpp-sync.hpp. Признак HasAttrsFlag (markAttrs) - «тип несёт атрибуты»
     // (политика помечена атрибутом `sync`). Имя типа в реестре = РЕАЛЬНОЕ имя класса (без алиасов):
-    // 2-й аргумент reftype (`@[reftype("shared", SyncMutexPolicy)@]`) резолвится через findType.
-    registerBuiltinType(type::SyncMutexPolicy, Group::kSyncPolicy, 1, "trust::SyncMutexPolicy", {"@trust/trusted-cpp-sync.hpp"}, /*markAttrs=*/true);
-    registerBuiltinType(type::SyncRwMutexPolicy, Group::kSyncPolicy, 2, "trust::SyncRwMutexPolicy", {"@trust/trusted-cpp-sync.hpp"}, /*markAttrs=*/true);
-    registerBuiltinType(type::SyncSingleThreadPolicy, Group::kSyncPolicy, 3, "trust::SyncSingleThreadPolicy", {"@trust/trusted-cpp-sync.hpp"},
+    // 2-й аргумент reftype (`@[reftype("shared", AccessMutex)@]`) резолвится через findType.
+    registerBuiltinType(type::AccessMutex, Group::kAccessPolicy, 1, "trust::AccessMutex", {"@trust/trusted-cpp-sync.hpp"}, /*markAttrs=*/true);
+    registerBuiltinType(type::AccessRwMutex, Group::kAccessPolicy, 2, "trust::AccessRwMutex", {"@trust/trusted-cpp-sync.hpp"}, /*markAttrs=*/true);
+    registerBuiltinType(type::AccessSingleThread, Group::kAccessPolicy, 3, "trust::AccessSingleThread", {"@trust/trusted-cpp-sync.hpp"},
                         /*markAttrs=*/true);
     // Обёртка синхронизированной сильной ссылки (НЕ политика: Data=4 вне диапазона политик 1..3).
-    // cppName trust::SyncShared - из реестра (кодоген резолвит по имени, не хардкодит строкой).
-    registerBuiltinType(type::SyncShared, Group::kSyncPolicy, 4, "trust::SyncShared", {"@trust/trusted-cpp-sync.hpp"});
+    // cppName trust::AccessShared - из реестра (кодоген резолвит по имени, не хардкодит строкой).
+    registerBuiltinType(type::AccessShared, Group::kAccessPolicy, 4, "trust::AccessShared", {"@trust/trusted-cpp-sync.hpp"});
+    // Обёртка статического эксклюзивного владения `unique` (Data=7 - НЕ политика; cppName из
+    // реестра, чтобы кодоген резолвил имя по реестру, а не хардкодил строкой - как AccessShared выше).
+    registerBuiltinType(type::StaticUnique, Group::kAccessPolicy, 7, "trust::StaticUnique", {"@trust/trusted-cpp.hpp"});
+
+    // Встроенные deleter-типы ресурсов (trust/resource.hpp): Group::kDeleterPolicy (Data=1..),
+    // cppName = trust::FreeDeleter. Обычный тип-функтор, используемый как аргумент
+    // `@[deleter(FreeDeleter)]` (резолвится через findType; распознавание - isDeleterPolicyType).
+    registerBuiltinType(type::FreeDeleter, Group::kDeleterPolicy, 1, "trust::FreeDeleter", {"@trust/resource.hpp"});
+    registerBuiltinType(type::FileDeleter, Group::kDeleterPolicy, 2, "trust::FileDeleter", {"@trust/resource.hpp"});
 
     // Runtime symbols: presence of these C++ symbols in generated code forces
     // linking the trust-runtime library and including its public headers.

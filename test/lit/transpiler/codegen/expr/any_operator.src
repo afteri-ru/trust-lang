@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %T --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 
 # Операции со std::any-операндом: any-операнд конвертируется универсальным trust::anyToInt64
 # (а не строгим std::any_cast<int32_t> - тот ломается на гетерогенных значениях словаря).

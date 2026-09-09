@@ -5,7 +5,7 @@
 // рекурсия/вызовы других компонентов и драйвера идут через NameResolutionPass (friend).
 
 #include "semantic/pass.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "ast/ast_nodes.hpp"
 #include "types/type_id.hpp"
 #include <memory>

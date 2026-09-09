@@ -4,7 +4,7 @@
 #include "syntax/term.h"
 #include "syntax/parser.h"
 
-#include "diag/context.hpp"
+#include "session/context.hpp"
 
 // #define YY_FATAL_ERROR(msg) trust::Scanner::FatalError(msg, lineno(), yyleng, *source_string)
 //  Flex expects the signature of yylex to be defined in the macro YY_DECL, and

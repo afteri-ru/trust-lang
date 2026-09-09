@@ -24,10 +24,10 @@ nlohmann::json buildHoverContents(const trust::SourceMapReader& reader, bool isC
     hoverContents.push_back("```" + hoverLang + "\n" + hoverText + "\n```");
 
     // Путь к сохранённому dsl.src выводится из каталога .cppt (dsl.src сохраняется
-    // в <каталог cppt>/trust/dsl.src). Если файла на диске нет (tempDir не задан) - ссылка «Macro:» не выводится.
+    // в <каталог cppt>/stdlib/dsl.src). Если файла на диске нет (tempDir не задан) - ссылка «Macro:» не выводится.
     std::string dslFilePath;
     {
-        std::filesystem::path dslPath = std::filesystem::path(cppFilePath).parent_path() / "trust" / "dsl.src";
+        std::filesystem::path dslPath = std::filesystem::path(cppFilePath).parent_path() / "stdlib" / "dsl.src";
         if (std::filesystem::exists(dslPath)) {
             dslFilePath = std::filesystem::absolute(dslPath).string();
         }

@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: cp %s $TD/prog.src
+# RUN: %trust -q --run --temp-dir $TD $TD/prog.src > %t.first.out 2>&1
+# RUN: %trust -v --run --temp-dir $TD $TD/prog.src > %t.second.out 2>&1
+# RUN: %FileCheck %s --check-prefix=CACHED <%t.second.out
+# CACHED: running cached
+
+# Нерелевантная для кодогена опция (-v) НЕ инвалидирует кеш --run: запись содержит только
+# фактически заданные codegen-опции, поэтому второй запуск берёт кеш (сообщение при -v).
+
+#!/usr/bin/env trust
+@main() := {
+    @print('ok\n');
+    @return 0;
+}

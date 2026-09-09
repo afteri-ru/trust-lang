@@ -10,9 +10,9 @@
 // лексических скоупов, который служит одновременно и реестром объявлений, и
 // иерархией вложенности для разрешения имён.
 
-#include "diag/context.hpp"
-#include "semantic/symbol_table.hpp"
-#include "semantic/symbol_index.hpp"
+#include "session/context.hpp"
+#include "analysis/symbol_table.hpp"
+#include "analysis/symbol_index.hpp"
 #include "ast/ast_nodes.hpp"
 #include "types/type_id.hpp"
 
@@ -56,6 +56,10 @@ class AnalysisContext {
     /// Ближайший класс (по скоупам снизу вверх) или nullptr. Класс создаёт скоуп с creator=ClassDecl
     /// (см. analyzeClassDecl); имя класса включается в namespacePath()/@__NAMESPACE__/@__CLASS__.
     [[nodiscard]] const ClassDecl* currentClass() const;
+    /// Анализ идёт ВНУТРИ тела типа (Record/Class) - член-объявление, а НЕ top-level функция.
+    /// Творцы скоупа: RecordDecl (kind StructDecl) и ClassDecl. Нужно для различения member- и
+    /// free-форм объявлений (операторы: правила member/free и арность, см. operator_check.hpp).
+    [[nodiscard]] bool insideTypeBody() const;
     /// Краткое имя текущей функции (без native-префикса '%').
     [[nodiscard]] std::string funcShortName() const;
     /// Полное имя функции: "ns::name" (квалифицированное областью имён).
@@ -68,22 +72,22 @@ class AnalysisContext {
     /// Резолвит аннотацию типа (узел kind=TypeName) в TypeId: сначала по скоуп-стеку
     /// (пользовательские алиасы с учётом shadowing), затем в реестре типов (builtin).
     /// std::nullopt - тип не найден (диагностику формирует вызывающий).
-    [[nodiscard]] std::optional<TypeId> resolveType(const AstNodeBase& type_node) const;
+    [[nodiscard]] std::optional<TypeId> resolveTypeRef(const AstNodeBase& type_node) const;
 
     /// Разрешённый тип узла (единый источник для ядра и хуков): составное выражение - из кеша
     /// `m_exprTypes` (заполняет ядро пост-порядково через `setExprType`); лист - литерал /
     /// символ (Ident) / каст; объявление и бинарная операция - из поля узла
     /// (VarDecl → inferredType, Binary → resultType). INVALID_TYPE_ID - не выведено.
-    [[nodiscard]] TypeId resolvedType(const AstNodeBase& node) const;
+    [[nodiscard]] TypeId exprType(const AstNodeBase& node) const;
 
     /// Сохраняет тип результата составного выражения в кеш типов (заполняет ядро
-    /// пост-порядково; читается `resolvedType` для рекурсивной типизации вложенных узлов).
+    /// пост-порядково; читается `exprType` для рекурсивной типизации вложенных узлов).
     void setExprType(const AstNodeBase* node, TypeId id);
 
     /// Истина, если для узла-объявления (decl) уже выдан «чтение до инициализации» (см.
     /// pass.cpp). Используется для дедупа диагностики «cannot infer type» на нетипизированных
     /// локальных `:= _`: если переменная уже прочитана до записи (=> Error), отдельная ошибка
-    /// «не выведен тип» не дублируется. mutable: наполняется из const resolvedType.
+    /// «не выведен тип» не дублируется. mutable: наполняется из const exprType.
     bool uninitVarReported(const AstNodeBase* decl) const;
 
     /// Следующий уникальный id синтезируемой временной scrutinee match (для имени `_matchN`).
@@ -98,6 +102,12 @@ class AnalysisContext {
 
     /// Строит функциональный тип (FunctionTypeId) по сигнатуре функции через TypeRegistry.
     [[nodiscard]] TypeId buildFuncType(const FuncDecl& func_node) const;
+
+    /// Семантическая типизация конструктора record-шаблона (`Box(...)`) по типу-цели контекста:
+    /// если `init` - CallExpr с callee-именем record-шаблона, а `target` - инстанциация ЭТОГО же
+    /// шаблона, записывает `CallExpr::resultType = target` (кодоген эмитит `c_Box<int32_t>(...)`,
+    /// включая пустой список аргументов). Иначе - no-op.
+    void coerceRecordTemplateCtor(AstNodeBase* init, TypeId target) const;
 
     /// Истина, если имя (с native-префиксом '%' или без) - зарегистрированный runtime-символ
     /// (например %trust::trust__abort__ / %trust::formatMessage). Такие имена - известные
@@ -114,14 +124,14 @@ class AnalysisContext {
     SymbolTable m_symbols;
 
     /// Кеш типов результатов выражений (node → TypeId), заполняется ядром пост-порядково
-    /// (setExprType) и читается `resolvedType` для рекурсивной типизации вложенных выражений.
+    /// (setExprType) и читается `exprType` для рекурсивной типизации вложенных выражений.
     std::unordered_map<const AstNodeBase*, TypeId> m_exprTypes;
-    /// Узлы, для которых уже выдан «чтение до инициализации» (дедуп дублирующих resolvedType/сканов
+    /// Узлы, для которых уже выдан «чтение до инициализации» (дедуп дублирующих exprType/сканов
     /// на одном узле, чтобы один сайт чтения давал одну диагностику). mutable: наполняется из const
-    /// resolvedType.
+    /// exprType.
     mutable std::unordered_set<const AstNodeBase*> m_uninitReadReported;
     /// Объявления, для которых уже выдан «чтение до инициализации» (decl → узел объявления),
-    /// для дедупа диагностики «cannot infer type» (см. uninitVarReported). mutable: из resolvedType.
+    /// для дедупа диагностики «cannot infer type» (см. uninitVarReported). mutable: из exprType.
     mutable std::unordered_set<const AstNodeBase*> m_uninitVarReportedDecls;
     /// Счётчик синтезируемых временных scrutinee match (`_matchN`) — семантика создаёт их как
     /// const VarDecl (инвариант «временные — уровень анализатора»), счётчик здесь, а не в транспиляторе.

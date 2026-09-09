@@ -14,7 +14,7 @@
 #include "types/type_id.hpp"
 #include "types/group.hpp"
 #include "types/runtime_symbols.hpp"
-#include "ast/attr.hpp"
+#include "attrs/attr.hpp"
 #include "location/location.hpp"
 
 namespace trust {
@@ -63,8 +63,20 @@ struct MemberPointerTypeData {
 //    признака - fast-path бит (withRefType); ссылка на уже ссылочный тип (вложенность,
 //    например shared<ptr<Int32>>) - узел с pointeeType-ребёнком. Вид ссылки несёт
 //    сам TypeKind (RefType узла), pointeeType - тип, на который ссылаются.
+//    deleterType - deleter внешнего ресурса (`@[deleter(D)]`), только для unique
+//    (`trust::Unique<T,D>`: D - часть типа, узел интернируется с D в детях). Для прочих
+//    видов остаётся INVALID_TYPE_ID (для shared D стирается и в тип не входит).
+//    accessPolicyType - РЕАЛЬНЫЙ тип политики доступа (Group::kAccessPolicy) для
+//    backend shared/weak (`@[reftype("shared"/"weak", <Policy>)@]` -> trust::AccessShared<T,Policy>).
+//    Часть ТИПА: входит в children/TypeKey (`shared<T,P1> != shared<T,P2>`). Иначе INVALID_TYPE_ID.
+//    implType - класс реализации механизма доступа (3-й аргумент `@[reftype("<kind>", <policy>, <impl>)@]`):
+//    механизм поверх политики-семантики. Часть ТИПА: входит в children/TypeKey
+//    (`shared<T,P,I1> != shared<T,P,I2>`). Иначе INVALID_TYPE_ID.
 struct RefTypeData {
-    TypeId pointeeType; // тип, на который ссылается этот узел
+    TypeId pointeeType;                        // тип, на который ссылается этот узел
+    TypeId deleterType = INVALID_TYPE_ID;      // deleter ресурса (только unique; иначе INVALID)
+    TypeId accessPolicyType = INVALID_TYPE_ID; // политика доступа (shared/weak); иначе INVALID
+    TypeId implType = INVALID_TYPE_ID;         // класс реализации механизма доступа; иначе INVALID
 };
 
 // 7. Pack expansion (variadic template параметры)
@@ -150,9 +162,32 @@ struct NativeClassTypeData {
     std::string cppName; // C++-имя класса, напр. "std::string" / "std::pair"
 };
 
+// 13. Пользовательский структурный тип (`Name ::= :Struct{...}` / `Name ::= :Class{...}`) -
+//     единый record-тип для Struct и Class. Различаются ТОЛЬКО группой TypeKind
+//     (Group::kStructs => POD + static_assert; Group::kClassDefs => Class); данные одинаковы.
+//     Поля хранятся здесь (разрешённый TypeId); методы - в TypeDescriptor::methods; базовые
+//     классы (наследование) - в TypeDescriptor::baseClasses. C++-имя - манглинг trust-имени
+//     (name_to_cpp), struct эмитится провайдером-кодогенератором.
+struct RecordTypeData {
+    std::vector<TupleElementData> fields; // поля в порядке объявления
+    // Типовые параметры абстрактного шаблон-класса (`<T> :Box ::= :Class{...}`); пусто - НЕ шаблон.
+    std::vector<TypeId> templateParams;
+    // Инстанциация шаблон-класса: ссылка на абстрактный шаблон + типовые аргументы.
+    // templateOf == INVALID_TYPE_ID - обычный record ИЛИ сам абстрактный шаблон (не инстанциация).
+    TypeId templateOf{INVALID_TYPE_ID};
+    std::vector<TypeId> templateArgs;
+};
+
+// 14. Идентификатор типового параметра пользовательского шаблона (`<T>`/`<T,U>` у record-шаблона).
+//     Различает параметры по имени (TypeKey::names): поля/методы абстрактного шаблона несут эти
+//     типы, при инстанциации они подставляются конкретными аргументами (getOrCreateRecordTemplateInstance).
+struct TemplateParamTypeData {
+    std::string name; // имя типового параметра (T/U/…)
+};
+
 // -- Объединение вариантов --
 using TypeData = std::variant<SimpleTypeData, FunctionTypeData, TemplateTypeData, ArrayTypeData, MemberPointerTypeData, RefTypeData, PackExpansionTypeData,
-                              TupleTypeData, EnumTypeData, VariantTypeData, NativeTemplateTypeData, NativeClassTypeData>;
+                              TupleTypeData, EnumTypeData, VariantTypeData, NativeTemplateTypeData, NativeClassTypeData, RecordTypeData, TemplateParamTypeData>;
 
 // -- TypeDataKind - идентификатор варианта TypeData ----------
 enum class TypeDataKind : uint8_t {
@@ -168,6 +203,8 @@ enum class TypeDataKind : uint8_t {
     kVariant,
     kNativeTemplate,
     kNativeClass,
+    kRecord,
+    kTemplateParam,
 };
 
 // -- TypeKey для структурного интернирования --------------
@@ -211,12 +248,18 @@ struct TypeDescriptor {
                                               // (e.g. "#include <cstdint>" / "@trust/dict.hpp"), пусто если не требуется
     TypeId baseType{INVALID_TYPE_ID};         // для алиас-цепочки: A → Byte → Int32
     std::optional<TypeData> data;             // nullopt = forward declaration (incomplete type)
-    // Методы типа (obj.method): полный ключ (native '%', const '^') → интернированный
-    // функциональный тип (FunctionTypeData). Нативность/константность - из ключа.
-    std::map<std::string, TypeId> methods;
+    // Методы типа (obj.method): полный ключ (native '%', const '^') → НАБОР интернированных
+    // функциональных типов (FunctionTypeData) - перегрузки по типам аргументов. Нативность/
+    // константность - из ключа. Набор непуст; один элемент - не-перегруженный метод.
+    std::map<std::string, std::vector<TypeId>> methods;
     // Алиасы методов: bare-имя алиаса → полный ключ цели (напр. "length" → "%count^").
     // Алиас обязан повторять семантику цели (native/const) - проверяется при регистрации.
     std::map<std::string, std::string> methodAliases;
+    // Базовые классы (наследование Record-типов) — НЕ путать с baseType!
+    // baseType используется getCanonicalTypeId() для разрешения алиас-цепочек; базовые классы
+    // должны идти СЮДА, иначе производный тип схлопнулся бы в базовый. Абстрактные маркеры
+    // (:Any/:Struct/:Class) сюда НЕ попадают (не эмитятся в C++).
+    std::vector<TypeId> baseClasses;
 };
 
 // -- Runtime symbol -----------------------------------------
@@ -275,6 +318,57 @@ class TypeRegistry {
     /// Каждый член имеет СВОЙ тип (гетерогенный, → std::variant). НЕ алиас; имя уникально.
     /// @return TypeId нового типа, или INVALID_TYPE_ID при дубликате имени.
     TypeId registerVariantType(std::string_view name, std::vector<VariantMemberData> members, MapperRange sourceRange = {}, bool hasTrust = false);
+
+    /// Объявляет пользовательский Record-тип (Struct ИЛИ Class) ПО ИМЕНИ: регистрирует тип, но
+    /// оставляет его НЕПОЛНЫМ (`RecordTypeData::complete == false`) до `defineRecord`. Нужно для
+    /// self-ссылок в теле класса (`Node` виден внутри `:Node ::= :Class{...}`) и для
+    /// forward-объявлений, доопределяемых позже. `templateParams` непусто - абстрактный
+    /// шаблон-класс (`<T> :Box ::= ...`). Идемпотентно: повторное объявление того же неполного
+    /// record возвращает существующий id. Если имя занято другим типом ИЛИ record уже определён
+    /// (`defineRecord`) - дубликат (диагностика сформирована), INVALID_TYPE_ID.
+    TypeId declareRecord(std::string_view name, Group group, std::vector<TypeId> templateParams = {}, MapperRange sourceRange = {}, bool hasTrust = false);
+
+    /// Доопределяет ранее объявленный (`declareRecord`) Record-тип: заполняет поля/базы и ставит
+    /// `complete = true`. Если имя ещё не объявлено - создаёт сразу определённый record (обычный
+    /// случай без self-ссылок/forward). Группа ОБЯЗАНА совпасть с объявленной (Struct/Class), при
+    /// расхождении - ошибка. Повторное ОПРЕДЕЛЕНИЕ (имя уже complete) - дубликат, INVALID_TYPE_ID.
+    TypeId defineRecord(std::string_view name, Group group, std::vector<TupleElementData> fields, std::vector<TypeId> baseClasses = {},
+                        MapperRange sourceRange = {}, bool hasTrust = false);
+
+    /// true для пользовательского Struct-типа (Group::kStructs).
+    bool isStructType(TypeId id) const noexcept;
+    /// true для пользовательского Class-типа (Group::kClassDefs).
+    bool isClassType(TypeId id) const noexcept;
+    /// true для любого пользовательского Record-типа (Struct ИЛИ Class).
+    bool isRecordType(TypeId id) const noexcept;
+    /// Поля Record-типа (RecordTypeData::fields) или nullptr, если тип не Record (в т.ч. для
+    /// объявленного-но-не-определённого record: его data ещё `std::nullopt`).
+    const RecordTypeData* recordData(TypeId id) const noexcept;
+    /// Базовые классы типа (TypeDescriptor::baseClasses); пусто - нет баз.
+    const std::vector<TypeId>& baseClasses(TypeId id) const noexcept;
+    /// Поиск поля Record-типа по имени с обходом базовых классов (наследование).
+    /// INVALID_TYPE_ID - поле не найдено.
+    [[nodiscard]] TypeId findField(TypeId type, std::string_view name) const noexcept;
+
+    // -- Пользовательские шаблон-классы (`<T> :Box ::= :Class{...}`) --
+
+    /// Идентификатор типового параметра (различается по имени): поля/методы абстрактного
+    /// шаблона несут такой тип, при инстанциации подставляется конкретный аргумент.
+    TypeId getOrCreateTemplateParamType(std::string_view name);
+
+    /// true для идентификатора типового параметра (Group::kTemplateParam, вкл. встроенный).
+    bool isTemplateParamType(TypeId id) const noexcept;
+    /// Имя типового параметра (TemplateParamTypeData::name); пусто - не параметр.
+    std::string_view templateParamName(TypeId id) const noexcept;
+
+    /// true для абстрактного пользовательского шаблон-класса (record с непустыми templateParams).
+    bool isRecordTemplate(TypeId id) const noexcept;
+    /// Типовые параметры записи (RecordTypeData::templateParams); пусто - не шаблон.
+    const std::vector<TypeId>& recordTemplateParams(TypeId id) const noexcept;
+
+    /// Интернирует конкретную инстанциацию шаблон-класса: Data=1, children = {templateTypeId} + args;
+    /// подставляет типовые параметры в поля/базы/методы. Идентичность - по (kind, children).
+    TypeId getOrCreateRecordTemplateInstance(TypeId templateId, std::vector<TypeId> args);
 
     /// Structural uniquing: create or retrieve a structural type identified by
     /// kind + children (+ имена для Tuple). Used for FunctionType, TemplateType, ArrayType, etc.
@@ -370,7 +464,14 @@ class TypeRegistry {
     /// Get or create a structural reference/pointer type: node with a given RefType and a
     /// single pointee child. Used for nested references (a reference to an already-referenced
     /// type). Первая ссылка на тип без признака - fast-path бит withRefType (без узла).
-    TypeId getOrCreateRefType(RefType kind, TypeId pointee);
+    /// @param deleter  deleter внешнего ресурса (только unique): D ВХОДИТ в тип, поэтому
+    ///   узел интернируется с D вторым ребёнком (`unique<T,D1> != unique<T,D2>`).
+    /// @param accessPolicy  РЕАЛЬНЫЙ тип политики доступа (shared/weak/unique): входит в тип,
+    ///   интернируется (`shared<T,P1> != shared<T,P2>`); INVALID - без синхронизации.
+    /// @param impl  класс реализации механизма доступа (3-й аргумент reftype): входит в тип,
+    ///   интернируется (`shared<T,P,I1> != shared<T,P,I2>`); INVALID - реализация по умолчанию.
+    TypeId getOrCreateRefType(RefType kind, TypeId pointee, TypeId deleter = INVALID_TYPE_ID, TypeId accessPolicy = INVALID_TYPE_ID,
+                              TypeId impl = INVALID_TYPE_ID);
 
     /// Применяет вид ссылки к типу: первая ссылка на тип без признака - fast-path бит
     /// withRefType (сохраняет нижние 32 бита TypeId: registry_index + флаги kConst/kInferred);
@@ -378,8 +479,22 @@ class TypeRegistry {
     /// применения @[reftype(...)] для семантики и транспилятора.
     TypeId applyRefType(TypeId base, RefType kind);
 
-    /// true для встроенной политики синхронизации доступа (Group::kSyncPolicy, Data=1..3).
-    bool isSyncPolicyType(TypeId id) const noexcept;
+    /// Как applyRefType, но с deleter внешнего ресурса (D - часть типа для unique) и/или
+    /// политикой доступа (backend shared/weak). При заданном deleter/accessPolicy тип
+    /// ВСЕГДА структурный узел (в TypeKind нет места для TypeId).
+    TypeId applyRefType(TypeId base, RefType kind, TypeId deleter, TypeId accessPolicy = INVALID_TYPE_ID, TypeId impl = INVALID_TYPE_ID);
+
+    /// true для встроенной политики доступа (Group::kAccessPolicy, Data=1..3) - политики shared/weak.
+    bool isAccessPolicyType(TypeId id) const noexcept;
+
+    /// true, если политика доступа применима к данному виду ссылки: shared/weak -> Data=1..3
+    /// (AccessMutex/AccessRwMutex/AccessSingleThread). `unique` политик НЕ имеет (монопольное
+    /// владение: без заёма/alias) -> false.
+    bool isAccessPolicyTypeFor(RefType kind, TypeId id) const noexcept;
+
+    /// true для встроенного deleter-типа ресурса (Group::kDeleterPolicy, Data>=1, напр.
+    /// trust::FreeDeleter). Используется семантикой для валидации `@[deleter(D)]`.
+    bool isDeleterPolicyType(TypeId id) const noexcept;
 
     /// Сравнение типов с учётом признака наличия атрибутов (kHasAttrsFlag). Fast-path: если
     /// НИ у одного из типов флага нет - сравнение по TypeId (без обращения к реестру). Если флаг
@@ -388,35 +503,31 @@ class TypeRegistry {
 
     // -- Методы типов (obj.method(...)) --
 
-    /// Результат поиска метода: совпавший полный ключ (native '%'/const '^') + интернированный
-    /// функциональный тип. Нативность/константность выводятся из key (не хранятся отдельно).
+    /// Результат поиска метода: совпавший полный ключ (native '%'/const '^') + НАБОР
+    /// интернированных сигнатур (перегрузки; >= 1). Нативность/константность выводятся из key.
     struct MethodRef {
-        std::string key; // полный ключ цели (напр. "%count^"); для алиаса - ключ цели
-        TypeId funcType; // интернированная сигнатура (FunctionTypeData)
+        std::string key;               // полный ключ цели (напр. "%count^"); для алиаса - ключ цели
+        std::vector<TypeId> signatures; // интернированные сигнатуры (FunctionTypeData), >= 1
     };
 
     /// Регистрирует метод на типе. name - полный ключ: нативность ('%' в начале), константность
-    /// ('^' в конце), напр. "%count^". funcType - интернированная сигнатура. aliases - доп.
-    /// доверенные имена этого метода (полные ключи, напр. {"%length^"}); каждый алиас обязан
-    /// повторять семантику цели (нативность и константность совпадают - иначе EXPECT с явной
-    /// диагностикой); нативное C++-имя для кодгена берётся из ЦЕЛЕВОГО ключа (name). Дубликат
-    /// (то же bare-имя + та же константность, независимо от '%') - ошибка EXPECT.
+    /// ('^' в конце), напр. "%count^". funcType - интернированная сигнатура; к набору ключа
+    /// ДОБАВЛЯЕТСЯ (перегрузка по типам аргументов). Точный дубль сигнатуры (тот же ключ) - EXPECT.
+    /// aliases - доп. доверенные имена этого метода (полные ключи); каждый алиас обязан повторять
+    /// семантику цели (нативность/константность совпадают - иначе EXPECT); нативное C++-имя для
+    /// кодгена берётся из ЦЕЛЕВОГО ключа (name).
     void addMethod(TypeId type, std::string_view name, TypeId funcType, std::vector<std::string_view> aliases = {});
 
     /// Ищет метод по доверенному имени (нормализация срезом '%'/'^'), возвращает полный ключ +
-    /// интернированный функциональный тип. Для алиаса возвращается ключ ЦЕЛИ (нативное имя из него).
-    /// Для параметризованного Range<Elem> методы ищутся на абстрактном `:Range` (fallback).
+    /// НАБОР сигнатур (перегрузки). Для алиаса возвращается ключ ЦЕЛИ (нативное имя из него).
+    /// Для параметризованного Range<Elem>/Array<Elem> методы ищутся на абстрактном типе (fallback).
     /// nullopt - метод не найден.
     [[nodiscard]] std::optional<MethodRef> findMethodInfo(TypeId type, std::string_view name) const;
 
-    /// Ищет метод по имени и возвращает его интернированный функциональный тип (funcType из
-    /// findMethodInfo). INVALID_TYPE_ID - метод не найден.
-    [[nodiscard]] TypeId findMethod(TypeId type, std::string_view name) const;
-
     /// Ищет СТАТИЧЕСКИЙ член нативного класса (зарегистрированный ключ содержит '::', вид
-    /// `ns::Class::name`) по последнему сегменту имени. Возвращает интернированный функциональный
-    /// тип члена (у поля returnType = тип поля) или INVALID_TYPE_ID, если статический член не найден.
-    [[nodiscard]] TypeId findStaticMethod(TypeId type, std::string_view name) const;
+    /// `ns::Class::name`) по последнему сегменту имени. Возвращает НАБОР интернированных сигнатур
+    /// члена (пусто - не найден). У поля returnType = тип поля.
+    [[nodiscard]] std::vector<TypeId> findStaticMethod(TypeId type, std::string_view name) const;
 
     /// Returns the primary preprocInclude (первый из списка) for a registered type (by TypeId).
     /// For builtin types (no descriptor) returns empty string_view.
@@ -507,12 +618,22 @@ class TypeRegistry {
     /// Мутабельный дескриптор ПОЛЬЗОВАТЕЛЬСКОГО типа; для встроенного - nullptr (иммутабельно).
     TypeDescriptor* userDescriptorOf(TypeId id) noexcept;
 
+    /// Подстановка типовых параметров (mapping param→arg) в тип; рекурсия по структурным
+    /// типам (функции/ссылки/Array/Range/native-шаблоны/вложенные record-инстанциации).
+    TypeId substituteTypeParams(const std::vector<std::pair<TypeId, TypeId>>& mapping, TypeId type);
+
     DiagnosticEngine& m_diag;
     const Options& m_opts;
 
     // -- Lookup by name --
     std::unordered_map<std::string, TypeId> m_name_to_id;
     std::vector<TypeDescriptor> m_descriptors;
+    // Объявленные, но ещё не определённые record-типы: TypeId → типовые параметры (пусто -
+    // не шаблон). Инвариант: у объявленного record `descriptor.data == std::nullopt`
+    // (неполный тип); `defineRecord` заполняет data и удаляет запись. Признак «определён»
+    // выводится как отсутствие записи (отдельного поля-флага в RecordTypeData нет);
+    // `isRecordTemplate`/`recordTemplateParams` берут параметры отсюда до определения.
+    std::map<TypeId, std::vector<TypeId>> m_declaredRecords;
 
     /// Общее иммутабельное ядро встроенных типов (невладеющая ссылка; создаётся builtinCore()).
     const BuiltinTypeCore* m_builtin = nullptr;

@@ -143,6 +143,15 @@ FuncDecl::FuncDecl(TermPtr term)
 : Decl(std::move(term)) {
     EXPECT(m_term && "FuncDecl term-constructor requires a source Term");
     m_kind = ParserToken::Kind::FuncDecl;
+    // Оператор-МЕТОД/свободный оператор: имя-СИМВОЛ в обратных кавычках (лексема REFLECTION) -
+    // грамматика кладёт REFLECTION-терм в m_left оператора `:=` (operator_sig, parser.y.in).
+    // Текст = символ КАК ЕСТЬ: normalizeTermText здесь неприменим (срезает хвостовой '^' и
+    // маркеры имён), а символ оператора обязан сохраниться дословно (`` `[]` ``, `` `==` ``).
+    if (m_term->m_left && m_term->m_left->getTermID() == trust::TermID::REFLECTION) {
+        m_isOperator = true;
+        set_text(std::string(m_term->m_left->getText()));
+        return;
+    }
     m_text = normalizeTermText(ParserToken::Kind::FuncDecl, declNameFromTerm(m_term));
 }
 
@@ -150,6 +159,60 @@ FuncDecl::FuncDecl(TermPtr term)
 FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
 : FuncDecl(std::move(term)) {
     if (!ctx || !m_term) {
+        return;
+    }
+    // Лямбда-выражение `[captures](params):Ret { body }` (TermID::LAMBDA): m_sequence - захваты,
+    // m_args - параметры, m_right - тело, m_type - тип возврата. Имя не регистрируется (семантика).
+    if (m_term->getTermID() == trust::TermID::LAMBDA) {
+        // Внутренняя синтетическая метка-имя лямбды: именованный возврат
+        // (`@return v;` → `@__FUNCTION__ ++ v ++`) и валидация метки работают КАК У ОБЫЧНОЙ
+        // ФУНКЦИИ (имя = метка возврата). Имя НЕ регистрируется в скоупе и НЕ эмитится как
+        // C++-функция (кодоген идёт через emitLambdaExpr). Детерминировано по позиции исходника.
+        if (!m_term->m_mapperRange.isInvalid()) {
+            const auto& b = m_term->m_mapperRange.begin;
+            set_text("__lambda__" + std::to_string(b.fileIdx().as_index()) + "_" + std::to_string(b.offset()));
+        } else {
+            set_text("__lambda__");
+        }
+        m_params = std::vector<AstNodePtr>{};
+        // Параметры: как у функции - m_args (ARGUMENT / типизированное имя `x:Type`).
+        if (m_term->m_args) {
+            for (const auto& [pname, argTerm] : *m_term->m_args) {
+                (void)pname;
+                if (!argTerm) {
+                    continue;
+                }
+                m_params->push_back(std::make_shared<ArgNode>(ParserToken::Kind::ArgNode, argTerm, ctx));
+            }
+        }
+        // Захваты: ТОЛЬКО имена, ТОЛЬКО по значению (копия). Иные формы - явная диагностика.
+        m_captures = std::vector<AstNodePtr>{};
+        for (const auto& cterm : m_term->m_sequence) {
+            if (!cterm) {
+                continue;
+            }
+            if (cterm->getTermID() == trust::TermID::OPERATOR_PTR) {
+                ctx->diag().report(Severity::Error, cterm->m_mapperRange, "reference capture is not supported; only capture-by-value '[name]' is allowed");
+                continue;
+            }
+            if (cterm->getTermID() == trust::TermID::NAME && !cterm->m_type && !cterm->m_right && !cterm->m_args) {
+                // ArgNode с термом - сохраняет диапазон исходника (позиция в диагностике).
+                m_captures->push_back(std::make_shared<ArgNode>(ParserToken::Kind::ArgNode, cterm, ctx));
+                continue;
+            }
+            ctx->diag().report(Severity::Error, cterm->m_mapperRange,
+                               "unsupported lambda capture; only a plain variable name '[name]' (capture-by-value) is allowed");
+        }
+        // Тип возврата (опционально).
+        if (m_term->m_type) {
+            m_type = convertChild(*ctx, m_term->m_type);
+        }
+        // Тело.
+        if (m_term->m_right) {
+            std::vector<AstNodePtr> fnBody;
+            convertChildren(*ctx, m_term->m_right, fnBody);
+            m_body = std::move(fnBody);
+        }
         return;
     }
     // CREATE_NAME (`:=`) с сигнатурой функции в m_left (m_left->isCall()) - это функция.
@@ -443,6 +506,99 @@ std::string ClassDecl::dump(size_t indent) const {
         result += ">";
     }
     Sequence::dumpBody(result, m_body, indent, indent + 2);
+    return result;
+}
+
+// -- RecordDecl: пользовательский Struct/Class `:Name ::= :Base{, :Base}{ ... };` --
+// Единый узел: Struct (`:Struct`-база) и Class (`:Class`/user-база) отличаются только базой.
+RecordDecl::RecordDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
+: Decl("") {
+    EXPECT(term && "RecordDecl term-constructor requires a source Term");
+    m_kind = ParserToken::Kind::StructDecl;
+
+    TermPtr rhs = term->m_right;
+    if (term->getTermID() == trust::TermID::CLASS) {
+        // Униформ-конструктор получил сам CLASS-терм (bare `:Base{...}` вне `::=`):
+        // имени объявления нет — это не тип-объявление (не семантизируется как тип).
+        rhs = term;
+    } else if (term->m_left) {
+        // trust-имя слева от `::=`. Допустимы обе формы (`Name` и `:Name`) — ведущий ':' срезается.
+        std::string name(term->m_left->getText());
+        if (!name.empty() && name.front() == ':') {
+            name.erase(0, 1);
+        }
+        set_text(normalizeTermText(ParserToken::Kind::StructDecl, name));
+        // Типовые параметры шаблона (`<T> Name ::= ...`) - в m_template терма `::=`.
+        if (term->m_template) {
+            m_templateParams.emplace();
+            for (const auto& [pname, pterm] : *term->m_template) {
+                (void)pterm;
+                m_templateParams->push_back(std::make_shared<ArgNode>(pname));
+            }
+        }
+    }
+
+    if (!rhs) {
+        return;
+    }
+    m_term = rhs; // range() указывает на базы/тело
+
+    // Базы: CLASS-терм = первая база (текст `:Struct`/`:Class`/`:Base`), её m_right - остальные.
+    // База-тип с типовыми аргументами (`:Base<:T>`) обязана сохранить m_template: manual-конструктор
+    // IdentType(term) его не читает, поэтому типовые аргументы переносим явно (как visit_TYPE).
+    for (TermPtr base = rhs; base && base->getTermID() != trust::TermID::END; base = base->m_right) {
+        auto baseNode = std::make_shared<IdentType>(base);
+        if (base->m_template.has_value()) {
+            std::vector<AstNodePtr> targs;
+            for (const auto& [aname, argTerm] : *base->m_template) {
+                (void)aname;
+                if (argTerm && ctx) {
+                    targs.push_back(convertChild(*ctx, argTerm));
+                }
+            }
+            baseNode->setTemplateArgs(std::move(targs));
+        }
+        m_baseTypes.push_back(std::move(baseNode));
+    }
+
+    // Предварительное (forward) объявление - форма БЕЗ тела `:Name ::= :Base ...;`: грамматика
+    // кладёт маркер ELLIPSIS в m_sequence вместо членов → m_body = nullopt. Тело `{ ... }`
+    // (в т.ч. пустое `{ }`) - полное определение (engaged, возможно пустой вектор).
+    const bool forward = rhs->m_sequence.size() == 1 && rhs->m_sequence.front() && rhs->m_sequence.front()->getTermID() == trust::TermID::ELLIPSIS;
+
+    // Члены: class_props разложены в m_sequence (поля/методы). Для forward-объявления членов нет.
+    if (!forward) {
+        m_body.emplace();
+        if (ctx) {
+            for (const auto& m : rhs->m_sequence) {
+                if (!m || m->getTermID() == trust::TermID::END) {
+                    continue;
+                }
+                if (AstNodePtr n = convertChild(*ctx, m)) {
+                    m_body->push_back(std::move(n));
+                }
+            }
+        }
+    }
+}
+
+std::string RecordDecl::dump(size_t indent) const {
+    std::string result = Decl::dump(indent);
+    if (!m_baseTypes.empty()) {
+        result += " :";
+        for (const auto& b : m_baseTypes) {
+            if (!b) {
+                continue;
+            }
+            result += " ";
+            result += std::string(b->text());
+        }
+    }
+    if (!m_body.has_value()) {
+        result += " (forward)";
+        return result;
+    }
+    Sequence::dumpBody(result, *m_body, indent, indent + 2);
     return result;
 }
 } // namespace trust

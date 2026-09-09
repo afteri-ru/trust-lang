@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Взаимное value-вложение (перекрёстный цикл по значению) -> бесконечный размер -> -Wrecursive-value.
+:B ::= :Class ...;
+:A ::= :Class{ b : B := _; };
+:B ::= :Class{ a : A := _; };
+@main():Int32 := { return 0; };
+# CHECK: error: recursive value containment in class fields

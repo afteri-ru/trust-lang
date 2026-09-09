@@ -10,12 +10,14 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
 #include "location/location.hpp"
@@ -35,8 +37,6 @@ class DictLiteralNode;
 class RangeExpr;
 class RefMakeExpr;
 class RefTakeExpr;
-class NativeRefMakeExpr;
-class NativeRefTakeExpr;
 class IdentName;
 class IdentType;
 class Decl;
@@ -47,6 +47,7 @@ class ArgNode;
 class FuncDecl;
 class VarDecl;
 class ClassDecl;
+class RecordDecl;
 class DestructureDecl;
 class IfStmt;
 class WhileStmt;
@@ -63,6 +64,7 @@ class ContextMacro;
 class TrustContract;
 class TrustElem;
 class CheckAreaStmt;
+class DebugStmt;
 
 // ============================================================================
 // X-macro: all ParserToken kinds.
@@ -91,6 +93,8 @@ class CheckAreaStmt;
     T(LogicalOp, Binary)                                              \
     T(MemberAccess, Binary)                                           \
     T(ArrayAccess, Binary)                                            \
+    /* Набор допустимых типов: члены в m_sequence (Sequence::m_body). */ \
+    T(TypeSet, Sequence)                                              \
     /* -- IdentName -- */                                             \
     T(Ident, IdentName)                                               \
     /* -- IdentType -- */                                             \
@@ -107,6 +111,7 @@ class CheckAreaStmt;
     T(Document, AstNodeAttr)                                          \
     T(ContextMacro, ContextMacro)                                     \
     T(CheckAreaStmt, CheckAreaStmt)                                   \
+    T(DebugStmt, DebugStmt)                                           \
     T(Unimplemented, AstNodeAttr)                                     \
     T(NotApplicable, AstNodeAttr)                                     \
     T(IntLiteral, Literal)                                            \
@@ -120,11 +125,10 @@ class CheckAreaStmt;
     T(RangeExpr, RangeExpr)                                           \
     T(RefMakeExpr, RefMakeExpr)                                       \
     T(RefTakeExpr, RefTakeExpr)                                       \
-    T(NativeRefMakeExpr, NativeRefMakeExpr)                           \
-    T(NativeRefTakeExpr, NativeRefTakeExpr)                           \
     T(RefLockExpr, Sequence)                                          \
     T(RefLockDeref, Sequence)                                         \
     T(Ellipsis, Sequence)                                             \
+    T(Filling, Sequence)                                              \
     T(IfStmt, IfStmt)                                                 \
     T(WhileStmt, WhileStmt)                                           \
     T(AssignmentStmt, AstNodeAttr)                                    \
@@ -154,7 +158,7 @@ class CheckAreaStmt;
     T(ArgNode, ArgNode)                                               \
     T(EnumDecl, Sequence)                                             \
     T(EnumMember, Sequence)                                           \
-    T(StructDecl, Sequence)                                           \
+    T(StructDecl, RecordDecl)                                         \
     T(StructField, Sequence)                                          \
     /* -- TrustContract (единая trust-конструкция, kind в поле) -- */ \
     T(TrustContract, TrustContract)                                   \
@@ -213,6 +217,92 @@ template <>
 struct NodeTypeForKind<ParserToken::Kind::END> {
     using type = AstNodeBase;
 };
+
+// ============================================================================
+// Канонический реестр классов AST-узлов (R8).
+//
+// Архитектурный инвариант (trap из include/ast/MEMORY.md): класс AST - это ФОРМАТ ХРАНЕНИЯ
+// данных, а не идентичность узла. РАЗНЫЕ kinds могут отображаться на ОДИН класс (Binary,
+// Sequence, ...); отношение kind->класс задаётся ВТОРЫМ полем PARSER_TOKEN_KINDS.
+// ЗАПРЕЩЕНО заводить новый класс под новый kind - нужно переиспользовать существующий.
+//
+// AST_NODE_CLASS_LIST - канонический перечень всех классов, которые допускается указывать
+// вторым полем PARSER_TOKEN_KINDS. static_assert ниже делает инвариант машинно-проверяемым:
+//   - каждый kind маппится на класс ИЗ списка (иначе - ошибка компиляции);
+//   - каждый класс списка используется хотя бы одним kind (нет «мёртвых» классов).
+// Расширение списка допустимо только вместе с настоящей новой сущностью AST-узла (структурой
+// данных), а не «на новый kind».
+// ============================================================================
+#define AST_NODE_CLASS_LIST(M)                                                                                                                                 \
+    M(Sequence)                                                                                                                                                \
+    M(ScopeBlock) M(ModuleNode) M(Binary) M(IdentName) M(IdentType) M(Literal) M(ArgNode) M(ContextMacro) M(CheckAreaStmt) M(DebugStmt) M(CallExpr)            \
+        M(JumpStmt) M(AstNodeAttr) M(DictLiteralNode) M(RangeExpr) M(RefMakeExpr) M(RefTakeExpr) M(IfStmt) M(WhileStmt) M(DoWhileStmt) M(MatchStmt)            \
+            M(WithStmt) M(TryCatchStmt) M(CatchBlock) M(LabelRef) M(SemicolonStmt) M(LastResultCapture) M(ErrorExpr) M(TrustContract) M(TrustElem) M(FuncDecl) \
+                M(VarDecl) M(ClassDecl) M(RecordDecl) M(DestructureDecl)
+
+/// Traits: класс AST-узла из канонического списка? Даёт человекочитаемое имя для диагностик.
+template <class T>
+struct AstNodeClassInfo {
+    static constexpr bool kKnown = false;
+    static constexpr std::string_view kName = "<not-an-AST-node-class>";
+};
+
+#define AST_NODE_CLASS_ENTRY(cls)                       \
+    template <>                                         \
+    struct AstNodeClassInfo<cls> {                      \
+        static constexpr bool kKnown = true;            \
+        static constexpr std::string_view kName = #cls; \
+    };
+AST_NODE_CLASS_LIST(AST_NODE_CLASS_ENTRY)
+#undef AST_NODE_CLASS_ENTRY
+
+#define AST_NODE_CLASS_ASSERT(name, node_type)                                                                                                   \
+    static_assert(AstNodeClassInfo<node_type>::kKnown, "PARSER_TOKEN_KINDS: kind '" #name "' maps to class '" #node_type                         \
+                                                       "' which is not in AST_NODE_CLASS_LIST; reuse an existing AST node class for a new kind " \
+                                                       "(do not introduce a new class per kind)");
+PARSER_TOKEN_KINDS(AST_NODE_CLASS_ASSERT)
+#undef AST_NODE_CLASS_ASSERT
+
+namespace detail {
+
+/// Индекс класса в каноническом списке (для проверки «нет мёртвых классов»).
+#define AST_CLASS_ID_ENTRY(cls) k##cls,
+enum class AstClassId : std::size_t { AST_NODE_CLASS_LIST(AST_CLASS_ID_ENTRY) kCount };
+#undef AST_CLASS_ID_ENTRY
+
+template <class T>
+struct AstClassIdOf;
+
+#define AST_CLASS_ID_SPEC(cls)                                  \
+    template <>                                                 \
+    struct AstClassIdOf<cls> {                                  \
+        static constexpr AstClassId value = AstClassId::k##cls; \
+    };
+AST_NODE_CLASS_LIST(AST_CLASS_ID_SPEC)
+#undef AST_CLASS_ID_SPEC
+
+constexpr std::size_t kAstClassCount = static_cast<std::size_t>(AstClassId::kCount);
+
+/// Массив «класс используется хотя бы одним kind» - заполняется из PARSER_TOKEN_KINDS.
+constexpr std::array<bool, kAstClassCount> astClassUsed() noexcept {
+    std::array<bool, kAstClassCount> used{};
+#define AST_CLASS_MARK(name, node_type) used[static_cast<std::size_t>(AstClassIdOf<node_type>::value)] = true;
+    PARSER_TOKEN_KINDS(AST_CLASS_MARK)
+#undef AST_CLASS_MARK
+    return used;
+}
+
+constexpr std::array<bool, kAstClassCount> kAstClassUsed = astClassUsed();
+
+template <std::size_t... I>
+constexpr bool allAstClassesUsed(std::index_sequence<I...>) noexcept {
+    return (kAstClassUsed[I] && ...);
+}
+
+static_assert(allAstClassesUsed(std::make_index_sequence<kAstClassCount>{}),
+              "AST_NODE_CLASS_LIST contains a class that no PARSER_TOKEN_KINDS kind maps to (dead AST node class)");
+
+} // namespace detail
 
 using AstNodePtr = std::shared_ptr<AstNodeBase>;
 

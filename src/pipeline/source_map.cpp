@@ -52,7 +52,7 @@ static std::string cppStringEscape(const std::string& s) {
 }
 
 bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::filesystem::path& cppt_path, bool verbose, const std::vector<ExportEntry>& exports,
-                              bool embed_export_table, const std::string& program_record, bool embed_source_map) {
+                              bool embed_export_table, const std::string& program_record, bool embed_source_map, const std::string& trust_options) {
     namespace fs = std::filesystem;
     {
         // -- Шапка автогенерируемого файла (1-я строка) --
@@ -63,7 +63,13 @@ bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::files
         // Текст LICENSE в выходной файл НЕ встраивается - лицензия просто копируется
         // в каталог сборки (ниже), рядом с Makefile/build.conf.
         std::string prefix;
-        prefix += "// This file was generated automatically by TrustLang " TRUST_VERSION " on " + currentTimestamp() + "\n\n";
+        prefix += "// This file was generated automatically by TrustLang " TRUST_VERSION " on " + currentTimestamp() + "\n";
+        // Строка фактически заданных codegen-опций (трассируемость) - только при непустых опциях,
+        // чтобы дефолтные сборки оставались неизменными. Входит в prefix (учитывается source-map).
+        if (!trust_options.empty()) {
+            prefix += "// trust-options: " + trust_options + "\n";
+        }
+        prefix += "\n";
         ctx.source().output_prepend_leading(cpp_idx, prefix);
 
         std::string cpp_content = ctx.source().output_result(cpp_idx);
@@ -118,6 +124,8 @@ bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::files
             }
             cpp_content += "static const __trust_export_entry __trust_export_entries[] = {\n";
             for (const auto& entry : exports) {
+                // Адрес символа: перегруженные функции имеют УНИКАЛЬНОЕ C++-имя (суффикс сигнатуры),
+                // поэтому `&::<cppName>` однозначен и специальных приведений не нужно.
                 cpp_content += std::format("    {{ \"{}\", reinterpret_cast<void*>(&::{}) }},\n", entry.trustName, entry.cppName);
             }
             cpp_content += "};\n\n";

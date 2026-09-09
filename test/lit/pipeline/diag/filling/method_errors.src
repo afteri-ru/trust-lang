@@ -1,0 +1,15 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# FILLING у вызова метода: ошибки проверяются ТЕМ ЖЕ примитивом, что у функций.
+# CHECK: error: аргументы вызова: многоточие обязано быть последним
+# CHECK: error: аргументы вызова: явных элементов (3) больше, чем позиций (2)
+:Calc ::= :Class{
+    base:Int32 := 100;
+    add(a:Int32, b:Int32):Int32 := { return base + a + b; };
+};
+@main():Int32 := {
+    c:Calc := Calc();
+    c.add(... 7 ..., 1);
+    c.add(1, 2, 3, ... 9 ...);
+    return 0;
+}

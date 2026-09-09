@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: printf '#pragma once\n#include <cstdlib>\nstatic int g_freed = 0;\nstruct CountDel { void operator()(int* p) const { ++g_freed; std::free(p); } };\nstatic int* test_alloc() { return static_cast<int*>(std::malloc(sizeof(int))); }\nstatic int freed_count() { return g_freed; }\n' > $TD/countdel.hpp
+# RUN: %trust -q --temp-dir $TD --options "-I$TD" -o $TD/move_release %s
+# RUN: $TD/move_release > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: freed_after_move=1
+
+# `@move(h)` (→ `h :=: _`) перемещает владение в discard: временное материализуется и сразу
+# разрушается, поэтому deleter вызывается СРАЗУ (до конца области видимости): freed=1.
+@include("countdel.hpp")
+CountDel ::= %CountDel { };
+alloc_handle():@[reftype(ptr)@] Int32 := %test_alloc...;
+freed():Int32 := %freed_count...;
+
+@main():Int32 := {
+    h : @[reftype("unique")@] @[deleter(CountDel)@] Int32 := alloc_handle();
+    @print('freed_before_move={}\n', freed());
+    @move(h);
+    @print('freed_after_move={}\n', freed());
+    return 0;
+};

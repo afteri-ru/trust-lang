@@ -6,9 +6,9 @@
 
 #include "ast/lowering.hpp"
 
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
 #include "ast/ident_name.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "syntax/term.h"
 #include "types/registry.hpp"
 #include "types/type_names.hpp"
@@ -106,6 +106,7 @@ bool captureIsScopeKind(ParserToken::Kind k) noexcept {
     case ParserToken::Kind::TryCatchStmt:
     case ParserToken::Kind::CatchBlock:
     case ParserToken::Kind::ClassDecl:
+    case ParserToken::Kind::StructDecl:
         return true;
     default:
         return false;
@@ -408,12 +409,13 @@ void AstNodeBase::lower(AstNodePtr&, LowerCtx&) {
 }
 
 void Sequence::lower(AstNodePtr&, LowerCtx& ctx) {
-    // DictLiteral / Tuple / RangeExpr - это Sequence структурно, но их m_body - это операнды
-    // (у кортежа/конструкции: [имя=значение, ...]; у диапазона: [start, stop, (step)]),
-    // а НЕ список операторов. Поэтому НЕ оборачиваем детей в SemicolonStmt (иначе каждый
-    // элемент получил бы ';'), а понижаем их рекурсивно как выражения.
+    // DictLiteral / Tuple / RangeExpr / Filling / Ellipsis - это Sequence структурно, но их m_body -
+    // это ОПЕРАНДЫ (у кортежа/конструкции: [имя=значение, ...]; у диапазона: [start, stop, (step)];
+    // у FILLING `... expr ...` и раскрытия `... expr`: [expr]), а НЕ список операторов. Поэтому НЕ
+    // оборачиваем детей в SemicolonStmt (иначе элемент/операнд получил бы лишнюю ';'), а понижаем их
+    // рекурсивно как выражения.
     if (m_kind == ParserToken::Kind::DictLiteral || m_kind == ParserToken::Kind::Tuple || m_kind == ParserToken::Kind::RangeExpr ||
-        m_kind == ParserToken::Kind::NativeRefMakeExpr || m_kind == ParserToken::Kind::NativeRefTakeExpr) {
+        m_kind == ParserToken::Kind::Filling || m_kind == ParserToken::Kind::Ellipsis) {
         for (auto& child : m_body) {
             lowerNode(child, ctx);
         }
@@ -440,6 +442,17 @@ void ScopeBlock::lower(AstNodePtr&, LowerCtx& ctx) {
 
 void ModuleNode::lower(AstNodePtr&, LowerCtx& ctx) {
     lowerBody(m_body, ctx);
+}
+
+void RecordDecl::lower(AstNodePtr&, LowerCtx& ctx) {
+    // Члены тела (поля/методы): тела методов - список операторов, требует lowering
+    // (SemicolonStmt для операторов-выражений). Базы (m_baseTypes) - тип-ссылки.
+    if (!m_body.has_value()) {
+        return;
+    }
+    for (auto& member : *m_body) {
+        lowerNode(member, ctx);
+    }
 }
 
 void FuncDecl::lower(AstNodePtr&, LowerCtx& ctx) {

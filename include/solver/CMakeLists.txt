@@ -6,13 +6,15 @@ set(SOLVER_SOURCES
     ${PROJECT_SOURCE_DIR}/solver/sort_mapper.cpp
     ${PROJECT_SOURCE_DIR}/solver/solver.cpp
     ${PROJECT_SOURCE_DIR}/solver/trust_to_smt.cpp
+    ${PROJECT_SOURCE_DIR}/solver/smt_expr_enc.cpp
+    ${PROJECT_SOURCE_DIR}/solver/smt_stmt_enc.cpp
 )
 
 # Always build the base solver library (printer + stub + AST→SMT bridge)
 add_library(solver_lib STATIC ${SOLVER_SOURCES})
 
 # Мост AST→SMT (TrustToSmt) переводит trust-конструкции: нужны ast/semantic (символы) и types.
-target_link_libraries(solver_lib PUBLIC diag_lib semantic_lib)
+target_link_libraries(solver_lib PUBLIC diag_lib semantic_lib session_lib sourcemap_lib)
 target_include_directories(solver_lib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(WITH_SOLVER)
@@ -26,3 +28,6 @@ if(WITH_SOLVER)
 else()
     message(STATUS "Solver: stub only (use -DWITH_SOLVER=ON for Z3)")
 endif()
+
+# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
+target_link_libraries(solver_lib PRIVATE trust_pch)

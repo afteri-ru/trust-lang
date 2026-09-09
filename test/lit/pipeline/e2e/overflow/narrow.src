@@ -1,0 +1,39 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/narrow %s
+# RUN: $TD/narrow > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: int8-caught
+# CHECK: int16-caught
+# CHECK: inferred-caught
+
+# Контроль переполнения по ТИПУ ПРИЁМНИКА: узкие знаковые цели (Int8/Int16) и
+# inferred-цели (расширяются до типа операции) ловятся trust-блоком {- ... -}.
+
+%chk():Void := {
+    a:Int8 := 127;
+    {-
+        a += 1;
+    -};
+    print('int8-caught');
+
+    b:Int16 := 32767;
+    {-
+        b += 1;
+    -};
+    print('int16-caught');
+
+    c := 1;
+    d := 0;
+    {-
+        while (d < 10) {
+            c *= 1000000000;
+            d += 1;
+        };
+    -};
+    print('inferred-caught');
+};
+{% int narrow__main__() {
+    chk();
+    return 0;
+}
+%}

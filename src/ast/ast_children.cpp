@@ -3,7 +3,7 @@
 // children(), а также базовые HasText-конструктор и applyReadonlyFromCaret.
 // Выделено из ast_nodes.cpp (модуль ast_children).
 #include "ast/ast_nodes.hpp"
-#include "ast/attr_pool.hpp"
+#include "attrs/attr_pool.hpp"
 #include "ast/term_to_ast.hpp"
 #include "ast/token_type.hpp"
 #include "syntax/term.h"
@@ -29,19 +29,28 @@ void AstNodeBase::collectChildren(std::vector<AstNodePtr*>& out) {
     case ParserToken::Kind::RangeExpr:
     case ParserToken::Kind::RefMakeExpr:
     case ParserToken::Kind::RefTakeExpr:
-    case ParserToken::Kind::NativeRefMakeExpr:
-    case ParserToken::Kind::NativeRefTakeExpr:
     case ParserToken::Kind::RefLockExpr:
     case ParserToken::Kind::RefLockDeref:
     case ParserToken::Kind::Ellipsis:
+    case ParserToken::Kind::Filling:
     case ParserToken::Kind::CatchBlock:
     case ParserToken::Kind::EnumDecl:
     case ParserToken::Kind::EnumMember:
-    case ParserToken::Kind::StructDecl:
     case ParserToken::Kind::StructField: {
         auto& s = static_cast<Sequence&>(*this);
         for (auto& c : s.m_body) {
             out.push_back(&c);
+        }
+        break;
+    }
+    // -- RecordDecl (Struct/Class): члены тела (поля/методы). Базы (m_baseTypes) НЕ входят
+    //    в children: это тип-ссылки, их обходит/резолвит семантика объявления, а не generic-обход.
+    case ParserToken::Kind::StructDecl: {
+        auto& n = static_cast<RecordDecl&>(*this);
+        if (n.m_body) {
+            for (auto& c : *n.m_body) {
+                out.push_back(&c);
+            }
         }
         break;
     }

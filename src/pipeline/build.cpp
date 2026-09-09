@@ -3,6 +3,7 @@
 // сгенерированного .cppt через make. Модуль BuildManager (декомпозиция pipeline.cpp).
 #include "pipeline/build.hpp"
 #include "pipeline/io.hpp"
+#include "pipeline/run.hpp"
 #include "pipeline/runtime_locator.hpp"
 #include "utils/io.hpp"
 #include "utils/utils.hpp"
@@ -107,8 +108,12 @@ bool writeBuildFiles(const PipelineOpts& opts, const std::filesystem::path& cppt
             trust::errs() << "error: failed to create entry file: " << main_cppt_path << "\n";
             return false;
         }
-        main_ofs << "// This file was generated automatically by TrustLang " TRUST_VERSION " on " << currentTimestamp() << "\n"
-                 << "// Generated entry point by trust pipeline\n"
+        main_ofs << "// This file was generated automatically by TrustLang " TRUST_VERSION " on " << currentTimestamp() << "\n";
+        const std::string trust_opts = codegenArgsRecord(opts);
+        if (!trust_opts.empty()) {
+            main_ofs << "// trust-options: " << trust_opts << "\n";
+        }
+        main_ofs << "// Generated entry point by trust pipeline\n"
                  << "// Module: " << cppt_path.filename().string() << "\n\n";
         main_ofs << buildEntryMainSource(opts, usesStackCheck, usesSync, entry_func_name, entry_params);
         if (opts.verbose) {

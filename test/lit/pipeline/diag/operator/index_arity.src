@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Арность: member `[]` - ровно один параметр (C++17/20); сравнения - один (member) / два (free).
+:P ::= :Class{
+    x: Int32 := _;
+    `[]`(a: Int32, b: Int32): Int32 := { return a; };
+};
+# CHECK: error: operator '[]' in this form expects 1 parameter(s), got 2

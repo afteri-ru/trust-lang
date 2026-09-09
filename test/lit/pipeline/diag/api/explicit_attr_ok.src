@@ -1,0 +1,6 @@
+# RUN: %trust -q -Wsigil=ignore --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Граница API: явный @[reftype(...)] на уровне модуля ДОПУСТИМ (в отличие от короткого маркера).
+g : @[reftype("shared")@] Int32 := 5;
+@main():Int32 := { return *g; };
+# CHECK: trust::Shared<int32_t> c_g(5);

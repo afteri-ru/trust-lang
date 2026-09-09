@@ -4,7 +4,20 @@
 #include "diag/options.hpp"
 #include "semantic/diag.hpp"
 
+#include <string>
+#include <string_view>
+
 namespace trust {
+
+namespace {
+// Имя без служебного сигила локальности ('$x' → 'x') для читаемых диагностик.
+std::string lintDisplayName(std::string_view name) {
+    if (!name.empty() && name.front() == '$') {
+        return std::string(name.substr(1));
+    }
+    return std::string(name);
+}
+} // namespace
 
 LintHook::LintHook(AnalysisContext& actx)
 : m_actx(actx)
@@ -16,15 +29,17 @@ LintHook::LintHook(AnalysisContext& actx)
 
 void LintHook::onDeclare(const Symbol& sym) {
     // Линтуются переменные и параметры функций (ранее - символы с VariableSymbolData).
+    // Имя нормализуется (сигил локальности '$' отбрасывается) и в объявлении, и в
+    // использовании (onResolve) - иначе ключи не совпадут.
     if (sym.decl && (sym.decl->kind() == ParserToken::Kind::VarDecl || sym.decl->kind() == ParserToken::Kind::ArgNode)) {
         const bool is_parameter = (sym.decl->kind() == ParserToken::Kind::ArgNode);
-        m_declared[sym.name] = {is_parameter, sym.decl->range()};
+        m_declared[lintDisplayName(sym.name)] = {is_parameter, sym.decl->range()};
     }
 }
 
 void LintHook::onResolve(const AstNodeBase&, const Symbol* sym) {
     if (sym) {
-        m_used.insert(sym->name);
+        m_used.insert(lintDisplayName(sym->name));
     }
 }
 

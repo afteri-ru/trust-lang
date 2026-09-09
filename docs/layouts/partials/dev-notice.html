@@ -1,0 +1,17 @@
+{{ if site.Params.dev_notice.enabled }}
+{{ if eq site.Language.Lang "ru" }}
+<div class="pageinfo pageinfo-primary" role="note">
+  <p><strong>Разделы сайта находятся в разработке.</strong></p>
+  <p>Материалы могут быть неполными или содержать ошибки.
+  Содержимое сайта будет синхронизировано с реализацией при выходе следующей версии,
+  тогда как текущая (0.6.0) предназначена для прототипирования синтаксиса и создания <a href="/ru/playground/">песочницы</a>.</p>
+</div>
+{{ else }}
+<div class="pageinfo pageinfo-primary" role="note">
+  <p><strong>The site sections are under development.</strong></p>
+  <p>The materials may be incomplete or contain errors.
+  The site content will be synchronized with the implementation in the next release,
+  while the current version (0.6.0) is intended for syntax prototyping and for creating the <a href="/en/playground/">playground</a>.</p>
+</div>
+{{ end }}
+{{ end }}

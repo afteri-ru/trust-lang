@@ -11,12 +11,12 @@
 //
 // ЭТАЛОН реализации анализатора - ContextMacroExpander (semantic/macro_expander.hpp):
 // минимальный рабочий хук с мутирующим onNode(AstNodePtr&) и чтением query-сервисов
-// AnalysisContext (namespacePath/currentFunc/resolveType/...). Новые анализаторы
+// AnalysisContext (namespacePath/currentFunc/resolveTypeRef/...). Новые анализаторы
 // (эффекты, @trust, линт) пишутся по его образцу - см. semantic/MEMORY.md
 // «Как написать анализатор».
 
 #include "diag/options.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "semantic/diag.hpp"
 #include "ast/ast_nodes.hpp"
 

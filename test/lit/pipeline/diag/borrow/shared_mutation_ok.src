@@ -1,0 +1,12 @@
+# RUN: %trust -q --emit-cpp -Wborrow-owner-mutated=error -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out --implicit-check-not='while it is borrowed'
+
+# Мутация `shared`-владельца при живом `weak`-наблюдателе - ШТАТНОЕ поведение (разделяемый
+# указатель на одни данные), НЕ нарушение заимствования. R6 (`-Wborrow-owner-mutated`) относится
+# только к эксклюзивному владельцу (`unique`).
+@main() := {
+    &* x := 5;
+    &? w := & x;
+    x = 42;               # shared: допустимо (не ошибка)
+    @print('{}\n', *w);
+}
+# CHECK: This file was generated automatically

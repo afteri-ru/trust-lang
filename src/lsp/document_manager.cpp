@@ -1,6 +1,6 @@
 #include "lsp/document_manager.hpp"
 
-#include "diag/mapper.hpp"
+#include "sourcemap/mapper.hpp"
 #include "utils/file_io.hpp"
 #include "utils/uri.hpp"
 

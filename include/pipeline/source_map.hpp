@@ -17,8 +17,10 @@ namespace trust {
 /// embed_source_map=false — не встраивать `#embed "<name>.src_map"` в C++-файл
 /// (сам файл `.src_map` записывается ВСЕГДА). Управляется флагом `-fsourcemap`/`-fno-sourcemap`.
 /// program_record — запись кеша --run (первая строка ВСЕГДА версия компилятора).
+/// trust_options — строка фактически заданных codegen-опций (пишется в шапку `.cppt` как
+/// `// trust-options: ...`, если непустая; для трассируемости, кеш не затрагивает).
 bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::filesystem::path& cppt_path, bool verbose,
                               const std::vector<ExportEntry>& exports = {}, bool embed_export_table = true, const std::string& program_record = {},
-                              bool embed_source_map = true);
+                              bool embed_source_map = true, const std::string& trust_options = {});
 
 } // namespace trust

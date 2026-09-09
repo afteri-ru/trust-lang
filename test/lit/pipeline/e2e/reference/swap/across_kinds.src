@@ -9,8 +9,8 @@
 # *(c_x.lock()) (Locker); оба дают T&, std::swap обменивает данные.
 
 @main():Int32 := {
-    &* a := 10:Int32;
-    && b := 20:Int32;
+    && a := 10:Int32;
+    &* b := 20:Int32;
     *a :=: *b;
     print('a={} b={}\n', *a, *b);
     return 0;

@@ -1,0 +1,8 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Stdlib prelude (встроенный trust/iterator.src): тип Iterator<T> доступен без явного импорта
+# и отображается на trust::AnyIterator<T>; рантайм-заголовок подключается on-use.
+%consume(it : Iterator<Int32>) : Void := ...;
+@main() := { @return 0; }
+# CHECK: #include "stdlib/any_iterator.hpp"
+# CHECK: extern "C" void consume(trust::AnyIterator<int32_t> c_it);

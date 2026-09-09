@@ -7,7 +7,7 @@
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
 #include "types/intrinsics.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "gtest/gtest.h"
 
 #include <memory>

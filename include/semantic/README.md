@@ -26,12 +26,21 @@ feature-флагами `diag::Options`. Phase 1 охватывает объяв�
 - **Анализатор Lint** - `LintHook` (`semantic/lint.hpp`), gate = `FlagKind::Lint`; сообщает о
   неиспользуемых переменных; режим задаётся строковым значением флага `-Wlint=aggressive`.
 - **Анализ нативных ссылок + отслеживание инвалидации** - `NativeRefHook` (`semantic/nativeref.hpp`),
-  условный атрибут
-  `@[reftrace@]` на класс/тип или метод + автоматическое отслеживание переменных чисто ссылочных
-  типов (kRef/kRref/kPtr/kPtrPtr), индекса `obj[i]` и методов, возвращающих ссылочный тип. Любая
+  атрибут
+  `@[borrowed@]` на класс/тип, метод или переменную (авто-трекинга нет: значение-копии, в т.ч. `obj[i]`, и
+  умные ссылки shared/weak/unique borrowed НЕ отслеживает — для умных ссылок мутация под займом
+  это зона borrow-checker `-Wborrow-*`). Атрибут копируется при создании/присваивании. Любая
   мутация источника (присваивание ИЛИ вызов не-const метода) инвалидирует зависимые, рождённые до
-  неё; использование зависимой после мутации - диагностика severity `-Wreftrace=ignore|warning|error`.
-- **SymbolTable (единая таблица символов)** - стек вложенных скоупов (`semantic/symbol_table.hpp`):
+  неё; использование зависимой после мутации - диагностика severity `-Wborrowed=ignore|warning|error`.
+- **Статический borrow-checker** - `BorrowCheckHook` (`semantic/borrow_check.hpp`), **ВСЕГДА подключён**
+  (гарантия языка/модели памяти; флага включения/выключения нет, настраиваются только уровни
+  диагностик `-Wborrow-<name>=<sev>`):
+  per-frame регионы умных ссылок (`unique`/`shared`/`weak`) из места хранения (`Storage`) и правила
+  заимствования R1/R4/R5/R6; диагностики `borrow-region-mismatch`/`borrow-owner-moved`/
+  `borrow-owner-mutated`/`borrow-static-unproven`. Общий механизм per-frame эпохи мутаций -
+  `semantic/frame_epoch.hpp` (`FrameEpoch`), используется и `NativeRefHook`; R6 — ОСНОВНАЯ диагностика
+  для умных ссылок (borrowed их не отслеживает).
+- **SymbolTable (единая таблица символов)** - стек вложенных скоупов (`analysis/symbol_table.hpp`):
   каждый уровень - `Scope` с `std::map` имён и невладеющим `creator` (узел AST, открывший скоуп);
   глобальный скоуп (уровень 0) - плоская таблица глобальных имён. `push`/`pop`/`declare`/`resolve`/
   `lookup`; `pop` не удаляет глобальный скоуп. Владеется `AnalysisContext` и доступна через
@@ -52,5 +61,9 @@ feature-флагами `diag::Options`. Phase 1 охватывает объяв�
   statement-выражений), `GotoStmt`/`LabelStmt` (метки goto именованных break/continue и
   именованных блоков). Имя текущей функции и стек имён живут в контексте lowering `LowerCtx`
   (в транспиляторе удалены).
+- **Общие продукты анализа — в `include/analysis`** - `SymbolTable`/`Symbol`/`SymbolIndex` вынесены из
+  semantic (их использует и кодоген); здесь остаются драйвер обхода, анализаторы и `AnalysisContext`.
+  Поведенческие режимы (solver/stack-check) принадлежат semantic: value-типы — в `analysis/modes.hpp`,
+  разрешение значений — `semantic::behavioralModesFromOptions` (передаётся в кодоген как данные).
 - **Pipeline position** - расположен между Parser и CppTranspiler; при ошибках семантики
   генерация C++ не запускается.

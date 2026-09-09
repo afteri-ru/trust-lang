@@ -5,8 +5,10 @@
 #include "types/type_names.hpp"
 #include "utils/error.hpp"
 #include "utils/strings.hpp"
+#include <algorithm>
 #include <optional>
 #include <string>
+#include <vector>
 namespace trust {
 
 void TypeRegistry::addMethod(TypeId type, std::string_view name, TypeId funcType, std::vector<std::string_view> aliases) {
@@ -16,15 +18,22 @@ void TypeRegistry::addMethod(TypeId type, std::string_view name, TypeId funcType
     // Полный ключ - как передан (нативность '%' и константность '^' кодируются в имени).
     const std::string key(name);
     EXPECT(!utils::bare_name(key).empty() && "addMethod: empty method name");
-    // Дубликат: то же bare-имя + та же константность (независимо от '%' - нативное и обычное
-    // написание - один метод). const и не-const перегрузки с одинаковыми аргументами - разные.
     const bool isConst = utils::is_const_name(key);
-    for (const auto& [k, ft] : desc->methods) {
-        (void)ft;
-        EXPECT((utils::bare_name(k) != utils::bare_name(key) || utils::is_const_name(k) != isConst) &&
-               "addMethod: method already registered on type (same name+constness)");
+    // Инвариант «одна форма имени»: другой КЛЮЧ с тем же bare-именем и константностью
+    // недопустим (нативное '%c_str' и обычное 'c_str' - один метод, регистрируется ОДНОЙ формой).
+    // Перегрузки - в НАБОРЕ ТОГО ЖЕ ключа (см. ниже).
+    for (const auto& [k, sigs] : desc->methods) {
+        (void)sigs;
+        EXPECT((k == key || utils::bare_name(k) != utils::bare_name(key) || utils::is_const_name(k) != isConst) &&
+               "addMethod: method already registered on type (other name form, same name+constness)");
     }
-    desc->methods[key] = funcType;
+    // Набор сигнатур ключа: ПЕРЕГРУЗКИ добавляются; точный дубль сигнатуры - EXPECT.
+    std::vector<TypeId>& overloads = desc->methods[key];
+    const TypeId sig = structuralType(funcType);
+    for (const TypeId existing : overloads) {
+        EXPECT(structuralType(existing) != sig && "addMethod: method already registered on type (duplicate signature)");
+    }
+    overloads.push_back(sig);
     // Алиасы: новые доверенные имена этого метода. Обязаны полностью повторять семантику цели
     // (нативность и константность совпадают) и не конфликтовать с существующими именами.
     for (const auto& aliasName : aliases) {
@@ -43,28 +52,32 @@ void TypeRegistry::addMethod(TypeId type, std::string_view name, TypeId funcType
 // Поиск метода в одном дескрипторе: алиас (bare → ключ цели) или метод с совпадающим bare-именем
 // (предпочтительно с точным совпадением константности запроса, иначе первый).
 static std::optional<TypeRegistry::MethodRef> findMethodInDescriptor(const TypeDescriptor& desc, std::string_view bare, bool wantConst) {
+    const auto make = [&desc](std::string_view k) -> std::optional<TypeRegistry::MethodRef> {
+        auto m = desc.methods.find(std::string(k));
+        if (m == desc.methods.end() || m->second.empty()) {
+            return std::nullopt;
+        }
+        return TypeRegistry::MethodRef{std::string(k), m->second};
+    };
     if (auto it = desc.methodAliases.find(std::string(bare)); it != desc.methodAliases.end()) {
-        if (auto m = desc.methods.find(it->second); m != desc.methods.end()) {
-            return TypeRegistry::MethodRef{it->second, m->second};
+        if (auto r = make(it->second)) {
+            return r;
         }
     }
-    TypeRegistry::MethodRef fallback;
-    bool have = false;
-    for (const auto& [k, ft] : desc.methods) {
-        if (utils::bare_name(k) == bare) {
-            if (utils::is_const_name(k) == wantConst) {
-                return TypeRegistry::MethodRef{k, ft};
-            }
-            if (!have) {
-                fallback = {k, ft};
-                have = true;
-            }
+    std::optional<TypeRegistry::MethodRef> pref;
+    for (const auto& [k, sigs] : desc.methods) {
+        (void)sigs;
+        if (utils::bare_name(k) != bare) {
+            continue;
+        }
+        if (utils::is_const_name(k) == wantConst) {
+            return make(k);
+        }
+        if (!pref) {
+            pref = make(k);
         }
     }
-    if (have) {
-        return fallback;
-    }
-    return std::nullopt;
+    return pref;
 }
 
 std::optional<TypeRegistry::MethodRef> TypeRegistry::findMethodInfo(TypeId type, std::string_view name) const {
@@ -74,10 +87,27 @@ std::optional<TypeRegistry::MethodRef> TypeRegistry::findMethodInfo(TypeId type,
         return std::nullopt;
     }
     const bool wantConst = utils::is_const_name(name);
-    // Собственный дескриптор типа.
-    if (const TypeDescriptor* desc = descriptorOf(canonical)) {
-        if (auto r = findMethodInDescriptor(*desc, bare, wantConst)) {
-            return r;
+    // Собственный дескриптор типа + базовые классы (наследование Record-типов): метод может быть
+    // унаследован. Обход с защитой от циклов (производный не должен ссылаться на себя).
+    std::vector<TypeId> pending{canonical};
+    std::vector<TypeId> visited;
+    while (!pending.empty()) {
+        const TypeId cur = pending.back();
+        pending.pop_back();
+        if (std::find(visited.begin(), visited.end(), cur) != visited.end()) {
+            continue;
+        }
+        visited.push_back(cur);
+        if (const TypeDescriptor* desc = descriptorOf(cur)) {
+            if (auto r = findMethodInDescriptor(*desc, bare, wantConst)) {
+                return r;
+            }
+            for (const TypeId b : desc->baseClasses) {
+                const TypeId bc = getCanonicalTypeId(b);
+                if (bc != cur) {
+                    pending.push_back(bc);
+                }
+            }
         }
     }
     // Параметризованный Range<Elem> сам методов не несёт: они объявлены ОДИН раз на абстрактном
@@ -101,28 +131,23 @@ std::optional<TypeRegistry::MethodRef> TypeRegistry::findMethodInfo(TypeId type,
     return std::nullopt;
 }
 
-TypeId TypeRegistry::findMethod(TypeId type, std::string_view name) const {
-    const auto m = findMethodInfo(type, name);
-    return m ? m->funcType : INVALID_TYPE_ID;
-}
-
-TypeId TypeRegistry::findStaticMethod(TypeId type, std::string_view name) const {
+std::vector<TypeId> TypeRegistry::findStaticMethod(TypeId type, std::string_view name) const {
     const TypeId canonical = getCanonicalTypeId(type);
     const TypeDescriptor* desc = descriptorOf(canonical);
     if (!desc) {
-        return INVALID_TYPE_ID;
+        return {};
     }
     // Статический член: ключ содержит '::' (вид `ns::Class::name`), имя члена - последний сегмент.
-    for (const auto& [k, ft] : desc->methods) {
+    for (const auto& [k, sigs] : desc->methods) {
         if (!utils::is_static_name(k)) {
             continue;
         }
         const size_t p = k.rfind("::");
         const std::string_view last = (p == std::string_view::npos) ? std::string_view(k) : std::string_view(k).substr(p + 2);
         if (last == name) {
-            return ft;
+            return sigs;
         }
     }
-    return INVALID_TYPE_ID;
+    return {};
 }
 } // namespace trust

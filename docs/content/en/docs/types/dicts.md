@@ -1,53 +1,63 @@
 ---
-title: Словари
-# linkTitle: Docs
-# menu: {main: {weight: 20}}
-weight: 30
-tags: [типы данных, ООП, коллекции]
+title: Dictionaries and sets (enumerations)
+weight: 4
+tags: [types, collections, oop]
 ---
 
+Working examples with the actual behavior of the current version can be run in the playground:
+[dictionary](/en/playground/?file=dict), [dictionary with mixed types](/en/playground/?file=dict_mixed),
+[enumeration and variant](/en/playground/?file=enum_variant).
 
-## Объектно ориентированное программирование
+## Dictionary (:Dictionary)
 
-*TrustLang* поддерживает следующую концепцию объектно-ориентированного программирования:
+A dictionary is a set of data of an arbitrary type with access to elements by an integer index or by the
+name of the element (if present) (it resembles both a tuple and a structure). A dictionary is always
+one-dimensional, but each element can contain an arbitrary number of elements of any type, including
+other dictionaries.
 
-Каждый объект представляет собой отдельный тип данных, который наследуется от другого типа или от одного из его наследников (что очень похоже на концепцию объектов в языке Java), а экземпляр конкретного класса создается путем вызова его типа.
+A dictionary literal is written in parentheses with a mandatory trailing comma:
+`(,)` — an empty dictionary, `(1, two='2', name=3,)`. Access to an element — by name through a dot after the name of
+the variable (`d.name`) or by an integer index (`d[0]`), which starts at 0 and can be
+negative (counting from the end). Modification — by the operator `[]=`; the number of elements — by the method `size()`.
 
-Наследование поддерживается для типов словарь (*:Dictionary*) и класс (*:Class*) и всех их потомков.
+A positional literal without specifying a type (`(1, 2, 3,)`) always creates a dictionary (`:Dictionary`). A dictionary is
+the only universal type: it can be cast to any other type, for which it is enough
+to pass it as an argument to the cast/constructor of the target type (see
+[Type conversion](type_system/)).
 
-### Словарь
+## Enumeration (:Enum) {#enum}
 
-Словарь (*:Dictionary*) - набор данных произвольного типа с доступом к отдельным элементам по целочисленному индексу или по имени элемента при его наличии (это похоже и на tuple и на структуру одновременно). Словари отличаются от [тензоров](https://trust-lang.net/type_nor.html) тем, что всегда имеют только одно измерение, но каждый элемент может содержать произвольное количество элементов любого типа, в том числе и другие словари.
+*Enum* is a type with a limited list of members, each of which has a name and a value. All members have a
+**single** value type, which is inferred by the general rules — from the explicit values of the members or from an explicit
+type annotation. The declaration literal is written in the postfix form `(members,):Enum` or the prefix
+`:Enum(members)` (as for a typed tuple); the trailing comma is mandatory.
 
-Доступ к элементам словаря происходит по имени элемента, которое записывается через точку от имени переменной, либо по целочисленному индексу. Индекс начинается с 0 и как у тензоров, тоже может быть отрицательным (индекс элемента от "конца").
-
+```python
+Status ::= (OK=0, ERROR=1, BUSY=2,):Enum;   # members with explicit values; the value type is Int64
+Color ::= (RED, GREEN, BLUE,):Enum;          # bare members — autoincrement from 0
+Flag  ::= (LOW:Int8, HIGH,):Enum;            # the explicit type of a member sets the value type Int8
 ```
-# Новый тип (класс) :NewClass
-:Dict := :Dictionary() {
-    _ := 1; # У поля данных имя отсутствует
-    two := 2;
-    name := 3; 
-};
-dict := :Dict(); # Экземпляр класса (1, two=2, name=3,):Dict
-dict2 := :Dict(two=42); # Экземпляр класса (1, two=42, name=100,):Dict
-dict3 := dict2(99, name=0); # Копия объекта dict2 (99, two=42, name=0,):Dict
 
+If there are no explicit values, the value type is the minimal signed integer by the number of members; the explicit annotation
+`name:Type` forces the value type (it must be the same for all members). Comparison of
+members is performed **by value**, not by position.
+
+Access to a member — through the type name: `Status.OK`. Classic methods (through the type name):
+`count()` (the number of members), `fromName(name)` (a member by name), `fromValue(value)` (a member by value).
+
+Access to a member (`Status.OK`, `Data.i`) and the methods `count()`/`fromName()`/`fromValue()` are **implemented**
+(example — [enumeration and variant](/en/playground/?file=enum_variant)).
+
+## Variant (:Variant) {#variant}
+
+*Variant* is a heterogeneous type: each member has its **own** data type (an analog of `std::variant`). The type of a member
+is set by an explicit annotation (`name:Type`) or inferred from its value; for a bare member without a type,
+the minimal signed integer by position is taken.
+
+```python
+Data ::= (i=42, s='text', r=1\2,):Variant;  # member types: Int8, StrChar, Rational
+V    ::= (X:Int64=7, Y:Rational,):Variant;  # explicit member types
 ```
 
-*В будущем можно будет добавить возможность указывать индексы элементов словаря с помощь диапазонов*
-```
-$dict = :Dict[10](first=1, 4..4 = 29, 2..3 = 15, , 2..3 = 15, 7..9..2 = 7); #(first=1, 0, 15, 15, 29, 0, 0, 7, 0, 7,)
-```
-
-
-#### Словарь как литерал
-Литерал с типом «словарь» в тексте программы записывается в круглых скобках с обязательной завершающей запятой, т. е. `(,)` - пустой словарь, `(1, 2= «2», name=3,)`. Для указания конкретного типа объекта у литерала, его необходимо указать после закрывающей скобки, т.е. `(1, two= «2», name=3,):Dict`.
-
-Важный момент! Хоть такой объект и будет иметь указанный тип, но он будет "неполноценным" и содержать только те данные, которые были явно указаны в скобках, что не гарантирует корректного создания реального объекта, т.к. для создания "правильного" объекта требуется вызвать его тип, т.е. `:Dict();`
-
-Такой способ создания литералов классов используется в основном в различных операциях сравнения типов и "утиной типизации", т.к. не требует доступа к рантайму, да и сам класс может быть не определен.
-
-### Перечисление, структура и объединение
-
-Существуют три отдельных типа данных, *:Enum*, *:Struct* и *:Union* - которые так же являются словарями, но на их элементы накладываются определённые ограничения. Каждый элемент должен иметь уникальное имя, а его тип данных должен быть простым, т.е. числом или строкой фиксированного размера. Эти типы данных одновременно относятся к группе [нативных типов](/en/docs/types/native/) и могут быть представлены в двоичном виде в одной области машинной памяти.
-
+Access to a member — through the type name: `Data.i` (the type is the type of the concrete member). A classic method:
+`count()` (the number of members).

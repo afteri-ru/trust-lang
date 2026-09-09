@@ -341,22 +341,261 @@ TypeId TypeRegistry::instantiateArrayMethod(TypeId objType, TypeId templateFuncT
     return substituteElementParam(*this, elem, templateFuncType);
 }
 
-TypeId TypeRegistry::getOrCreateRefType(RefType kind, TypeId pointee) {
-    // Составной ссылочный узел: отдельная группа kReftype (Data=1, RefType=вид), один
-    // ребёнок pointee. Интернируется структурно по TypeKey{kind, children} - ссылка на
-    // уже ссылочный тип (shared<ptr<Int32>>) получает свой узел, а не перезаписывает бит.
+TypeId TypeRegistry::getOrCreateRefType(RefType kind, TypeId pointee, TypeId deleter, TypeId accessPolicy, TypeId impl) {
+    // Составной ссылочный узел: отдельная группа kReftype (Data=1, RefType=вид), дети - pointee
+    // (+ deleter для unique: D входит в тип; + accessPolicy: политика входит в тип;
+    // + impl: класс реализации механизма доступа входит в тип).
+    // Интернируется структурно по TypeKey{kind, children} - ссылка на уже ссылочный тип
+    // (shared<ptr<Int32>>) получает свой узел, а не перезаписывает бит; unique<T,D1> != unique<T,D2>.
     TypeKind refType = makeTypeKind(Group::kReftype, 1, TypeClass::kTrivial, kind);
-    RefTypeData data{pointee};
-    return getOrCreateStructuralType("", refType, {pointee}, std::move(data));
+    RefTypeData data{pointee, deleter, accessPolicy, impl};
+    std::vector<TypeId> children{pointee};
+    if (deleter != INVALID_TYPE_ID) {
+        children.push_back(deleter);
+    }
+    if (accessPolicy != INVALID_TYPE_ID) {
+        children.push_back(accessPolicy);
+    }
+    if (impl != INVALID_TYPE_ID) {
+        children.push_back(impl);
+    }
+    return getOrCreateStructuralType("", refType, std::move(children), std::move(data));
 }
 
 TypeId TypeRegistry::applyRefType(TypeId base, RefType kind) {
-    // Первая ссылка на тип без признака - fast-path бит. withRefType работает с TypeKind
-    // (uint32) и обнуляет registry_index, поэтому пересобираем TypeId, сохраняя нижние
-    // 32 бита (registry_index + kInferredFlag/kConstFlag). Вложенность - составной узел.
-    if (getRefType(getKindFromId(base)) == RefType::kValue) {
-        return (static_cast<uint64_t>(withRefType(getKindFromId(base), kind)) << 32) | (static_cast<uint32_t>(base) & 0xFFFFFFFFu);
+    // Fast-path бит допустим ТОЛЬКО когда base - не алиас: иначе канонизация (getCanonicalTypeId)
+    // разворачивает baseType и теряет вид ссылки, а C++-имя pointee обязано остаться «как написано»
+    // (`shared<MyInt>` → trust::Shared<c_MyInt>, а не канонический int32_t). Алиас (baseType != INVALID)
+    // и вложенность - составной узел RefTypeData с pointee = base как написан.
+    const bool alreadyRef = getRefType(getKindFromId(base)) != RefType::kValue;
+    const bool isAlias = getBaseType(base) != INVALID_TYPE_ID;
+    if (!alreadyRef && !isAlias) {
+        // withRefType работает с TypeKind (uint32) и обнуляет registry_index, поэтому пересобираем
+        // TypeId через replaceKind, сохраняя нижние 32 бита (registry_index + kSymbolFlagsMask-флаги).
+        return replaceKind(base, withRefType(getKindFromId(base), kind));
     }
-    return getOrCreateRefType(kind, base);
+    // Структурный узел: child обязан быть без поведенческих флагов (инвариант интернирования,
+    // getOrCreateStructuralType); флаги исходного base переносим на результат (как в fast-path).
+    const TypeId node = getOrCreateRefType(kind, clearSymbolFlags(base));
+    return (node & ~kSymbolFlagsMask) | (base & kSymbolFlagsMask);
+}
+
+TypeId TypeRegistry::applyRefType(TypeId base, RefType kind, TypeId deleter, TypeId accessPolicy, TypeId impl) {
+    // С deleter/policy/impl тип ВСЕГДА структурный узел: TypeKind (uint32) не хранит TypeId D/Policy/Impl,
+    // а для unique D и для sync Policy/Impl входят в тип. Без них - обычный путь (fast-path/вложенность).
+    if (deleter == INVALID_TYPE_ID && accessPolicy == INVALID_TYPE_ID && impl == INVALID_TYPE_ID) {
+        return applyRefType(base, kind);
+    }
+    // Структурный узел: child обязан быть без поведенческих флагов (инвариант интернирования);
+    // флаги исходного base (const/inferred/uninit) переносим на результат (как в 2-арг пути).
+    const TypeId node = getOrCreateRefType(kind, clearSymbolFlags(base), deleter, accessPolicy, impl);
+    return (node & ~kSymbolFlagsMask) | (base & kSymbolFlagsMask);
+}
+
+// -- Пользовательские шаблон-классы (`<T> :Box ::= :Class{...}`) -----------------------------
+
+TypeId TypeRegistry::getOrCreateTemplateParamType(std::string_view name) {
+    // Структурная идентичность параметра - по имени (TypeKey::names); якорный child - встроенный
+    // TemplateParam (getOrCreateStructuralType требует names.size()==children.size()).
+    // Data=1 отличает идентификатор параметра от абстрактного встроенного :TemplateParam (Data=0).
+    TypeKind kind = makeTypeKind(Group::kTemplateParam, 1);
+    TemplateParamTypeData data{std::string(name)};
+    return getOrCreateStructuralType("", kind, {getType(type_category::TemplateParam)}, std::move(data), "", {std::string(name)});
+}
+
+bool TypeRegistry::isTemplateParamType(TypeId id) const noexcept {
+    return getGroup(getKindFromId(getCanonicalTypeId(id))) == Group::kTemplateParam;
+}
+
+std::string_view TypeRegistry::templateParamName(TypeId id) const noexcept {
+    const auto* td = getTypeDataAs<TemplateParamTypeData>(getCanonicalTypeId(id));
+    return td ? std::string_view(td->name) : std::string_view{};
+}
+
+bool TypeRegistry::isRecordTemplate(TypeId id) const noexcept {
+    const auto* rd = getTypeDataAs<RecordTypeData>(getCanonicalTypeId(id));
+    if (rd != nullptr) {
+        return !rd->templateParams.empty();
+    }
+    // Объявленный, но не определённый шаблон: параметры живут в m_declaredRecords.
+    if (auto it = m_declaredRecords.find(id); it != m_declaredRecords.end()) {
+        return !it->second.empty();
+    }
+    return false;
+}
+
+const std::vector<TypeId>& TypeRegistry::recordTemplateParams(TypeId id) const noexcept {
+    static const std::vector<TypeId> kEmpty;
+    if (const auto* rd = getTypeDataAs<RecordTypeData>(getCanonicalTypeId(id))) {
+        return rd->templateParams;
+    }
+    if (auto it = m_declaredRecords.find(id); it != m_declaredRecords.end()) {
+        return it->second;
+    }
+    return kEmpty;
+}
+
+// Единая подстановка типовых параметров в произвольный тип (поля/базы/сигнатуры методов).
+TypeId TypeRegistry::substituteTypeParams(const std::vector<std::pair<TypeId, TypeId>>& mapping, TypeId type) {
+    if (type == INVALID_TYPE_ID || mapping.empty()) {
+        return type;
+    }
+    for (const auto& [from, to] : mapping) {
+        if (type == from) {
+            return to;
+        }
+    }
+    const TypeId canonical = getCanonicalTypeId(type);
+    // Fast-path ref-вид (первая ссылка на тип без структурного узла): вид лежит в TypeKind, а
+    // TypeData отсутствует, поэтому ветки ниже не сработали бы и `shared<T>` в шаблоне НЕ
+    // подставился бы. Снимаем вид, подставляем pointee, применяем вид заново.
+    {
+        const RefType fastKind = getRefType(getKindFromId(canonical));
+        if (fastKind != RefType::kValue && getTypeDataAs<RefTypeData>(canonical) == nullptr) {
+            const TypeId pointee = getPointeeType(canonical);
+            return applyRefType(substituteTypeParams(mapping, pointee), fastKind);
+        }
+    }
+    // ВАЖНО: рекурсивные подстановки мутируют реестр (getOrCreate* пушат в m_descriptors →
+    // реаллокация), поэтому указатели getTypeDataAs нельзя держать между вызовами - снимаем
+    // нужные поля в ЛОКАЛЬНЫЕ копии ДО рекурсии.
+    // Функциональная сигнатура (метод): возврат/параметры/variadic.
+    if (const auto* fd = getTypeDataAs<FunctionTypeData>(canonical)) {
+        const TypeId ret0 = fd->returnType;
+        const TypeId var0 = fd->variadicType;
+        const std::vector<TypeId> p0 = fd->paramTypes;
+        std::vector<TypeId> params;
+        params.reserve(p0.size());
+        for (const TypeId p : p0) {
+            params.push_back(substituteTypeParams(mapping, p));
+        }
+        const TypeId ret = substituteTypeParams(mapping, ret0);
+        const TypeId var = substituteTypeParams(mapping, var0);
+        return getOrCreateFunctionType(ret, std::move(params), var);
+    }
+    // Ссылочный узел (shared<T>/unique<T,...> и пр.).
+    if (const auto* rd = getTypeDataAs<RefTypeData>(canonical)) {
+        const RefType rk = getRefType(getKindFromId(canonical));
+        const TypeId pointee0 = rd->pointeeType;
+        const TypeId deleter0 = rd->deleterType;
+        const TypeId policy0 = rd->accessPolicyType;
+        const TypeId impl0 = rd->implType;
+        return getOrCreateRefType(rk, substituteTypeParams(mapping, pointee0), substituteTypeParams(mapping, deleter0), substituteTypeParams(mapping, policy0),
+                                  substituteTypeParams(mapping, impl0));
+    }
+    // Array<Elem> (размерности не зависят от параметра).
+    if (const auto* ad = getTypeDataAs<ArrayTypeData>(canonical)) {
+        const TypeId elem0 = ad->elementType;
+        const std::vector<uint64_t> dims = ad->dimensions;
+        return getOrCreateArrayType(substituteTypeParams(mapping, elem0), dims);
+    }
+    // Range<Elem> (TemplateTypeData).
+    if (const auto* td = getTypeDataAs<TemplateTypeData>(canonical)) {
+        if (!td->args.empty()) {
+            const TypeId elem0 = td->args[0];
+            return getOrCreateRangeType(substituteTypeParams(mapping, elem0));
+        }
+    }
+    // Нативный шаблон-тип (`std::pair<T,U>`).
+    if (const auto* nt = getTypeDataAs<NativeTemplateTypeData>(canonical)) {
+        const std::string cppTpl = nt->cppTemplate;
+        const std::vector<TypeId> a0 = nt->args;
+        std::vector<TypeId> args;
+        args.reserve(a0.size());
+        for (const TypeId a : a0) {
+            args.push_back(substituteTypeParams(mapping, a));
+        }
+        return getOrCreateNativeTemplateType(cppTpl, std::move(args), getPreprocInclude(canonical));
+    }
+    // Вложенная инстанциация record-шаблона (напр. база `Base<:T>`).
+    if (const auto* rec = getTypeDataAs<RecordTypeData>(canonical)) {
+        if (rec->templateOf != INVALID_TYPE_ID) {
+            const TypeId tmplOf0 = rec->templateOf;
+            const std::vector<TypeId> a0 = rec->templateArgs;
+            std::vector<TypeId> args;
+            args.reserve(a0.size());
+            for (const TypeId a : a0) {
+                args.push_back(substituteTypeParams(mapping, a));
+            }
+            return getOrCreateRecordTemplateInstance(tmplOf0, std::move(args));
+        }
+    }
+    return type;
+}
+
+TypeId TypeRegistry::getOrCreateRecordTemplateInstance(TypeId templateId, std::vector<TypeId> args) {
+    const TypeId tmpl = getCanonicalTypeId(templateId);
+    const std::vector<TypeId> params = recordTemplateParams(tmpl);
+    EXPECT(!params.empty() && "getOrCreateRecordTemplateInstance: not a record template");
+    EXPECT(params.size() == args.size() && "getOrCreateRecordTemplateInstance: template arity mismatch");
+    for (const TypeId a : args) {
+        EXPECT(!testFlag(a, SymbolFlag::Inferred) && "record template arg must not carry the inferred bit");
+        EXPECT(!testFlag(a, SymbolFlag::Const) && "record template arg must not carry the const bit");
+        EXPECT(!testFlag(a, SymbolFlag::Uninit) && "record template arg must not carry the uninit bit");
+    }
+    std::vector<std::pair<TypeId, TypeId>> mapping;
+    mapping.reserve(args.size());
+    for (size_t i = 0; i < args.size(); ++i) {
+        mapping.emplace_back(params[i], args[i]);
+    }
+    // Идентичность инстанциации: kind (группа шаблона, Data=1) + children = {templateId} + args.
+    // templateId в детях обязателен: иначе Box<Int32> и Pair<Int32> совпали бы по (kind, children).
+    std::vector<TypeId> children;
+    children.reserve(args.size() + 1);
+    children.push_back(tmpl);
+    children.insert(children.end(), args.begin(), args.end());
+
+    std::vector<TupleElementData> fields;
+    // Копия полей ДО подстановки: substituteTypeParams мутирует реестр (реаллокация m_descriptors).
+    // У объявленного (ещё не определённого) шаблона данных нет - поля пусты (self-инстанциация
+    // внутри собственного тела; анализатор схлопывает её на сам шаблон).
+    const RecordTypeData* trd = getTypeDataAs<RecordTypeData>(tmpl);
+    const std::vector<TupleElementData> rawFields = trd != nullptr ? trd->fields : std::vector<TupleElementData>{};
+    fields.reserve(rawFields.size());
+    for (const auto& f : rawFields) {
+        fields.push_back(TupleElementData{f.name, substituteTypeParams(mapping, f.type)});
+    }
+    // Базы/методы/имя шаблона - копируем ДО создания инстанциации: `substituteTypeParams` ниже
+    // мутирует реестр (getOrCreate* пушат в m_descriptors → реаллокация) и указатели на
+    // дескрипторы становятся висячими.
+    std::vector<TypeId> tmplBases = baseClasses(tmpl); // копия (ссылка станет висячей)
+    std::map<std::string, std::vector<TypeId>> tmplMethods;
+    std::map<std::string, std::string> tmplAliases;
+    std::string tmplName;
+    if (const TypeDescriptor* tdesc = descriptorOf(tmpl)) {
+        tmplMethods = tdesc->methods;
+        tmplAliases = tdesc->methodAliases;
+        tmplName = tdesc->name;
+    }
+    std::vector<TypeId> bases;
+    bases.reserve(tmplBases.size());
+    for (const TypeId b : tmplBases) {
+        bases.push_back(substituteTypeParams(mapping, b));
+    }
+    std::map<std::string, std::vector<TypeId>> methods;
+    for (const auto& [key, sigs] : tmplMethods) {
+        std::vector<TypeId> substituted;
+        substituted.reserve(sigs.size());
+        for (const TypeId ft : sigs) {
+            substituted.push_back(substituteTypeParams(mapping, ft));
+        }
+        methods[key] = std::move(substituted);
+    }
+
+    RecordTypeData data{std::move(fields)};
+    data.templateOf = tmpl;
+    data.templateArgs = std::move(args);
+    TypeKind kind = makeTypeKind(getGroup(getKindFromId(tmpl)), 1);
+    const TypeId id = getOrCreateStructuralType("", kind, std::move(children), std::move(data));
+    TypeDescriptor* desc = userDescriptorOf(id);
+    if (desc == nullptr) {
+        return id; // инстанциация - пользовательский структурный тип; сюда попасть не должны
+    }
+    // desc НЕ держим через вызовы реестра - заполняем локальными копиями (реестр уже не мутируем).
+    desc->name = tmplName; // имя для диагностик (в m_name_to_id не регистрируется)
+    desc->baseClasses = std::move(bases);
+    desc->methods = std::move(methods);
+    desc->methodAliases = std::move(tmplAliases);
+    return id;
 }
 } // namespace trust

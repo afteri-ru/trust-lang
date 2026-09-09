@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: type sets in a function parameter type are not implemented yet
+
+# Набор типов в параметре МЕТОДА: распознаётся, разворот отложен.
+:Calc ::= :Class{
+    id(x:(:Int8 + :Int16)):Int64 := { @return :Int64(x); };
+};
+@main() := { @return 0; }

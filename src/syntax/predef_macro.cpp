@@ -3,8 +3,8 @@
 #include "syntax/pragma_evaluator.hpp"
 #include "syntax/term.h"
 
-#include "diag/context.hpp"
-#include "diag/mapper.hpp"
+#include "session/context.hpp"
+#include "sourcemap/mapper.hpp"
 #include "diag/severity.hpp"
 #include "trust/version.h"
 #include "utils/strings.hpp"
@@ -440,6 +440,14 @@ parser::token_type PredefMacroResolver::stampContextMacro(TermPtr& term) {
         // ДО раскрытия: он превращается в единый терм-маркер CheckAreaStmt. Если он доходит
         // сюда (напр. внутри {% %}), раскрывать нечего - оставляем без изменений (ниже ->
         // диагностика «context macro ... cannot be expanded inside {% %}/not implemented»).
+        break;
+
+    case ContextMacroId::Debug:
+    case ContextMacroId::DebugScope:
+        // @__DEBUG__/@__DEBUG_SCOPE__ обрабатываются в PragmaEvaluator::evalDebug (GetNextToken)
+        // ДО раскрытия: аргументы захватываются, вызов заменяется единым терм-маркером DebugStmt.
+        // Если макрос доходит сюда (напр. внутри {% %}), раскрывать нечего - оставляем без
+        // изменений (ниже -> диагностика о недопустимом раскрытии).
         break;
 
     case ContextMacroId::Count:

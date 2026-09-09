@@ -1,0 +1,18 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# @[deleter(D)] на владеющем виде: создание ресурса через <Wrapper>::adopt(handle, D{}).
+# unique<T,D> - D ЧАСТЬ ТИПА (trust::Unique<T, D>, как unique_ptr<T,D>); shared<T> - D
+# стирается (тип остаётся trust::Shared<T>), применяется как аргумент adopt. Инклуды:
+# trust/trusted-cpp.hpp (обёртки) + trust/resource.hpp (deleter-тип).
+
+get_handle():@[reftype(ptr)@] Int32 := %test_raw...;
+
+@main():Int32 := {
+    h : @[reftype("unique")@] @[deleter(FreeDeleter)@] Int32 := get_handle();
+    s : @[reftype("shared")@] @[deleter(FreeDeleter)@] Int32 := get_handle();
+    return *h;
+};
+# CHECK: #include "trust/resource.hpp"
+# CHECK: #include "trust/trusted-cpp.hpp"
+# CHECK: trust::Unique<int32_t, trust::FreeDeleter> c_h = trust::Unique<int32_t, trust::FreeDeleter>::adopt(test_raw(), trust::FreeDeleter{});
+# CHECK: trust::Shared<int32_t> c_s = trust::Shared<int32_t>::adopt(test_raw(), trust::FreeDeleter{});

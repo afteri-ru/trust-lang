@@ -6,7 +6,7 @@
 
 #include "lsp/lsp_options.hpp"
 #include "lsp/document_manager.hpp"
-#include "diag/mapper.hpp"
+#include "sourcemap/mapper.hpp"
 
 #include <nlohmann/json.hpp>
 

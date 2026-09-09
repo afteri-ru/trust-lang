@@ -21,6 +21,11 @@ namespace trust {
 std::vector<TermPtr> flattenDocs(TermPtr docs);
 TermPtr makeDocBundle(TermPtr docs, TermPtr stmt);
 void appendDocs(TermPtr seq, TermPtr docs);
+void appendTrustConds(TermPtr name, TermPtr conds);
+/// Добавить члена набора типов (`+`/`-` тип): член = ARGUMENT{ m_left=знак, m_type=тип }
+/// в m_sequence терма TYPE_SET (создаётся при первом операторе). Первый член (исходный тип
+/// ветки) получает знак '+'.
+TermPtr appendTypeSetMember(TermPtr set, std::string_view sign, TermPtr type);
 bool isDeclTerm(const Term& t);
 void attachTrailingDoc(TermPtr seq, TermPtr docs);
 TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt);
@@ -39,7 +44,7 @@ TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt);
 /* start symbol is named "start" */
 %start start
 
-/* Грамматика с ОДНИМ задокументированным shift/reduce-конфликтом (%expect 1).
+/* Грамматика с задокументированными shift/reduce-конфликтами (%expect 3).
  * kind trust-контракта — одиночный NAME после `@{`, отделённый стрелкой `-->` (FOLLOW):
  * `@{ kind --> expr @}` (например `@{ pre --> x > 0 @}`). Голой формы `@{ expr @}` НЕТ (kind всегда
  * явный). `-->` (FOLLOW) — существующий токен-стрелка («маппинг» в catch/if `[...] --> body`); в
@@ -66,8 +71,20 @@ TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt);
  * (reduce `type_name → type_class`). Разрешение — shift (шаблон): `:Class<...>` в конструкторе
  * всегда читается как шаблонный базовый класс. Нешаблонная база `:Class(...)` не затрагивается
  * (идёт по `type_call` без `<`).
+ *
+ * Конфликт 3 — `tmpl_ctor: type_class • LT` (явная конструкция шаблон-типа `:Box<Int32>(...)` в
+ * позиции значения, RHS `:=`/`=`): `type_class` требует ведущего COLON, поэтому конфликтует только
+ * `:Type < expr` (тип-литерал левым операндом сравнения — не используется); обычные сравнения
+ * `a < b`, `x:Int32 < 5` идут через `name`/`name types` и НЕ затрагиваются. Разрешение — shift.
+ *
+ * ── Набор допустимых типов (конфликтов НЕ добавляет) ──
+ * `type_set_expr: types | type_set_expr PLUS types | type_set_expr MINUS types` даёт узел TYPE_SET
+ * (левый ассоциативный). Используется в RHS `::=` (type_def_rhs) и inline в позиции типа
+ * `:(:A + :B + :C)` (альтернатива `type_class: COLON LPAREN type_set_expr RPAREN`). Ведущий ':'
+ * ОБЯЗАТЕЛЕН: без него `( ... )` конфликтует с вызовом `name(...)` и словарём. Проверено bison:
+ * число конфликтов НЕ меняется (%expect 3).
  */
-%expect 2
+%expect 3
 
 /* write out a header file containing the token defines */
 %defines
@@ -389,6 +406,24 @@ type_dims: type_dim
             TERM($$)->push_back(TERM($3));
         }
 
+/* Набор допустимых типов: ветки `+`-типов с исключениями `-`.
+ * Члены - в m_sequence терма TYPE_SET; знак ('+'/'-') - в m_left терма-члена
+ * (член = ARGUMENT: m_left=знак, m_type=тип). Разрешён ТОЛЬКО в определении типа
+ * (`Name ::= :A + :B;`) и inline в позиции типа (`:(:A + :B)`). Проверка комбинаций
+ * (ветки, подтипы, ведущий '-', составные типы) - в анализаторе (semantic/type_set). */
+type_set_expr:  types
+            {
+                $$ = $1;
+            }
+        |  type_set_expr  PLUS  types
+            {
+                $$ = trust::appendTypeSetMember(TERM($1), "+", TERM($3));
+            }
+        |  type_set_expr  MINUS  types
+            {
+                $$ = trust::appendTypeSetMember(TERM($1), "-", TERM($3));
+            }
+
 type_class:  COLON  name_no_attr
             {
                 $$ = $2;
@@ -404,36 +439,15 @@ type_class:  COLON  name_no_attr
                 TERM($$)->AppendLeft(TERM($1));
                 TERM($$)->FinalizeAndTest(TermID::TYPE);
             }
-        | COLON  TILDE  name_no_attr
+        | COLON  LPAREN  type_set_expr  RPAREN
             {
+                // Inline-набор допустимых типов `:(:A + :B + :C)` - ТОЛЬКО в позиции типа
+                // (ведущий ':' обязателен: без него `(...)` конфликтует с вызовом/словарём).
+                // Одиночный элемент `:(:A)` остаётся обычным типом (уже TYPE). Использование
+                // набора как ЗНАЧЕНИЯ - ошибка (проверяет term_to_ast/семантика).
                 $$ = $3;
-                TERM($$)->AppendLeft(TERM($2));
-                TERM($2)->AppendLeft(TERM($1));
-                TERM($$)->FinalizeAndTest(TermID::TYPE);
             }
-        | COLON  TILDE  attr  name_no_attr
-            {
-                $$ = $4;
-                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($3)->m_attr.begin(), TERM($3)->m_attr.end());
-                TERM($$)->AppendLeft(TERM($2));
-                TERM($2)->AppendLeft(TERM($1));
-                TERM($$)->FinalizeAndTest(TermID::TYPE);
-            }
-        | COLON  OPERATOR_DUCK  name_no_attr
-            {
-                $$ = $3;
-                TERM($$)->AppendLeft(TERM($2));
-                TERM($2)->AppendLeft(TERM($1));
-                TERM($$)->FinalizeAndTest(TermID::TYPE);
-            }
-        | COLON  OPERATOR_DUCK  attr  name_no_attr
-            {
-                $$ = $4;
-                TERM($$)->m_attr.insert(TERM($$)->m_attr.begin(), TERM($3)->m_attr.begin(), TERM($3)->m_attr.end());
-                TERM($$)->AppendLeft(TERM($2));
-                TERM($2)->AppendLeft(TERM($1));
-                TERM($$)->FinalizeAndTest(TermID::TYPE);
-            }
+
 
 ptr: AMP 
         {
@@ -448,18 +462,6 @@ ptr: AMP
         }
     | OPERATOR_PTR
         {
-            $$ = $1;
-            TERM($$)->m_id = TermID::OPERATOR_PTR;
-        }
-    | NATIVE_REF_MAKE
-        {
-            // Нативный `%&` (нативная ссылка T& / address-of): маркер как OPERATOR_PTR с текстом `%&`.
-            $$ = $1;
-            TERM($$)->m_id = TermID::OPERATOR_PTR;
-        }
-    | NATIVE_REF_PTR
-        {
-            // Нативный `%*` (указатель T*): маркер как OPERATOR_PTR с текстом `%*`.
             $$ = $1;
             TERM($$)->m_id = TermID::OPERATOR_PTR;
         }
@@ -520,7 +522,7 @@ type_call: type_name   call
             {
                 $$ = $1;
                 TERM($$)->m_args.swap(TERM($2)->m_args);
-                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE)
+                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE && TERM($$)->getTermID() != TermID::TYPE_SET)
                     TERM($$)->m_id = TermID::TYPE;
             }
         
@@ -528,7 +530,7 @@ type_item:  type_name
             {
                 $$ = $1;
                 // Узел-оператор (&, *) уже корень типа - не перезаписываем m_id
-                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE)
+                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE && TERM($$)->getTermID() != TermID::TYPE_SET)
                     TERM($$)->m_id = TermID::TYPE;
             }
         | type_call
@@ -542,7 +544,7 @@ types:  type_name_tmpl
                 // Узел-оператор (&, *) уже корень типа - не перезаписываем m_id.
                 // Прежнее отдельное правило type_item_tmpl (= type_name_tmpl | type_call_tmpl)
                 // было структурно идентично `types` и поглощено им - дубль удалён.
-                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE)
+                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE && TERM($$)->getTermID() != TermID::TYPE_SET)
                     TERM($$)->m_id = TermID::TYPE;
             }
         | type_call_tmpl
@@ -576,8 +578,21 @@ type_call_tmpl:  type_name_tmpl   call
                 // Конструкция значения нативного шаблона `:vector<Int32>(1, 2, 3)` (type_call).
                 $$ = $1;
                 TERM($$)->m_args.swap(TERM($2)->m_args);
-                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE)
+                if (TERM($$)->getTermID() != TermID::OPERATOR_PTR && TERM($$)->getTermID() != TermID::TAKE && TERM($$)->getTermID() != TermID::TYPE_SET)
                     TERM($$)->m_id = TermID::TYPE;
+            }
+
+/* Явная конструкция значения шаблон-типа в позиции значения (RHS `:=`/`=`): `:Box<Int32>(...)`.
+ * ОТДЕЛЬНОЕ правило (не переиспользование type_call_tmpl): даёт РОВНО один дополнительный
+ * S/R-конфликт `type_class • LT` (см. %expect 3). Затрагивает только `:`-формы: `type_class`
+ * требует ведущего COLON, поэтому обычные сравнения `a < b` / `x:Int32 < 5` НЕ затрагиваются
+ * (конфликтует исключительно `:Type < expr` - тип-литерал левым операндом, не используется). */
+tmpl_ctor:  type_class  LT  template_args  GT  call
+            {
+                $$ = $1;
+                TERM($$)->m_template = TERM($template_args)->m_args;
+                TERM($$)->m_args.swap(TERM($call)->m_args);
+                TERM($$)->m_id = TermID::TYPE;
             }
 
 
@@ -1175,6 +1190,11 @@ arg: ptr arg_name named_rhs
         {
             $$ = $1;
         }
+    | lambda
+        {
+            // Лямбда-выражение как аргумент вызова: передаётся значение-функция.
+            $$ = $1;
+        }
     | ptr  logical
         {
             $$ = $ptr;
@@ -1203,6 +1223,9 @@ arg: ptr arg_name named_rhs
             $$ = $1;
             TERM($$)->m_id = TermID::FILLING;
             TERM($$)->AppendRight(TERM($2));
+            // Диапазон терма покрывает весь `... expr ...` (не только первое `...`), иначе
+            // диагностики/маппинг не захватывали бы операнд и закрывающее многоточие.
+            TERM($$)->m_mapperRange.end = TERM($3)->m_mapperRange.end;
         }
     |  ESCAPE
         {
@@ -1346,14 +1369,18 @@ collection: array
                 $$ = $1;
             }
         
+/* Список членов тела класса. Хранится в СОБСТВЕННОМ SEQUENCE-контейнере (m_sequence), а НЕ
+ * связывается через m_right члена: m_right члена - его RHS/тело (`:= value` / `:= { body }`),
+ * и потеря этой связи ломала бы тела методов/инициализаторы полей (RightToBlock рвал m_right). */
 class_props: class_member
             {
-                $$ = $1;
+                $$ = Term::Create(TermID::SEQUENCE, "", TERM($1)->m_mapperRange);
+                TERM($$)->m_sequence.push_back(TERM($1));
             }
         | class_props   separator   class_member
             {
                 $$ = $1;
-                TERM($$)->AppendRight(TERM($3));
+                TERM($$)->m_sequence.push_back(TERM($3));
             }
 
 /* Имя члена класса (декларация): имя с необязательным вызовом и типом возврата.
@@ -1378,6 +1405,30 @@ member_name:  name
         |  name  types
             {
                 $$ = $1;
+                TERM($$)->m_type = TERM($types);
+            }
+        |  operator_sig
+            {
+                // Оператор-МЕТОД: имя-СИМВОЛ в обратных кавычках (`` `==` ``, `` `()` ``, `` `[]` ``).
+                // Терм REFLECTION несёт символ (текст) + параметры (m_args) + тип возврата (m_type);
+                // распознаётся как оператор в FuncDecl по TermID::REFLECTION в m_left.
+                $$ = $1;
+            }
+
+/* Сигнатура ОПЕРАТОРА: имя-СИМВОЛ в обратных кавычках (лексема REFLECTION) + вызов/тип.
+ * Две позиции использования:
+ *   - member-оператор в теле класса/struct (member_name):  `\`==\`(o:T):Bool := { ... };`
+ *   - свободный оператор верхнего уровня (assign_seq):    `\`==\`(a:T,b:T):Bool := { ... };`
+ * Терм REFLECTION: текст = символ оператора; m_args = параметры; m_type = тип возврата. */
+operator_sig:  REFLECTION  call
+            {
+                $$ = $1;
+                TERM($$)->m_args.swap(TERM($call)->m_args);
+            }
+        |  REFLECTION  call  types
+            {
+                $$ = $1;
+                TERM($$)->m_args.swap(TERM($call)->m_args);
                 TERM($$)->m_type = TERM($types);
             }
 
@@ -1414,12 +1465,16 @@ dot_member_name:  DOT  name
                 TERM($$)->FinalizeAndTest(TERM($$)->m_id);
             }
 
-class_member:  member_name  assign_op  assign_expr
+class_member:  member_name  trust_cond_seq  assign_op  assign_expr
             {
-                // Член без точки (native/обычный/static): `%size():UInt64 := ...;` → := (left=имя, right=тело).
-                $$ = $2;
+                // Член без точки (native/обычный/static/оператор): `%size():UInt64 := ...;` →
+                // := (left=имя, right=тело). Контракты (trust_pre/trust_post/@{}), собранные
+                // trust_cond_seq (может быть пустым), - как у свободных функций: привязываем к
+                // терму-имени (единая точка appendTrustConds).
+                appendTrustConds(TERM($1), TERM($2));
+                $$ = $3;
                 TERM($$)->AppendLeft(TERM($1));
-                TERM($$)->AppendRight(TERM($3));
+                TERM($$)->AppendRight(TERM($4));
             }
         |  member_name  EQ  assign_expr
             {
@@ -1495,7 +1550,7 @@ class_def:  class_base  LBRACE  RBRACE
             {
                 $$ = $class_base;
                 TERM($$)->m_id = TermID::CLASS;
-                TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
+                TERM($$)->m_sequence = TERM($class_props)->m_sequence;
             }
 
 /* Определение класса через `::=` (ветка type_def_rhs): `:Name ::= :Class1, :Class<:T>{ ... };`.
@@ -1510,7 +1565,19 @@ class_type_def:  class_type_bases  LBRACE  RBRACE
             {
                 $$ = $class_type_bases;
                 TERM($$)->m_id = TermID::CLASS;
-                TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
+                TERM($$)->m_sequence = TERM($class_props)->m_sequence;
+            }
+        | class_type_bases  ELLIPSIS
+            {
+                // ПРЕДВАРИТЕЛЬНОЕ (forward) объявление класса/структуры - форма БЕЗ тела:
+                //   `:Name ::= :Base{, :Base} ...;`
+                // Даёт неполный тип (C++ `struct c_Name;`) - ни полей, ни методов (в C++
+                // forward-объявление членов не содержит). Маркер ELLIPSIS кладём в m_sequence:
+                // RecordDecl по нему отличает forward от пустого тела `{ }` (полное определение).
+                $$ = $class_type_bases;
+                TERM($$)->m_id = TermID::CLASS;
+                TERM($$)->m_sequence.clear();
+                TERM($$)->m_sequence.push_back(TERM($2));
             }
 class_type_bases:  class_type_base
             {
@@ -1534,7 +1601,7 @@ class_type_base:  type_name_tmpl
  * члены тела - class_props (как у class_type_def). Класс - это forward-объявление: члены всегда
  * `:= ...`, тела нет (класс определён в C++-заголовке, инклуд - из @[include]).
  * Терм: m_id=CLASS, RHS-имя - САМ ТЕРМ ($$ = имя, текст = связывание; НЕ m_left), типовые
- * параметры реализации - в m_template, члены тела - в m_sequence (RightToBlock). */
+ * параметры реализации - в m_template, члены тела - в m_sequence (чистый список, см. class_props). */
 native_class_fwd:  name  LBRACE  RBRACE
             {
                 $$ = $1;
@@ -1544,7 +1611,7 @@ native_class_fwd:  name  LBRACE  RBRACE
             {
                 $$ = $1;
                 TERM($$)->m_id = TermID::CLASS;
-                TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
+                TERM($$)->m_sequence = TERM($class_props)->m_sequence;
             }
         |  name  LT  template_params  GT  LBRACE  RBRACE
             {
@@ -1559,7 +1626,7 @@ native_class_fwd:  name  LBRACE  RBRACE
                 $$ = $1;
                 TERM($$)->m_id = TermID::CLASS;
                 TERM($$)->m_template = TERM($template_params)->m_template;
-                TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
+                TERM($$)->m_sequence = TERM($class_props)->m_sequence;
                 TERM($$)->m_mapperRange.end = TERM($4)->m_mapperRange.end;
             }
         |  LT  template_params  GT  name  LBRACE  RBRACE
@@ -1576,7 +1643,7 @@ native_class_fwd:  name  LBRACE  RBRACE
             {
                 $$ = $4;
                 TERM($$)->m_id = TermID::CLASS;
-                TERM($class_props)->RightToBlock(TERM($$)->m_sequence);
+                TERM($$)->m_sequence = TERM($class_props)->m_sequence;
                 TERM($$)->m_mapperRange.end = TERM($3)->m_mapperRange.end;
             }
 
@@ -1634,15 +1701,9 @@ assign_expr:  body
                 {
                     $$ = $1;  
                 }
-            |  lambda LPAREN  RPAREN
+            |  direct_lambda_call
                 {
-                    $$ = $1;  
-                    TERM($$)->m_args.emplace();
-                }
-            |  lambda  LPAREN  args  RPAREN
-                {
-                    $$ = $1;  
-                    TERM($$)->m_args.swap(TERM($args)->m_args);
+                    $$ = $1;
                 }
            
 
@@ -1783,6 +1844,17 @@ assign_seq:  assign_items  trust_cond_seq  assign_op  assign_expr
                     $$ = ProcessMacro(driver, TERM($$));
                 }
             }
+        | operator_sig  trust_cond_seq  CREATE_NAME  assign_expr
+            {
+                // Свободный (free) оператор верхнего уровня: `\`==\`(a:T,b:T):Bool trust_pre(...) := { ... };`.
+                // Корень - CREATE_NAME (`:=`), left = operator_sig (терм REFLECTION: символ +
+                // параметры + тип возврата), right = тело. Контракты (trust_cond_seq) привязываем к
+                // терму-имени - как у свободных функций (единая точка appendTrustConds).
+                appendTrustConds(TERM($1), TERM($2));
+                $$ = $3;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->AppendRight(TERM($4));
+            }
         | assign_items  EQ  assign_expr
             {
                 $$ = Term::Create(TermID::ASSIGN, "=", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($3)->m_mapperRange.end}, token::EQ);
@@ -1836,8 +1908,11 @@ type_def_seq:  assign_items  trust_cond_seq  CREATE_TYPE  type_def_rhs
                     $$ = ProcessMacro(driver, TERM($$));
                 }
             }
-type_def_rhs:  types
+type_def_rhs:  type_set_expr
             {
+                // Алиас `Name ::= :Type;` либо определение НАБОРА допустимых типов
+                // `Name ::= :A + :B;` (TYPE_SET). Разбор набора/регистрация - на уровне
+                // семантики/разворота (см. type_set_expand).
                 $$ = $1;
             }
         |  dictionary  type_class
@@ -1943,6 +2018,12 @@ body:  condition
             {
                 $$ = $1;
             }
+        |  tmpl_ctor
+            {
+                // Явная конструкция шаблон-типа `:Box<Int32>(...)` в позиции значения (RHS `:=`/`=`).
+                $$ = $1;
+            }
+
         |  block_type
             {
                 $$ = $1;
@@ -2113,12 +2194,7 @@ try_any:  try_plus
  * <factor> -> vars | ( <expr> )
  */
 
-operator: TILDE
-            {
-                $$ = $1;
-                TERM($$)->m_id = TermID::OP_COMPARE;
-            }
-        | GT
+operator: GT
             {
                 $$ = $1;
                 TERM($$)->m_id = TermID::OP_COMPARE;
@@ -2144,6 +2220,10 @@ operator: TILDE
                 TERM($$)->m_id = TermID::OP_COMPARE;
             }
         |  OP_MATH
+            {
+                $$ = $1;
+            }
+        |  OP_ASSIGN
             {
                 $$ = $1;
             }
@@ -2239,6 +2319,11 @@ factor:   rval_var
         | LPAREN  logical  RPAREN
             {
                 $$ = $2; 
+            }
+        | lambda_call
+            {
+                // Немедленный вызов лямбды `( lambda )(args)` - выражение-значение.
+                $$ = $1;
             }
         | embed
             {
@@ -2640,14 +2725,26 @@ when:  when_prefix LPAREN  args  RPAREN
         }
     
     
+    /* Список захватов лямбды `[x, y]`: ТОЛЬКО имена, ТОЛЬКО по значению (копия).
+     * Переиспользуется терминал `args` (новых S/R-конфликтов с array `[x,]` не возникает);
+     * допустимость форм захватов валидирует конвертация (FuncDecl/visit_LAMBDA):
+     * тип/значение/многоточие/ссылочный маркер -> явная диагностика «не поддерживается». */
 lambda_op: LBRACKET  RBRACKET
         {   
-            $$ = Term::Create(TermID::COROUTINE, "", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($2)->m_mapperRange.end});
+            $$ = Term::Create(TermID::LAMBDA, "", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($2)->m_mapperRange.end});
         }
     | LBRACKET  args  RBRACKET
         {   
-            $$ = Term::Create(TermID::COROUTINE, "", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($3)->m_mapperRange.end});
-            TERM($$)->m_args.swap(TERM($2)->m_args);
+            $$ = Term::Create(TermID::LAMBDA, "", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($3)->m_mapperRange.end});
+            // Захваты - в m_sequence (список термов), НЕ в m_args: m_args займут параметры `( ... )`.
+            if (TERM($2)->m_args) {
+                for (const auto& [cname, cterm] : *TERM($2)->m_args) {
+                    (void)cname;
+                    if (cterm) {
+                        TERM($$)->m_sequence.push_back(cterm);
+                    }
+                }
+            }
         }
 
    
@@ -2675,6 +2772,32 @@ lambda:  lambda_op  LPAREN  RPAREN   block_any
                 TERM($$)->m_args.swap(TERM($3)->m_args);
                 TERM($$)->m_type = TERM($types);
                 TERM($$)->AppendRight(TERM($block_any)); 
+        }
+
+    /* Немедленный вызов лямбды: КАНОН - обёрнутая форма `( lambda )(args)`.
+     * m_left - лямбда-терм, m_args - аргументы вызова (callee - не идентификатор). */
+    lambda_call: LPAREN  lambda  RPAREN  call
+        {
+            $$ = Term::Create(TermID::LAMBDA_CALL, "", trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($4)->m_mapperRange.end});
+            TERM($$)->m_left = TERM($2);
+            TERM($$)->m_args.swap(TERM($4)->m_args);
+        }
+
+    /* ПРЯМАЯ форма немедленного вызова `lambda(args)` - НЕ ПОДДЕРЖИВАЕТСЯ:
+     * явная ошибка с указанием канонической обёрнутой формы `( lambda )(args)`. */
+    direct_lambda_call:  lambda  LPAREN  RPAREN
+        {
+            $$ = $1;
+            TERM($$)->m_args.emplace();
+            driver.m_ctx.diag().report(Severity::Error, TERM($1)->m_mapperRange,
+                                      "directly-invoked lambda is not supported; wrap the lambda and call it: ( lambda )(args)");
+        }
+    |  lambda  LPAREN  args  RPAREN
+        {
+            $$ = $1;
+            TERM($$)->m_args.swap(TERM($3)->m_args);
+            driver.m_ctx.diag().report(Severity::Error, TERM($1)->m_mapperRange,
+                                      "directly-invoked lambda is not supported; wrap the lambda and call it: ( lambda )(args)");
         }
 
 

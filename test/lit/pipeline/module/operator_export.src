@@ -1,0 +1,12 @@
+# RUN: TD=$(dirname %t) && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -m -o $TD/module.trust %s
+# RUN: %trust --module-info $TD/module.trust | %FileCheck %s
+# CHECK: exports: 2
+# CHECK:   ==
+# CHECK:   x
+
+# Свободный оператор экспортируется из модуля наравне с функциями (в интерфейсе модуля
+# присутствует символ `==`).
+:V ::= :Class{ v: Int32 := _; };
+`==`(a: V, b: V): Bool := { return true; };
+x : Int32 := 1;

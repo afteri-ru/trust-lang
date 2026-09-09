@@ -5,7 +5,7 @@
 // рекурсия/вызовы других компонентов и драйвера идут через NameResolutionPass (friend).
 
 #include "semantic/pass.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "ast/ast_nodes.hpp"
 #include "types/type_id.hpp"
 #include <memory>
@@ -26,10 +26,16 @@ class DeclAnalyzer {
     void analyzeTypeDecl(Binary& binary_node);
     void analyzeEnumDecl(Binary& binary_node);
     void analyzeVariantDecl(Binary& binary_node);
+    /// Объявление пользовательского Record-типа (Struct/Class) `:Name ::= :Base{...}`:
+    /// резолв баз (Struct/Class/наследование), регистрация полей/методов, привязка типа.
+    void analyzeRecordDecl(Binary& binary_node);
     void analyzeFuncDecl(FuncDecl& func_node);
     void analyzeNativeTemplateDecl(FuncDecl& func_node);
     void analyzeClassDecl(ClassDecl& ncd);
     void declareFuncParams(FuncDecl& func_node);
+    /// Лямбда-выражение: резолв имён захватов в ОБЪЁМЛЮЩЕМ скоупе (до входа в скоуп лямбды).
+    /// Захват - только имя переменной; резолвит имя и сохраняет тип в ArgNode::resultType.
+    void analyzeLambdaCaptures(FuncDecl& func_node);
     bool collectDestructureSlots(const DestructureDecl& node, size_t& elementSlots, bool& hasRest);
     void analyzeDestructure(DestructureDecl& node);
     void analyzeDestructureTuple(DestructureDecl& node, TypeId tupleType);

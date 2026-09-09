@@ -1,0 +1,9 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/basic %s
+# RUN: $TD/basic && echo "PASS"
+# CHECK: PASS
+
+{% int basic__main__() {
+    return 0;
+}
+%}

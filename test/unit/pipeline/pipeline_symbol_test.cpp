@@ -1,5 +1,5 @@
 #include "pipeline/pipeline.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "diag/diag.hpp"
 #include "semantic/diag.hpp"
 #include "types/registry.hpp"

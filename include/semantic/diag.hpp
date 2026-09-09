@@ -6,27 +6,43 @@
 
 #include "diag/diag_set.hpp"
 
-#define SEMANTIC_DIAG_LIST(M)                                                                                                                              \
-    M(UnusedVariable, "unused-variable", Warning, "Unused variable", WG_Wall | WG_Wextra | WG_Wunused)                                                     \
-    M(UnusedParameter, "unused-parameter", Warning, "Unused function parameter", WG_Wall | WG_Wextra | WG_Wunused)                                         \
-    M(Embed, "embed", Warning, "#embed / embed directive", WG_Wall | WG_Wpedantic)                                                                         \
-    M(NoSigil, "sigil", Warning, "Missing sigil (@, $, ...)", WG_Wpedantic)                                                                                \
-    M(Format, "format", Error, "Format string / argument mismatch", WG_Wall | WG_Wformat)                                                                  \
-    M(StackCheckInfer, "stack-check-infer", Warning, "Recursive function not protected by stack guard (with --stack-check=recursion|auto)", WG_None)       \
-    M(WidenAny, "widen-any", Warning, "Implicit widening numeric conversion", WG_Wextra | WG_Wconversion)                                                  \
-    M(Solver, "solver", Warning, "Trust condition(s) present (severity of the presence diagnostic; silence with -Wsolver=ignore)", WG_None)                \
-    M(Shadow, "shadow", Warning, "Declaration shadows an outer name (variable/parameter)", WG_Wextra)                                                      \
-    M(WithRefWithoutCapture, "with-ref-without-capture", Warning, "with binding copies a reference without '*'; use '*ref' to lock access", WG_Wextra)     \
-    M(ClassMemberDot, "class-member-dot", Warning, "Class field/method should be registered with a leading '.'", WG_Wextra)                                \
-    M(StaticMemberAsField, "static-member-as-field", Warning, "Accessing a static member of a class as an instance field", WG_Wextra)                      \
-    M(RefTrace, "reftrace", Warning,                                                                                                                       \
-      "Using a reference/iterator obtained from an object after the object was mutated (severity; silence with -Wreftrace=ignore)", WG_Wextra)             \
-    M(NativeRef, "native-ref", Warning,                                                                                                                    \
-      "Use of a native (raw) C++ reference operator %& / %* (and dereference '*') (severity; silence with -Wnative-ref=ignore)", WG_Wextra)                \
-    M(UnhandledAttr, "unhandled-attr", Warning,                                                                                                            \
-      "Attribute is not handled by the analyzer or the C++ code generator (severity; silence with -Wunhandled-attr=ignore)", WG_None)                      \
-    M(CheckArea, "check-area", Warning, "Macro used in a forbidden syntactic area (violates @__CHECK_AREA__; severity; silence with -Wcheck-area=ignore)", \
-      WG_None)
+#define SEMANTIC_DIAG_LIST(M)                                                                                                                                  \
+    M(UnusedVariable, "unused-variable", Warning, "Unused variable", WG_Wall | WG_Wextra | WG_Wunused)                                                         \
+    M(RefKindDup, "ref-kind-dup", Warning,                                                                                                                     \
+      "Reference kind is specified both before the variable and its type (the variable-side qualifier is redundant; silence with -Wref-kind-dup=ignore)",      \
+      WG_Wextra)                                                                                                                                               \
+    M(UnusedParameter, "unused-parameter", Warning, "Unused function parameter", WG_Wall | WG_Wextra | WG_Wunused)                                             \
+    M(Embed, "embed", Warning, "#embed / embed directive", WG_Wall | WG_Wpedantic)                                                                             \
+    M(NoSigil, "sigil", Warning, "Missing sigil (@, $, ...)", WG_Wpedantic)                                                                                    \
+    M(Format, "format", Error, "Format string / argument mismatch", WG_Wall | WG_Wformat)                                                                      \
+    M(StackCheckInfer, "stack-check-infer", Warning, "Recursive function not protected by stack guard (with --stack-check=recursion|auto)", WG_None)           \
+    M(WidenAny, "widen-any", Warning, "Implicit widening numeric conversion", WG_Wextra | WG_Wconversion)                                                      \
+    M(Solver, "solver", Warning, "Trust condition(s) present (severity of the presence diagnostic; silence with -Wsolver=ignore)", WG_None)                    \
+    M(Shadow, "shadow", Warning, "Declaration shadows an outer name (variable/parameter)", WG_Wextra)                                                          \
+    M(WithRefWithoutCapture, "with-ref-without-capture", Warning, "with binding copies a reference without '*'; use '*ref' to lock access", WG_Wextra)         \
+    M(DoubleCapture, "double-capture", Warning,                                                                                                                \
+      "The same reference is captured ('*ref') more than once in one expression (self-deadlock risk for synchronized references)", WG_Wextra)                  \
+    M(ClassMemberDot, "class-member-dot", Warning, "Class field/method should be registered with a leading '.'", WG_Wextra)                                    \
+    M(StaticMemberAsField, "static-member-as-field", Warning, "Accessing a static member of a class as an instance field", WG_Wextra)                          \
+    M(Borrowed, "borrowed", Warning, "Using a borrowed (dependent) variable after its source object was mutated (severity; silence with -Wborrowed=ignore)",   \
+      WG_Wextra)                                                                                                                                               \
+    M(NativeRef, "native-ref", Warning, "Use of a native (raw) C++ reference (transitional compat axis; silence with -Wnative-ref=ignore)", WG_Wextra)         \
+    M(BorrowRegionMismatch, "borrow-region-mismatch", Warning,                                                                                                 \
+      "Borrowed view/borrow outlives its anchor (region mismatch); keep the view within the anchor's lifetime", WG_None)                                       \
+    M(BorrowOwnerMoved, "borrow-owner-moved", Warning, "Owner is moved/reset while it is borrowed", WG_None)                                                   \
+    M(BorrowOwnerMutated, "borrow-owner-mutated", Warning, "Borrowed variable is mutated while a live borrow exists", WG_None)                                 \
+    M(UnhandledAttr, "unhandled-attr", Warning,                                                                                                                \
+      "Attribute is not handled by the analyzer or the C++ code generator (severity; silence with -Wunhandled-attr=ignore)", WG_None)                          \
+    M(CheckArea, "check-area", Warning, "Macro used in a forbidden syntactic area (violates @__CHECK_AREA__; severity; silence with -Wcheck-area=ignore)",     \
+      WG_None)                                                                                                                                                 \
+    M(RecursiveShared, "recursive-shared", Error,                                                                                                              \
+      "Recursive strong (shared) reference cycle in class fields (owning loops leak); break it with 'weak' (severity; silence with "                           \
+      "-Wrecursive-shared=ignore)",                                                                                                                            \
+      WG_None)                                                                                                                                                 \
+    M(RecursiveUnique, "recursive-unique", Error,                                                                                                              \
+      "Mutually exclusive ('unique') ownership cycle in class fields (exclusive ownership cannot be mutual; silence with -Wrecursive-unique=ignore)", WG_None) \
+    M(RecursiveValue, "recursive-value", Error,                                                                                                                \
+      "Recursive value containment in class fields (the type would have infinite size; silence with -Wrecursive-value=ignore)", WG_None)
 
 TRUST_DIAG_SET(trust::semantic, DiagId, SEMANTIC_DIAG_LIST)
 

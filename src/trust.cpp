@@ -1,8 +1,8 @@
 // src/trust.cpp - точка входа в компилятор/транспилятор Trust
 #include "pipeline/pipeline.hpp"
-#include "pipeline/cli.hpp"
-#include "pipeline/analysis_options.hpp"
-#include "diag/context.hpp"
+#include "driver/cli.hpp"
+#include "driver/analysis_options.hpp"
+#include "session/context.hpp"
 #include "diag/diag.hpp"
 #include "utils/io.hpp"
 
@@ -221,7 +221,7 @@ int main(int argc, char* argv[], char* envp[]) {
     trust::Context ctx;
     // Единая точка применения опций анализа: -W<option> (severity и feature-флаги) +
     // поведенческие флаги (--solver-mode, --keywords, -fsolver-loop-unroll). Реализация -
-    // applyAnalysisOptions (include/pipeline/analysis_options.hpp), общая для trust и trust-lsp.
+    // applyAnalysisOptions (include/driver/analysis_options.hpp), общая для trust и trust-lsp.
     // Команды справки печатаются и завершают выполнение:
     //   -Whelp                -> Options::printHelp (диагностики);
     //   -Whelp-dsl            -> список макросов загруженного DSL;
