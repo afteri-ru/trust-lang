@@ -1,0 +1,14 @@
+# RUN: %trust --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Release-сборка компилятора (TRUST_TRACE_ENABLED=0): отладочный вывод недоступен. Вызовы
+# @__DEBUG__/@__DEBUG_SCOPE__ стираются (маркер/DebugStmt не создаётся), а вместо вывода
+# выдаётся ИНФОРМАЦИОННОЕ предупреждение. Проверяем именно это предупреждение.
+# REQUIRES: release
+#
+# CHECK: warning: @__DEBUG__: debug output is not available in a release build
+# CHECK: warning: @__DEBUG_SCOPE__: debug output is not available in a release build
+f() : Int32 := {
+    @__DEBUG__("scope");
+    @__DEBUG_SCOPE__();
+    return 0;
+};

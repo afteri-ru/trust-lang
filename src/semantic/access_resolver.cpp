@@ -2,11 +2,14 @@
 #include "semantic/access_resolver.hpp"
 #include "semantic/name_resolution.hpp"
 #include "semantic/analysis_common.hpp"
+#include "semantic/ellipsis.hpp"
+#include "semantic/overload_call.hpp"
+#include "types/overload_resolve.hpp"
 #include "semantic/format_check.hpp"
 #include "semantic/solver.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "semantic/type_inference.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
 #include "ast/token.hpp"
 #include "diag/diag.hpp"
 #include "diag/options.hpp"
@@ -15,7 +18,6 @@
 #include "types/promotion.hpp"
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
-#include "utils/operators.hpp"
 #include "utils/strings.hpp"
 #include <algorithm>
 #include <format>
@@ -38,7 +40,7 @@ void AccessResolver::analyzeAccess(Binary& n) {
     // Доступ к кортежу `t.name` / `t.0` / `t[idx]`: левый операнд - структурный Tuple-тип.
     {
         const TypeRegistry& treg = m_actx.ctx().types();
-        const TypeId leftT = n.m_left ? treg.getCanonicalTypeId(m_actx.resolvedType(*n.m_left)) : INVALID_TYPE_ID;
+        const TypeId leftT = n.m_left ? treg.getCanonicalTypeId(m_actx.exprType(*n.m_left)) : INVALID_TYPE_ID;
         if (leftT != INVALID_TYPE_ID && treg.isTypeDataKind(leftT, TypeDataKind::kTuple)) {
             resolveTupleAccess(n, leftT);
             return;
@@ -46,6 +48,25 @@ void AccessResolver::analyzeAccess(Binary& n) {
         // Доступ к элементу массива `a[i]` / `a.0`: левый операнд - структурный Array-тип.
         if (leftT != INVALID_TYPE_ID && treg.isArrayType(leftT)) {
             resolveArrayAccess(n, leftT);
+            return;
+        }
+        // Индексация пользовательского типа объявленным оператором `[]`: `a[i]` → C++ `(obj)[idx]`.
+        // Проверка идёт ПО РЕЕСТРУ (тип объявил `[]`), а не по тексту/типу-контейнеру: у record/
+        // native-класса контейнерной семантики нет, поэтому без этой ветки `a[i]` уходил бы в словарь.
+        if (n.kind() == ParserToken::Kind::ArrayAccess && leftT != INVALID_TYPE_ID && (treg.isRecordType(leftT) || treg.isNativeClassType(leftT)) &&
+            treg.findMethodInfo(leftT, "[]").has_value()) {
+            resolveSubscriptOperatorAccess(n, leftT);
+            return;
+        }
+        // record/native-класс БЕЗ объявленного `[]`: контейнерного доступа нет - явная ошибка
+        // (не уходим в словарный путь `.at()`, который для такого типа невалиден).
+        if (n.kind() == ParserToken::Kind::ArrayAccess && leftT != INVALID_TYPE_ID && (treg.isRecordType(leftT) || treg.isNativeClassType(leftT))) {
+            m_actx.ctx().diag().report(Severity::Error, n.range(), "type '{}' has no operator '[]'", treg.getFullTypeName(leftT));
+            n.resultType = n.commonType = INVALID_TYPE_ID;
+            m_actx.setExprType(&n, INVALID_TYPE_ID);
+            if (n.m_right) {
+                m_core.analyzeNode(n.m_right);
+            }
             return;
         }
         // Доступ к члену enum через имя типа: `Color.RED` → тип enum. Осознанное решение:
@@ -100,20 +121,26 @@ void AccessResolver::analyzeAccess(Binary& n) {
         // класс), а не переменная (различаем через findType(left->text())). Член - статический
         // (зарегистрированный ключ содержит '::'). Доступ как к полю (`Cls.field`) - диагностика
         // -Wstatic-member-as-field; `Cls::name` (namespace-стиль) сюда не попадает (квалифицированное имя).
-        if (n.kind() == ParserToken::Kind::MemberAccess && n.m_left && n.m_left->kind() == ParserToken::Kind::Ident &&
-            leftT != INVALID_TYPE_ID && treg.isNativeClassType(leftT)) {
+        if (n.kind() == ParserToken::Kind::MemberAccess && n.m_left && n.m_left->kind() == ParserToken::Kind::Ident && leftT != INVALID_TYPE_ID &&
+            treg.isNativeClassType(leftT)) {
             const auto typeOf = treg.findType(n.m_left->text());
             if (typeOf && treg.isNativeClassType(*typeOf)) {
                 const std::string name = n.m_right ? std::string(n.m_right->text()) : std::string();
-                const TypeId rtype = treg.findStaticMethod(leftT, name);
-                if (rtype != INVALID_TYPE_ID) {
-                    const std::string tname = std::string(treg.getFullTypeName(leftT));
-                    m_actx.ctx().report(n.range(), semantic::DiagId::StaticMemberAsField,
-                        "static member '{}' accessed as an instance field; use '{}::{}'", name, tname, name);
-                    n.lhsType = leftT;
-                    n.resultType = n.commonType = rtype;
-                    m_actx.setExprType(&n, rtype);
-                    return;
+                const std::vector<TypeId> statics = treg.findStaticMethod(leftT, name);
+                // Статический ЧЛЕН как поле: ровно одна сигнатура (returnType = тип поля).
+                // Перегруженное имя как поле неоднозначно - оставляем диагностику «нет поля».
+                if (statics.size() == 1) {
+                    const auto* sfd = treg.getTypeDataAs<FunctionTypeData>(statics.front());
+                    const TypeId rtype = sfd ? sfd->returnType : INVALID_TYPE_ID;
+                    if (rtype != INVALID_TYPE_ID) {
+                        const std::string tname = std::string(treg.getFullTypeName(leftT));
+                        m_actx.ctx().report(n.range(), semantic::DiagId::StaticMemberAsField, "static member '{}' accessed as an instance field; use '{}::{}'",
+                                            name, tname, name);
+                        n.lhsType = leftT;
+                        n.resultType = n.commonType = rtype;
+                        m_actx.setExprType(&n, rtype);
+                        return;
+                    }
                 }
             }
         }
@@ -125,11 +152,31 @@ void AccessResolver::analyzeAccess(Binary& n) {
             n.lhsType = leftT;
             TypeId ftype = INVALID_TYPE_ID;
             // Поле как член типа: ключ `%field` (как у метода); тип поля - returnType члена.
-            if (const auto* fd = treg.getTypeDataAs<FunctionTypeData>(treg.findMethod(leftT, n.m_right->text())); fd) {
-                ftype = fd->returnType;
+            // Поле однозначно: ровно одна сигнатура (перегруженное имя полем не является).
+            if (const auto mi = treg.findMethodInfo(leftT, n.m_right->text()); mi && mi->signatures.size() == 1) {
+                if (const auto* fd = treg.getTypeDataAs<FunctionTypeData>(mi->signatures.front())) {
+                    ftype = fd->returnType;
+                }
             }
             // У нативного поля тип не может быть неопределённым: не найден член или тип INVALID -
             // явная ошибка, а НЕ тихий `Any` (см. правило «нет fallback для невалидных данных»).
+            if (ftype == INVALID_TYPE_ID) {
+                const std::string tname = std::string(treg.getFullTypeName(leftT));
+                m_actx.ctx().diag().report(Severity::Error, n.range(), "type '{}' has no field '{}'", tname, n.m_right->text());
+                n.resultType = n.commonType = INVALID_TYPE_ID;
+                m_actx.setExprType(&n, INVALID_TYPE_ID);
+                return;
+            }
+            n.resultType = n.commonType = ftype;
+            m_actx.setExprType(&n, ftype);
+            return;
+        }
+        // Доступ к ПОЛЮ пользовательского Record-типа (Struct/Class): `obj.field` → `(obj).c_field`.
+        // Тип поля - из RecordTypeData с обходом базовых классов (наследование). Тип объекта
+        // сохраняем в lhsType (кодген эмитит прямое `.`-обращение к члену struct). Не найдено - ошибка.
+        if (n.kind() == ParserToken::Kind::MemberAccess && n.m_right && leftT != INVALID_TYPE_ID && treg.isRecordType(leftT)) {
+            n.lhsType = leftT;
+            const TypeId ftype = treg.findField(leftT, n.m_right->text());
             if (ftype == INVALID_TYPE_ID) {
                 const std::string tname = std::string(treg.getFullTypeName(leftT));
                 m_actx.ctx().diag().report(Severity::Error, n.range(), "type '{}' has no field '{}'", tname, n.m_right->text());
@@ -240,19 +287,84 @@ void AccessResolver::resolveArrayAccess(Binary& n, TypeId arrayType) {
     m_actx.setExprType(&n, et);
 }
 
+// Индексация пользовательского типа объявленным оператором `[]` (member-only): `a[i]` → C++
+// `(obj)[idx]`. Тип результата = возвращаемый тип оператора (из его функционального типа);
+// lhsType = тип объекта (кодген по нему отличает операторную индексацию от контейнерной).
+void AccessResolver::resolveSubscriptOperatorAccess(Binary& n, TypeId objType) {
+    if (n.m_right) {
+        m_core.analyzeNode(n.m_right);
+    }
+    TypeRegistry& reg = m_actx.ctx().types();
+    const auto method = reg.findMethodInfo(objType, "[]");
+    EXPECT(method.has_value() && "resolveSubscriptOperatorAccess: '[]' must be declared on the type");
+    // `[]`: НАТИВНЫЙ оператор - C++-путь; TrustLang - резолвер ВСЕГДА (выбор по типу индекса).
+    TypeId funcType = INVALID_TYPE_ID;
+    if (method->signatures.size() == 1 && utils::is_native_name(method->key)) {
+        funcType = method->signatures.front();
+    } else {
+        std::vector<TypeId> argTypes;
+        if (n.m_right) {
+            argTypes.push_back(m_actx.exprType(*n.m_right));
+        }
+        const OverloadResolution r = resolveOverload(reg, method->signatures, argTypes);
+        if (r.chosen == INVALID_TYPE_ID) {
+            m_actx.ctx().diag().report(Severity::Error, n.range(), "no matching overload for operator '[]' of '{}'", reg.getFullTypeName(objType));
+            n.resultType = n.commonType = INVALID_TYPE_ID;
+            m_actx.setExprType(&n, INVALID_TYPE_ID);
+            return;
+        }
+        funcType = r.chosen;
+    }
+    const auto* fd = reg.getTypeDataAs<FunctionTypeData>(funcType);
+    EXPECT(fd != nullptr && "resolveSubscriptOperatorAccess: '[]' must have a function type");
+    const TypeId ret = fd->returnType;
+    if (ret == INVALID_TYPE_ID) {
+        // void operator[] не даёт значения в выражении - явная ошибка (без тихого Any).
+        m_actx.ctx().diag().report(Severity::Error, n.range(), "operator '[]' of '{}' must return a value", reg.getFullTypeName(objType));
+        n.resultType = n.commonType = INVALID_TYPE_ID;
+        m_actx.setExprType(&n, INVALID_TYPE_ID);
+        return;
+    }
+    n.lhsType = objType; // транспилятор: (obj)[idx] - вызов C++ operator[]
+    n.resultType = n.commonType = ret;
+    m_actx.setExprType(&n, ret);
+}
+
 // -- Вызов метода на объекте: obj.method(args) --
 // По типу объекта ищет метод в реестре типов (TypeRegistry::findMethod), проверяет наличие и
 // количество аргументов по сигнатуре, типизирует результат возвращаемым типом. Метод - это
 // функциональный тип (метод и функция - одно и то же), поэтому проверка аргументов идёт по
 // FunctionTypeData::paramTypes единым путём с функциями. Проверка происходит ДО генерации C++.
 void AccessResolver::handleMethodCall(Binary& n) {
-    const auto& call = static_cast<const CallExpr&>(*n.m_right);
+    auto& call = static_cast<CallExpr&>(*n.m_right);
     const std::string mname = call.m_callee ? std::string(call.m_callee->text()) : std::string();
+    // Аргументы вызова МЕТОДА анализируем ЗДЕСЬ: общий обход детей для MemberAccess не выполняется
+    // (analyzeNode для MemberAccess/ArrayAccess делает ранний return в AccessResolver), поэтому без
+    // этого шага аргументы метода не получали бы ни резолва имён, ни типов (ни диагностик).
+    // Порядок: сначала аргументы (нужны типы для проверок), затем сигнатура метода.
+    if (call.m_args) {
+        for (auto& arg : *call.m_args) {
+            if (arg) {
+                m_core.analyzeNode(arg);
+            }
+        }
+    }
+    // Многоточие `obj.m(a, ... expr ...)`/`obj.m(a, ...)`: разбор ЕДИНЫМ примитивом
+    // (semantic/ellipsis), как у вызовов функций; арность проверяется с учётом числа позиций.
+    const EllipsisInfo einfo = scanCallEllipsis(call);
     // Не-const: instantiateRangeMethod интернирует функциональный тип (мутирует реестр).
     TypeRegistry& reg = m_actx.ctx().types();
-    const TypeId objType = n.m_left ? reg.getCanonicalTypeId(m_actx.resolvedType(*n.m_left)) : INVALID_TYPE_ID;
+    const TypeId objType = n.m_left ? reg.getCanonicalTypeId(m_actx.exprType(*n.m_left)) : INVALID_TYPE_ID;
     if (objType == INVALID_TYPE_ID) {
-        // Тип объекта неизвестен (напр. Any) - не можем проверить метод; типизируем как Any.
+        // Тип объекта неизвестен (напр. Any) - сигнатуру метода получить нельзя; многоточие не может
+        // быть раскрыто (кодогенерация не должна получить нераскрытое многоточие).
+        if (einfo.form != EllipsisForm::None) {
+            m_actx.ctx().diag().report(Severity::Error, call.range(), "аргументы вызова: число параметров вызываемого метода неизвестно");
+            discardEllipsisElements(*call.m_args, false);
+            m_actx.setExprType(&n, INVALID_TYPE_ID);
+            return;
+        }
+        // Не можем проверить метод; типизируем как Any.
         n.resultType = n.commonType = m_actx.ctx().types().getType(type_generic::Any);
         m_actx.setExprType(&n, n.resultType);
         return;
@@ -264,28 +376,77 @@ void AccessResolver::handleMethodCall(Binary& n) {
     if (!methodInfo) {
         const std::string tname = std::string(reg.getFullTypeName(objType));
         m_actx.ctx().diag().report(Severity::Error, n.range(), "type '{}' has no method '{}'", tname, mname);
+        if (call.m_args) {
+            discardEllipsisElements(*call.m_args, false);
+        }
         m_actx.setExprType(&n, INVALID_TYPE_ID);
         return;
     }
-    // Интернированная сигнатура метода (TypeId). Нативность/константность для кодгена - из
-    // methodInfo->key (полный ключ с '%'/'^'); const-вызов (`obj.method^()`) кодген определяет по
-    // attr::ReadOnly на вызове (см. convertAttrsToNode/CallExpr).
-    TypeId funcType = methodInfo->funcType;
-    // Параметризованный Range<Elem> (и абстрактный `:Range`): методы объявлены на `:Range` с
-    // типовым параметром T (Group::kTemplateParam); подставляем T→Elem, чтобы `$a.at(0)` и
-    // `$a.start()` возвращали ЭЛЕМЕНТНЫЙ тип (Int64/Rational/...), а не типовой параметр.
-    if (reg.isRangeType(objType) || reg.getCanonicalTypeId(objType) == reg.getType(type_category::Range)) {
-        funcType = reg.instantiateRangeMethod(objType, funcType);
+    // МЕТОД - НАБОР сигнатур (перегрузки). Подстановка T→Elem для Range/Array применяется к каждой.
+    const bool rangeLike = reg.isRangeType(objType) || reg.getCanonicalTypeId(objType) == reg.getType(type_category::Range);
+    const bool arrayLike = reg.isArrayType(objType) || reg.getCanonicalTypeId(objType) == reg.getType(type::Array);
+    std::vector<TypeId> sigs;
+    sigs.reserve(methodInfo->signatures.size());
+    for (const TypeId s : methodInfo->signatures) {
+        TypeId ft = s;
+        if (rangeLike) {
+            ft = reg.instantiateRangeMethod(objType, ft);
+        }
+        if (arrayLike) {
+            ft = reg.instantiateArrayMethod(objType, ft);
+        }
+        sigs.push_back(ft);
     }
-    // Параметризованный Array<Elem>: методы объявлены на `:Array` с T; подставляем T→Elem,
-    // чтобы `a.at(0)`/`a.first()` возвращали ЭЛЕМЕНТНЫЙ тип (как instantiateRangeMethod).
-    if (reg.isArrayType(objType) || reg.getCanonicalTypeId(objType) == reg.getType(type::Array)) {
-        funcType = reg.instantiateArrayMethod(objType, funcType);
+
+    // Выбор сигнатуры. НАТИВНЫЙ метод (ключ с '%') - перегрузку/конверсии разрешает C++-слой;
+    // TrustLang (Record) метод - разрешает АНАЛИЗАТОР ВСЕГДА (в т.ч. при единственной сигнатуре).
+    // Многоточие (материализация аргументов) допустимо только при единственной сигнатуре.
+    const bool nativeMethod = utils::is_native_name(methodInfo->key);
+    const bool hasEllipsis = (einfo.form != EllipsisForm::None);
+    TypeId funcType = INVALID_TYPE_ID;
+    if (sigs.size() == 1 && (nativeMethod || hasEllipsis)) {
+        funcType = sigs.front();
+    } else {
+        if (hasEllipsis) {
+            m_actx.ctx().diag().report(Severity::Error, call.range(), "method '{}' of type '{}' is overloaded; ellipsis in arguments is not supported", mname,
+                                       reg.getFullTypeName(objType));
+            discardEllipsisElements(*call.m_args, false);
+            m_actx.setExprType(&n, INVALID_TYPE_ID);
+            return;
+        }
+        const std::vector<TypeId> argTypes = callArgTypes(m_actx, call);
+        const TypeId chosen = resolveCallOverload(m_actx, sigs, argTypes, call.range(),
+                                                  std::format("method '{}' of type '{}'", mname, reg.getFullTypeName(objType)));
+        if (chosen == INVALID_TYPE_ID) {
+            m_actx.setExprType(&n, INVALID_TYPE_ID);
+            return;
+        }
+        funcType = chosen;
+        // Перегруженные пользовательские Record-методы манглируются (`c_<name>`): нужен уникальный
+        // суффикс (иначе C++ выберет не ту). При одной сигнатуре C++-имя уникально и без суффикса.
+        // Нативные имена фиксированы внешней библиотекой - суффикс не добавляется (резолв C++).
+        if (sigs.size() > 1 && reg.isRecordType(reg.getCanonicalTypeId(objType))) {
+            n.resolvedMethodSuffix = overloadCppSuffix(reg, chosen);
+        }
     }
+
     const auto* fd = reg.getTypeDataAs<FunctionTypeData>(funcType);
     EXPECT(fd && "handleMethodCall: method signature is not a function type");
     const size_t nargs = call.m_args ? call.m_args->size() : 0;
-    if (nargs != fd->paramTypes.size()) {
+    if (einfo.form != EllipsisForm::None) {
+        // ЕДИНЫЙ примитив (как у вызовов функций): структурные правила + capacity/типы +
+        // МАТЕРИАЛИЗАЦИЯ списка аргументов (кодоген многоточия не видит).
+        if (!validateEllipsis(einfo, call, m_actx, "аргументы вызова")) {
+            discardEllipsisElements(*call.m_args, false);
+            m_actx.setExprType(&n, INVALID_TYPE_ID);
+            return;
+        }
+        if (!expandCallEllipsis(call, m_actx, einfo, fd->paramTypes, fd->variadicType != INVALID_TYPE_ID)) {
+            m_actx.setExprType(&n, INVALID_TYPE_ID);
+            return;
+        }
+    } else if (sigs.size() == 1 && nargs != fd->paramTypes.size()) {
+        // Для набора из 1 - прежняя проверка арности; для перегрузки арность уже проверена резолвером.
         m_actx.ctx().diag().report(Severity::Error, call.range(), "method '{}' of type '{}' expects {} argument(s), got {}", mname,
                                    reg.getFullTypeName(objType), fd->paramTypes.size(), nargs);
         m_actx.setExprType(&n, INVALID_TYPE_ID);

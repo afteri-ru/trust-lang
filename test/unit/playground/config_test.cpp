@@ -6,8 +6,11 @@
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
 #include <fstream>
 #include <string>
+
+#include "test_data.hpp"
 
 namespace {
 
@@ -20,10 +23,11 @@ using trust::playground::unquote;
 using trust::playground::validateWorkerPlaygroundUrl;
 using trust::playground::workerLabelForToken;
 
-// Пишет содержимое во временный файл в TEST_DATA_DIR (в _build) и возвращает его имя.
+// Пишет содержимое во временный файл в фиксированный каталог TEST_DATA_DIR/config_test
+// (в _build) и возвращает его имя. Имя файла фиксированное - уникальные не используются.
 std::string writeTempConfig(const std::string& content) {
-    static int counter = 0;
-    const std::string path = std::string(TEST_DATA_DIR) + "/trust_pg_config_" + std::to_string(counter++) + ".conf";
+    static const std::string path =
+        (trust::test::makeTestDataDir("config_test") / "cfg.conf").string();
     std::ofstream f(path);
     f << content;
     f.close();

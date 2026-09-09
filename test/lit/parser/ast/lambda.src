@@ -1,0 +1,12 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Структура AST лямбды: FuncDecl с ВНУТРЕННЕЙ синтетической меткой-именем
+# (`__lambda__<file>_<offset>`), параметры (ArgNode), тело; захват - не в children.
+@main() := {
+    z := 1;
+    f := [z](x : Int32) : Int32 { @return x; };
+}
+# CHECK: __main__
+# CHECK: VarDecl 'f'
+# CHECK: init:       FuncDecl '__lambda__
+# CHECK: ArgNode 'x'

@@ -1,12 +1,16 @@
 // Generated: src/semantic/decl_analyzer.cpp
 #include "semantic/decl_analyzer.hpp"
 #include "semantic/name_resolution.hpp"
+#include "semantic/type_set.hpp"
 #include "semantic/analysis_common.hpp"
 #include "semantic/format_check.hpp"
+#include "semantic/operator_check.hpp"
 #include "semantic/solver.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
+#include "types/overload_resolve.hpp"
 #include "semantic/type_inference.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
+#include "ast/ref_syntax.hpp"
 #include "ast/token.hpp"
 #include "diag/diag.hpp"
 #include "diag/options.hpp"
@@ -15,13 +19,37 @@
 #include "types/promotion.hpp"
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
-#include "utils/operators.hpp"
+#include "types/type_names.hpp"
+#include "types/typekind.hpp"
 #include "utils/strings.hpp"
+#include "utils/trace.hpp"
 #include <algorithm>
 #include <format>
 #include <string>
+#include <unordered_set>
 
 namespace trust {
+
+namespace {
+
+// Авто-маркерный (короткий) вид ссылки на узле объявления: term_to_ast конвертирует символьный
+// маркер ПЕРЕД именем (`&* x := ...`) в атрибут @[reftype] с manual=false; явный `@[reftype(...)]`
+// имеет manual=true. Используется правилом «короткие маркеры запрещены на границе API».
+bool hasAutoReftypeAttr(const AstNodeAttr& node, const AttrPool& pool) {
+    const auto rid = pool.lookup(attr::Reftype);
+    if (!rid.has_value()) {
+        return false;
+    }
+    const AttrId idx = static_cast<AttrId>(*rid & detail::kAttrIndexMask);
+    for (const AttrId id : node.attrs()) {
+        if (static_cast<AttrId>(id & detail::kAttrIndexMask) == idx && !detail::is_manual(id)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
 
 // -- Объявления --
 
@@ -32,78 +60,44 @@ void DeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
     // Резолв необязательной аннотации типа.
     TypeId var_type = INVALID_TYPE_ID;
     if (var_node.m_type) {
-        auto type_id = m_actx.resolveType(*var_node.m_type);
+        auto type_id = m_actx.resolveTypeRef(*var_node.m_type);
         if (type_id.has_value()) {
             var_type = *type_id;
         } else {
             m_actx.ctx().diag().report(Severity::Error, var_node.m_type->range(), "unknown type '{}'", var_node.m_type->text());
         }
     }
-    // СОГЛАСОВАННОСТЬ спецификатора ссылки (маркер перед именем `&& x` ИЛИ атрибут `@[reftype]`
-    // на переменной) с аннотацией типа. Вид ссылки - часть ТИПА: если у типа маркер/атрибут есть,
-    // а у переменной нет - ошибка; если у переменной есть, а тип - обычное значение - ошибка.
-    //   * `x : &&Int32` - маркер у ТИПА, у переменной нет → ошибка;
-    //   * `&& x : Int32` - спецификатор у ПЕРЕМЕННОЙ, аннотация типа - обычное значение → ошибка;
-    //   * `&& x : && Int32` - оба, согласованы → ок; `&& x := 5` - авто-вывод (типа нет) → ок.
-    //
-    // НАТИВНЫЕ ссылки (`%&`/`%*` → kRef/kPtr) - ОТДЕЛЬНОЕ правило: вид указывается ТОЛЬКО перед
-    // типом (`r : %& Int32 := ...`), маркер перед именем и авто-вывод ЗАПРЕЩЕНЫ (нативный тип
-    // всегда обязателен). Маркер перед именем допустим только у УМНЫХ ссылок (для авто-вывода).
+    // Конструктор record-шаблона типизируется по типу-цели (`b : Box<Int32> := Box()`):
+    // запоминаем инстанциацию на CallExpr, чтобы кодоген эмитил `c_Box<int32_t>(...)`.
+    m_actx.coerceRecordTemplateCtor(var_node.m_initializer.get(), var_type);
+    // ПОЗИЦИЯ задания вида ссылки при объявлении. Умные ссылки (shared/unique/weak) задаются
+    // РОВНО ОДНОЙ из двух позиций:
+    //   * у ТИПА (каноническая): `x : @[reftype("shared")@] T` ИЛИ `x : &&T`;
+    //   * у ПЕРЕМЕННОЙ (сокращённая), только при ОПУЩЕННОМ типе (авто-вывод): `&& x := ...`.
+    // Вид в ОБЕИХ позициях с ОДИНАКОВЫМ видом - лишний квалификатор у переменной → -Wref-kind-dup;
+    // с РАЗНЫМИ видами - конфликт (ошибка reference kind mismatch в applyRefAttrs).
+    // Вид у переменной при ЯВНОМ обычном типе (`&& x : Int32`) - ошибка (у типа вида нет).
     const AttrPool& declAttrs = m_actx.ctx().attrs();
     const bool varHasRefSpec = var_node.has_attr(declAttrs, attr::Reftype);
-    const bool typeIsSymRef =
-        var_node.m_type && (var_node.m_type->kind() == ParserToken::Kind::RefMakeExpr || var_node.m_type->kind() == ParserToken::Kind::RefTakeExpr);
-    // Вид ссылки (для разделения нативных/умных): из маркера переменной либо из аннотации типа.
-    std::optional<RefType> refKind;
-    if (varHasRefSpec) {
-        if (const auto rid = declAttrs.lookup(attr::Reftype); rid.has_value()) {
-            if (const auto* args = var_node.attr_args(*rid); args && !args->empty()) {
-                refKind = refTypeFromString(args->front());
-            }
+    const std::optional<RefType> varKind = varHasRefSpec ? refKindOfAttr(declAttrs, var_node) : std::nullopt;
+    const std::optional<RefType> typeKind = refKindOfTypeSpec(var_node.m_type.get(), declAttrs);
+    // Вид у переменной (короткий маркер) ИЛИ вид-маркер в аннотации типа.
+    const std::optional<RefType> sigilKind = refKindOfTypeNode(var_node.m_type.get());
+    const std::optional<RefType> refKind = varKind.has_value() ? varKind : sigilKind;
+    if (varKind.has_value() && typeKind.has_value()) {
+        // Вид задан в ОБЕИХ позициях. Совпадение видов - лишний квалификатор у переменной
+        // (предупреждение); расхождение - конфликт, ошибку выдаст applyRefAttrs (kind mismatch).
+        if (*varKind == *typeKind) {
+            m_actx.ctx().report(var_range, semantic::DiagId::RefKindDup,
+                                "reference kind '{}' is already specified by the type annotation; the qualifier before variable '{}' is redundant",
+                                refTypeName(*varKind), var_name);
         }
-    } else if (var_type != INVALID_TYPE_ID) {
-        const RefType rt = getRefType(getKindFromId(var_type));
-        if (rt != RefType::kValue) {
-            refKind = rt;
-        }
-    }
-    const bool isNativeRef =
-        refKind.has_value() && (*refKind == RefType::kRef || *refKind == RefType::kPtr || *refKind == RefType::kRref || *refKind == RefType::kPtrPtr);
-    if (isNativeRef) {
-        // Нативная ссылка: маркер перед именем запрещён - только перед типом.
-        if (varHasRefSpec) {
-            m_actx.ctx().diag().report(Severity::Error, var_range,
-                                       "native reference marker before the name is not allowed; specify the type before it (e.g. '%r : %& Int32 := ...')");
-            return;
-        }
-        // Нативная (сырая) C++ ссылка допустима ТОЛЬКО у НАТИВНОЙ переменной (`%name`): обычная
-        // trust-переменная не может владеть сырым указателем/ссылкой (нет отслеживания жизни,
-        // тот же принцип, что для нативных функций в сигнатурах). Поэтому имя носителя нативного
-        // ссылочного типа обязано иметь ведущий '%' (`%r : %& Int32 := %& x`).
-        if (var_name.empty() || var_name[0] != '%') {
-            const std::string native_name = "%" + var_name;
-            auto* entry = m_actx.ctx().diag().report(
-                Severity::Error, var_range,
-                "native reference requires a native variable (name must begin with '%'); declare '{}' instead of '{}'",
-                native_name, var_name);
-            m_actx.ctx().diag().fixit(entry, var_node.nameRange(), native_name);
-            return;
-        }
-        // Нативная ссылка: тип обязателен (авто-вывод запрещён).
-        if (!var_node.m_type) {
-            m_actx.ctx().diag().report(Severity::Error, var_range,
-                                       "native reference requires an explicit type annotation (auto-deduction is forbidden); use '%r : %& Int32 := ...'");
-            return;
-        }
-    } else if (typeIsSymRef && !varHasRefSpec) {
-        m_actx.ctx().diag().report(Severity::Error, var_node.m_type->range(),
-                                   "reference marker before the type must be paired with the same marker on the variable (e.g. '&& x : && Int32'), "
-                                   "or omit the type to auto-deduce ('&& x := ...')");
-        return;
-    } else if (varHasRefSpec && var_node.m_type && !typeIsSymRef) {
+    } else if (varKind.has_value() && var_node.m_type) {
+        // Вид у переменной, но у явного типа вида нет - неоднозначная форма: либо вид задаётся
+        // в типе (после ':'), либо тип опускается для авто-вывода (см. модель выше).
         m_actx.ctx().diag().report(Severity::Error, var_range,
-                                   "reference variable '{}' requires the type annotation to be a reference type too (e.g. '&& x : && Int32'), "
-                                   "or omit the type to auto-deduce ('&& x := ...')",
+                                   "reference variable '{}' has an explicit type without a reference kind; specify the reference kind in the type "
+                                   "(after ':'), or omit the type to auto-deduce it from the initializer",
                                    var_name);
         return;
     }
@@ -134,6 +128,12 @@ void DeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
     // (в стеке скоупов есть FuncDecl); уровень модуля/глобальный - НЕ локальный. Единый хелпер
     // normalizeLocalSigil используется и declareDestructureTarget (унификация sigil-логики).
     const bool isLocal = m_core.isInLocalScope();
+    // Граница API: короткие (символьные) маркеры ссылки допустимы ТОЛЬКО в локальном скоупе.
+    // На уровне модуля (экспортируемое имя) вид задаётся исключительно явным @[reftype(...)].
+    if (!isLocal && ((sigilKind.has_value() && isSmartRefKind(*sigilKind)) || hasAutoReftypeAttr(var_node, declAttrs))) {
+        m_actx.ctx().diag().report(Severity::Error, var_range,
+                                   "short reference markers are only allowed in local scope; use the explicit attribute @[reftype(\"...\")] on the module API");
+    }
     // Bare-имя ДО сигил-нормализации: параметры/внешние локали хранятся без '$', а локаль
     // `x` нормализуется в '$x' - для детекции shadowing (общее C++-имя `c_x`) сравниваем и то,
     // и другое (`$n` и `n` - одно локальное имя, см. name_resolution.cpp).
@@ -156,32 +156,39 @@ void DeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
     }
     var_type = m_core.applyRefAttrs(var_type, var_node, var_range);
     sym.type = var_type;
-    // -Wnative-ref: предупреждение на КАЖДОЕ использование нативного (сырого) C++-оператора
-    // ссылки. Декларация нативной переменной (вид из аннотации типа `r : %&/%* Type` или из
-    // reftype-маркера) - одно использование (сам оператор-выражение `%& x`/`%*p` предупреждается
-    // в ExprTyper).
-    if (isNativeRef) {
-        m_actx.ctx().report(var_range, semantic::DiagId::NativeRef, "native (raw) C++ reference variable declaration '{}'", var_name);
-        // Вид результата `%& expr` (kRef/kPtr) и контекст эмиссии ставит ExprTyper в ветке
-        // вывода типа VarDecl (перезаписывает NativeRefMakeExpr::m_resultType) - здесь не дублируем.
-    }
     // Признак «тип выведен» (inferred) закодирован битом в TypeId (withInferred) и
     // выставляется в typeExpr, когда тип выводится из инициализатора. Явная аннотация
     // `x:Type :=` даёт структурный тип (без бита) → фиксированный.
     sym.decl = &var_node;
 
-    // Взятие слабой ссылки из shared-переменной (`w := & x`) требует маркера слабой ссылки `&?`
-    // ПЕРЕД именем: `&? w := & x`. Если переменная объявлена без маркера - ошибка + fixit.
-    if (var_node.m_initializer && var_node.m_initializer->kind() == ParserToken::Kind::RefMakeExpr && !var_node.has_attr(m_actx.ctx().attrs(), attr::Reftype)) {
-        // Исходное (bare) имя переменной для сообщения/fixit (без сигила '$').
-        std::string bare(var_node.text());
-        if (!bare.empty() && bare[0] == '$') {
-            bare.erase(0, 1);
+    // Взятие слабой ссылки из shared-переменной (`w := & x`) требует, чтобы вид weak был задан
+    // (в ЛЮБОЙ позиции: `&? w := & x` или `w : &?Int32 := & x`). Если вид weak не задан нигде -
+    // ошибка + fixit с маркером у переменной.
+    if (var_node.m_initializer && var_node.m_initializer->kind() == ParserToken::Kind::RefMakeExpr && !(refKind.has_value() && *refKind == RefType::kWeak)) {
+        // Уточнение: заём у unique (borrow, `& u`) НЕ требует weak-маркера - это другой вид.
+        bool operandIsUnique = false;
+        const auto& mke = static_cast<const RefMakeExpr&>(*var_node.m_initializer);
+        if (!mke.m_body.empty() && mke.m_body[0] && mke.m_body[0]->kind() == ParserToken::Kind::Ident) {
+            const std::string on(mke.m_body[0]->text());
+            const Symbol* s = m_actx.symbols().resolve(on);
+            if (s == nullptr && !on.empty() && on[0] != '$') {
+                s = m_actx.symbols().resolve("$" + on); // локальные имена нормализованы в '$name'
+            }
+            if (s != nullptr && s->type != INVALID_TYPE_ID) {
+                operandIsUnique = getRefType(getKindFromId(s->type)) == RefType::kUnique;
+            }
         }
-        auto* entry = m_actx.ctx().diag().report(
-            Severity::Error, var_range, "taking a weak reference from a shared variable requires the weak-reference marker; declare '&? {}' instead of '{}'",
-            bare, bare);
-        m_actx.ctx().diag().fixit(entry, var_node.nameRange(), "&? " + bare);
+        if (!operandIsUnique) {
+            // Исходное (bare) имя переменной для сообщения/fixit (без сигила '$').
+            std::string bare(var_node.text());
+            if (!bare.empty() && bare[0] == '$') {
+                bare.erase(0, 1);
+            }
+            auto* entry = m_actx.ctx().diag().report(
+                Severity::Error, var_range,
+                "taking a weak reference from a shared variable requires the weak-reference marker; declare '&? {}' instead of '{}'", bare, bare);
+            m_actx.ctx().diag().fixit(entry, var_node.nameRange(), "&? " + bare);
+        }
     }
 
     // Месторасположение (физическая память): TLS → ThreadLocal; имя с '::' → Static
@@ -221,6 +228,7 @@ void DeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
         m_actx.ctx().diag().report(Severity::Error, var_range, "duplicate declaration '{}'", var_name);
         return;
     }
+    TRUST_DEBUG("declare", "var '{}' depth={}", var_name, m_actx.symbols().depth());
     for (auto& hook : m_core.m_hooks) {
         hook->onDeclare(sym);
     }
@@ -265,357 +273,48 @@ void DeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
     m_core.m_trust.processTrustConditions(var_node.m_trust, var_node);
 }
 
-void DeclAnalyzer::analyzeTypeDecl(Binary& binary_node) {
-    auto* left = binary_node.m_left.get();
-    if (!left || left->kind() != ParserToken::Kind::Ident) {
-        m_actx.ctx().diag().report(Severity::Error, binary_node.range(), "type declaration must have a name on the left");
-        return;
-    }
-
-    std::string type_name = std::string(left->text());
-
-    auto* right = binary_node.m_right.get();
-    if (!right) {
-        m_actx.ctx().diag().report(Severity::Error, binary_node.range(), "type '{}' must have a definition", type_name);
-        return;
-    }
-
-    // Forward-объявление (нативного) класса `Pair ::= %std::pair<T1,T2>{...};`:
-    // RHS - ClassDecl (trust-имя слева, нативное C++-имя из RHS, члены-интерфейс).
-    if (right->kind() == ParserToken::Kind::ClassDecl) {
-        analyzeClassDecl(static_cast<ClassDecl&>(*right));
-        return;
-    }
-
-    // Enum/Variant-объявление (ПОСТФИКС `(...):Enum`/`(...):Variant`, НЕ префикс `:Enum(...)`):
-    // правая часть - DictLiteral с аннотацией «Enum»/«Variant». Голые члены = безнарные (валидны).
-    if (right->kind() == ParserToken::Kind::DictLiteral) {
-        const auto& dl = static_cast<const DictLiteralNode&>(*right);
-        if (!dl.prefix && dl.m_type && dl.m_type->text() == "Enum") {
-            analyzeEnumDecl(binary_node);
-            return;
-        }
-        if (!dl.prefix && dl.m_type && dl.m_type->text() == "Variant") {
-            analyzeVariantDecl(binary_node);
-            return;
-        }
-    }
-
-    // Определяем базовый TypeId правой части (имя типа: алиас или встроенный).
-    TypeId base_id = INVALID_TYPE_ID;
-    if (right->kind() == ParserToken::Kind::TypeName) {
-        // y ::= Int; - alias на существующий тип.
-        base_id = m_actx.resolveType(*right).value_or(INVALID_TYPE_ID);
-        if (base_id == INVALID_TYPE_ID) {
-            m_actx.ctx().diag().report(Severity::Error, right->range(), "type '{}' not found", right->text());
-            return;
-        }
-    } else if (right->kind() == ParserToken::Kind::Ident) {
-        // y ::= MyInt; - правая часть - имя ТИПА (пользовательский алиас). Оператор '::='
-        // создаёт ТОЛЬКО типы: ссылка на переменную справа - ошибка (не «алиас на переменную»).
-        const Symbol* vs = m_actx.symbols().resolve(right->text());
-        if (!vs) {
-            m_actx.ctx().diag().report(Severity::Error, right->range(), "undefined name '{}'", right->text());
-            return;
-        }
-        if (vs->decl->kind() != ParserToken::Kind::TypeDecl) {
-            m_actx.ctx().diag().report(Severity::Error, right->range(), "'::=' right side must be a type, '{}' is not a type", right->text());
-            return;
-        }
-        base_id = vs->type;
-        if (base_id == INVALID_TYPE_ID) {
-            m_actx.ctx().diag().report(Severity::Error, right->range(), "type of '{}' is not resolved", right->text());
-            return;
-        }
-    } else {
-        m_actx.ctx().diag().report(Severity::Error, right->range(), "unsupported type alias definition");
-        return;
-    }
-
-    // Регистрация алиаса в реестре типов (метаданные TypeId). Тип-алиас с trust-условиями
-    // (непустой m_trust после имени) помечается битом trust в TypeKind - семантический
-    // дифференциатор идентичности (и защита от авто-вывода типа, см. typeExpr).
-    TypeId alias_id = m_actx.ctx().types().registerType(type_name, base_id, {}, right->range(), {}, !binary_node.m_trust.empty());
-    if (alias_id == INVALID_TYPE_ID) {
-        return; // дубликат - диагностику сформировал реестр
-    }
-
-    // Биндинг имени алиаса в текущем скоупе (shadowing/коллизии через скоуп-стек).
-    Symbol as;
-    as.name = type_name;
-    as.type = alias_id;
-    as.decl = &binary_node;
-    if (!m_actx.symbols().declare(as)) {
-        m_actx.ctx().diag().report(Severity::Error, left->range(), "duplicate declaration '{}'", type_name);
-        return;
-    }
-    for (auto& hook : m_core.m_hooks) {
-        hook->onDeclare(as);
-    }
-
-    // Trust-условия типа (`MyInt ::= Int32 @{ ... @}`): резолв имён + обработка по -Wsolver/--solver-mode.
-    m_core.m_trust.processTrustConditions(binary_node.m_trust, binary_node);
-}
-
-// -- Единый сбор членов `(name=value / name:Type=value / bare name)` из DictLiteral RHS --
-// Контракт: элементы m_body - ArgNode (имя в text(), явный тип в m_type, значение в m_value),
-// строятся term_to_ast::appendDictElementsFromArgs. Чтение (имя/тип/значение) - НАПРЯМУЮ из
-// ArgNode, без обёрток и без разворачивания. Значение члена Variant - AST-выражение (источник -
-// ArgNode.m_value); в реестре - только разрешённый тип члена.
-
-// -- Объявление enum-типа (`Color ::= :Enum(RED=1, GREEN=2,)` / `(RED=1, GREEN=2,):Enum`) --
-// TypeDecl(Binary): left = имя типа, right = DictLiteral с аннотацией m_type «Enum»; элементы
-// m_body - ArgNode (имя, явный тип, значение). Регистрирует enum-тип, вычисляет единый тип
-// значений (по общим правилам, предупреждение WidenAny при повышении до Any), биндит имя и
-// регистрирует классические методы.
-void DeclAnalyzer::analyzeEnumDecl(Binary& binary_node) {
-    const std::string enum_name = std::string(binary_node.m_left->text());
-    TypeRegistry& reg = m_actx.ctx().types();
-    const MapperRange decl_range = binary_node.range();
-
-    auto* right = binary_node.m_right.get();
-    EXPECT(right && right->kind() == ParserToken::Kind::DictLiteral && "analyzeEnumDecl: RHS must be Enum-annotated DictLiteral");
-    auto& dict = static_cast<DictLiteralNode&>(*right);
-
-    // -- Члены: (имя, значение|null, явный тип|null) - напрямую из элементов m_body (ArgNode).
-    const auto& body = dict.m_body;
-    const auto isMember = [](const AstNodePtr& el) { return el && el->kind() == ParserToken::Kind::ArgNode; };
-
-    size_t memberCount = 0;
-    for (const auto& el : body) {
-        if (isMember(el)) {
-            ++memberCount;
-        }
-    }
-    if (memberCount == 0) {
-        m_actx.ctx().diag().report(Severity::Error, decl_range, "enum '{}' must have at least one member", enum_name);
-        return;
-    }
-
-    std::vector<EnumMemberData> md;
-    md.reserve(memberCount);
-    TypeId valueType = INVALID_TYPE_ID;
-
-    // -- Проход 1: тип - из ЯВНЫХ аннотаций члена (`A:Rational`); иначе из значений --
-    bool haveExplicitType = false;
-    for (const auto& el : body) {
-        if (isMember(el) && static_cast<const ArgNode&>(*el).m_type) {
-            haveExplicitType = true;
-            break;
-        }
-    }
-    if (haveExplicitType) {
-        for (const auto& el : body) {
-            if (!isMember(el)) {
-                continue;
-            }
-            const auto& a = static_cast<const ArgNode&>(*el);
-            const AstNodePtr ta = a.m_type;
-            if (!ta) {
-                continue;
-            }
-            auto tid = m_actx.resolveType(*ta);
-            if (!tid.has_value()) {
-                m_actx.ctx().diag().report(Severity::Error, ta->range(), "enum '{}': unknown member type", enum_name);
-                continue;
-            }
-            const TypeId c = reg.getCanonicalTypeId(*tid);
-            if (valueType == INVALID_TYPE_ID) {
-                valueType = c;
-            } else if (valueType != c) {
-                m_actx.ctx().diag().report(Severity::Error, ta->range(), "enum '{}' member types differ ('{}' vs '{}')", enum_name,
-                                           reg.getFullTypeName(valueType), reg.getFullTypeName(c));
-                return;
-            }
-        }
-        if (valueType == INVALID_TYPE_ID) {
-            valueType = reg.getType(type::Int64);
-        }
-    } else {
-        // Тип из явных значений (resolvedType + join); если явных нет - минимальный Int по числу членов.
-        std::vector<TypeId> explicitTypes;
-        for (const auto& el : body) {
-            if (!isMember(el)) {
-                continue;
-            }
-            const AstNodePtr v = enumVariantMember(static_cast<const ArgNode&>(*el)).value;
-            if (v) {
-                explicitTypes.push_back(m_actx.resolvedType(*v));
-            }
-        }
-        if (explicitTypes.empty()) {
-            valueType = intTypeForLiteral(reg, memberCount - 1);
-        } else {
-            TypeId common = INVALID_TYPE_ID;
-            bool allSame = true;
-            for (const TypeId vt : explicitTypes) {
-                const TypeId c = (vt != INVALID_TYPE_ID) ? reg.getCanonicalTypeId(vt) : INVALID_TYPE_ID;
-                if (common == INVALID_TYPE_ID) {
-                    common = c;
-                } else if (c != INVALID_TYPE_ID && common != c) {
-                    allSame = false;
-                }
-            }
-            if (allSame && common != INVALID_TYPE_ID) {
-                valueType = common;
-            } else {
-                std::vector<TypeId> nat;
-                nat.reserve(explicitTypes.size());
-                for (const TypeId vt : explicitTypes) {
-                    nat.push_back(m_core.m_typer.naturalRuntimeType(vt));
-                }
-                valueType = m_core.m_typer.joinElementTypes(nat);
-                if (valueType == INVALID_TYPE_ID) {
-                    valueType = reg.getType(type_generic::Any);
-                    m_actx.ctx().report(decl_range, semantic::DiagId::WidenAny, "enum '{}' members have incompatible value types; value type widened to Any",
-                                        enum_name);
-                }
-            }
-        }
-    }
-    // valueType всегда разрешён выше (тип из аннотаций / значений / JOIN → Any с предупреждением
-    // WidenAny). Ветка INVALID здесь невозможна - молча не подменяем, а ловим инвариантом.
-    EXPECT(valueType != INVALID_TYPE_ID && "analyzeEnumDecl: value type must be resolved");
-
-    // -- Проход 2: значения членов (автоинкремент для целого типа, иначе ординал) --
-    const bool integerVT = getGroup(getKindFromId(reg.getCanonicalTypeId(valueType))) == Group::kIntegers;
-    unsigned long long cur = 0;
-    bool haveValue = false;
-    size_t ordinal = 0;
-    for (const auto& el : body) {
-        if (!isMember(el)) {
-            continue;
-        }
-        const EnumVariantMember m = enumVariantMember(static_cast<const ArgNode&>(*el));
-        const AstNodePtr v = m.value;
-        std::string vstr;
-        if (v) {
-            vstr = v->text();
-            if (integerVT) {
-                unsigned long long parsed = 0;
-                if (parseDecimalUInt(v->text(), parsed)) {
-                    cur = parsed;
-                    haveValue = true;
-                }
-            }
-        } else if (integerVT) {
-            // Автоинкремент: безнарный член = предыдущее значение + 1 (первый = 0).
-            cur = haveValue ? (cur + 1) : 0;
-            haveValue = true;
-            vstr = std::to_string(cur);
-        } else {
-            // Не-целый тип: безнарный член = ординал (позиция).
-            vstr = std::to_string(ordinal);
-        }
-        md.push_back(EnumMemberData{m.name, std::move(vstr)});
-        ++ordinal;
-    }
-
-    // -- Регистрация enum-типа в реестре (EnumTypeData; дубликат → диагностика реестра).
-    const TypeId enum_id = reg.registerEnumType(enum_name, valueType, std::move(md), decl_range, !binary_node.m_trust.empty());
-
-    if (enum_id == INVALID_TYPE_ID) {
-        return;
-    }
-
-    // -- Биндинг имени enum-типа в текущем скоупе (shadowing через скоуп-стек).
-    Symbol es;
-    es.name = enum_name;
-    es.type = enum_id;
-    es.decl = &binary_node;
-    if (!m_actx.symbols().declare(es)) {
-        m_actx.ctx().diag().report(Severity::Error, decl_range, "duplicate declaration '{}'", enum_name);
-        return;
-    }
-    for (auto& hook : m_core.m_hooks) {
-        hook->onDeclare(es);
-    }
-
-    // -- Классические тип-уровневые методы (осознанное решение: работа ТОЛЬКО через тип).
-    // count() -> Int64; fromName(name: StrChar) -> Enum; fromValue(value: Value) -> Enum.
-    const TypeId int64Id = reg.getType(type::Int64);
-    const TypeId strCharId = reg.getType(type::StrChar);
-    auto ftype = [&](TypeId ret, std::vector<TypeId> args) { return reg.getOrCreateFunctionType(ret, std::move(args)); };
-    reg.addMethod(enum_id, "count", ftype(int64Id, {}));
-    reg.addMethod(enum_id, "fromName", ftype(enum_id, {strCharId}));
-    reg.addMethod(enum_id, "fromValue", ftype(enum_id, {valueType}));
-}
-
-// -- Объявление Variant-типа (`Value ::= :Variant(RED:Int64=0, GREEN='g',)`) --
-// TypeDecl(Binary): left = имя типа, right = DictLiteral с аннотацией m_type «Variant»; элементы
-// m_body - Binary(AssignOp) (left=имя или пусто для бесзначённого, right=значение). Тип каждого
-// члена - СВОЙ (гетерогенный): выводится из значения (resolvedType), ординальный член без значения
-// → минимальный знаковый Int по позиции. Регистрирует Variant-тип, биндит имя, методы (count).
-void DeclAnalyzer::analyzeVariantDecl(Binary& binary_node) {
-    const std::string variant_name = std::string(binary_node.m_left->text());
-    TypeRegistry& reg = m_actx.ctx().types();
-    const MapperRange decl_range = binary_node.range();
-
-    auto* right = binary_node.m_right.get();
-    EXPECT(right && right->kind() == ParserToken::Kind::DictLiteral && "analyzeVariantDecl: RHS must be Variant-annotated DictLiteral");
-    auto& dict = static_cast<DictLiteralNode&>(*right);
-
-    std::vector<VariantMemberData> members;
-    // Единый сбор из m_body (ArgNode): тип члена - из ЯВНОЙ аннотации (m.type), иначе из
-    // значения (m.value), иначе минимальный знаковый Int по позиции.
-    size_t ordinal = 0;
-    for (const auto& el : dict.m_body) {
-        if (!el || el->kind() != ParserToken::Kind::ArgNode) {
-            continue;
-        }
-        const EnumVariantMember m = enumVariantMember(static_cast<const ArgNode&>(*el));
-        TypeId mtype = INVALID_TYPE_ID;
-        if (m.type) {
-            auto tid = m_actx.resolveType(*m.type);
-            if (tid.has_value()) {
-                mtype = reg.getCanonicalTypeId(*tid);
-            } else {
-                // Явная аннотация типа члена не резолвится - ОШИБКА (симметрично enum), а не
-                // тихий fallback на тип из значения/ординал: ниже член всё же получает тип,
-                // но ошибка уже зафиксирована.
-                m_actx.ctx().diag().report(Severity::Error, m.type->range(), "variant '{}': unknown member type", variant_name);
-            }
-        }
-        if (mtype == INVALID_TYPE_ID && m.value) {
-            mtype = m_actx.resolvedType(*m.value); // тип из значения
-        }
-        if (mtype == INVALID_TYPE_ID) {
-            mtype = intTypeForLiteral(reg, ordinal);
-        }
-        members.push_back(VariantMemberData{m.name, mtype});
-        ++ordinal;
-    }
-    if (members.empty()) {
-        m_actx.ctx().diag().report(Severity::Error, decl_range, "variant '{}' must have at least one member", variant_name);
-        return;
-    }
-
-    const TypeId variant_id = reg.registerVariantType(variant_name, std::move(members), decl_range, !binary_node.m_trust.empty());
-
-    if (variant_id == INVALID_TYPE_ID) {
-        return;
-    }
-
-    // Биндинг имени Variant-типа в скоупе.
-    Symbol es;
-    es.name = variant_name;
-    es.type = variant_id;
-    es.decl = &binary_node;
-    if (!m_actx.symbols().declare(es)) {
-        m_actx.ctx().diag().report(Severity::Error, decl_range, "duplicate declaration '{}'", variant_name);
-        return;
-    }
-    for (auto& hook : m_core.m_hooks) {
-        hook->onDeclare(es);
-    }
-
-    // Классический метод count() -> Int64 (работа с variant идёт через имя типа).
-    reg.addMethod(variant_id, "count", reg.getOrCreateFunctionType(reg.getType(type::Int64), {}));
-}
-
 void DeclAnalyzer::analyzeFuncDecl(FuncDecl& func_node) {
     std::string func_name{func_node.text()};
     MapperRange func_range = func_node.range();
+
+    // Набор допустимых типов в сигнатуре (`f(x:(:A + :B))`): проверка комбинации (ветки/подтипы/
+    // составные типы) - здесь; разворот в N определений отложен. Явная диагностика.
+    if (func_node.m_type && func_node.m_type->kind() == ParserToken::Kind::TypeSet) {
+        if (semantic::validateTypeSet(static_cast<const Sequence&>(*func_node.m_type), m_actx)) {
+            m_actx.ctx().diag().report(Severity::Error, func_node.m_type->range(), "type sets in a function return type are not implemented yet");
+        }
+        return;
+    }
+    if (func_node.m_params) {
+        for (const auto& p : *func_node.m_params) {
+            if (p && p->kind() == ParserToken::Kind::ArgNode) {
+                const auto& pd = static_cast<const ArgNode&>(*p);
+                if (pd.m_type && pd.m_type->kind() == ParserToken::Kind::TypeSet) {
+                    if (semantic::validateTypeSet(static_cast<const Sequence&>(*pd.m_type), m_actx)) {
+                        m_actx.ctx().diag().report(Severity::Error, pd.m_type->range(), "type sets in a function parameter type are not implemented yet");
+                    }
+                    return;
+                }
+            }
+        }
+    }
+
+    // Перегружаемый оператор (лексема REFLECTION, имя-СИМВОЛ в обратных кавычках).
+    // Оператор-МЕТОД регистрируется анализатором ТИПА (record/class analyzer) как метод типа
+    // (TypeRegistry::addMethod) и в таблицу символов НЕ попадает: имя-символ не адресуемо, а
+    // резолв использования member-оператора идёт по типу операнда (`findMethodInfo`).
+    // Свободный оператор - обычный путь функции: валидация здесь + регистрация в скоупе (модуль),
+    // откуда его и резолвит использование (`symbols().resolve(sym)` в типизации выражений).
+    const bool isMemberOperator = func_node.m_isOperator && m_actx.insideTypeBody();
+    if (func_node.m_isOperator && !isMemberOperator) {
+        if (m_actx.currentFunc() != nullptr) {
+            m_actx.ctx().diag().report(Severity::Error, func_range, "a free operator must be declared at module scope");
+            return;
+        }
+        if (!semantic::validateOperatorDecl(m_actx.ctx(), func_node, /*isMember=*/false)) {
+            return;
+        }
+    }
 
     // Нативная функция (%...) транслируется в C++ напрямую → в forward-объявлении
     // тип возврата обязателен (без типа вернули бы голую декларацию без типа).
@@ -650,11 +349,51 @@ void DeclAnalyzer::analyzeFuncDecl(FuncDecl& func_node) {
         }
     }
 
+    // Квалификаторы deleter/lifetime/pin применяются только к объявлениям переменных/параметров
+    // (NameResolutionPass::applyRefAttrs). На возвращаемом типе они НЕ применяются (reftype на
+    // возврате поддержан отдельно через resolveTypeRef) - явная диагностика вместо тихого игнора.
+    if (func_node.m_type) {
+        if (const AstNodeAttr* ta = func_node.m_type->as_attr()) {
+            const AttrPool& attrs = m_actx.ctx().attrs();
+            const auto reject = [&](std::string_view name) {
+                const auto id = attrs.lookup(name);
+                if (id.has_value() && ta->has_attr(*id)) {
+                    m_actx.ctx().diag().report(
+                        Severity::Error, ta->range(),
+                        "attribute '{}' is not supported on a function return type (qualifiers apply to variable/parameter declarations only)", name);
+                }
+            };
+            reject(attr::Deleter);
+            reject(attr::Lifetime);
+            reject(attr::Pin);
+        }
+    }
+
+    // Граница API: короткие (символьные) маркеры в возвращаемом типе функции запрещены -
+    // сигнатура является контрактом API; используйте явный @[reftype(...)]. Правило относится к
+    // УМНЫМ маркерам (`&&`/`&*`/`&?`); нативные `%&`/`%*` - отдельная переходная ось.
+    if (func_node.m_type) {
+        if (const auto rk = refKindOfTypeNode(func_node.m_type.get()); rk.has_value() && isSmartRefKind(*rk)) {
+            m_actx.ctx().diag().report(Severity::Error, func_node.m_type->range(),
+                                       "short reference markers are not allowed in a function return type; use the explicit attribute @[reftype(\"...\")]");
+        }
+    }
+
     // Регистрация имени функции с функциональным типом сигнатуры (return + параметры).
+    // Оператор-МЕТОД в таблицу символов НЕ кладётся: он живёт в таблице методов типа
+    // (TypeRegistry::addMethod, регистрирует анализатор типа) - общие проверки объявления выше
+    // уже выполнены, а вызывающий продолжит анализ тела.
+    if (isMemberOperator) {
+        return;
+    }
     Symbol sym;
     sym.name = func_name;
     sym.type = m_actx.buildFuncType(func_node);
     sym.decl = &func_node;
+
+    // Детерминированный C++-суффикс перегрузки по сигнатуре (кодоген применяет его ТОЛЬКО если
+    // имя перегружено: `m_isOverloaded`). Ставим всегда - бесплатно и не зависит от порядка.
+    func_node.m_overloadSuffix = overloadCppSuffix(m_actx.ctx().types(), structuralType(sym.type));
 
     // Регистрация в текущем скоупе (дубликат - ошибка). Forward-объявление (без тела) может
     // быть завершено последующим определением того же имени (declareOrComplete → Completed).
@@ -662,6 +401,7 @@ void DeclAnalyzer::analyzeFuncDecl(FuncDecl& func_node) {
         m_actx.ctx().diag().report(Severity::Error, func_range, "duplicate declaration '{}'", func_name);
         return;
     }
+    TRUST_DEBUG("declare", "func '{}' depth={}", func_name, m_actx.symbols().depth());
     for (auto& hook : m_core.m_hooks) {
         hook->onDeclare(sym);
     }
@@ -731,183 +471,6 @@ void DeclAnalyzer::analyzeNativeTemplateDecl(FuncDecl& func_node) {
 // члены-интерфейс (методы/поля/конструкторы/статич-члены) как методы типа. Класс определён в
 // C++-заголовке (инклуд из @[include] в preprocIncludes); C++-struct НЕ генерируется. Методы -
 // forward (`:= ...`, тела нет): регистрируются сигнатуры.
-void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
-    MapperRange range = ncd.range();
-    const std::string trustName{ncd.text()};
-    const std::string cppName = ncd.m_nativeName; // "std::string" / "std::pair" (без '%')
-
-    // Обобщённая форма `<T1,T2> Pair ::= <T1,T2> %std::pair { ... }` и явная регистрируются
-    // одинаково (cppName `std::pair`); маппинг `Pair<A,B>`→`std::pair<A,B>` происходит при
-    // инстанциации по типовым параметрам (m_templateArgs для обобщённой остаётся nullopt).
-    if (trustName.empty()) {
-        m_actx.ctx().diag().report(Severity::Error, range, "native class must have a non-empty name");
-        return;
-    }
-    if (cppName.empty()) {
-        m_actx.ctx().diag().report(Severity::Error, range, "native class '{}' must have a non-empty C++ name (use a '%'-prefixed name)", trustName);
-        return;
-    }
-
-    // preprocInclude из `@[include("header")@]` (голое имя → угловой инклуд), подтягивается
-    // on-use при использовании типа (как у нативного шаблона-типа).
-    std::string preprocInclude;
-    {
-        const AttrPool& attrs = m_actx.ctx().attrs();
-        if (auto inc = attrs.lookup(attr::Include); inc.has_value() && ncd.has_attr(*inc)) {
-            if (const auto* args = ncd.attr_args(*inc); args && !args->empty() && !args->at(0).empty()) {
-                preprocInclude = "#include <" + args->at(0) + ">";
-            }
-        }
-    }
-
-    // Регистрация типа: нативный класс (kNativeClass) или нативный шаблон-класс (kNativeTemplate).
-    TypeId cls = INVALID_TYPE_ID;
-    if (!ncd.m_templateParams.has_value()) {
-        cls = m_actx.ctx().types().registerNativeClass(trustName, cppName, range, preprocInclude);
-    } else {
-        cls = m_actx.ctx().types().registerNativeTemplate(trustName, cppName, range, preprocInclude);
-    }
-    if (cls == INVALID_TYPE_ID) {
-        return; // дубликат - диагностика сформирована реестром
-    }
-
-    // Биндинг trust-имени класса в скоупе.
-    Symbol as;
-    as.name = trustName;
-    as.type = cls;
-    as.decl = &ncd;
-    if (m_actx.symbols().declare(as)) {
-        for (auto& hook : m_core.m_hooks) {
-            hook->onDeclare(as);
-        }
-    }
-
-    // Класс-скоуп: нужен для currentClass()/@__CLASS__/@:: (namespacePath включает имя класса)
-    // и для регистрации статических членов. Типовые параметры шаблона объявляются в этом же скоупе.
-    m_actx.symbols().push(&ncd);
-    if (ncd.m_templateParams) {
-        const TypeId tpl = m_actx.ctx().types().getType(type_category::TemplateParam);
-        for (const auto& p : *ncd.m_templateParams) {
-            if (!p) {
-                continue;
-            }
-            Symbol ps;
-            ps.name = std::string(p->text());
-            ps.type = tpl;
-            ps.decl = p.get();
-            ps.storage = Storage::Local;
-            m_actx.symbols().declare(ps);
-        }
-    }
-
-    // Ключ члена: статический = ПОЛНОЕ имя `ns::Class::name` (содержит '::'); экземплярный = bare
-    // (последний сегмент после '::', срез ведущего '.' и маркеров '%'/'^' через utils::bare_name).
-    const auto memberKey = [](const std::string& expanded) -> std::string {
-        const size_t p = expanded.rfind("::");
-        std::string seg = (p == std::string::npos) ? expanded : expanded.substr(p + 2);
-        if (!seg.empty() && seg.front() == '.') {
-            seg.erase(0, 1);
-        }
-        return utils::bare_name(seg);
-    };
-
-    // Регистрация членов-интерфейса (forward, тела нет). Классификация: имя содержит '::' после
-    // раскрытия @:: → ns::Class::name — СТАТИЧЕСКИЙ член; иначе — экземплярный метод/поле.
-    // Правильная регистрация экземплярного — ведущая '.'; без неё (например %field) — диагностика
-    // -Wclass-member-dot (по умолчанию ignore). Ключи: экземплярный — "%<bare>", статический — "@<bare>"
-    // (маркер статики '@', bare_name срезает '@' → findMethodInfo(cls,"name") находит оба).
-    for (const auto& member : ncd.m_body) {
-        if (!member) {
-            continue;
-        }
-        // Раскрытие @:: в имени члена (VarDecl/FuncDecl - потомки IdentName): @::field → ns::Class::field.
-        if (auto* idn = dynamic_cast<IdentName*>(member.get())) {
-            idn->expandQualified(m_actx.namespacePath());
-        }
-        const std::string mname{member->text()};
-        if (mname.empty()) {
-            continue;
-        }
-        const bool isStatic = mname.find("::") != std::string::npos;
-        const std::string bare = memberKey(mname);
-        if (bare.empty()) {
-            continue;
-        }
-
-        if (isStatic) {
-            // Статический член: КЛЮЧ = ПОЛНОЕ имя `ns::Class::name` (содержит '::' — is_static_name
-            // проверяет по зарегистрированному ключу). C++-имя = последний сегмент (bare). Регистрируем
-            // как член типа (доступ Cls.field / Cls::field → cppName::name) и как статическую переменную
-            // в скоупе (анализатор имён).
-            const std::string& skey = mname;
-            if (member->kind() == ParserToken::Kind::FuncDecl) {
-                auto& f = static_cast<FuncDecl&>(*member);
-                const TypeId ft = m_actx.buildFuncType(f);
-                m_actx.ctx().types().addMethod(cls, skey, ft);
-                Symbol ss;
-                ss.name = mname;
-                ss.type = ft;
-                ss.decl = member.get();
-                ss.storage = Storage::Static;
-                m_actx.symbols().declare(ss);
-                m_actx.symbols().declareGlobal(ss); // персистентно: поиск по `... = ns`
-            } else if (member->kind() == ParserToken::Kind::VarDecl) {
-                auto& vd = static_cast<VarDecl&>(*member);
-                if (!vd.m_type) {
-                    m_actx.ctx().diag().report(Severity::Error, vd.range(), "native field '{}' must have an explicit type in a forward declaration", bare);
-                    continue;
-                }
-                TypeId ftype = m_actx.resolveType(*vd.m_type).value_or(INVALID_TYPE_ID);
-                if (ftype == INVALID_TYPE_ID) {
-                    m_actx.ctx().diag().report(Severity::Error, vd.m_type->range(), "unknown field type '{}'", vd.m_type->text());
-                    continue;
-                }
-                const TypeId memberFn = m_actx.ctx().types().getOrCreateFunctionType(ftype, {});
-                m_actx.ctx().types().addMethod(cls, skey, memberFn);
-                Symbol ss;
-                ss.name = mname;
-                ss.type = ftype;
-                ss.decl = member.get();
-                ss.storage = Storage::Static;
-                m_actx.symbols().declare(ss);
-                m_actx.symbols().declareGlobal(ss); // персистентно: поиск по `... = ns`
-            }
-            continue;
-        }
-
-        // Экземплярный член: без ведущей '.' → -Wclass-member-dot (по умолчанию ignore).
-        if (mname.front() != '.') {
-            m_actx.ctx().report(member->range(), semantic::DiagId::ClassMemberDot, "class member '{}' should be registered with a leading '.' (use '.{}')",
-                                mname, bare);
-        }
-        const std::string& ikey = bare;
-        if (member->kind() == ParserToken::Kind::FuncDecl) {
-            auto& f = static_cast<FuncDecl&>(*member);
-            if (!f.m_body.has_value() && !f.m_type) {
-                m_actx.ctx().diag().report(Severity::Error, f.range(), "native method '{}' must have a return type in a forward declaration", bare);
-                continue;
-            }
-            const TypeId ft = m_actx.buildFuncType(f);
-            m_actx.ctx().types().addMethod(cls, ikey, ft);
-        } else if (member->kind() == ParserToken::Kind::VarDecl) {
-            auto& vd = static_cast<VarDecl&>(*member);
-            if (!vd.m_type) {
-                m_actx.ctx().diag().report(Severity::Error, vd.range(), "native field '{}' must have an explicit type in a forward declaration", bare);
-                continue;
-            }
-            TypeId ftype = m_actx.resolveType(*vd.m_type).value_or(INVALID_TYPE_ID);
-            if (ftype == INVALID_TYPE_ID) {
-                m_actx.ctx().diag().report(Severity::Error, vd.m_type->range(), "unknown field type '{}'", vd.m_type->text());
-                continue;
-            }
-            const TypeId memberFn = m_actx.ctx().types().getOrCreateFunctionType(ftype, {});
-            m_actx.ctx().types().addMethod(cls, ikey, memberFn);
-        }
-    }
-
-    m_actx.symbols().pop();
-}
-
 // Регистрация параметров в текущем (функционном) скоупе - вызывается из analyzeNode
 // ВНУТРИ enterScope() скоупа функции, чтобы имена в теле функции резолвились.
 void DeclAnalyzer::declareFuncParams(FuncDecl& func_node) {
@@ -919,9 +482,16 @@ void DeclAnalyzer::declareFuncParams(FuncDecl& func_node) {
             continue;
         }
         auto& pd = static_cast<ArgNode&>(*p);
+        // Граница API: короткие (символьные) маркеры в типе параметра запрещены - сигнатура
+        // функции является контрактом API; используйте явный @[reftype(...)]. Правило относится к
+        // УМНЫМ маркерам (`&&`/`&*`/`&?`); нативные `%&`/`%*` - отдельная переходная ось.
+        if (const auto pk = refKindOfTypeNode(pd.m_type.get()); pk.has_value() && isSmartRefKind(*pk)) {
+            m_actx.ctx().diag().report(Severity::Error, pd.m_type->range(),
+                                       "short reference markers are not allowed in a function parameter type; use the explicit attribute @[reftype(\"...\")]");
+        }
         Symbol ps;
         ps.name = std::string(pd.text());
-        TypeId ptype = (pd.m_type) ? m_actx.resolveType(*pd.m_type).value_or(INVALID_TYPE_ID) : INVALID_TYPE_ID;
+        TypeId ptype = (pd.m_type) ? m_actx.resolveTypeRef(*pd.m_type).value_or(INVALID_TYPE_ID) : INVALID_TYPE_ID;
         // Константность и вид ссылки параметра - из атрибутов узла ТИПА параметра
         // (`fmt: @[reftype(ptr)@] StrChar^`): reftype → RefType, ReadOnly → const.
         if (pd.m_type && pd.m_type->as_attr()) {
@@ -934,6 +504,48 @@ void DeclAnalyzer::declareFuncParams(FuncDecl& func_node) {
         for (auto& hook : m_core.m_hooks) {
             hook->onDeclare(ps);
         }
+    }
+}
+
+// Лямбда-выражение: резолв захватов в ОБЪЁМЛЮЩЕМ скоупе (вызывается ДО enterScope лямбды).
+// Захват - ТОЛЬКО имя переменной, ТОЛЬКО по значению (копия). Некопируемый (unique/move-only)
+// захват по значению - ошибка (без молчаливого move).
+void DeclAnalyzer::analyzeLambdaCaptures(FuncDecl& func_node) {
+    if (!func_node.m_captures) {
+        return;
+    }
+    std::unordered_set<std::string> seen;
+    for (const auto& cap : *func_node.m_captures) {
+        if (!cap || cap->kind() != ParserToken::Kind::ArgNode) {
+            continue;
+        }
+        auto& c = static_cast<ArgNode&>(*cap);
+        const std::string name(c.text());
+        if (name.empty()) {
+            continue;
+        }
+        // Локальные имена нормализованы в '$name' - резолвим оба варианта.
+        const Symbol* s = m_actx.symbols().resolve(name);
+        if (s == nullptr && name[0] != '$') {
+            s = m_actx.symbols().resolve("$" + name);
+        }
+        if (s == nullptr) {
+            m_actx.ctx().diag().report(Severity::Error, c.range(), "captured name '{}' is not declared in the enclosing scope", name);
+            continue;
+        }
+        if (!seen.insert(name).second) {
+            m_actx.ctx().diag().report(Severity::Error, c.range(), "duplicate lambda capture '{}'", name);
+            continue;
+        }
+        // Эксклюзивное владение (unique/move-only) нельзя захватить по значению.
+        if (s->type != INVALID_TYPE_ID && refAxisOf(getRefType(getKindFromId(s->type))) == RefAxis::Unique) {
+            m_actx.ctx().diag().report(Severity::Error, c.range(),
+                                       "cannot capture exclusive-ownership value '{}' by value; "
+                                       "lambda capture-by-value requires a copyable value",
+                                       name);
+            continue;
+        }
+        c.resultType = s->type; // тип захваченной переменной (копия)
     }
 }
 
@@ -977,7 +589,7 @@ void DeclAnalyzer::analyzeDestructure(DestructureDecl& node) {
     }
     // Кортеж (структурный источник, НЕ spread): цели = элементы по индексу.
     if (!node.m_isSpread) {
-        const TypeId src = node.m_source ? m_actx.resolvedType(*node.m_source) : INVALID_TYPE_ID;
+        const TypeId src = node.m_source ? m_actx.exprType(*node.m_source) : INVALID_TYPE_ID;
         const bool isTuple = src != INVALID_TYPE_ID && m_actx.ctx().types().getTypeDataAs<TupleTypeData>(src) != nullptr;
         if (isTuple) {
             analyzeDestructureTuple(node, src);
@@ -990,7 +602,7 @@ void DeclAnalyzer::analyzeDestructure(DestructureDecl& node) {
     // spread (коллекция Dict). Проверка типа источника: допустим только словарь (Dict) - иначе
     // pop_front на не-коллекции упал бы лишь на этапе C++-компиляции (тихий fallback в семантике).
     const TypeRegistry& reg = m_actx.ctx().types();
-    const TypeId srcType = node.m_source ? m_actx.resolvedType(*node.m_source) : INVALID_TYPE_ID;
+    const TypeId srcType = node.m_source ? m_actx.exprType(*node.m_source) : INVALID_TYPE_ID;
     if (!isDictTypeId(reg, srcType)) {
         m_actx.ctx().diag().report(Severity::Error, node.m_source ? node.m_source->range() : node.range(),
                                    "spread destructuring source must be a dictionary (Dict), got a non-collection type");
@@ -1139,7 +751,7 @@ void DeclAnalyzer::analyzeDestructureTuple(DestructureDecl& node, TypeId tupleTy
         }
         const bool isRest = i < node.m_targetIsRest.size() && node.m_targetIsRest[i];
         auto& h = static_cast<HasText&>(*t);
-        if (h.text() == "_" && !isRest) {
+        if (isNoneMarker(t.get()) && !isRest) {
             ++idx; // skip-элемент занимает индекс, но не связывается
             continue;
         }
@@ -1154,7 +766,7 @@ void DeclAnalyzer::analyzeDestructureTuple(DestructureDecl& node, TypeId tupleTy
         if (isRest) {
             // rest: `_...` - отброс (ничего не связываем); именованный `rest...` - остаток кортежа
             // (C++-тип выводится в кодогенерации через make_tuple; семантический тип - исходный кортеж).
-            if (h.text() == "_") {
+            if (isNoneMarker(t.get())) {
                 continue;
             }
             // Шаг 1: rest кортежа не может переиспользовать существующую переменную (в т.ч. сам
@@ -1283,7 +895,7 @@ TypeId DeclAnalyzer::explicitTargetType(const DestructureDecl& node, size_t i, T
     if (i >= node.m_targetTypeNodes.size() || !node.m_targetTypeNodes[i]) {
         return fallback;
     }
-    auto resolved = m_actx.resolveType(*node.m_targetTypeNodes[i]);
+    auto resolved = m_actx.resolveTypeRef(*node.m_targetTypeNodes[i]);
     if (!resolved) {
         m_actx.ctx().diag().report(Severity::Error, node.m_targetTypeNodes[i]->range(), "unknown type '{}'", node.m_targetTypeNodes[i]->text());
         return INVALID_TYPE_ID;

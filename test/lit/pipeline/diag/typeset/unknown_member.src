@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: type 'Nope' not found
+
+# Тип-член набора должен существовать - иначе явная ошибка.
+x ::= :Int8 + :Nope;
+@main() := { @return 0; }

@@ -4,7 +4,8 @@
 // Dump methods for specialized nodes live in ast_nodes.cpp and ident_name.cpp.
 
 #include "ast/token_base.hpp"
-#include "ast/attr_pool.hpp"
+#include "ast/ast_nodes.hpp"
+#include "attrs/attr_pool.hpp"
 #include "syntax/term.h"
 #include <algorithm>
 
@@ -85,6 +86,44 @@ const std::vector<std::string>* AstNodeAttr::attr_args(AttrId id) const noexcept
 
 std::string AstNodeAttr::dump(size_t indent) const {
     return AstNodeBase::dump(indent);
+}
+
+// ----------------------------------------------------------------------------
+// AstNodeBase::trustContracts / hasTrustProperty - типизированный доступ к m_trust (R1).
+// Фильтрация только TrustContract-узлов (без RTTI) - единый источник для потребителей.
+// ----------------------------------------------------------------------------
+
+std::vector<const TrustContract*> AstNodeBase::trustContracts() const {
+    std::vector<const TrustContract*> result;
+    result.reserve(m_trust.size());
+    for (const auto& t : m_trust) {
+        EXPECT(t && "AstNodeBase::m_trust must not contain null entries");
+        EXPECT(t->is<TrustContract>() && "AstNodeBase::m_trust must contain only TrustContract nodes");
+        result.push_back(t->as<TrustContract>());
+    }
+    return result;
+}
+
+std::vector<TrustContract*> AstNodeBase::trustContracts() {
+    std::vector<TrustContract*> result;
+    result.reserve(m_trust.size());
+    for (const auto& t : m_trust) {
+        EXPECT(t && "AstNodeBase::m_trust must not contain null entries");
+        EXPECT(t->is<TrustContract>() && "AstNodeBase::m_trust must contain only TrustContract nodes");
+        result.push_back(t->as<TrustContract>());
+    }
+    return result;
+}
+
+bool AstNodeBase::hasTrustProperty(PropertyKind kind) const {
+    for (const auto& t : m_trust) {
+        EXPECT(t && "AstNodeBase::m_trust must not contain null entries");
+        EXPECT(t->is<TrustContract>() && "AstNodeBase::m_trust must contain only TrustContract nodes");
+        if (t->as<TrustContract>()->kind == kind) {
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace trust

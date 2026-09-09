@@ -11,7 +11,7 @@
 #include "playground/server.h"
 #include "playground/worker.h"
 
-#include "pipeline/cli.hpp"
+#include "driver/cli.hpp"
 #include "utils/io.hpp"
 
 #include <algorithm>
@@ -51,7 +51,7 @@ void installSignalHandlers() {
     ::sigaction(SIGTERM, &sa, nullptr);
 }
 
-// -- Единый арity-aware парсер драйвера (см. pipeline/cli.hpp) --
+// -- Единый арity-aware парсер драйвера (см. driver/cli.hpp) --
 // Опции playground объявлены таблицей DriverOption - единый источник для парсера и справки.
 
 enum class PlaygroundOptId {
@@ -124,7 +124,7 @@ int main(int argc, const char* argv[]) {
     bool save_config = false;
     bool help = false;
 
-    // Единый арity-aware парсер драйвера (см. pipeline/cli.hpp). Позиционных и `-W` у playground
+    // Единый арity-aware парсер драйвера (см. driver/cli.hpp). Позиционных и `-W` у playground
     // нет (input_file/diag/diag_help остаются пустыми). `--gen-token` - OptionalValue: значение
     // задаётся ТОЛЬКО через `=` (`--gen-token=10`), следующий токен не потребляется.
     std::vector<std::string> args;

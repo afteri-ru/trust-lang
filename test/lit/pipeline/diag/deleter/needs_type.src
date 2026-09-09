@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# @[deleter(D)] без аннотации типа: T ресурса вывести из сырого handle нельзя -> явная ошибка
+# (не тихий пропуск атрибута).
+@main():Int32 := {
+    @[reftype("unique")@] @[deleter(FreeDeleter)@] h := {% 0 %};
+    return 0;
+};
+# CHECK: error: attribute 'deleter' requires an explicit type annotation (the resource value type cannot be inferred)

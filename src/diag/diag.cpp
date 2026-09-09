@@ -1,5 +1,5 @@
 #include "diag/diag.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 
 #include "utils/io.hpp"
 

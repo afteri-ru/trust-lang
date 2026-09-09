@@ -1,0 +1,29 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: same=true free=true
+
+# Регистрация/резолв операторов (единый источник на форму): member-оператор виден из метода СВОЕГО
+# класса (ложного «ambiguous» нет); свободный оператор резолвится из ТАБЛИЦЫ СИМВОЛОВ даже из метода
+# другого класса. Ошибка компиляции здесь означала бы регресс резолва.
+:P ::= :Class{
+    x: Int32 := _;
+    `==`(o: P): Bool := { return true; };
+    same(o: P): Bool := { return o == o; };
+};
+:V ::= :Class{ v: Int32 := _; };
+`==`(a: V, b: V): Bool := { return true; };
+:W ::= :Class{
+    w: Int32 := _;
+    eq(o: V): Bool := { return o == o; };
+};
+@main() := {
+    p : P := :P(1);
+    q : P := :P(2);
+    a : V := :V(1);
+    b : V := :V(2);
+    w : W := :W(0);
+    @print('same={} free={}\n', p.same(q), w.eq(a) == w.eq(b));
+    @return 0;
+}

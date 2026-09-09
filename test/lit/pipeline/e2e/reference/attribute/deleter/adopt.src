@@ -1,0 +1,29 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: printf '#pragma once\n#include <cstdlib>\nstatic int g_freed = 0;\nstruct CountDel { void operator()(int* p) const { ++g_freed; std::free(p); } };\nstatic int* test_alloc() { return static_cast<int*>(std::malloc(sizeof(int))); }\nstatic int freed_count() { return g_freed; }\n' > $TD/countdel.hpp
+# RUN: %trust -q --temp-dir $TD --options "-I$TD" -o $TD/adopt %s
+# RUN: $TD/adopt > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: val=42
+# CHECK: freed=1
+
+# @[deleter(D)] на владеющем ресурсе: adopt внешнего handle (сырого указателя) с пользовательским
+# deleter-типом CountDel (нативный класс). При выходе из do_work владелец trust::Unique<T,D>
+# разрушается и deleter вызывается РОВНО один раз (g_freed == 1). Инициализатор - результат
+# нативной функции alloc_handle() (сырой указатель), а не значение; вид/D заданы атрибутами.
+@include("countdel.hpp")
+CountDel ::= %CountDel { };
+alloc_handle():@[reftype(ptr)@] Int32 := %test_alloc...;
+freed():Int32 := %freed_count...;
+
+do_work():Int32 := {
+    h : @[reftype("unique")@] @[deleter(CountDel)@] Int32 := alloc_handle();
+    *h = 42;
+    print('val={}\n', *h);
+    return 0;
+};
+
+@main():Int32 := {
+    _ := do_work();
+    print('freed={}\n', freed());
+    return 0;
+};

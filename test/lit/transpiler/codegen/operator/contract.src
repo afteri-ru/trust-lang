@@ -1,0 +1,11 @@
+# RUN: %trust -q --solver-mode=assert --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Контракты у ОПЕРАТОРА (trust_pre/trust_post) работают как у функций: под --solver-mode=assert
+# в тело operator== инжектится проверка (trust::trust__abort__ при ложном условии).
+:V ::= :Class{
+    v: Int32 := _;
+    `==`(o: V): Bool trust_pre(true) := { return true; };
+};
+@main() := { @return 0; }
+# CHECK: bool operator==(c_V c_o) {
+# CHECK: trust::trust__abort__(

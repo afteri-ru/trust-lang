@@ -8,7 +8,7 @@
 #include "types/type_names.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/token.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "gtest/gtest.h"
 
 #include <memory>
@@ -86,13 +86,17 @@ TEST_F(ArrayTypeFixture, ArrayMethodsRegistered) {
     const TypeId int32 = reg.getType(type::Int32);
     const TypeId arr = reg.getOrCreateArrayType(int32, {3});
     // Методы объявлены на абстрактном `:Array` и находятся через fallback (findMethodInfo).
-    EXPECT_NE(reg.findMethod(arr, "count"), INVALID_TYPE_ID);
-    EXPECT_NE(reg.findMethod(arr, "size"), INVALID_TYPE_ID);
-    EXPECT_NE(reg.findMethod(arr, "empty"), INVALID_TYPE_ID);
-    EXPECT_NE(reg.findMethod(arr, "at"), INVALID_TYPE_ID);
-    EXPECT_NE(reg.findMethod(arr, "first"), INVALID_TYPE_ID);
+    const auto methodSig = [&](std::string_view n) {
+        const auto m = reg.findMethodInfo(arr, n);
+        return m ? m->signatures.front() : INVALID_TYPE_ID;
+    };
+    EXPECT_NE(methodSig("count"), INVALID_TYPE_ID);
+    EXPECT_NE(methodSig("size"), INVALID_TYPE_ID);
+    EXPECT_NE(methodSig("empty"), INVALID_TYPE_ID);
+    EXPECT_NE(methodSig("at"), INVALID_TYPE_ID);
+    EXPECT_NE(methodSig("first"), INVALID_TYPE_ID);
     // Элемент-зависимый метод `at` подставляет элементный тип.
-    const TypeId at = reg.findMethod(arr, "at");
+    const TypeId at = methodSig("at");
     const TypeId inst = reg.instantiateArrayMethod(arr, at);
     const auto* fd = reg.getTypeDataAs<FunctionTypeData>(inst);
     ASSERT_NE(fd, nullptr);

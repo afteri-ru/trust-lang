@@ -1,14 +1,14 @@
 // src/semantic/nativeref.cpp
-// Реализация NativeRefHook - отслеживание инвалидации ссылок (условный атрибут @[reftrace@],
+// Реализация NativeRefHook - отслеживание инвалидации зависимых (атрибут @[borrowed],
 // см. include/semantic/nativeref.hpp) + диагностики нативных (сырых) C++-ссылок.
 // Структурная детекция по инициализатору/типу.
 
 #include "semantic/nativeref.hpp"
 
-#include "ast/attr_pool.hpp"
+#include "attrs/attr_pool.hpp"
+#include "ast/ref_syntax.hpp"
 #include "ast/ident_name.hpp"
 #include "diag/options.hpp"
-#include "utils/operators.hpp"
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
 
@@ -23,16 +23,18 @@ NativeRefHook::NativeRefHook(AnalysisContext& actx)
 
 void NativeRefHook::enterScope() {
     m_frames.emplace_back();
+    m_epoch.push();
 }
 
 void NativeRefHook::exitScope() {
     if (m_frames.size() > 1) {
         m_frames.pop_back();
     }
+    m_epoch.pop();
 }
 
-bool NativeRefHook::reftraceEnabled() const {
-    return m_actx.ctx().opts().get(semantic::DiagId::RefTrace) != Severity::Ignore;
+bool NativeRefHook::borrowedEnabled() const {
+    return m_actx.ctx().opts().get(semantic::DiagId::Borrowed) != Severity::Ignore;
 }
 
 std::string NativeRefHook::normalizeMethodName(std::string_view m) {
@@ -62,30 +64,25 @@ std::string NativeRefHook::sourceOf(const AstNodeBase* node) const {
     if (!node) {
         return {};
     }
-    switch (node->kind()) {
-    case ParserToken::Kind::Ident: {
-        const auto& id = static_cast<const IdentName&>(*node);
+    if (node->kind() == ParserToken::Kind::Ident) {
+        const auto& id = *node->as<IdentName>();
         const std::string t(id.text());
         return (t.empty() || t == "_") ? std::string{} : t;
     }
-    case ParserToken::Kind::ArrayAccess:
-    case ParserToken::Kind::MemberAccess: {
-        const auto& b = static_cast<const Binary&>(*node);
+    if (node->kind() == ParserToken::Kind::ArrayAccess || node->kind() == ParserToken::Kind::MemberAccess) {
+        const auto& b = *node->as<Binary>();
         return sourceOf(b.m_left.get());
     }
-    case ParserToken::Kind::RefMakeExpr:
-    case ParserToken::Kind::RefTakeExpr:
-    case ParserToken::Kind::NativeRefMakeExpr:
-    case ParserToken::Kind::NativeRefTakeExpr: {
-        const auto& s = static_cast<const Sequence&>(*node);
+    if (node->is<RefMakeExpr>() || node->is<RefTakeExpr>()) {
+        const auto& s = *node->as<Sequence>();
         if (!s.m_body.empty()) {
             return sourceOf(s.m_body[0].get());
         }
         return {};
     }
-    case ParserToken::Kind::CallExpr: {
-        // Конструктор reftrace-класса Span(container) -> источник - первый аргумент.
-        const auto& call = static_cast<const CallExpr&>(*node);
+    if (node->is<CallExpr>()) {
+        // Конструктор borrowed-класса Span(container) -> источник - первый аргумент.
+        const auto& call = *node->as<CallExpr>();
         if (call.m_callee && call.m_callee->kind() == ParserToken::Kind::Ident && call.m_args && !call.m_args->empty()) {
             const std::string cname(call.m_callee->text());
             if (m_markedClasses.count(cname) != 0) {
@@ -94,9 +91,7 @@ std::string NativeRefHook::sourceOf(const AstNodeBase* node) const {
         }
         return {};
     }
-    default:
-        return {};
-    }
+    return {};
 }
 
 bool NativeRefHook::varIsMarkedClassType(const VarDecl& var) const {
@@ -116,47 +111,36 @@ bool NativeRefHook::varIsMarkedClassType(const VarDecl& var) const {
     return false;
 }
 
-bool NativeRefHook::varIsTracked(const VarDecl& var, const std::string& source) const {
-    if (source.empty()) {
+bool NativeRefHook::varHasBorrowedAttr(const VarDecl& var) const {
+    const AttrPool& attrs = m_actx.ctx().attrs();
+    if (var.has_attr(attrs, attr::Borrowed)) {
+        return true;
+    }
+    const AstNodeBase* typeNode = var.m_type.get();
+    if (typeNode != nullptr && typeNode->as_attr() != nullptr && typeNode->as_attr()->has_attr(attrs, attr::Borrowed)) {
+        return true;
+    }
+    return false;
+}
+
+bool NativeRefHook::exprIsBorrowed(const AstNodeBase* init) const {
+    if (init == nullptr) {
         return false;
     }
-    // Транзитивность: если источник сам зависимая - новая переменная тоже отслеживается.
-    if (findFrameWithDependent(source) != nullptr) {
-        return true;
-    }
-    const AstNodeBase* init = var.m_initializer.get();
-    if (!init) {
-        return varIsMarkedClassType(var);
-    }
-    const AttrPool& attrs = m_actx.ctx().attrs();
-    // 1. Индексный доступ obj[i] -> ссылка на данные -> всегда зависимая.
-    if (init->kind() == ParserToken::Kind::ArrayAccess) {
-        return true;
-    }
-    // 2. Маркер ссылки на переменной (& x / * x) - чистая C++-ссылка.
-    if (var.has_attr(attrs, attr::Reftype)) {
-        return true;
-    }
-    // 3. & obj / * obj (RefMake/RefTake) в выражении.
-    if (init->kind() == ParserToken::Kind::RefMakeExpr || init->kind() == ParserToken::Kind::RefTakeExpr ||
-        init->kind() == ParserToken::Kind::NativeRefMakeExpr || init->kind() == ParserToken::Kind::NativeRefTakeExpr) {
-        return true;
-    }
-    // 4. Вызов метода obj.m(): отслеживается, если метод помечен @[reftrace@].
+    // Вызов метода obj.m(): отслеживается, если метод помечен @[borrowed].
     if (init->kind() == ParserToken::Kind::MemberAccess) {
         const auto& b = static_cast<const Binary&>(*init);
         if (b.m_right && b.m_right->kind() == ParserToken::Kind::CallExpr) {
             const auto& call = static_cast<const CallExpr&>(*b.m_right);
             if (call.m_callee && call.m_callee->kind() == ParserToken::Kind::Ident) {
-                const std::string mname = normalizeMethodName(call.m_callee->text());
-                if (m_markedMethods.count(mname) != 0) {
+                if (m_markedMethods.count(normalizeMethodName(call.m_callee->text())) != 0) {
                     return true;
                 }
             }
         }
         return false;
     }
-    // 5. Конструктор reftrace-класса Span(container).
+    // Конструктор @[borrowed]-класса: Span(container).
     if (init->kind() == ParserToken::Kind::CallExpr) {
         const auto& call = static_cast<const CallExpr&>(*init);
         if (call.m_callee && call.m_callee->kind() == ParserToken::Kind::Ident) {
@@ -166,7 +150,35 @@ bool NativeRefHook::varIsTracked(const VarDecl& var, const std::string& source) 
         }
         return false;
     }
-    // 6. Тип переменной - reftrace-класс (s := vect, где s : Span).
+    return false;
+}
+
+bool NativeRefHook::varIsTracked(const VarDecl& var, const std::string& source) const {
+    // Явный атрибут @[borrowed] на переменной/её аннотации типа - всегда отслеживается.
+    if (varHasBorrowedAttr(var)) {
+        return true;
+    }
+    if (source.empty()) {
+        return false;
+    }
+    // Копирование атрибута (транзитивность): если источник сам зависимая - новая переменная тоже.
+    if (findFrameWithDependent(source) != nullptr) {
+        return true;
+    }
+    const AstNodeBase* init = var.m_initializer.get();
+    if (!init) {
+        return varIsMarkedClassType(var);
+    }
+    // Индексный доступ obj[i] НЕ отслеживается: в текущей модели `obj[i]` даёт КОПИЮ значения
+    // (кодоген: `c_w = (c_d).at(0)`), а не view — мутация `obj` не делает такую переменную
+    // висячей. Умные ссылки/наблюдатели (shared/weak/unique) здесь тоже НЕ отслеживаются: их
+    // использование после мутации владельца — прерогатива borrow-checker (`-Wborrow-owner-mutated`).
+    // Отслеживаются только сущности с контрактом @[borrowed] (класс держит чужие данные;
+    // метод возвращает view).
+    if (exprIsBorrowed(init)) {
+        return true;
+    }
+    // Тип переменной - @[borrowed]-класс (s := vect, где s : Span).
     return varIsMarkedClassType(var);
 }
 
@@ -205,16 +217,36 @@ void NativeRefHook::recordBirth(const VarDecl& var) {
     if (source.empty() || source == dep) {
         return;
     }
-    const int64_t born = m_epoch[source];
+    const int64_t born = m_epoch.epochOf(source);
     m_frames.back().dependent[dep] = {source, born};
 }
 
-void NativeRefHook::recordMutation(const std::string& name, const MapperRange& range) {
-    if (name.empty()) {
+void NativeRefHook::propagateBorrowOnAssign(const Binary& b) {
+    // Копирование атрибута @[borrowed] при присваивании: `x = <зависимое>` делает x зависимым
+    // от того же корневого источника; `x = <независимое>` снимает прежнюю зависимость (release).
+    if (!b.m_left || b.m_left->kind() != ParserToken::Kind::Ident) {
         return;
     }
-    m_epoch[name]++;
-    m_changeSite[name] = range;
+    const std::string lhs = bareName(b.m_left->text());
+    if (lhs.empty() || lhs == "_") {
+        return;
+    }
+    const AstNodeBase* rhs = b.m_right.get();
+    const std::string rawSource = bareName(sourceOf(rhs));
+    const bool rhsBorrowed = !rawSource.empty() && (findFrameWithDependent(rawSource) != nullptr || exprIsBorrowed(rhs));
+    if (rhsBorrowed) {
+        const std::string root = resolveRootSource(rawSource);
+        if (!root.empty() && root != lhs) {
+            m_frames.back().dependent[lhs] = {root, m_epoch.epochOf(root)};
+            return;
+        }
+    }
+    // Присваивание независимого значения (или self-ссылка) - снимаем прежний заём.
+    m_frames.back().dependent.erase(lhs);
+}
+
+void NativeRefHook::recordMutation(const std::string& name, const MapperRange& range) {
+    m_epoch.mutate(name, range);
 }
 
 bool NativeRefHook::hasDependents(const std::string& name) const {
@@ -247,8 +279,8 @@ RefType NativeRefHook::nativeKindOfTypeNode(const AstNodeBase* typeNode) {
     if (!typeNode) {
         return RefType::kValue;
     }
-    const auto k = refTypeFromTypeSigil(typeNode->text());
-    if (k.has_value() && (*k == RefType::kRef || *k == RefType::kPtr || *k == RefType::kRref || *k == RefType::kPtrPtr)) {
+    const auto k = refKindOfTypeNode(typeNode);
+    if (k.has_value() && isNativeRefKind(*k)) {
         return *k;
     }
     return RefType::kValue;
@@ -259,7 +291,7 @@ static RefType nativeKindOfTypeId(TypeId tid) {
         return RefType::kValue;
     }
     const RefType rt = getRefType(getKindFromId(tid));
-    return (rt == RefType::kRef || rt == RefType::kPtr || rt == RefType::kRref || rt == RefType::kPtrPtr) ? rt : RefType::kValue;
+    return isNativeRefKind(rt) ? rt : RefType::kValue;
 }
 
 void NativeRefHook::registerNativeVar(const Symbol& sym, RefType kind) {
@@ -334,9 +366,6 @@ const std::pair<size_t, RefType>* NativeRefHook::findNativeVar(const std::string
 bool NativeRefHook::exprProducesNativeRef(const AstNodeBase* e) const {
     if (!e) {
         return false;
-    }
-    if (e->kind() == ParserToken::Kind::NativeRefMakeExpr) {
-        return true;
     }
     if (e->kind() == ParserToken::Kind::Ident) {
         const std::string n = bareName(e->text());
@@ -413,17 +442,17 @@ bool NativeRefHook::onNode(AstNodePtr& node) {
     const auto kind = node->kind();
     const AttrPool& attrs = m_actx.ctx().attrs();
 
-    // Помеченные @[reftrace@] классы и методы.
+    // Помеченные @[borrowed] классы и методы.
     if (kind == ParserToken::Kind::ClassDecl) {
         const auto& cls = static_cast<const ClassDecl&>(*node);
-        if (cls.has_attr(attrs, attr::RefTrace)) {
+        if (cls.has_attr(attrs, attr::Borrowed)) {
             m_markedClasses.insert(std::string(cls.text()));
         }
         return false;
     }
     if (kind == ParserToken::Kind::FuncDecl) {
         const auto& fn = static_cast<const FuncDecl&>(*node);
-        if (fn.has_attr(attrs, attr::RefTrace)) {
+        if (fn.has_attr(attrs, attr::Borrowed)) {
             m_markedMethods.insert(normalizeMethodName(fn.text()));
         }
         // D3+D7: нативные маркеры в сигнатуре функции - ошибка.
@@ -433,7 +462,11 @@ bool NativeRefHook::onNode(AstNodePtr& node) {
 
     // Порождение зависимой переменной.
     if (kind == ParserToken::Kind::VarDecl) {
-        recordBirth(static_cast<const VarDecl&>(*node));
+        const auto& vd = static_cast<const VarDecl&>(*node);
+        // Per-frame эпоха: регистрируем имя в ТЕКУЩЕМ фрейме (= скоупе объявления).
+        // onNode(VarDecl) срабатывает гарантированно (onDeclare для локальных VarDecl не вызывается).
+        m_epoch.declare(bareName(vd.text()));
+        recordBirth(vd);
         return false;
     }
 
@@ -447,10 +480,12 @@ bool NativeRefHook::onNode(AstNodePtr& node) {
             }
         }
         // Диагностики нативных ссылок на присваивании/swap.
-        if (utils::isSwapOp(b.text())) {
+        if (isSwapOp(b.m_op)) {
             checkSwapNativeAcrossScopes(b);
-        } else if (b.text() == "=") {
+        } else if (isPlainAssignOp(b.m_op)) {
             checkAssignIntoOuterNative(b);
+            // Копирование/снятие атрибута @[borrowed] при присваивании.
+            propagateBorrowOnAssign(b);
         }
         return false;
     }
@@ -486,18 +521,16 @@ void NativeRefHook::onResolve(const AstNodeBase& node, const Symbol* sym) {
     }
     const std::string& source = entry.first;
     const int64_t born = entry.second;
-    auto epochIt = m_epoch.find(source);
-    const int64_t cur = (epochIt == m_epoch.end()) ? 0 : epochIt->second;
+    const int64_t cur = m_epoch.epochOf(source);
     if (cur <= born) {
         return; // источник не мутировал после рождения зависимой
     }
-    if (!reftraceEnabled()) {
+    if (!borrowedEnabled()) {
         return;
     }
-    m_actx.ctx().report(node.range(), semantic::DiagId::RefTrace, "using the dependent variable '{}' after changing the main variable '{}'!", dep, source);
-    auto cs = m_changeSite.find(source);
-    if (cs != m_changeSite.end()) {
-        m_actx.ctx().diag().report(Severity::Note, cs->second, "using main variable '{}'", source);
+    m_actx.ctx().report(node.range(), semantic::DiagId::Borrowed, "using the dependent variable '{}' after changing the main variable '{}'!", dep, source);
+    if (const MapperRange* cs = m_epoch.changeSiteOf(source)) {
+        m_actx.ctx().diag().report(Severity::Note, *cs, "using main variable '{}'", source);
     }
 }
 

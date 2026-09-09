@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# @[pin] зарегистрирован как built-in, но pin-механика (запрет move/copy для самоссылающихся
+# типов) не реализована -> использование даёт явную ошибку (без тихого принятия).
+@main():Int32 := {
+    @[pin@] x : Int32 := 5;
+    return 0;
+};
+# CHECK: error: attribute 'pin' is not implemented yet (address-stability enforcement is a separate track)

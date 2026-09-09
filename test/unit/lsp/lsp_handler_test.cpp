@@ -213,7 +213,7 @@ TEST_F(TrustLspTest, HandleShutdown_ClearsCache) {
 // ═══════════════════════════════════════════════════════════════
 // documentLink: forward (trust→cpp) и reverse (cpp→trust)
 // - trust→cpp: макросы (@assert/@while/print) и операторы ведут в cppt
-//   (регрессия: раньше координаты определения макроса из "@trust/dsl" применялись к
+//   (регрессия: раньше координаты определения макроса из "@stdlib/dsl" применялись к
 //   src → переход уводил в конец файла).
 // - cpp→trust: строка print ведёт в print-фрагмент src, а НЕ в начало функции
 //   (регрессия: маппинг всей функции перекрывал точечный и уводил к началу).
@@ -350,8 +350,8 @@ TEST_F(TrustLspTest, DISABLED_HandleHover_MacroDefLinkFirst_WholeRange) {
     EXPECT_NE(first.find("[Macro: @assert]"), std::string::npos) << "first link must be Macro def:\n" << resp.dump();
     // Ссылка на определение должна указывать в dsl.src и выделять весь макрос,
     // начиная с имени (колонка 1). Номер строки не хардкодим - проверяем формат
-    // `trust/dsl.src#L<номер>,1-`, чтобы тест не зависел от содержимого dsl.src.
-    const std::regex defLinkRe(R"(trust/dsl\.src#L[0-9]+,1-)");
+    // `stdlib/dsl.src#L<номер>,1-`, чтобы тест не зависел от содержимого dsl.src.
+    const std::regex defLinkRe(R"(stdlib/dsl\.src#L[0-9]+,1-)");
     EXPECT_TRUE(std::regex_search(first, defLinkRe)) << "macro def range must start at macro name:\n" << first;
 
     // Индекс [2] - раскрытый код в cppt.

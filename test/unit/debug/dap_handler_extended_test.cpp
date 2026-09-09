@@ -5,7 +5,7 @@
 #include "debug/dap_handler.hpp"
 #include "debug/dap_transport.h"
 #include "debug/gdb_debug.h"
-#include "diag/mapper.hpp"
+#include "sourcemap/mapper.hpp"
 
 #include "mock_transport.hpp"
 
@@ -18,6 +18,8 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+
+#include "test_data.hpp"
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -35,11 +37,8 @@ class DapHandlerExtendedTest : public ::testing::Test {
     std::string fakeElf;
 
     void SetUp() override {
-        // Создаём временную директорию с fake ELF
-        char tmpTemplate[] = "/tmp/dap_test_XXXXXX";
-        char* tmp = mkdtemp(tmpTemplate);
-        ASSERT_NE(tmp, nullptr);
-        tmpDir = tmp;
+        // Фиксированная директория с fake ELF внутри _build (не уникальные /tmp).
+        tmpDir = trust::test::makeTestDataDir("dap_handler_extended").string();
         fakeElf = tmpDir + "/test_binary";
 
         handler = std::make_unique<DapHandler>(mock, opts);
@@ -47,9 +46,7 @@ class DapHandlerExtendedTest : public ::testing::Test {
 
     void TearDown() override {
         handler.reset();
-        if (!tmpDir.empty()) {
-            fs::remove_all(tmpDir);
-        }
+        // Каталог фиксированный и остаётся в _build (очищается в начале следующего теста).
     }
 };
 

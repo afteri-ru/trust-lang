@@ -5,7 +5,7 @@
 //     по приоритету shebangMode с атрибуцией ошибок по источнику.
 
 #include "lsp/lsp_options.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "semantic/solver.hpp"
 #include "gtest/gtest.h"
 

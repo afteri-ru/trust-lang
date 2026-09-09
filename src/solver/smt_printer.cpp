@@ -1,7 +1,7 @@
 #include "solver/smt_printer.hpp"
 
-#include "diag/context.hpp"
-#include "diag/mapper.hpp"
+#include "session/context.hpp"
+#include "sourcemap/mapper.hpp"
 
 #include <cstdint>
 #include <sstream>

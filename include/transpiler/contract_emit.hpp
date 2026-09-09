@@ -25,7 +25,11 @@ class ContractEmitter {
     : m_ectx(ectx)
     , m_driver(driver) {}
     void emitRuntimeAssertCheck(const CallExpr& call);
-    void emitRuntimeAssert(const AstNodeBase* cond, MapperRange range, std::string_view message = "");
+    /// Эмитит проверку `if (!(cond)) trust::trust__abort__(...)`. Сообщение: если задан `fmtArgs`
+    /// (начиная с fmtOffset - форматная строка, далее значения) - `std::format(...)`; иначе
+    /// явный `message` (если непустой) либо текст условия из исходника.
+    void emitRuntimeAssert(const AstNodeBase* cond, MapperRange range, std::string_view message = "", const std::vector<AstNodePtr>* fmtArgs = nullptr,
+                           size_t fmtOffset = 0);
     void emitTrustCheck(const TrustContract& tc);
     void emitTrustChecks(const std::vector<AstNodePtr>& trust);
     void emitTypeTrustChecks(const std::vector<AstNodePtr>& conds, std::string_view trustName, std::string_view varCpp);

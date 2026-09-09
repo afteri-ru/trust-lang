@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Оператор в forward-объявлении НАТИВНОГО класса валидируется так же, как у user-record
+# (раньше принимался молча - асимметрия).
+Str2 ::= %std::string {
+    `+`(o: Str2): Str2 := ...;
+};
+@main() := { @return 0; }
+# CHECK: error: operator '+' is not implemented

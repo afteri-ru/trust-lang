@@ -1,0 +1,13 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Ни один кандидат не «не хуже остальных и строго лучше хотя бы по одному аргументу» →
+# вызов неоднозначен (ambiguous): явная ошибка, без молчаливого выбора первой перегрузки.
+f(a:Int32, b:Int64):Int32 := { @return 1; };
+f(a:Int64, b:Int32):Int32 := { @return 2; };
+@main() := {
+    x : Int8 := 3;
+    y : Int8 := 4;
+    @print('{}\n', f(x, y));
+    @return 0;
+}
+# CHECK: error: call to overloaded function 'f' is ambiguous

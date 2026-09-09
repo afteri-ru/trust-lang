@@ -5,17 +5,21 @@
 #include <gtest/gtest.h>
 
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <string>
 
+#include "test_data.hpp"
+
 using namespace trust::solver;
 
-// Path for generated SMT-LIB 2 test files
-// TEST_DATA_DIR is defined in CMakeLists.txt
+// Path for generated SMT-LIB 2 test files.
+// TEST_DATA_DIR is defined in CMakeLists.txt.
 namespace {
 std::string smtOutputPath(const char* name) {
-    return std::string(TEST_DATA_DIR) + "/smt_" + name + ".smt2";
+    static const std::string dir = trust::test::makeTestDataDir("smt_printer_z3").string();
+    return dir + "/smt_" + name + ".smt2";
 }
 } // anonymous namespace
 

@@ -137,10 +137,12 @@
 
 ### 13. Source of documentation `docs/content`
 
-**Original source for all documentation `docs/content/ru` at russian language.**
+**The Russian-language section `docs/content/ru` is the ONLY original source of documentation.**
 
-- The English version of the documentation is a translation from the Russian language.
-- The documentation serves as the basis for creating a multilingual site (taking into account the language prefix), so all links and anchors for different languages must be synchronized and written in English letters.
+- `docs/content/en` is a synchronous translation of `docs/content/ru` and is never an original source:
+  it is edited only together with the corresponding `ru` change. English pages must not link to
+  Russian-language originals (ru.wikipedia, habr.com/ru, etc.); use English equivalents or drop the link.
+- The documentation serves as the basis for creating a site (taking into account the language prefix), so all links and anchors are written in English letters.
 - The documentation describes the project's vision for its ultimate goal and may differ from the current implementation. Unrealized capabilities should be clearly identified (highlighted).
 - Documentation serves only as a reference. A more important source of information for work is the task description or architecture.
 ---

@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Принцип: для TrustLang-функций перегрузку/допустимость аргументов разрешает АНАЛИЗАТОР ВСЕГДА
+# (даже при ЕДИНСТВЕННОЙ сигнатуре) - несовместимый аргумент даёт ошибку компиляции, а не
+# откладывается на C++-слой.
+g(a:StrChar):Int32 := { @return 1; };
+@main() := {
+    x : Int32 := 5;
+    @print('{}\n', g(x));
+    @return 0;
+}
+# CHECK: error: no matching overload for function 'g'

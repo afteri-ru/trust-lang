@@ -1,12 +1,12 @@
-# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %not %trust -q -Wsigil=ignore --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
-# Маркер ссылки должен быть СОГЛАСОВАН: если указан у типа, то обязан быть и у переменной (и наоборот,
-# при явной аннотации типа). Несогласованные формы - ошибка.
+# Вид ссылки задаётся РОВНО в одной позиции. Вид у ПЕРЕМЕННОЙ при ЯВНОМ обычном типе
+# (`&* x : Int32`) - ошибка (у типа вида нет). Вид у ТИПА - самостоятельная валидная
+# (каноническая) форма (`y : &*Int32`), проверяется в type_side_sigil.src.
 
 @main():Int32 := {
-    && x : Int32 := 5;   # маркер у переменной, но тип - обычное значение
-    y : &&Int32 := 5;    # маркер у типа, но переменная не объявлена ссылочной
+    &* x : Int32 := 5;   # вид у переменной, но у явного типа вида нет -> ошибка
     return 0;
 };
-# CHECK: error: reference variable 'x' requires the type annotation to be a reference type too (e.g. '&& x : && Int32'), or omit the type to auto-deduce ('&& x := ...')
-# CHECK: error: reference marker before the type must be paired with the same marker on the variable (e.g. '&& x : && Int32'), or omit the type to auto-deduce ('&& x := ...')
+# CHECK: error: reference variable 'x' has an explicit type without a reference kind; specify the reference kind in the type (after ':'), or omit the type to auto-deduce it from the initializer
+

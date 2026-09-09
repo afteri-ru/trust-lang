@@ -1,0 +1,24 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# FILLING `... expr ...` в кодогенерации: число позиций - из типа-цели (dims) для массива и из
+# сигнатуры callee для вызова; операнд ПЕРЕВЫЧИСЛЯЕТСЯ на каждую оставшуюся позицию (эмитится
+# повторно - `next()` вызывается столько раз, сколько позиций заполняется).
+
+n := 0;
+@func next():Int32 {
+    n += 1;
+    @return n;
+};
+
+@func f(a:Int32, b:Int32, c:Int32, d:Int32):Void { @print('{}\n', a); };
+
+@main() := {
+    v:Int32[5] := [1, 2, ... 7 ...,];
+    b:Int32[3] := [9, ... next() ...,];
+    f(1, ... 7 ...);
+    @return 0;
+}
+
+# CHECK: std::vector<int32_t> c_v = std::vector<int32_t>{1, 2, 7, 7, 7};
+# CHECK: std::vector<int32_t> c_b = std::vector<int32_t>{9, c_next(), c_next()};
+# CHECK: c_f(1, 7, 7, 7);

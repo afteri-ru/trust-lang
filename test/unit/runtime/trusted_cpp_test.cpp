@@ -131,11 +131,11 @@ TEST_F(TrustedCppTest, PlainSetNullThrows) {
 }
 
 // ============================================================================
-// SyncShared with SyncMutexPolicy (default; exclusive lock)
+// AccessShared with AccessMutex (default; exclusive lock)
 // ============================================================================
 
 TEST_F(TrustedCppTest, SyncSharedBasicLock) {
-    SyncShared<int> s(42);
+    AccessShared<int> s(42);
     {
         auto locked = s.lock();
         *locked = 100;
@@ -147,13 +147,13 @@ TEST_F(TrustedCppTest, SyncSharedBasicLock) {
 }
 
 TEST_F(TrustedCppTest, SyncSharedNullThrows) {
-    SyncShared<int> s;
+    AccessShared<int> s;
     EXPECT_THROW(s.lock(), std::runtime_error);
     EXPECT_FALSE(s.try_lock().has_value());
 }
 
 TEST_F(TrustedCppTest, SyncSharedThreadSafety) {
-    SyncShared<int> s(0);
+    AccessShared<int> s(0);
     const int num_threads = 4;
     const int increments = 1000;
 
@@ -173,10 +173,10 @@ TEST_F(TrustedCppTest, SyncSharedThreadSafety) {
 }
 
 // ============================================================================
-// SyncShared with SyncRwMutexPolicy (exclusive lock / shared read-only lock_const)
+// AccessShared with AccessRwMutex (exclusive lock / shared read-only lock_const)
 // ============================================================================
 
-using SyncSharedRead = SyncShared<int, SyncRwMutexPolicy>;
+using SyncSharedRead = AccessShared<int, AccessRwMutex>;
 
 TEST_F(TrustedCppTest, SyncSharedSharedMutexConstLock) {
     SyncSharedRead s(42);
@@ -235,7 +235,7 @@ TEST_F(TrustedCppTest, TryLockPlainSuccess) {
 }
 
 TEST_F(TrustedCppTest, TryLockSyncSuccess) {
-    SyncShared<int> s(42);
+    AccessShared<int> s(42);
     auto opt = s.try_lock();
     ASSERT_TRUE(opt.has_value());
     EXPECT_EQ(**opt, 42);
@@ -258,11 +258,11 @@ TEST_F(TrustedCppTest, LockerValueConstructor) {
 }
 
 // ============================================================================
-// SyncSingleThreadPolicy: object usable ONLY in the thread where it was created
+// AccessSingleThread: object usable ONLY in the thread where it was created
 // ============================================================================
 
 TEST_F(TrustedCppTest, SingleThreadPolicySameThread) {
-    SyncShared<int, SyncSingleThreadPolicy> s(42);
+    AccessShared<int, AccessSingleThread> s(42);
     auto locked = s.lock();
     EXPECT_EQ(*locked, 42);
     auto locked_c = s.lock_const();
@@ -270,7 +270,7 @@ TEST_F(TrustedCppTest, SingleThreadPolicySameThread) {
 }
 
 TEST_F(TrustedCppTest, SingleThreadPolicyCrossThreadThrows) {
-    SyncShared<int, SyncSingleThreadPolicy> s(42);
+    AccessShared<int, AccessSingleThread> s(42);
     std::atomic<bool> threw{false};
     std::thread t([&]() {
         try {
@@ -289,7 +289,7 @@ TEST_F(TrustedCppTest, SingleThreadPolicyCrossThreadThrows) {
 // ============================================================================
 
 TEST_F(TrustedCppTest, DeadlockDetectorThrowsOnTimeout) {
-    SyncShared<int> s(42);
+    AccessShared<int> s(42);
     auto held = s.lock(); // удерживаем блокировку в main
     const auto saved_timeout = trust::runtime::syncDeadlockTimeout();
     trust::runtime::setSyncDeadlockTimeout(std::chrono::milliseconds(50));
@@ -308,8 +308,9 @@ TEST_F(TrustedCppTest, DeadlockDetectorThrowsOnTimeout) {
 }
 
 TEST_F(TrustedCppTest, DeadlockDetectorPerObjectTimeout) {
-    // Пер-объектный таймаут (3-й аргумент reftype) перекрывает глобальный: deadlock по нему.
-    SyncShared<int> s(42, std::chrono::milliseconds(50));
+    // Пер-объектный таймаут задаётся АРГУМЕНТОМ КОНСТРУКТОРА AccessShared(value, timeout) (в атрибуте
+    // @[reftype] таймаут НЕ указывается) и перекрывает глобальный: deadlock по нему.
+    AccessShared<int> s(42, std::chrono::milliseconds(50));
     auto held = s.lock();
     std::atomic<bool> deadlocked{false};
     std::thread t([&]() {
@@ -359,4 +360,54 @@ TEST_F(TrustedCppTest, ApplySystemEnvSyncDeadlock) {
     trust::runtime::applySystemEnv({"--trust:fsync-deadlock=abc"});
     EXPECT_LT(trust::runtime::syncDeadlockTimeout().count(), 0);
     trust::runtime::setSyncDeadlockTimeout(saved_timeout);
+}
+
+// ============================================================================
+// C1: deadlock-free ordered multi-acquisition (lock_all)
+// ============================================================================
+
+TEST_F(TrustedCppTest, LockAllAcquiresBothInOrder) {
+    AccessShared<int> a(1);
+    AccessShared<int> b(2);
+    {
+        auto guards = lock_all(a, b);
+        auto& ga = std::get<0>(guards);
+        auto& gb = std::get<1>(guards);
+        EXPECT_EQ(*ga, 1);
+        EXPECT_EQ(*gb, 2);
+        *ga += 10;
+        *gb += 20;
+    }
+    EXPECT_EQ(*a.lock_const(), 11);
+    EXPECT_EQ(*b.lock_const(), 22);
+}
+
+TEST_F(TrustedCppTest, LockAllIsDeadlockFreeUnderOppositeOrder) {
+    AccessShared<int> a(0);
+    AccessShared<int> b(0);
+    std::atomic<bool> ok{true};
+    auto worker = [&](bool ab) {
+        for (int i = 0; i < 200; ++i) {
+            try {
+                if (ab) {
+                    auto guards = lock_all(a, b);
+                    (*std::get<0>(guards))++;
+                    (*std::get<1>(guards))++;
+                } else {
+                    auto guards = lock_all(b, a);
+                    (*std::get<0>(guards))++;
+                    (*std::get<1>(guards))++;
+                }
+            } catch (const std::exception&) {
+                ok.store(false);
+            }
+        }
+    };
+    std::thread t1(worker, true);
+    std::thread t2(worker, false);
+    t1.join();
+    t2.join();
+    EXPECT_TRUE(ok.load());
+    EXPECT_EQ(*a.lock_const(), 400);
+    EXPECT_EQ(*b.lock_const(), 400);
 }

@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# shared-ссылка на массив из себя: owning-цикл через heap-контейнер (shared<vector<Node>>) -> shared-ошибка.
+:Node ::= :Class{ kids : @[reftype("shared")@] Node[4] := _; };
+@main():Int32 := { return 0; };
+# CHECK: error: recursive strong (shared) reference cycle in class fields

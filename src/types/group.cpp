@@ -100,11 +100,20 @@ const CategoryMask kGroupCategoryMask[256] = {
     // Group::kNativeTemplate (30)
     (1u << static_cast<uint8_t>(Category::kContainers)),
 
-    // Group::kSyncPolicy (31)
+    // Group::kAccessPolicy (31)
     (1u << static_cast<uint8_t>(Category::kSync)),
 
     // Group::kNativeClass (32) - forward-объявление нативного класса (категория kNative)
     (1u << static_cast<uint8_t>(Category::kNative)),
+
+    // Group::kDeleterPolicy (33) - встроенные deleter-типы ресурсов (категория kNative)
+    (1u << static_cast<uint8_t>(Category::kNative)),
+
+    // Group::kStructs (34) - пользовательские Struct-типы (категория kStructured)
+    (1u << static_cast<uint8_t>(Category::kStructured)),
+
+    // Group::kClassDefs (35) - пользовательские Class-типы (категория kClasses)
+    (1u << static_cast<uint8_t>(Category::kClasses)),
 
     // The rest are implicitly zero (no category)
     // Up to index 255

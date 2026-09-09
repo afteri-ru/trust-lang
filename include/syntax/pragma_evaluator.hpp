@@ -85,6 +85,18 @@ class PragmaEvaluator {
     /// был @__CHECK_AREA__ (независимо от успеха разбора: при ошибке вызов удалён + диагностика).
     bool evalCheckArea(SequenceType& macroBuf);
 
+    /// Захват встроенных системных макросов отладочного вывода (УРОВЕНЬ 1) прямо в GetNextToken
+    /// (ДО expandPredefMacro/прагм):
+    ///   - `@__DEBUG__(<masks>)` / `@__DEBUG__()` - включить фильтр/выключить вывод;
+    ///   - `@__DEBUG_SCOPE__(<keywords> [, <spec>])` - дамп состояния скоупа анализатора в точке.
+    /// Аргументы захватываются, вызов стирается и заменяется ОДНИМ терм-маркером
+    /// (TermID::MACRO_CONTEXT, текст = имя макроса, аргументы - дочерние NAME-термы).
+    /// term_to_ast строит узел DebugStmt, семантика применяет эффект и удаляет узел (кода не даёт).
+    /// В release-сборке компилятора (TRUST_TRACE_ENABLED == 0) вызов стирается без маркера и даёт
+    /// диагностику-предупреждение «debug output is not available in a release build».
+    /// Возвращает true, если токен был @__DEBUG__/@__DEBUG_SCOPE__ (независимо от успеха разбора).
+    bool evalDebug(SequenceType& macroBuf);
+
     /// Сброс кэша гигиенических имён при новом дереве раскрытия макроса (вызывает macro.cpp).
     void clearHygienicNames() { m_hygienic_names.clear(); }
 

@@ -1,0 +1,17 @@
+# RUN: %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# R7: встроенные маркеры @__DEBUG__ / @__DEBUG_SCOPE__ / @__CHECK_AREA__ обрабатываются
+# АНАЛИЗАТОРОМ (эффект + удаление) и НЕ доходят до кодогенерации. Транспилятор делает
+# FAULT, если маркер дожил (visit_DebugStmt/visit_CheckAreaStmt) - здесь проверяем, что
+# в сгенерированный C++ маркеры не просачиваются.
+# CHECK: c_f
+# CHECK-NOT: __CHECK_AREA__
+# CHECK-NOT: @__DEBUG_SCOPE__
+# CHECK-NOT: DebugStmt
+# CHECK-NOT: CheckAreaStmt
+f() : Int32 := {
+    @__DEBUG_SCOPE__();
+    @__DEBUG__();
+    @__CHECK_AREA__(function);
+    return 0;
+};

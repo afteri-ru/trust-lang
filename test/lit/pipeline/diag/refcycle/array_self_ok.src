@@ -1,0 +1,7 @@
+# RUN: %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# `:Array` (std::vector) self-ссылка ЛЕГАЛЬНА (heap-элементы, конечный размер) -> нет диагностики.
+:Node ::= :Class{ kids : Node[4] := _; };
+@main():Int32 := { return 0; };
+# CHECK: std::vector<c_Node>

@@ -707,9 +707,6 @@ TEST_F(ParserTest, FieldTake) {
 TEST_F(ParserTest, Misc) {
 
     ASSERT_NO_THROW(Parse("func(arg:Int32) := { };"));
-    ASSERT_NO_THROW(Parse("func(arg:~Int32) := { };"));
-    ASSERT_NO_THROW(Parse("func(arg:~~Int32) := { };"));
-    ASSERT_NO_THROW(Parse("func(arg:~~~Int32) := { };"));
 
     ASSERT_NO_THROW(Parse("func( & arg:Int32 ) := { };"));
     ASSERT_NO_THROW(Parse("func( &? arg:Int32 ) := { };"));
@@ -748,20 +745,16 @@ TEST_F(ParserTest, Misc) {
     ASSERT_NO_THROW(Parse("func( &* arg = term(0) ) := { };"));
     ASSERT_NO_THROW(Parse("func( && arg = term(0) ) := { };"));
 
-    ASSERT_NO_THROW(Parse("func( & arg:Int32 = 0 ) := { };"));
-    ASSERT_NO_THROW(Parse("func( &? arg:~Int32 = 0 ) := { };"));
-    ASSERT_NO_THROW(Parse("func( &* arg:~~Int32 = 0 ) := { };"));
-    ASSERT_NO_THROW(Parse("func( && arg:~~~Int32 = 0 ) := { };"));
 
     ASSERT_NO_THROW(Parse("func( & arg:Int32 = val ) := { };"));
-    ASSERT_NO_THROW(Parse("func( &? arg:~Int32 = val ) := { };"));
-    ASSERT_NO_THROW(Parse("func( &* arg:~~Int32 = val ) := { };"));
-    ASSERT_NO_THROW(Parse("func( && arg:~~~Int32 = val ) := { };"));
+    ASSERT_NO_THROW(Parse("func( &? arg:Int32 = val ) := { };"));
+    ASSERT_NO_THROW(Parse("func( &* arg:Int32 = val ) := { };"));
+    ASSERT_NO_THROW(Parse("func( && arg:Int32 = val ) := { };"));
 
     ASSERT_NO_THROW(Parse("func( & arg:Int32 = term(0) ) := { };"));
-    ASSERT_NO_THROW(Parse("func( &? arg:~Int32 = term(0) ) := { };"));
-    ASSERT_NO_THROW(Parse("func( &* arg:~~Int32 = term(0) ) := { };"));
-    ASSERT_NO_THROW(Parse("func( && arg:~~~Int32 = term(0) ) := { };"));
+    ASSERT_NO_THROW(Parse("func( &? arg:Int32 = term(0) ) := { };"));
+    ASSERT_NO_THROW(Parse("func( &* arg:Int32 = term(0) ) := { };"));
+    ASSERT_NO_THROW(Parse("func( && arg:Int32 = term(0) ) := { };"));
 
     ASSERT_NO_THROW(Parse("func( arg = & val );"));
     ASSERT_NO_THROW(Parse("func( arg = &? val  );"));
@@ -868,7 +861,7 @@ TEST_F(ParserTest, ArgsType) {
     ASSERT_EQ(TermID::CREATE_NAME, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("term(bool:Bool=term(100), int:Int32=100, long:Int64=@term()):Float64 := {long;};", ast->toString());
 
-    ASSERT_TRUE(Parse("term(&bool:~Bool=term(100), &* int:~Int32=name::name, &? long:~~Int64=@term()):~~~Float64:={long;};"));
+    ASSERT_TRUE(Parse("term(&bool:Bool=term(100), &* int:Int32=name::name, &? long:Int64=@term()):Float64:={long;};"));
     ASSERT_EQ(TermID::CREATE_NAME, ast->getTermID()) << trust::toString(ast->getTermID());
     //    ASSERT_EQ("term(bool:Bool=&term(100), int:Int32=&*name::name, long:Int64=&?@term()):Float64 := {long;};;", ast->toString());
 }
@@ -1106,3 +1099,17 @@ TEST_F(ParserTest, MathPrioritet) {
     ASSERT_EQ("2", op->m_left->getText());
     ASSERT_EQ("3", op->m_right->getText());
 }
+
+// Операторы сравнения типов `<~`/`~~`/`~~~`: распознаются как OP_COMPARE с текстом оператора.
+TEST_F(ParserTest, TypeCheckOperators) {
+    ASSERT_TRUE(Parse("r := x <~ :Int32;"));
+    ASSERT_EQ(TermID::CREATE_NAME, ast->getTermID());
+    ASSERT_EQ("<~", ast->m_right->getText());
+
+    ASSERT_TRUE(Parse("r := x ~~ (f=1,);"));
+    ASSERT_EQ("~~", ast->m_right->getText());
+
+    ASSERT_TRUE(Parse("r := x ~~~ :Int32;"));
+    ASSERT_EQ("~~~", ast->m_right->getText());
+}
+

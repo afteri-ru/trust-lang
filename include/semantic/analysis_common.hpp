@@ -32,7 +32,7 @@ inline bool intFitsTarget(std::string_view text, TypeKind targetKind) noexcept;
 /// резолвленная аннотация (nullopt ⇒ неизвестный тип); резолв имени делает вызывающий.
 ///
 /// Правила (единые для всех вызовов - typeExpr/reportLiteralAnnotProblem с репортом и
-/// провизионные dictElementType/resolvedType БЕЗ репорта):
+/// провизионные dictElementType/exprType БЕЗ репорта):
 ///   * RationalLiteral `num\den` - только `:Rational` (иначе RationalExpected);
 ///   * IntLiteral/FloatLiteral: :BigInteger/:Rational - любой (в т.ч. сверхразрядный);
 ///   * :Bool - только 0/1 (BoolNot01);
@@ -52,8 +52,8 @@ struct LiteralAnnotResult {
 
 inline LiteralAnnotResult annotatedLiteralType(const Literal& lit, std::optional<TypeId> ann, const TypeRegistry& reg) {
     if (!ann.has_value() || *ann == INVALID_TYPE_ID) {
-        // nullopt - тип не найден (resolveType диагностику НЕ формирует, pass.hpp);
-        // INVALID-значение resolveType уже диагностировал сам (ref/template-ошибки).
+        // nullopt - тип не найден (resolveTypeRef диагностику НЕ формирует, pass.hpp);
+        // INVALID-значение resolveTypeRef уже диагностировал сам (ref/template-ошибки).
         return {INVALID_TYPE_ID, LiteralAnnotProblem::UnknownType};
     }
     const TypeId ac = reg.getCanonicalTypeId(*ann);

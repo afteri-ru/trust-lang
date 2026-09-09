@@ -20,6 +20,7 @@ add_library(syntax_lib STATIC
     ${PROJECT_SOURCE_DIR}/syntax/macro_validator.cpp
     ${PROJECT_SOURCE_DIR}/syntax/parser.cpp
     ${PROJECT_SOURCE_DIR}/syntax/pragma_evaluator.cpp
+    ${PROJECT_SOURCE_DIR}/syntax/pragma_eval.cpp
     ${PROJECT_SOURCE_DIR}/syntax/predef_macro.cpp
     ${PROJECT_SOURCE_DIR}/syntax/term.cpp
     ${PROJECT_SOURCE_DIR}/syntax/types.cpp
@@ -33,6 +34,7 @@ add_dependencies(syntax_lib gen_syntax_parsers)
 # -- Include paths --
 target_include_directories(syntax_lib PUBLIC
     ${PROJECT_INCLUDE_DIR}
+    ${PROJECT_INCLUDE_DIR}/runtime
 )
 # build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.
 target_include_directories(syntax_lib PRIVATE
@@ -47,6 +49,9 @@ target_include_directories(syntax_lib SYSTEM PRIVATE
 target_link_libraries(syntax_lib PUBLIC
     trust_include_dirs
     trust_llvm_dirs
+    diag_lib
+    session_lib
+    sourcemap_lib
 )
 
 # Syntax headers (term.h) contain switches over TermID with incomplete coverage.
@@ -61,3 +66,5 @@ set_source_files_properties(
     "${SYNTAX_GEN_DIR}/parser.yy.cpp"
     PROPERTIES COMPILE_OPTIONS "-Wno-old-style-cast"
 )
+# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
+target_link_libraries(syntax_lib PRIVATE trust_pch)

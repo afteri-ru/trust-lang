@@ -7,10 +7,14 @@
 #include "semantic/stack_check_infer.hpp"
 #include "semantic/symbol_collector.hpp"
 #include "semantic/nativeref.hpp"
+#include "semantic/borrow_check.hpp"
+#include "semantic/ref_cycle.hpp"
 #include "ast/lowering.hpp"
 #include "ast/ast_nodes.hpp"
+#include "diag/diag.hpp"
 #include "diag/options.hpp"
 #include "types/registry.hpp"
+#include <exception>
 
 namespace trust {
 
@@ -52,10 +56,20 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
     if (m_ctx.opts().is_enabled(semantic::FlagKind::Symbols)) {
         core.addHook(std::make_unique<SymbolCollectorHook>(*m_analysis));
     }
-    // Отслеживание инвалидации ссылок (условный атрибут @[reftrace@], -Wreftrace=).
+    // Отслеживание инвалидации зависимых (атрибут @[borrowed], -Wborrowed=).
     // Всегда подключён: решает по структурным признакам и диагностику выдаёт только для
-    // отслеживаемых сущностей; поведение (error|warning|ignore) - из -Wreftrace=.
+    // отслеживаемых сущностей; поведение (error|warning|ignore) - из -Wborrowed=.
     core.addHook(std::make_unique<NativeRefHook>(*m_analysis));
+
+    // Статический borrow-checker (регионы/займы умных ссылок) - ВСЕГДА подключён (гарантия
+    // языка / модель памяти). Флага включения/выключения нет; настраиваются только уровни
+    // отдельных диагностик (`-Wborrow-<name>=<sev>`).
+    core.addHook(std::make_unique<BorrowCheckHook>(*m_analysis));
+
+    // Статический анализатор рекурсивных/циклических ссылок в полях классов - ВСЕГДА подключён
+    // (гарантия модели памяти, REFType.md §11.11). Настраиваются только уровни диагностик
+    // (`-Wrecursive-shared`/`-Wrecursive-unique`/`-Wrecursive-value`, default Error).
+    core.addHook(std::make_unique<RefCycleHook>(*m_analysis));
 
     // -- Capture «$^ = результат последней операции» (простой случай): ПРЕ-семантическое
     //    структурное переписывание пары [оператор-выражение E / декларация x:=E; sink с $^] -> обычный
@@ -69,13 +83,18 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
 
     // Дожимаем finalize() даже если ядро бросило исключение на повреждённом AST
     // (allow_semantic_on_errors): собранные к этому моменту символы не теряются.
+    // Исключение НЕ глотается молча: выдаётся диагностика (иначе пользователь/LSP
+    // не узнает о внутренней ошибке анализатора).
     bool crashed = false;
     try {
         core.run(ast_nodes);
-    } catch (...) {
+    } catch (const std::exception& e) {
         // Анализатор упал на частичном AST (напр. null-ребёнок повреждённого узла).
         // НЕ бросаем дальше: LSP должен получить накопленные символы и диагностики.
-        // finalize() ниже сбросит уже собранные хуками данные. Транспиляцию не запускаем.
+        m_ctx.diag().report(Severity::Error, MapperRange{}, "internal error during semantic analysis: {}", e.what());
+        crashed = true;
+    } catch (...) {
+        m_ctx.diag().report(Severity::Error, MapperRange{}, "internal error during semantic analysis (unknown exception)");
         crashed = true;
     }
     core.finalize();

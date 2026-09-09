@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Квалификаторы (deleter/lifetime/pin) применяются только к объявлениям переменных/параметров.
+# На возвращаемом типе функции они НЕ применяются (reftype - применяется) -> явная диагностика
+# вместо тихого игнора.
+%foo(): @[reftype(ptr)@] @[lifetime(program)@] Int32 := ...;
+@main():Int32 := {
+    return 0;
+};
+# CHECK: error: attribute 'lifetime' is not supported on a function return type (qualifiers apply to variable/parameter declarations only)

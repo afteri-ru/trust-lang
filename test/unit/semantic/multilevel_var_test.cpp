@@ -6,12 +6,12 @@
 // range()/text() из исходника недоступны, но для семантики это не требуется.
 
 #include "semantic/pass_runner.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/ident_name.hpp"
 #include "ast/token.hpp"
 #include "ast/token_type.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "diag/diag.hpp"
 #include "types/registry.hpp"
 #include "utils/io.hpp"

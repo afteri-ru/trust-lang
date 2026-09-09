@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Нереализованные формы сравнения типов → явная диагностика-ошибка (без silent fallback).
+# CHECK: error: type name from a runtime variable is not implemented
+name := 'Int32';
+x := 5;
+r := x <~ name;

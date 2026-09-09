@@ -1,0 +1,13 @@
+# RUN: %trust --temp-dir %T --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s --implicit-check-not="captured ('*b')" <%t.out
+
+# Повторный захват ОДНОГО объекта (`*ref`) в одном выражении: для синхронизированных ссылок
+# (AccessShared; shared_timed_mutex не рекурсивен) это самоблокировка -> -Wdouble-capture.
+# Захват РАЗНЫХ объектов (`*a + *b`) предупреждения не даёт.
+@main():Int32 := {
+    &* a := 5:Int32;
+    &* b := 6:Int32;
+    x := *a + *b;      # разные объекты - без предупреждения
+    y := *a + *a;      # один объект дважды - предупреждение
+    return x + y;
+}
+# CHECK: warning: reference 'a' is captured ('*a') more than once in one expression; for synchronized references this is a self-deadlock

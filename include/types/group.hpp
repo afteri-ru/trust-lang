@@ -49,10 +49,16 @@ enum class Group : uint8_t {
     kEnums,          // 28 - типобезопасные перечисления (реестр, EnumTypeData)
     kVariants,       // 29 - гетерогенные варианты (реестр, VariantTypeData; → std::variant)
     kNativeTemplate, // 30 - пользовательский нативный шаблон-тип (реестр, NativeTemplateTypeData)
-    kSyncPolicy,     // 31 - встроенные политики синхронизации доступа (реестр, Data=1..3,
-                     //      cppName = trust::Sync*Policy, помечены атрибутом `sync`)
-    kNativeClass     // 32 - forward-объявление НАТИВНОГО класса (реестр,
+    kAccessPolicy,   // 31 - встроенные политики доступа (реестр, Data=1..3,
+                     //      cppName = trust::Access*, помечены атрибутом `sync`)
+    kNativeClass,    // 32 - forward-объявление НАТИВНОГО класса (реестр,
                      //      NativeClassTypeData{cppName}, методы в TypeDescriptor::methods)
+    kDeleterPolicy,  // 33 - встроенные deleter-типы ресурсов (реестр, Data=1.., cppName =
+                     //      trust::FreeDeleter, помечены атрибутом-признаком; см. trust::resource.hpp)
+    kStructs,        // 34 - пользовательские Struct-типы (реестр, RecordTypeData, Data=1);
+                     //      строго POD (статические поля), признак POD = сама группа
+    kClassDefs       // 35 - пользовательские Class-типы (реестр, RecordTypeData, Data=1);
+                     //      допускают наследование и виртуальные члены
 };
 // -- Category (≤ 32 категорий) ----------------------------
 enum class Category : uint8_t {

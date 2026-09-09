@@ -3,11 +3,11 @@
 #include "lsp/lsp_utils.hpp"
 #include "lsp/lsp_protocol.h"
 
-#include "diag/protocol.hpp"
+#include "sourcemap/protocol.hpp"
 #include "semantic/diag.hpp"
 #include "pipeline/pipeline.hpp"
-#include "pipeline/cli.hpp"
-#include "pipeline/analysis_options.hpp"
+#include "driver/cli.hpp"
+#include "driver/analysis_options.hpp"
 #include "transpiler/transpiler.hpp"
 #include "utils/file_io.hpp"
 #include "utils/uri.hpp"
@@ -131,18 +131,26 @@ std::string AnalysisService::transpileSource(const std::string& trustFilePath, c
         try {
             const auto* reader = ctx->source().toReader();
             if (reader) {
-                trust::ReaderFile dslIdx = reader->findFile("@trust/dsl");
-                if (!dslIdx.isInvalid()) {
-                    std::string_view dslSource = reader->source(dslIdx);
-                    std::filesystem::path dslPath = cpptPath.parent_path() / "trust" / "dsl.src";
-                    std::error_code ec;
-                    std::filesystem::create_directories(dslPath.parent_path(), ec);
-                    std::ofstream ofs(dslPath, std::ios::binary);
-                    if (ofs) {
-                        ofs.write(dslSource.data(), static_cast<std::streamsize>(dslSource.size()));
-                        log("  saved dsl.src to: " + std::filesystem::absolute(dslPath).string());
+                // Встроенные псевдо-файлы stdlib (dsl.src, prelude iterator.src) сохраняются
+                // в <каталог cppt>/stdlib/, чтобы ссылки на определения (LSP navigation) были
+                // навигируемы. Путь читает hover_service.cpp.
+                auto saveEmbedded = [&](std::string_view fileTag, std::string_view fileName) {
+                    trust::ReaderFile idx = reader->findFile(std::string(fileTag));
+                    if (idx.isInvalid()) {
+                        return;
                     }
-                }
+                    std::string_view source = reader->source(idx);
+                    std::filesystem::path path = cpptPath.parent_path() / "stdlib" / std::string(fileName);
+                    std::error_code ec;
+                    std::filesystem::create_directories(path.parent_path(), ec);
+                    std::ofstream ofs(path, std::ios::binary);
+                    if (ofs) {
+                        ofs.write(source.data(), static_cast<std::streamsize>(source.size()));
+                        log("  saved " + std::string(fileName) + " to: " + std::filesystem::absolute(path).string());
+                    }
+                };
+                saveEmbedded("@stdlib/dsl", "dsl.src");
+                saveEmbedded("@stdlib/iterator", "iterator.src");
             }
         } catch (const std::exception& e) {
             log("  dsl.src save failed: " + std::string(e.what()));

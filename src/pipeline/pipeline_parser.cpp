@@ -1,5 +1,5 @@
 #include "pipeline/pipeline.hpp"
-#include "pipeline/cli.hpp"
+#include "driver/cli.hpp"
 #include "formatter/format.hpp"
 #include "semantic/solver.hpp"
 #include "semantic/stack_check.hpp"

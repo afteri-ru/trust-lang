@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/alias %s
+# RUN: $TD/alias > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: s=5
+# CHECK: w=5
+# CHECK: u=7
+# CHECK: i=3
+
+# Вид ссылки над АЛИАСОМ: C++-имя pointee - «как написан» (MyInt → c_MyInt, Integer → int64_t),
+# а НЕ канонический тип; обёртка trust::Shared/Weak/Unique сохраняется (иначе терялся ref).
+# До исправления: `shared<MyInt>` давал невалидный C++ (`c_s c_s(...)`, `.lock()` на не-обёртке).
+
+MyInt ::= :Int32;
+
+@main():Int32 := {
+    s : @[reftype("shared")@] MyInt := 5;
+    w : @[reftype("weak")@] MyInt := s;
+    u : @[reftype("unique")@] MyInt := 7;
+    i : @[reftype("shared")@] Integer := 3;
+    print('s={} w={} u={} i={}\n', *s, *w, *u, *i);
+    return 0;
+};

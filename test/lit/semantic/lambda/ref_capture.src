@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Ссылочный захват `[&z]` НЕ поддерживается (первая итерация - только захват по значению).
+@main() := {
+    z := 10;
+    g := [&z](x : Int32) : Int32 { ++ x ++ };
+}
+# CHECK: error: reference capture is not supported; only capture-by-value '[name]' is allowed

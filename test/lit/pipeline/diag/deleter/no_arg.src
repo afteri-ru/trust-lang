@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# @[deleter] без аргумента: требуется имя deleter-типа (диагностика ошибки).
+@main():Int32 := {
+    h : @[reftype("unique")@] @[deleter@] Int32 := {% 0 %};
+    return 0;
+};
+# CHECK: error: attribute 'deleter' requires a deleter type parameter, e.g. @[deleter(FreeDeleter)]

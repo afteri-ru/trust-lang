@@ -13,11 +13,15 @@ z := x / y;
 
 # Целочисленное деление // → static_cast<int64_t>, результат Int64
 z2 := x // y;
-# CHECK: int64_t c_z2 = (static_cast<int64_t>(c_x) / static_cast<int64_t>(c_y));
+# CHECK: int64_t __l = static_cast<int64_t>(c_x)
+# CHECK: int64_t __r = static_cast<int64_t>(c_y)
+# CHECK: return __l / __r; }())
 
 # Составное целочисленное деление //= - цель Int64 (результат Int64; сужение в Int32 → ошибка).
 w:Int64 := 10;
 # CHECK-NEXT: int64_t c_w = 10;
 
 w //= y;
-# CHECK-NEXT: c_w = static_cast<int64_t>(c_w) / static_cast<int64_t>(c_y);
+# CHECK: c_w = ([&]{ int64_t __l = static_cast<int64_t>(c_w)
+# CHECK: int64_t __r = static_cast<int64_t>(c_y)
+# CHECK: return __l / __r; }())

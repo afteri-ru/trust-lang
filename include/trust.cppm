@@ -2,7 +2,7 @@ module;
 
 #include "location/location.hpp"
 #include "ast/token.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "types/typekind.hpp"
 
 #include <sstream>

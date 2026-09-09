@@ -1,0 +1,8 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Немедленный вызов лямбды: каноническая обёрнутая форма `( lambda )(args)`.
+@main() := {
+    y := ( [](x : Int32) : Int32 { @return x * x; } )(5);
+}
+# CHECK: int32_t c_y = [](int32_t c_x) -> int32_t {
+# CHECK: }(5);

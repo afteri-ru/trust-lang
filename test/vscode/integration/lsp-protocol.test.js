@@ -34,6 +34,9 @@ function parseArgs() {
             case '--project-dir':
                 opts.projectDir = args[++i];
                 break;
+            case '--work-dir':
+                opts.workDir = args[++i];
+                break;
             case '--help':
             case '-h':
                 console.log(`Usage: node ${path.basename(process.argv[1])} [options]`);
@@ -41,10 +44,22 @@ function parseArgs() {
                 console.log('  --lsp-path <path>   Path to trust-lsp binary (default: auto-detect)');
                 console.log('  --src <file>        Trust .src file (required)');
                 console.log('  --project-dir <dir> Project directory for LSP server');
+                console.log('  --work-dir <dir>    Base dir (inside _build) for test temp files');
                 process.exit(0);
         }
     }
     return opts;
+}
+
+// Создаёт фиксированный подкаталог <workDir>/<name> для временных файлов теста
+// (внутри _build, без уникальных имён). Чистится перед использованием; если
+// --work-dir не задан - fallback на уникальный системный tmp (ручной запуск).
+function makeTestWorkDir(opts, name) {
+    const base = opts.workDir || os.tmpdir();
+    const dir = path.join(base, name);
+    try { fs.rmSync(dir, { recursive: true }); } catch (_) {}
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
 }
 
 // -- LSP (JSON-RPC 2.0) Protocol helpers --
@@ -773,7 +788,7 @@ async function main() {
             client.sendNotification('initialized', {});
 
             // transpileSourceFile reads from DISK, so create a file with invalid syntax first
-            const tmpDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'trust-lsp-test-'));
+            const tmpDir2 = makeTestWorkDir(opts, 'lsp_invalid_syntax');
             const badFilePath = path.join(tmpDir2, 'invalid.src');
             fs.writeFileSync(badFilePath, 'x := ;\n');
             const badUri = `file://${badFilePath}`;
@@ -815,7 +830,7 @@ async function main() {
             '    return x + 1;\n' +
             '};\n' +
             '@main() := { @print(\'{}\\n\', add(3)); }\n';
-        const shebangTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trust-lsp-shebang-'));
+        const shebangTmpDir = makeTestWorkDir(opts, 'lsp_shebang');
         const shebangFilePath = path.join(shebangTmpDir, 'contract.src');
         const shebangUri = `file://${shebangFilePath}`;
         fs.writeFileSync(shebangFilePath, shebangSrc);
@@ -879,7 +894,7 @@ async function main() {
             '    return x + 1;\n' +
             '};\n' +
             '@main() := { @print(\'{}\\n\', add(3)); }\n';
-        const envTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trust-lsp-env-'));
+        const envTmpDir = makeTestWorkDir(opts, 'lsp_env');
         const envFilePath = path.join(envTmpDir, 'noshebang.src');
         const envUri = `file://${envFilePath}`;
         fs.writeFileSync(envFilePath, noShebangSrc);
@@ -912,7 +927,7 @@ async function main() {
             '    return x + 1;\n' +
             '};\n' +
             '@main() := { @print(\'{}\\n\', add(3)); }\n';
-        const brokenTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trust-lsp-broken-'));
+        const brokenTmpDir = makeTestWorkDir(opts, 'lsp_broken');
         const brokenFilePath = path.join(brokenTmpDir, 'broken.src');
         const brokenUri = `file://${brokenFilePath}`;
         fs.writeFileSync(brokenFilePath, brokenShebangSrc);

@@ -1,7 +1,7 @@
 #include "transpiler/emit_ctx.hpp"
 
 #include "diag/base_diags.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "utils/strings.hpp"
 #include "types/type_id.hpp"
 
@@ -24,8 +24,9 @@ ResultGuard::~ResultGuard() {
     m_ectx.m_resultCpp = std::move(m_savedCpp);
 }
 
-CppEmitContext::CppEmitContext(Context& ctx, const SymbolTable* resolvedTypes)
+CppEmitContext::CppEmitContext(Context& ctx, const SymbolTable* resolvedTypes, analysis::BehavioralModes behavioral)
 : m_ctx(ctx)
+, m_behavioral(std::move(behavioral))
 , m_resolvedTypes(resolvedTypes) {
 }
 

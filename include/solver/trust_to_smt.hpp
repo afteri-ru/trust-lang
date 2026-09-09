@@ -3,7 +3,7 @@
 #include "solver/smt_ast.hpp"
 #include "solver/sort_mapper.hpp"
 #include "ast/token_base.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "types/type_id.hpp"
 
 #include <format>
@@ -69,6 +69,18 @@ class TrustToSmt {
     /// кодируются от копий состояния и сливаются через ite.
     BlockResult encodeBlock(const std::vector<AstNodePtr>& nodes, const std::unordered_map<std::string, SmtTerm>& inState, const std::optional<SmtTerm>& inRet);
 
+    // -- Кодирование операторов тела по категориям (вынесено из encodeBlock; см. smt_stmt_enc.cpp) --
+    void unrollBlock(int n, const SmtTerm& cond, const AstNodeBase* node, const std::vector<AstNodePtr>& body, BlockResult& res);
+    bool encodeVarDeclStmt(const AstNodeBase* stmt, BlockResult& res);
+    bool encodeAssignStmt(const AstNodeBase* stmt, BlockResult& res);
+    bool encodeReturnStmt(const AstNodeBase* stmt, BlockResult& res);
+    bool encodeTrustContractStmt(const AstNodeBase* stmt, BlockResult& res, const AstNodeBase*& loopInvNode);
+    bool encodeSemicolonStmt(const AstNodeBase* stmt, BlockResult& res);
+    bool encodeScopeBlockStmt(const AstNodeBase* stmt, BlockResult& res);
+    bool encodeIfStmt(const AstNodeBase* stmt, BlockResult& res);
+    bool encodeWhileStmt(const AstNodeBase* stmt, BlockResult& res, const AstNodeBase* loopInvNode);
+    bool encodeDoWhileStmt(const AstNodeBase* stmt, BlockResult& res, const AstNodeBase* loopInvNode);
+
     /// Знак целочисленного выражения: 1 - знаковый (kIntegers), 0 - беззнаковый (kUnsigned),
     /// -1 - неизвестно (литерал/INVALID/глобал). Рекурсивно по выражению: знак результата
     /// арифметики/битовой операции следует знаку операндов-переменных; узлы сравнения/логики не
@@ -79,6 +91,19 @@ class TrustToSmt {
     /// state - текущее SSA-состояние переменных тела (nullptr - нет, резолв параметров/глобалов).
     std::optional<SmtTerm> toTerm(const AstNodeBase* node, const std::optional<SmtSort>& expected,
                                   const std::unordered_map<std::string, SmtTerm>* state = nullptr);
+
+    // -- Кодирование выражений по категориям узлов (вынесено из toTerm; см. smt_expr_enc.cpp) --
+    std::optional<SmtTerm> encodeIntLiteralTerm(const AstNodeBase* node, const std::optional<SmtSort>& expected);
+    std::optional<SmtTerm> encodeFloatLiteralTerm(const AstNodeBase* node);
+    std::optional<SmtTerm> encodeIdentTerm(const AstNodeBase* node, const std::optional<SmtSort>& expected,
+                                           const std::unordered_map<std::string, SmtTerm>* state);
+    std::optional<SmtTerm> encodeOperatorTerm(const AstNodeBase* node, const std::optional<SmtSort>& expected,
+                                              const std::unordered_map<std::string, SmtTerm>* state);
+    std::optional<SmtTerm> encodeCallTerm(const AstNodeBase* node, const std::unordered_map<std::string, SmtTerm>* state);
+    std::optional<SmtTerm> encodeArrayAccessTerm(const AstNodeBase* node, const std::unordered_map<std::string, SmtTerm>* state);
+    std::optional<SmtTerm> encodeArrayInitTerm(const AstNodeBase* node, const std::unordered_map<std::string, SmtTerm>* state);
+    std::optional<SmtTerm> encodeTrustElemTerm(const AstNodeBase* node, const std::optional<SmtSort>& expected,
+                                               const std::unordered_map<std::string, SmtTerm>* state);
 
     Context& m_ctx;
     SmtScript m_script;

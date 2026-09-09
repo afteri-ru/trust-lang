@@ -1,6 +1,6 @@
 // module_loader.cpp - реализация ModuleLoader
 #include "module_loader/module_loader.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "syntax/macro.h"
 #include "syntax/parser.h"
 #include "ast/term_to_ast.hpp"

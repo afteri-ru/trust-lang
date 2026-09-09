@@ -1,8 +1,11 @@
-#!../_build/trust --run -Wsigil=ignore
+#!../_build/trust --run
 #
-# Hello, world! и атрибут @[format("printf", ...)] - компиляйт-тайм проверка типов
-# аргументов на соответствие форматной строке printf (GCC-аналог __attribute__((format))).
-# Нативная функция printf объявляется forward-декларацией без подключения заголовочных файлов.
+# Launching the program as a bash script that automatically compiles the C++ code 
+# on the first run and subsequently executes the binary file. 
+# Automatic recompilation occurs whenever the source code changes.
+#
+# Importing and calling native functions from the C++ standard library.
+# "Hello, world!" and checking argument types against the printf format string.
 
 @[ format("printf", 1, 2) @]
 %printf(fmt:@[ reftype(ptr) @] StrChar^, ...):Int32 := ...;
@@ -16,7 +19,22 @@
 
 %printf('Строка: "%s"\n', 'это строковый аргумент');
 
-# Неверные вызовы - компиляйт-тайм ошибки (атрибут format). Раскомментируйте:
-# %printf('Ошибка: %s\n', 42);        # %s ожидает C-строку (const char*), а передан целый 42
-# %printf('Ошибка: %d\n', 'строка');  # %d ожидает целое, а передана строка
-# %printf('Ошибка: %s\n', строка);    # переменная std::string в %s - нужен явный .c_str()
+# Invalid calls – compile-time errors (format attribute):
+# %printf('Ошибка: %s\n', 42);
+# %printf('Ошибка: %d\n', 'строка');
+# %printf('Ошибка: %s\n', строка);
+
+
+forward %labs(x:Int64):Int64;
+extern abs(x:Int32):Int32;
+
+@print('abs(-42)={}\n', abs(-42));
+@print('labs(-9000000000)={}\n', %labs(-9000000000));
+
+sum:Int32 := 0;
+i:Int32 := -3;
+while (i <= 3) {
+    sum += abs(i);
+    i += 1;
+};
+@print('sum of abs(-3..3)={}\n', sum);

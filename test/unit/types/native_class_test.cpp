@@ -7,7 +7,7 @@
 #include "types/type_id.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/token.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "gtest/gtest.h"
 
 #include <memory>

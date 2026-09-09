@@ -1,5 +1,7 @@
-// runtime/trust_headers.cpp - embeds the public runtime headers
+// runtime/trust_headers.cpp - embeds the public runtime headers of BUILT-IN types
 // ("trust/rational.hpp", "trust/assert.hpp", ...) into trust-runtime.so/.a.
+// Headers of LIBRARY types are assets of the stdlib component and are embedded into the
+// compiler (src/assets/asset_provider.cpp, prefix "@stdlib/…"); they must NOT be listed here.
 //
 // The header bytes are placed into an ELF section whose name equals the header
 // path (e.g. "trust/rational.hpp"). The pipeline reads the section back from the
@@ -12,64 +14,68 @@
 #include <string_view>
 
 // The arrays are char so a trailing NUL makes it easy to treat as text.
-// The header paths are relative to this source file (src/runtime/ → include/trust/):
+// The header paths are relative to this source file (src/runtime/ → include/runtime/trust/):
 // clang's `#embed` resolves quoted names against the including file's directory
 // and does not search -I include paths.
 
 __attribute__((used, retain, section("trust/rational.hpp"))) static const char kTrustRationalHeader[] = {
-#embed "../../include/trust/rational.hpp"
+#embed "../../include/runtime/trust/rational.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/big_integer.hpp"))) static const char kTrustBigIntegerHeader[] = {
-#embed "../../include/trust/big_integer.hpp"
+#embed "../../include/runtime/trust/big_integer.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/assert.hpp"))) static const char kTrustAssertHeader[] = {
-#embed "../../include/trust/assert.hpp"
+#embed "../../include/runtime/trust/assert.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/checked_cast.hpp"))) static const char kTrustCheckedCastHeader[] = {
-#embed "../../include/trust/checked_cast.hpp"
+#embed "../../include/runtime/trust/checked_cast.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/io.hpp"))) static const char kTrustIoHeader[] = {
-#embed "../../include/trust/io.hpp"
+#embed "../../include/runtime/trust/io.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/dict.hpp"))) static const char kTrustDictHeader[] = {
-#embed "../../include/trust/dict.hpp"
+#embed "../../include/runtime/trust/dict.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/args.hpp"))) static const char kTrustArgsHeader[] = {
-#embed "../../include/trust/args.hpp"
+#embed "../../include/runtime/trust/args.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/range.hpp"))) static const char kTrustRangeHeader[] = {
-#embed "../../include/trust/range.hpp"
+#embed "../../include/runtime/trust/range.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/enum.hpp"))) static const char kTrustEnumHeader[] = {
-#embed "../../include/trust/enum.hpp"
+#embed "../../include/runtime/trust/enum.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/any_convert.hpp"))) static const char kTrustAnyConvertHeader[] = {
-#embed "../../include/trust/any_convert.hpp"
+#embed "../../include/runtime/trust/any_convert.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/stack_check.hpp"))) static const char kTrustStackCheckHeader[] = {
-#embed "../../include/trust/stack_check.hpp"
+#embed "../../include/runtime/trust/stack_check.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/interrupt.hpp"))) static const char kTrustInterruptHeader[] = {
-#embed "../../include/trust/interrupt.hpp"
+#embed "../../include/runtime/trust/interrupt.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/trusted-cpp.hpp"))) static const char kTrustTrustedCppHeader[] = {
-#embed "../../include/trust/trusted-cpp.hpp"
+#embed "../../include/runtime/trust/trusted-cpp.hpp"
     , '\0'};
 
 __attribute__((used, retain, section("trust/trusted-cpp-sync.hpp"))) static const char kTrustTrustedCppSyncHeader[] = {
-#embed "../../include/trust/trusted-cpp-sync.hpp"
+#embed "../../include/runtime/trust/trusted-cpp-sync.hpp"
+    , '\0'};
+
+__attribute__((used, retain, section("trust/resource.hpp"))) static const char kTrustResourceHeader[] = {
+#embed "../../include/runtime/trust/resource.hpp"
     , '\0'};
 
 // Convenience views (length excludes the trailing NUL).
@@ -88,4 +94,5 @@ inline constexpr std::string_view kStackCheckHeader(kTrustStackCheckHeader, size
 inline constexpr std::string_view kInterruptHeader(kTrustInterruptHeader, sizeof(kTrustInterruptHeader) - 1);
 inline constexpr std::string_view kTrustedCppHeader(kTrustTrustedCppHeader, sizeof(kTrustTrustedCppHeader) - 1);
 inline constexpr std::string_view kTrustedCppSyncHeader(kTrustTrustedCppSyncHeader, sizeof(kTrustTrustedCppSyncHeader) - 1);
+inline constexpr std::string_view kResourceHeader(kTrustResourceHeader, sizeof(kTrustResourceHeader) - 1);
 } // namespace trust::runtime

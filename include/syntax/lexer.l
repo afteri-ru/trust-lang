@@ -527,13 +527,12 @@ ${name}"^"? YY_TOKEN(LOCAL);
 
 
 "//"        YY_TOKEN(OPERATOR_DIV);
-"+="        YY_TOKEN(OP_MATH);
-"-="        YY_TOKEN(OP_MATH);
-"*="        YY_TOKEN(OP_MATH);
-"/="        YY_TOKEN(OP_MATH);
-"//="       YY_TOKEN(OP_MATH);
-"%="        YY_TOKEN(OP_MATH);
-"~="        YY_TOKEN(OP_COMPARE);
+"+="        YY_TOKEN(OP_ASSIGN);
+"-="        YY_TOKEN(OP_ASSIGN);
+"*="        YY_TOKEN(OP_ASSIGN);
+"/="        YY_TOKEN(OP_ASSIGN);
+"//="       YY_TOKEN(OP_ASSIGN);
+"%="        YY_TOKEN(OP_ASSIGN);
 
 "||"        YY_TOKEN(OP_LOGICAL);
 "^^"        YY_TOKEN(OP_LOGICAL);
@@ -548,13 +547,10 @@ ${name}"^"? YY_TOKEN(LOCAL);
 "&?"        YY_TOKEN(OPERATOR_PTR);
 "&?^"       YY_TOKEN(OPERATOR_PTR);
 
-    /* Нативные (сырые) C++ операторы ссылок: `%&` (нативная ссылка T& / address-of; контекст
-     * T& или T* задаёт левый оператор создания/присваивания) и `%*` (нативный указатель T*,
-     * только в позиции типа/декларации). РАЗДЕЛЬНЫЕ группы токенов: NATIVE_REF_MAKE (`%&`) и
-     * NATIVE_REF_PTR (`%*`) - конвертация/анализ по TermID, без сравнения текста. `%&&` и
-     * константные `%&^`/`%&&^`/`%*^` удалены: константность - атрибут @[readonly@] (`^` на имени). */
-"%&"        YY_TOKEN(NATIVE_REF_MAKE);
-"%*"        YY_TOKEN(NATIVE_REF_PTR);
+    /* Нативные (сырые) C++ операторы ссылок `%&`/`%*` УДАЛЕНЫ: краткая символьная нотация
+     * нативной оси устранена. Нативные виды `ptr`/`ref` (переходная ось совместимости)
+     * задаются только явным атрибутом `@[reftype("ptr"|"ref")]`. Префикс `%` нативных ИМЁН
+     * (`%std::sqrt`) сохраняется. */
 
 "*^"        YY_TOKEN(TAKE_CONST);
 "**"        YY_TOKEN(WITH);
@@ -569,11 +565,9 @@ ${name}"^"? YY_TOKEN(LOCAL);
 ".^."        YY_TOKEN(OP_BITWISE);
 ".~."        YY_TOKEN(OP_BITWISE);
 
-"!~~~"      YY_TOKEN(OP_COMPARE);
 "~~~"       YY_TOKEN(OPERATOR_DUCK);
-"!~~"       YY_TOKEN(OP_COMPARE);
 "~~"        YY_TOKEN(OPERATOR_DUCK);
-"!~"        YY_TOKEN(OP_COMPARE);
+"<~"        YY_TOKEN(OP_COMPARE);
 "==="       YY_TOKEN(OP_COMPARE);
 "=="        YY_TOKEN(OP_COMPARE);
 "!=="       YY_TOKEN(OP_COMPARE);

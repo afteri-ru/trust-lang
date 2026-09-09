@@ -1,0 +1,10 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# `unique` (монопольное владение, StaticUnique inline): разыменование `*u` -> `(c_u.get())`.
+@main():Int32 := {
+    a : @[reftype("unique")@] Int32 := 5;
+    x := *a;
+    *a = 7;
+    return :Int32(x);
+};
+# CHECK: (c_a.get())

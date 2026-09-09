@@ -3,16 +3,14 @@
 #include "transpiler/transpiler.hpp"
 #include "transpiler/emit_common.hpp"
 #include "ast/ast_nodes.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
 #include "ast/ident_name.hpp"
 #include "ast/kind_visitor.hpp"
 #include "ast/token_type.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
-#include "semantic/symbol_table.hpp"
-#include "semantic/solver.hpp"
-#include "semantic/stack_check.hpp"
+#include "analysis/symbol_table.hpp"
 #include "syntax/term.h"
 #include "types/registry.hpp"
 #include "types/runtime_symbols.hpp"
@@ -20,7 +18,6 @@
 #include "types/type_id.hpp"
 #include "types/type_names.hpp"
 #include "transpiler/diag.hpp"
-#include "utils/operators.hpp"
 #include "utils/strings.hpp"
 #include <format>
 #include <memory>
@@ -29,15 +26,27 @@ namespace trust {
 
 void ExprEmitter::emitBinaryOpRaw(const Binary& binary_node) {
     const auto op = binary_node.text();
+    // Оператор сравнения типов (`<~`/`~~`/`~~~`): статически свёрнут семантикой в константу.
+    if (isTypeCheckOp(binary_node.m_op)) {
+        emitTypeCheckOp(binary_node);
+        return;
+    }
     // Swap `x :=: y` / `var :=: _`: интринсик обмена/перемещения.
     //   `a :=: b` → std::swap(c_a, c_b) (совместимые типы, не обязательно ссылки);
     //   `var :=: _` → std::move(c_var) (перемещение значения в discard).
-    if (utils::isSwapOp(op)) {
+    if (isSwapOp(binary_node.m_op)) {
         const bool moveDiscard = binary_node.m_right && binary_node.m_right->kind() == ParserToken::Kind::Ident && binary_node.m_right->text() == "_";
         if (moveDiscard) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "std::move(");
+            // `x :=: _` - перемещение значения в discard. МАТЕРИАЛИЗУЕМ временное: move-ctor
+            // вызывается РЕАЛЬНО, временное разрушается в конце блока. Для владеющих ссылок
+            // (Unique/Shared) это освобождает ресурс, x остаётся moved-from; для тривиальных
+            // типов результат по значению не меняется. Блок - немедленное разрушение (не конец
+            // функции); имя уникально (__trust_discard_N). Прежняя форма `std::move(x);` была
+            // no-op (отбрасываемый xvalue не вызывает move).
+            const std::string tmp = "__trust_discard_" + std::to_string(m_ectx.m_discardCounter++);
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "{ auto " + tmp + " = std::move(");
             m_driver.emitExpr(binary_node.m_left.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "); (void)" + tmp + "; }");
         } else {
             m_ectx.m_ctx.source().output_append(m_ectx.m_out, "std::swap(");
             m_driver.emitExpr(binary_node.m_left.get());
@@ -47,25 +56,79 @@ void ExprEmitter::emitBinaryOpRaw(const Binary& binary_node) {
         }
         return;
     }
+    // Детекция целочисленного переполнения (опция -foverflow-check, default on): признак
+    // контролируемой арифметики решён семантикой (Binary::m_overflowCheck). На переполнение -
+    // runtime trust::IntMinus (ловится try/{-...-}).
+    if (overflowCheckArith(binary_node)) {
+        emitCheckedArith(binary_node);
+        return;
+    }
     // Потоковый вывод бинарного оператора, включая '//'/'//=' (целочисленное деление).
-    if (utils::isIntDivOp(op) && !utils::isCompoundAssignOp(op)) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "static_cast<int64_t>(");
-        m_driver.emitExpr(binary_node.m_left.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ") / static_cast<int64_t>(");
-        m_driver.emitExpr(binary_node.m_right.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-    } else if (m_ectx.m_exprDepth == 0 && utils::isIntDivOp(op) && utils::isCompoundAssignOp(op)) {
+    // Под -foverflow-check деление защищено от деления на ноль и INT64_MIN/-1 (UB) -> IntMinus.
+    const bool divCheck = m_ectx.m_ctx.opts().is_enabled(transpiler::FlagKind::OverflowCheck);
+    if (isIntDivOp(binary_node.m_op) && !isCompoundAssignOp(binary_node.m_op)) {
+        if (divCheck) {
+            m_driver.m_type.recordRequiredInclude("@trust/interrupt.hpp");
+            m_driver.m_type.recordRequiredInclude("@trust/assert.hpp");
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "([&]{ int64_t __l = static_cast<int64_t>(");
+            m_driver.emitExpr(binary_node.m_left.get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "); int64_t __r = static_cast<int64_t>(");
+            m_driver.emitExpr(binary_node.m_right.get());
+            const SourceLocation loc = sourceLocation(m_ectx.m_ctx.source(), binary_node.range());
+            const std::string msgPrefix = (loc.line > 0 && !loc.file.empty())
+                                              ? "trust::formatMessage(\"" + utils::escape_cpp_string(loc.file) + "\", " + std::to_string(loc.line) + ", "
+                                              : std::string("std::string(");
+            const std::string divZeroMsg = msgPrefix + "\"integer division by zero\")";
+            const std::string divOvMsg = msgPrefix + "\"integer overflow in '//'\")";
+            m_ectx.m_ctx.source().output_append(
+                m_ectx.m_out, "); if (__r == 0) throw trust::IntMinus(" + divZeroMsg +
+                                  "); "
+                                  "if (__r == -1) { int64_t __q = 0; if (__builtin_sub_overflow(static_cast<int64_t>(0), __l, &__q)) throw trust::IntMinus(" +
+                                  divOvMsg +
+                                  "); return __q; } "
+                                  "return __l / __r; }())");
+        } else {
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "static_cast<int64_t>(");
+            m_driver.emitExpr(binary_node.m_left.get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ") / static_cast<int64_t>(");
+            m_driver.emitExpr(binary_node.m_right.get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
+        }
+    } else if (m_ectx.m_exprDepth == 0 && isIntDivOp(binary_node.m_op) && isCompoundAssignOp(binary_node.m_op)) {
         // //= - только statement (присваивание); как вложенное выражение не используется.
-        m_driver.emitExpr(binary_node.m_left.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, " = static_cast<int64_t>(");
-        m_driver.emitExpr(binary_node.m_left.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ") / static_cast<int64_t>(");
-        m_driver.emitExpr(binary_node.m_right.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
+        if (divCheck) {
+            m_driver.m_type.recordRequiredInclude("@trust/interrupt.hpp");
+            m_driver.m_type.recordRequiredInclude("@trust/assert.hpp");
+            m_driver.emitExpr(binary_node.m_left.get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, " = ([&]{ int64_t __l = static_cast<int64_t>(");
+            m_driver.emitExpr(binary_node.m_left.get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "); int64_t __r = static_cast<int64_t>(");
+            m_driver.emitExpr(binary_node.m_right.get());
+            const SourceLocation loc = sourceLocation(m_ectx.m_ctx.source(), binary_node.range());
+            const std::string msgPrefix = (loc.line > 0 && !loc.file.empty())
+                                              ? "trust::formatMessage(\"" + utils::escape_cpp_string(loc.file) + "\", " + std::to_string(loc.line) + ", "
+                                              : std::string("std::string(");
+            const std::string divZeroMsg = msgPrefix + "\"integer division by zero\")";
+            const std::string divOvMsg = msgPrefix + "\"integer overflow in '//='\")";
+            m_ectx.m_ctx.source().output_append(
+                m_ectx.m_out, "); if (__r == 0) throw trust::IntMinus(" + divZeroMsg +
+                                  "); "
+                                  "if (__r == -1) { int64_t __q = 0; if (__builtin_sub_overflow(static_cast<int64_t>(0), __l, &__q)) throw trust::IntMinus(" +
+                                  divOvMsg +
+                                  "); return __q; } "
+                                  "return __l / __r; }())");
+        } else {
+            m_driver.emitExpr(binary_node.m_left.get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, " = static_cast<int64_t>(");
+            m_driver.emitExpr(binary_node.m_left.get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ") / static_cast<int64_t>(");
+            m_driver.emitExpr(binary_node.m_right.get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
+        }
     } else {
         // LHS: для простого присвоения "=" - это адрес хранения (any_cast неприменим);
         // иначе (арифметика/составные) - значение, может требовать std::any_cast.
-        const bool plainAssign = (binary_node.kind() == ParserToken::Kind::AssignOp && utils::isPlainAssignOp(op));
+        const bool plainAssign = isPlainAssignOp(binary_node.m_op);
         if (binary_node.m_left) {
             if (plainAssign) {
                 m_driver.emitExpr(binary_node.m_left.get());
@@ -123,7 +186,116 @@ void ExprEmitter::emitBinaryStmtOrExpr(const Binary& binary_node) {
     }
 }
 
+// Оператор сравнения типов (`<~`/`~~`/`~~~`): результат свёрнут семантикой в константу
+// (is-a/структура/тождество по реестру). При ошибке статической проверки семантика заменила
+// узел на ErrorExpr (analyzeNodeTail) — сюда он не доходит; на всякий случай ничего не эмитим
+// (диагностика НЕ дублируется).
+void ExprEmitter::emitTypeCheckOp(const Binary& n) {
+    if (n.m_typeCheckConst.has_value()) {
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, *n.m_typeCheckConst ? "true" : "false");
+    }
+}
+
 void ExprEmitter::visit_Attr(const Sequence&) {
+}
+
+// -- Детекция целочисленного переполнения (опция -foverflow-check, default on) --------
+// Классификацию «контролируемая знаковая машинная арифметика» (+,-,* и +=,-=,*=) владеет
+// СЕМАНТИКА и кладёт готовый признак в Binary::m_overflowCheck; кодоген признак только читает.
+// Диапазон проверки - тип ПРИЁМНИКА: для value-позиции это commonType (тип результата), для
+// составного присваивания - тип ячейки (``&lhs``), поэтому узкие Int8/Int16 и inferred-цели
+// (расширенные до типа операции) проверяются единообразно. На переполнение - runtime
+// trust::IntMinus (ловится try/{-...-}). Детектор - встроенная функция целевого
+// компилятора __builtin_*_overflow (GCC/Clang), без нового runtime-заголовка.
+
+bool ExprEmitter::overflowCheckArith(const Binary& b) {
+    // Классификацию контролируемой арифметики владеет СЕМАНТИКА (Binary::m_overflowCheck);
+    // здесь только выборка готового признака и комбинация с поведенческим флагом опции.
+    if (!isOverflowCheckableOp(b.m_op)) {
+        return false; // узел вне класса контролируемой арифметики
+    }
+    // Инвариант: для контролируемых операций признак обязан быть выставлен семантикой
+    // (typeBinaryResult). Отсутствие признака - ошибка анализа, а не повод тихо пропустить проверку.
+    EXPECT(b.m_overflowCheck.has_value() && "overflow-check flag must be resolved by semantic");
+    return m_ectx.m_ctx.opts().is_enabled(transpiler::FlagKind::OverflowCheck) && *b.m_overflowCheck;
+}
+
+void ExprEmitter::emitCheckedArith(const Binary& b) {
+    // trust::IntMinus бросается при переполнении - тип из доверенного runtime interrupt.hpp.
+    m_driver.m_type.recordRequiredInclude("@trust/interrupt.hpp");
+    m_driver.m_type.recordRequiredInclude("@trust/assert.hpp");
+    const std::string op = std::string(b.text());
+    const std::string builtin = (b.m_op == BinaryOp::Add || b.m_op == BinaryOp::AddAssign)   ? "add"
+                                : (b.m_op == BinaryOp::Sub || b.m_op == BinaryOp::SubAssign) ? "sub"
+                                                                                             : "mul";
+    const std::optional<std::string> cppT = m_driver.m_type.emitTypeName(b.commonType, "");
+    if (!cppT) {
+        // Инвариант: знаковое машинное целое всегда имеет C++-имя. При нарушении фиксируем
+        // ошибку кодогенерации (не тихий fallback) и восстанавливаем прежний вывод арифметики.
+        m_ectx.m_ctx.report(b.range(), diag::DiagId::ParseError, "overflow-check: cannot resolve C++ type of integer arithmetic (internal)");
+        emitBinaryOperand(b.m_left.get(), b.lhsType, b.commonType);
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, " " + op + " ");
+        if (b.m_right) {
+            emitBinaryOperand(b.m_right.get(), b.rhsType, b.commonType);
+        }
+        return;
+    }
+    const std::string T = std::move(*cppT);
+
+    // Унарный минус: 0 - x в типе T; на переполнении (-INT_MIN) - IntMinus.
+    if (!b.m_left && b.m_right) {
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "([&]{ " + T + " __a = ");
+        emitBinaryOperand(b.m_right.get(), b.rhsType, b.commonType);
+        const SourceLocation loc = sourceLocation(m_ectx.m_ctx.source(), b.range());
+        const std::string msgPrefix = (loc.line > 0 && !loc.file.empty())
+                                          ? "trust::formatMessage(\"" + utils::escape_cpp_string(loc.file) + "\", " + std::to_string(loc.line) + ", "
+                                          : std::string("std::string(");
+        const std::string unaryMsg = msgPrefix + "\"integer overflow in unary '-'\")";
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "; " + T + " __r; if (__builtin_sub_overflow(static_cast<" + T +
+                                                              ">(0), __a, &__r)) throw trust::IntMinus(" + unaryMsg + "); return __r; }())");
+        return;
+    }
+
+    if (!isCompoundAssignOp(b.m_op)) {
+        // Value-позиция: нет lvalue-приёмника, поэтому лямбда-IIFE вводит локальные __a/__b/__r
+        // (сугубо кодген-локальные для &out детектора; не семантические временные - те создаёт
+        // только lowering). Операнды кастуются в commonType как в обычной арифметике.
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "([&]{ " + T + " __a = ");
+        emitBinaryOperand(b.m_left.get(), b.lhsType, b.commonType);
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "; " + T + " __b = ");
+        if (b.m_right) {
+            emitBinaryOperand(b.m_right.get(), b.rhsType, b.commonType);
+        }
+        const SourceLocation loc = sourceLocation(m_ectx.m_ctx.source(), b.range());
+        const std::string msgPrefix = (loc.line > 0 && !loc.file.empty())
+                                          ? "trust::formatMessage(\"" + utils::escape_cpp_string(loc.file) + "\", " + std::to_string(loc.line) + ", "
+                                          : std::string("std::string(");
+        const std::string valueMsg = msgPrefix + "\"integer overflow in '" + op + "'\")";
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "; " + T + " __r; if (__builtin_" + builtin + "_overflow(__a, __b, &__r)) throw trust::IntMinus(" +
+                                                              valueMsg + "); return __r; }())");
+        return;
+    }
+
+    // Составное присваивание (+=,-=,*=): приёмник-адрес = lhs, БЕЗ лямбды и временных.
+    // Проверяемый диапазон берётся из ТИПА ЯЧЕЙКИ (*res = &lhs): для Int8/Int16 это диапазон
+    // цели, для inferred-цели - расширенный тип хранения. lhs эмитится несколько раз - как
+    // и в существующей ветке //= (принятое ограничение для простых lvalue-целей).
+    m_ectx.m_ctx.source().output_append(m_ectx.m_out, "(__builtin_" + builtin + "_overflow(");
+    m_driver.emitExpr(b.m_left.get());
+    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", ");
+    if (b.m_right) {
+        emitBinaryOperand(b.m_right.get(), b.rhsType, b.commonType);
+    }
+    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", &");
+    m_driver.emitExpr(b.m_left.get());
+    const SourceLocation loc = sourceLocation(m_ectx.m_ctx.source(), b.range());
+    const std::string msgPrefix = (loc.line > 0 && !loc.file.empty())
+                                      ? "trust::formatMessage(\"" + utils::escape_cpp_string(loc.file) + "\", " + std::to_string(loc.line) + ", "
+                                      : std::string("std::string(");
+    const std::string compoundMsg = msgPrefix + "\"integer overflow in '" + op + "'\")";
+    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ") ? throw trust::IntMinus(" + compoundMsg + ") : ");
+    m_driver.emitExpr(b.m_left.get());
+    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
 }
 
 void ExprEmitter::visit_ArgNode(const ArgNode&) {
@@ -221,234 +393,24 @@ void ExprEmitter::visit_LogicalOp(const Binary& n) {
     emitBinaryStmtOrExpr(n);
 }
 
-// Доступ к элементу словаря: имя/статический индекс (MemberAccess) или динамический индекс
-// (ArrayAccess). Для конкретного типа поля - obj.at(key).getAs<Cpp>() (типизированный доступ
-// к значению: fast-path variant / std::any); для Any/неизвестного - obj.at(key) (TypedValue,
-// дальше any_to в касте).
-bool ExprEmitter::emitDictElementAccess(const Binary& n) {
-    // Заголовки Dict-типа записаны при объявлении/создании объекта (emitTypeName/resolveCppTypeId);
-    // здесь - только тип поля через emitTypeName (единая точка сбора).
-    const TypeId rt = n.resultType;
-    const bool concrete = (rt != INVALID_TYPE_ID && !isAnyType(rt, m_ectx.m_ctx.types()));
-    std::string concreteCpp;
-    if (concrete) {
-        if (auto cpp = m_driver.m_type.emitTypeName(rt, "")) {
-            concreteCpp = std::move(*cpp);
-        }
-    }
-    // объект
-    if (n.m_left) {
-        m_driver.emitExpr(n.m_left.get());
-    } else {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "{}");
-    }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ".at(");
-    // ключ
-    if (n.kind() == ParserToken::Kind::MemberAccess && n.m_right && n.m_right->kind() == ParserToken::Kind::IntLiteral) {
-        m_driver.emitExpr(n.m_right.get()); // статический индекс: d.1 → at(1)
-    } else if (n.kind() == ParserToken::Kind::MemberAccess && n.m_right) {
-        // Имя поля: d.two → at("two").
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "\"" + utils::escape_cpp_string(n.m_right->text()) + "\"");
-    } else if (n.m_right) {
-        m_driver.emitExpr(n.m_right.get()); // динамический индекс: d[expr] → at(expr)
-    } else {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "0");
-    }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-    if (concrete && !concreteCpp.empty()) {
-        // Типизированный доступ к значению по C++-типу (fast-path variant / std::any).
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ".getAs<" + concreteCpp + ">()");
-    }
-    return concrete;
-}
-
-// Доступ к элементу словаря по имени или статическому индексу: d.two / d.1.
-// Вызов метода на объекте (obj.method(args)) - нативный член C++-объекта, вставляется как есть.
-void ExprEmitter::visit_MemberAccess(const Binary& n) {
-    // Доступ к enum через имя типа: Color.RED → c_Color::RED; Color.count()/fromName(...) →
-    // c_Color::count()/... (тип-уровневые методы; члены и методы - статические члены структуры).
-    if (n.m_left && n.m_left->kind() == ParserToken::Kind::Ident) {
-        if (auto tid = m_ectx.m_ctx.types().findType(n.m_left->text())) {
-            if (isEnumType(*tid, m_ectx.m_ctx.types())) {
-                const std::string enum_cpp = utils::name_to_cpp(n.m_left->text());
-                if (n.m_right && n.m_right->kind() == ParserToken::Kind::CallExpr) {
-                    const auto& call = static_cast<const CallExpr&>(*n.m_right);
-                    std::string mname = call.m_callee ? std::string(call.m_callee->text()) : std::string();
-                    if (!mname.empty() && mname.front() == '%') {
-                        mname.erase(0, 1);
-                    }
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, enum_cpp + "::" + mname + "(");
-                    if (call.m_args) {
-                        for (size_t i = 0; i < call.m_args->size(); ++i) {
-                            if (i) {
-                                m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", ");
-                            }
-                            m_driver.emitExpr((*call.m_args)[i].get());
-                        }
-                    }
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-                    return;
-                }
-                // Член enum: Color.RED → c_Color::RED.
-                const std::string member_cpp = utils::name_to_cpp(n.m_right->text());
-                m_ectx.m_ctx.source().output_append(m_ectx.m_out, enum_cpp + "::" + member_cpp);
-                return;
-            }
-            if (isVariantType(*tid, m_ectx.m_ctx.types())) {
-                const std::string var_cpp = utils::name_to_cpp(n.m_left->text());
-                if (n.m_right && n.m_right->kind() == ParserToken::Kind::CallExpr) {
-                    const auto& call = static_cast<const CallExpr&>(*n.m_right);
-                    std::string mname = call.m_callee ? std::string(call.m_callee->text()) : std::string();
-                    if (!mname.empty() && mname.front() == '%') {
-                        mname.erase(0, 1);
-                    }
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, var_cpp + "::" + mname + "(");
-                    if (call.m_args) {
-                        for (size_t i = 0; i < call.m_args->size(); ++i) {
-                            if (i) {
-                                m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", ");
-                            }
-                            m_driver.emitExpr((*call.m_args)[i].get());
-                        }
-                    }
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-                    return;
-                }
-                // Член variant: Value.RED → c_Value::c_RED (тип члена).
-                const std::string member_cpp = utils::name_to_cpp(n.m_right->text());
-                m_ectx.m_ctx.source().output_append(m_ectx.m_out, var_cpp + "::" + member_cpp);
-                return;
-            }
-        }
-        // Доступ к СТАТИЧЕСКОМУ члену нативного класса `Cls.field` / `Cls.st(...)`: левый операнд -
-        // ИМЯ ТИПА (нативный класс) → эмитим `cppName::name` / `cppName::name(args)` (инклуд on-use).
-        // Инстанс-член через имя типа семантика отклоняет до кодогена, поэтому здесь только статика.
-        if (auto tid = m_ectx.m_ctx.types().findType(n.m_left->text())) {
-            if (m_ectx.m_ctx.types().isNativeClassType(*tid)) {
-                const std::string_view cpp = m_ectx.m_ctx.types().nativeClassCppName(*tid);
-                if (!cpp.empty()) {
-                    std::string mname = n.m_right ? std::string(n.m_right->text()) : std::string();
-                    const CallExpr* call = nullptr;
-                    if (n.m_right && n.m_right->kind() == ParserToken::Kind::CallExpr) {
-                        call = static_cast<const CallExpr*>(n.m_right.get());
-                        mname = call->m_callee ? std::string(call->m_callee->text()) : mname;
-                    }
-                    const std::string bare = std::string(utils::bare_name(mname));
-                    m_driver.m_type.recordUsedType(*tid); // инклуд @[include] on-use
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, cpp);
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, "::");
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, bare);
-                    if (call) {
-                        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "(");
-                        if (call->m_args) {
-                            for (size_t i = 0; i < call->m_args->size(); ++i) {
-                                if (i) {
-                                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", ");
-                                }
-                                m_driver.emitExpr((*call->m_args)[i].get());
-                            }
-                        }
-                        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-                    }
-                    return;
-                }
-            }
-        }
-    }
-    if (n.m_right && n.m_right->kind() == ParserToken::Kind::CallExpr) {
-        const auto& call = static_cast<const CallExpr&>(*n.m_right);
-        if (call.m_callee) {
-            // Метод на объекте: (объект).<нативный_член>(args). Нативность/константность метода -
-            // из полного ключа (findMethodInfo: '%' нативный, '^' константный); нативное имя - из
-            // ключа (срез '%'/'^'). const-вызов `obj.method^()` - attr::ReadOnly на ВЫЗОВЕ
-            // (convertAttrsToNode/CallExpr) → const_cast<const T&>(obj) (гарантированно const-перегрузка).
-            // const_cast-тип T - из TypeId объекта (n.lhsType, сохранён семантикой; кодген не может
-            // восстановить его для локальной переменной - скоуп-стек сброшен). Fallback - резолв имени.
-            TypeId objType = (n.lhsType != INVALID_TYPE_ID) ? m_ectx.m_ctx.types().getCanonicalTypeId(n.lhsType) : INVALID_TYPE_ID;
-            if (objType == INVALID_TYPE_ID && n.m_left && n.m_left->kind() == ParserToken::Kind::Ident) {
-                if (auto t = m_driver.m_type.resolveTypeIdByName(n.m_left->text())) {
-                    objType = m_ectx.m_ctx.types().getCanonicalTypeId(*t);
-                }
-            }
-            // Нативное имя: из полного ключа совпавшего метода (алиас → ключ цели); иначе - как есть.
-            std::string mname(call.m_callee->text());
-            std::string native;
-            if (objType != INVALID_TYPE_ID) {
-                if (auto mi = m_ectx.m_ctx.types().findMethodInfo(objType, mname)) {
-                    native = utils::bare_name(mi->key); // срез '%'/'^' → нативное имя (count/size/...)
-                }
-            }
-            if (native.empty()) {
-                native = mname;
-                if (!native.empty() && native.front() == '%') {
-                    native.erase(0, 1);
-                }
-            }
-            // const-вызов `obj.method^()` - attr::ReadOnly на вызове.
-            const bool constCall = call.as_attr() && call.as_attr()->has_attr(m_ectx.m_ctx.attrs(), attr::ReadOnly);
-            if (constCall) {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_out, "const_cast<const ");
-                if (auto ct = m_driver.m_type.resolveCppTypeId(objType, "Range.Const")) {
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ct->first);
-                } else {
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_out, "std::any");
-                }
-                m_ectx.m_ctx.source().output_append(m_ectx.m_out, "&>(");
-                m_driver.emitExpr(n.m_left.get());
-                m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-            } else {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_out, "(");
-                m_driver.emitExpr(n.m_left.get());
-                m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-            }
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ".");
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, native);
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "(");
-            if (call.m_args) {
-                for (size_t i = 0; i < call.m_args->size(); ++i) {
-                    if (i) {
-                        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", ");
-                    }
-                    m_driver.emitExpr((*call.m_args)[i].get());
-                }
-            }
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-            return;
-        }
-    }
-    if (n.tupleIndex >= 0) {
-        emitTupleElementAccess(n);
-        return;
-    }
-    // Поле НАТИВНОГО класса: `obj.%field` - правый операнд Ident (не вызов), объект - нативный
-    // класс (Group::kNativeClass). Эмитим `(obj).field` (нативное имя без '%'), а не словарный
-    // `.at("...")`. lhsType ставит семантика; fallback - резолв имени (как у метода).
-    if (n.m_right && n.m_right->kind() == ParserToken::Kind::Ident) {
-        TypeId objType = (n.lhsType != INVALID_TYPE_ID) ? m_ectx.m_ctx.types().getCanonicalTypeId(n.lhsType) : INVALID_TYPE_ID;
-        if (objType == INVALID_TYPE_ID && n.m_left && n.m_left->kind() == ParserToken::Kind::Ident) {
-            if (auto t = m_driver.m_type.resolveTypeIdByName(n.m_left->text())) {
-                objType = m_ectx.m_ctx.types().getCanonicalTypeId(*t);
-            }
-        }
-        if (objType != INVALID_TYPE_ID && m_ectx.m_ctx.types().isNativeClassType(objType)) {
-            std::string fname(n.m_right->text());
-            if (!fname.empty() && fname.front() == '%') {
-                fname.erase(0, 1); // нативное имя поля (без '%')
-            }
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "(");
-            m_driver.emitExpr(n.m_left.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ").");
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, fname);
-            return;
-        }
-    }
-    emitDictElementAccess(n);
-}
-
 // Динамический доступ по индексу: d[expr].
 void ExprEmitter::visit_ArrayAccess(const Binary& n) {
     if (n.tupleIndex >= 0) {
         emitTupleElementAccess(n);
+        return;
+    }
+    // Оператор индексации пользовательского типа (`[]`): `(obj)[idx]` - C++ вызывает operator[].
+    // lhsType = тип объекта; отличаем от контейнерного доступа (Array) и словаря.
+    if (n.lhsType != INVALID_TYPE_ID && m_ectx.m_ctx.types().isRecordType(n.lhsType) && m_ectx.m_ctx.types().findMethodInfo(n.lhsType, "[]").has_value()) {
+        if (n.m_left) {
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, "(");
+            m_driver.emitExpr(n.m_left.get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")[");
+        }
+        if (n.m_right) {
+            m_driver.emitExpr(n.m_right.get());
+        }
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "]");
         return;
     }
     // Доступ к элементу массива `a[i]` (структурный Array-тип): `(obj).at(idx)` -
@@ -635,7 +597,7 @@ void ExprEmitter::visit_TypeName(const IdentType& n) {
 // Вставка кода - напрямую (функции %trust_stack_check/%trust_stack_check_set_limit - для явных вызовов в коде).
 std::string ExprEmitter::stackCheckExpr(const CallExpr& n) {
     // Режим off -> никаких проверок.
-    if (!semantic::stackCheckActive(m_ectx.m_ctx.opts())) {
+    if (!analysis::stackCheckActive(m_ectx.m_behavioral)) {
         return {};
     }
     if (!n.m_callee || n.m_callee->kind() != ParserToken::Kind::Ident) {
@@ -660,7 +622,7 @@ std::string ExprEmitter::stackCheckExpr(const CallExpr& n) {
 // Пустой список -> set_limit({}) (по всем функциям .stack_sizes).
 void ExprEmitter::emitSetLimitFunctions(const CallExpr& n) {
     m_driver.m_type.recordRequiredInclude("@trust/stack_check.hpp");
-    if (!semantic::stackCheckActive(m_ectx.m_ctx.opts())) {
+    if (!analysis::stackCheckActive(m_ectx.m_behavioral)) {
         return;
     }
     std::vector<std::string> names;
@@ -688,10 +650,10 @@ bool ExprEmitter::handleStackCheckNative(const CallExpr& n) {
         return false;
     }
     const std::string name(n.m_callee->text());
-    if (name == "%trust_stack_check") {
+    if (name == analysis::stack_check_fn::kCheck) {
         // %trust_stack_check(N) -> check_overflow(N); %trust_stack_check() -> check_stack_limit().
         m_driver.m_type.recordRequiredInclude("@trust/stack_check.hpp");
-        if (!semantic::stackCheckActive(m_ectx.m_ctx.opts())) {
+        if (!analysis::stackCheckActive(m_ectx.m_behavioral)) {
             return true;
         }
         if (n.m_args && !n.m_args->empty()) {
@@ -703,25 +665,25 @@ bool ExprEmitter::handleStackCheckNative(const CallExpr& n) {
         }
         return true;
     }
-    if (name == "%trust_stack_check_set_reserve") {
+    if (name == analysis::stack_check_fn::kSetReserve) {
         emitIntrinsic(IntrinsicId::kTrustStackCheckReserve, n); // set_reserve(N)
         return true;
     }
-    if (name == "%trust_stack_check_get_reserve") {
+    if (name == analysis::stack_check_fn::kGetReserve) {
         m_driver.m_type.recordRequiredInclude("@trust/stack_check.hpp");
-        if (semantic::stackCheckActive(m_ectx.m_ctx.opts())) {
+        if (analysis::stackCheckActive(m_ectx.m_behavioral)) {
             m_ectx.m_ctx.source().output_append(m_ectx.m_out, "trust::stack_check::get_reserve()");
         }
         return true;
     }
-    if (name == "%trust_stack_check_get_limit") {
+    if (name == analysis::stack_check_fn::kGetLimit) {
         m_driver.m_type.recordRequiredInclude("@trust/stack_check.hpp");
-        if (semantic::stackCheckActive(m_ectx.m_ctx.opts())) {
+        if (analysis::stackCheckActive(m_ectx.m_behavioral)) {
             m_ectx.m_ctx.source().output_append(m_ectx.m_out, "trust::stack_check::get_limit()");
         }
         return true;
     }
-    if (name == "%trust_stack_check_set_limit") {
+    if (name == analysis::stack_check_fn::kSetLimit) {
         emitSetLimitFunctions(n);
         return true;
     }
@@ -794,17 +756,40 @@ void ExprEmitter::visit_CallExpr(const CallExpr& n) {
             }
         }
     }
-    m_driver.emitExpr(n.m_callee.get());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, "(");
-    if (n.m_args) {
-        for (size_t i = 0; i < n.m_args->size(); ++i) {
-            if (i) {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", ");
+    // Конструктор пользовательского record-шаблона (`Box(...)`): семантика записала инстанциацию
+    // в `CallExpr::resultType` (по типу-цели объявления/присваивания) → эмитим `c_Box<int32_t>(args)`
+    // (в т.ч. ПУСТОЙ список). Без типа-цели - обычный путь (CTAD `c_Box(5)` для непустых).
+    if (n.resultType != INVALID_TYPE_ID) {
+        auto cpp = m_driver.m_type.emitTypeName(clearSymbolFlags(n.resultType), "RecordTemplate.Ctor");
+        if (cpp && !cpp->empty()) {
+            if (!guard.empty()) {
+                m_ectx.m_ctx.source().output_append(m_ectx.m_out, "(");
             }
-            m_driver.emitExpr((*n.m_args)[i].get());
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, *cpp + "(");
+            if (n.m_args) {
+                for (size_t i = 0; i < n.m_args->size(); ++i) {
+                    if (i) {
+                        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", ");
+                    }
+                    m_driver.emitExpr((*n.m_args)[i].get());
+                }
+            }
+            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
+            if (!guard.empty()) {
+                m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
+            }
+            return;
         }
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
+    // Перегруженный вызов: эмитим ВЫБРАННУЮ семантикой перегрузку по её уникальному C++-имени
+    // (`c_f_Int32_`), БЕЗ опоры на C++-разрешение (иначе литералы/конверсии дают другую перегрузку).
+    if (!n.resolvedCalleeSuffix.empty() && n.m_callee && n.m_callee->kind() == ParserToken::Kind::Ident) {
+        m_driver.emitExprText(utils::name_to_cpp(n.m_callee->text()) + n.resolvedCalleeSuffix);
+    } else {
+        m_driver.emitExpr(n.m_callee.get());
+    }
+    m_ectx.m_ctx.source().output_append(m_ectx.m_out, "(");
+    emitCallArgs(n);
     if (!guard.empty()) {
         m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
     }
@@ -843,6 +828,26 @@ void ExprEmitter::visit_ArrayInit(const DictLiteralNode& n) {
     emitArrayLiteral(n, n.arrayType);
 }
 
+// ЕДИНАЯ эмиссия аргументов вызова (функции и метода): `a, b, c` + закрывающая ')'. Семейство
+// многоточия (`... expr ...`/`...`) раскрыто (материализовано) СЕМАНТИКОЙ (semantic/ellipsis),
+// поэтому кодоген видит обычный список аргументов - без логики заполнения.
+void ExprEmitter::emitCallArgs(const CallExpr& call) {
+    bool first = true;
+    if (call.m_args) {
+        for (const auto& arg : *call.m_args) {
+            if (!arg) {
+                continue;
+            }
+            if (!first) {
+                m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", ");
+            }
+            first = false;
+            m_driver.emitExpr(arg.get());
+        }
+    }
+    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
+}
+
 // Эмитит литерал/конструкцию массива: `std::vector<Elem>{v1, v2, ...}` (mutable) либо
 // `std::array<Elem,N>{v1, ...}` (константная форма). Тип контейнера берётся из структурного
 // Array<Elem> через resolveCppTypeId (записывает инклуды <vector>/<array>). Элементы - ArgNode
@@ -860,6 +865,7 @@ void ExprEmitter::emitArrayLiteral(const DictLiteralNode& n, TypeId arrayType) {
         m_driver.emitPlaceholderExpr(m_ectx.m_out);
         return;
     }
+    // Элементы: семейство многоточия уже раскрыто (МАТЕРИАЛИЗОВАНО) семантикой - обычный список.
     m_ectx.m_ctx.source().output_append(m_ectx.m_out, *container + "{");
     bool first = true;
     for (const auto& el : dictElements(n)) {
@@ -878,7 +884,7 @@ void ExprEmitter::emitArrayLiteral(const DictLiteralNode& n, TypeId arrayType) {
 // Литерал словаря/кортежа: `(1, two="2", name=3,)` → trust::Dict{ {"", expr}, {"two", expr}, ... }.
 // Контракт: все элементы m_body - Binary(AssignOp) (left=Ident-метка или пустой, right=значение),
 // строятся из канонических пар грамматики `args` (term_to_ast::visit_DICT). Тип значения -
-// единый источник семантики: Binary::resultType (из resolvedType), см. emitTypedDictValue.
+// единый источник семантики: Binary::resultType (из exprType), см. emitTypedDictValue.
 // Литерал словаря/конструкция/каст и кортеж. kind==Tuple → visit_Tuple (std::tuple);
 // типизированный `:Type(...)`/`(...):Type` (не Tuple) → emitTypedConstruction (каст/конструктор);
 // голый `(...)` → emitDictLiteralBody (trust::Dict). Контракт элементов - Binary(AssignOp)
@@ -1004,7 +1010,7 @@ void ExprEmitter::emitTypedConstruction(const DictLiteralNode& n) {
     // Тип-цель → C++ имя (и запись инклудов типа через emitTypeNameForNode). None/Void → "void".
     std::string typeCpp;
     const std::string_view tt = typeNode->text();
-    if (tt == "Void" || tt == "None") {
+    if (tt == type::Void || tt == type::None) {
         typeCpp = "void";
     } else {
         typeCpp = m_driver.m_type.emitTypeNameForNode(typeNode);
@@ -1019,6 +1025,21 @@ void ExprEmitter::emitTypedConstruction(const DictLiteralNode& n) {
         if (el.value) {
             values.push_back(el.value);
         }
+    }
+    // Явная конструкция record-шаблона `:Box<Int32>(...)`: эмитим `typeCpp(args...)` напрямую -
+    // в т.ч. ПУСТОЙ список (default-инициализация), а не каст/placeholder.
+    if (m_driver.m_type.isRecordTemplateAnnotation(typeNode)) {
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, typeCpp + "(");
+        bool first = true;
+        for (const AstNodeBase* v : values) {
+            if (!first) {
+                m_ectx.m_ctx.source().output_append(m_ectx.m_out, ", ");
+            }
+            first = false;
+            m_driver.emitExpr(v);
+        }
+        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
+        return;
     }
     if (values.empty()) {
         m_driver.emitPlaceholderExpr(m_ectx.m_out);
@@ -1067,20 +1088,19 @@ void ExprEmitter::emitTypedConstruction(const DictLiteralNode& n) {
     m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
 }
 
-// Эмитит trust::TypedValue{kind, значение} для элемента словаря. kind - TypeKind значения,
-// вычисленный семантикой (resolvedType) и сохранённый на элементе-AssignOp (Binary::resultType).
-// Конструктор TypedValue сам размещает значение в быструю ветку std::variant (по группе kind:
+// Эмитит trust::TypedValue{typeId, значение} для элемента словаря. typeId - ПОЛНЫЙ TypeId
+// значения, вычисленный семантикой (exprType) и сохранённый на элементе-AssignOp.
+// Конструктор TypedValue сам размещает значение в быструю ветку std::variant (по группе типа:
 // числа/bool/строки) либо в std::any-ветку (открытые типы, вложенный Dict).
-// kind и C++-имя выводятся из TypeId без дублирования логики диапазонов/маппинга группа→имя.
+// TypeId и C++-имя выводятся из одного TypeId без дублирования логики диапазонов/маппинга.
 // Единый предикат литералов - ast::is_literal_kind.
 void ExprEmitter::emitTypedDictValue(const AstNodeBase* valueNode, TypeId tid) {
-    const TypeKind kind = getKindFromId(tid);
     // C++-имя - через emitTypeName (единая точка: резолв + запись инклудов типа).
     auto cpp = m_driver.m_type.emitTypeName(tid, "");
 
-    // kind (TypeKind) - 32-битная битовая кодировка типа. Печатаем в hex (0x…), чтобы были
-    // наглядны разряды Group/Data/RefType/…; в C++-литерале эквивалентно десятичному значению.
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, std::format("trust::TypedValue{{0x{:x}, ", kind));
+    // TypeId - 64-битный (TypeKind в старших 32, registry_index/флаги в младших). Печатаем в hex
+    // (0x…), чтобы были наглядны разряды; в C++-литерале эквивалентно десятичному значению.
+    m_ectx.m_ctx.source().output_append(m_ectx.m_out, std::format("trust::TypedValue{{0x{:x}, ", tid));
     // Точный C++-тип значения из реестра для литералов. RationalLiteral уже эмитится как
     // trust::Rational(...) - не оборачиваем. Не-литералы (вложенный Dict, переменная, вызов) - как есть.
     if (cpp && !cpp->empty() && is_literal_kind(valueNode->kind()) && valueNode->kind() != ParserToken::Kind::RationalLiteral) {
@@ -1095,116 +1115,6 @@ void ExprEmitter::emitTypedDictValue(const AstNodeBase* valueNode, TypeId tid) {
 
 // Каст/конструкция `:Type(...)`/`(...):Type` перенесён в visit_DictLiteral/emitTypedConstruction
 // (единый узел DictLiteralNode, решение по типу из реестра). Kind CastExpr удалён.
-void ExprEmitter::visit_RefMakeExpr(const RefMakeExpr& n) {
-    // `& expr` - взятие слабой ссылки (weak) из shared-переменной: `trust::Weak<...>(c_x)`.
-    // Операнд - единственный ребёнок (m_body[0]). Тип результата (weak) вычислен семантикой
-    // (RefMakeExpr::m_resultType) - локальные символы в транспиляторе недоступны (скоуп-стек
-    // сброшен к глобальному), поэтому резолв по таблице символов невозможен.
-    if (n.m_body.empty()) {
-        m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "operator '&' has no operand");
-        return;
-    }
-    m_driver.m_type.recordRequiredInclude("@trust/trusted-cpp.hpp");
-    const AstNodeBase* operand = n.m_body[0].get();
-    std::string cpp;
-    if (auto nm = m_driver.m_type.emitTypeName(n.m_resultType, "")) {
-        cpp = *nm;
-    } else {
-        cpp = "std::any";
-    }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, cpp + "(");
-    m_driver.emitExpr(operand);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-}
-
-void ExprEmitter::visit_RefTakeExpr(const RefTakeExpr& n) {
-    // `*ref` / `*^ref` (take): разыменование ссылочного операнда - прямой доступ к данным
-    // (семантика std::reference_wrapper). Вид ссылки операнда (m_opRefKind, ставит семантика):
-    //   shared/weak -> *(ref.lock()) / *(ref.lock_const())   (доступ под защитой/через weak)
-    //   unique/ptr  -> *ref                                   (прямой доступ, без guard'а)
-    // Операнд - единственный ребёнок RefTakeExpr (m_body[0]). Read-only `*^` живёт в атрибуте
-    // attr::ReadOnly (его ставит convertAttrsToNode по суффиксу '^' в тексте терма).
-    if (n.m_body.empty()) {
-        m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "operator '*' (take) has no operand");
-        return;
-    }
-    const bool direct = (n.m_opRefKind == RefType::kUnique || n.m_opRefKind == RefType::kPtr);
-    if (direct) {
-        // unique/ptr: безопасный прямой доступ к данным - `trust::checked_deref(c_u.get())` /
-        // `trust::checked_deref(c_p)` (возвращает ссылку на данные, бросает trust::IntMinus на
-        // nullptr - БЕЗ UB; семантика std::reference_wrapper<T>::get()).
-        m_driver.m_type.recordRequiredInclude("@trust/trusted-cpp.hpp");
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "trust::checked_deref(");
-        m_driver.emitExpr(n.m_body[0].get());
-        if (n.m_opRefKind == RefType::kUnique) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_out, ".get()");
-        }
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-        return;
-    }
-    // shared/weak: `*(c_ref.lock())` / `*(c_ref.lock_const())` (lock() уже проверяет null).
-    m_driver.m_type.recordRequiredInclude("@trust/trusted-cpp.hpp");
-    const bool immutable = n.has_attr(m_ectx.m_ctx.attrs(), attr::ReadOnly);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, "*(");
-    m_driver.emitExpr(n.m_body[0].get());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, immutable ? ".lock_const()" : ".lock()");
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-}
-
-void ExprEmitter::visit_NativeRefMakeExpr(const NativeRefMakeExpr& n) {
-    // Нативный (сырой) C++ оператор `%& var` (address-of). Вид результата (kRef/kPtr) - из
-    // m_resultType (ставит семантика): kRef → `(var)` (привязка lvalue), kPtr → `&(var)` (адрес).
-    // Операнд - m_body[0]. Константность - атрибут @[readonly@] (тип цели).
-    if (n.m_body.empty()) {
-        m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "native reference operator has no operand");
-        return;
-    }
-    const bool asAddress = (n.m_resultType != INVALID_TYPE_ID && getRefType(getKindFromId(n.m_resultType)) == RefType::kPtr);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, asAddress ? "&(" : "(");
-    m_driver.emitExpr(n.m_body[0].get());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-}
-
-void ExprEmitter::visit_NativeRefTakeExpr(const NativeRefTakeExpr& n) {
-    // Нативное разименование `%* ref` / `%*^ ref` → `*(ref)`. Допустимо ТОЛЬКО для нативного
-    // указателя (%&, kPtr) - проверяет анализатор (помимо reftrace). Константность в типе операнда.
-    if (n.m_body.empty()) {
-        m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "native dereference '*' has no operand");
-        return;
-    }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, "*(");
-    m_driver.emitExpr(n.m_body[0].get());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, ")");
-}
-
-void ExprEmitter::visit_RefLockExpr(const Sequence& n) {
-    // Захват блокировки ссылки (создаёт LOWERING для `with`): <ref>.lock() / <ref>.lock_const().
-    // Операнд - единственный ребёнок (m_body[0]). Read-only (`.lock_const()`) - синтетический
-    // узел без Term, признак задаёт lowering атрибутом attr::ReadOnly (общий принцип).
-    if (n.m_body.empty()) {
-        m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "ref lock capture '*' has no operand");
-        return;
-    }
-    m_driver.m_type.recordRequiredInclude("@trust/trusted-cpp.hpp");
-    m_driver.emitExpr(n.m_body[0].get());
-    const bool immutable = n.has_attr(m_ectx.m_ctx.attrs(), attr::ReadOnly);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, immutable ? ".lock_const()" : ".lock()");
-}
-
-void ExprEmitter::visit_RefLockDeref(const Sequence& n) {
-    // Разыменование удерживаемого Locker-темпа (создаёт LOWERING для `with`): *<temp>.
-    // Операнд - единственный ребёнок (m_body[0] - имя Locker-темпа).
-    if (n.m_body.empty()) {
-        m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "ref lock deref '*' has no operand");
-        return;
-    }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_out, "*");
-    m_driver.emitExpr(n.m_body[0].get());
-}
-
-void ExprEmitter::visit_Ellipsis(const Sequence&) {
-    m_driver.emitPlaceholderExpr(m_ectx.m_out);
-}
 
 // Trust-контракты (единый узел TrustContract, kind в поле).
 // В режиме --solver-mode=assert генерируются рантайм-проверки:
@@ -1224,7 +1134,7 @@ void ExprEmitter::emitIntrinsic(IntrinsicId id, const CallExpr& call) {
         return;
     case IntrinsicId::kTrustStackCheck:
         // %trust_stack_check(N) -> trust::stack_check::check_overflow(N) (free >= N + reserve).
-        if (semantic::stackCheckActive(m_ectx.m_ctx.opts())) {
+        if (analysis::stackCheckActive(m_ectx.m_behavioral)) {
             m_ectx.m_ctx.source().output_append(m_ectx.m_out, "trust::stack_check::check_overflow(");
             if (call.m_args && !call.m_args->empty()) {
                 m_driver.emitExpr((*call.m_args)[0].get());
@@ -1234,13 +1144,13 @@ void ExprEmitter::emitIntrinsic(IntrinsicId id, const CallExpr& call) {
         return;
     case IntrinsicId::kTrustStackCheckLimit:
         // %trust_stack_check() -> trust::stack_check::check_stack_limit() (free >= m_stack_limit + reserve).
-        if (semantic::stackCheckActive(m_ectx.m_ctx.opts())) {
+        if (analysis::stackCheckActive(m_ectx.m_behavioral)) {
             m_ectx.m_ctx.source().output_append(m_ectx.m_out, "trust::stack_check::check_stack_limit()");
         }
         return;
     case IntrinsicId::kTrustStackCheckReserve:
         // %trust_stack_check_set_reserve(N) -> trust::stack_check::set_reserve(N) (мин. резерв для всех функций).
-        if (semantic::stackCheckActive(m_ectx.m_ctx.opts())) {
+        if (analysis::stackCheckActive(m_ectx.m_behavioral)) {
             m_ectx.m_ctx.source().output_append(m_ectx.m_out, "trust::stack_check::set_reserve(");
             if (call.m_args && !call.m_args->empty()) {
                 m_driver.emitExpr((*call.m_args)[0].get());

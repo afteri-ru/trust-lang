@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# @[lifetime(...)] применим только к НЕвладеющему view (Native-ось: ptr/ref/rref).
+# Без reftype вид = value (владение значением) -> диагностика ошибки.
+@main():Int32 := {
+    x : @[lifetime("program")@] Int32 := 0;
+    return 0;
+};
+# CHECK: error: attribute 'lifetime' is only valid for non-owning reference views (ptr/ref/rref), got 'value'

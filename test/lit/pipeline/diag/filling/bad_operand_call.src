@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Тип операнда FILLING несовместим с типом заполняемого параметра функции.
+# CHECK: error: аргументы вызова: тип операнда 'StrWide' несовместим с типом позиции 'Int32'
+@func f(a:Int32, b:Int32):Void { @print('{}\n', a); };
+@main() := {
+    f(1, ... "x" ...);
+    @return 0;
+}

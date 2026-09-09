@@ -1,0 +1,39 @@
+# RUN: TD=%t.dir/rec && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Реальный пример ООП: Struct (POD) + Class-иерархия (Shape → Rect → Square) с наследованием,
+# переопределением метода (без virtual - статический резолв по типу), доступом к унаследованным
+# полям и методам. Программа собирается и запускается (--run); проверяем вывод.
+#
+# Point - POD-Struct: поля без значений, значения - агрегатной инициализацией `Point(2, 3)`.
+# Class-поля могут иметь default (эмитится C++ NSDMI).
+
+# CHECK: p=(2,3)
+# CHECK: desc=107
+# CHECK: area=50
+# CHECK: square_desc=107 area=50 side=4
+
+:Point ::= :Struct{ x:Int32 := _; y:Int32 := _; };
+
+:Shape ::= :Class{
+    kind:Int32 := 7;
+    describe():Int32 := { return kind + 100; };
+    area():Int32 := { return 0; };
+};
+
+:Rect ::= :Shape{
+    w:Int32 := 10;
+    h:Int32 := 5;
+    area():Int32 := { return w * h; };
+};
+
+:Square ::= :Rect{ side:Int32 := 4; };
+
+p:Point := Point(2, 3);
+r:Rect := Rect();
+s:Square := Square();
+@print('p=({},{})\n', p.x, p.y);
+@print('desc={}\n', r.describe());
+@print('area={}\n', r.area());
+@print('square_desc={} area={} side={}\n', s.describe(), s.area(), s.side);

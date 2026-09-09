@@ -1,0 +1,22 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/template_ctor_explicit.o %s && test -f $TD/template_ctor_explicit.o
+
+# Явная конструкция шаблон-типа в позиции значения: `:Box<Int32>(...)` (record-шаблон) и
+# `:vector<Int32>(...)` (нативный шаблон → std::vector<Elem>{...}). Новое правило `tmpl_ctor`
+# в позиции значения (RHS `:=`); обычные сравнения не затронуты.
+
+@include("vector")
+<T> %std::vector() := ...;
+
+<T> :Box ::= :Class{
+    value: T := _;
+    get(): T := { return value; };
+};
+# CHECK: template <typename T>
+# CHECK-NEXT: struct c_Box {
+
+b : Box<Int32> := :Box<Int32>(5);
+# CHECK: c_Box<int32_t> c_b = c_Box<int32_t>(5);
+
+v := :vector<Int32>(1, 2, 3);
+# CHECK: std::vector<int32_t> c_v = std::vector<int32_t>{1, 2, 3};

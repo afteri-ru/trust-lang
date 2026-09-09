@@ -18,6 +18,7 @@ add_library(playground_lib STATIC
 
 target_link_libraries(playground_lib PUBLIC
     lsp_lib
+    driver_lib
     nlohmann_json::nlohmann_json
 )
 
@@ -32,6 +33,7 @@ set_target_properties(playground_lib PROPERTIES COMPILE_OPTIONS "-Wno-c23-extens
 target_include_directories(playground_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${PROJECT_INCLUDE_DIR}
+    ${PROJECT_INCLUDE_DIR}/runtime
     ${CMAKE_BINARY_DIR}/include
 )
 
@@ -48,6 +50,10 @@ target_link_libraries(trust-playground PRIVATE
 
 target_include_directories(trust-playground PRIVATE
     ${PROJECT_INCLUDE_DIR}
+    ${PROJECT_INCLUDE_DIR}/runtime
 )
 
 
+
+# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
+target_link_libraries(playground_lib PRIVATE trust_pch)

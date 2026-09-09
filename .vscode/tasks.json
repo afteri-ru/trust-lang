@@ -26,6 +26,18 @@
             }
         },
         {
+            "label": "cmake: configure (dev, no PCH)",
+            "type": "shell",
+            "command": "cmake -B _build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug -DTRUST_USE_PCH=OFF",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
             "label": "cmake: build",
             "type": "shell",
             "command": "cmake --build _build",
@@ -47,6 +59,15 @@
             "label": "test: all verbose (full output)",
             "type": "shell",
             "command": "cmake --build _build --target test-binaries && /usr/local/bin/ctest --test-dir _build --output-on-failure",
+            "group": "test"
+        },
+        {
+            "label": "test: all (no PCH)",
+            "type": "shell",
+            "command": "cmake --build _build --target test-binaries && /usr/local/bin/ctest --test-dir _build --output-on-failure -Q",
+            "dependsOn": [
+                "cmake: configure (dev, no PCH)"
+            ],
             "group": "test"
         },
         {

@@ -13,7 +13,7 @@
 
 #include "semantic/inline_hook.hpp"
 #include "semantic/pass.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "semantic/diag.hpp"
 #include "ast/ast_nodes.hpp"
 

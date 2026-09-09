@@ -40,9 +40,11 @@
 #pragma once
 
 #include "ast/token_base.hpp"
+#include "ast/binary_op.hpp"
 #include "ast/token.hpp"
 #include "ast/check_area.hpp"
 #include "ast/ident_name.hpp"
+#include "ast/token_type.hpp"
 #include "diag/severity.hpp"
 #include "ast/trust_prop.hpp"
 #include "ast/z3_term.hpp"
@@ -51,12 +53,13 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace trust {
 
-// Forward declaration (full definition in diag/context.hpp). Needed for the
+// Forward declaration (full definition in session/context.hpp). Needed for the
 // `Context* ctx = nullptr` parameter of term-constructors that build children.
 class Context;
 
@@ -152,6 +155,34 @@ class CheckAreaStmt : public HasText {
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 };
 
+/// Режим встроенного системного макроса отладочного вывода (DebugStmt).
+enum class DebugMode {
+    Filter, ///< @__DEBUG__(<masks>) / @__DEBUG__() - установить (пустой => сбросить) фильтр вывода
+    Scope,  ///< @__DEBUG_SCOPE__(<keywords> [, <spec>]) - дамп состояния скоупа анализатора
+};
+
+/// DebugStmt - встроенный системный маркер отладочного вывода (УРОВЕНЬ 1): `@__DEBUG__` /
+/// `@__DEBUG_SCOPE__`. Лист-маркер: НЕ генерирует код; анализатор применяет эффект
+/// (устанавливает фильтр / печатает дамп скоупа) и УДАЛЯЕТ узел. kind = DebugStmt.
+/// args: Filter - 0/1 элемент (маски); Scope - [keywords] или [keywords, spec].
+class DebugStmt : public HasText {
+  public:
+    DebugStmt() = default;
+
+    /// Uniform term-constructor (ctx игнорируется - лист; поля заполняет конвертер).
+    DebugStmt(ParserToken::Kind k, TermPtr term, Context* /*ctx*/)
+    : HasText(k, std::move(term)) {}
+
+    /// Manual-конструктор: текст задан явно, без TermPtr (range() вернёт invalid range).
+    DebugStmt(ParserToken::Kind k, std::string text)
+    : HasText(k, std::move(text)) {}
+
+    DebugMode mode = DebugMode::Filter;
+    std::vector<std::string> args;
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+};
+
 /// Binary - бинарная операция, member access или array access.
 /// kind = TypeDecl | NameDecl | AssignOp | MathOp | BitwiseOp | CompareOp |
 ///        LogicalOp | MemberAccess | ArrayAccess.
@@ -185,6 +216,12 @@ class Binary : public AstNodeAttr {
     AstNodePtr m_left;
     AstNodePtr m_right;
 
+    /// Конкретный оператор узла (enum-opcode; аналог BinaryOperatorKind). Заполняется
+    /// при Term->AST (Binary::Binary) из текста оператора (parseBinaryOp); None - вне
+    /// покрытия (сравнение/логика/битовые). Потребители различают операцию по m_op, а не
+    /// по text() (text() - только диагностика/рендер).
+    BinaryOp m_op{BinaryOp::None};
+
     /// Семантические типы операндов и результата (заполняет NameResolutionPass::typeExpr;
     /// INVALID_TYPE_ID - не выведено). Используются транспилятором для тип-зависимой
     /// кодогенерации операторов (напр. std::any_cast для std::any-операндов).
@@ -198,11 +235,29 @@ class Binary : public AstNodeAttr {
     /// (резолвит семантика в resolveTupleAccess). -1 - не кортежный доступ (словарь/прочее).
     int64_t tupleIndex{-1};
 
+    /// Для MemberAccess-ВЫЗОВА `obj.method(args)`: C++-суффикс ВЫБРАННОЙ семантикой перегрузки
+    /// МЕТОДА (совпадает с `FuncDecl::m_overloadSuffix` объявления; `overloadCppSuffix`). Пусто -
+    /// метод не перегружен (или нативный: нативные перегрузки разрешает C++ - имя native-метода
+    /// зафиксировано внешней библиотекой и не манглируется). Кодоген добавляет суффикс к имени
+    /// метода без повторного резолва по имени.
+    std::string resolvedMethodSuffix;
+
     /// Узел декларации ТИПА (TypeDecl) для присваивания в переменную доверенного типа
     /// (`x = ...`, где `x :MyInt`). Ставит NameResolutionPass (typeBinaryResult, AssignOp) для
     /// typeIsTrusted-целей; условия типа читаются из него как `m_typeDecl->m_trust`. Не владеющая
     /// ссылка в AST модуля - переживает таблицу символов. nullptr - нет/нетрастовый/не-AssignOp.
     const AstNodeBase* m_typeDecl = nullptr;
+    /// Оператор сравнения типов (<~/~~/~~~): статический результат свёртки. `has_value()` —
+    /// проверка выполнена (true/false); `nullopt` — не вычислимо (семантика уже сообщила ошибку,
+    /// узел заменяется на ErrorExpr в analyzeNodeTail). ЕДИНСТВЕННОЕ поле оператора сравнения типов.
+    std::optional<bool> m_typeCheckConst;
+    /// Решённый СЕМАНТИКОЙ признак контролируемой арифметики для -foverflow-check:
+    /// `nullopt` — узел вне класса (сравнение/логика/битовые/swap/append, `isOverflowCheckableOp`
+    /// == false); `true` — знаковая машинная арифметика (+,-,* и +=,-=,*=) над знаковыми
+    /// машинными целыми, проверяемая на переполнение; `false` — арифметика контролируемого класса,
+    /// но проверка не ставится (unsigned wrap, BigInteger/Rational, не-целые операнды, Bool-продвижение).
+    /// Кодоген признак только читает и комбинирует с поведенческим флагом -foverflow-check.
+    std::optional<bool> m_overflowCheck;
 };
 
 /// Является ли kind «блочным» узлом (имеет собственный обход тела с отступами:
@@ -226,7 +281,7 @@ class Binary : public AstNodeAttr {
 /// Является ли kind «типизируемым бинарным выражением» (результат типа выводится
 /// пост-порядково анализатором). Единый источник набора Binary-kinds, участвующих в
 /// типизации: MathOp | BitwiseOp | CompareOp | LogicalOp | NameDecl | AssignOp.
-/// Используется в AnalysisContext::resolvedType и NameResolutionPass::typeExpr.
+/// Используется в AnalysisContext::exprType и NameResolutionPass::typeExpr.
 [[nodiscard]] constexpr bool is_binary_expr_kind(ParserToken::Kind k) noexcept {
     return k == ParserToken::Kind::MathOp || k == ParserToken::Kind::BitwiseOp || k == ParserToken::Kind::CompareOp || k == ParserToken::Kind::LogicalOp ||
            k == ParserToken::Kind::NameDecl || k == ParserToken::Kind::AssignOp || k == ParserToken::Kind::AppendStmt;
@@ -234,7 +289,7 @@ class Binary : public AstNodeAttr {
 
 /// Является ли kind литералом (константным значением). Единый источник набора литеральных
 /// kinds: IntLiteral | FloatLiteral | StrChar | StrWide | RationalLiteral. Используется
-/// типизацией литералов (type_inference.hpp), resolvedType/dictElementType (семантика) и
+/// типизацией литералов (type_inference.hpp), exprType/dictElementType (семантика) и
 /// кодогенерацией (обёртка значения точным C++-типом в trust::TypedValue), чтобы классификация
 /// литералов жила в одном месте, а не дублировалась switch/условиями в потребителях.
 [[nodiscard]] constexpr bool is_literal_kind(ParserToken::Kind k) noexcept {
@@ -278,6 +333,22 @@ class CallExpr : public AstNodeAttr {
 
     AstNodePtr m_callee;                           ///< Вызываемое выражение
     std::optional<std::vector<AstNodePtr>> m_args; ///< Аргументы вызова
+
+    /// Разрешённый тип результата конструктора record-шаблона (`Box(...)` → инстаннциация
+    /// `Box<Int32>`): устанавливает СЕМАНТИКА по типу-цели контекста (объявление/присваивание/
+    /// возврат/аргумент). INVALID_TYPE_ID - не конструктор шаблона/тип-цель неизвестен.
+    TypeId resultType{INVALID_TYPE_ID};
+
+    /// Выбранная СЕМАНТИКОЙ сигнатура перегруженного вызываемого имени (интернированный
+    /// FunctionTypeData). Ставится ТОЛЬКО когда имя адресует набор перегрузок и разрешение
+    /// однозначно; даёт кодогену/анализу факт выбора без повторного резолва по имени.
+    /// INVALID_TYPE_ID - имя не перегружено либо перегрузка не разрешена.
+    TypeId resolvedSignature{INVALID_TYPE_ID};
+
+    /// C++-суффикс выбранной перегрузки (тот же, что FuncDecl::m_overloadSuffix у её объявления).
+    /// Кодоген эмитит вызов `c_name<suffix>(args)` - однозначно, БЕЗ опоры на C++-разрешение
+    /// (литералы/конверсии в C++ и в TrustLang могут дать разные перегрузки). Пусто - обычный вызов.
+    std::string resolvedCalleeSuffix;
 };
 
 /// ArgNode - ЕДИНЫЙ узел позиции списка аргументов: параметр функции, элемент словаря/enum/variant,
@@ -352,50 +423,35 @@ class RefTakeExpr : public Sequence {
     using Sequence::Sequence;
 
     /// Вид ссылки операнда `*ref` в выражении (для кодогенерации): kShared/kWeak → `*(op.lock())`,
-    /// kUnique/kPtr → `*op` (прямой доступ). Для сигла ТИПА - не используется (INVALID-эквивалент).
+    /// kUnique/kPtr → прямой доступ. Для сигла ТИПА - не используется (INVALID-эквивалент).
     RefType m_opRefKind = RefType::kValue;
+
+    /// Lowering доступа `*ref`, РЕШЁННЫЙ АНАЛИЗАТОРОМ (кодоген — буквальный перевод, без обращения
+    /// к таблице символов): вид владельца определяет форму доступа.
+    enum class TakeLowering : std::uint8_t {
+        Direct,       ///< ptr: `trust::checked_deref(op)`
+        StaticUnique, ///< unique без deleter'а (StaticUnique, inline): `(op.get())`
+        UniqueDirect, ///< unique с deleter'ом (trust::Unique<T,D>): `trust::checked_deref(op.get())`
+        SharedLocked, ///< shared/weak: `*(op.lock())` / `*(op.lock_const())`
+    };
+    TakeLowering m_lowering = TakeLowering::Direct;
 };
 
 /// RefMakeExpr - узел ссылочного оператора `&` (сигл в позиции ТИПА `x : &Int32`/`&?Int32` ИЛИ
-/// address-of/заимствование в выражении `& shared_var`). kind = RefMakeExpr.
+/// address-of в выражении `& shared_var`). kind = RefMakeExpr.
 /// Наследует Sequence: m_body = [pointee-тип] в позиции типа (грамматика `COLON ptr NAME`,
 /// `ptr` привязывает тип справа) или [операнд] в выражении. text() - сигл (`&`/`&?`/...).
 /// В выражении результат - слабая ссылка (weak) из shared-переменной; тип результата резолвит
 /// семантика (typeExpr) и сохраняет в m_resultType для кодогенерации (локальные символы в
 /// транспиляторе недоступны - скоуп-стек сброшен к глобальному).
+/// `&` у монопольного `unique` ЗАПРЕЩЁН (нарушает монополию: допустимы только move/swap).
 class RefMakeExpr : public Sequence {
   public:
     using Sequence::Sequence;
 
     /// Тип результата `& expr` (weak-ссылка из shared-переменной), вычисленный семантикой.
-    /// Для позиции типа (сигл в аннотации) - INVALID (там тип выводит resolveType по pointee).
+    /// Для позиции типа (сигл в аннотации) - INVALID (там тип выводит resolveTypeRef по pointee).
     TypeId m_resultType{INVALID_TYPE_ID};
-};
-
-/// NativeRefMakeExpr - нативный (сырой) C++ оператор ссылки `%& var` (address-of). Результат -
-/// нативная ссылка; конкретный C++-контекст (`T& name = var` или `T* ptr = &var`) задаёт ЛЕВЫЙ
-/// оператор создания/присваивания (маркер декларации). kind = NativeRefMakeExpr.
-/// Наследует Sequence: m_body = [операнд] (lvalue-выражение). text() - оператор (`%&`).
-/// Константность - НЕ поле узла: только атрибут @[readonly@] (`^` на имени).
-/// Вид результата (kRef для `T& name`, kPtr для `T* ptr`) - ЕДИНСТВЕННЫЙ источник, хранится в
-/// m_resultType (не дублируется в отдельном поле); кодоген выводит эмиссию из getRefType(m_resultType).
-class NativeRefMakeExpr : public Sequence {
-  public:
-    using Sequence::Sequence;
-
-    /// Тип результата `%& var`: kRef(pointee) по умолчанию, либо kPtr(pointee), когда LHS-цель -
-    /// нативный указатель (`%* ptr := %& var`). Ставит семантика. INVALID - не выведено.
-    /// Вид (kRef/kPtr) определяет кодоген: kRef → `(operand)`, kPtr → `&(operand)`.
-    TypeId m_resultType{INVALID_TYPE_ID};
-};
-
-/// NativeRefTakeExpr - нативное (сырое) разыменование `%* ref` (и `%*^ ref` - константное).
-/// kind = NativeRefTakeExpr. Наследует Sequence: m_body = [операнд] (нативный указатель `%&`/kPtr).
-/// Отдельный узел (не RefTakeExpr): `%*` допустим ТОЛЬКО для нативного указателя (`%&`, kPtr),
-/// проверяет анализатор (помимо reftrace). Константность - атрибут @[readonly@], НЕ поле.
-class NativeRefTakeExpr : public Sequence {
-  public:
-    using Sequence::Sequence;
 };
 
 /// DictLiteral - литерал словаря/набора элементов (и типизированная конструкция/кортеж).
@@ -670,6 +726,34 @@ class FuncDecl : public Decl {
     /// (имя в text(), при B2/B3 - тип value-параметра / ограничение в m_type, дефолт в m_value).
     /// Пусто = шаблон без типовых параметров (допускается). B1 - только типовые без ограничений.
     std::optional<std::vector<AstNodePtr>> m_templateParams;
+
+    /// Захваты лямбды: каждый - ArgNode с именем захваченной переменной (тип резолвит семантика).
+    /// Первая итерация - ТОЛЬКО захват по значению `[x]`. Источник истины «это лямбда»:
+    /// `has_value()` (у лямбды список захватов есть всегда, возможно ПУСТОЙ `[]`); у именованной
+    /// функции - `std::nullopt`. Отдельного bool-флага нет (единый источник, как `m_body`/`m_template`).
+    std::optional<std::vector<AstNodePtr>> m_captures;
+
+    /// Лямбда-выражение `[captures](params):Ret { body }` (term TermID::LAMBDA)? Определяется
+    /// наличием списка захватов (у лямбды он есть всегда, в т.ч. пустой `[]`).
+    [[nodiscard]] bool isLambda() const noexcept { return m_captures.has_value(); }
+
+    /// Перегружаемый ОПЕРАТОР (объявление через лексему REFLECTION - имя-СИМВОЛ в обратных
+    /// кавычках: `` `==`(o:T):Bool := ... ``). Признак - TermID::REFLECTION в m_left оператора
+    /// (см. operator_sig в parser.y.in): member-форма - в теле класса/struct, free - на верхнем
+    /// уровне модуля. Проверка «символ реализован» и правила member/free - в types/operator_registry.hpp.
+    bool m_isOperator = false;
+
+    /// Признак «имя ПЕРЕГРУЖЕНО» (в скоупе >1 функции с этим именем и разными сигнатурами).
+    /// Ставит семантика (SymbolTable::declareOrComplete) на ВСЕ объявления набора. Кодоген
+    /// использует его, чтобы снять неоднозначность адреса символа в экспортной таблице
+    /// (`static_cast` к конкретной сигнатуре) и сделать имя записи уникальным (см. ExportEntry).
+    bool m_isOverloaded = false;
+
+    /// Суффикс C++-имени перегрузки (детерминированный по СИГНАТУРЕ: types/overload_resolve.hpp
+    /// `overloadCppSuffix`). Ставит семантика на КАЖДОЕ объявление (вычисляется из его сигнатуры).
+    /// Применяется кодогеном ТОЛЬКО при `m_isOverloaded` (у перегруженного имени C++-имена
+    /// перегрузок обязаны различаться, иначе C++ выберет не ту). Пусто - не перегружено.
+    std::string m_overloadSuffix;
 };
 
 /// ClassDecl - forward-объявление (нативного) класса через `::=`:
@@ -724,6 +808,52 @@ class ClassDecl : public Decl {
     std::vector<AstNodePtr> m_body;
 };
 
+/// RecordDecl - объявление пользовательского структурного типа (`:Name ::= :Base{, :Base}{ ... };`).
+/// kind = StructDecl. ЕДИНЫЙ узел для Struct (`:Struct`-база, строго POD) и Class
+/// (`:Class`-база либо пользовательский record-класс, допускает наследование). Различие
+/// Struct/Class - ТОЛЬКО именем абстрактной базы, которое семантика превращает в Group
+/// TypeKind (kStructs/kClassDefs); сам узел одинаков (не несёт struct/class-флага).
+/// Пример:
+///   :Point  ::= :Struct{ x:Int32 := 0; y:Int32 := 0; };
+///   :Animal ::= :Class { name:StrChar := 'x'; speak() := {...}; };
+///   :Dog    ::= :Animal{ _age:Int32 := 0; };
+/// trust-имя - в text() (слева от `::=`); базы - в m_baseTypes (IdentType);
+/// члены - в m_body (VarDecl-поля, FuncDecl-методы); C++-struct генерирует транспилятор.
+class RecordDecl : public Decl {
+  public:
+    RecordDecl() { m_kind = ParserToken::Kind::StructDecl; }
+
+    /// Терм-конструктор: читает из операторного терма `::=` (m_left = trust-имя,
+    /// m_right = CLASS-терм: текст = первая база, m_right-цепочка = остальные базы,
+    /// m_sequence = члены тела). Объявлен здесь, определён в ast_decl.cpp.
+    RecordDecl(ParserToken::Kind k, TermPtr term, Context* ctx = nullptr);
+
+    /// Manual-конструктор (test-only): trust-имя задано явно.
+    explicit RecordDecl(std::string text)
+    : Decl(std::move(text)) {
+        m_kind = ParserToken::Kind::StructDecl;
+    }
+
+    [[nodiscard]] std::string dump(size_t indent = 0) const override;
+
+    /// Понижение членов тела: тела методов (FuncDecl::m_body) должны пройти lowering
+    /// (SemicolonStmt для операторов-выражений и т.п.), иначе assignment-операторы в
+    /// методах эмитятся без завершающей ';'.
+    void lower(AstNodePtr& self, LowerCtx& ctx) override;
+
+    /// Базовые типы (IdentType). Для Struct обычно единственная абстрактная база `:Struct`;
+    /// для Class - `:Class` или пользовательские Class-типы (наследование, возможно несколько).
+    std::vector<AstNodePtr> m_baseTypes;
+
+    /// Типовые параметры шаблона (аналог ClassDecl::m_templateParams). nullopt - НЕ шаблон.
+    std::optional<std::vector<AstNodePtr>> m_templateParams;
+
+    /// Члены тела: nullopt - ПРЕДВАРИТЕЛЬНОЕ (forward) объявление (форма БЕЗ тела
+    /// `:Name ::= :Base ...;` → C++ incomplete `struct c_Name;`, членов нет); engaged (возможно
+    /// ПУСТОЙ вектор) - полное определение (`{ ... }`, в т.ч. пустое `{ };`). Как FuncDecl::m_body.
+    std::optional<std::vector<AstNodePtr>> m_body;
+};
+
 /// JumpStmt - инструкция перехода (return / throw).
 /// kind = ReturnStmt | ThrowStmt.
 /// Синтаксис:
@@ -763,7 +893,7 @@ class JumpStmt : public AstNodeAttr {
     /// (hoist возвращаемого значения для пост-условий: выражение вычисляется один раз, имя
     /// функции связывается со значением). Создаётся только для ИМЕНОВАННОГО return (m_label) из
     /// функции с пост-условиями. Семантика выводит её тип в VarDecl::inferredType
-    /// (resolvedType(*m_value)); транспилятор эмитит её как обычный VarDecl и читает имя.
+    /// (exprType(*m_value)); транспилятор эмитит её как обычный VarDecl и читает имя.
     /// Инвариант: временные создаёт анализатор, транспилятор их не синтезирует. nullptr - не синтезирована.
     AstNodePtr m_tempDecl{};
 };
@@ -1014,7 +1144,7 @@ class MatchStmt : public AstNodeAttr {
 
     AstNodePtr m_value{}; ///< Выражение для сопоставления (после анализа — ссылка на временную _matchN)
     /// Синтезированная СЕМАНТИКОЙ временная const-переменная `_matchN := <m_value>;` (scrutinee
-    /// вычисляется один раз). Семантика выводит её тип в VarDecl::inferredType (resolvedType(*m_value));
+    /// вычисляется один раз). Семантика выводит её тип в VarDecl::inferredType (exprType(*m_value));
     /// транспилятор эмитит её как обычный VarDecl и читает тип для выбора switch/enum/if. Инвариант:
     /// временные создаёт анализатор, транспилятор их не синтезирует. nullptr - не синтезирована.
     AstNodePtr m_tempDecl{};
@@ -1272,5 +1402,44 @@ class TrustElem : public AstNodeBase {
     /// INVALID_TYPE_ID - не установлен (ошибка на этапе semantic). Переживает таблицу символов.
     TypeId m_boundVarType = INVALID_TYPE_ID;
 };
+
+// ============================================================================
+// AstNodeBase::is<T>() / as<T>() - типизированный доступ к узлу БЕЗ RTTI (R1).
+// Определены здесь: для std::is_base_of_v нужны ПОЛНЫЕ определения всех классов AST;
+// отображение kind->класс - из PARSER_TOKEN_KINDS (kind_visitor.hpp/token.hpp).
+// ============================================================================
+
+template <class T>
+bool AstNodeBase::is() const noexcept {
+    switch (m_kind) {
+#define AST_IS_CASE(name, node_type) \
+    case ParserToken::Kind::name:    \
+        return std::is_base_of_v<T, node_type>;
+        PARSER_TOKEN_KINDS(AST_IS_CASE)
+#undef AST_IS_CASE
+    default:
+        return false; // END и kinds вне PARSER_TOKEN_KINDS
+    }
+}
+
+template <class T>
+T* AstNodeBase::as() {
+    static_assert(AstNodeClassInfo<T>::kKnown, "as<T>(): T must be an AST node class from AST_NODE_CLASS_LIST");
+    if (!is<T>()) {
+        FAULT("AstNodeBase::as<{}>(): node kind '{}' is not an instance of {}", AstNodeClassInfo<T>::kName, ParserToken::name(m_kind),
+              AstNodeClassInfo<T>::kName);
+    }
+    return static_cast<T*>(this);
+}
+
+template <class T>
+const T* AstNodeBase::as() const {
+    static_assert(AstNodeClassInfo<T>::kKnown, "as<T>(): T must be an AST node class from AST_NODE_CLASS_LIST");
+    if (!is<T>()) {
+        FAULT("AstNodeBase::as<{}>(): node kind '{}' is not an instance of {}", AstNodeClassInfo<T>::kName, ParserToken::name(m_kind),
+              AstNodeClassInfo<T>::kName);
+    }
+    return static_cast<const T*>(this);
+}
 
 } // namespace trust

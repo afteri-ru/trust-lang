@@ -1,7 +1,7 @@
 #include "semantic/symbol_collector.hpp"
 
 #include "semantic/pass.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
 
@@ -14,8 +14,8 @@ SymbolCollectorHook::SymbolCollectorHook(AnalysisContext& actx)
 }
 
 void SymbolCollectorHook::onDeclare(const Symbol& sym) {
-    // ВАЖНО: SymbolTable::declareOrComplete ПЕРЕМЕЩАЕТ sym в таблицу (std::move(sym)),
-    // поэтому здесь sym.name уже пуст (moved-from). Имя берём из узла объявления.
+    // sym НЕ moved-from (declareOrComplete копирует): имя доступно и в sym.name, и в узле.
+    // Для диапазона объявления читаем узел декларации.
     if (!sym.decl) {
         return;
     }
@@ -42,7 +42,8 @@ void SymbolCollectorHook::finalize() {
         // Финальный тип: у VarDecl - выведенный (VarDecl::inferredType, post-order);
         // у прочих (FuncDecl/TypeDecl/ArgNode) - тип из Symbol::type.
         TypeId t = e.type;
-        if (auto* vd = dynamic_cast<VarDecl*>(e.decl)) {
+        if (e.decl && e.decl->is<VarDecl>()) {
+            auto* vd = e.decl->as<VarDecl>();
             if (vd->inferredType != INVALID_TYPE_ID) {
                 t = vd->inferredType;
             }
@@ -53,7 +54,8 @@ void SymbolCollectorHook::finalize() {
         // Поля словаря/кортежа из инициализатора-литерала `x := (a=1, b=2,)` - для
         // member-завершения `x.`. Тип такого литерала - универсальный Dict (поля в нём
         // не хранятся), поэтому имена полей берём из узла DictLiteral (AssignOp m_left).
-        if (auto* vd = dynamic_cast<VarDecl*>(e.decl)) {
+        if (e.decl && e.decl->is<VarDecl>()) {
+            auto* vd = e.decl->as<VarDecl>();
             if (vd->m_initializer && vd->m_initializer->kind() == ParserToken::Kind::DictLiteral) {
                 std::set<std::string> seen;
                 const auto& body = static_cast<Sequence&>(*vd->m_initializer).m_body;
@@ -71,7 +73,8 @@ void SymbolCollectorHook::finalize() {
 
         // Диапазон имени: у VarDecl - точный (nameRange); у прочих - диапазон узла объявления.
         si.nameRange = e.decl->range();
-        if (auto* vd = dynamic_cast<VarDecl*>(e.decl)) {
+        if (e.decl && e.decl->is<VarDecl>()) {
+            auto* vd = e.decl->as<VarDecl>();
             const MapperRange nr = vd->nameRange();
             if (!nr.isInvalid()) {
                 si.nameRange = nr;

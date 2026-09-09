@@ -1,9 +1,0 @@
-# RUN: TD=%t.dir && mkdir -p $TD
-# RUN: %trust -q --temp-dir $TD -o $TD/executable %s
-# RUN: $TD/executable && echo "UNEXPECTED_PASS" || echo "EXPECTED_FAIL"
-# CHECK: EXPECTED_FAIL
-
-{% int executable_fail__main__() {
-    return 1;
-}
-%}

@@ -52,7 +52,7 @@ constexpr uint64_t kUninitFlag = 0x20000000ULL; // bit 29 нижней (registry
 // и в рантайме. Флаги - НЕ семантика типа (см. types/MEMORY.md): работа с ТИПОМ и работа с
 // ФЛАГАМИ - РАЗНЫЕ слои. Тип наружу выдаётся только через structuralType()/канонизаторы
 // (снимают маску), а флаги читаются/пишутся только setFlag/clearFlag/testFlag на конкретном
-// Symbol (НЕ через resolvedType). Разрозненные clearInferred/clearConst/clearUninit по месту
+// Symbol (НЕ через exprType). Разрозненные clearInferred/clearConst/clearUninit по месту
 // потребителей запрещены - всё через эти единые функции слоя.
 constexpr uint64_t kSymbolFlagsMask = kInferredFlag | kConstFlag | kUninitFlag;
 
@@ -86,6 +86,15 @@ constexpr TypeId makeTypeId(TypeKind kind, uint32_t registry_index = 0) noexcept
     return (static_cast<uint64_t>(kind) << 32) | registry_index;
 }
 
+/// Заменить TypeKind (старшие 32 бита), СОХРАНИВ низкие 32 бита контейнера КАК ЕСТЬ
+/// (registry_index + поведенческие флаги kSymbolFlagsMask). В отличие от makeTypeId (индекс
+/// задаётся явно) и getIndexFromId (снимает флаги) здесь нужен именно перенос сырых битов:
+/// fast-path применения ref-вида (TypeRegistry::applyRefType) и спец-случай StrChar+ptr+const
+/// обязаны сохранить флаги исходного TypeId.
+constexpr TypeId replaceKind(TypeId id, TypeKind kind) noexcept {
+    return makeTypeId(kind, static_cast<uint32_t>(id));
+}
+
 // -- Field extraction -------------------------------------
 constexpr TypeKind getKindFromId(TypeId id) noexcept {
     return static_cast<TypeKind>(id >> 32);
@@ -108,8 +117,7 @@ constexpr bool typeIsTrusted(TypeId id) noexcept {
     return hasTrustFlag(getKindFromId(id));
 }
 constexpr TypeId withTrusted(TypeId id) noexcept {
-    const uint64_t lower = id & 0xFFFFFFFFULL; // сохраняем registry_index + нижние квалификаторы
-    return makeTypeId(setTrustFlag(getKindFromId(id)), static_cast<uint32_t>(lower));
+    return replaceKind(id, setTrustFlag(getKindFromId(id)));
 }
 
 // -- Classification helpers -------------------------------

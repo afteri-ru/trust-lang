@@ -8,7 +8,7 @@
 #include "syntax/warning_pop.h"
 
 #include "ast/ast_nodes.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
 #include "ast/token_type.hpp"
 #include "ast/term_to_ast.hpp"
 #include "syntax/parser.h"

@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: type set branch start 'Int8' is narrower than already-used branch start
+
+# :Int8 УЖЕ (:Integer), поэтому новый начальный тип ветки недопустим.
+x ::= :Integer + :Int8;
+@main() := { @return 0; }

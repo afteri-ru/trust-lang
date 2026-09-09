@@ -4,7 +4,7 @@
 // (lsp_handler_test.cpp, lsp_hover_test.cpp, lsp_completion_test.cpp, lsp_codeaction_test.cpp).
 #include "lsp/trust_lsp.h"
 #include "lsp/lsp_protocol.h"
-#include "diag/mapper.hpp"
+#include "sourcemap/mapper.hpp"
 #include "utils/transport.hpp"
 
 #include <gmock/gmock.h>
@@ -97,9 +97,9 @@ class TrustLspTest : public ::testing::Test {
 
     void TearDown() override {
         lsp.reset();
-        if (!tmpDir.empty()) {
-            fs::remove_all(tmpDir);
-        }
+        // Каталог lsp_test (фиксированный, внутри _build) НЕ удаляем -
+        // он очищается в начале следующего теста (SetUp). Артефакты остаются
+        // в _build для анализа (см. test/MEMORY.md).
     }
 
     // Вспомогательная: открыть trust-файл и очистить capturedOutput

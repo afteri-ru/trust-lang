@@ -16,37 +16,34 @@ bool ContextMacroExpander::onNode(AstNodePtr& node) {
     if (!node) {
         return false;
     }
-    switch (node->kind()) {
-    case ParserToken::Kind::ContextMacro:
+    if (node->is<ContextMacro>()) {
         expandContextMacro(node);
         return true; // узел заменён (Literal/IdentName) - ядро его не резолвит как имя
-    case ParserToken::Kind::Ident:
+    }
+    if (node->kind() == ParserToken::Kind::Ident) {
         // Квалификатор @:: foo уже свёрнут в текст идентификатора ("@::foo") - раскрываем
         // текстовой заменой на текущую область имён; затем имя резолвит ядро.
         expandQualifierName(node);
         return false;
-    case ParserToken::Kind::VarDecl:
-    case ParserToken::Kind::FuncDecl:
+    }
+    if (node->is<VarDecl>() || node->is<FuncDecl>()) {
         // Раскрытие @:: в имени объявления до регистрации (имя объявления - в text()).
         expandDeclName(node);
         return false;
-    case ParserToken::Kind::TypeDecl: {
-        auto& left = static_cast<Binary&>(*node).m_left;
+    }
+    if (node->kind() == ParserToken::Kind::TypeDecl) {
+        auto& left = node->as<Binary>()->m_left;
         if (left && left->kind() == ParserToken::Kind::Ident) {
             expandQualifierName(left);
         }
         return false;
     }
-    case ParserToken::Kind::ReturnStmt:
-    case ParserToken::Kind::ThrowStmt:
-    case ParserToken::Kind::BreakStmt:
-    case ParserToken::Kind::ContinueStmt:
+    if (node->is<JumpStmt>()) {
         // Метка (не переменная) - раскрываем @__FUNCTION__/@::/@__FUNCDNAME__.
-        expandLabel(static_cast<JumpStmt&>(*node).m_label);
-        return false;
-    default:
+        expandLabel(node->as<JumpStmt>()->m_label);
         return false;
     }
+    return false;
 }
 
 // -- Раскрытие контекст-макросов --

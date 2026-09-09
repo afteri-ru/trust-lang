@@ -8,8 +8,10 @@
 #include "utils/elf.hpp"
 #include "trust/version.h"
 #include <cstdlib>
+#include <algorithm>
 #include <filesystem>
 #include <sstream>
+#include <vector>
 #ifndef _WIN32
 #include <sys/wait.h>
 #include <unistd.h>
@@ -64,13 +66,34 @@ static std::filesystem::path runExecutablePath(const PipelineOpts& opts, const s
 // `prog.src`/`mymod.src` (без каталога-перехода); запись переносима между каталогами.
 static constexpr const char* kTrustVersionPrefix = "trust-lang\t";
 
-std::string buildProgramRecord(const std::filesystem::path& mainFile, Context& ctx, std::size_t mainIdx) {
+// -- Нормализованная строка фактически заданных codegen-опций --
+// В запись кеша --run попадают только РЕАЛЬНО переданные codegen-релевантные опции в каноничной
+// форме (-f<name>/--<name>=<value>/-l.../-L...); нерелевантные (-v/-q/-W/--temp-dir/-o) не входят.
+// Порядок нормализуется сортировкой, переводы строк/табы заменяются пробелами.
+std::string codegenArgsRecord(const PipelineOpts& opts) {
+    std::vector<std::string> args = opts.codegen_args;
+    std::sort(args.begin(), args.end());
+    std::string out;
+    for (const auto& a : args) {
+        if (!out.empty()) {
+            out += ' ';
+        }
+        for (const char c : a) {
+            out += (c == '\n' || c == '\t') ? ' ' : c;
+        }
+    }
+    return out;
+}
+
+std::string buildProgramRecord(const std::filesystem::path& mainFile, Context& ctx, std::size_t mainIdx, const PipelineOpts& opts) {
     namespace fs = std::filesystem;
     auto rel = [](const fs::path& p) { return fs::relative(p, fs::current_path()).generic_string(); };
     std::string record;
     record += kTrustVersionPrefix;
     record += TRUST_VERSION;
     record += '\n';
+    // Список фактически заданных codegen-опций: смена любой из них делает кеш невалидным.
+    record += "@opts\t" + codegenArgsRecord(opts) + '\n';
     record += rel(mainFile) + '\t' + fileHash(mainFile) + '\n';
     for (std::size_t idx = 0; idx < ctx.loader().moduleCount(); ++idx) {
         if (idx == mainIdx || !ctx.loader().isLoaded(idx)) {
@@ -83,7 +106,7 @@ std::string buildProgramRecord(const std::filesystem::path& mainFile, Context& c
 }
 
 // -- Проверка кеша --run: читает запись из ELF-секции `.debug_trust_hash` и сверяет. --
-static bool runCacheValid(const std::filesystem::path& exe, const std::filesystem::path& expectedMain) {
+static bool runCacheValid(const std::filesystem::path& exe, const std::filesystem::path& expectedMain, const PipelineOpts& opts) {
     auto sec = trust::utils::readElfSection(exe.string(), ".debug_trust_hash");
     if (!sec) {
         return false;
@@ -96,6 +119,7 @@ static bool runCacheValid(const std::filesystem::path& exe, const std::filesyste
     std::string line;
     bool any = false;
     bool versionSeen = false;
+    bool optsSeen = false;
     bool isMain = true;
     auto rel = [](const std::filesystem::path& p) { return std::filesystem::relative(p, std::filesystem::current_path()).generic_string(); };
     while (std::getline(iss, line)) {
@@ -105,6 +129,14 @@ static bool runCacheValid(const std::filesystem::path& exe, const std::filesyste
         const auto tab = line.find('\t');
         if (tab == std::string::npos) {
             return false;
+        }
+        if (line.rfind("@opts\t", 0) == 0) {
+            // Список фактически заданных codegen-опций: смена любой из них -> пересборка.
+            if (line.substr(6) != codegenArgsRecord(opts)) {
+                return false;
+            }
+            optsSeen = true;
+            continue;
         }
         if (!versionSeen) {
             // Строка №0 - версия компилятора, которой собран бинарник. Не совпала с текущей
@@ -130,7 +162,7 @@ static bool runCacheValid(const std::filesystem::path& exe, const std::filesyste
         }
         any = true;
     }
-    return any;
+    return any && optsSeen;
 }
 
 // -- Запуск исполняемого файла --run: путь -o, иначе <build_dir>/<stem>. --
@@ -147,7 +179,7 @@ std::optional<int> tryRunCached(const PipelineOpts& opts) {
     }
     const std::filesystem::path cpptForExe = opts.output_file.empty() ? computeCpptPath(opts) : std::filesystem::path{};
     const std::filesystem::path exe = runExecutablePath(opts, cpptForExe);
-    if (!std::filesystem::exists(exe) || !runCacheValid(exe, std::filesystem::path(opts.input_file))) {
+    if (!std::filesystem::exists(exe) || !runCacheValid(exe, std::filesystem::path(opts.input_file), opts)) {
         return std::nullopt;
     }
     if (opts.verbose) {

@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Имя в списке захватов должно быть объявлено в объёмлющем скоупе.
+@main() := {
+    g := [q](x : Int32) : Int32 { ++ x ++ };
+}
+# CHECK: error: captured name 'q' is not declared in the enclosing scope

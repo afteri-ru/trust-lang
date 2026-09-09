@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp -Wborrow-owner-moved=error -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# R4: move (`:=: _`) владельца `x` при живом займе `w` -> borrow-owner-moved.
+@main() := {
+    &* x := 5;
+    &? w := & x;
+    x :=: _;              # перемещение владельца под займом -> ошибка
+    @print('{}\n', *w);
+}
+# CHECK: error: cannot move/swap owner 'x' while it is borrowed

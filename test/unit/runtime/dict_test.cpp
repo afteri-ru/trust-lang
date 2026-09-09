@@ -15,35 +15,36 @@ namespace {
 
 // TypeKind: Group(0-7) | Data/размерность(8-15). Значения групп - кодировка (ABI)
 // trust::TypedValue; здесь собраны виды, используемые в тестах словаря.
-constexpr uint32_t kInt32 = 3u | (32u << 8);
-constexpr uint32_t kFloat64 = 5u | (64u << 8);
-constexpr uint32_t kBool = 2u | (1u << 8);
-constexpr uint32_t kStrChar = 9u | (1u << 8);
-constexpr uint32_t kDict = 11u | (1u << 8);
-constexpr uint32_t kRational = 8u | (1u << 8);
+// TypedValue хранит ПОЛНЫЙ TypeId (TypeKind в старших 32 битах) → оборачиваем makeTypeId.
+constexpr trust::TypeId kInt32 = trust::makeTypeId(3u | (32u << 8));
+constexpr trust::TypeId kFloat64 = trust::makeTypeId(5u | (64u << 8));
+constexpr trust::TypeId kBool = trust::makeTypeId(2u | (1u << 8));
+constexpr trust::TypeId kStrChar = trust::makeTypeId(9u | (1u << 8));
+constexpr trust::TypeId kDict = trust::makeTypeId(11u | (1u << 8));
+constexpr trust::TypeId kRational = trust::makeTypeId(8u | (1u << 8));
 
 TEST(DictTest, TypedValueKindDecode) {
     // Декодирование TypeKind методами TypedValue (группа/размерность/предикаты).
-    const TypedValue tvInt8{3u | (8u << 8), int8_t(1)};
+    const TypedValue tvInt8{trust::makeTypeId(3u | (8u << 8)), int8_t(1)};
     EXPECT_EQ(tvInt8.group(), 3u);
     EXPECT_EQ(tvInt8.data(), 8u);
     EXPECT_TRUE(tvInt8.isInteger());
     EXPECT_TRUE(tvInt8.isNumeric());
     EXPECT_FALSE(tvInt8.isString());
 
-    const TypedValue tvBool{2u | (1u << 8), true};
+    const TypedValue tvBool{trust::makeTypeId(2u | (1u << 8)), true};
     EXPECT_TRUE(tvBool.isBool());
     EXPECT_FALSE(tvBool.isNumeric()); // Bool - логическая группа, не арифметическая
 
-    const TypedValue tvStr{9u | (1u << 8), std::string("x")};
+    const TypedValue tvStr{trust::makeTypeId(9u | (1u << 8)), std::string("x")};
     EXPECT_TRUE(tvStr.isStrChar());
     EXPECT_TRUE(tvStr.isString());
 
-    const TypedValue tvF{5u | (64u << 8), 1.0};
+    const TypedValue tvF{trust::makeTypeId(5u | (64u << 8)), 1.0};
     EXPECT_TRUE(tvF.isFloat());
     EXPECT_TRUE(tvF.isNumeric());
 
-    const TypedValue tvDict{11u | (1u << 8), Dict{}};
+    const TypedValue tvDict{trust::makeTypeId(11u | (1u << 8)), Dict{}};
     EXPECT_TRUE(tvDict.isDict());
 }
 

@@ -2,7 +2,7 @@
 #include "module_loader/module_export.hpp"
 #include "module_loader/module_loader.hpp"
 #include "ast/term_to_ast.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "syntax/term.h"
 
 #include <gtest/gtest.h>

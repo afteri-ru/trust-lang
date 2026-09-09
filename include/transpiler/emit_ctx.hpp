@@ -7,6 +7,7 @@
 // драйвер CppTranspiler разделяют этот контекст. CppEmitContext НЕ зависит от KindVisitor.
 
 #include "ast/ast_nodes.hpp"
+#include "analysis/modes.hpp"
 #include "location/location.hpp"
 #include "types/runtime_symbols.hpp"
 #include "types/type_id.hpp"
@@ -27,8 +28,8 @@ class CppEmitContext;
 /// предварительного объявления (например `x:Int32 := ...;`) - семантическая конструкция языка,
 /// пригодная для парсинга (используется в поле `__trust_export_decls` при сборке .trust).
 struct ExportEntry {
-    std::string trustName; ///< Имя в языке Trust
-    std::string cppName;   ///< Имя в сгенерированном C++ коде
+    std::string trustName; ///< Имя в языке Trust (для перегрузки - уникализировано, см. decl_func_emit)
+    std::string cppName;   ///< Имя в сгенерированном C++ коде (для перегрузки - с суффиксом сигнатуры)
     std::string fwdDecl{}; ///< Предварительное объявление в Trust-синтаксисе (:= ...;)
 };
 
@@ -69,7 +70,7 @@ class ResultGuard {
 /// const-методов эмиттеров (например resolveCppTypeId → recordUsedType).
 class CppEmitContext {
   public:
-    explicit CppEmitContext(Context& ctx, const SymbolTable* resolvedTypes = nullptr);
+    explicit CppEmitContext(Context& ctx, const SymbolTable* resolvedTypes = nullptr, analysis::BehavioralModes behavioral = {});
 
     /// Текущий уровень отступа из вершины стека (0 = top-level).
     [[nodiscard]] int indentLevel() const noexcept { return m_scopeStack.empty() ? 0 : m_scopeStack.back().indent; }
@@ -91,6 +92,10 @@ class CppEmitContext {
     std::vector<std::string> resolveStackCheckAddresses(const std::vector<std::string>& names);
 
     Context& m_ctx;
+
+    /// Поведенческие режимы кодогена (значения, разрешённые владельцем флагов — semantic).
+    /// Кодоген НЕ читает diag::Options/FlagKind напрямую (снята зависимость transpiler → semantic).
+    analysis::BehavioralModes m_behavioral;
 
     /// Текущий выходной C++ файл (устанавливается в generateNodeToFile/generateToFile).
     MapperFile m_out;
@@ -144,8 +149,6 @@ class CppEmitContext {
     /// `int main(){ return <entry>(); }` слинковалась).
     std::string m_singleFileEntryName;
 
-
-
     /// Заголовки рантайма (bare-имена, маркер '@'), реально использованные кодом.
     mutable std::set<std::string> m_runtimeHeaders;
 
@@ -154,6 +157,14 @@ class CppEmitContext {
 
     /// Канонические TypeId типов, реально использованных при эмиссии (инклуды ПОСЛЕ обхода).
     mutable std::set<TypeId> m_usedTypes;
+
+    /// POD-проверки (`static_assert`) для конкретных инстанциаций Struct-шаблонов, собранные
+    /// после обхода AST (эмитятся в конце файла; сам шаблон assert не получает).
+    mutable std::vector<std::string> m_structPodAsserts;
+
+    /// Счётчик синтетических временных для `x :=: _` (move-to-discard): `__trust_discard_<N>`
+    /// (уникальные имена; счётчик общий на модуль, порядок эмиссии детерминирован).
+    mutable uint32_t m_discardCounter = 0;
 
     /// Флаги линковки нативных библиотек (`-l<имя>`) из `@[link("имя")]`.
     std::set<std::string> m_linkLibs;
@@ -171,6 +182,12 @@ class CppEmitContext {
 
     /// Разрешённая семантикой таблица символов (необязательно).
     const SymbolTable* m_resolvedTypes = nullptr;
+
+    /// Активные имена типовых параметров шаблон-класса (при эмиссии членов внутри
+    /// `template<typename T> struct ...`): имя параметра (`T`) в аннотации типа рендерится
+    /// как есть, без манглинга/резолва в реестре. Заполняется emitRecordDecl на время
+    /// эмиссии тела шаблона (стек).
+    std::vector<std::string> m_activeTemplateParams;
 };
 
 } // namespace trust

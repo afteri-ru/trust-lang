@@ -1,5 +1,5 @@
 #include "lsp/lsp_protocol.h"
-#include "pipeline/cli.hpp"
+#include "driver/cli.hpp"
 #include <iostream>
 #include <vector>
 #include "utils/io.hpp"
@@ -50,7 +50,7 @@ void sendLspRequest(trust::transport::Transport& transport, const std::string& m
 
 // -- TCP server helpers (делегированы в trust::transport) --
 
-// -- CLI parsing -- (единый арity-aware парсер драйвера, см. pipeline/cli.hpp)
+// -- CLI parsing -- (единый арity-aware парсер драйвера, см. driver/cli.hpp)
 
 namespace {
 

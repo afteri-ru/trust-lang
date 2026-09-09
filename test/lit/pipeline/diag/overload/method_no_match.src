@@ -1,0 +1,16 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Перегруженный МЕТОД: тип аргумента не совместим ни с одной сигнатурой → явная ошибка
+# (без молчаливого выбора/Any-fallback).
+:C ::= :Class{
+    base:Int32 := 10;
+    f(a:Int32):Int32 := { return a + 1; };
+    f(a:Int64):Int32 := { return base + 90; };
+};
+@main() := {
+    c : C := C();
+    s : StrChar := 'x';
+    @print('{}\n', c.f(s));
+    @return 0;
+}
+# CHECK: error: no matching overload for method 'f'

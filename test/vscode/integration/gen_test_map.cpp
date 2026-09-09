@@ -7,7 +7,7 @@
  *   ./gen_test_map <trust_file> <cpp_file> <output_map>
  */
 
-#include "diag/context.hpp"
+#include "session/context.hpp"
 
 #include <cstdlib>
 #include <filesystem>

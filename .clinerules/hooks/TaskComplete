@@ -98,11 +98,12 @@ TMP_FILE="${TASKLOG_DIR}/${TASK_ID}.tmp"
 TOOLS_FILE="${TASKLOG_DIR}/${TASK_ID}.tools.log"
 if [ -f "$TOOLS_FILE" ]; then
   TOOL_CALLS=$(wc -l < "$TOOLS_FILE" | tr -d ' ')
-  READS=$(grep -c "read_file" "$TOOLS_FILE" || true)
-  WRITES=$(grep -c "write_to_file" "$TOOLS_FILE" || true)
-  EDITS=$(grep -c "replace_in_file" "$TOOLS_FILE" || true)
-  EXECS=$(grep -c "execute_command" "$TOOLS_FILE" || true)
-  FAILURES=$(grep -c "failed" "$TOOLS_FILE" || true)
+  # Имена инструментов: матчим оба поколения рантайма (старое и текущее).
+  READS=$(awk '$2=="read_file" || $2=="read_files"' "$TOOLS_FILE" | wc -l | tr -d ' ')
+  WRITES=$(awk '$2=="write_to_file"' "$TOOLS_FILE" | wc -l | tr -d ' ')
+  EDITS=$(awk '$2=="replace_in_file" || $2=="editor"' "$TOOLS_FILE" | wc -l | tr -d ' ')
+  EXECS=$(awk '$2=="execute_command" || $2=="run_commands"' "$TOOLS_FILE" | wc -l | tr -d ' ')
+  FAILURES=$(awk '$3=="failed"' "$TOOLS_FILE" | wc -l | tr -d ' ')
 
   # Добавить агрегированные tool-вызовы в лог задачи
   {

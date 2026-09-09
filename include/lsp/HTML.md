@@ -74,7 +74,7 @@ backward (`m_backward`) маппингов source-map на строки чере
       <div id="tpl-trust-editor" class="tpl-editor"></div></div>
     <div class="tpl-splitter-v" id="tpl-split-v"></div>
     <div class="tpl-pane"><div class="tpl-toolbar">Generated C++
-        <a id="tpl-download" class="tpl-btn" href="#" hidden title="Download build archive">⬇ Build</a></div>
+        <a id="tpl-download" class="tpl-btn" href="#" hidden title="Download build archive">⬇ Download archive</a></div>
       <div id="tpl-cpp-editor" class="tpl-editor"></div></div>
   </div>
   <div class="tpl-splitter-h" id="tpl-split-h"></div>
@@ -92,7 +92,7 @@ ID фиксированы (`trust-playground`, `tpl-trust-editor`, `tpl-cpp-edit
   между панелями Trust и Generated C++ (ширина панелей) и горизонтальный над логом
   (высота окна лога). Перетаскивание мышью; после вертикального перетаскивания glue-JS
   вызывает `layout()` у редакторов Monaco.
-- `#tpl-download` - кнопка «⬇ Скачать» (ленивый `POST /download`: заново обрабатывает
+- `#tpl-download` - кнопка «⬇ Download archive» (ленивый `POST /download`: заново обрабатывает
   текущий код и скачивает build-архив `tar.gz`).
 
 Фрагмент растягивается на высоту окна: `.tpl-pg` задаёт
@@ -136,7 +136,7 @@ window.__TPG.glue(window.__TPG.monarch());
   `.tpl-linked` на соответствующих строках противоположной панели
   (`trustToCpp`/`cppToTrust`).
 - Живая пере-транспиляция: при изменении Trust-кода (debounce 400 мс) отправляет
-  `fetch(serverUrl, POST, text/plain)` с текущим текстом; ответ - JSON-контракт;
+  `fetchWithTimeout(serverUrl, POST, text/plain)` с текущим текстом; ответ - JSON-контракт;
   обновляет C++-редактор и маппинги. Если `serverUrl` пуст - пере-транспиляция
   отключена (статический фрагмент).
 - **Лог и навигация по диагностикам**: окно лога (`#tpl-log`) выводит `log`/`error`
@@ -151,9 +151,16 @@ window.__TPG.glue(window.__TPG.monarch());
   только из успешного ответа балансировщика. При сетевом сбое, `{unavailable:true}`
   (нет воркеров) или ошибке балансировщика (`!ok` / HTTP-ошибка) glue-JS
   **очищает** правый редактор (`cppEditor.setValue('')`) и показывает по центру
-  панели (оверлей `#tpl-cpp-overlay`) сообщение: «Нет связи с сервером песочницы»
-  (сетевой сбой) либо сообщение балансировщика (его ошибка). Кнопка «⬇ Скачать»
+  панели (оверлей `#tpl-cpp-overlay`) сообщение: «No connection to the balancer»
+  (сетевой сбой) либо сообщение балансировщика (его ошибка). Кнопка «⬇ Download archive»
   неактивна до первого успешного ответа.
+- **Без задержек и без fallback:** все запросы к балансировщику (`/run`, `/health`,
+  `/download`) идут через `fetchWithTimeout` (`AbortController`): `/health` - короткий
+  таймаут (~4 с), `/run`/`/download` - ~35 с как последний рубеж (выше серверного
+  максимума). Статус-строка не «зависает» на «transpiling…»: если по `/health`
+  балансировщик недоступен, `/run` не отправляется, а ошибка связи сразу показывается
+  и в статус-строке, и в оверлее C++; при уходе `/health` в «down» висящий `/run`
+  обрывается. Ошибки никогда не подменяются «тихим» значением по умолчанию.
 - Комбобокс примеров (`#tpl-examples`): наполняется из `cfg.examples`. Начальный
   выбор - пример, чей `source` совпадает с `cfg.source`; если такого нет -
   отключённая опция «Custom». При выборе примера, если текущий текст Trust
@@ -178,11 +185,11 @@ window.__TPG.glue(window.__TPG.monarch());
 
 **Ссылка-копирование в статус-баре**: при навигации (курсор по строке) glue-JS
 выводит в `#tpl-status` текст диапазона (`→ cpp: N` / `→ trust: N`) и сразу за ним
-ссылку `.tpl-copy` **«🔗 скопировать ссылку»**. Клик строит URL текущего состояния
+ссылку `.tpl-copy` **«🔗 copy link»**. Клик строит URL текущего состояния
 (`file` включается только если текст Trust не изменён относительно загруженного
 примера; `win`/`line`/`col`/`toLine`/`toCol` - из активного окна) и копирует его
 в буфер обмена (`navigator.clipboard.writeText`, фолбэк - `textarea`+`execCommand`),
-с временной индикацией «✓ скопировано».
+с временной индикацией «✓ copied».
 
 ## Протокол с отдельным сервером (§4)
 
@@ -201,7 +208,7 @@ window.__TPG.glue(window.__TPG.monarch());
   (свежая транспиляция + сборка build-каталога самим trust-lsp `--emit-build-dir`,
   без компиляции), без кеша на балансировщике. Ответ `200` + `application/gzip` +
   `Content-Disposition: attachment; filename="trust-lang-<версия>-generated.tar.gz"`;
-  иначе `400/429/503/502`. Кнопка «⬇ Скачать» использует этот endpoint.
+  иначе `400/429/503/502`. Кнопка «⬇ Download archive» использует этот endpoint.
 
 ## Тесты
 

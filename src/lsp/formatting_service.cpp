@@ -5,9 +5,9 @@
 #include "lsp/lsp_protocol.h"
 #include "lsp/lsp_utils.hpp"
 
-#include "diag/context.hpp"
-#include "diag/mapper.hpp"
-#include "diag/protocol.hpp"
+#include "session/context.hpp"
+#include "sourcemap/mapper.hpp"
+#include "sourcemap/protocol.hpp"
 #include "formatter/format.hpp"
 #include "pipeline/pipeline.hpp"
 #include "syntax/parser.h"

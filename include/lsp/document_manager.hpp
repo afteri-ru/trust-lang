@@ -8,9 +8,9 @@
 
 #include "lsp/lsp_options.hpp"
 
-#include "semantic/symbol_index.hpp"
+#include "analysis/symbol_index.hpp"
 #include "types/registry.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 
 #include <nlohmann/json.hpp>
 

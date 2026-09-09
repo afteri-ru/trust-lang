@@ -1,0 +1,30 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: eq=true ne=false
+# CHECK: lt=true gt=false le=true ge=true
+# CHECK: call=42 index=7
+
+# РЕАЛЬНОЕ использование ВСЕХ реализованных операторов-методов в TrustLang-выражениях:
+# сравнения в @print, вызов значения `a(42)` и индексация `a[7]` — программа компилируется,
+# C++-перегрузка выбирает сгенерированные operator==/!=/</>/<=/>=/()/[] , результат проверяется.
+:Point ::= :Class{
+    x: Int32 := _;
+    `==`(o: Point): Bool := { return true; };
+    `!=`(o: Point): Bool := { return false; };
+    `<`(o: Point): Bool := { return true; };
+    `>`(o: Point): Bool := { return false; };
+    `<=`(o: Point): Bool := { return true; };
+    `>=`(o: Point): Bool := { return true; };
+    `()`(i: Int32): Int32 := { return i; };
+    `[]`(i: Int32): Int32 := { return i; };
+};
+@main() := {
+    a : Point := :Point(1);
+    b : Point := :Point(2);
+    @print('eq={} ne={}\n', a == b, a != b);
+    @print('lt={} gt={} le={} ge={}\n', a < b, a > b, a <= b, a >= b);
+    @print('call={} index={}\n', a(42), a[7]);
+    @return 0;
+}

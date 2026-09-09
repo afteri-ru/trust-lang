@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Объявление нереализованного оператора - явная ошибка (без silent fallback, AGENTS п.5).
+:P ::= :Class{ x: Int32 := _; };
+`+`(a: P, b: P): P := { return a; };
+# CHECK: error: operator '+' is not implemented

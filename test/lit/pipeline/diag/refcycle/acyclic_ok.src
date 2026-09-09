@@ -1,0 +1,12 @@
+# RUN: %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Негативный контроль: ациклический граф (shared/unique/value на РАЗНЫЕ типы) - диагностики нет.
+:Leaf ::= :Class{ v : Int32 := _; };
+:Root ::= :Class{
+    s : @[reftype("shared")@] Leaf := _;
+    u : @[reftype("unique")@] @[deleter(FreeDeleter)@] Leaf := _;
+    v : Leaf := _;
+};
+@main():Int32 := { return 0; };
+# CHECK: struct c_Root

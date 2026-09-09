@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Перекрёстный цикл сильных (shared) ссылок через предварительное объявление имени.
+:A ::= :Class ...;
+:B ::= :Class{ a : @[reftype("shared")@] A := _; };
+:A ::= :Class{ b : @[reftype("shared")@] B := _; };
+@main():Int32 := { return 0; };
+# CHECK: error: recursive strong (shared) reference cycle in class fields
+# CHECK-DAG: B
+# CHECK-DAG: A

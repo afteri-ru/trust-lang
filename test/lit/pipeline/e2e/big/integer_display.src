@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/integer_display %s
+# RUN: $TD/integer_display > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: a=123...890 (30)
+# CHECK: b=12...90 (10)
+# CHECK: c=-12...90 (10)
+# CHECK: r=100...000 (31)\3
+
+# Метод показа `x.display(L)` у BigInteger и Rational: голова = хвост = L цифр, N - общее число
+# десятичных цифр (без знака). У Rational сокращается каждый компонент num\den независимо.
+# Результат - обычная строка (StrChar), пригодная для print/std::format. Только для вывода:
+# результат не парсится обратно.
+
+%chk():Void := {
+    a:BigInteger := 123456789012345678901234567890;
+    b:BigInteger := 1234567890;
+    c:BigInteger := -1234567890;
+    r:Rational := 1000000000000000000000000000000\3;
+    print('a={} b={} c={} r={}', a.display(3), b.display(2), c.display(2), r.display(3));
+};
+{% int integer_display__main__() { chk(); return 0; } %}

@@ -1,11 +1,11 @@
 # RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # Обмен САМИХ ссылок `a :=: b` между РАЗНЫМИ видами (unique и shared) - ошибка (типы разные:
-# std::unique_ptr и trust::Shared несовместимы). Значения обмениваются через `*a :=: *b`.
+# trust::Unique и trust::Shared несовместимы). Значения обмениваются через `*a :=: *b`.
 
 @main():Int32 := {
-    &* a := 10:Int32;
-    && b := 20:Int32;
+    && a := 10:Int32;
+    &* b := 20:Int32;
     a :=: b;
     return 0;
 };

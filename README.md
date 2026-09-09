@@ -1,12 +1,9 @@
 # TrustLang - A Trusted Programming Language
 
-Rework of the project's code base with a name change (**NewLang -> TrustLang**).
+TrustLang is a high-level general-purpose programming language for safe (trusted) development,
+implemented as a transpiler to C++.
 
-TrustLang is a high-level general-purpose programming language for safe (trusted) development. It is implemented as a transpiler to C++, providing safe memory management without a garbage collector and detecting memory management errors and data race conditions at compile time. 
-
-The TrustLang supports tensor computations (LibTorch), rational numbers with unlimited precision (built on the arbitrary-precision integer type `BigInteger`), static and dynamic typing, and named and optional function parameters. It also provides one-dimensional arrays via literals `[1,2,3,]` / `[...]:Type` (→ `std::vector<Elem>`), index access `a[i]`, the `:Array(...)` constructor, and array methods (`count`, `at`, `first`, `push_back`, ...); multi-dimensional arrays (tensors) are reserved for the LibTorch backend.
-
-It supports deep integration with the C/C++ ecosystem, including direct function calls, C++ code embedding, and use of the C++ standard library.
+Website and documentation: <https://trust-lang.net/>
 
 **The project is under active development and is developed with the help of AI agents.**
 
@@ -25,6 +22,14 @@ The project has two build modes selected by the CMake build type:
   built and tested **only** in release builds (their options `TRUST_BUILD_PACKAGE` /
   `TRUST_BUILD_VSIX` default to `ON` here and `OFF` for dev builds; they can still be forced on
   a dev build to run/verify the package/VSIX tests).
+
+A **dev build** uses a shared project precompiled header (`TRUST_USE_PCH`, default `ON` in dev and
+`OFF` in release) that precompiles the stable heavy header prefix (`include/precompiled/trust_pch.hpp`)
+and cuts per-translation-unit front-end time. The PCH is a **pure optimization and must never be
+load-bearing**: it can mask a missing `#include`, so every translation unit must also compile with
+`-DTRUST_USE_PCH=OFF` - that configuration is the mandatory verification one. A **release build must
+use `TRUST_USE_PCH=OFF`** (`ON` is a configuration error), so the distributed artifact is always
+compiled from fully explicit includes.
 
 A **release build** requires a git state that exactly corresponds to the release version:
   - the checked-out branch is a **release branch** matching `VERSION` (`MAJOR.MINOR` or `MAJOR`):
@@ -201,6 +206,15 @@ These are compiler (transpiler) flags, **not** diagnostics (no `-W` form):
   `__trust_get_exports` export table in the C++ code (`-fno-sourcemap` gives a
   clean single-file generation).
 
+- `-foverflow-check` / `-fno-overflow-check` — detect signed integer overflow in
+  arithmetic (`+`, `-`, `*` and the compound `+=`, `-=`, `*=`), unary minus, and integer
+  division (`//`, `//=`) and throw `trust::IntMinus` at runtime (default: on). Only signed
+  machine integers are checked (unsigned wraps by definition); `:BigInteger`/`:Rational`,
+  `/`, `%` and bitwise operators are not checked. The check uses the built-in
+  `__builtin_*_overflow`; integer division is also guarded against division by zero and
+  `INT64_MIN / -1`. On a violation a catchable `trust::IntMinus` is raised (caught by
+  `{- ... -}` / `try`).
+
 ## Runtime linking (`--link-runtime`)
 
 Runtime-backed types (e.g. `Rational`) need the trust runtime library, which is
@@ -356,9 +370,11 @@ where `<version>` is the release number (e.g. `0.6.0`), `<os>` derives from
 (`trust-runtime.so` and `trust-runtime.a`), `VERSION`/`LICENSE`, and a
 `manifest.txt` with the build metadata (version, full version with git hash, OS, arch,
 date) - the git hash stays traceable inside the manifest.
-The public runtime headers and the stdlib sources are not copied separately: their
-contents are embedded into the runtime libraries / the compiler and stay
-version-synced with them.
+The public runtime headers and the stdlib sources are not copied separately: the headers of
+built-in types (`include/runtime/trust/*.hpp`, published as `@trust/...`) are embedded into the
+runtime libraries and the standard library assets (`include/stdlib/*.src` + `stdlib/*.hpp`,
+published as `@stdlib/...`) are embedded into the compiler; both stay version-synced with the
+binaries they are embedded into.
 
 Because the toolchain (clang-22, LLVM, GMP, bison/flex, lit) and the pipeline are
 POSIX/ELF-based, the recommended way to build on a Windows host is **WSL2**, where

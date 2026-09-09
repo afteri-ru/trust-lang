@@ -19,7 +19,7 @@
 #include <string>
 #include <vector>
 
-#include "diag/context.hpp"
+#include "session/context.hpp"
 
 namespace trust {
 

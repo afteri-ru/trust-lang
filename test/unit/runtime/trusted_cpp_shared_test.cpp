@@ -141,40 +141,40 @@ TEST_F(TrustedCppTest, SharedWithBool) {
 }
 
 // ============================================================================
-// SyncShared (SyncMutexPolicy, default) - Shared-like API, synchronized
+// AccessShared (AccessMutex, default) - Shared-like API, synchronized
 // ============================================================================
 
 TEST_F(TrustedCppTest, SyncSharedFromValue) {
-    SyncShared<int> s(42);
+    AccessShared<int> s(42);
     EXPECT_TRUE(s.has_value());
     EXPECT_EQ(*s.lock_const(), 42);
 }
 
 TEST_F(TrustedCppTest, SyncSharedCopyMove) {
-    SyncShared<int> s1(42);
-    SyncShared<int> s2 = s1;
+    AccessShared<int> s1(42);
+    AccessShared<int> s2 = s1;
     EXPECT_TRUE(s2.has_value());
     EXPECT_EQ(*s2.lock_const(), 42);
-    SyncShared<int> s3 = std::move(s1);
+    AccessShared<int> s3 = std::move(s1);
     EXPECT_FALSE(s1.has_value());
     EXPECT_EQ(*s3.lock_const(), 42);
 }
 
 TEST_F(TrustedCppTest, SyncSharedSet) {
-    SyncShared<int> s(0);
+    AccessShared<int> s(0);
     s.set(42);
     EXPECT_EQ(*s.lock_const(), 42);
 }
 
 TEST_F(TrustedCppTest, SyncSharedReset) {
-    SyncShared<int> s(42);
+    AccessShared<int> s(42);
     s.reset();
     EXPECT_FALSE(s.has_value());
     EXPECT_FALSE(s.try_lock().has_value());
 }
 
 TEST_F(TrustedCppTest, SyncSharedWithString) {
-    SyncShared<std::string> s("hello");
+    AccessShared<std::string> s("hello");
     {
         auto locked = s.lock();
         *locked += " world";

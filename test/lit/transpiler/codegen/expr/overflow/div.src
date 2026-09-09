@@ -1,0 +1,18 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Целочисленное деление // и //= защищены от деления на ноль и INT64_MIN/-1 (UB).
+
+a:Int64 := 10;
+b:Int64 := 3;
+z := a // b;
+# CHECK: int64_t __l = static_cast<int64_t>(c_a)
+# CHECK: int64_t __r = static_cast<int64_t>(c_b)
+# CHECK: integer division by zero
+# CHECK: integer overflow in '//'
+# CHECK: return __l / __r; }())
+
+w:Int64 := 10;
+w //= b;
+# CHECK: c_w = ([&]{ int64_t __l = static_cast<int64_t>(c_w)
+# CHECK: integer overflow in '//='
+# CHECK: return __l / __r; }())

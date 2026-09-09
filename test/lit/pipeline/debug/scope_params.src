@@ -1,0 +1,32 @@
+# RUN: %trust --emit-cpp %s 2>&1 | %FileCheck %s
+# REQUIRES: not-release
+
+#
+# Дамп состояния анализатора и СООТВЕТСТВИЕ вывода параметрам макроса.
+# Позиционные аргументы - ТОЛЬКО фильтр имён (маски); пустой вызов @__DEBUG_SCOPE__() печатает
+# полный дамп; опции задаются именованно и без кавычек (level=all, types=on, count=only).
+# Фильтр @__DEBUG__ здесь не задан - на дамп он не влияет.
+# Каждая строка дампа префиксуется локацией САМОГО макроса (`<.src>:строка: `).
+# Проверяемый вывод размещён НЕПОСРЕДСТВЕННО после макроса, который его генерирует.
+#
+f() : Int32 := {
+    a := 1;
+    b := 2;
+    # Полный дамп (без фильтра имён): текущий уровень + оба локальных имени
+    # CHECK: .../scope_params.src:{{[0-9]+}}:   [2] FuncDecl `f`: $a, $b
+    @__DEBUG_SCOPE__();
+    # level=all: добавляет внешние уровни
+    # CHECK: .../scope_params.src:{{[0-9]+}}:   [2] FuncDecl `f`: $a, $b
+    # CHECK: .../scope_params.src:{{[0-9]+}}:   [1] ModuleDecl
+    # CHECK: .../scope_params.src:{{[0-9]+}}:   [0] global
+    @__DEBUG_SCOPE__(level=all);
+    # маска "*a*" + types=on: только $a и с типом/классом памяти
+    # CHECK: .../scope_params.src:{{[0-9]+}}:   [2] FuncDecl `f`: $a<T{{[0-9]+}},local>
+    # CHECK-NOT: $b
+    @__DEBUG_SCOPE__("*a*", types=on);
+    # count=only: только итоги, без разбивки по уровням
+    # CHECK: .../scope_params.src:{{[0-9]+}}: scope: depth=
+    # CHECK-NOT: [2] FuncDecl
+    @__DEBUG_SCOPE__(count=only);
+    return a;
+};

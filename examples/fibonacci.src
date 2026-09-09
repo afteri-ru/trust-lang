@@ -1,13 +1,11 @@
 #!../_build/trust --run --stack-check=explicit -Wsigil=ignore
 #
-# Числа Фибоначчи произвольной точности
+# Arbitrary-precision Fibonacci numbers
 #
-# Рекурсивная fib() защищена атрибутом @[stack_check@] (режим --stack-check=explicit):
-# при слишком большом n переполнение стека превращается в перехватываемую ошибку, а не в segfault. 
-# Переполнение стека  ловится классическим try_error { ... } catch(_){ ... }
+# The recursive fib() uses stack overflow protection (the @[stack_check@] attribute and --stack-check=explicit mode).
+# Before a stack overflow occurs, a software interrupt is generated instead of a segfault;
+# this interrupt is caught using the try ... catch.
 
-# Парсинг строки в BigInteger (C++-вставка только для вызова конструктора; ошибки
-# конверсии ловятся обобщённым catch(:StdException) → `catch (std::exception&)`).
 @func parse_bigint(s:StrChar):BigInteger {
     try {
         {% return trust::BigInteger(c_s); %};
@@ -34,7 +32,7 @@
 };
 
 @main(argv^:Dict, args^:Dict) := {
-    # --- Валидация аргументов (без дефолтов) ---
+
     if (:Int32({% $argv.size() %}) < 1) {
         @print('Usage: fibonacci <n>\n');
         @print('  <n> - compute the n-th Fibonacci number (> 0)\n');
@@ -46,7 +44,6 @@
         return 1;
     };
 
-    # --- Вычисление (переполнение стека при слишком большом n -> stack_overflow, ловится) ---
     try_error {
         calc($n);
     } catch(_) {

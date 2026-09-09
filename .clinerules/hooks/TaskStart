@@ -96,11 +96,16 @@ fi
 # Get path to task file
 TASK_FILE="${TASKLOG_DIR}/${TASK_ID}.md"
 
-# Create task file with header
-cat > "$TASK_FILE" << TASKEOF
+# Create task file with header.
+# Cline может вызывать TaskStart на каждом ходе пользователя, поэтому
+# существующий НЕПУСТОЙ файл задачи никогда не перезаписывается
+# (иначе теряется история). Пустой/отсутствующий файл - создаём.
+if [ ! -s "$TASK_FILE" ]; then
+  cat > "$TASK_FILE" << TASKEOF
 ${TIMESTAMP_ISO} plan taskId=${TASK_ID}
 
 TASKEOF
+fi
 
 # Read TASK.md and substitute <taskid>.md with real task file name
 TASK_MD_PATH="$(cd "$(dirname "$0")/.." && pwd)/TASK.md"

@@ -17,6 +17,45 @@ namespace trust::utils {
 //  Вспомогательные утилиты для работы с UTF8
 // -----------------------------------------------------------------------
 
+/// Имя файла без каталогов (после последнего '/' или '\\'); пустая строка - если путь пуст.
+inline std::string_view fileNameOf(std::string_view path) noexcept {
+    const std::size_t slash = path.find_last_of("/\\");
+    return (slash == std::string_view::npos) ? path : path.substr(slash + 1);
+}
+
+/// Сокращённый путь для вывода: каталоги заменяются многоточием (`.../file.ext`).
+/// Если каталогов нет - возвращает имя файла как есть.
+inline std::string shortenedPath(std::string_view path) {
+    const std::string_view name = fileNameOf(path);
+    if (name.size() == path.size()) {
+        return std::string(name);
+    }
+    return ".../" + std::string(name);
+}
+
+/// Префиксует КАЖДУЮ строку текста заданным префиксом (обычно `.../file:строка: `).
+/// Хвостовой '\n' не создаёт лишней строки; результат всегда заканчивается '\n'.
+inline std::string prefixEachLine(std::string_view text, std::string_view prefix) {
+    if (!text.empty() && text.back() == '\n') {
+        text.remove_suffix(1);
+    }
+    std::string out;
+    out.reserve(text.size() + prefix.size());
+    std::size_t start = 0;
+    while (true) {
+        const std::size_t nl = text.find('\n', start);
+        const std::string_view line = text.substr(start, nl == std::string_view::npos ? std::string_view::npos : nl - start);
+        out += prefix;
+        out += line;
+        out += '\n';
+        if (nl == std::string_view::npos) {
+            break;
+        }
+        start = nl + 1;
+    }
+    return out;
+}
+
 namespace detail {
 
 /// Возвращает длину UTF8 последовательности по ведущему байту.
@@ -336,6 +375,15 @@ inline std::string_view strip_native_prefix(std::string_view name) noexcept {
 /// классификации макросов (форматтер, LSP).
 inline std::string_view strip_macro_sigil(std::string_view name) noexcept {
     if (!name.empty() && name.front() == '@') {
+        name.remove_prefix(1);
+    }
+    return name;
+}
+
+/// Срезает ведущий ':' (сигил типа) у текстового имени типа (`:combi` → `combi`). Единый
+/// источник среза для мест, где тип представлен текстом (резолв типа, разбор наборов типов).
+inline std::string_view strip_type_sigil(std::string_view name) noexcept {
+    if (!name.empty() && name.front() == ':') {
         name.remove_prefix(1);
     }
     return name;

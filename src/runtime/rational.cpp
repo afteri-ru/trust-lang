@@ -88,6 +88,11 @@ std::string Rational::GetAsString() const {
     return m_pimpl->m_numerator.GetAsString() + "\\" + m_pimpl->m_denominator.GetAsString();
 }
 
+std::string Rational::display(int64_t head_tail) const {
+    // Единый источник правды: каждый компонент сокращается BigInteger::display (L < 1 → ошибка).
+    return m_pimpl->m_numerator.display(head_tail) + "\\" + m_pimpl->m_denominator.display(head_tail);
+}
+
 Rational::operator std::string() const {
     return GetAsString();
 }

@@ -30,7 +30,7 @@ class SymbolTable;
 /// приватной рекурсии (emitExpr) и друг к другу (через ссылки на эмиттеры m_type/...).
 class CppTranspiler : public KindVisitor {
   public:
-    explicit CppTranspiler(Context& ctx, const SymbolTable* resolvedTypes = nullptr);
+    explicit CppTranspiler(Context& ctx, const SymbolTable* resolvedTypes = nullptr, analysis::BehavioralModes behavioral = {});
 
     /// Генерация C++ кода непосредственно в выходной файл с построением source map.
     /// Для каждого узла AST создаётся маппинг trust-range → cpp-range через mapStart/mapStop.
@@ -119,6 +119,7 @@ class CppTranspiler : public KindVisitor {
     void visit_LogicalOp(const Binary& node) override;
     void visit_MemberAccess(const Binary& node) override;
     void visit_ArrayAccess(const Binary& node) override;
+    void visit_TypeSet(const Sequence& node) override;
     void visit_Ident(const IdentName& node) override;
     void visit_TypeName(const IdentType& node) override;
     void visit_CallExpr(const CallExpr& node) override;
@@ -139,11 +140,10 @@ class CppTranspiler : public KindVisitor {
     void visit_RangeExpr(const RangeExpr& node) override;
     void visit_RefMakeExpr(const RefMakeExpr& node) override;
     void visit_RefTakeExpr(const RefTakeExpr& node) override;
-    void visit_NativeRefMakeExpr(const NativeRefMakeExpr& node) override;
-    void visit_NativeRefTakeExpr(const NativeRefTakeExpr& node) override;
     void visit_RefLockExpr(const Sequence& node) override;
     void visit_RefLockDeref(const Sequence& node) override;
     void visit_Ellipsis(const Sequence& node) override;
+    void visit_Filling(const Sequence& node) override;
     void visit_IfStmt(const IfStmt& node) override;
     void visit_WhileStmt(const WhileStmt& node) override;
     void visit_AssignmentStmt(const AstNodeAttr& node) override;
@@ -171,7 +171,7 @@ class CppTranspiler : public KindVisitor {
     void visit_ArgNode(const ArgNode& node) override;
     void visit_EnumDecl(const Sequence& node) override;
     void visit_EnumMember(const Sequence& node) override;
-    void visit_StructDecl(const Sequence& node) override;
+    void visit_StructDecl(const RecordDecl& node) override;
     void visit_StructField(const Sequence& node) override;
     void visit_ClassDecl(const ClassDecl& node) override;
     void visit_ModuleDecl(const ModuleNode& node) override;
@@ -179,6 +179,7 @@ class CppTranspiler : public KindVisitor {
     void visit_NotApplicable(const AstNodeAttr& node) override;
     void visit_ContextMacro(const ContextMacro& node) override;
     void visit_CheckAreaStmt(const CheckAreaStmt& node) override;
+    void visit_DebugStmt(const DebugStmt& node) override;
     void visit_TrustContract(const TrustContract& node) override;
     void visit_TrustElem(const TrustElem& node) override;
 

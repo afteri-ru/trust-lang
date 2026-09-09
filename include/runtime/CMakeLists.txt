@@ -17,6 +17,7 @@ get_target_property(_gmp_includes gmp_interface INTERFACE_INCLUDE_DIRECTORIES)
 set(RUNTIME_COMPILE_OPTIONS
     -std=c++${CMAKE_CXX_STANDARD}
     -I${PROJECT_INCLUDE_DIR}
+    -I${PROJECT_INCLUDE_DIR}/runtime
     -I${RUNTIME_PCM_DIR}
     -I${_gmp_includes}
 )
@@ -75,7 +76,10 @@ function(trust_add_runtime_flavour _variant)
         set(_outdir_prop ARCHIVE_OUTPUT_DIRECTORY)
     endif()
     add_library(${_target} ${_variant} ${_srcs})
-    target_include_directories(${_target} PUBLIC ${PROJECT_INCLUDE_DIR})
+    # Заголовки встроенных типов публикуются как "trust/<h>.hpp" (include/runtime/trust/...):
+    # include/runtime добавлен в пути поиска, чтобы compiler-side include'ы ("trust/assert.hpp")
+    # и внутренние кросс-инклюды ("trust/interrupt.hpp") разрешались и здесь.
+    target_include_directories(${_target} PUBLIC ${PROJECT_INCLUDE_DIR} ${PROJECT_INCLUDE_DIR}/runtime)
     target_link_libraries(${_target} PUBLIC gmp_interface)
     set_target_properties(${_target} PROPERTIES
         OUTPUT_NAME "trust-runtime"

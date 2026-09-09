@@ -5,7 +5,7 @@
 #include "debug/dap_handler.hpp"
 #include "debug/dap_transport.h"
 #include "debug/gdb_debug.h"
-#include "diag/mapper.hpp"
+#include "sourcemap/mapper.hpp"
 
 #include "mock_transport.hpp"
 

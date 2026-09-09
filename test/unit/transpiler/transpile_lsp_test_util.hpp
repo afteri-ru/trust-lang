@@ -2,7 +2,7 @@
 #define TRANSPILE_LSP_TEST_UTIL_HPP
 // Shared helpers for transpiler pipeline + source map tests
 // (transpile_lsp_test.cpp / transpile_lsp_mapping_test.cpp).
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "types/registry.hpp"
 #include "ast/term_to_ast.hpp"
 #include "semantic/pass_runner.hpp"
@@ -10,7 +10,7 @@
 #include "syntax/term.h"
 #include "transpiler/transpiler.hpp"
 #include "pipeline/pipeline.hpp"
-#include "diag/mapper.hpp"
+#include "sourcemap/mapper.hpp"
 #include "syntax/macro.h"
 
 #include <gtest/gtest.h>

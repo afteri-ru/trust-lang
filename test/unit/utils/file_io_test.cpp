@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include "test_data.hpp"
+
 namespace fs = std::filesystem;
 
 struct FileIOTest : ::testing::Test {
@@ -13,20 +15,12 @@ struct FileIOTest : ::testing::Test {
     fs::path testFile;
 
     void SetUp() override {
-        tempDir = fs::temp_directory_path() / "file_io_test_XXXXXX";
-        for (int i = 0; i < 100; ++i) {
-            auto p = fs::temp_directory_path() / ("file_io_test_" + std::to_string(i));
-            if (!fs::exists(p)) {
-                tempDir = p;
-                break;
-            }
-        }
-        fs::create_directories(tempDir);
+        // Фиксированный каталог в _build, очищается перед каждым тестом.
+        tempDir = trust::test::makeTestDataDir("file_io_test");
         testFile = tempDir / "test.bin";
     }
-
-    void TearDown() override { fs::remove_all(tempDir); }
 };
+
 
 TEST_F(FileIOTest, write_and_read_string) {
     const std::string testData = "Hello, World!";

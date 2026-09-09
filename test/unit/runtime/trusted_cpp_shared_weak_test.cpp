@@ -119,12 +119,12 @@ TEST_F(TrustedCppTest, WeakOperatorBoolOnExpired) {
 }
 
 // ============================================================================
-// Weak over SyncShared (synchronized reference)
+// Weak over AccessShared (synchronized reference)
 // ============================================================================
 
 TEST_F(TrustedCppTest, WeakOverSyncShared) {
-    SyncShared<int> s(42);
-    Weak<SyncShared<int>> w = s.weak();
+    AccessShared<int> s(42);
+    Weak<AccessShared<int>> w = s.weak();
     EXPECT_TRUE(w.has_value());
     {
         auto locked = w.lock();
@@ -134,9 +134,9 @@ TEST_F(TrustedCppTest, WeakOverSyncShared) {
 }
 
 TEST_F(TrustedCppTest, WeakOverSyncSharedExpired) {
-    Weak<SyncShared<int>> w;
+    Weak<AccessShared<int>> w;
     {
-        SyncShared<int> s(42);
+        AccessShared<int> s(42);
         w = s.weak();
     }
     EXPECT_FALSE(w.has_value());
@@ -144,11 +144,11 @@ TEST_F(TrustedCppTest, WeakOverSyncSharedExpired) {
 }
 
 // ============================================================================
-// Thread safety of SyncShared
+// Thread safety of AccessShared
 // ============================================================================
 
 TEST_F(TrustedCppTest, SyncSharedThreadSafetyTimedMutex) {
-    SyncShared<int> s(0);
+    AccessShared<int> s(0);
     const int num_threads = 4;
     const int increments = 1000;
 
@@ -168,7 +168,7 @@ TEST_F(TrustedCppTest, SyncSharedThreadSafetyTimedMutex) {
 }
 
 TEST_F(TrustedCppTest, SyncSharedThreadSafetyTimedShared) {
-    using S = SyncShared<int, SyncRwMutexPolicy>;
+    using S = AccessShared<int, AccessRwMutex>;
     S s(0);
     const int num_writers = 2;
     const int num_readers = 4;

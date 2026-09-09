@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/unary %s
+# RUN: $TD/unary > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: unary-caught
+
+# Унарный минус на INT_MIN переполняет -> trust::IntMinus, ловится {- ... -}.
+
+%chk():Void := {
+    x:Int32 := -2147483648;
+    {-
+        y := -x;
+    -};
+    print('unary-caught');
+};
+{% int unary__main__() {
+    chk();
+    return 0;
+}
+%}
