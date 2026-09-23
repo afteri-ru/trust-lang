@@ -109,6 +109,19 @@ TEST(RationalTest, CopyAndAssign) {
     EXPECT_EQ(c.GetAsString(), "1\\7");
 }
 
+TEST(RationalTest, DisplayShortensEachPart) {
+    // Числитель длинный (10^30, 31 цифра), знаменатель мал - печатается полностью.
+    Rational r("1000000000000000000000000000000", "3");
+    EXPECT_EQ(r.display(3), "100...000 (31)\\3");
+    // Оба компонента длинные - каждый со своим "(N)" (знаменатель 10^12+7 взаимно прост с 10^30).
+    Rational q("1000000000000000000000000000000", "1000000000007");
+    EXPECT_EQ(q.display(3), "100...000 (31)\\100...007 (13)");
+    // Короткое число - оба компонента полностью.
+    EXPECT_EQ(Rational("3", "4").display(2), "3\\4");
+    // L < 1 - ошибка (наследуется от BigInteger::display).
+    EXPECT_THROW(Rational("3", "4").display(0), std::invalid_argument);
+}
+
 TEST(RationalTest, ThrowsOnZeroDenominator) {
     EXPECT_THROW(Rational("1", "0"), std::runtime_error);
 }

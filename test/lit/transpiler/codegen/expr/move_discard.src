@@ -1,0 +1,15 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# `x :=: _` - перемещение значения в discard: МАТЕРИАЛИЗУЕТСЯ временное (move-ctor вызывается
+# реально), временное разрушается в конце блока. Для владеющих ссылок это освобождает ресурс,
+# x остаётся moved-from. Прежняя форма `std::move(x);` была no-op.
+
+@main():Int32 := {
+    m : Int32 := 0;
+    m :=: _;
+    b : @[reftype("unique")@] Int32 := 1;
+    b :=: _;
+    return m;
+};
+# CHECK: { auto __trust_discard_0 = std::move(c_m); (void)__trust_discard_0; }
+# CHECK: { auto __trust_discard_1 = std::move(c_b); (void)__trust_discard_1; }

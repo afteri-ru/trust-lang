@@ -1,4 +1,4 @@
-# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 #
 # sink - составное выражение, где `$^` операнд: `x := $^ + 1;` (лист $^ внутри init).
 %f():Int32 := {

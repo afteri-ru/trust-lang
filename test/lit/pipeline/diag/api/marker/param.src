@@ -1,0 +1,6 @@
+# RUN: %not %trust -q -Wsigil=ignore --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Граница API: короткий символьный маркер в типе ПАРАМЕТРА функции запрещён (сигнатура = контракт API).
+f(x : &*Int32):Int32 := { return *x; };
+@main():Int32 := { return 0; };
+# CHECK: error: short reference markers are not allowed in a function parameter type; use the explicit attribute @[reftype("...")]

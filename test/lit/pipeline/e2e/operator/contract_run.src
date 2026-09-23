@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: eq=true
+
+# Оператор-метод С КОНТРАКТАМИ (trust_pre/trust_post) компилируется и исполняется; использование
+# `a == b` резолвится в сгенерированный operator==.
+:V ::= :Class{
+    v: Int32 := _;
+    `==`(o: V): Bool trust_pre(true) trust_post(true) := { return true; };
+};
+@main() := {
+    a : V := :V(1);
+    b : V := :V(2);
+    @print('eq={}\n', a == b);
+    @return 0;
+}

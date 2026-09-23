@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q -Wassert --temp-dir $TD -o $TD/vmm %s
+# RUN: ($TD/vmm 2> %t.err || true) && %FileCheck %s <%t.err
+# CHECK: macro_msg.src:[[#]]: verify failed: 7
+
+# verify(cond, 'fmt', args...): при провале печатается отформатированное сообщение (std::format).
+# Форматная строка без значений тоже допустима.
+
+%chk():Void := {
+    verify( 1 == 0, 'verify failed: {}', 7 );
+};
+{% int macro_msg__main__() {
+    chk();
+    return 0;
+}
+%}

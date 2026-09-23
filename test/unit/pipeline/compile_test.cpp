@@ -8,26 +8,19 @@
 #include <string>
 #include <unistd.h>
 
+#include "test_data.hpp"
+
 using namespace trust;
 
 namespace {
 
-// Временная директория для тестовых файлов - внутри _build/test_data
+// Временная директория для тестовых файлов - внутри _build/test_data,
+// фиксированная (уникальные временные имена не используются).
 struct TestDir {
     std::string path;
 
     TestDir() {
-        // TEST_DATA_DIR is defined in CMakeLists.txt as "${CMAKE_BINARY_DIR}/test_data"
-        std::string base = TEST_DATA_DIR;
-        base += "/compile_ut_XXXXXX";
-        char* tmpl = strdup(base.c_str());
-        if (tmpl) {
-            const char* d = mkdtemp(tmpl);
-            if (d) {
-                path = d;
-            }
-            free(tmpl);
-        }
+        path = trust::test::makeTestDataDir("compile_test").string();
     }
 
     ~TestDir() {

@@ -1,0 +1,39 @@
+# RUN: %trust --emit-cpp %s 2>&1 | %FileCheck %s
+# REQUIRES: not-release
+
+#
+# Реальная отладка borrow-checker'а:
+#   @__DEBUG__("borrow") включает TRUST_DEBUG-сообщения из src/semantic/borrow_check.cpp
+#   (вид ссылки/владение/регион, заём -> anchor, эпоха мутаций, срабатывание R4);
+#   @__DEBUG_SCOPE__() печатает состояние скоупа анализатора.
+# Формат: сообщения TRUST_DEBUG - префикс `компиляторный файл:строка: `; вывод @__DEBUG__/
+# @__DEBUG_SCOPE__ - префикс `<.src>:строка: ` (локация самого макроса).
+# Проверяемый вывод размещён НЕПОСРЕДСТВЕННО после оператора, который его генерирует.
+#
+@__DEBUG__("borrow");
+# CHECK: .../debug.src:{{[0-9]+}}: @__DEBUG__: debug messages ENABLED, filter='borrow'
+@main():Int32 := {
+    # Объявление владельца: вид/владение/регион/глубина
+    # CHECK: {{.*}}: decl 's' kind=shared owner=yes region=scope
+    &* s := 5:Int32;
+    # Заём (weak): зависимая -> anchor + эпоха
+    # CHECK: {{.*}}: decl 'w' kind=weak owner=no region=scope
+    # CHECK: {{.*}}: view 'w' -> anchor 's' born-epoch=0
+    &? w := & s;
+    # CHECK: {{.*}}: decl 'u' kind=unique owner=yes
+    && u := 10:Int32;
+    # Мутация ЧЕРЕЗ РАЗЫМЕНОВАНИЕ адресуется корневому anchor'у (эпоха 1)
+    # CHECK: {{.*}}: mutate 's' op=assign epoch=1 live-borrow=yes
+    *s = 7;
+    # Прямая запись в anchor (эпоха 2)
+    # CHECK: {{.*}}: mutate 's' op=assign epoch=2 live-borrow=yes
+    s = 8;
+    # Дамп состояния скоупа анализатора в точке (каждая строка с префиксом локации макроса)
+    # CHECK: .../debug.src:{{[0-9]+}}: scope: depth=
+    # CHECK: .../debug.src:{{[0-9]+}}:   [2] FuncDecl
+    @__DEBUG_SCOPE__();
+    # Move владельца при живом заёме -> правило R4
+    # CHECK: {{.*}}: R4 owner-moved 's' kind=shared while borrowed
+    s :=: _;
+    return 0;
+};

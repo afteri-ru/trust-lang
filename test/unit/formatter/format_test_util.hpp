@@ -4,7 +4,7 @@
 // Runs the formatter through the real pipeline and expects success.
 #include "formatter/format.hpp"
 
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "pipeline/pipeline.hpp"
 #include "syntax/macro.h"
 #include "syntax/parser.h"

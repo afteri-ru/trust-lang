@@ -1,0 +1,27 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Контроль переполнения составных присваиваний идёт по ТИПУ ПРИЁМНИКА: диапазон берётся
+# из типа ячейки (__builtin_*_overflow(.., &lhs)). Поэтому узкие знаковые цели
+# (Int8/Int16) и inferred-цели (расширяются до типа операции) инструментируются так же,
+# как Int32/Int64. Беззнаковые заворачиваются (wrap) и не проверяются.
+
+x8:Int8 := 127;
+# CHECK: int8_t c_x8 = 127;
+x8 += 1;
+# CHECK: __builtin_add_overflow(c_x8, 1, &c_x8)
+# CHECK: integer overflow in '+='
+
+x16:Int16 := 32767;
+# CHECK: int16_t c_x16 = 32767;
+x16 -= 1;
+# CHECK: __builtin_sub_overflow(c_x16, 1, &c_x16)
+
+y := 1;
+y *= 2;
+# CHECK: __builtin_mul_overflow(c_y, 2, &c_y)
+
+u8:UInt8 := 255;
+# CHECK: uint8_t c_u8 = 255;
+u8 += 1;
+# CHECK: c_u8 += 1;
+# CHECK-NOT: __builtin_add_overflow(c_u8

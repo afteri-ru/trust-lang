@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Абстрактный шаблон-класс без типовых аргументов (`Box` вместо `Box<...>`) - ошибка.
+
+<T> :Box ::= :Class{
+    value: T := _;
+};
+
+bad : Box := Box();
+# CHECK: error: template 'Box' requires type arguments

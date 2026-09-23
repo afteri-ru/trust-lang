@@ -1,0 +1,7 @@
+# RUN: %not %trust -q -Wsigil=ignore --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Граница API: короткий символьный маркер ссылки запрещён на уровне модуля (экспортируемое имя);
+# вид задаётся явным @[reftype(...)]. Локально (внутри функции) маркеры разрешены.
+&* g := 5;
+@main():Int32 := { return 0; };
+# CHECK: error: short reference markers are only allowed in local scope; use the explicit attribute @[reftype("...")] on the module API

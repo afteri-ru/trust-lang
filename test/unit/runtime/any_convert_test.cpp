@@ -12,12 +12,13 @@ using trust::TypedValue;
 namespace {
 
 // TypeKind: Group(0-7) | Data/размерность(8-15) - кодировка (ABI) trust::TypedValue.
-constexpr uint32_t kInt8 = 3u | (8u << 8);
-constexpr uint32_t kInt32 = 3u | (32u << 8);
-constexpr uint32_t kInt64 = 3u | (64u << 8);
-constexpr uint32_t kFloat64 = 5u | (64u << 8);
-constexpr uint32_t kBool = 2u | (1u << 8);
-constexpr uint32_t kStrChar = 9u | (1u << 8);
+// TypedValue хранит ПОЛНЫЙ TypeId → оборачиваем makeTypeId (TypeKind в старших 32 битах).
+constexpr trust::TypeId kInt8 = trust::makeTypeId(3u | (8u << 8));
+constexpr trust::TypeId kInt32 = trust::makeTypeId(3u | (32u << 8));
+constexpr trust::TypeId kInt64 = trust::makeTypeId(3u | (64u << 8));
+constexpr trust::TypeId kFloat64 = trust::makeTypeId(5u | (64u << 8));
+constexpr trust::TypeId kBool = trust::makeTypeId(2u | (1u << 8));
+constexpr trust::TypeId kStrChar = trust::makeTypeId(9u | (1u << 8));
 
 TEST(AnyConvertTest, NumericTarget) {
     EXPECT_EQ(any_to<int32_t>(TypedValue{kInt8, int8_t(42)}), 42);
@@ -39,7 +40,7 @@ TEST(AnyConvertTest, StringFromNumberThrows) {
 }
 
 TEST(AnyConvertTest, RationalTarget) {
-    constexpr uint32_t kRational = 8u | (1u << 8);
+    constexpr trust::TypeId kRational = trust::makeTypeId(8u | (1u << 8));
     // Rational - быстрая ветка variant (по значению); any_to<Rational> читает её напрямую.
     const Rational r = any_to<Rational>(TypedValue{kRational, Rational("3", "4")});
     EXPECT_EQ(r.GetAsString(), "3\\4");

@@ -54,6 +54,9 @@ server {
         limit_req zone=tpl_req burst=20 nodelay;
         limit_conn tpl_conn 8;
         proxy_pass http://127.0.0.1:@PORT@/run;
+        # Мёртвый backend должен отдавать 502 сразу, а не висеть до дефолтных 60 с:
+        # иначе браузерная песочница держит «transpiling…»/«нет связи» целую минуту.
+        proxy_connect_timeout 3s;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -66,6 +69,7 @@ server {
     # Публичный пинг готовности (статус-строка песочницы): онлайн + число воркеров
     location = /health {
         proxy_pass http://127.0.0.1:@PORT@/health;
+        proxy_connect_timeout 3s;
         proxy_set_header Host $host;
     }
 
@@ -74,6 +78,7 @@ server {
         limit_req zone=tpl_req burst=20 nodelay;
         limit_conn tpl_conn 8;
         proxy_pass http://127.0.0.1:@PORT@/download;
+        proxy_connect_timeout 3s;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -112,6 +117,7 @@ server {
     # Воркер: reverse long-poll за задачей (соединение может держаться до poll_timeout)
     location = /poll {
         proxy_pass http://127.0.0.1:@PORT@/poll;
+        proxy_connect_timeout 3s;
         proxy_set_header Host $host;
         client_max_body_size 16k;
         proxy_read_timeout 120s;
@@ -120,6 +126,7 @@ server {
     # Воркер: отправка результата задачи
     location = /result {
         proxy_pass http://127.0.0.1:@PORT@/result;
+        proxy_connect_timeout 3s;
         proxy_set_header Host $host;
         client_max_body_size @BODY_LIMIT@k;
         proxy_read_timeout @TIMEOUT@s;

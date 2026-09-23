@@ -1,0 +1,21 @@
+# RUN: %trust -Wsigil=ignore --emit-cpp %s > %t.warn 2>&1
+# RUN: %FileCheck --check-prefix=WARN %s <%t.warn
+# RUN: %trust -q -Wsigil=ignore -Wref-kind-dup=ignore --emit-cpp %s > %t.silent 2>&1
+# RUN: %FileCheck --check-prefix=SILENT %s <%t.silent
+# RUN: %not %trust -q -Wsigil=ignore -Wref-kind-dup=error --emit-cpp %s > %t.err 2>&1
+# RUN: %FileCheck --check-prefix=ERR %s <%t.err
+
+# Вид ссылки задан в ОБЕИХ позициях с ОДИНАКОВЫМ видом (`&* x : &*Int32`,
+# `&* y : @[reftype("shared")@] Int32`) - квалификатор у переменной ЛИШНИЙ, вид уже задан типом.
+# Это -Wref-kind-dup (default Warning). Нотация (маркер vs атрибут) значения не имеет.
+# Подавляется -Wref-kind-dup=ignore; усиливается до ошибки при =error.
+
+@main():Int32 := {
+    &* x : &*Int32 := 5;
+    &* y : @[reftype("shared")@] Int32 := 7;
+    return 0;
+};
+# WARN: warning: reference kind 'shared' is already specified by the type annotation; the qualifier before variable 'x' is redundant
+# WARN: warning: reference kind 'shared' is already specified by the type annotation; the qualifier before variable 'y' is redundant
+# SILENT-NOT: warning: reference kind
+# ERR: error: reference kind 'shared' is already specified by the type annotation; the qualifier before variable 'x' is redundant

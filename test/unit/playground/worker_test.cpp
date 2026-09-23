@@ -12,6 +12,8 @@
 #include <fstream>
 #include <string>
 
+#include "test_data.hpp"
+
 namespace {
 
 using trust::playground::PlaygroundConfig;
@@ -21,9 +23,11 @@ using trust::playground::validateWorkerSettings;
 
 constexpr const char* kToken = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
-// Пишет временный файл в TEST_DATA_DIR и делает его исполняемым (для access(X_OK)).
+// Пишет временный исполняемый файл в фиксированный каталог worker_test внутри _build
+// (для access(X_OK)) и делает его исполняемым.
 std::string writeExecutable(const std::string& name) {
-    const std::string path = std::string(TEST_DATA_DIR) + "/" + name;
+    const std::string path =
+        (trust::test::makeTestDataDir("worker_test") / name).string();
     {
         std::ofstream f(path);
         f << "#!/bin/sh\nexit 0\n";

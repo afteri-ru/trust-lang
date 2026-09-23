@@ -6,8 +6,8 @@ set(SYNTAX_GEN_DIR "${CMAKE_BINARY_DIR}/syntax")
 # -- Pipeline library --
 add_library(pipeline_lib STATIC
     ${PROJECT_SOURCE_DIR}/pipeline/pipeline.cpp
+    ${PROJECT_SOURCE_DIR}/pipeline/pipeline_modes.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/pipeline_parser.cpp
-    ${PROJECT_SOURCE_DIR}/pipeline/cli.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/io.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/runtime_locator.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/build.cpp
@@ -16,7 +16,7 @@ add_library(pipeline_lib STATIC
     ${PROJECT_SOURCE_DIR}/pipeline/archive.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/module_info.cpp
 )
-target_link_libraries(pipeline_lib PUBLIC semantic_lib transpiler_lib solver_lib trust_include_dirs)
+target_link_libraries(pipeline_lib PUBLIC semantic_lib transpiler_lib solver_lib stdlib_lib driver_lib analysis_lib session_lib sourcemap_lib trust_include_dirs)
 target_link_libraries(pipeline_lib PRIVATE
     syntax_lib
     module_loader_lib
@@ -32,10 +32,10 @@ target_compile_definitions(pipeline_lib PRIVATE
     PROJECT_INCLUDE_DIR="${PROJECT_INCLUDE_DIR}"
 )
 
-# pipeline.cpp / source_map.cpp use C23 #embed (trust/dsl.src / LICENSE) -
-# suppress the extension warning.
+# source_map.cpp uses C23 #embed (LICENSE) - suppress the extension warning.
+# Ассеты stdlib здесь больше не вшиваются: они приходят из stdlib_lib
+# (src/assets/asset_provider.cpp, каталог include/assets/asset_catalog.hpp).
 set_source_files_properties(
-    ${PROJECT_SOURCE_DIR}/pipeline/pipeline.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/source_map.cpp
     PROPERTIES COMPILE_OPTIONS "-Wno-c23-extensions"
 )
@@ -62,3 +62,5 @@ target_link_libraries(trust PRIVATE
     diag_lib
     ast_lib
 )
+# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
+target_link_libraries(pipeline_lib PRIVATE trust_pch)

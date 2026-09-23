@@ -1,0 +1,37 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/type_check %s
+# RUN: $TD/type_check > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: a=true
+# CHECK: b=true
+# CHECK: c=true
+# CHECK: d=false
+# CHECK: e=true
+# CHECK: f=false
+
+# Операторы сравнения типов `<~`/`~~`/`~~~` в рантайме (статические проверки):
+#   a - значение Int8 принадлежит группе :Integers (абстрактная группа-цель);
+#   b - точное тождество типа значения (:Int8);
+#   c - :Dog является подтипом :Animal (наследование);
+#   d - :Animal НЕ является подтипом :Dog (обратное отношение);
+#   e - значение Dog имеет поле age (утиная проверка);
+#   f - значение Dog не имеет поля nope.
+
+:Animal ::= :Class{
+  age:Int32 := _;
+};
+:Dog ::= :Animal{
+  breed:Int32 := _;
+};
+
+@main():Int32 := {
+    x := 5;
+    @print('a={}\n', x <~ :Integers);
+    @print('b={}\n', x ~~~ :Int8);
+    @print('c={}\n', :Dog <~ :Animal);
+    @print('d={}\n', :Animal <~ :Dog);
+    y:Dog := Dog();
+    @print('e={}\n', y ~~ (age=_,));
+    @print('f={}\n', y ~~ (nope=_,));
+    @return 0;
+}

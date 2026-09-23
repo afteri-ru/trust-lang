@@ -15,6 +15,10 @@
 - **Пользовательские алиасы сохраняют имя** - `resolveCppType` для пользовательского алиаса (`TypeRegistry::isUserDefinedType`) возвращает trust-имя (`MyInt`, `Big`), для машинных и встроенных алиасов - каноническое C++-имя (`int64_t`, `std::string`). Include всегда от канонического типа. Нераспознанный/структурный тип - **явная ошибка** через `m_ctx.report(range, OptKind::ParseError, ...)`, fallback (`auto`, исходное имя) запрещён.
 - **Экспорт символов** - `exports()` возвращает список `ExportEntry{trustName, cppName}`, собранный в процессе генерации (например для `x := 42` и `%func() ::= {}`).
 - **Pipeline position** - расположен после SemanticAnalyzer; не запускается при наличии семантических ошибок.
+- **Не зависит от анализатора (`transpiler → semantic` разорвана)** - общие продукты анализа
+  (`SymbolTable`/`SymbolIndex`) и value-типы режимов живут в `include/analysis`; поведенческие режимы
+  (solver/stack-check) передаются как данные (`CppEmitContext::m_behavioral`), а не читаются из
+  `diag::Options`. `transpiler_lib` не линкует `semantic_lib`.
 - **Манглинг имён** - все trust-идентификаторы в C++-выводе конвертируются через единый конвертер
   `utils::name_to_cpp`: `x → c_x`, `MyInt → c_MyInt`, `ns → c_ns`; нативные имена с ведущим `%`
   срезаются и остаются без изменений (`%add → add`). Вставки `{% ... %}` оставляют C++-текст как есть,

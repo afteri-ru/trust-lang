@@ -1,0 +1,19 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# РЕАЛЬНОЕ использование операторов в TrustLang-выражениях (не только объявление):
+# `a(42)` → вызов C++ operator(), `a[7]` → (obj)[idx] (operator[]), `a == b` → operator==.
+:Point ::= :Class{
+    x: Int32 := _;
+    `==`(o: Point): Bool := { return true; };
+    `()`(i: Int32): Int32 := { return i; };
+    `[]`(i: Int32): Int32 := { return i; };
+};
+@main() := {
+    a : Point := :Point(1);
+    b : Point := :Point(2);
+    @print('{} {} {}\n', a == b, a(42), a[7]);
+    @return 0;
+}
+# CHECK: (c_a == c_b)
+# CHECK: c_a(42)
+# CHECK: (c_a)[7]

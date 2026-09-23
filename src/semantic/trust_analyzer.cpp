@@ -4,9 +4,9 @@
 #include "semantic/analysis_common.hpp"
 #include "semantic/format_check.hpp"
 #include "semantic/solver.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "semantic/type_inference.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
 #include "ast/token.hpp"
 #include "diag/diag.hpp"
 #include "diag/options.hpp"
@@ -15,7 +15,6 @@
 #include "types/promotion.hpp"
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
-#include "utils/operators.hpp"
 #include "utils/strings.hpp"
 #include <algorithm>
 #include <format>
@@ -61,8 +60,8 @@ void TrustAnalyzer::processTrustConditions(const std::vector<AstNodePtr>& trust,
     // Резолв имён в условиях (для любого активного режима/severity): невалидные имена - ошибки.
     // export/calculate не генерируют здесь - сбор VCs в SMT-LIB выполняет проход Solver (см. solver/).
     for (const auto& t : trust) {
-        if (auto* tc = dynamic_cast<TrustContract*>(t.get())) {
-            analyzeTrustContract(*tc);
+        if (t && t->is<TrustContract>()) {
+            analyzeTrustContract(*t->as<TrustContract>());
         }
     }
 }

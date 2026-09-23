@@ -1,0 +1,11 @@
+# RUN: %trust -q --emit-cpp -Wborrow-owner-moved=ignore -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out --implicit-check-not='while it is borrowed'
+
+# Анализатор ALWAYS ON (флага включения нет). Конкретная диагностика глушится уровнем
+# `-Wborrow-<name>=ignore`; при этом программа успешно транспилируется.
+@main() := {
+    &* x := 5;
+    &? w := & x;
+    x :=: _;
+    @print('{}\n', *w);
+}
+# CHECK: This file was generated automatically

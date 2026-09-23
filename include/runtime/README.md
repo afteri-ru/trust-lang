@@ -20,14 +20,14 @@ Runtime собирается двумя способами из одних и т
 Сейчас в них входит:
 
 - `Rational` - произвольная точность на основе GMP (`src/runtime/rational.cpp`,
-  публичный заголовок `include/trust/rational.hpp`).
+  публичный заголовок `include/runtime/trust/rational.hpp`).
 - ошибки/завершение: `trust::formatMessage` и `trust::trust__abort__`
-  (публичный заголовок `include/trust/assert.hpp`), а также глобальные потоки
+  (публичный заголовок `include/runtime/trust/assert.hpp`), а также глобальные потоки
   `trust::outs()`/`trust::errs()` и `trust::utils::backtrace_string()`
   (`src/utils/io.cpp`, `src/utils/backtrace.cpp`) - они доступны автономным
   сгенерированным программам.
 - форматный вывод: `trust::trust__print__` (публичный заголовок
-  `include/trust/io.hpp`) - `fmt`-подобная функция (стиль `std::format`),
+  `include/runtime/trust/io.hpp`) - `fmt`-подобная функция (стиль `std::format`),
   пишущая результат в `trust::outs()`; бэкенд DSL-макроса `print(fmt, args...)`.
   `trust::Rational` форматируется как символьная строка `num\den`
   (специализация `std::formatter<trust::Rational>` в `trust/rational.hpp`).
@@ -87,7 +87,12 @@ Makefile после объектных файлов.
   compile-time read-only режим). Самодостаточен (только std-заголовки, без threading); встраивается в
   trust-runtime (секция `trust/trusted-cpp.hpp`) и извлекается pipeline при использовании ссылочных
   типов/TAKE. МЕЖПОТОКОВАЯ синхронизация - отдельный заголовок `trust/trusted-cpp-sync.hpp`
-  (`SyncShared<V,Mutex>`, секция `trust/trusted-cpp-sync.hpp`), подключается только когда нужна.
+  (`AccessShared<V,Mutex>`, секция `trust/trusted-cpp-sync.hpp`), подключается только когда нужна.
+- `trust/resource.hpp` - встроенные deleter-типы внешних (не-память) ресурсов: `trust::FreeDeleter`
+  (`void operator()(void*)` → `std::free`) и `trust::FileDeleter` (`void operator()(std::FILE*)` →
+  `std::fclose`). Используются языковым атрибутом `@[deleter(D)]` на
+  владеющем виде (`@[reftype("unique"|"shared")]`): `D` входит в тип (`trust::Unique<T,D>`) или
+  стирается (`trust::Shared<T>` + `adopt`). Секция `trust/resource.hpp`; самодостаточен.
 - `trust/dict.hpp` - универсальный гетерогенный словарь `trust::Dict` (элементы
   `(имя, TypedValue{kind, std::any})` - тип элемента закодирован в `kind` (TypeKind:
   группа+размерность), декодируется методами `TypedValue` (`group()`/`data()`/предикаты

@@ -92,7 +92,7 @@ TEST_F(TrustLspTest, HandleCompletion_Types_ColonTypes) {
 
 TEST_F(TrustLspTest, HandleCompletion_Macros_AtPrefix) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // Комментарий с префиксом '@' - макросы берутся из @trust/dsl.
+    // Комментарий с префиксом '@' - макросы берутся из @stdlib/dsl.
     h.open("# @\n");
 
     json resp = h.at(0, 3, 104);

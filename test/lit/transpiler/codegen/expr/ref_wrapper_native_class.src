@@ -1,0 +1,17 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# Ref-обёртка НЕ должна теряться для структурных/нативных баз: shared/weak над native class
+# транслируются в trust::Shared<std::string> / trust::Weak<trust::Shared<std::string>>
+# (а не в голый std::string).
+
+@include("string")
+MyStr ::= %std::string { };
+
+@main():Int32 := {
+    s : @[reftype("shared")@] MyStr := 0;
+    w : @[reftype("weak")@] MyStr := s;
+    return 0;
+};
+# CHECK: #include <string>
+# CHECK: trust::Shared<std::string> c_s
+# CHECK: trust::Weak<trust::Shared<std::string>> c_w

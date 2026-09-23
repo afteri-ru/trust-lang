@@ -1,0 +1,17 @@
+# RUN: %not %trust -q --emit-cpp -Wborrowed=error -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# @[borrowed] копируется при создании (x := w) и при присваивании (y = w): обе переменные
+# становятся зависимыми от корневого источника 'a' и невалидны после его мутации.
+@main():Int32 := {
+    a := [1, 2, 3,];
+    @[borrowed@] w := a;
+    x := w;
+    y := [0, 0, 0,];
+    y = w;
+    a = [4, 5, 6,];
+    @print('{}\n', x);
+    @print('{}\n', y);
+    return 0;
+}
+# CHECK: error: using the dependent variable 'x' after changing the main variable 'a'
+# CHECK: error: using the dependent variable 'y' after changing the main variable 'a'

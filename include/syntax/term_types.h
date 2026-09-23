@@ -38,18 +38,28 @@ typedef std::vector<TermPtr> SequenceType;
     _(TYPE, TypeName)                                                     \
     _(TYPECAST, TypeName)                                                 \
     _(TYPEDUCK, TypeName)                                                 \
+    /* Набор допустимых типов `:A + :B` (объединение) / `-` (исключение):   */ \
+    /* только в определении типа `Name ::= :A + :B;` и inline `:(:A + :B)`. */ \
+    _(TYPE_SET, TypeSet)                                                  \
     _(ASSIGN, AssignOp)                                                   \
     _(INDEX, ArrayAccess)                                                 \
     _(FIELD, MemberAccess)                                                \
     _(TENSOR, ArrayInit)                                                  \
     _(DICT, DictLiteral)                                                  \
     _(CLASS, StructDecl)                                                  \
+    /* Лямбда-выражение (FuncDecl-узел): capture-list в m_sequence, params в m_args, тело в m_right, */ \
+    /* тип возврата в m_type. Отличие от именованной функции - наличии списка захватов (FuncDecl::m_captures). */ \
+    _(LAMBDA, FuncDecl)                                                   \
+    /* Немедленный вызов лямбды `( lambda )(args)` (каноническая обёрнутая форма): m_left - лямбда-терм, */ \
+    /* m_args - аргументы вызова. Отдельный TermID (не NAME-вызов), т.к. callee - не идентификатор. */   \
+    _(LAMBDA_CALL, CallExpr)                                              \
     /* -- Не-терминалы: trust-контракты (единая форма, kind в поле) -- */ \
     _(TRUST_CONTRACT, TrustContract)                                      \
     _(TRUST_ELEM, TrustElem)                                              \
     /* -- Не-терминалы: Unimplemented -- */                               \
     _(TYPENAME, Unimplemented)                                            \
-    _(FILLING, Unimplemented)                                             \
+    /* Заполнение оставшихся позиций приёмника `... expr ...` (Sequence: m_body = [операнд]). */ \
+    _(FILLING, Filling)                                                   \
     /* -- Не-терминалы: NotApplicable -- */                               \
     _(COMMA_LEXEME, NotApplicable, T)                                     \
     _(MACRO_LEXEME, NotApplicable, T)                                     \
@@ -97,11 +107,8 @@ typedef std::vector<TermPtr> SequenceType;
     _(APPEND, AppendStmt, T)                                              \
     _(SWAP, AssignmentStmt, T)                                            \
     _(FUNCTION, FuncDecl, T)                                              \
-    _(COROUTINE, FuncDecl, T)                                             \
     _(ITERATOR, FuncDecl, T)                                              \
     _(OPERATOR_PTR, RefMakeExpr, T)                                       \
-    _(NATIVE_REF_MAKE, NativeRefMakeExpr, T)                              \
-    _(NATIVE_REF_PTR, NativeRefMakeExpr, T)                               \
     _(FOLLOW, IfStmt, T)                                                  \
     _(WHILE, WhileStmt, T)                                                \
     _(DOWHILE, DoWhileStmt, T)                                            \
@@ -112,6 +119,7 @@ typedef std::vector<TermPtr> SequenceType;
     _(ELLIPSIS, Ellipsis, T)                                              \
     _(OP_LOGICAL, LogicalOp, T)                                           \
     _(OP_MATH, MathOp, T)                                                 \
+    _(OP_ASSIGN, AssignOp, T)                                             \
     _(OP_COMPARE, CompareOp, T)                                           \
     _(OP_BITWISE, BitwiseOp, T)                                           \
     _(EMBED, EmbedExpr, T)                                                \

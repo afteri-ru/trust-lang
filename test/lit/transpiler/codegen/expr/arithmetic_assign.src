@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %T --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 
 # Проверка генерации составных операторов присваивания
 x:Int32 := 10;

@@ -8,14 +8,17 @@
 
 #include "ast/ast_nodes.hpp"
 #include "ast/token.hpp"
-#include "diag/mapper.hpp"
+#include "sourcemap/mapper.hpp"
 #include "location/location.hpp"
+#include "types/int_literal.hpp"
+#include "types/operator_registry.hpp"
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
 #include "types/type_names.hpp"
-#include "types/int_literal.hpp"
+#include "utils/strings.hpp"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace trust {
@@ -142,6 +145,19 @@ inline std::vector<DictElement> dictElements(const DictLiteralNode& n) {
         out.push_back(DictElement{std::string(a.text()), a.m_value.get(), a.resultType});
     }
     return out;
+}
+
+/// C++-имя функции/метода/оператора - ЕДИНАЯ точка вычисления (кодоген + экспорт модуля +
+/// forward-decl): оператор (имя-СИМВОЛ) → `operator<sym>` (types/operator_registry.hpp);
+/// entry-функция модуля (`<модуль>__main__`) → сырое имя без манглинга; иначе - name_to_cpp.
+inline std::string cppFuncName(std::string_view trustName, bool isOperator, bool isEntry) {
+    if (isOperator) {
+        return op::operatorCppName(trustName);
+    }
+    if (isEntry) {
+        return std::string(utils::strip_native_prefix(trustName));
+    }
+    return utils::name_to_cpp(trustName);
 }
 
 } // namespace trust

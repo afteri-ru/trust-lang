@@ -1,0 +1,43 @@
+# RUN: %trust --emit-cpp %s 2>&1 | %FileCheck %s
+# REQUIRES: not-release
+
+#
+# Проверка регистрации имён в СКОУПАХ при анализе класса:
+#   - класс-скоуп открывается через NameResolutionPass::enterScope (тег `scope`), поэтому хуки
+#     уведомляются и их фреймы синхронны со скоуп-стеком ядра;
+#   - поле класса и метод регистрируются в КЛАСС-скоупе (depth=3 = global+module+class);
+#   - параметр и локальная переменная метода - в скоупе МЕТОДА (depth=4);
+#   - @__DEBUG_SCOPE__() показывает фактическое содержимое каждого уровня.
+# Формат: сообщения TRUST_DEBUG - префикс `компиляторный файл:строка: `; вывод @__DEBUG__/
+# @__DEBUG_SCOPE__ - префикс `<.src>:строка: ` (локация самого макроса).
+# Проверяемый вывод размещён НЕПОСРЕДСТВЕННО после соответствующего места в исходнике.
+#
+@__DEBUG__("scope,declare");
+# CHECK: .../class_debug.src:{{[0-9]+}}: @__DEBUG__: debug messages ENABLED, filter='scope,declare'
+# Класс-скоуп открывается через enterScope:
+# CHECK: {{.*}}: enter StructDecl depth=3
+:Counter ::= :Class{
+    # Поле -> КЛАСС-скоуп:
+    # CHECK: {{.*}}: var 'value' depth=3
+    value:Int32 := 0;
+    # Метод -> КЛАСС-скоуп:
+    # CHECK: {{.*}}: func 'add' depth=3
+    add(delta:Int32):Int32 := {
+        # Скоуп метода (depth=4) и локальная переменная в нём:
+        # CHECK: {{.*}}: enter FuncDecl depth=4
+        # CHECK: {{.*}}: var '$tmp' depth=4
+        tmp := delta + value;
+        # Дамп всех уровней: параметр+локальная в скоупе метода, поле+метод в класс-скоупе
+        # CHECK: .../class_debug.src:{{[0-9]+}}: scope: depth=4 names=
+        # CHECK: .../class_debug.src:{{[0-9]+}}:   [3] FuncDecl `add`: $tmp, delta
+        # CHECK: .../class_debug.src:{{[0-9]+}}:   [2] StructDecl `Counter`: add, value
+        # CHECK: .../class_debug.src:{{[0-9]+}}:   [1] ModuleDecl
+        # CHECK: .../class_debug.src:{{[0-9]+}}:   [0] global
+        @__DEBUG_SCOPE__(level=all);
+        return tmp;
+    };
+};
+# Класс-скоуп закрывается (тоже через exitScope - хуки уведомлены):
+# CHECK: {{.*}}: exit StructDecl depth=3
+# Имя record-типа регистрируется во ВНЕШНЕМ скоупе (тег `declare` для типов, depth=2):
+# CHECK: {{.*}}: type 'Counter' depth=2

@@ -6,8 +6,8 @@
 #include "lsp/analysis_service.hpp"
 #include "lsp/hover_service.hpp"
 #include "lsp/navigation_service.hpp"
-#include "diag/context.hpp"
-#include "semantic/symbol_index.hpp"
+#include "session/context.hpp"
+#include "analysis/symbol_index.hpp"
 #include "types/registry.hpp"
 
 #include <nlohmann/json.hpp>

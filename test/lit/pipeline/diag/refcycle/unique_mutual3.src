@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Взаимное эксклюзивное владение по кругу из 3 типов (unique-указатели) -> -Wrecursive-unique.
+:B ::= :Class ...;
+:C ::= :Class ...;
+:A ::= :Class{ b : @[reftype("unique")@] @[deleter(FreeDeleter)@] B := _; };
+:B ::= :Class{ c : @[reftype("unique")@] @[deleter(FreeDeleter)@] C := _; };
+:C ::= :Class{ a : @[reftype("unique")@] @[deleter(FreeDeleter)@] A := _; };
+@main():Int32 := { return 0; };
+# CHECK: error: mutually exclusive ('unique') ownership cycle in class fields

@@ -47,6 +47,20 @@ class NameResolutionPass {
     /// это делает analyzeNode.
     void analyzeChildren(AstNodePtr& self);
 
+    // -- Обработчики групп узлов обхода (вынесены из analyzeNode; name_resolution_nodes.cpp) --
+    /// Скоуп-контейнеры (ModuleDecl/sequence/ScopeBlock/TryCatchStmt): вложенный скоуп на тело.
+    void analyzeScopeContainer(AstNodePtr& self);
+    /// Оператор with(...){...}else{...} (RAII-менеджер контекста): биндинги, тело, ветка else.
+    void analyzeWithStmt(AstNodePtr& self);
+    /// Объявление функции/лямбды/нативного шаблона-типа.
+    void analyzeFuncDeclNode(AstNodePtr& self);
+    /// Ветка catch(...) : отдельный вложенный скоуп + связывание переменной.
+    void analyzeCatchBlockNode(AstNodePtr& self);
+    /// Термин решателя trust-контракта @( term, args... @); для кванторов - связка.
+    void analyzeTrustElemNode(AstNodePtr& self);
+    /// Пост-порядковая обработка узла: типизация + синтетические временные ($^ / match / return).
+    void analyzeNodeTail(AstNodePtr& self);
+
     // -- Definite-assignment (ветвящиеся конструкты if/else-if/else и match) --
     // ЕДИНЫЙ механизм для всех пер-Symbol флагов (kSymbolFlagsMask: Inferred/Const/Uninit).
     // На входе creator-скоупа снапшотим маску флагов переменных; каждый «arm» ветвления
@@ -107,6 +121,11 @@ class NameResolutionPass {
     /// Проверка встроенного маркера `@__CHECK_AREA__`: валидирует текущую область (из
     /// единого скоуп-стека - создатели скоупов) и атрибуты области, затем удаляет маркер.
     void analyzeCheckAreaStmt(AstNodePtr& self);
+    /// Обработка встроенных системных маркеров отладочного вывода (УРОВЕНЬ 1): `@__DEBUG__(...)`
+    /// устанавливает (пустой => сбрасывает) фильтр вывода; `@__DEBUG_SCOPE__(...)` печатает дамп
+    /// состояния скоупа анализатора в этой точке (если ключевые слова проходят под фильтр).
+    /// Маркер кода не генерирует и УДАЛЯЕТСЯ после обработки.
+    void analyzeDebugStmt(AstNodePtr& self);
     /// Проверка атрибута `@[matcher("fn")]` на операторе match: резолвит имя функции-предиката
     /// `bool fn(T_value, T_pattern)` и проверяет её объявление (арность=2, возврат bool). Вызывается
     /// пост-порядково для MatchingStmt (типы scrutinee/pattern уже известны). Код не генерирует.

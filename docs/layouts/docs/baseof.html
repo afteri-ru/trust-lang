@@ -26,6 +26,7 @@
             {{ partial "taxonomy_terms_clouds.html" . }}
           </aside>
           <main class="col-12 col-md-9 col-xl-8 ps-md-5" role="main">
+            {{ partial "dev-notice.html" . }}
             {{ partial "version-banner.html" . }}
             {{ if not (.Param "ui.breadcrumb_disable") -}}
               {{ partial "breadcrumb.html" . -}}

@@ -85,12 +85,12 @@ NOW_ISO=$(timestamp_to_iso "$NOW_MS") || {
   exit 0
 }
 
-CONTEXT_SIZE=$(echo "$INPUT" | jq -r '.preCompact.contextSize')
-STRATEGY=$(echo "$INPUT" | jq -r '.preCompact.compactionStrategy')
-TOKENS_IN=$(echo "$INPUT" | jq -r '.preCompact.tokensIn')
-TOKENS_OUT=$(echo "$INPUT" | jq -r '.preCompact.tokensOut')
-TOKENS_IN_CACHE=$(echo "$INPUT" | jq -r '.preCompact.tokensInCache')
-TOKENS_OUT_CACHE=$(echo "$INPUT" | jq -r '.preCompact.tokensOutCache')
+CONTEXT_SIZE=$(echo "$INPUT" | jq -r '.preCompact.contextSize // empty')
+STRATEGY=$(echo "$INPUT" | jq -r '.preCompact.compactionStrategy // empty')
+TOKENS_IN=$(echo "$INPUT" | jq -r '.preCompact.tokensIn // empty')
+TOKENS_OUT=$(echo "$INPUT" | jq -r '.preCompact.tokensOut // empty')
+TOKENS_IN_CACHE=$(echo "$INPUT" | jq -r '.preCompact.tokensInCache // empty')
+TOKENS_OUT_CACHE=$(echo "$INPUT" | jq -r '.preCompact.tokensOutCache // empty')
 
 # Build log line with available fields
 LOG_FIELDS=""

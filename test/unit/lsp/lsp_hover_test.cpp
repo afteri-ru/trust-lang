@@ -46,19 +46,24 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForCompoundAssignment) {
     std::string cppPath = fs::absolute(fs::path(testCppDir) / "test.cppt").string();
     std::string cppUri = "file://" + cppPath;
 
-    // Hover over `x` in `x += 5;`. Номер строки зависит от prepended-инклудов
-    // рантайма (напр. `#include <cstdint>`), поэтому ищем её динамически.
+    // Hover over the emitted compound-assignment expression (default -foverflow-check:
+    // `__builtin_add_overflow(c_x, 5, &c_x) ...`). Номер строки зависит от prepended-инклудов
+    // рантайма (напр. `#include <cstdint>`), поэтому ищем её динамически; колонку берём по
+    // первому вхождению `c_x` (курсор должен стоять на идентификаторе, а не на `(`).
     std::ifstream ifs(cppPath);
     std::string cppText((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
     int x5Line = -1;
+    int x5Char = 0;
     {
         int n = 0;
         size_t p = 0;
         while (p <= cppText.size()) {
             auto nl = cppText.find('\n', p);
             std::string line = (nl == std::string::npos) ? cppText.substr(p) : cppText.substr(p, nl - p);
-            if (line.find("x += 5") != std::string::npos) {
+            auto callPos = line.find("__builtin_add_overflow(c_x, 5, &c_x)");
+            if (callPos != std::string::npos) {
                 x5Line = n;
+                x5Char = static_cast<int>(line.find("c_x", callPos));
             }
             if (nl == std::string::npos) {
                 break;
@@ -67,12 +72,12 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForCompoundAssignment) {
             ++n;
         }
     }
-    ASSERT_GE(x5Line, 0) << "x += 5 line not found in cppt:\n" << cppText;
+    ASSERT_GE(x5Line, 0) << "compound-assignment expression not found in cppt:\n" << cppText;
 
     json hoverReq = {{"jsonrpc", "2.0"},
                      {"id", 42},
                      {"method", "textDocument/hover"},
-                     {"params", {{"textDocument", {{"uri", cppUri}}}, {"position", {{"line", x5Line}, {"character", 0}}}}}};
+                     {"params", {{"textDocument", {{"uri", cppUri}}}, {"position", {{"line", x5Line}, {"character", x5Char}}}}}};
     lsp->handleRequest(hoverReq);
 
     ASSERT_FALSE(transport.capturedOutput.empty());
@@ -305,10 +310,10 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
                             EXPECT_NE(std::string(item).find(cppUri), std::string::npos) << "macro forward link must point into cpp:\n" << resp.dump();
                         }
                         if (item.is_string() && std::string(item).find("[Macro: ") != std::string::npos) {
-                            // Вторая ссылка - на определение макроса в trust/dsl.src (должна вести в него).
+                            // Вторая ссылка - на определение макроса в stdlib/dsl.src (должна вести в него).
                             sawMacroDefLink = true;
-                            EXPECT_NE(std::string(item).find("trust/dsl.src"), std::string::npos) << "macro def link must point into trust/dsl.src:\n"
-                                                                                                  << resp.dump();
+                            EXPECT_NE(std::string(item).find("stdlib/dsl.src"), std::string::npos) << "macro def link must point into stdlib/dsl.src:\n"
+                                                                                                   << resp.dump();
                         }
                     }
                 }

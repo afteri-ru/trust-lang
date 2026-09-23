@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# `unique` без deleter'а = StaticUnique (значение inline) -> self-ссылка = бесконечный размер
+# (-Wrecursive-value), а НЕ strong-ref цикл.
+:Node ::= :Class{ next : @[reftype("unique")@] Node := _; };
+@main():Int32 := { return 0; };
+# CHECK: error: recursive value containment in class fields

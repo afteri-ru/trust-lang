@@ -1,0 +1,15 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# Класс реализации механизма доступа (3-й аргумент reftype) входит в тип и композируется
+# третьим параметром обёртки: shared<T, AccessMutex, Impl> -> trust::AccessShared<T, Policy, Impl>.
+@include("mutex")
+MyMutex ::= %std::timed_mutex {
+};
+
+@main():Int32 := {
+    x : @[reftype("shared", "AccessMutex", "MyMutex")@] Int32 := 5;
+    y := *x;
+    return :Int32(y);
+};
+# CHECK: trust::AccessShared<int32_t, trust::AccessMutex, std::timed_mutex> c_x(5);
+# CHECK: *(c_x.lock())

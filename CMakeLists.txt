@@ -160,6 +160,7 @@
 #     #   -DWITH_SOLVER=ON       SMT solver Z3
 #     #   -DTRUST_BUILD_VSIX=OFF  отключить сборку .vsix (требует Node.js/npm)
 #     #   -DTRUST_BUILD_PACKAGE=ON  архив + deb даже на dev-сборке (default: ON в Release)
+#     #   -DTRUST_USE_PCH=OFF    отключить общий precompiled header (в release ОБЯЗАТЕЛЬНО OFF)
 #
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -229,6 +230,28 @@ if(TRUST_BUILD_MODE STREQUAL "release")
     set(_trust_mode_release ON)
 endif()
 
+# -- Shared precompiled header (build-time optimization; dev-focused) --
+# A PCH precompiles the stable, heavy header prefix (libstdc++ + AST/types/analysis) once,
+# cutting per-TU front-end time. It is a pure optimization: it must NEVER be load-bearing, so
+# every TU has to compile with TRUST_USE_PCH=OFF (that config is the mandatory verification one).
+# Release builds MUST NOT use the PCH: the distributed artifact is compiled from fully explicit
+# includes (a PCH can mask a missing #include). Overriding to ON is a configuration error.
+# Defined BEFORE the release-consistency gate so this cheap, self-contained misconfiguration is
+# reported first (fail fast).
+set(_trust_pch_default ON)
+if(_trust_mode_release)
+    set(_trust_pch_default OFF)
+endif()
+option(TRUST_USE_PCH "Use the shared project precompiled header (build speedup)" ${_trust_pch_default})
+if(_trust_mode_release AND TRUST_USE_PCH)
+    message(FATAL_ERROR
+        "Release build configuration error: TRUST_USE_PCH=ON is not allowed in release builds.\n"
+        "  A release artifact must be compiled with explicit includes only (a PCH can mask a missing #include).\n"
+        "Fix:\n"
+        "    cmake -B _build -DCMAKE_BUILD_TYPE=Release -DTRUST_USE_PCH=OFF\n"
+        "  For everyday work use a dev build (CMAKE_BUILD_TYPE=Debug) with TRUST_USE_PCH=ON.")
+endif()
+
 # Release-consistency gate (configuration time): a release build embeds the clean release
 # number, so it is allowed only on a release branch 'release/<MAJOR>.<MINOR>.X' or
 # 'release/<MAJOR>.X' (number matches VERSION) with HEAD exactly on the ANNOTATED release tag
@@ -248,6 +271,20 @@ option(WITH_SOLVER "Enable SMT solver (Z3) for formal verification" OFF)
 option(TRUST_BUILD_VSIX "Build trust-lang VSIX package (requires Node.js)" ${_trust_mode_release})
 option(TRUST_BUILD_DAP "Build trust-dap debug adapter (requires GDB)" OFF)
 option(TRUST_BUILD_PACKAGE "Build distribution archive and Debian package (and run their tests)" ${_trust_mode_release})
+
+# -- Compiler debug tracing (two levels: C++ TRUST_DEBUG/TRUST_SCOPE and TrustLang @__DEBUG__/@__DEBUG_SCOPE__) --
+# TRUST_TRACE_ENABLED=1 in dev builds, 0 in release: at 0 the C++ macros are compiled out entirely
+# (arguments not evaluated) and the TrustLang system macros produce no output (a warning instead).
+set(_trust_trace_default ON)
+if(_trust_mode_release)
+    set(_trust_trace_default OFF)
+endif()
+option(TRUST_ENABLE_TRACE "Enable compiler debug tracing (TRUST_TRACE_ENABLED)" ${_trust_trace_default})
+if(TRUST_ENABLE_TRACE)
+    add_compile_definitions(TRUST_TRACE_ENABLED=1)
+else()
+    add_compile_definitions(TRUST_TRACE_ENABLED=0)
+endif()
 
 # -- Clean-tree pre-check severity for artifact targets (package / deb / VSIX) --
 # Artifacts that embed VERSION/TRUST_VERSION must correspond to a committed state: hard error in
@@ -305,7 +342,7 @@ message(STATUS "═════════════════════�
 
 # -- Interface targets --
 add_library(trust_include_dirs INTERFACE)
-target_include_directories(trust_include_dirs INTERFACE ${PROJECT_INCLUDE_DIR} ${CMAKE_BINARY_DIR}/include)
+target_include_directories(trust_include_dirs INTERFACE ${PROJECT_INCLUDE_DIR} ${PROJECT_INCLUDE_DIR}/runtime ${CMAKE_BINARY_DIR}/include)
 
 # -- Unified LLVM system include target --
 add_library(trust_llvm_dirs INTERFACE)
@@ -314,20 +351,30 @@ target_include_directories(trust_llvm_dirs SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS}
 # -- Subdirectories --
 add_subdirectory(include/trust)
 
-if(WITH_TORCH)
-    add_subdirectory(include/precompiled)
-endif()
+# Precompiled headers: torch_pch (WITH_TORCH) / trust_pch (TRUST_USE_PCH). Always added: the
+# trust_pch INTERFACE target must exist for component targets that link it unconditionally.
+add_subdirectory(include/precompiled)
 
 add_subdirectory(include/location)
 add_subdirectory(include/module_loader)
 add_subdirectory(include/diag)
+add_subdirectory(include/sourcemap)
+add_subdirectory(include/session)
+add_subdirectory(include/attrs)
 add_subdirectory(include/ast)
 add_subdirectory(include/types)
+add_subdirectory(include/analysis)
 add_subdirectory(include/semantic)
 add_subdirectory(include/transpiler)
 add_subdirectory(include/utils)
+# Стандартная библиотека: ассеты (.src/.hpp) + провайдер src/stdlib/stdlib_assets.cpp.
+# ДО include/pipeline: pipeline_lib линкует stdlib_lib (извлечение stdlib-заголовков),
+# include/lsp получает его транзитивно через pipeline_lib.
+add_subdirectory(include/assets)
+add_subdirectory(include/stdlib)
 add_subdirectory(include/pipeline)
 add_subdirectory(include/solver)
+add_subdirectory(include/driver)
 add_subdirectory(include/runtime)
 add_subdirectory(include/debug)
 add_subdirectory(include/lsp)

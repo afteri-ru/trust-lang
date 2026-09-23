@@ -9,12 +9,13 @@
 //                 и явных вызовов %trust_stack_check / %trust_stack_check_set_limit;
 //   - recursion - как explicit + диагностика (-Wstack-check-infer) незащищённых рекурсивных функций;
 //   - auto      - как explicit + авто-маркировка рекурсивных функций stack_guard-маркером.
-// Значение по умолчанию - explicit. Владелец флага - semantic (как solver-mode): его читают и
-// семантика (анализатор рекурсии), и транспилятор (вставка проверок) через stackCheckModeFromOptions.
+// Значение по умолчанию - explicit. Владелец флага - semantic; VALUE-тип режима и чистые хелперы —
+// в `analysis/modes.hpp` (разделяются анализом и кодогеном как данные).
 //
 // Защитный запас (reserve) задаётся value-флагом FlagKind::StackCheckReserve (`--stack-check-reserve=<bytes>`);
 // значение - целое число байт; по умолчанию (пусто) используется рантайм-дефолт STACK_RESERVE (8192).
 
+#include "analysis/modes.hpp"
 #include "diag/options.hpp"
 #include "semantic/diag.hpp"
 
@@ -27,40 +28,13 @@
 namespace trust {
 namespace semantic {
 
-// -- Единый источник значений поведенческого флага `--stack-check` (X-макрос) -------------
-#define STACK_CHECK_MODE_LIST(M) \
-    M(kOff, "off")               \
-    M(kExplicit, "explicit")     \
-    M(kRecursion, "recursion")   \
-    M(kAuto, "auto")
-
-#define STACK_CHECK_MODE_ENUM(name, cli) name,
-enum class StackCheckMode { STACK_CHECK_MODE_LIST(STACK_CHECK_MODE_ENUM) };
-#undef STACK_CHECK_MODE_ENUM
-
-#define STACK_CHECK_MODE_NAME(name, cli) cli,
-inline constexpr std::string_view kStackCheckModeNames[] = {STACK_CHECK_MODE_LIST(STACK_CHECK_MODE_NAME)};
-#undef STACK_CHECK_MODE_NAME
-
-inline constexpr std::size_t kStackCheckModeCount = sizeof(kStackCheckModeNames) / sizeof(kStackCheckModeNames[0]);
-
-/// Имя режима (для диагностик/справки). Известное значение обязательно.
-[[nodiscard]] inline std::string_view stackCheckModeName(StackCheckMode m) noexcept {
-    const int idx = static_cast<int>(m);
-    return (idx >= 0 && idx < static_cast<int>(kStackCheckModeCount)) ? kStackCheckModeNames[idx] : "unknown";
-}
-
-/// Разбор строкового значения `--stack-check`. Неизвестное значение - nullopt (без тихого fallback).
-[[nodiscard]] inline std::optional<StackCheckMode> parseStackCheckMode(std::string_view v) noexcept {
-    for (std::size_t i = 0; i < kStackCheckModeCount; ++i) {
-        if (kStackCheckModeNames[i] == v) {
-            return static_cast<StackCheckMode>(i);
-        }
-    }
-    return std::nullopt;
-}
-
-#undef STACK_CHECK_MODE_LIST
+// Value-типы и имена нативных функций — из `analysis` (единый источник).
+using analysis::kStackCheckModeCount;
+using analysis::kStackCheckModeNames;
+using analysis::parseStackCheckMode;
+using analysis::StackCheckMode;
+using analysis::stackCheckModeName;
+namespace stack_check_fn = analysis::stack_check_fn;
 
 /// Режим контроля стека из diag::Options (значение флага StackCheck). По умолчанию - kExplicit.
 /// Если флаг отключён (`-Wno-stack-check` / `@__OPTION__("stack-check","off")`, значение сброшено) -

@@ -16,7 +16,7 @@
 #include "syntax/predef_macro.hpp"
 #include "syntax/pragma_evaluator.hpp"
 #include "syntax/term.h"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 
 #include <algorithm>
 #include <string>
@@ -61,7 +61,9 @@ TEST(PredefPragmaCompleteness, AllContextMacrosStamped) {
         // транзитным маркером, а захватывается в GetNextToken (PragmaEvaluator::evalCheckArea)
         // и превращается в единый терм-маркер CheckAreaStmt. Голый @__CHECK_AREA__ (без скобок)
         // штамповать нечему - это ошибка разбора, а не значение/имя.
-        if (name == "@__CHECK_AREA__") {
+        // @__DEBUG__/@__DEBUG_SCOPE__ - аналогичные маркеры с аргументами: захватываются
+        // в PragmaEvaluator::evalDebug и превращаются в узел DebugStmt.
+        if (name == "@__CHECK_AREA__" || name == "@__DEBUG__" || name == "@__DEBUG_SCOPE__") {
             continue;
         }
         auto term = Term::Create(TermID::MACRO, name, makeValidRange(ctx, f), parser::token_type::MACRO);

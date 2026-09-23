@@ -5,7 +5,7 @@
 #include "types/registry.hpp"
 #include "types/type_names.hpp"
 #include "utils/strings.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "gtest/gtest.h"
 
 #include <memory>
@@ -24,6 +24,12 @@ class TypeMethodFixture : public ::testing::Test {
     std::unique_ptr<TypeRegistry> m_types;
 };
 
+// Единственная сигнатура метода по имени (встроенные методы не перегружены).
+static TypeId findMethodSig(TypeRegistry& reg, TypeId type, std::string_view name) {
+    const auto m = reg.findMethodInfo(type, name);
+    return m ? m->signatures.front() : INVALID_TYPE_ID;
+}
+
 TEST_F(TypeMethodFixture, CStringTypeRegistered) {
     TypeRegistry& reg = m_ctx.types();
     const TypeId cstr = reg.getType("CString");
@@ -39,7 +45,7 @@ TEST_F(TypeMethodFixture, StrCharHasCStrMethod) {
     ASSERT_NE(strChar, INVALID_TYPE_ID);
 
     // Обычное имя находит нативный метод (ОДНА СТОРОНА). Метод - функциональный тип.
-    const TypeId m = reg.findMethod(strChar, "c_str");
+    const TypeId m = findMethodSig(reg, strChar, "c_str");
     ASSERT_NE(m, INVALID_TYPE_ID);
     const auto* fd = reg.getTypeDataAs<FunctionTypeData>(m);
     ASSERT_NE(fd, nullptr);
@@ -47,12 +53,12 @@ TEST_F(TypeMethodFixture, StrCharHasCStrMethod) {
     EXPECT_TRUE(fd->paramTypes.empty());
 
     // Нативное имя - точное совпадение.
-    const TypeId mn = reg.findMethod(strChar, "%c_str");
+    const TypeId mn = findMethodSig(reg, strChar, "%c_str");
     ASSERT_NE(mn, INVALID_TYPE_ID);
     EXPECT_EQ(mn, m); // одна и та же сигнатура → один функциональный тип (интернирование)
 
     // Несуществующий метод - INVALID_TYPE_ID.
-    EXPECT_EQ(reg.findMethod(strChar, "nope"), INVALID_TYPE_ID);
+    EXPECT_EQ(findMethodSig(reg, strChar, "nope"), INVALID_TYPE_ID);
 }
 
 TEST_F(TypeMethodFixture, StrCharStringMethods) {
@@ -64,24 +70,24 @@ TEST_F(TypeMethodFixture, StrCharStringMethods) {
     ASSERT_NE(strChar, INVALID_TYPE_ID);
 
     // size()/length() → UInt64 (размер std::string). Общие сигнатуры интернируются в один тип.
-    const auto* sz = reg.getTypeDataAs<FunctionTypeData>(reg.findMethod(strChar, "size"));
-    const auto* len = reg.getTypeDataAs<FunctionTypeData>(reg.findMethod(strChar, "length"));
+    const auto* sz = reg.getTypeDataAs<FunctionTypeData>(findMethodSig(reg, strChar, "size"));
+    const auto* len = reg.getTypeDataAs<FunctionTypeData>(findMethodSig(reg, strChar, "length"));
     ASSERT_NE(sz, nullptr);
     ASSERT_NE(len, nullptr);
-    EXPECT_EQ(reg.findMethod(strChar, "size"), reg.findMethod(strChar, "length"));
+    EXPECT_EQ(findMethodSig(reg, strChar, "size"), findMethodSig(reg, strChar, "length"));
     EXPECT_EQ(sz->returnType, u64);
     EXPECT_EQ(len->returnType, u64);
 
     // empty() → Bool.
-    const auto* em = reg.getTypeDataAs<FunctionTypeData>(reg.findMethod(strChar, "empty"));
+    const auto* em = reg.getTypeDataAs<FunctionTypeData>(findMethodSig(reg, strChar, "empty"));
     ASSERT_NE(em, nullptr);
     EXPECT_EQ(em->returnType, bo);
 
     // data() → CString (const char*).
-    const auto* dt = reg.getTypeDataAs<FunctionTypeData>(reg.findMethod(strChar, "data"));
+    const auto* dt = reg.getTypeDataAs<FunctionTypeData>(findMethodSig(reg, strChar, "data"));
     ASSERT_NE(dt, nullptr);
     EXPECT_EQ(dt->returnType, cstr);
-    EXPECT_EQ(reg.findMethod(strChar, "data"), reg.findMethod(strChar, "c_str"));
+    EXPECT_EQ(findMethodSig(reg, strChar, "data"), findMethodSig(reg, strChar, "c_str"));
 }
 
 // Инвариант «одна форма имени»: повторная регистрация метода в любой из двух форм - ошибка.
@@ -114,11 +120,11 @@ TEST_F(TypeMethodFixture, RangeHasBuiltinMethods) {
 
     const auto count = reg.findMethodInfo(range, "count");
     ASSERT_TRUE(count.has_value());
-    EXPECT_EQ(count->funcType, reg.findMethod(range, "count"));
+    EXPECT_EQ(count->signatures.front(), findMethodSig(reg, range, "count"));
     EXPECT_EQ(utils::bare_name(count->key), "count");
     EXPECT_TRUE(utils::is_native_name(count->key));
     EXPECT_TRUE(utils::is_const_name(count->key)); // %count^
-    const auto* fd = reg.getTypeDataAs<FunctionTypeData>(count->funcType);
+    const auto* fd = reg.getTypeDataAs<FunctionTypeData>(count->signatures.front());
     ASSERT_NE(fd, nullptr);
     EXPECT_EQ(fd->returnType, int64);
     EXPECT_TRUE(fd->paramTypes.empty());
@@ -129,7 +135,7 @@ TEST_F(TypeMethodFixture, RangeHasBuiltinMethods) {
     ASSERT_TRUE(length.has_value());
     EXPECT_EQ(length->key, count->key);
     EXPECT_EQ(utils::bare_name(length->key), "count");
-    EXPECT_EQ(length->funcType, count->funcType);
+    EXPECT_EQ(length->signatures.front(), count->signatures.front());
 
     // size() - собственное нативное имя.
     const auto size = reg.findMethodInfo(range, "size");
@@ -154,7 +160,7 @@ TEST_F(TypeMethodFixture, AddMethodConstNonConstOverloads) {
     const auto info = reg.findMethodInfo(t, "get");
     ASSERT_TRUE(info.has_value());
     EXPECT_EQ(utils::bare_name(info->key), "get");
-    EXPECT_EQ(info->funcType, sig);
+    EXPECT_EQ(info->signatures.front(), sig);
     // Точный дубль (та же константность) - ошибка.
     EXPECT_THROW(reg.addMethod(t, "%get^", sig), std::runtime_error);
 }
@@ -179,7 +185,7 @@ TEST_F(TypeMethodFixture, RangeParametricSubstitution) {
     // instantiateRangeMethod подставляет T→Int64.
     const auto at = reg.findMethodInfo(ri, "at");
     ASSERT_TRUE(at.has_value());
-    const auto* fd = reg.getTypeDataAs<FunctionTypeData>(reg.instantiateRangeMethod(ri, at->funcType));
+    const auto* fd = reg.getTypeDataAs<FunctionTypeData>(reg.instantiateRangeMethod(ri, at->signatures.front()));
     ASSERT_NE(fd, nullptr);
     EXPECT_EQ(fd->returnType, int64); // at(i) → Int64 (не типовой параметр)
     ASSERT_EQ(fd->paramTypes.size(), 1u);
@@ -188,14 +194,14 @@ TEST_F(TypeMethodFixture, RangeParametricSubstitution) {
     // start() → T → Int64.
     const auto start = reg.findMethodInfo(ri, "start");
     ASSERT_TRUE(start.has_value());
-    const auto* sfd = reg.getTypeDataAs<FunctionTypeData>(reg.instantiateRangeMethod(ri, start->funcType));
+    const auto* sfd = reg.getTypeDataAs<FunctionTypeData>(reg.instantiateRangeMethod(ri, start->signatures.front()));
     ASSERT_NE(sfd, nullptr);
     EXPECT_EQ(sfd->returnType, int64);
 
     // contains(T) → Bool: параметр T→Int64.
     const auto contains = reg.findMethodInfo(ri, "contains");
     ASSERT_TRUE(contains.has_value());
-    const auto* cfd = reg.getTypeDataAs<FunctionTypeData>(reg.instantiateRangeMethod(ri, contains->funcType));
+    const auto* cfd = reg.getTypeDataAs<FunctionTypeData>(reg.instantiateRangeMethod(ri, contains->signatures.front()));
     ASSERT_NE(cfd, nullptr);
     EXPECT_EQ(cfd->returnType, reg.getType("Bool"));
     ASSERT_EQ(cfd->paramTypes.size(), 1u);
@@ -204,7 +210,52 @@ TEST_F(TypeMethodFixture, RangeParametricSubstitution) {
     // count() не зависит от элемента → подстановка не меняет сигнатуру (Int64).
     const auto count = reg.findMethodInfo(ri, "count");
     ASSERT_TRUE(count.has_value());
-    EXPECT_EQ(reg.instantiateRangeMethod(ri, count->funcType), count->funcType);
+    EXPECT_EQ(reg.instantiateRangeMethod(ri, count->signatures.front()), count->signatures.front());
+}
+
+TEST_F(TypeMethodFixture, BigIntegerHasDisplayMethod) {
+    TypeRegistry& reg = m_ctx.types();
+    const TypeId bigInt = reg.getType(type::BigInteger);
+    const TypeId strChar = reg.getType(type::StrChar);
+    const TypeId i64 = reg.getType(type::Int64);
+    ASSERT_NE(bigInt, INVALID_TYPE_ID);
+
+    // display(L) → StrChar, const-нативный метод (ключ "%display^").
+    const auto info = reg.findMethodInfo(bigInt, "display");
+    ASSERT_TRUE(info.has_value());
+    EXPECT_EQ(utils::bare_name(info->key), "display");
+    EXPECT_TRUE(utils::is_native_name(info->key));
+    EXPECT_TRUE(utils::is_const_name(info->key));
+
+    const auto* fd = reg.getTypeDataAs<FunctionTypeData>(info->signatures.front());
+    ASSERT_NE(fd, nullptr);
+    EXPECT_EQ(fd->returnType, strChar);
+    ASSERT_EQ(fd->paramTypes.size(), 1u);
+    EXPECT_EQ(fd->paramTypes[0], i64);
+
+    // Обычное имя находит нативный метод (односторонний поиск).
+    EXPECT_EQ(findMethodSig(reg, bigInt, "display"), info->signatures.front());
+}
+
+TEST_F(TypeMethodFixture, RationalHasDisplayMethod) {
+    TypeRegistry& reg = m_ctx.types();
+    const TypeId rational = reg.getType(type::Rational);
+    const TypeId strChar = reg.getType(type::StrChar);
+    const TypeId i64 = reg.getType(type::Int64);
+    ASSERT_NE(rational, INVALID_TYPE_ID);
+
+    // display(L) → StrChar, const-нативный метод (ключ "%display^").
+    const auto info = reg.findMethodInfo(rational, "display");
+    ASSERT_TRUE(info.has_value());
+    EXPECT_EQ(utils::bare_name(info->key), "display");
+    EXPECT_TRUE(utils::is_native_name(info->key));
+    EXPECT_TRUE(utils::is_const_name(info->key));
+
+    const auto* fd = reg.getTypeDataAs<FunctionTypeData>(info->signatures.front());
+    ASSERT_NE(fd, nullptr);
+    EXPECT_EQ(fd->returnType, strChar);
+    ASSERT_EQ(fd->paramTypes.size(), 1u);
+    EXPECT_EQ(fd->paramTypes[0], i64);
 }
 
 } // namespace

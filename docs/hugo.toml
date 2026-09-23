@@ -248,6 +248,12 @@ enable = false
 [params.maintenance]
   enabled = false
 
+# Информационное уведомление вверху страниц раздела docs (partials/dev-notice.html):
+# сообщение о том, что разделы сайта в разработке, и сроке синхронизации с версией 0.7.0.
+# Выводится только на страницах /ru/docs/**. Снять после синхронизации документации с 0.7.0.
+[params.dev_notice]
+  enabled = true
+
 # hugo module configuration
 
 [module]

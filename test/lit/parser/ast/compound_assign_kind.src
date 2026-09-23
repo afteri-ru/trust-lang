@@ -1,0 +1,14 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Нормализация kind: составные присваивания +=,-=,*= - это AssignOp (не MathOp);
+# обычная арифметика +,-,* остаётся MathOp.
+x:Int32 := 1;
+# CHECK: VarDecl 'x'
+x += 2;
+# CHECK: AssignOp
+x -= 3;
+# CHECK: AssignOp
+x *= 4;
+# CHECK: AssignOp
+s := x + 1;
+# CHECK: MathOp

@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# FILLING `... expr ...` обязан быть ПОСЛЕДНИМ элементом списка.
+# CHECK: error: элементы массива: многоточие обязано быть последним
+@main() := {
+    v:Int32[5] := [... 42 ..., 2,];
+    @return 0;
+}

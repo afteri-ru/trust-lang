@@ -1,6 +1,6 @@
 #include "formatter/format.hpp"
 
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "syntax/lexer.h"
 #include "syntax/macro.h"
 #include "syntax/parser.h"
@@ -54,6 +54,7 @@ bool isBinaryOperator(TermID id) {
     case TermID::CREATE_TYPE:
     case TermID::CREATE_NAME:
     case TermID::OP_MATH:
+    case TermID::OP_ASSIGN:
     case TermID::OP_COMPARE:
     case TermID::OP_BITWISE:
     case TermID::OP_LOGICAL:

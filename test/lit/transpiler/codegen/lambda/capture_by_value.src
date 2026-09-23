@@ -1,0 +1,11 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Захват по значению: [z] -> C++-захват копией [c_z].
+@main() := {
+    z := 10;
+    g := [z](x : Int32) : Int32 { @return x + z; };
+    y := g(5);
+}
+# CHECK: int8_t c_z = 10;
+# CHECK: std::function<int32_t(int32_t)> c_g = [c_z](int32_t c_x) -> int32_t {
+# CHECK: int32_t c_y = c_g(5);

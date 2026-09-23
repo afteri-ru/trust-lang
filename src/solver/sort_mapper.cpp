@@ -3,7 +3,7 @@
 
 #include "solver/sort_mapper.hpp"
 
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "types/registry.hpp"
 #include "types/typekind.hpp"
 #include "types/group.hpp"

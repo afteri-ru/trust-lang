@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/link %s
+# RUN: grep -q -- '-lm' $TD/build.conf
+# RUN: $TD/link && echo "PASS"
+# CHECK: PASS
+
+# `@[link("имя")]` на нативной декларации добавляет флаг линковки `-l<имя>` (здесь `-lm`)
+# в build.conf / линковочную команду. Существование символа/библиотеки НЕ проверяется -
+# ответственность линковщика.
+@[link("m")@] fsqrt(x:Float64):Float64 := %sqrt...;
+
+{% int link__main__() {
+    return 0;
+}
+%}

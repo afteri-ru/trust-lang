@@ -10,8 +10,8 @@
 
 #pragma once
 
-#include "ast/attr_pool.hpp"
-#include "diag/context.hpp"
+#include "attrs/attr_pool.hpp"
+#include "session/context.hpp"
 #include <optional>
 #include <string_view>
 #include <vector>

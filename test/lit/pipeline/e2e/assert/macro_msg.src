@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q -Wassert --temp-dir $TD -o $TD/amm %s
+# RUN: ($TD/amm 2> %t.err || true) && %FileCheck %s <%t.err
+# CHECK: macro_msg.src:[[#]]: Error 40
+
+# assert(cond, 'fmt', args...): при провале печатается отформатированное сообщение (std::format)
+# вместо текста условия по умолчанию.
+
+%chk():Void := {
+    assert( 1 == 0, 'Error {}', 40 );
+};
+{% int macro_msg__main__() {
+    chk();
+    return 0;
+}
+%}

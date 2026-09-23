@@ -1,0 +1,26 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+#
+# Операторы сравнения типов: `<~` (номинальная is-a), `~~` (утиная), `~~~` (строгая).
+# Все операнды статически известны → результат свёрнут в константу true/false.
+# Наследование классов учитывается через реестр (baseClasses).
+:Animal ::= :Class{
+  age:Int32 := _;
+};
+:Dog ::= :Animal{
+  breed:Int32 := _;
+};
+x:Dog := _;
+d1 := :Dog <~ :Animal;
+d2 := :Animal <~ :Dog;
+d3 := :Int32 ~~~ :Int32;
+d4 := x <~ :Animal;
+d5 := x ~~ (age=_,);
+d6 := x ~~ (nope=_,);
+d7 := x ~~~ (age=_, breed=_,);
+# CHECK: bool c_d1 = (true);
+# CHECK: bool c_d2 = (false);
+# CHECK: bool c_d3 = (true);
+# CHECK: bool c_d4 = (true);
+# CHECK: bool c_d5 = (true);
+# CHECK: bool c_d6 = (false);
+# CHECK: bool c_d7 = (true);

@@ -2,245 +2,170 @@
 title: TrustLang
 ---
 
-<div class="alert alert-warning" role="alert" style="border-radius: 0; margin-bottom: 0;">
-    <strong>The site is under reconstruction.</strong> There may be disruptions in its operation
-    and inconsistencies between the documentation and the current implementation of the language.
+{{< blocks/cover title="TrustLang" image_anchor="top" height="auto" >}}
+
+<p class="lead" style="max-width: 46rem; margin: 0 auto;font-size: 125%;">
+    A high-level general-purpose language for trusted development
+    with&nbsp;safe memory management, compile-time error detection
+    and&nbsp;full compatibility with the entire&nbsp;<nobr>C/C++</nobr> ecosystem,
+    including direct embedding of <nobr>C++</nobr> code fragments.
+</p>
+
+<div class="pt-3">
+    <a class="btn btn-primary me-3 mb-4" href="/en/docs/">
+        About the project<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="/en/playground/">
+        Playground <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
+        Discuss on Reddit<i class="fab fa-reddit ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
+        GitHub <i class="fab fa-github ms-2"></i>
+    </a>
 </div>
-
-{{< blocks/cover title="Welcome to the TrustLang project website!" image_anchor="top" height="auto" >}}
-
-<a class="btn btn-primary me-3 mb-4" href="/en/docs/">
-    Documentation <i class="fas fa-arrow-alt-circle-right ms-2"></i>
-</a>
-
-<a class="btn btn-secondary me-3 mb-4" href="/en/blog/">
-    Articles <i class="fas fa-arrow-alt-circle-right ms-2 "></i>
-</a>
-
-<a class="btn btn-secondary me-3 mb-4" href="/en/playground/">
-    Playground<i class="fas fa-arrow-alt-circle-right ms-2"></i>
-</a>
-
-<a class="btn btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
-    GitHub <i class="fab fa-github ms-2 "></i>
-</a>
 
 {{< blocks/link-down color="light" >}}
 {{< /blocks/cover >}}
 
-
 {{% blocks/lead %}}
 
-<p class="lead"><em>TrustLang</em> - TrustLang is a general-purpose high-level programming language with a syntax based on a strict system of grammatical rules.
-<br>But with the help of preprocessor macros, the syntax is turned into DSL based on keywords..</p>
+<p class="lead" style="max-width: 50rem; margin: 0 auto;">
+    <p class="lead">
+    The syntax of every modern programming language keeps getting more complex
+    with each new release (standard).
+    This is an unavoidable price for language evolution and a constantly growing
+    "entry tax" for newcomers.
+    </p>
+    <p class="lead">
+    TrustLang&nbsp;&mdash; is a language-«layer» on top of <nobr>C++</nobr> that lets you
+    use all of its rich capabilities, but without its complex syntax,
+    undefined behavior and other pitfalls.
+    <a href="/en/docs/">Simpler and faster than Python, more familiar and safer than Rust.*</a>
+    </p>
 
-<p class="lead">Tensor calculations and rationals of unlimited precision are supported at the level of language syntax and basic 
-    data types without the use of additional libraries.</p>
-
-<p class="lead">The ownership-based memory management model does not require the use of 
-    a garbage collector and eliminates major errors at the stage of compiling the source code of the program.</p>
+</p>
 
 {{% /blocks/lead %}}
-
-
 {{% blocks/section %}}
 
-<h3>
-The main properties and features:
-</h3>
+<!-- <h3>Why TrustLang?</h3> -->
 
-<ul>
-<li>the ability to work both in interpreter and compiler mode<b>*</b>
-</li>
+<div class="row pt-4">
+    <div class="col-lg-4 mb-4">
+        <h4>Safe memory without a garbage collector</h4>
+        <p>
+            <nobr>C++</nobr>-style memory management using &nbsp;RAII, strong and&nbsp;weak references.
+            Analysis of errors, data races and&nbsp;cyclic dependencies <b>at&nbsp;compile time</b>.
+            <a href="/en/docs/safety/memory/">Memory model<b>*</b>&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Stack overflow &mdash; as an exception</h4>
+        <p>
+            Program stack overflow is handled as an ordinary program exception,
+            instead of abnormal termination with&nbsp;<i>segfault</i>.
+            <a href="/en/docs/safety/stack_check/">Stack protection&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4" style="opacity: 0.5;">
+        <h4>Automatic protection from&nbsp;dangling references</h4>
+        <p>
+            Static analysis of dangling references (analogous to ownership and borrowing in&nbsp;Rust),
+            but&nbsp;for <nobr>C++</nobr> without <i>UB</i> and <i>segfault</i> at&nbsp;runtime.
+            <a href="/en/docs/safety/invalidation/">Ownership control<b>*</b>&nbsp;&rarr;</a>
+        </p>
+    </div>
+</div>
 
-<li>dynamic and static typing with the ability to specify types explicitly
-</li>
-
-<li>static typing is conditionally strong (there is no automatic type casting, but conversion between some data types is allowed. 
-    For example, an integer can be automatically converted to real or rational, but not vice versa)
-</li>
-
-<li>automatic memory management without garbage collector<b>*</b>
-</li>
-
-<li>bject-oriented programming in the form of explicit class inheritance and "duck typing"<b>*</b>
-</li>
-
-<li>several types of functions (regular and pure functions without side effects) are supported at the syntax level of the language
-</li>
-
-<li>optional and named function arguments
-</li>
-
-<li>direct insertion of C/C++ code is possible<b>*</b>
-</li>
-
-<li>easy integration with existing software libraries (including import of native variables, functions and classes* from C/C++).
-</li>
-
-<li>there is a <a href="https://en.wikipedia.org/wiki/REPL">REPL (read-eval-print loop)</a>
-</li>
-
-<li>symbolic calculations<b>**</b>
-</li>
-</ul>
-
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <h4>Type system</h4>
+        <p>
+            Static and dynamic typing.
+            The type can be specified explicitly or inferred automatically from the context.
+            Ability to use <nobr>C++</nobr> types and templates.
+            <a href="/en/docs/types/type_system/">Type system&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Integration with&nbsp;<nobr>C/C++</nobr></h4>
+        <p>
+            Embedding of <nobr>C++</nobr> code fragments and&nbsp;direct calls of
+            <nobr>C++</nobr> functions without&nbsp;FFI wrappers.
+            <a href="/en/docs/types/native/">Integration&nbsp;with&nbsp;<nobr>C++</nobr>&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4" style="opacity: 0.5;">
+        <h4>Formal verification</h4>
+        <p>
+            Contract programming (pre/postconditions, assertions).
+            Export of code and&nbsp;contracts to an&nbsp;SMT solver (Z3).
+            <a href="/en/docs/safety/verification/">Verification<b>*</b>&nbsp;&rarr;</a>
+        </p>
+    </div>
 <hr>
-<b>*</b>) These features are planned for implementation when the compiler is created.
-<br>
-<b>**</b>) Symbolic calculations are supported at the syntax level, but not implemented.
+<p>
+    <a href="/en/docs/status/"><i><b>*</b>) - The current version is a proof of concept, a test of
+        various approaches to implementing the architecture and&nbsp;prototyping of the syntax</i></a>
+</p>
 
+</div>
 
 {{% /blocks/section %}}
 
 {{% blocks/section %}}
 
-<h2>Why do we need <em>TrustLang</em>?
-</h2>
+<h2>How it looks</h2>
 
 <p>
-All modern programming languages have a constant <a href="/en/blog/">development (complication) of syntax</a> as new versions are released.<br>
-This is a kind of payment for the emergence of new features and is perceived by users as a natural process.
+    An example of a simple TrustLang program with unlimited-precision
+    numbers and automatic type inference.
+</p>
 <p>
-
-<p>
-But at the same time it is also a serious problem, since with the release of versions new keywords and syntactic constructions are added,
-which inevitably raises the entry threshold for new users.
+    Running the program as a bash script with automatic compilation of the C++
+    code on the first run and&nbsp;subsequent execution of the binary file.
+    Automatic recompilation when the source changes.
 </p>
 
-<p>
-Another consequence of this process is the constant increase in the complexity of developing and supporting already created software products,
-when the old code is being finalized using the already new standards.
-</p>
+<pre><code class="language-trust">
+    #!../_build/trust --run -Wsigil=ignore -Wembed=ignore
+
+    $fact := 1\1;   # Autotyping
+    $mult:Int32 := 1; # Fixed type
+
+    while( mult <= 40 ) {
+        fact *= mult;   # factorial 40, no precision loss
+        {% $mult++ %};  # Increment as a C++ code fragment
+    };
+
+    @print('{}', fact);
+</code></pre>
+
+<p>Output:</p>
+
+<pre><code class="language-trust">    815915283247897734345611269596115894272000000000</code></pre>
 
 <p>
-<em>TrustLang</em> naturally limits the complexity of language constructs by splitting the syntax of the language into two parts, 
-making it easier to learn and use.
+    More examples and the resulting generated <nobr>C++</nobr> code are in the <a href="/en/playground/?file=rational">playground</a>.
 </p>
-
-<p>
-<em>Basic syntax</em> - for writing programs in object-oriented (imperative) and declarative styles,
-which is based not on reserved keywords, but on a system of strict <a href="/en/docs/syntax/">grammar rules</a>.
-It is possible to extend the basic syntax through the use of macros.<br>
-
-<em>Extended syntax</em> - program inserts in the implementation language (C / C ++), when the main syntax becomes insufficient.
-</p>
-
-
-<br> 
-<p>
-Another disadvantage of modern languages is that most of them were created before the era of machine learning,
-therefore, tensor calculations are performed in the form of separate libraries.<br>
-The same applies to calculations with unlimited precision, which also require the use of additional library functions.
-</p>
-
-<p>
-<em>TrustLang</em> has tensor calculus and unlimited-precision rationals out of the box.<br>
-
-They are supported at the syntax level for writing literals of the corresponding types,
-and simple arithmetic data types are scalars (tensors of dimension zero).<br>
-
-The implementation of tensor calculations is based on the library <a href="https://pytorch.org/">libtorch</a>,
-and rational numbers using <a href="https://github.com/openssl/openssl/blob/master/crypto/bn/README.pod">OpenSSL</a>.
-</p>
-
 
 {{% /blocks/section %}}
 
 {{% blocks/section %}}
 
-<h4>Hello world script example in TrustLang</h4>
-
-<br>
-<pre><code class="language-trust">
-    #!../output/nlc
-
-    printf('Hello, world!');
-</code></pre>
-
-Output:
-<code><pre>
-    Hello, world!
-    14
-</pre></code>
-
-
-<h4>An example of calculating factorial 40 on TrustLang (base syntax)</h4>
-
-<br>
-<pre><code class="language-trust">
-        #!../output/nlc 
-
-        ### Example of calculating factorial of 40 using basic syntax
-
-        fact := 1\1;        # Rational number 1 (no precision limit)
-        mult := 40..1..-1?; # Iterator from range for factors from 40 to 2
-        [mult ?!] <-> {     # Loop until the iterator data runs out
-            fact *= mult !; # Get the current multiplier and move to the next iterator element
-        };
-
-        @assert(fact == 815915283247897734345611269596115894272000000000\1);
-
-        fact    # Return final result
-</code></pre>
-
-Output:
-<code>
-    <pre>
-    815915283247897734345611269596115894272000000000\1
-    </pre>
-</code>
-
-
-
-<h4>Same code using <a href="/en/docs/syntax/dsl/">DSL syntax</a></h4>
-
-<br>
-<pre><code class="language-trust">
-        #!../output/nlc 
-
-        ### Example of calculating factorial 40 using DSL syntax
-
-        fact := 1\1;                # Rational number 1 (no precision limit)
-        mult := @iter( 40..1..-1 ); # Iterator from range for factors from 40 to 2
-        @while( @curr(mult)) {      # Loop until the iterator data runs out
-            fact *= @next(mult);    # Get the current multiplier and move to the next iterator element
-        };
-
-        @assert(fact == 815915283247897734345611269596115894272000000000\1);
-
-        fact    # Return final result    
-</code></pre>
-
-
-Output:
-<code>
-    <pre>
-    815915283247897734345611269596115894272000000000\1
-    </pre>
-</code>
-
-
-
-{{% blocks/section %}}
-
-<a class="btn btn-primary me-3 mb-4" href="/en/playground/">
-    More code examples<i class="fas fa-arrow-alt-circle-right ms-2"></i>
-</a>
-
-<a class="btn btn-primary me-3 mb-4" href="/en/docs/">
-    All documentation<i class="fas fa-arrow-alt-circle-right ms-2"></i>
-</a>
-
-<a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
-    Discuss on Reddit<i class="fab fa-reddit ms-2"></i>
-</a>
+<div class="text-center">
+    <a class="btn btn-primary me-3 mb-4" href="/en/playground/">
+        Open the playground<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="/en/docs/">
+        All documentation<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
+        Discuss on Reddit<i class="fab fa-reddit ms-2"></i>
+    </a>
+</div>
 
 {{% /blocks/section %}}
-
-{{% /blocks/lead %}}
-
-
-
-
 

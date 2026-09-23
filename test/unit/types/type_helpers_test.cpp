@@ -10,7 +10,7 @@
 #include "semantic/analysis_common.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/token.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "gtest/gtest.h"
 
 #include <memory>
@@ -305,17 +305,17 @@ TEST_F(TypeHelpersFixture, ResultTypeBinaryBigRational) {
     const TypeId biC = reg.getCanonicalTypeId(bi);
     const TypeId ratC = reg.getCanonicalTypeId(rat);
     // z := x*y (BigInteger) → BigInteger (не std::any).
-    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, "*", bi, bi, reg), biC);
+    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::Mul, bi, bi, reg), biC);
     // Rational / Rational → Rational (точное деление).
-    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, "/", rat, rat, reg), ratC);
+    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::Div, rat, rat, reg), ratC);
     // BigInteger * Rational → Rational.
-    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, "*", bi, rat, reg), ratC);
+    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::Mul, bi, rat, reg), ratC);
     // Rational + Int64 → Rational.
-    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, "+", rat, reg.getType("Int64"), reg), ratC);
+    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::Add, rat, reg.getType("Int64"), reg), ratC);
     // // на BigInteger → INVALID (целочисленное деление недоступно).
-    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, "//", bi, bi, reg), INVALID_TYPE_ID);
+    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::IntDiv, bi, bi, reg), INVALID_TYPE_ID);
     // Compare → Bool.
-    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::CompareOp, "==", bi, bi, reg), reg.getType("Bool"));
+    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::CompareOp, BinaryOp::None, bi, bi, reg), reg.getType("Bool"));
 }
 
 TEST(TypeHelperTest, IsBinaryExprKind) {

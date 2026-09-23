@@ -1,88 +1,80 @@
 ---
-title: Sandbox (playground)
-linkTitle: Sandbox
-weight: 55
+title: Playground
+tags: [getting-started, playground]
+linkTitle: Playground
+weight: 50
 ---
 
-## What is the sandbox
+## What the playground is
 
-**Sandbox (playground)** is an interactive web page where you can write TrustLang code
-right in the browser and immediately see the generated C++ and the transpilation result.
-It is a "live" example of the language: an editor with syntax highlighting (Monaco),
-an examples dropdown, cross-navigation between the code and C++, and a button to
-download the build archive.
+The **playground** is an interactive web page where you can write TrustLang code
+directly in the browser and immediately see the generated result of transpilation to C++.
+It is a "live" example of the language with a built-in editor and code highlighting, selection of examples from a list,
+output of diagnostic messages, cross-navigation between the code and C++, and a button to download the resulting build archive.
 
-The page itself does not compute anything - it sends the code to the **balancer**
-(playground), which distributes the task to a free **executor node (worker)**, and that
-node performs the Trust → C++ transpilation and returns the result.
+## Links to the playground state (URL parameters)
 
-## Architecture
+The playground page can be opened directly in the desired state by passing optional parameters
+in the URL (query string). All parameters are optional, and without `line` the cursor position is not changed:
 
-The sandbox works as a three-tier system:
+- `file=<example file name>` — select a predefined file from the list of examples (combobox);
+- `win=src|cppt` — the pane where the cursor is placed (`src` — the source Trust code, `cppt` —
+  the generated C++; default is `src`);
+- `line=<n>`, `col=<m>` — cursor position (rows/columns are 1-based; `col` defaults to 1);
+- `toLine=<n>`, `toCol=<m>` — the end of the selection range (if set — the selection
+  from `line:col` to `toLine:toCol`, otherwise just setting the cursor).
 
-```
-browser (static page)
-        |  POST /run, GET /health, POST /download
-        v
-balancer (playground)           <-  https://playground.trust-lang.net (public)
-        |  worker registry, queue, rate-limit, stats
-        v
-executor VPS (worker)           <-  connect themselves (outbound connection),
-        |                             reverse long-poll for jobs
-        v
-   trust-lsp --json             (Trust -> C++ transpilation)
-```
+**Copying a link**: when navigating through lines, at the bottom of the page in the status bar
+the range is shown (`→ cpp: N` / `→ trust: N`) and the link "🔗 copy link",
+clicking which copies to the clipboard the URL of the current playground state (the selected file,
+pane and cursor position/selection), so it can be shared.
 
-Key points:
+## Playground status bar
 
-- The **balancer** does not compute anything - it accepts requests, keeps the worker
-  registry and dispatches jobs. It listens on `127.0.0.1` locally; nginx exposes it
-  publicly over HTTPS.
-- **Workers** connect to the balancer themselves (outbound connection - double NAT is
-  not a problem), register with a token and run transpilation in an isolated
-  subprocess with memory, time and output limits.
-- If there are no free workers, the balancer replies "no workers" with a link to this
-  page.
+The page itself does not compute anything — it sends the code to the **router/balancer**
+(playground), which distributes the transpilation task of the source code to a free **execution node
+(worker)**, and that node performs the Trust → C++ transpilation, while the result is returned processed to the balancer and displayed in the browser page.
 
-## Sandbox status line
+At the bottom of the page a permanent indicator of the connection with the balancer is displayed:
 
-At the bottom of the page there is a persistent balancer connectivity indicator:
-
-- 🟢 **balancer online · workers: N** - connected, workers are active;
-- 🟠 **balancer online · no workers** - connected, but no free workers;
-- 🔴 **no connection to the balancer** - the balancer is unreachable (network failure or the balancer is stopped).
+- 🟢 **balancer online · workers: N** — the connection is up, workers are active;
+- 🟠 **balancer online · no workers** — the connection is up, but there are no free workers;
+- 🔴 **no connection to the balancer** — the balancer is unavailable (network failure or the balancer is stopped).
 
 ## How to run your own worker
 
-## Linking to sandbox state (URL parameters)
+You can help the project and run your own execution node in a few minutes. To do this you need:
 
-You can open the page in a specific state by passing optional parameters in the URL
-(query string). All parameters are optional; without `line` the cursor position is untouched:
+- A Linux server (VPS) with `systemd` and the ability for an outgoing TCP connection to the balancer (ordinary internet).
+- The `trust-lang-*.tar.gz` distribution or the `deb` package (contains `trust-playground` and `trust-lsp`).
+- A worker token (64 hex characters) — issued by the administrator.
 
-- `file=<example name>` - select a predefined file from the examples dropdown;
-- `win=src|cppt` - window where to place the cursor (`src` - the Trust source,
-  `cppt` - the generated C++; default `src`);
-- `line=<n>`, `col=<m>` - cursor position (1-based rows/columns; `col` defaults to 1);
-- `toLine=<n>`, `toCol=<m>` - end of a selection range (if given, a selection from
-  `line:col` to `toLine:toCol` is made, otherwise just the cursor).
+## The playground works on a three-tier scheme
 
-Example: `…/playground/?file=hello&win=src&line=3&col=1`.
+```
+browser (static page)
+        │  POST /run, GET /health, POST /download
+        ▼
+balancer (playground)
+        │  worker registry, request queue, rate-limit, statistics
+        ▼
+execution nodes (worker)     ←  connect themselves (outgoing connection),
+        │                       reverse long-poll for tasks
+        ▼
+   trust-lsp --json             ← (local execution of Trust → C++)
+```
 
-**Copy link**: while navigating rows, the status line at the bottom shows the range
-(`→ cpp: N` / `→ trust: N`) and a "🔗 copy link" link. Clicking it copies the current
-page-state URL (selected file, window and cursor position/selection) to the clipboard
-so you can share it.
+Key features:
 
-
-You can help the project and run your own executor node in a few minutes. To do this you need:
-
-- A Linux server (VPS) with `systemd` and outbound TCP access to the balancer (regular internet).
-- The `trust-lang-*.tar.gz` distribution (contains `trust-playground` and `trust-lsp`).
-- A worker token (64 hex characters) and the balancer URL - issued by the administrator.
+- The **router/balancer** does not perform computations — it only accepts requests, maintains the worker
+  registry and dispatches tasks. It listens locally (`127.0.0.1`); nginx exposes it externally over HTTPS.
+- **Workers** connect to the balancer themselves (an outgoing connection — double NAT does not interfere),
+  register by token and perform transpilation in an isolated subprocess with limits on memory, time and output size.
+- If there are no free workers, the balancer responds "no workers" with a link to this instruction.
 
 ### Steps
 
-1. **Get an access token** from the project administrator (<admin@trust-lang.net>). The worker authenticates with this token.
+1. **Obtain an access token** from the project administrator (<admin@trust-lang.net>). The worker authenticates with this token.
 
 2. **Copy or build the distribution**:
    ```sh
@@ -90,67 +82,17 @@ You can help the project and run your own executor node in a few minutes. To do 
    cmake --build _build --target package
    ```
 
-3. **Run the worker directly** (no root, no install script). It reads settings from
-   `trust-playground.conf` next to the binary or from options on the command line:
+3. **Start the worker directly** (without root and without an installation script). It reads the settings from `trust-playground.conf` next to the binary or via command-line options:
    ```sh
    ./trust-playground --token <TOKEN> --lsp /path/to/trust-lsp
    ```
-   By default the worker connects to `https://playground.trust-lang.net`
-   (`worker.playground_url`), and the console shows
-   `settings saved to ./trust-playground.conf as defaults` and the worker starts
-   with real-time stats. Next time it is enough to just run:
+   After that, the message `settings saved to ./trust-playground.conf as defaults` appears in the console
+   and the worker starts with real-time operation statistics, and the next time it will be enough to run:
    ```sh
    ./trust-playground
    ```
-   Or to work **in the background**:
+   Or to run **in the background**:
    ```sh
    nohup ./trust-playground >> trust-playground-worker.log 2>&1 &
    ```
-   Stop in the background: `pkill -x trust-playground`.
-
-### Security
-
-- The worker connects to the balancer over HTTPS (`worker.playground_url`); for that
-  `curl` must be installed on the host (uses the system TLS stack).
-- The token authenticates the worker and without it the balancer rejects requests.
-- Transpilation runs in an isolated subprocess with memory, time and output limits.
-- At startup the worker validates its settings (`validateWorkerSettings`): the
-  `trust-lsp` binary (`worker.lsp_bin`) must exist and be executable, the working
-  directory `worker.project_dir` (if set) must exist and be a directory, and
-  `worker.lsp_opts` must be valid options. If validation fails, the worker does not
-  connect to the balancer and reports the reason.
-- The worker token is masked (`<redacted>`) in any result returned to the public
-  sandbox, even if it accidentally ends up in the `trust-lsp` output, so the
-  confidential token is never displayed to site visitors.
-
-### Balancer and sandbox page protection
-
-The balancer accepts public `/run` and `/download` requests only from the specific
-sandbox and throttles automated floods:
-
-- **Domain binding** (`playground.allowed_origins`, `playground.allowed_hosts`): public
-  endpoints accept requests only from an allowed Origin/Host; CORS responds with a concrete
-  origin instead of `*`. Foreign sites/hotlinking get `403`. By default (empty
-  `allowed_origins`) CORS is fail-closed: only loopback origins are allowed (local dev).
-- **Rate limit by real IP** (`playground.rate_limit_per_ip`): behind nginx the first
-  `X-Forwarded-For` hop is used (trusted only from loopback), so the limit is per visitor,
-  not per the whole balancer.
-- **Proof-of-work (PoW, `playground.pow_min_difficulty`, disabled by default):** the server
-  side is implemented - when enabled the balancer issues a challenge (`GET /challenge`) and
-  requires the `X-PoW: nonce:solution` header with a `sha256(nonce+solution)` solution meeting
-  the required difficulty; the difficulty is adaptive (grows under load). The client (browser)
-  solver on the page is NOT implemented yet - it is a separate task
-  (`docs/pow-full-implementation.md`), so this layer stays disabled until then. Protects against
-  automated distributed floods.
-- **Example cache:** `/run` for an unmodified example is cached by the example file name
-  (`X-Example-Name`); when the text changes the name is cleared and the request goes to a
-  worker. This reduces worker load for default examples.
-- **Admin `/stats`** is available only by token: via the `X-Stats-Token` header (scripts) or
-  through the `/stats/login` form with a cookie session (browser). The token is no longer
-  passed in the URL (`?token=` removed). The stats page has a "Logout" button
-  (`/stats/logout`).
-
-Additionally: the `Content-Disposition` header is sanitized (no header injection), the
-`/stats` page escapes HTML (no stored XSS), worker temp files are cleaned at startup and
-periodically (disk-overflow protection), and the `trust-lsp` subprocess runs with
-`RLIMIT_NOFILE` and `RLIMIT_CORE=0` limits.
+   Stopping in the background: `pkill -x trust-playground`.

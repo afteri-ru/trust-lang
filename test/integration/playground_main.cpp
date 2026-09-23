@@ -162,8 +162,10 @@ int main(int argc, const char* argv[]) {
     const std::string base = "http://127.0.0.1:" + std::to_string(port);
     const std::string token(64, 'a');
 
-    // Временный конфиг - в _build (tmp_dir), не в /tmp.
-    const std::string cfg_path = tmp_dir + "/trust_pg_int_" + std::to_string(::getpid()) + ".conf";
+    // Временный конфиг - в каталоге теста (tmp_dir = $<TARGET_FILE_DIR:integration>,
+    // задаётся CTest), не в /tmp. Имя фиксированное - уникальные суффиксы (pid) не
+    // используются; повторный запуск перезапишет.
+    const std::string cfg_path = tmp_dir + "/trust_pg_int.conf";
     {
         FILE* f = std::fopen(cfg_path.c_str(), "w");
         if (f == nullptr) {

@@ -2,13 +2,26 @@
 
 ## Назначение
 
-Единая точка входа для диагностики, управления опциями компиляции и source-маппинга. Фасад Context объединяет DiagnosticEngine (вывод ошибок/предупреждений с форматированием), Options (именованные опции через X-макросы, CLI-парсинг, стековый push/pop) и Source Manager (хранение исходных файлов, конвертация offset ↔ line:column с LRU-кешем).
+Диагностики (вывод ошибок/предупреждений с форматированием, подсчёт) и система именованных опций
+(severity-диагностики и поведенческие feature-флаги, CLI-парсинг, стековый push/pop). Чистый слой:
+не хранит исходники и не выполняет source-маппинг (это `sourcemap`), не предоставляет фасад `Context`
+(это `session`).
 
 ## Особенности реализации
 
-- **Диагностика** - форматированный вывод ошибок/предупреждений с визуальным подчёркиванием диапазонов, подсчёт количества ошибок.
-- **Source-маппинг** - конвертация позиций между trust- и C++-файлами, msgpack-сериализация source-map, нормализация путей.
-- **Опции** - система именованных опций, поддержка push/pop для временных изменений. Severity-диагностики и feature-флаги объявляются **пер-компонентно** через переиспользуемый механизм `TRUST_DIAG_SET`/`TRUST_FLAG_SET` (`diag/diag_set.hpp`; каждая компонента - свой enum в своём заголовке: `syntax/diag.hpp`, `semantic/diag.hpp`, `transpiler/diag.hpp`, `diag/base_diags.hpp`). Пер-компонентный набор - единственный источник данных (enum + имя + help + severity + группы + категория). Регистрация - `Options::add<T>`/`Options::add_flag<T>` (метаданные через ADL). Управляются CLI `-W<имя>[=severity]` (severity: fatal/error/warning/remark/note/ignore), `-Wno-<имя>`, группы-агрегаты `-Wall/-Wextra/...`, `-Werror`. Примеры диагностик: `Embed` (предупреждение за C++-вставку `{% ... %}`), `NoSigil`, `UnusedVariable`/`UnusedParameter` (отдельные). Примеры feature-флагов: `Comments` (подавление комментариев в C++-выводе через `-fno-comments`), `Lint`, `Assert`, `Backtrace`. Справочная информация (подсказки) хранится в реестре и выводится централизованно через `-Whelp`.
-- **Пер-компонентная регистрация** - каждая диагностика/флаг регистрируется компонентом-владельцем (syntax/semantic/transpiler) на static-init через `diag/registry.hpp` (`registerDiagnostics`), `Context` применяет их в конструкторе через `applyRegisteredDiagnostics` (базовые - `Deprecated`, `ParseError`). `Options` имеет единственный конструктор `Options(DiagnosticEngine&)`; единая точка применения `-W` - `applyDiagnostics`. `report<T>`/`add<T>` - обобщённые шаблоны, метаданные через ADL (`diagName`/`flagName` из namespace компоненты) - `diag` остаётся листом.
-- **Изолированность** - используется всеми компонентами (lexer, parser, transpiler, debug, lsp), не зависит от них.
-- **`diag/protocol.hpp`** - общие конверсии в протокольные координаты (LSP/DAP), header-only: `severityToLsp(Severity)` (LSP DiagnosticSeverity 1..4) и `mapperRangeToProtocol(SourceMapWriter&, MapperRange)` → 0-based `ProtocolRange`. Используется LSP (`publishDiagnostics`/`codeAction`); будущий DAP - без дублирования.
+- **Диагностика** - форматированный вывод ошибок/предупреждений с визуальным подчёркиванием
+  диапазонов, подсчёт количества ошибок.
+- **Опции** - система именованных опций, поддержка push/pop. Severity-диагностики и feature-флаги
+  объявляются ПЕР-КОМПОНЕНТНО через `TRUST_DIAG_SET`/`TRUST_FLAG_SET` (`diag/diag_set.hpp`); каждая
+  компонента - свой enum в своём заголовке (`syntax/diag.hpp`, `semantic/diag.hpp`,
+  `transpiler/diag.hpp`, `diag/base_diags.hpp`). Единственный источник данных - пер-компонентный
+  набор (enum + имя + help + severity + группы + категория). Регистрация - `Options::add<T>`/
+  `Options::add_flag<T>` (метаданные через ADL). Управление: `-W<имя>[=severity]`, `-Wno-<имя>`,
+  группы `-Wall/-Wextra/...`, `-Werror`; справка - `-Whelp`.
+- **Пер-компонентная регистрация** - регистрация выполняется компонентом-владельцем на static-init
+  через `diag/registry.hpp` (`registerDiagnostics`); базовая применяется при создании `Context`
+  (`session`). Единая точка применения `-W` - `applyDiagnostics` (`driver`). `diag` остаётся листом
+  (метаданные через ADL; не включает заголовки компонентов).
+- **Изолированность** - используется всеми компонентами (lexer, parser, transpiler, debug, lsp),
+  не зависит от них.
+- **Source-маппинг и хранение исходников** вынесены в `sourcemap`; фасад `Context` - в `session`.

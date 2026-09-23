@@ -10,7 +10,11 @@
 //     assert - рантайм-проверки (trust__abort__), export - генерация SMT-LIB 2 файла,
 //     calculate - генерация + запуск Z3. Значение хранится в diag::Options как
 //     feature-flag со строковым значением. По умолчанию НЕ задан (никакое поведение).
+//
+// Владелец ФЛАГА — semantic; VALUE-типы режимов и чистые хелперы живут в `analysis/modes.hpp`
+// (разделяются анализом и кодогеном как данные).
 
+#include "analysis/modes.hpp"
 #include "diag/options.hpp"
 #include "semantic/diag.hpp"
 
@@ -20,42 +24,12 @@
 namespace trust {
 namespace semantic {
 
-// -- Единый источник значений поведенческого флага `--solver-mode` (X-макрос) -------------
-// Один список значений порождает enum SolverMode, имя режима и обратный разбор
-// (по образцу X-макросов diag_set.hpp). Только поведенческие режимы: assert/export/calculate.
-#define SOLVER_MODE_LIST(M) \
-    M(kAssert, "assert")    \
-    M(kExport, "export")    \
-    M(kCalculate, "calculate")
-
-#define SOLVER_MODE_ENUM(name, cli) name,
-enum class SolverMode { SOLVER_MODE_LIST(SOLVER_MODE_ENUM) };
-#undef SOLVER_MODE_ENUM
-
-#define SOLVER_MODE_NAME(name, cli) cli,
-inline constexpr std::string_view kSolverModeNames[] = {SOLVER_MODE_LIST(SOLVER_MODE_NAME)};
-#undef SOLVER_MODE_NAME
-
-inline constexpr std::size_t kSolverModeCount = sizeof(kSolverModeNames) / sizeof(kSolverModeNames[0]);
-
-/// Имя режима (для диагностик/справки). Известное значение обязательно.
-[[nodiscard]] inline std::string_view solverModeName(SolverMode m) noexcept {
-    const int idx = static_cast<int>(m);
-    return (idx >= 0 && idx < static_cast<int>(kSolverModeCount)) ? kSolverModeNames[idx] : "unknown";
-}
-
-/// Разбор строкового значения опции `--solver-mode`. Неизвестное значение - ошибка (вызывающий
-/// обязан выдать диагностику, AGENTS п.5: без тихого fallback).
-[[nodiscard]] inline std::optional<SolverMode> parseSolverMode(std::string_view v) noexcept {
-    for (std::size_t i = 0; i < kSolverModeCount; ++i) {
-        if (kSolverModeNames[i] == v) {
-            return static_cast<SolverMode>(i);
-        }
-    }
-    return std::nullopt;
-}
-
-#undef SOLVER_MODE_LIST
+// Value-типы и хелперы поведенческих режимов — из `analysis` (единый источник).
+using analysis::kSolverModeCount;
+using analysis::kSolverModeNames;
+using analysis::parseSolverMode;
+using analysis::SolverMode;
+using analysis::solverModeName;
 
 /// Поведенческий режим из diag::Options (значение флага SolverMode). Если флаг не имеет
 /// значения (опция --solver-mode не задана) - nullopt (никакое поведение).

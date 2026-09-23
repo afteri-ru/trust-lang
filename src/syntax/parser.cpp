@@ -1,7 +1,7 @@
 #include "syntax/parser.h"
 #include "syntax/lexer.h"
 #include "syntax/macro.h"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "module_loader/module_loader.hpp"
 
 #include "syntax/warning_push.h"
@@ -69,6 +69,40 @@ void appendDocs(TermPtr seq, TermPtr docs) {
     seq->m_sequence.insert(seq->m_sequence.end(), all.begin(), all.end());
 }
 
+// Привязывает trust-контракты (trust_pre/trust_post/@{}), собранные trust_cond_seq, к терму-имени
+// объявления (в его m_sequence) - ЕДИНАЯ точка для функций, методов и операторов (assign_seq,
+// type_def_seq, class_member, free-оператор). conds == nullptr (контрактов нет) - ничего не делаем;
+// голова-конд приходит как $2, остальные - в его m_sequence.
+void appendTrustConds(TermPtr name, TermPtr conds) {
+    if (!name || !conds) {
+        return;
+    }
+    auto& seq = name->m_sequence;
+    seq.push_back(conds);
+    seq.insert(seq.end(), conds->m_sequence.begin(), conds->m_sequence.end());
+}
+
+TermPtr appendTypeSetMember(TermPtr set, std::string_view sign, TermPtr type) {
+    EXPECT(type && "appendTypeSetMember: null member type");
+    TermPtr result = set;
+    if (!result || result->getTermID() != TermID::TYPE_SET) {
+        // Первый оператор: исходный тип становится началом первой ветки (знак '+').
+        result = Term::Create(TermID::TYPE_SET, "", type->m_mapperRange);
+        TermPtr first = Term::Create(TermID::ARGUMENT, "", set ? set->m_mapperRange : type->m_mapperRange);
+        first->m_left = Term::CreateSymbol('+');
+        first->m_type = set;
+        result->m_sequence.push_back(first);
+    }
+    TermPtr member = Term::Create(TermID::ARGUMENT, "", type->m_mapperRange);
+    member->m_left = Term::CreateSymbol(sign == "+" ? '+' : '-');
+    member->m_type = type;
+    result->m_sequence.push_back(member);
+    if (!type->m_mapperRange.isInvalid()) {
+        result->m_mapperRange.end = type->m_mapperRange.end;
+    }
+    return result;
+}
+
 // Истина, если терм - объявление (для привязки документирующего комментария к самому терму).
 bool isDeclTerm(const Term& t) {
     switch (t.m_id) {
@@ -77,7 +111,7 @@ bool isDeclTerm(const Term& t) {
         return !(t.m_left && t.m_left->m_left);
     case TermID::CREATE_TYPE: // ::= → TypeDecl
     case TermID::FUNCTION:    // FuncDecl
-    case TermID::COROUTINE:   // FuncDecl
+    case TermID::LAMBDA:      // FuncDecl (лямбда-выражение)
     case TermID::ITERATOR:    // FuncDecl
     case TermID::ARGS:        // ArgNode
     case TermID::ARGUMENT:    // ArgNode
@@ -603,6 +637,13 @@ go_parse_string:
             // захватываем аргументы ДО раскрытия/прагм (иначе expandPredefMacro заштамповал бы
             // его как контекст-макрос, а прагма-ветка съела бы как «unknown pragma»).
             if (m_pragma.evalCheckArea(m_macro_analisys_buff)) {
+                continue;
+            }
+
+            // @__DEBUG__/@__DEBUG_SCOPE__(...) - встроенные системные макросы отладочного вывода:
+            // захватываем аргументы ДО раскрытия (иначе expandPredefMacro заштамповал бы их как
+            // контекст-макросы). В release-сборке компилятора вызов стирается + предупреждение.
+            if (m_pragma.evalDebug(m_macro_analisys_buff)) {
                 continue;
             }
 

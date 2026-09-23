@@ -13,7 +13,7 @@
 //   * the map must round-trip and carry non-empty trust<->cpp mappings.
 // -----------------------------------------------------------------------
 
-#include "diag/mapper.hpp"
+#include "sourcemap/mapper.hpp"
 
 #include <gtest/gtest.h>
 
@@ -87,7 +87,7 @@ TEST(SrcMapCliReadback, EmitCppProducesReadableMap) {
     EXPECT_EQ(reader2->getForwardMappings().size(), reader->getForwardMappings().size());
 
     // 6b. In-memory (fictitious) sources are marked with the '@' prefix, so
-    //     consumers know there is no file on disk (DSL -> "@trust/dsl", macro bodies
+    //     consumers know there is no file on disk (DSL -> "@stdlib/dsl", macro bodies
     //     -> "@input").
     bool sawInMemory = false;
     for (uint32_t i = 0; i < reader->input_count(); ++i) {

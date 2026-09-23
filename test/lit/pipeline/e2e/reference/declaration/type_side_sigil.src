@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q -Wsigil=ignore --temp-dir $TD -o $TD/ref_typeside %s
+# RUN: $TD/ref_typeside > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: x=5 y=7 w=5
+
+# Вид ссылки у ТИПА (после ':') - самостоятельная (каноническая) форма, БЕЗ маркера у переменной:
+#   * маркер в аннотации типа - `x : &*Int32`, `w : &?Int32`;
+#   * атрибут в аннотации типа - `y : @[reftype("shared")@] Int32`.
+# Ранее такие формы требовали дублирования маркера у переменной; теперь достаточно одной позиции.
+
+@main():Int32 := {
+    x : &*Int32 := 5;
+    y : @[reftype("shared")@] Int32 := 7;
+    w : &?Int32 := & x;
+    print('x={} y={} w={}\n', *x, *y, *w);
+    return 0;
+};

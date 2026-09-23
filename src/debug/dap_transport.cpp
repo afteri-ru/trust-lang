@@ -1,5 +1,5 @@
 #include "debug/dap_transport.h"
-#include "pipeline/cli.hpp"
+#include "driver/cli.hpp"
 #include "utils/io.hpp"
 
 #include <vector>
@@ -63,7 +63,7 @@ void sendBreakpointEvent(trust::transport::Transport& transport, const std::stri
 
 // -- TCP server helpers (делегированы в trust::transport) --
 
-// -- CLI parsing -- (единый арity-aware парсер драйвера, см. pipeline/cli.hpp)
+// -- CLI parsing -- (единый арity-aware парсер драйвера, см. driver/cli.hpp)
 
 namespace {
 

@@ -8,7 +8,7 @@ add_library(module_loader_lib STATIC
     ${PROJECT_SOURCE_DIR}/module_loader/module_registry.cpp
     ${PROJECT_SOURCE_DIR}/module_loader/module_export.cpp
 )
-target_link_libraries(module_loader_lib PUBLIC trust_include_dirs ast_lib)
+target_link_libraries(module_loader_lib PUBLIC trust_include_dirs ast_lib session_lib)
 target_link_libraries(module_loader_lib PRIVATE syntax_lib)
 # build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.
 target_include_directories(module_loader_lib PRIVATE
@@ -21,3 +21,6 @@ set_source_files_properties(
     PROPERTIES COMPILE_OPTIONS "-Wno-error=switch;-Wno-error=old-style-cast"
 )
 add_dependencies(module_loader_lib generate_makefile_header gen_syntax_parsers)
+
+# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
+target_link_libraries(module_loader_lib PRIVATE trust_pch)

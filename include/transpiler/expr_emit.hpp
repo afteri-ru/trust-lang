@@ -27,6 +27,8 @@ class ExprEmitter {
     void emitBinaryOpRaw(const Binary& binary_node);
     void emitBinaryOperand(const AstNodeBase* operand, TypeId operandType, TypeId castType);
     void emitBinaryStmtOrExpr(const Binary& binary_node);
+    /// Оператор сравнения типов (<~ / ~~ / ~~~): статическая свёртка → true/false.
+    void emitTypeCheckOp(const Binary& n);
     void visit_Attr(const Sequence&);
     void visit_ArgNode(const ArgNode&);
     void visit_AssignOp(const Binary& n);
@@ -62,14 +64,32 @@ class ExprEmitter {
     void emitTypedDictValue(const AstNodeBase* valueNode, TypeId tid);
     void visit_RefMakeExpr(const RefMakeExpr&);
     void visit_RefTakeExpr(const RefTakeExpr&);
-    void visit_NativeRefMakeExpr(const NativeRefMakeExpr&);
-    void visit_NativeRefTakeExpr(const NativeRefTakeExpr&);
     void visit_RefLockExpr(const Sequence&);
     void visit_RefLockDeref(const Sequence&);
     void visit_Ellipsis(const Sequence&);
+    void visit_Filling(const Sequence&);
+    /// ЕДИНАЯ эмиссия аргументов вызова (функции И метода) - включая закрывающую ')'. Семейство
+    /// многоточия (`... expr ...`/`...`) раскрыто (МАТЕРИАЛИЗОВАНО) семантикой, поэтому кодоген
+    /// видит обычный список аргументов. Одна реализация для visit_CallExpr и вызовов методов.
+    void emitCallArgs(const CallExpr& call);
     void emitIntrinsic(IntrinsicId id, const CallExpr& call);
 
   private:
+    /// True, если для этого бинарного узла активна детекция целочисленного переполнения:
+    /// поведенческий флаг -foverflow-check включён И семантика пометила узел как контролируемую
+    /// знаковую машинную арифметику (Binary::m_overflowCheck == true). Узел вне класса
+    /// (isOverflowCheckableOp == false) или признак false (unsigned wrap, BigInteger/Rational,
+    /// не-целые, Bool-продвижение) - проверка не ставится. Классификацию владеет СЕМАНТИКА;
+    /// кодоген группы типов не определяет. Диапазон - тип ПРИЁМНИКА: value-позиция ->
+    /// commonType, составное присваивание -> тип ячейки (``&lhs``).
+    bool overflowCheckArith(const Binary& binary_node);
+
+    /// Эмитит проверяемую арифметику (+,-,*,+=,-=,*=) с детекцией переполнения через
+    /// встроенный __builtin_*_overflow: value-позиция (+,-,*) - лямбда-IIFE с локальной
+    /// T __r; составное присваивание (приёмник-адрес = lhs) - __builtin_*_overflow(lhs,rhs,&lhs)
+    /// ? throw : lhs (без лямбды/временных). На переполнение - throw trust::IntMinus.
+    void emitCheckedArith(const Binary& binary_node);
+
     /// Вставка проверки свободного места на стеке ПЕРЕД вызовом функции, помеченной атрибутом
     /// @[stack_check@] (режим --stack-check != off). Возвращает C++-вызов
     /// проверки (напр. "trust::stack_check::check_stack_limit()") либо пустую строку (нет защиты).

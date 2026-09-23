@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: eq=true
+
+# Перегрузка оператора-МЕТОДА `==`: выражение `a == b` для пользовательского класса
+# резолвится C++-ом в сгенерированный member `operator==` (по типу операндов).
+:Point ::= :Class{
+    x: Int32 := _;
+    `==`(o: Point): Bool := { return true; };
+};
+@main() := {
+    a : Point := :Point(1);
+    b : Point := :Point(2);
+    @print('eq={}\n', a == b);
+    @return 0;
+}

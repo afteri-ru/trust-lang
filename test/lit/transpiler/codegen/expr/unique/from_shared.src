@@ -1,0 +1,13 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# unique с инициализатором-вставкой `{% %}` (конверсия shared→unique через
+# `to_unique()`): НЕ оборачивается в make_unique - эмитится прямым присваиванием
+# (вставка сама даёт значение). Обёртка unique без deleter'а - trust::StaticUnique<T>.
+
+@main():Int32 := {
+    s : @[reftype("shared")@] Int32 := 5;
+    b : @[reftype("unique")@] Int32 := {% std::move($s).to_unique() %};
+    return *b;
+};
+# CHECK: trust::StaticUnique<int32_t> c_b =
+# CHECK: to_unique()

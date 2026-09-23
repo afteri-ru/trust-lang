@@ -5,7 +5,7 @@
 // рекурсия/вызовы других компонентов и драйвера идут через NameResolutionPass (friend).
 
 #include "semantic/pass.hpp"
-#include "semantic/symbol_table.hpp"
+#include "analysis/symbol_table.hpp"
 #include "ast/ast_nodes.hpp"
 #include "types/type_id.hpp"
 #include <memory>
@@ -25,6 +25,8 @@ class AccessResolver {
     void analyzeAccess(Binary& n);
     void resolveTupleAccess(Binary& n, TypeId tupleType);
     void resolveArrayAccess(Binary& n, TypeId arrayType);
+    /// Индексация пользовательского типа через объявленный оператор `[]`: `a[i]` → C++ `(obj)[idx]`.
+    void resolveSubscriptOperatorAccess(Binary& n, TypeId objType);
     void handleMethodCall(Binary& n);
 
   private:

@@ -125,11 +125,27 @@ fi
 echo "[2/4] generate playground fragment"
 mkdir -p fragments
 frag="fragments/playground.html"
-# trust-lsp может вернуть ненулевой код при ошибке транспиляции примера; это не должно
-# ронять сборку сайта.
-../_build/trust-lsp --html "$EXAMPLES_DIR/hello.src" --examples-dir "$EXAMPLES_DIR" \
-    --server-url "$SERVER_URL" --monaco-url "$MONACO_URL" > "$frag" \
-    || echo "  warning: trust-lsp --html exit=$?"
+INITIAL_EXAMPLE="$EXAMPLES_DIR/hello.src"
+# Стартовый пример обязателен: если файла нет, trust-lsp печатает ошибку в stderr и пустой
+# stdout - молча получается пустой фрагмент и страница песочницы теряет виджет. Поэтому
+# отсутствие файла - явная ошибка сборки, а не тихий пропуск.
+if [ ! -f "$INITIAL_EXAMPLE" ]; then
+    echo "error: initial playground example not found: $INITIAL_EXAMPLE" >&2
+    echo "       available examples in $EXAMPLES_DIR:" >&2
+    ls -1 "$EXAMPLES_DIR"/*.src 2>/dev/null | sed 's/^/         /' >&2
+    exit 1
+fi
+# trust-lsp может вернуть ненулевой код при ошибке транспиляции примера: фрагмент тогда
+# неполный/пустой, поэтому это ошибка сборки, а не предупреждение.
+if ! ../_build/trust-lsp --html "$INITIAL_EXAMPLE" --examples-dir "$EXAMPLES_DIR" \
+        --server-url "$SERVER_URL" --monaco-url "$MONACO_URL" > "$frag"; then
+    echo "error: trust-lsp --html failed for $INITIAL_EXAMPLE (see stderr above)" >&2
+    exit 1
+fi
+if [ ! -s "$frag" ]; then
+    echo "error: generated playground fragment is empty: $frag" >&2
+    exit 1
+fi
 echo "  generated $frag"
 
 # -- 3. Очистка предыдущей версии сайта + метаданные --

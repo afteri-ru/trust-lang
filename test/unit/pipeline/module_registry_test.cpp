@@ -3,7 +3,7 @@
 #include "module_loader/module_loader.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/token.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "syntax/term.h"
 #include <gtest/gtest.h>
 #include <memory>

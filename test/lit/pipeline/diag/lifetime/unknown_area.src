@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Первый аргумент @[lifetime(...)] - тип области из закрытого набора; неизвестное значение -> ошибка.
+@main():Int32 := {
+    x : @[reftype("ptr")@] @[lifetime("bogus")@] Int32 := 0;
+    return 0;
+};
+# CHECK: error: unknown 'lifetime' area 'bogus' (expected self/param/var/named/program/thread/scope/_)

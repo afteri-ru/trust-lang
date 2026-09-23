@@ -108,4 +108,26 @@ TEST(BigIntegerTest, CopyAndAssign) {
     EXPECT_EQ(c.GetAsString(), "7");
 }
 
+TEST(BigIntegerTest, DisplayShortensLongNumbers) {
+    // L=3: голова и хвост по 3 цифры, N - общее число десятичных цифр.
+    EXPECT_EQ(BigInteger("123456789012345").display(3), "123...345 (15)");
+    // Знак идёт впереди; N считает цифры БЕЗ знака.
+    EXPECT_EQ(BigInteger("-1234567890").display(2), "-12...90 (10)");
+}
+
+TEST(BigIntegerTest, DisplayKeepsShortNumbersWhole) {
+    // N <= 2L+1 - показываем полностью (без "...").
+    EXPECT_EQ(BigInteger(42).display(5), "42");
+    EXPECT_EQ(BigInteger("0").display(1), "0");
+    // Границы: N == 2L+1 -> полностью; N == 2L+2 -> сокращаем.
+    EXPECT_EQ(BigInteger("12345").display(2), "12345");
+    EXPECT_EQ(BigInteger("123456").display(2), "12...56 (6)");
+    EXPECT_EQ(BigInteger("-12345").display(2), "-12345");
+}
+
+TEST(BigIntegerTest, DisplayRejectsNonPositiveL) {
+    EXPECT_THROW(BigInteger(1).display(0), std::invalid_argument);
+    EXPECT_THROW(BigInteger(1).display(-3), std::invalid_argument);
+}
+
 } // namespace

@@ -1,0 +1,13 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Один символ объявлен и member-методом, и свободной функцией → C++ неоднозначность;
+# диагностируем на использовании (раньше молча получали ambiguous в C++).
+:P ::= :Class{ x: Int32 := _; `==`(o: P): Bool := { return true; }; };
+`==`(a: P, b: P): Bool := { return true; };
+@main() := {
+    a : P := :P(1);
+    b : P := :P(2);
+    @print('{}\n', a == b);
+    @return 0;
+}
+# CHECK: error: operator '==' is ambiguous: declared both as a member of 'P' and as a free function

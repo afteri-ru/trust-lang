@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %T --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 #
 # Проверка генерации C++ для RAII-менеджера контекста `with(a=expr, b=expr){...} else {...}`.
 # В C++ нет «else при исключении в инициализаторе»: else эмулируется флагом «все биндинги

@@ -1,0 +1,10 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Свободный оператор верхнего уровня: имя-СИМВОЛ в обратных кавычках эмитится как top-level
+# C++ `operator<sym>` (не метод); все операнды - параметры.
+:Point ::= :Class{ x: Int32 := _; };
+`==`(a: Point, b: Point): Bool := { return true; };
+`!=`(a: Point, b: Point): Bool := { return false; };
+# CHECK: struct c_Point {
+# CHECK: bool operator==(c_Point c_a, c_Point c_b) {
+# CHECK: bool operator!=(c_Point c_a, c_Point c_b) {

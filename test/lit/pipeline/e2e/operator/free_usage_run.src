@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: eq=true ne=false lt=true gt=false le=true ge=true
+
+# РЕАЛЬНОЕ использование СВОБОДНЫХ операторов в TrustLang-выражениях: все сравнения
+# резолвятся C++-ом в top-level operator<sym>; результат исполняется и проверяется.
+:Val ::= :Class{ v: Int32 := _; };
+`==`(a: Val, b: Val): Bool := { return true; };
+`!=`(a: Val, b: Val): Bool := { return false; };
+`<`(a: Val, b: Val): Bool := { return true; };
+`>`(a: Val, b: Val): Bool := { return false; };
+`<=`(a: Val, b: Val): Bool := { return true; };
+`>=`(a: Val, b: Val): Bool := { return true; };
+@main() := {
+    a : Val := :Val(1);
+    b : Val := :Val(2);
+    @print('eq={} ne={} lt={} gt={} le={} ge={}\n', a == b, a != b, a < b, a > b, a <= b, a >= b);
+    @return 0;
+}

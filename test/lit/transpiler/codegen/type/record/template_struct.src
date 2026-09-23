@@ -1,0 +1,16 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/template_struct.o %s && test -f $TD/template_struct.o
+
+# Struct-шаблон: определение эмитится БЕЗ static_assert (проверка POD над шаблоном невыразима и
+# зависит от T). POD-проверка `static_assert` эмитится для КОНКРЕТНОЙ инстанциации `c_Point<int32_t>`
+# (в конце файла, после сбора использованных типов).
+
+<T> :Point ::= :Struct{ x: T := _; y: T := _; };
+# CHECK: template <typename T>
+# CHECK-NEXT: struct c_Point {
+# CHECK-NEXT:     T c_x;
+# CHECK-NEXT:     T c_y;
+# CHECK-NOT: static_assert
+p : Point<Int32> := Point(1, 2);
+# CHECK: c_Point<int32_t> c_p = c_Point<int32_t>(1, 2);
+# CHECK: static_assert(std::is_trivial_v<c_Point<int32_t>> && std::is_standard_layout_v<c_Point<int32_t>>, "trust: Struct 'Point' must be POD");

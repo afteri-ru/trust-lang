@@ -15,7 +15,7 @@
 #include "ast/term_to_ast.hpp"
 
 #include "ast/ast_nodes.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
 #include "ast/attr_parser.hpp"
 #include "ast/check_area.hpp"
 #include "ast/ident_name.hpp"
@@ -254,11 +254,11 @@ AstNodePtr TermToAstConverter::convert(const trust::TermPtr& term) {
         }
         if (argTexts.size() >= 2) {
             const std::string& b = argTexts[1];
-            marker->behavior = (b == "default")  ? std::optional<Severity>(std::nullopt)
-                             : (b == "ignore")   ? std::optional<Severity>(Severity::Ignore)
-                             : (b == "warning")  ? std::optional<Severity>(Severity::Warning)
-                             : (b == "error")    ? std::optional<Severity>(Severity::Error)
-                                                 : std::nullopt;
+            marker->behavior = (b == "default")   ? std::optional<Severity>(std::nullopt)
+                               : (b == "ignore")  ? std::optional<Severity>(Severity::Ignore)
+                               : (b == "warning") ? std::optional<Severity>(Severity::Warning)
+                               : (b == "error")   ? std::optional<Severity>(Severity::Error)
+                                                  : std::nullopt;
         }
         // Требуемые атрибуты текущей области (AttrId) - лежат в attrs() маркера (семантика читает
         // их как required-список). Резолв через AttrPool (layering: ast не зависит от semantic).
@@ -269,8 +269,22 @@ AstNodePtr TermToAstConverter::convert(const trust::TermPtr& term) {
                 // области - они обрабатываются, а не «unhandled» (иначе reportUnhandledAttributes).
                 marker->add_attr(*id, /*manual=*/false);
             } else {
-                m_ctx.diag().report(Severity::Error, term->m_mapperRange,
-                                    "@__CHECK_AREA__: unknown attribute '{}'", argTexts[i]);
+                m_ctx.diag().report(Severity::Error, term->m_mapperRange, "@__CHECK_AREA__: unknown attribute '{}'", argTexts[i]);
+            }
+        }
+        return marker;
+    }
+
+    // Встроенные системные маркеры отладочного вывода (УРОВЕНЬ 1): `@__DEBUG__` / `@__DEBUG_SCOPE__`
+    // приходят единым TermID::MACRO_CONTEXT-термом (текст = имя макроса, аргументы - дочерние
+    // NAME-термы). Строим лист-узел DebugStmt; семантика применяет эффект (установка фильтра /
+    // дамп состояния скоупа) и УДАЛЯЕТ маркер - до транспилятора он не доходит.
+    if (term->getTermID() == trust::TermID::MACRO_CONTEXT && (text == "@__DEBUG__" || text == "@__DEBUG_SCOPE__")) {
+        auto marker = std::make_shared<DebugStmt>(ParserToken::Kind::DebugStmt, term, &m_ctx);
+        marker->mode = (text == "@__DEBUG_SCOPE__") ? DebugMode::Scope : DebugMode::Filter;
+        for (const auto& c : term->m_sequence) {
+            if (c) {
+                marker->args.emplace_back(c->getText());
             }
         }
         return marker;
@@ -457,8 +471,13 @@ AstNodePtr TermToAstConverter::visit_MODULE(const trust::TermPtr& term, Context&
 // ИМЯ (native `%std::pair` или голое имя), а НЕ type_class (`:Base`, начинается с ':')
 // пользовательского класса (class_type_def). Нативный класс: `%`-имя → C++-имя без '%'.
 static bool isNativeClassFwdTerm(const trust::TermPtr& rhs) {
-    return rhs && rhs->getTermID() == trust::TermID::CLASS && !rhs->getText().empty() &&
-           rhs->getText().front() != ':';
+    return rhs && rhs->getTermID() == trust::TermID::CLASS && !rhs->getText().empty() && rhs->getText().front() != ':';
+}
+
+// True, если RHS-терм `::=` - объявление пользовательского Record-типа (Struct/Class):
+// CLASS-терм, чей текст - БАЗА-тип (`:Struct`/`:Class`/`:Base`, начинается с ':').
+static bool isUserRecordTerm(const trust::TermPtr& rhs) {
+    return rhs && rhs->getTermID() == trust::TermID::CLASS && !rhs->getText().empty() && rhs->getText().front() == ':';
 }
 
 AstNodePtr TermToAstConverter::visit_CREATE_TYPE(const trust::TermPtr& term, Context& ctx) {
@@ -479,6 +498,19 @@ AstNodePtr TermToAstConverter::visit_CREATE_TYPE(const trust::TermPtr& term, Con
         b->m_right = ncd;
         return b;
     }
+    // Объявление пользовательского Record-типа (Struct/Class): `:Name ::= :Base{, :Base}{ ... };`
+    // RHS - CLASS-терм с базой-типом (`:Struct`/`:Class`/`:Base`). Единый узел RecordDecl;
+    // Struct vs Class определяется базой (семантика → Group TypeKind).
+    if (isUserRecordTerm(term->m_right)) {
+        auto rec = std::make_shared<RecordDecl>(ParserToken::Kind::StructDecl, term, &ctx);
+        if (term->m_left) {
+            AstNodePtr recBase = rec;
+            convertAttrsToNode(term->m_left, recBase, ctx);
+        }
+        auto b = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, term, &ctx);
+        b->m_right = rec;
+        return b;
+    }
     return convertForKind<ParserToken::Kind::TypeDecl>(term, ctx);
 }
 
@@ -495,6 +527,21 @@ AstNodePtr TermToAstConverter::visit_CREATE_NAME(const trust::TermPtr& term, Con
         // а тип-конструктор: помечаем и переносим типовые параметры как ArgNode-узлы (B1 - типовые
         // без ограничений; m_type/дефолт - B2/B3). C++-имя шаблона - из нативного имени `%std::vector`.
         if (term->m_template.has_value()) {
+            // Оператор-ШАБЛОН не реализован: НЕ классифицируем как нативный шаблон-тип (иначе
+            // объявление МОЛЧА пропадало бы: analyzeNativeTemplateDecl + ранний return кодогена).
+            // Типовые параметры сохраняем - семантика выдаст явную ошибку (validateOperatorDecl).
+            if (term->m_left && term->m_left->getTermID() == trust::TermID::REFLECTION) {
+                std::vector<AstNodePtr> opParams;
+                opParams.reserve(term->m_template->size());
+                for (const auto& [pname, pterm] : *term->m_template) {
+                    (void)pname;
+                    if (pterm) {
+                        opParams.push_back(std::make_shared<ArgNode>(std::string(pterm->getText())));
+                    }
+                }
+                fd->m_templateParams = std::move(opParams);
+                return fd;
+            }
             fd->m_isNativeTemplateCtor = true;
             std::vector<AstNodePtr> params;
             params.reserve(term->m_template->size());
@@ -536,7 +583,9 @@ AstNodePtr TermToAstConverter::visit_CREATE_NAME(const trust::TermPtr& term, Con
             auto vd = std::make_shared<VarDecl>(ParserToken::Kind::VarDecl, term, &ctx);
             const AttrPool& ap = ctx.attrs();
             if (const auto rid = ap.lookup(attr::Reftype); rid.has_value()) {
-                vd->add_attr(*rid);
+                // manual=false: вид задан КОРОТКИМ символьным маркером (а не явным @[reftype(...)]).
+                // Флаг используется правилом «короткие маркеры запрещены на границе API» (decl_analyzer).
+                vd->add_attr(*rid, /*manual=*/false);
                 vd->set_attr_args(*rid, {std::string(refTypeName(*kind))});
             }
             return vd;
@@ -558,38 +607,10 @@ AstNodePtr TermToAstConverter::visit_CREATE_NAME(const trust::TermPtr& term, Con
     return std::make_shared<VarDecl>(ParserToken::Kind::VarDecl, term, &ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_OPERATOR_PTR(const trust::TermPtr& term, Context& ctx) {
-    const std::string_view t = term->getText();
-    // Нативные (сырые) C++ операторы: текст с ведущим '%' → отдельный узел NativeRefMakeExpr.
-    // `%&` - ЕДИНСТВЕННЫЙ оператор нативной ссылки (address-of; контекст T&/T* задаёт левый
-    // оператор создания/присваивания). `%*` в выражении - ошибка (указатель только тип/декларация).
-    if (t.empty() || t[0] != '%') {
-        return TermVisitorDefault::visit_OPERATOR_PTR(term, ctx); // умные & / && / &? → RefMakeExpr
-    }
-    // Позиция ТИПА (`%& Int32` / `%* Int32` в аннотации `name : %& Int32`): оператор обёртывает тип →
-    // делегируем в RefMakeExpr (resolveType применит refTypeFromTypeSigil → kRef/kPtr).
-    if (term->m_right && term->m_right->getTermID() == trust::TermID::TYPE) {
-        return TermVisitorDefault::visit_OPERATOR_PTR(term, ctx);
-    }
-    if (t == "%*") {
-        ctx.diag().report(Severity::Error, term->m_mapperRange,
-                          "native pointer operator '%*' is only valid as a type/declaration marker; dereference with '*'");
-        return nullptr;
-    }
-    auto node = std::make_shared<NativeRefMakeExpr>(ParserToken::Kind::NativeRefMakeExpr, term, &ctx);
-    return node;
-}
-
-AstNodePtr TermToAstConverter::visit_TAKE(const trust::TermPtr& term, Context& ctx) {
-    // Разименование `*`/`*^` - ОБЩИЙ оператор для всех видов ссылок (умных и нативных):
-    // всегда RefTakeExpr; для нативных ссылок -Wnative-ref диагностику ставит семантика.
-    return TermVisitorDefault::visit_TAKE(term, ctx);
-}
-
 AstNodePtr TermToAstConverter::visit_SWAP(const trust::TermPtr& term, Context& ctx) {
     // `x :=: y` - swap двух ссылок/переменных. Единый узел Binary(AssignOp) с оператором ":=":;
     // m_left/m_right строит терм-конструктор Binary из term->m_left/m_right (AppendLeft/Right в
-    // грамматике assign_seq SWAP). text() узла = ":=:" (utils::isSwapOp в семантике/транспиляторе).
+    // грамматике assign_seq SWAP). text() узла = ":=:" (BinaryOp::Swap - m_op, используется семантикой/транспилятором).
     return std::make_shared<Binary>(ParserToken::Kind::AssignOp, term, &ctx);
 }
 
@@ -715,6 +736,31 @@ AstNodePtr TermToAstConverter::visit_RANGE(const trust::TermPtr& term, Context& 
     return node;
 }
 
+// Немедленный вызов лямбды `( lambda )(args)` (LAMBDA_CALL): callee - сама лямбда (m_left),
+// аргументы вызова - в m_args. Generic-путь CallExpr строит callee=IdentName(m_term) - не годится.
+AstNodePtr TermToAstConverter::visit_LAMBDA_CALL(const trust::TermPtr& term, Context& ctx) {
+    auto call = std::make_shared<CallExpr>(ParserToken::Kind::CallExpr, term);
+    if (term && term->m_left) {
+        call->m_callee = convertChild(ctx, term->m_left);
+    }
+    if (term && term->m_args) {
+        std::vector<AstNodePtr> args;
+        for (const auto& [name, argTerm] : *term->m_args) {
+            (void)name;
+            if (!argTerm || argTerm->getTermID() == trust::TermID::END) {
+                continue;
+            }
+            if (AstNodePtr an = convertChild(ctx, argTerm)) {
+                args.push_back(std::move(an));
+            }
+        }
+        if (!args.empty()) {
+            call->m_args = std::move(args);
+        }
+    }
+    return call;
+}
+
 // Блоки перехвата прерываний {+}/{ -}/{*} → TryCatchStmt. Обычный { ... } (BLOCK)
 // конвертируется как ScopeBlock; эти три вида - как try/catch-блок. Синтетических веток НЕ добавляем:
 // при отсутствии явных catch кодогенерация берёт класс по text() ('{+'→IntPlus, '{-'→IntMinus,
@@ -796,7 +842,7 @@ AstNodePtr TermToAstConverter::visit_TYPE(const trust::TermPtr& term, Context& c
         // `:Type(args)` с НЕ-типовыми аргументами - литерал/конструкция/вызов (значения).
         // ЕДИНЫЙ узел DictLiteralNode с аннотацией типа (m_type = контейнер). Анализатор по
         // СЛОТУ (тип/значение) и типу из реестра решает: в value-слоте Tuple → kind=Tuple,
-        // иначе - каст/конструктор (кодогенерация); в type-слоте аннотация - resolveType.
+        // иначе - каст/конструктор (кодогенерация); в type-слоте аннотация - resolveTypeRef.
         // Константность `^` (`:Array^`) → attr::ReadOnly на контейнере (→ std::array).
         // Хвостовая элементная аннотация `:Type(...):Elem` (term->m_type) → arrayElementAnnotation.
         {

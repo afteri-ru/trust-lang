@@ -1,0 +1,51 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/inheritance.o %s && test -f $TD/inheritance.o
+
+# Многоуровневое наследование Class (Shape → Rect → Square) и POD-Struct (Point).
+# Class-поля с default → C++ NSDMI (`{value}`); Struct-поля - без инициализатора (POD).
+# Наследование - C++ `: public c_Base`; методы - члены struct; доступ - `(obj).c_member`.
+
+:Point ::= :Struct{ x:Int32 := _; y:Int32 := _; };
+# CHECK: struct c_Point {
+# CHECK-NEXT:     int32_t c_x;
+# CHECK-NEXT:     int32_t c_y;
+# CHECK-NEXT: };
+# CHECK: static_assert(std::is_trivial_v<c_Point> && std::is_standard_layout_v<c_Point>, "trust: Struct 'Point' must be POD");
+
+:Shape ::= :Class{
+    kind:Int32 := 7;
+    describe():Int32 := { return kind + 100; };
+    area():Int32 := { return 0; };
+};
+# CHECK: struct c_Shape {
+# CHECK-NEXT:     int32_t c_kind{7};
+# CHECK: int32_t c_describe() {
+# CHECK: int32_t c_area() {
+
+:Rect ::= :Shape{
+    w:Int32 := 10;
+    h:Int32 := 5;
+    area():Int32 := { return w * h; };
+};
+# CHECK: struct c_Rect : public c_Shape {
+# CHECK-NEXT:     int32_t c_w{10};
+# CHECK-NEXT:     int32_t c_h{5};
+# CHECK: int32_t c_area() {
+
+:Square ::= :Rect{ side:Int32 := 4; };
+# CHECK: struct c_Square : public c_Rect {
+# CHECK-NEXT:     int32_t c_side{4};
+# CHECK-NEXT: };
+
+p:Point := Point(2, 3);
+r:Rect := Rect();
+s:Square := Square();
+@print('{} {} {} {} {}\n', p.x, r.describe(), r.area(), s.area(), s.side);
+# CHECK: c_Point c_p = c_Point(2, 3);
+# CHECK: c_Rect c_r = c_Rect();
+# CHECK: c_Square c_s = c_Square();
+# CHECK: (c_p).c_x
+# CHECK: (c_r).c_describe()
+# CHECK: (c_r).c_area()
+# CHECK: (c_s).c_area()
+# CHECK: (c_s).c_side

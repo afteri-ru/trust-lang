@@ -5,12 +5,12 @@
 // (шебанг vs окружение) с атрибуцией ошибок.
 //
 // Принцип разделения (см. MEMORY): общие опции проекта (--solver-mode, --keywords,
-// -fsolver-loop-unroll, -W...) обрабатываются централизованно (pipeline/analysis_options.hpp,
+// -fsolver-loop-unroll, -W...) обрабатываются централизованно (driver/analysis_options.hpp,
 // единый источник commonAnalysisOptions); специфичные для файла/приложения (шебанг) - только в
 // LSP-слое. Здесь - только LSP-специфичная логика поверх общего applyAnalysisArgs.
 
 #include "lsp/lsp_protocol.h"
-#include "pipeline/analysis_options.hpp"
+#include "driver/analysis_options.hpp"
 
 #include <functional>
 #include <string>

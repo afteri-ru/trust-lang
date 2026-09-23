@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Цикл через ШАБЛОННЫЙ тип: инстанциация Link<Node> содержит shared<Node>, а Node - shared<Link<Node>>.
+<T> :Link ::= :Class{ next : @[reftype("shared")@] T := _; };
+:Node ::= :Class{ peer : @[reftype("shared")@] Link<:Node> := _; };
+@main():Int32 := { return 0; };
+# CHECK: error: recursive strong (shared) reference cycle in class fields

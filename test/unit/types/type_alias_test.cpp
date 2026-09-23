@@ -5,7 +5,7 @@
 
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "gtest/gtest.h"
 
 #include <string>

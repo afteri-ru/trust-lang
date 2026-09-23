@@ -43,6 +43,10 @@ After ANY change that removes types/fields/tokens, run:
 3. Call `cmake --build _build` - project must compile without errors.
 4. Call `make run_tests` for all tests - must pass.
    - All test runs **MUST** use a timeout (e.g., `timeout 60 make run_tests`) to catch infinite loops or hangs.
+5. If the change adds/moves a `.cpp`/`.hpp` or changes `#include` directives - additionally build and
+   run the tests with the shared PCH **off** (`-DTRUST_USE_PCH=OFF`): the PCH is a dev-only optimization
+   and must never mask a missing `#include`. Release builds must use `TRUST_USE_PCH=OFF` anyway
+   (`ON` is a configuration error), so this configuration is the source of truth.
 
 If build or tests fail - do NOT declare completion. Fix the underlying issue.
 
@@ -50,7 +54,7 @@ If build or tests fail - do NOT declare completion. Fix the underlying issue.
 
 **Do not expand the task without explicit agreement.**
 
-- If architectural plan discussion exceeds 5 iterations - split into subtasks and agree separately.
+- If architectural plan discussion exceeds 5-8 iterations - split into subtasks and agree separately.
 - Do not mix adding functionality with API refactoring in a single task.
 - Do not rework caller APIs if the task does not require it.
 - If a simple task ("add an attribute") grows into an API redesign ("change substituteArgs to class") - stop and request a separate task.
@@ -65,7 +69,7 @@ If build or tests fail - do NOT declare completion. Fix the underlying issue.
 
 **Что сохраняется в `MEMORY.md` (критерии включения):**
 - Только **семантические инварианты-ловушки**, которые:
-  - вызвали **≥2 циклов доработок** (reopened задачи);
+  - вызвали **≥3 циклов доработок** (reopened задачи);
   - **не выводятся однозначно** из чтения исходного кода или описания MEMORY.md;
   - не являются описанием полей структур (состав полей - читать исходный код).
 - Сохранять в `MEMORY.md` следует **только очень кратко** самые важные семантические инварианты-ловушки, которые сложно вывести из API/MEMORY.md/исходного кода.
@@ -78,7 +82,7 @@ If build or tests fail - do NOT declare completion. Fix the underlying issue.
 
 **Порядок пополнения `MEMORY.md`:**
 
-- При каждом случае "ложного завершения" (≥2 TaskComplete) - если причина не покрыта существующими наблюдениями и не выводится из исходного кода - добавить наблюдение в `MEMORY.md` соответствующего компонента и обновить `last_reviewed` при ревизии.
+- При каждом случае "ложного завершения" (≥3 TaskComplete) - если причина не покрыта существующими наблюдениями и не выводится из исходного кода - добавить наблюдение в `MEMORY.md` соответствующего компонента и обновить `last_reviewed` при ревизии.
 - Если в ходе обычной задачи найден новый семантический инвариант-ловушка, отсутствующий в `MEMORY.md`, - дописать его в раздел «Facts and invariants» соответствующего компонента и обновить `last_reviewed`.
 - Если `last_reviewed` в `MEMORY.md` затрагиваемого компонента старше `review_period` - предложить провести ревизию (сверить содержимое с кодом, обновить `last_reviewed`) как отдельный пункт плана.
 

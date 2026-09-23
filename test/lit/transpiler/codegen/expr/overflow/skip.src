@@ -1,0 +1,30 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Контроль включается ТОЛЬКО для знаковых машинных целых: беззнаковые (wrap -
+# корректная семантика), BigInteger, '/','//' и '%' не оборачиваются.
+
+u:UInt32 := 4000000000;
+w := u + 1000000;
+# CHECK: int32_t c_w = (c_u + 1000000);
+
+q := 7 % 3;
+# CHECK: int32_t c_q = (7 % 3);
+
+
+b:BigInteger := 7;
+c := b + 1;
+# CHECK: trust::BigInteger c_c = (c_b + 1);
+
+b += 1;
+# CHECK: c_b += 1;
+b *= 2;
+# CHECK: c_b *= 2;
+
+r:Rational := 1\1;
+r += 1\1;
+# CHECK: c_r += trust::Rational
+r *= 2\1;
+# CHECK: c_r *= trust::Rational
+
+# CHECK-NOT: __builtin_
+# CHECK-NOT: integer overflow

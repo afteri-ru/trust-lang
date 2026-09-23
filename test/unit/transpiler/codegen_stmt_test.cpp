@@ -70,7 +70,8 @@ TEST_F(TranspilerTest, GenerateCallExprInInitializer) {
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("foo(1, 2)") != std::string::npos) << "result: " << result;
 }
-/// Test: expression statement with compound addition (x += 3 → x += 3;)
+/// Test: expression statement with compound addition (x += 3 → checked __builtin_add_overflow;
+/// default -foverflow-check по типу приёмника).
 
 TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundAdd) {
 
@@ -97,7 +98,7 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundAdd) {
     gen.generateToFile(seq, out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("x += 3;") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("__builtin_add_overflow(c_x, 3, &c_x)") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -129,7 +130,7 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundSub) {
     gen.generateToFile(seq, out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("x -= 3;") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("__builtin_sub_overflow(c_x, 3, &c_x)") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -161,7 +162,7 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundMul) {
     gen.generateToFile(seq, out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("x *= 3;") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("__builtin_mul_overflow(c_x, 3, &c_x)") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -257,7 +258,8 @@ TEST_F(TranspilerTest, GenerateExprIntDiv) {
     gen.generateToFile(seq, out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("static_cast<int64_t>(c_x) / static_cast<int64_t>(3)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("int64_t __l = static_cast<int64_t>(c_x)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("return __l / __r;") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -289,7 +291,8 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundIntDiv) {
     gen.generateToFile(seq, out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("x = static_cast<int64_t>(c_x) / static_cast<int64_t>(3)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("c_x = ([&]{ int64_t __l = static_cast<int64_t>(c_x)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("return __l / __r;") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);

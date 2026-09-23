@@ -1,28 +1,32 @@
 #pragma once
 
 // include/semantic/nativeref.hpp
-// NativeRefHook: анализ нативных (сырых) C++-ссылок + отслеживание инвалидации ссылок
-// (условный атрибут @[reftrace@], инвалидация зависимых).
+// NativeRefHook: анализ нативных (сырых) C++-ссылок + отслеживание инвалидации зависимых
+// (атрибут @[borrowed], инвалидация зависимых).
 //
-// Модель (см. .tasklog/1788277644296.md):
-//   - @[reftrace@] ставится на КЛАСС/ТИП или на МЕТОД (НЕ на переменную):
+// Модель (ось НЕЗАВИСИМА от вида ссылки):
+//   - @[borrowed] ставится на КЛАСС/ТИП, на МЕТОД или на ПЕРЕМЕННУЮ:
 //       - класс/тип (в т.ч. forward нативного C++: span, base_iterator): тип всегда внутри
 //         держит ссылку/указатель на чужие данные -> ЛЮБАЯ переменная такого типа
 //         автоматически зависимая (без указания в коде);
-//       - метод: возвращает ссылку во внутренние данные -> результат зависим от объекта.
-//   - АВТОМАТИЧЕСКИ (без атрибута), независимо от класса/метода:
-//       - переменная чисто ссылочного типа: kRef/kRref/kPtr/kPtrPtr (умные shared/weak/unique/
-//         locker НЕ отслеживаются автоматически);
-//       - индексный доступ obj[i] (возвращает ссылку на данные) -> зависимая;
-//       - любой метод, возвращающий чисто ссылочный тип -> результат зависим.
+//       - метод: возвращает ссылку во внутренние данные -> результат зависим от объекта;
+//       - переменная: явно объявляет переменную зависимой.
+//   - АВТОМАТИЧЕСКИ (без атрибута) ничего не отслеживается: значение-копии (в т.ч. `obj[i]` —
+//     копия значения) и умные ссылки/наблюдатели (shared/weak/unique/locker) НЕ являются
+//     зависимыми. Для умных ссылок мутация владельца под займом — зона borrow-checker
+//     (`-Wborrow-*`), а не borrowed. Отслеживаются только сущности с контрактом @[borrowed].
+//   - КОПИРОВАНИЕ АТРИБУТА: переменная, инициализированная/присвоенная из зависимой, тоже
+//     становится зависимой от того же корневого источника; переприсваивание независимым
+//     значением снимает зависимость (release).
 //   - Источник (main variable) = объект, из данных которого получена зависимая. Инвалидация:
 //     ЛЮБАЯ мутация источника (присваивание нового значения ИЛИ вызов не-const метода)
 //     инвалидирует зависимые, рождённые ДО мутации.
-//   - Поведение управляется severity-опцией -Wreftrace=ignore|warning|error (DiagId::RefTrace).
+//   - Поведение управляется severity-опцией -Wborrowed=ignore|warning|error (DiagId::Borrowed).
 //
 // Реализация - InlineAnalysisHook (подключается параллельно к ядру NameResolutionPass):
-//   - onNode: VarDecl (порождение зависимой), ClassDecl/FuncDecl (помеченные @[reftrace@]),
-//     AssignOp (мутация источника), MemberAccess+CallExpr (мутация источника не-const методом);
+//   - onNode: VarDecl (порождение зависимой), ClassDecl/FuncDecl (помеченные @[borrowed]),
+//     AssignOp (мутация источника + копирование/снятие зависимости), MemberAccess+CallExpr
+//     (мутация источника не-const методом);
 //   - onResolve(Ident): использование зависимой переменной после мутации источника -> диагностика.
 //
 // Ограничение v1: решение о «зависимой» принимается структурно по инициализатору/аннотации типа
@@ -30,10 +34,11 @@
 // сводится к корневому источнику. Умные указатели исключены из авто-трекинга.
 
 #include "semantic/inline_hook.hpp"
+#include "semantic/frame_epoch.hpp"
 #include "semantic/pass.hpp"
 #include "semantic/diag.hpp"
 #include "ast/ast_nodes.hpp"
-#include "ast/attr_builtin.hpp"
+#include "attrs/attr_builtin.hpp"
 #include "location/location.hpp"
 #include "types/typekind.hpp"
 
@@ -66,21 +71,22 @@ class NativeRefHook : public InlineAnalysisHook {
         std::map<std::string, std::pair<size_t, RefType>> nativeVars;
     };
 
-    // root_source_var -> текущая эпоха мутаций (глобально по имени переменной).
-    std::map<std::string, int64_t> m_epoch;
-    // root_source_var -> место последней мутации (для note).
-    std::map<std::string, MapperRange> m_changeSite;
+    // Per-frame эпоха мутаций источников (общий механизм с BorrowCheckHook). Push/pop
+    // синхронны с m_frames в enterScope/exitScope.
+    FrameEpoch m_epoch;
     std::vector<Frame> m_frames;
 
-    // trust-имена классов и методов, помеченных @[reftrace@].
+    // trust-имена классов и методов, помеченных @[borrowed].
     std::set<std::string> m_markedClasses;
     std::set<std::string> m_markedMethods;
 
     AnalysisContext& m_actx;
 
-    bool reftraceEnabled() const;
+    bool borrowedEnabled() const;
     void recordMutation(const std::string& name, const MapperRange& range);
     void recordBirth(const VarDecl& var);
+    /// Копирование/снятие атрибута @[borrowed] при присваивании (AssignOp).
+    void propagateBorrowOnAssign(const Binary& b);
     /// Сводит имя (возможно зависимой переменной) к корневому источнику по цепочке зависимостей.
     std::string resolveRootSource(const std::string& name) const;
     /// Находит запись зависимой по имени (фреймы сверху вниз). nullptr - не зависимая.
@@ -91,10 +97,14 @@ class NativeRefHook : public InlineAnalysisHook {
     /// Является ли объявление переменной отслеживаемой зависимой (по инициализатору/типу/атрибуту).
     bool varIsTracked(const VarDecl& var, const std::string& source) const;
     bool varIsMarkedClassType(const VarDecl& var) const;
+    /// Явный атрибут @[borrowed] на переменной или в её аннотации типа.
+    bool varHasBorrowedAttr(const VarDecl& var) const;
+    /// Выражение-инициализатор, порождающее зависимые данные (метод/конструктор @[borrowed]-контракта).
+    bool exprIsBorrowed(const AstNodeBase* init) const;
     static std::string normalizeMethodName(std::string_view m);
 
     // -- Диагностики нативных (сырых) ссылок (D3..D7) --
-    /// Вид нативной ссылки из аннотации типа (структурно: текст маркера `%&`/`%*`). kValue - не нативная.
+    /// Вид нативной ссылки из аннотации типа (`@[reftype("ptr"|"ref")]`). kValue - не нативная.
     static RefType nativeKindOfTypeNode(const AstNodeBase* typeNode);
     /// Регистрирует нативную переменную в текущем фрейме + D4 (static/global native -> error).
     void registerNativeVar(const Symbol& sym, RefType kind);
@@ -106,7 +116,7 @@ class NativeRefHook : public InlineAnalysisHook {
     void checkSwapNativeAcrossScopes(const Binary& b);
     /// Находит нативную переменную по bare-имени (фреймы сверху вниз). nullptr - не нативная.
     const std::pair<size_t, RefType>* findNativeVar(const std::string& bare) const;
-    /// Производит ли выражение нативную ссылку (`%& expr` ИЛИ копию нативной переменной).
+    /// Производит ли выражение нативную ссылку (копию нативной переменной / результат нативной функции).
     bool exprProducesNativeRef(const AstNodeBase* e) const;
 };
 

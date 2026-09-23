@@ -135,18 +135,18 @@
       var a = document.createElement('a');
       a.className = 'tpl-copy';
       a.href = '#';
-      a.title = 'Скопировать ссылку на текущее состояние песочницы';
-      a.textContent = '🔗 скопировать ссылку';
+      a.title = 'Copy link to the current playground state';
+      a.textContent = '🔗 copy link';
       a.addEventListener('click', function (ev) {
         ev.preventDefault();
         var url = buildShareUrl();
         copyText(url).then(function () {
           var old = a.textContent;
-          a.textContent = '✓ скопировано';
+          a.textContent = '✓ copied';
           setTimeout(function () { a.textContent = old; }, 1500);
         }).catch(function () {
-          a.textContent = 'ошибка копирования';
-          setTimeout(function () { a.textContent = '🔗 скопировать ссылку'; }, 2000);
+          a.textContent = 'copy failed';
+          setTimeout(function () { a.textContent = '🔗 copy link'; }, 2000);
         });
       });
       status.appendChild(a);
@@ -198,7 +198,7 @@
           var link = document.createElement('span');
           link.className = 'tpl-log-link ' + (isErr ? 'tpl-log-error' : 'tpl-log-warn');
           link.textContent = text;
-          link.title = 'Перейти к строке ' + ln;
+          link.title = 'Go to line ' + ln;
           link.addEventListener('click', (function (ll, lc) {
             return function () { gotoTrustLine(ll, lc); };
           })(ln, col));
@@ -263,11 +263,11 @@
       var body = (trustEditor && trustEditor.getValue) ? trustEditor.getValue() : (loadedSource || '');
       setStatus('building archive…');
       appendLog('building archive…');
-      fetch(serverOrigin + '/download', {
+      fetchWithTimeout(serverOrigin + '/download', {
         method: 'POST',
         headers: requestHeaders(),
         body: body
-      }).then(function (res) {
+      }, kRunTimeoutMs).then(function (res) {
         if (!res.ok) {
           return res.json().catch(function () { return {}; }).then(function (d) {
             throw new Error((d && d.error) || ('archive build failed (' + res.status + ')'));
@@ -334,7 +334,7 @@
         if (!cfg.examples[idx]) { return; }
         var ex = cfg.examples[idx];
         if (trustEditor && trustEditor.getValue() !== loadedSource) {
-          if (!confirm('Текущий текст будет заменён на пример "' + ex.name + '". Продолжить?')) {
+          if (!confirm('The current text will be replaced with example "' + ex.name + '". Continue?')) {
             if (curExIndex >= 0) { examplesSel.selectedIndex = curExIndex; }
             else { examplesSel.selectedIndex = 0; }
             return;
@@ -350,6 +350,47 @@
     populateExamples();
 
     function setStatus(msg) { if (status) { status.textContent = msg; } }
+
+    // Таймауты сетевых вызовов балансировщика (мс). Без клиентского таймаута при
+    // неустановимом соединении (хост недоступен/прокси висит) статус-строка держала
+    // бы «transpiling…» до OS/браузерного connect-timeout (30-60 с). /health у живого
+    // балансировщика всегда мгновенен - короткий таймаут; /run может быть медленным
+    // (серверный максимум ~30 с), поэтому его таймаут - только последний рубеж.
+    var kHealthTimeoutMs = 4000;
+    var kRunTimeoutMs = 35000;
+
+    // Достижимость балансировщика по последнему /health: null - неизвестно, true/false -
+    // результат проверки. Используется, чтобы не слать /run впустую и показывать ошибку сразу.
+    var balancerReady = null;
+    // Активный запрос /run: при недоступности балансировщика обрываем его - ошибка покажется сразу.
+    var runAbort = null;
+    // Номер текущего recompile: устаревшие ответы (в т.ч. оборванные) не трогают UI.
+    var runSeq = 0;
+
+    // fetch с клиентским таймаутом: по истечении (или внешнему abort) промис реджектится
+    // с явной ошибкой - вызывающий код показывает ошибку связи (без «тихого» fallback).
+    function fetchWithTimeout(url, opts, timeoutMs, externalCtrl) {
+      var ctrl = externalCtrl || (('AbortController' in window) ? new AbortController() : null);
+      var o = opts || {};
+      if (ctrl) { o.signal = ctrl.signal; }
+      var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs) : null;
+      function clear() { if (timer !== null) { clearTimeout(timer); } }
+      return fetch(url, o).then(function (res) {
+        clear();
+        return res;
+      }, function (err) {
+        clear();
+        if (err && err.name === 'AbortError') { throw new Error('request aborted (timeout ' + timeoutMs + ' ms)'); }
+        throw err;
+      });
+    }
+
+    // Помечает балансировщик недоступным и обрывает висящий /run (см. recompile).
+    function markBalancerDown() {
+      balancerReady = false;
+      if (runAbort && runAbort.abort) { runAbort.abort(); }
+    }
+    function markBalancerUp() { balancerReady = true; }
 
     // Заголовки к балансировщику: имя примера (для кеша - только пока текст НЕ изменён).
     function requestHeaders() {
@@ -373,32 +414,43 @@
     // Постоянный статус готовности, отличает «нет связи с балансировщиком» от «нет воркеров».
     // Терпим к старым балансировщикам: если в ответе нет workers_connected - всё равно «онлайн»,
     // просто без счётчика (поле появилось в новой версии /health).
-    function updateHealth() {
-      if (!healthEl) { return; }
-      if (!cfg.serverUrl) { setHealth('down', 'нет связи с балансировщиком'); return; }
-      fetch(serverOrigin + '/health', { method: 'GET' }).then(function (res) {
+    // Возвращает промис с bool (доступен ли балансировщик) - используется как гейт в recompile.
+    function probeHealth() {
+      if (!healthEl) { return Promise.resolve(true); }
+      if (!cfg.serverUrl) {
+        setHealth('down', 'no connection to the balancer');
+        markBalancerDown();
+        return Promise.resolve(false);
+      }
+      function down(res, txt) { setHealth('down', txt); markBalancerDown(); return res; }
+      return fetchWithTimeout(serverOrigin + '/health', { method: 'GET' }, kHealthTimeoutMs).then(function (res) {
         if (!res.ok) {
           console.warn('[trust-playground] /health HTTP ' + res.status + ' at ' + serverOrigin);
-          setHealth('down', 'нет связи с балансировщиком (HTTP ' + res.status + ')'); return;
+          return down(false, 'no connection to the balancer (HTTP ' + res.status + ')');
         }
-        return res.json().catch(function () {
-          console.warn('[trust-playground] /health вернул не JSON (вероятно, статическая страница вместо балансировщика): ' + serverOrigin);
-          return null;
+        return res.json().then(function (d) {
+          if (!d || d.status !== 'ok') {
+            console.warn('[trust-playground] /health response without status=ok:', d);
+            return down(false, 'no connection to the balancer');
+          }
+          var n = (typeof d.workers_connected === 'number') ? d.workers_connected : null;
+          if (n === null) { setHealth('ok', 'balancer online'); }
+          else if (n > 0) { setHealth('ok', 'balancer online · workers: ' + n); }
+          else { setHealth('degraded', 'balancer online · no workers'); }
+          markBalancerUp();
+          return true;
+        }, function () {
+          console.warn('[trust-playground] /health returned non-JSON (probably a static page instead of the balancer): ' + serverOrigin);
+          return down(false, 'no connection to the balancer');
         });
-      }).then(function (d) {
-        if (!d || d.status !== 'ok') {
-          console.warn('[trust-playground] /health ответ без status=ok:', d);
-          setHealth('down', 'нет связи с балансировщиком'); return;
-        }
-        var n = (typeof d.workers_connected === 'number') ? d.workers_connected : null;
-        if (n === null) { setHealth('ok', 'балансировщик онлайн'); }
-        else if (n > 0) { setHealth('ok', 'балансировщик онлайн · воркеров: ' + n); }
-        else { setHealth('degraded', 'балансировщик онлайн · нет воркеров'); }
-      }).catch(function (e) {
+      }, function (e) {
         console.warn('[trust-playground] /health fetch failed at ' + serverOrigin + ':', e);
-        setHealth('down', 'нет связи с балансировщиком');
+        return down(false, 'no connection to the balancer');
       });
     }
+
+    // Поллинг статуса балансировщика (setInterval); результат - в индикаторе и balancerReady.
+    function updateHealth() { probeHealth(); }
 
     function loadScript(src, onload) {
       var s = document.createElement('script');
@@ -534,69 +586,88 @@
 
           function recompile() {
             var body = trustEditor.getValue();
-            setStatus('transpiling…');
+            var seq = ++runSeq;
             clearLog();
-            appendLog('transpiling…');
-            fetch(cfg.serverUrl, {
-              method: 'POST',
-              headers: requestHeaders(),
-              body: body
-            }).then(function (res) {
-              // Читаем тело как текст и пытаемся распарсить JSON: балансировщик
-              // может вернуть HTML/прокси-ошибку (не JSON) - в этом случае трактуем
-              // как отсутствие связи/ошибку и не роняем цепочку.
-              return res.text().then(function (txt) {
-                var data = null;
-                try { data = JSON.parse(txt); } catch (e) { data = null; }
-                return { ok: res.ok, status: res.status, data: data };
-              });
-            }).then(function (rr) {
-              var data = rr.data;
-              if (data && data.unavailable) {
-                // Нет доступных воркеров (балансировщик онлайн, но ни один воркер не
-                // подключён/не свободен). Отличаем от «Нет связи с балансировщиком».
-                var umsg = 'Нет доступных воркеров';
-                var uLink = null;
-                if (data.instructionsUrl) { uLink = localizeLink(data.instructionsUrl); }
-                appendLog((data && data.error) ? data.error : umsg);
-                setStatus(umsg);
-                resetCppPane(umsg, uLink, 'запустите свой узел');
+            // Не шлём /run впустую: если балансировщик ещё не подтверждён доступным,
+            // сначала короткая проверка /health. Недоступен - сразу показываем ошибку
+            // связи (status + overlay), не удерживая «transpiling…» до 30-60 с.
+            var gate = (balancerReady === true) ? Promise.resolve(true) : probeHealth();
+            gate.then(function (ready) {
+              if (seq !== runSeq) { return; }
+              if (!ready) {
+                var downMsg = 'No connection to the balancer';
+                setStatus(downMsg);
+                appendLog(downMsg);
+                resetCppPane(downMsg);
                 return;
               }
-              if (!rr.ok) {
-                // Балансировщик/прокси вернул HTTP-ошибку без валидного JSON-контракта.
-                var herr = (data && data.error) ? data.error : ('Нет связи с балансировщиком (HTTP ' + rr.status + ')');
-                setStatus(herr);
-                appendLog(herr);
-                resetCppPane(herr);
-                return;
-              }
-              if (!data || !data.ok) {
-                var err = (data && data.error) ? data.error : 'Ошибка транспиляции';
-                setStatus(err);
-                appendLog(err);
-                if (data && data.log) { appendLog(data.log); }
-                resetCppPane(err);
+              setStatus('transpiling…');
+              appendLog('transpiling…');
+              if (runAbort && runAbort.abort) { runAbort.abort(); }
+              runAbort = ('AbortController' in window) ? new AbortController() : null;
+              fetchWithTimeout(cfg.serverUrl, {
+                method: 'POST',
+                headers: requestHeaders(),
+                body: body
+              }, kRunTimeoutMs, runAbort).then(function (res) {
+                // Читаем тело как текст и пытаемся распарсить JSON: балансировщик
+                // может вернуть HTML/прокси-ошибку (не JSON) - в этом случае трактуем
+                // как отсутствие связи/ошибку и не роняем цепочку.
+                return res.text().then(function (txt) {
+                  var data = null;
+                  try { data = JSON.parse(txt); } catch (e) { data = null; }
+                  return { ok: res.ok, status: res.status, data: data };
+                });
+              }).then(function (rr) {
+                if (seq !== runSeq) { return; }
+                var data = rr.data;
+                if (data && data.unavailable) {
+                  // Нет доступных воркеров (балансировщик онлайн, но ни один воркер не
+                  // подключён/не свободен). Отличаем от «Нет связи с балансировщиком».
+                  var umsg = 'No workers available';
+                  var uLink = null;
+                  if (data.instructionsUrl) { uLink = localizeLink(data.instructionsUrl); }
+                  appendLog((data && data.error) ? data.error : umsg);
+                  setStatus(umsg);
+                  resetCppPane(umsg, uLink, 'run your own node');
+                  return;
+                }
+                if (!rr.ok) {
+                  // Балансировщик/прокси вернул HTTP-ошибку без валидного JSON-контракта.
+                  var herr = (data && data.error) ? data.error : ('No connection to the balancer (HTTP ' + rr.status + ')');
+                  setStatus(herr);
+                  appendLog(herr);
+                  resetCppPane(herr);
+                  return;
+                }
+                if (!data || !data.ok) {
+                  var err = (data && data.error) ? data.error : 'Transpilation error';
+                  setStatus(err);
+                  appendLog(err);
+                  if (data && data.log) { appendLog(data.log); }
+                  resetCppPane(err);
+                  autoFocusFirstError();
+                  return;
+                }
+                cppEditor.setValue(data.cpp);
+                t2c = data.trustToCpp || {}; c2t = data.cppToTrust || {};
+                // Для окна cppt начальную позицию/выделение применяем только после того,
+                // как правый редактор заполнен ответом балансировщика (guard initApplied).
+                applyInitialPosition(cppEditor, 'cppt');
+                cppDec = cppEditor.deltaDecorations(cppDec, []);
+                clearCppOverlay();
+                setDownloadDisabled(false);
+                setStatus('ok');
+                appendLog('ok');
+                if (data.log) { appendLog(data.log); }
                 autoFocusFirstError();
-                return;
-              }
-              cppEditor.setValue(data.cpp);
-              t2c = data.trustToCpp || {}; c2t = data.cppToTrust || {};
-              // Для окна cppt начальную позицию/выделение применяем только после того,
-              // как правый редактор заполнен ответом балансировщика (guard initApplied).
-              applyInitialPosition(cppEditor, 'cppt');
-              cppDec = cppEditor.deltaDecorations(cppDec, []);
-              clearCppOverlay();
-              setDownloadDisabled(false);
-              setStatus('ok');
-              appendLog('ok');
-              if (data.log) { appendLog(data.log); }
-              autoFocusFirstError();
-            }).catch(function (err) {
-              // Сетевой сбой (нет связи с балансировщиком) - НЕ путать с «нет воркеров».
-              appendLog('request failed: ' + err);
-              resetCppPane('Нет связи с балансировщиком');
-              setStatus('Нет связи с балансировщиком');
+              }).catch(function (err) {
+                if (seq !== runSeq) { return; }
+                // Сетевой сбой/таймаут (нет связи с балансировщиком) - НЕ путать с «нет воркеров».
+                appendLog('request failed: ' + err);
+                resetCppPane('No connection to the balancer');
+                setStatus('No connection to the balancer');
+              });
             });
           }
 

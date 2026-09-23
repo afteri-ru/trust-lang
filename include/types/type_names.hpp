@@ -81,15 +81,25 @@ inline constexpr std::string_view Dictionary = "Dictionary";
 // -- Array (universal mutable array, → std::vector) -------
 inline constexpr std::string_view Array = "Array";
 
-// -- Встроенные политики синхронизации доступа (trust/trusted-cpp-sync.hpp) ---
-// Группа Group::kSyncPolicy; cppName = trust::Sync*Policy. Имя в реестре = РЕАЛЬНОЕ имя класса:
-// 2-й аргумент reftype (`@[reftype("shared", SyncMutexPolicy)@]`) резолвится через findType.
-inline constexpr std::string_view SyncMutexPolicy = "SyncMutexPolicy";
-inline constexpr std::string_view SyncRwMutexPolicy = "SyncRwMutexPolicy";
-inline constexpr std::string_view SyncSingleThreadPolicy = "SyncSingleThreadPolicy";
-/// Обёртка синхронизированной сильной ссылки (cppName trust::SyncShared). Имя берётся из реестра
+// -- Встроенные политики доступа (trust/trusted-cpp-sync.hpp) ------------------
+// Группа Group::kAccessPolicy; cppName = trust::Access*. Имя в реестре = РЕАЛЬНОЕ имя класса:
+// 2-й аргумент reftype (`@[reftype("shared", AccessMutex)@]`) резолвится через findType.
+inline constexpr std::string_view AccessMutex = "AccessMutex";
+inline constexpr std::string_view AccessRwMutex = "AccessRwMutex";
+inline constexpr std::string_view AccessSingleThread = "AccessSingleThread";
+/// Обёртка синхронизированной сильной ссылки (cppName trust::AccessShared). Имя берётся из реестра
 /// (findType/emitTypeName), НЕ хардкодится строкой в кодогенерации.
-inline constexpr std::string_view SyncShared = "SyncShared";
+inline constexpr std::string_view AccessShared = "AccessShared";
+
+/// Обёртка СТАТИЧЕСКОГО эксклюзивного владения (cppName trust::StaticUnique; inline zero-cost).
+/// Имя берётся из реестра (findType/emitTypeName), НЕ хардкодится строкой.
+inline constexpr std::string_view StaticUnique = "StaticUnique";
+
+// -- Встроенные deleter-типы ресурсов (trust/resource.hpp) ---
+// Группа Group::kDeleterPolicy; cppName = trust::FreeDeleter. Имя в реестре = РЕАЛЬНОЕ имя
+// класса: аргумент атрибута `@[deleter(FreeDeleter)]` резолвится через findType.
+inline constexpr std::string_view FreeDeleter = "FreeDeleter";
+inline constexpr std::string_view FileDeleter = "FileDeleter";
 
 // -- Integer/float aliases ---------------------------------
 inline constexpr std::string_view Char = "Char";

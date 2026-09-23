@@ -4,7 +4,7 @@
 
 #include "semantic/format_check.hpp"
 #include "types/registry.hpp"
-#include "diag/context.hpp"
+#include "session/context.hpp"
 #include "gtest/gtest.h"
 
 #include <memory>

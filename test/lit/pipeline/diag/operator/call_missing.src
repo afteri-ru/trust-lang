@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Вызов значения `a(...)` требует объявленного оператора `()` (раньше уходило в C++ без проверки).
+:P ::= :Class{ x: Int32 := _; };
+@main() := {
+    a : P := :P(1);
+    @print('{}\n', a(5));
+    @return 0;
+}
+# CHECK: error: type 'P' has no operator '()'

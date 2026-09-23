@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Self-цикл абстрактного шаблона: `Box<T>` содержит shared<Box<T>> (инстанциация собственного шаблона).
+<T> :Box ::= :Class{ next : @[reftype("shared")@] Box<:T> := _; };
+@main():Int32 := { return 0; };
+# CHECK: error: recursive strong (shared) reference cycle in class fields
+# CHECK: Box

@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# --no-stdlib отключает stdlib prelude: тип Iterator неизвестен - явная ошибка (не тихий fallback).
+%consume(it : Iterator<Int32>) : Void := ...;
+@main() := { @return 0; }
+# CHECK: not a template

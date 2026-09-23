@@ -1,94 +1,109 @@
 ---
-title: Naming Objects
-description: Rules for naming variables, functions, and data types
-weight: 10
+title: Naming of objects
+tags: [syntax, naming]
+description:  Rules for naming variables, functions and data types
+weight: 20
 ---
 
-Objects and data types can be named using letters, numbers, and underscores in any combination, provided that the first character of the name is not a digit.
+As names of objects and names of data types you can use letters, digits and underscores in any
+combinations, provided that the first character of the name is not a digit.
 
-All identifiers must be unique, and to avoid collisions, you can use [namespaces](/en/docs/syntax/namespace/) and a [modular code structure](/en/docs/syntax/modules/) supported simultaneously by *TrustLang*.
+A name cannot consist of a single underscore, since this is a special term used for service
+purposes.
 
-Overloading [functions](/en/docs/types/funcs/) based on argument types is absent in *TrustLang*, so defining multiple functions with the same name but different arguments is not possible, but you can [override a function](/en/docs/types/funcs/), including extending the types of accepted arguments or increasing their number.
+To avoid name collisions you can use a [namespace](/en/docs/syntax/hierarchy/)
+and a [modular code structure](/en/docs/syntax/hierarchy/), which *TrustLang* supports simultaneously.
+[Overriding](/en/docs/types/funcs/#overriding) and [overloading](/en/docs/types/funcs/#overload) of functions are allowed.
 
-An object identifier can contain one or more special characters - qualifiers (or [sigils](https://en.wikipedia.org/wiki/Sigil_(computer_programming))), which represent specific values.
-An object identifier that does not contain a qualifier is called *simple*:
+When [creating objects](/en/docs/operators/create/), the identifier name may contain one or several special
+characters — qualifiers (or [sigils](https://en.wikipedia.org/wiki/Sigil_(computer_programming))), each of which has a fixed meaning.
 
-### Name Qualifiers: {#sigil}
-- '**@**' - the *at sign* prefix is used to specify the name of a [macro](/en/docs/syntax/macros/), which is processed by the preprocessor before the start of the program's syntactic analysis.
-- '**@**' - the *at* prefix is used to specify the name of a [macro](/en/docs/syntax/macros/) that is processed by the preprocessor before the start of the syntactic analysis of the source code of the program.
-- '**$**' - the dollar sign at the beginning of an object's name denotes an automatic name for a temporary variable, the memory space for which is dynamically allocated during the application's execution, and the [lifetime is limited by the language semantics](/en/docs/syntax/memory/).
-- '**::**' - the double colon serves as a separator for [namespaces](/en/docs/syntax/namespace/) and indicates a *static* object, the memory space for which is allocated during the compilation of the application or module. If the name starts with '**::**', the object's scope will be global and it will be accessible throughout the application. Otherwise, the object's visibility will be limited to the current [program module](/en/docs/syntax/modules/).
-- '**.**' - the *dot* prefix is used when accessing a module or class field (limits the scope to the current object). The *dot* prefix can be used when defining (calling) a function to explicitly identify a named argument, preventing it from being overridden by a preprocessor macro.
-- '**\\**' - the *backslash* at the beginning of a term denotes the name of a [program module](/en/docs/syntax/modules/), and also separates directory names in the hierarchy of program module placement.
-- '**:**' - colon at the beginning of the term denotes the name of a [data type](/en/docs/types/) or a [class constructor](/en/docs/types/class/)
-- '**%**' - the *percent sign* prefix is used for [imported symbols (native variables and functions)](/en/docs/types/native/)
-- '**^**' - the caret symbol after the name is used to give immutability (constancy, non-modifiability) to the object.
+### Name qualifiers {#sigil}
+- '**@**' — the *at* prefix is used to indicate the name of a [macro](/en/docs/syntax/macros/),
+        which is processed by the preprocessor before the syntax analysis of the program source text begins.
+- '**$**' — the dollar sign at the beginning of an object name denotes a *temporary* name whose lifetime is
+        [limited by the language semantics](/en/docs/safety/memory/#rules).
+- '**::**' — the double colon separates [namespaces](/en/docs/syntax/hierarchy/)
+        and is a sign of a *static* object whose value is preserved after leaving the current scope.
+        If a name starts with '**::**', its scope will be global and it will be accessible from other program modules.
+- '**.**' — the *dot* prefix is used when accessing a field of a module or class (it restricts the scope to the current object only).
+        The *dot* prefix can also be used when defining or calling a function to indicate the name of an argument
+        that cannot be shadowed by a preprocessor macro.
+- '**\\**' — the *backslash* at the beginning of a name denotes a [program module name](/en/docs/syntax/hierarchy/),
+        and also separates directory names in the hierarchy of program module placement in the file system.
+- '**:**' — the colon at the beginning of a term denotes the name of a data [type](/en/docs/types/) or a constructor of a [class](/en/docs/types/class/), which is always *static*
+- '**%**' — the *percent sign* prefix is specified for [native names of variables and functions](/en/docs/types/native/)
 
-### Name Lookup {#name-lookup}
-If the object name does not contain a [qualifier](/en/docs/syntax/naming/#sigil), it is called *simple*. Creating an object with a *simple* name is equivalent to creating a local object.
+### Name lookup {#name-lookup}
+If an object name contains no [qualifier](/en/docs/syntax/naming/#sigil), it is *simple*.
 
-In other cases, when *TrustLang* encounters a *simple* object name without a qualifier ([sigil](https://en.wikipedia.org/wiki/Sigil_(computer_programming))), a special algorithm comes into play that associates the *simple* name found in the source code of the program with its declaration or a specific object by its [internal name](/en/docs/arch/mangling/).
+When *TrustLang* encounters a *simple* object name without a qualifier,
+the name lookup algorithm comes into play, which binds the *simple* name encountered in the program source text
+to its declaration or the created object.
 
-Resolution of *simple* names *without a qualifier* (*name lookup* for function/variable names) always occurs in a strictly defined order:
-- First, the search for the name is among macros
-- Next, the search is among local objects up to objects of the current module
-- Lastly, the search is among global objects with a gradual expansion of the namespace search scope from current to global
+The lookup of *simple* names *without a qualifier* (*name lookup*, or search for the name of a function/variable) always occurs in a strictly defined order:
+- first, the name is searched among macros
+- in the case of a function call, static name resolution is performed upon [function overloading](/en/docs/types/funcs/#overload)
+- then the name is searched among local objects before objects of the current module
+- last, the search is performed among static objects with a gradual expansion of the search namespace from the current to the global one
 
-Such a sequence of name resolution always provides the opportunity to redefine global/local objects or argument names in functions for existing code without serious changes.
+Such a name resolution order always provides the ability to redefine
+global/local objects or function argument names for already existing code without serious changes to it.
 
-For example, for the name `name` in the namespace **`ns`**, the search occurs in the following sequence:
-`@name` -> `$name` -> `ns::name` -> `::ns::name` -> `::name`,
-and for the name `arg`, only `@arg` is checked:
+For example, for the name `name` in the namespace **`ns`**, the search occurs in the following order:
+`@name` → `%name` → `$name` → `ns::name` → `::ns::name` → `::name`,
+and for the argument name `arg` only `@arg` is checked:
 ```python
     ns:: {
-        name(arg="value");
+        name(arg='value');
     };
 ```
 
-And at the same time, there will always be the possibility to specify a specific object regardless of the algorithm for resolving *simple* names. It is sufficient to explicitly specify the qualifier in the object name.
+At the same time, there is always the ability to specify a concrete object regardless of the resolution algorithm of *simple* names.
+It is enough to specify the [qualifier](/en/docs/syntax/naming/#sigil) in the object name explicitly.
 
-For example, to access the global object **name** from the namespace **ns** in the above example, you need to use the full object name `::ns::name`, and the named argument *'**.** arg'* will not be replaced by the `@arg` macro if it is defined:
+For example, to refer to the global object **name** from the namespace **ns** of the example above, you must use the full object name `::ns::name`,
+and the named argument *'**.** arg'* will not be replaced by the macro `@arg`, if such is defined:
 ```python
-    ::ns::name(.arg="value");
+    ::ns::name(.arg='value');
 ```
-### Namespace Search Extension {#using}
-To specify multiple namespaces for an extended search when resolving *simple* unqualified names, 
-a syntactic construction `... = ns::name, ns::name2;` or `@using(ns::name, ns::name2);` is used with DSL.
 
-The search in the listed namespaces is performed in the order of their specification until the end of the current module 
-or until the next extended search operator or until `... = _;`, which cancels the extended search in namespaces.
+### Extension of namespace search {#using}
+To specify several namespaces for an extended search when resolving *simple* names *without a qualifier*,
+the syntactic construct `... = ns::name, ns::name2;` is used, or `@using(ns::name, ns::name2);` when using [DSL](/en/docs/syntax/macros/).
 
-### Forward Declaration {#forward-declaration}
-In the program text, you can only refer to actually existing (created) objects. 
-But in cases where it is necessary to refer to an object that is created in another module or will be created later, 
-you can make a preliminary declaration, in which the compiler registers the name and type of the object without its actual creation.
+The search in the listed namespaces is performed in the order they are specified until the end of the current code block,
+until the next extended search statement or until the statement `... = _;`,
+which cancels the extended search in namespaces until the end of the current code block (until the end of the module).
 
-By means of a forward declaration, one can refer only to static objects (data types), or local class fields that the compiler does not yet know about but which will be defined during the compilation process later.
+### Forward declaration {#forward-declaration}
+In the program text you can refer only to really existing (created) objects.
+But for those cases when you need to refer to an object that is created in another module or will be created later,
+you can make a forward declaration, in which the compiler registers the name and type of the object without actually creating it.
 
-For a forward declaration, only the fully qualified name can be used, which must exactly match the object's name when it is subsequently created.
+A forward declaration allows referring only to static objects (data types),
+or local fields of a class, which the compiler does not know about yet but which will be defined later during compilation.
 
-The same syntax is used for a forward declaration as for the actual [creation](/en/docs/ops/create/) of an object, only an ellipsis should be specified to the right of the creation operator.
+For a forward declaration, the full qualified name is used, which must
+exactly match the object name at its subsequent creation.
 
+For a forward declaration, the same syntax is used as for the real [creation](/en/docs/operators/create/) of an object,
+only an ellipsis must be specified to the right of the creation operator.
 
-The scope of a forward declaration corresponds to the scope of its placement, not the actual scope of the object (even for global objects).
+The scope of a forward declaration corresponds to the scope of its placement,
+not to the real scope of the object that will be created subsequently.
+
 ```python
 
-    # Preliminary definition of a module variable
-    # Applies to the entire module
+    # Forward definition of a module variable
+    # Applies to the whole module
     var_module:Int32 := ...;
 
-    func() ::= {
-
-        # Preliminary announcement using DSL
-        # (only works inside a function body)
-        @declare( func2(arg:Int32):Int32 );
-
-        var_module = func2(var_module);
-        @return var_module;
+    func() := {
+        @return func2(var_module);
     };
 
-
-    func2(arg:Int32):Int32 ::= {
+    func2(arg:Int32):Int32 := {
         @return $arg*$arg;
     }
 
@@ -96,25 +111,47 @@ The scope of a forward declaration corresponds to the scope of its placement, no
 ```
 
 
-### Argument Names, Special, System Names {#args}
-The notation of argument names in functions is very similar to referencing arguments in bash scripts, where "**$1**" or "**$name**" represents the ordinal number or name of the corresponding argument.
+### Argument names, special and system names {#args}
+The notation of function argument names is very similar to accessing arguments in bash scripts,
+where "**$1**" or "**$name**" is the ordinal number or the name of the corresponding argument.
 
 The reserved name "**$0**" denotes the current object, and the name "**$$**" denotes the parent object.
 
 All function arguments are collected in a single dictionary with the special name **$\***
 
-The immutable variable "**$^**" contains the result of the last operator or code block execution.
+The immutable virtual compiler variable "**$^**" contains the result of the last statement or code block.
 
-The full name of the current module is contained in the variable **@\\\\**, and the current namespace in the variable **@::**, i.e.:
-```bash
-# File name filename.src in directory dir
 
-ns:: { # Use namespace ns
-    name:: {
-        # Preprocessor command "@#" - convert to a string
-        ns_str :=  @#  @::; # String with namespase "::ns::name::"
-        mod_str :=  @#  @\\; # String with module name "\\dir\filename"
-    };
-};
+### Immutable objects {#immutable}
+TrustLang implements dynamic [immutability](https://en.wikipedia.org/wiki/Immutable_object).
+This is a property of a lexical object, not a property of a data type, and means
+that an object can become immutable not only at the moment of creation,
+but also in the future during one of the assignments/mutations of the value.
+
+To give an object the property of immutability (inability to change its value further in the program text),
+the character '**^**' *caret* (roof/house) is used after the object name.
+
+```python
+    val := 0; # Create mutable variable
+    val = 1; # Set new value 
+    val^ = 2; # Set unchangeable value 
+    val = 3; # Error  !!!
 ```
+
+The immutability property of function arguments depends on the type of the function.
+For [pure functions](/en/docs/types/funcs/#pure), arguments passed by reference (owning variables) are always immutable.
+The mutability property of the remaining arguments is specified when defining the function on a common basis:
+
+```python
+    func( arg1^:Int32, arg2:Int32) := {
+        arg1 = 1;    # Error (arg1 - immutable)
+
+        arg2 = 1;    # OK
+        arg2^ = 2;    # OK - set immutable value
+        arg2 = 3;    # Already error
+    }
+```
+### Immutability of calls and attributes
+
+The immutability attribute can also relate to function calls. Pure functions and forced compile-time evaluation (`::-`, `cube^(...)`) are **not implemented** in the current version — see [Functions](../types/funcs/) and [Status](../status/). Object attributes (including the real form `@[name(...)]` before a declaration) are described in the section [Macros](macros/) and [Interaction with C/C++](../types/native/).
 

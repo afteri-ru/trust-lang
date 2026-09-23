@@ -1,0 +1,19 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -fno-overflow-check -o $TD/wrap %s
+# RUN: $TD/wrap > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: s=-294967296
+
+# С -fno-overflow-check переполнение не детектируется: знаковый wrap (4000000000 -> -294967296).
+
+%chk():Void := {
+    a:Int32 := 2000000000;
+    b:Int32 := 2000000000;
+    s := a + b;
+    print('s={}', s);
+};
+{% int wrap__main__() {
+    chk();
+    return 0;
+}
+%}

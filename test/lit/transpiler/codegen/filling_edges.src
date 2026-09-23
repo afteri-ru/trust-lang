@@ -1,0 +1,18 @@
+# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# Крайние случаи FILLING: оставшихся позиций нет (fillCount = 0 -> FILLING не добавляет значений),
+# явных элементов нет (заполняются все позиции), вызов - все/нулевое число позиций.
+
+@func f(a:Int32, b:Int32, c:Int32):Void { @print('{}\n', a); };
+
+@main() := {
+    z:Int32[2] := [1, 2, ... 9 ...,];
+    e:Int32[3] := [... 7 ...,];
+    f(... 7 ...);
+    f(1, 2, 3, ... 9 ...);
+    @return 0;
+}
+# CHECK: std::vector<int32_t> c_z = std::vector<int32_t>{1, 2};
+# CHECK: std::vector<int32_t> c_e = std::vector<int32_t>{7, 7, 7};
+# CHECK: c_f(7, 7, 7);
+# CHECK: c_f(1, 2, 3);

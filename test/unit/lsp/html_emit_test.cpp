@@ -12,8 +12,9 @@
 
 #include <filesystem>
 #include <string>
-#include <unistd.h>
 #include <vector>
+
+#include "test_data.hpp"
 
 using json = nlohmann::json;
 
@@ -101,10 +102,17 @@ TEST_F(HtmlEmitTest, HtmlFragment_ContainsMonarchInitEditorsAndConfig) {
     EXPECT_NE(html.find("tpl-cpp-overlay"), std::string::npos);
     // glue-JS содержит обработку ошибок связи (очистка панели + сообщение).
     EXPECT_NE(html.find("resetCppPane"), std::string::npos);
-    EXPECT_NE(html.find("Нет связи с балансировщиком"), std::string::npos);
+    EXPECT_NE(html.find("no connection to the balancer"), std::string::npos);
     // Индикатор связи песочницы с балансировщиком (публичный пинг /health).
     EXPECT_NE(html.find("tpl-health"), std::string::npos);
     EXPECT_NE(html.find("updateHealth"), std::string::npos);
+    // Сетевые вызовы балансировщика ограничены клиентским таймаутом (AbortController):
+    // без него при недоступном балансировщике статус-строка висела бы до 30-60 с.
+    EXPECT_NE(html.find("fetchWithTimeout"), std::string::npos);
+    EXPECT_NE(html.find("AbortController"), std::string::npos);
+    // Health-гейт: недоступный балансировщик -> ошибка связи сразу, /run не шлём.
+    EXPECT_NE(html.find("probeHealth"), std::string::npos);
+    EXPECT_NE(html.find("balancerReady"), std::string::npos);
     // Кросс-оконная навигация: обработчики по позиции курсора (клик и стрелки).
     EXPECT_NE(html.find("onDidChangeCursorPosition"), std::string::npos);
     EXPECT_NE(html.find("deltaDecorations"), std::string::npos);
@@ -226,8 +234,7 @@ TEST_F(HtmlEmitTest, HtmlFragment_ExamplesArrayEmptyWhenNoExamples) {
 
 TEST_F(HtmlEmitTest, LoadExamplesFromDir_ReadsSortedSrcFiles) {
     namespace fs = std::filesystem;
-    const std::string dir = (fs::temp_directory_path() / ("tpl_ex_io_" + std::to_string(::getpid()))).string();
-    fs::create_directory(dir);
+    const std::string dir = trust::test::makeTestDataDir("html_emit_examples").string();
     ASSERT_TRUE(trust::utils::FileIO::write(dir + "/b.src", std::string("second")));
     ASSERT_TRUE(trust::utils::FileIO::write(dir + "/a.src", std::string("first")));
     ASSERT_TRUE(trust::utils::FileIO::write(dir + "/note.txt", std::string("ignored")));
@@ -238,8 +245,7 @@ TEST_F(HtmlEmitTest, LoadExamplesFromDir_ReadsSortedSrcFiles) {
     EXPECT_EQ(ex[0].source, "first");
     EXPECT_EQ(ex[1].name, "b");
     EXPECT_EQ(ex[1].source, "second");
-
-    fs::remove_all(dir);
+    // Каталог фиксированный и остаётся в _build (очищается при следующем запуске).
 }
 
 TEST_F(HtmlEmitTest, JsonEscape_ProducesValidJsonString) {

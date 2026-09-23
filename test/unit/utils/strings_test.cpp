@@ -220,4 +220,26 @@ TEST(StringsTest, EscapeUnescapeRoundTrip) {
     EXPECT_EQ(unescape_cpp_string(escape_cpp_string(src)), src);
 }
 
+// -- Сокращение пути и префиксация строк (отладочный вывод) --
+
+TEST(StringsTest, FileNameOfAndShortenedPath) {
+    EXPECT_EQ(fileNameOf("a/b/c.src"), "c.src");
+    EXPECT_EQ(fileNameOf("c.src"), "c.src");
+    EXPECT_EQ(shortenedPath("test/lit/pipeline/debug.src"), ".../debug.src");
+    EXPECT_EQ(shortenedPath("debug.src"), "debug.src");
+}
+
+TEST(StringsTest, PrefixEachLine) {
+    EXPECT_EQ(prefixEachLine("scope: depth=2\n  [1] ModuleDecl", ".../f.src:7: "),
+              ".../f.src:7: scope: depth=2\n.../f.src:7:   [1] ModuleDecl\n");
+}
+
+TEST(StringsTest, PrefixEachLineTrailingNewline) {
+    EXPECT_EQ(prefixEachLine("one\n", "p: "), "p: one\n");
+}
+
+TEST(StringsTest, PrefixEachLineSingleLine) {
+    EXPECT_EQ(prefixEachLine("msg", "p: "), "p: msg\n");
+}
+
 } // namespace trust::utils

@@ -3,17 +3,18 @@
 # -- All test sources --
 set(TEST_SOURCES
     unittest.cpp
-    diag/diag_test.cpp
-    diag/context_test.cpp
-    diag/context_bitpack_test.cpp
+    diag/basic_test.cpp
     diag/options_test.cpp
-    diag/mapping_test.cpp
-    diag/mapping_reader_test.cpp
-    diag/mapping_extended_test.cpp
-    diag/save_and_read_test.cpp
+    session/context_test.cpp
+    session/context_bitpack_test.cpp
+    sourcemap/mapping_test.cpp
+    sourcemap/mapping_reader_test.cpp
+    sourcemap/mapping_extended_test.cpp
+    sourcemap/save_and_read_test.cpp
     transpiler/src_map_cli_test.cpp
-    attr/attr_test.cpp
+    attrs/parse_test.cpp
     ast/visit_test.cpp
+    ast/type_access_test.cpp
     pipeline/module_registry_test.cpp
     pipeline/module_loader_test.cpp
     pipeline/module_export_test.cpp
@@ -22,15 +23,19 @@ set(TEST_SOURCES
     pipeline/pipeline_symbol_test.cpp
     pipeline/uninit_inference_test.cpp
     pipeline/compile_test.cpp
-    pipeline/analysis_options_test.cpp
+    driver/parse_test.cpp
+    driver/analysis_options_test.cpp
     semantic/semantic_test.cpp
     semantic/semantic_table_test.cpp
     semantic/semantic_funcdecl_test.cpp
     semantic/symbol_collector_test.cpp
-    semantic/scope_test.cpp
+    analysis/scope_test.cpp
     semantic/scope_liveness_test.cpp
+    semantic/debug_scope_test.cpp
     semantic/multilevel_var_test.cpp
     semantic/format_check_test.cpp
+    semantic/type_set_test.cpp
+    semantic/borrow_check_test.cpp
     transpiler/codegen_literal_test.cpp
     transpiler/codegen_stmt_test.cpp
     transpiler/codegen_func_test.cpp
@@ -47,6 +52,11 @@ set(TEST_SOURCES
     types/trust_flag_test.cpp
     types/runtime_symbols_test.cpp
     types/stack_check_test.cpp
+    types/operator_registry_test.cpp
+    assets/catalog_test.cpp
+    stdlib/iterator_test.cpp
+    stdlib/any_iterator_test.cpp
+    stdlib/generator_test.cpp
     runtime/rational_test.cpp
     runtime/big_integer_test.cpp
     runtime/dict_test.cpp
@@ -58,6 +68,10 @@ set(TEST_SOURCES
     runtime/trusted_cpp_shared_test.cpp
     runtime/trusted_cpp_shared_weak_test.cpp
     runtime/trusted_cpp_correctness_test.cpp
+    runtime/trusted_cpp_unique_test.cpp
+    runtime/trusted_cpp_concepts_test.cpp
+    runtime/trusted_cpp_selfref_test.cpp
+    runtime/trusted_cpp_api_test.cpp
     ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
     ${PROJECT_SOURCE_DIR}/runtime/big_integer.cpp
     lsp/lsp_handler_test.cpp
@@ -79,6 +93,7 @@ set(TEST_SOURCES
     utils/elf_archive_test.cpp
     utils/error_test.cpp
     utils/io_test.cpp
+    utils/trace_test.cpp
     solver/smt_printer_test.cpp
     solver/smt_printer_z3_test.cpp
     solver/smt_op_test.cpp
@@ -93,8 +108,10 @@ set(TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_stmt_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_expr_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_decl_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_filling_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_trust_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/predef_pragma_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/debug_macro_test.cpp
     # Formatter tests
     formatter/format_test.cpp
     formatter/format_comments_test.cpp
@@ -150,6 +167,7 @@ target_include_directories(unit_tests PRIVATE
     ${CMAKE_BINARY_DIR}/syntax
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/runtime
 )
 target_include_directories(unit_tests SYSTEM PRIVATE
     ${LLVM_INCLUDE_DIRS}
@@ -160,7 +178,7 @@ target_compile_definitions(unit_tests PRIVATE
     TRUST_BINARY_PATH="${CMAKE_BINARY_DIR}/trust"
     TRUST_RUNTIME_STATIC_PATH="${CMAKE_BINARY_DIR}/trust-runtime.a"
     TRUST_RUNTIME_SHARED_PATH="${CMAKE_BINARY_DIR}/trust-runtime.so"
-    TRUST_RATIONAL_HPP_PATH="${PROJECT_INCLUDE_DIR}/trust/rational.hpp"
+    TRUST_RATIONAL_HPP_PATH="${PROJECT_INCLUDE_DIR}/runtime/trust/rational.hpp"
 )
 
 # -- Attach trust module --

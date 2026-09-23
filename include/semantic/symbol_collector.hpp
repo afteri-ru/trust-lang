@@ -6,7 +6,7 @@
 // и пишет результат в AnalysisContext::symbolIndex().
 
 #include "semantic/inline_hook.hpp"
-#include "semantic/symbol_index.hpp"
+#include "analysis/symbol_index.hpp"
 #include "semantic/diag.hpp"
 #include "ast/ast_nodes.hpp"
 

@@ -43,14 +43,26 @@ config.suffixes = ['.ast', '.src']
 config.excludes = [
     'enum_decl.ast',
     'struct_decl.ast',
-    'custom_dsl.src',
     'macro_inside_braces.src',
     'variadic_error.src',
     'lexeme_next_error.src',
-    'variadic_call.src',
-    'variadic_named.src',
-    'ident_type_simple.src',
-    'variadic_nested_parens.src',
+    'call.src',
+    'named.src',
+    'type_simple.src',
+    'nested_parens.src',
     'if_pattern.src',
 ]
+
+# -- Build-mode feature for debug-output tests --
+# The compiler's debug tracing (TRUST_ENABLE_TRACE) is ON in dev builds and OFF in release builds
+# -> TRUST_TRACE_ENABLED. Exactly one feature is available:
+#   'release'     - release build (tracing disabled): debug-output lit tests are UNSUPPORTED, and
+#                   tests asserting the informational "debug output is not available" message run;
+#   'not-release' - dev build (tracing enabled): debug-output lit tests run.
+# Lit tests select the matching mode with `# REQUIRES: release` / `# REQUIRES: not-release`.
+if "@TRUST_ENABLE_TRACE@" == "ON":
+    config.available_features.add("not-release")
+else:
+    config.available_features.add("release")
+
 

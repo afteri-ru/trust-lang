@@ -1,4 +1,4 @@
-# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 #
 # Псевдопеременная `$^` = результат последней операции (простой случай): предыдущий
 # оператор-выражение `a + 3;` -> временная `__trust_last_1 := a + 3;`, в `r := $^` лист `$^`

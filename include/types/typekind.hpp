@@ -12,9 +12,9 @@ enum class TypeClass : uint8_t;
 // ИНВАРИАНТ (двухосевая модель): RefType смешивает две независимые оси - ВЛАДЕНИЕ временем
 // жизни (value/shared/weak/unique) и ДОСТУП к объекту (сырой `&`/`*` против охраняемого
 // `locker`). `kLocker` - охраняемый доступ ТОЛЬКО к reference-wrapper (trust::Shared/Weak,
-// результат lock()/lock_const()); сырые ссылки (ptr/ref/rref) и unique_ptr локера НЕ имеют
-// (другая идеология - прямой доступ без guard'а). Null-безопасность - отдельная ось (контракт
-// типа), а не guard-объект.
+// результат lock()/lock_const()); сырые ссылки (ptr/ref/rref) и эксклюзивное владение локера
+// не имеют (другая идеология - прямой доступ без guard'а). Null-безопасность - отдельная ось
+// (контракт типа), а не guard-объект.
 //
 // ИНВАРИАНТ (одноуровневое пересечение в операторе): многоуровневая ссылочность как ТИП
 // разрешена (каждый уровень - отдельно объявленный тип, напр. `Locker<Locker<T>>`), НО
@@ -88,19 +88,19 @@ constexpr TypeKind setAttrsFlag(TypeKind k) noexcept {
 // X-macro: единый источник для вида ссылки (RefType). Каждая запись несёт:
 //   (kind, мнемоническое имя, значение бита, C++-имя шаблона-обёртки).
 // Мнемоническое имя используется в `@[reftype("...")]` и диагностике; C++-имя обёртки
-// (trust::Shared / trust::Weak / trust::Locker / std::unique_ptr) - в кодогенерации
+// (trust::Shared / trust::Weak / trust::Locker / trust::Unique) - в кодогенерации
 // getCppTypeName (registry.cpp), чтобы НЕ хардкодить имя класса вручную.
 // Для не-обёрточных видов (value/ptr/mptr/ref/rref/ptrptr) C++-имя шаблона пустое.
-#define TRUST_REF_TYPE_TYPES(X)                \
-    X(kValue, "value", 0, /*cpp*/ "")          \
-    X(kShared, "shared", 1, "trust::Shared")   \
-    X(kWeak, "weak", 2, "trust::Weak")         \
-    X(kUnique, "unique", 3, "std::unique_ptr") \
-    X(kPtr, "ptr", 4, /*cpp*/ "")              \
-    X(kMptr, "mptr", 5, /*cpp*/ "")            \
-    X(kRef, "ref", 6, /*cpp*/ "")              \
-    X(kRref, "rref", 7, /*cpp*/ "")            \
-    X(kPtrPtr, "ptrptr", 8, /*cpp*/ "")        \
+#define TRUST_REF_TYPE_TYPES(X)              \
+    X(kValue, "value", 0, /*cpp*/ "")        \
+    X(kShared, "shared", 1, "trust::Shared") \
+    X(kWeak, "weak", 2, "trust::Weak")       \
+    X(kUnique, "unique", 3, "trust::Unique") \
+    X(kPtr, "ptr", 4, /*cpp*/ "")            \
+    X(kMptr, "mptr", 5, /*cpp*/ "")          \
+    X(kRef, "ref", 6, /*cpp*/ "")            \
+    X(kRref, "rref", 7, /*cpp*/ "")          \
+    X(kPtrPtr, "ptrptr", 8, /*cpp*/ "")      \
     X(kLocker, "locker", 9, "trust::Locker")
 
 enum class RefType : uint8_t {
@@ -147,33 +147,91 @@ enum class RefType : uint8_t {
     return std::nullopt;
 }
 
-// ЕДИНЫЙ источник отображения СИМВОЛИЧЕСКОГО сигла ссылочного типа (позиция декларации/типа)
-// на вид ссылки (RefType). Сигл - текст ref-оператора, который всегда начинается с `&`
-// (`&&` → shared, `&*` → unique, `&?` → weak); вид ссылки задаётся ПЕРЕД именем переменной
-// (`&& x : Int32`) или в аннотации (`x : &&Int32`). Одиночные `&`/`*` в позиции объявления НЕ
-// используются (это операторы: `&` - address-of, `*` - разыменование, см. SYNTAX.md).
-// Нативные (сырые) C++-операторы: `%&` → kRef (`Type&`, нативная ссылка; в выражении - address-of,
-// контекст `T&`/`T*` задаёт левый оператор создания/присваивания), `%*` → kPtr (`Type*`, указатель).
-// `%&&` и константные `%&^`/`%&&^`/`%*^` удалены: константность - через атрибут @[readonly@] (`^` на
-// имени), вид нативной ссылки - один оператор `%&`. В выражении `&`/`*` - операторы (см. SYNTAX.md).
-// Неизвестный сигл → std::nullopt (вызывающая сторона обязана выдать диагностику).
+// ЕДИНЫЙ источник отображения СИМВОЛИЧЕСКОГО маркера ссылочного типа (позиция декларации/типа)
+// на вид ссылки (RefType). Маркер - текст ref-оператора, который всегда начинается с `&`
+// (`&&` → unique, `&*` → shared, `&?` → weak); вид ссылки задаётся У ТИПА (`x : &&Int32`) или
+// у ПЕРЕМЕННОЙ при опущенном типе (`&& x := 5`). Одиночные `&`/`*` в позиции объявления НЕ
+// используются (это операторы: `&` - захват ссылки, `*` - разыменование, см. SYNTAX.md).
+// Мнемоника: `&&` (удвоение) = эксклюзивное владение («держу сам»), `&*` (`*` - «много») =
+// совместное владение, `&?` (`?` - «может истечь») = слабый наблюдатель.
+//   ВАЖНО: короткие маркеры допустимы ТОЛЬКО внутри модуля; на границе API (экспортируемые
+//   имена) используется исключительно явный атрибут @[reftype("...")].
+// Нативные (сырые) C++ виды `ptr`/`ref` (переходная ось совместимости) задаются ТОЛЬКО явным
+// атрибутом `@[reftype("ptr"|"ref")]`; краткая символьная нотация `%&`/`%*` УДАЛЕНА. В выражении
+// `&`/`*` - операторы (см. SYNTAX.md).
+// Добавление вида ссылки, имеющего маркер, - одна строка в таблице TRUST_REF_TYPE_SIGILS.
+#define TRUST_REF_TYPE_SIGILS(X) \
+    X(kUnique, "&&")             \
+    X(kShared, "&*")             \
+    X(kWeak, "&?")
+// Неизвестный маркер → std::nullopt (вызывающая сторона обязана выдать диагностику).
 [[nodiscard]] inline std::optional<RefType> refTypeFromTypeSigil(std::string_view sigil) noexcept {
-    if (sigil == "&&") {
-        return RefType::kShared;
-    }
-    if (sigil == "&*") {
-        return RefType::kUnique;
-    }
-    if (sigil == "&?") {
-        return RefType::kWeak;
-    }
-    if (sigil == "%&") {
-        return RefType::kRef;
-    }
-    if (sigil == "%*") {
-        return RefType::kPtr;
+#define TRUST_REF_TYPE_SIGIL_GEN_MAP(kind, sigil_text) {sigil_text, RefType::kind},
+    static constexpr std::pair<std::string_view, RefType> kRefTypeSigilMap[] = {TRUST_REF_TYPE_SIGILS(TRUST_REF_TYPE_SIGIL_GEN_MAP)};
+#undef TRUST_REF_TYPE_SIGIL_GEN_MAP
+    for (const auto& [s, k] : kRefTypeSigilMap) {
+        if (sigil == s) {
+            return k;
+        }
     }
     return std::nullopt;
+}
+
+// -- Классификаторы вида ссылки (единый источник; заменяют инлайновые сравнения по месту) --
+/// true для НАТИВНЫХ (сырых C++) видов ссылки: `ptr`/`ref`/`rref`/`ptrptr`.
+[[nodiscard]] constexpr bool isNativeRefKind(RefType r) noexcept {
+    return r == RefType::kPtr || r == RefType::kRef || r == RefType::kRref || r == RefType::kPtrPtr;
+}
+
+/// true для УМНЫХ (владеющих/охраняемых) видов ссылки: `shared`/`weak`/`unique`/`locker`.
+[[nodiscard]] constexpr bool isSmartRefKind(RefType r) noexcept {
+    return r == RefType::kShared || r == RefType::kWeak || r == RefType::kUnique || r == RefType::kLocker;
+}
+
+/// Совместимость ЗАЯВЛЕННОГО вида (атрибут/маркер) с ФАКТИЧЕСКИМ видом носителя:
+/// носитель без вида (`kValue`) совместим с любым (вид будет применён); иначе виды обязаны совпадать.
+[[nodiscard]] constexpr bool refKindCompatible(RefType declared, RefType actual) noexcept {
+    return actual == RefType::kValue || actual == declared;
+}
+
+/// Виды ссылок, ПОЛНОСТЬЮ поддержанные семантикой и кодогенерацией. Зарезервированные, но
+/// нереализованные виды (`rref`, `ptrptr`) отвергаются диагностикой (без тихого fallback):
+/// достижимы только через `@[reftype(...)]`, но не имеют ни операций, ни lowering.
+[[nodiscard]] constexpr bool isSupportedRefKind(RefType r) noexcept {
+    return r != RefType::kRref && r != RefType::kPtrPtr;
+}
+
+// -- Ось ссылки (двухосевая модель; явная классификация вместо инлайновых сравнений) --
+// RefType смешивает две независимые оси: ВЛАДЕНИЕ временем жизни (Value/Shared/Unique) и
+// ДОСТУП к объекту (Native — сырой `&`/`*`; Locker — охраняемый). Ось — единая точка для
+// проверок совместимости (value-vs-reference, копирование/move, swap).
+enum class RefAxis : uint8_t {
+    Value = 0,  ///< владение значением (без ссылки)
+    Shared = 1, ///< совместное владение (shared-ось; weak строится из shared)
+    Unique = 2, ///< эксклюзивное владение (unique-ось)
+    Native = 3, ///< нативные (сырые) C++ ссылки/указатели (ptr/ref/rref/ptrptr)
+    Locker = 4, ///< охраняемый доступ к reference-wrapper (результат lock())
+};
+
+[[nodiscard]] constexpr RefAxis refAxisOf(RefType r) noexcept {
+    switch (r) {
+    case RefType::kValue:
+        return RefAxis::Value;
+    case RefType::kShared:
+    case RefType::kWeak:
+        return RefAxis::Shared;
+    case RefType::kUnique:
+        return RefAxis::Unique;
+    case RefType::kPtr:
+    case RefType::kMptr:
+    case RefType::kRef:
+    case RefType::kRref:
+    case RefType::kPtrPtr:
+        return RefAxis::Native;
+    case RefType::kLocker:
+        return RefAxis::Locker;
+    }
+    return RefAxis::Value; // недостижимо: switch покрывает все значения RefType
 }
 
 // -- Construction -----------------------------------------

@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Захват по значению эксклюзивного владения (unique/move-only) - ошибка (без молчаливого move).
+@main() := {
+    && u := 5:Int32;
+    g := [u](x : Int32) : Int32 { @return x; };
+}
+# CHECK: error: cannot capture exclusive-ownership value 'u' by value

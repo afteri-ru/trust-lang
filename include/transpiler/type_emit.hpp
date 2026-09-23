@@ -31,8 +31,17 @@ class TypeEmitter {
     void recordRequiredInclude(std::string_view include) const;
     void recordUsedType(TypeId type_id) const;
     void collectTypeIncludes() const;
+    /// Собирает POD-проверки (`static_assert`) для КОНКРЕТНЫХ инстанциаций Struct-шаблонов,
+    /// реально использованных в коде (m_usedTypes). Сам шаблон-определение assert НЕ получает
+    /// (static_assert над шаблоном невыразим/зависит от T). Добавляет <type_traits>.
+    void collectStructPodAsserts() const;
+    /// Эмитит собранные POD-проверки инстанциаций Struct-шаблонов (после инклудов).
+    void emitStructPodAsserts(MapperFile output_idx) const;
     std::optional<std::string> emitTypeName(TypeId type_id, std::string_view displayName);
     std::string emitTypeNameForNode(const AstNodeBase* type_node);
+    /// true, если узел-аннотация типа — пользовательский record-шаблон (`:Box<Int32>`): конструкция
+    /// в таком виде (`:Box<Int32>(...)`) эмитится как `c_Box<int32_t>(...)`, а не как каст/словарь.
+    bool isRecordTemplateAnnotation(const AstNodeBase* type_node) const;
     void recordRuntimeSymbolHeaders(RuntimeSymbolId id) const;
     void recordRuntimeSymbolsInText(std::string_view text) const;
     void emitCollectedIncludes(MapperFile output_idx);

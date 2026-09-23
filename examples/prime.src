@@ -1,26 +1,18 @@
-#!../_build/trust --run -Wsigil=ignore -Wembed=ignore --stack-check=explicit 
+#!../_build/trust --run -Wsigil=ignore -Wembed=ignore --stack-check=explicit
 #
-# Рекурсивная проверка простоты числа для демонстрации контроля переполнения стека и
-# сравнение скорости выполнения обычной и защищенной реализации функции.
+# Recursive primality test with stack overflow protection and
+# a performance comparison between standard and protected implementations.
 #
-# Работает на числах произвольной точности (BigInteger) и начальное число может
-# выходить далеко за пределы Int64.
+# Works with arbitrary-precision integers (BigInteger); the initial number
+# can far exceed the limits of an Int64.
 #
-# Аргументы командной строки (обязательные):
-#   prime <start_number> <count>
-#     <start_number> - начальное число (>= 2), BigInteger
-#     <count>        - сколько простых чисел найти (> 0)
-#
-# Защищённая рекурсия (функция с атрибутом @[ stack_check @]) 
-# добавляет ПЕРЕД каждым вызовом проверку свободного места на стеке. 
-#
-# При недостатке свобдного места (т.е. ДО фактического переполения стека и его разрушения)
-# бросается обычное программное исключение, которое перехватывается try { ... } catch(_){ ... }
+# If free space runs low (i.e., *before* an actual stack overflow and crash occurs),
+# a standard software exception is thrown and caught via a try { ... } catch(_){ ... } block.
 
-# Нативная функция для замера скорости работы
+# Native function for measuring execution speed
 @forward %clock():Int64;
 
-# Парсинг строки в Int64 (C++-вставка только для вызова std::stoll
+# Helper functions
 @func parse_i64(s:StrChar):Int64 {
     try {
         {% return (int64_t)std::stoll(c_s); %};
@@ -30,7 +22,6 @@
     return -1;
 };
 
-# Парсинг строки в BigInteger (C++-вставка только для вызова конструктора)
 @func parse_bigint(s:StrChar):BigInteger {
     try {
         {% return trust::BigInteger(c_s); %};
@@ -40,12 +31,12 @@
     return :BigInteger(-1);
 };
 
-# Счётчики глубины рекурсии и числа вызовов
+# Recursion depth and call count counters
 currentDepth:Int64 := 0;
 maxDepth:Int64 := 0;
 callCount:Int64 := 0;
 
-# Функции проверки простоты в виде макроса (одно и тоже тело), где имя функции - единственный параметр
+# Macro to define a function for the recursive primality test
 @@ primeFn $fname @@
 @func @$fname(n:BigInteger, divisor:BigInteger):Bool {
     callCount = callCount + 1;
@@ -71,16 +62,15 @@ callCount:Int64 := 0;
 };
 @@@@;
 
-# Незащищённая рекурсивная проверка простоты числа
+# Function without stack overflow checking
 @primeFn isPrime;
 
-# Защищённая рекурсивная проверка простоты (атрибут @[ stack_check @])
+# Function with stack overflow protection
 @[ stack_check @]
 @primeFn isPrimeSafe;
 
 
 @main(argv^:Dict, args^:Dict) := {
-    # --- Валидация аргументов (без дефолтов) ---
     if (:Int32({% $argv.size() %}) < 2) {
         @print('Usage: prime <start_number> <count>\n');
         @print('  <start_number> - start number (>= 2), BigInteger\n');
@@ -100,7 +90,7 @@ callCount:Int64 := 0;
 
     @print('Searching for {} primes starting from {}:\n', $count, $start);
 
-    # ЗАЩИЩЁННАЯ версия, при переполнение -> stack_overflow
+    # The first call to the protected function checks whether the stack size is sufficient for the entire call depth.
     callCount = 0;
     maxDepth = 0;
     currentDepth = 0;
@@ -117,13 +107,13 @@ callCount:Int64 := 0;
             $n += 1;
         };
 
-        # Копируем измеренные значения защищённой версии в локальные переменные.
+        # Copy the statistics of the protected version into local variables.
         $t1 := %clock();
         $safeMax := maxDepth;
         $safeCalls := callCount;
     } catch(_) {
 
-        # Обработка любого исключения (в данном случае - переполение стека)
+        # Handling any exception (in this case, a stack overflow)
         @print('safe: STACK OVERFLOW caught at max depth={}, calls={}\n', maxDepth, callCount);
         @print('safe: time until overflow = {} ticks\n', %clock() - $t0);
         @return 0;
@@ -132,7 +122,7 @@ callCount:Int64 := 0;
 
         @print('safe: completed, max depth={}, calls={}, time={} ticks\n', $safeMax, $safeCalls, $t1 - $t0);
 
-        # НЕЗАЩИЩЁННАЯ версия выполняется только если безопасная завершилась
+        # The UNPROTECTED version executes only if the function with stack overflow protection has completed successfully.
         callCount = 0;
         maxDepth = 0;
         currentDepth = 0;

@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Захват с типом `[z:Type]` НЕ поддерживается (только имя, только по значению).
+@main() := {
+    z := 1;
+    g := [z : Int32](x : Int32) : Int32 { @return x; };
+}
+# CHECK: error: unsupported lambda capture
