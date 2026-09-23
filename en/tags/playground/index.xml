@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Playground on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/playground/</link>
+		<description>Recent content in Playground on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/tags/playground/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Playground</title>
+				<link>https://trust-lang.net/en/docs/sandbox/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/sandbox/</guid>
+				<description>&lt;h2 id=&#34;what-the-playground-is&#34;&gt;What the playground is&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#what-the-playground-is&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The &lt;strong&gt;playground&lt;/strong&gt; is an interactive web page where you can write TrustLang code&#xA;directly in the browser and immediately see the generated result of transpilation to C++.&#xA;It is a &amp;ldquo;live&amp;rdquo; example of the language with a built-in editor and code highlighting, selection of examples from a list,&#xA;output of diagnostic messages, cross-navigation between the code and C++, and a button to download the resulting build archive.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Software safety on TrustLang</title>
+		<link>https://trust-lang.net/en/blog/safety/</link>
+		<description>Recent content in Software safety on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/blog/safety/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</title>
+				<link>https://trust-lang.net/en/blog/safety/stack-overflow/</link>
+				<pubDate>Wed, 07 Jan 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/safety/stack-overflow/</guid>
+				<description>&lt;p&gt;January 7 at 14:53 2026&lt;/p&gt;&#xA;&lt;p&gt;Developing the idea of a &lt;a href=&#34;https://trust-lang.net/en/blog/safety/language-guarantees/&#34;&gt;trusted programming language&lt;/a&gt;, I came to the conclusion that, through restrictions of the syntax and the creation of corresponding checks in the static code analyzer, it is possible to protect against practically all technical errors except two — the control of dynamically allocated memory and stack overflow.&lt;/p&gt;&#xA;&lt;p&gt;Moreover, while solutions exist for reference counting at runtime, stack overflow control cannot be done not only during the analysis of the source text of the program, but it is practically impossible even during the execution of the application! After all, a stack overflow error is always fatal, since there is no way to catch and handle this error from inside the running program in order to then continue its execution as if nothing had happened.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Programming language guarantees as a basis for secure software development</title>
+				<link>https://trust-lang.net/en/blog/safety/language-guarantees/</link>
+				<pubDate>Mon, 10 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/safety/language-guarantees/</guid>
+				<description>&lt;p&gt;Errors in composing programs for computers appeared even earlier than the very first programming languages were invented. Actually, programming languages were invented precisely so that programs would be written more simply, and the number of errors in them would be as small as possible.&lt;/p&gt;&#xA;&lt;p&gt;To reduce the number of errors, many methods were developed, including the creation of specialized source code analysis tools and even entire programming languages.&lt;/p&gt;&#xA;&lt;p&gt;But after many decades, the problem of purely technical errors in software still remains unsolved to this day, however the approach proposed in the Rust language changes everything.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

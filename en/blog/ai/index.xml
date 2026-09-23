@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>AI and IT processes on TrustLang</title>
+		<link>https://trust-lang.net/en/blog/ai/</link>
+		<description>Recent content in AI and IT processes on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/blog/ai/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>The main problem of using AI (Illusions of Intelligence) in software development</title>
+				<link>https://trust-lang.net/en/blog/ai/ai-illusions/</link>
+				<pubDate>Thu, 11 Dec 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/ai/ai-illusions/</guid>
+				<description>&lt;p&gt;I am often struck by how technically literate people argue about whether LLMs have intelligence or whether it is just mathematical computations by a certain algorithm without the rudiments of reason. And what is most interesting, sometimes the opponents in the dispute &lt;strong&gt;for&lt;/strong&gt; the presence of intelligence in generative neural networks are people who in this way advertise their IT solution, not understanding that by doing so they only create problems for themselves.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The ambiguous term &#34;artificial intelligence&#34;</title>
+				<link>https://trust-lang.net/en/blog/ai/wrong-term-ai/</link>
+				<pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/ai/wrong-term-ai/</guid>
+				<description>&lt;p&gt;Lately it seems everyone is talking about the successes of artificial intelligence (AI), often meaning by this yet another achievement in the field of generative neural networks. And as usual, some make money on the hype, others crave the appearance of &lt;del&gt;Sarah Connor&lt;/del&gt; a real strong AI (which will conquer the world in the future), and someone is just once again raping a journalist.&lt;/p&gt;&#xA;&lt;p&gt;And there are very few who, when mentioning AI, try to explain what they themselves understand by the term &amp;ldquo;artificial intelligence&amp;rdquo;. After all, it is one thing to write about &amp;ldquo;a field of tasks of the AI category&amp;rdquo;, and quite another to endow an ordinary computer algorithm with at least the rudiments of reason.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Development on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/development/</link>
+		<description>Recent content in Development on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/development/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Статус и планы</title>
+				<link>https://trust-lang.net/ru/docs/status/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/status/</guid>
+				<description>&lt;h2 id=&#34;реализовано-в-текущей-версии-060&#34;&gt;Реализовано в текущей версии (0.6.0)&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#%d1%80%d0%b5%d0%b0%d0%bb%d0%b8%d0%b7%d0%be%d0%b2%d0%b0%d0%bd%d0%be-%d0%b2-%d1%82%d0%b5%d0%ba%d1%83%d1%89%d0%b5%d0%b9-%d0%b2%d0%b5%d1%80%d1%81%d0%b8%d0%b8-060&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Разработана &lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/concept/&#34;&gt;концепция синтаксиса&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Определён &lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/macros/&#34;&gt;синтаксис макросов&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Парсер и литералы для &lt;a href=&#34;https://trust-lang.net/ru/docs/types/&#34;&gt;базовых типов данных&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Сформулирована концепция &lt;a href=&#34;https://trust-lang.net/ru/docs/safety/&#34;&gt;гарантий языка&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Разработана &lt;a href=&#34;https://trust-lang.net/ru/docs/sandbox/&#34;&gt;песочница&lt;/a&gt; для тестирования примеров&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
+			</item>
+			<item>
+				<title>Главная проблема использования ИИ (Иллюзии Интеллекта) при разработке ПО</title>
+				<link>https://trust-lang.net/ru/blog/ai/ai-illusions/</link>
+				<pubDate>Thu, 11 Dec 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/ai/ai-illusions/</guid>
+				<description>&lt;p&gt;Меня часто поражает, как технически грамотные люди спорят, есть ли у LLM интеллект или это всего лишь математические вычисления по определенному алгоритму без зачатков разума. И что самое интересное, иногда оппонентами в споре &lt;strong&gt;за&lt;/strong&gt; наличие интеллекта у генеративных нейросетей выступают люди, которые таким образом рекламируют свое IT-решение, не понимая, что тем самым они только создают себе проблемы.&lt;/p&gt;&#xA;&lt;p&gt;Ведь создавая рассуждающую иллюзию интеллекта, разработчики фактически ставят крест на возможности какого-либо реального применения подобных решений в серьезных задачах, так как имитация разума превращает потенциально полезный рабочий инструмент в игру на бубне без каких-либо гарантий качества и воспроизводимости полученных результатов.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Гарантии языка программирования как основа безопасной разработки программного обеспечения</title>
+				<link>https://trust-lang.net/ru/blog/safety/language-guarantees/</link>
+				<pubDate>Mon, 10 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/safety/language-guarantees/</guid>
+				<description>&lt;p&gt;Ошибки при составлении программ для ЭВМ появились даже раньше, чем были придуманы самые первые языки программирования. Собственно, языки программирования и были придуманы как раз для того, чтобы программы писались проще, а количество ошибок в них было как можно меньше.&lt;/p&gt;&#xA;&lt;p&gt;Для уменьшения количества ошибок было разработано множество методов, включая создание специализированных инструментов анализа исходного кода и даже целых языков программирования.&lt;/p&gt;&#xA;&lt;p&gt;Но по прошествии многих десятилетий проблема чисто технических ошибок в программном обеспечении так и остаётся нерешённой по сей день, однако подход, предложенный в языке Rust, меняет всё.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Простое сложное программирование</title>
+				<link>https://trust-lang.net/ru/blog/programming/complex-prog/</link>
+				<pubDate>Thu, 15 Apr 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/programming/complex-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/programming/complex-prog/complex-prog.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;В очередной раз увидел на Хабре статью про сложное дело под названием «программирование».&#xA;И то, что программирование действительно является делом не простым воспринимается как факт и обычно не требует какого либо подтверждения.&lt;/p&gt;&#xA;&lt;p&gt;Но понятие «сложность» сродни термину «куча».&#xA;Для кого-то и пять кокосов это не куча, а кого-то съел один и «больше не хочется» - значит для него и единственного кокоса будет много.&lt;/p&gt;&#xA;&lt;p&gt;Так и со сложностью ПО. Вроде бы увеличение сложности является для всех очевидным и наблюдается во всех сферах применения IT технологий,&#xA;да и сами языки программирования по мере своего развития становятся все сложнее,&#xA;а вот оценивать «сложность» с помощью численных метрик - дело заведомо неблагодарное, но и «нельзя управлять тем, что невозможно измерить &amp;hellip;».&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

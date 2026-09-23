@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Assign on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/assign/</link>
+		<description>Recent content in Assign on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/tags/assign/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Creating objects and assignment</title>
+				<link>https://trust-lang.net/en/docs/operators/create/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/operators/create/</guid>
+				<description>&lt;!--&#xA;##### Object scope != object lifetime {#important}&#xA;An object *always* has a name, even when the object itself is not physically created yet.&#xA;The scope of a *name* is determined by its location in the program code (code block, namespace, module, etc.).&#xA;An object may exist but be inaccessible from the current scope, for example, shadowed by another object with the same name.&#xA;&#xA;The lifetime of a local/automatic (i.e. temporary) object is always limited by the scope of the current code block,&#xA;while the lifetime of a static object is limited by the lifetime of the module in which it is defined, or by the lifetime of the program if the object is global.&#xA;But *initialization of the initial value of a static object* occurs in accordance with the executed program code,&#xA;(i.e. when executing the code with the statement creating the static object).&#xA;--&gt;&#xA;&lt;h3 id=&#34;create&#34;&gt;Creating objects&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#create&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;TrustLang uses several operators to create objects:&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

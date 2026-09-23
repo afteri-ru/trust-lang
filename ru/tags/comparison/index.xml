@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Comparison on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/comparison/</link>
+		<description>Recent content in Comparison on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Mon, 07 Sep 2026 17:43:45 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/comparison/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Сравнение языков</title>
+				<link>https://trust-lang.net/ru/blog/comparison/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Почему C&#43;&#43; или Rust никогда не смогут заменить Python</title>
+				<link>https://trust-lang.net/ru/blog/comparison/cpp-rust-vs-python/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/cpp-rust-vs-python/</guid>
+				<description>&lt;p&gt;На Хабре периодически появляются статьи с анализом феномена Python - как один из самых медленных языков программирования стал королём нейросетей, и ответ всегда один: за счёт простого синтаксиса и развитой экосистемы. Но экосистема у C++ значительно больше и богаче, значит, дело не в ней и остаётся только синтаксис. А если проблема действительно в синтаксисе, тогда должен быть ответ и на другой вопрос: почему C++ &lt;strong&gt;не&lt;/strong&gt; стал основой для исследований в этой (или любой другой) области?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Ахиллесова пята C&#43;&#43; и будущая  р̶е эволюция</title>
+				<link>https://trust-lang.net/ru/blog/comparison/cpp-evolution/</link>
+				<pubDate>Fri, 10 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/cpp-evolution/</guid>
+				<description>&lt;p&gt;Недавно я опубликовал мнение о фундаментальной экономической модели разработки ПО, которая не способствует (и объективно не должна способствовать) массовому переходу с C/C++ на «безопасные» языки программирования &lt;a href=&#34;https://trust-lang.net/ru/blog/comparison/code-safety-economy/&#34;&gt;Экономика безопасности кода или почему Rust не нужен&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Но чтобы оставаться честным перед читателями, решил опубликовать и статью-контраргумент с описанием обратной стороны медали, то есть почему C++ всё равно будет рано или поздно заменён, а заодно попробовать разобрать, каким будет новый язык программирования, который неминуемо придёт на смену C++.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Экономика безопасности кода или почему Rust не нужен</title>
+				<link>https://trust-lang.net/ru/blog/comparison/code-safety-economy/</link>
+				<pubDate>Sat, 04 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/code-safety-economy/</guid>
+				<description>&lt;p&gt;Прочитал статью  &lt;a href=&#34;https://habr.com/ru/articles/1018592/&#34;&gt;Параллелизм с общим состоянием в Rust&lt;/a&gt; и обратил внимание, что её общий смысл можно выразить известной фразой: &amp;ldquo;делай как нужно, а как не нужно, делать не нужно&amp;rdquo;. Другими словами, это точно такой же совет, какой можно дать разработчику любого другого языка программирования, например С++.&lt;/p&gt;&#xA;&lt;p&gt;И решил не продолжать дискуссию в комментариях, а выразить мнение в виде краткой статьи с описанием фундаментальной  экономической модели разработки ПО, которая не способствует (и объективно не должно способствовать) массовому переходу с C/C++ на «безопасные» альтернативы. Так как из-за особенностей распределения затрат у разработчика ПО отсутствует экономическая мотивация к полному устранению ошибок, и как следствие - к переходу на использование «безопасных» языков программирования.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Безопасность С&#43;&#43; и буридановы мыши в ИТ</title>
+				<link>https://trust-lang.net/ru/blog/comparison/cpp-safety/</link>
+				<pubDate>Thu, 02 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/cpp-safety/</guid>
+				<description>&lt;p&gt;В ИТ есть странная форма «информационной инерции»: когда фраза однажды удачно легла на реальность, стала цитатой, превратилась в маркер «своего» - и дальше продолжила жить сама по себе. Реальность уехала, практики сменились, инструменты стали другими, экономика разработки перевернулась, а штамп формулировки остался. И особенно охотно её повторяют те, кому нужно писать быстро и убедительно, но нет времени (или компетенции) разбирать в технических деталях.&lt;/p&gt;&#xA;&lt;p&gt;И проблема не в том, что старые тезисы изначально были бессмысленными. Проблема в том, что их продолжают подавать как вечные законы природы - без даты, без контекста и без поправок на то, что индустрия в корне изменилась.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Какая «идеальная» цель развития у языков программирования?</title>
+				<link>https://trust-lang.net/ru/blog/language-design/lang-final/</link>
+				<pubDate>Wed, 07 Apr 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/language-design/lang-final/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/language-design/lang-final/lang-final.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;С постоянной периодичностью появляется информация о выходе новой версии того или иного языка программирования.&#xA;И с каждой новой версией расширяются его возможности, добавляются новые синтаксические конструкции или иные улучшения.&lt;/p&gt;&#xA;&lt;p&gt;И это очень сильно напоминает развитие технологий, как и в любой другой области техники.&#xA;Когда с очередным этапом совершенствуются создаваемые творения.&#xA;Быстрее, выше, сильнее … и одновременно значительно сложнее.&lt;/p&gt;&#xA;&lt;p&gt;Об этой проблеме меня заставила задуматься первоапрельская статья &lt;a href=&#34;https://habr.com/ru/post/550270/&#34;&gt;«Доказательное программирование»&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Понятно, что дата публикации статьи говорит сама за себя.&#xA;Тем не менее, новые стандарты С++, постоянно выходящие спецификации Java или новый синтаксис у PHP 8,&#xA;невольно заставляют задуматься, а в нужную ли сторону идет развитие языков программирования?&#xA;Ведь большинство нововведений добавляют сложность в основной рабочий инструмент и решая одни проблемы, неявно добавляя множество других.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

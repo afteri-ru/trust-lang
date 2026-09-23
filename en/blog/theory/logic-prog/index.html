@@ -1,0 +1,599 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>The problem of logical programming languages | TrustLang</title>
+<meta name="description" content="Some time ago I wrote about “International programming in natural languages”, in which I tried to present a worthy goal for an abstract programming language, trying to try on it the role of a link between the world of programmers with computers and non-programmers.
+But as a result it turned out that this is not needed in principle, since “non-programmers” simply do not need to learn to write programs. And if such a desire does arise sometimes, then ordinary formalized programming languages are quite enough, of which there are probably already more than ten thousand.">
+<meta property="og:url" content="https://trust-lang.net/en/blog/theory/logic-prog/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="The problem of logical programming languages">
+	<meta property="og:description" content="Some time ago I wrote about “International programming in natural languages”, in which I tried to present a worthy goal for an abstract programming language, trying to try on it the role of a link between the world of programmers with computers and non-programmers.
+But as a result it turned out that this is not needed in principle, since “non-programmers” simply do not need to learn to write programs. And if such a desire does arise sometimes, then ordinary formalized programming languages are quite enough, of which there are probably already more than ten thousand.">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="blog">
+		<meta property="article:published_time" content="2021-01-09T00:00:00+00:00">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Theory">
+		<meta property="article:tag" content="Programming">
+		<meta property="article:tag" content="Programming-Languages">
+
+	<meta itemprop="name" content="The problem of logical programming languages">
+	<meta itemprop="description" content="Some time ago I wrote about “International programming in natural languages”, in which I tried to present a worthy goal for an abstract programming language, trying to try on it the role of a link between the world of programmers with computers and non-programmers.
+But as a result it turned out that this is not needed in principle, since “non-programmers” simply do not need to learn to write programs. And if such a desire does arise sometimes, then ordinary formalized programming languages are quite enough, of which there are probably already more than ten thousand.">
+	<meta itemprop="datePublished" content="2021-01-09T00:00:00+00:00">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="1502">
+	<meta itemprop="keywords" content="Theory,Programming,Programming-Languages">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="The problem of logical programming languages">
+	<meta name="twitter:description" content="Some time ago I wrote about “International programming in natural languages”, in which I tried to present a worthy goal for an abstract programming language, trying to try on it the role of a link between the world of programmers with computers and non-programmers.
+But as a result it turned out that this is not needed in principle, since “non-programmers” simply do not need to learn to write programs. And if such a desire does arise sometimes, then ordinary formalized programming languages are quite enough, of which there are probably already more than ten thousand.">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/theory/logic-prog/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/theory/logic-prog/">Русский</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enblog-li">
+  <a href="/en/blog/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-enblog"><span class="">Articles</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enblogtheory-li">
+  <input type="checkbox" id="m-enblogtheory-check" checked/>
+  <label for="m-enblogtheory-check"><a href="/en/blog/theory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogtheory"><span class="">Theory of computation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryconsciousness-fsm-li">
+  <input type="checkbox" id="m-enblogtheoryconsciousness-fsm-check"/>
+  <label for="m-enblogtheoryconsciousness-fsm-check"><a href="/en/blog/theory/consciousness-fsm/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryconsciousness-fsm"><span class="">The mechanism of the emergence of consciousness in finite state machines</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryturing-machine-li">
+  <input type="checkbox" id="m-enblogtheoryturing-machine-check"/>
+  <label for="m-enblogtheoryturing-machine-check"><a href="/en/blog/theory/turing-machine/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryturing-machine"><span class="">Reflections on the Turing machine and the causes of errors in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheorystructured-programming-li">
+  <input type="checkbox" id="m-enblogtheorystructured-programming-check"/>
+  <label for="m-enblogtheorystructured-programming-check"><a href="/en/blog/theory/structured-programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheorystructured-programming"><span class="">Reflections on structured programming</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-enblogtheorylogic-prog-li">
+  <input type="checkbox" id="m-enblogtheorylogic-prog-check" checked/>
+  <label for="m-enblogtheorylogic-prog-check"><a href="/en/blog/theory/logic-prog/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-enblogtheorylogic-prog"><span class="td-sidebar-nav-active-item">The problem of logical programming languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enbloglanguage-design-li">
+  <input type="checkbox" id="m-enbloglanguage-design-check"/>
+  <label for="m-enbloglanguage-design-check"><a href="/en/blog/language-design/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enbloglanguage-design"><span class="">Programming language design</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designexpression-statement-li">
+  <input type="checkbox" id="m-enbloglanguage-designexpression-statement-check"/>
+  <label for="m-enbloglanguage-designexpression-statement-check"><a href="/en/blog/language-design/expression-statement/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designexpression-statement"><span class="">If you think you know how &#34;Expression&#34; differs from &#34;Statement&#34;, then most likely you are mistaken</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designbuilding-blocks-li">
+  <input type="checkbox" id="m-enbloglanguage-designbuilding-blocks-check"/>
+  <label for="m-enbloglanguage-designbuilding-blocks-check"><a href="/en/blog/language-design/building-blocks/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designbuilding-blocks"><span class="">Building blocks of programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designreference-solution-li">
+  <input type="checkbox" id="m-enbloglanguage-designreference-solution-check"/>
+  <label for="m-enbloglanguage-designreference-solution-check"><a href="/en/blog/language-design/reference-solution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designreference-solution"><span class="">A possible solution to the problem of references in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designtrust-lang-li">
+  <input type="checkbox" id="m-enbloglanguage-designtrust-lang-check"/>
+  <label for="m-enbloglanguage-designtrust-lang-check"><a href="/en/blog/language-design/trust-lang/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designtrust-lang"><span class="">A new programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designunusual-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designunusual-prog-check"/>
+  <label for="m-enbloglanguage-designunusual-prog-check"><a href="/en/blog/language-design/unusual-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designunusual-prog"><span class="">An unusual concept of the syntax of a programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designlang-final-li">
+  <input type="checkbox" id="m-enbloglanguage-designlang-final-check"/>
+  <label for="m-enbloglanguage-designlang-final-check"><a href="/en/blog/language-design/lang-final/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designlang-final"><span class="">What is the &#34;ideal&#34; goal of the development of programming languages?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designinter-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designinter-prog-check"/>
+  <label for="m-enbloglanguage-designinter-prog-check"><a href="/en/blog/language-design/inter-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designinter-prog"><span class="">International programming in natural languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogcomparison-li">
+  <input type="checkbox" id="m-enblogcomparison-check"/>
+  <label for="m-enblogcomparison-check"><a href="/en/blog/comparison/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogcomparison"><span class="">Language comparison</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-rust-vs-python-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-rust-vs-python-check"/>
+  <label for="m-enblogcomparisoncpp-rust-vs-python-check"><a href="/en/blog/comparison/cpp-rust-vs-python/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-rust-vs-python"><span class="">Why C&#43;&#43; or Rust can never replace Python</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-evolution-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-evolution-check"/>
+  <label for="m-enblogcomparisoncpp-evolution-check"><a href="/en/blog/comparison/cpp-evolution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-evolution"><span class="">The Achilles&#39; heel of C&#43;&#43; and the future r̶e̶ evolution</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncode-safety-economy-li">
+  <input type="checkbox" id="m-enblogcomparisoncode-safety-economy-check"/>
+  <label for="m-enblogcomparisoncode-safety-economy-check"><a href="/en/blog/comparison/code-safety-economy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncode-safety-economy"><span class="">The economics of code safety, or why Rust is not needed</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-safety-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-safety-check"/>
+  <label for="m-enblogcomparisoncpp-safety-check"><a href="/en/blog/comparison/cpp-safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-safety"><span class="">C&#43;&#43; safety and Buridan&#39;s mice in IT</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisongenerics-li">
+  <input type="checkbox" id="m-enblogcomparisongenerics-check"/>
+  <label for="m-enblogcomparisongenerics-check"><a href="/en/blog/comparison/generics/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisongenerics"><span class="">Generic programming in different languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogimplementation-li">
+  <input type="checkbox" id="m-enblogimplementation-check"/>
+  <label for="m-enblogimplementation-check"><a href="/en/blog/implementation/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogimplementation"><span class="">Compiler implementation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogimplementationparser-nuances-li">
+  <input type="checkbox" id="m-enblogimplementationparser-nuances-check"/>
+  <label for="m-enblogimplementationparser-nuances-check"><a href="/en/blog/implementation/parser-nuances/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationparser-nuances"><span class="">Nuances of developing a parser for your own programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogimplementationdsl-with-macros-li">
+  <input type="checkbox" id="m-enblogimplementationdsl-with-macros-check"/>
+  <label for="m-enblogimplementationdsl-with-macros-check"><a href="/en/blog/implementation/dsl-with-macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationdsl-with-macros"><span class="">DSL (domain-specific language) implementation with macros</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogsafety-li">
+  <input type="checkbox" id="m-enblogsafety-check"/>
+  <label for="m-enblogsafety-check"><a href="/en/blog/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogsafety"><span class="">Software safety</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogsafetystack-overflow-li">
+  <input type="checkbox" id="m-enblogsafetystack-overflow-check"/>
+  <label for="m-enblogsafetystack-overflow-check"><a href="/en/blog/safety/stack-overflow/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogsafetystack-overflow"><span class="">Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogsafetylanguage-guarantees-li">
+  <input type="checkbox" id="m-enblogsafetylanguage-guarantees-check"/>
+  <label for="m-enblogsafetylanguage-guarantees-check"><a href="/en/blog/safety/language-guarantees/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogsafetylanguage-guarantees"><span class="">Programming language guarantees as a basis for secure software development</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogprogramming-li">
+  <input type="checkbox" id="m-enblogprogramming-check"/>
+  <label for="m-enblogprogramming-check"><a href="/en/blog/programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogprogramming"><span class="">Philosophy of programming</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingprog-styles-same-time-li">
+  <input type="checkbox" id="m-enblogprogrammingprog-styles-same-time-check"/>
+  <label for="m-enblogprogrammingprog-styles-same-time-check"><a href="/en/blog/programming/prog-styles-same-time/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingprog-styles-same-time"><span class="">Can declarative and imperative styles of writing programs be used simultaneously?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingcomplex-prog-li">
+  <input type="checkbox" id="m-enblogprogrammingcomplex-prog-check"/>
+  <label for="m-enblogprogrammingcomplex-prog-check"><a href="/en/blog/programming/complex-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingcomplex-prog"><span class="">Simple complex programming</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogai-li">
+  <input type="checkbox" id="m-enblogai-check"/>
+  <label for="m-enblogai-check"><a href="/en/blog/ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogai"><span class="">AI and IT processes</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiai-illusions-li">
+  <input type="checkbox" id="m-enblogaiai-illusions-check"/>
+  <label for="m-enblogaiai-illusions-check"><a href="/en/blog/ai/ai-illusions/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiai-illusions"><span class="">The main problem of using AI (Illusions of Intelligence) in software development</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiwrong-term-ai-li">
+  <input type="checkbox" id="m-enblogaiwrong-term-ai-check"/>
+  <label for="m-enblogaiwrong-term-ai-check"><a href="/en/blog/ai/wrong-term-ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiwrong-term-ai"><span class="">The ambiguous term &#34;artificial intelligence&#34;</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogreleases-li">
+  <input type="checkbox" id="m-enblogreleases-check"/>
+  <label for="m-enblogreleases-check"><a href="/en/blog/releases/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogreleases"><span class="">Releases</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv060-li">
+  <input type="checkbox" id="m-enblogreleasesv060-check"/>
+  <label for="m-enblogreleasesv060-check"><a href="/en/blog/releases/v0.6.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv060"><span class="">TrustLang v0.6.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv040-li">
+  <input type="checkbox" id="m-enblogreleasesv040-check"/>
+  <label for="m-enblogreleasesv040-check"><a href="/en/blog/releases/v0.4.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv040"><span class="">NewLang v0.4.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv030-li">
+  <input type="checkbox" id="m-enblogreleasesv030-check"/>
+  <label for="m-enblogreleasesv030-check"><a href="/en/blog/releases/v0.3.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv030"><span class="">NewLang v0.3.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv020-li">
+  <input type="checkbox" id="m-enblogreleasesv020-check"/>
+  <label for="m-enblogreleasesv020-check"><a href="/en/blog/releases/v0.2.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv020"><span class="">NewLang v0.2.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv010-li">
+  <input type="checkbox" id="m-enblogreleasesv010-check"/>
+  <label for="m-enblogreleasesv010-check"><a href="/en/blog/releases/v0.1.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv010"><span class="">NewLang v0.1.0</span></a></label>
+  
+</li>
+  </ul>
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/en/_print/blog/theory/"><i class="fa-solid fa-print fa-fw"></i> Print entire section</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#approaches-to-writing-programs">Approaches to writing programs</a></li>
+    <li><a href="#the-problem-of-searching-for-solutions">The problem of searching for solutions</a>
+      <ul>
+        <li><a href="#performance-scaling">Performance scaling</a></li>
+        <li><a href="#searching-for-a-generalized-solution">Searching for a generalized solution</a></li>
+      </ul>
+    </li>
+    <li><a href="#the-domain-of-unsolvable-tasks">The domain of unsolvable tasks</a>
+      <ul>
+        <li><a href="#poll-results-from-the-original-publication">Poll results from the original publication</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            <a class="td-rss-button" title="RSS" href="/en/blog/theory/index.xml" target="_blank" rel="noopener">
+              <i class="fa-solid fa-rss" aria-hidden="true"></i>
+            </a>
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/en/blog/">Articles</a></li>
+  <li class="breadcrumb-item">
+    <a href="/en/blog/theory/">Theory of computation</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    The problem of logical programming languages</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>The problem of logical programming languages</h1>
+	
+	<div class="td-byline mb-4">
+		
+		<time datetime="2021-01-09" class="text-body-secondary">Saturday, January 09, 2021</time>
+	</div>
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p><img src="/en/blog/langs.jpeg" alt="Featured image"></p>
+<p>Some time ago I wrote about <a href="/en/blog/language-design/inter-prog/">&ldquo;International programming in natural languages&rdquo;</a>,
+in which I tried to present a worthy goal for an abstract programming language,
+trying to try on it the role of a link between the world of programmers with computers and non-programmers.</p>
+<p>But as a result it turned out that this is not needed in principle, since &ldquo;non-programmers&rdquo; simply do not need to learn to write programs.
+And if such a desire does arise sometimes, then ordinary formalized programming languages are quite enough,
+of which there are probably already more than ten thousand.</p>
+<p>And users, both programmers and non-programmers, simply want to solve the tasks that arise before them.
+And although the tasks are completely different, if the way (algorithm) to solve it is known, then choosing a language to solve it will not be difficult at all.</p>
+<p>With the exception of one class of tasks. Tasks whose solution cannot be described in the form of an algorithm.
+But one can specify certain criteria that the sought solution must satisfy.
+I mean logical programming languages and <a href="https://en.wikipedia.org/wiki/Prolog">Prolog</a>, as the most striking representative of this class.</p>
+<p>I also remember a recollection from my youth, when I managed to get a floppy disk with this language.
+Oh, with what enthusiasm my eyes burned when it seemed to me that, just a little more and a system with a knowledge base would be created,
+from which it would be possible to get the cherished answer 42 to any question.</p>
+<p>So why did this not happen? What is the problem of Prolog, and indeed of any system / programming language
+whose purpose is to analyze facts and search for answers to questions?</p>
+<p>This problem is called the <a href="https://en.wikipedia.org/wiki/Combinatorial_explosion">&ldquo;Combinatorial explosion&rdquo;</a> — an exponential (or greater) dependence of the running time of the algorithm on the amount of input data.
+And there are at least two solutions to this problem.</p>
+<h2 id="approaches-to-writing-programs">Approaches to writing programs<a class="td-heading-self-link" href="#approaches-to-writing-programs" aria-label="Heading self-link"></a></h2><p>Before moving on to the particulars, we should say a couple of words about programming paradigms.
+Usually two different styles of writing programs are opposed to each other: <a href="https://en.wikipedia.org/wiki/Imperative_programming">imperative</a> and <a href="https://en.wikipedia.org/wiki/Declarative_programming">declarative</a>.</p>
+<p>Imperative — this is the classic variant of writing a program, in which the programmer himself specifies the steps of the algorithm to obtain the final result.
+And the program text itself consists of a sequence of commands that read, store and process data or call other commands.</p>
+<p>Declarative — in this style the programmer describes the conditions of the task and the rules for obtaining the required result,
+but it is not required to describe in detail all the steps of the algorithm, leaving them to the discretion of the computer.</p>
+<p>It is precisely to the declarative style that the Prolog language belongs, as well as all the other logical programming languages.
+The structured query language (SQL) should also be attributed to the declarative style of writing programs.</p>
+<p>And the problem called the <a href="https://en.wikipedia.org/wiki/Combinatorial_explosion">&ldquo;combinatorial explosion&rdquo;</a> has the strongest negative effect precisely on such languages.
+After all, in the imperative approach the programmer himself is responsible for the sequence of commands executed, and if he programmed an algorithm of a complete enumeration of all possible solutions, then he is his own evil Pinocchio.</p>
+<p>It is a different matter with programming in the declarative style. Although the developer can specify the constraints that should be applied when searching for a solution,
+this is possible only in the case when the algorithm for solving the task is known.
+But if the algorithm for solving it is known, then it is easier to use the imperative style, precisely by implementing this algorithm!</p>
+<p>Therefore the main use of programming languages in the declarative style is to abandon the need to describe a clear algorithm for finding a solution,
+leaving this to the computer. For the computer, the simplest &ldquo;brute-force&rdquo; solution is a complete enumeration of possible variants.</p>
+<p>It is precisely in this case that the exponential growth of the running time of the algorithm begins.
+And starting from a certain threshold, the waiting time for an answer becomes unacceptable for real use.
+This is what the &ldquo;Combinatorial explosion&rdquo; means — a sharp (&ldquo;explosive&rdquo;) growth of the running time of the algorithm with an increase in the size of the input data.</p>
+<h2 id="the-problem-of-searching-for-solutions">The problem of searching for solutions<a class="td-heading-self-link" href="#the-problem-of-searching-for-solutions" aria-label="Heading self-link"></a></h2><p>In the Prolog language this problem was solved through the use of the backtracking and cut mechanism.
+Sometimes they also specified the &ldquo;red&rdquo; and &ldquo;green&rdquo; cut of solutions.
+But in any case, these were <strong>algorithmic</strong> mechanisms for limiting the size of the tree of possible solutions,
+and the necessity of their application still remains on the programmer.</p>
+<p>But to implement them correctly, one needs to know the algorithm for solving, which again returns us to the statement that
+if the algorithm is known, then it is more convenient to program it in the imperative style.</p>
+<p>And if the full algorithm for solving the task is not known (or does not fit, for example because of the large time for its operation),
+then as a result all that remains is either to increase the performance of the system in order to shorten the running time of the algorithm,
+or to look for another solution, including by reducing the computational complexity of searching for solutions, for example, by excluding obviously unsuitable data,
+so as to reduce the possible combinations for their enumeration.</p>
+<h3 id="performance-scaling">Performance scaling<a class="td-heading-self-link" href="#performance-scaling" aria-label="Heading self-link"></a></h3><p>Increasing performance is also different and does not work in all cases.
+Vertical scaling of the performance of one node of the computing environment has its natural limit.
+And even a multiple increase in the speed of the computer can only push back the threshold of the user&rsquo;s patience while waiting for the result,
+but is unable to fundamentally solve the problem itself.</p>
+<p>It is a different matter with horizontal scaling, in which the execution of the algorithm is launched on separate nodes that solve the same task in parallel.
+Such a way of scaling already makes it possible to significantly shorten the time of obtaining the final result for complex computational tasks.
+And although this method is a &ldquo;head-on&rdquo; solution, the successes in the field of data science prove the success of such an approach.</p>
+<p>Of course, horizontal scaling also has its pitfalls.
+First of all, the algorithm itself must allow the possibility of parallel execution independently of other nodes.
+Automation of the management of tasks, of the computing nodes themselves, and of the whole system as a whole is also required.</p>
+<p>Here the paradigm of functional programming can partially help, which limits the result of a function&rsquo;s computation to only the input parameters
+and the result of executing other functions, but the result itself does not depend on the state of the system or other external data.</p>
+<h3 id="searching-for-a-generalized-solution">Searching for a generalized solution<a class="td-heading-self-link" href="#searching-for-a-generalized-solution" aria-label="Heading self-link"></a></h3><p>The second way to solve the problem of the combinatorial explosion is to reduce the computational complexity of the solution.
+This does not mean choosing another algorithm or solving the task in symbolic form.
+If such a thing is possible, then everything will again immediately reduce to the imperative style of programming.</p>
+<p>I mean the possibility of searching for the solution algorithm itself.
+More precisely, not exactly the algorithm, but the possibility of applying various selection methods to the input data in order to exclude the need for their complete enumeration.
+In essence, this reduces to the application of various methods and mechanisms for processing input data taking into account various regularities.</p>
+<p>This is possible both by algorithmic methods (backtracking and pruning in Prolog) and with the use of machine learning,
+which copes very well with finding various regularities.</p>
+<p>Naturally, such a method is not suitable for all classes of tasks. It is not suitable for identifying <strong>ALL possible solutions</strong>.
+But where this is not required, such methods of reducing computational complexity have a right to exist.</p>
+<p>For example, it is not required to search for all possible medicines for a particular disease; <strong>one</strong> is enough, taking into account certain constraints, that is guaranteed to work.</p>
+<p>Moreover, even when particular solutions are found, there is always a chance that with their help it will be possible to see regularities that are not obvious at first glance,
+which will help to show new ways of algorithmically reducing the computational complexity of the main task.</p>
+<h2 id="the-domain-of-unsolvable-tasks">The domain of unsolvable tasks<a class="td-heading-self-link" href="#the-domain-of-unsolvable-tasks" aria-label="Heading self-link"></a></h2><blockquote>
+<p>How do you think, is it really possible to create a logical programming language that would itself be able to automate the search for solutions for tasks of such classes? Or at least have in its arsenal built-in mechanisms for automating such activity?</p>
+</blockquote>
+<h3 id="poll-results-from-the-original-publication">Poll results from the original publication<a class="td-heading-self-link" href="#poll-results-from-the-original-publication" aria-label="Heading self-link"></a></h3><pre tabindex="0"><code>- 57.47%    Ha-ha! What the author wants is called artificial intelligence (50 votes)
+- 27.59%    Searching for solutions cannot be automated (24 votes)
+- 19.54%    This already exists and everything was invented long ago (17 votes)
+- 9.2%      Such a language is not needed, since neural networks can do everything (8 votes)
+- 3.45%     I wrote my own variant in the comments (3 votes)
+</code></pre><p>87 users voted. 62 users abstained.</p>
+
+	<ul class="list-unstyled td-pager d-flex justify-content-between align-items-center mb-0">
+  <li>
+    <a class="btn btn-primary disabled"><span class="me-1">←</span>Previous</a>
+  </li>
+  <li>
+    <a href="/en/blog/theory/structured-programming/" aria-label="Next - Reflections on structured programming" class="btn btn-primary">Next<span class="ms-1">→</span></a>
+  </li>
+</ul>
+
+	</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

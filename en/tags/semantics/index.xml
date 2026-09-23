@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Semantics on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/semantics/</link>
+		<description>Recent content in Semantics on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/semantics/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>If you think you know how &#34;Expression&#34; differs from &#34;Statement&#34;, then most likely you are mistaken</title>
+				<link>https://trust-lang.net/en/blog/language-design/expression-statement/</link>
+				<pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/expression-statement/</guid>
+				<description>&lt;p&gt;I study the &lt;a href=&#34;https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/&#34;&gt;syntax of programming languages&lt;/a&gt; and try to separate fundamental regularities from historical accidents. One of such accidents is the almost ubiquitous use of the terms &lt;strong&gt;expression&lt;/strong&gt; and &lt;strong&gt;statement&lt;/strong&gt; when describing and classifying the syntax of programming languages.&lt;/p&gt;&#xA;&lt;p&gt;Intuitively it seems that &lt;code&gt;2 + 2&lt;/code&gt; and &lt;code&gt;if (x) { foo(); }&lt;/code&gt; are completely different entities, but on a deeper analysis it turns out that such a separation is artificial and arose from the architectural features of computing machines almost half a century ago and since then simply &amp;ldquo;carries over&amp;rdquo; from language to language.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The ambiguous term &#34;artificial intelligence&#34;</title>
+				<link>https://trust-lang.net/en/blog/ai/wrong-term-ai/</link>
+				<pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/ai/wrong-term-ai/</guid>
+				<description>&lt;p&gt;Lately it seems everyone is talking about the successes of artificial intelligence (AI), often meaning by this yet another achievement in the field of generative neural networks. And as usual, some make money on the hype, others crave the appearance of &lt;del&gt;Sarah Connor&lt;/del&gt; a real strong AI (which will conquer the world in the future), and someone is just once again raping a journalist.&lt;/p&gt;&#xA;&lt;p&gt;And there are very few who, when mentioning AI, try to explain what they themselves understand by the term &amp;ldquo;artificial intelligence&amp;rdquo;. After all, it is one thing to write about &amp;ldquo;a field of tasks of the AI category&amp;rdquo;, and quite another to endow an ordinary computer algorithm with at least the rudiments of reason.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

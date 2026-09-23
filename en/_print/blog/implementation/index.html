@@ -1,0 +1,518 @@
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="canonical" type="text/html" href="https://trust-lang.net/en/blog/implementation/">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/en/blog/implementation/index.xml">
+<meta name="robots" content="noindex, nofollow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Compiler implementation | TrustLang</title>
+<meta name="description" content="TrustLang site">
+<meta property="og:url" content="https://trust-lang.net/en/blog/implementation/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Compiler implementation">
+	<meta property="og:description" content="TrustLang site">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="Compiler implementation">
+	<meta itemprop="description" content="TrustLang site">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="keywords" content="Compiler">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Compiler implementation">
+	<meta name="twitter:description" content="TrustLang site">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-section td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/implementation/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <div class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+          </div>
+          <div class="d-none d-xl-block col-xl-2 td-toc d-print-none">
+          </div>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            
+
+
+
+
+<div class="td-content">
+<div class="pageinfo pageinfo-primary d-print-none">
+<p>
+This is the multi-page printable view of this section.
+<a href="#" onclick="print();return false;">Click here to print</a>.
+</p><p>
+<a href="/en/blog/implementation/">Return to the regular view of this page</a>.
+</p>
+</div>
+
+
+
+<h1 class="title">Compiler implementation</h1>
+
+
+
+
+
+    <ul>
+    
+  
+  
+  
+  
+
+  
+    
+    
+	
+
+    <li><a href="#pg-9813af339247215ecb69a87a57f4695c">Nuances of developing a parser for your own programming language</a></li>
+
+
+
+    
+  
+    
+    
+	
+
+    <li><a href="#pg-6a3944ea3a0d511ea11d184e7f279468">DSL (domain-specific language) implementation with macros</a></li>
+
+
+
+    
+  
+
+    </ul>
+
+
+<div class="content">
+      
+</div>
+</div>
+
+
+  
+  
+  
+  
+
+  
+  
+
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="">
+    <h1 id="pg-9813af339247215ecb69a87a57f4695c">Nuances of developing a parser for your own programming language</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2023-03-29" class="text-body-secondary">Wednesday, March 29, 2023</time>
+        
+	</div>
+	<p><img src="/en/blog/langs.jpeg" alt="Featured image"></p>
+<p>Recently I read an article on Habr, &ldquo;My own language, or how I got tired of assembler and C&rdquo;, and my eye involuntarily caught on one paragraph:</p>
+<blockquote>
+<p>I decided not to bother too much, so I used the parglare library. It is very lightweight and convenient, I recommend it to everyone. To describe the syntax, the parser accepts a string in the corresponding format and uses regular expressions (do not judge regexes, they are omnipotent!).</p>
+</blockquote>
+<p>As a result, I decided to publish an article based on my old notes from back in the days when the idea of <a href="/en/">TrustLang</a> had not yet fully crystallized, but I already wanted to write real code and test different concepts.</p>
+<p>After all, in the life of almost any programmer there may come a moment when a bright idea comes to his mind — to develop his own programming language. Maybe not for the sake of conquering the world, on par with C/C++, Python or at least PHP, but as a personal pet project, with which, on long winter evenings, he will hone his own skill.</p>
+<p>And since for any language (not only a programming one) everything starts with the analysis of its grammar, the very first task of the creator will be the choice of tools for the syntax analysis of the source text.</p>
+<p>This is a story — notes for memory about the torments of choosing a lexer-parser bundle for parsing the grammar of TrustLang. And also an attempt to describe and systematize conclusions about the features of the different analyzers that I had to work with when choosing a parser for parsing the grammar of my own programming language.</p>
+<h3 id="terms-used">Terms used.<a class="td-heading-self-link" href="#terms-used" aria-label="Heading self-link"></a></h3><p>So that it is clear what will be discussed further.</p>
+<blockquote>
+<p>Lexer — a computer program or library whose task is to split the input data stream into separate, unrelated fragments, which are customarily called tokens or lexemes.</p>
+<p>Parser — based on a sequence of tokens, performs syntax analysis, for example builds an abstract syntax tree (AST).</p>
+</blockquote>
+<h2 id="attempt-no-1--flex--bison">Attempt No. 1 — Flex + Bison<a class="td-heading-self-link" href="#attempt-no-1--flex--bison" aria-label="Heading self-link"></a></h2><p><a href="https://github.com/westes/flex">GitHub - westes/flex: The Fast Lexical Analyzer - scanner generator for lexing in C and C++</a>
+<a href="https://www.gnu.org/software/bison/">Bison - GNU Project - Free Software Foundation</a></p>
+<p>After reading some clever books, I started with the classics: Flex + Bison. These are old and long-refined applications with the widest configuration capabilities, with which one can describe the syntax and obtain the source files of the lexer and parser for a language with almost any grammar.</p>
+<p>Unfortunately, these old-timers have a very high entry threshold and a heavy legacy. The definition of a custom lexer class through <code>#define</code> alone is worth something, as well as the lack of proper C++ support. Forced dances with a tambourine for parsing a single line, when one does not need to analyze the whole file, and other not always obvious problems and various unclear conventions.</p>
+<p>In other words, after a few weeks of unsuccessful torment, I decided to look at alternatives, and since the initial lexicon file after experiments with Flex + Bison had already been made somehow, the next bundle was Flex + lemon.</p>
+<h2 id="attempt-no-2--flex--lemon">Attempt No. 2 — Flex + Lemon<a class="td-heading-self-link" href="#attempt-no-2--flex--lemon" aria-label="Heading self-link"></a></h2><p><a href="https://www.sqlite.org/lemon.html">The Lemon LALR(1) Parser Generator</a></p>
+<p>Here everything turned out to be primitively simple and understandable. A really very fast start with working examples, a very visual and understandable way of writing rules (compared to Bison). Everything is fine except for one thing: the good ends quickly if one has to analyze more than one line.</p>
+<p>In essence, Lemon versus Bison is like Yin and Yang. Lemon is simple and convenient for working with a single line (that is what it was created for), while Bison is a super-duper-mega combine for parsing files of any size.</p>
+<p>Therefore the search for a lexer + parser bundle continued, and after reading another article saying that language parsers can be made on regexes, I decided to look at what exists in this direction:</p>
+<h2 id="attempt-no-3--a-parser-on-regexes-re2c">Attempt No. 3 — a parser on regexes, re2c<a class="td-heading-self-link" href="#attempt-no-3--a-parser-on-regexes-re2c" aria-label="Heading self-link"></a></h2><p>From the description of <a href="https://re2c.org/">re2c</a>:</p>
+<blockquote>
+<p>In essence, with this thing one can write lexical analyzers on the fly in a few minutes.</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">/*!re2c
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYPEEK       = &#34;*cursor&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSKIP       = &#34;++cursor;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYBACKUP     = &#34;marker = cursor;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYRESTORE    = &#34;cursor = marker;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYBACKUPCTX  = &#34;ctxmarker = cursor;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYRESTORECTX = &#34;cursor = ctxmarker;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYRESTORETAG = &#34;cursor = ${tag};&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYLESSTHAN   = &#34;limit - cursor &lt; @@{len}&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSTAGP      = &#34;@@{tag} = cursor;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSTAGN      = &#34;@@{tag} = NULL;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSHIFT      = &#34;cursor += @@{shift};&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSHIFTSTAG  = &#34;@@{tag} += @@{shift};&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">    */</span>
+</span></span></code></pre></div><p>It seemed that this was the most convenient way to specify templates for the parser! It is enough to describe the necessary templates in the comments, run a regex compiler over the source file and everything is ready! But no, indeed, it only seemed so.</p>
+<p>After all, for simple parsers or regular expressions <strong>re2c</strong> may indeed be good, but debugging the syntax of a large language on regexes is too troublesome an occupation.</p>
+<p>After that I decided not to bother with it and to look at alternatives to the classical lexers and parsers.</p>
+<h2 id="attempt-no-4--flex-flexcpp--bisoncpp">Attempt No. 4 — flex (flexcpp) + bisoncpp<a class="td-heading-self-link" href="#attempt-no-4--flex-flexcpp--bisoncpp" aria-label="Heading self-link"></a></h2><p>Whereas the traditional flex + bison has C++ support implemented <del>through one place</del> at the &ldquo;it works, do not touch it&rdquo; level, I decided to look at their alternative implementation <a href="https://gitlab.com/fbb-git/flexcpp">flexcpp</a> + <a href="https://gitlab.com/fbb-git/bisoncpp">bisoncpp</a> with native C++ support.</p>
+<p>The first impression was that it was just what the doctor ordered!</p>
+<p>The syntax for writing the lexicon, although slightly different from the classical one, is not fundamentally so. But there is native and logical C++ support without wrappers and tricks, and as an additional plus — a more convenient syntax for specifying rules in the parser. But even here there were some rough edges.</p>
+<p>In the rule templates, bisoncpp does not support Unicode (although the lexer-parser itself copes with it perfectly), and the situation with support is completely unclear. As I understood, the developer seems to be a single person, but I never managed to communicate with him about errors when processing Russian characters.*</p>
+<p>Then another unclear behavior surfaced in another place. As a result, I decided to abandon the unfriendly support and look at what other parser options exist.</p>
+<hr>
+<p>*) Two years later my ticket was closed with a comment that only ASCII characters are supported.</p>
+<h2 id="attempt-no-5--the-foreign-parser-antlr">Attempt No. 5 — the foreign parser ANTLR<a class="td-heading-self-link" href="#attempt-no-5--the-foreign-parser-antlr" aria-label="Heading self-link"></a></h2><p>I decided to refuse the use of <a href="https://www.antlr.org/">ANTLR</a> (from English ANother Tool for Language Recognition) — a generator of top-down analyzers for formal languages — right away because it is written in Java.</p>
+<p>There are no religious preferences in this, since I was looking for a parser generator that could be made embedded directly into the runtime environment, and in the case of ANTLR and the JRE this would be difficult.</p>
+<p>Thus I again returned to the old-timers Flex and Bison, with which everything had begun.</p>
+<h2 id="attempt-no-6-the-last-one--returning-to-flex--bison">Attempt No. 6, the last one — returning to Flex + Bison<a class="td-heading-self-link" href="#attempt-no-6-the-last-one--returning-to-flex--bison" aria-label="Heading self-link"></a></h2><p>All the experiments described above took a few months in total, as a result of which kilobytes of source code and test examples were written, dozens of articles were read, and as a result — a return to the original Flex + Bison bundle, but now with a solid baggage of experience in applying various variants of lexers-parsers.</p>
+<p>But most importantly, with an understanding of what one ultimately wants to get, and a very large base of test examples of syntax.</p>
+<h2 id="conclusions-for-memory">Conclusions for memory<a class="td-heading-self-link" href="#conclusions-for-memory" aria-label="Heading self-link"></a></h2><p>As a result, I decided the following for myself: if a simple templater is needed, then the ideal option is <strong>re2c</strong> (if for some reason <strong>regexp</strong> does not suit). If it is required to analyze syntax more complex than ordinary regexes, but on a single line, then the ideal would be the flex+lemon bundle, and if serious artillery is needed, then here it is unambiguously flex + bison.</p>
+<p>I abandoned the flexcpp + bisoncpp bundle altogether. The support situation is unclear, the syntax differs from the classics not very much (although one also has to rack one&rsquo;s brains), and working around the identified flaws is not worth that syntactic sugar.</p>
+<p>And based on the results of many experiments with different syntax variants, it was possible to formulate a couple of important architectural points that can greatly simplify the life of programming language creators:</p>
+<h2 id="strategy-for-handling-syntax-errors">Strategy for handling syntax errors<a class="td-heading-self-link" href="#strategy-for-handling-syntax-errors" aria-label="Heading self-link"></a></h2><p>Usually it is customary to handle syntax errors directly in the parser, and there is a certain reason for this — in this case there is no need for any further actions; only a fully described correct grammar is needed.</p>
+<p>But if the grammar of a language is very complex (hello C++), and its description becomes a difficult task, then one can also abandon the analysis of syntax errors directly in the parser! That is, it is better to make the lexicon as broad as possible (even with those variants that are erroneous for the language), but to catch these errors already during the AST analysis!</p>
+<p>In this case, maintaining the description of the language grammar becomes significantly simpler (fewer syntax rules, simpler formal description, etc.), and most importantly, when describing the grammar one does not need to think about lval or rval, where a reference can be specified and where not — i.e. one can specify everything and everywhere, and the analysis of the admissibility of using specific terms will be performed later during the AST analysis.</p>
+<p><em>Abandoning the full analysis of the language grammar at the level of the lexer-parser and transferring the checking of the correctness of syntactic constructs to the stage of parsing the syntax tree makes it possible to reduce and significantly simplify the description of grammar rules many times over, if not by orders of magnitude!</em></p>
+<p>Such an assumption is very useful at the initial stage of creating a language (one can focus on the general concept, instead of constant edits to the grammar), and also significantly simplifies the future maintenance and/or extension of the syntax.</p>
+<h2 id="macros-and-modification-of-the-grammar-at-runtime">Macros and modification of the grammar at Runtime<a class="td-heading-self-link" href="#macros-and-modification-of-the-grammar-at-runtime" aria-label="Heading self-link"></a></h2><p>However powerful flex+bison may be, this bundle has one architectural problem. The logic of flex and bison is built on finite state machines, and it is impossible to change the grammar of the language during the execution of the application, all the more so because Bison itself calls the lexer to obtain the next portion of data, and it is very difficult to slip modified data to it right during operation. And one so wanted to make it possible to expand macros and modify the syntax in a single pass of the analyzer!</p>
+<p>For this, I had to redo the logic of flex+bison so that the parser received data from the lexer not directly from yylex, but through a function — a proxy. This intermediate function puts the read lexemes into an internal buffer. The data in the buffer is analyzed for the presence of macros, and only after their expansion are the lexemes given to the parser from the top of the buffer one at a time. More about TrustLang macros can be read <a href="/en/blog/implementation/dsl-with-macros/">here</a>.</p>
+<h2 id="the-most-important-thing-in-developing-a-grammar">The most important thing in developing a grammar!<a class="td-heading-self-link" href="#the-most-important-thing-in-developing-a-grammar" aria-label="Heading self-link"></a></h2><p>But the most important advice was given to me by a friend who once participated in a project to develop a parser for a programming language. And in the correctness of his advice — <strong>write tests for the grammar</strong> — I have become convinced many times. Even so, <strong>WRITE TESTS FOR THE GRAMMAR</strong>.</p>
+<p>Tests for the language grammar are a much more important thing than any of the tools used. Only tests make it possible to make sure that a new feature in the language has not broken the old work. And if it did break it, then first of all one needs to add a new test that would pin down the broken scenario, and only after that can one calmly continue experiments with new grammatical constructs.</p>
+<p>And good luck to all language writers!</p>
+<p>Original publication</p>
+
+</div>
+
+
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="page-break-before: always">
+    <h1 id="pg-6a3944ea3a0d511ea11d184e7f279468">DSL (domain-specific language) implementation with macros</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2023-03-01" class="text-body-secondary">Wednesday, March 01, 2023</time>
+        
+	</div>
+	<p><img src="/en/blog/implementation/dsl.jpeg" alt="Featured image"></p>
+
+
+<div class="pageinfo pageinfo-primary">
+<p>Attention!!!</p>
+<p>This article contains a description of the syntax of the previous version of NewLang.</p>
+<p>The current version of the language syntax can be viewed <a href="/en/docs/">here</a>.</p>
+
+</div>
+
+<p>The release of the <strong><a href="/en/">TrustLang</a></strong> language is approaching with a fundamentally new &ldquo;feature&rdquo;, a reworked version of the preprocessor that makes it possible to extend the syntax of the language to create various DSL dialects through macros.</p>
+<p>And, as always, using the previously found lifehack Habr — a chamber of wisdom, I would like to get feedback from readers about the approach proposed below, which is planned to be implemented in the new <strong>TrustLang</strong> preprocessor.</p>
+<h3 id="what-is-this-about">What is this about?<a class="td-heading-self-link" href="#what-is-this-about" aria-label="Heading self-link"></a></h3><blockquote>
+<p><a href="https://en.wikipedia.org/wiki/Domain-specific_language">DSL</a> (Domain-specific language) is a programming language specialized for a specific area of application. It is believed that the use of DSL significantly raises the level of abstraction of the code, and this makes it possible to develop more quickly and efficiently and significantly simplifies the solution of many tasks.</p>
+</blockquote>
+<h4 id="conventionally-two-approaches-to-implementing-dsl-can-be-distinguished">Conventionally, two approaches to implementing DSL can be distinguished:<a class="td-heading-self-link" href="#conventionally-two-approaches-to-implementing-dsl-can-be-distinguished" aria-label="Heading self-link"></a></h4><ul>
+<li>Development of independent syntax translators with the help of lexer and parser generators for defining the grammar of the target language by means of BNF and regular expressions (Lex, Yacc, ANTLR, etc.) and the subsequent compilation of the obtained grammar into machine code.</li>
+<li>Development or embedding of a DSL dialect on a general-purpose language (metalanguage), including through the use of various libraries or special parsers / preprocessors.</li>
+</ul>
+<p>Further we will talk about the second variant, namely, about the implementation of DSL on the basis of general-purpose languages (metalanguages) and the new variant of implementing macros in <strong>TrustLang</strong> as a basis for developing DSL.</p>
+<h2 id="two-extremes">Two extremes<a class="td-heading-self-link" href="#two-extremes" aria-label="Heading self-link"></a></h2><p>It probably makes sense to start with a description of the two extremes in implementing DSL on the basis of a general-purpose language (metalanguage):</p>
+<h3 id="limited-grammar">Limited grammar<a class="td-heading-self-link" href="#limited-grammar" aria-label="Heading self-link"></a></h3><p>If a programming language is limited by its own fixed grammar and does not allow its extension,
+then when implementing DSL the developer will be forced to use the already existing grammar, and the rules for writing operations and indeed the whole syntax will remain the same as in the implementation language. For example, when using C/C++ as the base language or applying various libraries and frameworks in other general-purpose programming languages.</p>
+<p><em>In this case, the term &ldquo;DSL&rdquo; will hide simply a set of specific terms of the domain area, redefined macros and/or operators, but their use will be limited by the grammar of the implementation language.</em></p>
+<h3 id="unlimited-grammar">Unlimited grammar<a class="td-heading-self-link" href="#unlimited-grammar" aria-label="Heading self-link"></a></h3><p>If, however, the language (metalanguage) allows modifying its own grammar (for example, at the level of the <a href="https://en.wikipedia.org/wiki/Abstract_syntax_tree">AST</a>), then DSL will no longer be rigidly limited by the syntax of the base programming language, and as a result its grammar can be anything. Up to the point that &ldquo;for each new project one will have to learn a new language…&rdquo;.
+This can be done with the help of specialized metalanguages (Lisp, ML, Haskell, Nemerle, Forth, Tcl, Rebol, etc.)</p>
+<p>I very much recommend reading the excellent article by @NeoCode about metaprogramming: Metaprogramming: what it is and what it should be.</p>
+<h2 id="the-following-implementation-of-macros-is-proposed-for-discussion">The following implementation of macros is proposed for discussion<a class="td-heading-self-link" href="#the-following-implementation-of-macros-is-proposed-for-discussion" aria-label="Heading self-link"></a></h2><p>&ldquo;There is no perfection in the world&rdquo;, and after the release of <strong>TrustLang 0.2</strong> I received a lot of feedback (mostly negative)
+about the first variant of <a href="https://github.com/afteri-ru/trust-lang/blob/v0.3.0/docs/syntax.md#%D0%BC%D0%B0%D0%BA%D1%80%D0%BE%D1%81%D1%8B">implementing macros</a> and <a href="https://github.com/afteri-ru/trust-lang/blob/v0.3.0/docs/syntax_dsl.md">DSL based on them</a>. And if we put our hand on our heart, this criticism was often justified.
+Therefore I decided to try to rework the macros a bit, in the hope of obtaining a &ldquo;golden mean&rdquo; between the two extremes described above when describing DSL.</p>
+<h3 id="terminology-used">Terminology used<a class="td-heading-self-link" href="#terminology-used" aria-label="Heading self-link"></a></h3><p>Macros in <em>TrustLang</em> are one or several terms that are replaced by another term or by a whole syntactic construct (a sequence of lexemes).
+Macros are at the same time both an extension of the base syntax of the language, when implementing one&rsquo;s own DSL dialects, and syntactic sugar.</p>
+<p>The main feature of macros is that they make it possible to change expressions even before they are evaluated at runtime.
+The expansion of macros occurs during the operation of the <strong>lexer</strong>, which makes it possible to substitute them for any other terms and even to modify the very syntax of the language.</p>
+<p>Therefore, if no modifier is specified before the name of a <strong>TrustLang</strong> object (****macro, **$**local_variable or **@**module),
+then first the object will be searched among macros, then among local variables and last among modules (module objects).
+Due to this, one can use terms without mandatory modifiers to indicate specific types of objects.</p>
+<h4 id="defining-macros">Defining macros<a class="td-heading-self-link" href="#defining-macros" aria-label="Heading self-link"></a></h4><p>The exact same <a href="/en/docs/operators/create/">syntax</a> as for other language objects is used to define macros
+(the operators &ldquo;<strong>::=</strong>&rdquo;, &ldquo;<strong>=</strong>&rdquo; or &ldquo;<strong>:=</strong>&rdquo; are used, respectively, to create a new object, to assign a new value to an already existing one, or to create an object / assign a new value to an object regardless of its presence or absence).</p>
+<p>In general form, a macro definition consists of three parts <strong>&lt;<strong>macro name</strong>&gt;</strong> <strong>&lt;<strong>creation/assignment operator</strong>&gt;</strong> <strong>&lt;<strong>macro body</strong>&gt;</strong> and a terminating semicolon &ldquo;<strong>;</strong>&rdquo;.</p>
+<h4 id="macro-body">Macro body<a class="td-heading-self-link" href="#macro-body" aria-label="Heading self-link"></a></h4><p>The body of a macro can be a valid language expression, a sequence of lexemes (which are enclosed in double backslashes, i.e. <strong>\\<strong>lexeme1 lexeme2</strong>\\</strong>) or an ordinary text string (framed in triple backslashes, i.e. <strong>\\\</strong> text string <strong>\\\</strong>).</p>
+<p>For joining two lexemes into one (an analog of the ## operation in the C/C++ preprocessor), the syntax <strong>##</strong> is used by analogy. A similar operator is used to wrap a lexeme in quotes <strong>#</strong>, for example, <code>\macro($arg)  := \\ func_ \## \#arg(\#arg) \\;</code>? then the call macro(arg) will be transformed into <code>func_arg (&quot;arg&quot;)</code>;</p>
+<h4 id="macro-name">Macro name<a class="td-heading-self-link" href="#macro-name" aria-label="Heading self-link"></a></h4><p>The name of a macro can be a single identifier with the macro prefix &ldquo;****&rdquo; or a sequence of several lexemes. If a sequence of lexemes is used as the macro name, then among them there must be at least one identifier and there may be one or several patterns.</p>
+<p>A pattern is a special identifier that, when matching, can be replaced by any single term. With the help of patterns, a search by pattern is performed and the given sequences of lexemes are replaced by the macro body.</p>
+<p>To specify a pattern at the beginning of an identifier, a dollar sign must be placed (which corresponds to writing the name of a local variable), i.e. <strong>\\<strong>one_lexeme</strong>\\</strong>, <strong>\\<strong>three whole lexemes</strong>\\</strong> **\\**lexeme <em>$pattern1</em> <em>$pattern2</em> <strong>\\</strong>.</p>
+<p>Macros are considered identical if their identifiers are equal, the number of elements in their names coincides, and the identifiers and patterns are located in the very same places.</p>
+<h4 id="macro-arguments">Macro arguments<a class="td-heading-self-link" href="#macro-arguments" aria-label="Heading self-link"></a></h4><p>Terms or patterns in a macro name can have arguments, which are specified in parentheses. The passed arguments in the macro body are written in the place for expansion as the name of a local variable, but a backslash must be added before the name, i.e. <code>\$name</code>.</p>
+<p>An arbitrary number of parameters of a macro is marked with an ellipsis &ldquo;&hellip;&rdquo;, and the place for inserting these arguments is marked by the lexeme <strong>$&hellip;</strong>. If a macro has several identifiers with arguments, then to insert arguments from a specific identifier a lexeme is used with the indication of the required identifier, for example, <strong>$name&hellip;</strong>.</p>
+<p>To insert the number of actually passed arguments, the lexeme <strong>$#</strong> is used, or with the indication of the required identifier, for example, <strong>$#name</strong>.</p>
+<p><em>Macros work with lexemes that contain various information, including about the data type, if it is specified. But at the current moment the data types in macro arguments are not processed in any way, and this is one of the mandatory features that will be implemented in the future.</em></p>
+<h3 id="examples">Examples:<a class="td-heading-self-link" href="#examples" aria-label="Heading self-link"></a></h3><pre tabindex="0"><code>   \macro1 := 123;
+   \macro2(arg) := {func( \$arg ); func2(123);};
+   \\macro of(...) lexemes\\ := \\ call1(); call2( \$... ); call3() \\;
+   \txt_macro := \\\ string for the lexer \\\;
+
+    # Ordinary macros (the macro body is a valid expression)
+    \macro      := replace();
+    \macro2($arg)   := { call( \$arg ); call()};
+    # The number of arguments and the arguments themselves are passed to the function
+    \\func name1(...)\\  := name2( \$#, \$name1... ); 
+
+    # Macro bodies from a sequence of lexemes
+    \if(...)    := \\ [ \$... ] --&gt; \\; # The expression may be incomplete
+    \else       := \\ ,[ _ ] --&gt; \\; # The expression may be incomplete
+ 
+    # Macro body from a text string (as in the C/C++ preprocessor)
+    \macro_str  := \\\ string - macro body \\\; # A string for the lexer
+    \macro($arg)  := \\\ func_ \## \#arg(\#arg)\\\; # macro(arg) -&gt; func_arg (&#34;arg&#34;)
+</code></pre><h2 id="what-capabilities-does-this-give">What capabilities does this give?<a class="td-heading-self-link" href="#what-capabilities-does-this-give" aria-label="Heading self-link"></a></h2><p>Thus one can define macros in the following combinations:</p>
+<pre tabindex="0"><code>No.          Macro name                      Macro body
+----------------------------------------------------------------
+   1.       \identifier                     expression
+   2.       \identifier             \\lexeme1 lexeme2\\
+   3.       \identifier             \\\string for the lexer\\\
+   4.   \\lexeme1 lexeme2\\                expression
+   5.   \\lexeme1 lexeme2\\        \\lexeme1 lexeme2\\
+   6.   \\lexeme1 lexeme2\\        \\\string for the lexer\\\
+</code></pre><p>Each of the combinations listed above has its own properties and limitations:</p>
+<ol>
+<li>
+<p>The classical replacement of one term by another term or a whole expression. It is processed once by the lexer and parser at definition time. The expression in the macro body must be correct from the point of view of syntax, and if there are errors in it, a message about this is formed immediately, already at the definition of the macro.</p>
+</li>
+<li>
+<p>The classical replacement of one term by a sequence of lexemes, including incomplete syntactic constructs. It is processed once by the lexer at the definition of the macro. The macro body is analyzed by the parser when it is used, therefore possible syntax errors will be noticed only when the macro is expanded.</p>
+</li>
+<li>
+<p>The classical replacement of one term by a text string that is fed to the input of the lexer. Only the macro name is processed once by the lexer at its definition, which makes it possible to modify the macro body and to change/combine/modify lexemes before they are fed to the analyzer. Syntax errors will be noticed only when the macro is expanded.</p>
+</li>
+</ol>
+<p>4, 5 and 6. Replacing a sequence of several lexemes (patterns) by an expression, a sequence of lexemes or a text string, respectively.</p>
+<h2 id="purpose-and-examples-of-use">Purpose and examples of use<a class="td-heading-self-link" href="#purpose-and-examples-of-use" aria-label="Heading self-link"></a></h2><p>Macros are also used to transform the base syntax of <em>TrustLang</em> into a more familiar keyword-based syntax, since such text is much easier to perceive when subsequently reading the source code.</p>
+<p>If no modifier is specified before the name of a TrustLang object (****macro, **$**local_variable or **@**module), then first the macro name is searched, then the local variable name and last the module name (module object). Due to this it is possible to define the syntax of DSL in the familiar notation without mandatory prefixes for different types of objects.</p>
+<p>For example, the notation of a conditional statement in the basic <strong>TrustLang</strong> syntax:</p>
+<pre tabindex="0"><code>    [condition] --&gt; {
+        ...
+    } [ condition2 ] --&gt; {
+        ...
+    } [ _ ] {
+        ...
+    };
+
+# With the help of macros
+    \if(...)    := \\ [ \$... ]--&gt; \\;
+    \elif(...)  := \\ ,[ \$... ]--&gt; \\;
+    \else       := \\ ,[ _ ]--&gt; \\;
+
+# Turns into the classical notation
+    if( condition ){
+        ...
+    } elif( condition2 ) {
+        ...
+    } else {
+        ...
+    };
+</code></pre><p>Or a loop up to 5:</p>
+<pre tabindex="0"><code>count:=1;
+[ 1 ] &lt;-&gt; {
+    [count&gt;5] --&gt; {
+        ++ 42 ++;
+    };
+    count+=1;
+};
+</code></pre><p>will look more familiar using the corresponding macros:</p>
+<pre tabindex="0"><code>\while(...) := \\ [ \$... ] &lt;-&gt; \\;
+\return(...) := ++ \$... ++;
+\true := 1;
+
+count := 1;
+while( true ) {
+    if( count &gt; 5 ) {
+        return 42;
+    };
+    count += 1;
+};
+</code></pre><h3 id="deleting-macros">Deleting macros<a class="td-heading-self-link" href="#deleting-macros" aria-label="Heading self-link"></a></h3><p>To delete a macro, you must assign to it an empty sequence of lexemes <code>\macro_str  := \\\\;</code>. Also, for deletion you can use a special syntax: <code>\\\\ name \\\\;</code> or <code>\\\\ \\ two terms \\ \\\\;</code>, i.e. specify the macro name between four backslashes.</p>
+<p>The necessity of using a separate syntactic construct for deleting macros is caused by the fact that macro names are processed by the lexer even before the parsing stage.</p>
+<h2 id="what-is-the-profit">What is the profit?<a class="td-heading-self-link" href="#what-is-the-profit" aria-label="Heading self-link"></a></h2><ol>
+<li>The base syntax of the language can be diluted with additional keywords and turned into the familiar &ldquo;keyword-based&rdquo; one.</li>
+<li>The definition of macros corresponds to the lexicon of the language, and the macros themselves are processed as ordinary objects.</li>
+<li>Simplicity of analyzing the source code and of debugging it.</li>
+<li>The use of DSL terms and metaprogramming techniques can be made explicit, for example, always specifying a prefix before the macro name. In this case the compiler will unambiguously know that a macro expansion is required.</li>
+<li>Despite the fact that the syntax of the language can be significantly modified at one&rsquo;s own risk, this can only be done within certain restrictions (the AST cannot be modified directly), which does not allow one to go too far and, for example, crash or hang the compiler.</li>
+<li>Despite the very large capabilities for modifying the syntax, a very simple, fast and unambiguous implementation is obtained. And this has a positive effect on the speed of analyzing the sources, detecting and handling possible errors, and at the same time is a reasonable compromise between the complexity of implementing this functionality and the capabilities of defining one&rsquo;s own DSL dialects.</li>
+<li>If desired, there is room to develop the capabilities of metaprogramming. In the future one can add pattern matching (for example, based on regular expressions), make the string parameterizable for generating syntax in the macro body, including at runtime, and many other various ways to elegantly shoot yourself in the foot or the foot of your comrade.</li>
+</ol>
+<h2 id="conclusion">Conclusion<a class="td-heading-self-link" href="#conclusion" aria-label="Heading self-link"></a></h2><p>I will be grateful for any feedback on this implementation of macros. And twice grateful if, besides criticism, suggestions for its improvement and refinement are also expressed, in case some point was missed.</p>
+<p>Original publication</p>
+
+</div>
+
+
+
+
+
+    
+	
+  
+
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

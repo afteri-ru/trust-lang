@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Overview on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/overview/</link>
+		<description>Recent content in Overview on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/overview/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>О проекте</title>
+				<link>https://trust-lang.net/ru/docs/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/</guid>
+				<description>&lt;p&gt;&lt;em&gt;TrustLang&lt;/em&gt; — язык программирования, который транслируется в C++ и собирается внешним&#xA;компилятором. Ключевые свойства модели:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Грамматика на правилах, а не на ключевых словах&lt;/strong&gt; — простой однопроходный парсер и&#xA;расширяемость; привычная запись с ключевыми словами реализуется макросами&#xA;(&lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/&#34;&gt;Синтаксис&lt;/a&gt;, &lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/macros/&#34;&gt;Макросы&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Безопасная модель памяти без сборщика мусора&lt;/strong&gt; — RAII, сильные/слабые ссылки, запрет&#xA;сильных циклических ссылок, защита стека (&lt;a href=&#34;https://trust-lang.net/ru/docs/safety/&#34;&gt;Безопасность и качество&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;C/C++ — интеграция «первого класса»&lt;/strong&gt; — нативные типы/функции/классы и шаблоны, embed-вставки,&#xA;линковка; учитывается в каждом контексте (&lt;a href=&#34;https://trust-lang.net/ru/docs/types/native/&#34;&gt;Типы&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Гибкая типизация и вывод типов&lt;/strong&gt; — статическая и динамическая, автоматический вывод&#xA;(&lt;a href=&#34;https://trust-lang.net/ru/docs/types/&#34;&gt;Типы&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Контракты и верификация&lt;/strong&gt; — пред-/пост-условия и утверждения проверяются SMT-решателем (Z3)&#xA;(&lt;a href=&#34;safety/verification/&#34;&gt;Верификация&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Запуск как у скриптов&lt;/strong&gt; — файл с шебангом &lt;code&gt;#!.../trust --run&lt;/code&gt; запускается напрямую, как&#xA;Python-скрипт, но с полной компиляцией: транспиляция в C++, сборка и запуск бинарника происходят&#xA;автоматически, интерпретатор не нужен.&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
+			</item>
+			<item>
+				<title>Статус и планы</title>
+				<link>https://trust-lang.net/ru/docs/status/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/status/</guid>
+				<description>&lt;h2 id=&#34;реализовано-в-текущей-версии-060&#34;&gt;Реализовано в текущей версии (0.6.0)&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#%d1%80%d0%b5%d0%b0%d0%bb%d0%b8%d0%b7%d0%be%d0%b2%d0%b0%d0%bd%d0%be-%d0%b2-%d1%82%d0%b5%d0%ba%d1%83%d1%89%d0%b5%d0%b9-%d0%b2%d0%b5%d1%80%d1%81%d0%b8%d0%b8-060&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Разработана &lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/concept/&#34;&gt;концепция синтаксиса&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Определён &lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/macros/&#34;&gt;синтаксис макросов&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Парсер и литералы для &lt;a href=&#34;https://trust-lang.net/ru/docs/types/&#34;&gt;базовых типов данных&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Сформулирована концепция &lt;a href=&#34;https://trust-lang.net/ru/docs/safety/&#34;&gt;гарантий языка&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Разработана &lt;a href=&#34;https://trust-lang.net/ru/docs/sandbox/&#34;&gt;песочница&lt;/a&gt; для тестирования примеров&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
+			</item>
+			<item>
+				<title>Необычная концепция синтаксиса языка программирования</title>
+				<link>https://trust-lang.net/ru/blog/language-design/unusual-prog/</link>
+				<pubDate>Mon, 24 May 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/language-design/unusual-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/langs.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Внимание!!!&lt;/p&gt;&#xA;&lt;p&gt;Данная статья содержит описание синтаксиса NewLang предыдущей версии.&lt;/p&gt;&#xA;&lt;p&gt;Актуальную версию синтаксиса языка можно посмотреть &lt;a href=&#34;https://trust-lang.net/ru/docs/&#34;&gt;тут&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;Хочу представить на обсуждение читателей немного необычный концепт языка программирования, в котором отсутствует проблема,&#xA;присущая практически всем промышленным языкам -  постоянное увеличение сложности синтаксиса языка из-за его естественного развития по мере выхода новых версий и добавления новых фич.&#xA;Эта проблема описана в статье &lt;a href=&#34;https://trust-lang.net/ru/blog/programming/complex-prog/&#34;&gt;&amp;ldquo;Простое сложное программирование&amp;rdquo;&lt;/a&gt; и &lt;a href=&#34;https://trust-lang.net/ru/blog/language-design/lang-final/&#34;&gt;Какая &amp;ldquo;идеальная&amp;rdquo; цель развития у языков программирования?&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;После нескольких экспериментов с синтаксисом, хочется проверить выработанную идею на широкой аудитории &lt;a href=&#34;https://habr.com/ru/companies/timeweb/articles/558738/&#34;&gt;Хабра&lt;/a&gt;, которая как нельзя лучше подходит для этих целей.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

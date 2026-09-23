@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Compiler on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/compiler/</link>
+		<description>Recent content in Compiler on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Mon, 07 Sep 2026 17:43:45 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/compiler/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Реализация компилятора</title>
+				<link>https://trust-lang.net/ru/blog/implementation/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/implementation/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Ахиллесова пята C&#43;&#43; и будущая  р̶е эволюция</title>
+				<link>https://trust-lang.net/ru/blog/comparison/cpp-evolution/</link>
+				<pubDate>Fri, 10 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/cpp-evolution/</guid>
+				<description>&lt;p&gt;Недавно я опубликовал мнение о фундаментальной экономической модели разработки ПО, которая не способствует (и объективно не должна способствовать) массовому переходу с C/C++ на «безопасные» языки программирования &lt;a href=&#34;https://trust-lang.net/ru/blog/comparison/code-safety-economy/&#34;&gt;Экономика безопасности кода или почему Rust не нужен&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Но чтобы оставаться честным перед читателями, решил опубликовать и статью-контраргумент с описанием обратной стороны медали, то есть почему C++ всё равно будет рано или поздно заменён, а заодно попробовать разобрать, каким будет новый язык программирования, который неминуемо придёт на смену C++.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Размышления о машине Тьюринга и причинах возникновения ошибок в языках программирования</title>
+				<link>https://trust-lang.net/ru/blog/theory/turing-machine/</link>
+				<pubDate>Sat, 15 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/turing-machine/</guid>
+				<description>&lt;p&gt;Пару лет назад я написал статью &lt;a href=&#34;https://trust-lang.net/ru/blog/theory/structured-programming/&#34;&gt;Размышления о структурном программировании&lt;/a&gt;, в которой пытался разобраться с заблуждением, будто Эдсгер Дейкстра доказал, что любой алгоритм можно построить всего из трех конструкций (следования, ветвления, цикла). Тогда как на самом деле:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Эту теорему доказали (с условиями и ограничениями) итальянские ученые &lt;strong&gt;Бём и Якопини&lt;/strong&gt;, а Дейкстра лишь ссылался на неё.&lt;/li&gt;&#xA;&lt;li&gt;Трех указанных базовых алгоритмических конструкций &lt;strong&gt;недостаточно&lt;/strong&gt; для современного программирования (например, требуется обработка исключений).&lt;/li&gt;&#xA;&lt;li&gt;Знаменитая критика оператора &lt;code&gt;goto&lt;/code&gt; от Дейкстры (а также оператора присвоения, о чем всегда забывают рассказать) была не строгим запретом, а всего лишь &lt;strong&gt;рекомендацией по улучшению стиля кода&lt;/strong&gt;, чтобы программы было легче анализировать.&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;А вот теперь настало время написать про некоторые проблемы машины Тьюринга - фундаментальной основы всех информационных технологий.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Нюансы разработки парсера для своего языка программирования</title>
+				<link>https://trust-lang.net/ru/blog/implementation/parser-nuances/</link>
+				<pubDate>Wed, 29 Mar 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/implementation/parser-nuances/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/langs.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Недавно прочитал на Хабре статью &lt;a href=&#34;https://habr.com/ru/post/723400/&#34;&gt;Свой язык, или как я устал от ассемблера и С&lt;/a&gt;, и невольно взглядом зацепился за один абзац:&lt;/p&gt;&#xA;&lt;blockquote&gt;&#xA;&lt;p&gt;Я решил не сильно париться, поэтому использовал библиотеку parglare. Она очень легкая и удобная, всем рекомендую. Для описания синтаксиса парсер принимает строку в соответствующем формате, использует регулярные выражения (не надо осуждать регулярки, они всесильны!).&lt;/p&gt;&#xA;&lt;/blockquote&gt;&#xA;&lt;p&gt;В результате решил опубликовать статью на основе своих старых записей еще с тех времен, когда идея &lt;a href=&#34;https://trust-lang.net/&#34;&gt;TrustLang&lt;/a&gt; до конца еще не выкристаллизовалась, но уже хотелось писать реальный код и тестировать разные концепции.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Development on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/development/</link>
+		<description>Recent content in Development on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/development/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Status and plans</title>
+				<link>https://trust-lang.net/en/docs/status/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/status/</guid>
+				<description>&lt;h2 id=&#34;implemented-in-the-current-version-060&#34;&gt;Implemented in the current version (0.6.0)&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#implemented-in-the-current-version-060&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; The &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/concept/&#34;&gt;syntax concept&lt;/a&gt; has been developed&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; The &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/macros/&#34;&gt;macro syntax&lt;/a&gt; has been defined&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; Parser and literals for &lt;a href=&#34;https://trust-lang.net/en/docs/types/&#34;&gt;basic data types&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; The concept of &lt;a href=&#34;https://trust-lang.net/en/docs/safety/&#34;&gt;language guarantees&lt;/a&gt; has been formulated&lt;/li&gt;&#xA;&lt;li&gt;&lt;input checked=&#34;&#34; disabled=&#34;&#34; type=&#34;checkbox&#34;&gt; The &lt;a href=&#34;https://trust-lang.net/en/docs/sandbox/&#34;&gt;playground&lt;/a&gt; for testing examples has been developed&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
+			</item>
+			<item>
+				<title>The main problem of using AI (Illusions of Intelligence) in software development</title>
+				<link>https://trust-lang.net/en/blog/ai/ai-illusions/</link>
+				<pubDate>Thu, 11 Dec 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/ai/ai-illusions/</guid>
+				<description>&lt;p&gt;I am often struck by how technically literate people argue about whether LLMs have intelligence or whether it is just mathematical computations by a certain algorithm without the rudiments of reason. And what is most interesting, sometimes the opponents in the dispute &lt;strong&gt;for&lt;/strong&gt; the presence of intelligence in generative neural networks are people who in this way advertise their IT solution, not understanding that by doing so they only create problems for themselves.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Programming language guarantees as a basis for secure software development</title>
+				<link>https://trust-lang.net/en/blog/safety/language-guarantees/</link>
+				<pubDate>Mon, 10 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/safety/language-guarantees/</guid>
+				<description>&lt;p&gt;Errors in composing programs for computers appeared even earlier than the very first programming languages were invented. Actually, programming languages were invented precisely so that programs would be written more simply, and the number of errors in them would be as small as possible.&lt;/p&gt;&#xA;&lt;p&gt;To reduce the number of errors, many methods were developed, including the creation of specialized source code analysis tools and even entire programming languages.&lt;/p&gt;&#xA;&lt;p&gt;But after many decades, the problem of purely technical errors in software still remains unsolved to this day, however the approach proposed in the Rust language changes everything.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Simple complex programming</title>
+				<link>https://trust-lang.net/en/blog/programming/complex-prog/</link>
+				<pubDate>Thu, 15 Apr 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/programming/complex-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/programming/complex-prog/complex-prog.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Once again I saw an article on Habr about the complicated business called &amp;ldquo;programming&amp;rdquo;.&#xA;And the fact that programming really is not a simple business is perceived as a fact and usually does not require any confirmation.&lt;/p&gt;&#xA;&lt;p&gt;But the notion of &amp;ldquo;complexity&amp;rdquo; is akin to the term &amp;ldquo;heap&amp;rdquo;.&#xA;For someone, five coconuts is not a heap, and someone ate one and &amp;ldquo;does not want any more&amp;rdquo; — so for him even a single coconut will be a lot.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

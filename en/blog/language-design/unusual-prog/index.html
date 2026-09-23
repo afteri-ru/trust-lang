@@ -1,0 +1,666 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>An unusual concept of the syntax of a programming language | TrustLang</title>
+<meta name="description" content="Attention!!!
+This article contains a description of the syntax of the previous version of NewLang.
+The current version of the language syntax can be viewed here.
+I want to present to the readers’ discussion a somewhat unusual concept of a programming language, which lacks the problem inherent in almost all industrial languages — the constant increase in the complexity of the language syntax due to its natural development as new versions are released and new features are added. This problem is described in the article “Simple complex programming” and What is the “ideal” goal of the development of programming languages?">
+<meta property="og:url" content="https://trust-lang.net/en/blog/language-design/unusual-prog/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="An unusual concept of the syntax of a programming language">
+	<meta property="og:description" content="Attention!!!
+This article contains a description of the syntax of the previous version of NewLang.
+The current version of the language syntax can be viewed here.
+I want to present to the readers’ discussion a somewhat unusual concept of a programming language, which lacks the problem inherent in almost all industrial languages — the constant increase in the complexity of the language syntax due to its natural development as new versions are released and new features are added. This problem is described in the article “Simple complex programming” and What is the “ideal” goal of the development of programming languages?">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="blog">
+		<meta property="article:published_time" content="2021-05-24T00:00:00+00:00">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Syntax">
+		<meta property="article:tag" content="Programming-Languages">
+		<meta property="article:tag" content="Language-Design">
+		<meta property="article:tag" content="Overview">
+
+	<meta itemprop="name" content="An unusual concept of the syntax of a programming language">
+	<meta itemprop="description" content="Attention!!!
+This article contains a description of the syntax of the previous version of NewLang.
+The current version of the language syntax can be viewed here.
+I want to present to the readers’ discussion a somewhat unusual concept of a programming language, which lacks the problem inherent in almost all industrial languages — the constant increase in the complexity of the language syntax due to its natural development as new versions are released and new features are added. This problem is described in the article “Simple complex programming” and What is the “ideal” goal of the development of programming languages?">
+	<meta itemprop="datePublished" content="2021-05-24T00:00:00+00:00">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="2140">
+	<meta itemprop="keywords" content="Syntax,Programming-Languages,Language-Design,Overview">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="An unusual concept of the syntax of a programming language">
+	<meta name="twitter:description" content="Attention!!!
+This article contains a description of the syntax of the previous version of NewLang.
+The current version of the language syntax can be viewed here.
+I want to present to the readers’ discussion a somewhat unusual concept of a programming language, which lacks the problem inherent in almost all industrial languages — the constant increase in the complexity of the language syntax due to its natural development as new versions are released and new features are added. This problem is described in the article “Simple complex programming” and What is the “ideal” goal of the development of programming languages?">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/language-design/unusual-prog/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/language-design/unusual-prog/">Русский</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enblog-li">
+  <a href="/en/blog/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-enblog"><span class="">Articles</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogtheory-li">
+  <input type="checkbox" id="m-enblogtheory-check"/>
+  <label for="m-enblogtheory-check"><a href="/en/blog/theory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogtheory"><span class="">Theory of computation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryconsciousness-fsm-li">
+  <input type="checkbox" id="m-enblogtheoryconsciousness-fsm-check"/>
+  <label for="m-enblogtheoryconsciousness-fsm-check"><a href="/en/blog/theory/consciousness-fsm/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryconsciousness-fsm"><span class="">The mechanism of the emergence of consciousness in finite state machines</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryturing-machine-li">
+  <input type="checkbox" id="m-enblogtheoryturing-machine-check"/>
+  <label for="m-enblogtheoryturing-machine-check"><a href="/en/blog/theory/turing-machine/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryturing-machine"><span class="">Reflections on the Turing machine and the causes of errors in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheorystructured-programming-li">
+  <input type="checkbox" id="m-enblogtheorystructured-programming-check"/>
+  <label for="m-enblogtheorystructured-programming-check"><a href="/en/blog/theory/structured-programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheorystructured-programming"><span class="">Reflections on structured programming</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheorylogic-prog-li">
+  <input type="checkbox" id="m-enblogtheorylogic-prog-check"/>
+  <label for="m-enblogtheorylogic-prog-check"><a href="/en/blog/theory/logic-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheorylogic-prog"><span class="">The problem of logical programming languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enbloglanguage-design-li">
+  <input type="checkbox" id="m-enbloglanguage-design-check" checked/>
+  <label for="m-enbloglanguage-design-check"><a href="/en/blog/language-design/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enbloglanguage-design"><span class="">Programming language design</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designexpression-statement-li">
+  <input type="checkbox" id="m-enbloglanguage-designexpression-statement-check"/>
+  <label for="m-enbloglanguage-designexpression-statement-check"><a href="/en/blog/language-design/expression-statement/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designexpression-statement"><span class="">If you think you know how &#34;Expression&#34; differs from &#34;Statement&#34;, then most likely you are mistaken</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designbuilding-blocks-li">
+  <input type="checkbox" id="m-enbloglanguage-designbuilding-blocks-check"/>
+  <label for="m-enbloglanguage-designbuilding-blocks-check"><a href="/en/blog/language-design/building-blocks/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designbuilding-blocks"><span class="">Building blocks of programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designreference-solution-li">
+  <input type="checkbox" id="m-enbloglanguage-designreference-solution-check"/>
+  <label for="m-enbloglanguage-designreference-solution-check"><a href="/en/blog/language-design/reference-solution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designreference-solution"><span class="">A possible solution to the problem of references in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designtrust-lang-li">
+  <input type="checkbox" id="m-enbloglanguage-designtrust-lang-check"/>
+  <label for="m-enbloglanguage-designtrust-lang-check"><a href="/en/blog/language-design/trust-lang/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designtrust-lang"><span class="">A new programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-enbloglanguage-designunusual-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designunusual-prog-check" checked/>
+  <label for="m-enbloglanguage-designunusual-prog-check"><a href="/en/blog/language-design/unusual-prog/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designunusual-prog"><span class="td-sidebar-nav-active-item">An unusual concept of the syntax of a programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designlang-final-li">
+  <input type="checkbox" id="m-enbloglanguage-designlang-final-check"/>
+  <label for="m-enbloglanguage-designlang-final-check"><a href="/en/blog/language-design/lang-final/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designlang-final"><span class="">What is the &#34;ideal&#34; goal of the development of programming languages?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designinter-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designinter-prog-check"/>
+  <label for="m-enbloglanguage-designinter-prog-check"><a href="/en/blog/language-design/inter-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designinter-prog"><span class="">International programming in natural languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogcomparison-li">
+  <input type="checkbox" id="m-enblogcomparison-check"/>
+  <label for="m-enblogcomparison-check"><a href="/en/blog/comparison/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogcomparison"><span class="">Language comparison</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-rust-vs-python-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-rust-vs-python-check"/>
+  <label for="m-enblogcomparisoncpp-rust-vs-python-check"><a href="/en/blog/comparison/cpp-rust-vs-python/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-rust-vs-python"><span class="">Why C&#43;&#43; or Rust can never replace Python</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-evolution-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-evolution-check"/>
+  <label for="m-enblogcomparisoncpp-evolution-check"><a href="/en/blog/comparison/cpp-evolution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-evolution"><span class="">The Achilles&#39; heel of C&#43;&#43; and the future r̶e̶ evolution</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncode-safety-economy-li">
+  <input type="checkbox" id="m-enblogcomparisoncode-safety-economy-check"/>
+  <label for="m-enblogcomparisoncode-safety-economy-check"><a href="/en/blog/comparison/code-safety-economy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncode-safety-economy"><span class="">The economics of code safety, or why Rust is not needed</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-safety-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-safety-check"/>
+  <label for="m-enblogcomparisoncpp-safety-check"><a href="/en/blog/comparison/cpp-safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-safety"><span class="">C&#43;&#43; safety and Buridan&#39;s mice in IT</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisongenerics-li">
+  <input type="checkbox" id="m-enblogcomparisongenerics-check"/>
+  <label for="m-enblogcomparisongenerics-check"><a href="/en/blog/comparison/generics/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisongenerics"><span class="">Generic programming in different languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogimplementation-li">
+  <input type="checkbox" id="m-enblogimplementation-check"/>
+  <label for="m-enblogimplementation-check"><a href="/en/blog/implementation/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogimplementation"><span class="">Compiler implementation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogimplementationparser-nuances-li">
+  <input type="checkbox" id="m-enblogimplementationparser-nuances-check"/>
+  <label for="m-enblogimplementationparser-nuances-check"><a href="/en/blog/implementation/parser-nuances/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationparser-nuances"><span class="">Nuances of developing a parser for your own programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogimplementationdsl-with-macros-li">
+  <input type="checkbox" id="m-enblogimplementationdsl-with-macros-check"/>
+  <label for="m-enblogimplementationdsl-with-macros-check"><a href="/en/blog/implementation/dsl-with-macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationdsl-with-macros"><span class="">DSL (domain-specific language) implementation with macros</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogsafety-li">
+  <input type="checkbox" id="m-enblogsafety-check"/>
+  <label for="m-enblogsafety-check"><a href="/en/blog/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogsafety"><span class="">Software safety</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogsafetystack-overflow-li">
+  <input type="checkbox" id="m-enblogsafetystack-overflow-check"/>
+  <label for="m-enblogsafetystack-overflow-check"><a href="/en/blog/safety/stack-overflow/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogsafetystack-overflow"><span class="">Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogsafetylanguage-guarantees-li">
+  <input type="checkbox" id="m-enblogsafetylanguage-guarantees-check"/>
+  <label for="m-enblogsafetylanguage-guarantees-check"><a href="/en/blog/safety/language-guarantees/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogsafetylanguage-guarantees"><span class="">Programming language guarantees as a basis for secure software development</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogprogramming-li">
+  <input type="checkbox" id="m-enblogprogramming-check"/>
+  <label for="m-enblogprogramming-check"><a href="/en/blog/programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogprogramming"><span class="">Philosophy of programming</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingprog-styles-same-time-li">
+  <input type="checkbox" id="m-enblogprogrammingprog-styles-same-time-check"/>
+  <label for="m-enblogprogrammingprog-styles-same-time-check"><a href="/en/blog/programming/prog-styles-same-time/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingprog-styles-same-time"><span class="">Can declarative and imperative styles of writing programs be used simultaneously?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingcomplex-prog-li">
+  <input type="checkbox" id="m-enblogprogrammingcomplex-prog-check"/>
+  <label for="m-enblogprogrammingcomplex-prog-check"><a href="/en/blog/programming/complex-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingcomplex-prog"><span class="">Simple complex programming</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogai-li">
+  <input type="checkbox" id="m-enblogai-check"/>
+  <label for="m-enblogai-check"><a href="/en/blog/ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogai"><span class="">AI and IT processes</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiai-illusions-li">
+  <input type="checkbox" id="m-enblogaiai-illusions-check"/>
+  <label for="m-enblogaiai-illusions-check"><a href="/en/blog/ai/ai-illusions/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiai-illusions"><span class="">The main problem of using AI (Illusions of Intelligence) in software development</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiwrong-term-ai-li">
+  <input type="checkbox" id="m-enblogaiwrong-term-ai-check"/>
+  <label for="m-enblogaiwrong-term-ai-check"><a href="/en/blog/ai/wrong-term-ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiwrong-term-ai"><span class="">The ambiguous term &#34;artificial intelligence&#34;</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogreleases-li">
+  <input type="checkbox" id="m-enblogreleases-check"/>
+  <label for="m-enblogreleases-check"><a href="/en/blog/releases/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogreleases"><span class="">Releases</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv060-li">
+  <input type="checkbox" id="m-enblogreleasesv060-check"/>
+  <label for="m-enblogreleasesv060-check"><a href="/en/blog/releases/v0.6.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv060"><span class="">TrustLang v0.6.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv040-li">
+  <input type="checkbox" id="m-enblogreleasesv040-check"/>
+  <label for="m-enblogreleasesv040-check"><a href="/en/blog/releases/v0.4.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv040"><span class="">NewLang v0.4.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv030-li">
+  <input type="checkbox" id="m-enblogreleasesv030-check"/>
+  <label for="m-enblogreleasesv030-check"><a href="/en/blog/releases/v0.3.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv030"><span class="">NewLang v0.3.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv020-li">
+  <input type="checkbox" id="m-enblogreleasesv020-check"/>
+  <label for="m-enblogreleasesv020-check"><a href="/en/blog/releases/v0.2.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv020"><span class="">NewLang v0.2.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv010-li">
+  <input type="checkbox" id="m-enblogreleasesv010-check"/>
+  <label for="m-enblogreleasesv010-check"><a href="/en/blog/releases/v0.1.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv010"><span class="">NewLang v0.1.0</span></a></label>
+  
+</li>
+  </ul>
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/en/_print/blog/language-design/"><i class="fa-solid fa-print fa-fw"></i> Print entire section</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#introduction">Introduction</a></li>
+    <li><a href="#hello-world-in-the-imperative-paradigm">&ldquo;Hello, world!&rdquo; in the imperative paradigm</a></li>
+    <li><a href="#logic-programming-in-the-declarative-paradigm">Logic programming in the declarative paradigm</a></li>
+    <li><a href="#formulation-of-the-concept-being-tested">Formulation of the concept being tested</a></li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            <a class="td-rss-button" title="RSS" href="/en/blog/language-design/index.xml" target="_blank" rel="noopener">
+              <i class="fa-solid fa-rss" aria-hidden="true"></i>
+            </a>
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/en/blog/">Articles</a></li>
+  <li class="breadcrumb-item">
+    <a href="/en/blog/language-design/">Programming language design</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    An unusual concept of the syntax of a programming language</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>An unusual concept of the syntax of a programming language</h1>
+	
+	<div class="td-byline mb-4">
+		
+		<time datetime="2021-05-24" class="text-body-secondary">Monday, May 24, 2021</time>
+	</div>
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p><img src="/en/blog/langs.jpeg" alt="Featured image"></p>
+
+
+<div class="pageinfo pageinfo-primary">
+<p>Attention!!!</p>
+<p>This article contains a description of the syntax of the previous version of NewLang.</p>
+<p>The current version of the language syntax can be viewed <a href="/en/docs/">here</a>.</p>
+
+</div>
+
+<p>I want to present to the readers&rsquo; discussion a somewhat unusual concept of a programming language, which lacks the problem
+inherent in almost all industrial languages — the constant increase in the complexity of the language syntax due to its natural development as new versions are released and new features are added.
+This problem is described in the article <a href="/en/blog/programming/complex-prog/">&ldquo;Simple complex programming&rdquo;</a> and <a href="/en/blog/language-design/lang-final/">What is the &ldquo;ideal&rdquo; goal of the development of programming languages?</a></p>
+<p>After several experiments with the syntax, I want to test the developed idea on a wide audience of Habr, which is the best fit for these purposes.</p>
+<p>Language features:</p>
+<ul>
+<li>A low entry threshold and a natural limitation of the level of complexity over a long time, even under the condition of constant development of the language itself.</li>
+<li>The ability to write program code both in the declarative and in the imperative paradigm using the procedural, modular and object-oriented approach.</li>
+</ul>
+<p>And, in accordance with my own observation Habr — a chamber of wisdom, I will be glad to receive any comments and suggestions that will help test or improve the proposed solution.</p>
+<h2 id="introduction">Introduction<a class="td-heading-self-link" href="#introduction" aria-label="Heading self-link"></a></h2><p>The first unusual feature of the language is the complete absence of reserved keywords.
+More precisely, it is planned to use only one single keyword (the name of the language), which can be both the main entry point into the application
+and a way of accessing the language settings for a specific domain area, for example if it is necessary to implement the <a href="https://en.wikipedia.org/wiki/Domain-specific_language">DSL paradigm</a>.</p>
+<p>At the present moment the name of the language has not been chosen, therefore for the examples simply the word <em>lang</em> is used, which will be changed in the future.</p>
+<p>This feature (the absence of reserved keywords) is achieved by the fact that the grammar of the language is based on the use of commonly used symbols and classical punctuation marks,
+while all the other letter-symbol sequences are considered &ldquo;tokens&rdquo; when parsing the program.</p>
+<p>The language compiler is implemented as a <a href="https://en.wikipedia.org/wiki/Source-to-source_compiler">JIT</a> — the conversion of the source code of a program
+written in one programming language into equivalent source code in another language.
+I started the first experiments with the syntax in Python, but after realizing the need to develop not only an interpreter,
+but also a compiler directly into executable code, I decided to settle on C++. Although in principle, the implementation language can be anything.</p>
+<p>The use of <a href="https://en.wikipedia.org/wiki/Source-to-source_compiler">transpilation</a> when implementing the compiler solves many obvious and not so obvious tasks at once.
+The need to develop a low-level compiler into executable processor code immediately disappears,
+and in my case the main bonus of such an approach becomes the possibility of using the imperative programming paradigm through inserts of code directly into the source code of the application in the implementation language.</p>
+<p>And it is precisely this point that makes it possible to naturally separate the declarative and imperative ways of writing a program.
+In this case, in the declarative paradigm only one of the three basic control constructs is implemented,
+necessary and sufficient when implementing <a href="https://en.wikipedia.org/wiki/Structured_programming">any algorithm</a> — <em>sequence</em>.</p>
+<p>In other words, in the declarative style only the <em>sequence</em> of operations that follow one after another is described,
+but there is no possibility to program loops or branching (jumps) by condition.
+Because of this, in the declarative style one can write only the following types of language constructs:</p>
+<ul>
+<li>comment</li>
+<li>definition of a variable and assignment of a value to it</li>
+<li>creation of an object and assignment of default values to its properties</li>
+<li>creation of a function (a method for the whole class of objects)</li>
+<li>call of a function or iterator</li>
+<li>direct insertion of code in the implementation language</li>
+</ul>
+<p>Since the goal of the current publication is to test the general concept, I will start right away with examples without a long description of the details, and I will comment on some nuances along the way.
+All the more so because the most important goal, &ldquo;a low entry threshold&rdquo;, by itself implies the possibility of figuring out the syntax on one&rsquo;s own.
+Nevertheless, one cannot do entirely without knowledge of the implementation language, and initial knowledge of programming in C/C++ is still necessary.</p>
+<h2 id="hello-world-in-the-imperative-paradigm">&ldquo;Hello, world!&rdquo; in the imperative paradigm<a class="td-heading-self-link" href="#hello-world-in-the-imperative-paradigm" aria-label="Heading self-link"></a></h2><p>The definition of an ordinary function is performed using the assignment operator &ldquo;:=&rdquo;, and the program code in the implementation language (in this case in C++)
+is enclosed in curly braces. A simple example of printing a string to the screen looks something like this:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>    <span style="color:#000">print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">str</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#34;&#34;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#000">printf</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;%s&#34;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#204a87;font-weight:bold">static_cast</span><span style="color:#ce5c00;font-weight:bold">&lt;</span><span style="color:#204a87;font-weight:bold">char</span> <span style="color:#ce5c00;font-weight:bold">*&gt;</span><span style="color:#000;font-weight:bold">(</span><span style="color:#a40000">$</span><span style="color:#000">str</span><span style="color:#000;font-weight:bold">));</span> <span style="color:#000;font-weight:bold">}</span>
+</span></span></code></pre></div><p>The <strong>print</strong> function with a default argument in the form of an empty string internally calls the ordinary printf from the standard library.</p>
+<p>Accordingly, &ldquo;Hello, world!&rdquo; in the imperative programming paradigm will look trivial:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">#!/bin/lang
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">str</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#34;&#34;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#000">printf</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;%s&#34;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#204a87;font-weight:bold">static_cast</span><span style="color:#ce5c00;font-weight:bold">&lt;</span><span style="color:#204a87;font-weight:bold">char</span> <span style="color:#ce5c00;font-weight:bold">*&gt;</span><span style="color:#000;font-weight:bold">(</span><span style="color:#a40000">$</span><span style="color:#000">str</span><span style="color:#000;font-weight:bold">));</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a40000">@</span><span style="color:#000">print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Hello, world!</span><span style="color:#4e9a06">\n</span><span style="color:#4e9a06">&#34;</span><span style="color:#000;font-weight:bold">);</span>
+</span></span></code></pre></div><p>From the example it can be seen that access to arguments inside the C++ code occurs using the symbol <strong>$</strong>, which is specified at the beginning of the named argument.
+In addition, to access the arguments of a function one can refer to them by their ordinal numbers starting from the first ($1, $2, $3, etc.).
+The reserved argument $0 contains the object itself whose method is being called, or <em>nullptr</em> if the function does not belong to an object.</p>
+<p><em>Ordinary</em> functions are precisely ordinary functions in the C/C++ understanding.
+Inside them one can write absolutely any code, including condition checks, loops, calls of other functions, etc.
+Technically, the code of such a function is parsed for the replacement of the used arguments,
+its name is decorated in a special way, and special markers are added to identify the contents.
+After that the source text is ready for building by an ordinary C++ compiler to be turned into a dynamic library,
+and after it is loaded the function can be called at any moment (to call a function, the symbol <strong>&quot;@&quot;</strong> must be specified before its name).</p>
+<p>The direct execution of a file in interpreter mode occurs in two stages. At the first stage, a temporary C++ file with the source code of all functions is generated from the program text; this file is compiled by gcc and a dynamic library is built.</p>
+<p>At the second stage, the built dynamic library is loaded by the runtime environment, and the source text of the program begins to be executed sequentially by the interpreter (all lines, except for function definitions).</p>
+<p>There is also a variant where, instead of interpreting the program code, a C++ file is generated not only for the functions, but also for the main part of the application.
+Then the output of the compiler will already be an ordinary binary file, although in that case it will no longer be possible to promptly fix the program text.</p>
+<h2 id="logic-programming-in-the-declarative-paradigm">Logic programming in the declarative paradigm<a class="td-heading-self-link" href="#logic-programming-in-the-declarative-paradigm" aria-label="Heading self-link"></a></h2><p>Since the most famous logic programming language in the declarative style is considered to be Prolog,
+I will give a simple example of the Brother program (searching for brothers) in Prolog and the equivalent code in the new language.</p>
+<p>Prolog:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>    male<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Tom&#34;</span><span style="color:#ce5c00;font-weight:bold">)</span>.
+</span></span><span style="display:flex;"><span>    male<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Tim&#34;</span><span style="color:#ce5c00;font-weight:bold">)</span>.
+</span></span><span style="display:flex;"><span>    male<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Jake&#34;</span><span style="color:#ce5c00;font-weight:bold">)</span>.
+</span></span><span style="display:flex;"><span>    female<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Janna&#34;</span><span style="color:#ce5c00;font-weight:bold">)</span>.
+</span></span><span style="display:flex;"><span>    parent<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Tom&#34;</span>,<span style="color:#4e9a06">&#34;Jake&#34;</span><span style="color:#ce5c00;font-weight:bold">)</span>.
+</span></span><span style="display:flex;"><span>    parent<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Janna&#34;</span>,<span style="color:#4e9a06">&#34;Jake&#34;</span><span style="color:#ce5c00;font-weight:bold">)</span>.
+</span></span><span style="display:flex;"><span>    parent<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Tom&#34;</span>,<span style="color:#4e9a06">&#34;Tim&#34;</span><span style="color:#ce5c00;font-weight:bold">)</span>.
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    brother<span style="color:#ce5c00;font-weight:bold">(</span>X,Y<span style="color:#ce5c00;font-weight:bold">)</span>:- parent<span style="color:#ce5c00;font-weight:bold">(</span>Z,X<span style="color:#ce5c00;font-weight:bold">)</span>,parent<span style="color:#ce5c00;font-weight:bold">(</span>Z,Y<span style="color:#ce5c00;font-weight:bold">)</span>,male<span style="color:#ce5c00;font-weight:bold">(</span>X<span style="color:#ce5c00;font-weight:bold">)</span>,male<span style="color:#ce5c00;font-weight:bold">(</span>Y<span style="color:#ce5c00;font-weight:bold">)</span>,X<span style="color:#4e9a06">\=</span>Y.
+</span></span></code></pre></div><p>Output: <strong>(Jake, Tim) (Tim, Jake)</strong></p>
+<p>The very same example:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">#!/bin/lang</span>
+</span></span><span style="display:flex;"><span>    human:<span style="color:#ce5c00;font-weight:bold">=</span>@term<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">sex</span><span style="color:#ce5c00;font-weight:bold">=</span>,parent<span style="color:#ce5c00;font-weight:bold">=)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Tom:<span style="color:#ce5c00;font-weight:bold">=</span>@human<span style="color:#ce5c00;font-weight:bold">(</span>male<span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Janna:<span style="color:#ce5c00;font-weight:bold">=</span>@human<span style="color:#ce5c00;font-weight:bold">(</span>female<span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Jake:<span style="color:#ce5c00;font-weight:bold">=</span>@human<span style="color:#ce5c00;font-weight:bold">(</span>male, <span style="color:#ce5c00;font-weight:bold">(</span>Tom, Janna,<span style="color:#ce5c00;font-weight:bold">))</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Tim:<span style="color:#ce5c00;font-weight:bold">=</span>@human<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">sex</span><span style="color:#ce5c00;font-weight:bold">=</span>male, <span style="color:#000">parent</span><span style="color:#ce5c00;font-weight:bold">=(</span>Tom,<span style="color:#ce5c00;font-weight:bold">))</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    human::brother<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">test</span><span style="color:#ce5c00;font-weight:bold">=</span>human!<span style="color:#ce5c00;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">&amp;&amp;=</span> <span style="color:#000">$0</span>!<span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">$test</span>, <span style="color:#000">$0</span>.sex<span style="color:#ce5c00;font-weight:bold">==</span>male, @intersec<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">$0</span>.parent, <span style="color:#000">$test</span>.parent<span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    human.brother?
+</span></span></code></pre></div><p>Output: <strong>[Tim.brother(Jake), Jake.brother(Tim),]</strong></p>
+<p>I hope that the syntax is intuitively understandable, especially given the equivalent code in Prolog, but just in case I will clarify a few points.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>    human:<span style="color:#ce5c00;font-weight:bold">=</span>@term<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">sex</span><span style="color:#ce5c00;font-weight:bold">=</span>,parent<span style="color:#ce5c00;font-weight:bold">=)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span></code></pre></div><p>In this line an object with the name &ldquo;human&rdquo; is created with two properties &ldquo;sex&rdquo; and &ldquo;parent&rdquo;,
+whose default values are undefined, and whose parent is the system object &ldquo;term&rdquo;.
+The use of the symbol <strong>&quot;@&quot;</strong> at the beginning of a term denotes a call of an existing function with the parameters specified in parentheses.
+In this case the constructor of the system object &ldquo;term&rdquo; is called, and the returned result is the new term &ldquo;human&rdquo;,
+which can be perceived both as a single instance of a class and as the name of a whole class if it acts as a parent for other objects.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>    Tom:<span style="color:#ce5c00;font-weight:bold">=</span>@human<span style="color:#ce5c00;font-weight:bold">(</span>male<span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Janna:<span style="color:#ce5c00;font-weight:bold">=</span>@human<span style="color:#ce5c00;font-weight:bold">(</span>female<span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Jake:<span style="color:#ce5c00;font-weight:bold">=</span>@human<span style="color:#ce5c00;font-weight:bold">(</span>male, <span style="color:#ce5c00;font-weight:bold">(</span>Tom, Janna,<span style="color:#ce5c00;font-weight:bold">))</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Tim:<span style="color:#ce5c00;font-weight:bold">=</span>@human<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">parent</span><span style="color:#ce5c00;font-weight:bold">=(</span>Tom,<span style="color:#ce5c00;font-weight:bold">)</span>, <span style="color:#000">sex</span><span style="color:#ce5c00;font-weight:bold">=</span>male<span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span></code></pre></div><p>The first two lines create the objects &ldquo;Tom&rdquo; and &ldquo;Janna&rdquo;, whose property &ldquo;sex&rdquo; is set to the values &ldquo;male&rdquo; and &ldquo;female&rdquo; respectively.
+And in the last line, when creating the object Tim, the property values are set with the indication of their names.</p>
+<p>The constructs <em>(Tom, Janna,)</em> and <em>(Tom,)</em> are the definition of a constant literal of the dictionary type, which are assigned to the specified properties.</p>
+<p>So that the definition of a dictionary is not confused with the indication of arguments in a function call, it contains a mandatory trailing comma before the closing parenthesis.
+This rule (a trailing comma before the closing parenthesis) also applies when defining an array literal, only for its notation not round but square brackets are used (for example <strong>[,]</strong> is an empty array).
+The main difference between a dictionary and an array lies in the ways of accessing their elements.
+To access an element of an array an integer index is used, while in a dictionary both an index and the name of an element (if present) can be used.
+There are more differences between a dictionary and an array, but they are not fundamental right now.</p>
+<p>And the penultimate line in the example:</p>
+<p>human::brother(test=human <em>!</em>) <strong>&amp;&amp;=</strong> <em>$0</em> != <em>$test</em>, <em>$0</em>.sex==male, @intersec(<em>$0</em>.parent, <em>$test</em>.parent);</p>
+<p>is the definition of a <i>simple pure</i> function &ldquo;brother&rdquo; for all objects derived from &ldquo;human&rdquo;.
+This function accepts one named argument &ldquo;test&rdquo;, whose default value is an <em>iterator</em> of objects of the class &ldquo;human&rdquo;.</p>
+<p>The operator <strong>&amp;&amp;=</strong> means the definition of a <em>simple pure</em> function, i.e. a function without external dependencies,
+which has no access to the global context, and the result of whose execution is a logical value,
+which is computed by the scheme of <a href="https://en.wikipedia.org/wiki/Logical_conjunction">logical AND</a> for all conditions specified in the function body separated by commas.</p>
+<p>The execution and output of the result of the program&rsquo;s execution occurs in the line
+<code>human.brother?</code></p>
+<p>The exclamation and question marks denote an <a href="https://en.wikipedia.org/wiki/Iterator">iterator</a>. The iterator &ldquo;<strong>!</strong>&rdquo; returns one current element from the collection and moves the pointer to the next one,
+while the iterator &ldquo;<strong>?</strong>&rdquo; returns the whole collection of objects at once.</p>
+<p>In other words, when executing the program line <em>human.brother <strong>?</strong></em> a sequential enumeration of the whole collection of objects of the type &ldquo;human&rdquo; occurs,
+where for each object the function &ldquo;brother&rdquo; is executed with default arguments.
+And since the iterator <em>human <strong>!</strong></em> is specified as the default argument, each of the elements of the specified class is sequentially passed as the argument.
+In essence, when this line is executed, a complete enumeration of all possible combinations of objects of the class &ldquo;human&rdquo;, each with each, occurs.</p>
+<blockquote>
+<p>A more detailed description of the operation of the iterator and the reason for choosing such a syntax was published in a separate article Laconic iterator for declarative syntax</p>
+</blockquote>
+<p>The result of the execution will consist of those pairs of objects for which the function &ldquo;brother&rdquo; returns true, i.e. the result of the execution will be an array of two pairs of objects <strong>[Tim.brother(Jake), Jake.brother(Tim),]</strong>.</p>
+<h2 id="formulation-of-the-concept-being-tested">Formulation of the concept being tested<a class="td-heading-self-link" href="#formulation-of-the-concept-being-tested" aria-label="Heading self-link"></a></h2><p>The concept being tested is as follows. The syntax of a programming language consists, as it were, of two parts,
+each of which is relatively independent and at the same time they are connected with each other.</p>
+<p>The first part is complex — it is intended for describing algorithms in the <em>imperative style</em> in an ordinary programming language,
+therefore inside functions all the capabilities of the implementation language are available to the developer.</p>
+<p>The second part is simple (compared to the first) — it is intended only for the logical description of a task in the <em>declarative style</em>.
+It is precisely this part that is used for the initial level of use, and the natural limitation to only sequential execution of statements
+(i.e. the absence of loops and branchings) does not cause excessive difficulties in understanding the source text of the program even in the future as the language develops.</p>
+<p>The connection between the two variants of the syntax is transparent and is realized through the joint use of variables and functions,
+whose declaration and reference occur in a unified style in both cases due to the unification of the syntax at the level of the use of punctuation marks.</p>
+<p>Right now I deliberately do not give the full syntax and a detailed description of the remaining capabilities of the language, since the compiler is not yet ready for a public presentation.
+But I will be extremely grateful for any response or useful suggestions regarding the proposed concept.</p>
+<p>This especially concerns possible conflicts in the syntax in the presented examples.</p>
+
+	<ul class="list-unstyled td-pager d-flex justify-content-between align-items-center mb-0">
+  <li>
+    <a href="/en/blog/language-design/lang-final/" aria-label="Previous - What is the &#34;ideal&#34; goal of the development of programming languages?" class="btn btn-primary"><span class="me-1">←</span>Previous</a>
+  </li>
+  <li>
+    <a href="/en/blog/language-design/trust-lang/" aria-label="Next - A new programming language" class="btn btn-primary">Next<span class="ms-1">→</span></a>
+  </li>
+</ul>
+
+	</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

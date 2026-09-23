@@ -1,0 +1,591 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Memory management and shared access | TrustLang</title>
+<meta name="description" content="No single memory management approach is the best or universal: different approaches win under different conditions:
+Manual memory management can do anything, except one thing — guarantee the absence of errors. Ownership and borrowing analysis at compile time makes it possible to prove the correctness of code without additional runtime checks, but some scenarios and algorithms cannot be proven statically at compile time. Counting strong and weak references at runtime is convenient for shared ownership, but has a non-zero cost and does not protect against cyclic and cross dependencies. Garbage collection simplifies working with complex cyclic structures, but has the most expensive overhead and non-deterministic execution. None of the listed memory management approaches includes the issues of inter-thread memory access synchronization. Therefore, choosing only one memory management approach in a programming language means deliberately limiting its capabilities and adding unnecessary overhead. For these reasons, the memory management concept of TrustLang allows extending the implementation of the memory management model with minimal impact on the language syntax and is defined by the requirements (guarantees) for working with memory.">
+<meta property="og:url" content="https://trust-lang.net/en/docs/safety/memory/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Memory management and shared access">
+	<meta property="og:description" content="No single memory management approach is the best or universal: different approaches win under different conditions:
+Manual memory management can do anything, except one thing — guarantee the absence of errors. Ownership and borrowing analysis at compile time makes it possible to prove the correctness of code without additional runtime checks, but some scenarios and algorithms cannot be proven statically at compile time. Counting strong and weak references at runtime is convenient for shared ownership, but has a non-zero cost and does not protect against cyclic and cross dependencies. Garbage collection simplifies working with complex cyclic structures, but has the most expensive overhead and non-deterministic execution. None of the listed memory management approaches includes the issues of inter-thread memory access synchronization. Therefore, choosing only one memory management approach in a programming language means deliberately limiting its capabilities and adding unnecessary overhead. For these reasons, the memory management concept of TrustLang allows extending the implementation of the memory management model with minimal impact on the language syntax and is defined by the requirements (guarantees) for working with memory.">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="docs">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Syntax">
+		<meta property="article:tag" content="Memory-Safety">
+		<meta property="article:tag" content="Concurrency">
+
+	<meta itemprop="name" content="Memory management and shared access">
+	<meta itemprop="description" content="No single memory management approach is the best or universal: different approaches win under different conditions:
+Manual memory management can do anything, except one thing — guarantee the absence of errors. Ownership and borrowing analysis at compile time makes it possible to prove the correctness of code without additional runtime checks, but some scenarios and algorithms cannot be proven statically at compile time. Counting strong and weak references at runtime is convenient for shared ownership, but has a non-zero cost and does not protect against cyclic and cross dependencies. Garbage collection simplifies working with complex cyclic structures, but has the most expensive overhead and non-deterministic execution. None of the listed memory management approaches includes the issues of inter-thread memory access synchronization. Therefore, choosing only one memory management approach in a programming language means deliberately limiting its capabilities and adding unnecessary overhead. For these reasons, the memory management concept of TrustLang allows extending the implementation of the memory management model with minimal impact on the language syntax and is defined by the requirements (guarantees) for working with memory.">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="389">
+	<meta itemprop="keywords" content="Syntax,Memory-Safety,Concurrency">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Memory management and shared access">
+	<meta name="twitter:description" content="No single memory management approach is the best or universal: different approaches win under different conditions:
+Manual memory management can do anything, except one thing — guarantee the absence of errors. Ownership and borrowing analysis at compile time makes it possible to prove the correctness of code without additional runtime checks, but some scenarios and algorithms cannot be proven statically at compile time. Counting strong and weak references at runtime is convenient for shared ownership, but has a non-zero cost and does not protect against cyclic and cross dependencies. Garbage collection simplifies working with complex cyclic structures, but has the most expensive overhead and non-deterministic execution. None of the listed memory management approaches includes the issues of inter-thread memory access synchronization. Therefore, choosing only one memory management approach in a programming language means deliberately limiting its capabilities and adding unnecessary overhead. For these reasons, the memory management concept of TrustLang allows extending the implementation of the memory management model with minimal impact on the language syntax and is defined by the requirements (guarantees) for working with memory.">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/docs/safety/memory/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap td-docs-layout">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/docs/safety/memory/">Русский</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-endocs-li">
+  <a href="/en/docs/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-endocs"><span class="">About the project</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-endocssyntax-li">
+  <input type="checkbox" id="m-endocssyntax-check"/>
+  <label for="m-endocssyntax-check"><a href="/en/docs/syntax/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocssyntax"><span class="">Syntax</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxconcept-li">
+  <input type="checkbox" id="m-endocssyntaxconcept-check"/>
+  <label for="m-endocssyntaxconcept-check"><a href="/en/docs/syntax/concept/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxconcept"><span class="">Concept</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxnaming-li">
+  <input type="checkbox" id="m-endocssyntaxnaming-check"/>
+  <label for="m-endocssyntaxnaming-check"><a href="/en/docs/syntax/naming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxnaming"><span class="">Naming of objects</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxmacros-li">
+  <input type="checkbox" id="m-endocssyntaxmacros-check"/>
+  <label for="m-endocssyntaxmacros-check"><a href="/en/docs/syntax/macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxmacros"><span class="">Macros and DSL</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxhierarchy-li">
+  <input type="checkbox" id="m-endocssyntaxhierarchy-check"/>
+  <label for="m-endocssyntaxhierarchy-check"><a href="/en/docs/syntax/hierarchy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxhierarchy"><span class="">Code hierarchy</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-endocstypes-li">
+  <input type="checkbox" id="m-endocstypes-check"/>
+  <label for="m-endocstypes-check"><a href="/en/docs/types/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocstypes"><span class="">Data types</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesconcept-li">
+  <input type="checkbox" id="m-endocstypesconcept-check"/>
+  <label for="m-endocstypesconcept-check"><a href="/en/docs/types/concept/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesconcept"><span class="">Type system</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesnumbers-li">
+  <input type="checkbox" id="m-endocstypesnumbers-check"/>
+  <label for="m-endocstypesnumbers-check"><a href="/en/docs/types/numbers/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesnumbers"><span class="">Numbers and tensors</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesstrings-li">
+  <input type="checkbox" id="m-endocstypesstrings-check"/>
+  <label for="m-endocstypesstrings-check"><a href="/en/docs/types/strings/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesstrings"><span class="">Character strings</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesdicts-li">
+  <input type="checkbox" id="m-endocstypesdicts-check"/>
+  <label for="m-endocstypesdicts-check"><a href="/en/docs/types/dicts/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesdicts"><span class="">Dictionaries and sets (enumerations)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesclass-li">
+  <input type="checkbox" id="m-endocstypesclass-check"/>
+  <label for="m-endocstypesclass-check"><a href="/en/docs/types/class/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesclass"><span class="">Classes</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesfuncs-li">
+  <input type="checkbox" id="m-endocstypesfuncs-check"/>
+  <label for="m-endocstypesfuncs-check"><a href="/en/docs/types/funcs/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesfuncs"><span class="">Functions</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesnative-li">
+  <input type="checkbox" id="m-endocstypesnative-check"/>
+  <label for="m-endocstypesnative-check"><a href="/en/docs/types/native/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesnative"><span class="">Native types</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypescontainers-li">
+  <input type="checkbox" id="m-endocstypescontainers-check"/>
+  <label for="m-endocstypescontainers-check"><a href="/en/docs/types/containers/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypescontainers"><span class="">Ranges, arrays and tensors</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-endocsoperators-li">
+  <input type="checkbox" id="m-endocsoperators-check"/>
+  <label for="m-endocsoperators-check"><a href="/en/docs/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocsoperators"><span class="">Expressions and statements</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorscreate-li">
+  <input type="checkbox" id="m-endocsoperatorscreate-check"/>
+  <label for="m-endocsoperatorscreate-check"><a href="/en/docs/operators/create/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorscreate"><span class="">Creating objects and assignment</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorsoperators-li">
+  <input type="checkbox" id="m-endocsoperatorsoperators-check"/>
+  <label for="m-endocsoperatorsoperators-check"><a href="/en/docs/operators/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorsoperators"><span class="">Operators</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorsflow-li">
+  <input type="checkbox" id="m-endocsoperatorsflow-check"/>
+  <label for="m-endocsoperatorsflow-check"><a href="/en/docs/operators/flow/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorsflow"><span class="">Conditions and loops</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorswith-li">
+  <input type="checkbox" id="m-endocsoperatorswith-check"/>
+  <label for="m-endocsoperatorswith-check"><a href="/en/docs/operators/with/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorswith"><span class="">Context manager (with)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorserrors-li">
+  <input type="checkbox" id="m-endocsoperatorserrors-check"/>
+  <label for="m-endocsoperatorserrors-check"><a href="/en/docs/operators/errors/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorserrors"><span class="">Return, interrupts and error handling</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-endocssafety-li">
+  <input type="checkbox" id="m-endocssafety-check" checked/>
+  <label for="m-endocssafety-check"><a href="/en/docs/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocssafety"><span class="">Guarantees and safety</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-endocssafetymemory-li">
+  <input type="checkbox" id="m-endocssafetymemory-check" checked/>
+  <label for="m-endocssafetymemory-check"><a href="/en/docs/safety/memory/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-endocssafetymemory"><span class="td-sidebar-nav-active-item">Memory management and shared access</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssafetystack_check-li">
+  <input type="checkbox" id="m-endocssafetystack_check-check"/>
+  <label for="m-endocssafetystack_check-check"><a href="/en/docs/safety/stack_check/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssafetystack_check"><span class="">Stack overflow protection (stack check)</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssandbox-li">
+  <input type="checkbox" id="m-endocssandbox-check"/>
+  <label for="m-endocssandbox-check"><a href="/en/docs/sandbox/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssandbox"><span class="">Playground</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsstatus-li">
+  <input type="checkbox" id="m-endocsstatus-check"/>
+  <label for="m-endocsstatus-check"><a href="/en/docs/status/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsstatus"><span class="">Status and plans</span></a></label>
+  
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/en/_print/docs/safety/"><i class="fa-solid fa-print fa-fw"></i> Print entire section</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#concept">Memory management model</a></li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5" role="main">
+            
+
+<div class="pageinfo pageinfo-primary" role="note">
+  <p><strong>The site sections are under development.</strong></p>
+  <p>The materials may be incomplete or contain errors.
+  The site content will be synchronized with the implementation in the next release,
+  while the current version (0.6.0) is intended for syntax prototyping and for creating the <a href="/en/playground/">playground</a>.</p>
+</div>
+
+
+
+            
+  
+
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/en/docs/">About the project</a></li>
+  <li class="breadcrumb-item">
+    <a href="/en/docs/safety/">Guarantees and safety</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    Memory management and shared access</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>Memory management and shared access</h1>
+	
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p>No single memory management approach is the best or universal: different approaches win under different conditions:</p>
+<ul>
+<li>Manual memory management can do anything, except one thing — guarantee the absence of errors.</li>
+<li>Ownership and borrowing analysis at compile time makes it possible to prove the correctness of code without additional
+runtime checks, but some scenarios and algorithms cannot be proven statically at compile time.</li>
+<li>Counting strong and weak references at runtime is convenient for shared ownership, but has a non-zero
+cost and does not protect against cyclic and cross dependencies.</li>
+<li>Garbage collection simplifies working with complex cyclic structures, but has the most expensive overhead
+and non-deterministic execution.</li>
+<li>None of the listed memory management approaches includes the issues of inter-thread
+memory access synchronization.</li>
+</ul>
+<p>Therefore, choosing only one memory management approach in a programming language means deliberately limiting its capabilities and adding unnecessary overhead. For these reasons, the memory management concept of <em>TrustLang</em> allows extending the implementation of the memory management model with minimal impact on the language syntax and is defined by the requirements (guarantees) for working with memory.</p>
+<h2 id="concept">Memory management model<a class="td-heading-self-link" href="#concept" aria-label="Heading self-link"></a></h2><ul>
+<li>The language semantics divides variables not by the method of internal implementation, but by semantics, i.e. a variable by value may store data in the heap, but when copying, a copy of all its data located in the heap must also be created.</li>
+<li>A complete description of an object&rsquo;s lifetime always includes several <strong>orthogonal</strong> axes and no abbreviated symbolic notation can in principle encode the whole set of combinations (reference kind, access, region membership (lifetime), presence of a destructor for the object, etc.). Therefore, the abbreviated symbolic notation of variable types is intended only for variables whose lifetime the compiler can verify automatically at compile time (mainly for <strong>local scopes</strong>).</li>
+<li>The identity of data types includes not only reference types, but also the methods of inter-thread access synchronization.</li>
+<li>Since interaction with C++ code is required, it is impossible to completely abandon raw pointers to data, but strict restrictions are introduced for them at the level of the compiler (static analyzer) in order to <a href="https://github.com/rsashka/memsafe">limit errors when working with memory</a>.</li>
+<li>Working with memory must also include <a href="/en/docs/safety/stack_check/">protection of the stack from overflow</a>.</li>
+</ul>
+<p>The current memory management model is at the testing stage and will be documented in <a href="/en/docs/status/">version 0.7.0</a>.
+These and other project concepts can be discussed on Reddit <a href="https://www.reddit.com/r/trust_lang/">https://www.reddit.com/r/trust_lang/</a></p>
+<!--
+In all other cases, a semantic description of the object lifetime is used.
+The memory management concept in *TrustLang* relies on the requirements (guarantees) that must be provided by the language and consists of the following points:
+
+ and includes [RAII](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization)
+
+## Lifetime model: orthogonal axes {#rules}
+
+The lifetime of an object is described by several **orthogonal** aspects; each is expressed by its own attribute (one attribute — one aspect).
+
+| Aspect | Attribute | Meaning | Part of the type identity |
+|---|---|---|---|
+| Ownership (reference kind) | `@[reftype(<kind>)@]` | who owns the object and how | yes |
+| Access/synchronization | 2nd/3rd argument of `reftype` | how access is synchronized | yes |
+| Object dependency  | `@[borrowing@]` | who owns the object and how | yes |
+| Lifetime region | `@[lifetime(<area>[, <name>])@]` | how long a non-owning view is valid | no (analysis only) |
+| Destruction | `@[deleter(D@)]` | how the resource is released | yes for `unique`, erased for `shared` |
+| Mutability | `@[readonly@]` / `^` | constness of access | qualifier |
+| Address stability | `@[pin@]` | the address is part of the identity | **not implemented** |
+
+The reference kind is specified by the attribute `@[reftype("...")@]` (or the symbolic marker `&&`/`&*`/`&?`) before the **type** (i.e. after `:`)
+or before the **variable** when automatic type inference of the variable is used.
+Nested references are expressed by a chain of separate reference types, not by a "reference to a reference" in one declaration.
+
+## Reference kinds {#variables}
+
+All variants of the reference kind (`RefType`):
+
+| Kind (`@[reftype("…")]`) | Marker | Meaning | C++ type | Copyability |
+|---|---|---|---|---|
+| `value` | — | ownership of a value (no reference) | `T` | by the type `T` |
+| `shared` | `&*` | shared ownership (reference counter) | `trust::Shared<T>` | copied (the counter grows) |
+| `weak` | `&?` | weak (non-owning) reference to `shared` | `trust::Weak<trust::Shared<T>>` | copied |
+| `unique` | `&&` | exclusive ownership (single owner) | `trust::StaticUnique<T>` (inline) / `trust::Unique<T,D>` (with a deleter) | **move-only** |
+| `ptr` | `@[reftype("ptr")@]` | raw pointer (explicit only) | `T*` | copied |
+| `ref` | `@[reftype("ref")@]` | native reference (explicit only) | `T&` | — |
+| `mptr` | — | pointer to member | `T C::*` | copied |
+| `rref` | — | rvalue reference | `T&&` | **reserved, not implemented** |
+| `ptrptr` | — | pointer to pointer | `T**` | **reserved, not implemented** |
+| `locker` | — | access guard to `shared`/`weak` (result of `lock()`) | `trust::Locker<T>` | move-only |
+
+Examples:
+
+```python
+s : @[reftype("shared")@] Int32 := 5;    # canonically: the kind is on the type -> trust::Shared<int32_t>
+u : @[reftype("unique")@] Int32 := 10;    # trust::StaticUnique<int32_t> (inline, zero-cost)
+w : @[reftype("weak")@] Int32 := s;      # trust::Weak<trust::Shared<int32_t>>
+x : &*Int32 := 5;                        # marker on the TYPE: the same as shared
+&* y := 7;                               # marker on the VARIABLE, type omitted (auto-inference) -> shared
+&? z := & x;                             # weak from shared (auto-inference)
+&* bad : Int32 := 5;                     # ERROR: the kind is on the variable, but the explicit type has no kind
+&* dup : &*Int32 := 5;                   # WARNING -Wref-kind-dup (redundant qualifier)
+```
+
+**Copyability.** `shared`/`weak` are copied; `unique` is **move-only** — copying (initialization/
+assignment from another `unique`) is forbidden, ownership transfer is only `a :=: b` (swap) or `a :=: _`.
+
+**Native kinds.** Raw `ptr`/`ref` are specified only by an explicit `@[reftype(...)]` (a transitional compatibility axis
+with C++) and are not mixed with smart references.
+
+## Access policies (the access and synchronization axis) {#access}
+
+A policy is the 2nd (and, if necessary, the 3rd — the implementation class) argument of `reftype`; it is part of the type.
+Custom access policies are specified only for `shared`/`weak`. `unique` also has a policy, but it is
+**fixed** and not parameterizable: exclusive (monopolistic) access of the
+single owner.
+
+```python
+s : @[reftype("shared", AccessMutex)@] Int32 := 5;    # trust::AccessShared<int32_t, AccessMutex>
+```
+
+| Kind | Policies | Access form |
+|---|---|---|
+| `shared`/`weak` | `AccessMutex`, `AccessRwMutex`, `AccessSingleThread` | guarded capture `lock()`/`lock_const()` |
+| `unique` | fixed: exclusive (monopolistic) access | direct access `*u` (zero-cost) |
+
+## Deleter: releasing external resources {#deleter}
+
+The attribute `@[deleter(D)@]` specifies a deleter functor (`D::operator()(V*)`) for **owning** kinds:
+
+```python
+h : @[reftype("unique")@] @[deleter(FileDeleter)@] File := open_file(...);
+```
+
+- It is allowed only on owning kinds (`unique`/`shared`); on non-owning kinds it is an error.
+- For `unique`, `D` is **part of the type**: `trust::Unique<T, D>` (like `std::unique_ptr<T, D>`), therefore
+  `unique<T, D1>` and `unique<T, D2>` are different types.
+- For `shared`, `D` is **erased** from the type (`trust::Shared<T>`) and is applied at creation/`adopt`.
+
+## Lifetime regions and `@[lifetime@]` {#region}
+
+`@[lifetime(<area>[, <name>])@]` marks a **non-owning view** (`ptr`/`ref`) with a validity boundary (a region). The contract is validated; static region analysis and escape rules for returning from a function are under development. Details — in [Status](../status/).
+
+## Address stability (`@[pin@]`) {#pin}
+
+`@[pin]` (the address is part of the object identity) is **not implemented** in the current version.
+
+## Dereferencing and capture {#lock}
+
+Access to the value of a reference is the dereference operator, which simultaneously performs capture (for
+`shared`/`weak` — with locking during synchronization):
+
+- `*ref` — capture for reading/writing;
+- `*^ref` — capture for reading only (const);
+- `with(l = *ref) { ... }` — holding the capture for the whole block; several references — a group capture.
+
+A repeated capture of the same object in one expression (`*a + *a`) is a warning `-Wdouble-capture`
+(for synchronized references this is self-locking).
+
+Guarded access to a synchronized object is provided by the guard `trust::Locker<T>` (for `shared`/`weak`;
+the result of `lock()`/`lock_const()`). For `unique` a policy is also defined — exclusive
+(monopolistic) access: there is only one owner, therefore access `*u` is direct, without a runtime guard;
+raw `ptr`/`ref` are also without a guard.
+
+## Move and exchange of ownership {#move}
+
+The operator `:=:`:
+
+- `a :=: b` — exchange of the references (ownerships) themselves of the same kind;
+- `*a :=: *b` — exchange of values through the references;
+- `x :=: _` — move to discard (the owner remains moved-from; for `unique`/`shared` the resource is
+  released automatically);
+- `@move(x)` → `x :=: _`, `@swap(a, b)` → `a :=: b`.
+
+-->
+
+	
+</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

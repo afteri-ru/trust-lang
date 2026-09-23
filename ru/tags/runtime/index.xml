@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Runtime on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/runtime/</link>
+		<description>Recent content in Runtime on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/runtime/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Избавляемся от ошибок Segmentation fault из-за переполнения стека в С&#43;&#43;</title>
+				<link>https://trust-lang.net/ru/blog/safety/stack-overflow/</link>
+				<pubDate>Wed, 07 Jan 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/safety/stack-overflow/</guid>
+				<description>&lt;p&gt;7 января в 14:53 2026&lt;/p&gt;&#xA;&lt;p&gt;&lt;a href=&#34;https://habr.com/ru/article/983394&#34;&gt;Fetching Title#4teb&lt;/a&gt;&lt;/p&gt;&#xA;&lt;p&gt;Развивая идею &lt;a href=&#34;https://trust-lang.net/ru/blog/safety/language-guarantees/&#34;&gt;доверенного языка программирования&lt;/a&gt; я пришел к выводу, что за счет ограничений синтаксиса и создания соответствующих проверок в статическом анализаторе кода, можно защититься практически ото всех технических ошибок, кроме двух - контроль динамически выделяемой памяти и переполнения стека.&lt;/p&gt;&#xA;&lt;p&gt;Причем, если для подсчета ссылок в рантайме, решения существуют, то контроль переполнения стека невозможно сделать не только во время анализа исходного текста программы, но это практически невозможно и во время выполнения приложения! Ведь ошибка переполнение стека (stack overflow) - это всегда фатально, так как не существует способа поймать и обработать эту ошибку изнутри выполняемой программы, чтобы потом продолжить её выполнение как ни в чем не бывало.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

@@ -1,0 +1,547 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Conditions and loops | TrustLang</title>
+<meta name="description" content="In TrustLang there is no if keyword: a condition is checked by a construct that in meaning corresponds to the mathematical “follows” — two dashes and an angle bracket --&gt;. The notation is easily combined into chains for checking several conditions of the “else if” kind. Below the construct is shown in both forms — the DSL macro and the base syntax (about the two notation forms see Macros and DSL):">
+<meta property="og:url" content="https://trust-lang.net/en/docs/operators/flow/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Conditions and loops">
+	<meta property="og:description" content="In TrustLang there is no if keyword: a condition is checked by a construct that in meaning corresponds to the mathematical “follows” — two dashes and an angle bracket --&gt;. The notation is easily combined into chains for checking several conditions of the “else if” kind. Below the construct is shown in both forms — the DSL macro and the base syntax (about the two notation forms see Macros and DSL):">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="docs">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Operators">
+		<meta property="article:tag" content="Control-Flow">
+
+	<meta itemprop="name" content="Conditions and loops">
+	<meta itemprop="description" content="In TrustLang there is no if keyword: a condition is checked by a construct that in meaning corresponds to the mathematical “follows” — two dashes and an angle bracket --&gt;. The notation is easily combined into chains for checking several conditions of the “else if” kind. Below the construct is shown in both forms — the DSL macro and the base syntax (about the two notation forms see Macros and DSL):">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="776">
+	<meta itemprop="keywords" content="Operators,Control-Flow">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Conditions and loops">
+	<meta name="twitter:description" content="In TrustLang there is no if keyword: a condition is checked by a construct that in meaning corresponds to the mathematical “follows” — two dashes and an angle bracket --&gt;. The notation is easily combined into chains for checking several conditions of the “else if” kind. Below the construct is shown in both forms — the DSL macro and the base syntax (about the two notation forms see Macros and DSL):">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/docs/operators/flow/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap td-docs-layout">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/docs/operators/flow/">Русский</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-endocs-li">
+  <a href="/en/docs/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-endocs"><span class="">About the project</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-endocssyntax-li">
+  <input type="checkbox" id="m-endocssyntax-check"/>
+  <label for="m-endocssyntax-check"><a href="/en/docs/syntax/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocssyntax"><span class="">Syntax</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxconcept-li">
+  <input type="checkbox" id="m-endocssyntaxconcept-check"/>
+  <label for="m-endocssyntaxconcept-check"><a href="/en/docs/syntax/concept/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxconcept"><span class="">Concept</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxnaming-li">
+  <input type="checkbox" id="m-endocssyntaxnaming-check"/>
+  <label for="m-endocssyntaxnaming-check"><a href="/en/docs/syntax/naming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxnaming"><span class="">Naming of objects</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxmacros-li">
+  <input type="checkbox" id="m-endocssyntaxmacros-check"/>
+  <label for="m-endocssyntaxmacros-check"><a href="/en/docs/syntax/macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxmacros"><span class="">Macros and DSL</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxhierarchy-li">
+  <input type="checkbox" id="m-endocssyntaxhierarchy-check"/>
+  <label for="m-endocssyntaxhierarchy-check"><a href="/en/docs/syntax/hierarchy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxhierarchy"><span class="">Code hierarchy</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-endocstypes-li">
+  <input type="checkbox" id="m-endocstypes-check"/>
+  <label for="m-endocstypes-check"><a href="/en/docs/types/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocstypes"><span class="">Data types</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesconcept-li">
+  <input type="checkbox" id="m-endocstypesconcept-check"/>
+  <label for="m-endocstypesconcept-check"><a href="/en/docs/types/concept/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesconcept"><span class="">Type system</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesnumbers-li">
+  <input type="checkbox" id="m-endocstypesnumbers-check"/>
+  <label for="m-endocstypesnumbers-check"><a href="/en/docs/types/numbers/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesnumbers"><span class="">Numbers and tensors</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesstrings-li">
+  <input type="checkbox" id="m-endocstypesstrings-check"/>
+  <label for="m-endocstypesstrings-check"><a href="/en/docs/types/strings/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesstrings"><span class="">Character strings</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesdicts-li">
+  <input type="checkbox" id="m-endocstypesdicts-check"/>
+  <label for="m-endocstypesdicts-check"><a href="/en/docs/types/dicts/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesdicts"><span class="">Dictionaries and sets (enumerations)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesclass-li">
+  <input type="checkbox" id="m-endocstypesclass-check"/>
+  <label for="m-endocstypesclass-check"><a href="/en/docs/types/class/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesclass"><span class="">Classes</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesfuncs-li">
+  <input type="checkbox" id="m-endocstypesfuncs-check"/>
+  <label for="m-endocstypesfuncs-check"><a href="/en/docs/types/funcs/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesfuncs"><span class="">Functions</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesnative-li">
+  <input type="checkbox" id="m-endocstypesnative-check"/>
+  <label for="m-endocstypesnative-check"><a href="/en/docs/types/native/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesnative"><span class="">Native types</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypescontainers-li">
+  <input type="checkbox" id="m-endocstypescontainers-check"/>
+  <label for="m-endocstypescontainers-check"><a href="/en/docs/types/containers/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypescontainers"><span class="">Ranges, arrays and tensors</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-endocsoperators-li">
+  <input type="checkbox" id="m-endocsoperators-check" checked/>
+  <label for="m-endocsoperators-check"><a href="/en/docs/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocsoperators"><span class="">Expressions and statements</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorscreate-li">
+  <input type="checkbox" id="m-endocsoperatorscreate-check"/>
+  <label for="m-endocsoperatorscreate-check"><a href="/en/docs/operators/create/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorscreate"><span class="">Creating objects and assignment</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorsoperators-li">
+  <input type="checkbox" id="m-endocsoperatorsoperators-check"/>
+  <label for="m-endocsoperatorsoperators-check"><a href="/en/docs/operators/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorsoperators"><span class="">Operators</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-endocsoperatorsflow-li">
+  <input type="checkbox" id="m-endocsoperatorsflow-check" checked/>
+  <label for="m-endocsoperatorsflow-check"><a href="/en/docs/operators/flow/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorsflow"><span class="td-sidebar-nav-active-item">Conditions and loops</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorswith-li">
+  <input type="checkbox" id="m-endocsoperatorswith-check"/>
+  <label for="m-endocsoperatorswith-check"><a href="/en/docs/operators/with/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorswith"><span class="">Context manager (with)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorserrors-li">
+  <input type="checkbox" id="m-endocsoperatorserrors-check"/>
+  <label for="m-endocsoperatorserrors-check"><a href="/en/docs/operators/errors/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorserrors"><span class="">Return, interrupts and error handling</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-endocssafety-li">
+  <input type="checkbox" id="m-endocssafety-check"/>
+  <label for="m-endocssafety-check"><a href="/en/docs/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocssafety"><span class="">Guarantees and safety</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssafetymemory-li">
+  <input type="checkbox" id="m-endocssafetymemory-check"/>
+  <label for="m-endocssafetymemory-check"><a href="/en/docs/safety/memory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssafetymemory"><span class="">Memory management and shared access</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssafetystack_check-li">
+  <input type="checkbox" id="m-endocssafetystack_check-check"/>
+  <label for="m-endocssafetystack_check-check"><a href="/en/docs/safety/stack_check/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssafetystack_check"><span class="">Stack overflow protection (stack check)</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssandbox-li">
+  <input type="checkbox" id="m-endocssandbox-check"/>
+  <label for="m-endocssandbox-check"><a href="/en/docs/sandbox/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssandbox"><span class="">Playground</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsstatus-li">
+  <input type="checkbox" id="m-endocsstatus-check"/>
+  <label for="m-endocsstatus-check"><a href="/en/docs/status/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsstatus"><span class="">Status and plans</span></a></label>
+  
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/en/_print/docs/operators/"><i class="fa-solid fa-print fa-fw"></i> Print entire section</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#iterating-over-collections-foreach">Iterating over collections (foreach)</a></li>
+    <li><a href="#pattern-matching-match">Pattern matching (match)</a></li>
+    <li><a href="#overriding-the-comparison-function-attribute-matcherfn">Overriding the comparison function (attribute <code>@[matcher(&#34;fn&#34;)]</code>)</a></li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5" role="main">
+            
+
+<div class="pageinfo pageinfo-primary" role="note">
+  <p><strong>The site sections are under development.</strong></p>
+  <p>The materials may be incomplete or contain errors.
+  The site content will be synchronized with the implementation in the next release,
+  while the current version (0.6.0) is intended for syntax prototyping and for creating the <a href="/en/playground/">playground</a>.</p>
+</div>
+
+
+
+            
+  
+
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/en/docs/">About the project</a></li>
+  <li class="breadcrumb-item">
+    <a href="/en/docs/operators/">Expressions and statements</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    Conditions and loops</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>Conditions and loops</h1>
+	
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p>In <em>TrustLang</em> there is no <code>if</code> keyword: a condition is checked by a construct that in meaning corresponds to
+the mathematical &ldquo;follows&rdquo; — two dashes and an angle bracket <code>--&gt;</code>. The notation is easily combined into chains for
+checking several conditions of the &ldquo;else if&rdquo; kind. Below the construct is shown in both forms — the DSL macro
+and the base syntax (about the two notation forms see <a href="/en/docs/syntax/macros/">Macros and DSL</a>):</p>
+<table>
+<tr><th>DSL macros</th><th>Base syntax</th></tr>
+<tr><td><pre><code>@if( condition1 ) {
+    action1
+} @elif( condition2 ) action2
+@else {
+    action_otherwise
+};</code></pre></td><td><pre><code>[ condition1 ] --&gt; { action1 },
+[ condition2 ] --&gt; action2,
+[ ... ] --&gt; { action_otherwise };
+</code></pre></td></tr>
+</table>
+<p>To write loops, the operator <code>&lt;-&gt;</code> is used (in the base notation) or the macros <code>@while</code>/<code>@dowhile</code>
+(in DSL). The condition is written in square brackets; depending on the relative position of the condition and the
+body, a loop can be a precondition loop (<code>while</code>) or a postcondition loop (<code>do while</code>). Equivalent forms:</p>
+<table>
+<tr><th>DSL macros</th><th>Base syntax</th></tr>
+<tr><td><pre><code>@while( cond ) {
+    loop body
+};</code></pre></td><td><pre><code>[ cond ] &lt;-&gt; {
+    loop body
+};</code></pre></td></tr>
+<tr><td><pre><code>{
+    loop body
+} @dowhile( cond );   # postcondition</code></pre>
+</td><td><pre><code>{
+    loop body
+} &lt;-&gt; [ cond ];   # postcondition</code></pre></td></tr>
+<tr><td><pre><code>@while( cond ) {
+    ...
+} @else {
+    ...    # if cond == false at entry
+};</code></pre></td><td><pre><code>[ cond ] &lt;-&gt; {
+    ...
+}, [ ... ] --&gt; {
+    ...    # else branch
+};
+</code></pre></td></tr>
+</table>
+<p>The precondition loop (<code>while</code>) supports an <code>else</code> branch, which is executed if the loop entry condition
+was never fulfilled.</p>
+<blockquote>
+<p><strong>Note:</strong> this differs from the analogous construct in Python, where the <code>else</code> section is always executed,
+except when the loop is interrupted by <code>break</code>.</p>
+</blockquote>
+<h2 id="iterating-over-collections-foreach">Iterating over collections (foreach)<a class="td-heading-self-link" href="#iterating-over-collections-foreach" aria-label="Heading self-link"></a></h2><p>The <code>foreach</code> loop has no separate DSL keyword — it is implemented by a loop with element destructuring and
+mutation of the source (the list expansion operator). An example of summing the elements of a dictionary:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">summa</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87">dict</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">2</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">3</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">4</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">5</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[</span> <span style="color:#204a87">dict</span> <span style="color:#000;font-weight:bold">]</span> <span style="color:#ce5c00;font-weight:bold">&lt;-&gt;</span> <span style="color:#000;font-weight:bold">{</span>          <span style="color:#8f5902;font-style:italic"># loop condition — while there is data in dict</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic"># unpacking: the first element goes to item, the suffix dict... — the rest</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">item</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#204a87">dict</span><span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#204a87">dict</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">summa</span> <span style="color:#ce5c00;font-weight:bold">+=</span> <span style="color:#000">item</span><span style="color:#000;font-weight:bold">;</span>      <span style="color:#8f5902;font-style:italic"># accumulating the sum</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><h2 id="pattern-matching-match">Pattern matching (match)<a class="td-heading-self-link" href="#pattern-matching-match" aria-label="Heading self-link"></a></h2><p>The expression evaluation operator (<code>match</code>) is an approximate analog of the <em>switch</em>/<em>match</em> operators in other
+languages. It is specified by the construct <code>[ expression ] ==&gt; { ... }</code> (base syntax) or the macro <code>@match</code>
+(DSL), whose body lists condition branches. Equivalent forms:</p>
+<table>
+<tr><th>DSL macros</th><th>Base syntax</th></tr>
+<tr><td><pre><code>@match( $var ) ==&gt; {
+    @case( 1 ) { code };
+    @case( 1, 2 ) { code };
+    @default { code default };
+};</code></pre></td><td><pre><code>[ $var ] ==&gt; {
+    [1] --&gt; { code };             # $var == 1
+    [1, 2] --&gt; { code };          # ($var == 1 || $var == 2)
+    [...] --&gt; { code default };   # otherwise
+};</code></pre></td></tr>
+</table>
+<p>Although the operator looks externally like pattern matching, in essence it is a short notation
+of a multiple comparison operator: any comparison operator can be used as the evaluation operator:</p>
+<ul>
+<li><code>==&gt;</code> — equality with type casting;</li>
+<li><code>===&gt;</code> — exact equality;</li>
+<li><code>~&gt;</code> — type check (class name);</li>
+<li><code>~~&gt;</code> — duck typing;</li>
+<li><code>~~~&gt;</code> — strict duck typing.</li>
+</ul>
+<p>If duck typing is used as the comparison operator, the evaluation turns into classic
+pattern matching by fields (the example is given in the <code>@match</code> form):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#a40000">$</span><span style="color:#000">value</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#39;2&#39;</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@match</span><span style="color:#000;font-weight:bold">(</span> <span style="color:#a40000">$</span><span style="color:#000">value</span> <span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">~~&gt;</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">((</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,),</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">,))</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span> <span style="color:#8f5902;font-style:italic"># the field f2 is absent or is a number</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">((</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#34;&#34;</span><span style="color:#000;font-weight:bold">,),</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#39;&#39;</span><span style="color:#000;font-weight:bold">,))</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span> <span style="color:#8f5902;font-style:italic"># the field f2 is a string</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@default</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><h2 id="overriding-the-comparison-function-attribute-matcherfn">Overriding the comparison function (attribute <code>@[matcher(&quot;fn&quot;)]</code>)<a class="td-heading-self-link" href="#overriding-the-comparison-function-attribute-matcherfn" aria-label="Heading self-link"></a></h2><p>If value comparison does not reduce to <code>==</code> (for example, matching a string against a regular expression),
+the comparison function of <code>match</code> can be overridden with the attribute <code>@[matcher(&quot;fn&quot;)]</code>, where <code>fn</code> is a
+previously declared predicate function with the signature <code>bool fn(T_value, T_pattern)</code>. In each branch, instead of the
+comparison <code>(value == pattern)</code>, the predicate <code>fn(value, pattern)</code> is called; the checked expression (scrutinee)
+is evaluated once into a temporary variable. With a given matcher, the branches are always generated as an
+<code>if/else</code> chain (the <code>switch</code> operator is not applicable — the pattern is not required to be a constant).</p>
+<p>The attribute is placed between the value and the operator (in the &ldquo;raw&rdquo; form, since the <code>@match</code> macro requires the operator
+immediately after itself):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@func</span> <span style="color:#000">matches_regex</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">value</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">StrChar</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">pattern</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">StrChar</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Bool</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#a40000">$</span><span style="color:#000">s</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#4e9a06">&#39;foobar&#39;</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[</span> <span style="color:#a40000">$</span><span style="color:#000">s</span> <span style="color:#000;font-weight:bold">]</span> <span style="color:#ce5c00;font-weight:bold">@</span><span style="color:#000;font-weight:bold">[</span><span style="color:#000">matcher</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;matches_regex&#34;</span><span style="color:#000;font-weight:bold">)</span><span style="color:#ce5c00;font-weight:bold">@</span><span style="color:#000;font-weight:bold">]</span> <span style="color:#ce5c00;font-weight:bold">==&gt;</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;^foo&#39;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;bar$&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#4e9a06">&#39;baz&#39;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@default</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><p>The semantics verifies that <code>fn</code> is a declared predicate function with exactly two parameters and a boolean
+(Bool) return. The <code>@[matcher]</code> attribute is incompatible with matching by type (<code>~&gt;</code>/<code>~~&gt;</code>/<code>~~~&gt;</code>).</p>
+
+	
+</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

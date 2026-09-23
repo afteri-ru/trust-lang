@@ -1,0 +1,617 @@
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="canonical" type="text/html" href="https://trust-lang.net/en/blog/programming/">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/en/blog/programming/index.xml">
+<meta name="robots" content="noindex, nofollow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Philosophy of programming | TrustLang</title>
+<meta name="description" content="TrustLang site">
+<meta property="og:url" content="https://trust-lang.net/en/blog/programming/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Philosophy of programming">
+	<meta property="og:description" content="TrustLang site">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="Philosophy of programming">
+	<meta itemprop="description" content="TrustLang site">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="keywords" content="Programming">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Philosophy of programming">
+	<meta name="twitter:description" content="TrustLang site">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-section td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/programming/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <div class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+          </div>
+          <div class="d-none d-xl-block col-xl-2 td-toc d-print-none">
+          </div>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            
+
+
+
+
+<div class="td-content">
+<div class="pageinfo pageinfo-primary d-print-none">
+<p>
+This is the multi-page printable view of this section.
+<a href="#" onclick="print();return false;">Click here to print</a>.
+</p><p>
+<a href="/en/blog/programming/">Return to the regular view of this page</a>.
+</p>
+</div>
+
+
+
+<h1 class="title">Philosophy of programming</h1>
+
+
+
+
+
+    <ul>
+    
+  
+  
+  
+  
+
+  
+    
+    
+	
+
+    <li><a href="#pg-55b64d19f7de0f0db7d761863d39f6fe">Can declarative and imperative styles of writing programs be used simultaneously?</a></li>
+
+
+
+    
+  
+    
+    
+	
+
+    <li><a href="#pg-dc868010b53d06663e978662adf1f40c">Simple complex programming</a></li>
+
+
+
+    
+  
+
+    </ul>
+
+
+<div class="content">
+      
+</div>
+</div>
+
+
+  
+  
+  
+  
+
+  
+  
+
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="">
+    <h1 id="pg-55b64d19f7de0f0db7d761863d39f6fe">Can declarative and imperative styles of writing programs be used simultaneously?</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2021-07-26" class="text-body-secondary">Monday, July 26, 2021</time>
+        
+	</div>
+	<p><img src="/en/blog/programming/matrix.jpeg" alt="Featured image"></p>
+
+
+<div class="pageinfo pageinfo-primary">
+<p>Attention!!!</p>
+<p>This article contains a description of the syntax of the previous version of NewLang.</p>
+<p>The current version of the language syntax can be viewed <a href="/en/docs/">here</a>.</p>
+
+</div>
+
+<p>When developing his own programming language, the author must decide what properties his language should have,
+because in the end it is precisely this that will determine the purpose of the language and the features of its use.
+Moreover, some properties influence the final concept of the language and its syntax so strongly
+that subsequently their change is impossible in principle, or the new syntax turns out to be very tangled and incomprehensible.
+Probably because of this many properties of programming languages are considered and studied as mutually exclusive.</p>
+<p>Until recently I believed that the imperative and declarative paradigms of writing programs are antagonists and mutually exclusive notions.
+After all, the choice of the style of writing code is initially determined by the author of the language at the stage of its design and influences all subsequent aspects.</p>
+<p>But now I think that this is not true. The imperative and declarative styles of programming are not mutually exclusive,
+but the rules of syntax implemented in the language push one to write programs in only one of these paradigms!</p>
+<p>In other words, a developer is forced to use only the imperative or only the declarative paradigm not because he does not know how or does not want to write code differently, but because
+all more or less mainstream programming languages are oriented toward the use of only one paradigm.
+And the choice of only one paradigm of writing code is a limitation imposed on programmers by the creators of the language.
+After all, if they initially focused only on one concept of code development, then they developed the syntax of the language in accordance with that paradigm.</p>
+<p>This article is a reflection on the compatibility of the declarative and imperative paradigms of programming and the possibility of using them simultaneously within one programming language.</p>
+<h2 id="what-is-declarative-programming">What is &ldquo;Declarative programming&rdquo;?<a class="td-heading-self-link" href="#what-is-declarative-programming" aria-label="Heading self-link"></a></h2><p>First I wanted to figure out whether purely declarative programming languages exist?
+Ones that can do entirely without imperative constructs?</p>
+<p>But I almost stumbled at the very beginning, since even the very definition of &ldquo;declarative programming&rdquo; is described on the wiki <a href="https://en.wikipedia.org/wiki/Declarative_programming">as follows</a>:</p>
+<blockquote>
+<p>Declarative programming is a programming paradigm in which a specification of the solution of a task is given, that is, it is described what the problem is and what the expected result is. The opposite of declarative is imperative programming, which describes, at one or another level of detail, how to solve the task and present the result.</p>
+</blockquote>
+<p>Already in the original definition an opposition of paradigms is laid down, and then comes reasoning about the &ldquo;direction&rdquo; of programming.
+And although the wiki itself is not an authoritative source of information, even such a draft of an article was able to show the direction of the search for answers to the first question posed.</p>
+<p>And one paragraph at the end of the article made me think:</p>
+<blockquote>
+<p>&ldquo;Purely declarative&rdquo; computer languages are often not Turing-complete — since it is theoretically not always possible to generate executable code from a declarative description.
+This sometimes leads to disputes about the correctness of the term</p>
+</blockquote>
+<p>Judging by the presence of such a caveat, the existence of &ldquo;purely declarative&rdquo; languages is called into question.
+And as soon as I had to think about this thought, it immediately became obvious that whatever declarative programming language existed,
+it must have at least one imperative construct that launches the search for a solution!
+After all, any synonym of the word &ldquo;execute&rdquo; or &ldquo;run&rdquo; will by definition be an imperative!</p>
+<p>For example, in the Prolog language, which is usually given as an example of a declarative programming language, the &ldquo;disguised&rdquo; imperative operator is the question mark.
+It seems natural and logical, how could one do without it? But in essence, it is an imperative construct!</p>
+<p>The same applies to the SQL language. It too is seemingly declarative, but unexpectedly all its commands are imperative in essence. <em>SELECT</em>, <em>CREATE</em>, <em>ALTER</em>, <em>DROP</em>, <em>INSERT</em>, <em>UPDATE</em>, <em>DELETE</em>, etc., and only the descriptions of the conditions of their execution are declarative!</p>
+<p>As a result, I never managed to find a purely declarative programming language without imperative operators (maybe the Wiki is right and such a programming language does not exist at all?).</p>
+<h2 id="and-what-distinguishes-declarative-programming-languages-from-imperative-ones">And what distinguishes declarative programming languages from imperative ones?<a class="td-heading-self-link" href="#and-what-distinguishes-declarative-programming-languages-from-imperative-ones" aria-label="Heading self-link"></a></h2><p>According to the definition, programming languages are called declarative because of the possibility of writing certain conditions in a declarative style.
+But besides this, declarative languages, as a rule, also have a certain internal mechanism for searching for solutions.
+Such a &ldquo;computer&rdquo; exists in both SQL and Prolog and in many other declarative languages.</p>
+<p>It is interesting whether the internal system of searching for solutions is an obligatory feature of the declarative style of programming, or whether it is only a feature of a specific programming language that does not depend on the declarative style of writing code?</p>
+<p>To test these assumptions, one could try to write a classical declarative program in an imperative language that lacks an internal mechanism for searching for solutions.</p>
+<p>And at the same time, in this way one could also study the question of whether it is possible to write a program in a declarative style using an ordinary imperative programming language?</p>
+<p>For an example, I decided to try to repeat the already classical declarative program in Prolog.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>    <span style="color:#000">parent</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Tom&#34;</span><span style="color:#000;font-weight:bold">,</span><span style="color:#4e9a06">&#34;Jake&#34;</span><span style="color:#000;font-weight:bold">).</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">parent</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Janna&#34;</span><span style="color:#000;font-weight:bold">,</span><span style="color:#4e9a06">&#34;Jake&#34;</span><span style="color:#000;font-weight:bold">).</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">parent</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Tom&#34;</span><span style="color:#000;font-weight:bold">,</span><span style="color:#4e9a06">&#34;Tim&#34;</span><span style="color:#000;font-weight:bold">).</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">male</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Tom&#34;</span><span style="color:#000;font-weight:bold">).</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">male</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Tim&#34;</span><span style="color:#000;font-weight:bold">).</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">male</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Jake&#34;</span><span style="color:#000;font-weight:bold">).</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">female</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Janna&#34;</span><span style="color:#000;font-weight:bold">).</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">brother</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">X</span><span style="color:#000;font-weight:bold">,</span><span style="color:#000">Y</span><span style="color:#000;font-weight:bold">)</span><span style="color:#ce5c00;font-weight:bold">:-</span><span style="color:#000">parent</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">Z</span><span style="color:#000;font-weight:bold">,</span><span style="color:#000">X</span><span style="color:#000;font-weight:bold">),</span><span style="color:#000">parent</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">Z</span><span style="color:#000;font-weight:bold">,</span><span style="color:#000">Y</span><span style="color:#000;font-weight:bold">),</span><span style="color:#000">male</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">X</span><span style="color:#000;font-weight:bold">),</span><span style="color:#000">male</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">Y</span><span style="color:#000;font-weight:bold">),</span><span style="color:#000">X</span><span style="color:#a40000">\</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">Y</span><span style="color:#000;font-weight:bold">.</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ce5c00;font-weight:bold">?</span> <span style="color:#000">brother</span>
+</span></span></code></pre></div><p>The result was the following functionally equivalent program in C++, which is as close in style as possible to the declarative prototype:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">enum</span> <span style="color:#000">sex_</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">male</span><span style="color:#000;font-weight:bold">,</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">female</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">struct</span> <span style="color:#000">human</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">typedef</span> <span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">vector</span><span style="color:#ce5c00;font-weight:bold">&lt;</span><span style="color:#000">human</span> <span style="color:#ce5c00;font-weight:bold">*&gt;</span> <span style="color:#000">parent_</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">struct</span> <span style="color:#000">human</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">const</span> <span style="color:#204a87;font-weight:bold">char</span> <span style="color:#ce5c00;font-weight:bold">*</span><span style="color:#000">name</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">sex_</span> <span style="color:#000">sex</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">parent_</span> <span style="color:#000">parent</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">human</span> <span style="color:#000">Tom</span><span style="color:#000;font-weight:bold">{</span><span style="color:#4e9a06">&#34;Tom&#34;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">male</span><span style="color:#000;font-weight:bold">,{}};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">human</span> <span style="color:#000">Janna</span><span style="color:#000;font-weight:bold">{</span><span style="color:#4e9a06">&#34;Janna&#34;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">female</span><span style="color:#000;font-weight:bold">,{}};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">human</span> <span style="color:#000">Jake</span><span style="color:#000;font-weight:bold">{</span><span style="color:#4e9a06">&#34;Jake&#34;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">male</span><span style="color:#000;font-weight:bold">,{</span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">Tom</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">Janna</span><span style="color:#000;font-weight:bold">}};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">human</span> <span style="color:#000">Tim</span><span style="color:#000;font-weight:bold">{</span><span style="color:#4e9a06">&#34;Tim&#34;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">male</span><span style="color:#000;font-weight:bold">,{</span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">Tom</span><span style="color:#000;font-weight:bold">}};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">vector</span><span style="color:#ce5c00;font-weight:bold">&lt;</span><span style="color:#000">human</span> <span style="color:#ce5c00;font-weight:bold">*&gt;</span> <span style="color:#000">humans</span><span style="color:#000;font-weight:bold">{</span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">Tom</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">Janna</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">Jake</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">Tim</span><span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">auto</span> <span style="color:#000">brothers</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">[](</span><span style="color:#000">human</span> <span style="color:#ce5c00;font-weight:bold">*</span> <span style="color:#000">a</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">human</span> <span style="color:#ce5c00;font-weight:bold">*</span> <span style="color:#000">b</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">auto</span> <span style="color:#000">intersec</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">[](</span><span style="color:#000">parent_</span> <span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">a</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">parent_</span> <span style="color:#ce5c00;font-weight:bold">&amp;</span> <span style="color:#000">b</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#204a87;font-weight:bold">for</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#204a87;font-weight:bold">auto</span> <span style="color:#f57900">elem_a</span> <span style="color:#000;font-weight:bold">:</span> <span style="color:#000">a</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#204a87;font-weight:bold">for</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#204a87;font-weight:bold">auto</span> <span style="color:#f57900">elem_b</span> <span style="color:#000;font-weight:bold">:</span> <span style="color:#000">b</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#204a87;font-weight:bold">if</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">elem_a</span> <span style="color:#ce5c00;font-weight:bold">&amp;&amp;</span> <span style="color:#000">elem_b</span> <span style="color:#ce5c00;font-weight:bold">&amp;&amp;</span> <span style="color:#000">elem_a</span> <span style="color:#ce5c00;font-weight:bold">==</span> <span style="color:#000">elem_b</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>                        <span style="color:#204a87;font-weight:bold">return</span> <span style="color:#204a87">true</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#204a87;font-weight:bold">return</span> <span style="color:#204a87">false</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">return</span> <span style="color:#000">a</span> <span style="color:#ce5c00;font-weight:bold">&amp;&amp;</span> <span style="color:#000">b</span> <span style="color:#ce5c00;font-weight:bold">&amp;&amp;</span> <span style="color:#000">a</span> <span style="color:#ce5c00;font-weight:bold">!=</span> <span style="color:#000">b</span> <span style="color:#ce5c00;font-weight:bold">&amp;&amp;</span> <span style="color:#000">a</span><span style="color:#ce5c00;font-weight:bold">-&gt;</span><span style="color:#000">sex</span> <span style="color:#ce5c00;font-weight:bold">==</span> <span style="color:#000">male</span> <span style="color:#ce5c00;font-weight:bold">&amp;&amp;</span> <span style="color:#000">b</span><span style="color:#ce5c00;font-weight:bold">-&gt;</span><span style="color:#000">sex</span> <span style="color:#ce5c00;font-weight:bold">==</span> <span style="color:#000">male</span> <span style="color:#ce5c00;font-weight:bold">&amp;&amp;</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">intersec</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">a</span><span style="color:#ce5c00;font-weight:bold">-&gt;</span><span style="color:#000">parent</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">b</span><span style="color:#ce5c00;font-weight:bold">-&gt;</span><span style="color:#000">parent</span><span style="color:#000;font-weight:bold">));</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">for</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#204a87;font-weight:bold">auto</span> <span style="color:#f57900">a</span> <span style="color:#000;font-weight:bold">:</span> <span style="color:#000">humans</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">for</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#204a87;font-weight:bold">auto</span> <span style="color:#f57900">b</span> <span style="color:#000;font-weight:bold">:</span> <span style="color:#000">humans</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#204a87;font-weight:bold">if</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">brothers</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">a</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">b</span><span style="color:#000;font-weight:bold">))</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">cout</span> <span style="color:#ce5c00;font-weight:bold">&lt;&lt;</span> <span style="color:#000">a</span><span style="color:#ce5c00;font-weight:bold">-&gt;</span><span style="color:#000">name</span> <span style="color:#ce5c00;font-weight:bold">&lt;&lt;</span> <span style="color:#4e9a06">&#34; and &#34;</span> <span style="color:#ce5c00;font-weight:bold">&lt;&lt;</span> <span style="color:#000">b</span><span style="color:#ce5c00;font-weight:bold">-&gt;</span><span style="color:#000">name</span> <span style="color:#ce5c00;font-weight:bold">&lt;&lt;</span> <span style="color:#4e9a06">&#34;</span><span style="color:#4e9a06">\n</span><span style="color:#4e9a06">&#34;</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">}</span>
+</span></span></code></pre></div><p>Of course, the C++ text turns out significantly more verbose than the Prolog variant, but in essence it is almost a verbatim repetition of the declarative style of writing code.
+All the more so because one should not forget the reasoning at the beginning of the article about the initial choice of a concept when creating a language
+and the &ldquo;coercion&rdquo; of programmers to use only one, initially chosen development paradigm.</p>
+<p><strong>Thus, one can assert with a high degree of confidence that theoretically it is possible to write code simultaneously in different styles.</strong></p>
+<p>But what then prevents one from writing, within one programming language, using the imperative and declarative style?
+Could it be only the conviction of the creators of languages that the imperative and declarative styles of programming are mutually exclusive?
+And only because of this do we get programming languages whose syntax is suitable for using a single paradigm?</p>
+<p><em>But if this is so, then what prevents one from trying to develop a syntax of a programming language in which one could use both the imperative and declarative styles of programming simultaneously?</em></p>
+<h2 id="what-prevents-combining-the-imperative-and-declarative-styles-of-writing-within-one-program">What prevents combining the imperative and declarative styles of writing within one program?<a class="td-heading-self-link" href="#what-prevents-combining-the-imperative-and-declarative-styles-of-writing-within-one-program" aria-label="Heading self-link"></a></h2><p>In any computer program there is always a division of the code into a description of data and into language constructs for processing them, i.e. in fact this is a division <strong>into data</strong> and <strong>into functions</strong>.
+It seems to me that the main difficulty that does not allow using different programming styles within one language is the need to separate the described entities into &ldquo;data&rdquo; and &ldquo;control constructs&rdquo;.
+After all, this property (the need to separate entities into &ldquo;data&rdquo; and &ldquo;functions&rdquo;) is an integral part of any programming language.</p>
+<p>This is not surprising, because at the dawn of the formation of the IT industry, the creators of the first programming languages focused exclusively on the imperative style, because the purpose of any compiler was to convert the source text of a program into machine instructions. And on the examples of the modular, structural and object-oriented approaches, the necessity of formatting executable code into dedicated procedures with their subsequent grouping into modules and classes was shown and proved.</p>
+<p>And the declarative style of writing programs began to appear only after the creation of high-level programming languages.
+And the main goal of creating these languages shifted to finding a solution for the end user, and not to simplifying the generation of binary files with machine instructions.
+If you look carefully at the examples of code given above, you can notice that in them the data definitions and the operators for processing them go intermixed (for example, in C++ this is the definition of lambda functions), which is fundamentally different from the imperative approach.</p>
+<p>So maybe the main feature of the declarative style is precisely that it does not separate &ldquo;data&rdquo; and &ldquo;actions on data&rdquo;?
+Or, as an option, one may not specify the actions performed on the data at all (as in some SQL constructs)?</p>
+<p>Maybe it is precisely this feature (the possibility of sequential writing of program code in accordance with one&rsquo;s own logical reasoning,
+in which &ldquo;data&rdquo; and &ldquo;functions&rdquo; can be interleaved, as happens in the human thought process),
+that does not allow fully realizing the possibility of combining the imperative and declarative styles of programming?</p>
+<p><em>And if this is so, then one can try to develop a syntax that will support both the definition of data and the declaration of functions within a single flow of language constructs!</em></p>
+<h2 id="testing-the-hypothesis-in-a-new-programming-language">Testing the hypothesis in a new programming language<a class="td-heading-self-link" href="#testing-the-hypothesis-in-a-new-programming-language" aria-label="Heading self-link"></a></h2><p>To test this assumption, I decided to add to my <a href="/en/blog/language-design/unusual-prog/">new programming language</a>
+(whose syntax allows defining functions in the same flow as the description of the processed data) the missing algorithmic constructs that would make it possible to implement the imperative style of programming,
+despite the initial orientation only toward the declarative paradigm.</p>
+<p>True, taking into account the initial limitations of the syntax of the new language (the prohibition on the use of operators in the form of reserved keywords),
+as the condition check operator a syntactic construct was chosen that in meaning corresponds to the term &ldquo;follows&rdquo;,
+i.e. a dash and an angle bracket &ldquo;<strong>-&gt;</strong>&rdquo;.</p>
+<p>As a result, the conditional operator turned out to be practically mathematical, which is easily combined into sequences for implementing the check of multiple conditions of the &ldquo;else if&rdquo; kind.
+And to combine several logical operators at once and to separate them from the subsequent action, the condition check operators can be enclosed in parentheses.</p>
+<p>In the general case, the conditional operator in the new programming language has the form:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>    <span style="color:#000">condition</span> <span style="color:#ce5c00;font-weight:bold">-&gt;</span> <span style="color:#000">action</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">or</span>  
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">(</span><span style="color:#000">condition</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">-&gt;</span> <span style="color:#000;font-weight:bold">{</span><span style="color:#000">action</span><span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">or</span>  
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">(</span><span style="color:#000">condition1</span> <span style="color:#ce5c00;font-weight:bold">||</span> <span style="color:#000">condition2</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">-&gt;</span> <span style="color:#000;font-weight:bold">{</span><span style="color:#000">action</span><span style="color:#000;font-weight:bold">}</span> <span style="color:#ce5c00;font-weight:bold">-&gt;</span> <span style="color:#000;font-weight:bold">{</span><span style="color:#000">otherwise</span> <span style="color:#000">action</span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><p>Or an extended variant, written with indentation for clarity:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">(</span><span style="color:#000">condition1</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">-&gt;</span> <span style="color:#000;font-weight:bold">{</span><span style="color:#000">action1</span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">(</span><span style="color:#000">condition2</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">-&gt;</span> <span style="color:#000;font-weight:bold">{</span><span style="color:#000">action2</span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">(</span><span style="color:#000">condition3</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">-&gt;</span> <span style="color:#000;font-weight:bold">{</span><span style="color:#000">action3</span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ce5c00;font-weight:bold">-&gt;</span> <span style="color:#000;font-weight:bold">{</span><span style="color:#000">otherwise_action</span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><p>Then the loop operators can also be written practically analogously, only by choosing as the operator not the follow operator,
+but follows-with-return (since one needs to specify a cyclic action).</p>
+<p>The while loop:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">(</span><span style="color:#000">condition</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">&lt;-&gt;</span> <span style="color:#000;font-weight:bold">{</span><span style="color:#000">loop</span> <span style="color:#000">body</span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><p>A counting loop for working with an iterator:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">(</span><span style="color:#000">counter_or_data</span><span style="color:#ce5c00;font-weight:bold">!</span><span style="color:#000;font-weight:bold">)</span><span style="color:#ce5c00;font-weight:bold">?</span> <span style="color:#ce5c00;font-weight:bold">&lt;-&gt;</span> <span style="color:#000;font-weight:bold">{</span><span style="color:#000">loop</span> <span style="color:#000">body</span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><p>In this case, the solution of the test example of the declarative Prolog program can easily be formatted both in the imperative and in the declarative style at the same time!</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>    m :<span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#4e9a06">&#34;male&#34;</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    f :<span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#4e9a06">&#34;female&#34;</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    human @<span style="color:#ce5c00;font-weight:bold">=</span> term<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">sex</span><span style="color:#ce5c00;font-weight:bold">=</span>, <span style="color:#000">parent</span><span style="color:#ce5c00;font-weight:bold">=[</span>,<span style="color:#ce5c00;font-weight:bold">])</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Tom @<span style="color:#ce5c00;font-weight:bold">=</span> human<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">sex</span><span style="color:#ce5c00;font-weight:bold">=</span>m<span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Janna @<span style="color:#ce5c00;font-weight:bold">=</span> human<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">sex</span><span style="color:#ce5c00;font-weight:bold">=</span>f<span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Jake @<span style="color:#ce5c00;font-weight:bold">=</span> human<span style="color:#ce5c00;font-weight:bold">(</span>m, <span style="color:#ce5c00;font-weight:bold">[</span><span style="color:#000;font-weight:bold">&amp;</span>Tom, <span style="color:#000;font-weight:bold">&amp;</span>Janna,<span style="color:#ce5c00;font-weight:bold">])</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    Tim @<span style="color:#ce5c00;font-weight:bold">=</span> human<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">sex</span><span style="color:#ce5c00;font-weight:bold">=</span>m, <span style="color:#000">parent</span><span style="color:#ce5c00;font-weight:bold">=[</span><span style="color:#000;font-weight:bold">&amp;</span>Tom,<span style="color:#ce5c00;font-weight:bold">])</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    brother<span style="color:#ce5c00;font-weight:bold">(</span>h1, h2<span style="color:#ce5c00;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">&amp;&amp;=</span> <span style="color:#000">$h1</span>!<span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">$h2</span>, <span style="color:#000">$h1</span>.sex<span style="color:#ce5c00;font-weight:bold">==</span>m, <span style="color:#000">$h2</span>.sex<span style="color:#ce5c00;font-weight:bold">==</span>m, <span style="color:#000">$h1</span>.parent <span style="color:#000;font-weight:bold">&amp;</span> <span style="color:#000">$h2</span>.parent<span style="color:#000;font-weight:bold">;</span> 
+</span></span><span style="display:flex;"><span>    // The <span style="color:#4e9a06">&#34;&amp;&#34;</span> operator is bitwise <span style="color:#4e9a06">&#34;AND&#34;</span> <span style="color:#204a87;font-weight:bold">for</span> numbers or the intersection operation <span style="color:#204a87;font-weight:bold">for</span> sets
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    // Writing the solution search algorithm in the imperative style 
+</span></span><span style="display:flex;"><span>    <span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">h1</span><span style="color:#ce5c00;font-weight:bold">=</span>human!, <span style="color:#000">h2</span><span style="color:#ce5c00;font-weight:bold">=</span>human!<span style="color:#ce5c00;font-weight:bold">)</span>? &lt;-&gt; <span style="color:#ce5c00;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ce5c00;font-weight:bold">(</span>brother<span style="color:#ce5c00;font-weight:bold">(</span>h1, h2<span style="color:#ce5c00;font-weight:bold">))</span> -&gt; <span style="color:#ce5c00;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>            @print<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">$h1</span>, <span style="color:#000">$h2</span>, <span style="color:#4e9a06">&#34;\n&#34;</span><span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#ce5c00;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ce5c00;font-weight:bold">}</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    // A short notation of the solution search algorithm in the imperative style 
+</span></span><span style="display:flex;"><span>    <span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">h1</span><span style="color:#ce5c00;font-weight:bold">=</span>human!, <span style="color:#000">h2</span><span style="color:#ce5c00;font-weight:bold">=</span>human!<span style="color:#ce5c00;font-weight:bold">)</span>? &lt;-&gt; 
+</span></span><span style="display:flex;"><span>        brother<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">$h1</span>, <span style="color:#000">$h2</span><span style="color:#ce5c00;font-weight:bold">)</span> -&gt; @print<span style="color:#ce5c00;font-weight:bold">(</span><span style="color:#000">$h1</span>, <span style="color:#000">$h2</span>, <span style="color:#4e9a06">&#34;\n&#34;</span><span style="color:#ce5c00;font-weight:bold">)</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    // Writing the solution search in the declarative style
+</span></span><span style="display:flex;"><span>    brother<span style="color:#ce5c00;font-weight:bold">(</span>human!, human!<span style="color:#ce5c00;font-weight:bold">)</span>?<span style="color:#000;font-weight:bold">;</span>
+</span></span></code></pre></div><p>This is roughly what needed to be shown!</p>
+<h3 id="ps">P.S.<a class="td-heading-self-link" href="#ps" aria-label="Heading self-link"></a></h3><p>I have almost finished the experiments with the syntax of the language.
+And now, after adding the missing algorithmic constructs to it (branching and loops), I plan
+that the next article about the new programming language will be devoted to a description of its full syntax and the publication of the sources of a compiler prototype so that one can play around with real examples.</p>
+<h3 id="pps">P.P.S<a class="td-heading-self-link" href="#pps" aria-label="Heading self-link"></a></h3><p>In the comments @gbg gave a very simple answer to one of the questions raised.
+And in a more elegant form and without writing code!</p>
+<blockquote>
+<p>And a few pennies about OOP. Strangely enough:</p>
+<ol>
+<li>It does have a declarative part, all these pubic, private, virtual, etc.</li>
+<li>This declarative part, unexpectedly, elegantly allows implementing decomposition and complexity management.</li>
+<li>With overloading, one can play at algebraic thinking, considering the interaction of two objects as a binary operation.</li>
+</ol>
+<p>Wow, OOP is a technology proven by practice that combines the declarative with the imperative and seems to allow those who have mastered it to eat tastily and sleep softly!</p>
+</blockquote>
+<p>Original publication</p>
+
+</div>
+
+
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="page-break-before: always">
+    <h1 id="pg-dc868010b53d06663e978662adf1f40c">Simple complex programming</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2021-04-15" class="text-body-secondary">Thursday, April 15, 2021</time>
+        
+	</div>
+	<p><img src="/en/blog/programming/complex-prog/complex-prog.jpeg" alt="Featured image"></p>
+<p>Once again I saw an article on Habr about the complicated business called &ldquo;programming&rdquo;.
+And the fact that programming really is not a simple business is perceived as a fact and usually does not require any confirmation.</p>
+<p>But the notion of &ldquo;complexity&rdquo; is akin to the term &ldquo;heap&rdquo;.
+For someone, five coconuts is not a heap, and someone ate one and &ldquo;does not want any more&rdquo; — so for him even a single coconut will be a lot.</p>
+<p>It is the same with software complexity. It would seem that the growth of complexity is obvious to everyone and is observed in all spheres of application of IT technologies,
+and programming languages themselves, as they develop, become more and more complex,
+but evaluating &ldquo;complexity&rdquo; with the help of numerical metrics is a deliberately thankless task, yet &ldquo;you cannot manage what you cannot measure &hellip;&rdquo;.</p>
+<p>Usually talks about &ldquo;complexity&rdquo; include only evaluative judgments without any numerical assessment.
+And since I am personally interested in the question of the complexity of programming languages,
+I decided to measure the complexity of implementing the gcc compiler in some conditional &ldquo;parrots&rdquo;.
+Maybe it will be possible to see some regularities?</p>
+<h2 id="choosing-the-parrots-for-measurement">Choosing the &ldquo;parrots&rdquo; for measurement<a class="td-heading-self-link" href="#choosing-the-parrots-for-measurement" aria-label="Heading self-link"></a></h2><p>I did not invent my own or compute empirical metrics of software code,
+and as a &ldquo;parrot&rdquo; I decided to take the simplest metric, SLOC (Source Lines of Code) — the number of lines of the compiler&rsquo;s source text,
+which is very easy to compute.</p>
+<p>True, with its help one can evaluate the complexity of a language only under the following assumption — the complexity of a language must be in direct dependence on the complexity of its implementation,
+if it requires less code for simple syntactic constructs than for more complex ones.</p>
+<p>Of course, the use of the &ldquo;number of source code lines&rdquo; metric also has its drawbacks,
+since it strongly depends on the programming language used, on the source code formatting style and, in the general case, does not make it possible to compare several different projects with each other.</p>
+<p>But for a numerical assessment of code complexity within <strong>one project</strong>, the SLOC metric is well suited.</p>
+<h2 id="sloc-counting-methodology">SLOC counting methodology<a class="td-heading-self-link" href="#sloc-counting-methodology" aria-label="Heading self-link"></a></h2><p>Initially I tried to use a simple bash script with a mask search and counting the number of lines in the source files via <code>wc -l</code>.
+But after some time it became clear that I would have to reinvent another wheel.</p>
+<p><img src="/en/blog/programming/complex-prog/bag.jpeg" alt="You get the idea"></p>
+<p>So I decided to take a ready-made one. After a quick search I settled on the <a href="https://dwheeler.com/sloccount/">SLOCCount</a> utility,
+which can analyze almost three dozen types of source files.</p>
+<h3 id="list-of-file-types-for-automatic-analysis">List of file types for automatic analysis<a class="td-heading-self-link" href="#list-of-file-types-for-automatic-analysis" aria-label="Heading self-link"></a></h3><pre tabindex="0"><code>    1. Ada (.ada, .ads, .adb) 
+    2. Assembly (.s, .S, .asm) 
+    3. awk (.awk) 
+    4. Bourne shell and variants (.sh) 
+    5. C (.c) 
+    6. C++ (.C, .cpp, .cxx, .cc) 
+    7. C shell (.csh) 
+    8. COBOL (.cob, .cbl) as of version 2.10 
+    9. C# (.cs) as of version 2.11 
+    10. Expect (.exp) 
+    11. Fortran (.f) 
+    12. Haskell (.hs) as of version 2.11 
+    13. Java (.java) 
+    14. lex/flex (.l) 
+    15. LISP/Scheme (.el, .scm, .lsp, .jl) 
+    16. Makefile (makefile) - not normally shown. 
+    17. Modula-3 (.m3, .i3) as of version 2.07 
+    18. Objective-C (.m) 
+    19. Pascal (.p, .pas) 
+    20. Perl (.pl, .pm, .perl) 
+    21. PHP (.php, .php[3456], .inc) as of version 2.05 
+    22. Python (.py) 
+    23. Ruby (.rb) as of version 2.09 
+    24. sed (.sed) 
+    25. SQL (.sql) - not normally shown. 
+    26. TCL (.tcl, .tk, .itk) 
+    27. Yacc/Bison (.y) &lt;/code&gt;
+</code></pre><p>Moreover, it counts not simply the number of lines of source text, but can also ignore comments,
+excludes duplicate files from the count (compares their hash sums), and also outputs the estimated labor intensity,
+an approximate cost estimate of developing the analyzed project and other characteristics.</p>
+<p>I was initially interested in the volume of sources in C/C++ and maybe also in Assembly, if there turned out to be quite a lot of such files.
+But after starting work I was very glad that I did not reinvent the wheel, but took a ready-made tool,
+since it separately counted the statistics of the source files of the Yacc/Bison syntax analyzer (.y),
+which determines the actual complexity of the parser (read: the complexity of the syntax of the programming language).</p>
+<p>I took the old gcc sources from <a href="https://gcc.gnu.org/mirrors.html">https://gcc.gnu.org/mirrors.html</a>, but before running the analyzer I deleted the directories of other compilers (ada, fortran, java, etc.),
+so that they would not get into the final statistics.</p>
+<h2 id="results-in-parrots">Results in &ldquo;parrots&rdquo;<a class="td-heading-self-link" href="#results-in-parrots" aria-label="Heading self-link"></a></h2><p><img src="/en/blog/programming/complex-prog/graph1.jpeg" alt=""></p>
+<p><strong>Final statistics</strong></p>
+<p><img src="/en/blog/programming/complex-prog/graph2.png" alt=""></p>
+<p><strong>Volume of the Yacc/Bison syntax analyzer code</strong></p>
+<p><img src="/en/blog/programming/complex-prog/graph3.jpeg" alt=""></p>
+<p><strong>Volume of the overall GCC code base (for the C and C++ languages only)</strong></p>
+<h2 id="conclusions">Conclusions<a class="td-heading-self-link" href="#conclusions" aria-label="Heading self-link"></a></h2><p>Unfortunately, the Yacc/Bison syntax analyzer was used only up to version 3, and after that its use came to naught.
+Therefore one can evaluate the complexity of the C/C++ syntax with the help of the volume of the parser code only approximately up to 1996-98,
+after which it began to be gradually removed, i.e. over a little less than ten years.
+But even over this period the volume of the code base of the syntax analyzer grew twofold, which approximately corresponds in time to the implementation of the C99 standard.</p>
+<p>But even if we do not take into account the code of the syntax analyzer, the volume of the overall code base also correlates with the introduction of new C++ standards: C99, C11 and C14.</p>
+<p>The graph does not show a pronounced peak for C+17 and subsequent versions, but I assume
+that with the current volume of the code base (more than 4 million lines of C and C++ code alone), the few thousand lines
+needed to support the syntactic constructs of the new standards are simply unnoticeable.</p>
+<h3 id="conclusion-one--the-obvious-one-the-growth-of-the-complexity-of-development-tools">Conclusion one — the obvious one. The growth of the complexity of development tools<a class="td-heading-self-link" href="#conclusion-one--the-obvious-one-the-growth-of-the-complexity-of-development-tools" aria-label="Heading self-link"></a></h3><p>In fact, using the example of the GCC project, one can see the constant and inevitable growth of the complexity of the working tools of programmers.</p>
+<p>And no matter how much they talk about the degradation of development in the article &ldquo;Good times breed weaklings&rdquo;,
+about the systemic crisis of software, which is generational in nature, it seems to me that the matter is a little different.</p>
+<p>The renewal of personnel and, as a consequence, the need to teach new employees the old work,
+here the matter is not so much in the transfer of knowledge as in the ability to assimilate this knowledge.</p>
+<p>Moreover, the ability to assimilate knowledge will be different for different generations, but not because the previous generation was smarter and the new one lacks the sense to figure it out.
+It is simply that the environment changes and the working tools become more complex compared to those that were in use by the previous generation.</p>
+<h3 id="conclusion-two--the-entry-threshold">Conclusion two — the entry threshold<a class="td-heading-self-link" href="#conclusion-two--the-entry-threshold" aria-label="Heading self-link"></a></h3><p>Imagine that you need to &ldquo;make your own website&rdquo;. Naturally, you need to determine which CMS to use for it and which hosting to take.
+And if the hosting question is solved very simply, of course TimeWeb, and even with a bonus via the link, then when choosing a CMS one has to think.</p>
+<p>And if for simple sites there are also simple solutions, then for those who are not looking for easy paths there is the CMS Drupal,
+which is notable for having a fantastically high entry threshold for starting to use it.</p>
+<p><img src="/en/blog/programming/complex-prog/drupal.jpeg" alt="The complexity of adopting Drupal"></p>
+<p>Why am I saying all this? When using any tool, like a programming language, there is a certain minimum level of comfortable use.
+Moreover, this level is directly proportional to the size of the target audience for which it is intended.
+More precisely, the size of the possible audience is determined, among other things, by the requirements for the level of initial knowledge and qualifications of the potential user.</p>
+<h3 id="final-conclusion--not-a-comforting-one">Final conclusion — not a comforting one<a class="td-heading-self-link" href="#final-conclusion--not-a-comforting-one" aria-label="Heading self-link"></a></h3><p>If we consider only the increase in complexity of the software itself, then that is one thing. Here, for example:</p>
+<p><strong>Statistics of the Linux kernel from the wiki</strong></p>
+<pre tabindex="0"><code>September 17, 1991: Linux version 0.01 (10,239 lines of code).
+March 14, 1994: Linux version 1.0.0 (176,250 lines of code).
+March 1995: Linux version 1.2.0 (310,950 lines of code).
+June 9, 1996: Linux version 2.0.0 (777,956 lines of code).
+January 25, 1999: Linux version 2.2.0, initially rather unfinished (1,800,847 lines of code).
+January 4, 2001: Linux version 2.4.0 (3,377,902 lines of code).
+December 18, 2003: Linux version 2.6.0 (5,929,913 lines of code).
+March 23, 2009: Linux version 2.6.29, the temporary Linux symbol — the Tasmanian devil Tuz (11,010,647 lines of code).
+July 22, 2011: release of Linux 3.0 (14.6 million lines of code).
+October 24, 2011: release of Linux 3.1.
+January 15, 2012: release of Linux 3.3 crossed the mark of 15 million lines of code.
+February 23, 2015: first release candidate of Linux 4.0 (more than 19 million lines of code).
+January 7, 2019: first release candidate of Linux 5.0 (more than 26 million lines of code).
+</code></pre><p>And what to do if the complexity of the software is superimposed on the tendency of constant complication of the working tools themselves?
+After all, the constant development of programming languages inevitably raises the entry threshold for all beginners and only aggravates the problem of software development complexity.</p>
+<p>In other words, regardless of how well the code is documented and how fully it is covered with tests,
+after some time the tools used become obsolete, the life cycles of external dependencies end,
+and most importantly, new people come in place of those who developed the system or managed to figure it out.</p>
+<p>And the new people have the need to figure out the system from the very beginning, but under different initial conditions.
+And because of this, the complexity of studying the system for all new people will be higher simply by the fact that the external conditions have changed and the working tools that the new employees have to use have become more complex.</p>
+<p>It is clear that the further we go, the simpler it will no longer be. After all, the field of IT is an environment with the highest competition.
+And here how can one not recall Lewis Carroll, that his winged expression</p>
+<blockquote>
+<p>It takes all the running you can do, to keep in the same place. If you want to get somewhere else, you must run at least twice as fast as that!</p>
+</blockquote>
+<p>After all, this refers not only to Alice in Wonderland, but also to all information technologies as a whole!</p>
+<p>Original publication</p>
+
+</div>
+
+
+
+
+
+    
+	
+  
+
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

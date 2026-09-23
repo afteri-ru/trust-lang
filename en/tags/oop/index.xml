@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Oop on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/oop/</link>
+		<description>Recent content in Oop on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/tags/oop/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Type system</title>
+				<link>https://trust-lang.net/en/docs/types/concept/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/types/concept/</guid>
+				<description>&lt;h2 id=&#34;principles&#34;&gt;Principles&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#principles&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;em&gt;TrustLang&lt;/em&gt; has a &lt;strong&gt;closed type system&lt;/strong&gt;: any new data type necessarily inherits&#xA;(extends) one of the already existing ones. This resembles the &lt;code&gt;Object&lt;/code&gt; model in Java, but without physical inheritance (without boxing simple types into objects).&#xA;This approach is the basis for &lt;a href=&#34;generics/&#34;&gt;generic programming&lt;/a&gt;, when a derived type inherits the set of operations of the &amp;ldquo;parent&amp;rdquo; type,&#xA;and continues to work with all its descendants.&lt;/p&gt;&#xA;&lt;p&gt;The language is dynamically typed: the type of a variable can be specified explicitly or left to automatic inference.&#xA;The specified type is used for compatibility checks on assignment, for checking the type of&#xA;a function&amp;rsquo;s return value and for controlling the placement in memory of &lt;a href=&#34;https://trust-lang.net/en/docs/types/native/&#34;&gt;native types&lt;/a&gt;.&#xA;Automatic casting is possible only between compatible types; otherwise an explicit&#xA;&lt;a href=&#34;type_system/&#34;&gt;type conversion&lt;/a&gt; is required.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Dictionaries and sets (enumerations)</title>
+				<link>https://trust-lang.net/en/docs/types/dicts/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/types/dicts/</guid>
+				<description>&lt;p&gt;Working examples with the actual behavior of the current version can be run in the playground:&#xA;&lt;a href=&#34;https://trust-lang.net/en/playground/?file=dict&#34;&gt;dictionary&lt;/a&gt;, &lt;a href=&#34;https://trust-lang.net/en/playground/?file=dict_mixed&#34;&gt;dictionary with mixed types&lt;/a&gt;,&#xA;&lt;a href=&#34;https://trust-lang.net/en/playground/?file=enum_variant&#34;&gt;enumeration and variant&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;h2 id=&#34;dictionary-dictionary&#34;&gt;Dictionary (:Dictionary)&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#dictionary-dictionary&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;A dictionary is a set of data of an arbitrary type with access to elements by an integer index or by the&#xA;name of the element (if present) (it resembles both a tuple and a structure). A dictionary is always&#xA;one-dimensional, but each element can contain an arbitrary number of elements of any type, including&#xA;other dictionaries.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Classes</title>
+				<link>https://trust-lang.net/en/docs/types/class/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/types/class/</guid>
+				<description>&lt;p&gt;The data type &lt;code&gt;:Class&lt;/code&gt; is similar to a dictionary, but all its fields must have names (access to properties by&#xA;index is also possible). When creating an instance of a class, a new type is created that copies the properties and&#xA;methods of all parents. Unlike a dictionary, the set of fields of a class is determined at compile time&#xA;and can only be extended relative to the parent types.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Concurrency on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/concurrency/</link>
+		<description>Recent content in Concurrency on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/tags/concurrency/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Memory management and shared access</title>
+				<link>https://trust-lang.net/en/docs/safety/memory/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/safety/memory/</guid>
+				<description>&lt;p&gt;No single memory management approach is the best or universal: different approaches win under different conditions:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Manual memory management can do anything, except one thing — guarantee the absence of errors.&lt;/li&gt;&#xA;&lt;li&gt;Ownership and borrowing analysis at compile time makes it possible to prove the correctness of code without additional&#xA;runtime checks, but some scenarios and algorithms cannot be proven statically at compile time.&lt;/li&gt;&#xA;&lt;li&gt;Counting strong and weak references at runtime is convenient for shared ownership, but has a non-zero&#xA;cost and does not protect against cyclic and cross dependencies.&lt;/li&gt;&#xA;&lt;li&gt;Garbage collection simplifies working with complex cyclic structures, but has the most expensive overhead&#xA;and non-deterministic execution.&lt;/li&gt;&#xA;&lt;li&gt;None of the listed memory management approaches includes the issues of inter-thread&#xA;memory access synchronization.&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;Therefore, choosing only one memory management approach in a programming language means deliberately limiting its capabilities and adding unnecessary overhead. For these reasons, the memory management concept of &lt;em&gt;TrustLang&lt;/em&gt; allows extending the implementation of the memory management model with minimal impact on the language syntax and is defined by the requirements (guarantees) for working with memory.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

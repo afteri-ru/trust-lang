@@ -1,0 +1,550 @@
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="ru" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="canonical" type="text/html" href="https://trust-lang.net/ru/docs/safety/">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/ru/docs/safety/index.xml">
+<meta name="robots" content="noindex, nofollow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Гарантии и безопасность | TrustLang</title>
+<meta name="description" content="Свод фич TrustLang, отвечающих за безопасность и качество кода">
+<meta property="og:url" content="https://trust-lang.net/ru/docs/safety/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Гарантии и безопасность">
+	<meta property="og:description" content="Свод фич TrustLang, отвечающих за безопасность и качество кода">
+	<meta property="og:locale" content="ru">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="Гарантии и безопасность">
+	<meta itemprop="description" content="Свод фич TrustLang, отвечающих за безопасность и качество кода">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="247">
+	<meta itemprop="keywords" content="Trust-Lang,Safety,Verification,Memory">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Гарантии и безопасность">
+	<meta name="twitter:description" content="Свод фич TrustLang, отвечающих за безопасность и качество кода">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-section">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/ru/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link active" href="/ru/docs/"><span>О проекте</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/blog/"><span>Статьи</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/docs/safety/">English</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5" role="main">
+            
+
+
+
+
+<div class="td-content">
+<div class="pageinfo pageinfo-primary d-print-none">
+<p>
+Это многостраничный печатный вид этого раздела.
+<a href="#" onclick="print();return false;">Нажмите что бы печатать</a>.
+</p><p>
+<a href="/ru/docs/safety/">Вернуться к обычному просмотру страницы</a>.
+</p>
+</div>
+
+
+
+<h1 class="title">Гарантии и безопасность</h1>
+<div class="lead">Свод фич TrustLang, отвечающих за безопасность и качество кода</div>
+
+
+
+
+    <ul>
+    
+  
+  
+  
+  
+
+  
+    
+    
+	
+<li>1: <a href="#pg-5a9ca474b996bf84cb2d70470afd5f04">Управление памятью и совместный доступ</a></li>
+
+
+    
+  
+    
+    
+	
+<li>2: <a href="#pg-fe7021d99ae3fcba3e52984ad291a28d">Защита стека от переполнения (stack check)</a></li>
+
+
+    
+  
+
+    </ul>
+
+
+<div class="content">
+      <p>Раздел объединяет возможности <em>TrustLang</em>, которые отвечают за <strong>безопасность и качество</strong>
+программ: безопасное управление памятью, защиту от гонок данных, контроль корректности на этапе
+компиляции и формальную верификацию.</p>
+<p>Каждая возможность описана подробно <strong>ровно в одном месте</strong> (страница-источник) и лишь
+упоминается здесь с выжимкой и ссылкой. Подробные перечни опций/диагностик не дублируются —
+их источник в справке инструмента (<code>trust --help</code>, <code>trust -Whelp</code>, LSP-ховеры).</p>
+<h2 id="возможности-раздела">Возможности раздела<a class="td-heading-self-link" href="#%d0%b2%d0%be%d0%b7%d0%bc%d0%be%d0%b6%d0%bd%d0%be%d1%81%d1%82%d0%b8-%d1%80%d0%b0%d0%b7%d0%b4%d0%b5%d0%bb%d0%b0" aria-label="Heading self-link"></a></h2><table>
+	<thead>
+			<tr>
+					<th>Возможность</th>
+					<th>Кратко</th>
+					<th>Подробно (источник)</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Безопасное управление памятью без GC</td>
+					<td>RAII, сильные/слабые ссылки, запрет сильных циклических ссылок, защита стека от переполнения</td>
+					<td><a href="/ru/docs/safety/memory/">Память</a></td>
+			</tr>
+			<tr>
+					<td>Защита от гонок и синхронизация доступа</td>
+					<td>Автоматическая межпотоковая синхронизация при обращении к разделяемым данным</td>
+					<td><a href="/ru/docs/safety/memory/">Память</a></td>
+			</tr>
+			<tr>
+					<td>Контрактное программирование</td>
+					<td>Пред-/пост-условия и утверждения (<code>trust_pre</code>/<code>trust_post</code>/<code>trust_assert</code>)</td>
+					<td><a href="verification/">Верификация</a></td>
+			</tr>
+			<tr>
+					<td>Формальная верификация (SMT)</td>
+					<td>Авто-выполнение Z3 по контрактам, инварианты циклов, кванторы</td>
+					<td><a href="verification/">Верификация</a></td>
+			</tr>
+			<tr>
+					<td>Статическая типизация и контроль приведения</td>
+					<td>Номинальная проверка типов на этапе компиляции; сужение с контролем диапазона</td>
+					<td><a href="../types/type_system/">Система типов</a></td>
+			</tr>
+			<tr>
+					<td>Диапазонные проверки чисел</td>
+					<td>Ошибка при выходе за диапазон типа, а не молчаливое переполнение</td>
+					<td><a href="/ru/docs/types/numbers/">Числа</a></td>
+			</tr>
+			<tr>
+					<td>Контроль целочисленного переполнения</td>
+					<td>Встроен и <strong>включён по умолчанию</strong>: переполнение знаковой арифметики (UB в C++) → перехватываемое <code>IntMinus</code></td>
+					<td><a href="/ru/docs/types/numbers/#overflow">Числа</a></td>
+			</tr>
+			<tr>
+					<td>Защита стека от переполнения (stack check)</td>
+					<td>Переполнение стека → перехватываемое исключение <code>stack_overflow</code>, а не segfault</td>
+					<td><a href="/ru/docs/safety/stack_check/">stack_check</a></td>
+			</tr>
+			<tr>
+					<td>Контроль инвалидации ссылок (borrowed)</td>
+					<td>Запрет использования зависимых ссылок после мутации источника (висячие ссылки)</td>
+					<td><a href="invalidation/">invalidation</a></td>
+			</tr>
+	</tbody>
+</table>
+<blockquote>
+<p>Модель безопасной памяти портирована на C++ в отдельный проект
+<a href="https://github.com/rsashka/memsafe">memsafe</a>.</p>
+</blockquote>
+<h2 id="смежные-темы">Смежные темы<a class="td-heading-self-link" href="#%d1%81%d0%bc%d0%b5%d0%b6%d0%bd%d1%8b%d0%b5-%d1%82%d0%b5%d0%bc%d1%8b" aria-label="Heading self-link"></a></h2><ul>
+<li><strong>Многопоточность и асинхронность</strong> (корутины, <code>:AsyncTask</code>/<code>:AsyncPool</code>) — это
+функциональная возможность языка, а не фича безопасности; описана в
+<a href="../operators/concurrency/">Выражениях и потоке управления</a>. К безопасности относится лишь
+защита от гонок, которую обеспечивает модель ссылок из <a href="/ru/docs/safety/memory/">Памяти</a>.</li>
+<li><a href="/ru/docs/status/">Статус реализации</a> — границы реализации фич этого раздела.</li>
+</ul>
+
+</div>
+</div>
+
+
+  
+  
+  
+  
+
+  
+  
+
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-5a9ca474b996bf84cb2d70470afd5f04">1 - Управление памятью и совместный доступ</h1>
+    
+	<p>Ни один способ управления памятью не является лучшим или универсальным: в разных условиях выигрывают разные подходы:</p>
+<ul>
+<li>Ручное управление памятью может делать всё, что угодно, кроме одного — гарантировать отсутствие ошибок.</li>
+<li>Анализ владения и заимствования на этапе компиляции позволяет доказать корректность кода без дополнительных
+рантайм-проверок, но некоторые сценарии и алгоритмы не могут быть доказаны статически на этапе компиляции.</li>
+<li>Подсчёт сильных и слабых ссылок во время выполнения удобен для разделяемого владения, но имеет ненулевую
+стоимость и не защищает от циклических и перекрёстных зависимостей.</li>
+<li>Сборка мусора упрощает работу со сложными циклическими структурами, но имеет самые дорогие накладные
+расходы и недетерминированное выполнение.</li>
+<li>Ни один из перечисленных способов управления памятью не включает в себя вопросы межпотоковой
+синхронизации доступа к памяти.</li>
+</ul>
+<p>Поэтому выбирать только один способ управления памятью в языке программирования — это значит заранее ограничить его возможности и добавить лишние накладные расходы. Из этих соображений концепция управления памятью <em>TrustLang</em> допускает расширение реализации модели управления памятью с минимальным влиянием на синтаксис языка и определяется требованиями (гарантиями) для работы с памятью.</p>
+<h2 id="concept">Модель управления памятью<a class="td-heading-self-link" href="#concept" aria-label="Heading self-link"></a></h2><ul>
+<li>Семантика языка делит переменные не по способу внутренней реализации, а по семантике, т. е. переменная по значению может хранить данные в куче, но при копировании должно выполняться и создание копии всех её данных, находящихся в куче.</li>
+<li>Полное описание жизненного цикла объекта всегда включает в себя несколько <strong>ортогональных</strong> осей и никакая сокращённая символьная запись в принципе не может закодировать всё множество комбинаций (вид ссылки, доступ, принадлежность к региону (время жизни), наличие деструктора у объекта и т. п.). Поэтому сокращённая символьная запись типов переменных предназначена только для переменных, жизненный цикл которых компилятор может верифицировать в автоматическом режиме во время компиляции (преимущественно для <strong>локальных областей</strong>).</li>
+<li>В идентичность типов данных включаются не только типы ссылок, но и способы межпоточной синхронизации доступа.</li>
+<li>Так как требуется взаимодействие с C++-кодом, то от сырых указателей на данные полностью уйти нельзя, но для них вводятся жёсткие ограничения на уровне компилятора (статического анализатора), чтобы <a href="https://github.com/rsashka/memsafe">ограничить ошибки при работе с памятью</a>.</li>
+<li>Работа с памятью должна включать в себя и <a href="/ru/docs/safety/stack_check/">защиту стека от переполнения</a>.</li>
+</ul>
+<p>Текущая модель управления памятью находится на стадии тестирования и будет задокументирована в <a href="/ru/docs/status/">версии 0.7.0</a>.
+Обсудить эти и другие концепции проекта можно на Reddit <a href="https://www.reddit.com/r/trust_lang/">https://www.reddit.com/r/trust_lang/</a></p>
+<!--
+Во всех остальных случаях исопльзуется семантическое описание жизенного цикла объектов.
+Концепция управления памятью в *TrustLang* опирается на требования (гарантии), которые должны быть обеспечены языком и состоит из следующих пунктов:
+
+ и включает в себя [RAII](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization)
+
+## Модель жизненного цикла: ортогональные оси {#rules}
+
+Жизненный цикл объекта описывается несколькими **ортогональными** аспектами; каждый выражается своим атрибутом (один атрибут — один аспект).
+
+| Аспект | Атрибут | Смысл | Входит в идентичность типа |
+|---|---|---|---|
+| Владение (вид ссылки) | `@[reftype(<kind>)@]` | кто и как владеет объектом | да |
+| Доступ/синхронизация | 2-й/3-й аргумент `reftype` | как синхронизируется доступ | да |
+| Зависимость объектов  | `@[borrowing@]` | кто и как владеет объектом | да |
+| Область/времени жизни/region | `@[lifetime(<area>[, <name>])@]` | как долго валиден невладеющий view | нет (только анализ) |
+| Разрушение | `@[deleter(D@)]` | как освобождается ресурс | да для `unique`, стирается для `shared` |
+| Мутабельность | `@[readonly@]` / `^` | константность доступа | квалификатор |
+| Стабильность адреса | `@[pin@]` | адрес — часть идентичности | **не реализовано** |
+
+Вид ссылки задаётся атрибутом `@[reftype("...")@]` (или символическим маркером `&&`/`&*`/`&?`) перед **типом** (т.е. после `:`)
+или перед **переменной** при использовании авто-вывода типа переменной.
+Вложенные ссылки выражаются цепочкой отдельных ссылочных типов, а не «ссылкой на ссылку» в одном объявлении.
+
+## Виды ссылок {#variables}
+
+Все варианты вида ссылки (`RefType`):
+
+| Вид (`@[reftype("…")]`) | Маркер | Смысл | C++-тип | Копируемость |
+|---|---|---|---|---|
+| `value` | — | владение значением (без ссылки) | `T` | по типу `T` |
+| `shared` | `&*` | совместное владение (счётчик ссылок) | `trust::Shared<T>` | копируется (счётчик растёт) |
+| `weak` | `&?` | слабая (невладеющая) ссылка на `shared` | `trust::Weak<trust::Shared<T>>` | копируется |
+| `unique` | `&&` | эксклюзивное владение (единственный владелец) | `trust::StaticUnique<T>` (inline) / `trust::Unique<T,D>` (с deleter'ом) | **move-only** |
+| `ptr` | `@[reftype("ptr")@]` | сырой указатель (только явно) | `T*` | копируется |
+| `ref` | `@[reftype("ref")@]` | нативная ссылка (только явно) | `T&` | — |
+| `mptr` | — | указатель на член | `T C::*` | копируется |
+| `rref` | — | rvalue-ссылка | `T&&` | **зарезервирован, не реализован** |
+| `ptrptr` | — | указатель на указатель | `T**` | **зарезервирован, не реализован** |
+| `locker` | — | охранник доступа к `shared`/`weak` (результат `lock()`) | `trust::Locker<T>` | move-only |
+
+Примеры:
+
+```python
+s : @[reftype("shared")@] Int32 := 5;    # канонически: вид у типа -> trust::Shared<int32_t>
+u : @[reftype("unique")@] Int32 := 10;    # trust::StaticUnique<int32_t> (inline, zero-cost)
+w : @[reftype("weak")@] Int32 := s;      # trust::Weak<trust::Shared<int32_t>>
+x : &*Int32 := 5;                        # маркер у ТИПА: то же, что shared
+&* y := 7;                               # маркер у ПЕРЕМЕННОЙ, тип опущен (авто-вывод) -> shared
+&? z := & x;                             # weak из shared (авто-вывод)
+&* bad : Int32 := 5;                     # ОШИБКА: вид у переменной, но у явного типа вида нет
+&* dup : &*Int32 := 5;                   # ПРЕДУПРЕЖДЕНИЕ -Wref-kind-dup (лишний квалификатор)
+```
+
+**Копируемость.** `shared`/`weak` копируются; `unique` **move-only** — копирование (инициализация/
+присваивание из другого `unique`) запрещено, перенос владения — только `a :=: b` (swap) или `a :=: _`.
+
+**Нативные виды.** Сырые `ptr`/`ref` задаются только явным `@[reftype(...)]` (переходная ось
+совместимости с C++) и не смешиваются с умными ссылками.
+
+## Политики доступа (ось доступа и синхронизации) {#access}
+
+Политика — 2-й (и при необходимости 3-й — класс реализации) аргумент `reftype`; входит в тип.
+Пользовательские политики доступа задаются только для `shared`/`weak`. У `unique` политика тоже
+есть, но она **фиксирована** и не параметризуется: монопольный (эксклюзивный) доступ
+единственного владельца.
+
+```python
+s : @[reftype("shared", AccessMutex)@] Int32 := 5;    # trust::AccessShared<int32_t, AccessMutex>
+```
+
+| Вид | Политики | Форма доступа |
+|---|---|---|
+| `shared`/`weak` | `AccessMutex`, `AccessRwMutex`, `AccessSingleThread` | охраняемый захват `lock()`/`lock_const()` |
+| `unique` | фиксирована: монопольный (эксклюзивный) доступ | прямой доступ `*u` (zero-cost) |
+
+## Deleter: освобождение внешних ресурсов {#deleter}
+
+Атрибут `@[deleter(D)@]` задаёт deleter-функтор (`D::operator()(V*)`) для **владеющих** видов:
+
+```python
+h : @[reftype("unique")@] @[deleter(FileDeleter)@] File := open_file(...);
+```
+
+- Допустим только на владеющих видах (`unique`/`shared`); на невладеющих — ошибка.
+- Для `unique` `D` **входит в тип**: `trust::Unique<T, D>` (как `std::unique_ptr<T, D>`), поэтому
+  `unique<T, D1>` и `unique<T, D2>` — разные типы.
+- Для `shared` `D` **стирается** из типа (`trust::Shared<T>`) и применяется при создании/`adopt`.
+
+## Области времени жизни (region) и `@[lifetime@]` {#region}
+
+`@[lifetime(<area>[, <name>])@]` помечает **невладеющий view** (`ptr`/`ref`) границей валидности (регион). Контракт валидируется; статический анализ регионов и escape-правила возврата из функции — в разработке. Детали — в [Статусе](../status/).
+
+## Стабильность адреса (`@[pin@]`) {#pin}
+
+`@[pin]` (адрес — часть идентичности объекта) в текущей версии **не реализован**.
+
+## Разыменование и захват {#lock}
+
+Доступ к значению ссылки — оператор разыменования, одновременно выполняющий захват (для
+`shared`/`weak` — с блокировкой при синхронизации):
+
+- `*ref` — захват для чтения/записи;
+- `*^ref` — захват только для чтения (const);
+- `with(l = *ref) { ... }` — удержание захвата на весь блок; несколько ссылок — групповой захват.
+
+Повторный захват одного объекта в одном выражении (`*a + *a`) — предупреждение `-Wdouble-capture`
+(для синхронизированных ссылок это самоблокировка).
+
+Охраняемый доступ к синхронизируемому объекту даёт гвард `trust::Locker<T>` (для `shared`/`weak`;
+результат `lock()`/`lock_const()`). У `unique` политика тоже определена — монопольный
+(эксклюзивный) доступ: владелец единственный, поэтому доступ `*u` прямой, без рантайм-гварда;
+сырые `ptr`/`ref` также без гварда.
+
+## Перемещение и обмен владением {#move}
+
+Оператор `:=:`:
+
+- `a :=: b` — обмен самих ссылок (владений) одного вида;
+- `*a :=: *b` — обмен значений по ссылкам;
+- `x :=: _` — перемещение в discard (владелец остаётся moved-from; для `unique`/`shared` ресурс
+  освобождается автоматически);
+- `@move(x)` → `x :=: _`, `@swap(a, b)` → `a :=: b`.
+
+-->
+</div>
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-fe7021d99ae3fcba3e52984ad291a28d">2 - Защита стека от переполнения (stack check)</h1>
+    <div class="lead">Превращение переполнения стека в перехватываемое исключение вместо аварийного завершения</div>
+	<p>В <em>TrustLang</em> встроена <a href="https://github.com/afteri-ru/stack-check">защита стека от переполнения</a>. Перед вызовом защищаемой функции проверяется свободное место на стеке потока, и если его недостаточно — вместо аварийного завершения всего приложения (<code>segmentation fault</code>) создаётся <strong>программное исключение <code>stack_overflow</code></strong>, которое можно перехватить и обработать внутри приложения, после чего продолжить выполнение программы.</p>
+<p>Здесь будет подробное описание реализации и способов использования.</p>
+<p>А сейчас можно посмотреть примеры использования: <a href="/ru/playground/?file=fibonacci">рекурсивное вычисление чисел Фибоначчи</a> и <a href="/ru/playground/?file=prime">рекурсивная проверка чисел на простоту</a></p>
+<!--
+
+## Атрибут `@[stack_check@]`
+
+Защищаемые функции помечаются атрибутом `@[stack_check@]`:
+
+- `@[stack_check@]` — перед каждым вызовом функции проверяется максимальный размер её стека из
+  секции `.stack_sizes` (`check_stack_limit`, требуется сборка с `-fstack-size-section`);
+- `@[stack_check(N)@]` — проверяется, что свободно не меньше `N` байт плюс резерв
+  (`check_overflow(N)`).
+
+Пример рекурсии, защищённой атрибутом (переполнение ловится, а не роняет программу):
+
+```trust
+@[ stack_check @]
+%fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {
+    if (n < 3) {
+        $one:BigInteger := 1;
+        return :Tuple($one, $one);
+    };
+    p := fib(n - 1);
+    return (p.0 + p.1, p.sum,):Tuple;
+};
+
+@main(argv^:Dict, args^:Dict) := {
+    try_error {
+        fib(1000000);
+    } catch(_) {
+        @print('STACK OVERFLOW caught\\n');
+    };
+    return 0;
+};
+```
+
+## Режимы контроля (`--stack-check=<mode>`)
+
+Монотонная шкала режимов (`trust --help`):
+
+- `off` — контроль выключен (атрибуты — no-op, рекурсия не анализируется);
+- `explicit` (по умолчанию) — проверки только явно размеченных функций и явных вызовов;
+- `recursion` — как `explicit` плюс диагностика незащищённых рекурсивных функций
+  (`-Wstack-check-infer`);
+- `auto` — как `recursion` плюс авто-маркировка рекурсивных функций.
+
+Защитный резерв задаётся `--stack-check-reserve=<байты>` (по умолчанию — рантайм-дефолт `8192`).
+Работающие примеры — [песочница fibonacci](/ru/playground/?file=fibonacci); готовые тесты контроля
+стека — `test/lit/.../e2e/stack/*`.
+
+## Рантайм-функции контроля
+
+Для явного управления доступны нативные функции `%trust_stack_check(N)`,
+`%trust_stack_check_set_reserve(...)`, `%trust_stack_check_get_reserve()`,
+`%trust_stack_check_get_limit()` и `%trust_stack_check_set_limit(...)`. Полные сигнатуры — в
+справке `trust --help` / `-Whelp`.
+-->
+</div>
+
+
+
+    
+	
+  
+
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">Все права защищены</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Parser on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/parser/</link>
+		<description>Recent content in Parser on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/parser/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>If you think you know how &#34;Expression&#34; differs from &#34;Statement&#34;, then most likely you are mistaken</title>
+				<link>https://trust-lang.net/en/blog/language-design/expression-statement/</link>
+				<pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/expression-statement/</guid>
+				<description>&lt;p&gt;I study the &lt;a href=&#34;https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/&#34;&gt;syntax of programming languages&lt;/a&gt; and try to separate fundamental regularities from historical accidents. One of such accidents is the almost ubiquitous use of the terms &lt;strong&gt;expression&lt;/strong&gt; and &lt;strong&gt;statement&lt;/strong&gt; when describing and classifying the syntax of programming languages.&lt;/p&gt;&#xA;&lt;p&gt;Intuitively it seems that &lt;code&gt;2 + 2&lt;/code&gt; and &lt;code&gt;if (x) { foo(); }&lt;/code&gt; are completely different entities, but on a deeper analysis it turns out that such a separation is artificial and arose from the architectural features of computing machines almost half a century ago and since then simply &amp;ldquo;carries over&amp;rdquo; from language to language.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Building blocks of programming languages</title>
+				<link>https://trust-lang.net/en/blog/language-design/building-blocks/</link>
+				<pubDate>Fri, 03 May 2024 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/building-blocks/</guid>
+				<description>&lt;p&gt;As a result of the feedback on the article with &lt;a href=&#34;https://trust-lang.net/en/blog/theory/structured-programming/&#34;&gt;reflections on structured programming&lt;/a&gt;, there were many comments and disputes in the comments, for which I want to say a big thank you to everyone.&lt;/p&gt;&#xA;&lt;p&gt;And under the impression of the discussion of the previous article, I asked myself whether there exists a minimal set of lexemes, operators or syntactic constructs with the help of which one can build an arbitrary grammar for a modern general-purpose programming language?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Nuances of developing a parser for your own programming language</title>
+				<link>https://trust-lang.net/en/blog/implementation/parser-nuances/</link>
+				<pubDate>Wed, 29 Mar 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/implementation/parser-nuances/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Recently I read an article on Habr, &amp;ldquo;My own language, or how I got tired of assembler and C&amp;rdquo;, and my eye involuntarily caught on one paragraph:&lt;/p&gt;&#xA;&lt;blockquote&gt;&#xA;&lt;p&gt;I decided not to bother too much, so I used the parglare library. It is very lightweight and convenient, I recommend it to everyone. To describe the syntax, the parser accepts a string in the corresponding format and uses regular expressions (do not judge regexes, they are omnipotent!).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>DSL (domain-specific language) implementation with macros</title>
+				<link>https://trust-lang.net/en/blog/implementation/dsl-with-macros/</link>
+				<pubDate>Wed, 01 Mar 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/implementation/dsl-with-macros/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/implementation/dsl.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;The release of the &lt;strong&gt;&lt;a href=&#34;https://trust-lang.net/en/&#34;&gt;TrustLang&lt;/a&gt;&lt;/strong&gt; language is approaching with a fundamentally new &amp;ldquo;feature&amp;rdquo;, a reworked version of the preprocessor that makes it possible to extend the syntax of the language to create various DSL dialects through macros.&lt;/p&gt;&#xA;&lt;p&gt;And, as always, using the previously found lifehack Habr — a chamber of wisdom, I would like to get feedback from readers about the approach proposed below, which is planned to be implemented in the new &lt;strong&gt;TrustLang&lt;/strong&gt; preprocessor.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

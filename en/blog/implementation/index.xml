@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Compiler implementation on TrustLang</title>
+		<link>https://trust-lang.net/en/blog/implementation/</link>
+		<description>Recent content in Compiler implementation on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/blog/implementation/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Nuances of developing a parser for your own programming language</title>
+				<link>https://trust-lang.net/en/blog/implementation/parser-nuances/</link>
+				<pubDate>Wed, 29 Mar 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/implementation/parser-nuances/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Recently I read an article on Habr, &amp;ldquo;My own language, or how I got tired of assembler and C&amp;rdquo;, and my eye involuntarily caught on one paragraph:&lt;/p&gt;&#xA;&lt;blockquote&gt;&#xA;&lt;p&gt;I decided not to bother too much, so I used the parglare library. It is very lightweight and convenient, I recommend it to everyone. To describe the syntax, the parser accepts a string in the corresponding format and uses regular expressions (do not judge regexes, they are omnipotent!).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>DSL (domain-specific language) implementation with macros</title>
+				<link>https://trust-lang.net/en/blog/implementation/dsl-with-macros/</link>
+				<pubDate>Wed, 01 Mar 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/implementation/dsl-with-macros/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/implementation/dsl.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;The release of the &lt;strong&gt;&lt;a href=&#34;https://trust-lang.net/en/&#34;&gt;TrustLang&lt;/a&gt;&lt;/strong&gt; language is approaching with a fundamentally new &amp;ldquo;feature&amp;rdquo;, a reworked version of the preprocessor that makes it possible to extend the syntax of the language to create various DSL dialects through macros.&lt;/p&gt;&#xA;&lt;p&gt;And, as always, using the previously found lifehack Habr — a chamber of wisdom, I would like to get feedback from readers about the approach proposed below, which is planned to be implemented in the new &lt;strong&gt;TrustLang&lt;/strong&gt; preprocessor.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

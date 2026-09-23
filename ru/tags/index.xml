@@ -10,19 +10,322 @@
 		
 		
 		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
 			<atom:link href="https://trust-lang.net/ru/tags/index.xml" rel="self" type="application/rss+xml" />
 			<item>
-				<title>Dict</title>
-				<link>https://trust-lang.net/ru/tags/dict/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/dict/</guid>
+				<title>Release</title>
+				<link>https://trust-lang.net/ru/tags/release/</link>
+				<pubDate>Wed, 23 Sep 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/release/</guid>
 				<description></description>
 			</item>
 			<item>
-				<title>Set</title>
-				<link>https://trust-lang.net/ru/tags/set/</link>
+				<title>Trust-Lang</title>
+				<link>https://trust-lang.net/ru/tags/trust-lang/</link>
+				<pubDate>Wed, 23 Sep 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/trust-lang/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Parser</title>
+				<link>https://trust-lang.net/ru/tags/parser/</link>
+				<pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/parser/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Programming-Languages</title>
+				<link>https://trust-lang.net/ru/tags/programming-languages/</link>
+				<pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/programming-languages/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Semantics</title>
+				<link>https://trust-lang.net/ru/tags/semantics/</link>
+				<pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/semantics/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Syntax</title>
+				<link>https://trust-lang.net/ru/tags/syntax/</link>
+				<pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/syntax/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Ai</title>
+				<link>https://trust-lang.net/ru/tags/ai/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/ai/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>C&#43;&#43;</title>
+				<link>https://trust-lang.net/ru/tags/c&#43;&#43;/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/c&#43;&#43;/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Comparison</title>
+				<link>https://trust-lang.net/ru/tags/comparison/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/comparison/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Python</title>
+				<link>https://trust-lang.net/ru/tags/python/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/python/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Rust</title>
+				<link>https://trust-lang.net/ru/tags/rust/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/rust/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Programming</title>
+				<link>https://trust-lang.net/ru/tags/programming/</link>
+				<pubDate>Mon, 13 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/programming/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Theory</title>
+				<link>https://trust-lang.net/ru/tags/theory/</link>
+				<pubDate>Mon, 13 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/theory/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Compiler</title>
+				<link>https://trust-lang.net/ru/tags/compiler/</link>
+				<pubDate>Fri, 10 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/compiler/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Memory-Safety</title>
+				<link>https://trust-lang.net/ru/tags/memory-safety/</link>
+				<pubDate>Fri, 10 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/memory-safety/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Economy</title>
+				<link>https://trust-lang.net/ru/tags/economy/</link>
+				<pubDate>Sat, 04 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/economy/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Security</title>
+				<link>https://trust-lang.net/ru/tags/security/</link>
+				<pubDate>Sat, 04 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/security/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Generics</title>
+				<link>https://trust-lang.net/ru/tags/generics/</link>
+				<pubDate>Tue, 24 Mar 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/generics/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Runtime</title>
+				<link>https://trust-lang.net/ru/tags/runtime/</link>
+				<pubDate>Wed, 07 Jan 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/runtime/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Verification</title>
+				<link>https://trust-lang.net/ru/tags/verification/</link>
+				<pubDate>Wed, 07 Jan 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/verification/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Development</title>
+				<link>https://trust-lang.net/ru/tags/development/</link>
+				<pubDate>Thu, 11 Dec 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/development/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Errors</title>
+				<link>https://trust-lang.net/ru/tags/errors/</link>
+				<pubDate>Sat, 15 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/errors/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Language-Design</title>
+				<link>https://trust-lang.net/ru/tags/language-design/</link>
+				<pubDate>Fri, 03 May 2024 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/language-design/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Control-Flow</title>
+				<link>https://trust-lang.net/ru/tags/control-flow/</link>
+				<pubDate>Sun, 31 Dec 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/control-flow/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Dsl</title>
+				<link>https://trust-lang.net/ru/tags/dsl/</link>
+				<pubDate>Wed, 01 Mar 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/dsl/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Macros</title>
+				<link>https://trust-lang.net/ru/tags/macros/</link>
+				<pubDate>Wed, 01 Mar 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/macros/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Overview</title>
+				<link>https://trust-lang.net/ru/tags/overview/</link>
+				<pubDate>Mon, 24 May 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/overview/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Assign</title>
+				<link>https://trust-lang.net/ru/tags/assign/</link>
 				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/set/</guid>
+				<guid>https://trust-lang.net/ru/tags/assign/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Collections</title>
+				<link>https://trust-lang.net/ru/tags/collections/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/collections/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Concurrency</title>
+				<link>https://trust-lang.net/ru/tags/concurrency/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/concurrency/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Context</title>
+				<link>https://trust-lang.net/ru/tags/context/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/context/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Getting-Started</title>
+				<link>https://trust-lang.net/ru/tags/getting-started/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/getting-started/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Memory</title>
+				<link>https://trust-lang.net/ru/tags/memory/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/memory/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Modules</title>
+				<link>https://trust-lang.net/ru/tags/modules/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/modules/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Namespaces</title>
+				<link>https://trust-lang.net/ru/tags/namespaces/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/namespaces/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Naming</title>
+				<link>https://trust-lang.net/ru/tags/naming/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/naming/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Numbers</title>
+				<link>https://trust-lang.net/ru/tags/numbers/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/numbers/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Oop</title>
+				<link>https://trust-lang.net/ru/tags/oop/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/oop/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Operators</title>
+				<link>https://trust-lang.net/ru/tags/operators/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/operators/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Playground</title>
+				<link>https://trust-lang.net/ru/tags/playground/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/playground/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Raii</title>
+				<link>https://trust-lang.net/ru/tags/raii/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/raii/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Recursion</title>
+				<link>https://trust-lang.net/ru/tags/recursion/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/recursion/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>References</title>
+				<link>https://trust-lang.net/ru/tags/references/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/references/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Safety</title>
+				<link>https://trust-lang.net/ru/tags/safety/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/safety/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Stack-Check</title>
+				<link>https://trust-lang.net/ru/tags/stack-check/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/tags/stack-check/</guid>
 				<description></description>
 			</item>
 			<item>
@@ -30,90 +333,6 @@
 				<link>https://trust-lang.net/ru/tags/types/</link>
 				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
 				<guid>https://trust-lang.net/ru/tags/types/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Итераторы</title>
-				<link>https://trust-lang.net/ru/tags/%D0%B8%D1%82%D0%B5%D1%80%D0%B0%D1%82%D0%BE%D1%80%D1%8B/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D0%B8%D1%82%D0%B5%D1%80%D0%B0%D1%82%D0%BE%D1%80%D1%8B/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Коллекции</title>
-				<link>https://trust-lang.net/ru/tags/%D0%BA%D0%BE%D0%BB%D0%BB%D0%B5%D0%BA%D1%86%D0%B8%D0%B8/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D0%BA%D0%BE%D0%BB%D0%BB%D0%B5%D0%BA%D1%86%D0%B8%D0%B8/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Набор</title>
-				<link>https://trust-lang.net/ru/tags/%D0%BD%D0%B0%D0%B1%D0%BE%D1%80/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D0%BD%D0%B0%D0%B1%D0%BE%D1%80/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Обощения</title>
-				<link>https://trust-lang.net/ru/tags/%D0%BE%D0%B1%D0%BE%D1%89%D0%B5%D0%BD%D0%B8%D1%8F/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D0%BE%D0%B1%D0%BE%D1%89%D0%B5%D0%BD%D0%B8%D1%8F/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>ООП</title>
-				<link>https://trust-lang.net/ru/tags/%D0%BE%D0%BE%D0%BF/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D0%BE%D0%BE%D0%BF/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Простые Типы</title>
-				<link>https://trust-lang.net/ru/tags/%D0%BF%D1%80%D0%BE%D1%81%D1%82%D1%8B%D0%B5-%D1%82%D0%B8%D0%BF%D1%8B/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D0%BF%D1%80%D0%BE%D1%81%D1%82%D1%8B%D0%B5-%D1%82%D0%B8%D0%BF%D1%8B/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Системые Типы</title>
-				<link>https://trust-lang.net/ru/tags/%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D1%8B%D0%B5-%D1%82%D0%B8%D0%BF%D1%8B/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D1%81%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D1%8B%D0%B5-%D1%82%D0%B8%D0%BF%D1%8B/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Словарь</title>
-				<link>https://trust-lang.net/ru/tags/%D1%81%D0%BB%D0%BE%D0%B2%D0%B0%D1%80%D1%8C/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D1%81%D0%BB%D0%BE%D0%B2%D0%B0%D1%80%D1%8C/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Строки</title>
-				<link>https://trust-lang.net/ru/tags/%D1%81%D1%82%D1%80%D0%BE%D0%BA%D0%B8/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D1%81%D1%82%D1%80%D0%BE%D0%BA%D0%B8/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Типы Данных</title>
-				<link>https://trust-lang.net/ru/tags/%D1%82%D0%B8%D0%BF%D1%8B-%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D1%85/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D1%82%D0%B8%D0%BF%D1%8B-%D0%B4%D0%B0%D0%BD%D0%BD%D1%8B%D1%85/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Функции</title>
-				<link>https://trust-lang.net/ru/tags/%D1%84%D1%83%D0%BD%D0%BA%D1%86%D0%B8%D0%B8/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D1%84%D1%83%D0%BD%D0%BA%D1%86%D0%B8%D0%B8/</guid>
-				<description></description>
-			</item>
-			<item>
-				<title>Числа</title>
-				<link>https://trust-lang.net/ru/tags/%D1%87%D0%B8%D1%81%D0%BB%D0%B0/</link>
-				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
-				<guid>https://trust-lang.net/ru/tags/%D1%87%D0%B8%D1%81%D0%BB%D0%B0/</guid>
 				<description></description>
 			</item>
 	</channel>

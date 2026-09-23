@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Trust-Lang on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/trust-lang/</link>
+		<description>Recent content in Trust-Lang on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/trust-lang/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>About the project</title>
+				<link>https://trust-lang.net/en/docs/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/</guid>
+				<description>&lt;p&gt;&lt;em&gt;TrustLang&lt;/em&gt; is a programming language that is transpiled to C++ and built by an external&#xA;compiler. The key properties of the model:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;Rule-based grammar, not keyword-based&lt;/strong&gt; — a simple single-pass parser and&#xA;extensibility; the usual keyword-based notation is implemented by macros&#xA;(&lt;a href=&#34;https://trust-lang.net/en/docs/syntax/&#34;&gt;Syntax&lt;/a&gt;, &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/macros/&#34;&gt;Macros&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Safe memory model without a garbage collector&lt;/strong&gt; — RAII, strong/weak references, prohibition of&#xA;strong cyclic references, stack protection (&lt;a href=&#34;https://trust-lang.net/en/docs/safety/&#34;&gt;Safety and quality&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;C/C++ — first-class integration&lt;/strong&gt; — native types/functions/classes and templates, embed&#xA;inserts, linking; taken into account in every context (&lt;a href=&#34;https://trust-lang.net/en/docs/types/native/&#34;&gt;Types&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Flexible typing and type inference&lt;/strong&gt; — static and dynamic, automatic inference&#xA;(&lt;a href=&#34;https://trust-lang.net/en/docs/types/&#34;&gt;Types&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Contracts and verification&lt;/strong&gt; — pre/postconditions and assertions are checked by an SMT solver (Z3)&#xA;(&lt;a href=&#34;safety/verification/&#34;&gt;Verification&lt;/a&gt;).&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;Script-like launch&lt;/strong&gt; — a file with the shebang &lt;code&gt;#!.../trust --run&lt;/code&gt; runs directly, like a&#xA;Python script, but with full compilation: transpilation to C++, build and launch of the binary happen&#xA;automatically, no interpreter is needed.&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
+			</item>
+			<item>
+				<title>Articles</title>
+				<link>https://trust-lang.net/en/blog/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Guarantees and safety</title>
+				<link>https://trust-lang.net/en/docs/safety/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/safety/</guid>
+				<description>&lt;p&gt;This section brings together the &lt;em&gt;TrustLang&lt;/em&gt; capabilities that are responsible for the &lt;strong&gt;safety and&#xA;quality&lt;/strong&gt; of programs: safe memory management, protection from data races, correctness control at&#xA;compile time and formal verification.&lt;/p&gt;&#xA;&lt;p&gt;Each capability is described in detail &lt;strong&gt;in exactly one place&lt;/strong&gt; (the source page) and is only&#xA;mentioned here with a summary and a link. Detailed lists of options/diagnostics are not duplicated —&#xA;their source is the tool&amp;rsquo;s help (&lt;code&gt;trust --help&lt;/code&gt;, &lt;code&gt;trust -Whelp&lt;/code&gt;, LSP hovers).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>TrustLang v0.6.0</title>
+				<link>https://trust-lang.net/en/blog/releases/v0.6.0/</link>
+				<pubDate>Wed, 23 Sep 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/releases/v0.6.0/</guid>
+				<description>&lt;h2 id=&#34;about-version-060&#34;&gt;About version 0.6.0&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#about-version-060&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Version 0.6.0 is a formalization stage: the language syntax and core algorithmic constructs are&#xA;fixed, along with basic types and safety checks. It is also a prototype of the transpiler&#xA;architecture and tooling (compiler, language server, debugger) plus a browser playground for&#xA;running examples. This is a proof of concept rather than a stable release: full alignment of the&#xA;content with the implementation comes in the next version.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>NewLang v0.4.0</title>
+				<link>https://trust-lang.net/en/blog/releases/v0.4.0/</link>
+				<pubDate>Tue, 06 Jun 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/releases/v0.4.0/</guid>
+				<description>&lt;h2 id=&#34;new-features-and-changes-in-the-newlang-syntax&#34;&gt;New features and changes in the NewLang syntax&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#new-features-and-changes-in-the-newlang-syntax&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;&#xA;&lt;li&gt;Reworked the definition of object types using the &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/naming/&#34;&gt;prefix naming (sigil)&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;Interrupting the execution flow and returning can now be done for &lt;a href=&#34;https://trust-lang.net/en/docs/operators/throw/&#34;&gt;named code blocks&lt;/a&gt;.&lt;/li&gt;&#xA;&lt;li&gt;Simplified the syntax for importing &lt;a href=&#34;https://trust-lang.net/en/docs/types/native/&#34;&gt;native variables and functions (C/C++)&lt;/a&gt;&lt;/li&gt;&#xA;&lt;li&gt;Stabilized the syntax for &lt;a href=&#34;https://trust-lang.net/en/docs/operators/create/#comprehensions&#34;&gt;initializing with initial data&lt;/a&gt; the values of tensors, dictionaries and arguments in function calls.&lt;/li&gt;&#xA;&lt;li&gt;Added built-in macros for writing code using keywords in a &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/macros/&#34;&gt;DSL&lt;/a&gt; style&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;h2 id=&#34;new-compiler-features-nlc&#34;&gt;New compiler features (nlc)&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#new-compiler-features-nlc&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;&#xA;&lt;li&gt;The macro processor has been completely redesigned.&lt;/li&gt;&#xA;&lt;li&gt;Reworked the compiler architecture with division into parser, macro processor, syntax analyzer, interpreter and code generator.&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;h2 id=&#34;miscellaneous&#34;&gt;Miscellaneous&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#miscellaneous&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;ul&gt;&#xA;&lt;li&gt;The documentation &lt;a href=&#34;https://trust-lang.net/en/&#34;&gt;website&lt;/a&gt; has been ported to &lt;a href=&#34;https://gohugo.io/&#34;&gt;Hugo&lt;/a&gt; and made bilingual.&lt;/li&gt;&#xA;&lt;li&gt;Instead of binary builds, the section &lt;a href=&#34;https://trust-lang.net/en/playground/&#34;&gt;Playground and example code&lt;/a&gt; has been added to the site for small experiments.&lt;/li&gt;&#xA;&lt;li&gt;Migrated to clang-16 (the transition to clang-17 and newer is planned after the full implementation of coroutines and support for extended floating-point formats).&lt;/li&gt;&#xA;&lt;li&gt;The number of project contributors has become more than one!&lt;/li&gt;&#xA;&lt;/ul&gt;</description>
+			</item>
+			<item>
+				<title>NewLang v0.3.0</title>
+				<link>https://trust-lang.net/en/blog/releases/v0.3.0/</link>
+				<pubDate>Mon, 07 Nov 2022 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/releases/v0.3.0/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;NewLang is a high-level general-purpose programming language. The main feature of the language is a simple, logical and non-contradictory syntax, which is based on a strict system of grammar rules. Through the use of macros, the syntax of the language is easily extended to a more familiar keyword-based form.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>NewLang v0.2.0</title>
+				<link>https://trust-lang.net/en/blog/releases/v0.2.0/</link>
+				<pubDate>Fri, 12 Aug 2022 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/releases/v0.2.0/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;&lt;em&gt;NewLang&lt;/em&gt; is a high-level programming language in which one can combine standard algorithmic constructs with declarative programming and tensor computations for machine learning tasks.&lt;/p&gt;&#xA;&lt;p&gt;The main feature of the language is a simple, logical and non-contradictory syntax, which is based not on the use of reserved keywords, but on a strict system of grammar rules using punctuation marks (the list of which also includes the operators of the language).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>NewLang v0.1.0</title>
+				<link>https://trust-lang.net/en/blog/releases/v0.1.0/</link>
+				<pubDate>Fri, 24 Jun 2022 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/releases/v0.1.0/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;&lt;strong&gt;NewLang&lt;/strong&gt; is a high-level programming language in which one can combine standard algorithmic constructs with declarative programming and tensor computations for machine learning tasks.&lt;/p&gt;&#xA;&lt;p&gt;The main feature of the language is a simple, logical and non-contradictory syntax, which is based not on the use of reserved keywords, but on a strict system of grammar rules using punctuation marks (the list of which also includes the operators of the language).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>A new programming language</title>
+				<link>https://trust-lang.net/en/blog/language-design/trust-lang/</link>
+				<pubDate>Fri, 18 Feb 2022 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/trust-lang/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;More than a year ago I began publishing articles describing the features of a new programming language.&#xA;Much water has flowed under the bridge since then, many ideas were tested, in the end everything changed radically several times,&#xA;and now I present to the readers a description of the pre-final version of the language and its features.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

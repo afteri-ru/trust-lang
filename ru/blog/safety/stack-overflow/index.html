@@ -1,0 +1,716 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="ru" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Избавляемся от ошибок Segmentation fault из-за переполнения стека в С&#43;&#43; | TrustLang</title>
+<meta name="description" content="7 января в 14:53 2026
+Fetching Title#4teb
+Развивая идею доверенного языка программирования я пришел к выводу, что за счет ограничений синтаксиса и создания соответствующих проверок в статическом анализаторе кода, можно защититься практически ото всех технических ошибок, кроме двух - контроль динамически выделяемой памяти и переполнения стека.
+Причем, если для подсчета ссылок в рантайме, решения существуют, то контроль переполнения стека невозможно сделать не только во время анализа исходного текста программы, но это практически невозможно и во время выполнения приложения! Ведь ошибка переполнение стека (stack overflow) - это всегда фатально, так как не существует способа поймать и обработать эту ошибку изнутри выполняемой программы, чтобы потом продолжить её выполнение как ни в чем не бывало.">
+<meta property="og:url" content="https://trust-lang.net/ru/blog/safety/stack-overflow/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Избавляемся от ошибок Segmentation fault из-за переполнения стека в С&#43;&#43;">
+	<meta property="og:description" content="7 января в 14:53 2026
+Fetching Title#4teb
+Развивая идею доверенного языка программирования я пришел к выводу, что за счет ограничений синтаксиса и создания соответствующих проверок в статическом анализаторе кода, можно защититься практически ото всех технических ошибок, кроме двух - контроль динамически выделяемой памяти и переполнения стека.
+Причем, если для подсчета ссылок в рантайме, решения существуют, то контроль переполнения стека невозможно сделать не только во время анализа исходного текста программы, но это практически невозможно и во время выполнения приложения! Ведь ошибка переполнение стека (stack overflow) - это всегда фатально, так как не существует способа поймать и обработать эту ошибку изнутри выполняемой программы, чтобы потом продолжить её выполнение как ни в чем не бывало.">
+	<meta property="og:locale" content="ru">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="blog">
+		<meta property="article:published_time" content="2026-01-07T00:00:00+00:00">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Memory-Safety">
+		<meta property="article:tag" content="C&#43;&#43;">
+		<meta property="article:tag" content="Verification">
+		<meta property="article:tag" content="Runtime">
+
+	<meta itemprop="name" content="Избавляемся от ошибок Segmentation fault из-за переполнения стека в С&#43;&#43;">
+	<meta itemprop="description" content="7 января в 14:53 2026
+Fetching Title#4teb
+Развивая идею доверенного языка программирования я пришел к выводу, что за счет ограничений синтаксиса и создания соответствующих проверок в статическом анализаторе кода, можно защититься практически ото всех технических ошибок, кроме двух - контроль динамически выделяемой памяти и переполнения стека.
+Причем, если для подсчета ссылок в рантайме, решения существуют, то контроль переполнения стека невозможно сделать не только во время анализа исходного текста программы, но это практически невозможно и во время выполнения приложения! Ведь ошибка переполнение стека (stack overflow) - это всегда фатально, так как не существует способа поймать и обработать эту ошибку изнутри выполняемой программы, чтобы потом продолжить её выполнение как ни в чем не бывало.">
+	<meta itemprop="datePublished" content="2026-01-07T00:00:00+00:00">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="2350">
+	<meta itemprop="keywords" content="Memory-Safety,C&#43;&#43;,Verification,Runtime">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Избавляемся от ошибок Segmentation fault из-за переполнения стека в С&#43;&#43;">
+	<meta name="twitter:description" content="7 января в 14:53 2026
+Fetching Title#4teb
+Развивая идею доверенного языка программирования я пришел к выводу, что за счет ограничений синтаксиса и создания соответствующих проверок в статическом анализаторе кода, можно защититься практически ото всех технических ошибок, кроме двух - контроль динамически выделяемой памяти и переполнения стека.
+Причем, если для подсчета ссылок в рантайме, решения существуют, то контроль переполнения стека невозможно сделать не только во время анализа исходного текста программы, но это практически невозможно и во время выполнения приложения! Ведь ошибка переполнение стека (stack overflow) - это всегда фатально, так как не существует способа поймать и обработать эту ошибку изнутри выполняемой программы, чтобы потом продолжить её выполнение как ни в чем не бывало.">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/ru/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/docs/"><span>О проекте</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/ru/blog/"><span>Статьи</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/blog/safety/stack-overflow/">English</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/blog/safety/stack-overflow/">English</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-rublog-li">
+  <a href="/ru/blog/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-rublog"><span class="">Статьи</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogtheory-li">
+  <input type="checkbox" id="m-rublogtheory-check"/>
+  <label for="m-rublogtheory-check"><a href="/ru/blog/theory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogtheory"><span class="">Теория вычислений</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogtheoryconsciousness-fsm-li">
+  <input type="checkbox" id="m-rublogtheoryconsciousness-fsm-check"/>
+  <label for="m-rublogtheoryconsciousness-fsm-check"><a href="/ru/blog/theory/consciousness-fsm/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogtheoryconsciousness-fsm"><span class="">Механизм возникновения сознания у конечных автоматов</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogtheoryturing-machine-li">
+  <input type="checkbox" id="m-rublogtheoryturing-machine-check"/>
+  <label for="m-rublogtheoryturing-machine-check"><a href="/ru/blog/theory/turing-machine/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogtheoryturing-machine"><span class="">Размышления о машине Тьюринга и причинах возникновения ошибок в языках программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogtheorystructured-programming-li">
+  <input type="checkbox" id="m-rublogtheorystructured-programming-check"/>
+  <label for="m-rublogtheorystructured-programming-check"><a href="/ru/blog/theory/structured-programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogtheorystructured-programming"><span class="">Размышления о структурном программировании</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogtheorylogic-prog-li">
+  <input type="checkbox" id="m-rublogtheorylogic-prog-check"/>
+  <label for="m-rublogtheorylogic-prog-check"><a href="/ru/blog/theory/logic-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogtheorylogic-prog"><span class="">Проблема логических языков программирования</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rubloglanguage-design-li">
+  <input type="checkbox" id="m-rubloglanguage-design-check"/>
+  <label for="m-rubloglanguage-design-check"><a href="/ru/blog/language-design/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rubloglanguage-design"><span class="">Дизайн языков программирования</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designexpression-statement-li">
+  <input type="checkbox" id="m-rubloglanguage-designexpression-statement-check"/>
+  <label for="m-rubloglanguage-designexpression-statement-check"><a href="/ru/blog/language-design/expression-statement/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designexpression-statement"><span class="">Если вы думаете, что знаете, чем отличается «Expression» от «Statement», то, скорее всего, вы ошибаетесь</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designbuilding-blocks-li">
+  <input type="checkbox" id="m-rubloglanguage-designbuilding-blocks-check"/>
+  <label for="m-rubloglanguage-designbuilding-blocks-check"><a href="/ru/blog/language-design/building-blocks/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designbuilding-blocks"><span class="">Строительные блоки языков программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designreference-solution-li">
+  <input type="checkbox" id="m-rubloglanguage-designreference-solution-check"/>
+  <label for="m-rubloglanguage-designreference-solution-check"><a href="/ru/blog/language-design/reference-solution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designreference-solution"><span class="">Возможное решение проблемы ссылок в языках программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designtrust-lang-li">
+  <input type="checkbox" id="m-rubloglanguage-designtrust-lang-check"/>
+  <label for="m-rubloglanguage-designtrust-lang-check"><a href="/ru/blog/language-design/trust-lang/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designtrust-lang"><span class="">Новый язык программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designunusual-prog-li">
+  <input type="checkbox" id="m-rubloglanguage-designunusual-prog-check"/>
+  <label for="m-rubloglanguage-designunusual-prog-check"><a href="/ru/blog/language-design/unusual-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designunusual-prog"><span class="">Необычная концепция синтаксиса языка программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designlang-final-li">
+  <input type="checkbox" id="m-rubloglanguage-designlang-final-check"/>
+  <label for="m-rubloglanguage-designlang-final-check"><a href="/ru/blog/language-design/lang-final/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designlang-final"><span class="">Какая «идеальная» цель развития у языков программирования?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designinter-prog-li">
+  <input type="checkbox" id="m-rubloglanguage-designinter-prog-check"/>
+  <label for="m-rubloglanguage-designinter-prog-check"><a href="/ru/blog/language-design/inter-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designinter-prog"><span class="">Интернациональное программирование на естественных языках</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogcomparison-li">
+  <input type="checkbox" id="m-rublogcomparison-check"/>
+  <label for="m-rublogcomparison-check"><a href="/ru/blog/comparison/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogcomparison"><span class="">Сравнение языков</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogcomparisoncpp-rust-vs-python-li">
+  <input type="checkbox" id="m-rublogcomparisoncpp-rust-vs-python-check"/>
+  <label for="m-rublogcomparisoncpp-rust-vs-python-check"><a href="/ru/blog/comparison/cpp-rust-vs-python/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisoncpp-rust-vs-python"><span class="">Почему C&#43;&#43; или Rust никогда не смогут заменить Python</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogcomparisoncpp-evolution-li">
+  <input type="checkbox" id="m-rublogcomparisoncpp-evolution-check"/>
+  <label for="m-rublogcomparisoncpp-evolution-check"><a href="/ru/blog/comparison/cpp-evolution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisoncpp-evolution"><span class="">Ахиллесова пята C&#43;&#43; и будущая  р̶е эволюция</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogcomparisoncode-safety-economy-li">
+  <input type="checkbox" id="m-rublogcomparisoncode-safety-economy-check"/>
+  <label for="m-rublogcomparisoncode-safety-economy-check"><a href="/ru/blog/comparison/code-safety-economy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisoncode-safety-economy"><span class="">Экономика безопасности кода или почему Rust не нужен</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogcomparisoncpp-safety-li">
+  <input type="checkbox" id="m-rublogcomparisoncpp-safety-check"/>
+  <label for="m-rublogcomparisoncpp-safety-check"><a href="/ru/blog/comparison/cpp-safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisoncpp-safety"><span class="">Безопасность С&#43;&#43; и буридановы мыши в ИТ</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogcomparisongenerics-li">
+  <input type="checkbox" id="m-rublogcomparisongenerics-check"/>
+  <label for="m-rublogcomparisongenerics-check"><a href="/ru/blog/comparison/generics/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisongenerics"><span class="">Обобщённое программирование в разных языках</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogimplementation-li">
+  <input type="checkbox" id="m-rublogimplementation-check"/>
+  <label for="m-rublogimplementation-check"><a href="/ru/blog/implementation/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogimplementation"><span class="">Реализация компилятора</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogimplementationparser-nuances-li">
+  <input type="checkbox" id="m-rublogimplementationparser-nuances-check"/>
+  <label for="m-rublogimplementationparser-nuances-check"><a href="/ru/blog/implementation/parser-nuances/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogimplementationparser-nuances"><span class="">Нюансы разработки парсера для своего языка программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogimplementationdsl-with-macros-li">
+  <input type="checkbox" id="m-rublogimplementationdsl-with-macros-check"/>
+  <label for="m-rublogimplementationdsl-with-macros-check"><a href="/ru/blog/implementation/dsl-with-macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogimplementationdsl-with-macros"><span class="">Вариант реализации DSL (domain-specific language) с помощью макросов</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-rublogsafety-li">
+  <input type="checkbox" id="m-rublogsafety-check" checked/>
+  <label for="m-rublogsafety-check"><a href="/ru/blog/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogsafety"><span class="">Безопасность ПО</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-rublogsafetystack-overflow-li">
+  <input type="checkbox" id="m-rublogsafetystack-overflow-check" checked/>
+  <label for="m-rublogsafetystack-overflow-check"><a href="/ru/blog/safety/stack-overflow/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-rublogsafetystack-overflow"><span class="td-sidebar-nav-active-item">Избавляемся от ошибок Segmentation fault из-за переполнения стека в С&#43;&#43;</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogsafetylanguage-guarantees-li">
+  <input type="checkbox" id="m-rublogsafetylanguage-guarantees-check"/>
+  <label for="m-rublogsafetylanguage-guarantees-check"><a href="/ru/blog/safety/language-guarantees/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogsafetylanguage-guarantees"><span class="">Гарантии языка программирования как основа безопасной разработки программного обеспечения</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogprogramming-li">
+  <input type="checkbox" id="m-rublogprogramming-check"/>
+  <label for="m-rublogprogramming-check"><a href="/ru/blog/programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogprogramming"><span class="">Философия программирования</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogprogrammingprog-styles-same-time-li">
+  <input type="checkbox" id="m-rublogprogrammingprog-styles-same-time-check"/>
+  <label for="m-rublogprogrammingprog-styles-same-time-check"><a href="/ru/blog/programming/prog-styles-same-time/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogprogrammingprog-styles-same-time"><span class="">Можно ли использовать декларативный и императивный стили написания программ одновременно?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogprogrammingcomplex-prog-li">
+  <input type="checkbox" id="m-rublogprogrammingcomplex-prog-check"/>
+  <label for="m-rublogprogrammingcomplex-prog-check"><a href="/ru/blog/programming/complex-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogprogrammingcomplex-prog"><span class="">Простое сложное программирование</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogai-li">
+  <input type="checkbox" id="m-rublogai-check"/>
+  <label for="m-rublogai-check"><a href="/ru/blog/ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogai"><span class="">ИИ и ИТ-процессы</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogaiai-illusions-li">
+  <input type="checkbox" id="m-rublogaiai-illusions-check"/>
+  <label for="m-rublogaiai-illusions-check"><a href="/ru/blog/ai/ai-illusions/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogaiai-illusions"><span class="">Главная проблема использования ИИ (Иллюзии Интеллекта) при разработке ПО</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogaiwrong-term-ai-li">
+  <input type="checkbox" id="m-rublogaiwrong-term-ai-check"/>
+  <label for="m-rublogaiwrong-term-ai-check"><a href="/ru/blog/ai/wrong-term-ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogaiwrong-term-ai"><span class="">Неоднозначный термин «искусственный интеллект»</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogreleases-li">
+  <input type="checkbox" id="m-rublogreleases-check"/>
+  <label for="m-rublogreleases-check"><a href="/ru/blog/releases/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogreleases"><span class="">Релизы</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv060-li">
+  <input type="checkbox" id="m-rublogreleasesv060-check"/>
+  <label for="m-rublogreleasesv060-check"><a href="/ru/blog/releases/v0.6.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv060"><span class="">TrustLang v0.6.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv040-li">
+  <input type="checkbox" id="m-rublogreleasesv040-check"/>
+  <label for="m-rublogreleasesv040-check"><a href="/ru/blog/releases/v0.4.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv040"><span class="">NewLang v0.4.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv030-li">
+  <input type="checkbox" id="m-rublogreleasesv030-check"/>
+  <label for="m-rublogreleasesv030-check"><a href="/ru/blog/releases/v0.3.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv030"><span class="">NewLang v0.3.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv020-li">
+  <input type="checkbox" id="m-rublogreleasesv020-check"/>
+  <label for="m-rublogreleasesv020-check"><a href="/ru/blog/releases/v0.2.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv020"><span class="">NewLang v0.2.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv010-li">
+  <input type="checkbox" id="m-rublogreleasesv010-check"/>
+  <label for="m-rublogreleasesv010-check"><a href="/ru/blog/releases/v0.1.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv010"><span class="">NewLang v0.1.0</span></a></label>
+  
+</li>
+  </ul>
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/ru/_print/blog/safety/"><i class="fa-solid fa-print fa-fw"></i> Печатать весь раздел</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#немного-технической-информации-о-стеке">Немного технической информации о стеке</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#реализация-защиты-стека-от-переполнения-для-с">Реализация защиты стека от переполнения для С++</a></li>
+    <li><a href="#детали-реализации">Детали реализации</a></li>
+    <li><a href="#накладные-расходы-и-влияние-на-скорость-работы-программы">Накладные расходы и влияние на скорость работы программы</a></li>
+    <li><a href="#причем-тут-ии-">Причем тут ИИ ?</a></li>
+    <li><a href="#статус-интеграции-в-trustlang">Статус интеграции в TrustLang</a></li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            <a class="td-rss-button" title="RSS" href="/ru/blog/safety/index.xml" target="_blank" rel="noopener">
+              <i class="fa-solid fa-rss" aria-hidden="true"></i>
+            </a>
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/ru/blog/">Статьи</a></li>
+  <li class="breadcrumb-item">
+    <a href="/ru/blog/safety/">Безопасность ПО</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    Избавляемся от ошибок Segmentation fault из-за переполнения стека в С&#43;&#43;</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>Избавляемся от ошибок Segmentation fault из-за переполнения стека в С&#43;&#43;</h1>
+	
+	<div class="td-byline mb-4">
+		
+		<time datetime="2026-01-07" class="text-body-secondary">07.01.2026</time>
+	</div>
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p>7 января в 14:53 2026</p>
+<p><a href="https://habr.com/ru/article/983394">Fetching Title#4teb</a></p>
+<p>Развивая идею <a href="/ru/blog/safety/language-guarantees/">доверенного языка программирования</a> я пришел к выводу, что за счет ограничений синтаксиса и создания соответствующих проверок в статическом анализаторе кода, можно защититься практически ото всех технических ошибок, кроме двух - контроль динамически выделяемой памяти и переполнения стека.</p>
+<p>Причем, если для подсчета ссылок в рантайме, решения существуют, то контроль переполнения стека невозможно сделать не только во время анализа исходного текста программы, но это практически невозможно и во время выполнения приложения! Ведь ошибка переполнение стека (stack overflow) - это всегда фатально, так как не существует способа поймать и обработать эту ошибку изнутри выполняемой программы, чтобы потом продолжить её выполнение как ни в чем не бывало.</p>
+<p>Существует ли хотя бы теоретическая возможность защититься от ошибок переполнения стека и сделать из нее обычную ошибку (исключение), которую можно поймать (обработать) в самом приложении, чтобы была возможность продолжить выполнение программы без боязни последующей ошибки сегментации (segmentation fault) или повреждения стека (stack smashing)?</p>
+<p><a href="/ru/blog/safety/stack-overflow/#body">Пропустить лирику и перейти сразу к описанию решения</a></p>
+<h2 id="немного-технической-информации-о-стеке">Немного технической информации о стеке<a class="td-heading-self-link" href="#%d0%bd%d0%b5%d0%bc%d0%bd%d0%be%d0%b3%d0%be-%d1%82%d0%b5%d1%85%d0%bd%d0%b8%d1%87%d0%b5%d1%81%d0%ba%d0%be%d0%b9-%d0%b8%d0%bd%d1%84%d0%be%d1%80%d0%bc%d0%b0%d1%86%d0%b8%d0%b8-%d0%be-%d1%81%d1%82%d0%b5%d0%ba%d0%b5" aria-label="Heading self-link"></a></h2><p>Стек программы - это небольшая область оперативной памяти, в которой хранятся локальные переменные и адреса возврата из функций. Когда глубина вызовов или размер локальных данных превышает отведённый им предел, следующая запись в стек попадает за его границы, что и является причиной возникновения ошибки.  Причем, если код обработчика ошибок тоже нуждается в стеке, а он уже исчерпан, то надёжно выполнить обработку ошибки невозможно - так как в стеке отсутствует память для временных данных.</p>
+<p>Некоторые операционный системы создают специально защитную нижнюю границу стека, при попытке перейти за которую приводит к немедленному аварийному прерыванию выполнения приложения и даже если язык программирования и позволяет перехватить ошибку переполнения стека, то состояние потока уже нарушено: данные повреждены,а продолжать работу приложения небезопасно.</p>
+<p>Именно поэтому переполнение стека практически всегда заканчивается аварийной остановкой потока или всего процесса. Допускается лишь корректное завершение приложения с отчётом/дампом памяти, без продолжения работы программы.</p>
+<p>Проблема усугубляется еще и тем, что вычислить размер стека для функции во время анализа AST невозможно в принципе, так как это информация исключительно времени компиляции:</p>
+<ul>
+<li>Размер стека у функции может зависеть от входных данных функции (<a href="https://habr.com/ru/articles/681312/">например alloca и VLA в языке С</a>)</li>
+<li>Компилятор может добавлять неиспользуемое пространство между переменными для их выравнивания (Padding).</li>
+<li>На стеке сохраняются регистры, которые функция должна восстановить перед выходом (<code>callee-saved registers</code>), адрес возврат из функции и возвращаемые данные. Причем это все зависит не только от особенностей конкретной аппаратной платформы, но и от <a href="https://en.wikipedia.org/wiki/Calling_convention">соглашения о вызовах функции</a>.</li>
+<li>Компилятор может создавать безымянные временные переменные на стеке для хранения промежуточных результатов вычислений.</li>
+<li>Оптимизатор может полностью удалить некоторые переменные или хранить их только в регистрах, не используя для этого память в стеке.</li>
+<li>Не существует и универсального метода определения свободного места на стеке, так как это зависит как от аппаратной платформы, так и от конкретной операционной системы.</li>
+</ul>
+<p>Причем информация о размере стека функции обычно не доступна и во время выполнения приложения, ведь программа - это машинные инструкции и чтобы узнать размер используемого стека у конкретной функции, для этого нужно декодировать (дизассемблировать) её код для анализа.</p>
+<h1 id="причины-переполнения-стека-и-механизмы-защиты">Причины переполнения стека и механизмы защиты<a class="td-heading-self-link" href="#%d0%bf%d1%80%d0%b8%d1%87%d0%b8%d0%bd%d1%8b-%d0%bf%d0%b5%d1%80%d0%b5%d0%bf%d0%be%d0%bb%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d1%81%d1%82%d0%b5%d0%ba%d0%b0-%d0%b8-%d0%bc%d0%b5%d1%85%d0%b0%d0%bd%d0%b8%d0%b7%d0%bc%d1%8b-%d0%b7%d0%b0%d1%89%d0%b8%d1%82%d1%8b" aria-label="Heading self-link"></a></h1><p>В основе теории алгоритмов лежит абстрактная машина Тьюринга, которая имеет бесконечные вычислительные ресурсы (бесконечная память и не ограниченное время выполнения), благодаря чему допускаются любые алгоритмы, в том числе и с бесконечной глубиной рекурсии.</p>
+<p>Однако ресурсы реальных компьютеров всегда конечны: память, а соответственно и размер стека конечен. Из-за этого, хоть рекурсивные алгоритмы и существуют, но <strong>неограниченная рекурсия</strong> на практике невозможна. Кроме этого, задача определения завершимости произвольной программы (проблема останова) для машины Тьюринга - в принципе неразрешима,  поэтому никакой анализ программы на этапе компиляции не способен достоверно предсказать корректность программы в общем случае, как и максимальную глубину стека, необходимую для её выполнения.</p>
+<p>Поэтому размер стека всегда задается заранее:</p>
+<ul>
+<li>При компоновке/загрузке процесса в оперативную память или при создании потока приложения.</li>
+<li>Максимальный размер стека резервируется на уровне ОС и не может быть увеличен в ходе жизни потока (хотя иногда и <a href="https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/resetstkoflw">предпринимаются попытки динамически увеличивать размер стека во время работы приложения</a>, <a href="https://releases.llvm.org/3.0/docs/SegmentedStacks.html">Segmented Stacks in LLVM</a> и <a href="https://gcc.gnu.org/wiki/SplitStacks">Split Stacks in GCC</a>)</li>
+<li>В некоторых языка программирования рантаймы могут устанавливать пользовательские размеры стеков, но это не изменяет ограничений для системного потока и всё равно упирается в общий предел памяти.</li>
+</ul>
+<spoiler title="Существует множество механизмов защиты стека:">
+<p>Программные, на уровне компилятора:</p>
+<ul>
+<li>Стековые «канареечные» значения (stack canaries, stack cookies): вставка защитных маркеров в прологах функций, проверяемых в эпилоге.</li>
+<li>Пробинг/пошаговое «прощупывание» стека для больших кадров: гарантирует, что ОС успеет активировать сторожевые страницы, предотвращая «столкновение» с другими регионами памяти.</li>
+<li>Проверки на столкновение стеков (stack-clash protection) при крупных локальных аллокациях.</li>
+<li>Санитайзеры времени выполнения: детектирование переполнений локальных буферов, выходов за его границы</li>
+<li>Разделение «безопасного» и общего стека (safe stack) для минимизации возможностей перезаписи чувствительных данных</li>
+<li>Tail-call оптимизация и устранение хвостовой рекурсии: преобразование хвостовых вызовов в итеративные переходы без роста стека.</li>
+<li>Альтернативный стек для обработчиков сигналов/исключений, чтобы корректно записать аварийный отчёт при переполнении основного стека.</li>
+</ul>
+<p>Аппаратные и системные механизмы защиты стека:</p>
+<ul>
+<li>MMU/страничная защита и сторожевые страницы на границе стека: раннее обнаружение выхода за пределы.</li>
+<li>Разделение исполнения и данных: запрет выполнения кода со стека (NX/DEP), чтобы переполнение не превращалось в исполнение произвольного кода.</li>
+<li>Рандомизация адресного пространства (ASLR): усложняет предсказуемость расположения стека, снижая риск целевых атак.</li>
+<li>Теневой стек на аппаратном уровне для защиты возвратов (shadow stack), предотвращающий подмену адресов возврата.</li>
+<li>Контроль потока управления на уровне процессора, снижающий вероятность эксплуатации переполнений.</li>
+<li>Политики ОС для лимитов стека на поток и процесс, обеспечивающие предсказуемое поведение и аварийное завершение до повреждения соседних регионов памяти.</li>
+</ul>
+</spoiler>
+<p><anchor>body</anchor></p>
+<p>Все выше перечисленные методы защиты стека позволяют только выявить сам факта его переполнения, когда данные программы уже разрушены, но для целей <a href="/ru/blog/safety/language-guarantees/">доказательного программирования</a> меня интересует задача для предотвращения переполнения стека и возможность реализация программной обработки этой ситуации изнутри работающего приложения без нарушения целостности данных.</p>
+<h2 id="реализация-защиты-стека-от-переполнения-для-с">Реализация защиты стека от переполнения для С++<a class="td-heading-self-link" href="#%d1%80%d0%b5%d0%b0%d0%bb%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d1%8f-%d0%b7%d0%b0%d1%89%d0%b8%d1%82%d1%8b-%d1%81%d1%82%d0%b5%d0%ba%d0%b0-%d0%be%d1%82-%d0%bf%d0%b5%d1%80%d0%b5%d0%bf%d0%be%d0%bb%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%b4%d0%bb%d1%8f-%d1%81" aria-label="Heading self-link"></a></h2><p>Исходный код проекта для предотвращения аварийного завершения работы приложения из-за переполнения стека можно посмотреть на  <a href="https://github.com/afteri-ru/stack-check?tab=readme-ov-file#%D0%BE%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5-%D0%B7%D0%B0%D1%89%D0%B8%D1%82%D1%8B-%D1%81%D1%82%D0%B5%D0%BA%D0%B0-%D0%BE%D1%82-%D0%BF%D0%B5%D1%80%D0%B5%D0%BF%D0%BE%D0%BB%D0%BD%D0%B5%D0%BD%D0%B8%D1%8F-%D0%B4%D0%BB%D1%8F-c">GitHub/stack-check</a>.</p>
+<p>Его основная идея заключается в проверке свободного места на стеке перед вызовом защищаемой функции, и если свободного места недостаточно, то выбрасывается программное исключение <code>stack_overflow</code>, которое можно перехватить и обработать изнутри приложения, не дожидаясь возникновения ошибки сегментирования из-за переполнения стека программы/потока и последующего разрушения данных.</p>
+<p>Код проекта реализован в виде одного заголовочного файле <code>stack_check.h</code>, в котором находятся все необходимые программные примитивы для ручного использования. Так же есть плагин для Clang, который на этапе генерации IR-кода автоматически вставляет вызовы функций контроля стека от переполнения перед защищаемыми функциями.</p>
+<p>Для ручной маркировки функций и методов классов, перед вызовом которых требуется проверка свободного места на стеке, используются пользовательские атрибуты C++ которые раскрываются с помощью макросов <code>STACK_CHECK_SIZE(size)</code> и <code>STACK_CHECK_LIMIT</code> :</p>
+<ul>
+<li>
+<p>Атрибут <code>STACK_CHECK_SIZE(size)</code> принимает один аргумент в виде целого числа - размер свободного пространства на стеке, который будет автоматически проверяться перед вызовом защищаемой функции.</p>
+</li>
+<li>
+<p>Атрибут <code>STACK_CHECK_LIMIT</code> тоже проверяет размер свободного пространства на стеке, который задаётся при <strong>компиляции приложения</strong>. <em>Размер использования стека для каждой функции можно выяснить, указав при компиляции опцию -fstack-usage, которая сохраняет в файле *.su список всех функций и требуемый для них размер стека</em>.</p>
+</li>
+</ul>
+<p>Автоматическую вставку кода перед защищаемой функцией можно отменить. Для этого требуется вставить в C++ коде вызов вспомогательного статического метода <code>ignore_next_check(const size_t)</code>, которому передаётся количество следующих вставок кода, которые будут пропущены (удалены) из генерируемого (исполняемого) файла.</p>
+<p>Пример кода для использования библиотеки:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">#include</span> <span style="color:#8f5902;font-style:italic">&#34;stack_check.h&#34;</span><span style="color:#8f5902;font-style:italic">
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">using</span> <span style="color:#204a87;font-weight:bold">namespace</span> <span style="color:#000">trust</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">const</span> <span style="color:#204a87;font-weight:bold">thread_local</span> <span style="color:#000">stack_check</span> <span style="color:#000">stack_check</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">info</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// Функция без автоматической проверки стека от переполнения
+</span></span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span> 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// Перед каждым вызовом функции будет вставлен код проверки указанного свободного места на стеке
+</span></span></span><span style="display:flex;"><span><span style="color:#c4a000">[[stack_check_size(100)]]</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">guard_size_func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">char</span> <span style="color:#000">data</span><span style="color:#000;font-weight:bold">[</span><span style="color:#0000cf;font-weight:bold">92</span><span style="color:#000;font-weight:bold">];</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// Перед каждым вызовом функции будет проверяться минимальный размер свободного места на стеке
+</span></span></span><span style="display:flex;"><span><span style="color:#000">STACK_CHECK_LIMIT</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">guard_limit_func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">main</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Тут будет автоматически добавлен код для контроля стека от переполнения
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">guard_size_func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>     
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#000">stack_check</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">ignore_next_check</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">);</span> <span style="color:#8f5902;font-style:italic">// Следующая автоматическая вставка проверки стека будет проигнорирована
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">guard_size_func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>     
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Тут будет автоматически добавлен код для проверки минимального размера свободного места на стеке
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">guard_limit_func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>     
+</span></span><span style="display:flex;"><span>    <span style="color:#000">stack_check</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">check_overflow</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">10000</span><span style="color:#000;font-weight:bold">);</span> <span style="color:#8f5902;font-style:italic">// Ручная проверка свободного места на стеке
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">return</span> <span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span></code></pre></div><p>После чего файл компилируется с подключением clang плагина:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>$ clang++ -std<span style="color:#ce5c00;font-weight:bold">=</span>c++20 -Xclang -load -Xclang stack_check_clang.so -Xclang -add-plugin -Xclang stack_check -lpthread filename.cpp
+</span></span></code></pre></div><h2 id="детали-реализации">Детали реализации<a class="td-heading-self-link" href="#%d0%b4%d0%b5%d1%82%d0%b0%d0%bb%d0%b8-%d1%80%d0%b5%d0%b0%d0%bb%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" aria-label="Heading self-link"></a></h2><p>Финальный размер стека для вызова функции зависит от множества факторов, таких как целевая платформа, степень оптимизации программы, соглашение о вызове конкретной функции и т. д., из-за чего его нельзя вычислить с помощью статического анализатора кода на основе AST или проанализировав IR-представление, а можно определить только на этапе генерации машинных инструкций под конкретную целевую платформу.</p>
+<p>Причём для целей автоматического контроля (для функций, отмеченных атрибутом <code>stack_check_size</code> или <code>stack_check_limit</code>) минимальный размер свободного пространства на стеке не может быть меньше определённого фиксированного порога, который требуется для создания программного исключения с информацией об ошибке. Размер такого порога зависит от реализации, и на него влияет целевая платформа, операционная система, степень оптимизации программы и прочие факторы.</p>
+<p>Основная функциональность контроля переполнения стека находится в классе <code>trust::stack_check</code>. Информация о размере стека хранится в статических полях класса, индивидуально для каждого потока (<em>Thread Local</em> - локальное хранилище потоков, TLS), что позволяет однократно запрашивать параметры стека для каждого потока при инициализации структуры, а при проверке размера свободного места на стеке с помощью метода <code>stack_check::check_overflow(N)</code> сравнивать текущий указатель стека с нижней границей выделенной под стек области памяти.</p>
+<p>Для использования библиотеки в приложении необходимо определить статическую переменную <code>const thread_local trust::stack_check trust::stack_check::info</code>, а для указания минимального лимита свободного пространства на стеке присвоить соответствующее значение макросу <code>STACK_SIZE_LIMIT</code>.</p>
+<h2 id="накладные-расходы-и-влияние-на-скорость-работы-программы">Накладные расходы и влияние на скорость работы программы<a class="td-heading-self-link" href="#%d0%bd%d0%b0%d0%ba%d0%bb%d0%b0%d0%b4%d0%bd%d1%8b%d0%b5-%d1%80%d0%b0%d1%81%d1%85%d0%be%d0%b4%d1%8b-%d0%b8-%d0%b2%d0%bb%d0%b8%d1%8f%d0%bd%d0%b8%d0%b5-%d0%bd%d0%b0-%d1%81%d0%ba%d0%be%d1%80%d0%be%d1%81%d1%82%d1%8c-%d1%80%d0%b0%d0%b1%d0%be%d1%82%d1%8b-%d0%bf%d1%80%d0%be%d0%b3%d1%80%d0%b0%d0%bc%d0%bc%d1%8b" aria-label="Heading self-link"></a></h2><p>Проверка стека на переполнение, даже в случае максимальной оптимизации, не может быть короче двух машинных инструкций (операции сравнения и инструкции короткого перехода), что, безусловно, добавляет время к вызову функции.</p>
+<p><em>В качестве &ldquo;измерителя скорости&rdquo; использовал программу нахождения простых чисел рекурсивным методом из файла <code>prime_check.cpp</code> (в качестве тестов также пробовал ханойские башни и рекурсивный алгоритм подсчёта суммы цифр у длинного числа, но глубина стека для проверки переполнения в первом случае требует очень большой продолжительности работы алгоритма, а запись длинного числа, при котором возникает переполнение стека, занимает несколько экранов, что тоже неудобно для целей тестирования).</em></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ ./prime-check-O3
+</span></span><span style="display:flex;"><span>Usage: ./prime-check-O3 &lt;start_number&gt; <span style="color:#ce5c00;font-weight:bold">[</span>count<span style="color:#ce5c00;font-weight:bold">]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$ ./prime-check-O3 <span style="color:#0000cf;font-weight:bold">9999999999999999</span>
+</span></span><span style="display:flex;"><span>Stack overflow exception at: <span style="color:#0000cf;font-weight:bold">104588</span> call depth.
+</span></span><span style="display:flex;"><span>Stack top: 0x7fffdc634000 bottom: 0x7fffdbe36000 <span style="color:#ce5c00;font-weight:bold">(</span>stack size: 8380416<span style="color:#ce5c00;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>Query size: <span style="color:#0000cf;font-weight:bold">10000</span> end frame: 0x7fffdbe386a0 <span style="color:#ce5c00;font-weight:bold">(</span>free space: 9888<span style="color:#ce5c00;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$ ./prime-check-O3 <span style="color:#0000cf;font-weight:bold">10000000000</span> <span style="color:#0000cf;font-weight:bold">1000</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000000019</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000000033</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000000061</span>
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000022899</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000022909</span>
+</span></span><span style="display:flex;"><span>Max recursion depth SAFE: <span style="color:#0000cf;font-weight:bold">100000</span>
+</span></span><span style="display:flex;"><span>Number of recursive calls SAFE: <span style="color:#0000cf;font-weight:bold">117539009</span>
+</span></span><span style="display:flex;"><span>Execution <span style="color:#204a87">time</span> SAFE: <span style="color:#0000cf;font-weight:bold">18227634</span> microseconds
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Max recursion depth: <span style="color:#0000cf;font-weight:bold">100000</span>
+</span></span><span style="display:flex;"><span>Number of recursive calls: <span style="color:#0000cf;font-weight:bold">117539009</span>
+</span></span><span style="display:flex;"><span>Execution time: <span style="color:#0000cf;font-weight:bold">17925080</span> microseconds
+</span></span><span style="display:flex;"><span>Difference in execution time: 1.68788 %
+</span></span></code></pre></div><p>Оценка влияния контроля переполнения стека на скорость работы приложения: без оптимизации (-O0) - время выполнения увеличивается примерно на <em>1%</em>-<em>5%</em>, а при максимальной оптимизации (-O3) - примерно на <em>0,5-2%</em> (общее время выполнения приложения около <em>20 секунд</em>).</p>
+<p>В идеальном виде (если стремиться к минимальным накладным расходам) лучше всего вычислять размер стека для всех функций программы и всегда использовать максимальное значение (ведь загрузка значения в регистр перед операцией сравнения также требует тактов процессора и обращения к памяти). В этом случае при любых последовательных вызовах функций в одном блоке достаточно будет проконтролировать свободное место на стеке только перед вызовом первой функции.</p>
+<h2 id="причем-тут-ии-">Причем тут ИИ ?<a class="td-heading-self-link" href="#%d0%bf%d1%80%d0%b8%d1%87%d0%b5%d0%bc-%d1%82%d1%83%d1%82-%d0%b8%d0%b8-" aria-label="Heading self-link"></a></h2><p>Честно признаюсь, что <a href="https://habr.com/ru/articles/900224/">даже имея за плечами некоторый опыт разработки плагинов для clang</a>, без использования LLM я бы такой проект не осилил за столь короткий срок (около месяца работы в фоне).</p>
+<p>Как оказалось, функциональность AST плагинов  clang не позволяет подключать плагины для LLVM напрямую без некоторого &ldquo;шаманства&rdquo;, а внести изменения на этапе генерации объектного кода с помощью плагина оказалось и вообще не возможно без изменения исходников LLVM. Из-за этого пришлось отказаться от автоматического вычисления размера стека, так как патчить LLVM только для проверки концепции мне показалось чрезмерным.</p>
+<p>Тем не менее, не смотря на очень большую помощь генеративный нейросетей в изучении темы, писать реальный код с её помощью оказалось бесполезной затеей. Самый лучший алгоритм использования LLM в разработке  оказался следующим, <a href="https://habr.com/ru/articles/977164/">настроить параметры работы LLM для работы с кодом</a> и создавать с её помощью отдельные небольшие проекты с ограниченной функциональностью, причем обязательно с рабочими тестами, чтобы быть уверенным в корректной работе написанного примера. После этого вдумчиво изучить получившийся код, может быть даже пообщаться в диалоговом режиме для уточнения отдельных моментов, а после того как картинка в голове сложится - можно переносить нужные фрагменты в основной проект.</p>
+<p>Все попытки организовать работу по другому на полной кодовой базе закончились фиаско. Любые LLM начинали терять контекст, переключались на второстепенные, а часто и не существующие проблемы. После чего проекта и вовсе ломался, так как LLM решала проверить систему сборки, для чего делала &ldquo;заглушку&rdquo;, т.е. удаляла существующий рабочий код, убеждалась, что сборка проходит нормально и все начиналось по кругу.</p>
+<p>При долгом использовании LLM стала особенно раздражать эмоциональное поощрение пользователей и попытки задавать уточняющие вопросы: &ldquo;Вы задали хороший вопрос&rdquo;, &ldquo;Вы правильно сформулировали проблему&rdquo;, &ldquo;Спасибо за замечания. Пожалуйста уточните &hellip;&rdquo;, а так же встраиваемая реклама собственных решений:</p>
+<p><img src="https://habrastorage.org/webt/6f/mz/gn/6fmzgnxwtrkj7uvxoniqsrzhuye.png" alt=""></p>
+<p>Но даже не смотря на некоторое разочарование от постоянных ошибок при использовании  LLM и попытки навязать подписку на собственные программные продукты, применение генеративных нейросетей позволило сэкономить кучу сил и времени на изучении примеров кода.</p>
+<p>Я сейчас вообще перестал вручную писать скрипты, править конфигурационные файлы для VSCode или разбираться с ошибками в CMakeLists.txt. Конечно я не думаю, что LLM в скором времени и в самом деле смогут заменить программиста, но реально облегчить работу разработчиков они могут уже сейчас.</p>
+<h2 id="статус-интеграции-в-trustlang">Статус интеграции в TrustLang<a class="td-heading-self-link" href="#%d1%81%d1%82%d0%b0%d1%82%d1%83%d1%81-%d0%b8%d0%bd%d1%82%d0%b5%d0%b3%d1%80%d0%b0%d1%86%d0%b8%d0%b8-%d0%b2-trustlang" aria-label="Heading self-link"></a></h2><p>Функциональность контроля переполнения стека встроена в компилятор <a href="/ru/docs/">TrustLang</a> как
+контроль <strong>на этапе кодогенерации</strong> (роль clang-плагина берёт транспилятор, а рантайм-примитивы
+<code>trust::stack_check</code> — публичный рантайм-заголовок <code>trust/stack_check.hpp</code>).</p>
+<ul>
+<li><strong>Атрибуты функций</strong> (вставка проверки ПЕРЕД каждым вызовом помеченной функции):
+<ul>
+<li><code>@[stack_check@]</code> — без аргумента = <strong>limit</strong>: перед каждым вызовом <code>check_stack_limit()</code>
+(свободно ≥ <code>m_stack_limit</code> из секции <code>.stack_sizes</code> + резерв);</li>
+<li><code>@[stack_check(N)@]</code> — целое <code>N</code>: <code>check_overflow(N)</code> (явный размер свободного места).</li>
+</ul>
+</li>
+<li><strong>Отдельные функции</strong> (реальные C++-функции рантайма, явные вызовы в коде, <code>%</code>-префикс):
+<ul>
+<li><code>%trust_stack_check(N)</code> — <code>check_overflow(N)</code> (free ≥ N + reserve);</li>
+<li><code>%trust_stack_check()</code> — <code>check_stack_limit()</code> (free ≥ m_stack_limit + reserve);</li>
+<li><code>%trust_stack_check_set_reserve(N)</code> — <code>set_reserve(N)</code> (мин. резерв для всех функций);</li>
+<li><code>%trust_stack_check_get_reserve()</code> — <code>get_reserve()</code>;</li>
+<li><code>%trust_stack_check_get_limit()</code> — <code>get_limit()</code> (текущий <code>m_stack_limit</code>);</li>
+<li><code>%trust_stack_check_set_limit(f1, f2, ...)</code> — <code>set_limit({&amp;c_f1, &amp;c_f2})</code> (ограничить <code>m_stack_limit</code>
+перечисленными функциями; пусто = все функции <code>.stack_sizes</code>).</li>
+</ul>
+</li>
+<li><strong>Резерв <code>reserve</code></strong> (мин. размер стека для создания исключения, default 8192) ВСЕГДА добавляется
+к проверкам: <code>stack_check</code> = <code>N + reserve</code>, <code>stack_check_limit</code> = <code>m_stack_limit + reserve</code>.</li>
+<li><strong>Управление</strong>:
+<ul>
+<li><code>--stack-check=&lt;off|explicit|recursion|auto&gt;</code> (default <code>explicit</code>), <code>-Wstack-check=&lt;mode&gt;</code>,
+<code>-Wno-stack-check</code>; из кода — <code>@__OPTION__(&quot;stack-check&quot;, &quot;...&quot;)</code> + <code>@__OPTION_PUSH__/POP__</code>;</li>
+<li>минимальный резерв — <code>--stack-check-reserve=&lt;bytes&gt;</code> (default 8192) / <code>-Wstack-check-reserve=</code> /
+<code>@__OPTION__(&quot;stack-check-reserve&quot;, &quot;...&quot;)</code>;</li>
+<li><code>--stack-check-functions=&lt;names&gt;</code> — ограничить <code>m_stack_limit</code> перечисленными функциями (пусто = все);</li>
+<li><code>recursion</code> — диагностика <code>-Wstack-check-infer</code> для незащищённых рекурсивных функций;
+<code>auto</code> — авто-маркировка рекурсивных функций.</li>
+</ul>
+</li>
+<li>Сгенерированная программа компилируется с <code>-fstack-size-section</code> и <code>-lpthread</code>; TLS <code>info</code>
+определяется в сгенерированном entry <code>_main.cppt</code>.</li>
+</ul>
+<p>Пример:</p>
+<pre tabindex="0"><code class="language-trust" data-lang="trust">@[stack_check@]
+@func recurse(n:Int32):Int32 {
+    @if(n &lt;= 0) { @return 0; };
+    @return recurse(n - 1) + 1;
+};
+</code></pre>
+	<ul class="list-unstyled td-pager d-flex justify-content-between align-items-center mb-0">
+  <li>
+    <a href="/ru/blog/safety/language-guarantees/" aria-label="Предыдущая - Гарантии языка программирования как основа безопасной разработки программного обеспечения" class="btn btn-primary"><span class="me-1">←</span>Предыдущая</a>
+  </li>
+  <li>
+    <a class="btn btn-primary disabled">Следующая<span class="ms-1">→</span></a>
+  </li>
+</ul>
+
+	</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">Все права защищены</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Stack-Check on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/stack-check/</link>
+		<description>Recent content in Stack-Check on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/tags/stack-check/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Stack overflow protection (stack check)</title>
+				<link>https://trust-lang.net/en/docs/safety/stack_check/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/safety/stack_check/</guid>
+				<description>&lt;p&gt;&lt;em&gt;TrustLang&lt;/em&gt; has built-in &lt;a href=&#34;https://github.com/afteri-ru/stack-check&#34;&gt;stack overflow protection&lt;/a&gt;. Before calling a protected function, the free space on the thread stack is checked, and if it is insufficient — instead of abnormal termination of the whole application (&lt;code&gt;segmentation fault&lt;/code&gt;), a &lt;strong&gt;program exception &lt;code&gt;stack_overflow&lt;/code&gt;&lt;/strong&gt; is created, which can be caught and handled inside the application, after which program execution continues.&lt;/p&gt;&#xA;&lt;p&gt;A detailed description of the implementation and usage methods will be here.&lt;/p&gt;&#xA;&lt;p&gt;For now you can look at usage examples: &lt;a href=&#34;https://trust-lang.net/en/playground/?file=fibonacci&#34;&gt;recursive computation of Fibonacci numbers&lt;/a&gt; and &lt;a href=&#34;https://trust-lang.net/en/playground/?file=prime&#34;&gt;recursive primality check&lt;/a&gt;&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

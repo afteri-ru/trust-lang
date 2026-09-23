@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Theory on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/theory/</link>
+		<description>Recent content in Theory on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/theory/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Теория вычислений</title>
+				<link>https://trust-lang.net/ru/blog/theory/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Механизм возникновения сознания у конечных автоматов</title>
+				<link>https://trust-lang.net/ru/blog/theory/consciousness-fsm/</link>
+				<pubDate>Mon, 13 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/consciousness-fsm/</guid>
+				<description>&lt;p&gt;Конечный автомат - это математическая модель вычислений: абстрактная машина, которая в каждый момент времени находится ровно в одном из конечного множества состояний, а переходы между состояниями происходят в ответ на входные сигналы (события) по заранее заданным правилам. Традиционно эту модель воспринимают как примитивную формализацию, пригодную лишь для распознавания регулярных языков и реализации жёстко детерминированных реактивных контроллеров.&lt;/p&gt;&#xA;&lt;p&gt;На первый взгляд, подобная абстракция кажется чересчур примитивной, чтобы вместить в себя искусственный интеллект или самосознание. Однако если рассматривать сознание не как статический атрибут отдельного элемента, а как эмерджентное свойство, возникающее на стыке взаимодействия миллионов автоматных переходов, то граница между вычислительной машиной и мыслящей системой с самосознанием оказывается неожиданно тонкой.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Размышления о машине Тьюринга и причинах возникновения ошибок в языках программирования</title>
+				<link>https://trust-lang.net/ru/blog/theory/turing-machine/</link>
+				<pubDate>Sat, 15 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/turing-machine/</guid>
+				<description>&lt;p&gt;Пару лет назад я написал статью &lt;a href=&#34;https://trust-lang.net/ru/blog/theory/structured-programming/&#34;&gt;Размышления о структурном программировании&lt;/a&gt;, в которой пытался разобраться с заблуждением, будто Эдсгер Дейкстра доказал, что любой алгоритм можно построить всего из трех конструкций (следования, ветвления, цикла). Тогда как на самом деле:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Эту теорему доказали (с условиями и ограничениями) итальянские ученые &lt;strong&gt;Бём и Якопини&lt;/strong&gt;, а Дейкстра лишь ссылался на неё.&lt;/li&gt;&#xA;&lt;li&gt;Трех указанных базовых алгоритмических конструкций &lt;strong&gt;недостаточно&lt;/strong&gt; для современного программирования (например, требуется обработка исключений).&lt;/li&gt;&#xA;&lt;li&gt;Знаменитая критика оператора &lt;code&gt;goto&lt;/code&gt; от Дейкстры (а также оператора присвоения, о чем всегда забывают рассказать) была не строгим запретом, а всего лишь &lt;strong&gt;рекомендацией по улучшению стиля кода&lt;/strong&gt;, чтобы программы было легче анализировать.&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;А вот теперь настало время написать про некоторые проблемы машины Тьюринга - фундаментальной основы всех информационных технологий.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Размышления о структурном программировании</title>
+				<link>https://trust-lang.net/ru/blog/theory/structured-programming/</link>
+				<pubDate>Sun, 31 Dec 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/structured-programming/</guid>
+				<description>&lt;p&gt;31 дек 2023 в 11:53&lt;/p&gt;&#xA;&lt;p&gt;&lt;img src=&#34;https://habrastorage.org/webt/bt/kx/s8/btkxs84ogzg5s87yporld99d1c0.jpeg&#34; alt=&#34;&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Изначально я хотел назвать статью как нибудь вызывающе, например, &amp;ldquo;Как наука может превращаться в религию&amp;rdquo;, &amp;ldquo;В ловушке искажений смыслов структурного программирования&amp;rdquo; или &amp;ldquo;О чем вам забыли рассказать про структурное программирование&amp;rdquo;, но в результате все же оставил текущее название и надеюсь, оно не вызывает раздражения у читателей. И хотя другие заголовки являются более кликбейтными, тем не менее они все же в больше степени отражают смысл статьи, чем нейтральные &amp;ldquo;размышления&amp;rdquo;.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Проблема логических языков программирования</title>
+				<link>https://trust-lang.net/ru/blog/theory/logic-prog/</link>
+				<pubDate>Sat, 09 Jan 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/logic-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/langs.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Некоторое время назад я писал про &lt;a href=&#34;https://trust-lang.net/ru/blog/language-design/inter-prog/&#34;&gt;«Интернациональное программирование на естественных языках»&lt;/a&gt;,&#xA;в которой попытался представить достойную цель для абстрактного языка программирования,&#xA;попробовав примерить на него роль связующего звена между миром программистов с компьютерами и не программистов.&lt;/p&gt;&#xA;&lt;p&gt;Но в результате оказалось, что это не нужно в принципе, т.к. «не программистам» просто не требуется учиться писать программы.&#xA;А если иногда такое желание и возникает, то вполне хватает обычных формализованных языков программирования,&#xA;которых уже сейчас насчитывается наверно более десяти тысяч.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

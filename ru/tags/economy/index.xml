@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Economy on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/economy/</link>
+		<description>Recent content in Economy on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Mon, 07 Sep 2026 17:43:45 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/economy/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Экономика безопасности кода или почему Rust не нужен</title>
+				<link>https://trust-lang.net/ru/blog/comparison/code-safety-economy/</link>
+				<pubDate>Sat, 04 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/code-safety-economy/</guid>
+				<description>&lt;p&gt;Прочитал статью  &lt;a href=&#34;https://habr.com/ru/articles/1018592/&#34;&gt;Параллелизм с общим состоянием в Rust&lt;/a&gt; и обратил внимание, что её общий смысл можно выразить известной фразой: &amp;ldquo;делай как нужно, а как не нужно, делать не нужно&amp;rdquo;. Другими словами, это точно такой же совет, какой можно дать разработчику любого другого языка программирования, например С++.&lt;/p&gt;&#xA;&lt;p&gt;И решил не продолжать дискуссию в комментариях, а выразить мнение в виде краткой статьи с описанием фундаментальной  экономической модели разработки ПО, которая не способствует (и объективно не должно способствовать) массовому переходу с C/C++ на «безопасные» альтернативы. Так как из-за особенностей распределения затрат у разработчика ПО отсутствует экономическая мотивация к полному устранению ошибок, и как следствие - к переходу на использование «безопасных» языков программирования.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Безопасность С&#43;&#43; и буридановы мыши в ИТ</title>
+				<link>https://trust-lang.net/ru/blog/comparison/cpp-safety/</link>
+				<pubDate>Thu, 02 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/cpp-safety/</guid>
+				<description>&lt;p&gt;В ИТ есть странная форма «информационной инерции»: когда фраза однажды удачно легла на реальность, стала цитатой, превратилась в маркер «своего» - и дальше продолжила жить сама по себе. Реальность уехала, практики сменились, инструменты стали другими, экономика разработки перевернулась, а штамп формулировки остался. И особенно охотно её повторяют те, кому нужно писать быстро и убедительно, но нет времени (или компетенции) разбирать в технических деталях.&lt;/p&gt;&#xA;&lt;p&gt;И проблема не в том, что старые тезисы изначально были бессмысленными. Проблема в том, что их продолжают подавать как вечные законы природы - без даты, без контекста и без поправок на то, что индустрия в корне изменилась.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

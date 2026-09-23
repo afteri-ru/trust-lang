@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Philosophy of programming on TrustLang</title>
+		<link>https://trust-lang.net/en/blog/programming/</link>
+		<description>Recent content in Philosophy of programming on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/blog/programming/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Can declarative and imperative styles of writing programs be used simultaneously?</title>
+				<link>https://trust-lang.net/en/blog/programming/prog-styles-same-time/</link>
+				<pubDate>Mon, 26 Jul 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/programming/prog-styles-same-time/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/programming/matrix.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;When developing his own programming language, the author must decide what properties his language should have,&#xA;because in the end it is precisely this that will determine the purpose of the language and the features of its use.&#xA;Moreover, some properties influence the final concept of the language and its syntax so strongly&#xA;that subsequently their change is impossible in principle, or the new syntax turns out to be very tangled and incomprehensible.&#xA;Probably because of this many properties of programming languages are considered and studied as mutually exclusive.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Simple complex programming</title>
+				<link>https://trust-lang.net/en/blog/programming/complex-prog/</link>
+				<pubDate>Thu, 15 Apr 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/programming/complex-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/programming/complex-prog/complex-prog.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Once again I saw an article on Habr about the complicated business called &amp;ldquo;programming&amp;rdquo;.&#xA;And the fact that programming really is not a simple business is perceived as a fact and usually does not require any confirmation.&lt;/p&gt;&#xA;&lt;p&gt;But the notion of &amp;ldquo;complexity&amp;rdquo; is akin to the term &amp;ldquo;heap&amp;rdquo;.&#xA;For someone, five coconuts is not a heap, and someone ate one and &amp;ldquo;does not want any more&amp;rdquo; — so for him even a single coconut will be a lot.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

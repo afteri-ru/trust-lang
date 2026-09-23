@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Ai on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/ai/</link>
+		<description>Recent content in Ai on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/ai/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>AI and IT processes</title>
+				<link>https://trust-lang.net/en/blog/ai/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/ai/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Why C&#43;&#43; or Rust can never replace Python</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</guid>
+				<description>&lt;p&gt;Articles analyzing the phenomenon of Python periodically appear on Habr — how one of the slowest programming languages became the king of neural networks, and the answer is always the same: thanks to a simple syntax and a developed ecosystem. But the ecosystem of C++ is significantly larger and richer, so it is not the ecosystem, and only the syntax remains. And if the problem really is the syntax, then there should also be an answer to another question: why did C++ &lt;strong&gt;not&lt;/strong&gt; become the basis for research in this (or any other) area?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The main problem of using AI (Illusions of Intelligence) in software development</title>
+				<link>https://trust-lang.net/en/blog/ai/ai-illusions/</link>
+				<pubDate>Thu, 11 Dec 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/ai/ai-illusions/</guid>
+				<description>&lt;p&gt;I am often struck by how technically literate people argue about whether LLMs have intelligence or whether it is just mathematical computations by a certain algorithm without the rudiments of reason. And what is most interesting, sometimes the opponents in the dispute &lt;strong&gt;for&lt;/strong&gt; the presence of intelligence in generative neural networks are people who in this way advertise their IT solution, not understanding that by doing so they only create problems for themselves.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The ambiguous term &#34;artificial intelligence&#34;</title>
+				<link>https://trust-lang.net/en/blog/ai/wrong-term-ai/</link>
+				<pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/ai/wrong-term-ai/</guid>
+				<description>&lt;p&gt;Lately it seems everyone is talking about the successes of artificial intelligence (AI), often meaning by this yet another achievement in the field of generative neural networks. And as usual, some make money on the hype, others crave the appearance of &lt;del&gt;Sarah Connor&lt;/del&gt; a real strong AI (which will conquer the world in the future), and someone is just once again raping a journalist.&lt;/p&gt;&#xA;&lt;p&gt;And there are very few who, when mentioning AI, try to explain what they themselves understand by the term &amp;ldquo;artificial intelligence&amp;rdquo;. After all, it is one thing to write about &amp;ldquo;a field of tasks of the AI category&amp;rdquo;, and quite another to endow an ordinary computer algorithm with at least the rudiments of reason.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

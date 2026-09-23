@@ -1,0 +1,482 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Ranges, arrays and tensors | TrustLang</title>
+<meta name="description" content="Ranges, arrays and (in perspective) tensors are container (collection) types for working with sequences and multidimensional data.
+Ranges (:Range)A range is a type, an approximate analog of a “generator” in Python: it alternately yields elements in a given interval with a given step. In the text, a range is specified by two or three elements separated by two dots: 1..5 — from one to five with the default step 1; the step is specified by the third element: 0..10..2. As the boundaries and the step, not only literals but also variables and rational numbers can be used: 0.1..$stop..0.1 — from 0.1 to $stop with step 0.1; 0..100:Rational — a range of rational numbers.">
+<meta property="og:url" content="https://trust-lang.net/en/docs/types/containers/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Ranges, arrays and tensors">
+	<meta property="og:description" content="Ranges, arrays and (in perspective) tensors are container (collection) types for working with sequences and multidimensional data.
+Ranges (:Range)A range is a type, an approximate analog of a “generator” in Python: it alternately yields elements in a given interval with a given step. In the text, a range is specified by two or three elements separated by two dots: 1..5 — from one to five with the default step 1; the step is specified by the third element: 0..10..2. As the boundaries and the step, not only literals but also variables and rational numbers can be used: 0.1..$stop..0.1 — from 0.1 to $stop with step 0.1; 0..100:Rational — a range of rational numbers.">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="docs">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Types">
+		<meta property="article:tag" content="Collections">
+
+	<meta itemprop="name" content="Ranges, arrays and tensors">
+	<meta itemprop="description" content="Ranges, arrays and (in perspective) tensors are container (collection) types for working with sequences and multidimensional data.
+Ranges (:Range)A range is a type, an approximate analog of a “generator” in Python: it alternately yields elements in a given interval with a given step. In the text, a range is specified by two or three elements separated by two dots: 1..5 — from one to five with the default step 1; the step is specified by the third element: 0..10..2. As the boundaries and the step, not only literals but also variables and rational numbers can be used: 0.1..$stop..0.1 — from 0.1 to $stop with step 0.1; 0..100:Rational — a range of rational numbers.">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="409">
+	<meta itemprop="keywords" content="Types,Collections">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Ranges, arrays and tensors">
+	<meta name="twitter:description" content="Ranges, arrays and (in perspective) tensors are container (collection) types for working with sequences and multidimensional data.
+Ranges (:Range)A range is a type, an approximate analog of a “generator” in Python: it alternately yields elements in a given interval with a given step. In the text, a range is specified by two or three elements separated by two dots: 1..5 — from one to five with the default step 1; the step is specified by the third element: 0..10..2. As the boundaries and the step, not only literals but also variables and rational numbers can be used: 0.1..$stop..0.1 — from 0.1 to $stop with step 0.1; 0..100:Rational — a range of rational numbers.">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/docs/types/containers/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap td-docs-layout">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/docs/types/containers/">Русский</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-endocs-li">
+  <a href="/en/docs/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-endocs"><span class="">About the project</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-endocssyntax-li">
+  <input type="checkbox" id="m-endocssyntax-check"/>
+  <label for="m-endocssyntax-check"><a href="/en/docs/syntax/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocssyntax"><span class="">Syntax</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxconcept-li">
+  <input type="checkbox" id="m-endocssyntaxconcept-check"/>
+  <label for="m-endocssyntaxconcept-check"><a href="/en/docs/syntax/concept/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxconcept"><span class="">Concept</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxnaming-li">
+  <input type="checkbox" id="m-endocssyntaxnaming-check"/>
+  <label for="m-endocssyntaxnaming-check"><a href="/en/docs/syntax/naming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxnaming"><span class="">Naming of objects</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxmacros-li">
+  <input type="checkbox" id="m-endocssyntaxmacros-check"/>
+  <label for="m-endocssyntaxmacros-check"><a href="/en/docs/syntax/macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxmacros"><span class="">Macros and DSL</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssyntaxhierarchy-li">
+  <input type="checkbox" id="m-endocssyntaxhierarchy-check"/>
+  <label for="m-endocssyntaxhierarchy-check"><a href="/en/docs/syntax/hierarchy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssyntaxhierarchy"><span class="">Code hierarchy</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-endocstypes-li">
+  <input type="checkbox" id="m-endocstypes-check" checked/>
+  <label for="m-endocstypes-check"><a href="/en/docs/types/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocstypes"><span class="">Data types</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesconcept-li">
+  <input type="checkbox" id="m-endocstypesconcept-check"/>
+  <label for="m-endocstypesconcept-check"><a href="/en/docs/types/concept/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesconcept"><span class="">Type system</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesnumbers-li">
+  <input type="checkbox" id="m-endocstypesnumbers-check"/>
+  <label for="m-endocstypesnumbers-check"><a href="/en/docs/types/numbers/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesnumbers"><span class="">Numbers and tensors</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesstrings-li">
+  <input type="checkbox" id="m-endocstypesstrings-check"/>
+  <label for="m-endocstypesstrings-check"><a href="/en/docs/types/strings/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesstrings"><span class="">Character strings</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesdicts-li">
+  <input type="checkbox" id="m-endocstypesdicts-check"/>
+  <label for="m-endocstypesdicts-check"><a href="/en/docs/types/dicts/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesdicts"><span class="">Dictionaries and sets (enumerations)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesclass-li">
+  <input type="checkbox" id="m-endocstypesclass-check"/>
+  <label for="m-endocstypesclass-check"><a href="/en/docs/types/class/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesclass"><span class="">Classes</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesfuncs-li">
+  <input type="checkbox" id="m-endocstypesfuncs-check"/>
+  <label for="m-endocstypesfuncs-check"><a href="/en/docs/types/funcs/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesfuncs"><span class="">Functions</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocstypesnative-li">
+  <input type="checkbox" id="m-endocstypesnative-check"/>
+  <label for="m-endocstypesnative-check"><a href="/en/docs/types/native/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocstypesnative"><span class="">Native types</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-endocstypescontainers-li">
+  <input type="checkbox" id="m-endocstypescontainers-check" checked/>
+  <label for="m-endocstypescontainers-check"><a href="/en/docs/types/containers/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-endocstypescontainers"><span class="td-sidebar-nav-active-item">Ranges, arrays and tensors</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-endocsoperators-li">
+  <input type="checkbox" id="m-endocsoperators-check"/>
+  <label for="m-endocsoperators-check"><a href="/en/docs/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocsoperators"><span class="">Expressions and statements</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorscreate-li">
+  <input type="checkbox" id="m-endocsoperatorscreate-check"/>
+  <label for="m-endocsoperatorscreate-check"><a href="/en/docs/operators/create/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorscreate"><span class="">Creating objects and assignment</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorsoperators-li">
+  <input type="checkbox" id="m-endocsoperatorsoperators-check"/>
+  <label for="m-endocsoperatorsoperators-check"><a href="/en/docs/operators/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorsoperators"><span class="">Operators</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorsflow-li">
+  <input type="checkbox" id="m-endocsoperatorsflow-check"/>
+  <label for="m-endocsoperatorsflow-check"><a href="/en/docs/operators/flow/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorsflow"><span class="">Conditions and loops</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorswith-li">
+  <input type="checkbox" id="m-endocsoperatorswith-check"/>
+  <label for="m-endocsoperatorswith-check"><a href="/en/docs/operators/with/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorswith"><span class="">Context manager (with)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsoperatorserrors-li">
+  <input type="checkbox" id="m-endocsoperatorserrors-check"/>
+  <label for="m-endocsoperatorserrors-check"><a href="/en/docs/operators/errors/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsoperatorserrors"><span class="">Return, interrupts and error handling</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-endocssafety-li">
+  <input type="checkbox" id="m-endocssafety-check"/>
+  <label for="m-endocssafety-check"><a href="/en/docs/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocssafety"><span class="">Guarantees and safety</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssafetymemory-li">
+  <input type="checkbox" id="m-endocssafetymemory-check"/>
+  <label for="m-endocssafetymemory-check"><a href="/en/docs/safety/memory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssafetymemory"><span class="">Memory management and shared access</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssafetystack_check-li">
+  <input type="checkbox" id="m-endocssafetystack_check-check"/>
+  <label for="m-endocssafetystack_check-check"><a href="/en/docs/safety/stack_check/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssafetystack_check"><span class="">Stack overflow protection (stack check)</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocssandbox-li">
+  <input type="checkbox" id="m-endocssandbox-check"/>
+  <label for="m-endocssandbox-check"><a href="/en/docs/sandbox/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocssandbox"><span class="">Playground</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsstatus-li">
+  <input type="checkbox" id="m-endocsstatus-check"/>
+  <label for="m-endocsstatus-check"><a href="/en/docs/status/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-endocsstatus"><span class="">Status and plans</span></a></label>
+  
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/en/_print/docs/types/"><i class="fa-solid fa-print fa-fw"></i> Print entire section</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#ranges-range">Ranges (:Range)</a></li>
+    <li><a href="#arrays-array">Arrays (:Array)</a></li>
+    <li><a href="#tensors-tensor">Tensors (:Tensor)</a></li>
+    <li><a href="#indexing">Indexing</a></li>
+    <li><a href="#iterating-over-collections">Iterating over collections</a></li>
+    <li><a href="#links">Links</a></li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5" role="main">
+            
+
+<div class="pageinfo pageinfo-primary" role="note">
+  <p><strong>The site sections are under development.</strong></p>
+  <p>The materials may be incomplete or contain errors.
+  The site content will be synchronized with the implementation in the next release,
+  while the current version (0.6.0) is intended for syntax prototyping and for creating the <a href="/en/playground/">playground</a>.</p>
+</div>
+
+
+
+            
+  
+
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/en/docs/">About the project</a></li>
+  <li class="breadcrumb-item">
+    <a href="/en/docs/types/">Data types</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    Ranges, arrays and tensors</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>Ranges, arrays and tensors</h1>
+	
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p>Ranges, arrays and (in perspective) tensors are container (collection) types for working with
+sequences and multidimensional data.</p>
+<h2 id="ranges-range">Ranges (:Range)<a class="td-heading-self-link" href="#ranges-range" aria-label="Heading self-link"></a></h2><p>A range is a type, an approximate analog of a &ldquo;generator&rdquo; in Python: it alternately yields elements in a given
+interval with a given step. In the text, a range is specified by two or three elements separated by two dots:
+<code>1..5</code> — from one to five with the default step 1; the step is specified by the third element: <code>0..10..2</code>.
+As the boundaries and the step, not only literals but also variables and rational
+numbers can be used: <code>0.1..$stop..0.1</code> — from 0.1 to <code>$stop</code> with step 0.1; <code>0..100:Rational</code> — a range of rational numbers.</p>
+<h2 id="arrays-array">Arrays (:Array)<a class="td-heading-self-link" href="#arrays-array" aria-label="Heading self-link"></a></h2><p>One-dimensional arrays are supported by the literals <code>[1, 2, 3,]</code> (→ <code>std::vector&lt;Elem&gt;</code>), the constructor
+<code>:Array(...)</code>, access by index <code>a[i]</code> and array methods (<code>count</code>, <code>at</code>, <code>first</code>, <code>push_back</code>, &hellip;).
+Variables with an array type can be created both by value and as reference variables.</p>
+<p>The remaining positions of the array can be filled in with the operator <code>... expr ...</code> (as the last element) —
+the size is taken from the sized target type: <code>v:Int32[10] := [2, 3, ... 42 ...,];</code> (see
+<a href="/en/docs/operators/create/">Creating values: filling tensors</a>).</p>
+<h2 id="tensors-tensor">Tensors (:Tensor)<a class="td-heading-self-link" href="#tensors-tensor" aria-label="Heading self-link"></a></h2><p>Tensors are multidimensional arrays (based on LibTorch). In the current version <strong>multidimensional arrays and full-fledged
+tensors are not implemented</strong> (see <a href="/en/docs/status/">Status</a>) — the one-dimensional <code>:Array</code> and the type <code>:Range</code> are implemented.</p>
+<h2 id="indexing">Indexing<a class="td-heading-self-link" href="#indexing" aria-label="Heading self-link"></a></h2><p>Access to the elements of an array is performed by an integer index starting at 0:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">a</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">[</span><span style="color:#0000cf;font-weight:bold">10</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#0000cf;font-weight:bold">20</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#0000cf;font-weight:bold">30</span><span style="color:#000;font-weight:bold">,];</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">x</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000">a</span><span style="color:#000;font-weight:bold">[</span><span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">];</span>   <span style="color:#8f5902;font-style:italic"># 10</span>
+</span></span></code></pre></div><p>Negative indices (as in Python) are <strong>not supported</strong>: the reference <code>a[-1]</code> throws a runtime exception.
+Ranges in the index (<code>a[1..3]</code>), <code>:None</code> values and the ellipsis <code>...</code> in the index are also not yet implemented.</p>
+<h2 id="iterating-over-collections">Iterating over collections<a class="td-heading-self-link" href="#iterating-over-collections" aria-label="Heading self-link"></a></h2><p>Iterating over the elements of an array, range or dictionary is performed by the loop <code>@while(collection)</code> with
+destructuring of the current element (a ready example — in the
+<a href="/en/playground/?file=foreach">playground</a>; more — <a href="/en/docs/operators/flow/">Loops</a>).</p>
+<p>The standard library provides the iterator type <code>Iterator&lt;T&gt;</code> — a class marked with <code>@[borrowed]</code>.
+It maps onto C++ <code>trust::AnyIterator&lt;T&gt;</code> (an erased unified cursor) and is available without explicit
+import (loaded by the prelude; disabled by <code>--no-stdlib</code>). Any variable of the type <code>Iterator&lt;T&gt;</code>
+is automatically dependent on the source object: use after mutation of the source —
+the diagnostic <code>-Wborrowed</code> (see <a href="../safety/invalidation/">Control of reference invalidation</a>). The attribute
+is inherited by derived types (<code>Iterator&lt;Int32&gt;</code> and others).</p>
+<h2 id="links">Links<a class="td-heading-self-link" href="#links" aria-label="Heading self-link"></a></h2><ul>
+<li><a href="/en/docs/types/numbers/">Numbers and tensors</a></li>
+<li><a href="/en/docs/types/dicts/">Dictionaries and sets</a></li>
+<li><a href="type_system/">Type conversion</a></li>
+<li><a href="type_system/">Type system</a></li>
+</ul>
+
+	
+</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

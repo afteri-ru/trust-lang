@@ -1,25 +1,1031 @@
 
 
 <!doctype html>
-<html lang="ru">
+<html itemscope itemtype="http://schema.org/WebPage" lang="ru" class="no-js">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>TrustLang — Сайт находится в разработке</title>
-    <style>
-      html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f8f9fa;color:#212529;}
-      .m-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;box-sizing:border-box;}
-      .m-msg{font-size:1.5rem;font-weight:600;margin-bottom:10px;}
-      .m-sub{color:#6c757d;max-width:34em;}
-    </style>
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="alternate" type="text/html" href="https://trust-lang.net/ru/_print/playground/">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/ru/playground/index.xml">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Playground and example code | TrustLang</title>
+<meta name="description" content="Двухоконный playground (godbolt-стиль): слева - редактор Trust (подсветка и живая пере-транспиляция), справа - генерируемый C&#43;&#43;. Клик по строке в одном окне подсвечивает соответствующие строки в противоположной. Примеры выбираются в комбобоксе над Trust-редактором.
+Trust Generated C&#43;&#43;⬇ Download archivefollow …">
+<meta property="og:url" content="https://trust-lang.net/ru/playground/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Playground and example code">
+	<meta property="og:description" content="Двухоконный playground (godbolt-стиль): слева - редактор Trust (подсветка и живая пере-транспиляция), справа - генерируемый C&#43;&#43;. Клик по строке в одном окне подсвечивает соответствующие строки в противоположной. Примеры выбираются в комбобоксе над Trust-редактором.
+Trust Generated C&#43;&#43;⬇ Download archivefollow …">
+	<meta property="og:locale" content="ru">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="Playground and example code">
+	<meta itemprop="description" content="Двухоконный playground (godbolt-стиль): слева - редактор Trust (подсветка и живая пере-транспиляция), справа - генерируемый C&#43;&#43;. Клик по строке в одном окне подсвечивает соответствующие строки в противоположной. Примеры выбираются в комбобоксе над Trust-редактором.
+Trust Generated C&#43;&#43;⬇ Download archivefollow …">
+	<meta itemprop="dateModified" content="2026-09-07T17:43:45+03:00">
+	<meta itemprop="wordCount" content="38">
+	<meta itemprop="keywords" content="Getting-Started">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Playground and example code">
+	<meta name="twitter:description" content="Двухоконный playground (godbolt-стиль): слева - редактор Trust (подсветка и живая пере-транспиляция), справа - генерируемый C&#43;&#43;. Клик по строке в одном окне подсвечивает соответствующие строки в противоположной. Примеры выбираются в комбобоксе над Trust-редактором.
+Trust Generated C&#43;&#43;⬇ Download archivefollow …">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
   </head>
-  <body>
-    <div class="m-wrap">
-      <div class="m-msg">Сайт находится в разработке</div>
-      
+  <body class="td-section">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/ru/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/docs/"><span>О проекте</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/ru/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/blog/"><span>Статьи</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/playground/">English</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-default td-outer">
+      <main role="main" class="td-main">
+        <p>Двухоконный playground (godbolt-стиль): слева - редактор Trust (подсветка и живая
+пере-транспиляция), справа - генерируемый C++. Клик по строке в одном окне
+подсвечивает соответствующие строки в противоположной. Примеры выбираются в
+комбобоксе над Trust-редактором.</p>
+<style>
+/* Playground CSS (godbolt-стиль). Встраивается в html_emit.cpp через #embed.
+   Светлые дефолты; сайт может переопределить --tpl-* в своём CSS (общая тема). */
+.tpl-pg{--tpl-bg:var(--site-bg,#ffffff);--tpl-text:var(--site-text,#24292f);--tpl-gutter:var(--site-muted,#6b7280);--tpl-border:var(--site-border,#d1d5db);--tpl-toolbar:var(--site-toolbar,#f6f8fa);--tpl-linked:var(--site-linked,#fff3bf);--tpl-error:var(--site-error,#dc2626);display:flex;flex-direction:column;gap:6px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--tpl-bg);color:var(--tpl-text);padding:8px;border:1px solid var(--tpl-border);border-radius:6px;box-sizing:border-box;height:calc(100vh - 11rem);height:calc(100dvh - 11rem);min-height:540px;}
+.tpl-row{display:flex;gap:0;flex:1 1 auto;min-height:0;}
+.tpl-pane{flex:1 1 0;display:flex;flex-direction:column;min-width:0;position:relative;border:1px solid var(--tpl-border);border-radius:4px;overflow:hidden;}
+/* Изменяемый размер: вертикальный сплиттер между Trust и Generated C++,
+   горизонтальный - над окном лога. */
+.tpl-splitter-v{width:6px;cursor:col-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}
+.tpl-splitter-v:hover{background:var(--tpl-border);}
+.tpl-splitter-h{height:6px;cursor:row-resize;flex:none;background:var(--tpl-toolbar);user-select:none;}
+.tpl-splitter-h:hover{background:var(--tpl-border);}
+.tpl-toolbar{padding:4px 8px;background:var(--tpl-toolbar);font-size:12px;font-weight:600;user-select:none;display:flex;align-items:center;gap:8px;}
+.tpl-examples{font-size:12px;font-weight:400;max-width:260px;background:var(--tpl-bg);color:var(--tpl-text);border:1px solid var(--tpl-border);border-radius:3px;}
+.tpl-editor{flex:1;min-height:0;}
+.tpl-status{min-height:1.2em;font-size:12px;color:var(--tpl-gutter);white-space:pre-wrap;}
+.tpl-status.tpl-error{color:var(--tpl-error);}
+.tpl-status a.tpl-copy{color:var(--tpl-gutter);cursor:pointer;text-decoration:underline;white-space:nowrap;}
+.tpl-status a.tpl-copy:hover{color:var(--tpl-text);}
+/* Индикатор связи песочницы с балансировщиком (публичный пинг /health): онлайн/деградация/нет связи. */
+.tpl-health{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--tpl-text);white-space:nowrap;}
+.tpl-health .dot{width:9px;height:9px;border-radius:50%;background:var(--tpl-gutter);flex:none;}
+.tpl-health.ok .dot{background:#2e7d32;}
+.tpl-health.degraded .dot{background:#ef6c00;}
+.tpl-health.down .dot{background:var(--tpl-error);}
+.tpl-linked{background:var(--tpl-linked);}
+.tpl-gutter{box-shadow:inset 3px 0 0 var(--tpl-text);opacity:.55;}
+.tpl-follow{font-size:12px;font-weight:400;display:flex;align-items:center;gap:4px;margin-left:auto;cursor:pointer;user-select:none;}
+.tpl-follow input{accent-color:var(--tpl-text);cursor:pointer;}
+.tpl-btn{font-size:12px;padding:3px 10px;background:var(--tpl-toolbar);color:var(--tpl-text);border:1px solid var(--tpl-border);border-radius:4px;cursor:pointer;text-decoration:none;font-weight:600;}
+.tpl-btn-disabled{opacity:.6;pointer-events:none;}
+.tpl-log{height:120px;min-height:40px;flex:none;overflow:auto;font-size:12px;color:var(--tpl-text);background:var(--tpl-bg);border:1px solid var(--tpl-border);border-radius:4px;padding:6px;white-space:pre-wrap;}
+/* Строки лога: кликабельные заголовки диагностик (переход на строку в исходнике). */
+.tpl-logline{min-height:1.1em;}
+.tpl-log-link{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;}
+.tpl-log-error{color:var(--tpl-error);}
+.tpl-log-warn{color:var(--tpl-text);}
+/* Оверлей правой панели: центрированное сообщение об ошибке/нет связи с сервером
+   песочницы. По умолчанию скрыт (display:none), включается из glue-JS. */
+.tpl-overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:none;align-items:center;justify-content:center;padding:16px;text-align:center;background:var(--tpl-bg);color:var(--tpl-error);font-size:14px;line-height:1.5;z-index:10;}
+</style>
+<!-- Playground HTML-каркас (godbolt-стиль). Встраивается в html_emit.cpp через #embed.
+     Статичен: динамические части (конфиг/Monarch/glue-JS) вставляются в C++ отдельным <script>. -->
+<div class="tpl-pg" id="trust-playground">
+<div class="tpl-row">
+  <div class="tpl-pane"><div class="tpl-toolbar">Trust<select id="tpl-examples" class="tpl-examples" title="Load example"></select></div><div id="tpl-trust-editor" class="tpl-editor"></div></div>
+  <div class="tpl-splitter-v" id="tpl-split-v"></div>
+  <div class="tpl-pane"><div class="tpl-toolbar">Generated C++<a id="tpl-download" class="tpl-btn tpl-btn-disabled" href="#" title="Download build archive">&#11015; Download archive</a><label id="tpl-follow" class="tpl-follow" title="Follow the selected line (scroll the other pane to it)"><input type="checkbox" id="tpl-follow-cb" checked>follow</label></div><div id="tpl-cpp-editor" class="tpl-editor"></div><div id="tpl-cpp-overlay" class="tpl-overlay"></div></div>
+</div>
+<div class="tpl-splitter-h" id="tpl-split-h"></div>
+<div id="tpl-log" class="tpl-log"></div>
+<div class="tpl-toolbar" style="border-top:1px solid var(--tpl-border);"><span id="tpl-health" class="tpl-health"><span class="dot"></span><span id="tpl-health-text">…</span></span></div>
+<div id="tpl-status" class="tpl-status"></div>
+</div>
+<script>
+window.__TPG = window.__TPG || {};
+window.__TPG.config = {"monacoUrl":"/monaco/vs","serverUrl":"https://playground.trust-lang.net/run","source":"#!../_build/trust --run\n#\n# Launching the program as a bash script that automatically compiles the C++ code \n# on the first run and subsequently executes the binary file. \n# Automatic recompilation occurs whenever the source code changes.\n#\n# Importing and calling native functions from the C++ standard library.\n# \"Hello, world!\" and checking argument types against the printf format string.\n\n@[ format(\"printf\", 1, 2) @]\n%printf(fmt:@[ reftype(ptr) @] StrChar^, ...):Int32 := ...;\n\nпривет := 'Привет';\nмир := 'мир';\nмир_size := мир.size();\n\n%printf('%s %s!\\n', привет.c_str(), мир.%c_str());\n%printf('Длина строки: %zu + %zu + 1 = %d\\n', привет.size(), {% $мир_size %}, :Int32(привет.%size() + мир_size + 1));\n\n%printf('Строка: \"%s\"\\n', 'это строковый аргумент');\n\n# Invalid calls – compile-time errors (format attribute):\n# %printf('Ошибка: %s\\n', 42);\n# %printf('Ошибка: %d\\n', 'строка');\n# %printf('Ошибка: %s\\n', строка);\n\n\nforward %labs(x:Int64):Int64;\nextern abs(x:Int32):Int32;\n\n@print('abs(-42)={}\\n', abs(-42));\n@print('labs(-9000000000)={}\\n', %labs(-9000000000));\n\nsum:Int32 := 0;\ni:Int32 := -3;\nwhile (i \u003c= 3) {\n    sum += abs(i);\n    i += 1;\n};\n@print('sum of abs(-3..3)={}\\n', sum);\n","examples":[{"name":"dict","source":"#!../_build/trust --run -Wembed=ignore -Wsigil=ignore \n#\n# Example of using the Dict: literal `(1, two=2, name='3',)`\n# Ways to access elements:\n#   d.name - by name; \n#   d.1 - static index;\n#   d[0]   - dynamic index (runtime check).\n# Adding elements - `[]=` operator (append/push_back).\n#\n# Command-line arguments\n@main(argv^: Dict, args^: Dict) := {\n\n    @print('argv.size()={}\\n', $argv.size());\n    @print('args.size()={}\\n', $args.size());\n    @print('argv={}\\n', argv);\n    @print('args={}\\n', args);\n\n    d := (1, two=2, name='3',);\n\n    @print('size={}\\n', :Int32( {% $d.size() %} ));\n    @print('first={}\\n', :Int32( d[0] ));\n    @print('one={}\\n',   :Int32( d.1 ));\n    @print('two={}\\n',   :Int32( d.two ));\n    @print('name={}\\n',  d.name);\n\n    # Static index d.4 is missing (compilation error):\n    # print('one={}\\n',    d.4);\n\n    # Adding elements using the `[]=` operator\n    d []= 999;\n    d []= 'строка';\n\n    # Dictionary size increased by 2. (static check)\n    @print('size_after_append={}\\n', $d.size());\n    \n    @print('appended_int={}\\n', d[3]);\n    # Static index d.4 is now allowed (size increased to 5).\n    @print('appended_str={}\\n', d.4);\n\n    # Dictionary merging via `...` unpacking: `d[] = ...dict` adds ALL elements of the operand\n    extra := (e=6, 7,);\n    d []= ... extra;          # add full dictionary\n    d []= ... (последний=8,); # add a single named element to the dictionary\n\n    @print('size_final={}\\n', $d.size());  # 5 + 2 + 1 = 8\n    @print('e={}, {}\\n', d.e, d.6);    # access to the merged dictionary by name and index\n\n    # The same element at static index d.7 (8th element)\n    @print('последний={}\\n', d.7);\n\n    # Print the entire dictionary\n    @print('{}\\n', d);\n\n    @return 0;\n}\n\n"},{"name":"fibonacci","source":"#!../_build/trust --run --stack-check=explicit -Wsigil=ignore\n#\n# Arbitrary-precision Fibonacci numbers\n#\n# The recursive fib() uses stack overflow protection (the @[stack_check@] attribute and --stack-check=explicit mode).\n# Before a stack overflow occurs, a software interrupt is generated instead of a segfault;\n# this interrupt is caught using the try ... catch.\n\n@func parse_bigint(s:StrChar):BigInteger {\n    try {\n        {% return trust::BigInteger(c_s); %};\n    } catch(:StdException) {\n        return :BigInteger(-1);\n    };\n    return :BigInteger(-1);\n};\n\n@[ stack_check @]\n%fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {\n    if (n \u003c 3) {\n        $one:BigInteger := 1;\n        return :Tuple($one, $one);\n    };\n    p := fib(n - 1);\n    return (p.0 + p.1, p.sum,):Tuple;\n};\n\n%calc(n:BigInteger):Void := {\n    result := fib(n);\n    $value := '{0}'(result.fib);\n    @print('{}: {}\\n{}\\n', n, $value.size(), $value);\n};\n\n@main(argv^:Dict, args^:Dict) := {\n\n    if (:Int32({% $argv.size() %}) \u003c 1) {\n        @print('Usage: fibonacci \u003cn>\\n');\n        @print('  \u003cn> - compute the n-th Fibonacci number (> 0)\\n');\n        return 1;\n    };\n    $n := parse_bigint(:StrChar(argv[0]));\n    if ($n \u003c 1) {\n        @print('Error: invalid \u003cn>: \"{}\" (expected integer > 0)\\n', argv[0]);\n        return 1;\n    };\n\n    try_error {\n        calc($n);\n    } catch(_) {\n        @print('STACK OVERFLOW caught computing fibonacci({})\\n', $n);\n    };\n    return 0;\n};\n"},{"name":"hello","source":"#!../_build/trust --run\n#\n# Launching the program as a bash script that automatically compiles the C++ code \n# on the first run and subsequently executes the binary file. \n# Automatic recompilation occurs whenever the source code changes.\n#\n# Importing and calling native functions from the C++ standard library.\n# \"Hello, world!\" and checking argument types against the printf format string.\n\n@[ format(\"printf\", 1, 2) @]\n%printf(fmt:@[ reftype(ptr) @] StrChar^, ...):Int32 := ...;\n\nпривет := 'Привет';\nмир := 'мир';\nмир_size := мир.size();\n\n%printf('%s %s!\\n', привет.c_str(), мир.%c_str());\n%printf('Длина строки: %zu + %zu + 1 = %d\\n', привет.size(), {% $мир_size %}, :Int32(привет.%size() + мир_size + 1));\n\n%printf('Строка: \"%s\"\\n', 'это строковый аргумент');\n\n# Invalid calls – compile-time errors (format attribute):\n# %printf('Ошибка: %s\\n', 42);\n# %printf('Ошибка: %d\\n', 'строка');\n# %printf('Ошибка: %s\\n', строка);\n\n\nforward %labs(x:Int64):Int64;\nextern abs(x:Int32):Int32;\n\n@print('abs(-42)={}\\n', abs(-42));\n@print('labs(-9000000000)={}\\n', %labs(-9000000000));\n\nsum:Int32 := 0;\ni:Int32 := -3;\nwhile (i \u003c= 3) {\n    sum += abs(i);\n    i += 1;\n};\n@print('sum of abs(-3..3)={}\\n', sum);\n"},{"name":"prime","source":"#!../_build/trust --run -Wsigil=ignore -Wembed=ignore --stack-check=explicit\n#\n# Recursive primality test with stack overflow protection and\n# a performance comparison between standard and protected implementations.\n#\n# Works with arbitrary-precision integers (BigInteger); the initial number\n# can far exceed the limits of an Int64.\n#\n# If free space runs low (i.e., *before* an actual stack overflow and crash occurs),\n# a standard software exception is thrown and caught via a try { ... } catch(_){ ... } block.\n\n# Native function for measuring execution speed\n@forward %clock():Int64;\n\n# Helper functions\n@func parse_i64(s:StrChar):Int64 {\n    try {\n        {% return (int64_t)std::stoll(c_s); %};\n    } catch(:StdException) {\n        return -1;\n    };\n    return -1;\n};\n\n@func parse_bigint(s:StrChar):BigInteger {\n    try {\n        {% return trust::BigInteger(c_s); %};\n    } catch(:StdException) {\n        return :BigInteger(-1);\n    };\n    return :BigInteger(-1);\n};\n\n# Recursion depth and call count counters\ncurrentDepth:Int64 := 0;\nmaxDepth:Int64 := 0;\ncallCount:Int64 := 0;\n\n# Macro to define a function for the recursive primality test\n@@ primeFn $fname @@\n@func @$fname(n:BigInteger, divisor:BigInteger):Bool {\n    callCount = callCount + 1;\n    currentDepth = currentDepth + 1;\n    if (currentDepth > maxDepth) {\n        maxDepth = currentDepth;\n    };\n    if (n \u003c 2) {\n        currentDepth = currentDepth - 1;\n        @return false;\n    };\n    if (divisor > n / divisor) {\n        currentDepth = currentDepth - 1;\n        @return true;\n    };\n    if ((n / divisor) * divisor == n) {\n        currentDepth = currentDepth - 1;\n        @return false;\n    };\n    $r := @$fname(n, divisor + 1);\n    currentDepth = currentDepth - 1;\n    return $r;\n};\n@@@@;\n\n# Function without stack overflow checking\n@primeFn isPrime;\n\n# Function with stack overflow protection\n@[ stack_check @]\n@primeFn isPrimeSafe;\n\n\n@main(argv^:Dict, args^:Dict) := {\n    if (:Int32({% $argv.size() %}) \u003c 2) {\n        @print('Usage: prime \u003cstart_number> \u003ccount>\\n');\n        @print('  \u003cstart_number> - start number (>= 2), BigInteger\\n');\n        @print('  \u003ccount>        - how many primes to find (> 0)\\n');\n        @return 1;\n    };\n    $start := parse_bigint(:StrChar(argv[0]));\n    $count := parse_i64(:StrChar(argv[1]));\n    if ($start \u003c 2) {\n        @print('Error: invalid \u003cstart_number>: \"{}\" (expected integer >= 2)\\n', argv[0]);\n        return 1;\n    };\n    if ($count \u003c 1) {\n        @print('Error: invalid \u003ccount>: \"{}\" (expected integer > 0)\\n', argv[1]);\n        return 1;\n    };\n\n    @print('Searching for {} primes starting from {}:\\n', $count, $start);\n\n    # The first call to the protected function checks whether the stack size is sufficient for the entire call depth.\n    callCount = 0;\n    maxDepth = 0;\n    currentDepth = 0;\n    $t0 := %clock();\n    try_error {\n        \n        $n := $start;\n        $found := 0;\n        while ($found \u003c $count) {\n            if (isPrimeSafe($n, 2)) {\n                @print('  prime: {}\\n', $n);\n                $found += 1;\n            };\n            $n += 1;\n        };\n\n        # Copy the statistics of the protected version into local variables.\n        $t1 := %clock();\n        $safeMax := maxDepth;\n        $safeCalls := callCount;\n    } catch(_) {\n\n        # Handling any exception (in this case, a stack overflow)\n        @print('safe: STACK OVERFLOW caught at max depth={}, calls={}\\n', maxDepth, callCount);\n        @print('safe: time until overflow = {} ticks\\n', %clock() - $t0);\n        @return 0;\n\n    } else {\n\n        @print('safe: completed, max depth={}, calls={}, time={} ticks\\n', $safeMax, $safeCalls, $t1 - $t0);\n\n        # The UNPROTECTED version executes only if the function with stack overflow protection has completed successfully.\n        callCount = 0;\n        maxDepth = 0;\n        currentDepth = 0;\n        $t2 := %clock();\n        $n2 := $start;\n        $found2 := 0;\n        while ($found2 \u003c $count) {\n            if (isPrime($n2, 2)) {\n                @print('  prime: {}\\n', $n2);\n                $found2 += 1;\n            };\n            $n2 += 1;\n        };\n        $t3 := %clock();\n        $unprotMax := maxDepth;\n        $unprotCalls := callCount;\n        @print('unprotected: completed, max depth={}, calls={}, time={} ticks\\n', $unprotMax, $unprotCalls, $t3 - $t2);\n\n        $du := $t3 - $t2;\n        if ($du > 0) {\n            @print('difference: protected is {:.2f}% slower\\n',1000.0*($t1 - $t0 - $du) / (10 * $du));\n        };\n        return 0;\n    };\n}\n"},{"name":"rational","source":"#!../_build/trust --run -Wsigil=ignore -Wembed=ignore\n\n$fact := 1\\1;\t# Autotyping \n$mult:Int32 := 1; # Fixed type\n\nwhile( mult \u003c= 1000 ) {\n    fact *= mult;\n    {% $mult++; %};  \t# Increment as C++ embedded\n};\n\n# factorial 1000!\ntest := 402387260077093773543702433923003985719374864210714632\\\n54379991042993851239862902059204420848696940480047998861019719605863166\\\n68729948085589013238296699445909974245040870737599188236277271887325197\\\n79505950995276120874975462497043601418278094646496291056393887437886487\\\n33711918104582578364784997701247663288983595573543251318532395846307555\\\n74091142624174743493475534286465766116677973966688202912073791438537195\\\n88249808126867838374559731746136085379534524221586593201928090878297308\\\n43139284440328123155861103697680135730421616874760967587134831202547858\\\n93207671691324484262361314125087802080002616831510273418279777047846358\\\n68170164365024153691398281264810213092761244896359928705114964975419909\\\n34222156683257208082133318611681155361583654698404670897560290095053761\\\n64758477284218896796462449451607653534081989013854424879849599533191017\\\n23355556602139450399736280750137837615307127761926849034352625200015888\\\n53514733161170210396817592151090778801939317811419454525722386554146106\\\n28921879602238389714760885062768629671466746975629112340824392081601537\\\n80889893964518263243671616762179168909779911903754031274622289988005195\\\n44441428201218736174599264295658174662830295557029902432415318161721046\\\n58320367869061172601587835207515162842255402651704833042261439742869330\\\n61690897968482590125458327168226458066526769958652682272807075781391858\\\n17888965220816434834482599326604336766017699961283186078838615027946595\\\n51311565520360939881806121385586003014356945272242063446317974605946825\\\n73103790084024432438465657245014402821885252470935190620929023136493273\\\n49756551395872055965422874977401141334696271542284586237738753823048386\\\n56889764619273838149001407673104466402598994902222217659043399018860185\\\n66526485061799702356193897017860040811889729918311021171229845901641921\\\n06888438712185564612496079872290851929681937238864261483965738229112312\\\n50241866493531439701374285319266498753372189406942814341185201580141233\\\n44828015051399694290153483077644569099073152433278288269864602789864321\\\n13908350621709500259738986355427719674282224875758676575234422020757363\\\n05694988250879689281627538488633969099598262809561214509948717012445164\\\n61260379029309120889086942028510640182154399457156805941872748998094254\\\n74217358240106367740459574178516082923013535808184009699637252423056085\\\n59037006242712434169090041536901059339838357779394109700277534720000000\\\n00000000000000000000000000000000000000000000000000000000000000000000000\\\n00000000000000000000000000000000000000000000000000000000000000000000000\\\n00000000000000000000000000000000000000000000000000000000000000000000000\\\n00000000000000000000000000000;\n\n\n# Check factorial 1000!\nassert( fact == test, '{} != {}', fact.display(8), test.display(8));\n\n# Print result\n@print('{}\\n', fact);\n\n"},{"name":"refs","source":"#!../_build/trust --run -Wsigil=ignore\n#\n# Concept syntax case for working with reference variables\n# The reference type can appear before the variable name (and/or before the type):\n#   `&*` - shared (shared ownership),\n#   `&&` - unique (exclusive ownership; inline, zero-cost),\n#   `&?` - weak   (weak reference; created from shared via `& var`).\n#\n# Accessing data via a reference (dereferencing) `*var`\n# Swap operator `:=:`:\n#   `a :=: b`   - swap references of the same type (std::swap);\n#   `*a :=: *b` - swap VALUES (pointees) referenced by the pointers, including references of DIFFERENT types.\n# `with(l1 = *r1, l2 = *r2) { ... }` - simultaneous acquisition (locking) of multiple\n# references for the duration of the block.\n\n@main():Int32 := {\n    &* s := 5:Int32;              # shared\n    &? w := & s;                  # weak (из shared через address-of `& s`)\n    && u := 10:Int32;             # unique\n\n    @print('s={} w={} u={}\\n', *s, *w, *u);\n\n    *s = 7;\n    @print('s=7 -> w={} (weak видит тот же объект)\\n', *w);\n\n    *u = 11;\n    @print('unique={}\\n', *u);\n\n    &* a := 1:Int32;\n    &* b := 2:Int32;\n    a :=: b;\n    @print('swap refs (a\u003c->b): a={} b={}\\n', *a, *b);\n\n    &? c := & a;\n    @print('weak c={}\\n', *c);\n\n    &* p := 100:Int32;            # shared\n    && q := 200:Int32;            # unique\n    @print('value-swap before: *p={} *q={}\\n', *p, *q);\n    *p :=: *q;                    # std::swap data (not reference)\n    @print('value-swap after : *p={} *q={}\\n', *p, *q);\n\n    # with: simultaneous acquisition (locking) of multiple references\n    &* m := 1:Int32;\n    &* n := 2:Int32;\n    with(lm = *m, ln = *n) {\n        lm = lm + 10;\n        ln = ln + 20;\n    } else {\n        @print('capture failed\\n');\n    };\n    @print('after with: m={} n={}\\n', *m, *n);\n\n    return 0;\n}\n"}]};
+window.__TPG.monarch = function () { return (    {
+      defaultToken: '',
+        tokenizer: {
+          root: [
+            [/\/\*/, 'comment.block', '@comment'],
+            [/#.*$/, 'comment.line'],
+            [/@\w[\w_]*/, 'keyword.macro'],
+            [/@[{}[\]<>:|]/, 'keyword.control'],
+            [/\$\$|\$\*|\$\.\.\.|\$\^/, 'variable.language'],
+            [/\$\d+/, 'variable.language'],
+            [/\$[A-Za-z_]\w*/, 'variable'],
+            [/:[A-Za-z_]\w*/, 'type'],
+            [/%[A-Za-z_]\w*/, 'keyword.function'],
+            [/R"[\s\S]*?"/, 'string.raw'],
+            [/R'[\s\S]*?'/, 'string.raw'],
+            [/`[^`]*`/, 'string'],
+            [/"/, 'string.double', '@str_d'],
+            [/'/, 'string.single', '@str_s'],
+            [/-?\d[\d_]*\.\d+([eE][-+]?\d+)?|-?\d[\d_]*([eE][-+]?\d+)?/, 'number'],
+            [/[a-zA-Z_]\w*/, 'identifier'],
+            [/[{}()\[\]]/, '@brackets'],
+            [/[=:;,.+\-*\/%&|^~!<>]+/, 'operator'],
+            [/\s+/, 'white']
+          ],
+          comment: [
+            [/[^/*]+/, 'comment.block'],
+            [/\/\*/, 'comment.block', '@push'],
+            [/\*\//, 'comment.block', '@pop'],
+            [/[/*]/, 'comment.block']
+          ],
+          str_d: [
+            [/[^"\\]+/, 'string.double'],
+            [/\\./, 'string.escape'],
+            [/"/, 'string.double', '@pop']
+          ],
+          str_s: [
+            [/[^'\\]+/, 'string.single'],
+            [/\\./, 'string.escape'],
+            [/'/, 'string.single', '@pop']
+          ]
+        }
+    }
+); };
+window.__TPG.glue = function (m) { var __MONARCH__ = m;   (function () {
+    var cfg = window.__TPG && window.__TPG.config;
+    if (!cfg) { return; }
+    // Origin бэкенда (для абсолютных URL: /download живёт на балансировщике, а страница - на статике).
+    var serverOrigin = '';
+    try { serverOrigin = new URL(cfg.serverUrl, location.href).origin; } catch (e) { serverOrigin = ''; }
+    var trustHost = document.getElementById('tpl-trust-editor');
+    var cppHost = document.getElementById('tpl-cpp-editor');
+    var status = document.getElementById('tpl-status');
+    var healthEl = document.getElementById('tpl-health');
+    var healthText = document.getElementById('tpl-health-text');
+    var examplesSel = document.getElementById('tpl-examples');
+    var log = document.getElementById('tpl-log');
+    var downloadBtn = document.getElementById('tpl-download');
+    var followCb = document.getElementById('tpl-follow-cb');
+    var cppOverlay = document.getElementById('tpl-cpp-overlay');
+    if (!trustHost || !cppHost) { return; }
+
+    // Редакторы создаются в Monaco-колбэке; вынесены в область видимости glue,
+    // чтобы к ним был доступ и из обработчиков комбобокса.
+    var trustEditor = null, cppEditor = null;
+
+    // Исходник последнего загруженного примера (для детекции изменений текста).
+    var loadedSource = cfg.source;
+    // Индекс текущего выбранного примера в комбобоксе (для отката при отмене).
+    var curExIndex = -1;
+    // Имя текущего выбранного примера (для кеша на балансировщике: X-Example-Name).
+    var curExampleName = '';
+
+    // --- Опциональные URL-параметры песочницы ---
+    // Позволяют открыть страницу в конкретном состоянии:
+    //   file=<имя примера>    - выбрать предопределённый файл из cfg.examples
+    //   win=src|cppt          - активное окно (Trust | Generated C++); default src
+    //   line=<n>, col=<m>     - позиция курсора (1-based; col default 1)
+    //   toLine=<n>, toCol=<m> - конец диапазона выделения (если заданы -> выделение)
+    // Все параметры опциональны; если line отсутствует - позицию не трогаем.
+    function parseUrlParams() {
+      var q = {};
+      var s = (location.search || '').replace(/^[?]/, '');
+      if (!s) { return q; }
+      var parts = s.split('&');
+      for (var i = 0; i < parts.length; i++) {
+        var kv = parts[i].split('=');
+        if (!kv[0]) { continue; }
+        var k, v = '';
+        try { k = decodeURIComponent(kv[0].replace(/\+/g, ' ')); } catch (e) { continue; }
+        if (kv.length > 1) { try { v = decodeURIComponent(kv.slice(1).join('=').replace(/\+/g, ' ')); } catch (e) {} }
+        q[k] = v;
+      }
+      return q;
+    }
+    var urlParams = parseUrlParams();
+    // Инициализируемый по URL пример (заполняется в populateExamples, читается в initEditors).
+    var initialExample = null;
+    function urlPos(v) { var n = parseInt(v, 10); return (isFinite(n) && n > 0) ? n : 0; }
+    var initLine = urlPos(urlParams.line);
+    var initCol = urlPos(urlParams.col) || 1;
+    var initToLine = urlPos(urlParams.toLine);
+    var initToCol = urlPos(urlParams.toCol) || 1;
+    // Окно, в которое ставим начальный курсор/выделение.
+    var initWindow = (urlParams.win === 'cppt' || urlParams.win === 'cpp') ? 'cppt' : 'src';
+    // Окно, в котором находится курсор (для построения share-URL). default src.
+    var activeWindow = 'src';
+    // Применено ли начальное состояние (cppt применяется после первой пере-транспиляции).
+    var initApplied = false;
+
+    // Применяет начальную позицию/выделение к указанному редактору, если окно совпало.
+    function applyInitialPosition(editor, which) {
+      if (which !== initWindow || initApplied) { return; }
+      if (!initLine || !editor || !editor.setPosition) { return; }
+      if (initLine > editor.getModel().getLineCount()) { return; }
+      activeWindow = which;
+      if (initToLine) {
+        editor.setSelection(new monaco.Range(initLine, initCol, initToLine, initToCol));
+      } else {
+        editor.setPosition({ lineNumber: initLine, column: initCol });
+      }
+      editor.revealLineInCenter(initLine);
+      editor.focus();
+      initApplied = true;
+    }
+
+    // Строит URL текущего состояния песочницы для копирования в буфер обмена.
+    // file включается только если текст не изменён относительно загруженного примера
+    // (иначе комбобокс показал бы «Custom», и file-параметр был бы некорректен).
+    function buildShareUrl() {
+      var ed = (activeWindow === 'cppt') ? cppEditor : trustEditor;
+      var base = location.href.split('#')[0].split('?')[0];
+      var parts = [];
+      function add(k, v) { if (v !== '' && v != null) { parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(v)); } }
+      var fname = '';
+      if (curExampleName) {
+        var txt = (trustEditor && trustEditor.getValue) ? trustEditor.getValue() : '';
+        if (txt === loadedSource) { fname = curExampleName; }
+      }
+      add('file', fname);
+      add('win', activeWindow);
+      if (ed && ed.getSelection) {
+        var sel = ed.getSelection();
+        if (sel) {
+          add('line', sel.startLineNumber);
+          add('col', sel.startColumn);
+          if (sel.startLineNumber !== sel.endLineNumber || sel.startColumn !== sel.endColumn) {
+            add('toLine', sel.endLineNumber);
+            add('toCol', sel.endColumn);
+          }
+        }
+      }
+      return parts.length ? base + '?' + parts.join('&') : base;
+    }
+
+    // Копирование текста в буфер обмена: navigator.clipboard + фолбэк (textarea/execCommand).
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function (resolve, reject) {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.focus(); ta.select();
+          var ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          if (ok) { resolve(); } else { reject(new Error('copy failed')); }
+        } catch (e) { reject(e); }
+      });
+    }
+
+    // Показывает в статус-баре текст диапазона + ссылку-копирование актуального URL.
+    function appendShareLink() {
+      if (!status) { return; }
+      var a = document.createElement('a');
+      a.className = 'tpl-copy';
+      a.href = '#';
+      a.title = 'Copy link to the current playground state';
+      a.textContent = '🔗 copy link';
+      a.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        var url = buildShareUrl();
+        copyText(url).then(function () {
+          var old = a.textContent;
+          a.textContent = '✓ copied';
+          setTimeout(function () { a.textContent = old; }, 1500);
+        }).catch(function () {
+          a.textContent = 'copy failed';
+          setTimeout(function () { a.textContent = '🔗 copy link'; }, 2000);
+        });
+      });
+      status.appendChild(a);
+    }
+    function showRange(text) {
+      if (!status) { return; }
+      status.textContent = '';
+      if (text) { status.appendChild(document.createTextNode(text + '  ')); }
+      appendShareLink();
+    }
+
+    // Диагностики trust-lsp в логе приходят из stderr в формате
+    // "файл:строка:колонка: severity: сообщение" (см. src/diag/diag.cpp). Такие строки
+    // делаем кликабельными: клик переводит курсор редактора Trust на строку в исходнике.
+    var logDiagRe = /^(.+):(\d+):(\d+):\s*(fatal|error|warning|remark|note):(.*)$/;
+    var logFirstErrLine = 0; // 1-based строка исходника первой ошибки (для авто-перехода)
+
+    function gotoTrustLine(line, col) {
+      if (!trustEditor || !line || line < 1) { return; }
+      var column = (col && col > 0) ? col : 1;
+      trustEditor.setPosition({ lineNumber: line, column: column });
+      trustEditor.revealLineInCenter(line);
+      trustEditor.focus();
+    }
+
+    // При наличии в логе ошибки - перевести курсор на её строку. Не вырываем курсор,
+    // если пользователь активно редактирует (редактор Trust в фокусе): иначе debounce
+    // пере-транспиляции при каждом нажатии сбрасывал бы позицию на первую ошибку.
+    function autoFocusFirstError() {
+      if (logFirstErrLine && trustEditor && !trustEditor.hasTextFocus()) {
+        gotoTrustLine(logFirstErrLine, 1);
+      }
+    }
+
+    function appendLog(msg) {
+      if (!log) { return; }
+      var lines = String(msg).split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        var row = document.createElement('div');
+        row.className = 'tpl-logline';
+        var text = lines[i];
+        var m = logDiagRe.exec(text);
+        if (m) {
+          var ln = parseInt(m[2], 10);
+          var col = parseInt(m[3], 10);
+          var sev = (m[4] || '').toLowerCase();
+          var isErr = (sev === 'error' || sev === 'fatal');
+          if (isErr && !logFirstErrLine) { logFirstErrLine = ln; }
+          var link = document.createElement('span');
+          link.className = 'tpl-log-link ' + (isErr ? 'tpl-log-error' : 'tpl-log-warn');
+          link.textContent = text;
+          link.title = 'Go to line ' + ln;
+          link.addEventListener('click', (function (ll, lc) {
+            return function () { gotoTrustLine(ll, lc); };
+          })(ln, col));
+          row.appendChild(link);
+        } else {
+          row.textContent = text;
+        }
+        log.appendChild(row);
+      }
+      log.scrollTop = log.scrollHeight;
+    }
+    function clearLog() {
+      if (log) { log.textContent = ''; }
+      logFirstErrLine = 0;
+    }
+
+    // Ссылка документации о песочнице должна вести в ту же языковую версию, что и
+    // страница. Сайт мультиязычный: ru -> /ru/docs/sandbox/, en -> /en/docs/sandbox/
+    // (или без префикса, если en - язык по умолчанию). Если на странице нет
+    // языкового префикса - возвращаем URL как есть.
+    function localizeLink(url) {
+      var m = /^\/(ru|en)\//.exec(location.pathname);
+      if (!m) { return url; }
+      var lang = m[1];
+      return url.replace(/^([a-z][a-z0-9+.-]*:\/\/[^\/]+)(\/)/i, '$1/' + lang + '$2');
+    }
+
+    // Показ/скрытие центрированного сообщения поверх правой панели (ошибки,
+    // нет связи с сервером песочницы). По умолчанию оверлей скрыт (display:none).
+    // Контент собирается через createElement/textContent (НЕ innerHTML): строки
+    // (data.error, instructionsUrl) приходят от сервера и не должны исполняться как HTML.
+    function setCppOverlay(text, linkHref, linkText) {
+      if (!cppOverlay) { return; }
+      cppOverlay.textContent = '';
+      if (text) { cppOverlay.appendChild(document.createTextNode(text)); }
+      if (linkHref) {
+        var a = document.createElement('a');
+        a.href = linkHref;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = linkText || linkHref;
+        cppOverlay.appendChild(a);
+      }
+      cppOverlay.style.display = 'flex';
+    }
+    function clearCppOverlay() {
+      if (!cppOverlay) { return; }
+      cppOverlay.style.display = 'none';
+      cppOverlay.textContent = '';
+    }
+
+    function setDownloadDisabled(on) {
+      if (!downloadBtn) { return; }
+      if (on) { downloadBtn.classList.add('tpl-btn-disabled'); downloadBtn.href = '#'; }
+      else { downloadBtn.classList.remove('tpl-btn-disabled'); }
+    }
+
+    // Ленивое скачивание build-архива: POST /download - отдельный запрос, заново
+    // обрабатывает текущий код и сразу возвращает tar.gz. НЕ зависит от /run.
+    function downloadArchive() {
+      if (!downloadBtn || !cfg.serverUrl) { return; }
+      var body = (trustEditor && trustEditor.getValue) ? trustEditor.getValue() : (loadedSource || '');
+      setStatus('building archive…');
+      appendLog('building archive…');
+      fetchWithTimeout(serverOrigin + '/download', {
+        method: 'POST',
+        headers: requestHeaders(),
+        body: body
+      }, kRunTimeoutMs).then(function (res) {
+        if (!res.ok) {
+          return res.json().catch(function () { return {}; }).then(function (d) {
+            throw new Error((d && d.error) || ('archive build failed (' + res.status + ')'));
+          });
+        }
+        var name = 'trust-build.tar.gz';
+        var cd = res.headers.get('Content-Disposition');
+        if (cd) { var m = /filename="?([^";]+)/.exec(cd); if (m && m[1]) { name = m[1]; } }
+        return res.blob().then(function (blob) {
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(a.href);
+          setStatus('ok');
+          appendLog('archive: ' + name);
+        });
+      }).catch(function (err) {
+        var m = 'archive build failed: ' + err;
+        setStatus(m);
+        appendLog(m);
+      });
+    }
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', function (ev) { ev.preventDefault(); downloadArchive(); });
+    }
+
+    // Заполняем комбобокс примеров СРАЗУ (до загрузки Monaco) - он не может быть пустым.
+    function populateExamples() {
+      if (!examplesSel || !cfg.examples || cfg.examples.length === 0) { return; }
+      var matched = -1;
+      var wantName = urlParams.file || '';
+      for (var i = 0; i < cfg.examples.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = cfg.examples[i].name;
+        examplesSel.appendChild(opt);
+        // Приоритет: явный URL-параметр file; иначе - пример, совпадающий с cfg.source.
+        if (wantName && cfg.examples[i].name === wantName) { matched = i; }
+        else if (!wantName && cfg.examples[i].source === cfg.source) { matched = i; }
+      }
+      if (matched >= 0) {
+        curExIndex = matched;
+        curExampleName = cfg.examples[matched].name;
+        examplesSel.selectedIndex = matched;
+        // Инициализируемый по URL (или дефолтный) пример: исходник подставим в initEditors,
+        // чтобы редактор Trust стартовал именно с него (и кеш-заголовок X-Example-Name был верным).
+        initialExample = cfg.examples[matched];
+      } else {
+        // Текущий текст не совпадает ни с одним примером → отключённая опция «Custom».
+        var custom = document.createElement('option');
+        custom.value = -1;
+        custom.textContent = 'Custom';
+        custom.disabled = true;
+        examplesSel.insertBefore(custom, examplesSel.firstChild);
+        examplesSel.selectedIndex = 0;
+        curExIndex = -1;
+        curExampleName = '';
+      }
+      examplesSel.onchange = function () {
+        var idx = parseInt(examplesSel.value, 10);
+        if (!cfg.examples[idx]) { return; }
+        var ex = cfg.examples[idx];
+        if (trustEditor && trustEditor.getValue() !== loadedSource) {
+          if (!confirm('The current text will be replaced with example "' + ex.name + '". Continue?')) {
+            if (curExIndex >= 0) { examplesSel.selectedIndex = curExIndex; }
+            else { examplesSel.selectedIndex = 0; }
+            return;
+          }
+        }
+        if (trustEditor) { trustEditor.setValue(ex.source); }
+        loadedSource = ex.source;
+        curExIndex = idx;
+        curExampleName = ex.name;
+        setStatus('loaded example ' + ex.name);
+      };
+    }
+    populateExamples();
+
+    function setStatus(msg) { if (status) { status.textContent = msg; } }
+
+    // Таймауты сетевых вызовов балансировщика (мс). Без клиентского таймаута при
+    // неустановимом соединении (хост недоступен/прокси висит) статус-строка держала
+    // бы «transpiling…» до OS/браузерного connect-timeout (30-60 с). /health у живого
+    // балансировщика всегда мгновенен - короткий таймаут; /run может быть медленным
+    // (серверный максимум ~30 с), поэтому его таймаут - только последний рубеж.
+    var kHealthTimeoutMs = 4000;
+    var kRunTimeoutMs = 35000;
+
+    // Достижимость балансировщика по последнему /health: null - неизвестно, true/false -
+    // результат проверки. Используется, чтобы не слать /run впустую и показывать ошибку сразу.
+    var balancerReady = null;
+    // Активный запрос /run: при недоступности балансировщика обрываем его - ошибка покажется сразу.
+    var runAbort = null;
+    // Номер текущего recompile: устаревшие ответы (в т.ч. оборванные) не трогают UI.
+    var runSeq = 0;
+
+    // fetch с клиентским таймаутом: по истечении (или внешнему abort) промис реджектится
+    // с явной ошибкой - вызывающий код показывает ошибку связи (без «тихого» fallback).
+    function fetchWithTimeout(url, opts, timeoutMs, externalCtrl) {
+      var ctrl = externalCtrl || (('AbortController' in window) ? new AbortController() : null);
+      var o = opts || {};
+      if (ctrl) { o.signal = ctrl.signal; }
+      var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs) : null;
+      function clear() { if (timer !== null) { clearTimeout(timer); } }
+      return fetch(url, o).then(function (res) {
+        clear();
+        return res;
+      }, function (err) {
+        clear();
+        if (err && err.name === 'AbortError') { throw new Error('request aborted (timeout ' + timeoutMs + ' ms)'); }
+        throw err;
+      });
+    }
+
+    // Помечает балансировщик недоступным и обрывает висящий /run (см. recompile).
+    function markBalancerDown() {
+      balancerReady = false;
+      if (runAbort && runAbort.abort) { runAbort.abort(); }
+    }
+    function markBalancerUp() { balancerReady = true; }
+
+    // Заголовки к балансировщику: имя примера (для кеша - только пока текст НЕ изменён).
+    function requestHeaders() {
+      var h = { 'Content-Type': 'text/plain; charset=utf-8' };
+      var name = '';
+      if (curExampleName) {
+        var txt = (trustEditor && trustEditor.getValue) ? trustEditor.getValue() : '';
+        if (txt === loadedSource) { name = curExampleName; }
+      }
+      if (name) { h['X-Example-Name'] = name; }
+      return h;
+    }
+
+    function setHealth(state, txt) {
+      if (!healthEl) { return; }
+      healthEl.className = 'tpl-health ' + state;
+      if (healthText) { healthText.textContent = txt; }
+    }
+
+    // Публичный пинг балансировщика: онлайн ли он и сколько воркеров активно.
+    // Постоянный статус готовности, отличает «нет связи с балансировщиком» от «нет воркеров».
+    // Терпим к старым балансировщикам: если в ответе нет workers_connected - всё равно «онлайн»,
+    // просто без счётчика (поле появилось в новой версии /health).
+    // Возвращает промис с bool (доступен ли балансировщик) - используется как гейт в recompile.
+    function probeHealth() {
+      if (!healthEl) { return Promise.resolve(true); }
+      if (!cfg.serverUrl) {
+        setHealth('down', 'no connection to the balancer');
+        markBalancerDown();
+        return Promise.resolve(false);
+      }
+      function down(res, txt) { setHealth('down', txt); markBalancerDown(); return res; }
+      return fetchWithTimeout(serverOrigin + '/health', { method: 'GET' }, kHealthTimeoutMs).then(function (res) {
+        if (!res.ok) {
+          console.warn('[trust-playground] /health HTTP ' + res.status + ' at ' + serverOrigin);
+          return down(false, 'no connection to the balancer (HTTP ' + res.status + ')');
+        }
+        return res.json().then(function (d) {
+          if (!d || d.status !== 'ok') {
+            console.warn('[trust-playground] /health response without status=ok:', d);
+            return down(false, 'no connection to the balancer');
+          }
+          var n = (typeof d.workers_connected === 'number') ? d.workers_connected : null;
+          if (n === null) { setHealth('ok', 'balancer online'); }
+          else if (n > 0) { setHealth('ok', 'balancer online · workers: ' + n); }
+          else { setHealth('degraded', 'balancer online · no workers'); }
+          markBalancerUp();
+          return true;
+        }, function () {
+          console.warn('[trust-playground] /health returned non-JSON (probably a static page instead of the balancer): ' + serverOrigin);
+          return down(false, 'no connection to the balancer');
+        });
+      }, function (e) {
+        console.warn('[trust-playground] /health fetch failed at ' + serverOrigin + ':', e);
+        return down(false, 'no connection to the balancer');
+      });
+    }
+
+    // Поллинг статуса балансировщика (setInterval); результат - в индикаторе и balancerReady.
+    function updateHealth() { probeHealth(); }
+
+    function loadScript(src, onload) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = onload;
+      s.onerror = function () { setStatus('Failed to load Monaco from ' + src); };
+      document.head.appendChild(s);
+    }
+
+    function mkDeco(lines, cls) {
+      var arr = [];
+      for (var i = 0; i < lines.length; i++) {
+        arr.push({ range: new monaco.Range(lines[i], 1, lines[i], 1),
+                   options: { isWholeLine: true, className: cls } });
+      }
+      return arr;
+    }
+
+    function initEditors() {
+      if (typeof require === 'undefined') { setStatus('Monaco loader unavailable'); return; }
+      require.config({ paths: { vs: cfg.monacoUrl } });
+      require(['vs/editor/editor.main'], function () {
+        try {
+          /* trust Monarch tokenizer */
+          monaco.languages.register({ id: 'trust' });
+          monaco.languages.setMonarchTokensProvider('trust', __MONARCH__);
+
+          trustEditor = monaco.editor.create(trustHost, {
+            // Стартовый текст: пример, выбранный URL-параметром file (или дефолтный cfg.source).
+            value: (initialExample ? initialExample.source : cfg.source), language: 'trust', theme: 'vs',
+            readOnly: false, automaticLayout: true, scrollBeyondLastLine: false,
+            minimap: { enabled: true }
+          });
+          if (initialExample) {
+            // Синхронизируем состояние «загруженного примера» с фактическим исходником редактора,
+            // чтобы кеш-заголовок X-Example-Name и share-URL (file=) были корректны.
+            loadedSource = initialExample.source;
+            curExampleName = initialExample.name;
+          }
+          // Применяем начальную позицию/выделение для окна src сразу (контент уже в редакторе).
+          applyInitialPosition(trustEditor, 'src');
+          cppEditor = monaco.editor.create(cppHost, {
+            // Трансляция НЕ хранится в шаблоне страницы - правый редактор
+            // стартует пустым и заполняется только из ответа балансировщика.
+            value: '', language: 'cpp', theme: 'vs',
+            readOnly: true, automaticLayout: true, scrollBeyondLastLine: false,
+            minimap: { enabled: true }
+          });
+
+          var t2c = {}, c2t = {};
+          var trustDec = [], cppDec = [];
+          var trustGutterDec = [], cppGutterDec = [];
+
+          function followEnabled() { return !followCb || followCb.checked; }
+
+          // Gutter-маркеры: пометить в колонке номеров ВСЕ строки, у которых есть маппинг
+          // (постоянные декор-метки; не путать с breadcrumb текущей строки).
+          function mkGutter(lines) {
+            var arr = [];
+            for (var i = 0; i < lines.length; i++) {
+              arr.push({ range: new monaco.Range(lines[i], 1, lines[i], 1),
+                         options: { isWholeLine: true, linesDecorationsClassName: 'tpl-gutter' } });
+            }
+            return arr;
+          }
+          function buildGutterMarks() {
+            var tl = [], cl = [];
+            for (var k in t2c) { if (t2c[k] && t2c[k].length) { tl.push(Number(k)); } }
+            for (var k in c2t) { if (c2t[k] && c2t[k].length) { cl.push(Number(k)); } }
+            trustGutterDec = trustEditor.deltaDecorations(trustGutterDec, mkGutter(tl));
+            cppGutterDec = cppEditor.deltaDecorations(cppGutterDec, mkGutter(cl));
+          }
+          buildGutterMarks();
+
+          // Троттлинг reveal: не «дёргать» прокрутку при быстрых перемещениях курсора.
+          var revealTimers = { trust: 0, cpp: 0 };
+          function revealThrottled(editor, line, which) {
+            if (!followEnabled()) { return; }
+            clearTimeout(revealTimers[which]);
+            revealTimers[which] = setTimeout(function () { editor.revealLine(line); }, 80);
+          }
+
+          // Навигация + breadcrumb: подсветить соответствующие строки, прокрутить (если follow),
+          // показать маппинг ТЕКУЩЕЙ строки в статус-баре («→ cpp: N») и ссылку-копирование URL.
+          // activeWindow фиксирует окно с курсором для построения share-URL.
+          trustEditor.onDidChangeCursorPosition(function (e) {
+            activeWindow = 'src';
+            var l = e.position.lineNumber;
+            var lines = (t2c[l] || []);
+            cppDec = cppEditor.deltaDecorations(cppDec, mkDeco(lines, 'tpl-linked'));
+            if (lines.length) {
+              revealThrottled(cppEditor, lines[0], 'cpp');
+              showRange('→ cpp: ' + lines.join(', '));
+            }
+          });
+          cppEditor.onDidChangeCursorPosition(function (e) {
+            activeWindow = 'cppt';
+            var l = e.position.lineNumber;
+            var lines = (c2t[l] || []);
+            trustDec = trustEditor.deltaDecorations(trustDec, mkDeco(lines, 'tpl-linked'));
+            if (lines.length) {
+              revealThrottled(trustEditor, lines[0], 'trust');
+              showRange('→ trust: ' + lines.join(', '));
+            }
+          });
+
+          // Двойной клик: перейти к первой соответствующей строке в противоположной панели.
+          trustEditor.onMouseDown(function (e) {
+            var dl = t2c[e.target.position.lineNumber];
+            if (e.event && e.event.detail >= 2 && dl && dl.length) {
+              cppEditor.setPosition({ lineNumber: dl[0], column: 1 });
+              cppEditor.revealLineInCenter(dl[0]);
+            }
+          });
+          cppEditor.onMouseDown(function (e) {
+            var dl = c2t[e.target.position.lineNumber];
+            if (e.event && e.event.detail >= 2 && dl && dl.length) {
+              trustEditor.setPosition({ lineNumber: dl[0], column: 1 });
+              trustEditor.revealLineInCenter(dl[0]);
+            }
+          });
+
+          function resetCppPane(text, linkHref, linkText) {
+            // Очищаем правую панель и показываем по центру сообщение об ошибке/нет связи.
+            if (cppEditor && cppEditor.setValue) { cppEditor.setValue(''); }
+            t2c = {}; c2t = {};
+            cppDec = cppEditor.deltaDecorations(cppDec, []);
+            cppGutterDec = cppEditor.deltaDecorations(cppGutterDec, []);
+            trustGutterDec = trustEditor.deltaDecorations(trustGutterDec, []);
+            setCppOverlay(text, linkHref, linkText);
+            setDownloadDisabled(true);
+          }
+
+          function recompile() {
+            var body = trustEditor.getValue();
+            var seq = ++runSeq;
+            clearLog();
+            // Не шлём /run впустую: если балансировщик ещё не подтверждён доступным,
+            // сначала короткая проверка /health. Недоступен - сразу показываем ошибку
+            // связи (status + overlay), не удерживая «transpiling…» до 30-60 с.
+            var gate = (balancerReady === true) ? Promise.resolve(true) : probeHealth();
+            gate.then(function (ready) {
+              if (seq !== runSeq) { return; }
+              if (!ready) {
+                var downMsg = 'No connection to the balancer';
+                setStatus(downMsg);
+                appendLog(downMsg);
+                resetCppPane(downMsg);
+                return;
+              }
+              setStatus('transpiling…');
+              appendLog('transpiling…');
+              if (runAbort && runAbort.abort) { runAbort.abort(); }
+              runAbort = ('AbortController' in window) ? new AbortController() : null;
+              fetchWithTimeout(cfg.serverUrl, {
+                method: 'POST',
+                headers: requestHeaders(),
+                body: body
+              }, kRunTimeoutMs, runAbort).then(function (res) {
+                // Читаем тело как текст и пытаемся распарсить JSON: балансировщик
+                // может вернуть HTML/прокси-ошибку (не JSON) - в этом случае трактуем
+                // как отсутствие связи/ошибку и не роняем цепочку.
+                return res.text().then(function (txt) {
+                  var data = null;
+                  try { data = JSON.parse(txt); } catch (e) { data = null; }
+                  return { ok: res.ok, status: res.status, data: data };
+                });
+              }).then(function (rr) {
+                if (seq !== runSeq) { return; }
+                var data = rr.data;
+                if (data && data.unavailable) {
+                  // Нет доступных воркеров (балансировщик онлайн, но ни один воркер не
+                  // подключён/не свободен). Отличаем от «Нет связи с балансировщиком».
+                  var umsg = 'No workers available';
+                  var uLink = null;
+                  if (data.instructionsUrl) { uLink = localizeLink(data.instructionsUrl); }
+                  appendLog((data && data.error) ? data.error : umsg);
+                  setStatus(umsg);
+                  resetCppPane(umsg, uLink, 'run your own node');
+                  return;
+                }
+                if (!rr.ok) {
+                  // Балансировщик/прокси вернул HTTP-ошибку без валидного JSON-контракта.
+                  var herr = (data && data.error) ? data.error : ('No connection to the balancer (HTTP ' + rr.status + ')');
+                  setStatus(herr);
+                  appendLog(herr);
+                  resetCppPane(herr);
+                  return;
+                }
+                if (!data || !data.ok) {
+                  var err = (data && data.error) ? data.error : 'Transpilation error';
+                  setStatus(err);
+                  appendLog(err);
+                  if (data && data.log) { appendLog(data.log); }
+                  resetCppPane(err);
+                  autoFocusFirstError();
+                  return;
+                }
+                cppEditor.setValue(data.cpp);
+                t2c = data.trustToCpp || {}; c2t = data.cppToTrust || {};
+                // Для окна cppt начальную позицию/выделение применяем только после того,
+                // как правый редактор заполнен ответом балансировщика (guard initApplied).
+                applyInitialPosition(cppEditor, 'cppt');
+                cppDec = cppEditor.deltaDecorations(cppDec, []);
+                clearCppOverlay();
+                setDownloadDisabled(false);
+                setStatus('ok');
+                appendLog('ok');
+                if (data.log) { appendLog(data.log); }
+                autoFocusFirstError();
+              }).catch(function (err) {
+                if (seq !== runSeq) { return; }
+                // Сетевой сбой/таймаут (нет связи с балансировщиком) - НЕ путать с «нет воркеров».
+                appendLog('request failed: ' + err);
+                resetCppPane('No connection to the balancer');
+                setStatus('No connection to the balancer');
+              });
+            });
+          }
+
+          setStatus('ready');
+          if (cfg.serverUrl) {
+            var timer = null;
+            trustEditor.onDidChangeModelContent(function () {
+              clearTimeout(timer);
+              timer = setTimeout(recompile, 400);
+            });
+            // Первичная транспиляция на загрузке (заполняет лог). Кнопка «⬇ Скачать»
+            // активна только после первого успешного ответа балансировщика.
+            recompile();
+          }
+        } catch (err) {
+          setStatus('init error: ' + err);
+        }
+      });
+    }
+
+    updateHealth();
+    setInterval(updateHealth, 5000);
+
+    // --- Изменяемый размер окон: вертикальный сплиттер Trust|C++ и горизонтальный (высота лога) ---
+    var playground = document.getElementById('trust-playground');
+    var splitV = document.getElementById('tpl-split-v');
+    var splitH = document.getElementById('tpl-split-h');
+
+    // Универсальный drag для сплиттера (мышь). После вертикального перетаскивания
+    // редакторы Monaco требуют явного layout() - см. onDrag.
+    function makeSplitter(handle, axis, onDrag) {
+      if (!handle) { return; }
+      var dragging = false;
+      var cursor = (axis === 'v') ? 'col-resize' : 'row-resize';
+      handle.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) { return; }
+        dragging = true;
+        document.body.style.cursor = cursor;
+        document.body.style.userSelect = 'none';
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', function (e) {
+        if (!dragging) { return; }
+        onDrag(e.clientX, e.clientY);
+      });
+      document.addEventListener('mouseup', function () {
+        if (!dragging) { return; }
+        dragging = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      });
+    }
+
+    // Вертикальный сплиттер: ширина левой (Trust) панели в процентах от .tpl-row.
+    if (splitV && trustHost) {
+      var rowEl = splitV.parentElement;
+      makeSplitter(splitV, 'v', function (cx) {
+        var rect = rowEl.getBoundingClientRect();
+        if (rect.width <= 0) { return; }
+        var pct = ((cx - rect.left) / rect.width) * 100;
+        pct = Math.max(15, Math.min(85, pct));
+        trustHost.parentElement.style.flex = '0 0 ' + pct + '%';
+        if (trustEditor) { trustEditor.layout(); }
+        if (cppEditor) { cppEditor.layout(); }
+      });
+    }
+
+    // Горизонтальный сплиттер: высота окна лога (от курсора до низа контейнера).
+    if (splitH && log && playground) {
+      makeSplitter(splitH, 'h', function (cx, cy) {
+        var bottom = playground.getBoundingClientRect().bottom;
+        var h = Math.max(40, Math.min(500, bottom - cy - 6));
+        log.style.height = h + 'px';
+      });
+    }
+
+
+    loadScript(cfg.monacoUrl + '/loader.js', initEditors);
+  })();
+ };
+if (window.__TPG.monarch && window.__TPG.glue) { window.__TPG.glue(window.__TPG.monarch()); }
+</script>
+
+
+      </main>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">Все права защищены</span>
+      </div>
     </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
   </body>
 </html>
-
-
-

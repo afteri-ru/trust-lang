@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Python on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/python/</link>
+		<description>Recent content in Python on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/python/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Why C&#43;&#43; or Rust can never replace Python</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</guid>
+				<description>&lt;p&gt;Articles analyzing the phenomenon of Python periodically appear on Habr — how one of the slowest programming languages became the king of neural networks, and the answer is always the same: thanks to a simple syntax and a developed ecosystem. But the ecosystem of C++ is significantly larger and richer, so it is not the ecosystem, and only the syntax remains. And if the problem really is the syntax, then there should also be an answer to another question: why did C++ &lt;strong&gt;not&lt;/strong&gt; become the basis for research in this (or any other) area?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Generic programming in different languages</title>
+				<link>https://trust-lang.net/en/blog/comparison/generics/</link>
+				<pubDate>Tue, 24 Mar 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/generics/</guid>
+				<description>&lt;p&gt;Generic programming is a paradigm that allows describing algorithms and data structures in abstraction from concrete types. Despite the single concept, each language implements it in its own way: through templates, parametric polymorphism, type erasure or duck typing. This article provides a detailed analysis of the mechanisms of generic programming in eight languages - C++, Java, C#, Python, Rust, Haskell, TypeScript, Julia - with an assessment of the strengths and weaknesses of each approach and a comparative summary.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>
