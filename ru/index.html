@@ -1,26 +1,409 @@
 
 
 <!doctype html>
-<html lang="ru">
+<html itemscope itemtype="http://schema.org/WebPage" lang="ru" class="no-js">
   <head>
 	<meta name="generator" content="Hugo 0.165.0">
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>TrustLang — Сайт находится в разработке</title>
-    <style>
-      html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f8f9fa;color:#212529;}
-      .m-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;box-sizing:border-box;}
-      .m-msg{font-size:1.5rem;font-weight:600;margin-bottom:10px;}
-      .m-sub{color:#6c757d;max-width:34em;}
-    </style>
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/ru/index.xml">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>TrustLang</title>
+<meta name="description" content="TrustLang Высокоуровневый язык общего назначения для доверенной (trusted) разработки с безопасным управлением памятью, обнаруженим ошибок на этапе компиляции и полная совместимость со всей экосистемой C/C&#43;&#43;, включая непосредственную вставку фрагментов кода на C&#43;&#43;. О проекте Playground Обсудить на Reddit GitHub У всех современных языков программирования синтаксис постоянно усложняется с выходом каждой новой версии (стандарта). Это вынужденная плата за развитие языка и постоянное повышение &#34;налога&#34; на вход для новичков.">
+<meta property="og:url" content="https://trust-lang.net/ru/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="TrustLang">
+	<meta property="og:description" content="TrustLang Высокоуровневый язык общего назначения для доверенной (trusted) разработки с безопасным управлением памятью, обнаруженим ошибок на этапе компиляции и полная совместимость со всей экосистемой C/C&#43;&#43;, включая непосредственную вставку фрагментов кода на C&#43;&#43;. О проекте Playground Обсудить на Reddit GitHub У всех современных языков программирования синтаксис постоянно усложняется с выходом каждой новой версии (стандарта). Это вынужденная плата за развитие языка и постоянное повышение &#34;налога&#34; на вход для новичков.">
+	<meta property="og:locale" content="ru">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="TrustLang">
+	<meta itemprop="description" content="TrustLang Высокоуровневый язык общего назначения для доверенной (trusted) разработки с безопасным управлением памятью, обнаруженим ошибок на этапе компиляции и полная совместимость со всей экосистемой C/C&#43;&#43;, включая непосредственную вставку фрагментов кода на C&#43;&#43;. О проекте Playground Обсудить на Reddit GitHub У всех современных языков программирования синтаксис постоянно усложняется с выходом каждой новой версии (стандарта). Это вынужденная плата за развитие языка и постоянное повышение &#34;налога&#34; на вход для новичков.">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="318">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="TrustLang">
+	<meta name="twitter:description" content="TrustLang Высокоуровневый язык общего назначения для доверенной (trusted) разработки с безопасным управлением памятью, обнаруженим ошибок на этапе компиляции и полная совместимость со всей экосистемой C/C&#43;&#43;, включая непосредственную вставку фрагментов кода на C&#43;&#43;. О проекте Playground Обсудить на Reddit GitHub У всех современных языков программирования синтаксис постоянно усложняется с выходом каждой новой версии (стандарта). Это вынужденная плата за развитие языка и постоянное повышение &#34;налога&#34; на вход для новичков.">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
   </head>
-  <body>
-    <div class="m-wrap">
-      <div class="m-msg">Сайт находится в разработке</div>
-      
+  <body class="td-home">
+    <header>
+      <nav class="td-navbar js-navbar-scroll td-navbar-cover" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/ru/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/docs/"><span>О проекте</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/blog/"><span>Статьи</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/">English</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-default td-outer">
+      <main role="main" class="td-main">
+        
+
+
+<link rel="preload" as="image" href="/ru/background_hu_95bb4ae7dc4a3d3d.jpg" media="(max-width: 1200px)">
+<link rel="preload" as="image" href="/ru/background_hu_24db3f3dc594cfb.jpg" media="(min-width: 1200px)">
+<style>
+#td-cover-block-0 {
+  background-image: url(/ru/background_hu_95bb4ae7dc4a3d3d.jpg);
+}
+@media only screen and (min-width: 1200px) {
+  #td-cover-block-0 {
+    background-image: url(/ru/background_hu_24db3f3dc594cfb.jpg);
+  }
+}
+</style>
+<section id="td-cover-block-0" class="row td-cover-block td-cover-block--height-auto js-td-cover td-overlay td-overlay--dark -bg-dark">
+  <div class="col-12">
+    <div class="container td-overlay__inner">
+      <div class="text-center">
+        <h1 class="display-1 mt-0 mt-md-5 pb-4">TrustLang</h1>
+        
+        <div class="pt-3 lead">
+          
+              
+
+<p class="lead" style="max-width: 46rem; margin: 0 auto;font-size: 125%;">
+    Высокоуровневый язык общего назначения для доверенной (trusted) разработки
+    с безопасным управлением памятью, обнаруженим ошибок на этапе компиляции 
+    и  полная совместимость со всей экосистемой <nobr>C/C++</nobr>, 
+    включая непосредственную вставку фрагментов кода на <nobr>C++</nobr>.
+</p>
+
+<div class="pt-3">
+    <a class="btn btn-primary me-3 mb-4" href="/ru/docs/">
+        О проекте<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="/ru/playground/">
+        Playground <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
+        Обсудить на Reddit<i class="fab fa-reddit ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
+        GitHub <i class="fab fa-github ms-2"></i>
+    </a>
+</div>
+
+
+
+
+<a class="btn btn-link text-light" href="#td-block-1" aria-label="Подробнее"><i class="fa-solid fa-circle-chevron-down" style="font-size: 400%"></i></a>
+
+
+          
+        </div>
+      </div>
     </div>
+  </div>
+  
+</section>
+
+
+<div><a id="td-block-1" class="td-offset-anchor"></a></div>
+<section class="row td-box td-box--1 position-relative td-box--height-auto">
+<div class="col-12">
+<div class="container td-arrow-down">
+<div class="h4 mb-0">
+
+
+
+<p class="lead" style="max-width: 50rem; margin: 0 auto;">
+    <p class="lead">
+    У&nbsp;всех современных языков программирования синтаксис постоянно 
+    усложняется с&nbsp;выходом каждой новой версии (стандарта).
+    Это вынужденная плата за развитие языка и постоянное повышение "налога" на вход для новичков.
+    </p>
+    <p class="lead">
+    TrustLang&nbsp;&mdash; это язык-«надстройка» над&nbsp;<nobr>C++</nobr>, который позволяет
+    пользоваться всем его богатыми возможностями, но без его сложного синтаксиса,
+    неопределённого поведения и прочих подводных камней.
+    <a href="/ru/docs/">Проще и&nbsp;быстрее, чем Python, привычнее и&nbsp;безопаснее, чем Rust.*</a>
+    </p>
+
+</p>
+
+
+</div>
+</div>
+</div>
+</section>
+
+
+<div><a id="td-block-2" class="td-offset-anchor"></a></div>
+<section class="row td-box td-box--2 td-box--height-auto">
+<div class="col">
+<div class="container">
+
+
+
+<!-- <h3>Почему TrustLang?</h3> -->
+
+<div class="row pt-4">
+    <div class="col-lg-4 mb-4">
+        <h4>Безопасная память без сборщика мусора</h4>
+        <p>
+            Управление памятью в стиле <nobr>C++</nobr> с&nbsp;помощью &nbsp;RAII, сильных и&nbsp;слабых ссылок.
+            Анализ ошибок, гонок данных и&nbsp;циклических зависимостей <b>на&nbsp;этапе компиляции</b>.
+            <a href="/ru/docs/safety/memory/">Модель памяти<b>*</b>&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Переполнение стека &mdash; как исключение</h4>
+        <p>
+            Обработка переполнения стека программы как обычного программное исключения,
+            вместо аварийное завершение с&nbsp;<i>segfault</i>.
+            <a href="/ru/docs/safety/stack_check/">Защита стека&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4" style="opacity: 0.5;">
+        <h4>Автоматичсеквя защита от&nbsp;dangling ссылок</h4>
+        <p>
+            Статический аналих висящих ссылок (аналог владения и заимствования в&nbsp;Rust), 
+            но&nbsp;для <nobr>C++</nobr> без <i>UB</i> и <i>segfault</i> в&nbsp;рантайме.
+            <a href="/ru/docs/safety/invalidation/">Контроль владения<b>*</b>&nbsp;&rarr;</a>
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <h4>Система типов</h4>
+        <p>
+            Статическая и динамическая типизация.
+            Тип можно указать явно или оставить автоматический вывод из контекста.
+            Возможность использование типов и шаблонов <nobr>C++</nobr>.
+            <a href="/ru/docs/types/type_system/">Система типов&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Интеграция с&nbsp;<nobr>C/C++</nobr></h4>
+        <p>
+            Вставки фрагнметов <nobr>C++</nobr>-кода и&nbsp;непосредственные вызовы 
+            <nobr>C++</nobr> функций без&nbsp;FFI-обвязок.
+            <a href="/ru/docs/types/native/">Интеграция&nbsp;с&nbsp;<nobr>C++</nobr>&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4" style="opacity: 0.5;">
+        <h4>Формальная верификация</h4>
+        <p>
+            Контрактное программирование (пред/пост-условия, утверждения).
+            Экспорт кода и&nbsp;контрактов в&nbsp;SMT-решатель (Z3).
+            <a href="/ru/docs/safety/verification/">Верификация<b>*</b>&nbsp;&rarr;</a>
+        </p>
+    </div>
+<hr>
+<p>
+    <a href="/ru/docs/status/"><i><b>*</b>) - Текущая версия, это демонстрация концепции, проверка 
+        различных подходов в реализации архитекутры и&nbsp;прототипирование синтаксиса</i></a>
+</p>
+
+</div>
+
+</div>
+</div>
+</section>
+
+
+
+
+<div><a id="td-block-3" class="td-offset-anchor"></a></div>
+<section class="row td-box td-box--3 td-box--height-auto">
+<div class="col">
+<div class="container">
+
+
+
+<h2>Как это выглядит</h2>
+
+<p>
+    Пример простой программы на&nbsp;TrustLang с&nbsp;числами неограниченной
+    точности, автоматическим выводом типов.
+</p>
+<p>
+    Запуск программы как bash скрипта с автоматической компиляцией С++ кода 
+    при первом запуске и&nbsp; последующим выполнением бинарного файла.
+    Автоматическиая перекомпиляция при измении исходника.
+</p>
+
+<pre><code class="language-trust">
+    #!../_build/trust --run -Wsigil=ignore -Wembed=ignore
+
+    $fact := 1\1;   # Autotyping
+    $mult:Int32 := 1; # Fixed type
+
+    while( mult <= 40 ) {
+        fact *= mult;   # факториал 40, точность не теряется
+        {% $mult++ %};  # Инкремент как фрагмент C++ кода
+    };
+
+    @print('{}', fact);
+</code></pre>
+
+<p>Вывод:</p>
+
+<pre><code class="language-trust">    815915283247897734345611269596115894272000000000</code></pre>
+
+<p>
+    Еще примеры и итоговый сгененрированный <nobr>C++</nobr> код <a href="/ru/playground/?file=rational">в&nbsp;песочнице</a>.
+</p>
+
+</div>
+</div>
+</section>
+
+
+<div><a id="td-block-4" class="td-offset-anchor"></a></div>
+<section class="row td-box td-box--4 td-box--height-auto">
+<div class="col">
+<div class="container">
+
+
+
+<div class="text-center">
+    <a class="btn btn-primary me-3 mb-4" href="/ru/playground/">
+        Открыть песочницу<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="/ru/docs/">
+        Вся документация<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
+        Обсудить на Reddit<i class="fab fa-reddit ms-2"></i>
+    </a>
+</div>
+
+</div>
+</div>
+</section>
+
+
+
+
+      </main>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">Все права защищены</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
   </body>
 </html>
-
-
-

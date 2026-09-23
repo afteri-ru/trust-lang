@@ -1,0 +1,801 @@
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="ru" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="canonical" type="text/html" href="https://trust-lang.net/ru/docs/operators/">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/ru/docs/operators/index.xml">
+<meta name="robots" content="noindex, nofollow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Выражения и инструкции | TrustLang</title>
+<meta name="description" content="Операторы, выражения и управляющие конструкции TrustLang">
+<meta property="og:url" content="https://trust-lang.net/ru/docs/operators/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Выражения и инструкции">
+	<meta property="og:description" content="Операторы, выражения и управляющие конструкции TrustLang">
+	<meta property="og:locale" content="ru">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="Выражения и инструкции">
+	<meta itemprop="description" content="Операторы, выражения и управляющие конструкции TrustLang">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="57">
+	<meta itemprop="keywords" content="Operators,Control-Flow">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Выражения и инструкции">
+	<meta name="twitter:description" content="Операторы, выражения и управляющие конструкции TrustLang">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-section">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/ru/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link active" href="/ru/docs/"><span>О проекте</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/blog/"><span>Статьи</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/docs/operators/">English</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5" role="main">
+            
+
+
+
+
+<div class="td-content">
+<div class="pageinfo pageinfo-primary d-print-none">
+<p>
+Это многостраничный печатный вид этого раздела.
+<a href="#" onclick="print();return false;">Нажмите что бы печатать</a>.
+</p><p>
+<a href="/ru/docs/operators/">Вернуться к обычному просмотру страницы</a>.
+</p>
+</div>
+
+
+
+<h1 class="title">Выражения и инструкции</h1>
+<div class="lead">Операторы, выражения и управляющие конструкции TrustLang</div>
+
+
+
+
+    <ul>
+    
+  
+  
+  
+  
+
+  
+    
+    
+	
+<li>1: <a href="#pg-7edbb1fa264a4035aab30fe88ce04ffb">Создание объектов и присваивание</a></li>
+
+
+    
+  
+    
+    
+	
+<li>2: <a href="#pg-ea5ac913d5e7a66ba04d460bd4f51bee">Операторы</a></li>
+
+
+    
+  
+    
+    
+	
+<li>3: <a href="#pg-981a96fad502b40dfcbfa9af71282857">Условия и циклы</a></li>
+
+
+    
+  
+    
+    
+	
+<li>4: <a href="#pg-e0b5db16e4c0cac9c46dfe0dc4956de1">Менеджер контекста (with)</a></li>
+
+
+    
+  
+    
+    
+	
+<li>5: <a href="#pg-e99fd20174576bba4e3f2aa683575cf1">Возврат, прерывания и обработка ошибок</a></li>
+
+
+    
+  
+
+    </ul>
+
+
+<div class="content">
+      <p>В <em>TrustLang</em> <strong>любая конструкция является выражением</strong> и возвращает значение, поэтому её можно
+вкладывать в другие выражения. Инструкции разделяются точкой с запятой <code>;</code>; группа инструкций
+заключается в блок кода <code>{ ... }</code>. Базовые правила блоков и выражений описаны в
+<a href="/ru/docs/syntax/">Синтаксисе</a>.</p>
+<p>Обработка аварийных ситуаций и гарантии освобождения ресурсов связаны с моделью
+<a href="/ru/docs/safety/memory/">Памяти</a>, а операторы типизации — с <a href="../types/type_system/">Системой типов</a>.</p>
+
+</div>
+</div>
+
+
+  
+  
+  
+  
+
+  
+  
+
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-7edbb1fa264a4035aab30fe88ce04ffb">1 - Создание объектов и присваивание</h1>
+    <div class="lead">Операторы создания и присваивания объектов, деструктуризация</div>
+	<!--
+##### Область видимости объекта != время жизни объекта {#important}
+У объекта *имя* есть всегда, даже тогда, когда сам объект физически еще не создан.
+Область видимости *имени* определяется его расположением в программном коде (блок кода, пространство имен, модуль и т.д.).
+Объект может существовать, но быть не доступен из текущей области видимости, например, перекрыт другим объектом с таким же именем.
+
+Время жизни локального/автоматического (т.е. временного) объекта всегда ограничено областью видимости текущего блока кода,
+а время жизни статического объекта ограничено временем жизни модуля, в котором он определен или временем жизни программы, если объект глобальный.
+Но *инициализация начального занчения статического объекта* происходит в соответствии с выполняемым программным кодом,
+(т.е. при выполнении кода с оператором создания статического объекта).
+-->
+<h3 id="create">Создание объектов<a class="td-heading-self-link" href="#create" aria-label="Heading self-link"></a></h3><p>Для создания объектов в TrustLang используется несколько операторов:</p>
+<ul>
+<li>
+<p>&ldquo;<strong>:=</strong>&rdquo; — создаёт или присваивает значение <strong>переменной/функции</strong> (объекту по значению).
+Если объекта с таким именем ещё нет, он создаётся; иначе значение переприсваивается.
+Пример: <code>x := 5;</code>, <code>hello(str) := { ... };</code>.</p>
+</li>
+<li>
+<p>&ldquo;<strong>::=</strong>&rdquo; — объявление <strong>типа</strong> (алиаса или типизированного типа), например <code>MyInt ::= :Int32;</code>,
+<code>Status ::= (OK=0, ERROR=1, BUSY=2,):Enum;</code>. Применять &ldquo;<strong>::=</strong>&rdquo; для создания
+значений/функций нельзя — компилятор сообщает: <em>&ldquo;cannot assign a type &hellip; to a value variable; use &lsquo;::=&rsquo; to declare a type alias&rdquo;</em>.</p>
+<p>Также через <code>::=</code> объявляется <strong>предварительное (forward) объявление нативного класса</strong>:
+<code>String ::= %std::string { %size(): UInt64 := ...; };</code> — RHS — имя класса (native — с ведущим <code>%</code>),
+тело <code>{ ... }</code> — члены-интерфейс (методы/поля/конструкторы), каждый <code>:= ...</code> (без тела). Конструирование
+объекта — вызов имени класса: <code>s: String := String('hello');</code> → <code>std::string(&quot;hello&quot;)</code>. Подробнее —
+<a href="/ru/docs/types/native/">Нативные типы</a>.</p>
+</li>
+</ul>
+<p>Операторы &ldquo;<strong>::-</strong>&rdquo; и &ldquo;<strong>:-</strong>&rdquo; в текущей версии не реализованы; ранее они предназначались
+для чистых функций и значений, вычисляемых на этапе компиляции.</p>
+<h3 id="assign">Присвоение нового значения<a class="td-heading-self-link" href="#assign" aria-label="Heading self-link"></a></h3><p>Оператор &ldquo;<strong>=</strong>&rdquo; применяется для присвоения нового значения уже существующим объектам.
+Если объект с указанным именем отсутствует, то возникает ошибка <em>компиляции</em>.</p>
+<!--
+~~Если переопределяется [функция](/ru/docs/types/funcs/) или [метод класса](/ru/docs/types/class/),
+то старое значение не *удаляется*, а создается стек переопределенных имен (своего рода таблицу вирутальных имен времени компиляции),
+и к старому (предыдущему) объекту можно обратиться из новой функции по системному имени "**$$**".*~~ 
+-->
+<h4 id="swap">Оператор обмена значениями<a class="td-heading-self-link" href="#swap" aria-label="Heading self-link"></a></h4><p>Оператор &ldquo;<strong>:=:</strong>&rdquo; (swap) не создает новых переменных, а только обменивает их значения между собой.
+Переменные должны иметь одинаковые/совместимые типы данных, либо иметь тип <strong><code>:None</code></strong>, т. е. <strong>&quot;<code>_</code>&quot;</strong>.<br>
+Используется для реализации идиомы копирования и замены (copy-and-swap idiom), так как при выполнении оператора не может быть ошибок.</p>
+<p>В текущей реализации <code>:=:</code> — интринсик обмена/перемещения (используется как инструкция; результат
+<code>void</code>): <code>a :=: b</code> раскрывается в <code>std::swap(a, b)</code> (типы должны быть совместимы, не обязательно
+ссылки; обмен несовместимых типов — ошибка с диагностикой); форма <code>var :=: _</code> — перемещение значения
+в discard: перемещение выполняется РЕАЛЬНО (материализуется временное, которое сразу разрушается),
+поэтому <code>var</code> остаётся в moved-from состоянии, а для владеющих ссылок (<code>unique</code>/<code>shared</code>) ресурс
+освобождается.
+См. также <a href="/ru/docs/safety/memory/">«Ссылочные типы»</a>.</p>
+<h4 id="append">Оператор добавления элемента<a class="td-heading-self-link" href="#append" aria-label="Heading self-link"></a></h4><p>Оператор &ldquo;<strong>[]=</strong>&rdquo; — аналог <code>push_back</code>: добавляет новый элемент к контейнеру слева, увеличивая его размер на единицу.
+Общее правило: <code>X []= v</code> равносильно <code>X.push_back(v)</code>.</p>
+<ul>
+<li>Для <strong>словаря</strong> (<code>Dict</code>, в т.ч. позиционные «массивы») безымянный append добавляет позиционный элемент: <code>d []= 999</code>.</li>
+<li>Для <strong>строк</strong> добавляет символ/строку: <code>s []= 'd'</code> → <code>s.append(&quot;d&quot;)</code>.</li>
+<li>Правый объект оператора должен быть совместим с типом единичного элемента левого объекта
+(ширина строки: узкая <code>'...'</code> / широкая <code>&quot;...&quot;</code> должны совпадать с типом строкового контейнера).</li>
+<li>Вложенный LHS (<code>d['x'] []= v</code>, <code>d[0] []= v</code>, <code>d.field []= v</code>) — пока не реализован (ошибка компиляции).</li>
+<li><strong>Слияние словаря</strong> через оператор распаковки <code>...</code>: <code>d []= ... dict2</code> или <code>d []= ... (a=1, b=2,)</code>
+добавляет в цель <strong>все элементы</strong> словаря-операнда (аналог <code>extend</code>/<code>update</code>); размер цели растёт
+на число элементов (для литерала и словаря с известным размером — статически контролируется).</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">two</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">2</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#0000cf;font-weight:bold">999</span><span style="color:#000;font-weight:bold">;</span>        <span style="color:#8f5902;font-style:italic"># добавить позиционный элемент → size 3</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#4e9a06">&#39;x&#39;</span><span style="color:#000;font-weight:bold">;</span>        <span style="color:#8f5902;font-style:italic"># добавить ещё один элемент</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">a</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">100</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">b</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">200</span><span style="color:#000;font-weight:bold">,);</span>  <span style="color:#8f5902;font-style:italic"># слияние литерала → size 5 (добавлены a и b)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d2</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">three</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">3</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#0000cf;font-weight:bold">4</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000">d2</span><span style="color:#000;font-weight:bold">;</span>     <span style="color:#8f5902;font-style:italic"># слияние переменной-словаря → size 7</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">s</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#4e9a06">&#39;abc&#39;</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">s</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#4e9a06">&#39;d&#39;</span><span style="color:#000;font-weight:bold">;</span>        <span style="color:#8f5902;font-style:italic"># строка стала &#34;abcd&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;</span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">s</span><span style="color:#000;font-weight:bold">);</span>   <span style="color:#8f5902;font-style:italic"># &gt; abcd</span>
+</span></span></code></pre></div><p>Добавление <strong>именованного</strong> элемента словаря выполняется оператором присваивания <code>d[name] = value</code> (установка/добавление по ключу).</p>
+<p><em>Например, при определении класса <code>:NewClass2</code>:</em></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">:</span><span style="color:#000">NewClass</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Class</span><span style="color:#000;font-weight:bold">{</span>       <span style="color:#8f5902;font-style:italic"># Базовый класс</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">field1</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">;</span>      <span style="color:#8f5902;font-style:italic"># поле класса</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">field2</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">2</span><span style="color:#000;font-weight:bold">;</span>      <span style="color:#8f5902;font-style:italic"># поле класса</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">method1</span><span style="color:#000;font-weight:bold">():</span><span style="color:#000">Void</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{};</span>   <span style="color:#8f5902;font-style:italic"># метод</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">:</span><span style="color:#000">NewClass2</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">NewClass</span><span style="color:#000;font-weight:bold">{</span>   <span style="color:#8f5902;font-style:italic"># наследование</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">field2</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">2</span><span style="color:#000;font-weight:bold">;</span>      <span style="color:#8f5902;font-style:italic"># поле field2 базового класса</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">method1</span><span style="color:#000;font-weight:bold">():</span><span style="color:#000">Void</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{};</span>   <span style="color:#8f5902;font-style:italic"># переопределение метода (override)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#a40000">$</span><span style="color:#000">var</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">99</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#8f5902;font-style:italic"># Создать временную переменную $var</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a40000">$</span><span style="color:#000">var</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">100</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#8f5902;font-style:italic"># Новая переменная перекрывает $var более высокого уровня</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#5c35cc;font-weight:bold">@print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;</span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#a40000">$</span><span style="color:#000">var</span><span style="color:#000;font-weight:bold">)</span>    <span style="color:#8f5902;font-style:italic"># &gt; 100</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;</span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#a40000">$</span><span style="color:#000">var</span><span style="color:#000;font-weight:bold">)</span>    <span style="color:#8f5902;font-style:italic"># &gt; 99</span>
+</span></span></code></pre></div><h3 id="expand">Присваивание значения сразу нескольким переменным и оператор распаковки словаря<a class="td-heading-self-link" href="#expand" aria-label="Heading self-link"></a></h3><p><em>TrustLang</em> поддерживает операцию присваивания значения сразу нескольким переменным,
+которые должны быть перечислены через запятую слева от оператора присвоения.</p>
+<p>С правой стороны от оператора присвоения может находиться только одно значение,
+а для обмена значениями двух переменных, вместо записи <code>a,b = b,a;</code>
+нужно использовать оператор <a href="/ru/docs/operators/create/#swap">обмена</a>:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#000">a</span> <span style="color:#ce5c00;font-weight:bold">:=</span><span style="color:#000;font-weight:bold">:</span> <span style="color:#000">b</span><span style="color:#000;font-weight:bold">;</span>
+</span></span></code></pre></div><p>В качестве правого операнда в операторе присвоения допускается использовать оператор распаковки словаря <strong>&hellip;</strong> (многоточие),
+который можно использовать и при передаче аргументов в функцию.</p>
+<!--
+## Заполнение и повтор значений {#comprehensions}
+
+Семейство **замыкающего многоточия** в списке значений. Оно допустимо только последним элементом и
+работает единообразно в двух позициях:
+
+- **литерал/конструкция массива** — число позиций задаёт размерный тип (`Int32[N]`);
+- **аргументы вызова** — число позиций равно числу параметров вызываемого (одинаково для **функций
+  и методов**: `obj.method(1, ... 2 ...)`).
+
+Формы:
+
+- `... expr ...` — заполнить оставшиеся позиции значением `expr`, **перевычисляя** его на каждую
+  позицию:
+  ```python
+      v:Int32[10] := [2, 3, ... 42 ...,];   # [2, 3, 42, 42, 42, 42, 42, 42, 42, 42]
+      b:Int32[8]  := [1, ... next() ...,];  # next() вызывается на каждую позицию
+
+      @func sum(a:Int32, b:Int32, c:Int32):Int32 { @return a + b + c; };
+      sum(5, ... 7 ...);                    # sum(5, 7, 7) = 19
+  ```
+- `...` (без операнда) — циклически повторить **все предыдущие** значения до известного числа
+  позиций (неполный последний цикл усекается):
+  ```python
+      a:Int32[4] := [1, 2, ...,];           # [1, 2, 1, 2]
+      w:Int32[8] := [1, 2, 3, ...,];        # [1, 2, 3, 1, 2, 3, 1, 2]
+  ```
+
+Разворот списка выполняет компилятор (число позиций известно из типа-цели/сигнатуры), поэтому
+оператор не влияет на генерацию C++ — в сгенерированном коде стоит обычный список значений.
+
+Ошибки компиляции: отсутствует известное число позиций (у литерала нет размерного типа-цели,
+вызываемый вариативный или его сигнатура неизвестна); многоточие не последнее; явных элементов
+больше числа позиций; повторять нечего (`...` без предыдущих значений); тип операнда несовместим с
+целевой позицией.
+
+Заполнение данных при создании размерных тензоров и операторы раскрытия диапазона/словаря
+(`...`) при инициализации и передаче аргументов в функцию описаны в разделе
+[Диапазоны, массивы и тензоры](../types/containers/).
+
+-->
+</div>
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-ea5ac913d5e7a66ba04d460bd4f51bee">2 - Операторы</h1>
+    
+	<h2 id="арифметические-операторы">Арифметические операторы<a class="td-heading-self-link" href="#%d0%b0%d1%80%d0%b8%d1%84%d0%bc%d0%b5%d1%82%d0%b8%d1%87%d0%b5%d1%81%d0%ba%d0%b8%d0%b5-%d0%be%d0%bf%d0%b5%d1%80%d0%b0%d1%82%d0%be%d1%80%d1%8b" aria-label="Heading self-link"></a></h2><p>Арифметические операторы <em>TrustLang</em> применимы к <a href="/ru/docs/types/numbers/">числовым типам</a> и формам с
+присваиванием. Каждый бинарный оператор имеет парный аналог <code>op=</code>, который выполняет операцию и
+присваивает результат левому операнду (<code>a += 1;</code>):</p>
+<table>
+	<thead>
+			<tr>
+					<th>Оператор</th>
+					<th>Действие</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>+</code> / <code>+=</code></td>
+					<td>сложение</td>
+			</tr>
+			<tr>
+					<td><code>-</code> / <code>-=</code></td>
+					<td>вычитание</td>
+			</tr>
+			<tr>
+					<td><code>*</code> / <code>*=</code></td>
+					<td>умножение (применимо и для повторения строк)</td>
+			</tr>
+			<tr>
+					<td><code>/</code> / <code>/=</code></td>
+					<td>деление (результат — число с плавающей точкой)</td>
+			</tr>
+			<tr>
+					<td><code>//</code> / <code>//=</code></td>
+					<td>целочисленное деление с округлением к меньшему (как в Python)</td>
+			</tr>
+			<tr>
+					<td><code>%</code> / <code>%=</code></td>
+					<td>остаток от целочисленного деления</td>
+			</tr>
+	</tbody>
+</table>
+<p>Отдельного оператора возведения в степень нет (степень вычисляется функцией/повторным умножением).
+Арифметика рациональных чисел и <code>:BigInteger</code> — отдельная строгая ветка: смешивание с числами с
+плавающей точкой требует явного преобразования (см. <a href="/ru/docs/types/numbers/">Числа и тензоры</a>).</p>
+<h3 id="bitwise">Битовые (поразрядные) операторы<a class="td-heading-self-link" href="#bitwise" aria-label="Heading self-link"></a></h3><p>Записи <code>.&lt;.</code> (сдвиг влево), <code>.&gt;.</code>/<code>.&gt;&gt;.</code> (сдвиг вправо), <code>.&amp;.</code>, <code>.|.</code>, <code>.^.</code>, <code>.~.</code>
+(И/ИЛИ/ИСКЛ-ИЛИ/НЕ) распознаются лексером и <strong>поддерживаются при SMT-верификации контрактов</strong>
+(транслируются в BV-операторы <code>bvshl</code>/<code>bvashr</code>/<code>bvand</code>/<code>bvor</code>/<code>bvxor</code>/<code>bvnot</code>). Генерация
+<strong>исполняемого</strong> C++-кода для них ещё <strong>не реализована</strong> (запланировано) — в <code>.cppt</code> оператор
+выводится как есть. Статус — в разделе <a href="/ru/docs/status/">Статус реализации</a>.</p>
+<h2 id="арифметическое-сравнение">Арифметическое сравнение<a class="td-heading-self-link" href="#%d0%b0%d1%80%d0%b8%d1%84%d0%bc%d0%b5%d1%82%d0%b8%d1%87%d0%b5%d1%81%d0%ba%d0%be%d0%b5-%d1%81%d1%80%d0%b0%d0%b2%d0%bd%d0%b5%d0%bd%d0%b8%d0%b5" aria-label="Heading self-link"></a></h2><p>Операторы арифметического сравнения — классические <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>, <code>==</code>, <code>!=</code>.
+Они применяются для сравнения скаляров и рациональных чисел; операторы равенства <code>==</code> и <code>!=</code>
+позволяют сравнивать и составные значения.</p>
+<h2 id="сравнение-значений">Сравнение значений<a class="td-heading-self-link" href="#%d1%81%d1%80%d0%b0%d0%b2%d0%bd%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b7%d0%bd%d0%b0%d1%87%d0%b5%d0%bd%d0%b8%d0%b9" aria-label="Heading self-link"></a></h2><ul>
+<li><code>==</code> и <code>!=</code> — сравнение с автоматическим приведением совместимых типов для любых объектов.</li>
+<li><code>===</code> и <code>!==</code> — точное сравнение для любых объектов (автоматического приведения не выполняется);
+для объектов сравниваются адреса размещения.</li>
+</ul>
+<h2 id="сравнение-типов">Сравнение типов<a class="td-heading-self-link" href="#%d1%81%d1%80%d0%b0%d0%b2%d0%bd%d0%b5%d0%bd%d0%b8%d0%b5-%d1%82%d0%b8%d0%bf%d0%be%d0%b2" aria-label="Heading self-link"></a></h2><p>Операторы сравнения типов возвращают <code>Bool</code> и различаются строгостью проверки:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Оператор</th>
+					<th>Смысл</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>&lt;~</code></td>
+					<td><strong>номинальная</strong> проверка: тип левого операнда совпадает с правым типом либо присутствует в его иерархии наследования</td>
+			</tr>
+			<tr>
+					<td><code>~~</code></td>
+					<td><strong>утиная</strong> (структурная, нестрогая): у левого операнда присутствуют все поля образца правой части</td>
+			</tr>
+			<tr>
+					<td><code>~~~</code></td>
+					<td><strong>строгая</strong>: номинальное тождество типа либо точное совпадение набора полей образца</td>
+			</tr>
+	</tbody>
+</table>
+<p>Правый операнд — имя типа (<code>:Class</code>), строковый литерал с именем типа или словарь-образец
+(<code>(field1=_, field2=0,)</code>; пустой словарь — <code>(,)</code>). Левый операнд — значение (проверяется его тип)
+или имя типа (<code>:Base &lt;~ :Derived</code>).</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">dog</span> <span style="color:#ce5c00;font-weight:bold">&lt;~</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Animal</span><span style="color:#000;font-weight:bold">;</span>             <span style="color:#8f5902;font-style:italic"># тип dog — Animal или его наследник</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">dog</span> <span style="color:#ce5c00;font-weight:bold">~~~</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Dog</span><span style="color:#000;font-weight:bold">;</span>               <span style="color:#8f5902;font-style:italic"># точное тождество типа</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Dog</span> <span style="color:#ce5c00;font-weight:bold">&lt;~</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Animal</span><span style="color:#000;font-weight:bold">;</span>            <span style="color:#8f5902;font-style:italic"># Dog — подтип Animal (проверка на этапе компиляции)</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Animal</span> <span style="color:#ce5c00;font-weight:bold">&lt;~</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Dog</span><span style="color:#000;font-weight:bold">;</span>            <span style="color:#8f5902;font-style:italic"># ложь (обратное отношение — перестановкой операндов)</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">d</span> <span style="color:#ce5c00;font-weight:bold">~~</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">field1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,);</span>           <span style="color:#8f5902;font-style:italic"># у d есть поле field1</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">d</span> <span style="color:#ce5c00;font-weight:bold">~~~</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">field1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">field2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">,);</span><span style="color:#8f5902;font-style:italic"># точный набор полей</span>
+</span></span></code></pre></div><p>Отрицаний у этих операторов нет — результат <code>Bool</code> проверяется как обычно: ветка <code>else</code>
+в <code>if</code>/<code>match</code> либо сравнение с <code>false</code>.</p>
+<h3 id="статическая-и-динамическая-проверка">Статическая и динамическая проверка<a class="td-heading-self-link" href="#%d1%81%d1%82%d0%b0%d1%82%d0%b8%d1%87%d0%b5%d1%81%d0%ba%d0%b0%d1%8f-%d0%b8-%d0%b4%d0%b8%d0%bd%d0%b0%d0%bc%d0%b8%d1%87%d0%b5%d1%81%d0%ba%d0%b0%d1%8f-%d0%bf%d1%80%d0%be%d0%b2%d0%b5%d1%80%d0%ba%d0%b0" aria-label="Heading self-link"></a></h3><ul>
+<li><strong>Статика (основной путь):</strong> если тип левого операнда выведен на этапе компиляции, результат
+свёртывается в константу <code>true</code>/<code>false</code> (наследование — по реестру типов). Нулевая стоимость
+в генерируемом коде.</li>
+<li><strong>Динамика:</strong> проверки, требующие рантайм-типа значения (стёртые значения <code>Any</code>/элементы словаря
+с неизвестным типом), а также имя типа из строковой <strong>переменной</strong>, пока <strong>не реализованы</strong> —
+выдаётся явная диагностика компиляции.</li>
+</ul>
+
+</div>
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-981a96fad502b40dfcbfa9af71282857">3 - Условия и циклы</h1>
+    
+	<p>В <em>TrustLang</em> нет ключевого слова <code>if</code>: условие проверяется конструкцией, которая по смыслу соответствует
+математическому «следует» — два тире и угловая скобка <code>--&gt;</code>. Запись легко объединяется в цепочки для
+проверки нескольких условий вида «else if». Ниже конструкция показана обеими формами — DSL-макросом
+и базовым синтаксисом (о двух формах записи см. <a href="/ru/docs/syntax/macros/">Макросы и DSL</a>):</p>
+<table>
+<tr><th>Макросы DSL</th><th>Базовый синтаксис</th></tr>
+<tr><td><pre><code>@if( условие1 ) {
+    действие1
+} @elif( условие2 ) действие2
+@else {
+    действие_иначе
+};</code></pre></td><td><pre><code>[ условие1 ] --&gt; { действие1 },
+[ условие2 ] --&gt; действие2,
+[ ... ] --&gt; { действие_иначе };
+</code></pre></td></tr>
+</table>
+<p>Для записи циклов используется оператор <code>&lt;-&gt;</code> (в базовой записи) или макросы <code>@while</code>/<code>@dowhile</code>
+(в DSL). Условие записывается в квадратных скобках; в зависимости от взаимного расположения условия и
+тела цикл бывает с предусловием (<code>while</code>) или с постусловием (<code>do while</code>). Эквивалентные формы:</p>
+<table>
+<tr><th>Макросы DSL</th><th>Базовый синтаксис</th></tr>
+<tr><td><pre><code>@while( cond ) {
+    тело цикла
+};</code></pre></td><td><pre><code>[ cond ] &lt;-&gt; {
+    тело цикла
+};</code></pre></td></tr>
+<tr><td><pre><code>{
+    тело цикла
+} @dowhile( cond );   # постусловие</code></pre>
+</td><td><pre><code>{
+    тело цикла
+} &lt;-&gt; [ cond ];   # постусловие</code></pre></td></tr>
+<tr><td><pre><code>@while( cond ) {
+    ...
+} @else {
+    ...    # если cond == false при входе
+};</code></pre></td><td><pre><code>[ cond ] &lt;-&gt; {
+    ...
+}, [ ... ] --&gt; {
+    ...    # ветка else
+};</code></pre></td></tr>
+</table>
+<p>Цикл с предусловием (<code>while</code>) поддерживает ветку <code>else</code>, которая выполняется, если условие входа в цикл
+не было выполнено ни разу.</p>
+<blockquote>
+<p><strong>Внимание:</strong> это отличается от аналогичной конструкции в Python, где секция <code>else</code> выполняется всегда,
+кроме прерывания цикла по <code>break</code>.</p>
+</blockquote>
+<h2 id="перебор-коллекций-foreach">Перебор коллекций (foreach)<a class="td-heading-self-link" href="#%d0%bf%d0%b5%d1%80%d0%b5%d0%b1%d0%be%d1%80-%d0%ba%d0%be%d0%bb%d0%bb%d0%b5%d0%ba%d1%86%d0%b8%d0%b9-foreach" aria-label="Heading self-link"></a></h2><p>У цикла <code>foreach</code> нет отдельного ключа DSL — он реализуется циклом с деструктуризацией элемента и
+мутацией источника (оператор раскрытия списка). Пример суммирования элементов словаря:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">summa</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87">dict</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">2</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">3</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">4</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">5</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[</span> <span style="color:#204a87">dict</span> <span style="color:#000;font-weight:bold">]</span> <span style="color:#ce5c00;font-weight:bold">&lt;-&gt;</span> <span style="color:#000;font-weight:bold">{</span>          <span style="color:#8f5902;font-style:italic"># условие цикла — пока в dict есть данные</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic"># распаковка: первый элемент переходит в item, суффикс dict... — оставшиеся</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">item</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#204a87">dict</span><span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#204a87">dict</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">summa</span> <span style="color:#ce5c00;font-weight:bold">+=</span> <span style="color:#000">item</span><span style="color:#000;font-weight:bold">;</span>      <span style="color:#8f5902;font-style:italic"># накопление суммы</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><h2 id="сопоставление-с-образцом-match">Сопоставление с образцом (match)<a class="td-heading-self-link" href="#%d1%81%d0%be%d0%bf%d0%be%d1%81%d1%82%d0%b0%d0%b2%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-%d1%81-%d0%be%d0%b1%d1%80%d0%b0%d0%b7%d1%86%d0%be%d0%bc-match" aria-label="Heading self-link"></a></h2><p>Оператор оценки выражения (<code>match</code>) — приблизительный аналог операторов <em>switch</em>/<em>match</em> в других
+языках. Он задаётся конструкцией <code>[ выражение ] ==&gt; { ... }</code> (базовый синтаксис) или макросом <code>@match</code>
+(DSL), в теле которых перечисляются ветки-условия. Эквивалентные формы:</p>
+<table>
+<tr><th>Макросы DSL</th><th>Базовый синтаксис</th></tr>
+<tr><td><pre><code>@match( $var ) ==&gt; {
+    @case( 1 ) { code };
+    @case( 1, 2 ) { code };
+    @default { code default };
+};</code></pre></td><td><pre><code>[ $var ] ==&gt; {
+    [1] --&gt; { code };             # $var == 1
+    [1, 2] --&gt; { code };          # ($var == 1 || $var == 2)
+    [...] --&gt; { code default };   # иначе
+};</code></pre></td></tr>
+</table>
+<p>Хотя оператор внешне похож на сопоставление с образцом (<em>pattern matching</em>), по сути это краткая запись
+множественного оператора сравнения: в качестве оператора оценки можно использовать любой оператор
+сравнения:</p>
+<ul>
+<li><code>==&gt;</code> — равенство с приведением типов;</li>
+<li><code>===&gt;</code> — точное равенство;</li>
+<li><code>~&gt;</code> — проверка типа (имени класса);</li>
+<li><code>~~&gt;</code> — утиная типизация;</li>
+<li><code>~~~&gt;</code> — строгая утиная типизация.</li>
+</ul>
+<p>Если в качестве оператора сравнения используется утиная типизация, оценка превращается в классическое
+сопоставление с образцом по полям (пример приведён на форме <code>@match</code>):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#a40000">$</span><span style="color:#000">value</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#39;2&#39;</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@match</span><span style="color:#000;font-weight:bold">(</span> <span style="color:#a40000">$</span><span style="color:#000">value</span> <span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">~~&gt;</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">((</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,),</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">,))</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span> <span style="color:#8f5902;font-style:italic"># поле f2 отсутствует или является числом</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">((</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#34;&#34;</span><span style="color:#000;font-weight:bold">,),</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#39;&#39;</span><span style="color:#000;font-weight:bold">,))</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span> <span style="color:#8f5902;font-style:italic"># поле f2 — строка</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@default</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><h2 id="переопределение-функции-сравнения-атрибут-matcherfn">Переопределение функции сравнения (атрибут <code>@[matcher(&quot;fn&quot;)]</code>)<a class="td-heading-self-link" href="#%d0%bf%d0%b5%d1%80%d0%b5%d0%be%d0%bf%d1%80%d0%b5%d0%b4%d0%b5%d0%bb%d0%b5%d0%bd%d0%b8%d0%b5-%d1%84%d1%83%d0%bd%d0%ba%d1%86%d0%b8%d0%b8-%d1%81%d1%80%d0%b0%d0%b2%d0%bd%d0%b5%d0%bd%d0%b8%d1%8f-%d0%b0%d1%82%d1%80%d0%b8%d0%b1%d1%83%d1%82-matcherfn" aria-label="Heading self-link"></a></h2><p>Если сравнение по значению не сводится к <code>==</code> (например, сопоставление строки с регулярным выражением),
+функцию сравнения <code>match</code> можно переопределить атрибутом <code>@[matcher(&quot;fn&quot;)]</code>, где <code>fn</code> — объявленная
+ранее функция-предикат с сигнатурой <code>bool fn(T_value, T_pattern)</code>. В каждой ветке вместо сравнения
+<code>(value == pattern)</code> вызывается предикат <code>fn(value, pattern)</code>; проверяемое выражение (scrutinee)
+вычисляется один раз во временную переменную. При заданном матчере ветки всегда порождаются как
+<code>if/else</code>-цепочка (оператор <code>switch</code> неприменим — шаблон не обязан быть константой).</p>
+<p>Атрибут ставится между значением и оператором (на «сырой» форме, так как макрос <code>@match</code> требует оператор
+сразу после себя):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@func</span> <span style="color:#000">matches_regex</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">value</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">StrChar</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">pattern</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">StrChar</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Bool</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#a40000">$</span><span style="color:#000">s</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#4e9a06">&#39;foobar&#39;</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[</span> <span style="color:#a40000">$</span><span style="color:#000">s</span> <span style="color:#000;font-weight:bold">]</span> <span style="color:#ce5c00;font-weight:bold">@</span><span style="color:#000;font-weight:bold">[</span><span style="color:#000">matcher</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;matches_regex&#34;</span><span style="color:#000;font-weight:bold">)</span><span style="color:#ce5c00;font-weight:bold">@</span><span style="color:#000;font-weight:bold">]</span> <span style="color:#ce5c00;font-weight:bold">==&gt;</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;^foo&#39;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;bar$&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#4e9a06">&#39;baz&#39;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@default</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><p>Семантика проверяет, что <code>fn</code> — объявленная функция-предикат ровно с двумя параметрами и логическим
+(булевским) возвратом. Атрибут <code>@[matcher]</code> несовместим с сопоставлением по типу (<code>~&gt;</code>/<code>~~&gt;</code>/<code>~~~&gt;</code>).</p>
+
+</div>
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-e0b5db16e4c0cac9c46dfe0dc4956de1">4 - Менеджер контекста (with)</h1>
+    <div class="lead">Групповой захват ссылок и автоматическое освобождение ресурсов (RAII)</div>
+	<p>Одиночный оператор захвата ссылки и синхронизации доступа к объекту (<code>*ref</code>, <code>*ref(...)</code>)
+выполняется для одного действия. Захват ссылки/объекта синхронизации — относительно медленная
+операция, поэтому выполнять её для каждого действия нерационально. <strong>Менеджер контекста</strong> (<code>with</code>)
+однократно захватывает сразу несколько ссылок/объектов и выполняет группу действий под общим локом,
+а также служит для <strong>автоматического освобождения ресурсов (RAII)</strong> при выходе из блока.</p>
+<p>В базовом синтаксисе — оператор <code>**( ... )</code>, в DSL ему соответствует макрос <code>@with</code>
+(см. <a href="/ru/docs/syntax/macros/">Keyword syntax (DSL)</a>). Сравнение форм записи на примере
+захвата-блокировки ссылки:</p>
+<table>
+<tr><th>Макросы DSL</th><th>Базовый синтаксис</th></tr>
+<tr><td><pre><code>@with(lock = *ref) {
+    ...   # критическая секция
+};</code></pre></td><td><pre><code>**( lock = *ref ) {
+    ...   # критическая секция
+};
+</code></pre></td></tr>
+</table>
+<h2 id="lock">Захват и блокировка ссылок<a class="td-heading-self-link" href="#lock" aria-label="Heading self-link"></a></h2><p>Ссылочные переменные объявляются атрибутами <code>@[reftype(&quot;shared&quot;)@]</code>/<code>@[reftype(&quot;weak&quot;)@]</code> и
+транслируются в <code>trust::Shared</code>/<code>trust::Weak</code>; оператор take <code>*ref</code>/<code>*^ref</code> захватывает ссылку
+(<code>lock</code>/<code>lock_const</code>) и возвращает охраняемый доступ <code>trust::Locker&lt;T&gt;</code>. Подробнее о ссылочных
+типах и модели ссылок — в <a href="/ru/docs/safety/memory/">Управлении памятью</a>.</p>
+<p><code>with</code> хранит список пар <code>(замок, привязка)</code> и связывает захваченные ссылки с именами внутри тела:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@with</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">lock</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#ce5c00;font-weight:bold">*</span><span style="color:#000">ref</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>     <span style="color:#8f5902;font-style:italic"># захват-блокировка ссылки ref</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ce5c00;font-weight:bold">...</span>                  <span style="color:#8f5902;font-style:italic"># критическая секция</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span> <span style="color:#5c35cc;font-weight:bold">@else</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>         <span style="color:#8f5902;font-style:italic"># ошибка захвата (ref == nullptr) → else</span>
+</span></span></code></pre></div><ul>
+<li><code>with(lock = *ref)</code> — создаёт временный замок <code>auto __cap = ref.lock();</code>, привязка <code>lock</code>
+автоматически разыменовывается в значение; вызов <code>lock()</code> бросает <code>IntMinus</code> при сбое → ветка <code>else</code>.</li>
+<li><code>with(_ = *ref)</code> — захват ссылки на всё тело без привязки значения.</li>
+<li><code>with(*ref)</code> — временный лок: снимается сразу, тело выполняется без лока.</li>
+<li>Привязка ссылочной переменной без <code>*</code>/<code>*^</code> (<code>with(v = ref)</code>) — предупреждение компилятора.</li>
+</ul>
+<h2 id="raii">Автоматическое освобождение ресурсов (RAII)<a class="td-heading-self-link" href="#raii" aria-label="Heading self-link"></a></h2><p>Кроме захвата ссылок, менеджер контекста позволяет выделять и освобождать ресурсы: при выходе из
+блока вызывается <a href="/ru/docs/types/class/">деструктор объекта</a> (для объектов по значению). Освобождение
+происходит до попадания в ветку <code>else</code>, если она есть:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@with</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">name</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000">expr</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#ce5c00;font-weight:bold">...</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>  <span style="color:#8f5902;font-style:italic"># RAII-захват значений</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ce5c00;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span> <span style="color:#5c35cc;font-weight:bold">@else</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>           <span style="color:#8f5902;font-style:italic"># при исключении в инициализаторе expr</span>
+</span></span></code></pre></div><p>Это гарантирует закрытие файлов, освобождение захваченных ресурсов и т. п. независимо от того, как
+завершился вложенный код (штатно, по прерыванию или по ошибке).</p>
+<h2 id="статус-реализации">Статус реализации<a class="td-heading-self-link" href="#%d1%81%d1%82%d0%b0%d1%82%d1%83%d1%81-%d1%80%d0%b5%d0%b0%d0%bb%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" aria-label="Heading self-link"></a></h2><p>Формы <code>&amp;</code>/<code>&amp;?</code>/<code>&amp;&amp;</code>, параметр <code>__timeout__</code>, межпотоковая синхронизация и типы <code>:Class</code>/<code>:Thread</code>
+в текущей версии <strong>не реализованы</strong> (см. <a href="/ru/docs/status/">Статус</a>). Работают: ссылочные переменные
+<code>@[reftype(...)]</code>, захват ссылок <code>with(...)</code> с веткой <code>else</code> и RAII-захват значений <code>with(name=expr)</code>.</p>
+
+</div>
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-e99fd20174576bba4e3f2aa683575cf1">5 - Возврат, прерывания и обработка ошибок</h1>
+    
+	<p>Последовательность команд (<a href="/ru/docs/syntax/#block">блок кода</a>) можно прервать в любом месте
+специальными операторами прерывания. В <em>TrustLang</em> используются два вида прерываний, которые по
+смыслу соответствуют своей записи:</p>
+<ul>
+<li><strong>«положительное»</strong> прерывание <code>++</code> — возврат значения/сквозная передача потока (аналог <code>return</code>);</li>
+<li><strong>«отрицательное»</strong> прерывание <code>--</code> — ошибка (аналог <code>throw</code>).</li>
+</ul>
+<p>Прерывание может возвращать значение: <code>++ 'Строка' ++</code> — вернуть строку, <code>-- err --</code> — «бросить»
+ошибку (примерный аналог <code>throw err</code>). Если значение не указано, прерывание не возвращает ничего
+(пустое значение).</p>
+<h2 id="named">Именованные прерывания: локальный переход и возврат<a class="td-heading-self-link" href="#named" aria-label="Heading self-link"></a></h2><p>Именованные <a href="/ru/docs/syntax/#block">блоки кода</a> могут выступать локальными метками передачи
+потока управления. Если перед оператором прерывания указать пространство имён/метку блока, то такое
+<strong>именованное</strong> прерывание действует только для указанного блока:</p>
+<ul>
+<li><code>block ++</code> — <strong>break</strong> по метке <code>block</code> (выход из блока);</li>
+<li><code>block -+</code> — <strong>continue</strong> по метке (переход на первую инструкцию блока).</li>
+</ul>
+<p>Один и тот же фрагмент — именованный цикл с выходом по метке и переходом к началу блока — двумя
+формами:</p>
+<table>
+<tr><th>Макросы DSL</th><th>Базовый синтаксис</th></tr>
+<tr><td><pre><code>outer {
+    @loop {
+        @break outer;     # break по метке outer (как outer ++)
+        @continue outer;  # continue по метке outer (как outer -+)
+    };
+};</code></pre></td><td><pre><code>outer {
+    [1] &lt;-&gt; {
+        outer ++;   # break по метке outer
+        outer -+;   # continue по метке outer
+    };
+};
+</code></pre></td></tr>
+</table>
+<p>Тело функции — это блок кода, чьё имя совпадает с полным именем функции. Поэтому «положительное»
+прерывание по метке функции возвращает результат из неё (<code>func_name ++ value ++</code>); в DSL этому
+соответствует <code>@return</code>.</p>
+<h2 id="catch">Перехват прерываний (try/catch)<a class="td-heading-self-link" href="#catch" aria-label="Heading self-link"></a></h2><p>Неименованные прерывания можно «ловить». Для перехвата используются блоки кода со специальной
+семантикой, которые оборачивают тело в <code>try/catch</code> по классу прерывания:</p>
+<ul>
+<li><code>{+ ... +}</code> — перехватывает положительные прерывания (<code>IntPlus</code>);</li>
+<li><code>{- ... -}</code> — перехватывает отрицательные прерывания (<code>IntMinus</code>);</li>
+<li><code>{* ... *}</code> — перехватывает оба типа (<code>IntAny</code>).</li>
+</ul>
+<p>Статус реализации (важные уточнения):</p>
+<ul>
+<li><strong>неименованное</strong> <code>++ value ++</code> <em>всегда</em> бросает <code>IntPlus</code> (положительное/сквозное), а
+<code>-- err --</code> — <code>IntMinus</code> (ошибка), независимо от наличия и глубины обработчиков;</li>
+<li><strong>именованное</strong> <code>func ++ value ++</code> — обычный <code>return</code> из функции (метка обязана быть текущей
+функцией или глобальной <code>::</code>);</li>
+<li>неперехваченный класс пробрасывается насквозь; сквозной <code>++</code> проходит через вызовы функций до
+ближайшего <code>{+}</code>/<code>{*}</code>;</li>
+<li>перехват значения (например, через <code>match</code>) пока не реализован — перехваченное прерывание
+поглощается.</li>
+</ul>
+<h2 id="обработка-ошибок">Обработка ошибок<a class="td-heading-self-link" href="#%d0%be%d0%b1%d1%80%d0%b0%d0%b1%d0%be%d1%82%d0%ba%d0%b0-%d0%be%d1%88%d0%b8%d0%b1%d0%be%d0%ba" aria-label="Heading self-link"></a></h2><p>«Отрицательное» прерывание используется для возврата ошибки лишь условно — оба вида прерываний
+равнозначны. Совместная обработка перехваченного значения в классическом стиле try/catch —
+через блоки перехвата (<code>{*}</code>, <code>{-}</code>, <code>{+}</code>) и оператор <a href="/ru/docs/operators/flow/">оценки выражения</a> — <strong>пока не
+реализована</strong>: перехваченное прерывание поглощается (см. <a href="/ru/docs/status/">Статус</a>).</p>
+<h2 id="см-также">См. также<a class="td-heading-self-link" href="#%d1%81%d0%bc-%d1%82%d0%b0%d0%ba%d0%b6%d0%b5" aria-label="Heading self-link"></a></h2><ul>
+<li><a href="/ru/docs/operators/with/">Менеджер контекста <code>with</code></a> — RAII и освобождение ресурсов при выходе из блока.</li>
+<li><a href="../operators/concurrency/">Многопоточность и асинхронность</a> — запланированные прерывания корутин
+(<code>@co_yield</code>/<code>@co_await</code>/<code>@co_return</code> не реализованы).</li>
+<li>DSL-эквиваленты (<code>@return</code>, <code>@break</code>, <code>@continue</code>) — <a href="/ru/docs/syntax/macros/">Keyword syntax (DSL)</a>.</li>
+</ul>
+
+</div>
+
+
+
+    
+	
+  
+
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">Все права защищены</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

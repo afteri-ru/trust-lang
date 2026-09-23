@@ -1,0 +1,591 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Nuances of developing a parser for your own programming language | TrustLang</title>
+<meta name="description" content="Recently I read an article on Habr, “My own language, or how I got tired of assembler and C”, and my eye involuntarily caught on one paragraph:
+I decided not to bother too much, so I used the parglare library. It is very lightweight and convenient, I recommend it to everyone. To describe the syntax, the parser accepts a string in the corresponding format and uses regular expressions (do not judge regexes, they are omnipotent!).">
+<meta property="og:url" content="https://trust-lang.net/en/blog/implementation/parser-nuances/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Nuances of developing a parser for your own programming language">
+	<meta property="og:description" content="Recently I read an article on Habr, “My own language, or how I got tired of assembler and C”, and my eye involuntarily caught on one paragraph:
+I decided not to bother too much, so I used the parglare library. It is very lightweight and convenient, I recommend it to everyone. To describe the syntax, the parser accepts a string in the corresponding format and uses regular expressions (do not judge regexes, they are omnipotent!).">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="blog">
+		<meta property="article:published_time" content="2023-03-29T00:00:00+00:00">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Parser">
+		<meta property="article:tag" content="Compiler">
+		<meta property="article:tag" content="Syntax">
+
+	<meta itemprop="name" content="Nuances of developing a parser for your own programming language">
+	<meta itemprop="description" content="Recently I read an article on Habr, “My own language, or how I got tired of assembler and C”, and my eye involuntarily caught on one paragraph:
+I decided not to bother too much, so I used the parglare library. It is very lightweight and convenient, I recommend it to everyone. To describe the syntax, the parser accepts a string in the corresponding format and uses regular expressions (do not judge regexes, they are omnipotent!).">
+	<meta itemprop="datePublished" content="2023-03-29T00:00:00+00:00">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="1970">
+	<meta itemprop="keywords" content="Parser,Compiler,Syntax">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Nuances of developing a parser for your own programming language">
+	<meta name="twitter:description" content="Recently I read an article on Habr, “My own language, or how I got tired of assembler and C”, and my eye involuntarily caught on one paragraph:
+I decided not to bother too much, so I used the parglare library. It is very lightweight and convenient, I recommend it to everyone. To describe the syntax, the parser accepts a string in the corresponding format and uses regular expressions (do not judge regexes, they are omnipotent!).">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/implementation/parser-nuances/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/implementation/parser-nuances/">Русский</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enblog-li">
+  <a href="/en/blog/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-enblog"><span class="">Articles</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogtheory-li">
+  <input type="checkbox" id="m-enblogtheory-check"/>
+  <label for="m-enblogtheory-check"><a href="/en/blog/theory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogtheory"><span class="">Theory of computation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryconsciousness-fsm-li">
+  <input type="checkbox" id="m-enblogtheoryconsciousness-fsm-check"/>
+  <label for="m-enblogtheoryconsciousness-fsm-check"><a href="/en/blog/theory/consciousness-fsm/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryconsciousness-fsm"><span class="">The mechanism of the emergence of consciousness in finite state machines</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryturing-machine-li">
+  <input type="checkbox" id="m-enblogtheoryturing-machine-check"/>
+  <label for="m-enblogtheoryturing-machine-check"><a href="/en/blog/theory/turing-machine/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryturing-machine"><span class="">Reflections on the Turing machine and the causes of errors in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheorystructured-programming-li">
+  <input type="checkbox" id="m-enblogtheorystructured-programming-check"/>
+  <label for="m-enblogtheorystructured-programming-check"><a href="/en/blog/theory/structured-programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheorystructured-programming"><span class="">Reflections on structured programming</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheorylogic-prog-li">
+  <input type="checkbox" id="m-enblogtheorylogic-prog-check"/>
+  <label for="m-enblogtheorylogic-prog-check"><a href="/en/blog/theory/logic-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheorylogic-prog"><span class="">The problem of logical programming languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enbloglanguage-design-li">
+  <input type="checkbox" id="m-enbloglanguage-design-check"/>
+  <label for="m-enbloglanguage-design-check"><a href="/en/blog/language-design/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enbloglanguage-design"><span class="">Programming language design</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designexpression-statement-li">
+  <input type="checkbox" id="m-enbloglanguage-designexpression-statement-check"/>
+  <label for="m-enbloglanguage-designexpression-statement-check"><a href="/en/blog/language-design/expression-statement/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designexpression-statement"><span class="">If you think you know how &#34;Expression&#34; differs from &#34;Statement&#34;, then most likely you are mistaken</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designbuilding-blocks-li">
+  <input type="checkbox" id="m-enbloglanguage-designbuilding-blocks-check"/>
+  <label for="m-enbloglanguage-designbuilding-blocks-check"><a href="/en/blog/language-design/building-blocks/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designbuilding-blocks"><span class="">Building blocks of programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designreference-solution-li">
+  <input type="checkbox" id="m-enbloglanguage-designreference-solution-check"/>
+  <label for="m-enbloglanguage-designreference-solution-check"><a href="/en/blog/language-design/reference-solution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designreference-solution"><span class="">A possible solution to the problem of references in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designtrust-lang-li">
+  <input type="checkbox" id="m-enbloglanguage-designtrust-lang-check"/>
+  <label for="m-enbloglanguage-designtrust-lang-check"><a href="/en/blog/language-design/trust-lang/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designtrust-lang"><span class="">A new programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designunusual-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designunusual-prog-check"/>
+  <label for="m-enbloglanguage-designunusual-prog-check"><a href="/en/blog/language-design/unusual-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designunusual-prog"><span class="">An unusual concept of the syntax of a programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designlang-final-li">
+  <input type="checkbox" id="m-enbloglanguage-designlang-final-check"/>
+  <label for="m-enbloglanguage-designlang-final-check"><a href="/en/blog/language-design/lang-final/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designlang-final"><span class="">What is the &#34;ideal&#34; goal of the development of programming languages?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designinter-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designinter-prog-check"/>
+  <label for="m-enbloglanguage-designinter-prog-check"><a href="/en/blog/language-design/inter-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designinter-prog"><span class="">International programming in natural languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogcomparison-li">
+  <input type="checkbox" id="m-enblogcomparison-check"/>
+  <label for="m-enblogcomparison-check"><a href="/en/blog/comparison/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogcomparison"><span class="">Language comparison</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-rust-vs-python-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-rust-vs-python-check"/>
+  <label for="m-enblogcomparisoncpp-rust-vs-python-check"><a href="/en/blog/comparison/cpp-rust-vs-python/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-rust-vs-python"><span class="">Why C&#43;&#43; or Rust can never replace Python</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-evolution-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-evolution-check"/>
+  <label for="m-enblogcomparisoncpp-evolution-check"><a href="/en/blog/comparison/cpp-evolution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-evolution"><span class="">The Achilles&#39; heel of C&#43;&#43; and the future r̶e̶ evolution</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncode-safety-economy-li">
+  <input type="checkbox" id="m-enblogcomparisoncode-safety-economy-check"/>
+  <label for="m-enblogcomparisoncode-safety-economy-check"><a href="/en/blog/comparison/code-safety-economy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncode-safety-economy"><span class="">The economics of code safety, or why Rust is not needed</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-safety-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-safety-check"/>
+  <label for="m-enblogcomparisoncpp-safety-check"><a href="/en/blog/comparison/cpp-safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-safety"><span class="">C&#43;&#43; safety and Buridan&#39;s mice in IT</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisongenerics-li">
+  <input type="checkbox" id="m-enblogcomparisongenerics-check"/>
+  <label for="m-enblogcomparisongenerics-check"><a href="/en/blog/comparison/generics/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisongenerics"><span class="">Generic programming in different languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enblogimplementation-li">
+  <input type="checkbox" id="m-enblogimplementation-check" checked/>
+  <label for="m-enblogimplementation-check"><a href="/en/blog/implementation/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogimplementation"><span class="">Compiler implementation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-enblogimplementationparser-nuances-li">
+  <input type="checkbox" id="m-enblogimplementationparser-nuances-check" checked/>
+  <label for="m-enblogimplementationparser-nuances-check"><a href="/en/blog/implementation/parser-nuances/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationparser-nuances"><span class="td-sidebar-nav-active-item">Nuances of developing a parser for your own programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogimplementationdsl-with-macros-li">
+  <input type="checkbox" id="m-enblogimplementationdsl-with-macros-check"/>
+  <label for="m-enblogimplementationdsl-with-macros-check"><a href="/en/blog/implementation/dsl-with-macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationdsl-with-macros"><span class="">DSL (domain-specific language) implementation with macros</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogsafety-li">
+  <input type="checkbox" id="m-enblogsafety-check"/>
+  <label for="m-enblogsafety-check"><a href="/en/blog/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogsafety"><span class="">Software safety</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogsafetystack-overflow-li">
+  <input type="checkbox" id="m-enblogsafetystack-overflow-check"/>
+  <label for="m-enblogsafetystack-overflow-check"><a href="/en/blog/safety/stack-overflow/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogsafetystack-overflow"><span class="">Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogsafetylanguage-guarantees-li">
+  <input type="checkbox" id="m-enblogsafetylanguage-guarantees-check"/>
+  <label for="m-enblogsafetylanguage-guarantees-check"><a href="/en/blog/safety/language-guarantees/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogsafetylanguage-guarantees"><span class="">Programming language guarantees as a basis for secure software development</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogprogramming-li">
+  <input type="checkbox" id="m-enblogprogramming-check"/>
+  <label for="m-enblogprogramming-check"><a href="/en/blog/programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogprogramming"><span class="">Philosophy of programming</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingprog-styles-same-time-li">
+  <input type="checkbox" id="m-enblogprogrammingprog-styles-same-time-check"/>
+  <label for="m-enblogprogrammingprog-styles-same-time-check"><a href="/en/blog/programming/prog-styles-same-time/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingprog-styles-same-time"><span class="">Can declarative and imperative styles of writing programs be used simultaneously?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingcomplex-prog-li">
+  <input type="checkbox" id="m-enblogprogrammingcomplex-prog-check"/>
+  <label for="m-enblogprogrammingcomplex-prog-check"><a href="/en/blog/programming/complex-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingcomplex-prog"><span class="">Simple complex programming</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogai-li">
+  <input type="checkbox" id="m-enblogai-check"/>
+  <label for="m-enblogai-check"><a href="/en/blog/ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogai"><span class="">AI and IT processes</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiai-illusions-li">
+  <input type="checkbox" id="m-enblogaiai-illusions-check"/>
+  <label for="m-enblogaiai-illusions-check"><a href="/en/blog/ai/ai-illusions/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiai-illusions"><span class="">The main problem of using AI (Illusions of Intelligence) in software development</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiwrong-term-ai-li">
+  <input type="checkbox" id="m-enblogaiwrong-term-ai-check"/>
+  <label for="m-enblogaiwrong-term-ai-check"><a href="/en/blog/ai/wrong-term-ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiwrong-term-ai"><span class="">The ambiguous term &#34;artificial intelligence&#34;</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogreleases-li">
+  <input type="checkbox" id="m-enblogreleases-check"/>
+  <label for="m-enblogreleases-check"><a href="/en/blog/releases/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogreleases"><span class="">Releases</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv060-li">
+  <input type="checkbox" id="m-enblogreleasesv060-check"/>
+  <label for="m-enblogreleasesv060-check"><a href="/en/blog/releases/v0.6.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv060"><span class="">TrustLang v0.6.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv040-li">
+  <input type="checkbox" id="m-enblogreleasesv040-check"/>
+  <label for="m-enblogreleasesv040-check"><a href="/en/blog/releases/v0.4.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv040"><span class="">NewLang v0.4.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv030-li">
+  <input type="checkbox" id="m-enblogreleasesv030-check"/>
+  <label for="m-enblogreleasesv030-check"><a href="/en/blog/releases/v0.3.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv030"><span class="">NewLang v0.3.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv020-li">
+  <input type="checkbox" id="m-enblogreleasesv020-check"/>
+  <label for="m-enblogreleasesv020-check"><a href="/en/blog/releases/v0.2.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv020"><span class="">NewLang v0.2.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv010-li">
+  <input type="checkbox" id="m-enblogreleasesv010-check"/>
+  <label for="m-enblogreleasesv010-check"><a href="/en/blog/releases/v0.1.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv010"><span class="">NewLang v0.1.0</span></a></label>
+  
+</li>
+  </ul>
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/en/_print/blog/implementation/"><i class="fa-solid fa-print fa-fw"></i> Print entire section</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li>
+      <ul>
+        <li><a href="#terms-used">Terms used.</a></li>
+      </ul>
+    </li>
+    <li><a href="#attempt-no-1--flex--bison">Attempt No. 1 — Flex + Bison</a></li>
+    <li><a href="#attempt-no-2--flex--lemon">Attempt No. 2 — Flex + Lemon</a></li>
+    <li><a href="#attempt-no-3--a-parser-on-regexes-re2c">Attempt No. 3 — a parser on regexes, re2c</a></li>
+    <li><a href="#attempt-no-4--flex-flexcpp--bisoncpp">Attempt No. 4 — flex (flexcpp) + bisoncpp</a></li>
+    <li><a href="#attempt-no-5--the-foreign-parser-antlr">Attempt No. 5 — the foreign parser ANTLR</a></li>
+    <li><a href="#attempt-no-6-the-last-one--returning-to-flex--bison">Attempt No. 6, the last one — returning to Flex + Bison</a></li>
+    <li><a href="#conclusions-for-memory">Conclusions for memory</a></li>
+    <li><a href="#strategy-for-handling-syntax-errors">Strategy for handling syntax errors</a></li>
+    <li><a href="#macros-and-modification-of-the-grammar-at-runtime">Macros and modification of the grammar at Runtime</a></li>
+    <li><a href="#the-most-important-thing-in-developing-a-grammar">The most important thing in developing a grammar!</a></li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            <a class="td-rss-button" title="RSS" href="/en/blog/implementation/index.xml" target="_blank" rel="noopener">
+              <i class="fa-solid fa-rss" aria-hidden="true"></i>
+            </a>
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/en/blog/">Articles</a></li>
+  <li class="breadcrumb-item">
+    <a href="/en/blog/implementation/">Compiler implementation</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    Nuances of developing a parser for your own programming language</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>Nuances of developing a parser for your own programming language</h1>
+	
+	<div class="td-byline mb-4">
+		
+		<time datetime="2023-03-29" class="text-body-secondary">Wednesday, March 29, 2023</time>
+	</div>
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p><img src="/en/blog/langs.jpeg" alt="Featured image"></p>
+<p>Recently I read an article on Habr, &ldquo;My own language, or how I got tired of assembler and C&rdquo;, and my eye involuntarily caught on one paragraph:</p>
+<blockquote>
+<p>I decided not to bother too much, so I used the parglare library. It is very lightweight and convenient, I recommend it to everyone. To describe the syntax, the parser accepts a string in the corresponding format and uses regular expressions (do not judge regexes, they are omnipotent!).</p>
+</blockquote>
+<p>As a result, I decided to publish an article based on my old notes from back in the days when the idea of <a href="/en/">TrustLang</a> had not yet fully crystallized, but I already wanted to write real code and test different concepts.</p>
+<p>After all, in the life of almost any programmer there may come a moment when a bright idea comes to his mind — to develop his own programming language. Maybe not for the sake of conquering the world, on par with C/C++, Python or at least PHP, but as a personal pet project, with which, on long winter evenings, he will hone his own skill.</p>
+<p>And since for any language (not only a programming one) everything starts with the analysis of its grammar, the very first task of the creator will be the choice of tools for the syntax analysis of the source text.</p>
+<p>This is a story — notes for memory about the torments of choosing a lexer-parser bundle for parsing the grammar of TrustLang. And also an attempt to describe and systematize conclusions about the features of the different analyzers that I had to work with when choosing a parser for parsing the grammar of my own programming language.</p>
+<h3 id="terms-used">Terms used.<a class="td-heading-self-link" href="#terms-used" aria-label="Heading self-link"></a></h3><p>So that it is clear what will be discussed further.</p>
+<blockquote>
+<p>Lexer — a computer program or library whose task is to split the input data stream into separate, unrelated fragments, which are customarily called tokens or lexemes.</p>
+<p>Parser — based on a sequence of tokens, performs syntax analysis, for example builds an abstract syntax tree (AST).</p>
+</blockquote>
+<h2 id="attempt-no-1--flex--bison">Attempt No. 1 — Flex + Bison<a class="td-heading-self-link" href="#attempt-no-1--flex--bison" aria-label="Heading self-link"></a></h2><p><a href="https://github.com/westes/flex">GitHub - westes/flex: The Fast Lexical Analyzer - scanner generator for lexing in C and C++</a>
+<a href="https://www.gnu.org/software/bison/">Bison - GNU Project - Free Software Foundation</a></p>
+<p>After reading some clever books, I started with the classics: Flex + Bison. These are old and long-refined applications with the widest configuration capabilities, with which one can describe the syntax and obtain the source files of the lexer and parser for a language with almost any grammar.</p>
+<p>Unfortunately, these old-timers have a very high entry threshold and a heavy legacy. The definition of a custom lexer class through <code>#define</code> alone is worth something, as well as the lack of proper C++ support. Forced dances with a tambourine for parsing a single line, when one does not need to analyze the whole file, and other not always obvious problems and various unclear conventions.</p>
+<p>In other words, after a few weeks of unsuccessful torment, I decided to look at alternatives, and since the initial lexicon file after experiments with Flex + Bison had already been made somehow, the next bundle was Flex + lemon.</p>
+<h2 id="attempt-no-2--flex--lemon">Attempt No. 2 — Flex + Lemon<a class="td-heading-self-link" href="#attempt-no-2--flex--lemon" aria-label="Heading self-link"></a></h2><p><a href="https://www.sqlite.org/lemon.html">The Lemon LALR(1) Parser Generator</a></p>
+<p>Here everything turned out to be primitively simple and understandable. A really very fast start with working examples, a very visual and understandable way of writing rules (compared to Bison). Everything is fine except for one thing: the good ends quickly if one has to analyze more than one line.</p>
+<p>In essence, Lemon versus Bison is like Yin and Yang. Lemon is simple and convenient for working with a single line (that is what it was created for), while Bison is a super-duper-mega combine for parsing files of any size.</p>
+<p>Therefore the search for a lexer + parser bundle continued, and after reading another article saying that language parsers can be made on regexes, I decided to look at what exists in this direction:</p>
+<h2 id="attempt-no-3--a-parser-on-regexes-re2c">Attempt No. 3 — a parser on regexes, re2c<a class="td-heading-self-link" href="#attempt-no-3--a-parser-on-regexes-re2c" aria-label="Heading self-link"></a></h2><p>From the description of <a href="https://re2c.org/">re2c</a>:</p>
+<blockquote>
+<p>In essence, with this thing one can write lexical analyzers on the fly in a few minutes.</p>
+</blockquote>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-c++" data-lang="c++"><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">/*!re2c
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYPEEK       = &#34;*cursor&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSKIP       = &#34;++cursor;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYBACKUP     = &#34;marker = cursor;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYRESTORE    = &#34;cursor = marker;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYBACKUPCTX  = &#34;ctxmarker = cursor;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYRESTORECTX = &#34;cursor = ctxmarker;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYRESTORETAG = &#34;cursor = ${tag};&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYLESSTHAN   = &#34;limit - cursor &lt; @@{len}&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSTAGP      = &#34;@@{tag} = cursor;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSTAGN      = &#34;@@{tag} = NULL;&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSHIFT      = &#34;cursor += @@{shift};&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">        re2c:define:YYSHIFTSTAG  = &#34;@@{tag} += @@{shift};&#34;;
+</span></span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">    */</span>
+</span></span></code></pre></div><p>It seemed that this was the most convenient way to specify templates for the parser! It is enough to describe the necessary templates in the comments, run a regex compiler over the source file and everything is ready! But no, indeed, it only seemed so.</p>
+<p>After all, for simple parsers or regular expressions <strong>re2c</strong> may indeed be good, but debugging the syntax of a large language on regexes is too troublesome an occupation.</p>
+<p>After that I decided not to bother with it and to look at alternatives to the classical lexers and parsers.</p>
+<h2 id="attempt-no-4--flex-flexcpp--bisoncpp">Attempt No. 4 — flex (flexcpp) + bisoncpp<a class="td-heading-self-link" href="#attempt-no-4--flex-flexcpp--bisoncpp" aria-label="Heading self-link"></a></h2><p>Whereas the traditional flex + bison has C++ support implemented <del>through one place</del> at the &ldquo;it works, do not touch it&rdquo; level, I decided to look at their alternative implementation <a href="https://gitlab.com/fbb-git/flexcpp">flexcpp</a> + <a href="https://gitlab.com/fbb-git/bisoncpp">bisoncpp</a> with native C++ support.</p>
+<p>The first impression was that it was just what the doctor ordered!</p>
+<p>The syntax for writing the lexicon, although slightly different from the classical one, is not fundamentally so. But there is native and logical C++ support without wrappers and tricks, and as an additional plus — a more convenient syntax for specifying rules in the parser. But even here there were some rough edges.</p>
+<p>In the rule templates, bisoncpp does not support Unicode (although the lexer-parser itself copes with it perfectly), and the situation with support is completely unclear. As I understood, the developer seems to be a single person, but I never managed to communicate with him about errors when processing Russian characters.*</p>
+<p>Then another unclear behavior surfaced in another place. As a result, I decided to abandon the unfriendly support and look at what other parser options exist.</p>
+<hr>
+<p>*) Two years later my ticket was closed with a comment that only ASCII characters are supported.</p>
+<h2 id="attempt-no-5--the-foreign-parser-antlr">Attempt No. 5 — the foreign parser ANTLR<a class="td-heading-self-link" href="#attempt-no-5--the-foreign-parser-antlr" aria-label="Heading self-link"></a></h2><p>I decided to refuse the use of <a href="https://www.antlr.org/">ANTLR</a> (from English ANother Tool for Language Recognition) — a generator of top-down analyzers for formal languages — right away because it is written in Java.</p>
+<p>There are no religious preferences in this, since I was looking for a parser generator that could be made embedded directly into the runtime environment, and in the case of ANTLR and the JRE this would be difficult.</p>
+<p>Thus I again returned to the old-timers Flex and Bison, with which everything had begun.</p>
+<h2 id="attempt-no-6-the-last-one--returning-to-flex--bison">Attempt No. 6, the last one — returning to Flex + Bison<a class="td-heading-self-link" href="#attempt-no-6-the-last-one--returning-to-flex--bison" aria-label="Heading self-link"></a></h2><p>All the experiments described above took a few months in total, as a result of which kilobytes of source code and test examples were written, dozens of articles were read, and as a result — a return to the original Flex + Bison bundle, but now with a solid baggage of experience in applying various variants of lexers-parsers.</p>
+<p>But most importantly, with an understanding of what one ultimately wants to get, and a very large base of test examples of syntax.</p>
+<h2 id="conclusions-for-memory">Conclusions for memory<a class="td-heading-self-link" href="#conclusions-for-memory" aria-label="Heading self-link"></a></h2><p>As a result, I decided the following for myself: if a simple templater is needed, then the ideal option is <strong>re2c</strong> (if for some reason <strong>regexp</strong> does not suit). If it is required to analyze syntax more complex than ordinary regexes, but on a single line, then the ideal would be the flex+lemon bundle, and if serious artillery is needed, then here it is unambiguously flex + bison.</p>
+<p>I abandoned the flexcpp + bisoncpp bundle altogether. The support situation is unclear, the syntax differs from the classics not very much (although one also has to rack one&rsquo;s brains), and working around the identified flaws is not worth that syntactic sugar.</p>
+<p>And based on the results of many experiments with different syntax variants, it was possible to formulate a couple of important architectural points that can greatly simplify the life of programming language creators:</p>
+<h2 id="strategy-for-handling-syntax-errors">Strategy for handling syntax errors<a class="td-heading-self-link" href="#strategy-for-handling-syntax-errors" aria-label="Heading self-link"></a></h2><p>Usually it is customary to handle syntax errors directly in the parser, and there is a certain reason for this — in this case there is no need for any further actions; only a fully described correct grammar is needed.</p>
+<p>But if the grammar of a language is very complex (hello C++), and its description becomes a difficult task, then one can also abandon the analysis of syntax errors directly in the parser! That is, it is better to make the lexicon as broad as possible (even with those variants that are erroneous for the language), but to catch these errors already during the AST analysis!</p>
+<p>In this case, maintaining the description of the language grammar becomes significantly simpler (fewer syntax rules, simpler formal description, etc.), and most importantly, when describing the grammar one does not need to think about lval or rval, where a reference can be specified and where not — i.e. one can specify everything and everywhere, and the analysis of the admissibility of using specific terms will be performed later during the AST analysis.</p>
+<p><em>Abandoning the full analysis of the language grammar at the level of the lexer-parser and transferring the checking of the correctness of syntactic constructs to the stage of parsing the syntax tree makes it possible to reduce and significantly simplify the description of grammar rules many times over, if not by orders of magnitude!</em></p>
+<p>Such an assumption is very useful at the initial stage of creating a language (one can focus on the general concept, instead of constant edits to the grammar), and also significantly simplifies the future maintenance and/or extension of the syntax.</p>
+<h2 id="macros-and-modification-of-the-grammar-at-runtime">Macros and modification of the grammar at Runtime<a class="td-heading-self-link" href="#macros-and-modification-of-the-grammar-at-runtime" aria-label="Heading self-link"></a></h2><p>However powerful flex+bison may be, this bundle has one architectural problem. The logic of flex and bison is built on finite state machines, and it is impossible to change the grammar of the language during the execution of the application, all the more so because Bison itself calls the lexer to obtain the next portion of data, and it is very difficult to slip modified data to it right during operation. And one so wanted to make it possible to expand macros and modify the syntax in a single pass of the analyzer!</p>
+<p>For this, I had to redo the logic of flex+bison so that the parser received data from the lexer not directly from yylex, but through a function — a proxy. This intermediate function puts the read lexemes into an internal buffer. The data in the buffer is analyzed for the presence of macros, and only after their expansion are the lexemes given to the parser from the top of the buffer one at a time. More about TrustLang macros can be read <a href="/en/blog/implementation/dsl-with-macros/">here</a>.</p>
+<h2 id="the-most-important-thing-in-developing-a-grammar">The most important thing in developing a grammar!<a class="td-heading-self-link" href="#the-most-important-thing-in-developing-a-grammar" aria-label="Heading self-link"></a></h2><p>But the most important advice was given to me by a friend who once participated in a project to develop a parser for a programming language. And in the correctness of his advice — <strong>write tests for the grammar</strong> — I have become convinced many times. Even so, <strong>WRITE TESTS FOR THE GRAMMAR</strong>.</p>
+<p>Tests for the language grammar are a much more important thing than any of the tools used. Only tests make it possible to make sure that a new feature in the language has not broken the old work. And if it did break it, then first of all one needs to add a new test that would pin down the broken scenario, and only after that can one calmly continue experiments with new grammatical constructs.</p>
+<p>And good luck to all language writers!</p>
+<p>Original publication</p>
+
+	<ul class="list-unstyled td-pager d-flex justify-content-between align-items-center mb-0">
+  <li>
+    <a href="/en/blog/implementation/dsl-with-macros/" aria-label="Previous - DSL (domain-specific language) implementation with macros" class="btn btn-primary"><span class="me-1">←</span>Previous</a>
+  </li>
+  <li>
+    <a class="btn btn-primary disabled">Next<span class="ms-1">→</span></a>
+  </li>
+</ul>
+
+	</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

@@ -1,0 +1,801 @@
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="canonical" type="text/html" href="https://trust-lang.net/en/docs/operators/">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/en/docs/operators/index.xml">
+<meta name="robots" content="noindex, nofollow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Expressions and statements | TrustLang</title>
+<meta name="description" content="Operators, expressions and control-flow constructs of TrustLang">
+<meta property="og:url" content="https://trust-lang.net/en/docs/operators/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Expressions and statements">
+	<meta property="og:description" content="Operators, expressions and control-flow constructs of TrustLang">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="Expressions and statements">
+	<meta itemprop="description" content="Operators, expressions and control-flow constructs of TrustLang">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="72">
+	<meta itemprop="keywords" content="Operators,Control-Flow">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Expressions and statements">
+	<meta name="twitter:description" content="Operators, expressions and control-flow constructs of TrustLang">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-section">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/docs/operators/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5" role="main">
+            
+
+
+
+
+<div class="td-content">
+<div class="pageinfo pageinfo-primary d-print-none">
+<p>
+This is the multi-page printable view of this section.
+<a href="#" onclick="print();return false;">Click here to print</a>.
+</p><p>
+<a href="/en/docs/operators/">Return to the regular view of this page</a>.
+</p>
+</div>
+
+
+
+<h1 class="title">Expressions and statements</h1>
+<div class="lead">Operators, expressions and control-flow constructs of TrustLang</div>
+
+
+
+
+    <ul>
+    
+  
+  
+  
+  
+
+  
+    
+    
+	
+<li>1: <a href="#pg-7edbb1fa264a4035aab30fe88ce04ffb">Creating objects and assignment</a></li>
+
+
+    
+  
+    
+    
+	
+<li>2: <a href="#pg-ea5ac913d5e7a66ba04d460bd4f51bee">Operators</a></li>
+
+
+    
+  
+    
+    
+	
+<li>3: <a href="#pg-981a96fad502b40dfcbfa9af71282857">Conditions and loops</a></li>
+
+
+    
+  
+    
+    
+	
+<li>4: <a href="#pg-e0b5db16e4c0cac9c46dfe0dc4956de1">Context manager (with)</a></li>
+
+
+    
+  
+    
+    
+	
+<li>5: <a href="#pg-e99fd20174576bba4e3f2aa683575cf1">Return, interrupts and error handling</a></li>
+
+
+    
+  
+
+    </ul>
+
+
+<div class="content">
+      <p>In <em>TrustLang</em> <strong>any construct is an expression</strong> and returns a value, so it can be
+nested inside other expressions. Statements are separated by a semicolon <code>;</code>; a group of statements
+is enclosed in a code block <code>{ ... }</code>. The basic rules of blocks and expressions are described in
+<a href="/en/docs/syntax/">Syntax</a>.</p>
+<p>Handling of emergencies and guarantees of resource release are related to the
+<a href="/en/docs/safety/memory/">Memory</a> model, and typing operators — to the <a href="../types/type_system/">Type system</a>.</p>
+
+</div>
+</div>
+
+
+  
+  
+  
+  
+
+  
+  
+
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-7edbb1fa264a4035aab30fe88ce04ffb">1 - Creating objects and assignment</h1>
+    <div class="lead">Object creation and assignment operators, destructuring</div>
+	<!--
+##### Object scope != object lifetime {#important}
+An object *always* has a name, even when the object itself is not physically created yet.
+The scope of a *name* is determined by its location in the program code (code block, namespace, module, etc.).
+An object may exist but be inaccessible from the current scope, for example, shadowed by another object with the same name.
+
+The lifetime of a local/automatic (i.e. temporary) object is always limited by the scope of the current code block,
+while the lifetime of a static object is limited by the lifetime of the module in which it is defined, or by the lifetime of the program if the object is global.
+But *initialization of the initial value of a static object* occurs in accordance with the executed program code,
+(i.e. when executing the code with the statement creating the static object).
+-->
+<h3 id="create">Creating objects<a class="td-heading-self-link" href="#create" aria-label="Heading self-link"></a></h3><p>TrustLang uses several operators to create objects:</p>
+<ul>
+<li>
+<p>&ldquo;<strong>:=</strong>&rdquo; — creates or assigns a value to a <strong>variable/function</strong> (an object by value).
+If an object with such a name does not exist yet, it is created; otherwise the value is reassigned.
+Example: <code>x := 5;</code>, <code>hello(str) := { ... };</code>.</p>
+</li>
+<li>
+<p>&ldquo;<strong>::=</strong>&rdquo; — declares a <strong>type</strong> (an alias or a typed type), for example <code>MyInt ::= :Int32;</code>,
+<code>Status ::= (OK=0, ERROR=1, BUSY=2,):Enum;</code>. Using &ldquo;<strong>::=</strong>&rdquo; to create
+values/functions is impossible — the compiler reports: <em>&ldquo;cannot assign a type &hellip; to a value variable; use &lsquo;::=&rsquo; to declare a type alias&rdquo;</em>.</p>
+<p>Also, a <strong>forward declaration of a native class</strong> is declared via <code>::=</code>:
+<code>String ::= %std::string { %size(): UInt64 := ...; };</code> — the RHS is the class name (native — with a leading <code>%</code>),
+the body <code>{ ... }</code> — interface members (methods/fields/constructors), each <code>:= ...</code> (without a body). Constructing
+an object — calling the class name: <code>s: String := String('hello');</code> → <code>std::string(&quot;hello&quot;)</code>. More — in
+<a href="/en/docs/types/native/">Native types</a>.</p>
+</li>
+</ul>
+<p>The operators &ldquo;<strong>::-</strong>&rdquo; and &ldquo;<strong>:-</strong>&rdquo; are not implemented in the current version; earlier they were intended
+for pure functions and compile-time computed values.</p>
+<h3 id="assign">Assigning a new value<a class="td-heading-self-link" href="#assign" aria-label="Heading self-link"></a></h3><p>The operator &ldquo;<strong>=</strong>&rdquo; is used to assign a new value to already existing objects.
+If an object with the specified name is absent, a <em>compilation</em> error occurs.</p>
+<!--
+~~If a [function](/en/docs/types/funcs/) or a [class method](/en/docs/types/class/) is overridden,
+the old value is not *removed*, but a stack of overridden names is created (a kind of table of virtual compile-time names),
+and the old (previous) object can be accessed from the new function by the system name "**$$**".*~~
+-->
+<h4 id="swap">Value swap operator<a class="td-heading-self-link" href="#swap" aria-label="Heading self-link"></a></h4><p>The operator &ldquo;<strong>:=:</strong>&rdquo; (swap) does not create new variables, but only exchanges their values with each other.
+The variables must have identical/compatible data types, or have the type <strong><code>:None</code></strong>, i.e. <strong>&quot;<code>_</code>&quot;</strong>.
+It is used to implement the copy-and-swap idiom, since no errors can occur when the operator is executed.</p>
+<p>In the current implementation <code>:=:</code> is an exchange/move intrinsic (used as a statement; the result is
+<code>void</code>): <code>a :=: b</code> expands to <code>std::swap(a, b)</code> (the types must be compatible, not necessarily
+references; exchanging incompatible types is an error with a diagnostic); the form <code>var :=: _</code> — moving the value
+into discard: the move is performed REALLY (a temporary is materialized, which is immediately destroyed),
+therefore <code>var</code> remains in a moved-from state, and for owning references (<code>unique</code>/<code>shared</code>) the resource is released.
+See also <a href="/en/docs/safety/memory/">&ldquo;Reference types&rdquo;</a>.</p>
+<h4 id="append">Append element operator<a class="td-heading-self-link" href="#append" aria-label="Heading self-link"></a></h4><p>The operator &ldquo;<strong>[]=</strong>&rdquo; — an analog of <code>push_back</code>: it appends a new element to the container on the left, increasing its size by one.
+General rule: <code>X []= v</code> is equivalent to <code>X.push_back(v)</code>.</p>
+<ul>
+<li>For a <strong>dictionary</strong> (<code>Dict</code>, including positional &ldquo;arrays&rdquo;), an unnamed append adds a positional element: <code>d []= 999</code>.</li>
+<li>For <strong>strings</strong>, it appends a character/string: <code>s []= 'd'</code> → <code>s.append(&quot;d&quot;)</code>.</li>
+<li>The right object of the operator must be compatible with the type of a single element of the left object
+(string width: the narrow <code>'...'</code> / the wide <code>&quot;...&quot;</code> must match the type of the string container).</li>
+<li>A nested LHS (<code>d['x'] []= v</code>, <code>d[0] []= v</code>, <code>d.field []= v</code>) — not yet implemented (compilation error).</li>
+<li><strong>Dictionary merge</strong> via the expansion operator <code>...</code>: <code>d []= ... dict2</code> or <code>d []= ... (a=1, b=2,)</code>
+adds <strong>all elements</strong> of the operand dictionary to the target (an analog of <code>extend</code>/<code>update</code>); the size of the target grows
+by the number of elements (for a literal and a dictionary with a known size — it is checked statically).</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">two</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">2</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#0000cf;font-weight:bold">999</span><span style="color:#000;font-weight:bold">;</span>        <span style="color:#8f5902;font-style:italic"># add a positional element → size 3</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#4e9a06">&#39;x&#39;</span><span style="color:#000;font-weight:bold">;</span>        <span style="color:#8f5902;font-style:italic"># add one more element</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">a</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">100</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">b</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">200</span><span style="color:#000;font-weight:bold">,);</span>  <span style="color:#8f5902;font-style:italic"># merge a literal → size 5 (a and b added)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d2</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">three</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">3</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#0000cf;font-weight:bold">4</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">d</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000">d2</span><span style="color:#000;font-weight:bold">;</span>     <span style="color:#8f5902;font-style:italic"># merge a dictionary variable → size 7</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">s</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#4e9a06">&#39;abc&#39;</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">s</span> <span style="color:#000;font-weight:bold">[]</span><span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#4e9a06">&#39;d&#39;</span><span style="color:#000;font-weight:bold">;</span>        <span style="color:#8f5902;font-style:italic"># the string became &#34;abcd&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;</span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">s</span><span style="color:#000;font-weight:bold">);</span>   <span style="color:#8f5902;font-style:italic"># &gt; abcd</span>
+</span></span></code></pre></div><p>Adding a <strong>named</strong> element of a dictionary is performed by the assignment operator <code>d[name] = value</code> (set/add by key).</p>
+<p><em>For example, when defining the class <code>:NewClass2</code>:</em></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">:</span><span style="color:#000">NewClass</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Class</span><span style="color:#000;font-weight:bold">{</span>       <span style="color:#8f5902;font-style:italic"># Base class</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">field1</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">;</span>      <span style="color:#8f5902;font-style:italic"># class field</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">field2</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">2</span><span style="color:#000;font-weight:bold">;</span>      <span style="color:#8f5902;font-style:italic"># class field</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">method1</span><span style="color:#000;font-weight:bold">():</span><span style="color:#000">Void</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{};</span>   <span style="color:#8f5902;font-style:italic"># method</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">:</span><span style="color:#000">NewClass2</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">NewClass</span><span style="color:#000;font-weight:bold">{</span>   <span style="color:#8f5902;font-style:italic"># inheritance</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">field2</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">2</span><span style="color:#000;font-weight:bold">;</span>      <span style="color:#8f5902;font-style:italic"># field field2 of the base class</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">method1</span><span style="color:#000;font-weight:bold">():</span><span style="color:#000">Void</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{};</span>   <span style="color:#8f5902;font-style:italic"># method override (override)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#a40000">$</span><span style="color:#000">var</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">99</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#8f5902;font-style:italic"># Create a temporary variable $var</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a40000">$</span><span style="color:#000">var</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">100</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#8f5902;font-style:italic"># The new variable shadows the higher-level $var</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#5c35cc;font-weight:bold">@print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;</span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#a40000">$</span><span style="color:#000">var</span><span style="color:#000;font-weight:bold">)</span>    <span style="color:#8f5902;font-style:italic"># &gt; 100</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;</span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#a40000">$</span><span style="color:#000">var</span><span style="color:#000;font-weight:bold">)</span>    <span style="color:#8f5902;font-style:italic"># &gt; 99</span>
+</span></span></code></pre></div><h3 id="expand">Assigning a value to several variables at once and the dictionary unpacking operator<a class="td-heading-self-link" href="#expand" aria-label="Heading self-link"></a></h3><p><em>TrustLang</em> supports the operation of assigning a value to several variables at once,
+which must be listed comma-separated to the left of the assignment operator.</p>
+<p>On the right side of the assignment operator there can be only one value,
+and to exchange the values of two variables, instead of writing <code>a,b = b,a;</code>
+you must use the <a href="/en/docs/operators/create/#swap">swap</a> operator:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span>    <span style="color:#000">a</span> <span style="color:#ce5c00;font-weight:bold">:=</span><span style="color:#000;font-weight:bold">:</span> <span style="color:#000">b</span><span style="color:#000;font-weight:bold">;</span>
+</span></span></code></pre></div><p>As the right operand in the assignment operator, it is allowed to use the dictionary unpacking operator <strong>&hellip;</strong> (ellipsis),
+which can also be used when passing arguments to a function.</p>
+<!--
+## Filling and repeating values {#comprehensions}
+
+The family of the **closing ellipsis** in a list of values. It is allowed only as the last element and
+works uniformly in two positions:
+
+- **array literal/construct** — the number of positions defines the sized type (`Int32[N]`);
+- **call arguments** — the number of positions equals the number of parameters of the callee (the same for **functions
+  and methods**: `obj.method(1, ... 2 ...)`).
+
+Forms:
+
+- `... expr ...` — fill the remaining positions with the value `expr`, **recomputing** it for each
+  position:
+  ```python
+      v:Int32[10] := [2, 3, ... 42 ...,];   # [2, 3, 42, 42, 42, 42, 42, 42, 42, 42]
+      b:Int32[8]  := [1, ... next() ...,];  # next() is called for each position
+
+      @func sum(a:Int32, b:Int32, c:Int32):Int32 { @return a + b + c; };
+      sum(5, ... 7 ...);                    # sum(5, 7, 7) = 19
+  ```
+- `...` (without an operand) — cyclically repeat **all previous** values up to the known number of
+  positions (the incomplete last cycle is truncated):
+  ```python
+      a:Int32[4] := [1, 2, ...,];           # [1, 2, 1, 2]
+      w:Int32[8] := [1, 2, 3, ...,];        # [1, 2, 3, 1, 2, 3, 1, 2]
+  ```
+
+The list expansion is performed by the compiler (the number of positions is known from the target type/signature), therefore
+the operator does not affect C++ generation — the generated code contains an ordinary list of values.
+
+Compilation errors: the known number of positions is missing (the literal has no sized target type,
+the callee is variadic or its signature is unknown); the ellipsis is not last; there are more explicit elements
+than positions; there is nothing to repeat (`...` without previous values); the operand type is incompatible with
+the target position.
+
+The filling of data when creating sized tensors and the operators of expanding a range/dictionary
+(`...`) during initialization and when passing arguments to a function are described in the section
+[Ranges, arrays and tensors](../types/containers/).
+
+-->
+
+</div>
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-ea5ac913d5e7a66ba04d460bd4f51bee">2 - Operators</h1>
+    
+	<h2 id="arithmetic-operators">Arithmetic operators<a class="td-heading-self-link" href="#arithmetic-operators" aria-label="Heading self-link"></a></h2><p>The arithmetic operators of <em>TrustLang</em> are applicable to <a href="/en/docs/types/numbers/">numeric types</a> and to assignment
+forms. Each binary operator has a paired analog <code>op=</code>, which performs the operation and
+assigns the result to the left operand (<code>a += 1;</code>):</p>
+<table>
+	<thead>
+			<tr>
+					<th>Operator</th>
+					<th>Action</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>+</code> / <code>+=</code></td>
+					<td>addition</td>
+			</tr>
+			<tr>
+					<td><code>-</code> / <code>-=</code></td>
+					<td>subtraction</td>
+			</tr>
+			<tr>
+					<td><code>*</code> / <code>*=</code></td>
+					<td>multiplication (also applicable for repeating strings)</td>
+			</tr>
+			<tr>
+					<td><code>/</code> / <code>/=</code></td>
+					<td>division (the result is a floating-point number)</td>
+			</tr>
+			<tr>
+					<td><code>//</code> / <code>//=</code></td>
+					<td>integer division rounded toward the smaller value (as in Python)</td>
+			</tr>
+			<tr>
+					<td><code>%</code> / <code>%=</code></td>
+					<td>remainder of integer division</td>
+			</tr>
+	</tbody>
+</table>
+<p>There is no separate exponentiation operator (the power is computed by a function/repeated multiplication).
+Arithmetic of rational numbers and <code>:BigInteger</code> is a separate strict branch: mixing with floating-point
+numbers requires an explicit conversion (see <a href="/en/docs/types/numbers/">Numbers and tensors</a>).</p>
+<h3 id="bitwise">Bitwise operators<a class="td-heading-self-link" href="#bitwise" aria-label="Heading self-link"></a></h3><p>The notations <code>.&lt;.</code> (shift left), <code>.&gt;.</code>/<code>.&gt;&gt;.</code> (shift right), <code>.&amp;.</code>, <code>.|.</code>, <code>.^.</code>, <code>.~.</code>
+(AND/OR/XOR/NOT) are recognized by the lexer and <strong>supported in SMT verification of contracts</strong>
+(translated into the BV operators <code>bvshl</code>/<code>bvashr</code>/<code>bvand</code>/<code>bvor</code>/<code>bvxor</code>/<code>bvnot</code>). Generation of
+<strong>executable</strong> C++ code for them is <strong>not yet implemented</strong> (planned) — in <code>.cppt</code> the operator
+is output as is. Status — in the section <a href="/en/docs/status/">Implementation status</a>.</p>
+<h2 id="arithmetic-comparison">Arithmetic comparison<a class="td-heading-self-link" href="#arithmetic-comparison" aria-label="Heading self-link"></a></h2><p>The arithmetic comparison operators are the classic <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, <code>&gt;=</code>, <code>==</code>, <code>!=</code>.
+They are used to compare scalars and rational numbers; the equality operators <code>==</code> and <code>!=</code>
+also allow comparing composite values.</p>
+<h2 id="value-comparison">Value comparison<a class="td-heading-self-link" href="#value-comparison" aria-label="Heading self-link"></a></h2><ul>
+<li><code>==</code> and <code>!=</code> — comparison with automatic casting of compatible types for any objects.</li>
+<li><code>===</code> and <code>!==</code> — exact comparison for any objects (no automatic casting is performed);
+for objects, the placement addresses are compared.</li>
+</ul>
+<h2 id="type-comparison">Type comparison<a class="td-heading-self-link" href="#type-comparison" aria-label="Heading self-link"></a></h2><p>The type comparison operators return <code>Bool</code> and differ in the strictness of the check:</p>
+<table>
+	<thead>
+			<tr>
+					<th>Operator</th>
+					<th>Meaning</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>&lt;~</code></td>
+					<td><strong>nominal</strong> check: the type of the left operand matches the right type or is present in its inheritance hierarchy</td>
+			</tr>
+			<tr>
+					<td><code>~~</code></td>
+					<td><strong>duck</strong> (structural, non-strict): the left operand has all fields of the pattern on the right side</td>
+			</tr>
+			<tr>
+					<td><code>~~~</code></td>
+					<td><strong>strict</strong>: nominal identity of the type or an exact match of the pattern field set</td>
+			</tr>
+	</tbody>
+</table>
+<p>The right operand is a type name (<code>:Class</code>), a string literal with a type name or a pattern dictionary
+(<code>(field1=_, field2=0,)</code>; an empty dictionary is <code>(,)</code>). The left operand is a value (its type is checked)
+or a type name (<code>:Base &lt;~ :Derived</code>).</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">dog</span> <span style="color:#ce5c00;font-weight:bold">&lt;~</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Animal</span><span style="color:#000;font-weight:bold">;</span>             <span style="color:#8f5902;font-style:italic"># type of dog is Animal or its descendant</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">dog</span> <span style="color:#ce5c00;font-weight:bold">~~~</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Dog</span><span style="color:#000;font-weight:bold">;</span>               <span style="color:#8f5902;font-style:italic"># exact type identity</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Dog</span> <span style="color:#ce5c00;font-weight:bold">&lt;~</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Animal</span><span style="color:#000;font-weight:bold">;</span>            <span style="color:#8f5902;font-style:italic"># Dog is a subtype of Animal (compile-time check)</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Animal</span> <span style="color:#ce5c00;font-weight:bold">&lt;~</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Dog</span><span style="color:#000;font-weight:bold">;</span>            <span style="color:#8f5902;font-style:italic"># false (the reverse relation — by swapping the operands)</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">d</span> <span style="color:#ce5c00;font-weight:bold">~~</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">field1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,);</span>           <span style="color:#8f5902;font-style:italic"># d has the field field1</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">d</span> <span style="color:#ce5c00;font-weight:bold">~~~</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">field1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">field2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">,);</span><span style="color:#8f5902;font-style:italic"># exact set of fields</span>
+</span></span></code></pre></div><p>These operators have no negations — the <code>Bool</code> result is checked as usual: the <code>else</code> branch
+in <code>if</code>/<code>match</code>, or a comparison with <code>false</code>.</p>
+<h3 id="static-and-dynamic-checking">Static and dynamic checking<a class="td-heading-self-link" href="#static-and-dynamic-checking" aria-label="Heading self-link"></a></h3><ul>
+<li><strong>Static (the main path):</strong> if the type of the left operand is inferred at compile time, the result
+is folded into the constant <code>true</code>/<code>false</code> (inheritance — by the type registry). Zero cost
+in the generated code.</li>
+<li><strong>Dynamic:</strong> checks that require the runtime type of a value (erased <code>Any</code> values/elements of a dictionary
+with an unknown type), as well as a type name from a string <strong>variable</strong>, are <strong>not yet implemented</strong> —
+an explicit compilation diagnostic is issued.</li>
+</ul>
+
+</div>
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-981a96fad502b40dfcbfa9af71282857">3 - Conditions and loops</h1>
+    
+	<p>In <em>TrustLang</em> there is no <code>if</code> keyword: a condition is checked by a construct that in meaning corresponds to
+the mathematical &ldquo;follows&rdquo; — two dashes and an angle bracket <code>--&gt;</code>. The notation is easily combined into chains for
+checking several conditions of the &ldquo;else if&rdquo; kind. Below the construct is shown in both forms — the DSL macro
+and the base syntax (about the two notation forms see <a href="/en/docs/syntax/macros/">Macros and DSL</a>):</p>
+<table>
+<tr><th>DSL macros</th><th>Base syntax</th></tr>
+<tr><td><pre><code>@if( condition1 ) {
+    action1
+} @elif( condition2 ) action2
+@else {
+    action_otherwise
+};</code></pre></td><td><pre><code>[ condition1 ] --&gt; { action1 },
+[ condition2 ] --&gt; action2,
+[ ... ] --&gt; { action_otherwise };
+</code></pre></td></tr>
+</table>
+<p>To write loops, the operator <code>&lt;-&gt;</code> is used (in the base notation) or the macros <code>@while</code>/<code>@dowhile</code>
+(in DSL). The condition is written in square brackets; depending on the relative position of the condition and the
+body, a loop can be a precondition loop (<code>while</code>) or a postcondition loop (<code>do while</code>). Equivalent forms:</p>
+<table>
+<tr><th>DSL macros</th><th>Base syntax</th></tr>
+<tr><td><pre><code>@while( cond ) {
+    loop body
+};</code></pre></td><td><pre><code>[ cond ] &lt;-&gt; {
+    loop body
+};</code></pre></td></tr>
+<tr><td><pre><code>{
+    loop body
+} @dowhile( cond );   # postcondition</code></pre>
+</td><td><pre><code>{
+    loop body
+} &lt;-&gt; [ cond ];   # postcondition</code></pre></td></tr>
+<tr><td><pre><code>@while( cond ) {
+    ...
+} @else {
+    ...    # if cond == false at entry
+};</code></pre></td><td><pre><code>[ cond ] &lt;-&gt; {
+    ...
+}, [ ... ] --&gt; {
+    ...    # else branch
+};
+</code></pre></td></tr>
+</table>
+<p>The precondition loop (<code>while</code>) supports an <code>else</code> branch, which is executed if the loop entry condition
+was never fulfilled.</p>
+<blockquote>
+<p><strong>Note:</strong> this differs from the analogous construct in Python, where the <code>else</code> section is always executed,
+except when the loop is interrupted by <code>break</code>.</p>
+</blockquote>
+<h2 id="iterating-over-collections-foreach">Iterating over collections (foreach)<a class="td-heading-self-link" href="#iterating-over-collections-foreach" aria-label="Heading self-link"></a></h2><p>The <code>foreach</code> loop has no separate DSL keyword — it is implemented by a loop with element destructuring and
+mutation of the source (the list expansion operator). An example of summing the elements of a dictionary:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">summa</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87">dict</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">2</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">3</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">4</span><span style="color:#000;font-weight:bold">,</span><span style="color:#0000cf;font-weight:bold">5</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[</span> <span style="color:#204a87">dict</span> <span style="color:#000;font-weight:bold">]</span> <span style="color:#ce5c00;font-weight:bold">&lt;-&gt;</span> <span style="color:#000;font-weight:bold">{</span>          <span style="color:#8f5902;font-style:italic"># loop condition — while there is data in dict</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic"># unpacking: the first element goes to item, the suffix dict... — the rest</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">item</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#204a87">dict</span><span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#204a87">dict</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">summa</span> <span style="color:#ce5c00;font-weight:bold">+=</span> <span style="color:#000">item</span><span style="color:#000;font-weight:bold">;</span>      <span style="color:#8f5902;font-style:italic"># accumulating the sum</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><h2 id="pattern-matching-match">Pattern matching (match)<a class="td-heading-self-link" href="#pattern-matching-match" aria-label="Heading self-link"></a></h2><p>The expression evaluation operator (<code>match</code>) is an approximate analog of the <em>switch</em>/<em>match</em> operators in other
+languages. It is specified by the construct <code>[ expression ] ==&gt; { ... }</code> (base syntax) or the macro <code>@match</code>
+(DSL), whose body lists condition branches. Equivalent forms:</p>
+<table>
+<tr><th>DSL macros</th><th>Base syntax</th></tr>
+<tr><td><pre><code>@match( $var ) ==&gt; {
+    @case( 1 ) { code };
+    @case( 1, 2 ) { code };
+    @default { code default };
+};</code></pre></td><td><pre><code>[ $var ] ==&gt; {
+    [1] --&gt; { code };             # $var == 1
+    [1, 2] --&gt; { code };          # ($var == 1 || $var == 2)
+    [...] --&gt; { code default };   # otherwise
+};</code></pre></td></tr>
+</table>
+<p>Although the operator looks externally like pattern matching, in essence it is a short notation
+of a multiple comparison operator: any comparison operator can be used as the evaluation operator:</p>
+<ul>
+<li><code>==&gt;</code> — equality with type casting;</li>
+<li><code>===&gt;</code> — exact equality;</li>
+<li><code>~&gt;</code> — type check (class name);</li>
+<li><code>~~&gt;</code> — duck typing;</li>
+<li><code>~~~&gt;</code> — strict duck typing.</li>
+</ul>
+<p>If duck typing is used as the comparison operator, the evaluation turns into classic
+pattern matching by fields (the example is given in the <code>@match</code> form):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#a40000">$</span><span style="color:#000">value</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#39;2&#39;</span><span style="color:#000;font-weight:bold">,);</span>
+</span></span><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@match</span><span style="color:#000;font-weight:bold">(</span> <span style="color:#a40000">$</span><span style="color:#000">value</span> <span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">~~&gt;</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">((</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,),</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">,))</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span> <span style="color:#8f5902;font-style:italic"># the field f2 is absent or is a number</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">((</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#34;&#34;</span><span style="color:#000;font-weight:bold">,),</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">f1</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#000">_</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f2</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#4e9a06">&#39;&#39;</span><span style="color:#000;font-weight:bold">,))</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span> <span style="color:#8f5902;font-style:italic"># the field f2 is a string</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@default</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><h2 id="overriding-the-comparison-function-attribute-matcherfn">Overriding the comparison function (attribute <code>@[matcher(&quot;fn&quot;)]</code>)<a class="td-heading-self-link" href="#overriding-the-comparison-function-attribute-matcherfn" aria-label="Heading self-link"></a></h2><p>If value comparison does not reduce to <code>==</code> (for example, matching a string against a regular expression),
+the comparison function of <code>match</code> can be overridden with the attribute <code>@[matcher(&quot;fn&quot;)]</code>, where <code>fn</code> is a
+previously declared predicate function with the signature <code>bool fn(T_value, T_pattern)</code>. In each branch, instead of the
+comparison <code>(value == pattern)</code>, the predicate <code>fn(value, pattern)</code> is called; the checked expression (scrutinee)
+is evaluated once into a temporary variable. With a given matcher, the branches are always generated as an
+<code>if/else</code> chain (the <code>switch</code> operator is not applicable — the pattern is not required to be a constant).</p>
+<p>The attribute is placed between the value and the operator (in the &ldquo;raw&rdquo; form, since the <code>@match</code> macro requires the operator
+immediately after itself):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@func</span> <span style="color:#000">matches_regex</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">value</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">StrChar</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">pattern</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">StrChar</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Bool</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#a40000">$</span><span style="color:#000">s</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#4e9a06">&#39;foobar&#39;</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[</span> <span style="color:#a40000">$</span><span style="color:#000">s</span> <span style="color:#000;font-weight:bold">]</span> <span style="color:#ce5c00;font-weight:bold">@</span><span style="color:#000;font-weight:bold">[</span><span style="color:#000">matcher</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;matches_regex&#34;</span><span style="color:#000;font-weight:bold">)</span><span style="color:#ce5c00;font-weight:bold">@</span><span style="color:#000;font-weight:bold">]</span> <span style="color:#ce5c00;font-weight:bold">==&gt;</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;^foo&#39;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@case</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;bar$&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#4e9a06">&#39;baz&#39;</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@default</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><p>The semantics verifies that <code>fn</code> is a declared predicate function with exactly two parameters and a boolean
+(Bool) return. The <code>@[matcher]</code> attribute is incompatible with matching by type (<code>~&gt;</code>/<code>~~&gt;</code>/<code>~~~&gt;</code>).</p>
+
+</div>
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-e0b5db16e4c0cac9c46dfe0dc4956de1">4 - Context manager (with)</h1>
+    <div class="lead">Group capture of references and automatic resource release (RAII)</div>
+	<p>The single statement for capturing a reference and synchronizing access to an object (<code>*ref</code>, <code>*ref(...)</code>)
+is executed for one action. Capturing a reference/synchronization object is a relatively slow
+operation, so performing it for each action is inefficient. The <strong>context manager</strong> (<code>with</code>)
+captures several references/objects at once and performs a group of actions under a common lock,
+and also serves for <strong>automatic resource release (RAII)</strong> when leaving the block.</p>
+<p>In the base syntax — the operator <code>**( ... )</code>; in DSL it corresponds to the macro <code>@with</code>
+(see <a href="/en/docs/syntax/macros/">Keyword syntax (DSL)</a>). Comparison of the notation forms using
+the example of capturing-locking a reference:</p>
+<table>
+<tr><th>DSL macros</th><th>Base syntax</th></tr>
+<tr><td><pre><code>@with(lock = *ref) {
+    ...   # critical section
+};</code></pre></td><td><pre><code>**( lock = *ref ) {
+    ...   # critical section
+};
+</code></pre></td></tr>
+</table>
+<h2 id="lock">Capturing and locking references<a class="td-heading-self-link" href="#lock" aria-label="Heading self-link"></a></h2><p>Reference variables are declared with the attributes <code>@[reftype(&quot;shared&quot;)@]</code>/<code>@[reftype(&quot;weak&quot;)@]</code> and
+are transpiled into <code>trust::Shared</code>/<code>trust::Weak</code>; the take operator <code>*ref</code>/<code>*^ref</code> captures a reference
+(<code>lock</code>/<code>lock_const</code>) and returns a guarded access <code>trust::Locker&lt;T&gt;</code>. More about reference
+types and the reference model — in <a href="/en/docs/safety/memory/">Memory management</a>.</p>
+<p><code>with</code> stores a list of <code>(lock, binding)</code> pairs and binds the captured references to names inside the body:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@with</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">lock</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#ce5c00;font-weight:bold">*</span><span style="color:#000">ref</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>     <span style="color:#8f5902;font-style:italic"># capture-lock of the reference ref</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ce5c00;font-weight:bold">...</span>                  <span style="color:#8f5902;font-style:italic"># critical section</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span> <span style="color:#5c35cc;font-weight:bold">@else</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>         <span style="color:#8f5902;font-style:italic"># capture error (ref == nullptr) → else</span>
+</span></span></code></pre></div><ul>
+<li><code>with(lock = *ref)</code> — creates a temporary lock <code>auto __cap = ref.lock();</code>, the binding <code>lock</code>
+is automatically dereferenced to the value; calling <code>lock()</code> throws <code>IntMinus</code> on failure → the <code>else</code> branch.</li>
+<li><code>with(_ = *ref)</code> — capture of the reference for the whole body without binding the value.</li>
+<li><code>with(*ref)</code> — a temporary lock: it is released immediately, the body is executed without a lock.</li>
+<li>Binding a reference variable without <code>*</code>/<code>*^</code> (<code>with(v = ref)</code>) — a compiler warning.</li>
+</ul>
+<h2 id="raii">Automatic resource release (RAII)<a class="td-heading-self-link" href="#raii" aria-label="Heading self-link"></a></h2><p>Besides capturing references, the context manager allows allocating and releasing resources: when leaving
+the block the <a href="/en/docs/types/class/">object destructor</a> is called (for objects by value). The release
+occurs before entering the <code>else</code> branch, if there is one:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@with</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">name</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000">expr</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#ce5c00;font-weight:bold">...</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>  <span style="color:#8f5902;font-style:italic"># RAII capture of values</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ce5c00;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span> <span style="color:#5c35cc;font-weight:bold">@else</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>           <span style="color:#8f5902;font-style:italic"># on an exception in the initializer expr</span>
+</span></span></code></pre></div><p>This guarantees the closing of files, the release of captured resources, etc., regardless of how
+the nested code finished (normally, by an interrupt or by an error).</p>
+<h2 id="implementation-status">Implementation status<a class="td-heading-self-link" href="#implementation-status" aria-label="Heading self-link"></a></h2><p>The forms <code>&amp;</code>/<code>&amp;?</code>/<code>&amp;&amp;</code>, the <code>__timeout__</code> parameter, inter-thread synchronization and the types <code>:Class</code>/<code>:Thread</code>
+are <strong>not implemented</strong> in the current version (see <a href="/en/docs/status/">Status</a>). Working: reference variables
+<code>@[reftype(...)]</code>, capture of references <code>with(...)</code> with the <code>else</code> branch and RAII capture of values <code>with(name=expr)</code>.</p>
+
+</div>
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+<div class="td-content" style="page-break-before: always">
+    
+	<h1 id="pg-e99fd20174576bba4e3f2aa683575cf1">5 - Return, interrupts and error handling</h1>
+    
+	<p>A sequence of commands (a <a href="/en/docs/syntax/#block">code block</a>) can be interrupted at any point by
+special interrupt statements. <em>TrustLang</em> uses two kinds of interrupts, which in
+meaning correspond to their notation:</p>
+<ul>
+<li><strong>&ldquo;positive&rdquo;</strong> interrupt <code>++</code> — return of a value/through-flow (analog of <code>return</code>);</li>
+<li><strong>&ldquo;negative&rdquo;</strong> interrupt <code>--</code> — error (analog of <code>throw</code>).</li>
+</ul>
+<p>An interrupt can return a value: <code>++ 'String' ++</code> — return a string, <code>-- err --</code> — &ldquo;throw&rdquo;
+an error (a rough analog of <code>throw err</code>). If no value is specified, the interrupt returns nothing
+(an empty value).</p>
+<h2 id="named">Named interrupts: local jump and return<a class="td-heading-self-link" href="#named" aria-label="Heading self-link"></a></h2><p>Named <a href="/en/docs/syntax/#block">code blocks</a> can act as local labels for control-flow
+transfer. If a namespace/block label is specified before the interrupt statement, such a
+<strong>named</strong> interrupt acts only for the specified block:</p>
+<ul>
+<li><code>block ++</code> — <strong>break</strong> by the label <code>block</code> (exit from the block);</li>
+<li><code>block -+</code> — <strong>continue</strong> by the label (jump to the first statement of the block).</li>
+</ul>
+<p>The same fragment — a named loop with an exit by label and a jump to the beginning of the block — in two
+forms:</p>
+<table>
+<tr><th>DSL macros</th><th>Base syntax</th></tr>
+<tr><td><pre><code>outer {
+    @loop {
+        @break outer;     # break by label outer (like outer ++)
+        @continue outer;  # continue by label outer (like outer -+)
+    };
+};</code></pre></td><td><pre><code>outer {
+    [1] &lt;-&gt; {
+        outer ++;   # break by label outer
+        outer -+;   # continue by label outer
+    };
+};
+</code></pre></td></tr>
+</table>
+<p>The function body is a code block whose name matches the full name of the function. Therefore a &ldquo;positive&rdquo;
+interrupt by the function label returns the result from it (<code>func_name ++ value ++</code>); in DSL this
+corresponds to <code>@return</code>.</p>
+<h2 id="catch">Capturing interrupts (try/catch)<a class="td-heading-self-link" href="#catch" aria-label="Heading self-link"></a></h2><p>Unnamed interrupts can be &ldquo;caught&rdquo;. For capturing, code blocks with a special
+semantics are used, which wrap the body in <code>try/catch</code> by the interrupt class:</p>
+<ul>
+<li><code>{+ ... +}</code> — captures positive interrupts (<code>IntPlus</code>);</li>
+<li><code>{- ... -}</code> — captures negative interrupts (<code>IntMinus</code>);</li>
+<li><code>{* ... *}</code> — captures both types (<code>IntAny</code>).</li>
+</ul>
+<p>Implementation status (important clarifications):</p>
+<ul>
+<li>an <strong>unnamed</strong> <code>++ value ++</code> <em>always</em> throws <code>IntPlus</code> (positive/through), and
+<code>-- err --</code> — <code>IntMinus</code> (error), regardless of the presence and depth of handlers;</li>
+<li>a <strong>named</strong> <code>func ++ value ++</code> — an ordinary <code>return</code> from the function (the label must be the current
+function or the global <code>::</code>);</li>
+<li>an uncaught class is propagated through; a through <code>++</code> passes through function calls up to
+the nearest <code>{+}</code>/<code>{*}</code>;</li>
+<li>capturing a value (for example, via <code>match</code>) is not yet implemented — a captured interrupt
+is absorbed.</li>
+</ul>
+<h2 id="error-handling">Error handling<a class="td-heading-self-link" href="#error-handling" aria-label="Heading self-link"></a></h2><p>The &ldquo;negative&rdquo; interrupt is used to return an error only conventionally — both kinds of interrupts
+are equivalent. Joint processing of a captured value in the classic try/catch style —
+through capture blocks (<code>{*}</code>, <code>{-}</code>, <code>{+}</code>) and the <a href="/en/docs/operators/flow/">expression evaluation</a> operator — is <strong>not yet
+implemented</strong>: a captured interrupt is absorbed (see <a href="/en/docs/status/">Status</a>).</p>
+<h2 id="see-also">See also<a class="td-heading-self-link" href="#see-also" aria-label="Heading self-link"></a></h2><ul>
+<li><a href="/en/docs/operators/with/">Context manager <code>with</code></a> — RAII and resource release when leaving a block.</li>
+<li><a href="../operators/concurrency/">Multithreading and asynchrony</a> — planned coroutine interrupts
+(<code>@co_yield</code>/<code>@co_await</code>/<code>@co_return</code> are not implemented).</li>
+<li>DSL equivalents (<code>@return</code>, <code>@break</code>, <code>@continue</code>) — <a href="/en/docs/syntax/macros/">Keyword syntax (DSL)</a>.</li>
+</ul>
+
+</div>
+
+
+
+    
+	
+  
+
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

@@ -1,0 +1,878 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>NewLang v0.1.0 | TrustLang</title>
+<meta name="description" content="Attention!!!
+This article contains a description of the syntax of the previous version of NewLang.
+The current version of the language syntax can be viewed here.
+NewLang is a high-level programming language in which one can combine standard algorithmic constructs with declarative programming and tensor computations for machine learning tasks.
+The main feature of the language is a simple, logical and non-contradictory syntax, which is based not on the use of reserved keywords, but on a strict system of grammar rules using punctuation marks (the list of which also includes the operators of the language).">
+<meta property="og:url" content="https://trust-lang.net/en/blog/releases/v0.1.0/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="NewLang v0.1.0">
+	<meta property="og:description" content="Attention!!!
+This article contains a description of the syntax of the previous version of NewLang.
+The current version of the language syntax can be viewed here.
+NewLang is a high-level programming language in which one can combine standard algorithmic constructs with declarative programming and tensor computations for machine learning tasks.
+The main feature of the language is a simple, logical and non-contradictory syntax, which is based not on the use of reserved keywords, but on a strict system of grammar rules using punctuation marks (the list of which also includes the operators of the language).">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="blog">
+		<meta property="article:published_time" content="2022-06-24T00:00:00+00:00">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Release">
+		<meta property="article:tag" content="Trust-Lang">
+
+	<meta itemprop="name" content="NewLang v0.1.0">
+	<meta itemprop="description" content="Attention!!!
+This article contains a description of the syntax of the previous version of NewLang.
+The current version of the language syntax can be viewed here.
+NewLang is a high-level programming language in which one can combine standard algorithmic constructs with declarative programming and tensor computations for machine learning tasks.
+The main feature of the language is a simple, logical and non-contradictory syntax, which is based not on the use of reserved keywords, but on a strict system of grammar rules using punctuation marks (the list of which also includes the operators of the language).">
+	<meta itemprop="datePublished" content="2022-06-24T00:00:00+00:00">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="5804">
+	<meta itemprop="keywords" content="Release,Trust-Lang">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="NewLang v0.1.0">
+	<meta name="twitter:description" content="Attention!!!
+This article contains a description of the syntax of the previous version of NewLang.
+The current version of the language syntax can be viewed here.
+NewLang is a high-level programming language in which one can combine standard algorithmic constructs with declarative programming and tensor computations for machine learning tasks.
+The main feature of the language is a simple, logical and non-contradictory syntax, which is based not on the use of reserved keywords, but on a strict system of grammar rules using punctuation marks (the list of which also includes the operators of the language).">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/releases/v0.1.0/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/releases/v0.1.0/">Русский</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enblog-li">
+  <a href="/en/blog/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-enblog"><span class="">Articles</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogtheory-li">
+  <input type="checkbox" id="m-enblogtheory-check"/>
+  <label for="m-enblogtheory-check"><a href="/en/blog/theory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogtheory"><span class="">Theory of computation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryconsciousness-fsm-li">
+  <input type="checkbox" id="m-enblogtheoryconsciousness-fsm-check"/>
+  <label for="m-enblogtheoryconsciousness-fsm-check"><a href="/en/blog/theory/consciousness-fsm/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryconsciousness-fsm"><span class="">The mechanism of the emergence of consciousness in finite state machines</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryturing-machine-li">
+  <input type="checkbox" id="m-enblogtheoryturing-machine-check"/>
+  <label for="m-enblogtheoryturing-machine-check"><a href="/en/blog/theory/turing-machine/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryturing-machine"><span class="">Reflections on the Turing machine and the causes of errors in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheorystructured-programming-li">
+  <input type="checkbox" id="m-enblogtheorystructured-programming-check"/>
+  <label for="m-enblogtheorystructured-programming-check"><a href="/en/blog/theory/structured-programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheorystructured-programming"><span class="">Reflections on structured programming</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheorylogic-prog-li">
+  <input type="checkbox" id="m-enblogtheorylogic-prog-check"/>
+  <label for="m-enblogtheorylogic-prog-check"><a href="/en/blog/theory/logic-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheorylogic-prog"><span class="">The problem of logical programming languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enbloglanguage-design-li">
+  <input type="checkbox" id="m-enbloglanguage-design-check"/>
+  <label for="m-enbloglanguage-design-check"><a href="/en/blog/language-design/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enbloglanguage-design"><span class="">Programming language design</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designexpression-statement-li">
+  <input type="checkbox" id="m-enbloglanguage-designexpression-statement-check"/>
+  <label for="m-enbloglanguage-designexpression-statement-check"><a href="/en/blog/language-design/expression-statement/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designexpression-statement"><span class="">If you think you know how &#34;Expression&#34; differs from &#34;Statement&#34;, then most likely you are mistaken</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designbuilding-blocks-li">
+  <input type="checkbox" id="m-enbloglanguage-designbuilding-blocks-check"/>
+  <label for="m-enbloglanguage-designbuilding-blocks-check"><a href="/en/blog/language-design/building-blocks/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designbuilding-blocks"><span class="">Building blocks of programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designreference-solution-li">
+  <input type="checkbox" id="m-enbloglanguage-designreference-solution-check"/>
+  <label for="m-enbloglanguage-designreference-solution-check"><a href="/en/blog/language-design/reference-solution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designreference-solution"><span class="">A possible solution to the problem of references in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designtrust-lang-li">
+  <input type="checkbox" id="m-enbloglanguage-designtrust-lang-check"/>
+  <label for="m-enbloglanguage-designtrust-lang-check"><a href="/en/blog/language-design/trust-lang/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designtrust-lang"><span class="">A new programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designunusual-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designunusual-prog-check"/>
+  <label for="m-enbloglanguage-designunusual-prog-check"><a href="/en/blog/language-design/unusual-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designunusual-prog"><span class="">An unusual concept of the syntax of a programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designlang-final-li">
+  <input type="checkbox" id="m-enbloglanguage-designlang-final-check"/>
+  <label for="m-enbloglanguage-designlang-final-check"><a href="/en/blog/language-design/lang-final/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designlang-final"><span class="">What is the &#34;ideal&#34; goal of the development of programming languages?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designinter-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designinter-prog-check"/>
+  <label for="m-enbloglanguage-designinter-prog-check"><a href="/en/blog/language-design/inter-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designinter-prog"><span class="">International programming in natural languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogcomparison-li">
+  <input type="checkbox" id="m-enblogcomparison-check"/>
+  <label for="m-enblogcomparison-check"><a href="/en/blog/comparison/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogcomparison"><span class="">Language comparison</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-rust-vs-python-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-rust-vs-python-check"/>
+  <label for="m-enblogcomparisoncpp-rust-vs-python-check"><a href="/en/blog/comparison/cpp-rust-vs-python/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-rust-vs-python"><span class="">Why C&#43;&#43; or Rust can never replace Python</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-evolution-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-evolution-check"/>
+  <label for="m-enblogcomparisoncpp-evolution-check"><a href="/en/blog/comparison/cpp-evolution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-evolution"><span class="">The Achilles&#39; heel of C&#43;&#43; and the future r̶e̶ evolution</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncode-safety-economy-li">
+  <input type="checkbox" id="m-enblogcomparisoncode-safety-economy-check"/>
+  <label for="m-enblogcomparisoncode-safety-economy-check"><a href="/en/blog/comparison/code-safety-economy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncode-safety-economy"><span class="">The economics of code safety, or why Rust is not needed</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-safety-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-safety-check"/>
+  <label for="m-enblogcomparisoncpp-safety-check"><a href="/en/blog/comparison/cpp-safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-safety"><span class="">C&#43;&#43; safety and Buridan&#39;s mice in IT</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisongenerics-li">
+  <input type="checkbox" id="m-enblogcomparisongenerics-check"/>
+  <label for="m-enblogcomparisongenerics-check"><a href="/en/blog/comparison/generics/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisongenerics"><span class="">Generic programming in different languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogimplementation-li">
+  <input type="checkbox" id="m-enblogimplementation-check"/>
+  <label for="m-enblogimplementation-check"><a href="/en/blog/implementation/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogimplementation"><span class="">Compiler implementation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogimplementationparser-nuances-li">
+  <input type="checkbox" id="m-enblogimplementationparser-nuances-check"/>
+  <label for="m-enblogimplementationparser-nuances-check"><a href="/en/blog/implementation/parser-nuances/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationparser-nuances"><span class="">Nuances of developing a parser for your own programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogimplementationdsl-with-macros-li">
+  <input type="checkbox" id="m-enblogimplementationdsl-with-macros-check"/>
+  <label for="m-enblogimplementationdsl-with-macros-check"><a href="/en/blog/implementation/dsl-with-macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationdsl-with-macros"><span class="">DSL (domain-specific language) implementation with macros</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogsafety-li">
+  <input type="checkbox" id="m-enblogsafety-check"/>
+  <label for="m-enblogsafety-check"><a href="/en/blog/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogsafety"><span class="">Software safety</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogsafetystack-overflow-li">
+  <input type="checkbox" id="m-enblogsafetystack-overflow-check"/>
+  <label for="m-enblogsafetystack-overflow-check"><a href="/en/blog/safety/stack-overflow/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogsafetystack-overflow"><span class="">Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogsafetylanguage-guarantees-li">
+  <input type="checkbox" id="m-enblogsafetylanguage-guarantees-check"/>
+  <label for="m-enblogsafetylanguage-guarantees-check"><a href="/en/blog/safety/language-guarantees/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogsafetylanguage-guarantees"><span class="">Programming language guarantees as a basis for secure software development</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogprogramming-li">
+  <input type="checkbox" id="m-enblogprogramming-check"/>
+  <label for="m-enblogprogramming-check"><a href="/en/blog/programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogprogramming"><span class="">Philosophy of programming</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingprog-styles-same-time-li">
+  <input type="checkbox" id="m-enblogprogrammingprog-styles-same-time-check"/>
+  <label for="m-enblogprogrammingprog-styles-same-time-check"><a href="/en/blog/programming/prog-styles-same-time/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingprog-styles-same-time"><span class="">Can declarative and imperative styles of writing programs be used simultaneously?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingcomplex-prog-li">
+  <input type="checkbox" id="m-enblogprogrammingcomplex-prog-check"/>
+  <label for="m-enblogprogrammingcomplex-prog-check"><a href="/en/blog/programming/complex-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingcomplex-prog"><span class="">Simple complex programming</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogai-li">
+  <input type="checkbox" id="m-enblogai-check"/>
+  <label for="m-enblogai-check"><a href="/en/blog/ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogai"><span class="">AI and IT processes</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiai-illusions-li">
+  <input type="checkbox" id="m-enblogaiai-illusions-check"/>
+  <label for="m-enblogaiai-illusions-check"><a href="/en/blog/ai/ai-illusions/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiai-illusions"><span class="">The main problem of using AI (Illusions of Intelligence) in software development</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiwrong-term-ai-li">
+  <input type="checkbox" id="m-enblogaiwrong-term-ai-check"/>
+  <label for="m-enblogaiwrong-term-ai-check"><a href="/en/blog/ai/wrong-term-ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiwrong-term-ai"><span class="">The ambiguous term &#34;artificial intelligence&#34;</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enblogreleases-li">
+  <input type="checkbox" id="m-enblogreleases-check" checked/>
+  <label for="m-enblogreleases-check"><a href="/en/blog/releases/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogreleases"><span class="">Releases</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv060-li">
+  <input type="checkbox" id="m-enblogreleasesv060-check"/>
+  <label for="m-enblogreleasesv060-check"><a href="/en/blog/releases/v0.6.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv060"><span class="">TrustLang v0.6.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv040-li">
+  <input type="checkbox" id="m-enblogreleasesv040-check"/>
+  <label for="m-enblogreleasesv040-check"><a href="/en/blog/releases/v0.4.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv040"><span class="">NewLang v0.4.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv030-li">
+  <input type="checkbox" id="m-enblogreleasesv030-check"/>
+  <label for="m-enblogreleasesv030-check"><a href="/en/blog/releases/v0.3.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv030"><span class="">NewLang v0.3.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv020-li">
+  <input type="checkbox" id="m-enblogreleasesv020-check"/>
+  <label for="m-enblogreleasesv020-check"><a href="/en/blog/releases/v0.2.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv020"><span class="">NewLang v0.2.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-enblogreleasesv010-li">
+  <input type="checkbox" id="m-enblogreleasesv010-check" checked/>
+  <label for="m-enblogreleasesv010-check"><a href="/en/blog/releases/v0.1.0/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv010"><span class="td-sidebar-nav-active-item">NewLang v0.1.0</span></a></label>
+  
+</li>
+  </ul>
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/en/_print/blog/releases/"><i class="fa-solid fa-print fa-fw"></i> Print entire section</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li>
+      <ul>
+        <li><a href="#the-use-of-modifiers-is-mandatory-only-in-two-cases">The use of modifiers is mandatory only in two cases:</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#simple-types">Simple types</a>
+      <ul>
+        <li><a href="#arithmetic-values">Arithmetic values</a></li>
+      </ul>
+    </li>
+    <li><a href="#strings">Strings</a></li>
+    <li><a href="#system-types">System types</a>
+      <ul>
+        <li><a href="#pointer--a-pointer-to-a-system-memory-area">:Pointer — a pointer to a system memory area</a></li>
+        <li><a href="#plain--a-pointer-to-the-binary-representation-of-data">:Plain — a pointer to the binary representation of data</a></li>
+      </ul>
+    </li>
+    <li><a href="#composite-data-types">Composite data types:</a>
+      <ul>
+        <li><a href="#dictionary">Dictionary</a></li>
+        <li><a href="#enumeration-structure-and-union">Enumeration, structure and union</a></li>
+        <li><a href="#classes">Classes</a></li>
+      </ul>
+    </li>
+    <li><a href="#functions">Functions</a>
+      <ul>
+        <li><a href="#ordinary-function">Ordinary function</a></li>
+        <li><a href="#pure-functions">Pure functions</a></li>
+        <li><a href="#simple-pure-functions">Simple pure functions</a></li>
+      </ul>
+    </li>
+    <li><a href="#special-data-types">Special data types:</a>
+      <ul>
+        <li><a href="#empty-none">Empty (:None)</a></li>
+        <li><a href="#range-range">Range (:Range)</a></li>
+      </ul>
+    </li>
+    <li><a href="#type-conversion">Type conversion</a>
+      <ul>
+        <li><a href="#explicit-type-casting">Explicit type casting</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <ul>
+    <li><a href="#operators">Operators:</a></li>
+    <li><a href="#comparison-operators">Comparison operators:</a></li>
+    <li><a href="#type-checks-of-an-objects-class-name">Type checks (of an object&rsquo;s class name):</a></li>
+    <li><a href="#duck-typing">Duck typing</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#conditional-operator">Conditional operator</a></li>
+    <li><a href="#expression-evaluation">Expression evaluation</a></li>
+    <li><a href="#loop-operators">Loop operators</a></li>
+    <li><a href="#interrupt-return-operators">Interrupt (return) operators</a></li>
+    <li><a href="#sequence-code-blocklambda-function">Sequence (code block/lambda function)</a></li>
+    <li><a href="#error-handling-strategy">Error handling strategy</a>
+      <ul>
+        <li><a href="#the-approach-to-exception-handling-is-as-follows">The approach to exception handling is as follows:</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            <a class="td-rss-button" title="RSS" href="/en/blog/releases/index.xml" target="_blank" rel="noopener">
+              <i class="fa-solid fa-rss" aria-hidden="true"></i>
+            </a>
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/en/blog/">Articles</a></li>
+  <li class="breadcrumb-item">
+    <a href="/en/blog/releases/">Releases</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    NewLang v0.1.0</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>NewLang v0.1.0</h1>
+	
+	<div class="td-byline mb-4">
+		
+		<time datetime="2022-06-24" class="text-body-secondary">Friday, June 24, 2022</time>
+	</div>
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p><img src="/en/blog/langs.jpeg" alt="Featured image"></p>
+
+
+<div class="pageinfo pageinfo-primary">
+<p>Attention!!!</p>
+<p>This article contains a description of the syntax of the previous version of NewLang.</p>
+<p>The current version of the language syntax can be viewed <a href="/en/docs/">here</a>.</p>
+
+</div>
+
+<p><strong>NewLang</strong> is a high-level programming language in which one can combine standard algorithmic constructs with declarative programming and tensor computations for machine learning tasks.</p>
+<p>The main feature of the language is a simple, logical and non-contradictory syntax, which is based not on the use of reserved keywords, but on a strict system of grammar rules using punctuation marks (the list of which also includes the operators of the language).</p>
+<p>What is new compared to the previous release:</p>
+<ul>
+<li>All the main algorithmic constructs have been implemented: condition checks, various kinds of loops, pattern matching, interrupting a sequence of commands and returning data, error handling, etc.</li>
+<li>The base syntax for individual language constructs has been reworked.</li>
+<li>Most operations with variables have been implemented, including the list and tensor expansion operators.</li>
+<li>The system of built-in types has been seriously reworked, functions for their conversion and for defining data (the latter can be called data comprehensions) have been implemented.</li>
+<li>New tests have been added, etc.</li>
+</ul>
+<cut />
+<h1 id="why-is-newlang-needed">Why is <em>NewLang</em> needed?<a class="td-heading-self-link" href="#why-is-newlang-needed" aria-label="Heading self-link"></a></h1><p>All modern programming languages undergo constant development (read: complication) of the syntax as new versions are released. This is a kind of payment for the appearance of new capabilities and is perceived by users as a natural phenomenon.</p>
+<p>But at the same time it is also a serious problem, because with the release of new versions new keywords and syntactic constructs are added, which inevitably raises the entry threshold for new users. Another consequence of this process is the constant increase in the complexity of development and the labor intensity of maintaining already created software products, when old code is refined using already-new standards.</p>
+<p>In <em>NewLang</em> the complexity of language constructs is naturally limited through the division of the language syntax into two parts, which simplifies its study and use.</p>
+<p><em>The base syntax</em> — for writing programs in the object-oriented (imperative) and declarative styles, which is based not on reserved keywords, but on strict grammar rules, and <em>the extended syntax</em> — when the base syntax becomes insufficient, or an implementation-language construct needs to be used.</p>
+<p>Another inconvenience of modern mainstream languages is that most of them were created before the beginning of the era of machine learning, therefore tensor computations in them are implemented as separate libraries, and not built into the base syntax of the language and the system of base types.</p>
+<p>In <em>NewLang</em>, tensor computations are available &ldquo;out of the box&rdquo; (the <a href="https://pytorch.org/">libtorch</a> library is used), and ordinary numbers are scalars (tensors of zero dimension).</p>
+<h1 id="newlang-syntax">NewLang syntax<a class="td-heading-self-link" href="#newlang-syntax" aria-label="Heading self-link"></a></h1><p>When developing the syntax, I tried to adhere to the rules already established in the IT industry, so as not to generate multiple meanings that depend on the context.</p>
+<p><strong>Basics</strong></p>
+<ul>
+<li>Statements are separated by a semicolon &ldquo;;&rdquo;.</li>
+<li>Indentation and line breaks are ignored (I very much wanted to have the possibility of automatic code formatting).</li>
+<li>Multiline comments in the source code correspond to the C/C++ style and must be placed between the characters <code>/*</code> and <code>*/</code>. Nesting of multiline comments is not supported.</li>
+<li>Single-line comments start with the &ldquo;#&rdquo; character up to the line break, which corresponds to comments in the Python and Bash style.</li>
+<li>A sequence of commands that must be executed as a whole is enclosed in curly braces &ldquo;{}&rdquo;.</li>
+<li>Extended-syntax program inserts in the implementation language are enclosed in curly braces with a percent sign <code>%{ /* any C/C++ code can be here */ %}</code>, as in the lex and flex lexers.</li>
+</ul>
+<h1 id="creating-objects-and-assigning-new-values">Creating objects and assigning new values<a class="td-heading-self-link" href="#creating-objects-and-assigning-new-values" aria-label="Heading self-link"></a></h1><p>NewLang uses three different operators to create objects and assign new values to them:</p>
+<ul>
+<li><strong>::=</strong> is used only to create new objects, and if an object with such a name already exists, an error is generated.</li>
+<li><strong>:=</strong> is used for the same purposes, but if an object with such a name already exists, no error occurs, and the new value is assigned to the already existing object.</li>
+<li><strong>=</strong> is applied only to assign a value to already existing objects, and if an object with the specified name is absent, an execution error also occurs.</li>
+</ul>
+<p>Using three different operators for creating/changing objects makes it possible to control such operations more flexibly and to detect logical errors in the code at an earlier stage.</p>
+<pre tabindex="0"><code>var ::= 1.0; # Create a new variable var without specifying a type
+var = 100; # Assign a new value to an already existing variable
+printf := @import(&#39;printf(format:Format, ...):Int&#39;); /* Create a new or redefine the object printf, which will be the result of executing the global function @import */
+</code></pre><h1 id="object-identifiers-and-modifiers">Object identifiers and modifiers<a class="td-heading-self-link" href="#object-identifiers-and-modifiers" aria-label="Heading self-link"></a></h1><p>As identifiers one can use letters, digits and underscores in any combinations, provided that the first character of the identifier is not a digit.</p>
+<p>NewLang has the possibility of specifying the scope and lifetime of an object using a modifier — a special character before the variable name. This may seem a bit similar to Hungarian notation, but unlike it, the modifier has nothing to do with the type of the object and is not part of the identifier name. Moreover, strictly defined characters are used as modifiers, whose purpose is determined in advance.</p>
+<ul>
+<li><strong>$</strong> — at the beginning of a name denotes a local variable whose lifetime is limited by the current scope, and when it ends the local variable is destroyed.</li>
+<li><strong>@</strong> — denotes a global variable, and the object itself retains its state even after leaving the current scope.</li>
+<li><strong>:</strong> — the colon at the beginning of a name is used as a modifier to indicate the type.</li>
+</ul>
+<p>The semantics of accessing function arguments is very similar to working with arguments in bash scripts, where $1 or $arg is the ordinal number or the name of the argument (access occurs to local variables in the current scope).</p>
+<h3 id="the-use-of-modifiers-is-mandatory-only-in-two-cases">The use of modifiers is mandatory only in two cases:<a class="td-heading-self-link" href="#the-use-of-modifiers-is-mandatory-only-in-two-cases" aria-label="Heading self-link"></a></h3><ul>
+<li>When creating a new data type, since types are always created in the global scope, and their symbolic names must be unique.</li>
+<li>When accessing NewLang objects inside program inserts of code in the implementation language, since they are used as markers when searching for NewLang identifiers in C/C++ code.</li>
+</ul>
+<p>In the remaining cases, it is not mandatory to specify their modifiers to access variables. And if no modifier is specified when accessing an object, then first a local variable is searched, and then a global one with the same name. Moreover, the local variable will shadow the global one.</p>
+<p>One should also keep in mind that the compiler can generate code for direct access to local objects already at compile time, whereas for accessing global objects, or if the scope modifier is absent, the compiler is forced to embed a runtime call of the object search function in the global symbol table every time.</p>
+<h1 id="type-system">Type system<a class="td-heading-self-link" href="#type-system" aria-label="Heading self-link"></a></h1><p>Since the type system of the language is dynamic, an explicit type indication does not affect the size of a variable and is only a kind of logical restriction on the possibility of assigning a value of another type to the variable.</p>
+<p>Type information is used when checking their compatibility, when a value of another type is assigned to an existing object. Such an operation is possible only when the types are compatible with each other and allow automatic casting. This is true both during the parsing/compilation of the source text and during execution in interpreter and/or compiled file modes.</p>
+<h2 id="simple-types">Simple types<a class="td-heading-self-link" href="#simple-types" aria-label="Heading self-link"></a></h2><h3 id="arithmetic-values">Arithmetic values<a class="td-heading-self-link" href="#arithmetic-values" aria-label="Heading self-link"></a></h3><p>Arithmetic data types are tensors — arrays of numbers of one type with an arbitrary number of dimensions and the same column size in each. A single number is also a tensor of zero size.</p>
+<p>Only signed integers are supported, since there is no particular need for unsigned numbers, and many problems with them can be found out of the blue.</p>
+<p>Problems of unsigned numbers (from the internet):</p>
+<blockquote>
+<p>First, the subtraction of two unsigned numbers, for example 3 and 5. 3 minus 5 equals 4294967294, since -2 cannot be represented as an unsigned number. Second, unexpected behavior can occur when mixing signed and unsigned integer values. C++ can freely convert signed and unsigned numbers, but does not check the range to make sure you are not overflowing your data type.
+In C++ there are still a few cases where one can (or must) use unsigned numbers. First, unsigned numbers are preferable when working with bits. Second, the use of unsigned numbers related to array indexing.</p>
+</blockquote>
+<p>But this is not my case, since an index can be negative and even not a number, but a range or an ellipsis.</p>
+<p>P.S. And even knowing this, I still recently managed to catch a bug with negative indices of dictionaries!</p>
+<p>The names of the built-in arithmetic types speak for themselves: Char, Short, Int, Long, Float, Double, ComplexFloat, ComplexDouble. The boolean type Bool is a separate type, which can take only the values 0 or 1 (false/true respectively), and depending on the operation performed can be attributed to integer types or not be part of them (this approach to interpreting the boolean data type was taken from the Torch library).</p>
+<pre tabindex="0"><code>// Treat bool as a distinct &#34;category,&#34; to be consistent with type promotion
+// rules (e.g. `bool_tensor + 5 -&gt; int64_tensor`). If `5` was in the same
+// category as `bool_tensor`, we would not promote. Differing categories
+// implies `bool_tensor += 5` is disallowed.
+//
+// NB: numpy distinguishes &#34;unsigned&#34; as a category to get the desired
+// `bool_tensor + 5 -&gt; int64_tensor` behavior. We don&#39;t, because:
+// * We don&#39;t want the performance hit of checking the runtime sign of Scalars.
+// * `uint8_tensor + 5 -&gt; int64_tensor` would be undesirable.
+</code></pre><p>In the future it is planned to add number classes for long arithmetic and fractions, for which the type names BigNum, Currency and Fraction are reserved.</p>
+<p>Access to the elements of a tensor occurs by an integer index that starts at 0. For a multidimensional tensor, the indices of an element are listed in square brackets separated by commas. Access to elements through a negative index is supported, which is handled exactly as in Python (-1 the last element, -2 the penultimate one, etc.).</p>
+<p>A tensor literal in the program text is written in square brackets with a mandatory trailing comma, i.e. [1, 2,] is a literal one-dimensional tensor of two numbers. After the closing bracket, the type of the tensor can be specified explicitly. If the type is not specified, then it is inferred automatically on the basis of the specified data and the minimally possible byte size is chosen that allows storing all values without loss of precision.</p>
+<p><em>Examples:</em></p>
+<pre tabindex="0"><code>$var_char := 123; # The type Char is inferred automatically
+$var_short := 1000; # The type Short is inferred automatically
+$var_bool := [0, 1, 0, 1,]; # A tensor of 4 elements. The type Bool is inferred automatically
+$tensor[10,10]:Int := 1; # A tensor Int of size 2x2 initialized with 1
+$scalar := $tensor[5,5]; # Assign to a scalar the value of the specified tensor element
+</code></pre><h2 id="strings">Strings<a class="td-heading-self-link" href="#strings" aria-label="Heading self-link"></a></h2><p>Two types of strings are supported: StrWide — character (wide) and StrChar — byte. The difference between them lies in the type of the single element. For character strings the single element is the wide character <em>wchar_t</em>, and for a byte string the single element is one byte (more precisely <em>char</em>, i.e. a signed byte). Character string literals in the source text are written in &ldquo;double quotes&rdquo;, and byte strings in &lsquo;single quotes&rsquo;.</p>
+<p>The number of elements of a character string is returned in wide characters, and the size of a byte string in bytes, therefore access to a string element by index occurs respectively either to a character or to a byte.</p>
+<p>An important point. Any variable can be addressed in the same way as a function (by writing parentheses after its name). The result of this operation will be the creation of a copy/clone of the object. Moreover, some types (dictionaries, classes and character strings) can be used as a template when creating a copy of an object with modified properties, if the new and/or changed values are specified in parentheses, as arguments in function calls. So, if when creating a copy one specifies a set of new data in parentheses, then the resulting copy will contain the already changed data.</p>
+<p><em>For example:</em></p>
+<pre tabindex="0"><code>$template := &#34;${name} $1&#34;; # An ordinary string
+$result := $template(&#34;template&#34;, name = &#34;String&#34;); # result = &#34;String template&#34;
+</code></pre><h2 id="system-types">System types<a class="td-heading-self-link" href="#system-types" aria-label="Heading self-link"></a></h2><h3 id="pointer--a-pointer-to-a-system-memory-area">:Pointer — a pointer to a system memory area<a class="td-heading-self-link" href="#pointer--a-pointer-to-a-system-memory-area" aria-label="Heading self-link"></a></h3><p>Since any program has to interact with the outside world, one is forced to provide for the possibility of using other libraries and type systems, and for these purposes the type <em>Pointer</em> serves. It is created when importing functions from external libraries and cannot be created manually. But one can output its value, for example for debugging.</p>
+<h3 id="plain--a-pointer-to-the-binary-representation-of-data">:Plain — a pointer to the binary representation of data<a class="td-heading-self-link" href="#plain--a-pointer-to-the-binary-representation-of-data" aria-label="Heading self-link"></a></h3><p>Interaction with external libraries also requires data exchange. And for these purposes the data type <em>Plain</em> serves — which is also a pointer, but to the binary representation of data in a single memory area. Of course, if they can be represented as a single fragment.</p>
+<h2 id="composite-data-types">Composite data types:<a class="td-heading-self-link" href="#composite-data-types" aria-label="Heading self-link"></a></h2><h3 id="dictionary">Dictionary<a class="td-heading-self-link" href="#dictionary" aria-label="Heading self-link"></a></h3><p>A dictionary (:Dictionary) is a set of data of an arbitrary type with access to individual elements by an integer index or by the name of the element (if present) (it resembles both a tuple and a structure at the same time). Dictionaries differ from tensors in that they are only one-dimensional arrays, but each element can contain an arbitrary number of elements of any type, including other dictionaries.</p>
+<p>Access to the elements of dictionaries occurs by the name of the element, which is written through a dot after the name of the variable, or by an integer index. The index also starts at 0 and, like tensors, can also be negative.</p>
+<p>A literal of the &ldquo;dictionary&rdquo; type in the program text is written in parentheses with a mandatory trailing comma, i.e. (,) is an empty dictionary, (1, 2= &ldquo;2&rdquo;, name=3,).</p>
+<h3 id="enumeration-structure-and-union">Enumeration, structure and union<a class="td-heading-self-link" href="#enumeration-structure-and-union" aria-label="Heading self-link"></a></h3><p><em>:Enum</em>, <em>:Struct</em> and <em>:Union</em> are the same dictionaries, only certain restrictions are imposed on their elements. Each element must have a unique name, and its data type must be simple, i.e. a number or a string of fixed size.</p>
+<h3 id="classes">Classes<a class="td-heading-self-link" href="#classes" aria-label="Heading self-link"></a></h3><p>A class (implemented partially) is a data type with the help of which one of the principles of OOP is implemented — inheritance. When creating an instance of a class, a new variable is created that retains information about its parent and inherits properties and methods from it. The data type <em>:Class</em> is similar to a dictionary, but all properties must have names (although access to the properties of a class by index is also possible).</p>
+<h2 id="functions">Functions<a class="td-heading-self-link" href="#functions" aria-label="Heading self-link"></a></h2><p>The NewLang syntax supports several types of functions (and in the future also class methods): ordinary functions, pure functions and simple pure functions.</p>
+<p>Default arguments are supported for all types of functions. When creating a function, its arguments are specified as in Python, i.e. first come the mandatory arguments, then the arguments with default values, where the name of the argument is separated from its default value by the equals sign <strong>=</strong>. If a function allows handling an arbitrary number of arguments, then an ellipsis <strong>&hellip;</strong> (three dots in a row) is specified last in the parameter list.</p>
+<h3 id="ordinary-function">Ordinary function<a class="td-heading-self-link" href="#ordinary-function" aria-label="Heading self-link"></a></h3><p>An ordinary function — such functions are precisely ordinary functions in the C/C++ understanding. Inside them one can write absolutely any code, including condition checks, loops, calls of other functions, etc.</p>
+<p>Inside an ordinary function one can access local and global objects, and they can contain inserts in the implementation language*, for example to call functions from external libraries.</p>
+<p>Inserts in the implementation language are formatted as %{ %} and can contain any C/C++ text, and directly from it one can access local and global NewLang objects in the same way as in ordinary syntax, by specifying the corresponding modifier as the first character of the name (<em>$</em> for local objects and <em>@</em> for global ones).</p>
+<p>Technically, such a program insert is simply transferred by the transpiler directly into the source text of the generated file, and all NewLang identifiers are decorated in a special way (special markers are added for their identification), after which the source text is fed to the input of an ordinary C++ compiler. For local objects the transpiler can generate code for direct access to the object at compile time, while for working with global objects it is forced to use runtime calls of the search function in the symbol table.</p>
+<hr>
+<p>*) — Program inserts in the implementation language are processed only during compilation</p>
+<p><em>For example:</em></p>
+<pre tabindex="0"><code>print(str) := { 
+    %{ 
+        printf(&#34;%s&#34;, static_cast&lt;const char *&gt;($str)); /* A direct call of a C function */ 
+    %} 
+};
+</code></pre><h3 id="pure-functions">Pure functions<a class="td-heading-self-link" href="#pure-functions" aria-label="Heading self-link"></a></h3><p>A pure function is also an ordinary function, only in the sense that functional programming puts into it. The creation of a pure function occurs with the help of the operator <strong>:-</strong>, and the operator itself is borrowed from the Prolog language. A pure function has no access to the context and global variables, therefore it can process only the data that were passed to it as arguments.</p>
+<p>Program inserts in the implementation language inside pure functions are not forbidden and can be used, for example, for debugging. But this is done at the developer&rsquo;s own risk. It is he who is responsible for their &ldquo;purity&rdquo;, for example when calling functions from external libraries.</p>
+<pre tabindex="0"><code>Sum(arg1, arg2) :- {$arg1+$arg2;}; # Return the sum of the arguments
+</code></pre><h3 id="simple-pure-functions">Simple pure functions<a class="td-heading-self-link" href="#simple-pure-functions" aria-label="Heading self-link"></a></h3><p>Simple pure functions are a separate class of pure functions that are intended only for computing a logical result (i.e. they are predicates) and are distinguished by a simplified notation form. The body of a simple pure function consists of a sequence of statements separated by commas and ending, like any expression, with a semicolon. All the statements of a simple pure function are always reduced to a boolean value, and the final result of the function is computed by one of the possible logical operations: AND, OR and exclusive OR.</p>
+<p><em>For example:</em></p>
+<pre tabindex="0"><code>func_and(arg1, arg2) :&amp;&amp;= arg1==3, arg2 &gt; 0;  # A simple pure function, logical AND
+func_or(arg1, arg2) :||= arg1==3, arg2 &gt; 0; # A simple pure function, logical OR
+func_xor(arg1, arg2) :^^= arg1==3, arg2 &gt; 0;  # A simple pure function, exclusive OR
+</code></pre><h2 id="special-data-types">Special data types:<a class="td-heading-self-link" href="#special-data-types" aria-label="Heading self-link"></a></h2><h3 id="empty-none">Empty (:None)<a class="td-heading-self-link" href="#empty-none" aria-label="Heading self-link"></a></h3><p><strong>:None</strong> (empty) — contains no value (more precisely it has a single value None) and is compatible with any other data type. It is indicated in the program text as a single underscore &ldquo;_&rdquo;. Uninitialized variables have None, and an attempt to read from such a variable raises an error.</p>
+<p>The type of a variable can be specified explicitly or inferred automatically from the assigned value. A new value can be assigned to an already initialized variable only for a compatible type, since implicit type conversions are not allowed.</p>
+<pre tabindex="0"><code>$var := _; # Create an uninitialized variable
+$var2 := var; # Error!!! Cannot read the uninitialized variable var
+$var = 1000; # The variable will have the type Short (the minimum size for storing the value)
+$var = 0,5; # Error!!! Short ← Float are incompatible
+$var = _; # Clear the value of the variable
+$var = 0,5; # Now it is possible, since None is compatible with any type
+</code></pre><h3 id="range-range">Range (:Range)<a class="td-heading-self-link" href="#range-range" aria-label="Heading self-link"></a></h3><p>A range is a special data type that is an approximate analog of the &ldquo;generator&rdquo; type in Python. A range can be addressed as an iterator and it will alternately yield elements in the specified interval with a given step. A range in the program text is specified as two or three elements separated by two dots, for example 1..5 — a range from one to five with the default step 1. As the parameters of a range one can specify not only literals, but also variable names. For example, <em>0,1..$stop..0,1</em> — a range from 0.1 to the value specified in the variable $stop with step 0.1.</p>
+<p>A range for integers can be used as an index of tensors (more precisely, of any objects that allow access to their elements by index, i.e. tensors, dictionaries and text strings). In fact, this behavior is analogous to <em>slice</em> in the Python language, and <em>array[1:5]</em> in Python means the same as <em>array[1..5]</em> in NewLang.</p>
+<p>As an index of tensors one can also specify an arbitrary number of dimensions with the help of an ellipsis, i.e.</p>
+<pre tabindex="0"><code>$tensor[…, 0] = 0; # Zero out all the first elements in each dimension.
+</code></pre><h2 id="type-conversion">Type conversion<a class="td-heading-self-link" href="#type-conversion" aria-label="Heading self-link"></a></h2><h3 id="explicit-type-casting">Explicit type casting<a class="td-heading-self-link" href="#explicit-type-casting" aria-label="Heading self-link"></a></h3><p>Despite the dynamic typing of the language, if the type of a variable is specified explicitly, then automatic type casting is not performed, and to assign a value of an incompatible type to the variable an explicit conversion is required.</p>
+<p>Since the symbolic names of types relate to implementation details, an explicit conversion to a concrete data type is performed by calling a function with the name of the type, i.e. :Bool(), :StrWide(), :Long(), etc.</p>
+<p>To convert any data type to a string, one can also use the string concatenation operator, which converts any data type to a string representation. But, since there are two string types (byte and wide strings), the string type is determined by the first argument in the concatenation/joining operator <strong>++</strong>. Also, any value can be converted to a string with the help of a template string.</p>
+<pre tabindex="0"><code>&#34;&#34; ++ 123;   # &#34;123&#34; - a wide character string
+&#39;&#39; ++ 123;   # &#39;123&#39; - a byte string
+
+val := 12345;   # A number
+&#34;{}&#34;(val);      # Will be the string &#34;12345&#34;
+</code></pre><p>Since tensors can have more than one value, they can also accept an arbitrary number of them as arguments, and the final result will be a tensor in which all the passed data are converted to the required type automatically.</p>
+<p><em>Examples:</em></p>
+<pre tabindex="0"><code>&gt; tstr := :Tensor(&#34;Тест&#34;);   # Create a tensor from a wide character string
+[1058, 1077, 1089, 1090,]:Int
+
+&gt; t2 := :Tensor[2,2](&#34;Тест&#34;); # The same, but a tensor of the specified dimensionality
+[
+  [1058, 1077,], [1089, 1090,],
+]:Int
+
+&gt; :StrWide(tstr) # Create a character string from a tensor
+Тест
+
+&gt; :Double(t2)    # Change the data type of the tensor without changing the dimensionality
+[
+  [1058, 1077,], [1089, 1090,],
+]:Double
+
+&gt; t3 := :Char[4]( t2 ) # Change the dimensionality of the tensor and its type (in this case with partial data loss)
+[34, 53, 65, 66,]:Char
+
+
+&gt;:Tensor( (1,2,3,) );  # A tensor from a dictionary
+[1, 2, 3,]:Char
+
+&gt;:Tensor( &#39;first second&#39; )  # A byte string into a tensor
+[102, 105, 114, 115, 116, 32, 115, 101, 99, 111, 110, 100,]:Char
+
+&gt;:Tensor( (first=&#39;first&#39;, space=32, second=&#39;second&#39;,) )  # We get a tensor from a dictionary with the same data
+[102, 105, 114, 115, 116, 32, 115, 101, 99, 111, 110, 100,]:Char
+
+&gt;:Double[10,2]( 0, ...)   # A tensor of the given format with zeros, where the ellipsis repeats the last specified data until a tensor of the required size is obtained
+[
+  [0, 0,], [0, 0,], [0, 0,], [0, 0,], [0, 0,], [0, 0,], [0, 0,], [0, 0,], [0, 0,], [0, 0,],
+]:Double
+
+&gt;:Int[3,2]( ... rand() ...)  # A tensor with random data, where between the ellipses the function is specified that should be called each time a new tensor element is obtained
+# I had to invent a new construct, since an ellipsis before a name is the dictionary expansion operator, and an ellipsis after a name is the repetition of the last value until the end of the given dimensionality.
+[
+  [1804289383, 846930886,], [1681692777, 1714636915,], [1957747793, 424238335,],
+]:Int
+
+&gt;:Int[5,2]( 0..10 );  # Creating a tensor from a range
+[
+  [0, 1,], [2, 3,], [4, 5,], [6, 7,], [8, 9,],
+]:Int
+
+&gt;:Tensor( 0..0.99..0.1 );  # Or even like this
+[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,]:Double
+</code></pre><h1 id="operators-and-control-constructs">Operators and control constructs<a class="td-heading-self-link" href="#operators-and-control-constructs" aria-label="Heading self-link"></a></h1><h2 id="operators">Operators:<a class="td-heading-self-link" href="#operators" aria-label="Heading self-link"></a></h2><p>All operators have a paired analog with value assignment:</p>
+<ul>
+<li><strong>+</strong> and <strong>+=</strong> — addition of arithmetic data types;</li>
+<li><strong>-</strong> and <strong>-=</strong> — subtraction of arithmetic data types;</li>
+<li><strong>/</strong> and <strong>/=</strong> — division (the result is a floating-point number);</li>
+<li><strong>//</strong> and <strong>//=</strong> — integer division rounded toward the smaller number (as in Python);</li>
+<li><strong>*</strong> and <strong>*=</strong> — multiplication;</li>
+<li><strong>**</strong> and <strong>**=</strong> — exponentiation (it is also used to repeat text strings);</li>
+<li><strong>++</strong> and <strong>++=</strong> — string concatenation with automatic casting of the arguments to the string type (the increment character is deliberately used instead of a single plus in order to explicitly separate string concatenation and arithmetic addition operators).</li>
+</ul>
+<h2 id="comparison-operators">Comparison operators:<a class="td-heading-self-link" href="#comparison-operators" aria-label="Heading self-link"></a></h2><ul>
+<li><strong>&lt;</strong>, <strong>&gt;</strong>, <strong>&lt;=</strong>, <strong>&gt;=</strong> — the classical ones for comparing scalars</li>
+<li><strong>==</strong> and <strong>!=</strong> — comparison operators with automatic casting of compatible types for any objects</li>
+<li><strong>===</strong> and <strong>!==</strong> — the exact comparison operator for any objects (no automatic type casting is performed)</li>
+</ul>
+<h2 id="type-checks-of-an-objects-class-name">Type checks (of an object&rsquo;s class name):<a class="td-heading-self-link" href="#type-checks-of-an-objects-class-name" aria-label="Heading self-link"></a></h2><p>For the operator that checks the class name of an object, the tilde symbol <strong>~</strong> is used. It is somewhat similar to the <em>instanceof</em> operator in Java. The left operand must be the object being checked, and the right one the type being checked, which can be specified by a string literal, a string-type variable or the name of the class being checked directly. The result of the operation will be true if the right operand contains the name of the class of the object being checked or it is present in the inheritance hierarchy.</p>
+<pre tabindex="0"><code>name := &#34;class&#34;;    # A string variable with the class name
+var ~ name;         
+var ~ :class;       # A type name
+var ~ &#34;class&#34;;      # A string literal with the type name
+</code></pre><h2 id="duck-typing">Duck typing<a class="td-heading-self-link" href="#duck-typing" aria-label="Heading self-link"></a></h2><p>The duck typing operator, two tilde symbols <strong>~~</strong>, is an approximate analog of the isinstance() function in Python, which for simple types compares the immediate compatibility of the type of the left operand with respect to the right one. And for dictionaries and classes, the left operand is checked for the presence of all the field names present in the right operand, i.e.:</p>
+<pre tabindex="0"><code>(field1=&#34;value&#34;, field2=2,) ~~ (); # True (i.e. the left operand is a dictionary)
+(field1=&#34;value&#34;, field2=2,) ~~ (field1=_); # Also true (since the field field1 is present in the left operand)
+(field1=&#34;value&#34;, field2=2,) ~~ (not_found=_); # False, since the field not_found is absent in the left operand
+</code></pre><p>Strict duck typing <strong>~~~</strong> — for simple types the identity of types is compared without taking compatibility into account, and for composite types all properties are compared with the help of the strict equality operator. For this operation, the empty type is compatible only with another empty type.</p>
+<h1 id="control-constructs">Control constructs<a class="td-heading-self-link" href="#control-constructs" aria-label="Heading self-link"></a></h1><p>The control constructs of the NewLang language include the conditional operator, two kinds of loops, the expression evaluation operator, the operator for interrupting a sequence of commands and interrupt capture. Condition check operators are always specified in square brackets, and the sequence of commands to execute in curly braces.</p>
+<h2 id="conditional-operator">Conditional operator<a class="td-heading-self-link" href="#conditional-operator" aria-label="Heading self-link"></a></h2><p>As the condition check operator, a syntactic construct is used that in meaning corresponds to the term &ldquo;follows&rdquo;, i.e. a dash and an angle bracket <strong>-&gt;</strong> or with two dashes for greater clarity <strong>&ndash;&gt;</strong>. Such a notation of the conditional operator is very similar to a mathematical one and is easily combined into sequences for checking multiple conditions of the &ldquo;else if&rdquo; kind.</p>
+<p>In the general case, the conditional operator has the form: <code>[ condition ] -&gt; action;</code> or <code>[ condition ] -&gt; {action};</code> or <code>[ condition1 || condition2 ] --&gt; {action}, [_] --&gt; {otherwise action};</code></p>
+<p>For clarity, written with indentation:</p>
+<pre tabindex="0"><code>[ condition1 ] -&gt; { action1 },
+    [ condition2 ] -&gt; action2,
+    [ condition3 ] -&gt; action3,
+    [_] -&gt; {otherwise_action};
+</code></pre><h2 id="expression-evaluation">Expression evaluation<a class="td-heading-self-link" href="#expression-evaluation" aria-label="Heading self-link"></a></h2><p>The syntactic construct with the help of which an analog of the switch operator is implemented looks as follows:</p>
+<pre tabindex="0"><code>[ $var ] ==&gt; {
+    [1] -&gt; { code };     # The condition $var == 1 will be checked
+    [1, 2] -&gt; { code };  # The condition ($var == 1 || $var == 2) will be checked
+    [_] -&gt; { code default };  # The otherwise branch
+};
+</code></pre><p>Moreover, as the operator for evaluation any of the available equality comparison operators can be used:</p>
+<ul>
+<li><strong>==&gt;</strong> — an equality check with type casting;</li>
+<li><strong>===&gt;</strong> — an exact equality check;</li>
+<li><strong>~&gt;</strong> — a type (class name) check;</li>
+<li><strong>~~&gt;</strong> — duck typing;</li>
+<li><strong>~~~&gt;</strong> — strict duck typing.</li>
+</ul>
+<p>And if the duck typing operator is used as the comparison operator, then the expression evaluation turns into classical Pattern Matching:</p>
+<pre tabindex="0"><code>$value := (f1=1, f2=&#34;2&#34;,);
+[ $value ] ~~~&gt; {
+    [ (f1=_, ), (f1=_, f2=0, ) ] -&gt; { code };     # The field f2 is absent or a number 
+    [(f1=_, f2=&#34;&#34;,), (f1=_, f2=&#39;&#39;,)] -&gt; { code }; # The field f2 is a string
+    [_] -&gt; { code default };                      # The default code
+};
+</code></pre><h2 id="loop-operators">Loop operators<a class="td-heading-self-link" href="#loop-operators" aria-label="Heading self-link"></a></h2><p>To specify loop operators, the control operators <strong>-&raquo;</strong> or <strong>&ndash;&raquo;</strong> are used (with two arrows in the direction from the condition check to the loop body). And depending on the arrangement of the condition and the loop body, it can be a precondition loop (<em>while</em>) or a postcondition loop (<em>do while</em>). Although these syntactic constructs have not yet &ldquo;settled down&rdquo; and can be considered temporary because they are easy to confuse with the conditional operator, and perhaps it makes sense to replace the different loop operators with a single construct of the form: <strong>&lt;&ndash;&gt;</strong> or <strong>&laquo;-&raquo;</strong>, which is more strongly distinguished from the follow operator.</p>
+<p>But at the present moment the loops are implemented like this:</p>
+<pre tabindex="0"><code>[while condition] -&gt;&gt; {
+  while loop body
+};
+
+{
+  do while loop body
+} &lt;&lt;-- [do while condition];
+</code></pre><p>Implementation of the foreach loop using the example of summing all the elements of a dictionary (or a one-dimensional tensor):</p>
+<pre tabindex="0"><code>summa := 0;
+dict := (1,2,3,4,5,);
+[ dict ] --&gt;&gt; {           # The loop condition, while there is data
+  item, dict := ... dict; # The result of the dictionary expansion operator - its first element is moved to item
+  summa += item;          # Computing the sum of all the elements of the dictionary
+};
+</code></pre><h2 id="interrupt-return-operators">Interrupt (return) operators<a class="td-heading-self-link" href="#interrupt-return-operators" aria-label="Heading self-link"></a></h2><p>Two minus symbols <strong>&ndash;</strong> are used as the interrupt/return operator. The operator makes it possible to interrupt the execution of a sequence of commands and/or return data from the current function/code block and is the closest analog of the <strong>return</strong> and <strong>throw</strong> operators simultaneously. In order to return data, they must be specified between two interrupt operators, i.e. <code>--100--; # Return the specified value</code>. If the return value is not specified explicitly, then the value <em>None</em> will be returned.</p>
+<h2 id="sequence-code-blocklambda-function">Sequence (code block/lambda function)<a class="td-heading-self-link" href="#sequence-code-blocklambda-function" aria-label="Heading self-link"></a></h2><p>An algorithmic construct that is responsible for the sequential execution of several commands/statements and returns the result of the execution of the last of them. Also, the result of the execution can be a value that is returned with the help of the interrupt (return) operator. This is very similar to a classical lambda function, only it is executed immediately during its definition, and the result of its execution is saved into the variable.</p>
+<p>A sequence without interrupt capture is formatted as a sequence of ordinary and curly braces, i.e. <code>(){ run code };</code> or the same, but saving the result of the execution in a variable: <code>$result := (){ run(); code() };</code>. But if an interrupt operator is executed inside such a function, then it will never return control and will not save the returned value into the variable <em>$result</em>!</p>
+<p>To capture interrupts, including returned values, one must use the sequence-with-interrupt-capture construct, which is formatted as a sequence of ordinary and <strong>double</strong> curly braces, i.e. <code>$error := (){{ run(); error();code() }};</code>. Such a construct captures all returns and interrupts if they occur during the execution of the sequence of commands. In this case any result will be saved in the variable <em>$error</em> both on normal completion and in the case of an error.</p>
+<p>For finer tuning of interrupt capture, one should use the typed construct, when it is explicitly specified which types of interrupts should be captured. <code>$runtime := (){{ run(); error(); code() }}:ErrorRuntime;</code>. Such a construct will return a result only in the case of successful completion (when a non-typed value is returned with the help of the interrupt operator, for example, <code>--&quot;String&quot;--;</code>), or when an interrupt is created with the specification of a concrete type <strong>&ndash;:ErrorRuntime(&ldquo;Error description&rdquo;)&ndash;;</strong>. But if any other typed interrupt occurs, the value will not be captured and everything will work as in the very first variant, i.e. without capturing the interrupt and without saving the returned value into the variable.</p>
+<h2 id="error-handling-strategy">Error handling strategy<a class="td-heading-self-link" href="#error-handling-strategy" aria-label="Heading self-link"></a></h2><p>Error handling consists of a combination of two elements: an operator for interrupting execution with the specification of the type of the returned value and an algorithmic construct &ldquo;sequence&rdquo; with the possibility of capturing an interrupt of a given type.</p>
+<p>This differs a little from the classical variant of exception handling, which in ordinary programming languages is usually formatted with the keywords try… catch… finally with various variations. After all, the main goal of such syntactic constructs is to single out a section of code where an error may occur, and to catch and handle the correct type of data (exceptions), since <strong>NewLang</strong> does not distinguish between return operators and exception generation.</p>
+<h3 id="the-approach-to-exception-handling-is-as-follows">The approach to exception handling is as follows:<a class="td-heading-self-link" href="#the-approach-to-exception-handling-is-as-follows" aria-label="Heading self-link"></a></h3><p>The program code that may lead to an error is enclosed in double curly braces, and the result of the execution of such a code block is assigned to a variable. After that the returned value is analyzed, for example by the pattern comparison operator:</p>
+<pre tabindex="0"><code>$result := (){{     # the beginning of the analog of a try block
+    $value := call_or_exception1();
+    [condition1] -&gt; { -- :Error -- };
+    [condition2] -&gt; { -- $value -- };
+    $value := call_or_exception2();   
+}};                 # the end of the analog of a try block
+              
+[$result] ~&gt; {      # To compare by pattern, use the type check operator (class name)
+    [:ErrorParser] -&gt; {Parser error handling code};
+    [:ErrorRunTime] -&gt; {Runtime error handling code};
+    [:Error] -&gt; { Code for handling the remaining errors };
+    [_] -&gt; { Handling of normal data $value without errors };
+};
+</code></pre><h1 id="plans-for-the-future">Plans for the future<a class="td-heading-self-link" href="#plans-for-the-future" aria-label="Heading self-link"></a></h1><p>The current version of the language has been significantly enriched with capabilities, but is still a test platform for verifying the declared concepts and the base syntax. If we talk about plans, then at the present moment the roadmap of NewLang development is as follows:</p>
+<ul>
+<li>Implement macros for a more familiar use of the language (through the use of DSL);</li>
+<li>Add long numbers and fractions to the arithmetic types;</li>
+<li>Make some kind of logical game (tic-tac-toe, sudoku or something similar) with an algorithmic choice of the next move and its computation using machine learning;</li>
+<li>Write even more different examples to evaluate the syntax;</li>
+<li>Fix the syntax taking into account the experience gained and the feedback;</li>
+<li>Restore the operability of the compiler for generating executable files;</li>
+<li>Do another big code cleanup;</li>
+<li>Rework and document the resulting semantics of the language taking into account all the capabilities and release the first full-featured version of NewLang.</li>
+</ul>
+
+	<ul class="list-unstyled td-pager d-flex justify-content-between align-items-center mb-0">
+  <li>
+    <a class="btn btn-primary disabled"><span class="me-1">←</span>Previous</a>
+  </li>
+  <li>
+    <a href="/en/blog/releases/v0.2.0/" aria-label="Next - NewLang v0.2.0" class="btn btn-primary">Next<span class="ms-1">→</span></a>
+  </li>
+</ul>
+
+	</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

@@ -1,0 +1,742 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="ru" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Почему C&#43;&#43; или Rust никогда не смогут заменить Python | TrustLang</title>
+<meta name="description" content="На Хабре периодически появляются статьи с анализом феномена Python - как один из самых медленных языков программирования стал королём нейросетей, и ответ всегда один: за счёт простого синтаксиса и развитой экосистемы. Но экосистема у C&#43;&#43; значительно больше и богаче, значит, дело не в ней и остаётся только синтаксис. А если проблема действительно в синтаксисе, тогда должен быть ответ и на другой вопрос: почему C&#43;&#43; не стал основой для исследований в этой (или любой другой) области?">
+<meta property="og:url" content="https://trust-lang.net/ru/blog/comparison/cpp-rust-vs-python/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Почему C&#43;&#43; или Rust никогда не смогут заменить Python">
+	<meta property="og:description" content="На Хабре периодически появляются статьи с анализом феномена Python - как один из самых медленных языков программирования стал королём нейросетей, и ответ всегда один: за счёт простого синтаксиса и развитой экосистемы. Но экосистема у C&#43;&#43; значительно больше и богаче, значит, дело не в ней и остаётся только синтаксис. А если проблема действительно в синтаксисе, тогда должен быть ответ и на другой вопрос: почему C&#43;&#43; не стал основой для исследований в этой (или любой другой) области?">
+	<meta property="og:locale" content="ru">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="blog">
+		<meta property="article:published_time" content="2026-07-28T00:00:00+00:00">
+		<meta property="article:modified_time" content="2026-09-07T17:43:45+03:00">
+		<meta property="article:tag" content="Python">
+		<meta property="article:tag" content="C&#43;&#43;">
+		<meta property="article:tag" content="Rust">
+		<meta property="article:tag" content="Syntax">
+		<meta property="article:tag" content="Comparison">
+		<meta property="article:tag" content="Programming-Languages">
+
+	<meta itemprop="name" content="Почему C&#43;&#43; или Rust никогда не смогут заменить Python">
+	<meta itemprop="description" content="На Хабре периодически появляются статьи с анализом феномена Python - как один из самых медленных языков программирования стал королём нейросетей, и ответ всегда один: за счёт простого синтаксиса и развитой экосистемы. Но экосистема у C&#43;&#43; значительно больше и богаче, значит, дело не в ней и остаётся только синтаксис. А если проблема действительно в синтаксисе, тогда должен быть ответ и на другой вопрос: почему C&#43;&#43; не стал основой для исследований в этой (или любой другой) области?">
+	<meta itemprop="datePublished" content="2026-07-28T00:00:00+00:00">
+	<meta itemprop="dateModified" content="2026-09-07T17:43:45+03:00">
+	<meta itemprop="wordCount" content="2312">
+	<meta itemprop="keywords" content="Python,C&#43;&#43;,Rust,Syntax,Comparison,Programming-Languages,Ai">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Почему C&#43;&#43; или Rust никогда не смогут заменить Python">
+	<meta name="twitter:description" content="На Хабре периодически появляются статьи с анализом феномена Python - как один из самых медленных языков программирования стал королём нейросетей, и ответ всегда один: за счёт простого синтаксиса и развитой экосистемы. Но экосистема у C&#43;&#43; значительно больше и богаче, значит, дело не в ней и остаётся только синтаксис. А если проблема действительно в синтаксисе, тогда должен быть ответ и на другой вопрос: почему C&#43;&#43; не стал основой для исследований в этой (или любой другой) области?">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/ru/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/docs/"><span>О проекте</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/ru/blog/"><span>Статьи</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/blog/comparison/cpp-rust-vs-python/">English</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/blog/comparison/cpp-rust-vs-python/">English</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-rublog-li">
+  <a href="/ru/blog/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-rublog"><span class="">Статьи</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogtheory-li">
+  <input type="checkbox" id="m-rublogtheory-check"/>
+  <label for="m-rublogtheory-check"><a href="/ru/blog/theory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogtheory"><span class="">Теория вычислений</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogtheoryconsciousness-fsm-li">
+  <input type="checkbox" id="m-rublogtheoryconsciousness-fsm-check"/>
+  <label for="m-rublogtheoryconsciousness-fsm-check"><a href="/ru/blog/theory/consciousness-fsm/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogtheoryconsciousness-fsm"><span class="">Механизм возникновения сознания у конечных автоматов</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogtheoryturing-machine-li">
+  <input type="checkbox" id="m-rublogtheoryturing-machine-check"/>
+  <label for="m-rublogtheoryturing-machine-check"><a href="/ru/blog/theory/turing-machine/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogtheoryturing-machine"><span class="">Размышления о машине Тьюринга и причинах возникновения ошибок в языках программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogtheorystructured-programming-li">
+  <input type="checkbox" id="m-rublogtheorystructured-programming-check"/>
+  <label for="m-rublogtheorystructured-programming-check"><a href="/ru/blog/theory/structured-programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogtheorystructured-programming"><span class="">Размышления о структурном программировании</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogtheorylogic-prog-li">
+  <input type="checkbox" id="m-rublogtheorylogic-prog-check"/>
+  <label for="m-rublogtheorylogic-prog-check"><a href="/ru/blog/theory/logic-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogtheorylogic-prog"><span class="">Проблема логических языков программирования</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rubloglanguage-design-li">
+  <input type="checkbox" id="m-rubloglanguage-design-check"/>
+  <label for="m-rubloglanguage-design-check"><a href="/ru/blog/language-design/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rubloglanguage-design"><span class="">Дизайн языков программирования</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designexpression-statement-li">
+  <input type="checkbox" id="m-rubloglanguage-designexpression-statement-check"/>
+  <label for="m-rubloglanguage-designexpression-statement-check"><a href="/ru/blog/language-design/expression-statement/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designexpression-statement"><span class="">Если вы думаете, что знаете, чем отличается «Expression» от «Statement», то, скорее всего, вы ошибаетесь</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designbuilding-blocks-li">
+  <input type="checkbox" id="m-rubloglanguage-designbuilding-blocks-check"/>
+  <label for="m-rubloglanguage-designbuilding-blocks-check"><a href="/ru/blog/language-design/building-blocks/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designbuilding-blocks"><span class="">Строительные блоки языков программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designreference-solution-li">
+  <input type="checkbox" id="m-rubloglanguage-designreference-solution-check"/>
+  <label for="m-rubloglanguage-designreference-solution-check"><a href="/ru/blog/language-design/reference-solution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designreference-solution"><span class="">Возможное решение проблемы ссылок в языках программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designtrust-lang-li">
+  <input type="checkbox" id="m-rubloglanguage-designtrust-lang-check"/>
+  <label for="m-rubloglanguage-designtrust-lang-check"><a href="/ru/blog/language-design/trust-lang/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designtrust-lang"><span class="">Новый язык программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designunusual-prog-li">
+  <input type="checkbox" id="m-rubloglanguage-designunusual-prog-check"/>
+  <label for="m-rubloglanguage-designunusual-prog-check"><a href="/ru/blog/language-design/unusual-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designunusual-prog"><span class="">Необычная концепция синтаксиса языка программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designlang-final-li">
+  <input type="checkbox" id="m-rubloglanguage-designlang-final-check"/>
+  <label for="m-rubloglanguage-designlang-final-check"><a href="/ru/blog/language-design/lang-final/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designlang-final"><span class="">Какая «идеальная» цель развития у языков программирования?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rubloglanguage-designinter-prog-li">
+  <input type="checkbox" id="m-rubloglanguage-designinter-prog-check"/>
+  <label for="m-rubloglanguage-designinter-prog-check"><a href="/ru/blog/language-design/inter-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rubloglanguage-designinter-prog"><span class="">Интернациональное программирование на естественных языках</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-rublogcomparison-li">
+  <input type="checkbox" id="m-rublogcomparison-check" checked/>
+  <label for="m-rublogcomparison-check"><a href="/ru/blog/comparison/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogcomparison"><span class="">Сравнение языков</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-rublogcomparisoncpp-rust-vs-python-li">
+  <input type="checkbox" id="m-rublogcomparisoncpp-rust-vs-python-check" checked/>
+  <label for="m-rublogcomparisoncpp-rust-vs-python-check"><a href="/ru/blog/comparison/cpp-rust-vs-python/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisoncpp-rust-vs-python"><span class="td-sidebar-nav-active-item">Почему C&#43;&#43; или Rust никогда не смогут заменить Python</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogcomparisoncpp-evolution-li">
+  <input type="checkbox" id="m-rublogcomparisoncpp-evolution-check"/>
+  <label for="m-rublogcomparisoncpp-evolution-check"><a href="/ru/blog/comparison/cpp-evolution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisoncpp-evolution"><span class="">Ахиллесова пята C&#43;&#43; и будущая  р̶е эволюция</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogcomparisoncode-safety-economy-li">
+  <input type="checkbox" id="m-rublogcomparisoncode-safety-economy-check"/>
+  <label for="m-rublogcomparisoncode-safety-economy-check"><a href="/ru/blog/comparison/code-safety-economy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisoncode-safety-economy"><span class="">Экономика безопасности кода или почему Rust не нужен</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogcomparisoncpp-safety-li">
+  <input type="checkbox" id="m-rublogcomparisoncpp-safety-check"/>
+  <label for="m-rublogcomparisoncpp-safety-check"><a href="/ru/blog/comparison/cpp-safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisoncpp-safety"><span class="">Безопасность С&#43;&#43; и буридановы мыши в ИТ</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogcomparisongenerics-li">
+  <input type="checkbox" id="m-rublogcomparisongenerics-check"/>
+  <label for="m-rublogcomparisongenerics-check"><a href="/ru/blog/comparison/generics/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogcomparisongenerics"><span class="">Обобщённое программирование в разных языках</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogimplementation-li">
+  <input type="checkbox" id="m-rublogimplementation-check"/>
+  <label for="m-rublogimplementation-check"><a href="/ru/blog/implementation/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogimplementation"><span class="">Реализация компилятора</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogimplementationparser-nuances-li">
+  <input type="checkbox" id="m-rublogimplementationparser-nuances-check"/>
+  <label for="m-rublogimplementationparser-nuances-check"><a href="/ru/blog/implementation/parser-nuances/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogimplementationparser-nuances"><span class="">Нюансы разработки парсера для своего языка программирования</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogimplementationdsl-with-macros-li">
+  <input type="checkbox" id="m-rublogimplementationdsl-with-macros-check"/>
+  <label for="m-rublogimplementationdsl-with-macros-check"><a href="/ru/blog/implementation/dsl-with-macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogimplementationdsl-with-macros"><span class="">Вариант реализации DSL (domain-specific language) с помощью макросов</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogsafety-li">
+  <input type="checkbox" id="m-rublogsafety-check"/>
+  <label for="m-rublogsafety-check"><a href="/ru/blog/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogsafety"><span class="">Безопасность ПО</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogsafetystack-overflow-li">
+  <input type="checkbox" id="m-rublogsafetystack-overflow-check"/>
+  <label for="m-rublogsafetystack-overflow-check"><a href="/ru/blog/safety/stack-overflow/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogsafetystack-overflow"><span class="">Избавляемся от ошибок Segmentation fault из-за переполнения стека в С&#43;&#43;</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogsafetylanguage-guarantees-li">
+  <input type="checkbox" id="m-rublogsafetylanguage-guarantees-check"/>
+  <label for="m-rublogsafetylanguage-guarantees-check"><a href="/ru/blog/safety/language-guarantees/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogsafetylanguage-guarantees"><span class="">Гарантии языка программирования как основа безопасной разработки программного обеспечения</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogprogramming-li">
+  <input type="checkbox" id="m-rublogprogramming-check"/>
+  <label for="m-rublogprogramming-check"><a href="/ru/blog/programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogprogramming"><span class="">Философия программирования</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogprogrammingprog-styles-same-time-li">
+  <input type="checkbox" id="m-rublogprogrammingprog-styles-same-time-check"/>
+  <label for="m-rublogprogrammingprog-styles-same-time-check"><a href="/ru/blog/programming/prog-styles-same-time/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogprogrammingprog-styles-same-time"><span class="">Можно ли использовать декларативный и императивный стили написания программ одновременно?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogprogrammingcomplex-prog-li">
+  <input type="checkbox" id="m-rublogprogrammingcomplex-prog-check"/>
+  <label for="m-rublogprogrammingcomplex-prog-check"><a href="/ru/blog/programming/complex-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogprogrammingcomplex-prog"><span class="">Простое сложное программирование</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogai-li">
+  <input type="checkbox" id="m-rublogai-check"/>
+  <label for="m-rublogai-check"><a href="/ru/blog/ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogai"><span class="">ИИ и ИТ-процессы</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogaiai-illusions-li">
+  <input type="checkbox" id="m-rublogaiai-illusions-check"/>
+  <label for="m-rublogaiai-illusions-check"><a href="/ru/blog/ai/ai-illusions/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogaiai-illusions"><span class="">Главная проблема использования ИИ (Иллюзии Интеллекта) при разработке ПО</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogaiwrong-term-ai-li">
+  <input type="checkbox" id="m-rublogaiwrong-term-ai-check"/>
+  <label for="m-rublogaiwrong-term-ai-check"><a href="/ru/blog/ai/wrong-term-ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogaiwrong-term-ai"><span class="">Неоднозначный термин «искусственный интеллект»</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rublogreleases-li">
+  <input type="checkbox" id="m-rublogreleases-check"/>
+  <label for="m-rublogreleases-check"><a href="/ru/blog/releases/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rublogreleases"><span class="">Релизы</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv060-li">
+  <input type="checkbox" id="m-rublogreleasesv060-check"/>
+  <label for="m-rublogreleasesv060-check"><a href="/ru/blog/releases/v0.6.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv060"><span class="">TrustLang v0.6.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv040-li">
+  <input type="checkbox" id="m-rublogreleasesv040-check"/>
+  <label for="m-rublogreleasesv040-check"><a href="/ru/blog/releases/v0.4.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv040"><span class="">NewLang v0.4.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv030-li">
+  <input type="checkbox" id="m-rublogreleasesv030-check"/>
+  <label for="m-rublogreleasesv030-check"><a href="/ru/blog/releases/v0.3.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv030"><span class="">NewLang v0.3.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv020-li">
+  <input type="checkbox" id="m-rublogreleasesv020-check"/>
+  <label for="m-rublogreleasesv020-check"><a href="/ru/blog/releases/v0.2.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv020"><span class="">NewLang v0.2.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rublogreleasesv010-li">
+  <input type="checkbox" id="m-rublogreleasesv010-check"/>
+  <label for="m-rublogreleasesv010-check"><a href="/ru/blog/releases/v0.1.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rublogreleasesv010"><span class="">NewLang v0.1.0</span></a></label>
+  
+</li>
+  </ul>
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/ru/_print/blog/comparison/"><i class="fa-solid fa-print fa-fw"></i> Печатать весь раздел</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#два-мира-в-одном-языке">Два мира в одном языке</a></li>
+    <li><a href="#критерии-оценки-сложности-синтаксиса-яп">Критерии оценки сложности синтаксиса ЯП</a>
+      <ul>
+        <li><a href="#c">C++</a></li>
+        <li><a href="#python">Python</a></li>
+        <li><a href="#rust">Rust</a></li>
+        <li><a href="#в-итоге-прикладная-часть-синтаксиса-яп-выглядит-так">В итоге прикладная часть синтаксиса ЯП выглядит так</a></li>
+        <li><a href="#почему-python-выиграл-в-ml">Почему Python выиграл в ML?</a></li>
+      </ul>
+    </li>
+    <li><a href="#все-языки-эволюционируют-в-сторону-предметной-области">Все языки эволюционируют в сторону предметной области</a></li>
+    <li><a href="#итог">Итог</a></li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            <a class="td-rss-button" title="RSS" href="/ru/blog/comparison/index.xml" target="_blank" rel="noopener">
+              <i class="fa-solid fa-rss" aria-hidden="true"></i>
+            </a>
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/ru/blog/">Статьи</a></li>
+  <li class="breadcrumb-item">
+    <a href="/ru/blog/comparison/">Сравнение языков</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    Почему C&#43;&#43; или Rust никогда не смогут заменить Python</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>Почему C&#43;&#43; или Rust никогда не смогут заменить Python</h1>
+	
+	<div class="td-byline mb-4">
+		
+		<time datetime="2026-07-28" class="text-body-secondary">28.07.2026</time>
+	</div>
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p>На Хабре периодически появляются статьи с анализом феномена Python - как один из самых медленных языков программирования стал королём нейросетей, и ответ всегда один: за счёт простого синтаксиса и развитой экосистемы. Но экосистема у C++ значительно больше и богаче, значит, дело не в ней и остаётся только синтаксис. А если проблема действительно в синтаксисе, тогда должен быть ответ и на другой вопрос: почему C++ <strong>не</strong> стал основой для исследований в этой (или любой другой) области?</p>
+<p>Раньше я уже подходил к вопросу об эмпирической оценке сложности синтаксиса языков программирования, что называется «в лоб»: взять <a href="/ru/blog/programming/complex-prog/">исходный код компилятора и посмотреть, сколько строк в нём занимает синтаксический анализатор</a>. Ведь чем сложнее синтаксис, тем больше кода нужно, чтобы его распознать. И сотни тысяч строк кода только на анализ синтаксиса C++ - это измеримое свидетельство того, в какого монстра превратился C++ за сорок лет развития.</p>
+<p>Но есть и другой способ оценить то же самое - причём гораздо проще, доступнее и без единой строчки анализа кодовой базы. И этот способ даёт неожиданно точный ответ на вопрос, почему именно Python в машинном обучении, несмотря на его репутацию «медленного» языка, стал стандартом.</p>
+<h2 id="два-мира-в-одном-языке">Два мира в одном языке<a class="td-heading-self-link" href="#%d0%b4%d0%b2%d0%b0-%d0%bc%d0%b8%d1%80%d0%b0-%d0%b2-%d0%be%d0%b4%d0%bd%d0%be%d0%bc-%d1%8f%d0%b7%d1%8b%d0%ba%d0%b5" aria-label="Heading self-link"></a></h2><p>Когда программист пишет код на любом языке программирования, он работает с двумя принципиально разными группами понятий одновременно.</p>
+<p>Первая группа понятий описывает - <em>что делает программа</em> - это различные бизнес-правила, прикладные и предметные сущности, которые используются для описания алгоритма. Например: <code>class Order</code>, <code>enum Status { Paid, Pending }</code>, <code>if balance &lt; amount: raise InsufficientFunds</code> - всё это может прочитать и понять любой человек при первом взгляде на код, даже без знания синтаксиса конкретного языка.</p>
+<p>Вторая группа понятий, которой оперирует программист, - это описание того, <em>как это исполняется</em> - управление памятью, диспетчеризация вызовов, синхронизация потоков и различные директивы компилятору. Это может быть <code>alignas(64)</code>, <code>volatile</code>, <code>reinterpret_cast</code>, <code>__slots__</code> - и здесь непрограммист уже беспомощен, и это нормально: эти конструкции адресованы компилятору (машине), а не человеку из предметной области.</p>
+<p>И такое разделение синтаксиса у языков программирования не декоративное. Это принципиальное архитектурное разделение, которое содержит практически каждый язык программирования без исключения. И чем сложнее «машинная» часть языка, тем хуже понимается текст программы непрограммистом.</p>
+<h2 id="критерии-оценки-сложности-синтаксиса-яп">Критерии оценки сложности синтаксиса ЯП<a class="td-heading-self-link" href="#%d0%ba%d1%80%d0%b8%d1%82%d0%b5%d1%80%d0%b8%d0%b8-%d0%be%d1%86%d0%b5%d0%bd%d0%ba%d0%b8-%d1%81%d0%bb%d0%be%d0%b6%d0%bd%d0%be%d1%81%d1%82%d0%b8-%d1%81%d0%b8%d0%bd%d1%82%d0%b0%d0%ba%d1%81%d0%b8%d1%81%d0%b0-%d1%8f%d0%bf" aria-label="Heading self-link"></a></h2><p>Может показаться, что отнесение языка программирования к категориям «низкоуровневый/высокоуровневый» или «системный/прикладной» - это сугубо экспертная оценка, причём довольно относительная. Например, C++ или Rust будут языками высокого уровня по сравнению с Ассемблером. Однако использование терминов «системный» или «прикладной» зависит даже не от языка, а от назначения конкретной программы.</p>
+<p>Но если говорить именно про синтаксис, то можно взять полный список ключевых слов (включая встроенные аннотации) и задать по каждому из них всего два вопроса:</p>
+<blockquote>
+<ol>
+<li><em>Может ли эксперт предметной области, т. е. непрограммист, понять назначение этой конструкции без знания языка?</em></li>
+<li><em>Влияет ли эта конструкция языка на компилятор, рантайм или архитектуру железа?</em></li>
+</ol>
+</blockquote>
+<p>Тогда получается вполне понятный критерий для классификации ключевых слов синтаксиса: относить их к системной или прикладной категории, после чего можно посчитать процент прикладных терминов в общей лексике языка.</p>
+<h3 id="c">C++<a class="td-heading-self-link" href="#c" aria-label="Heading self-link"></a></h3><p>Полный список ключевых слов по стандарту C++20 - <strong>92 слова</strong>, плюс разные операторы и стандартные атрибуты (<code>[[nodiscard]]</code>, <code>[[deprecated]]</code>, <code>[[likely]]</code> и др.), плюс <code>break</code>, <code>continue</code>. Всего <strong>115</strong> лексических конструкций, из которых:</p>
+<ul>
+<li>Прикладные (говорят о предметной области) всего <strong>34</strong>. Ключевые слова: <code>bool</code>, <code>enum</code>, <code>enum class</code>, <code>const</code>, <code>struct</code>, <code>return</code>, <code>override</code>, <code>operator</code>, <code>if</code>, <code>else</code>, <code>switch</code>, <code>case</code>, <code>default</code>, <code>for</code>, <code>while</code>, <code>do</code>, <code>try</code>, <code>catch</code>, <code>throw</code>, <code>class</code>, <code>public</code>, <code>private</code>, <code>protected</code>, <code>co_await</code>, <code>co_yield</code>, <code>co_return</code>, <code>concept</code>, <code>requires</code>, текстовые псевдонимы логических операторов: <code>and</code>, <code>or</code>, <code>not</code> (хотя они и не рекомендованы к использованию, но в лексике языка всё равно присутствуют) и несколько атрибутов: <code>[[nodiscard]]</code>, <code>[[deprecated]]</code>, <code>[[fallthrough]]</code>.</li>
+<li>Системные (говорят о компиляторе, памяти, железе) <strong>81 из 115</strong>. Ключевые слова: <code>int</code>, <code>short</code>, <code>long</code>, <code>float</code>, <code>double</code>, <code>char</code>, <code>wchar_t</code>, <code>char8_t</code>, <code>char16_t</code>, <code>char32_t</code>, <code>void</code>, <code>unsigned</code>, <code>signed</code> и т. д. Текстовые псевдонимы побитовых и составных операторов: <code>and_eq</code>, <code>or_eq</code>, <code>not_eq</code>, <code>xor</code>, <code>xor_eq</code>, <code>bitand</code>, <code>bitor</code>, <code>compl</code> и различные атрибуты: <code>[[maybe_unused]]</code>, <code>[[likely]]</code>, <code>[[unlikely]]</code>, <code>[[noreturn]]</code>, <code>[[carries_dependency]]</code>, <code>[[no_unique_address]]</code>, <code>[[optimize_for_synchronized]]</code>.</li>
+</ul>
+<p>Итого прикладных терминов в синтаксисе C++ всего 34 из 115 (около 30%).</p>
+<h3 id="python">Python<a class="td-heading-self-link" href="#python" aria-label="Heading self-link"></a></h3><p>Официальный список ключевых слов Python 3.12 - 35 слов, плюс 8 встроенных декораторов (<code>@property</code>, <code>@staticmethod</code>, <code>@classmethod</code>, <code>@abstractmethod</code>, <code>@override</code>, <code>@dataclass</code>, <code>@cached_property</code>, <code>@functools.wraps</code>). Итого 43 конструкции, из которых:</p>
+<ul>
+<li>Прикладных <strong>35 из 43</strong>. Это ключевые слова: <code>True</code>, <code>False</code>, <code>None</code>, <code>def</code>, <code>return</code>, <code>lambda</code>, <code>yield</code>, <code>class</code>, <code>if</code>, <code>elif</code>, <code>else</code>, <code>for</code>, <code>while</code>, <code>try</code>, <code>except</code>, <code>raise</code>, <code>finally</code>, <code>with</code>, <code>import</code>, <code>from</code>, <code>as</code>, <code>async</code>, <code>await</code>, <code>del</code>, <code>not</code>, <code>and</code>, <code>or</code>, <code>is</code>, <code>in</code> и декораторы: <code>@property</code>, <code>@staticmethod</code>, <code>@classmethod</code>, <code>@abstractmethod</code>, <code>@override</code>, <code>@dataclass</code>.</li>
+<li>Системные ключевые слова Python: <code>global</code>, <code>nonlocal</code>, <code>pass</code>, <code>break</code>, <code>continue</code>, <code>assert</code>, <code>type</code> - всего 7 слов и два декоратора: <code>@cached_property</code>, <code>@functools.wraps</code>.</li>
+</ul>
+<p>Итого прикладных терминов Python: 35 из 43 (более 81%)!</p>
+<h3 id="rust">Rust<a class="td-heading-self-link" href="#rust" aria-label="Heading self-link"></a></h3><p>Официальный список ключевых слов Rust - 47 ключевых слов (из которых 9 зарезервированных) и 49 встроенных атрибутов, всего <strong>96</strong> терминов, из которых:</p>
+<ul>
+<li>Прикладные ключевые слова: <code>true</code>, <code>false</code>, <code>enum</code>, <code>const</code>, <code>let</code>, <code>struct</code>, <code>fn</code>, <code>return</code>, <code>trait</code>, <code>pub</code>, <code>where</code>, <code>if</code>, <code>else</code>, <code>match</code>, <code>for</code>, <code>in</code>, <code>async</code>, <code>await</code> и атрибуты: <code>#[derive(...)]</code>, <code>#[must_use]</code>, <code>#[deprecated]</code>, <code>#[test]</code> и т. д. - всего 26 прикладных терминов.</li>
+<li>Системные ключевые слова: <code>type</code>, <code>impl</code>, <code>dyn</code>, <code>Self</code>, <code>mut</code>, <code>ref</code>, <code>static</code>, <code>move</code>, <code>unsafe</code>, <code>extern</code>, <code>break</code>, <code>continue</code>, <code>super</code>, <code>as</code>, <code>loop</code>, <code>use</code>, <code>crate</code>, <code>mod</code>, <code>become</code>, <code>box</code>, <code>do</code>, <code>final</code>, <code>macro</code>, <code>override</code>, <code>priv</code>, <code>typeof</code>, <code>unsized</code>, <code>virtual</code>, <code>yield</code>, <code>abstract</code>, <code>alignof</code>, <code>offsetof</code>, <code>pure</code>, <code>sizeof</code> - всего 29 ключевых слов, плюс 41 системный атрибут, таких как <code>#[cfg(...)]</code>, <code>#[cfg_attr(...)]</code>, <code>#[inline]</code> и т. д.</li>
+</ul>
+<p>Итого прикладных терминов в Rust 26 из 96 (всего 27%).</p>
+<h3 id="в-итоге-прикладная-часть-синтаксиса-яп-выглядит-так">В итоге прикладная часть синтаксиса ЯП выглядит так<a class="td-heading-self-link" href="#%d0%b2-%d0%b8%d1%82%d0%be%d0%b3%d0%b5-%d0%bf%d1%80%d0%b8%d0%ba%d0%bb%d0%b0%d0%b4%d0%bd%d0%b0%d1%8f-%d1%87%d0%b0%d1%81%d1%82%d1%8c-%d1%81%d0%b8%d0%bd%d1%82%d0%b0%d0%ba%d1%81%d0%b8%d1%81%d0%b0-%d1%8f%d0%bf-%d0%b2%d1%8b%d0%b3%d0%bb%d1%8f%d0%b4%d0%b8%d1%82-%d1%82%d0%b0%d0%ba" aria-label="Heading self-link"></a></h3><table>
+	<thead>
+			<tr>
+					<th>Язык</th>
+					<th>Всего конструкций</th>
+					<th>Прикладных</th>
+					<th>Системных</th>
+					<th>% прикладных</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>Python</strong></td>
+					<td>43</td>
+					<td>35</td>
+					<td>9</td>
+					<td><strong>81%</strong></td>
+			</tr>
+			<tr>
+					<td><strong>Rust</strong></td>
+					<td>96</td>
+					<td>26</td>
+					<td>70</td>
+					<td><strong>27%</strong></td>
+			</tr>
+			<tr>
+					<td><strong>C++20</strong></td>
+					<td>115</td>
+					<td>34</td>
+					<td>81</td>
+					<td><strong>30%</strong></td>
+			</tr>
+			<tr>
+					<td><strong>C++26</strong></td>
+					<td>121</td>
+					<td>37</td>
+					<td>84</td>
+					<td><strong>31%</strong></td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>C++ по праву считается самым сложным.</strong> У него не только самый большой синтаксический словарь (121 конструкций против 43 у Python), но и очень неблагоприятное соотношение для прикладного пользователя: 84 системных термина против 34 прикладных. Программист на C++ вынужден держать в голове не только логику предметной области, но и управление памятью (<code>new</code>/<code>delete</code>, RAII, <code>alignas</code>, <code>alignof</code>), приведения типов (несколько разных <code>*_cast</code>), оптимизации компилятора (<code>constexpr</code>, <code>consteval</code>, <code>constinit</code>, <code>inline</code>, <code>noexcept</code>), диспетчеризацию (<code>virtual</code>, <code>override</code>, <code>final</code>) и метапрограммирование (<code>template</code>, <code>typename</code>, <code>decltype</code>). Ни один другой промышленный язык программирования не требует явного управления таким количеством системных деталей одновременно.</p>
+<p>Доля прикладных терминов в грамматике Rust - 27%, это даже меньше, чем в C++. Но несмотря на это, с ним работать всё равно проще. А секрет заключается в удачном архитектурном решении: в Rust системные концепции не размазаны по ключевым словам, как в C++, а вынесены в атрибуты с однотипным синтаксисом. За счёт чего ключевые слова остаются относительно прикладными (<code>trait</code>, <code>match</code>, <code>pub</code>, <code>where</code>), а системные детали (<code>#[repr]</code>, <code>#[inline]</code>, <code>#[cfg]</code>) вынесены в отдельный синтаксический слой, который визуально легко отличим в исходном тексте программы.</p>
+<p>Тем не менее Python всё равно не просто «проще» - его синтаксис специально ориентирован на предметную область значительно сильнее, чем C++ или Rust. И это не субъективное ощущение, а архитектурное свойство языка: из 43 конструкций 35 говорят о предметной области, и только 9 - о деталях рантайма. Поэтому <code>if balance &gt; 0 and status == &quot;active&quot;</code> сможет понять любой человек даже без знания Python.</p>
+<h3 id="почему-python-выиграл-в-ml">Почему Python выиграл в ML?<a class="td-heading-self-link" href="#%d0%bf%d0%be%d1%87%d0%b5%d0%bc%d1%83-python-%d0%b2%d1%8b%d0%b8%d0%b3%d1%80%d0%b0%d0%bb-%d0%b2-ml" aria-label="Heading self-link"></a></h3><p>Оказывается, нет ничего удивительного в том, что Python предпочтительнее для использования в любых экспериментах и прототипах. Исследователь, пришедший из физики или биологии, читает:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">for</span> <span style="color:#000">batch</span> <span style="color:#204a87;font-weight:bold">in</span> <span style="color:#000">dataloader</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">logits</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000">classifier</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">batch</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">features</span><span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">loss</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000">cross_entropy</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">logits</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">batch</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">labels</span><span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">loss</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">backward</span><span style="color:#000;font-weight:bold">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">optimizer</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">step</span><span style="color:#000;font-weight:bold">()</span>
+</span></span></code></pre></div><p>Здесь каждое слово - из его профессионального словаря. <code>for</code>, <code>loss</code>, <code>backward</code>, <code>step</code> - это математика, записанная кодом. Системные детали (<code>event loop</code>, <code>GIL</code>, <code>reference counting</code>) не имеют здесь ключевых слов, потому что Python намеренно убрал их из синтаксиса.</p>
+<p>И как бы выглядел аналогичный фрагмент на C++:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">for</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">size_t</span> <span style="color:#000">i</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#000">i</span> <span style="color:#ce5c00;font-weight:bold">&lt;</span> <span style="color:#000">dataloader</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">size</span><span style="color:#000;font-weight:bold">();</span> <span style="color:#ce5c00;font-weight:bold">++</span><span style="color:#000">i</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">const</span> <span style="color:#204a87;font-weight:bold">auto</span><span style="color:#ce5c00;font-weight:bold">&amp;</span> <span style="color:#000">batch</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000">dataloader</span><span style="color:#000;font-weight:bold">[</span><span style="color:#000">i</span><span style="color:#000;font-weight:bold">];</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// RAII-обёртка для выровненной памяти
+</span></span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">alignas</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">64</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">vector</span><span style="color:#ce5c00;font-weight:bold">&lt;</span><span style="color:#204a87;font-weight:bold">float</span><span style="color:#ce5c00;font-weight:bold">&gt;</span> <span style="color:#000">logits</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">logits</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">reserve</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">num_classes</span><span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Проверка на nullptr перед dynamic_cast
+</span></span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">if</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#204a87;font-weight:bold">auto</span><span style="color:#ce5c00;font-weight:bold">*</span> <span style="color:#000">derived</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#204a87;font-weight:bold">dynamic_cast</span><span style="color:#ce5c00;font-weight:bold">&lt;</span><span style="color:#000">DerivedClassifier</span><span style="color:#ce5c00;font-weight:bold">*&gt;</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">classifier</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">get</span><span style="color:#000;font-weight:bold">()))</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">derived</span><span style="color:#ce5c00;font-weight:bold">-&gt;</span><span style="color:#000">forward</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">batch</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">features</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">logits</span><span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">}</span> <span style="color:#204a87;font-weight:bold">else</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">throw</span> <span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">runtime_error</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Invalid classifier type&#34;</span><span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Вычисление функции потерь
+</span></span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">const</span> <span style="color:#204a87;font-weight:bold">float</span> <span style="color:#000">loss</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000">cross_entropy</span><span style="color:#000;font-weight:bold">(</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">logits</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">data</span><span style="color:#000;font-weight:bold">(),</span> 
+</span></span><span style="display:flex;"><span>        <span style="color:#000">batch</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">labels</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">data</span><span style="color:#000;font-weight:bold">(),</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">static_cast</span><span style="color:#ce5c00;font-weight:bold">&lt;</span><span style="color:#000">size_t</span><span style="color:#ce5c00;font-weight:bold">&gt;</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">batch</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">labels</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">size</span><span style="color:#000;font-weight:bold">())</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Обратное распространение с проверкой переполнения
+</span></span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">if</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">!</span><span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">isfinite</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">loss</span><span style="color:#000;font-weight:bold">))</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">throw</span> <span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">overflow_error</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Loss is infinite or NaN&#34;</span><span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#000">backward</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">loss</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">classifier</span><span style="color:#ce5c00;font-weight:bold">-&gt;</span><span style="color:#000">parameters</span><span style="color:#000;font-weight:bold">());</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Обновление весов с mutex для thread-safety
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">lock_guard</span><span style="color:#ce5c00;font-weight:bold">&lt;</span><span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">mutex</span><span style="color:#ce5c00;font-weight:bold">&gt;</span> <span style="color:#000">lock</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">optimizer_mutex</span><span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">optimizer</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">step</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">classifier</span><span style="color:#ce5c00;font-weight:bold">-&gt;</span><span style="color:#000">parameters</span><span style="color:#000;font-weight:bold">());</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span></code></pre></div><p>C++ не спасает ничего: ни обобщённое программирование, ни умные указатели. В C++ доминирует низкоуровневый системный словарь: <code>alignas</code>, <code>std::vector::reserve</code>, <code>dynamic_cast</code>, <code>static_cast</code>, <code>std::isfinite</code>, <code>std::lock_guard</code>, <code>std::mutex</code>, <code>try</code>/<code>catch</code>, <code>std::bad_alloc</code>, <code>std::bad_cast</code>, <code>std::exception</code>, <code>throw</code>. Каждая строка требует явного управления типами (<code>const auto&amp;</code>, <code>size_t</code>, <code>float*</code>), безопасностью памяти (даже RAII-обёртки), проверками корректности (<code>nullptr</code>, <code>isfinite</code>) и синхронизацией потоков (<code>mutex</code>, <code>lock_guard</code>).</p>
+<p>Исследователь видит не математику обучения - он видит внутренности инфраструктуры выполнения. И это не недостаток C++: это запись тонкостей реализации, которые в Python скрыты за интерпретатором. Но это другой уровень языка - язык управления ресурсами и полного контроля над исполнением, но не предметной области.</p>
+<p>Для честности, вот код Python с обработкой ошибок:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">for</span> <span style="color:#000">batch</span> <span style="color:#204a87;font-weight:bold">in</span> <span style="color:#000">dataloader</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">try</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">logits</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000">classifier</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">batch</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">features</span><span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">loss</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000">cross_entropy</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">logits</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">batch</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">labels</span><span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">if</span> <span style="color:#204a87;font-weight:bold">not</span> <span style="color:#000">loss</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">isfinite</span><span style="color:#000;font-weight:bold">():</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#204a87;font-weight:bold">raise</span> <span style="color:#c00;font-weight:bold">ValueError</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">f</span><span style="color:#4e9a06">&#34;Loss is not finite: </span><span style="color:#4e9a06">{</span><span style="color:#000">loss</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">item</span><span style="color:#000;font-weight:bold">()</span><span style="color:#4e9a06">}</span><span style="color:#4e9a06">&#34;</span><span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">loss</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">backward</span><span style="color:#000;font-weight:bold">()</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">optimizer</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">step</span><span style="color:#000;font-weight:bold">()</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">except</span> <span style="color:#c00;font-weight:bold">RuntimeError</span> <span style="color:#204a87;font-weight:bold">as</span> <span style="color:#000">e</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">logger</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">error</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Forward/backward pass failed: </span><span style="color:#4e9a06">%s</span><span style="color:#4e9a06">&#34;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">e</span><span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">classifier</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">zero_grad</span><span style="color:#000;font-weight:bold">()</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">raise</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">except</span> <span style="color:#c00;font-weight:bold">ValueError</span> <span style="color:#204a87;font-weight:bold">as</span> <span style="color:#000">e</span><span style="color:#000;font-weight:bold">:</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#000">logger</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">error</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Invalid loss value: </span><span style="color:#4e9a06">%s</span><span style="color:#4e9a06">&#34;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">e</span><span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#204a87;font-weight:bold">raise</span>
+</span></span></code></pre></div><p>И даже в этом случае Python остаётся в прикладном словаре: loss, backward, step, isfinite - всё это математика и предметная область. Системные детали (RuntimeError, zero_grad) появляются только в блоках <code>except</code> - то есть в исключительных ситуациях, а не в основном потоке логики. Тогда как в C++ низкоуровневые системные термины (<code>std::isfinite</code>, <code>std::lock_guard</code>, <code>dynamic_cast</code>, <code>static_cast</code>) стоят прямо в основном потоке, рядом с <code>loss</code> и <code>backward</code>.</p>
+<p>Немного другая ситуация получается с программой на Rust:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">for</span><span style="color:#f8f8f8"> </span><span style="color:#000">batch</span><span style="color:#f8f8f8"> </span><span style="color:#204a87;font-weight:bold">in</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">dataloader</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#204a87;font-weight:bold">let</span><span style="color:#f8f8f8"> </span><span style="color:#000">logits</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#f8f8f8"> </span><span style="color:#000">classifier</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">forward</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">batch</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">features</span><span style="color:#000;font-weight:bold">)</span><span style="color:#ce5c00;font-weight:bold">?</span><span style="color:#000;font-weight:bold">;</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#204a87;font-weight:bold">let</span><span style="color:#f8f8f8"> </span><span style="color:#000">loss</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#f8f8f8"> </span><span style="color:#000">cross_entropy</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">logits</span><span style="color:#000;font-weight:bold">,</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">batch</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">labels</span><span style="color:#000;font-weight:bold">)</span><span style="color:#ce5c00;font-weight:bold">?</span><span style="color:#000;font-weight:bold">;</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#204a87;font-weight:bold">if</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">!</span><span style="color:#000">loss</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">is_finite</span><span style="color:#000;font-weight:bold">()</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#204a87;font-weight:bold">return</span><span style="color:#f8f8f8"> </span><span style="color:#204a87">Err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">TrainingError</span>::<span style="color:#000">InvalidLoss</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">loss</span><span style="color:#000;font-weight:bold">));</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#000;font-weight:bold">}</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#000">loss</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">backward</span><span style="color:#000;font-weight:bold">()</span><span style="color:#ce5c00;font-weight:bold">?</span><span style="color:#000;font-weight:bold">;</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#000">optimizer</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">step</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">classifier</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">parameters</span><span style="color:#000;font-weight:bold">())</span><span style="color:#ce5c00;font-weight:bold">?</span><span style="color:#000;font-weight:bold">;</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span><span style="color:#f8f8f8">
+</span></span></span></code></pre></div><p>Данный вариант читается <em>почти</em> так же легко, как Python - <code>for</code>, <code>loss</code>, <code>backward</code>, <code>step</code> остаются на месте. Но системный словарь всё равно просачивается: <code>&amp;</code> перед каждым аргументом - это явное заимствование, которое <em>borrow checker</em> требует обозначать всегда. <code>?</code> после каждого вызова - это явная обработка <code>Result&lt;T, E&gt;</code>, которую нельзя проигнорировать молча. И практически любой специалист предметной области (т. е. непрофессиональный программист) споткнётся именно здесь: не на логике машинного обучения, а на том, почему нельзя написать просто <code>classifier.forward(batch.features)</code>.</p>
+<p>Тот же самый код Rust с явным управлением владением, синхронизацией и обработкой ошибок:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">for</span><span style="color:#f8f8f8"> </span><span style="color:#000">batch</span><span style="color:#f8f8f8"> </span><span style="color:#204a87;font-weight:bold">in</span><span style="color:#f8f8f8"> </span><span style="color:#000">dataloader</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">iter</span><span style="color:#000;font-weight:bold">()</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#8f5902;font-style:italic">// Явное заимствование: borrow checker требует знать,
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#8f5902;font-style:italic">// кто владеет данными и на какой срок
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#204a87;font-weight:bold">let</span><span style="color:#f8f8f8"> </span><span style="color:#000">logits</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#f8f8f8"> </span><span style="color:#204a87;font-weight:bold">match</span><span style="color:#f8f8f8"> </span><span style="color:#000">classifier</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">forward</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">batch</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">features</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#204a87">Ok</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">output</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=&gt;</span><span style="color:#f8f8f8"> </span><span style="color:#000">output</span><span style="color:#000;font-weight:bold">,</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#204a87">Err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">e</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=&gt;</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">            </span><span style="color:#000">eprintln!</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Forward pass failed: </span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">&#34;</span><span style="color:#000;font-weight:bold">,</span><span style="color:#f8f8f8"> </span><span style="color:#000">e</span><span style="color:#000;font-weight:bold">);</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">            </span><span style="color:#000">classifier</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">reset_gradients</span><span style="color:#000;font-weight:bold">();</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">            </span><span style="color:#204a87;font-weight:bold">return</span><span style="color:#f8f8f8"> </span><span style="color:#204a87">Err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">TrainingError</span>::<span style="color:#000">ForwardFailed</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">e</span><span style="color:#000;font-weight:bold">));</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#000;font-weight:bold">}</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#000;font-weight:bold">};</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#204a87;font-weight:bold">let</span><span style="color:#f8f8f8"> </span><span style="color:#000">loss</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#f8f8f8"> </span><span style="color:#204a87;font-weight:bold">match</span><span style="color:#f8f8f8"> </span><span style="color:#000">cross_entropy</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">logits</span><span style="color:#000;font-weight:bold">,</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#000">batch</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">labels</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#204a87">Ok</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">l</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8"> </span><span style="color:#204a87;font-weight:bold">if</span><span style="color:#f8f8f8"> </span><span style="color:#000">l</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">is_finite</span><span style="color:#000;font-weight:bold">()</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=&gt;</span><span style="color:#f8f8f8"> </span><span style="color:#000">l</span><span style="color:#000;font-weight:bold">,</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#204a87">Ok</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">l</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=&gt;</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">            </span><span style="color:#204a87;font-weight:bold">return</span><span style="color:#f8f8f8"> </span><span style="color:#204a87">Err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">TrainingError</span>::<span style="color:#000">InvalidLoss</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">l</span><span style="color:#000;font-weight:bold">));</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#000;font-weight:bold">}</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#204a87">Err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">e</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=&gt;</span><span style="color:#f8f8f8"> </span><span style="color:#204a87;font-weight:bold">return</span><span style="color:#f8f8f8"> </span><span style="color:#204a87">Err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">TrainingError</span>::<span style="color:#000">LossFailed</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">e</span><span style="color:#000;font-weight:bold">)),</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#000;font-weight:bold">};</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#8f5902;font-style:italic">// backward() потребляет loss - владение передаётся,
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#8f5902;font-style:italic">// после этой строки loss использовать нельзя
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#000">loss</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">backward</span><span style="color:#000;font-weight:bold">().</span><span style="color:#000">map_err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">|</span><span style="color:#000">e</span><span style="color:#ce5c00;font-weight:bold">|</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#000">classifier</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">reset_gradients</span><span style="color:#000;font-weight:bold">();</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#000">TrainingError</span>::<span style="color:#000">BackwardFailed</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">e</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#000;font-weight:bold">})</span><span style="color:#ce5c00;font-weight:bold">?</span><span style="color:#000;font-weight:bold">;</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#8f5902;font-style:italic">// Обновление весов через Mutex - явная синхронизация,
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#8f5902;font-style:italic">// lock живёт ровно до конца блока (RAII)
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#204a87;font-weight:bold">let</span><span style="color:#f8f8f8"> </span><span style="color:#204a87;font-weight:bold">mut</span><span style="color:#f8f8f8"> </span><span style="color:#000">params</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#f8f8f8"> </span><span style="color:#000">classifier</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">            </span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">parameters</span><span style="color:#000;font-weight:bold">()</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">            </span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">lock</span><span style="color:#000;font-weight:bold">()</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">            </span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">map_err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">|</span><span style="color:#000">_</span><span style="color:#ce5c00;font-weight:bold">|</span><span style="color:#f8f8f8"> </span><span style="color:#000">TrainingError</span>::<span style="color:#000">PoisonedMutex</span><span style="color:#000;font-weight:bold">)</span><span style="color:#ce5c00;font-weight:bold">?</span><span style="color:#000;font-weight:bold">;</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#000">optimizer</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">step</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">&amp;</span><span style="color:#204a87;font-weight:bold">mut</span><span style="color:#f8f8f8"> </span><span style="color:#000">params</span><span style="color:#000;font-weight:bold">).</span><span style="color:#000">map_err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">|</span><span style="color:#000">e</span><span style="color:#ce5c00;font-weight:bold">|</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">            </span><span style="color:#000">TrainingError</span>::<span style="color:#000">OptimizerFailed</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">e</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">        </span><span style="color:#000;font-weight:bold">})</span><span style="color:#ce5c00;font-weight:bold">?</span><span style="color:#000;font-weight:bold">;</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#000;font-weight:bold">}</span><span style="color:#f8f8f8"> </span><span style="color:#8f5902;font-style:italic">// lock освобождается здесь автоматически
+</span></span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span><span style="color:#f8f8f8">
+</span></span></span></code></pre></div><p>В Rust каждая конструкция несёт конкретную системную гарантию, но за это Rust платит тем, что его системный словарь виден даже в прикладном коде (точно так же, как и в случае с C++). И это происходит везде, даже в мелочах. Самая простая операция - проверка конечности loss:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic"># Python: скрыто за исключением фреймворка</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">loss</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">backward</span><span style="color:#000;font-weight:bold">()</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// C++: явная проверка + явное исключение + явный тип
+</span></span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">if</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">!</span><span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">isfinite</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">loss</span><span style="color:#000;font-weight:bold">))</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">throw</span> <span style="color:#000">std</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">overflow_error</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#34;Loss is infinite or NaN&#34;</span><span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-rust" data-lang="rust"><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// Rust: компилятор требует обработать Result явно
+</span></span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">if</span><span style="color:#f8f8f8"> </span><span style="color:#ce5c00;font-weight:bold">!</span><span style="color:#000">loss</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">is_finite</span><span style="color:#000;font-weight:bold">()</span><span style="color:#f8f8f8"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8">    </span><span style="color:#204a87;font-weight:bold">return</span><span style="color:#f8f8f8"> </span><span style="color:#204a87">Err</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">TrainingError</span>::<span style="color:#000">InvalidLoss</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">loss</span><span style="color:#000;font-weight:bold">));</span><span style="color:#f8f8f8">
+</span></span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span><span style="color:#f8f8f8">
+</span></span></span></code></pre></div><p>В Python не нужно ничего проверять - фреймворк сделает это сам или упадёт с понятным сообщением, тогда как C++ требует явной проверки, потому что арифметика с <code>double</code> не бросает исключений по стандарту, и это знание о внутреннем устройстве числового представления, а не о задаче. Rust идёт ещё дальше: он запрещает проигнорировать ошибку на уровне системы типов.</p>
+<p>Именно в таких деталях и живёт разница между 80% прикладных конструкций у Python и всеми остальными языками: не в синтаксическом сахаре и не в длине кода, а в том, сколько системных знаний нужно держать в голове, чтобы написать казалось бы, очень простую вещь.</p>
+<h2 id="все-языки-эволюционируют-в-сторону-предметной-области">Все языки эволюционируют в сторону предметной области<a class="td-heading-self-link" href="#%d0%b2%d1%81%d0%b5-%d1%8f%d0%b7%d1%8b%d0%ba%d0%b8-%d1%8d%d0%b2%d0%be%d0%bb%d1%8e%d1%86%d0%b8%d0%be%d0%bd%d0%b8%d1%80%d1%83%d1%8e%d1%82-%d0%b2-%d1%81%d1%82%d0%be%d1%80%d0%be%d0%bd%d1%83-%d0%bf%d1%80%d0%b5%d0%b4%d0%bc%d0%b5%d1%82%d0%bd%d0%be%d0%b9-%d0%be%d0%b1%d0%bb%d0%b0%d1%81%d1%82%d0%b8" aria-label="Heading self-link"></a></h2><p>Практически каждое крупное обновление промышленных языков за последние десять лет добавляло в основном прикладные, а не системные термины. Общий тренд однозначен: системные механизмы уходят в автоматику, прикладные конструкции становятся выразительнее.</p>
+<p>Особенно сильно это заметно в C++ - но с парадоксальным результатом. C++20 принёс <code>concept</code> и <code>requires</code> - конструкции, которые говорят о намерении, а не о механизме. C++23 добавил <code>std::expected</code>. C++26 делает самый смелый шаг: статическая рефлексия через <code>std::meta</code> убирает макросы и кодогенераторы, контракты <code>pre</code>/<code>post</code> превращают бизнес-ограничения в часть сигнатуры функции, <code>std::execution</code> прячет асинхронность за читаемым пайплайном.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">double</span> <span style="color:#000">sqrt</span><span style="color:#000;font-weight:bold">(</span><span style="color:#204a87;font-weight:bold">double</span> <span style="color:#000">x</span><span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">pre</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">x</span> <span style="color:#ce5c00;font-weight:bold">&gt;=</span> <span style="color:#0000cf;font-weight:bold">0.0</span><span style="color:#000;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">post</span><span style="color:#000;font-weight:bold">(</span><span style="color:#f57900">result</span><span style="color:#000;font-weight:bold">:</span> <span style="color:#000">result</span> <span style="color:#ce5c00;font-weight:bold">*</span> <span style="color:#000">result</span> <span style="color:#ce5c00;font-weight:bold">&lt;=</span> <span style="color:#000">x</span><span style="color:#000;font-weight:bold">);</span>
+</span></span></code></pre></div><p>Это поймет любой человек с математическим образованием. Но те же контракты имеют несколько режимов проверки, взаимодействуют с <code>noexcept</code> и по-особому ведут себя при наследовании. <code>std::meta</code> требует понимания <code>constexpr</code>-вычислений и нового оператора <code>^</code>. <code>std::execution</code> вводит пять новых абстракций: sender, receiver, scheduler, operation state, completion signatures.</p>
+<p>Вот в чём парадокс: каждая прикладная добавка тянет за собой новый слой системных концепций. Когда Python добавляет <code>@dataclass</code>, новичок пользуется им на следующий день. Когда C++26 добавляет <code>std::meta</code>, между «понял идею» и «применяю правильно» лежат недели. Язык становится выразительнее для тех, кто уже знает его глубоко - и сложнее для всех остальных. Это не провал комитета, а честная цена универсальности: язык, который одновременно управляет байтами и выражает бизнес-контракты, не может быть простым по определению.</p>
+<p>Короче, выглядит это как-то так:</p>
+<p><img src="https://habrastorage.org/webt/ea/82/25/ea8225e304ffdff07759394c241a8c20.png" alt=""></p>
+<h2 id="итог">Итог<a class="td-heading-self-link" href="#%d0%b8%d1%82%d0%be%d0%b3" aria-label="Heading self-link"></a></h2><p>Споры «Python vs C++» или «C++ vs Rust» традиционно ведутся в терминах производительности, безопасности типов или размера экосистемы. Но есть ещё одно измерение, которое редко называют явно: <strong>для кого разработан синтаксис языка?</strong></p>
+<p>Когда Python-код читает непрограммист и понимает его без погружения в детали рантайма - это не случайность, а результат дизайна языка. Когда C++ программист пишет <code>[[nodiscard]] constexpr auto compute() noexcept</code> - каждое слово адресовано компилятору. Это не плохо: это честная запись системных гарантий, но это не прикладной, а системный словарь.</p>
+<p>Python выиграл в ML потому, что думает на том же языке, на котором думают исследователи. А это, как выясняется, вполне конкретно и даже поддаётся измерению. Python структурно ориентирован на предметную область почти втрое сильнее, чем C++ или Rust, и это не просто «синтаксический сахар», а принципиальная архитектурная разница языков, и именно поэтому ни C++, ни Rust не смогут заменить «медленный» Python, который позволяет очень быстро делать прикладные вещи.</p>
+
+	<ul class="list-unstyled td-pager d-flex justify-content-between align-items-center mb-0">
+  <li>
+    <a href="/ru/blog/comparison/cpp-evolution/" aria-label="Предыдущая - Ахиллесова пята C&#43;&#43; и будущая  р̶е эволюция" class="btn btn-primary"><span class="me-1">←</span>Предыдущая</a>
+  </li>
+  <li>
+    <a class="btn btn-primary disabled">Следующая<span class="ms-1">→</span></a>
+  </li>
+</ul>
+
+	</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">Все права защищены</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

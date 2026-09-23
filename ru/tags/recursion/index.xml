@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Recursion on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/recursion/</link>
+		<description>Recent content in Recursion on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/ru/tags/recursion/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Защита стека от переполнения (stack check)</title>
+				<link>https://trust-lang.net/ru/docs/safety/stack_check/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/safety/stack_check/</guid>
+				<description>&lt;p&gt;В &lt;em&gt;TrustLang&lt;/em&gt; встроена &lt;a href=&#34;https://github.com/afteri-ru/stack-check&#34;&gt;защита стека от переполнения&lt;/a&gt;. Перед вызовом защищаемой функции проверяется свободное место на стеке потока, и если его недостаточно — вместо аварийного завершения всего приложения (&lt;code&gt;segmentation fault&lt;/code&gt;) создаётся &lt;strong&gt;программное исключение &lt;code&gt;stack_overflow&lt;/code&gt;&lt;/strong&gt;, которое можно перехватить и обработать внутри приложения, после чего продолжить выполнение программы.&lt;/p&gt;&#xA;&lt;p&gt;Здесь будет подробное описание реализации и способов использования.&lt;/p&gt;&#xA;&lt;p&gt;А сейчас можно посмотреть примеры использования: &lt;a href=&#34;https://trust-lang.net/ru/playground/?file=fibonacci&#34;&gt;рекурсивное вычисление чисел Фибоначчи&lt;/a&gt; и &lt;a href=&#34;https://trust-lang.net/ru/playground/?file=prime&#34;&gt;рекурсивная проверка чисел на простоту&lt;/a&gt;&lt;/p&gt;&#xA;&lt;!--&#xA;&#xA;## Атрибут `@[stack_check@]`&#xA;&#xA;Защищаемые функции помечаются атрибутом `@[stack_check@]`:&#xA;&#xA;- `@[stack_check@]` — перед каждым вызовом функции проверяется максимальный размер её стека из&#xA;  секции `.stack_sizes` (`check_stack_limit`, требуется сборка с `-fstack-size-section`);&#xA;- `@[stack_check(N)@]` — проверяется, что свободно не меньше `N` байт плюс резерв&#xA;  (`check_overflow(N)`).&#xA;&#xA;Пример рекурсии, защищённой атрибутом (переполнение ловится, а не роняет программу):&#xA;&#xA;```trust&#xA;@[ stack_check @]&#xA;%fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {&#xA;    if (n &lt; 3) {&#xA;        $one:BigInteger := 1;&#xA;        return :Tuple($one, $one);&#xA;    };&#xA;    p := fib(n - 1);&#xA;    return (p.0 + p.1, p.sum,):Tuple;&#xA;};&#xA;&#xA;@main(argv^:Dict, args^:Dict) := {&#xA;    try_error {&#xA;        fib(1000000);&#xA;    } catch(_) {&#xA;        @print(&#39;STACK OVERFLOW caught\\n&#39;);&#xA;    };&#xA;    return 0;&#xA;};&#xA;```&#xA;&#xA;## Режимы контроля (`--stack-check=&lt;mode&gt;`)&#xA;&#xA;Монотонная шкала режимов (`trust --help`):&#xA;&#xA;- `off` — контроль выключен (атрибуты — no-op, рекурсия не анализируется);&#xA;- `explicit` (по умолчанию) — проверки только явно размеченных функций и явных вызовов;&#xA;- `recursion` — как `explicit` плюс диагностика незащищённых рекурсивных функций&#xA;  (`-Wstack-check-infer`);&#xA;- `auto` — как `recursion` плюс авто-маркировка рекурсивных функций.&#xA;&#xA;Защитный резерв задаётся `--stack-check-reserve=&lt;байты&gt;` (по умолчанию — рантайм-дефолт `8192`).&#xA;Работающие примеры — [песочница fibonacci](/ru/playground/?file=fibonacci); готовые тесты контроля&#xA;стека — `test/lit/.../e2e/stack/*`.&#xA;&#xA;## Рантайм-функции контроля&#xA;&#xA;Для явного управления доступны нативные функции `%trust_stack_check(N)`,&#xA;`%trust_stack_check_set_reserve(...)`, `%trust_stack_check_get_reserve()`,&#xA;`%trust_stack_check_get_limit()` и `%trust_stack_check_set_limit(...)`. Полные сигнатуры — в&#xA;справке `trust --help` / `-Whelp`.&#xA;--&gt;</description>
+			</item>
+	</channel>
+</rss>

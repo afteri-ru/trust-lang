@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Numbers on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/numbers/</link>
+		<description>Recent content in Numbers on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/tags/numbers/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Numbers and tensors</title>
+				<link>https://trust-lang.net/en/docs/types/numbers/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/types/numbers/</guid>
+				<description>&lt;p&gt;Numeric types are simple (scalar) data types of &lt;em&gt;TrustLang&lt;/em&gt;. The basics of typing are described on the page&#xA;&lt;a href=&#34;type_system/&#34;&gt;Type system&lt;/a&gt;, while arrays, ranges and (in perspective) tensors — in the section&#xA;&lt;a href=&#34;https://trust-lang.net/en/docs/types/containers/&#34;&gt;Ranges, arrays and tensors&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;h2 id=&#34;integers&#34;&gt;Integers&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#integers&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The names of integer types correspond to their bit width: &lt;code&gt;:Int8&lt;/code&gt;, &lt;code&gt;:Int16&lt;/code&gt;, &lt;code&gt;:Int32&lt;/code&gt;, &lt;code&gt;:Int64&lt;/code&gt;.&#xA;An integer literal gets the minimum signed type into which its value fits&#xA;(for example, &lt;code&gt;5&lt;/code&gt; → &lt;code&gt;:Int8&lt;/code&gt;), and a value that does not fit into &lt;code&gt;:Int64&lt;/code&gt; becomes &lt;code&gt;:BigInteger&lt;/code&gt;.&#xA;The type of a literal can be set by the explicit annotation &lt;code&gt;literal :Type&lt;/code&gt; (for example, &lt;code&gt;1 :Bool&lt;/code&gt;, &lt;code&gt;255 :Int16&lt;/code&gt;) —&#xA;when leaving the type range, a compilation error occurs, not a silent overflow.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

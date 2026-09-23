@@ -1,0 +1,525 @@
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="canonical" type="text/html" href="https://trust-lang.net/en/blog/theory/">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/en/blog/theory/index.xml">
+<meta name="robots" content="noindex, nofollow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Theory of computation | TrustLang</title>
+<meta name="description" content="TrustLang site">
+<meta property="og:url" content="https://trust-lang.net/en/blog/theory/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Theory of computation">
+	<meta property="og:description" content="TrustLang site">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="Theory of computation">
+	<meta itemprop="description" content="TrustLang site">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="keywords" content="Theory">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Theory of computation">
+	<meta name="twitter:description" content="TrustLang site">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-section td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/theory/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <div class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+          </div>
+          <div class="d-none d-xl-block col-xl-2 td-toc d-print-none">
+          </div>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            
+
+
+
+
+<div class="td-content">
+<div class="pageinfo pageinfo-primary d-print-none">
+<p>
+This is the multi-page printable view of this section.
+<a href="#" onclick="print();return false;">Click here to print</a>.
+</p><p>
+<a href="/en/blog/theory/">Return to the regular view of this page</a>.
+</p>
+</div>
+
+
+
+<h1 class="title">Theory of computation</h1>
+
+
+
+
+
+    <ul>
+    
+  
+  
+  
+  
+
+  
+    
+    
+	
+
+    <li><a href="#pg-fba56e819ff3fb53a950341eb63b3fee">The mechanism of the emergence of consciousness in finite state machines</a></li>
+
+
+
+    
+  
+    
+    
+	
+
+    <li><a href="#pg-f0df2aac3db9852a9a749701e50c6a32">Reflections on the Turing machine and the causes of errors in programming languages</a></li>
+
+
+
+    
+  
+    
+    
+	
+
+    <li><a href="#pg-73730124089bb8e3d5674be7d4ef733d">Reflections on structured programming</a></li>
+
+
+
+    
+  
+    
+    
+	
+
+    <li><a href="#pg-cbcbc063aafa9f61f71768c8fb68e9ac">The problem of logical programming languages</a></li>
+
+
+
+    
+  
+
+    </ul>
+
+
+<div class="content">
+      
+</div>
+</div>
+
+
+  
+  
+  
+  
+
+  
+  
+
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="">
+    <h1 id="pg-fba56e819ff3fb53a950341eb63b3fee">The mechanism of the emergence of consciousness in finite state machines</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2026-07-13" class="text-body-secondary">Monday, July 13, 2026</time>
+        
+	</div>
+	<p>A finite state machine is a mathematical model of computation: an abstract machine that at each moment of time is in exactly one of a finite set of states, and transitions between states occur in response to input signals (events) according to predefined rules. Traditionally, this model is perceived as a primitive formalization, suitable only for recognizing regular languages and implementing rigidly deterministic reactive controllers.</p>
+<p>At first glance, such an abstraction seems too primitive to contain artificial intelligence or self-awareness. However, if we consider consciousness not as a static attribute of an individual element, but as an emergent property that arises at the junction of the interaction of millions of automaton transitions, then the boundary between a computing machine and a thinking system with self-awareness turns out to be unexpectedly thin.</p>
+<h2 id="pro-and-contra-arguments">Pro and contra arguments<a class="td-heading-self-link" href="#pro-and-contra-arguments" aria-label="Heading self-link"></a></h2><p>It is customary to believe that only a human possesses intelligence. Therefore, attempts to pass off the result of an LLM&rsquo;s work as the work of a &ldquo;real&rdquo;, albeit artificial, intelligence usually meet with several counter-arguments.</p>
+<h3 id="determinism">Determinism<a class="td-heading-self-link" href="#determinism" aria-label="Heading self-link"></a></h3><p>Neural networks work on the basis of fixed algorithms &ldquo;hardwired&rdquo; inside. With the same input data (taking into account the system prompt and the initial value of the random number generator) they always produce the same result. Hence — the most obvious argument against the presence of intelligence: since the result of such computations is fully deterministic, there can be no question of any &ldquo;thinking&rdquo;.</p>
+<p>However, the neurons in the brain of living beings react to external stimuli just as deterministically. The vital activity of the organism is based on the very same laws of physics and chemistry, and the result of the interaction of neurons or chemical compounds is just as computable — including any continuous, probabilistic and non-linear interactions. Therefore, the very fact of the determinism of computations proves and disproves nothing.</p>
+<h3 id="query-response-mode">Query-response mode<a class="td-heading-self-link" href="#query-response-mode" aria-label="Heading self-link"></a></h3><p>Another typical argument: any neural network model acts only in the &ldquo;query-response&rdquo; mode, whereas a human initiates actions himself. But this has nothing to do with the presence or absence of reason: a human is also capable of working in a reactive mode — for example, on command or under coercion, and a neural network can be launched by a timer or in a loop. Therefore, the appeal to free will has no direct relation to the question of the presence of consciousness or intelligence.</p>
+<h3 id="the-model-has-no-subjective-experience">The model has no subjective experience<a class="td-heading-self-link" href="#the-model-has-no-subjective-experience" aria-label="Heading self-link"></a></h3><p>Suppose a neural network demonstrates behavior similar to intellectual behavior. How can we understand whether it has a subjective experience (phenomenal consciousness)? Is it capable of being aware of itself? Modern LLMs do not possess self-awareness: they do not reflect on their own existence, and there is no convincing evidence that they have even some kind of &ldquo;inner world&rdquo;, rather than simply a complex simulation of answers.</p>
+<p>But what are inner experiences and reasoning, if not the context in LLM terminology? It is just that the size of this context is limited by the capabilities of a particular brain. And we are talking not only about the structure and connections of neurons (i.e. the immediate &ldquo;computer&rdquo; and storage of information — the processor and context in neural network terms), but also about all sorts of reactions to external stimuli: the state of the body (feedback from nerves in muscles and other organs), the work of the endocrine glands, and so on.</p>
+<p>And in the dry remainder there remain only discussions about the problem of qualia, subjective experience and childhood experiences — notions that are hard to attribute to strict scientific terms. Psychology, although considered a science, is an inexact one: without the possibility of independent audit, without a justification of the conclusions obtained and the reproducibility of results.</p>
+<p>All the more so, if we consider a human as a computing biological machine, then any conclusions of psychology can automatically be considered from the point of view of the formalization of the theory of algorithms, and not of abstract philosophical hypotheses — unless, of course, one takes into account a possible divine or other otherworldly influence.</p>
+<h3 id="a-cunning-argument-emergence">A cunning argument: emergence<a class="td-heading-self-link" href="#a-cunning-argument-emergence" aria-label="Heading self-link"></a></h3><p>One can appeal to an incorrect comparison of the scale of computations. However, we do not know exactly what volume of the brain is actually responsible for thinking, what for memory, and so on. It may turn out that many parts of the <del>biological computer</del> brain work as backup systems, and not as real computers. Then the volume of modern storage devices will be quite comparable with the <strong>theoretical</strong> size of memory. Moreover, for the <strong>emergence of the rudiments</strong> of artificial reason, it may be necessary not to fully imitate all neural connections, but only to implement a certain model of behavior (algorithm) — and this requires significantly fewer resources.</p>
+<p>And as a result, the most sophisticated argument remains — emergence. Its essence is that emergent properties are unpredictable at the level of the individual components of the system. Therefore one can always say that <em>&ldquo;the human mind is an emergent property of a complex neurobiological system, which does not reduce to the simple sum of the electrical impulses of individual neurons, but arises precisely at the moment of their critical attunement and synergetic interaction, forming what we call subjective experience and self-awareness&rdquo;</em>, and other clever words.</p>
+<p>But emergent is not a scientific religion based on faith. It is quite provable. That is, one can always show by what means, as the scale of the system grows and new components are added, new properties arise. That is, it is just as formalizable and provable an explanation — albeit one obtained post factum, after the properties themselves have been identified.</p>
+<h2 id="recursion--as-the-cause-of-the-emergence-of-consciousness">Recursion — as the cause of the emergence of consciousness<a class="td-heading-self-link" href="#recursion--as-the-cause-of-the-emergence-of-consciousness" aria-label="Heading self-link"></a></h2><p>If we assume that a human and his mind are a biological machine, each gear of which deterministically works according to a certain algorithm, then the phenomenon of the emergence of consciousness (awareness) remains. And, in my opinion, it is precisely this that is the most important.</p>
+<p>Not only is the awareness of one&rsquo;s own &ldquo;self&rdquo; found not only in humans: it is consciousness that allows <del>biological automata to program themselves</del> humans to control their own behavior. And what if consciousness is not a magical spark, but an inevitable consequence of a certain way of interacting with the external world?</p>
+<p>Imagine a system forced to act in a complex, changeable environment, where each of its steps can change the very rules of the game. To survive, it has to not simply react to stimuli, but literally model the behavior of the surrounding world — a world in which it is itself included.</p>
+<p>Such a system must predict not only the behavior of other agents, but also how other agents perceive itself. This recursive mirror — the model of oneself in the world, reflecting the model of the world in oneself — becomes the very recursive loop of reasoning that self-awareness resolves. After all, full-fledged recursion exists only in abstract theory (the Turing machine) — but is in principle impossible with limited resources and a limit on the time for performing computations.</p>
+<p>Then subjective experience (as an internal simulation of possible actions and their consequences), with a fuzzy emotional assessment of &ldquo;good&rdquo; or &ldquo;bad&rdquo; from the point of view of survival, ceases to be mysticism and becomes a <em>formalizable</em> way of such a system. A way to &ldquo;feel&rdquo; one&rsquo;s internal computations in order to <strong>make decisions quickly under conditions of uncertainty</strong>. This logically explains the emergence of consciousness not as a superstructure over reason, but as a working tool of a complex agent, and one available not only to humans.</p>
+<p>In this picture, reason is not the opposite of the algorithm of a finite state machine, but its highest form, born in the struggle for survival. When a simple linear reaction stops working, and the environment requires flexibility, quick reaction, foresight or banal deception, the system acquires a voice saying &ldquo;I&rdquo;. And this &ldquo;I&rdquo; is not a divine spark, but the echo of an infinite dialogue between the agent and the world, between action and response, between the model and reality.</p>
+<p>Recursion in the real world is encountered constantly. A predator computes the trajectory of the prey -&gt; the prey changes the trajectory -&gt; the predator recalculates the movement -&gt; and so on. This is no longer simply an algorithm, but a <strong>dynamic system with feedback</strong>, where the awareness (read — modeling) of <strong>&ldquo;oneself in the world&rdquo;</strong> makes it possible to predict the consequences of one&rsquo;s own actions.</p>
+<p>And the separation of <strong>&ldquo;I&rdquo; from &ldquo;not-I&rdquo;</strong> becomes a mandatory property of such a system. And this means that <em>consciousness may well arise as a side effect</em> of complex recursive information processing.</p>
+
+</div>
+
+
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="page-break-before: always">
+    <h1 id="pg-f0df2aac3db9852a9a749701e50c6a32">Reflections on the Turing machine and the causes of errors in programming languages</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2025-11-15" class="text-body-secondary">Saturday, November 15, 2025</time>
+        
+	</div>
+	<p>A couple of years ago I wrote the article <a href="/en/blog/theory/structured-programming/">Reflections on structured programming</a>, in which I tried to sort out the misconception that Edsger Dijkstra proved that any algorithm can be built from just three constructs (sequence, selection, loop). Whereas in reality:</p>
+<ul>
+<li>This theorem was proved (with conditions and restrictions) by the Italian scientists <strong>Böhm and Jacopini</strong>, and Dijkstra merely referred to it.</li>
+<li>The three mentioned basic algorithmic constructs are <strong>insufficient</strong> for modern programming (for example, exception handling is required).</li>
+<li>The famous criticism of the <code>goto</code> statement by Dijkstra (as well as of the assignment statement, which is always forgotten to mention) was not a strict ban, but merely a <strong>recommendation for improving code style</strong>, so that programs would be easier to analyze.</li>
+</ul>
+<p>And now the time has come to write about some problems of the Turing machine — the fundamental basis of all information technology.</p>
+<h3 id="why">Why?<a class="td-heading-self-link" href="#why" aria-label="Heading self-link"></a></h3><p>The occasion for the current article was my dialogue with a user on Reddit while discussing the article <a href="/en/blog/safety/language-guarantees/">Language guarantees as a basis for secure software development</a> (there I also get feedback from readers, like on Habr, only from the English-speaking audience).</p>
+<p>They tried to prove their position to me, arguing it with theoretical calculations based on reasoning about a hypothetical Turing machine, without understanding some of its features and limitations. As a result, it became obvious to me that, in order to move on, this point also had to be clarified.</p>
+<p><a id="MT"></a></p>
+<h3 id="what-is-wrong-with-the-turing-machine">What is wrong with the Turing machine?<a class="td-heading-self-link" href="#what-is-wrong-with-the-turing-machine" aria-label="Heading self-link"></a></h3><p>The Turing machine is the foundation of computer science and the theory of computation, a purely abstract executor (a mathematical model of computation) capable of imitating all executors (by specifying transition rules) that in some way implement the process of step-by-step computation.</p>
+<p><em>Whatever reasonable understanding of an algorithm there may be, any algorithm corresponding to such an understanding can be implemented on a Turing machine.</em></p>
+<p>However, like any <em>mathematical abstraction</em>, it has some limitations and assumptions, for example the presence of an infinite tape for storing data and the ignoring of the issues of accounting for the resources used (the amount of memory and the program execution time), and as a consequence, the possibility of infinite recursion, whereas in the real world any storage medium is finite, and the execution time of the algorithm also matters, in connection with which the Turing machine determines <em>theoretical</em>, and not <em>practical</em> computability.</p>
+<p>Because of this, the Turing machine (and consequently any computer we can imagine) does not allow doing some things:</p>
+<ul>
+<li>Solve uncomputable problems — those for which there <strong>exists no algorithm</strong> in principle. It does not matter how much time or memory we give the machine, it will never be able to guarantee a correct answer for all possible inputs.</li>
+<li>It is impossible to create a program that will analyze any other program and its input and say whether that program will ever finish (halt) or run forever (loop). By the way, this is most likely what E. Dijkstra&rsquo;s words confirm: <em>&ldquo;Testing shows the presence, not the absence of bugs&rdquo;</em>.</li>
+<li>Solve NP-hard problems in a reasonable time.</li>
+<li>The thought experiment &ldquo;Chinese room&rdquo; shows that the Turing machine does not allow &ldquo;creating understanding&rdquo; or &ldquo;consciousness&rdquo; in the human sense; it only simulates its external manifestations.</li>
+<li>Adequately model certain processes. The Turing machine is always the processing of input data followed by halting and producing a result. It is not designed to model constantly running systems that interact with the outside world and use interrupts.</li>
+</ul>
+<p>Of course, all this does not diminish the significance of the Turing machine, and its simplicity is its strength, which makes it possible to rigorously prove fundamental theorems about the possibilities and limits of computation.</p>
+<p>If you are interested in this topic, I recommend reading <a href="https://gwern.net/turing-complete">Surprisingly Turing-Complete · Gwern.net</a> or its translation Surprisingly Turing-complete everywhere.</p>
+<h3 id="what-does-the-turing-machine-have-to-do-with-it">What does the Turing machine have to do with it?<a class="td-heading-self-link" href="#what-does-the-turing-machine-have-to-do-with-it" aria-label="Heading self-link"></a></h3><p>In the context of the previous article about <a href="/en/blog/safety/language-guarantees/">Language guarantees as a basis for secure software development</a>, the properties of Turing-complete programming languages allow us to draw the following conclusions:</p>
+<ul>
+<li>Any programming language that provides guarantees of secure development is <strong>obliged</strong> to limit the possibilities of implementing some algorithms (at least those that contain errors), and this means that any <strong>safe</strong> programming language cannot be Turing-complete by definition (since one cannot write a program with an error in it).</li>
+<li>The reverse conclusion is also interesting: the Turing completeness of a programming language is a sufficient reason for such a programming language to be unable to be classified as safe :-)</li>
+</ul>
+
+</div>
+
+
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="page-break-before: always">
+    <h1 id="pg-73730124089bb8e3d5674be7d4ef733d">Reflections on structured programming</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2023-12-31" class="text-body-secondary">Sunday, December 31, 2023</time>
+        
+	</div>
+	<p>31 Dec 2023 at 11:53</p>
+<p><img src="/en/blog/theory/structured-programming.jpeg" alt=""></p>
+<p>Initially I wanted to title the article in some provocative way, for example, &ldquo;How science can turn into religion&rdquo;, &ldquo;Trapped in the distortions of the meaning of structured programming&rdquo; or &ldquo;What you were not told about structured programming&rdquo;, but in the end I still kept the current title and I hope it does not irritate the readers. And although the other titles are more clickbaity, nevertheless they still reflect the meaning of the article to a greater extent than the neutral &ldquo;reflections&rdquo;.</p>
+<p>The occasion for this article was one of the comments to the previous publication <a href="/en/docs/safety/memory/">Memory management and shared resources without errors</a>, where someone wrote &ldquo;it was proven mathematically&rdquo;. And I immediately recalled my little investigation, when I tried to understand one of the &ldquo;mathematical proofs&rdquo; that we are all told about back in school in computer science lessons.</p>
+<p>Everyone probably remembers that any algorithm can be represented in the form of three kinds of algorithmic constructs: sequence, selection and repetition? And sometimes they also add that this theorem was put forward and <strong>proved</strong> by E. Dijkstra in the 70s of the last century, including the widely publicized alleged ban on the use of the goto statement.</p>
+<cut />
+<h3 id="structured-programming">Structured programming<a class="td-heading-self-link" href="#structured-programming" aria-label="Heading self-link"></a></h3><p>Structured programming is a concept that appeared in the late 1960s and influenced the further development of imperative programming. Edsger Dijkstra is considered the founder of structured programming. His merit consists not only in the development of this concept, but also in its promotion.</p>
+<p>The main principles of structured programming were formulated by Edsger Dijkstra mainly in <a href="http://pascal.hansotten.com/uploads/dijkstra/Structured%20Programming.pdf">Dahl, O.-J., Dijkstra, E.W., Hoare, C.A.R. Structured Programming</a>.</p>
+<p>However, while developing the lexicon for my programming language, I repeatedly had some doubts about the reliability of these facts. After all, exception handling and some other elements that are practically mandatory for all modern programming languages do not fit into this concept (that any algorithm can be represented in the form of three kinds of algorithmic constructs) at all.</p>
+<h3 id="in-search-of-the-truth">In search of the truth<a class="td-heading-self-link" href="#in-search-of-the-truth" aria-label="Heading self-link"></a></h3><p>Therefore I decided to understand Dijkstra&rsquo;s proof, and the results I found surprised me very much. It all turned out like the story of a scientist who raped a journalist, or, in the more tolerant version of the anecdote: &ldquo;Not Katz, but Rabinovich. Not in the lottery, but at cards. Not a million, but a hundred rubles. And he did not win, but lost&rdquo;.</p>
+<p>In other words, everything turned out to be completely different. The context necessary for a correct understanding of this information is absent, the structured theorem was published and proved not by E. Dijkstra at all, and much else that radically changes the understanding of some issues related to structured programming. And since this is in fact a mandatory basis that is used at school when teaching the basics of programming, I think it is necessary to <del>tear off the veils</del> tell about the facts I found.</p>
+<p>I started by trying to find the primary source of the publication in which E. Dijkstra put forward and proved the theorem on the sufficiency of three algorithmic constructs. And I did not find it. But in the process of searching I came across a detailed article with an analysis of the information I was interested in and references to primary sources: Avacheva T. G., Prutskov A. V. A modern view of the concept of structured programming.</p>
+<h3 id="conclusions">Conclusions<a class="td-heading-self-link" href="#conclusions" aria-label="Heading self-link"></a></h3><p>The final results of my search:</p>
+<ol>
+<li>The structured theorem that any flowchart can be transformed into a flowchart consisting of blocks of three kinds: sequence, selection and repetition, was proved in 1966 by the Italian scientists C. Böhm and G. Jacopini (the article was published in Italian in 1965) <a href="https://en.wikipedia.org/wiki/Structured_program_theorem">Böhm–Jacopini theorem</a>. This theorem is <strong>purely theoretical</strong>, proved <strong>subject to some restrictions</strong>, and was mentioned by E. Dijkstra in his work &ldquo;Go To Statement Considered Harmful&rdquo;.</li>
+<li>The principles of structured programming proposed by E. Dijkstra are intended to improve the style of program code through the use of control structures and the abandonment of other instructions controlling the course of the algorithm, i.e. this is not a proven theorem, only a <strong>proposal</strong> to abandon the use, and not only of the <strong>goto statement</strong>, but also of the <strong>value assignment statement</strong>: <em>&ldquo;The goto statement allows us, by jumping back, to repeat part of the program, whereas the assignment statement can create the necessary difference in state between successive repetitions.&rdquo;</em></li>
+<li>E. Dijkstra in his work formulated the principles of structured programming in an attempt to <strong>automate the proofs of program correctness</strong> (<em>a program is a sequence of computations. Computations can be written with mathematical formulas. Consequently, one can prove a theorem about the correctness of the program</em>), but still the final conclusion is <em>&ldquo;Testing shows the presence, not the absence of bugs&rdquo;</em>.</li>
+<li>Besides the three kinds of algorithmic constructs (sequence, selection and repetition), a mechanism for handling errors (exceptions) is also required, and sometimes the handling of interrupts and the execution of parallel actions, without which a full-fledged implementation of certain algorithms will be impossible.</li>
+</ol>
+<h3 id="ps">P.S.<a class="td-heading-self-link" href="#ps" aria-label="Heading self-link"></a></h3><p>Happy New Year!</p>
+
+</div>
+
+
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="page-break-before: always">
+    <h1 id="pg-cbcbc063aafa9f61f71768c8fb68e9ac">The problem of logical programming languages</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2021-01-09" class="text-body-secondary">Saturday, January 09, 2021</time>
+        
+	</div>
+	<p><img src="/en/blog/langs.jpeg" alt="Featured image"></p>
+<p>Some time ago I wrote about <a href="/en/blog/language-design/inter-prog/">&ldquo;International programming in natural languages&rdquo;</a>,
+in which I tried to present a worthy goal for an abstract programming language,
+trying to try on it the role of a link between the world of programmers with computers and non-programmers.</p>
+<p>But as a result it turned out that this is not needed in principle, since &ldquo;non-programmers&rdquo; simply do not need to learn to write programs.
+And if such a desire does arise sometimes, then ordinary formalized programming languages are quite enough,
+of which there are probably already more than ten thousand.</p>
+<p>And users, both programmers and non-programmers, simply want to solve the tasks that arise before them.
+And although the tasks are completely different, if the way (algorithm) to solve it is known, then choosing a language to solve it will not be difficult at all.</p>
+<p>With the exception of one class of tasks. Tasks whose solution cannot be described in the form of an algorithm.
+But one can specify certain criteria that the sought solution must satisfy.
+I mean logical programming languages and <a href="https://en.wikipedia.org/wiki/Prolog">Prolog</a>, as the most striking representative of this class.</p>
+<p>I also remember a recollection from my youth, when I managed to get a floppy disk with this language.
+Oh, with what enthusiasm my eyes burned when it seemed to me that, just a little more and a system with a knowledge base would be created,
+from which it would be possible to get the cherished answer 42 to any question.</p>
+<p>So why did this not happen? What is the problem of Prolog, and indeed of any system / programming language
+whose purpose is to analyze facts and search for answers to questions?</p>
+<p>This problem is called the <a href="https://en.wikipedia.org/wiki/Combinatorial_explosion">&ldquo;Combinatorial explosion&rdquo;</a> — an exponential (or greater) dependence of the running time of the algorithm on the amount of input data.
+And there are at least two solutions to this problem.</p>
+<h2 id="approaches-to-writing-programs">Approaches to writing programs<a class="td-heading-self-link" href="#approaches-to-writing-programs" aria-label="Heading self-link"></a></h2><p>Before moving on to the particulars, we should say a couple of words about programming paradigms.
+Usually two different styles of writing programs are opposed to each other: <a href="https://en.wikipedia.org/wiki/Imperative_programming">imperative</a> and <a href="https://en.wikipedia.org/wiki/Declarative_programming">declarative</a>.</p>
+<p>Imperative — this is the classic variant of writing a program, in which the programmer himself specifies the steps of the algorithm to obtain the final result.
+And the program text itself consists of a sequence of commands that read, store and process data or call other commands.</p>
+<p>Declarative — in this style the programmer describes the conditions of the task and the rules for obtaining the required result,
+but it is not required to describe in detail all the steps of the algorithm, leaving them to the discretion of the computer.</p>
+<p>It is precisely to the declarative style that the Prolog language belongs, as well as all the other logical programming languages.
+The structured query language (SQL) should also be attributed to the declarative style of writing programs.</p>
+<p>And the problem called the <a href="https://en.wikipedia.org/wiki/Combinatorial_explosion">&ldquo;combinatorial explosion&rdquo;</a> has the strongest negative effect precisely on such languages.
+After all, in the imperative approach the programmer himself is responsible for the sequence of commands executed, and if he programmed an algorithm of a complete enumeration of all possible solutions, then he is his own evil Pinocchio.</p>
+<p>It is a different matter with programming in the declarative style. Although the developer can specify the constraints that should be applied when searching for a solution,
+this is possible only in the case when the algorithm for solving the task is known.
+But if the algorithm for solving it is known, then it is easier to use the imperative style, precisely by implementing this algorithm!</p>
+<p>Therefore the main use of programming languages in the declarative style is to abandon the need to describe a clear algorithm for finding a solution,
+leaving this to the computer. For the computer, the simplest &ldquo;brute-force&rdquo; solution is a complete enumeration of possible variants.</p>
+<p>It is precisely in this case that the exponential growth of the running time of the algorithm begins.
+And starting from a certain threshold, the waiting time for an answer becomes unacceptable for real use.
+This is what the &ldquo;Combinatorial explosion&rdquo; means — a sharp (&ldquo;explosive&rdquo;) growth of the running time of the algorithm with an increase in the size of the input data.</p>
+<h2 id="the-problem-of-searching-for-solutions">The problem of searching for solutions<a class="td-heading-self-link" href="#the-problem-of-searching-for-solutions" aria-label="Heading self-link"></a></h2><p>In the Prolog language this problem was solved through the use of the backtracking and cut mechanism.
+Sometimes they also specified the &ldquo;red&rdquo; and &ldquo;green&rdquo; cut of solutions.
+But in any case, these were <strong>algorithmic</strong> mechanisms for limiting the size of the tree of possible solutions,
+and the necessity of their application still remains on the programmer.</p>
+<p>But to implement them correctly, one needs to know the algorithm for solving, which again returns us to the statement that
+if the algorithm is known, then it is more convenient to program it in the imperative style.</p>
+<p>And if the full algorithm for solving the task is not known (or does not fit, for example because of the large time for its operation),
+then as a result all that remains is either to increase the performance of the system in order to shorten the running time of the algorithm,
+or to look for another solution, including by reducing the computational complexity of searching for solutions, for example, by excluding obviously unsuitable data,
+so as to reduce the possible combinations for their enumeration.</p>
+<h3 id="performance-scaling">Performance scaling<a class="td-heading-self-link" href="#performance-scaling" aria-label="Heading self-link"></a></h3><p>Increasing performance is also different and does not work in all cases.
+Vertical scaling of the performance of one node of the computing environment has its natural limit.
+And even a multiple increase in the speed of the computer can only push back the threshold of the user&rsquo;s patience while waiting for the result,
+but is unable to fundamentally solve the problem itself.</p>
+<p>It is a different matter with horizontal scaling, in which the execution of the algorithm is launched on separate nodes that solve the same task in parallel.
+Such a way of scaling already makes it possible to significantly shorten the time of obtaining the final result for complex computational tasks.
+And although this method is a &ldquo;head-on&rdquo; solution, the successes in the field of data science prove the success of such an approach.</p>
+<p>Of course, horizontal scaling also has its pitfalls.
+First of all, the algorithm itself must allow the possibility of parallel execution independently of other nodes.
+Automation of the management of tasks, of the computing nodes themselves, and of the whole system as a whole is also required.</p>
+<p>Here the paradigm of functional programming can partially help, which limits the result of a function&rsquo;s computation to only the input parameters
+and the result of executing other functions, but the result itself does not depend on the state of the system or other external data.</p>
+<h3 id="searching-for-a-generalized-solution">Searching for a generalized solution<a class="td-heading-self-link" href="#searching-for-a-generalized-solution" aria-label="Heading self-link"></a></h3><p>The second way to solve the problem of the combinatorial explosion is to reduce the computational complexity of the solution.
+This does not mean choosing another algorithm or solving the task in symbolic form.
+If such a thing is possible, then everything will again immediately reduce to the imperative style of programming.</p>
+<p>I mean the possibility of searching for the solution algorithm itself.
+More precisely, not exactly the algorithm, but the possibility of applying various selection methods to the input data in order to exclude the need for their complete enumeration.
+In essence, this reduces to the application of various methods and mechanisms for processing input data taking into account various regularities.</p>
+<p>This is possible both by algorithmic methods (backtracking and pruning in Prolog) and with the use of machine learning,
+which copes very well with finding various regularities.</p>
+<p>Naturally, such a method is not suitable for all classes of tasks. It is not suitable for identifying <strong>ALL possible solutions</strong>.
+But where this is not required, such methods of reducing computational complexity have a right to exist.</p>
+<p>For example, it is not required to search for all possible medicines for a particular disease; <strong>one</strong> is enough, taking into account certain constraints, that is guaranteed to work.</p>
+<p>Moreover, even when particular solutions are found, there is always a chance that with their help it will be possible to see regularities that are not obvious at first glance,
+which will help to show new ways of algorithmically reducing the computational complexity of the main task.</p>
+<h2 id="the-domain-of-unsolvable-tasks">The domain of unsolvable tasks<a class="td-heading-self-link" href="#the-domain-of-unsolvable-tasks" aria-label="Heading self-link"></a></h2><blockquote>
+<p>How do you think, is it really possible to create a logical programming language that would itself be able to automate the search for solutions for tasks of such classes? Or at least have in its arsenal built-in mechanisms for automating such activity?</p>
+</blockquote>
+<h3 id="poll-results-from-the-original-publication">Poll results from the original publication<a class="td-heading-self-link" href="#poll-results-from-the-original-publication" aria-label="Heading self-link"></a></h3><pre tabindex="0"><code>- 57.47%    Ha-ha! What the author wants is called artificial intelligence (50 votes)
+- 27.59%    Searching for solutions cannot be automated (24 votes)
+- 19.54%    This already exists and everything was invented long ago (17 votes)
+- 9.2%      Such a language is not needed, since neural networks can do everything (8 votes)
+- 3.45%     I wrote my own variant in the comments (3 votes)
+</code></pre><p>87 users voted. 62 users abstained.</p>
+
+</div>
+
+
+
+
+
+    
+	
+  
+
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

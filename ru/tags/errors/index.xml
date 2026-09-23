@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Errors on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/errors/</link>
+		<description>Recent content in Errors on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/errors/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Возврат, прерывания и обработка ошибок</title>
+				<link>https://trust-lang.net/ru/docs/operators/errors/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/errors/</guid>
+				<description>&lt;p&gt;Последовательность команд (&lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/#block&#34;&gt;блок кода&lt;/a&gt;) можно прервать в любом месте&#xA;специальными операторами прерывания. В &lt;em&gt;TrustLang&lt;/em&gt; используются два вида прерываний, которые по&#xA;смыслу соответствуют своей записи:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;«положительное»&lt;/strong&gt; прерывание &lt;code&gt;++&lt;/code&gt; — возврат значения/сквозная передача потока (аналог &lt;code&gt;return&lt;/code&gt;);&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;«отрицательное»&lt;/strong&gt; прерывание &lt;code&gt;--&lt;/code&gt; — ошибка (аналог &lt;code&gt;throw&lt;/code&gt;).&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;Прерывание может возвращать значение: &lt;code&gt;++ &#39;Строка&#39; ++&lt;/code&gt; — вернуть строку, &lt;code&gt;-- err --&lt;/code&gt; — «бросить»&#xA;ошибку (примерный аналог &lt;code&gt;throw err&lt;/code&gt;). Если значение не указано, прерывание не возвращает ничего&#xA;(пустое значение).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Размышления о машине Тьюринга и причинах возникновения ошибок в языках программирования</title>
+				<link>https://trust-lang.net/ru/blog/theory/turing-machine/</link>
+				<pubDate>Sat, 15 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/turing-machine/</guid>
+				<description>&lt;p&gt;Пару лет назад я написал статью &lt;a href=&#34;https://trust-lang.net/ru/blog/theory/structured-programming/&#34;&gt;Размышления о структурном программировании&lt;/a&gt;, в которой пытался разобраться с заблуждением, будто Эдсгер Дейкстра доказал, что любой алгоритм можно построить всего из трех конструкций (следования, ветвления, цикла). Тогда как на самом деле:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Эту теорему доказали (с условиями и ограничениями) итальянские ученые &lt;strong&gt;Бём и Якопини&lt;/strong&gt;, а Дейкстра лишь ссылался на неё.&lt;/li&gt;&#xA;&lt;li&gt;Трех указанных базовых алгоритмических конструкций &lt;strong&gt;недостаточно&lt;/strong&gt; для современного программирования (например, требуется обработка исключений).&lt;/li&gt;&#xA;&lt;li&gt;Знаменитая критика оператора &lt;code&gt;goto&lt;/code&gt; от Дейкстры (а также оператора присвоения, о чем всегда забывают рассказать) была не строгим запретом, а всего лишь &lt;strong&gt;рекомендацией по улучшению стиля кода&lt;/strong&gt;, чтобы программы было легче анализировать.&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;А вот теперь настало время написать про некоторые проблемы машины Тьюринга - фундаментальной основы всех информационных технологий.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

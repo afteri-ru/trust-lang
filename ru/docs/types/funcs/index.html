@@ -1,25 +1,599 @@
 
 
 <!doctype html>
-<html lang="ru">
+<html itemscope itemtype="http://schema.org/WebPage" lang="ru" class="no-js">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>TrustLang — Сайт находится в разработке</title>
-    <style>
-      html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f8f9fa;color:#212529;}
-      .m-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;box-sizing:border-box;}
-      .m-msg{font-size:1.5rem;font-weight:600;margin-bottom:10px;}
-      .m-sub{color:#6c757d;max-width:34em;}
-    </style>
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Функции | TrustLang</title>
+<meta name="description" content="Функция определяется операторами создания объектов, имя функции должно соответствовать правилам именования и завершаться круглыми скобками. Телом обычной функции служит блок кода, находящийся в пространстве имён её определения.
+У аргументов и у типа возвращаемого значения указывается тип (arg:Type).
+Наборы допустимых типовНесколько допустимых типов задаются набором типов — математическими операторами &#43; (объединение) и - (исключение). Набор определяется один раз как именованный тип:
+combi ::= :Int8 &#43; :Int16 &#43; :Int32; # именованный набор Функция, у которой параметр имеет тип-набор, разворачивается в N определений (по одному на член набора) с общим телом; вызов разрешается по типу аргумента, как при явной перегрузке:">
+<meta property="og:url" content="https://trust-lang.net/ru/docs/types/funcs/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Функции">
+	<meta property="og:description" content="Функция определяется операторами создания объектов, имя функции должно соответствовать правилам именования и завершаться круглыми скобками. Телом обычной функции служит блок кода, находящийся в пространстве имён её определения.
+У аргументов и у типа возвращаемого значения указывается тип (arg:Type).
+Наборы допустимых типовНесколько допустимых типов задаются набором типов — математическими операторами &#43; (объединение) и - (исключение). Набор определяется один раз как именованный тип:
+combi ::= :Int8 &#43; :Int16 &#43; :Int32; # именованный набор Функция, у которой параметр имеет тип-набор, разворачивается в N определений (по одному на член набора) с общим телом; вызов разрешается по типу аргумента, как при явной перегрузке:">
+	<meta property="og:locale" content="ru">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="docs">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Types">
+
+	<meta itemprop="name" content="Функции">
+	<meta itemprop="description" content="Функция определяется операторами создания объектов, имя функции должно соответствовать правилам именования и завершаться круглыми скобками. Телом обычной функции служит блок кода, находящийся в пространстве имён её определения.
+У аргументов и у типа возвращаемого значения указывается тип (arg:Type).
+Наборы допустимых типовНесколько допустимых типов задаются набором типов — математическими операторами &#43; (объединение) и - (исключение). Набор определяется один раз как именованный тип:
+combi ::= :Int8 &#43; :Int16 &#43; :Int32; # именованный набор Функция, у которой параметр имеет тип-набор, разворачивается в N определений (по одному на член набора) с общим телом; вызов разрешается по типу аргумента, как при явной перегрузке:">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="1068">
+	<meta itemprop="keywords" content="Types">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Функции">
+	<meta name="twitter:description" content="Функция определяется операторами создания объектов, имя функции должно соответствовать правилам именования и завершаться круглыми скобками. Телом обычной функции служит блок кода, находящийся в пространстве имён её определения.
+У аргументов и у типа возвращаемого значения указывается тип (arg:Type).
+Наборы допустимых типовНесколько допустимых типов задаются набором типов — математическими операторами &#43; (объединение) и - (исключение). Набор определяется один раз как именованный тип:
+combi ::= :Int8 &#43; :Int16 &#43; :Int32; # именованный набор Функция, у которой параметр имеет тип-набор, разворачивается в N определений (по одному на член набора) с общим телом; вызов разрешается по типу аргумента, как при явной перегрузке:">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
   </head>
-  <body>
-    <div class="m-wrap">
-      <div class="m-msg">Сайт находится в разработке</div>
-      
+  <body class="td-page">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/ru/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link active" href="/ru/docs/"><span>О проекте</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/blog/"><span>Статьи</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/docs/types/funcs/">English</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap td-docs-layout">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/docs/types/funcs/">English</a></li>
+    </ul>
+</div>
     </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-rudocs-li">
+  <a href="/ru/docs/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-rudocs"><span class="">О проекте</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rudocssyntax-li">
+  <input type="checkbox" id="m-rudocssyntax-check"/>
+  <label for="m-rudocssyntax-check"><a href="/ru/docs/syntax/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rudocssyntax"><span class="">Синтаксис</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssyntaxconcept-li">
+  <input type="checkbox" id="m-rudocssyntaxconcept-check"/>
+  <label for="m-rudocssyntaxconcept-check"><a href="/ru/docs/syntax/concept/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssyntaxconcept"><span class="">Концепция</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssyntaxnaming-li">
+  <input type="checkbox" id="m-rudocssyntaxnaming-check"/>
+  <label for="m-rudocssyntaxnaming-check"><a href="/ru/docs/syntax/naming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssyntaxnaming"><span class="">Именование объектов</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssyntaxmacros-li">
+  <input type="checkbox" id="m-rudocssyntaxmacros-check"/>
+  <label for="m-rudocssyntaxmacros-check"><a href="/ru/docs/syntax/macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssyntaxmacros"><span class="">Макросы и DSL</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssyntaxhierarchy-li">
+  <input type="checkbox" id="m-rudocssyntaxhierarchy-check"/>
+  <label for="m-rudocssyntaxhierarchy-check"><a href="/ru/docs/syntax/hierarchy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssyntaxhierarchy"><span class="">Иерархия кода</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-rudocstypes-li">
+  <input type="checkbox" id="m-rudocstypes-check" checked/>
+  <label for="m-rudocstypes-check"><a href="/ru/docs/types/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rudocstypes"><span class="">Типы данных</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesconcept-li">
+  <input type="checkbox" id="m-rudocstypesconcept-check"/>
+  <label for="m-rudocstypesconcept-check"><a href="/ru/docs/types/concept/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesconcept"><span class="">Система типов</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesnumbers-li">
+  <input type="checkbox" id="m-rudocstypesnumbers-check"/>
+  <label for="m-rudocstypesnumbers-check"><a href="/ru/docs/types/numbers/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesnumbers"><span class="">Числа и тензоры</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesstrings-li">
+  <input type="checkbox" id="m-rudocstypesstrings-check"/>
+  <label for="m-rudocstypesstrings-check"><a href="/ru/docs/types/strings/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesstrings"><span class="">Символьные строки</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesdicts-li">
+  <input type="checkbox" id="m-rudocstypesdicts-check"/>
+  <label for="m-rudocstypesdicts-check"><a href="/ru/docs/types/dicts/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesdicts"><span class="">Словари и наборы (перечисления)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesclass-li">
+  <input type="checkbox" id="m-rudocstypesclass-check"/>
+  <label for="m-rudocstypesclass-check"><a href="/ru/docs/types/class/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesclass"><span class="">Классы</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-rudocstypesfuncs-li">
+  <input type="checkbox" id="m-rudocstypesfuncs-check" checked/>
+  <label for="m-rudocstypesfuncs-check"><a href="/ru/docs/types/funcs/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-rudocstypesfuncs"><span class="td-sidebar-nav-active-item">Функции</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesnative-li">
+  <input type="checkbox" id="m-rudocstypesnative-check"/>
+  <label for="m-rudocstypesnative-check"><a href="/ru/docs/types/native/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesnative"><span class="">Нативные типы</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypescontainers-li">
+  <input type="checkbox" id="m-rudocstypescontainers-check"/>
+  <label for="m-rudocstypescontainers-check"><a href="/ru/docs/types/containers/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypescontainers"><span class="">Диапазоны, массивы и тензоры</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rudocsoperators-li">
+  <input type="checkbox" id="m-rudocsoperators-check"/>
+  <label for="m-rudocsoperators-check"><a href="/ru/docs/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rudocsoperators"><span class="">Выражения и инструкции</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorscreate-li">
+  <input type="checkbox" id="m-rudocsoperatorscreate-check"/>
+  <label for="m-rudocsoperatorscreate-check"><a href="/ru/docs/operators/create/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorscreate"><span class="">Создание объектов и присваивание</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorsoperators-li">
+  <input type="checkbox" id="m-rudocsoperatorsoperators-check"/>
+  <label for="m-rudocsoperatorsoperators-check"><a href="/ru/docs/operators/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorsoperators"><span class="">Операторы</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorsflow-li">
+  <input type="checkbox" id="m-rudocsoperatorsflow-check"/>
+  <label for="m-rudocsoperatorsflow-check"><a href="/ru/docs/operators/flow/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorsflow"><span class="">Условия и циклы</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorswith-li">
+  <input type="checkbox" id="m-rudocsoperatorswith-check"/>
+  <label for="m-rudocsoperatorswith-check"><a href="/ru/docs/operators/with/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorswith"><span class="">Менеджер контекста (with)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorserrors-li">
+  <input type="checkbox" id="m-rudocsoperatorserrors-check"/>
+  <label for="m-rudocsoperatorserrors-check"><a href="/ru/docs/operators/errors/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorserrors"><span class="">Возврат, прерывания и обработка ошибок</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rudocssafety-li">
+  <input type="checkbox" id="m-rudocssafety-check"/>
+  <label for="m-rudocssafety-check"><a href="/ru/docs/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rudocssafety"><span class="">Гарантии и безопасность</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssafetymemory-li">
+  <input type="checkbox" id="m-rudocssafetymemory-check"/>
+  <label for="m-rudocssafetymemory-check"><a href="/ru/docs/safety/memory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssafetymemory"><span class="">Управление памятью и совместный доступ</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssafetystack_check-li">
+  <input type="checkbox" id="m-rudocssafetystack_check-check"/>
+  <label for="m-rudocssafetystack_check-check"><a href="/ru/docs/safety/stack_check/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssafetystack_check"><span class="">Защита стека от переполнения (stack check)</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssandbox-li">
+  <input type="checkbox" id="m-rudocssandbox-check"/>
+  <label for="m-rudocssandbox-check"><a href="/ru/docs/sandbox/" title="Песочница (playground)" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssandbox"><span class="">Песочница</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsstatus-li">
+  <input type="checkbox" id="m-rudocsstatus-check"/>
+  <label for="m-rudocsstatus-check"><a href="/ru/docs/status/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsstatus"><span class="">Статус и планы</span></a></label>
+  
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/ru/_print/docs/types/"><i class="fa-solid fa-print fa-fw"></i> Печатать весь раздел</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#type-sets">Наборы допустимых типов</a></li>
+    <li><a href="#func">Обычные функции</a></li>
+    <li><a href="#named-params">Именованные и опциональные параметры</a></li>
+    <li><a href="#pure">Чистые функции</a></li>
+    <li><a href="#coro">Сопрограммы (coroutines)</a></li>
+    <li><a href="#anonymous">Анонимные функции</a></li>
+    <li><a href="#lambda">Лямбда-выражения (замыкания)</a>
+      <ul>
+        <li><a href="#iiife">Немедленный вызов</a></li>
+        <li><a href="#не-поддерживается-первая-итерация">Не поддерживается (первая итерация)</a></li>
+      </ul>
+    </li>
+    <li><a href="#redefinition">Переопределение и перегрузка функций</a>
+      <ul>
+        <li><a href="#overriding">Переопределение (overriding)</a></li>
+        <li><a href="#overload">Перегрузка (overloading)</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5" role="main">
+            
+
+<div class="pageinfo pageinfo-primary" role="note">
+  <p><strong>Разделы сайта находятся в разработке.</strong></p>
+  <p>Материалы могут быть неполными или содержать ошибки.
+  Содержимое сайта будет синхронизировано с реализацией при выходе следующей версии,
+  тогда как текущая (0.6.0) предназначена для прототипирования синтаксиса и создания <a href="/ru/playground/">песочницы</a>.</p>
+</div>
+
+
+
+            
+  
+
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/ru/docs/">О проекте</a></li>
+  <li class="breadcrumb-item">
+    <a href="/ru/docs/types/">Типы данных</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    Функции</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>Функции</h1>
+	
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p>Функция определяется операторами <a href="/ru/docs/operators/create/">создания объектов</a>, имя функции должно
+соответствовать <a href="/ru/docs/syntax/naming/">правилам именования</a> и завершаться круглыми скобками. Телом обычной
+функции служит <a href="/ru/docs/operators/#block">блок кода</a>, находящийся в пространстве имён её определения.</p>
+<p>У аргументов и у типа возвращаемого значения указывается тип (<code>arg:Type</code>).</p>
+<h2 id="type-sets">Наборы допустимых типов<a class="td-heading-self-link" href="#type-sets" aria-label="Heading self-link"></a></h2><p>Несколько допустимых типов задаются <strong>набором типов</strong> — математическими операторами
+<code>+</code> (объединение) и <code>-</code> (исключение). Набор определяется один раз как именованный тип:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">combi</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int8</span> <span style="color:#ce5c00;font-weight:bold">+</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int16</span> <span style="color:#ce5c00;font-weight:bold">+</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span><span style="color:#000;font-weight:bold">;</span>   <span style="color:#8f5902;font-style:italic"># именованный набор</span>
+</span></span></code></pre></div><p>Функция, у которой параметр имеет тип-набор, <strong>разворачивается в N определений</strong> (по одному на
+член набора) с общим телом; вызов разрешается по типу аргумента, как при явной перегрузке:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">sq</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">combi</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Int64</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#5c35cc;font-weight:bold">@return</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int64</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">*</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int64</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">);</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic"># эквивалентно трём определениям: sq(:Int8), sq(:Int16), sq(:Int32)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000">sq</span><span style="color:#000;font-weight:bold">(:</span><span style="color:#000">Int16</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">3</span><span style="color:#000;font-weight:bold">));</span>    <span style="color:#8f5902;font-style:italic"># выберет определение с параметром :Int16</span>
+</span></span></code></pre></div><p>Набор можно указать и <strong>inline</strong> — непосредственно в позиции типа (сигл <code>:</code> идёт сразу перед <code>(</code>):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">sq2</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">:(:</span><span style="color:#000">Int8</span> <span style="color:#ce5c00;font-weight:bold">+</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int16</span><span style="color:#000;font-weight:bold">)):</span><span style="color:#000">Int64</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#5c35cc;font-weight:bold">@return</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int64</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">*</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int64</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">);</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><p>Один и тот же именованный набор может стоять и в параметре, и в возврате — тогда определения
+сопоставляются <strong>позиционно</strong> (i-й член набора — и для параметра, и для возврата):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">combi</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int8</span> <span style="color:#ce5c00;font-weight:bold">+</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int16</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">idk</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">combi</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">combi</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#5c35cc;font-weight:bold">@return</span> <span style="color:#000">x</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#000;font-weight:bold">};</span>   <span style="color:#8f5902;font-style:italic"># 2 определения: (:Int8)-&gt;:Int8, (:Int16)-&gt;:Int16</span>
+</span></span></code></pre></div><p><strong>Правила и ограничения:</strong></p>
+<ul>
+<li>В прототипе допустим <strong>не более одного различного набора</strong> (иначе — ошибка о комбинаторной
+сложности); один и тот же набор может использоваться в нескольких позициях.</li>
+<li>Набор <strong>только в возврате</strong> недопустим: перегрузки различались бы лишь типом возврата (в C++
+перегрузки по возврату нет). Используйте тот же набор и в параметре.</li>
+<li>Inline-набор — <strong>только тип</strong>, не выражение (нельзя присвоить/передать как значение).</li>
+<li>Исключение <code>-</code> пока <strong>не реализовано</strong> (явная ошибка).</li>
+<li>Членами набора могут быть простые типы (шаблонные типы в наборе пока не поддерживаются).</li>
+</ul>
+<p><em>TrustLang</em> на уровне синтаксиса поддерживает несколько видов функций.</p>
+<h2 id="func">Обычные функции<a class="td-heading-self-link" href="#func" aria-label="Heading self-link"></a></h2><p>Обычная функция ничем не ограничена в смысле C/C++: может содержать условия, циклы, вызовы других
+функций и т. д. Создаётся оператором <code>:=</code>:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">hello</span><span style="color:#000;font-weight:bold">(</span><span style="color:#204a87">str</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">StrChar</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;call: </span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">\n</span><span style="color:#4e9a06">&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#204a87">str</span><span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@main</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">hello</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;Привет, мир!&#39;</span><span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><h2 id="named-params">Именованные и опциональные параметры<a class="td-heading-self-link" href="#named-params" aria-label="Heading self-link"></a></h2><p><strong>Именованные параметры</strong> позволяют передавать аргументы по имени (с префиксом «.»), а не по позиции:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">func</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">width</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">height</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000">func</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">width</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">640</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">height</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">480</span><span style="color:#000;font-weight:bold">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">func</span><span style="color:#000;font-weight:bold">(</span><span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">height</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">480</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#ce5c00;font-weight:bold">.</span><span style="color:#000">width</span><span style="color:#ce5c00;font-weight:bold">=</span><span style="color:#0000cf;font-weight:bold">640</span><span style="color:#000;font-weight:bold">);</span>  <span style="color:#8f5902;font-style:italic"># порядок не важен</span>
+</span></span></code></pre></div><p>Имя именованного аргумента не перекрывается макросом препроцессора (см.
+<a href="/ru/docs/syntax/naming/">Именование объектов</a>).</p>
+<p><strong>Опциональные параметры</strong> имеют значение по умолчанию и могут быть опущены при вызове: имя аргумента
+отделяется от значения знаком <code>=</code>. Сначала перечисляются обязательные параметры, затем — со значениями
+по умолчанию. Функция, допускающая произвольное число аргументов, заканчивает список параметров
+многоточием <code>...</code>.</p>
+<h2 id="pure">Чистые функции<a class="td-heading-self-link" href="#pure" aria-label="Heading self-link"></a></h2><p>Чистая функция не имеет побочных эффектов: возвращает результат только по своим аргументам и не
+изменяет состояние программы. Синтаксис декларации <code>::-</code> <strong>не реализован</strong> (см. <a href="/ru/docs/status/">Статус</a>);
+к понятию чистоты относится и требование иммутабельности аргументов по ссылке (см.
+<a href="/ru/docs/syntax/naming/">Именование объектов</a>).</p>
+<h2 id="coro">Сопрограммы (coroutines)<a class="td-heading-self-link" href="#coro" aria-label="Heading self-link"></a></h2><p>Сопрограмма — функция-замыкание, способная приостанавливать и возобновлять выполнение (кооперативная
+многозадачность). В текущей версии <strong>не реализовано</strong> — см. <a href="/ru/docs/status/">Статус</a> и раздел
+<a href="../operators/concurrency/">Многопоточность и асинхронность</a>.</p>
+<h2 id="anonymous">Анонимные функции<a class="td-heading-self-link" href="#anonymous" aria-label="Heading self-link"></a></h2><p>Анонимная функция объявляется в месте использования и не получает собственного имени (уникального
+идентификатора). В <em>TrustLang</em> анонимная функция задаётся <a href="/ru/docs/types/funcs/#lambda">лямбда-выражением</a> и
+представляет собой <strong>значение функционального типа</strong> <code>std::function&lt;...&gt;</code>: его можно сохранить в
+переменной, передать аргументом (функция обратного вызова, предикат) или вызвать на месте.</p>
+<h2 id="lambda">Лямбда-выражения (замыкания)<a class="td-heading-self-link" href="#lambda" aria-label="Heading self-link"></a></h2><p>Лямбда-выражение объявляет анонимную функцию по месту применения:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000;font-weight:bold">[</span> <span style="color:#000">captures</span> <span style="color:#000;font-weight:bold">]</span> <span style="color:#000;font-weight:bold">(</span><span style="color:#000">params</span><span style="color:#000;font-weight:bold">)</span> <span style="color:#000;font-weight:bold">:</span> <span style="color:#000">Ret</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#000">body</span> <span style="color:#000;font-weight:bold">}</span>
+</span></span></code></pre></div><ul>
+<li><strong><code>captures</code></strong> — список захватов: только <strong>имена</strong> ранее объявленных переменных, <strong>по значению</strong>
+(копия). Пустые скобки <code>[]</code> — без захвата. Ссылочный захват <code>[&amp;x]</code> в текущей версии <strong>не
+поддерживается</strong> (диагностика об ошибке).</li>
+<li><strong><code>params</code></strong> — параметры как у обычной функции (<code>x:Type</code>, тип опционален).</li>
+<li><strong><code>: Ret</code></strong> — тип возврата; при отсутствии выводится из тела.</li>
+<li><strong><code>body</code></strong> — блок кода <code>{ ... }</code>; значение блока — результат лямбды.</li>
+</ul>
+<p>Лямбда-значение типизируется функциональным типом и может храниться/передаваться. Возврат значения —
+как у обычной функции (<code>@return</code> / именованная форма), лямбда внутренне имеет собственную метку
+возврата:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">f</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">[](</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Int32</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#5c35cc;font-weight:bold">@return</span> <span style="color:#000">x</span> <span style="color:#ce5c00;font-weight:bold">*</span> <span style="color:#000">x</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">y</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000">f</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">5</span><span style="color:#000;font-weight:bold">);</span>
+</span></span></code></pre></div><h3 id="iiife">Немедленный вызов<a class="td-heading-self-link" href="#iiife" aria-label="Heading self-link"></a></h3><p>Лямбду можно вызвать сразу после определения. Каноническая форма — <strong>обёрнутая</strong>:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">y</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">(</span> <span style="color:#000;font-weight:bold">[](</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Int32</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#5c35cc;font-weight:bold">@return</span> <span style="color:#000">x</span> <span style="color:#ce5c00;font-weight:bold">*</span> <span style="color:#000">x</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#000;font-weight:bold">}</span> <span style="color:#000;font-weight:bold">)(</span><span style="color:#0000cf;font-weight:bold">5</span><span style="color:#000;font-weight:bold">);</span>
+</span></span></code></pre></div><p>Прямая форма <code>[](x){... }(5)</code> (без обёртки) <strong>не поддерживается</strong> и выдаёт ошибку с подсказкой
+использовать <code>( lambda )(args)</code>.</p>
+<h3 id="не-поддерживается-первая-итерация">Не поддерживается (первая итерация)<a class="td-heading-self-link" href="#%d0%bd%d0%b5-%d0%bf%d0%be%d0%b4%d0%b4%d0%b5%d1%80%d0%b6%d0%b8%d0%b2%d0%b0%d0%b5%d1%82%d1%81%d1%8f-%d0%bf%d0%b5%d1%80%d0%b2%d0%b0%d1%8f-%d0%b8%d1%82%d0%b5%d1%80%d0%b0%d1%86%d0%b8%d1%8f" aria-label="Heading self-link"></a></h3><p>Ссылочный захват <code>[&amp;x]</code>, неявный захват <code>[=]</code>/<code>[&amp;]</code>, захват со значением/типом
+(<code>[x = expr]</code>, <code>[x:Type]</code>) и захват некопируемых значений (эксклюзивное владение <code>unique</code>) —
+<strong>не поддерживаются</strong> и дают явную диагностику. «Замыкание по определению не может быть чистой
+функцией» — чистая функция (<code>::-</code>) в языке пока не реализована.</p>
+<h2 id="redefinition">Переопределение и перегрузка функций<a class="td-heading-self-link" href="#redefinition" aria-label="Heading self-link"></a></h2><p>Поскольку <em>TrustLang</em> позволяет вызывать нативные C/C++-функции напрямую и делать
+<a href="/ru/docs/operators/#block">вставки C++-кода</a>, переопределение и перегрузка функций имеют свои особенности.</p>
+<ul>
+<li><strong>Переопределение (overriding)</strong> — реализация методом подкласса метода, объявленного в суперклассе
+(фундаментальный принцип ООП).</li>
+<li><strong>Перегрузка (overloading)</strong> — создание нескольких функций с одним именем, но разным набором
+параметров; нужный вариант выбирается на этапе компиляции по параметрам.</li>
+</ul>
+<h3 id="overriding">Переопределение (overriding)<a class="td-heading-self-link" href="#overriding" aria-label="Heading self-link"></a></h3><p>Переопределение допускается не только для методов класса, но и для обычных функций (механизм, похожий
+на <code>LD_PRELOAD</code>, реализованный средствами самого языка). Чтобы функцию можно было переопределить, при её
+создании не должен быть указан признак иммутабельности. Если суперкласс объявил метод мутабельным
+(виртуальным), а подкласс реализует его с признаком иммутабельности, это равносильно <code>override final</code>
+(без дальнейшего переопределения):</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">base</span><span style="color:#000;font-weight:bold">::</span><span style="color:#000">func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>   <span style="color:#8f5902;font-style:italic"># virtual</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">class1</span><span style="color:#000;font-weight:bold">::</span><span style="color:#000">func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span>  <span style="color:#8f5902;font-style:italic"># override</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">class2</span><span style="color:#000;font-weight:bold">::</span><span style="color:#000">func</span><span style="color:#ce5c00;font-weight:bold">^</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#ce5c00;font-weight:bold">=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#ce5c00;font-weight:bold">...</span> <span style="color:#000;font-weight:bold">};</span> <span style="color:#8f5902;font-style:italic"># override final</span>
+</span></span></code></pre></div><p>Переопределение идёт <strong>по имени функции</strong> без учёта аргументов, однако новая функция должна иметь
+аргументы, <a href="generics/">совместимые</a> с типом аргументов исходной функции.</p>
+<h3 id="overload">Перегрузка (overloading)<a class="td-heading-self-link" href="#overload" aria-label="Heading self-link"></a></h3><p>Перегрузка — несколько функций с одним именем и <strong>разными сигнатурами</strong> (набором типов параметров);
+нужный вариант выбирается <strong>статически</strong> на этапе компиляции по типам аргументов. Точный дубль
+сигнатуры — ошибка; если подходящего варианта нет — ошибка <code>no matching overload</code>, если несколько
+вариантов несравнимы — <code>ambiguous</code>.</p>
+<p>Перегрузка <strong>свободных функций и методов</strong> пользовательских классов/Struct поддержана:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">f</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">a</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#5c35cc;font-weight:bold">@return</span> <span style="color:#000">a</span> <span style="color:#ce5c00;font-weight:bold">+</span> <span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">f</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">a</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int64</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#5c35cc;font-weight:bold">@return</span> <span style="color:#0000cf;font-weight:bold">100</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#5c35cc;font-weight:bold">@main</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">x</span> <span style="color:#000;font-weight:bold">:</span> <span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">5</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;</span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">\n</span><span style="color:#4e9a06">&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">x</span><span style="color:#000;font-weight:bold">));</span>        <span style="color:#8f5902;font-style:italic"># выбран f(a:Int32)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#5c35cc;font-weight:bold">@print</span><span style="color:#000;font-weight:bold">(</span><span style="color:#4e9a06">&#39;</span><span style="color:#4e9a06">{}</span><span style="color:#4e9a06">\n</span><span style="color:#4e9a06">&#39;</span><span style="color:#000;font-weight:bold">,</span> <span style="color:#000">f</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">7</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int64</span><span style="color:#000;font-weight:bold">));</span>  <span style="color:#8f5902;font-style:italic"># выбран f(a:Int64)</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">C</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">:</span><span style="color:#000">Class</span><span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">base</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#0000cf;font-weight:bold">10</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">f</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">a</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int32</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#5c35cc;font-weight:bold">@return</span> <span style="color:#000">a</span> <span style="color:#ce5c00;font-weight:bold">+</span> <span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#000;font-weight:bold">};</span>   <span style="color:#8f5902;font-style:italic"># перегрузка МЕТОДА</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">f</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">a</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int64</span><span style="color:#000;font-weight:bold">):</span><span style="color:#000">Int32</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{</span> <span style="color:#5c35cc;font-weight:bold">@return</span> <span style="color:#000">base</span> <span style="color:#ce5c00;font-weight:bold">+</span> <span style="color:#0000cf;font-weight:bold">90</span><span style="color:#000;font-weight:bold">;</span> <span style="color:#000;font-weight:bold">};</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">};</span>
+</span></span></code></pre></div><p>Выбор варианта — по типам аргументов: точное совпадение предпочтительнее числового расширения
+(промоция/конверсия), параметр <code>:Any</code> принимает любой тип (низший приоритет); при нескольких
+несравнимых лучших — <code>ambiguous</code>.</p>
+<p>Перегрузку (выбор сигнатуры и допустимость/приведение аргументов) для функций и методов
+<strong>TrustLang всегда выполняет компилятор</strong> — и при единственной сигнатуре тоже. Делегирование
+C++-слою применяется <strong>только к нативным</strong> функциям/методам (их типы заданы явно нативными, а имя
+символа фиксировано внешней библиотекой).</p>
+<p>Перегрузка по-прежнему возможна и для <a href="/ru/docs/types/native/">нативных</a> функций (все типы аргументов
+указываются явно и являются нативными типами); нативные функции также доступны для прямого вызова
+из языков C/C++:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#ce5c00;font-weight:bold">%</span><span style="color:#000">func</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">arg</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int8</span><span style="color:#000;font-weight:bold">):</span><span style="color:#204a87;font-weight:bold">None</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{};</span>   <span style="color:#8f5902;font-style:italic"># void func(int8_t)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ce5c00;font-weight:bold">%</span><span style="color:#000">func</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">arg</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Byte</span><span style="color:#000;font-weight:bold">):</span><span style="color:#204a87;font-weight:bold">None</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{};</span>   <span style="color:#8f5902;font-style:italic"># void func(uint8_t)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ce5c00;font-weight:bold">%</span><span style="color:#000">func</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">arg</span><span style="color:#000;font-weight:bold">:</span><span style="color:#000">Int64</span><span style="color:#000;font-weight:bold">):</span><span style="color:#204a87;font-weight:bold">None</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000;font-weight:bold">{};</span>  <span style="color:#8f5902;font-style:italic"># void func(int64_t)</span>
+</span></span></code></pre></div>
+	
+</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">Все права защищены</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
   </body>
 </html>
-
-
-

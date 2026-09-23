@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Programming on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/programming/</link>
+		<description>Recent content in Programming on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/programming/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Философия программирования</title>
+				<link>https://trust-lang.net/ru/blog/programming/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/programming/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Механизм возникновения сознания у конечных автоматов</title>
+				<link>https://trust-lang.net/ru/blog/theory/consciousness-fsm/</link>
+				<pubDate>Mon, 13 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/consciousness-fsm/</guid>
+				<description>&lt;p&gt;Конечный автомат - это математическая модель вычислений: абстрактная машина, которая в каждый момент времени находится ровно в одном из конечного множества состояний, а переходы между состояниями происходят в ответ на входные сигналы (события) по заранее заданным правилам. Традиционно эту модель воспринимают как примитивную формализацию, пригодную лишь для распознавания регулярных языков и реализации жёстко детерминированных реактивных контроллеров.&lt;/p&gt;&#xA;&lt;p&gt;На первый взгляд, подобная абстракция кажется чересчур примитивной, чтобы вместить в себя искусственный интеллект или самосознание. Однако если рассматривать сознание не как статический атрибут отдельного элемента, а как эмерджентное свойство, возникающее на стыке взаимодействия миллионов автоматных переходов, то граница между вычислительной машиной и мыслящей системой с самосознанием оказывается неожиданно тонкой.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Размышления о структурном программировании</title>
+				<link>https://trust-lang.net/ru/blog/theory/structured-programming/</link>
+				<pubDate>Sun, 31 Dec 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/structured-programming/</guid>
+				<description>&lt;p&gt;31 дек 2023 в 11:53&lt;/p&gt;&#xA;&lt;p&gt;&lt;img src=&#34;https://habrastorage.org/webt/bt/kx/s8/btkxs84ogzg5s87yporld99d1c0.jpeg&#34; alt=&#34;&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Изначально я хотел назвать статью как нибудь вызывающе, например, &amp;ldquo;Как наука может превращаться в религию&amp;rdquo;, &amp;ldquo;В ловушке искажений смыслов структурного программирования&amp;rdquo; или &amp;ldquo;О чем вам забыли рассказать про структурное программирование&amp;rdquo;, но в результате все же оставил текущее название и надеюсь, оно не вызывает раздражения у читателей. И хотя другие заголовки являются более кликбейтными, тем не менее они все же в больше степени отражают смысл статьи, чем нейтральные &amp;ldquo;размышления&amp;rdquo;.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Можно ли использовать декларативный и императивный стили написания программ одновременно?</title>
+				<link>https://trust-lang.net/ru/blog/programming/prog-styles-same-time/</link>
+				<pubDate>Mon, 26 Jul 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/programming/prog-styles-same-time/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/programming/matrix.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Внимание!!!&lt;/p&gt;&#xA;&lt;p&gt;Данная статья содержит описание синтаксиса NewLang предыдущей версии.&lt;/p&gt;&#xA;&lt;p&gt;Актуальную версию синтаксиса языка можно посмотреть &lt;a href=&#34;https://trust-lang.net/ru/docs/&#34;&gt;тут&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;При разработке своего собственного языка программирования автор должен определиться, какими свойствами его язык должен обладать,&#xA;ведь в конечном итоге именно это и будет определять назначение языка и особенности его использования.&#xA;Причем некоторые свойства  настолько сильно влияют на итоговую концепцию языка и его синтаксис,&#xA;что впоследствии их изменение невозможно в принципе, либо новый синтаксис получается очень запутанным и непонятным.&#xA;Наверно из-за этого многие свойства языков программирования рассматриваются и изучаются как взаимоисключающие.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Простое сложное программирование</title>
+				<link>https://trust-lang.net/ru/blog/programming/complex-prog/</link>
+				<pubDate>Thu, 15 Apr 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/programming/complex-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/programming/complex-prog/complex-prog.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;В очередной раз увидел на Хабре статью про сложное дело под названием «программирование».&#xA;И то, что программирование действительно является делом не простым воспринимается как факт и обычно не требует какого либо подтверждения.&lt;/p&gt;&#xA;&lt;p&gt;Но понятие «сложность» сродни термину «куча».&#xA;Для кого-то и пять кокосов это не куча, а кого-то съел один и «больше не хочется» - значит для него и единственного кокоса будет много.&lt;/p&gt;&#xA;&lt;p&gt;Так и со сложностью ПО. Вроде бы увеличение сложности является для всех очевидным и наблюдается во всех сферах применения IT технологий,&#xA;да и сами языки программирования по мере своего развития становятся все сложнее,&#xA;а вот оценивать «сложность» с помощью численных метрик - дело заведомо неблагодарное, но и «нельзя управлять тем, что невозможно измерить &amp;hellip;».&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Проблема логических языков программирования</title>
+				<link>https://trust-lang.net/ru/blog/theory/logic-prog/</link>
+				<pubDate>Sat, 09 Jan 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/logic-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/langs.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Некоторое время назад я писал про &lt;a href=&#34;https://trust-lang.net/ru/blog/language-design/inter-prog/&#34;&gt;«Интернациональное программирование на естественных языках»&lt;/a&gt;,&#xA;в которой попытался представить достойную цель для абстрактного языка программирования,&#xA;попробовав примерить на него роль связующего звена между миром программистов с компьютерами и не программистов.&lt;/p&gt;&#xA;&lt;p&gt;Но в результате оказалось, что это не нужно в принципе, т.к. «не программистам» просто не требуется учиться писать программы.&#xA;А если иногда такое желание и возникает, то вполне хватает обычных формализованных языков программирования,&#xA;которых уже сейчас насчитывается наверно более десяти тысяч.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Интернациональное программирование на естественных языках</title>
+				<link>https://trust-lang.net/ru/blog/language-design/inter-prog/</link>
+				<pubDate>Sat, 05 Dec 2020 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/language-design/inter-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/langs.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Внимание!!!&lt;/p&gt;&#xA;&lt;p&gt;Данная статья содержит описание синтаксиса NewLang предыдущей версии.&lt;/p&gt;&#xA;&lt;p&gt;Актуальную версию синтаксиса языка можно посмотреть &lt;a href=&#34;https://trust-lang.net/ru/docs/&#34;&gt;тут&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;В последнее время часто попадаются на глаза статьи о новых языках программирования,&#xA;а так же различные рейтинги и прогнозы, связанные с популярностью компьютерных языков.&lt;/p&gt;&#xA;&lt;p&gt;Заявляют о себе и новые &lt;a href=&#34;https://habr.com/ru/company/testo_lang/blog/521682/&#34;&gt;инструментальные средства&lt;/a&gt;,&#xA;которые в своей работе используют  собственные форматы описания конфигурационных файлов или последовательности выполняемых команд,&#xA;которые так же очень сильно приближает их к понятию «язык программирования».&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Expressions and statements on TrustLang</title>
+		<link>https://trust-lang.net/en/docs/operators/</link>
+		<description>Recent content in Expressions and statements on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/en/docs/operators/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Creating objects and assignment</title>
+				<link>https://trust-lang.net/en/docs/operators/create/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/operators/create/</guid>
+				<description>&lt;!--&#xA;##### Object scope != object lifetime {#important}&#xA;An object *always* has a name, even when the object itself is not physically created yet.&#xA;The scope of a *name* is determined by its location in the program code (code block, namespace, module, etc.).&#xA;An object may exist but be inaccessible from the current scope, for example, shadowed by another object with the same name.&#xA;&#xA;The lifetime of a local/automatic (i.e. temporary) object is always limited by the scope of the current code block,&#xA;while the lifetime of a static object is limited by the lifetime of the module in which it is defined, or by the lifetime of the program if the object is global.&#xA;But *initialization of the initial value of a static object* occurs in accordance with the executed program code,&#xA;(i.e. when executing the code with the statement creating the static object).&#xA;--&gt;&#xA;&lt;h3 id=&#34;create&#34;&gt;Creating objects&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#create&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;TrustLang uses several operators to create objects:&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Operators</title>
+				<link>https://trust-lang.net/en/docs/operators/operators/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/operators/operators/</guid>
+				<description>&lt;h2 id=&#34;arithmetic-operators&#34;&gt;Arithmetic operators&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#arithmetic-operators&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The arithmetic operators of &lt;em&gt;TrustLang&lt;/em&gt; are applicable to &lt;a href=&#34;https://trust-lang.net/en/docs/types/numbers/&#34;&gt;numeric types&lt;/a&gt; and to assignment&#xA;forms. Each binary operator has a paired analog &lt;code&gt;op=&lt;/code&gt;, which performs the operation and&#xA;assigns the result to the left operand (&lt;code&gt;a += 1;&lt;/code&gt;):&lt;/p&gt;&#xA;&lt;table&gt;&#xA;&#x9;&lt;thead&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;th&gt;Operator&lt;/th&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;th&gt;Action&lt;/th&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&lt;/thead&gt;&#xA;&#x9;&lt;tbody&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;+&lt;/code&gt; / &lt;code&gt;+=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;addition&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;-&lt;/code&gt; / &lt;code&gt;-=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;subtraction&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;*&lt;/code&gt; / &lt;code&gt;*=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;multiplication (also applicable for repeating strings)&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;/&lt;/code&gt; / &lt;code&gt;/=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;division (the result is a floating-point number)&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;//&lt;/code&gt; / &lt;code&gt;//=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;integer division rounded toward the smaller value (as in Python)&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;%&lt;/code&gt; / &lt;code&gt;%=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;remainder of integer division&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&lt;/tbody&gt;&#xA;&lt;/table&gt;&#xA;&lt;p&gt;There is no separate exponentiation operator (the power is computed by a function/repeated multiplication).&#xA;Arithmetic of rational numbers and &lt;code&gt;:BigInteger&lt;/code&gt; is a separate strict branch: mixing with floating-point&#xA;numbers requires an explicit conversion (see &lt;a href=&#34;https://trust-lang.net/en/docs/types/numbers/&#34;&gt;Numbers and tensors&lt;/a&gt;).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Conditions and loops</title>
+				<link>https://trust-lang.net/en/docs/operators/flow/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/operators/flow/</guid>
+				<description>&lt;p&gt;In &lt;em&gt;TrustLang&lt;/em&gt; there is no &lt;code&gt;if&lt;/code&gt; keyword: a condition is checked by a construct that in meaning corresponds to&#xA;the mathematical &amp;ldquo;follows&amp;rdquo; — two dashes and an angle bracket &lt;code&gt;--&amp;gt;&lt;/code&gt;. The notation is easily combined into chains for&#xA;checking several conditions of the &amp;ldquo;else if&amp;rdquo; kind. Below the construct is shown in both forms — the DSL macro&#xA;and the base syntax (about the two notation forms see &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/macros/&#34;&gt;Macros and DSL&lt;/a&gt;):&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Context manager (with)</title>
+				<link>https://trust-lang.net/en/docs/operators/with/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/operators/with/</guid>
+				<description>&lt;p&gt;The single statement for capturing a reference and synchronizing access to an object (&lt;code&gt;*ref&lt;/code&gt;, &lt;code&gt;*ref(...)&lt;/code&gt;)&#xA;is executed for one action. Capturing a reference/synchronization object is a relatively slow&#xA;operation, so performing it for each action is inefficient. The &lt;strong&gt;context manager&lt;/strong&gt; (&lt;code&gt;with&lt;/code&gt;)&#xA;captures several references/objects at once and performs a group of actions under a common lock,&#xA;and also serves for &lt;strong&gt;automatic resource release (RAII)&lt;/strong&gt; when leaving the block.&lt;/p&gt;&#xA;&lt;p&gt;In the base syntax — the operator &lt;code&gt;**( ... )&lt;/code&gt;; in DSL it corresponds to the macro &lt;code&gt;@with&lt;/code&gt;&#xA;(see &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/macros/&#34;&gt;Keyword syntax (DSL)&lt;/a&gt;). Comparison of the notation forms using&#xA;the example of capturing-locking a reference:&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Return, interrupts and error handling</title>
+				<link>https://trust-lang.net/en/docs/operators/errors/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/operators/errors/</guid>
+				<description>&lt;p&gt;A sequence of commands (a &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/#block&#34;&gt;code block&lt;/a&gt;) can be interrupted at any point by&#xA;special interrupt statements. &lt;em&gt;TrustLang&lt;/em&gt; uses two kinds of interrupts, which in&#xA;meaning correspond to their notation:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;&amp;ldquo;positive&amp;rdquo;&lt;/strong&gt; interrupt &lt;code&gt;++&lt;/code&gt; — return of a value/through-flow (analog of &lt;code&gt;return&lt;/code&gt;);&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;&amp;ldquo;negative&amp;rdquo;&lt;/strong&gt; interrupt &lt;code&gt;--&lt;/code&gt; — error (analog of &lt;code&gt;throw&lt;/code&gt;).&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;An interrupt can return a value: &lt;code&gt;++ &#39;String&#39; ++&lt;/code&gt; — return a string, &lt;code&gt;-- err --&lt;/code&gt; — &amp;ldquo;throw&amp;rdquo;&#xA;an error (a rough analog of &lt;code&gt;throw err&lt;/code&gt;). If no value is specified, the interrupt returns nothing&#xA;(an empty value).&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

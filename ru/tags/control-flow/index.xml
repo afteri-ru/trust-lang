@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Control-Flow on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/control-flow/</link>
+		<description>Recent content in Control-Flow on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/control-flow/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Операторы</title>
+				<link>https://trust-lang.net/ru/docs/operators/operators/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/operators/</guid>
+				<description>&lt;h2 id=&#34;арифметические-операторы&#34;&gt;Арифметические операторы&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#%d0%b0%d1%80%d0%b8%d1%84%d0%bc%d0%b5%d1%82%d0%b8%d1%87%d0%b5%d1%81%d0%ba%d0%b8%d0%b5-%d0%be%d0%bf%d0%b5%d1%80%d0%b0%d1%82%d0%be%d1%80%d1%8b&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Арифметические операторы &lt;em&gt;TrustLang&lt;/em&gt; применимы к &lt;a href=&#34;https://trust-lang.net/ru/docs/types/numbers/&#34;&gt;числовым типам&lt;/a&gt; и формам с&#xA;присваиванием. Каждый бинарный оператор имеет парный аналог &lt;code&gt;op=&lt;/code&gt;, который выполняет операцию и&#xA;присваивает результат левому операнду (&lt;code&gt;a += 1;&lt;/code&gt;):&lt;/p&gt;&#xA;&lt;table&gt;&#xA;&#x9;&lt;thead&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;th&gt;Оператор&lt;/th&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;th&gt;Действие&lt;/th&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&lt;/thead&gt;&#xA;&#x9;&lt;tbody&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;+&lt;/code&gt; / &lt;code&gt;+=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;сложение&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;-&lt;/code&gt; / &lt;code&gt;-=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;вычитание&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;*&lt;/code&gt; / &lt;code&gt;*=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;умножение (применимо и для повторения строк)&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;/&lt;/code&gt; / &lt;code&gt;/=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;деление (результат — число с плавающей точкой)&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;//&lt;/code&gt; / &lt;code&gt;//=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;целочисленное деление с округлением к меньшему (как в Python)&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;%&lt;/code&gt; / &lt;code&gt;%=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;остаток от целочисленного деления&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&lt;/tbody&gt;&#xA;&lt;/table&gt;&#xA;&lt;p&gt;Отдельного оператора возведения в степень нет (степень вычисляется функцией/повторным умножением).&#xA;Арифметика рациональных чисел и &lt;code&gt;:BigInteger&lt;/code&gt; — отдельная строгая ветка: смешивание с числами с&#xA;плавающей точкой требует явного преобразования (см. &lt;a href=&#34;https://trust-lang.net/ru/docs/types/numbers/&#34;&gt;Числа и тензоры&lt;/a&gt;).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Условия и циклы</title>
+				<link>https://trust-lang.net/ru/docs/operators/flow/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/flow/</guid>
+				<description>&lt;p&gt;В &lt;em&gt;TrustLang&lt;/em&gt; нет ключевого слова &lt;code&gt;if&lt;/code&gt;: условие проверяется конструкцией, которая по смыслу соответствует&#xA;математическому «следует» — два тире и угловая скобка &lt;code&gt;--&amp;gt;&lt;/code&gt;. Запись легко объединяется в цепочки для&#xA;проверки нескольких условий вида «else if». Ниже конструкция показана обеими формами — DSL-макросом&#xA;и базовым синтаксисом (о двух формах записи см. &lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/macros/&#34;&gt;Макросы и DSL&lt;/a&gt;):&lt;/p&gt;&#xA;&lt;table&gt;&#xA;&lt;tr&gt;&lt;th&gt;Макросы DSL&lt;/th&gt;&lt;th&gt;Базовый синтаксис&lt;/th&gt;&lt;/tr&gt;&#xA;&lt;tr&gt;&lt;td&gt;&lt;pre&gt;&lt;code&gt;@if( условие1 ) {&#xA;    действие1&#xA;} @elif( условие2 ) действие2&#xA;@else {&#xA;    действие_иначе&#xA;};&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td&gt;&lt;pre&gt;&lt;code&gt;[ условие1 ] --&amp;gt; { действие1 },&#xA;[ условие2 ] --&amp;gt; действие2,&#xA;[ ... ] --&amp;gt; { действие_иначе };&#xA;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&#xA;&lt;/table&gt;&#xA;&lt;p&gt;Для записи циклов используется оператор &lt;code&gt;&amp;lt;-&amp;gt;&lt;/code&gt; (в базовой записи) или макросы &lt;code&gt;@while&lt;/code&gt;/&lt;code&gt;@dowhile&lt;/code&gt;&#xA;(в DSL). Условие записывается в квадратных скобках; в зависимости от взаимного расположения условия и&#xA;тела цикл бывает с предусловием (&lt;code&gt;while&lt;/code&gt;) или с постусловием (&lt;code&gt;do while&lt;/code&gt;). Эквивалентные формы:&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Выражения и инструкции</title>
+				<link>https://trust-lang.net/ru/docs/operators/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/</guid>
+				<description>&lt;p&gt;В &lt;em&gt;TrustLang&lt;/em&gt; &lt;strong&gt;любая конструкция является выражением&lt;/strong&gt; и возвращает значение, поэтому её можно&#xA;вкладывать в другие выражения. Инструкции разделяются точкой с запятой &lt;code&gt;;&lt;/code&gt;; группа инструкций&#xA;заключается в блок кода &lt;code&gt;{ ... }&lt;/code&gt;. Базовые правила блоков и выражений описаны в&#xA;&lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/&#34;&gt;Синтаксисе&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Обработка аварийных ситуаций и гарантии освобождения ресурсов связаны с моделью&#xA;&lt;a href=&#34;https://trust-lang.net/ru/docs/safety/memory/&#34;&gt;Памяти&lt;/a&gt;, а операторы типизации — с &lt;a href=&#34;../types/type_system/&#34;&gt;Системой типов&lt;/a&gt;.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Возврат, прерывания и обработка ошибок</title>
+				<link>https://trust-lang.net/ru/docs/operators/errors/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/errors/</guid>
+				<description>&lt;p&gt;Последовательность команд (&lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/#block&#34;&gt;блок кода&lt;/a&gt;) можно прервать в любом месте&#xA;специальными операторами прерывания. В &lt;em&gt;TrustLang&lt;/em&gt; используются два вида прерываний, которые по&#xA;смыслу соответствуют своей записи:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;«положительное»&lt;/strong&gt; прерывание &lt;code&gt;++&lt;/code&gt; — возврат значения/сквозная передача потока (аналог &lt;code&gt;return&lt;/code&gt;);&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;«отрицательное»&lt;/strong&gt; прерывание &lt;code&gt;--&lt;/code&gt; — ошибка (аналог &lt;code&gt;throw&lt;/code&gt;).&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;Прерывание может возвращать значение: &lt;code&gt;++ &#39;Строка&#39; ++&lt;/code&gt; — вернуть строку, &lt;code&gt;-- err --&lt;/code&gt; — «бросить»&#xA;ошибку (примерный аналог &lt;code&gt;throw err&lt;/code&gt;). Если значение не указано, прерывание не возвращает ничего&#xA;(пустое значение).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Размышления о структурном программировании</title>
+				<link>https://trust-lang.net/ru/blog/theory/structured-programming/</link>
+				<pubDate>Sun, 31 Dec 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/theory/structured-programming/</guid>
+				<description>&lt;p&gt;31 дек 2023 в 11:53&lt;/p&gt;&#xA;&lt;p&gt;&lt;img src=&#34;https://habrastorage.org/webt/bt/kx/s8/btkxs84ogzg5s87yporld99d1c0.jpeg&#34; alt=&#34;&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Изначально я хотел назвать статью как нибудь вызывающе, например, &amp;ldquo;Как наука может превращаться в религию&amp;rdquo;, &amp;ldquo;В ловушке искажений смыслов структурного программирования&amp;rdquo; или &amp;ldquo;О чем вам забыли рассказать про структурное программирование&amp;rdquo;, но в результате все же оставил текущее название и надеюсь, оно не вызывает раздражения у читателей. И хотя другие заголовки являются более кликбейтными, тем не менее они все же в больше степени отражают смысл статьи, чем нейтральные &amp;ldquo;размышления&amp;rdquo;.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

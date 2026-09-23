@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Programming-Languages on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/programming-languages/</link>
+		<description>Recent content in Programming-Languages on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/programming-languages/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Articles</title>
+				<link>https://trust-lang.net/en/blog/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>If you think you know how &#34;Expression&#34; differs from &#34;Statement&#34;, then most likely you are mistaken</title>
+				<link>https://trust-lang.net/en/blog/language-design/expression-statement/</link>
+				<pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/expression-statement/</guid>
+				<description>&lt;p&gt;I study the &lt;a href=&#34;https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/&#34;&gt;syntax of programming languages&lt;/a&gt; and try to separate fundamental regularities from historical accidents. One of such accidents is the almost ubiquitous use of the terms &lt;strong&gt;expression&lt;/strong&gt; and &lt;strong&gt;statement&lt;/strong&gt; when describing and classifying the syntax of programming languages.&lt;/p&gt;&#xA;&lt;p&gt;Intuitively it seems that &lt;code&gt;2 + 2&lt;/code&gt; and &lt;code&gt;if (x) { foo(); }&lt;/code&gt; are completely different entities, but on a deeper analysis it turns out that such a separation is artificial and arose from the architectural features of computing machines almost half a century ago and since then simply &amp;ldquo;carries over&amp;rdquo; from language to language.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Why C&#43;&#43; or Rust can never replace Python</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</guid>
+				<description>&lt;p&gt;Articles analyzing the phenomenon of Python periodically appear on Habr — how one of the slowest programming languages became the king of neural networks, and the answer is always the same: thanks to a simple syntax and a developed ecosystem. But the ecosystem of C++ is significantly larger and richer, so it is not the ecosystem, and only the syntax remains. And if the problem really is the syntax, then there should also be an answer to another question: why did C++ &lt;strong&gt;not&lt;/strong&gt; become the basis for research in this (or any other) area?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The Achilles&#39; heel of C&#43;&#43; and the future r̶e̶ evolution</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-evolution/</link>
+				<pubDate>Fri, 10 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-evolution/</guid>
+				<description>&lt;p&gt;Recently I published an opinion about a fundamental economic model of software development that does not contribute (and objectively should not contribute) to a mass transition from C/C++ to &amp;ldquo;safe&amp;rdquo; programming languages &lt;a href=&#34;https://trust-lang.net/en/blog/comparison/code-safety-economy/&#34;&gt;The economics of code safety, or why Rust is not needed&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;p&gt;But to remain honest with the readers, I decided to also publish a counter-argument article describing the other side of the coin, that is, why C++ will still be replaced sooner or later, and at the same time to try to analyze what the new programming language that will inevitably replace C++ will look like.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The economics of code safety, or why Rust is not needed</title>
+				<link>https://trust-lang.net/en/blog/comparison/code-safety-economy/</link>
+				<pubDate>Sat, 04 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/code-safety-economy/</guid>
+				<description>&lt;p&gt;I read the article Parallelism with shared state in Rust and noticed that its general meaning can be expressed by the well-known phrase: &amp;ldquo;do what must be done, and what must not be done — do not do&amp;rdquo;. In other words, it is exactly the same advice that can be given to a developer of any other programming language, for example C++.&lt;/p&gt;&#xA;&lt;p&gt;And I decided not to continue the discussion in the comments, but to express my opinion as a short article describing a fundamental economic model of software development that does not contribute (and objectively should not contribute) to a mass transition from C/C++ to &amp;ldquo;safe&amp;rdquo; alternatives. Because, due to the peculiarities of cost distribution, the software developer has no economic motivation for the complete elimination of errors, and as a consequence — for the transition to the use of &amp;ldquo;safe&amp;rdquo; programming languages.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>C&#43;&#43; safety and Buridan&#39;s mice in IT</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-safety/</link>
+				<pubDate>Thu, 02 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-safety/</guid>
+				<description>&lt;p&gt;In IT there is a strange form of &amp;ldquo;informational inertia&amp;rdquo;: when a phrase once landed well on reality, became a quote, turned into a marker of &amp;ldquo;one of us&amp;rdquo; — and then continued to live on its own. Reality moved on, practices changed, tools became different, the economics of development flipped over, but the cliché of the formulation remained. And it is repeated especially willingly by those who need to write quickly and convincingly, but have no time (or competence) to sort out the technical details.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Generic programming in different languages</title>
+				<link>https://trust-lang.net/en/blog/comparison/generics/</link>
+				<pubDate>Tue, 24 Mar 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/generics/</guid>
+				<description>&lt;p&gt;Generic programming is a paradigm that allows describing algorithms and data structures in abstraction from concrete types. Despite the single concept, each language implements it in its own way: through templates, parametric polymorphism, type erasure or duck typing. This article provides a detailed analysis of the mechanisms of generic programming in eight languages - C++, Java, C#, Python, Rust, Haskell, TypeScript, Julia - with an assessment of the strengths and weaknesses of each approach and a comparative summary.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Reflections on the Turing machine and the causes of errors in programming languages</title>
+				<link>https://trust-lang.net/en/blog/theory/turing-machine/</link>
+				<pubDate>Sat, 15 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/turing-machine/</guid>
+				<description>&lt;p&gt;A couple of years ago I wrote the article &lt;a href=&#34;https://trust-lang.net/en/blog/theory/structured-programming/&#34;&gt;Reflections on structured programming&lt;/a&gt;, in which I tried to sort out the misconception that Edsger Dijkstra proved that any algorithm can be built from just three constructs (sequence, selection, loop). Whereas in reality:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;This theorem was proved (with conditions and restrictions) by the Italian scientists &lt;strong&gt;Böhm and Jacopini&lt;/strong&gt;, and Dijkstra merely referred to it.&lt;/li&gt;&#xA;&lt;li&gt;The three mentioned basic algorithmic constructs are &lt;strong&gt;insufficient&lt;/strong&gt; for modern programming (for example, exception handling is required).&lt;/li&gt;&#xA;&lt;li&gt;The famous criticism of the &lt;code&gt;goto&lt;/code&gt; statement by Dijkstra (as well as of the assignment statement, which is always forgotten to mention) was not a strict ban, but merely a &lt;strong&gt;recommendation for improving code style&lt;/strong&gt;, so that programs would be easier to analyze.&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;And now the time has come to write about some problems of the Turing machine — the fundamental basis of all information technology.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Programming language guarantees as a basis for secure software development</title>
+				<link>https://trust-lang.net/en/blog/safety/language-guarantees/</link>
+				<pubDate>Mon, 10 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/safety/language-guarantees/</guid>
+				<description>&lt;p&gt;Errors in composing programs for computers appeared even earlier than the very first programming languages were invented. Actually, programming languages were invented precisely so that programs would be written more simply, and the number of errors in them would be as small as possible.&lt;/p&gt;&#xA;&lt;p&gt;To reduce the number of errors, many methods were developed, including the creation of specialized source code analysis tools and even entire programming languages.&lt;/p&gt;&#xA;&lt;p&gt;But after many decades, the problem of purely technical errors in software still remains unsolved to this day, however the approach proposed in the Rust language changes everything.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Building blocks of programming languages</title>
+				<link>https://trust-lang.net/en/blog/language-design/building-blocks/</link>
+				<pubDate>Fri, 03 May 2024 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/building-blocks/</guid>
+				<description>&lt;p&gt;As a result of the feedback on the article with &lt;a href=&#34;https://trust-lang.net/en/blog/theory/structured-programming/&#34;&gt;reflections on structured programming&lt;/a&gt;, there were many comments and disputes in the comments, for which I want to say a big thank you to everyone.&lt;/p&gt;&#xA;&lt;p&gt;And under the impression of the discussion of the previous article, I asked myself whether there exists a minimal set of lexemes, operators or syntactic constructs with the help of which one can build an arbitrary grammar for a modern general-purpose programming language?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>A possible solution to the problem of references in programming languages</title>
+				<link>https://trust-lang.net/en/blog/language-design/reference-solution/</link>
+				<pubDate>Tue, 23 Apr 2024 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/reference-solution/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/language-design/reference-solution.jpeg&#34; alt=&#34;&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Any programmer is familiar with the notion of a &amp;ldquo;reference&amp;rdquo;. This term usually means a small object whose main task is to provide access to another object physically located elsewhere. Because of this, references are convenient to use, they are easily copied, and with their help it is very easy to gain access to the object that the reference refers to, and one can gain access to the same data from different places in the program.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>A new programming language</title>
+				<link>https://trust-lang.net/en/blog/language-design/trust-lang/</link>
+				<pubDate>Fri, 18 Feb 2022 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/trust-lang/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;More than a year ago I began publishing articles describing the features of a new programming language.&#xA;Much water has flowed under the bridge since then, many ideas were tested, in the end everything changed radically several times,&#xA;and now I present to the readers a description of the pre-final version of the language and its features.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>An unusual concept of the syntax of a programming language</title>
+				<link>https://trust-lang.net/en/blog/language-design/unusual-prog/</link>
+				<pubDate>Mon, 24 May 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/unusual-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;I want to present to the readers&amp;rsquo; discussion a somewhat unusual concept of a programming language, which lacks the problem&#xA;inherent in almost all industrial languages — the constant increase in the complexity of the language syntax due to its natural development as new versions are released and new features are added.&#xA;This problem is described in the article &lt;a href=&#34;https://trust-lang.net/en/blog/programming/complex-prog/&#34;&gt;&amp;ldquo;Simple complex programming&amp;rdquo;&lt;/a&gt; and &lt;a href=&#34;https://trust-lang.net/en/blog/language-design/lang-final/&#34;&gt;What is the &amp;ldquo;ideal&amp;rdquo; goal of the development of programming languages?&lt;/a&gt;&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>What is the &#34;ideal&#34; goal of the development of programming languages?</title>
+				<link>https://trust-lang.net/en/blog/language-design/lang-final/</link>
+				<pubDate>Wed, 07 Apr 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/lang-final/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/language-design/lang-final/lang-final.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Information about the release of a new version of one or another programming language appears with constant regularity.&#xA;And with each new version its capabilities expand, new syntactic constructs or other improvements are added.&lt;/p&gt;&#xA;&lt;p&gt;And this very much resembles the development of technology, as in any other field of engineering.&#xA;When, with each successive stage, the creations being made are perfected.&#xA;Faster, higher, stronger … and at the same time significantly more complex.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The problem of logical programming languages</title>
+				<link>https://trust-lang.net/en/blog/theory/logic-prog/</link>
+				<pubDate>Sat, 09 Jan 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/logic-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Some time ago I wrote about &lt;a href=&#34;https://trust-lang.net/en/blog/language-design/inter-prog/&#34;&gt;&amp;ldquo;International programming in natural languages&amp;rdquo;&lt;/a&gt;,&#xA;in which I tried to present a worthy goal for an abstract programming language,&#xA;trying to try on it the role of a link between the world of programmers with computers and non-programmers.&lt;/p&gt;&#xA;&lt;p&gt;But as a result it turned out that this is not needed in principle, since &amp;ldquo;non-programmers&amp;rdquo; simply do not need to learn to write programs.&#xA;And if such a desire does arise sometimes, then ordinary formalized programming languages are quite enough,&#xA;of which there are probably already more than ten thousand.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>International programming in natural languages</title>
+				<link>https://trust-lang.net/en/blog/language-design/inter-prog/</link>
+				<pubDate>Sat, 05 Dec 2020 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/inter-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;Lately I often come across articles about new programming languages,&#xA;as well as various ratings and forecasts related to the popularity of computer languages.&lt;/p&gt;&#xA;&lt;p&gt;New tooling also announces itself,&#xA;which in its work uses its own formats for describing configuration files or sequences of executed commands,&#xA;which also brings them very close to the notion of a &amp;ldquo;programming language&amp;rdquo;.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

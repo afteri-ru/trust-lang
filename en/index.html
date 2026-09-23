@@ -1,26 +1,408 @@
 
 
 <!doctype html>
-<html lang="en">
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
   <head>
 	<meta name="generator" content="Hugo 0.165.0">
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>TrustLang — The site is under construction</title>
-    <style>
-      html,body{height:100%;margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f8f9fa;color:#212529;}
-      .m-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:24px;box-sizing:border-box;}
-      .m-msg{font-size:1.5rem;font-weight:600;margin-bottom:10px;}
-      .m-sub{color:#6c757d;max-width:34em;}
-    </style>
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/en/index.xml">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>TrustLang</title>
+<meta name="description" content="TrustLang A high-level general-purpose language for trusted development with safe memory management, compile-time error detection and full compatibility with the entire C/C&#43;&#43; ecosystem, including direct embedding of C&#43;&#43; code fragments. About the project Playground Discuss on Reddit GitHub The syntax of every modern programming language keeps getting more complex with each new release (standard). This is an unavoidable price for language evolution and a constantly growing &#34;entry tax&#34; for newcomers.">
+<meta property="og:url" content="https://trust-lang.net/en/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="TrustLang">
+	<meta property="og:description" content="TrustLang A high-level general-purpose language for trusted development with safe memory management, compile-time error detection and full compatibility with the entire C/C&#43;&#43; ecosystem, including direct embedding of C&#43;&#43; code fragments. About the project Playground Discuss on Reddit GitHub The syntax of every modern programming language keeps getting more complex with each new release (standard). This is an unavoidable price for language evolution and a constantly growing &#34;entry tax&#34; for newcomers.">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="TrustLang">
+	<meta itemprop="description" content="TrustLang A high-level general-purpose language for trusted development with safe memory management, compile-time error detection and full compatibility with the entire C/C&#43;&#43; ecosystem, including direct embedding of C&#43;&#43; code fragments. About the project Playground Discuss on Reddit GitHub The syntax of every modern programming language keeps getting more complex with each new release (standard). This is an unavoidable price for language evolution and a constantly growing &#34;entry tax&#34; for newcomers.">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="372">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="TrustLang">
+	<meta name="twitter:description" content="TrustLang A high-level general-purpose language for trusted development with safe memory management, compile-time error detection and full compatibility with the entire C/C&#43;&#43; ecosystem, including direct embedding of C&#43;&#43; code fragments. About the project Playground Discuss on Reddit GitHub The syntax of every modern programming language keeps getting more complex with each new release (standard). This is an unavoidable price for language evolution and a constantly growing &#34;entry tax&#34; for newcomers.">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
   </head>
-  <body>
-    <div class="m-wrap">
-      <div class="m-msg">The site is under construction</div>
-      
+  <body class="td-home">
+    <header>
+      <nav class="td-navbar js-navbar-scroll td-navbar-cover" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-default td-outer">
+      <main role="main" class="td-main">
+        
+
+
+<link rel="preload" as="image" href="/en/background_hu_95bb4ae7dc4a3d3d.jpg" media="(max-width: 1200px)">
+<link rel="preload" as="image" href="/en/background_hu_24db3f3dc594cfb.jpg" media="(min-width: 1200px)">
+<style>
+#td-cover-block-0 {
+  background-image: url(/en/background_hu_95bb4ae7dc4a3d3d.jpg);
+}
+@media only screen and (min-width: 1200px) {
+  #td-cover-block-0 {
+    background-image: url(/en/background_hu_24db3f3dc594cfb.jpg);
+  }
+}
+</style>
+<section id="td-cover-block-0" class="row td-cover-block td-cover-block--height-auto js-td-cover td-overlay td-overlay--dark -bg-dark">
+  <div class="col-12">
+    <div class="container td-overlay__inner">
+      <div class="text-center">
+        <h1 class="display-1 mt-0 mt-md-5 pb-4">TrustLang</h1>
+        
+        <div class="pt-3 lead">
+          
+              
+
+<p class="lead" style="max-width: 46rem; margin: 0 auto;font-size: 125%;">
+    A high-level general-purpose language for trusted development
+    with safe memory management, compile-time error detection
+    and full compatibility with the entire <nobr>C/C++</nobr> ecosystem,
+    including direct embedding of <nobr>C++</nobr> code fragments.
+</p>
+
+<div class="pt-3">
+    <a class="btn btn-primary me-3 mb-4" href="/en/docs/">
+        About the project<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="/en/playground/">
+        Playground <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
+        Discuss on Reddit<i class="fab fa-reddit ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://github.com/afteri-ru/trust-lang/">
+        GitHub <i class="fab fa-github ms-2"></i>
+    </a>
+</div>
+
+
+
+
+<a class="btn btn-link text-light" href="#td-block-1" aria-label="Read more"><i class="fa-solid fa-circle-chevron-down" style="font-size: 400%"></i></a>
+
+
+          
+        </div>
+      </div>
     </div>
+  </div>
+  
+</section>
+
+
+<div><a id="td-block-1" class="td-offset-anchor"></a></div>
+<section class="row td-box td-box--1 position-relative td-box--height-auto">
+<div class="col-12">
+<div class="container td-arrow-down">
+<div class="h4 mb-0">
+
+
+
+<p class="lead" style="max-width: 50rem; margin: 0 auto;">
+    <p class="lead">
+    The syntax of every modern programming language keeps getting more complex
+    with each new release (standard).
+    This is an unavoidable price for language evolution and a constantly growing
+    "entry tax" for newcomers.
+    </p>
+    <p class="lead">
+    TrustLang&nbsp;&mdash; is a language-«layer» on top of <nobr>C++</nobr> that lets you
+    use all of its rich capabilities, but without its complex syntax,
+    undefined behavior and other pitfalls.
+    <a href="/en/docs/">Simpler and faster than Python, more familiar and safer than Rust.*</a>
+    </p>
+
+</p>
+
+
+</div>
+</div>
+</div>
+</section>
+
+<div><a id="td-block-2" class="td-offset-anchor"></a></div>
+<section class="row td-box td-box--2 td-box--height-auto">
+<div class="col">
+<div class="container">
+
+
+
+<!-- <h3>Why TrustLang?</h3> -->
+
+<div class="row pt-4">
+    <div class="col-lg-4 mb-4">
+        <h4>Safe memory without a garbage collector</h4>
+        <p>
+            <nobr>C++</nobr>-style memory management using &nbsp;RAII, strong and&nbsp;weak references.
+            Analysis of errors, data races and&nbsp;cyclic dependencies <b>at&nbsp;compile time</b>.
+            <a href="/en/docs/safety/memory/">Memory model<b>*</b>&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Stack overflow &mdash; as an exception</h4>
+        <p>
+            Program stack overflow is handled as an ordinary program exception,
+            instead of abnormal termination with&nbsp;<i>segfault</i>.
+            <a href="/en/docs/safety/stack_check/">Stack protection&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4" style="opacity: 0.5;">
+        <h4>Automatic protection from&nbsp;dangling references</h4>
+        <p>
+            Static analysis of dangling references (analogous to ownership and borrowing in&nbsp;Rust),
+            but&nbsp;for <nobr>C++</nobr> without <i>UB</i> and <i>segfault</i> at&nbsp;runtime.
+            <a href="/en/docs/safety/invalidation/">Ownership control<b>*</b>&nbsp;&rarr;</a>
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <h4>Type system</h4>
+        <p>
+            Static and dynamic typing.
+            The type can be specified explicitly or inferred automatically from the context.
+            Ability to use <nobr>C++</nobr> types and templates.
+            <a href="/en/docs/types/type_system/">Type system&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <h4>Integration with&nbsp;<nobr>C/C++</nobr></h4>
+        <p>
+            Embedding of <nobr>C++</nobr> code fragments and&nbsp;direct calls of
+            <nobr>C++</nobr> functions without&nbsp;FFI wrappers.
+            <a href="/en/docs/types/native/">Integration&nbsp;with&nbsp;<nobr>C++</nobr>&nbsp;&rarr;</a>
+        </p>
+    </div>
+    <div class="col-lg-4 mb-4" style="opacity: 0.5;">
+        <h4>Formal verification</h4>
+        <p>
+            Contract programming (pre/postconditions, assertions).
+            Export of code and&nbsp;contracts to an&nbsp;SMT solver (Z3).
+            <a href="/en/docs/safety/verification/">Verification<b>*</b>&nbsp;&rarr;</a>
+        </p>
+    </div>
+<hr>
+<p>
+    <a href="/en/docs/status/"><i><b>*</b>) - The current version is a proof of concept, a test of
+        various approaches to implementing the architecture and&nbsp;prototyping of the syntax</i></a>
+</p>
+
+</div>
+
+</div>
+</div>
+</section>
+
+
+<div><a id="td-block-3" class="td-offset-anchor"></a></div>
+<section class="row td-box td-box--3 td-box--height-auto">
+<div class="col">
+<div class="container">
+
+
+
+<h2>How it looks</h2>
+
+<p>
+    An example of a simple TrustLang program with unlimited-precision
+    numbers and automatic type inference.
+</p>
+<p>
+    Running the program as a bash script with automatic compilation of the C++
+    code on the first run and&nbsp;subsequent execution of the binary file.
+    Automatic recompilation when the source changes.
+</p>
+
+<pre><code class="language-trust">
+    #!../_build/trust --run -Wsigil=ignore -Wembed=ignore
+
+    $fact := 1\1;   # Autotyping
+    $mult:Int32 := 1; # Fixed type
+
+    while( mult <= 40 ) {
+        fact *= mult;   # factorial 40, no precision loss
+        {% $mult++ %};  # Increment as a C++ code fragment
+    };
+
+    @print('{}', fact);
+</code></pre>
+
+<p>Output:</p>
+
+<pre><code class="language-trust">    815915283247897734345611269596115894272000000000</code></pre>
+
+<p>
+    More examples and the resulting generated <nobr>C++</nobr> code are in the <a href="/en/playground/?file=rational">playground</a>.
+</p>
+
+</div>
+</div>
+</section>
+
+
+<div><a id="td-block-4" class="td-offset-anchor"></a></div>
+<section class="row td-box td-box--4 td-box--height-auto">
+<div class="col">
+<div class="container">
+
+
+
+<div class="text-center">
+    <a class="btn btn-primary me-3 mb-4" href="/en/playground/">
+        Open the playground<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="/en/docs/">
+        All documentation<i class="fas fa-arrow-alt-circle-right ms-2"></i>
+    </a>
+    <a class="btn btn-secondary me-3 mb-4" href="https://www.reddit.com/r/trust_lang/" target="_blank" rel="noopener">
+        Discuss on Reddit<i class="fab fa-reddit ms-2"></i>
+    </a>
+</div>
+
+</div>
+</div>
+</section>
+
+
+
+
+
+      </main>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
   </body>
 </html>
-
-
-

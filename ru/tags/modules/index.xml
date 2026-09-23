@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Modules on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/modules/</link>
+		<description>Recent content in Modules on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/ru/tags/modules/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Иерархия кода</title>
+				<link>https://trust-lang.net/ru/docs/syntax/hierarchy/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/syntax/hierarchy/</guid>
+				<description>&lt;h2 id=&#34;пространства-имён&#34;&gt;Пространства имён&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#%d0%bf%d1%80%d0%be%d1%81%d1%82%d1%80%d0%b0%d0%bd%d1%81%d1%82%d0%b2%d0%b0-%d0%b8%d0%bc%d1%91%d0%bd&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;em&gt;TrustLang&lt;/em&gt; поддерживает пространства имён; разделитель, как и в C++, — двойное двоеточие &lt;code&gt;::&lt;/code&gt;.&#xA;Область имён может быть указана как для отдельного идентификатора, так и для целого&#xA;&lt;a href=&#34;https://trust-lang.net/ru/docs/operators/#block&#34;&gt;блока кода&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;p&gt;В отличие от &lt;code&gt;namespace&lt;/code&gt; в C++, области имён в &lt;em&gt;TrustLang&lt;/em&gt; служат не только для организации кода&#xA;логическими группами и избежания конфликтов имён: имя, в котором явно указана область имён, относится&#xA;к &lt;strong&gt;статическим&lt;/strong&gt; объектам (память под которые выделяется на этапе компиляции).&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

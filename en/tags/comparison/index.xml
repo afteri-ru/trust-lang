@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Comparison on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/comparison/</link>
+		<description>Recent content in Comparison on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/comparison/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Language comparison</title>
+				<link>https://trust-lang.net/en/blog/comparison/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Why C&#43;&#43; or Rust can never replace Python</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</guid>
+				<description>&lt;p&gt;Articles analyzing the phenomenon of Python periodically appear on Habr — how one of the slowest programming languages became the king of neural networks, and the answer is always the same: thanks to a simple syntax and a developed ecosystem. But the ecosystem of C++ is significantly larger and richer, so it is not the ecosystem, and only the syntax remains. And if the problem really is the syntax, then there should also be an answer to another question: why did C++ &lt;strong&gt;not&lt;/strong&gt; become the basis for research in this (or any other) area?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The Achilles&#39; heel of C&#43;&#43; and the future r̶e̶ evolution</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-evolution/</link>
+				<pubDate>Fri, 10 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-evolution/</guid>
+				<description>&lt;p&gt;Recently I published an opinion about a fundamental economic model of software development that does not contribute (and objectively should not contribute) to a mass transition from C/C++ to &amp;ldquo;safe&amp;rdquo; programming languages &lt;a href=&#34;https://trust-lang.net/en/blog/comparison/code-safety-economy/&#34;&gt;The economics of code safety, or why Rust is not needed&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;p&gt;But to remain honest with the readers, I decided to also publish a counter-argument article describing the other side of the coin, that is, why C++ will still be replaced sooner or later, and at the same time to try to analyze what the new programming language that will inevitably replace C++ will look like.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The economics of code safety, or why Rust is not needed</title>
+				<link>https://trust-lang.net/en/blog/comparison/code-safety-economy/</link>
+				<pubDate>Sat, 04 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/code-safety-economy/</guid>
+				<description>&lt;p&gt;I read the article Parallelism with shared state in Rust and noticed that its general meaning can be expressed by the well-known phrase: &amp;ldquo;do what must be done, and what must not be done — do not do&amp;rdquo;. In other words, it is exactly the same advice that can be given to a developer of any other programming language, for example C++.&lt;/p&gt;&#xA;&lt;p&gt;And I decided not to continue the discussion in the comments, but to express my opinion as a short article describing a fundamental economic model of software development that does not contribute (and objectively should not contribute) to a mass transition from C/C++ to &amp;ldquo;safe&amp;rdquo; alternatives. Because, due to the peculiarities of cost distribution, the software developer has no economic motivation for the complete elimination of errors, and as a consequence — for the transition to the use of &amp;ldquo;safe&amp;rdquo; programming languages.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>C&#43;&#43; safety and Buridan&#39;s mice in IT</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-safety/</link>
+				<pubDate>Thu, 02 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-safety/</guid>
+				<description>&lt;p&gt;In IT there is a strange form of &amp;ldquo;informational inertia&amp;rdquo;: when a phrase once landed well on reality, became a quote, turned into a marker of &amp;ldquo;one of us&amp;rdquo; — and then continued to live on its own. Reality moved on, practices changed, tools became different, the economics of development flipped over, but the cliché of the formulation remained. And it is repeated especially willingly by those who need to write quickly and convincingly, but have no time (or competence) to sort out the technical details.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>What is the &#34;ideal&#34; goal of the development of programming languages?</title>
+				<link>https://trust-lang.net/en/blog/language-design/lang-final/</link>
+				<pubDate>Wed, 07 Apr 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/lang-final/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/language-design/lang-final/lang-final.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Information about the release of a new version of one or another programming language appears with constant regularity.&#xA;And with each new version its capabilities expand, new syntactic constructs or other improvements are added.&lt;/p&gt;&#xA;&lt;p&gt;And this very much resembles the development of technology, as in any other field of engineering.&#xA;When, with each successive stage, the creations being made are perfected.&#xA;Faster, higher, stronger … and at the same time significantly more complex.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

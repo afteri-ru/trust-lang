@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Syntax on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/syntax/</link>
+		<description>Recent content in Syntax on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/syntax/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Concept</title>
+				<link>https://trust-lang.net/en/docs/syntax/concept/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/syntax/concept/</guid>
+				<description>&lt;h2 id=&#34;fundamental-notions&#34;&gt;Fundamental notions&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#fundamental-notions&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;The &lt;em&gt;TrustLang&lt;/em&gt; syntax has several rules common to the whole language:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;The language is built on &lt;strong&gt;grammar rules&lt;/strong&gt;, not on keywords. The lexer and parser&#xA;are single-pass, simple and fast, while the usual keyword notation&#xA;(&lt;code&gt;@if&lt;/code&gt;, &lt;code&gt;@while&lt;/code&gt;, &lt;code&gt;@func&lt;/code&gt;, &amp;hellip;) is implemented on top of the base syntax through&#xA;&lt;a href=&#34;https://trust-lang.net/en/docs/syntax/macros/&#34;&gt;macros&lt;/a&gt;.&lt;/li&gt;&#xA;&lt;li&gt;Terms of the source text are first recognized by the lexer and processed by the &lt;strong&gt;macro processor&lt;/strong&gt;,&#xA;and only then reach the parser. This makes it possible to modify even basic syntax constructs with macros.&lt;/li&gt;&#xA;&lt;li&gt;Statements (operators) are separated by a semicolon &lt;code&gt;;&lt;/code&gt;.&lt;/li&gt;&#xA;&lt;li&gt;Code blocks are written in curly braces &lt;code&gt;{ ... }&lt;/code&gt;.&lt;/li&gt;&#xA;&lt;li&gt;Any construct (including a code block) is an expression and&#xA;&lt;a href=&#34;https://trust-lang.net/en/blog/language-design/expression-statement/&#34;&gt;returns a value&lt;/a&gt;, so it can be nested&#xA;inside other expressions.&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;The &lt;em&gt;TrustLang&lt;/em&gt; syntax can be conventionally divided into several layers, each responsible&#xA;for its own area:&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Syntax</title>
+				<link>https://trust-lang.net/en/docs/syntax/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/syntax/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>Naming of objects</title>
+				<link>https://trust-lang.net/en/docs/syntax/naming/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/syntax/naming/</guid>
+				<description>&lt;p&gt;As names of objects and names of data types you can use letters, digits and underscores in any&#xA;combinations, provided that the first character of the name is not a digit.&lt;/p&gt;&#xA;&lt;p&gt;A name cannot consist of a single underscore, since this is a special term used for service&#xA;purposes.&lt;/p&gt;&#xA;&lt;p&gt;To avoid name collisions you can use a &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/hierarchy/&#34;&gt;namespace&lt;/a&gt;&#xA;and a &lt;a href=&#34;https://trust-lang.net/en/docs/syntax/hierarchy/&#34;&gt;modular code structure&lt;/a&gt;, which &lt;em&gt;TrustLang&lt;/em&gt; supports simultaneously.&#xA;&lt;a href=&#34;https://trust-lang.net/en/docs/types/funcs/#overriding&#34;&gt;Overriding&lt;/a&gt; and &lt;a href=&#34;https://trust-lang.net/en/docs/types/funcs/#overload&#34;&gt;overloading&lt;/a&gt; of functions are allowed.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Macros and DSL</title>
+				<link>https://trust-lang.net/en/docs/syntax/macros/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/syntax/macros/</guid>
+				<description>&lt;p&gt;Macros in &lt;strong&gt;TrustLang&lt;/strong&gt; are elements of metaprogramming.&lt;/p&gt;&#xA;&lt;p&gt;A macro is one or several consecutive terms that are replaced by another term&#xA;or by a whole syntactic construct (a sequence of lexemes) and&#xA;act as specialized regular expressions for searching and replacing sequences of terms.&lt;/p&gt;&#xA;&lt;p&gt;Macros are processed by the &lt;strong&gt;lexer&lt;/strong&gt; before sending tokens to the parser for syntax analysis,&#xA;which makes it possible to change even the syntax of the language, for example, to turn the &lt;em&gt;TrustLang&lt;/em&gt; syntax based on grammar rules&#xA;into the more familiar keyword-based syntax,&#xA;since such text is easier to perceive when subsequently reading the program source code.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Code hierarchy</title>
+				<link>https://trust-lang.net/en/docs/syntax/hierarchy/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/syntax/hierarchy/</guid>
+				<description>&lt;h2 id=&#34;namespaces&#34;&gt;Namespaces&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#namespaces&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;em&gt;TrustLang&lt;/em&gt; supports namespaces; the separator, as in C++, is the double colon &lt;code&gt;::&lt;/code&gt;.&#xA;A namespace can be specified both for an individual identifier and for a whole&#xA;&lt;a href=&#34;https://trust-lang.net/en/docs/operators/#block&#34;&gt;code block&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Unlike &lt;code&gt;namespace&lt;/code&gt; in C++, namespaces in &lt;em&gt;TrustLang&lt;/em&gt; serve not only to organize code into&#xA;logical groups and to avoid name conflicts: a name in which a namespace is explicitly specified refers&#xA;to &lt;strong&gt;static&lt;/strong&gt; objects (memory for which is allocated at compile time).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Memory management and shared access</title>
+				<link>https://trust-lang.net/en/docs/safety/memory/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/docs/safety/memory/</guid>
+				<description>&lt;p&gt;No single memory management approach is the best or universal: different approaches win under different conditions:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;Manual memory management can do anything, except one thing — guarantee the absence of errors.&lt;/li&gt;&#xA;&lt;li&gt;Ownership and borrowing analysis at compile time makes it possible to prove the correctness of code without additional&#xA;runtime checks, but some scenarios and algorithms cannot be proven statically at compile time.&lt;/li&gt;&#xA;&lt;li&gt;Counting strong and weak references at runtime is convenient for shared ownership, but has a non-zero&#xA;cost and does not protect against cyclic and cross dependencies.&lt;/li&gt;&#xA;&lt;li&gt;Garbage collection simplifies working with complex cyclic structures, but has the most expensive overhead&#xA;and non-deterministic execution.&lt;/li&gt;&#xA;&lt;li&gt;None of the listed memory management approaches includes the issues of inter-thread&#xA;memory access synchronization.&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;Therefore, choosing only one memory management approach in a programming language means deliberately limiting its capabilities and adding unnecessary overhead. For these reasons, the memory management concept of &lt;em&gt;TrustLang&lt;/em&gt; allows extending the implementation of the memory management model with minimal impact on the language syntax and is defined by the requirements (guarantees) for working with memory.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>If you think you know how &#34;Expression&#34; differs from &#34;Statement&#34;, then most likely you are mistaken</title>
+				<link>https://trust-lang.net/en/blog/language-design/expression-statement/</link>
+				<pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/expression-statement/</guid>
+				<description>&lt;p&gt;I study the &lt;a href=&#34;https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/&#34;&gt;syntax of programming languages&lt;/a&gt; and try to separate fundamental regularities from historical accidents. One of such accidents is the almost ubiquitous use of the terms &lt;strong&gt;expression&lt;/strong&gt; and &lt;strong&gt;statement&lt;/strong&gt; when describing and classifying the syntax of programming languages.&lt;/p&gt;&#xA;&lt;p&gt;Intuitively it seems that &lt;code&gt;2 + 2&lt;/code&gt; and &lt;code&gt;if (x) { foo(); }&lt;/code&gt; are completely different entities, but on a deeper analysis it turns out that such a separation is artificial and arose from the architectural features of computing machines almost half a century ago and since then simply &amp;ldquo;carries over&amp;rdquo; from language to language.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Why C&#43;&#43; or Rust can never replace Python</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-rust-vs-python/</guid>
+				<description>&lt;p&gt;Articles analyzing the phenomenon of Python periodically appear on Habr — how one of the slowest programming languages became the king of neural networks, and the answer is always the same: thanks to a simple syntax and a developed ecosystem. But the ecosystem of C++ is significantly larger and richer, so it is not the ecosystem, and only the syntax remains. And if the problem really is the syntax, then there should also be an answer to another question: why did C++ &lt;strong&gt;not&lt;/strong&gt; become the basis for research in this (or any other) area?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Building blocks of programming languages</title>
+				<link>https://trust-lang.net/en/blog/language-design/building-blocks/</link>
+				<pubDate>Fri, 03 May 2024 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/building-blocks/</guid>
+				<description>&lt;p&gt;As a result of the feedback on the article with &lt;a href=&#34;https://trust-lang.net/en/blog/theory/structured-programming/&#34;&gt;reflections on structured programming&lt;/a&gt;, there were many comments and disputes in the comments, for which I want to say a big thank you to everyone.&lt;/p&gt;&#xA;&lt;p&gt;And under the impression of the discussion of the previous article, I asked myself whether there exists a minimal set of lexemes, operators or syntactic constructs with the help of which one can build an arbitrary grammar for a modern general-purpose programming language?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Nuances of developing a parser for your own programming language</title>
+				<link>https://trust-lang.net/en/blog/implementation/parser-nuances/</link>
+				<pubDate>Wed, 29 Mar 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/implementation/parser-nuances/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Recently I read an article on Habr, &amp;ldquo;My own language, or how I got tired of assembler and C&amp;rdquo;, and my eye involuntarily caught on one paragraph:&lt;/p&gt;&#xA;&lt;blockquote&gt;&#xA;&lt;p&gt;I decided not to bother too much, so I used the parglare library. It is very lightweight and convenient, I recommend it to everyone. To describe the syntax, the parser accepts a string in the corresponding format and uses regular expressions (do not judge regexes, they are omnipotent!).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>DSL (domain-specific language) implementation with macros</title>
+				<link>https://trust-lang.net/en/blog/implementation/dsl-with-macros/</link>
+				<pubDate>Wed, 01 Mar 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/implementation/dsl-with-macros/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/implementation/dsl.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;The release of the &lt;strong&gt;&lt;a href=&#34;https://trust-lang.net/en/&#34;&gt;TrustLang&lt;/a&gt;&lt;/strong&gt; language is approaching with a fundamentally new &amp;ldquo;feature&amp;rdquo;, a reworked version of the preprocessor that makes it possible to extend the syntax of the language to create various DSL dialects through macros.&lt;/p&gt;&#xA;&lt;p&gt;And, as always, using the previously found lifehack Habr — a chamber of wisdom, I would like to get feedback from readers about the approach proposed below, which is planned to be implemented in the new &lt;strong&gt;TrustLang&lt;/strong&gt; preprocessor.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>A new programming language</title>
+				<link>https://trust-lang.net/en/blog/language-design/trust-lang/</link>
+				<pubDate>Fri, 18 Feb 2022 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/trust-lang/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;More than a year ago I began publishing articles describing the features of a new programming language.&#xA;Much water has flowed under the bridge since then, many ideas were tested, in the end everything changed radically several times,&#xA;and now I present to the readers a description of the pre-final version of the language and its features.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>An unusual concept of the syntax of a programming language</title>
+				<link>https://trust-lang.net/en/blog/language-design/unusual-prog/</link>
+				<pubDate>Mon, 24 May 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/unusual-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;I want to present to the readers&amp;rsquo; discussion a somewhat unusual concept of a programming language, which lacks the problem&#xA;inherent in almost all industrial languages — the constant increase in the complexity of the language syntax due to its natural development as new versions are released and new features are added.&#xA;This problem is described in the article &lt;a href=&#34;https://trust-lang.net/en/blog/programming/complex-prog/&#34;&gt;&amp;ldquo;Simple complex programming&amp;rdquo;&lt;/a&gt; and &lt;a href=&#34;https://trust-lang.net/en/blog/language-design/lang-final/&#34;&gt;What is the &amp;ldquo;ideal&amp;rdquo; goal of the development of programming languages?&lt;/a&gt;&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>International programming in natural languages</title>
+				<link>https://trust-lang.net/en/blog/language-design/inter-prog/</link>
+				<pubDate>Sat, 05 Dec 2020 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/inter-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;Lately I often come across articles about new programming languages,&#xA;as well as various ratings and forecasts related to the popularity of computer languages.&lt;/p&gt;&#xA;&lt;p&gt;New tooling also announces itself,&#xA;which in its work uses its own formats for describing configuration files or sequences of executed commands,&#xA;which also brings them very close to the notion of a &amp;ldquo;programming language&amp;rdquo;.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

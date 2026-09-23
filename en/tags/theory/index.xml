@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Theory on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/theory/</link>
+		<description>Recent content in Theory on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/theory/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Theory of computation</title>
+				<link>https://trust-lang.net/en/blog/theory/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>The mechanism of the emergence of consciousness in finite state machines</title>
+				<link>https://trust-lang.net/en/blog/theory/consciousness-fsm/</link>
+				<pubDate>Mon, 13 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/consciousness-fsm/</guid>
+				<description>&lt;p&gt;A finite state machine is a mathematical model of computation: an abstract machine that at each moment of time is in exactly one of a finite set of states, and transitions between states occur in response to input signals (events) according to predefined rules. Traditionally, this model is perceived as a primitive formalization, suitable only for recognizing regular languages and implementing rigidly deterministic reactive controllers.&lt;/p&gt;&#xA;&lt;p&gt;At first glance, such an abstraction seems too primitive to contain artificial intelligence or self-awareness. However, if we consider consciousness not as a static attribute of an individual element, but as an emergent property that arises at the junction of the interaction of millions of automaton transitions, then the boundary between a computing machine and a thinking system with self-awareness turns out to be unexpectedly thin.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Reflections on the Turing machine and the causes of errors in programming languages</title>
+				<link>https://trust-lang.net/en/blog/theory/turing-machine/</link>
+				<pubDate>Sat, 15 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/turing-machine/</guid>
+				<description>&lt;p&gt;A couple of years ago I wrote the article &lt;a href=&#34;https://trust-lang.net/en/blog/theory/structured-programming/&#34;&gt;Reflections on structured programming&lt;/a&gt;, in which I tried to sort out the misconception that Edsger Dijkstra proved that any algorithm can be built from just three constructs (sequence, selection, loop). Whereas in reality:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;This theorem was proved (with conditions and restrictions) by the Italian scientists &lt;strong&gt;Böhm and Jacopini&lt;/strong&gt;, and Dijkstra merely referred to it.&lt;/li&gt;&#xA;&lt;li&gt;The three mentioned basic algorithmic constructs are &lt;strong&gt;insufficient&lt;/strong&gt; for modern programming (for example, exception handling is required).&lt;/li&gt;&#xA;&lt;li&gt;The famous criticism of the &lt;code&gt;goto&lt;/code&gt; statement by Dijkstra (as well as of the assignment statement, which is always forgotten to mention) was not a strict ban, but merely a &lt;strong&gt;recommendation for improving code style&lt;/strong&gt;, so that programs would be easier to analyze.&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;And now the time has come to write about some problems of the Turing machine — the fundamental basis of all information technology.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Reflections on structured programming</title>
+				<link>https://trust-lang.net/en/blog/theory/structured-programming/</link>
+				<pubDate>Sun, 31 Dec 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/structured-programming/</guid>
+				<description>&lt;p&gt;31 Dec 2023 at 11:53&lt;/p&gt;&#xA;&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/theory/structured-programming.jpeg&#34; alt=&#34;&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Initially I wanted to title the article in some provocative way, for example, &amp;ldquo;How science can turn into religion&amp;rdquo;, &amp;ldquo;Trapped in the distortions of the meaning of structured programming&amp;rdquo; or &amp;ldquo;What you were not told about structured programming&amp;rdquo;, but in the end I still kept the current title and I hope it does not irritate the readers. And although the other titles are more clickbaity, nevertheless they still reflect the meaning of the article to a greater extent than the neutral &amp;ldquo;reflections&amp;rdquo;.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The problem of logical programming languages</title>
+				<link>https://trust-lang.net/en/blog/theory/logic-prog/</link>
+				<pubDate>Sat, 09 Jan 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/logic-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Some time ago I wrote about &lt;a href=&#34;https://trust-lang.net/en/blog/language-design/inter-prog/&#34;&gt;&amp;ldquo;International programming in natural languages&amp;rdquo;&lt;/a&gt;,&#xA;in which I tried to present a worthy goal for an abstract programming language,&#xA;trying to try on it the role of a link between the world of programmers with computers and non-programmers.&lt;/p&gt;&#xA;&lt;p&gt;But as a result it turned out that this is not needed in principle, since &amp;ldquo;non-programmers&amp;rdquo; simply do not need to learn to write programs.&#xA;And if such a desire does arise sometimes, then ordinary formalized programming languages are quite enough,&#xA;of which there are probably already more than ten thousand.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

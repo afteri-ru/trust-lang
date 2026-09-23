@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Security on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/security/</link>
+		<description>Recent content in Security on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/security/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Software safety</title>
+				<link>https://trust-lang.net/en/blog/safety/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/safety/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>The economics of code safety, or why Rust is not needed</title>
+				<link>https://trust-lang.net/en/blog/comparison/code-safety-economy/</link>
+				<pubDate>Sat, 04 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/code-safety-economy/</guid>
+				<description>&lt;p&gt;I read the article Parallelism with shared state in Rust and noticed that its general meaning can be expressed by the well-known phrase: &amp;ldquo;do what must be done, and what must not be done — do not do&amp;rdquo;. In other words, it is exactly the same advice that can be given to a developer of any other programming language, for example C++.&lt;/p&gt;&#xA;&lt;p&gt;And I decided not to continue the discussion in the comments, but to express my opinion as a short article describing a fundamental economic model of software development that does not contribute (and objectively should not contribute) to a mass transition from C/C++ to &amp;ldquo;safe&amp;rdquo; alternatives. Because, due to the peculiarities of cost distribution, the software developer has no economic motivation for the complete elimination of errors, and as a consequence — for the transition to the use of &amp;ldquo;safe&amp;rdquo; programming languages.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>C&#43;&#43; safety and Buridan&#39;s mice in IT</title>
+				<link>https://trust-lang.net/en/blog/comparison/cpp-safety/</link>
+				<pubDate>Thu, 02 Apr 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/comparison/cpp-safety/</guid>
+				<description>&lt;p&gt;In IT there is a strange form of &amp;ldquo;informational inertia&amp;rdquo;: when a phrase once landed well on reality, became a quote, turned into a marker of &amp;ldquo;one of us&amp;rdquo; — and then continued to live on its own. Reality moved on, practices changed, tools became different, the economics of development flipped over, but the cliché of the formulation remained. And it is repeated especially willingly by those who need to write quickly and convincingly, but have no time (or competence) to sort out the technical details.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Programming language guarantees as a basis for secure software development</title>
+				<link>https://trust-lang.net/en/blog/safety/language-guarantees/</link>
+				<pubDate>Mon, 10 Nov 2025 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/safety/language-guarantees/</guid>
+				<description>&lt;p&gt;Errors in composing programs for computers appeared even earlier than the very first programming languages were invented. Actually, programming languages were invented precisely so that programs would be written more simply, and the number of errors in them would be as small as possible.&lt;/p&gt;&#xA;&lt;p&gt;To reduce the number of errors, many methods were developed, including the creation of specialized source code analysis tools and even entire programming languages.&lt;/p&gt;&#xA;&lt;p&gt;But after many decades, the problem of purely technical errors in software still remains unsolved to this day, however the approach proposed in the Rust language changes everything.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

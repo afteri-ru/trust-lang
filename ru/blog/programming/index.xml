@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Философия программирования on TrustLang</title>
+		<link>https://trust-lang.net/ru/blog/programming/</link>
+		<description>Recent content in Философия программирования on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/ru/blog/programming/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Можно ли использовать декларативный и императивный стили написания программ одновременно?</title>
+				<link>https://trust-lang.net/ru/blog/programming/prog-styles-same-time/</link>
+				<pubDate>Mon, 26 Jul 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/programming/prog-styles-same-time/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/programming/matrix.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Внимание!!!&lt;/p&gt;&#xA;&lt;p&gt;Данная статья содержит описание синтаксиса NewLang предыдущей версии.&lt;/p&gt;&#xA;&lt;p&gt;Актуальную версию синтаксиса языка можно посмотреть &lt;a href=&#34;https://trust-lang.net/ru/docs/&#34;&gt;тут&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;При разработке своего собственного языка программирования автор должен определиться, какими свойствами его язык должен обладать,&#xA;ведь в конечном итоге именно это и будет определять назначение языка и особенности его использования.&#xA;Причем некоторые свойства  настолько сильно влияют на итоговую концепцию языка и его синтаксис,&#xA;что впоследствии их изменение невозможно в принципе, либо новый синтаксис получается очень запутанным и непонятным.&#xA;Наверно из-за этого многие свойства языков программирования рассматриваются и изучаются как взаимоисключающие.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Простое сложное программирование</title>
+				<link>https://trust-lang.net/ru/blog/programming/complex-prog/</link>
+				<pubDate>Thu, 15 Apr 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/programming/complex-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/ru/blog/programming/complex-prog/complex-prog.jpeg&#34; alt=&#34;КДПВ&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;В очередной раз увидел на Хабре статью про сложное дело под названием «программирование».&#xA;И то, что программирование действительно является делом не простым воспринимается как факт и обычно не требует какого либо подтверждения.&lt;/p&gt;&#xA;&lt;p&gt;Но понятие «сложность» сродни термину «куча».&#xA;Для кого-то и пять кокосов это не куча, а кого-то съел один и «больше не хочется» - значит для него и единственного кокоса будет много.&lt;/p&gt;&#xA;&lt;p&gt;Так и со сложностью ПО. Вроде бы увеличение сложности является для всех очевидным и наблюдается во всех сферах применения IT технологий,&#xA;да и сами языки программирования по мере своего развития становятся все сложнее,&#xA;а вот оценивать «сложность» с помощью численных метрик - дело заведомо неблагодарное, но и «нельзя управлять тем, что невозможно измерить &amp;hellip;».&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

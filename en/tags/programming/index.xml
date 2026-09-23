@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Programming on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/programming/</link>
+		<description>Recent content in Programming on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/programming/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Philosophy of programming</title>
+				<link>https://trust-lang.net/en/blog/programming/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/programming/</guid>
+				<description></description>
+			</item>
+			<item>
+				<title>The mechanism of the emergence of consciousness in finite state machines</title>
+				<link>https://trust-lang.net/en/blog/theory/consciousness-fsm/</link>
+				<pubDate>Mon, 13 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/consciousness-fsm/</guid>
+				<description>&lt;p&gt;A finite state machine is a mathematical model of computation: an abstract machine that at each moment of time is in exactly one of a finite set of states, and transitions between states occur in response to input signals (events) according to predefined rules. Traditionally, this model is perceived as a primitive formalization, suitable only for recognizing regular languages and implementing rigidly deterministic reactive controllers.&lt;/p&gt;&#xA;&lt;p&gt;At first glance, such an abstraction seems too primitive to contain artificial intelligence or self-awareness. However, if we consider consciousness not as a static attribute of an individual element, but as an emergent property that arises at the junction of the interaction of millions of automaton transitions, then the boundary between a computing machine and a thinking system with self-awareness turns out to be unexpectedly thin.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Reflections on structured programming</title>
+				<link>https://trust-lang.net/en/blog/theory/structured-programming/</link>
+				<pubDate>Sun, 31 Dec 2023 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/structured-programming/</guid>
+				<description>&lt;p&gt;31 Dec 2023 at 11:53&lt;/p&gt;&#xA;&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/theory/structured-programming.jpeg&#34; alt=&#34;&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Initially I wanted to title the article in some provocative way, for example, &amp;ldquo;How science can turn into religion&amp;rdquo;, &amp;ldquo;Trapped in the distortions of the meaning of structured programming&amp;rdquo; or &amp;ldquo;What you were not told about structured programming&amp;rdquo;, but in the end I still kept the current title and I hope it does not irritate the readers. And although the other titles are more clickbaity, nevertheless they still reflect the meaning of the article to a greater extent than the neutral &amp;ldquo;reflections&amp;rdquo;.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Can declarative and imperative styles of writing programs be used simultaneously?</title>
+				<link>https://trust-lang.net/en/blog/programming/prog-styles-same-time/</link>
+				<pubDate>Mon, 26 Jul 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/programming/prog-styles-same-time/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/programming/matrix.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;When developing his own programming language, the author must decide what properties his language should have,&#xA;because in the end it is precisely this that will determine the purpose of the language and the features of its use.&#xA;Moreover, some properties influence the final concept of the language and its syntax so strongly&#xA;that subsequently their change is impossible in principle, or the new syntax turns out to be very tangled and incomprehensible.&#xA;Probably because of this many properties of programming languages are considered and studied as mutually exclusive.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Simple complex programming</title>
+				<link>https://trust-lang.net/en/blog/programming/complex-prog/</link>
+				<pubDate>Thu, 15 Apr 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/programming/complex-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/programming/complex-prog/complex-prog.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Once again I saw an article on Habr about the complicated business called &amp;ldquo;programming&amp;rdquo;.&#xA;And the fact that programming really is not a simple business is perceived as a fact and usually does not require any confirmation.&lt;/p&gt;&#xA;&lt;p&gt;But the notion of &amp;ldquo;complexity&amp;rdquo; is akin to the term &amp;ldquo;heap&amp;rdquo;.&#xA;For someone, five coconuts is not a heap, and someone ate one and &amp;ldquo;does not want any more&amp;rdquo; — so for him even a single coconut will be a lot.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>The problem of logical programming languages</title>
+				<link>https://trust-lang.net/en/blog/theory/logic-prog/</link>
+				<pubDate>Sat, 09 Jan 2021 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/theory/logic-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&lt;p&gt;Some time ago I wrote about &lt;a href=&#34;https://trust-lang.net/en/blog/language-design/inter-prog/&#34;&gt;&amp;ldquo;International programming in natural languages&amp;rdquo;&lt;/a&gt;,&#xA;in which I tried to present a worthy goal for an abstract programming language,&#xA;trying to try on it the role of a link between the world of programmers with computers and non-programmers.&lt;/p&gt;&#xA;&lt;p&gt;But as a result it turned out that this is not needed in principle, since &amp;ldquo;non-programmers&amp;rdquo; simply do not need to learn to write programs.&#xA;And if such a desire does arise sometimes, then ordinary formalized programming languages are quite enough,&#xA;of which there are probably already more than ten thousand.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>International programming in natural languages</title>
+				<link>https://trust-lang.net/en/blog/language-design/inter-prog/</link>
+				<pubDate>Sat, 05 Dec 2020 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/language-design/inter-prog/</guid>
+				<description>&lt;p&gt;&lt;img src=&#34;https://trust-lang.net/en/blog/langs.jpeg&#34; alt=&#34;Featured image&#34;&gt;&lt;/p&gt;&#xA;&#xA;&#xA;&lt;div class=&#34;pageinfo pageinfo-primary&#34;&gt;&#xA;&lt;p&gt;Attention!!!&lt;/p&gt;&#xA;&lt;p&gt;This article contains a description of the syntax of the previous version of NewLang.&lt;/p&gt;&#xA;&lt;p&gt;The current version of the language syntax can be viewed &lt;a href=&#34;https://trust-lang.net/en/docs/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;&#xA;&#xA;&lt;/div&gt;&#xA;&#xA;&lt;p&gt;Lately I often come across articles about new programming languages,&#xA;as well as various ratings and forecasts related to the popularity of computer languages.&lt;/p&gt;&#xA;&lt;p&gt;New tooling also announces itself,&#xA;which in its work uses its own formats for describing configuration files or sequences of executed commands,&#xA;which also brings them very close to the notion of a &amp;ldquo;programming language&amp;rdquo;.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

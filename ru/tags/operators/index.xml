@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Operators on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/operators/</link>
+		<description>Recent content in Operators on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<atom:link href="https://trust-lang.net/ru/tags/operators/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Создание объектов и присваивание</title>
+				<link>https://trust-lang.net/ru/docs/operators/create/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/create/</guid>
+				<description>&lt;!--&#xA;##### Область видимости объекта != время жизни объекта {#important}&#xA;У объекта *имя* есть всегда, даже тогда, когда сам объект физически еще не создан.&#xA;Область видимости *имени* определяется его расположением в программном коде (блок кода, пространство имен, модуль и т.д.).&#xA;Объект может существовать, но быть не доступен из текущей области видимости, например, перекрыт другим объектом с таким же именем.&#xA;&#xA;Время жизни локального/автоматического (т.е. временного) объекта всегда ограничено областью видимости текущего блока кода,&#xA;а время жизни статического объекта ограничено временем жизни модуля, в котором он определен или временем жизни программы, если объект глобальный.&#xA;Но *инициализация начального занчения статического объекта* происходит в соответствии с выполняемым программным кодом,&#xA;(т.е. при выполнении кода с оператором создания статического объекта).&#xA;--&gt;&#xA;&lt;h3 id=&#34;create&#34;&gt;Создание объектов&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#create&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h3&gt;&lt;p&gt;Для создания объектов в TrustLang используется несколько операторов:&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Операторы</title>
+				<link>https://trust-lang.net/ru/docs/operators/operators/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/operators/</guid>
+				<description>&lt;h2 id=&#34;арифметические-операторы&#34;&gt;Арифметические операторы&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#%d0%b0%d1%80%d0%b8%d1%84%d0%bc%d0%b5%d1%82%d0%b8%d1%87%d0%b5%d1%81%d0%ba%d0%b8%d0%b5-%d0%be%d0%bf%d0%b5%d1%80%d0%b0%d1%82%d0%be%d1%80%d1%8b&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Арифметические операторы &lt;em&gt;TrustLang&lt;/em&gt; применимы к &lt;a href=&#34;https://trust-lang.net/ru/docs/types/numbers/&#34;&gt;числовым типам&lt;/a&gt; и формам с&#xA;присваиванием. Каждый бинарный оператор имеет парный аналог &lt;code&gt;op=&lt;/code&gt;, который выполняет операцию и&#xA;присваивает результат левому операнду (&lt;code&gt;a += 1;&lt;/code&gt;):&lt;/p&gt;&#xA;&lt;table&gt;&#xA;&#x9;&lt;thead&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;th&gt;Оператор&lt;/th&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;th&gt;Действие&lt;/th&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&lt;/thead&gt;&#xA;&#x9;&lt;tbody&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;+&lt;/code&gt; / &lt;code&gt;+=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;сложение&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;-&lt;/code&gt; / &lt;code&gt;-=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;вычитание&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;*&lt;/code&gt; / &lt;code&gt;*=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;умножение (применимо и для повторения строк)&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;/&lt;/code&gt; / &lt;code&gt;/=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;деление (результат — число с плавающей точкой)&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;//&lt;/code&gt; / &lt;code&gt;//=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;целочисленное деление с округлением к меньшему (как в Python)&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&#x9;&#x9;&lt;tr&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;&lt;code&gt;%&lt;/code&gt; / &lt;code&gt;%=&lt;/code&gt;&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&#x9;&#x9;&lt;td&gt;остаток от целочисленного деления&lt;/td&gt;&#xA;&#x9;&#x9;&#x9;&lt;/tr&gt;&#xA;&#x9;&lt;/tbody&gt;&#xA;&lt;/table&gt;&#xA;&lt;p&gt;Отдельного оператора возведения в степень нет (степень вычисляется функцией/повторным умножением).&#xA;Арифметика рациональных чисел и &lt;code&gt;:BigInteger&lt;/code&gt; — отдельная строгая ветка: смешивание с числами с&#xA;плавающей точкой требует явного преобразования (см. &lt;a href=&#34;https://trust-lang.net/ru/docs/types/numbers/&#34;&gt;Числа и тензоры&lt;/a&gt;).&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Условия и циклы</title>
+				<link>https://trust-lang.net/ru/docs/operators/flow/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/flow/</guid>
+				<description>&lt;p&gt;В &lt;em&gt;TrustLang&lt;/em&gt; нет ключевого слова &lt;code&gt;if&lt;/code&gt;: условие проверяется конструкцией, которая по смыслу соответствует&#xA;математическому «следует» — два тире и угловая скобка &lt;code&gt;--&amp;gt;&lt;/code&gt;. Запись легко объединяется в цепочки для&#xA;проверки нескольких условий вида «else if». Ниже конструкция показана обеими формами — DSL-макросом&#xA;и базовым синтаксисом (о двух формах записи см. &lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/macros/&#34;&gt;Макросы и DSL&lt;/a&gt;):&lt;/p&gt;&#xA;&lt;table&gt;&#xA;&lt;tr&gt;&lt;th&gt;Макросы DSL&lt;/th&gt;&lt;th&gt;Базовый синтаксис&lt;/th&gt;&lt;/tr&gt;&#xA;&lt;tr&gt;&lt;td&gt;&lt;pre&gt;&lt;code&gt;@if( условие1 ) {&#xA;    действие1&#xA;} @elif( условие2 ) действие2&#xA;@else {&#xA;    действие_иначе&#xA;};&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td&gt;&lt;pre&gt;&lt;code&gt;[ условие1 ] --&amp;gt; { действие1 },&#xA;[ условие2 ] --&amp;gt; действие2,&#xA;[ ... ] --&amp;gt; { действие_иначе };&#xA;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&#xA;&lt;/table&gt;&#xA;&lt;p&gt;Для записи циклов используется оператор &lt;code&gt;&amp;lt;-&amp;gt;&lt;/code&gt; (в базовой записи) или макросы &lt;code&gt;@while&lt;/code&gt;/&lt;code&gt;@dowhile&lt;/code&gt;&#xA;(в DSL). Условие записывается в квадратных скобках; в зависимости от взаимного расположения условия и&#xA;тела цикл бывает с предусловием (&lt;code&gt;while&lt;/code&gt;) или с постусловием (&lt;code&gt;do while&lt;/code&gt;). Эквивалентные формы:&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Выражения и инструкции</title>
+				<link>https://trust-lang.net/ru/docs/operators/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/</guid>
+				<description>&lt;p&gt;В &lt;em&gt;TrustLang&lt;/em&gt; &lt;strong&gt;любая конструкция является выражением&lt;/strong&gt; и возвращает значение, поэтому её можно&#xA;вкладывать в другие выражения. Инструкции разделяются точкой с запятой &lt;code&gt;;&lt;/code&gt;; группа инструкций&#xA;заключается в блок кода &lt;code&gt;{ ... }&lt;/code&gt;. Базовые правила блоков и выражений описаны в&#xA;&lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/&#34;&gt;Синтаксисе&lt;/a&gt;.&lt;/p&gt;&#xA;&lt;p&gt;Обработка аварийных ситуаций и гарантии освобождения ресурсов связаны с моделью&#xA;&lt;a href=&#34;https://trust-lang.net/ru/docs/safety/memory/&#34;&gt;Памяти&lt;/a&gt;, а операторы типизации — с &lt;a href=&#34;../types/type_system/&#34;&gt;Системой типов&lt;/a&gt;.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Менеджер контекста (with)</title>
+				<link>https://trust-lang.net/ru/docs/operators/with/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/with/</guid>
+				<description>&lt;p&gt;Одиночный оператор захвата ссылки и синхронизации доступа к объекту (&lt;code&gt;*ref&lt;/code&gt;, &lt;code&gt;*ref(...)&lt;/code&gt;)&#xA;выполняется для одного действия. Захват ссылки/объекта синхронизации — относительно медленная&#xA;операция, поэтому выполнять её для каждого действия нерационально. &lt;strong&gt;Менеджер контекста&lt;/strong&gt; (&lt;code&gt;with&lt;/code&gt;)&#xA;однократно захватывает сразу несколько ссылок/объектов и выполняет группу действий под общим локом,&#xA;а также служит для &lt;strong&gt;автоматического освобождения ресурсов (RAII)&lt;/strong&gt; при выходе из блока.&lt;/p&gt;&#xA;&lt;p&gt;В базовом синтаксисе — оператор &lt;code&gt;**( ... )&lt;/code&gt;, в DSL ему соответствует макрос &lt;code&gt;@with&lt;/code&gt;&#xA;(см. &lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/macros/&#34;&gt;Keyword syntax (DSL)&lt;/a&gt;). Сравнение форм записи на примере&#xA;захвата-блокировки ссылки:&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Возврат, прерывания и обработка ошибок</title>
+				<link>https://trust-lang.net/ru/docs/operators/errors/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/operators/errors/</guid>
+				<description>&lt;p&gt;Последовательность команд (&lt;a href=&#34;https://trust-lang.net/ru/docs/syntax/#block&#34;&gt;блок кода&lt;/a&gt;) можно прервать в любом месте&#xA;специальными операторами прерывания. В &lt;em&gt;TrustLang&lt;/em&gt; используются два вида прерываний, которые по&#xA;смыслу соответствуют своей записи:&lt;/p&gt;&#xA;&lt;ul&gt;&#xA;&lt;li&gt;&lt;strong&gt;«положительное»&lt;/strong&gt; прерывание &lt;code&gt;++&lt;/code&gt; — возврат значения/сквозная передача потока (аналог &lt;code&gt;return&lt;/code&gt;);&lt;/li&gt;&#xA;&lt;li&gt;&lt;strong&gt;«отрицательное»&lt;/strong&gt; прерывание &lt;code&gt;--&lt;/code&gt; — ошибка (аналог &lt;code&gt;throw&lt;/code&gt;).&lt;/li&gt;&#xA;&lt;/ul&gt;&#xA;&lt;p&gt;Прерывание может возвращать значение: &lt;code&gt;++ &#39;Строка&#39; ++&lt;/code&gt; — вернуть строку, &lt;code&gt;-- err --&lt;/code&gt; — «бросить»&#xA;ошибку (примерный аналог &lt;code&gt;throw err&lt;/code&gt;). Если значение не указано, прерывание не возвращает ничего&#xA;(пустое значение).&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

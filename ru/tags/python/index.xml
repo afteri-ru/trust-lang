@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Python on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/python/</link>
+		<description>Recent content in Python on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Mon, 07 Sep 2026 17:43:45 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/python/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Почему C&#43;&#43; или Rust никогда не смогут заменить Python</title>
+				<link>https://trust-lang.net/ru/blog/comparison/cpp-rust-vs-python/</link>
+				<pubDate>Tue, 28 Jul 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/cpp-rust-vs-python/</guid>
+				<description>&lt;p&gt;На Хабре периодически появляются статьи с анализом феномена Python - как один из самых медленных языков программирования стал королём нейросетей, и ответ всегда один: за счёт простого синтаксиса и развитой экосистемы. Но экосистема у C++ значительно больше и богаче, значит, дело не в ней и остаётся только синтаксис. А если проблема действительно в синтаксисе, тогда должен быть ответ и на другой вопрос: почему C++ &lt;strong&gt;не&lt;/strong&gt; стал основой для исследований в этой (или любой другой) области?&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Обобщённое программирование в разных языках</title>
+				<link>https://trust-lang.net/ru/blog/comparison/generics/</link>
+				<pubDate>Tue, 24 Mar 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/generics/</guid>
+				<description>&lt;p&gt;Обобщённое программирование (generic programming) - парадигма, позволяющая описывать алгоритмы и структуры данных в абстракции от конкретных типов. Несмотря на единую концепцию, каждый язык реализует её по-своему: через шаблоны, параметрический полиморфизм, стирание типов или утиную типизацию. В данной статье проводится детальный анализ механизмов обобщённого программирования в восьми языках - C++, Java, C#, Python, Rust, Haskell, TypeScript, Julia - с оценкой сильных и слабых сторон каждого подхода и сравнительным итогом.&lt;/p&gt;&#xA;&lt;hr&gt;&#xA;&lt;h2 id=&#34;1-введение&#34;&gt;1. Введение&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#1-%d0%b2%d0%b2%d0%b5%d0%b4%d0%b5%d0%bd%d0%b8%d0%b5&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Идея обобщённого программирования восходит к работам Александра Степанова и Дэвида Мусера в конце 1980-х годов. Её суть - отделение алгоритмов от конкретных типов данных при сохранении типовой безопасности и управляемой производительности. На практике разные языки решают эту задачу через разные механизмы:&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

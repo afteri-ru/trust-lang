@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Runtime on TrustLang</title>
+		<link>https://trust-lang.net/en/tags/runtime/</link>
+		<description>Recent content in Runtime on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>en</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/en/tags/runtime/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</title>
+				<link>https://trust-lang.net/en/blog/safety/stack-overflow/</link>
+				<pubDate>Wed, 07 Jan 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/en/blog/safety/stack-overflow/</guid>
+				<description>&lt;p&gt;January 7 at 14:53 2026&lt;/p&gt;&#xA;&lt;p&gt;Developing the idea of a &lt;a href=&#34;https://trust-lang.net/en/blog/safety/language-guarantees/&#34;&gt;trusted programming language&lt;/a&gt;, I came to the conclusion that, through restrictions of the syntax and the creation of corresponding checks in the static code analyzer, it is possible to protect against practically all technical errors except two — the control of dynamically allocated memory and stack overflow.&lt;/p&gt;&#xA;&lt;p&gt;Moreover, while solutions exist for reference counting at runtime, stack overflow control cannot be done not only during the analysis of the source text of the program, but it is practically impossible even during the execution of the application! After all, a stack overflow error is always fatal, since there is no way to catch and handle this error from inside the running program in order to then continue its execution as if nothing had happened.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

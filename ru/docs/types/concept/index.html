@@ -1,0 +1,549 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="ru" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Система типов | TrustLang</title>
+<meta name="description" content="ПринципыTrustLang имеет закрытую систему типов: любой новый тип данных обязательно наследует (расширяет) один из уже существующих. Это напоминает модель Object в Java, но без физического наследования (без боксинга простых типов в объекты). Этот подход является основой для обобщённого программирования, когда производный тип наследует набор операций «родительского» типа, и продолжает работать со всеми его наследниками.
+Язык динамически типизирован: тип переменной можно указать явно или оставить автоматический вывод. Указанный тип используется для проверок совместимости при присваивании, для проверки типа возвращаемого значения функции и для управления размещением в памяти нативных типов. Автоматическое приведение возможно только между совместимыми типами; в остальных случаях требуется явное преобразование типов.">
+<meta property="og:url" content="https://trust-lang.net/ru/docs/types/concept/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Система типов">
+	<meta property="og:description" content="ПринципыTrustLang имеет закрытую систему типов: любой новый тип данных обязательно наследует (расширяет) один из уже существующих. Это напоминает модель Object в Java, но без физического наследования (без боксинга простых типов в объекты). Этот подход является основой для обобщённого программирования, когда производный тип наследует набор операций «родительского» типа, и продолжает работать со всеми его наследниками.
+Язык динамически типизирован: тип переменной можно указать явно или оставить автоматический вывод. Указанный тип используется для проверок совместимости при присваивании, для проверки типа возвращаемого значения функции и для управления размещением в памяти нативных типов. Автоматическое приведение возможно только между совместимыми типами; в остальных случаях требуется явное преобразование типов.">
+	<meta property="og:locale" content="ru">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="docs">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Types">
+		<meta property="article:tag" content="Oop">
+		<meta property="article:tag" content="Collections">
+		<meta property="article:tag" content="Generics">
+
+	<meta itemprop="name" content="Система типов">
+	<meta itemprop="description" content="ПринципыTrustLang имеет закрытую систему типов: любой новый тип данных обязательно наследует (расширяет) один из уже существующих. Это напоминает модель Object в Java, но без физического наследования (без боксинга простых типов в объекты). Этот подход является основой для обобщённого программирования, когда производный тип наследует набор операций «родительского» типа, и продолжает работать со всеми его наследниками.
+Язык динамически типизирован: тип переменной можно указать явно или оставить автоматический вывод. Указанный тип используется для проверок совместимости при присваивании, для проверки типа возвращаемого значения функции и для управления размещением в памяти нативных типов. Автоматическое приведение возможно только между совместимыми типами; в остальных случаях требуется явное преобразование типов.">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="507">
+	<meta itemprop="keywords" content="Types,Oop,Collections,Generics">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Система типов">
+	<meta name="twitter:description" content="ПринципыTrustLang имеет закрытую систему типов: любой новый тип данных обязательно наследует (расширяет) один из уже существующих. Это напоминает модель Object в Java, но без физического наследования (без боксинга простых типов в объекты). Этот подход является основой для обобщённого программирования, когда производный тип наследует набор операций «родительского» типа, и продолжает работать со всеми его наследниками.
+Язык динамически типизирован: тип переменной можно указать явно или оставить автоматический вывод. Указанный тип используется для проверок совместимости при присваивании, для проверки типа возвращаемого значения функции и для управления размещением в памяти нативных типов. Автоматическое приведение возможно только между совместимыми типами; в остальных случаях требуется явное преобразование типов.">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/ru/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link active" href="/ru/docs/"><span>О проекте</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/ru/blog/"><span>Статьи</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/docs/types/concept/">English</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap td-docs-layout">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Поиск по сайту…"
+    aria-label="Поиск по сайту…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Русский</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/en/docs/types/concept/">English</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-rudocs-li">
+  <a href="/ru/docs/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-rudocs"><span class="">О проекте</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rudocssyntax-li">
+  <input type="checkbox" id="m-rudocssyntax-check"/>
+  <label for="m-rudocssyntax-check"><a href="/ru/docs/syntax/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rudocssyntax"><span class="">Синтаксис</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssyntaxconcept-li">
+  <input type="checkbox" id="m-rudocssyntaxconcept-check"/>
+  <label for="m-rudocssyntaxconcept-check"><a href="/ru/docs/syntax/concept/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssyntaxconcept"><span class="">Концепция</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssyntaxnaming-li">
+  <input type="checkbox" id="m-rudocssyntaxnaming-check"/>
+  <label for="m-rudocssyntaxnaming-check"><a href="/ru/docs/syntax/naming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssyntaxnaming"><span class="">Именование объектов</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssyntaxmacros-li">
+  <input type="checkbox" id="m-rudocssyntaxmacros-check"/>
+  <label for="m-rudocssyntaxmacros-check"><a href="/ru/docs/syntax/macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssyntaxmacros"><span class="">Макросы и DSL</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssyntaxhierarchy-li">
+  <input type="checkbox" id="m-rudocssyntaxhierarchy-check"/>
+  <label for="m-rudocssyntaxhierarchy-check"><a href="/ru/docs/syntax/hierarchy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssyntaxhierarchy"><span class="">Иерархия кода</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-rudocstypes-li">
+  <input type="checkbox" id="m-rudocstypes-check" checked/>
+  <label for="m-rudocstypes-check"><a href="/ru/docs/types/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rudocstypes"><span class="">Типы данных</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-rudocstypesconcept-li">
+  <input type="checkbox" id="m-rudocstypesconcept-check" checked/>
+  <label for="m-rudocstypesconcept-check"><a href="/ru/docs/types/concept/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-rudocstypesconcept"><span class="td-sidebar-nav-active-item">Система типов</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesnumbers-li">
+  <input type="checkbox" id="m-rudocstypesnumbers-check"/>
+  <label for="m-rudocstypesnumbers-check"><a href="/ru/docs/types/numbers/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesnumbers"><span class="">Числа и тензоры</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesstrings-li">
+  <input type="checkbox" id="m-rudocstypesstrings-check"/>
+  <label for="m-rudocstypesstrings-check"><a href="/ru/docs/types/strings/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesstrings"><span class="">Символьные строки</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesdicts-li">
+  <input type="checkbox" id="m-rudocstypesdicts-check"/>
+  <label for="m-rudocstypesdicts-check"><a href="/ru/docs/types/dicts/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesdicts"><span class="">Словари и наборы (перечисления)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesclass-li">
+  <input type="checkbox" id="m-rudocstypesclass-check"/>
+  <label for="m-rudocstypesclass-check"><a href="/ru/docs/types/class/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesclass"><span class="">Классы</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesfuncs-li">
+  <input type="checkbox" id="m-rudocstypesfuncs-check"/>
+  <label for="m-rudocstypesfuncs-check"><a href="/ru/docs/types/funcs/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesfuncs"><span class="">Функции</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypesnative-li">
+  <input type="checkbox" id="m-rudocstypesnative-check"/>
+  <label for="m-rudocstypesnative-check"><a href="/ru/docs/types/native/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypesnative"><span class="">Нативные типы</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocstypescontainers-li">
+  <input type="checkbox" id="m-rudocstypescontainers-check"/>
+  <label for="m-rudocstypescontainers-check"><a href="/ru/docs/types/containers/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocstypescontainers"><span class="">Диапазоны, массивы и тензоры</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rudocsoperators-li">
+  <input type="checkbox" id="m-rudocsoperators-check"/>
+  <label for="m-rudocsoperators-check"><a href="/ru/docs/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rudocsoperators"><span class="">Выражения и инструкции</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorscreate-li">
+  <input type="checkbox" id="m-rudocsoperatorscreate-check"/>
+  <label for="m-rudocsoperatorscreate-check"><a href="/ru/docs/operators/create/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorscreate"><span class="">Создание объектов и присваивание</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorsoperators-li">
+  <input type="checkbox" id="m-rudocsoperatorsoperators-check"/>
+  <label for="m-rudocsoperatorsoperators-check"><a href="/ru/docs/operators/operators/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorsoperators"><span class="">Операторы</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorsflow-li">
+  <input type="checkbox" id="m-rudocsoperatorsflow-check"/>
+  <label for="m-rudocsoperatorsflow-check"><a href="/ru/docs/operators/flow/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorsflow"><span class="">Условия и циклы</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorswith-li">
+  <input type="checkbox" id="m-rudocsoperatorswith-check"/>
+  <label for="m-rudocsoperatorswith-check"><a href="/ru/docs/operators/with/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorswith"><span class="">Менеджер контекста (with)</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsoperatorserrors-li">
+  <input type="checkbox" id="m-rudocsoperatorserrors-check"/>
+  <label for="m-rudocsoperatorserrors-check"><a href="/ru/docs/operators/errors/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsoperatorserrors"><span class="">Возврат, прерывания и обработка ошибок</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-rudocssafety-li">
+  <input type="checkbox" id="m-rudocssafety-check"/>
+  <label for="m-rudocssafety-check"><a href="/ru/docs/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-rudocssafety"><span class="">Гарантии и безопасность</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssafetymemory-li">
+  <input type="checkbox" id="m-rudocssafetymemory-check"/>
+  <label for="m-rudocssafetymemory-check"><a href="/ru/docs/safety/memory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssafetymemory"><span class="">Управление памятью и совместный доступ</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssafetystack_check-li">
+  <input type="checkbox" id="m-rudocssafetystack_check-check"/>
+  <label for="m-rudocssafetystack_check-check"><a href="/ru/docs/safety/stack_check/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssafetystack_check"><span class="">Защита стека от переполнения (stack check)</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocssandbox-li">
+  <input type="checkbox" id="m-rudocssandbox-check"/>
+  <label for="m-rudocssandbox-check"><a href="/ru/docs/sandbox/" title="Песочница (playground)" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocssandbox"><span class="">Песочница</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-rudocsstatus-li">
+  <input type="checkbox" id="m-rudocsstatus-check"/>
+  <label for="m-rudocsstatus-check"><a href="/ru/docs/status/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-rudocsstatus"><span class="">Статус и планы</span></a></label>
+  
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/ru/_print/docs/types/"><i class="fa-solid fa-print fa-fw"></i> Печатать весь раздел</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#принципы">Принципы</a></li>
+    <li><a href="#категории-типов">Категории типов</a></li>
+    <li><a href="#имена-типов-и-конструкторы">Имена типов и конструкторы</a></li>
+    <li><a href="#статус-реализации">Статус реализации</a></li>
+    <li><a href="#преобразование-типов">Преобразование типов</a></li>
+    <li><a href="#явное-приведение-вызовом-типа">Явное приведение вызовом типа</a></li>
+    <li><a href="#словарь-как-универсальный-тип">Словарь как универсальный тип</a></li>
+    <li><a href="#преобразования-между-категориями">Преобразования между категориями</a></li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5" role="main">
+            
+
+<div class="pageinfo pageinfo-primary" role="note">
+  <p><strong>Разделы сайта находятся в разработке.</strong></p>
+  <p>Материалы могут быть неполными или содержать ошибки.
+  Содержимое сайта будет синхронизировано с реализацией при выходе следующей версии,
+  тогда как текущая (0.6.0) предназначена для прототипирования синтаксиса и создания <a href="/ru/playground/">песочницы</a>.</p>
+</div>
+
+
+
+            
+  
+
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/ru/docs/">О проекте</a></li>
+  <li class="breadcrumb-item">
+    <a href="/ru/docs/types/">Типы данных</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    Система типов</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>Система типов</h1>
+	
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/ru/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<h2 id="принципы">Принципы<a class="td-heading-self-link" href="#%d0%bf%d1%80%d0%b8%d0%bd%d1%86%d0%b8%d0%bf%d1%8b" aria-label="Heading self-link"></a></h2><p><em>TrustLang</em> имеет <strong>закрытую систему типов</strong>: любой новый тип данных обязательно наследует
+(расширяет) один из уже существующих. Это напоминает модель <code>Object</code> в Java, но без физического наследования (без боксинга простых типов в объекты).
+Этот подход является основой для <a href="generics/">обобщённого программирования</a>, когда производный тип наследует набор операций «родительского» типа,
+и продолжает работать со всеми его наследниками.</p>
+<p>Язык динамически типизирован: тип переменной можно указать явно или оставить автоматический вывод.
+Указанный тип используется для проверок совместимости при присваивании, для проверки типа
+возвращаемого значения функции и для управления размещением в памяти <a href="/ru/docs/types/native/">нативных типов</a>.
+Автоматическое приведение возможно только между совместимыми типами; в остальных случаях требуется
+явное <a href="type_system/">преобразование типов</a>.</p>
+<h2 id="категории-типов">Категории типов<a class="td-heading-self-link" href="#%d0%ba%d0%b0%d1%82%d0%b5%d0%b3%d0%be%d1%80%d0%b8%d0%b8-%d1%82%d0%b8%d0%bf%d0%be%d0%b2" aria-label="Heading self-link"></a></h2><p>Типы данных разделяются на <strong>простые</strong> (скалярные, не расширяемые) и <strong>составные</strong>
+(контейнерные и определяемые пользователем). Кратко по категориям (подробности — на
+соответствующих страницах раздела):</p>
+<table>
+	<thead>
+			<tr>
+					<th>Категория</th>
+					<th>Типы</th>
+					<th>Описание на странице</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>Целые</td>
+					<td><code>:Int8</code>…<code>:Int64</code>, беззнаковые синонимы (<code>:Byte</code>, <code>:Word</code>, <code>:DWord</code>), <code>:Bool</code></td>
+					<td><a href="/ru/docs/types/numbers/">Числа и тензоры</a></td>
+			</tr>
+			<tr>
+					<td>Числа с плавающей точкой</td>
+					<td><code>:Float16</code>, <code>:Float32</code>, <code>:Float64</code></td>
+					<td><a href="/ru/docs/types/numbers/">Числа и тензоры</a></td>
+			</tr>
+			<tr>
+					<td>Произвольная точность</td>
+					<td>рациональные <code>m\n</code> и <code>:BigInteger</code> (GMP)</td>
+					<td><a href="/ru/docs/types/numbers/">Числа и тензоры</a></td>
+			</tr>
+			<tr>
+					<td>Строки</td>
+					<td><code>:StrChar</code> (UTF-8), <code>:StrWide</code></td>
+					<td><a href="/ru/docs/types/strings/">Символьные строки</a></td>
+			</tr>
+			<tr>
+					<td>Диапазоны и массивы</td>
+					<td><code>:Range</code>, <code>:Array</code> (одномерный, <code>std::vector</code>)</td>
+					<td><a href="/ru/docs/types/containers/">Диапазоны, массивы и тензоры</a></td>
+			</tr>
+			<tr>
+					<td>Словари</td>
+					<td><code>:Dictionary</code> (позиционные и именованные элементы)</td>
+					<td><a href="/ru/docs/types/dicts/">Словари и наборы</a></td>
+			</tr>
+			<tr>
+					<td>Пользовательские</td>
+					<td>перечисления <code>:Enum</code>, варианты <code>:Variant</code>, кортежи <code>:Tuple</code>, алиасы <code>::=</code></td>
+					<td><a href="/ru/docs/types/dicts/">Словари и наборы</a></td>
+			</tr>
+			<tr>
+					<td>Нативные</td>
+					<td>импорт и предварительное объявление C/C++-типов и шаблонов</td>
+					<td><a href="/ru/docs/types/native/">Нативные типы</a></td>
+			</tr>
+	</tbody>
+</table>
+<p>Переменные могут хранить значение напрямую либо быть <strong>ссылочными</strong> (сильные/слабые ссылки,
+<code>shared</code>/<code>weak</code>) — см. <a href="/ru/docs/safety/memory/">Управление памятью</a>.</p>
+<h2 id="имена-типов-и-конструкторы">Имена типов и конструкторы<a class="td-heading-self-link" href="#%d0%b8%d0%bc%d0%b5%d0%bd%d0%b0-%d1%82%d0%b8%d0%bf%d0%be%d0%b2-%d0%b8-%d0%ba%d0%be%d0%bd%d1%81%d1%82%d1%80%d1%83%d0%ba%d1%82%d0%be%d1%80%d1%8b" aria-label="Heading self-link"></a></h2><p>Каждый тип имеет <em>краткое имя</em>, начинающееся с двоеточия (например, <code>:Int32</code>), и одноимённую
+функцию-конструктор без двоеточия. Новый экземпляр создаётся вызовом конструктора: <code>x := Int32(5);</code>.
+Типы могут быть синонимами — два типа с одинаковым кратким именем в разных пространствах имён;
+в этом случае требуется явная квалификация имени при вызове конструктора (см.
+<a href="/ru/docs/syntax/naming/">Именование объектов</a>).</p>
+<h2 id="статус-реализации">Статус реализации<a class="td-heading-self-link" href="#%d1%81%d1%82%d0%b0%d1%82%d1%83%d1%81-%d1%80%d0%b5%d0%b0%d0%bb%d0%b8%d0%b7%d0%b0%d1%86%d0%b8%d0%b8" aria-label="Heading self-link"></a></h2><p>Из «объектно-ориентированных» возможностей реализованы базовые <code>:Struct</code>/<code>:Class</code> (поля, методы,
+наследование), типы <code>Enum</code>/<code>Variant</code>/<code>Tuple</code> и предварительное объявление нативных классов
+(см. <a href="/ru/docs/types/class/">Классы</a>). Комплексные числа (<code>:Complex16/32/64</code>), многомерные тензоры (полноценные
+<code>:Tensor</code>), виртуальные методы/<code>@[override]</code> (полноценное ООП), корутины и чистые функции не
+реализованы — подробнее в <a href="/ru/docs/status/">Статусе реализации и ограничения</a>.</p>
+<h2 id="преобразование-типов">Преобразование типов<a class="td-heading-self-link" href="#%d0%bf%d1%80%d0%b5%d0%be%d0%b1%d1%80%d0%b0%d0%b7%d0%be%d0%b2%d0%b0%d0%bd%d0%b8%d0%b5-%d1%82%d0%b8%d0%bf%d0%be%d0%b2" aria-label="Heading self-link"></a></h2><p>Несмотря на динамическую типизацию, если тип переменной указан явно, автоматическое приведение
+типов <strong>не</strong> выполняется — для присваивания значения несовместимого типа требуется его явное
+преобразование.</p>
+<h2 id="явное-приведение-вызовом-типа">Явное приведение вызовом типа<a class="td-heading-self-link" href="#%d1%8f%d0%b2%d0%bd%d0%be%d0%b5-%d0%bf%d1%80%d0%b8%d0%b2%d0%b5%d0%b4%d0%b5%d0%bd%d0%b8%d0%b5-%d0%b2%d1%8b%d0%b7%d0%be%d0%b2%d0%be%d0%bc-%d1%82%d0%b8%d0%bf%d0%b0" aria-label="Heading self-link"></a></h2><p>Явное преобразование выполняется вызовом функции с именем целевого типа (кратким именем без
+двоеточия): <code>:Int32(x)</code> читается как <code>Int32(x)</code> — это вызов конструктора/приведения типа.</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#000">n</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000">Int32</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">3.14</span><span style="color:#000;font-weight:bold">);</span>      <span style="color:#8f5902;font-style:italic"># число с плавающей точкой → целое</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">b</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000">Bool</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">5</span><span style="color:#000;font-weight:bold">);</span>          <span style="color:#8f5902;font-style:italic"># число → логическое (0/1)</span>
+</span></span><span style="display:flex;"><span><span style="color:#000">f</span> <span style="color:#ce5c00;font-weight:bold">:=</span> <span style="color:#000">Float64</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">n</span><span style="color:#000;font-weight:bold">);</span>       <span style="color:#8f5902;font-style:italic"># целое → число с плавающей точкой</span>
+</span></span></code></pre></div><p>Приведение выполняется <strong>с контролем диапазона</strong>: если значение не помещается в целевой тип
+(сужение), возникает ошибка — как на этапе компиляции для известных значений, так и в рантайме для
+переменных. Молчаливого «обрезка»/переполнения нет.</p>
+<h2 id="словарь-как-универсальный-тип">Словарь как универсальный тип<a class="td-heading-self-link" href="#%d1%81%d0%bb%d0%be%d0%b2%d0%b0%d1%80%d1%8c-%d0%ba%d0%b0%d0%ba-%d1%83%d0%bd%d0%b8%d0%b2%d0%b5%d1%80%d1%81%d0%b0%d0%bb%d1%8c%d0%bd%d1%8b%d0%b9-%d1%82%d0%b8%d0%bf" aria-label="Heading self-link"></a></h2><p>Словарь — единственный тип, который может быть приведён к любому другому: для создания значения
+конкретного типа достаточно передать словарь аргументом в приведение/конструктор типа. Подробнее —
+в <a href="/ru/docs/types/dicts/">Словарях и наборах</a>.</p>
+<h2 id="преобразования-между-категориями">Преобразования между категориями<a class="td-heading-self-link" href="#%d0%bf%d1%80%d0%b5%d0%be%d0%b1%d1%80%d0%b0%d0%b7%d0%be%d0%b2%d0%b0%d0%bd%d0%b8%d1%8f-%d0%bc%d0%b5%d0%b6%d0%b4%d1%83-%d0%ba%d0%b0%d1%82%d0%b5%d0%b3%d0%be%d1%80%d0%b8%d1%8f%d0%bc%d0%b8" aria-label="Heading self-link"></a></h2><p>Правила и примеры преобразований для конкретных категорий описаны вместе с самими типами:</p>
+<ul>
+<li>числа и рациональные значения — <a href="/ru/docs/types/numbers/">Числа и тензоры</a>;</li>
+<li>строки и их форматирование — <a href="/ru/docs/types/strings/">Символьные строки</a>;</li>
+<li>диапазоны/массивы и изменение размерности — <a href="/ru/docs/types/containers/">Диапазоны, массивы и тензоры</a>;</li>
+<li>нативные C/C++-типы — <a href="/ru/docs/types/native/">Нативные типы</a>.</li>
+</ul>
+
+	
+</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">Все права защищены</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

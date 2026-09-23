@@ -1,0 +1,523 @@
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="canonical" type="text/html" href="https://trust-lang.net/en/blog/safety/">
+<link rel="alternate" type="application/rss&#43;xml" href="https://trust-lang.net/en/blog/safety/index.xml">
+<meta name="robots" content="noindex, nofollow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Software safety | TrustLang</title>
+<meta name="description" content="TrustLang site">
+<meta property="og:url" content="https://trust-lang.net/en/blog/safety/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Software safety">
+	<meta property="og:description" content="TrustLang site">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="website">
+
+	<meta itemprop="name" content="Software safety">
+	<meta itemprop="description" content="TrustLang site">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="keywords" content="Memory-Safety,Security">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Software safety">
+	<meta name="twitter:description" content="TrustLang site">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-section td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/safety/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <div class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+          </div>
+          <div class="d-none d-xl-block col-xl-2 td-toc d-print-none">
+          </div>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            
+
+
+
+
+<div class="td-content">
+<div class="pageinfo pageinfo-primary d-print-none">
+<p>
+This is the multi-page printable view of this section.
+<a href="#" onclick="print();return false;">Click here to print</a>.
+</p><p>
+<a href="/en/blog/safety/">Return to the regular view of this page</a>.
+</p>
+</div>
+
+
+
+<h1 class="title">Software safety</h1>
+
+
+
+
+
+    <ul>
+    
+  
+  
+  
+  
+
+  
+    
+    
+	
+
+    <li><a href="#pg-5df2fd36adf1bcccc2029b407f57c343">Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</a></li>
+
+
+
+    
+  
+    
+    
+	
+
+    <li><a href="#pg-cf8634e6fabe3433dfa83ead4251459a">Programming language guarantees as a basis for secure software development</a></li>
+
+
+
+    
+  
+
+    </ul>
+
+
+<div class="content">
+      
+</div>
+</div>
+
+
+  
+  
+  
+  
+
+  
+  
+
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="">
+    <h1 id="pg-5df2fd36adf1bcccc2029b407f57c343">Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2026-01-07" class="text-body-secondary">Wednesday, January 07, 2026</time>
+        
+	</div>
+	<p>January 7 at 14:53 2026</p>
+<p>Developing the idea of a <a href="/en/blog/safety/language-guarantees/">trusted programming language</a>, I came to the conclusion that, through restrictions of the syntax and the creation of corresponding checks in the static code analyzer, it is possible to protect against practically all technical errors except two — the control of dynamically allocated memory and stack overflow.</p>
+<p>Moreover, while solutions exist for reference counting at runtime, stack overflow control cannot be done not only during the analysis of the source text of the program, but it is practically impossible even during the execution of the application! After all, a stack overflow error is always fatal, since there is no way to catch and handle this error from inside the running program in order to then continue its execution as if nothing had happened.</p>
+<p>Is there at least a theoretical possibility to protect against stack overflow errors and turn it into an ordinary error (exception) that can be caught (handled) in the application itself, so that it is possible to continue the execution of the program without fear of a subsequent segmentation fault or stack smashing?</p>
+<p><a href="/en/blog/safety/stack-overflow/#body">Skip the lyrics and go straight to the description of the solution</a></p>
+<h2 id="a-bit-of-technical-information-about-the-stack">A bit of technical information about the stack<a class="td-heading-self-link" href="#a-bit-of-technical-information-about-the-stack" aria-label="Heading self-link"></a></h2><p>The program stack is a small area of RAM in which local variables and function return addresses are stored. When the depth of calls or the size of local data exceeds the limit allotted to them, the next write to the stack goes beyond its boundaries, which is the cause of the error. Moreover, if the error handler code also needs stack, but it is already exhausted, then it is impossible to reliably perform the error handling — since there is no memory in the stack for temporary data.</p>
+<p>Some operating systems deliberately create a protective lower boundary of the stack, an attempt to go beyond which leads to an immediate abnormal termination of the application; and even if the programming language allows catching the stack overflow error, the state of the thread is already violated: the data is damaged, and continuing the work of the application is unsafe.</p>
+<p>That is precisely why a stack overflow almost always ends in an abnormal stop of the thread or of the whole process. Only a correct termination of the application with a report/memory dump is allowed, without continuing the program&rsquo;s work.</p>
+<p>The problem is further aggravated by the fact that it is impossible in principle to compute the stack size for a function during AST analysis, since this is information exclusively of compile time:</p>
+<ul>
+<li>The stack size of a function can depend on the input data of the function (for example alloca and VLA in the C language)</li>
+<li>The compiler may add unused space between variables for their alignment (Padding).</li>
+<li>The registers that the function must restore before returning (<code>callee-saved registers</code>), the function return address and the return data are saved on the stack. Moreover, all this depends not only on the features of a specific hardware platform, but also on the <a href="https://en.wikipedia.org/wiki/Calling_convention">function calling convention</a>.</li>
+<li>The compiler may create unnamed temporary variables on the stack to store intermediate results of computations.</li>
+<li>The optimizer may completely remove some variables or store them only in registers, without using stack memory for this.</li>
+<li>There is also no universal method for determining the free space on the stack, since it depends both on the hardware platform and on the specific operating system.</li>
+</ul>
+<p>Moreover, information about the stack size of a function is usually not available during the execution of the application either, because a program is machine instructions, and to find out the size of the stack used by a specific function one needs to decode (disassemble) its code for analysis.</p>
+<h1 id="causes-of-stack-overflow-and-protection-mechanisms">Causes of stack overflow and protection mechanisms<a class="td-heading-self-link" href="#causes-of-stack-overflow-and-protection-mechanisms" aria-label="Heading self-link"></a></h1><p>At the basis of the theory of algorithms lies the abstract Turing machine, which has infinite computing resources (infinite memory and unlimited execution time), thanks to which any algorithms are allowed, including those with infinite recursion depth.</p>
+<p>However, the resources of real computers are always finite: memory, and accordingly the stack size, are finite. Because of this, although recursive algorithms exist, <strong>unlimited recursion</strong> is impossible in practice. In addition, the problem of determining the termination of an arbitrary program (the halting problem) for a Turing machine is in principle unsolvable, therefore no analysis of a program at compile time is capable of reliably predicting the correctness of the program in the general case, nor the maximum stack depth required for its execution.</p>
+<p>Therefore the stack size is always set in advance:</p>
+<ul>
+<li>When linking/loading the process into RAM or when creating an application thread.</li>
+<li>The maximum stack size is reserved at the OS level and cannot be increased during the life of the thread (although sometimes <a href="https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/resetstkoflw">attempts are made to dynamically increase the stack size during the operation of the application</a>, <a href="https://releases.llvm.org/3.0/docs/SegmentedStacks.html">Segmented Stacks in LLVM</a> and <a href="https://gcc.gnu.org/wiki/SplitStacks">Split Stacks in GCC</a>)</li>
+<li>In some programming languages, the runtimes can set custom stack sizes, but this does not change the limits for the system thread and still runs into the overall memory limit.</li>
+</ul>
+<spoiler title="There are many stack protection mechanisms:">
+<p>Software, at the compiler level:</p>
+<ul>
+<li>Stack canaries (stack cookies): inserting protective markers in function prologues, checked in the epilogue.</li>
+<li>Probing/step-by-step &ldquo;probing&rdquo; of the stack for large frames: guarantees that the OS manages to activate the guard pages, preventing a &ldquo;collision&rdquo; with other memory regions.</li>
+<li>Stack-clash protection checks for large local allocations.</li>
+<li>Runtime sanitizers: detecting overflows of local buffers, going beyond their boundaries</li>
+<li>Separating the &ldquo;safe&rdquo; and the general stack (safe stack) to minimize the possibilities of overwriting sensitive data</li>
+<li>Tail-call optimization and tail recursion elimination: converting tail calls into iterative jumps without stack growth.</li>
+<li>An alternative stack for signal/exception handlers, so as to correctly record an emergency report when the main stack overflows.</li>
+</ul>
+<p>Hardware and system stack protection mechanisms:</p>
+<ul>
+<li>MMU/page protection and guard pages at the stack boundary: early detection of going beyond the limits.</li>
+<li>Separation of execution and data: prohibiting the execution of code from the stack (NX/DEP), so that an overflow does not turn into the execution of arbitrary code.</li>
+<li>Address space layout randomization (ASLR): complicates the predictability of the stack location, reducing the risk of targeted attacks.</li>
+<li>A hardware-level shadow stack for protecting returns (shadow stack), preventing the substitution of return addresses.</li>
+<li>Control-flow integrity at the processor level, reducing the probability of exploiting overflows.</li>
+<li>OS policies for stack limits per thread and process, providing predictable behavior and abnormal termination before neighboring memory regions are damaged.</li>
+</ul>
+</spoiler>
+<p><anchor>body</anchor></p>
+<p>All the stack protection methods listed above make it possible only to detect the very fact of its overflow, when the program&rsquo;s data is already destroyed, but for the purposes of <a href="/en/blog/safety/language-guarantees/">provable programming</a> I am interested in the task of preventing stack overflow and the possibility of implementing software handling of this situation from inside the running application without violating data integrity.</p>
+<h2 id="implementation-of-stack-overflow-protection-for-c">Implementation of stack overflow protection for C++<a class="td-heading-self-link" href="#implementation-of-stack-overflow-protection-for-c" aria-label="Heading self-link"></a></h2><p>The source code of the project for preventing the abnormal termination of the application due to stack overflow can be viewed on <a href="https://github.com/afteri-ru/stack-check">GitHub/stack-check</a>.</p>
+<p>Its main idea consists in checking the free space on the stack before calling a protected function, and if the free space is insufficient, then a program exception <code>stack_overflow</code> is thrown, which can be caught and handled from inside the application, without waiting for a segmentation error to occur due to the overflow of the program/thread stack and the subsequent destruction of data.</p>
+<p>The code of the project is implemented as a single header file <code>stack_check.h</code>, which contains all the necessary software primitives for manual use. There is also a plugin for Clang, which at the stage of generating IR code automatically inserts calls of the stack overflow control functions before the protected functions.</p>
+<p>For manual marking of functions and methods of classes, before calling which a check of the free space on the stack is required, custom C++ attributes are used, which are expanded with the help of the macros <code>STACK_CHECK_SIZE(size)</code> and <code>STACK_CHECK_LIMIT</code>:</p>
+<ul>
+<li>
+<p>The attribute <code>STACK_CHECK_SIZE(size)</code> accepts one argument in the form of an integer — the size of the free space on the stack, which will be automatically checked before calling the protected function.</p>
+</li>
+<li>
+<p>The attribute <code>STACK_CHECK_LIMIT</code> also checks the size of the free space on the stack, which is set <strong>at the compilation of the application</strong>. <em>The stack usage size for each function can be found by specifying the <code>-fstack-usage</code> option during compilation, which saves to a <code>*.su</code> file the list of all functions and the stack size required for them</em>.</p>
+</li>
+</ul>
+<p>The automatic insertion of code before a protected function can be canceled. For this, a call to the auxiliary static method <code>ignore_next_check(const size_t)</code> must be inserted in the C++ code, to which the number of the following code insertions is passed, which will be skipped (removed) from the generated (executable) file.</p>
+<p>An example of the code for using the library:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">#include</span> <span style="color:#8f5902;font-style:italic">&#34;stack_check.h&#34;</span><span style="color:#8f5902;font-style:italic">
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">using</span> <span style="color:#204a87;font-weight:bold">namespace</span> <span style="color:#000">trust</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">const</span> <span style="color:#204a87;font-weight:bold">thread_local</span> <span style="color:#000">stack_check</span> <span style="color:#000">stack_check</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">info</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// A function without automatic stack overflow checking
+</span></span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span> 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// Before each call of the function, code checking the specified free space on the stack will be inserted
+</span></span></span><span style="display:flex;"><span><span style="color:#c4a000">[[stack_check_size(100)]]</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">guard_size_func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">char</span> <span style="color:#000">data</span><span style="color:#000;font-weight:bold">[</span><span style="color:#0000cf;font-weight:bold">92</span><span style="color:#000;font-weight:bold">];</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// Before each call of the function, the minimum size of free space on the stack will be checked
+</span></span></span><span style="display:flex;"><span><span style="color:#000">STACK_CHECK_LIMIT</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">guard_limit_func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">main</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Here code for stack overflow control will be automatically added
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">guard_size_func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">stack_check</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">ignore_next_check</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">);</span> <span style="color:#8f5902;font-style:italic">// The next automatic insertion of the stack check will be ignored
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">guard_size_func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Here code for checking the minimum size of free space on the stack will be automatically added
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">guard_limit_func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#000">stack_check</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">check_overflow</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">10000</span><span style="color:#000;font-weight:bold">);</span> <span style="color:#8f5902;font-style:italic">// Manual check of the free space on the stack
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">return</span> <span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span></code></pre></div><p>After that the file is compiled with the connection of the clang plugin:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>$ clang++ -std<span style="color:#ce5c00;font-weight:bold">=</span>c++20 -Xclang -load -Xclang stack_check_clang.so -Xclang -add-plugin -Xclang stack_check -lpthread filename.cpp
+</span></span></code></pre></div><h2 id="implementation-details">Implementation details<a class="td-heading-self-link" href="#implementation-details" aria-label="Heading self-link"></a></h2><p>The final stack size for a function call depends on many factors, such as the target platform, the degree of optimization of the program, the calling convention of a specific function, etc., which is why it cannot be computed with the help of a static code analyzer based on the AST or by analyzing the IR representation, but can only be determined at the stage of generating machine instructions for a specific target platform.</p>
+<p>Moreover, for the purposes of automatic control (for functions marked with the <code>stack_check_size</code> or <code>stack_check_limit</code> attribute) the minimum size of free space on the stack cannot be less than a certain fixed threshold, which is required for creating a program exception with error information. The size of such a threshold depends on the implementation, and it is affected by the target platform, the operating system, the degree of optimization of the program and other factors.</p>
+<p>The main functionality of stack overflow control is located in the class <code>trust::stack_check</code>. Information about the stack size is stored in static fields of the class, individually for each thread (<em>Thread Local</em> — thread-local storage, TLS), which makes it possible to request the stack parameters once for each thread during the initialization of the structure, and, when checking the size of the free space on the stack using the method <code>stack_check::check_overflow(N)</code>, to compare the current stack pointer with the lower boundary of the memory area allocated for the stack.</p>
+<p>To use the library in an application, one must define the static variable <code>const thread_local trust::stack_check trust::stack_check::info</code>, and to specify the minimum limit of free space on the stack, assign the corresponding value to the macro <code>STACK_SIZE_LIMIT</code>.</p>
+<h2 id="overhead-and-impact-on-the-speed-of-the-program">Overhead and impact on the speed of the program<a class="td-heading-self-link" href="#overhead-and-impact-on-the-speed-of-the-program" aria-label="Heading self-link"></a></h2><p>The stack overflow check, even in the case of maximum optimization, cannot be shorter than two machine instructions (a comparison operation and a short jump instruction), which, of course, adds time to the function call.</p>
+<p><em>As a &ldquo;speed meter&rdquo; I used a program for finding prime numbers by the recursive method from the file <code>prime_check.cpp</code> (as tests I also tried the towers of Hanoi and a recursive algorithm for counting the sum of digits of a long number, but the stack depth for the overflow check in the first case requires a very long duration of the algorithm&rsquo;s operation, and the record of a long number at which a stack overflow occurs takes several screens, which is also inconvenient for testing purposes).</em></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ ./prime-check-O3
+</span></span><span style="display:flex;"><span>Usage: ./prime-check-O3 &lt;start_number&gt; <span style="color:#ce5c00;font-weight:bold">[</span>count<span style="color:#ce5c00;font-weight:bold">]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$ ./prime-check-O3 <span style="color:#0000cf;font-weight:bold">9999999999999999</span>
+</span></span><span style="display:flex;"><span>Stack overflow exception at: <span style="color:#0000cf;font-weight:bold">104588</span> call depth.
+</span></span><span style="display:flex;"><span>Stack top: 0x7fffdc634000 bottom: 0x7fffdbe36000 <span style="color:#ce5c00;font-weight:bold">(</span>stack size: 8380416<span style="color:#ce5c00;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>Query size: <span style="color:#0000cf;font-weight:bold">10000</span> end frame: 0x7fffdbe386a0 <span style="color:#ce5c00;font-weight:bold">(</span>free space: 9888<span style="color:#ce5c00;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$ ./prime-check-O3 <span style="color:#0000cf;font-weight:bold">10000000000</span> <span style="color:#0000cf;font-weight:bold">1000</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000000019</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000000033</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000000061</span>
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000022899</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000022909</span>
+</span></span><span style="display:flex;"><span>Max recursion depth SAFE: <span style="color:#0000cf;font-weight:bold">100000</span>
+</span></span><span style="display:flex;"><span>Number of recursive calls SAFE: <span style="color:#0000cf;font-weight:bold">117539009</span>
+</span></span><span style="display:flex;"><span>Execution <span style="color:#204a87">time</span> SAFE: <span style="color:#0000cf;font-weight:bold">18227634</span> microseconds
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Max recursion depth: <span style="color:#0000cf;font-weight:bold">100000</span>
+</span></span><span style="display:flex;"><span>Number of recursive calls: <span style="color:#0000cf;font-weight:bold">117539009</span>
+</span></span><span style="display:flex;"><span>Execution time: <span style="color:#0000cf;font-weight:bold">17925080</span> microseconds
+</span></span><span style="display:flex;"><span>Difference in execution time: 1.68788 %
+</span></span></code></pre></div><p>An assessment of the impact of stack overflow control on the speed of the application: without optimization (-O0) — the execution time increases by about <em>1%</em>-<em>5%</em>, and with maximum optimization (-O3) — by about <em>0.5-2%</em> (the total execution time of the application is about <em>20 seconds</em>).</p>
+<p>In an ideal form (if we strive for minimal overhead) it is best to compute the stack size for all functions of the program and always use the maximum value (after all, loading a value into a register before the comparison operation also requires processor cycles and memory access). In this case, for any sequential calls of functions in one block it will be enough to check the free space on the stack only before calling the first function.</p>
+<h2 id="what-does-ai-have-to-do-with-it">What does AI have to do with it?<a class="td-heading-self-link" href="#what-does-ai-have-to-do-with-it" aria-label="Heading self-link"></a></h2><p>I honestly admit that, even having some experience of developing plugins for clang behind me, without using an LLM I would not have managed such a project in such a short time (about a month of background work).</p>
+<p>As it turned out, the functionality of clang AST plugins does not make it possible to connect plugins for LLVM directly without some &ldquo;shamanism&rdquo;, and making changes at the stage of generating object code with the help of a plugin turned out to be generally impossible without modifying the LLVM sources. Because of this I had to abandon the automatic computation of the stack size, since patching LLVM only to verify the concept seemed excessive to me.</p>
+<p>Nevertheless, despite the very large help of generative neural networks in studying the topic, writing real code with their help turned out to be a useless undertaking. The best algorithm for using LLMs in development turned out to be the following: to configure the parameters of the LLM for working with code and to create with its help separate small projects with limited functionality, and necessarily with working tests, in order to be sure of the correct operation of the written example. After that, to thoughtfully study the resulting code, maybe even chat in dialog mode to clarify some points, and after the picture in the head comes together — one can transfer the necessary fragments to the main project.</p>
+<p>All attempts to organize the work differently on the full code base ended in fiasco. Any LLMs began to lose context and switched to secondary, and often non-existent, problems. After which the project completely broke down, since the LLM decided to check the build system, for which it made a &ldquo;stub&rdquo;, i.e. deleted the existing working code, made sure that the build went fine, and everything started all over again.</p>
+<p>With prolonged use of an LLM, the emotional encouragement of users and attempts to ask clarifying questions became especially annoying: &ldquo;You asked a good question&rdquo;, &ldquo;You formulated the problem correctly&rdquo;, &ldquo;Thanks for the remarks. Please clarify &hellip;&rdquo;, as well as the embedded advertising of their own solutions:</p>
+<p><img src="/en/blog/safety/stack-overflow.png" alt=""></p>
+<p>But even despite some disappointment from the constant errors when using LLMs and the attempts to impose a subscription to their own software products, the use of generative neural networks made it possible to save a bunch of effort and time on studying code examples.</p>
+<p>I have now generally stopped writing scripts by hand, editing configuration files for VSCode or dealing with errors in CMakeLists.txt. Of course I do not think that LLMs will soon really be able to replace a programmer, but they can already really make the work of developers easier.</p>
+<h2 id="integration-status-in-trustlang">Integration status in TrustLang<a class="td-heading-self-link" href="#integration-status-in-trustlang" aria-label="Heading self-link"></a></h2><p>The functionality of stack overflow control is built into the <a href="/en/docs/">TrustLang</a> compiler as
+control <strong>at the code generation stage</strong> (the role of the clang plugin is taken by the transpiler, and the runtime
+primitives <code>trust::stack_check</code> — the public runtime header <code>trust/stack_check.hpp</code>).</p>
+<ul>
+<li><strong>Function attributes</strong> (insertion of the check BEFORE each call of a marked function):
+<ul>
+<li><code>@[stack_check@]</code> — without an argument = <strong>limit</strong>: before each call of <code>check_stack_limit()</code>
+(free ≥ <code>m_stack_limit</code> from the <code>.stack_sizes</code> section + reserve);</li>
+<li><code>@[stack_check(N)@]</code> — an integer <code>N</code>: <code>check_overflow(N)</code> (explicit size of free space).</li>
+</ul>
+</li>
+<li><strong>Individual functions</strong> (real C++ functions of the runtime, explicit calls in the code, <code>%</code> prefix):
+<ul>
+<li><code>%trust_stack_check(N)</code> — <code>check_overflow(N)</code> (free ≥ N + reserve);</li>
+<li><code>%trust_stack_check()</code> — <code>check_stack_limit()</code> (free ≥ m_stack_limit + reserve);</li>
+<li><code>%trust_stack_check_set_reserve(N)</code> — <code>set_reserve(N)</code> (min. reserve for all functions);</li>
+<li><code>%trust_stack_check_get_reserve()</code> — <code>get_reserve()</code>;</li>
+<li><code>%trust_stack_check_get_limit()</code> — <code>get_limit()</code> (the current <code>m_stack_limit</code>);</li>
+<li><code>%trust_stack_check_set_limit(f1, f2, ...)</code> — <code>set_limit({&amp;c_f1, &amp;c_f2})</code> (restrict <code>m_stack_limit</code>
+to the listed functions; empty = all functions of <code>.stack_sizes</code>).</li>
+</ul>
+</li>
+<li>The <strong>reserve <code>reserve</code></strong> (min. stack size for creating an exception, default 8192) is ALWAYS added
+to the checks: <code>stack_check</code> = <code>N + reserve</code>, <code>stack_check_limit</code> = <code>m_stack_limit + reserve</code>.</li>
+<li><strong>Control</strong>:
+<ul>
+<li><code>--stack-check=&lt;off|explicit|recursion|auto&gt;</code> (default <code>explicit</code>), <code>-Wstack-check=&lt;mode&gt;</code>,
+<code>-Wno-stack-check</code>; from code — <code>@__OPTION__(&quot;stack-check&quot;, &quot;...&quot;)</code> + <code>@__OPTION_PUSH__/POP__</code>;</li>
+<li>the minimum reserve — <code>--stack-check-reserve=&lt;bytes&gt;</code> (default 8192) / <code>-Wstack-check-reserve=</code> /
+<code>@__OPTION__(&quot;stack-check-reserve&quot;, &quot;...&quot;)</code>;</li>
+<li><code>--stack-check-functions=&lt;names&gt;</code> — restrict <code>m_stack_limit</code> to the listed functions (empty = all);</li>
+<li><code>recursion</code> — the diagnostic <code>-Wstack-check-infer</code> for unprotected recursive functions;
+<code>auto</code> — auto-marking of recursive functions.</li>
+</ul>
+</li>
+<li>The generated program is compiled with <code>-fstack-size-section</code> and <code>-lpthread</code>; the TLS <code>info</code>
+is defined in the generated entry <code>_main.cppt</code>.</li>
+</ul>
+<p>Example:</p>
+<pre tabindex="0"><code class="language-trust" data-lang="trust">@[stack_check@]
+@func recurse(n:Int32):Int32 {
+    @if(n &lt;= 0) { @return 0; };
+    @return recurse(n - 1) + 1;
+};
+</code></pre>
+</div>
+
+
+
+
+
+    
+	
+  
+    
+    
+	
+    
+
+
+  
+
+<div class="td-content" style="page-break-before: always">
+    <h1 id="pg-cf8634e6fabe3433dfa83ead4251459a">Programming language guarantees as a basis for secure software development</h1>
+	
+	<div class="td-byline mb-4">
+		
+        
+		<time datetime="2025-11-10" class="text-body-secondary">Monday, November 10, 2025</time>
+        
+	</div>
+	<p>Errors in composing programs for computers appeared even earlier than the very first programming languages were invented. Actually, programming languages were invented precisely so that programs would be written more simply, and the number of errors in them would be as small as possible.</p>
+<p>To reduce the number of errors, many methods were developed, including the creation of specialized source code analysis tools and even entire programming languages.</p>
+<p>But after many decades, the problem of purely technical errors in software still remains unsolved to this day, however the approach proposed in the Rust language changes everything.</p>
+<h3 id="paradoxes-of-safe-memory-management">Paradoxes of safe memory management<a class="td-heading-self-link" href="#paradoxes-of-safe-memory-management" aria-label="Heading self-link"></a></h3><p>Lately hardly anyone has failed to mention the Rust programming language, which, through the innovative model of &ldquo;ownership and borrowing&rdquo;, guarantees memory and thread safety, making it possible to exclude many kinds of errors <em>at compile time</em>. However, for some reason they always forget to tell that the very concept of &ldquo;ownership and borrowing&rdquo; also has several fundamental limitations.</p>
+<p>For example, the implementation of any algorithms with <strong>multiple ownership</strong> requires the mandatory use of <code>unsafe</code> blocks or the redesign of the application architecture, which limits the use of Rust in legacy systems, where a full refactoring of the code is economically inexpedient.</p>
+<p>In addition, the analysis of cyclic graphs (cross-references) in its classical form has no solution <em>at compile time</em> in principle, therefore it always requires the manual use of smart reference counters (<code>Rc</code>, <code>Arc</code>), which also increases the risk of memory leaks due to implementation errors.</p>
+<p>But continuing to use C++ is not an option either! The very name of the C++ language has actually become a synonym when it comes to various errors in software. And this is despite the fact that it has long had a full set of tools for safe memory management: smart pointers (<code>unique_ptr</code>, <code>shared_ptr</code>, <code>weak_ptr</code>), RAII and move semantics.</p>
+<p>But the absence of strict rules for their use at the level of the language syntax turns such safety mechanisms into &ldquo;optional&rdquo; ones. Developers can consciously or accidentally bypass the protective mechanisms, using raw pointers or uncontrolled memory allocation.</p>
+<p>However, any attempts to introduce strict rules into C++ (for example, through the introduction of syntax similar to Rust, like <em>Safe C++</em>) meet with the expected resistance, since such changes violate backward compatibility and are rejected both by the standardization committee and by the developers themselves, especially those who work with inherited (legacy) code.</p>
+<p>These problems create a paradox: developers are forced to spend time and resources rewriting existing code in Rust and at the same time sacrifice safety for the sake of functionality, since, due to its architectural limitations, Rust cannot guarantee the absence of errors for some use cases, which in fact nullifies all its advantages.</p>
+<h3 id="the-current-situation-in-the-field-of-secure-development">The current situation in the field of secure development<a class="td-heading-self-link" href="#the-current-situation-in-the-field-of-secure-development" aria-label="Heading self-link"></a></h3><p>And these are only the most obvious problems, which concern only safe memory management. Whereas technical errors in software can also include various kinds of overflows: of the bit width of numbers, a shortage of RAM, a stack overflow, which is always allocated in advance and has a fixed size, and so on.</p>
+<p>Of course, in C++ the situation is gradually changing for the better, including through the introduction of various application security mechanisms at the level of code generation by the compiler (&ldquo;hardening&rdquo;), but the main problem is that for programming languages there is in principle no unified theory (or approach) to assessing secure development. A general theory that would make it possible to assess the possibility of implementing typical algorithms and compare programming languages with each other in terms of software code safety.</p>
+<p>Currently, many different tools are used to check for errors in source code, ranging from static analyzers to various kinds of testing. But several decades ago Edsger Dijkstra said in <a href="http://pascal.hansotten.com/uploads/dijkstra/Structured%20Programming.pdf">Dahl, O.-J., Dijkstra, E.W., Hoare, C.A.R. Structured Programming</a>: &ldquo;Testing shows the presence, not the absence of bugs&rdquo;.</p>
+<p>Moreover, each tool or approach checks only its own area, but it is often unclear what remains &ldquo;outside the brackets&rdquo;. This situation is similar to a multicolored patchwork quilt, where each of its pieces is responsible for its own specific part of safety, but there is no understanding of its overall size.</p>
+<p>And if earlier such a situation was the norm, since when creating programming languages their authors tried to implement as many capabilities as possible in order to simplify and speed up the writing of programs, now the trends have changed significantly. The silver bullet that Brooks searched for unsuccessfully (about a tenfold reduction in development cost) was found long ago, is used, and its name is Free Software and Open Source. And with the advent of LLMs, the cost of developing typical solutions has decreased even more.</p>
+<p>Therefore, at the present moment it is not the speed of creating software that is becoming more relevant, but the quality of the result obtained. But to manage the quality of the software being created, one needs not only the ability to measure and compare it, but also to understand the capabilities and limitations of the tools used (the programming languages used) in the field of secure development. And from this point of view, the use of Rust, despite its limitations, will still be preferable due to at least some guarantees, than continuing to use C++ with its permissiveness and the ability to make even the stupidest mistakes out of the blue.</p>
+<p><a id="trust-lang"></a></p>
+<h3 id="development-safety-through-programming-language-guarantees">Development safety through programming language guarantees<a class="td-heading-self-link" href="#development-safety-through-programming-language-guarantees" aria-label="Heading self-link"></a></h3><p>The modern approach to ensuring software safety is largely fragmented, and the main efforts are concentrated on detecting and fixing various classes of vulnerabilities already <strong>after they appear</strong>.</p>
+<p>This may be partly justified in cases where the vulnerabilities or attack vectors are not directly related to the source code of the software. But if vulnerabilities arise because of purely technical errors and features of the programming language, then fixing them becomes very expensive when detected in the later stages of the development life cycle.</p>
+<p>Responsibility for testing, searching for and implementing measures to minimize errors and vulnerabilities always lies on the shoulders of the developers, who are required to be experts not only in their domain area, but also in cybersecurity issues.</p>
+<p>And yet Rust showed a remarkable approach to ensuring secure software development! But not in the part of memory management, but in the change of the very paradigm of ensuring safety at the level of the source code, when <strong>safety is ensured on the basis of programming language guarantees</strong>.</p>
+<p>Such an approach — the use of the language and its compiler as the main tool for preventing entire classes of vulnerabilities — shifts the focus from <em>detecting</em> vulnerabilities to <em>preventing</em> them at the lowest level — at the level of writing program code.</p>
+<p>Secure development based on programming language guarantees provides a number of strategic advantages:</p>
+<ul>
+<li><strong>Automatic elimination of vulnerabilities:</strong> Instead of searching for individual errors, entire classes of vulnerabilities are eliminated at the system level due to the very fact of using such an approach.</li>
+<li><strong>Reducing the cognitive load on developers:</strong> Developers can focus on the business logic, fully trusting the compiler and the type system in matters of basic safety.</li>
+<li><strong>Increasing predictability and reliability:</strong> Safety becomes a measurable and provable property of the system, rather than the result of a confluence of circumstances and independently of the use of external tools.</li>
+<li><strong>Economic efficiency:</strong> Preventing vulnerabilities at the stage of writing code is orders of magnitude cheaper than detecting and fixing them in the production environment.</li>
+</ul>
+<h3 id="conclusion">Conclusion<a class="td-heading-self-link" href="#conclusion" aria-label="Heading self-link"></a></h3><p>The existing model of &ldquo;patching holes in a patchwork quilt&rdquo; in software safety has exhausted itself. To create truly reliable and protected systems, a transition to built-in safety is needed, that is, to the creation of a <strong>theory of secure development based on programming language guarantees</strong>, which is not simply academic research, but an urgent necessity.</p>
+<p>This will make it possible to lay safety into the very foundation of software, making it an inalienable property of the source code of the program, and the implementation of secure development guarantees in any programming language — a matter of technique.</p>
+<p>An example of implementing safety guarantees when working with memory for C++ can be seen <a href="https://github.com/rsashka/memsafe?tab=readme-ov-file#%D0%BC%D0%BE%D1%82%D0%B8%D0%B2%D0%B0%D1%86%D0%B8%D1%8F">in this project</a></p>
+
+</div>
+
+
+
+
+
+    
+	
+  
+
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Semantics on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/semantics/</link>
+		<description>Recent content in Semantics on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Mon, 07 Sep 2026 17:43:45 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/semantics/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Если вы думаете, что знаете, чем отличается «Expression» от «Statement», то, скорее всего, вы ошибаетесь</title>
+				<link>https://trust-lang.net/ru/blog/language-design/expression-statement/</link>
+				<pubDate>Sun, 02 Aug 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/language-design/expression-statement/</guid>
+				<description>&lt;p&gt;Я занимаюсь изучением &lt;a href=&#34;https://trust-lang.net/ru/blog/comparison/cpp-rust-vs-python/&#34;&gt;синтаксиса языков программирования&lt;/a&gt; и пытаюсь отделить фундаментальные закономерности от исторических случайностей. Одна из таких случайностей - почти повсеместное использование терминов &lt;strong&gt;выражение&lt;/strong&gt; (expression) и &lt;strong&gt;инструкция&lt;/strong&gt; (statement) при описании и классификации синтаксиса языков программирования.&lt;/p&gt;&#xA;&lt;p&gt;Интуитивно кажется, что &lt;code&gt;2 + 2&lt;/code&gt; и &lt;code&gt;if (x) { foo(); }&lt;/code&gt; - это совершенно разные сущности, но при более глубоком анализе оказывается, что подобное разделение искусственное и возникло из-за архитектурных особенностей вычислительных машин почти полвека назад и с тех пор просто «переходит» из языка в язык.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Неоднозначный термин «искусственный интеллект»</title>
+				<link>https://trust-lang.net/ru/blog/ai/wrong-term-ai/</link>
+				<pubDate>Tue, 25 Jun 2024 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/ai/wrong-term-ai/</guid>
+				<description>&lt;p&gt;Последнее время кто только не говорит про успехи искусственного интеллекта (ИИ), часто подразумевая под этим очередное достижение в области генеративных нейросетей. И как обычно, одни делают деньги на хайпе, другие жаждут появления &lt;del&gt;Сары Коннор&lt;/del&gt; настоящего сильного ИИ (который в будущем захватит мир), а кто-то просто в очередной раз насилует журналиста.&lt;/p&gt;&#xA;&lt;p&gt;И очень мало тех, кто при упоминании ИИ пытается пояснить, а что он сам понимает под  термином &amp;ldquo;искусственный интеллект&amp;rdquo;. Ведь одно дело писать про &amp;ldquo;область задач из разряда ИИ&amp;rdquo;, и совсем другое, наделять обычный компьютерный алгоритм хотя бы зачатками разума.&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+	<channel>
+		<title>Generics on TrustLang</title>
+		<link>https://trust-lang.net/ru/tags/generics/</link>
+		<description>Recent content in Generics on TrustLang</description>
+		<generator>Hugo</generator>
+		<language>ru</language>
+		
+		
+		
+		
+			<lastBuildDate>Wed, 09 Sep 2026 15:37:53 +0300</lastBuildDate>
+		
+			<atom:link href="https://trust-lang.net/ru/tags/generics/index.xml" rel="self" type="application/rss+xml" />
+			<item>
+				<title>Система типов</title>
+				<link>https://trust-lang.net/ru/docs/types/concept/</link>
+				<pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/docs/types/concept/</guid>
+				<description>&lt;h2 id=&#34;принципы&#34;&gt;Принципы&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#%d0%bf%d1%80%d0%b8%d0%bd%d1%86%d0%b8%d0%bf%d1%8b&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;&lt;em&gt;TrustLang&lt;/em&gt; имеет &lt;strong&gt;закрытую систему типов&lt;/strong&gt;: любой новый тип данных обязательно наследует&#xA;(расширяет) один из уже существующих. Это напоминает модель &lt;code&gt;Object&lt;/code&gt; в Java, но без физического наследования (без боксинга простых типов в объекты).&#xA;Этот подход является основой для &lt;a href=&#34;generics/&#34;&gt;обобщённого программирования&lt;/a&gt;, когда производный тип наследует набор операций «родительского» типа,&#xA;и продолжает работать со всеми его наследниками.&lt;/p&gt;&#xA;&lt;p&gt;Язык динамически типизирован: тип переменной можно указать явно или оставить автоматический вывод.&#xA;Указанный тип используется для проверок совместимости при присваивании, для проверки типа&#xA;возвращаемого значения функции и для управления размещением в памяти &lt;a href=&#34;https://trust-lang.net/ru/docs/types/native/&#34;&gt;нативных типов&lt;/a&gt;.&#xA;Автоматическое приведение возможно только между совместимыми типами; в остальных случаях требуется&#xA;явное &lt;a href=&#34;type_system/&#34;&gt;преобразование типов&lt;/a&gt;.&lt;/p&gt;</description>
+			</item>
+			<item>
+				<title>Обобщённое программирование в разных языках</title>
+				<link>https://trust-lang.net/ru/blog/comparison/generics/</link>
+				<pubDate>Tue, 24 Mar 2026 00:00:00 +0000</pubDate>
+				<guid>https://trust-lang.net/ru/blog/comparison/generics/</guid>
+				<description>&lt;p&gt;Обобщённое программирование (generic programming) - парадигма, позволяющая описывать алгоритмы и структуры данных в абстракции от конкретных типов. Несмотря на единую концепцию, каждый язык реализует её по-своему: через шаблоны, параметрический полиморфизм, стирание типов или утиную типизацию. В данной статье проводится детальный анализ механизмов обобщённого программирования в восьми языках - C++, Java, C#, Python, Rust, Haskell, TypeScript, Julia - с оценкой сильных и слабых сторон каждого подхода и сравнительным итогом.&lt;/p&gt;&#xA;&lt;hr&gt;&#xA;&lt;h2 id=&#34;1-введение&#34;&gt;1. Введение&lt;a class=&#34;td-heading-self-link&#34; href=&#34;#1-%d0%b2%d0%b2%d0%b5%d0%b4%d0%b5%d0%bd%d0%b8%d0%b5&#34; aria-label=&#34;Heading self-link&#34;&gt;&lt;/a&gt;&lt;/h2&gt;&lt;p&gt;Идея обобщённого программирования восходит к работам Александра Степанова и Дэвида Мусера в конце 1980-х годов. Её суть - отделение алгоритмов от конкретных типов данных при сохранении типовой безопасности и управляемой производительности. На практике разные языки решают эту задачу через разные механизмы:&lt;/p&gt;</description>
+			</item>
+	</channel>
+</rss>

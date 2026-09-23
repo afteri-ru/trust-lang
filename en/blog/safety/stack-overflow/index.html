@@ -1,0 +1,711 @@
+
+
+<!doctype html>
+<html itemscope itemtype="http://schema.org/WebPage" lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+
+
+<link rel="shortcut icon" href="/favicons/favicon.ico" >
+<link rel="apple-touch-icon" href="/favicons/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/favicons/favicon-16x16.png" sizes="16x16">
+<link rel="icon" type="image/png" href="/favicons/favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="/favicons/android-36x36.png" sizes="36x36">
+<link rel="icon" type="image/png" href="/favicons/android-48x48.png" sizes="48x48">
+<link rel="icon" type="image/png" href="/favicons/android-72x72.png" sizes="72x72">
+<link rel="icon" type="image/png" href="/favicons/android-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
+<link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
+
+<title>Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43; | TrustLang</title>
+<meta name="description" content="January 7 at 14:53 2026
+Developing the idea of a trusted programming language, I came to the conclusion that, through restrictions of the syntax and the creation of corresponding checks in the static code analyzer, it is possible to protect against practically all technical errors except two — the control of dynamically allocated memory and stack overflow.
+Moreover, while solutions exist for reference counting at runtime, stack overflow control cannot be done not only during the analysis of the source text of the program, but it is practically impossible even during the execution of the application! After all, a stack overflow error is always fatal, since there is no way to catch and handle this error from inside the running program in order to then continue its execution as if nothing had happened.">
+<meta property="og:url" content="https://trust-lang.net/en/blog/safety/stack-overflow/">
+	<meta property="og:site_name" content="TrustLang">
+	<meta property="og:title" content="Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;">
+	<meta property="og:description" content="January 7 at 14:53 2026
+Developing the idea of a trusted programming language, I came to the conclusion that, through restrictions of the syntax and the creation of corresponding checks in the static code analyzer, it is possible to protect against practically all technical errors except two — the control of dynamically allocated memory and stack overflow.
+Moreover, while solutions exist for reference counting at runtime, stack overflow control cannot be done not only during the analysis of the source text of the program, but it is practically impossible even during the execution of the application! After all, a stack overflow error is always fatal, since there is no way to catch and handle this error from inside the running program in order to then continue its execution as if nothing had happened.">
+	<meta property="og:locale" content="en">
+	<meta property="og:type" content="article">
+		<meta property="article:section" content="blog">
+		<meta property="article:published_time" content="2026-01-07T00:00:00+00:00">
+		<meta property="article:modified_time" content="2026-09-09T15:37:53+03:00">
+		<meta property="article:tag" content="Memory-Safety">
+		<meta property="article:tag" content="C&#43;&#43;">
+		<meta property="article:tag" content="Verification">
+		<meta property="article:tag" content="Runtime">
+
+	<meta itemprop="name" content="Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;">
+	<meta itemprop="description" content="January 7 at 14:53 2026
+Developing the idea of a trusted programming language, I came to the conclusion that, through restrictions of the syntax and the creation of corresponding checks in the static code analyzer, it is possible to protect against practically all technical errors except two — the control of dynamically allocated memory and stack overflow.
+Moreover, while solutions exist for reference counting at runtime, stack overflow control cannot be done not only during the analysis of the source text of the program, but it is practically impossible even during the execution of the application! After all, a stack overflow error is always fatal, since there is no way to catch and handle this error from inside the running program in order to then continue its execution as if nothing had happened.">
+	<meta itemprop="datePublished" content="2026-01-07T00:00:00+00:00">
+	<meta itemprop="dateModified" content="2026-09-09T15:37:53+03:00">
+	<meta itemprop="wordCount" content="2964">
+	<meta itemprop="keywords" content="Memory-Safety,C&#43;&#43;,Verification,Runtime">
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;">
+	<meta name="twitter:description" content="January 7 at 14:53 2026
+Developing the idea of a trusted programming language, I came to the conclusion that, through restrictions of the syntax and the creation of corresponding checks in the static code analyzer, it is possible to protect against practically all technical errors except two — the control of dynamically allocated memory and stack overflow.
+Moreover, while solutions exist for reference counting at runtime, stack overflow control cannot be done not only during the analysis of the source text of the program, but it is practically impossible even during the execution of the application! After all, a stack overflow error is always fatal, since there is no way to catch and handle this error from inside the running program in order to then continue its execution as if nothing had happened.">
+<link rel="preload" href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" as="style" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<link href="/scss/main.min.e6e33e685234e1d4eb3d95aaca400338da986c7532e6734593301de706f92beb.css" rel="stylesheet" integrity="sha256-5uM&#43;aFI04dTrPZWqykADONqYbHUy5nNFkzAd5wb5K&#43;s=" crossorigin="anonymous">
+<script
+  src="https://code.jquery.com/jquery-3.7.1.min.js"
+  integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+  crossorigin="anonymous"></script>
+<script defer
+  src="https://unpkg.com/lunr@2.3.9/lunr.min.js"
+  integrity="sha384-203J0SNzyqHby3iU6hzvzltrWi/M41wOP5Gu+BiJMz5nwKykbkUx8Kp7iti0Lpli"
+  crossorigin="anonymous"></script>
+<script defer src="/js/lunr-languages/lunr.stemmer.support.js"></script>
+<script defer src="/js/lunr-languages/lunr.ru.js"></script>
+<script defer src="/js/lunr-languages/lunr.multi.js"></script>
+
+  </head>
+  <body class="td-page td-blog">
+    <header>
+      <nav class="td-navbar js-navbar-scroll" data-bs-theme="dark">
+<div class="container-fluid flex-column flex-md-row">
+  <a class="navbar-brand" href="/en/"><span class="navbar-brand__logo navbar-logo"><img class="navbar-logo-img" src="https://trust-lang.net/mascot.png" alt="TrustLang logo" width="34" height="34"></span><span class="navbar-brand__name">TrustLang</span></a>
+  <div class="td-navbar-nav-scroll ms-md-auto" id="main_navbar">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="/en/docs/"><span>About the project</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/en/playground/"><span>Playground</span></a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link active" href="/en/blog/"><span>Articles</span></a>
+      </li>
+      <li class="nav-item dropdown d-none d-lg-block">
+        <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/safety/stack-overflow/">Русский</a></li>
+    </ul>
+</div></li>
+      </ul>
+  </div>
+  <div class="d-none d-lg-block">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+  </div>
+</div>
+</nav>
+    </header>
+    <div class="container-fluid td-outer">
+      <div class="td-main">
+        <div class="row flex-xl-nowrap">
+          <aside class="col-12 col-md-3 col-xl-2 td-sidebar d-print-none">
+            <div id="td-sidebar-menu" class="td-sidebar__inner">
+  <form class="td-sidebar__search d-flex align-items-center">
+    <div class="td-search td-search--offline">
+  <div class="td-search__icon"></div>
+  <input
+    type="search"
+    class="td-search__input form-control"
+    placeholder="Search this site…"
+    aria-label="Search this site…"
+    autocomplete="off"
+    
+    data-offline-search-index-json-src="/offline-search-index.558ecf4dcdc911f7726eae1513be340f.json"
+    data-offline-search-base-href="/"
+    data-offline-search-max-results="10"
+  >
+</div>
+    <button class="btn btn-link td-sidebar__toggle d-md-none p-0 ms-3 fas fa-bars" type="button" data-bs-toggle="collapse" data-bs-target="#td-section-nav" aria-controls="td-section-nav" aria-expanded="false" aria-label="Toggle section navigation">
+    </button>
+  </form>
+  <nav class="td-sidebar-nav collapse foldable-nav" id="td-section-nav">
+    <div class="td-sidebar-nav__section nav-item dropdown d-block d-lg-none">
+      <div class="dropdown">
+  <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">English</a>
+  <ul class="dropdown-menu">
+    <li><a class="dropdown-item" href="/ru/blog/safety/stack-overflow/">Русский</a></li>
+    </ul>
+</div>
+    </div>
+    <ul class="td-sidebar-nav__section pe-md-3 ul-0">
+      <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enblog-li">
+  <a href="/en/blog/" class="align-left ps-0 td-sidebar-link td-sidebar-link__section tree-root" id="m-enblog"><span class="">Articles</span></a>
+  <ul class="ul-1">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogtheory-li">
+  <input type="checkbox" id="m-enblogtheory-check"/>
+  <label for="m-enblogtheory-check"><a href="/en/blog/theory/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogtheory"><span class="">Theory of computation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryconsciousness-fsm-li">
+  <input type="checkbox" id="m-enblogtheoryconsciousness-fsm-check"/>
+  <label for="m-enblogtheoryconsciousness-fsm-check"><a href="/en/blog/theory/consciousness-fsm/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryconsciousness-fsm"><span class="">The mechanism of the emergence of consciousness in finite state machines</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheoryturing-machine-li">
+  <input type="checkbox" id="m-enblogtheoryturing-machine-check"/>
+  <label for="m-enblogtheoryturing-machine-check"><a href="/en/blog/theory/turing-machine/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheoryturing-machine"><span class="">Reflections on the Turing machine and the causes of errors in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheorystructured-programming-li">
+  <input type="checkbox" id="m-enblogtheorystructured-programming-check"/>
+  <label for="m-enblogtheorystructured-programming-check"><a href="/en/blog/theory/structured-programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheorystructured-programming"><span class="">Reflections on structured programming</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogtheorylogic-prog-li">
+  <input type="checkbox" id="m-enblogtheorylogic-prog-check"/>
+  <label for="m-enblogtheorylogic-prog-check"><a href="/en/blog/theory/logic-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogtheorylogic-prog"><span class="">The problem of logical programming languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enbloglanguage-design-li">
+  <input type="checkbox" id="m-enbloglanguage-design-check"/>
+  <label for="m-enbloglanguage-design-check"><a href="/en/blog/language-design/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enbloglanguage-design"><span class="">Programming language design</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designexpression-statement-li">
+  <input type="checkbox" id="m-enbloglanguage-designexpression-statement-check"/>
+  <label for="m-enbloglanguage-designexpression-statement-check"><a href="/en/blog/language-design/expression-statement/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designexpression-statement"><span class="">If you think you know how &#34;Expression&#34; differs from &#34;Statement&#34;, then most likely you are mistaken</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designbuilding-blocks-li">
+  <input type="checkbox" id="m-enbloglanguage-designbuilding-blocks-check"/>
+  <label for="m-enbloglanguage-designbuilding-blocks-check"><a href="/en/blog/language-design/building-blocks/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designbuilding-blocks"><span class="">Building blocks of programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designreference-solution-li">
+  <input type="checkbox" id="m-enbloglanguage-designreference-solution-check"/>
+  <label for="m-enbloglanguage-designreference-solution-check"><a href="/en/blog/language-design/reference-solution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designreference-solution"><span class="">A possible solution to the problem of references in programming languages</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designtrust-lang-li">
+  <input type="checkbox" id="m-enbloglanguage-designtrust-lang-check"/>
+  <label for="m-enbloglanguage-designtrust-lang-check"><a href="/en/blog/language-design/trust-lang/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designtrust-lang"><span class="">A new programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designunusual-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designunusual-prog-check"/>
+  <label for="m-enbloglanguage-designunusual-prog-check"><a href="/en/blog/language-design/unusual-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designunusual-prog"><span class="">An unusual concept of the syntax of a programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designlang-final-li">
+  <input type="checkbox" id="m-enbloglanguage-designlang-final-check"/>
+  <label for="m-enbloglanguage-designlang-final-check"><a href="/en/blog/language-design/lang-final/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designlang-final"><span class="">What is the &#34;ideal&#34; goal of the development of programming languages?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enbloglanguage-designinter-prog-li">
+  <input type="checkbox" id="m-enbloglanguage-designinter-prog-check"/>
+  <label for="m-enbloglanguage-designinter-prog-check"><a href="/en/blog/language-design/inter-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enbloglanguage-designinter-prog"><span class="">International programming in natural languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogcomparison-li">
+  <input type="checkbox" id="m-enblogcomparison-check"/>
+  <label for="m-enblogcomparison-check"><a href="/en/blog/comparison/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogcomparison"><span class="">Language comparison</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-rust-vs-python-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-rust-vs-python-check"/>
+  <label for="m-enblogcomparisoncpp-rust-vs-python-check"><a href="/en/blog/comparison/cpp-rust-vs-python/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-rust-vs-python"><span class="">Why C&#43;&#43; or Rust can never replace Python</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-evolution-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-evolution-check"/>
+  <label for="m-enblogcomparisoncpp-evolution-check"><a href="/en/blog/comparison/cpp-evolution/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-evolution"><span class="">The Achilles&#39; heel of C&#43;&#43; and the future r̶e̶ evolution</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncode-safety-economy-li">
+  <input type="checkbox" id="m-enblogcomparisoncode-safety-economy-check"/>
+  <label for="m-enblogcomparisoncode-safety-economy-check"><a href="/en/blog/comparison/code-safety-economy/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncode-safety-economy"><span class="">The economics of code safety, or why Rust is not needed</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisoncpp-safety-li">
+  <input type="checkbox" id="m-enblogcomparisoncpp-safety-check"/>
+  <label for="m-enblogcomparisoncpp-safety-check"><a href="/en/blog/comparison/cpp-safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisoncpp-safety"><span class="">C&#43;&#43; safety and Buridan&#39;s mice in IT</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogcomparisongenerics-li">
+  <input type="checkbox" id="m-enblogcomparisongenerics-check"/>
+  <label for="m-enblogcomparisongenerics-check"><a href="/en/blog/comparison/generics/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogcomparisongenerics"><span class="">Generic programming in different languages</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogimplementation-li">
+  <input type="checkbox" id="m-enblogimplementation-check"/>
+  <label for="m-enblogimplementation-check"><a href="/en/blog/implementation/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogimplementation"><span class="">Compiler implementation</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogimplementationparser-nuances-li">
+  <input type="checkbox" id="m-enblogimplementationparser-nuances-check"/>
+  <label for="m-enblogimplementationparser-nuances-check"><a href="/en/blog/implementation/parser-nuances/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationparser-nuances"><span class="">Nuances of developing a parser for your own programming language</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogimplementationdsl-with-macros-li">
+  <input type="checkbox" id="m-enblogimplementationdsl-with-macros-check"/>
+  <label for="m-enblogimplementationdsl-with-macros-check"><a href="/en/blog/implementation/dsl-with-macros/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogimplementationdsl-with-macros"><span class="">DSL (domain-specific language) implementation with macros</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child active-path" id="m-enblogsafety-li">
+  <input type="checkbox" id="m-enblogsafety-check" checked/>
+  <label for="m-enblogsafety-check"><a href="/en/blog/safety/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogsafety"><span class="">Software safety</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-enblogsafetystack-overflow-li">
+  <input type="checkbox" id="m-enblogsafetystack-overflow-check" checked/>
+  <label for="m-enblogsafetystack-overflow-check"><a href="/en/blog/safety/stack-overflow/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__page" id="m-enblogsafetystack-overflow"><span class="td-sidebar-nav-active-item">Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogsafetylanguage-guarantees-li">
+  <input type="checkbox" id="m-enblogsafetylanguage-guarantees-check"/>
+  <label for="m-enblogsafetylanguage-guarantees-check"><a href="/en/blog/safety/language-guarantees/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogsafetylanguage-guarantees"><span class="">Programming language guarantees as a basis for secure software development</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogprogramming-li">
+  <input type="checkbox" id="m-enblogprogramming-check"/>
+  <label for="m-enblogprogramming-check"><a href="/en/blog/programming/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogprogramming"><span class="">Philosophy of programming</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingprog-styles-same-time-li">
+  <input type="checkbox" id="m-enblogprogrammingprog-styles-same-time-check"/>
+  <label for="m-enblogprogrammingprog-styles-same-time-check"><a href="/en/blog/programming/prog-styles-same-time/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingprog-styles-same-time"><span class="">Can declarative and imperative styles of writing programs be used simultaneously?</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogprogrammingcomplex-prog-li">
+  <input type="checkbox" id="m-enblogprogrammingcomplex-prog-check"/>
+  <label for="m-enblogprogrammingcomplex-prog-check"><a href="/en/blog/programming/complex-prog/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogprogrammingcomplex-prog"><span class="">Simple complex programming</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogai-li">
+  <input type="checkbox" id="m-enblogai-check"/>
+  <label for="m-enblogai-check"><a href="/en/blog/ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogai"><span class="">AI and IT processes</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiai-illusions-li">
+  <input type="checkbox" id="m-enblogaiai-illusions-check"/>
+  <label for="m-enblogaiai-illusions-check"><a href="/en/blog/ai/ai-illusions/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiai-illusions"><span class="">The main problem of using AI (Illusions of Intelligence) in software development</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogaiwrong-term-ai-li">
+  <input type="checkbox" id="m-enblogaiwrong-term-ai-check"/>
+  <label for="m-enblogaiwrong-term-ai-check"><a href="/en/blog/ai/wrong-term-ai/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogaiwrong-term-ai"><span class="">The ambiguous term &#34;artificial intelligence&#34;</span></a></label>
+  
+</li>
+  </ul>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section with-child" id="m-enblogreleases-li">
+  <input type="checkbox" id="m-enblogreleases-check"/>
+  <label for="m-enblogreleases-check"><a href="/en/blog/releases/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-enblogreleases"><span class="">Releases</span></a></label>
+  
+  <ul class="ul-2 foldable">
+    <li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv060-li">
+  <input type="checkbox" id="m-enblogreleasesv060-check"/>
+  <label for="m-enblogreleasesv060-check"><a href="/en/blog/releases/v0.6.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv060"><span class="">TrustLang v0.6.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv040-li">
+  <input type="checkbox" id="m-enblogreleasesv040-check"/>
+  <label for="m-enblogreleasesv040-check"><a href="/en/blog/releases/v0.4.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv040"><span class="">NewLang v0.4.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv030-li">
+  <input type="checkbox" id="m-enblogreleasesv030-check"/>
+  <label for="m-enblogreleasesv030-check"><a href="/en/blog/releases/v0.3.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv030"><span class="">NewLang v0.3.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv020-li">
+  <input type="checkbox" id="m-enblogreleasesv020-check"/>
+  <label for="m-enblogreleasesv020-check"><a href="/en/blog/releases/v0.2.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv020"><span class="">NewLang v0.2.0</span></a></label>
+  
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-enblogreleasesv010-li">
+  <input type="checkbox" id="m-enblogreleasesv010-check"/>
+  <label for="m-enblogreleasesv010-check"><a href="/en/blog/releases/v0.1.0/" class="align-left ps-0  td-sidebar-link td-sidebar-link__page" id="m-enblogreleasesv010"><span class="">NewLang v0.1.0</span></a></label>
+  
+</li>
+  </ul>
+</li>
+  </ul>
+</li>
+    </ul>
+  </nav>
+</div>
+
+          </aside>
+          <aside class="d-none d-xl-block col-xl-2 td-sidebar-toc d-print-none">
+            <div class="td-page-meta ms-2 pb-1 pt-2 mb-0">
+<a id="print" href="/en/_print/blog/safety/"><i class="fa-solid fa-print fa-fw"></i> Print entire section</a>
+
+</div>
+
+            <div class="td-toc">
+        <nav id="TableOfContents">
+  <ul>
+    <li><a href="#a-bit-of-technical-information-about-the-stack">A bit of technical information about the stack</a></li>
+  </ul>
+
+  <ul>
+    <li><a href="#implementation-of-stack-overflow-protection-for-c">Implementation of stack overflow protection for C++</a></li>
+    <li><a href="#implementation-details">Implementation details</a></li>
+    <li><a href="#overhead-and-impact-on-the-speed-of-the-program">Overhead and impact on the speed of the program</a></li>
+    <li><a href="#what-does-ai-have-to-do-with-it">What does AI have to do with it?</a></li>
+    <li><a href="#integration-status-in-trustlang">Integration status in TrustLang</a></li>
+  </ul>
+</nav>
+      </div>
+    
+            <div class="taxonomy taxonomy-terms-cloud taxo-tags">
+      <h5 class="taxonomy-title">Tag Cloud</h5>
+      <ul class="taxonomy-terms">
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/ai/" data-taxonomy-term="ai"><span class="taxonomy-label">Ai</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/assign/" data-taxonomy-term="assign"><span class="taxonomy-label">Assign</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/collections/" data-taxonomy-term="collections"><span class="taxonomy-label">Collections</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/comparison/" data-taxonomy-term="comparison"><span class="taxonomy-label">Comparison</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/compiler/" data-taxonomy-term="compiler"><span class="taxonomy-label">Compiler</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/concurrency/" data-taxonomy-term="concurrency"><span class="taxonomy-label">Concurrency</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/context/" data-taxonomy-term="context"><span class="taxonomy-label">Context</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/control-flow/" data-taxonomy-term="control-flow"><span class="taxonomy-label">Control-Flow</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/development/" data-taxonomy-term="development"><span class="taxonomy-label">Development</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/dsl/" data-taxonomy-term="dsl"><span class="taxonomy-label">Dsl</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/economy/" data-taxonomy-term="economy"><span class="taxonomy-label">Economy</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/errors/" data-taxonomy-term="errors"><span class="taxonomy-label">Errors</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/generics/" data-taxonomy-term="generics"><span class="taxonomy-label">Generics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/getting-started/" data-taxonomy-term="getting-started"><span class="taxonomy-label">Getting-Started</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/language-design/" data-taxonomy-term="language-design"><span class="taxonomy-label">Language-Design</span><span class="taxonomy-count">13</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/macros/" data-taxonomy-term="macros"><span class="taxonomy-label">Macros</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory/" data-taxonomy-term="memory"><span class="taxonomy-label">Memory</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/modules/" data-taxonomy-term="modules"><span class="taxonomy-label">Modules</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/namespaces/" data-taxonomy-term="namespaces"><span class="taxonomy-label">Namespaces</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/naming/" data-taxonomy-term="naming"><span class="taxonomy-label">Naming</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/numbers/" data-taxonomy-term="numbers"><span class="taxonomy-label">Numbers</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/oop/" data-taxonomy-term="oop"><span class="taxonomy-label">Oop</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/operators/" data-taxonomy-term="operators"><span class="taxonomy-label">Operators</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/overview/" data-taxonomy-term="overview"><span class="taxonomy-label">Overview</span><span class="taxonomy-count">3</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/parser/" data-taxonomy-term="parser"><span class="taxonomy-label">Parser</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/playground/" data-taxonomy-term="playground"><span class="taxonomy-label">Playground</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming/" data-taxonomy-term="programming"><span class="taxonomy-label">Programming</span><span class="taxonomy-count">7</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/programming-languages/" data-taxonomy-term="programming-languages"><span class="taxonomy-label">Programming-Languages</span><span class="taxonomy-count">16</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/python/" data-taxonomy-term="python"><span class="taxonomy-label">Python</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/raii/" data-taxonomy-term="raii"><span class="taxonomy-label">Raii</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/recursion/" data-taxonomy-term="recursion"><span class="taxonomy-label">Recursion</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/references/" data-taxonomy-term="references"><span class="taxonomy-label">References</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/release/" data-taxonomy-term="release"><span class="taxonomy-label">Release</span><span class="taxonomy-count">6</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/rust/" data-taxonomy-term="rust"><span class="taxonomy-label">Rust</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/safety/" data-taxonomy-term="safety"><span class="taxonomy-label">Safety</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/security/" data-taxonomy-term="security"><span class="taxonomy-label">Security</span><span class="taxonomy-count">4</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/semantics/" data-taxonomy-term="semantics"><span class="taxonomy-label">Semantics</span><span class="taxonomy-count">2</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/stack-check/" data-taxonomy-term="stack-check"><span class="taxonomy-label">Stack-Check</span><span class="taxonomy-count">1</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/syntax/" data-taxonomy-term="syntax"><span class="taxonomy-label">Syntax</span><span class="taxonomy-count">14</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/theory/" data-taxonomy-term="theory"><span class="taxonomy-label">Theory</span><span class="taxonomy-count">5</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/trust-lang/" data-taxonomy-term="trust-lang"><span class="taxonomy-label">Trust-Lang</span><span class="taxonomy-count">9</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/types/" data-taxonomy-term="types"><span class="taxonomy-label">Types</span><span class="taxonomy-count">10</span></a></li>
+        <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span><span class="taxonomy-count">4</span></a></li>
+        </ul>
+    </div>
+  
+	
+          </aside>
+          <main class="col-12 col-md-9 col-xl-8 ps-md-5 pe-md-4" role="main">
+            <a class="td-rss-button" title="RSS" href="/en/blog/safety/index.xml" target="_blank" rel="noopener">
+              <i class="fa-solid fa-rss" aria-hidden="true"></i>
+            </a>
+            <nav aria-label="breadcrumb" class="td-breadcrumbs">
+  <ol class="breadcrumb">
+  <li class="breadcrumb-item">
+    <a href="/en/blog/">Articles</a></li>
+  <li class="breadcrumb-item">
+    <a href="/en/blog/safety/">Software safety</a></li>
+  <li class="breadcrumb-item active" aria-current="page">
+    Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</li>
+  </ol>
+</nav>
+<div class="td-content">
+	<h1>Getting rid of Segmentation fault errors due to stack overflow in C&#43;&#43;</h1>
+	
+	<div class="td-byline mb-4">
+		
+		<time datetime="2026-01-07" class="text-body-secondary">Wednesday, January 07, 2026</time>
+	</div>
+	<header class="article-meta">
+		<div class="taxonomy taxonomy-terms-article taxo-tags">
+  <h5 class="taxonomy-title">Tags:</h5>
+  <ul class="taxonomy-terms">
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/memory-safety/" data-taxonomy-term="memory-safety"><span class="taxonomy-label">Memory-Safety</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/c&#43;&#43;/" data-taxonomy-term="c&#43;&#43;"><span class="taxonomy-label">C&#43;&#43;</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/verification/" data-taxonomy-term="verification"><span class="taxonomy-label">Verification</span></a></li>
+    <li><a class="taxonomy-term" href="https://trust-lang.net/en/tags/runtime/" data-taxonomy-term="runtime"><span class="taxonomy-label">Runtime</span></a></li>
+    </ul>
+</div>
+
+  </header>
+	<p>January 7 at 14:53 2026</p>
+<p>Developing the idea of a <a href="/en/blog/safety/language-guarantees/">trusted programming language</a>, I came to the conclusion that, through restrictions of the syntax and the creation of corresponding checks in the static code analyzer, it is possible to protect against practically all technical errors except two — the control of dynamically allocated memory and stack overflow.</p>
+<p>Moreover, while solutions exist for reference counting at runtime, stack overflow control cannot be done not only during the analysis of the source text of the program, but it is practically impossible even during the execution of the application! After all, a stack overflow error is always fatal, since there is no way to catch and handle this error from inside the running program in order to then continue its execution as if nothing had happened.</p>
+<p>Is there at least a theoretical possibility to protect against stack overflow errors and turn it into an ordinary error (exception) that can be caught (handled) in the application itself, so that it is possible to continue the execution of the program without fear of a subsequent segmentation fault or stack smashing?</p>
+<p><a href="/en/blog/safety/stack-overflow/#body">Skip the lyrics and go straight to the description of the solution</a></p>
+<h2 id="a-bit-of-technical-information-about-the-stack">A bit of technical information about the stack<a class="td-heading-self-link" href="#a-bit-of-technical-information-about-the-stack" aria-label="Heading self-link"></a></h2><p>The program stack is a small area of RAM in which local variables and function return addresses are stored. When the depth of calls or the size of local data exceeds the limit allotted to them, the next write to the stack goes beyond its boundaries, which is the cause of the error. Moreover, if the error handler code also needs stack, but it is already exhausted, then it is impossible to reliably perform the error handling — since there is no memory in the stack for temporary data.</p>
+<p>Some operating systems deliberately create a protective lower boundary of the stack, an attempt to go beyond which leads to an immediate abnormal termination of the application; and even if the programming language allows catching the stack overflow error, the state of the thread is already violated: the data is damaged, and continuing the work of the application is unsafe.</p>
+<p>That is precisely why a stack overflow almost always ends in an abnormal stop of the thread or of the whole process. Only a correct termination of the application with a report/memory dump is allowed, without continuing the program&rsquo;s work.</p>
+<p>The problem is further aggravated by the fact that it is impossible in principle to compute the stack size for a function during AST analysis, since this is information exclusively of compile time:</p>
+<ul>
+<li>The stack size of a function can depend on the input data of the function (for example alloca and VLA in the C language)</li>
+<li>The compiler may add unused space between variables for their alignment (Padding).</li>
+<li>The registers that the function must restore before returning (<code>callee-saved registers</code>), the function return address and the return data are saved on the stack. Moreover, all this depends not only on the features of a specific hardware platform, but also on the <a href="https://en.wikipedia.org/wiki/Calling_convention">function calling convention</a>.</li>
+<li>The compiler may create unnamed temporary variables on the stack to store intermediate results of computations.</li>
+<li>The optimizer may completely remove some variables or store them only in registers, without using stack memory for this.</li>
+<li>There is also no universal method for determining the free space on the stack, since it depends both on the hardware platform and on the specific operating system.</li>
+</ul>
+<p>Moreover, information about the stack size of a function is usually not available during the execution of the application either, because a program is machine instructions, and to find out the size of the stack used by a specific function one needs to decode (disassemble) its code for analysis.</p>
+<h1 id="causes-of-stack-overflow-and-protection-mechanisms">Causes of stack overflow and protection mechanisms<a class="td-heading-self-link" href="#causes-of-stack-overflow-and-protection-mechanisms" aria-label="Heading self-link"></a></h1><p>At the basis of the theory of algorithms lies the abstract Turing machine, which has infinite computing resources (infinite memory and unlimited execution time), thanks to which any algorithms are allowed, including those with infinite recursion depth.</p>
+<p>However, the resources of real computers are always finite: memory, and accordingly the stack size, are finite. Because of this, although recursive algorithms exist, <strong>unlimited recursion</strong> is impossible in practice. In addition, the problem of determining the termination of an arbitrary program (the halting problem) for a Turing machine is in principle unsolvable, therefore no analysis of a program at compile time is capable of reliably predicting the correctness of the program in the general case, nor the maximum stack depth required for its execution.</p>
+<p>Therefore the stack size is always set in advance:</p>
+<ul>
+<li>When linking/loading the process into RAM or when creating an application thread.</li>
+<li>The maximum stack size is reserved at the OS level and cannot be increased during the life of the thread (although sometimes <a href="https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/resetstkoflw">attempts are made to dynamically increase the stack size during the operation of the application</a>, <a href="https://releases.llvm.org/3.0/docs/SegmentedStacks.html">Segmented Stacks in LLVM</a> and <a href="https://gcc.gnu.org/wiki/SplitStacks">Split Stacks in GCC</a>)</li>
+<li>In some programming languages, the runtimes can set custom stack sizes, but this does not change the limits for the system thread and still runs into the overall memory limit.</li>
+</ul>
+<spoiler title="There are many stack protection mechanisms:">
+<p>Software, at the compiler level:</p>
+<ul>
+<li>Stack canaries (stack cookies): inserting protective markers in function prologues, checked in the epilogue.</li>
+<li>Probing/step-by-step &ldquo;probing&rdquo; of the stack for large frames: guarantees that the OS manages to activate the guard pages, preventing a &ldquo;collision&rdquo; with other memory regions.</li>
+<li>Stack-clash protection checks for large local allocations.</li>
+<li>Runtime sanitizers: detecting overflows of local buffers, going beyond their boundaries</li>
+<li>Separating the &ldquo;safe&rdquo; and the general stack (safe stack) to minimize the possibilities of overwriting sensitive data</li>
+<li>Tail-call optimization and tail recursion elimination: converting tail calls into iterative jumps without stack growth.</li>
+<li>An alternative stack for signal/exception handlers, so as to correctly record an emergency report when the main stack overflows.</li>
+</ul>
+<p>Hardware and system stack protection mechanisms:</p>
+<ul>
+<li>MMU/page protection and guard pages at the stack boundary: early detection of going beyond the limits.</li>
+<li>Separation of execution and data: prohibiting the execution of code from the stack (NX/DEP), so that an overflow does not turn into the execution of arbitrary code.</li>
+<li>Address space layout randomization (ASLR): complicates the predictability of the stack location, reducing the risk of targeted attacks.</li>
+<li>A hardware-level shadow stack for protecting returns (shadow stack), preventing the substitution of return addresses.</li>
+<li>Control-flow integrity at the processor level, reducing the probability of exploiting overflows.</li>
+<li>OS policies for stack limits per thread and process, providing predictable behavior and abnormal termination before neighboring memory regions are damaged.</li>
+</ul>
+</spoiler>
+<p><anchor>body</anchor></p>
+<p>All the stack protection methods listed above make it possible only to detect the very fact of its overflow, when the program&rsquo;s data is already destroyed, but for the purposes of <a href="/en/blog/safety/language-guarantees/">provable programming</a> I am interested in the task of preventing stack overflow and the possibility of implementing software handling of this situation from inside the running application without violating data integrity.</p>
+<h2 id="implementation-of-stack-overflow-protection-for-c">Implementation of stack overflow protection for C++<a class="td-heading-self-link" href="#implementation-of-stack-overflow-protection-for-c" aria-label="Heading self-link"></a></h2><p>The source code of the project for preventing the abnormal termination of the application due to stack overflow can be viewed on <a href="https://github.com/afteri-ru/stack-check">GitHub/stack-check</a>.</p>
+<p>Its main idea consists in checking the free space on the stack before calling a protected function, and if the free space is insufficient, then a program exception <code>stack_overflow</code> is thrown, which can be caught and handled from inside the application, without waiting for a segmentation error to occur due to the overflow of the program/thread stack and the subsequent destruction of data.</p>
+<p>The code of the project is implemented as a single header file <code>stack_check.h</code>, which contains all the necessary software primitives for manual use. There is also a plugin for Clang, which at the stage of generating IR code automatically inserts calls of the stack overflow control functions before the protected functions.</p>
+<p>For manual marking of functions and methods of classes, before calling which a check of the free space on the stack is required, custom C++ attributes are used, which are expanded with the help of the macros <code>STACK_CHECK_SIZE(size)</code> and <code>STACK_CHECK_LIMIT</code>:</p>
+<ul>
+<li>
+<p>The attribute <code>STACK_CHECK_SIZE(size)</code> accepts one argument in the form of an integer — the size of the free space on the stack, which will be automatically checked before calling the protected function.</p>
+</li>
+<li>
+<p>The attribute <code>STACK_CHECK_LIMIT</code> also checks the size of the free space on the stack, which is set <strong>at the compilation of the application</strong>. <em>The stack usage size for each function can be found by specifying the <code>-fstack-usage</code> option during compilation, which saves to a <code>*.su</code> file the list of all functions and the stack size required for them</em>.</p>
+</li>
+</ul>
+<p>The automatic insertion of code before a protected function can be canceled. For this, a call to the auxiliary static method <code>ignore_next_check(const size_t)</code> must be inserted in the C++ code, to which the number of the following code insertions is passed, which will be skipped (removed) from the generated (executable) file.</p>
+<p>An example of the code for using the library:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">#include</span> <span style="color:#8f5902;font-style:italic">&#34;stack_check.h&#34;</span><span style="color:#8f5902;font-style:italic">
+</span></span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">using</span> <span style="color:#204a87;font-weight:bold">namespace</span> <span style="color:#000">trust</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">const</span> <span style="color:#204a87;font-weight:bold">thread_local</span> <span style="color:#000">stack_check</span> <span style="color:#000">stack_check</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">info</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// A function without automatic stack overflow checking
+</span></span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span> 
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// Before each call of the function, code checking the specified free space on the stack will be inserted
+</span></span></span><span style="display:flex;"><span><span style="color:#c4a000">[[stack_check_size(100)]]</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">guard_size_func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">char</span> <span style="color:#000">data</span><span style="color:#000;font-weight:bold">[</span><span style="color:#0000cf;font-weight:bold">92</span><span style="color:#000;font-weight:bold">];</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#8f5902;font-style:italic">// Before each call of the function, the minimum size of free space on the stack will be checked
+</span></span></span><span style="display:flex;"><span><span style="color:#000">STACK_CHECK_LIMIT</span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">guard_limit_func</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000;font-weight:bold">...</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">int</span> <span style="color:#000">main</span><span style="color:#000;font-weight:bold">()</span> <span style="color:#000;font-weight:bold">{</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Here code for stack overflow control will be automatically added
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">guard_size_func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#000">stack_check</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">ignore_next_check</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">1</span><span style="color:#000;font-weight:bold">);</span> <span style="color:#8f5902;font-style:italic">// The next automatic insertion of the stack check will be ignored
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">guard_size_func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#8f5902;font-style:italic">// Here code for checking the minimum size of free space on the stack will be automatically added
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">guard_limit_func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#000">stack_check</span><span style="color:#ce5c00;font-weight:bold">::</span><span style="color:#000">check_overflow</span><span style="color:#000;font-weight:bold">(</span><span style="color:#0000cf;font-weight:bold">10000</span><span style="color:#000;font-weight:bold">);</span> <span style="color:#8f5902;font-style:italic">// Manual check of the free space on the stack
+</span></span></span><span style="display:flex;"><span>    <span style="color:#000">func</span><span style="color:#000;font-weight:bold">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#204a87;font-weight:bold">return</span> <span style="color:#0000cf;font-weight:bold">0</span><span style="color:#000;font-weight:bold">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#000;font-weight:bold">}</span>
+</span></span></code></pre></div><p>After that the file is compiled with the connection of the clang plugin:</p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>$ clang++ -std<span style="color:#ce5c00;font-weight:bold">=</span>c++20 -Xclang -load -Xclang stack_check_clang.so -Xclang -add-plugin -Xclang stack_check -lpthread filename.cpp
+</span></span></code></pre></div><h2 id="implementation-details">Implementation details<a class="td-heading-self-link" href="#implementation-details" aria-label="Heading self-link"></a></h2><p>The final stack size for a function call depends on many factors, such as the target platform, the degree of optimization of the program, the calling convention of a specific function, etc., which is why it cannot be computed with the help of a static code analyzer based on the AST or by analyzing the IR representation, but can only be determined at the stage of generating machine instructions for a specific target platform.</p>
+<p>Moreover, for the purposes of automatic control (for functions marked with the <code>stack_check_size</code> or <code>stack_check_limit</code> attribute) the minimum size of free space on the stack cannot be less than a certain fixed threshold, which is required for creating a program exception with error information. The size of such a threshold depends on the implementation, and it is affected by the target platform, the operating system, the degree of optimization of the program and other factors.</p>
+<p>The main functionality of stack overflow control is located in the class <code>trust::stack_check</code>. Information about the stack size is stored in static fields of the class, individually for each thread (<em>Thread Local</em> — thread-local storage, TLS), which makes it possible to request the stack parameters once for each thread during the initialization of the structure, and, when checking the size of the free space on the stack using the method <code>stack_check::check_overflow(N)</code>, to compare the current stack pointer with the lower boundary of the memory area allocated for the stack.</p>
+<p>To use the library in an application, one must define the static variable <code>const thread_local trust::stack_check trust::stack_check::info</code>, and to specify the minimum limit of free space on the stack, assign the corresponding value to the macro <code>STACK_SIZE_LIMIT</code>.</p>
+<h2 id="overhead-and-impact-on-the-speed-of-the-program">Overhead and impact on the speed of the program<a class="td-heading-self-link" href="#overhead-and-impact-on-the-speed-of-the-program" aria-label="Heading self-link"></a></h2><p>The stack overflow check, even in the case of maximum optimization, cannot be shorter than two machine instructions (a comparison operation and a short jump instruction), which, of course, adds time to the function call.</p>
+<p><em>As a &ldquo;speed meter&rdquo; I used a program for finding prime numbers by the recursive method from the file <code>prime_check.cpp</code> (as tests I also tried the towers of Hanoi and a recursive algorithm for counting the sum of digits of a long number, but the stack depth for the overflow check in the first case requires a very long duration of the algorithm&rsquo;s operation, and the record of a long number at which a stack overflow occurs takes several screens, which is also inconvenient for testing purposes).</em></p>
+<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ ./prime-check-O3
+</span></span><span style="display:flex;"><span>Usage: ./prime-check-O3 &lt;start_number&gt; <span style="color:#ce5c00;font-weight:bold">[</span>count<span style="color:#ce5c00;font-weight:bold">]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$ ./prime-check-O3 <span style="color:#0000cf;font-weight:bold">9999999999999999</span>
+</span></span><span style="display:flex;"><span>Stack overflow exception at: <span style="color:#0000cf;font-weight:bold">104588</span> call depth.
+</span></span><span style="display:flex;"><span>Stack top: 0x7fffdc634000 bottom: 0x7fffdbe36000 <span style="color:#ce5c00;font-weight:bold">(</span>stack size: 8380416<span style="color:#ce5c00;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>Query size: <span style="color:#0000cf;font-weight:bold">10000</span> end frame: 0x7fffdbe386a0 <span style="color:#ce5c00;font-weight:bold">(</span>free space: 9888<span style="color:#ce5c00;font-weight:bold">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$ ./prime-check-O3 <span style="color:#0000cf;font-weight:bold">10000000000</span> <span style="color:#0000cf;font-weight:bold">1000</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000000019</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000000033</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000000061</span>
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000022899</span>
+</span></span><span style="display:flex;"><span><span style="color:#0000cf;font-weight:bold">10000022909</span>
+</span></span><span style="display:flex;"><span>Max recursion depth SAFE: <span style="color:#0000cf;font-weight:bold">100000</span>
+</span></span><span style="display:flex;"><span>Number of recursive calls SAFE: <span style="color:#0000cf;font-weight:bold">117539009</span>
+</span></span><span style="display:flex;"><span>Execution <span style="color:#204a87">time</span> SAFE: <span style="color:#0000cf;font-weight:bold">18227634</span> microseconds
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Max recursion depth: <span style="color:#0000cf;font-weight:bold">100000</span>
+</span></span><span style="display:flex;"><span>Number of recursive calls: <span style="color:#0000cf;font-weight:bold">117539009</span>
+</span></span><span style="display:flex;"><span>Execution time: <span style="color:#0000cf;font-weight:bold">17925080</span> microseconds
+</span></span><span style="display:flex;"><span>Difference in execution time: 1.68788 %
+</span></span></code></pre></div><p>An assessment of the impact of stack overflow control on the speed of the application: without optimization (-O0) — the execution time increases by about <em>1%</em>-<em>5%</em>, and with maximum optimization (-O3) — by about <em>0.5-2%</em> (the total execution time of the application is about <em>20 seconds</em>).</p>
+<p>In an ideal form (if we strive for minimal overhead) it is best to compute the stack size for all functions of the program and always use the maximum value (after all, loading a value into a register before the comparison operation also requires processor cycles and memory access). In this case, for any sequential calls of functions in one block it will be enough to check the free space on the stack only before calling the first function.</p>
+<h2 id="what-does-ai-have-to-do-with-it">What does AI have to do with it?<a class="td-heading-self-link" href="#what-does-ai-have-to-do-with-it" aria-label="Heading self-link"></a></h2><p>I honestly admit that, even having some experience of developing plugins for clang behind me, without using an LLM I would not have managed such a project in such a short time (about a month of background work).</p>
+<p>As it turned out, the functionality of clang AST plugins does not make it possible to connect plugins for LLVM directly without some &ldquo;shamanism&rdquo;, and making changes at the stage of generating object code with the help of a plugin turned out to be generally impossible without modifying the LLVM sources. Because of this I had to abandon the automatic computation of the stack size, since patching LLVM only to verify the concept seemed excessive to me.</p>
+<p>Nevertheless, despite the very large help of generative neural networks in studying the topic, writing real code with their help turned out to be a useless undertaking. The best algorithm for using LLMs in development turned out to be the following: to configure the parameters of the LLM for working with code and to create with its help separate small projects with limited functionality, and necessarily with working tests, in order to be sure of the correct operation of the written example. After that, to thoughtfully study the resulting code, maybe even chat in dialog mode to clarify some points, and after the picture in the head comes together — one can transfer the necessary fragments to the main project.</p>
+<p>All attempts to organize the work differently on the full code base ended in fiasco. Any LLMs began to lose context and switched to secondary, and often non-existent, problems. After which the project completely broke down, since the LLM decided to check the build system, for which it made a &ldquo;stub&rdquo;, i.e. deleted the existing working code, made sure that the build went fine, and everything started all over again.</p>
+<p>With prolonged use of an LLM, the emotional encouragement of users and attempts to ask clarifying questions became especially annoying: &ldquo;You asked a good question&rdquo;, &ldquo;You formulated the problem correctly&rdquo;, &ldquo;Thanks for the remarks. Please clarify &hellip;&rdquo;, as well as the embedded advertising of their own solutions:</p>
+<p><img src="/en/blog/safety/stack-overflow.png" alt=""></p>
+<p>But even despite some disappointment from the constant errors when using LLMs and the attempts to impose a subscription to their own software products, the use of generative neural networks made it possible to save a bunch of effort and time on studying code examples.</p>
+<p>I have now generally stopped writing scripts by hand, editing configuration files for VSCode or dealing with errors in CMakeLists.txt. Of course I do not think that LLMs will soon really be able to replace a programmer, but they can already really make the work of developers easier.</p>
+<h2 id="integration-status-in-trustlang">Integration status in TrustLang<a class="td-heading-self-link" href="#integration-status-in-trustlang" aria-label="Heading self-link"></a></h2><p>The functionality of stack overflow control is built into the <a href="/en/docs/">TrustLang</a> compiler as
+control <strong>at the code generation stage</strong> (the role of the clang plugin is taken by the transpiler, and the runtime
+primitives <code>trust::stack_check</code> — the public runtime header <code>trust/stack_check.hpp</code>).</p>
+<ul>
+<li><strong>Function attributes</strong> (insertion of the check BEFORE each call of a marked function):
+<ul>
+<li><code>@[stack_check@]</code> — without an argument = <strong>limit</strong>: before each call of <code>check_stack_limit()</code>
+(free ≥ <code>m_stack_limit</code> from the <code>.stack_sizes</code> section + reserve);</li>
+<li><code>@[stack_check(N)@]</code> — an integer <code>N</code>: <code>check_overflow(N)</code> (explicit size of free space).</li>
+</ul>
+</li>
+<li><strong>Individual functions</strong> (real C++ functions of the runtime, explicit calls in the code, <code>%</code> prefix):
+<ul>
+<li><code>%trust_stack_check(N)</code> — <code>check_overflow(N)</code> (free ≥ N + reserve);</li>
+<li><code>%trust_stack_check()</code> — <code>check_stack_limit()</code> (free ≥ m_stack_limit + reserve);</li>
+<li><code>%trust_stack_check_set_reserve(N)</code> — <code>set_reserve(N)</code> (min. reserve for all functions);</li>
+<li><code>%trust_stack_check_get_reserve()</code> — <code>get_reserve()</code>;</li>
+<li><code>%trust_stack_check_get_limit()</code> — <code>get_limit()</code> (the current <code>m_stack_limit</code>);</li>
+<li><code>%trust_stack_check_set_limit(f1, f2, ...)</code> — <code>set_limit({&amp;c_f1, &amp;c_f2})</code> (restrict <code>m_stack_limit</code>
+to the listed functions; empty = all functions of <code>.stack_sizes</code>).</li>
+</ul>
+</li>
+<li>The <strong>reserve <code>reserve</code></strong> (min. stack size for creating an exception, default 8192) is ALWAYS added
+to the checks: <code>stack_check</code> = <code>N + reserve</code>, <code>stack_check_limit</code> = <code>m_stack_limit + reserve</code>.</li>
+<li><strong>Control</strong>:
+<ul>
+<li><code>--stack-check=&lt;off|explicit|recursion|auto&gt;</code> (default <code>explicit</code>), <code>-Wstack-check=&lt;mode&gt;</code>,
+<code>-Wno-stack-check</code>; from code — <code>@__OPTION__(&quot;stack-check&quot;, &quot;...&quot;)</code> + <code>@__OPTION_PUSH__/POP__</code>;</li>
+<li>the minimum reserve — <code>--stack-check-reserve=&lt;bytes&gt;</code> (default 8192) / <code>-Wstack-check-reserve=</code> /
+<code>@__OPTION__(&quot;stack-check-reserve&quot;, &quot;...&quot;)</code>;</li>
+<li><code>--stack-check-functions=&lt;names&gt;</code> — restrict <code>m_stack_limit</code> to the listed functions (empty = all);</li>
+<li><code>recursion</code> — the diagnostic <code>-Wstack-check-infer</code> for unprotected recursive functions;
+<code>auto</code> — auto-marking of recursive functions.</li>
+</ul>
+</li>
+<li>The generated program is compiled with <code>-fstack-size-section</code> and <code>-lpthread</code>; the TLS <code>info</code>
+is defined in the generated entry <code>_main.cppt</code>.</li>
+</ul>
+<p>Example:</p>
+<pre tabindex="0"><code class="language-trust" data-lang="trust">@[stack_check@]
+@func recurse(n:Int32):Int32 {
+    @if(n &lt;= 0) { @return 0; };
+    @return recurse(n - 1) + 1;
+};
+</code></pre>
+	<ul class="list-unstyled td-pager d-flex justify-content-between align-items-center mb-0">
+  <li>
+    <a href="/en/blog/safety/language-guarantees/" aria-label="Previous - Programming language guarantees as a basis for secure software development" class="btn btn-primary"><span class="me-1">←</span>Previous</a>
+  </li>
+  <li>
+    <a class="btn btn-primary disabled">Next<span class="ms-1">→</span></a>
+  </li>
+</ul>
+
+	</div>
+
+
+          </main>
+        </div>
+      </div>
+      <footer class="td-footer row d-print-none">
+  <div class="container-fluid">
+    <div class="row mx-md-2">
+      <div class="td-footer__left col-6 col-sm-4 order-sm-1">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="User mailing list" aria-label="User mailing list">
+    <a target="_blank" rel="noopener" href="mailto:mail@trust-lang.net" aria-label="User mailing list">
+      <i class="fa fa-envelope"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__right col-6 col-sm-4 order-sm-3">
+        <ul class="td-footer__links-list">
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/afteri-ru/trust-lang" aria-label="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+  <li class="td-footer__links-item" data-bs-toggle="tooltip" title="" aria-label="">
+    <a target="_blank" rel="noopener" href="" aria-label="">
+      <i class=""></i>
+    </a>
+  </li>
+  
+</ul>
+
+      </div><div class="td-footer__center col-12 col-sm-4 py-2 order-sm-2">
+        <span class="td-footer__copyright">&copy;
+    2026
+    <span class="td-footer__authors">The TrustLang Authors</span></span><span class="td-footer__all_rights_reserved">All Rights Reserved</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <script src="/js/main.min.1814b049f7461aebd8bb3fe336dfaac942997066fe309ee8a1b7f56375caa115.js" integrity="sha256-GBSwSfdGGuvYuz/jNt&#43;qyUKZcGb&#43;MJ7oobf1Y3XKoRU=" crossorigin="anonymous"></script>
+<script defer src="/js/click-to-copy.min.24576ff9fe9f85bb1948ecae52ce227cafce53757a3ad52301f2a79260f6b97d.js" integrity="sha256-JFdv&#43;f6fhbsZSOyuUs4ifK/OU3V6OtUjAfKnkmD2uX0=" crossorigin="anonymous"></script>
+<script src='/js/tabpane-persist.js'></script>
+<script src="/js/trust-highlight.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+
+  </body>
+</html>
