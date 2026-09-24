@@ -120,10 +120,18 @@ std::string TypeRegistry::getFullTypeName(TypeId id) const {
                 deleter = getFullTypeName(rd->deleterType);
             }
         }
-        // Sync-backend: политика - второй аргумент отображаемого имени (`shared<T, Policy>`).
+        // Sync-backend: политика - второй аргумент отображаемого имени (`shared<T, Policy>`),
+        // класс реализации механизма доступа (impl) - третий (`shared<T, Policy, Impl>`).
+        // impl входит в идентичность (RefTypeData::implType/TypeKey), поэтому обязан отражаться
+        // в имени: иначе `shared<T,P,I1>` и `shared<T,P,I2>` дали бы одинаковый суффикс перегрузки.
         if (rt == RefType::kShared || rt == RefType::kWeak) {
             if (const auto* rd = getTypeDataAs<RefTypeData>(id); rd && rd->accessPolicyType != INVALID_TYPE_ID) {
-                return std::string(refTypeName(rt)) + "<" + pointee + ", " + getFullTypeName(rd->accessPolicyType) + ">";
+                std::string name = std::string(refTypeName(rt)) + "<" + pointee + ", " + getFullTypeName(rd->accessPolicyType);
+                if (rd->implType != INVALID_TYPE_ID) {
+                    name += ", " + getFullTypeName(rd->implType);
+                }
+                name += ">";
+                return name;
             }
         }
         return refTypeDisplayName(rt, pointee, deleter);

@@ -23,9 +23,21 @@ TEST(TranspileLspTest, ReverseNameMappingWholeNameNotShifted) {
     ASSERT_NE(reader, nullptr);
     ReaderFile rCpp = ReaderFile::make_output(0);
 
-    // cpp `msg` in `int8_t msg = 10;` at 1-based line 2, col 9..11 (0-based char 9..11).
-    // Hover on the middle char 's' (0-based char 10) must still resolve to the whole `msg`.
-    auto cloc = reader->lspToLocation(rCpp, 1, 10);
+    // Определение `int8_t c_msg = 10;` — последнее вхождение `c_msg` в выводе (перед ним идёт
+    // вставленное объявление `extern int8_t c_msg asm("__trust_var_c_msg");`). Hover на середине
+    // имени определения должен резолвиться во ВСЁ имя `msg`, без сдвига.
+    const std::string cpp(ctx.source().output_result(cppIdx));
+    const std::size_t defPos = cpp.rfind("c_msg");
+    ASSERT_NE(defPos, std::string::npos) << cpp;
+    std::size_t line = 0;
+    std::size_t lineStart = 0;
+    for (std::size_t i = 0; i < defPos; ++i) {
+        if (cpp[i] == '\n') {
+            ++line;
+            lineStart = i + 1;
+        }
+    }
+    auto cloc = reader->lspToLocation(rCpp, static_cast<uint32_t>(line), static_cast<uint32_t>(defPos - lineStart + 2));
     auto nm = reader->getTrustName(cloc, "c_msg");
     ASSERT_TRUE(nm.has_value());
     EXPECT_EQ(std::string(reader->getText(nm->rangeMap.from)), "msg");
@@ -109,7 +121,10 @@ TEST(TranspileLspTest, SameLineStatementsJoinOnOneLine) {
 
     std::string cpp(ctx.source().output_body(cppIdx));
     // Оба оператора в исходнике на одной строке → в C++ на одной строке, с пробелом между.
-    EXPECT_NE(cpp.find("int8_t c_a = 1; int8_t c_b = 2;"), std::string::npos) << cpp;
+    // Перед определением каждой переменной вставлено объявление с asm-меткой (в той же строке).
+    EXPECT_NE(cpp.find("extern int8_t c_a asm(\"__trust_var_c_5fa\"); int8_t c_a = 1; extern int8_t c_b asm(\"__trust_var_c_5fb\"); int8_t c_b = 2;"),
+              std::string::npos)
+        << cpp;
     EXPECT_EQ(cpp.find("int8_t c_a = 1;\nint8_t c_b = 2;"), std::string::npos) << cpp;
 }
 

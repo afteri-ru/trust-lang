@@ -80,6 +80,7 @@ struct PipelineOpts {
     bool help_requested = false;
     bool version_requested = false;
     bool module_info_requested = false; ///< --module-info flag
+    std::string module_info_masks;      ///< --module-info=<masks>: comma-маски имён (пусто = все)
 
     // Compile options
     std::string temp_dir;

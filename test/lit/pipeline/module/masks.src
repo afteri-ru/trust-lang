@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -m -o $TD/m.trust %s
+# RUN: %trust --module-info='f*' $TD/m.trust | %FileCheck %s --check-prefix=STAR
+# RUN: %trust --module-info='f?,x' $TD/m.trust | %FileCheck %s --check-prefix=MIX
+# RUN: %trust --module-info='zzz' $TD/m.trust | %FileCheck %s --check-prefix=NONE
+# RUN: %trust --module-info='' $TD/m.trust | %FileCheck %s --check-prefix=ALL
+
+# STAR: exports: 2
+# STAR:   f1
+# STAR:   f2
+# MIX: exports: 3
+# MIX:   f1
+# MIX:   f2
+# MIX:   x
+# NONE: exports: 0
+# ALL: exports: 3
+
+f1(a:Int32):Bool := true;
+f2(a:Int32):Bool := true;
+x := 1;

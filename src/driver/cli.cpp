@@ -170,6 +170,7 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         break;
     case DriverOptId::ModuleInfo:
         opts.module_info_requested = true;
+        opts.module_info_masks = value;
         break;
     // -- Linking --
     case DriverOptId::LinkLib:
@@ -333,7 +334,10 @@ std::vector<DriverOption> buildTrustTable() {
         {int(DriverOptId::SharedLib), "shared-lib", "", CliOpt::Flag, "", "Compile to shared library (.so)", CliCategory::CompileModel},
         {int(DriverOptId::TrustModule), "module", "m", CliOpt::Flag, "", "Compile to trust module (.trust)", CliCategory::CompileModel},
         {int(DriverOptId::Run), "run", "", CliOpt::Flag, "", "Build and run the program", CliCategory::CompileModel},
-        {int(DriverOptId::ModuleInfo), "module-info", "", CliOpt::Flag, "", "Show exported symbols and version of a .trust module", CliCategory::CompileModel},
+        {int(DriverOptId::ModuleInfo), "module-info", "", CliOpt::OptionalValue, "masks",
+         "Show exported symbols and version of a .trust module (read from ELF section .trust.sabi, no dlopen). "
+         "Optional comma-separated name masks with '?'/'*' (empty = all)",
+         CliCategory::CompileModel},
         // Linking
         {int(DriverOptId::LinkLib), "l", "", CliOpt::ValueList, "lib", "Additional library to link (repeatable; merged with @[link(...)])",
          CliCategory::Linking},

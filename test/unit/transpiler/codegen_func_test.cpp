@@ -589,7 +589,7 @@ TEST_F(TranspilerTest, GenerateTopLevelNamespaceScope) {
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
     const std::string cpp = m_ctx.source().output_result(out);
-    EXPECT_NE(cpp.find("namespace c_ns {\n    int32_t c_y = 20;\n}"), std::string::npos) << cpp;
+    EXPECT_NE(cpp.find("namespace c_ns {\n    extern int32_t c_y asm(\"__trust_var_c_5fns_3a_3ac_5fy\"); int32_t c_y = 20;\n}"), std::string::npos) << cpp;
 
     // Имя переменной внутри области имён должно маппиться (addNameMapping) и указывать на 'y'.
     auto* reader = m_ctx.source().toReader();
@@ -617,7 +617,11 @@ TEST_F(TranspilerTest, GenerateNestedTopLevelNamespaces) {
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
-    EXPECT_NE(cpp.find("namespace c_ns {\n    int32_t c_a = 2;\n    namespace c_sub {\n        int32_t c_c = 3;\n    }\n}"), std::string::npos) << cpp;
+    EXPECT_NE(cpp.find("namespace c_ns {\n    extern int32_t c_a asm(\"__trust_var_c_5fns_3a_3ac_5fa\"); int32_t c_a = 2;\n    namespace c_sub {\n        "
+                       "extern int32_t c_c "
+                       "asm(\"__trust_var_c_5fns_3a_3ac_5fsub_3a_3ac_5fc\"); int32_t c_c = 3;\n    }\n}"),
+              std::string::npos)
+        << cpp;
 }
 
 /// Test: пользовательский безымянный блок внутри функции эмитится как compound statement { }.
@@ -658,7 +662,9 @@ TEST_F(TranspilerTest, GenerateNamespaceTypeDecl_NameMapping) {
 
     const std::string cpp = m_ctx.source().output_result(out);
     // Объявление типа и переменная - внутри namespace ns (не в глобальном скоупе).
-    EXPECT_NE(cpp.find("namespace c_ns {\n    using c_MyInt = int32_t;\n    c_MyInt c_y = 20;\n}"), std::string::npos) << cpp;
+    EXPECT_NE(cpp.find("namespace c_ns {\n    using c_MyInt = int32_t;\n    extern c_MyInt c_y asm(\"__trust_var_c_5fns_3a_3ac_5fy\"); c_MyInt c_y = 20;\n}"),
+              std::string::npos)
+        << cpp;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);

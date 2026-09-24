@@ -50,9 +50,8 @@ void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile o
         return;
     }
     const bool funcRangeValid = !func_node.range().isInvalid();
-    if (funcRangeValid) {
-        m_ectx.m_ctx.source().mapStart(func_node.range(), output_idx);
-    }
+    // mapStart для сигнатуры выполняется позже (перед выводом сигнатуры): до этого может быть
+    // выведено объявление с asm-меткой экспортируемого символа (вне маппинга).
     // Точка входа модуля: DSL-макрос `@main` раскрывается в `<имя_модуля>__main__`. Pipeline
     // генерирует `_main.cppt` с `extern int <имя_модуля>__main__(); int main(){ return …; }`,
     // поэтому entry-функция эмитится с СЫРЫМ именем (без манглинга `c_`) и типом возврата `int`.
@@ -227,8 +226,32 @@ void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile o
         m_ectx.m_sawEntry = true;
     }
 
+    // Экспорт: единая генерация линковочного символа. Определение (модуль) получает отдельное
+    // объявление с asm до определения; forward-decl (сайт импорта) — asm прямо на прототипе (тот же
+    // символ). Entry не участвует (его символ задаёт `_main.cppt`).
+    const bool exportable =
+        func_node.m_body && !name.empty() && !m_ectx.m_inCppBlock && m_ectx.m_hiddenNamespaceDepth == 0 && !isEntry && !m_ectx.m_inRecordBody;
+    std::string export_symbol;
+    if (exportable) {
+        export_symbol = "__trust_" + std::string(func_node.m_isOperator ? "op_" : "fn_") + sanitizeSymbolPart(m_ectx.qualifiedCppName(name));
+        if (!m_ectx.m_forwardDeclOnly) {
+            // Объявление с asm — префиксом в ТОЙ ЖЕ строке перед определением (без нового перевода
+            // строки): не нарушает сохранение раскладки исходника (LSP/source-map). Квалификаторы
+            // (`lead`/`trail`, напр. constexpr/noexcept) повторяются — иначе спецификация исключений
+            // определения не совпадёт с объявлением.
+            m_ectx.m_ctx.source().output_append(output_idx,
+                                                lead + ret_type + " " + name + "(" + param_types_only + ")" + trail + " asm(\"" + export_symbol + "\"); ");
+        }
+    }
+    if (funcRangeValid) {
+        m_ectx.m_ctx.source().mapStart(func_node.range(), output_idx);
+    }
+
     // Emit function signature
     std::string sig = std::format("{}{} {}({}){}", lead, ret_type, name, params_str, trail);
+    if (exportable && m_ectx.m_forwardDeclOnly) {
+        sig += " asm(\"" + export_symbol + "\")";
+    }
     m_ectx.m_ctx.source().output_append(output_idx, sig);
 
     // Add name mappings (function name + parameter names) for hover links.
@@ -347,7 +370,10 @@ void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile o
         if (func_node.m_isOverloaded) {
             export_name += "#" + std::to_string(m_ectx.m_exports.size());
         }
-        m_ectx.m_exports.push_back({export_name, cpp_name, buildTrustForwardDecl(func_node)});
+        // Правая часть объявления в .trust.sabi — конкретное нативное имя (для линковки):
+        // сгенерированный символ экспорта; entry (не участвует в asm) — его C++-имя.
+        const std::string symbol_ref = export_symbol.empty() ? ("%" + cpp_name) : ("%" + export_symbol);
+        m_ectx.m_exports.push_back({export_name, cpp_name, buildTrustForwardDecl(func_node), symbol_ref});
     }
 }
 

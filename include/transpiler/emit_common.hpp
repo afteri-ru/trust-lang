@@ -160,4 +160,25 @@ inline std::string cppFuncName(std::string_view trustName, bool isOperator, bool
     return utils::name_to_cpp(trustName);
 }
 
+/// Детерминированное валидное имя линковочного символа экспортируемой сущности (единая генерация).
+/// Каждый не-алфанумерический символ (включая `_`) кодируется `_<hex>`; это делает преобразование
+/// ИНЪЕКТИВНЫМ (разные имена → разные символы; важно для уникальности асм-метки), а результат -
+/// валидным идентификатором C. Напр. `ns::operator==` -> `ns_3a_3aoperator_3d_3d`.
+inline std::string sanitizeSymbolPart(std::string_view s) {
+    static constexpr char kHex[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(s.size() * 2);
+    for (const char c : s) {
+        const auto u = static_cast<unsigned char>(c);
+        if ((u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || (u >= '0' && u <= '9')) {
+            out += static_cast<char>(u);
+        } else {
+            out += '_';
+            out += kHex[(u >> 4) & 0xf];
+            out += kHex[u & 0xf];
+        }
+    }
+    return out;
+}
+
 } // namespace trust

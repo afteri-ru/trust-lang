@@ -17,4 +17,7 @@
 //   dev     -> TRUST_VERSION_FULL (with git hash).
 #define TRUST_VERSION "@TRUST_VERSION@"
 
+// Build mode ("release" | "dev"), single source of truth in cmake/version.cmake.
+#define TRUST_BUILD_MODE "@TRUST_BUILD_MODE@"
+
 #define TRUST_DATE_BUILD "@TRUST_DATE_BUILD@"

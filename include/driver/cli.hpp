@@ -267,7 +267,7 @@ inline std::string driverHelp(std::span<const DriverOption> table) {
             if (o.category != cat) {
                 continue;
             }
-            const std::string arg = o.type.empty() ? "" : " <" + o.type + ">";
+            const std::string arg = o.type.empty() ? "" : (o.kind == CliOpt::OptionalValue ? " [=<" + o.type + ">]" : " <" + o.type + ">");
             if (o.name == "input") {
                 out += "  input\n";
             } else if (o.name.size() == 1) {

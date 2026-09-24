@@ -2,7 +2,7 @@
 
 > scope: include/pipeline
 > role: persistent-memory
-> last_reviewed: 2026-09-15
+> last_reviewed: 2026-09-24
 > review_period: 30
 > max_size: 11900
 
@@ -28,6 +28,14 @@ ParseAST НЕ запускает semantic/transpile. Фиктивные in-memor
   `<исходник>/.trust/<stem>/` (`--run` — `<cwd>/.trust/<stem>/`); не-`--run` кладёт артефакты ТОЛЬКО в
   `.trust`. Позиционные ПОСЛЕ входа при `--run` — аргументы программы (и через шебанг); без `--run`
   лишний позиционный — ошибка.
+- **`--module-info[=<маски>]` читает ELF-секцию `.trust.sabi` БЕЗ `dlopen`** (`module_loader::readModuleSabi`):
+  version/src-record + Trust-декларации экспортов; декларации валидируются парсером (`Parser::ParseText`);
+  фильтр имён масками `?`/`*`/`,` — через `matchesAnyMask`. Секция встраивается в `.cppt` при
+  `embed_export_table` (`src/pipeline/source_map.cpp`); правая часть декларации — конкретное нативное
+  имя `%<symbol>` (компилятор ГЕНЕРИРУЕТ имя символа сам и закрепляет его `asm`-меткой; в текстовом
+  модуле — `...`). Линковочный символ: `__trust_fn_`/`__trust_var_`/`__trust_op_` + санитизированное
+  квалифицированное имя; сайт импорта ЗЕРКАЛИТ ту же `asm`-метку; методы/entry не участвуют.
+  Отсутствие/битая/несовместимая секция — явная ошибка.
 - **Шапка `.cppt` несёт `// trust-options: <args>`** (та же `codegenArgsRecord`): пишется ТОЛЬКО при
   непустых фактически заданных codegen-опциях и входит в `prefix` (учитывается source-map). Это
   трассируемость, НЕ механизм кеша.

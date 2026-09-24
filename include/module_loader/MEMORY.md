@@ -2,7 +2,7 @@
 
 > scope: include/module_loader
 > role: persistent-memory
-> last_reviewed: 2026-08-19
+> last_reviewed: 2026-09-24
 > review_period: 30
 > max_size: 5500
 
@@ -12,6 +12,14 @@
 рекурсивно вызывает Parser (`expand_module=true`); `ensureLoaded()` резолвит `<name>.trust` (заглушка)
 или `<name>.src`. Идентификация модулей — ТОЛЬКО по индексу (`ModuleRegistry`); `moduleId`
 используется лишь при загрузке для детекции циклических зависимостей.
+
+`module_sabi` (`module_sabi.hpp`/`.cpp`) — семантический ABI модуля: сборка/разбор ELF-секции
+`.trust.sabi` (заголовок: магия/версия формата/`compilerVersion`/`srcRecord`/`count`/флаг zstd +
+NUL-разделённые Trust-декларации), чтение без `dlopen` через `utils::readElfSection`, распаковка zstd,
+валидация (магия/версия/флаги/метаданные/count; `readModuleSabi` — совместимость major.minor
+компилятора), фильтрация имён по comma-маскам через `matchesAnyMask`. Правая часть декларации —
+конкретное нативное имя символа `%<symbol>`; имя символа ГЕНЕРИРУЕТ транспилятор (`__trust_*`,
+`asm`-метка) — см. `include/transpiler/MEMORY.md`.
 
 **Владение:** `ModuleLoader` (по значению владеет `ModuleRegistry`) — владелец **Pipeline**
 (`unique_ptr`), внедряется в `Context` невладеющим указателем. Обратная ссылка `m_ctx` — невладеющая

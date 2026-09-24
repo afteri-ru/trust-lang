@@ -256,7 +256,6 @@ void DeclEmitter::generateVarDeclToFile(const VarDecl& var_node, MapperFile outp
     // Инклуды типа не нужны здесь: emitTypeName отметил тип (m_ectx.m_usedTypes), инклуды будут
     // сформированы из них ПОСЛЕ обхода AST (collectTypeIncludes).
 
-    MapperScope scope(m_ectx.m_ctx.source(), var_node.range(), output_idx);
     // Константность ОБЪЯВЛЕНИЯ переменной - attr::ReadOnly на узле ('^' на имени или
     // @[readonly@]). НЕ берётся из бита Symbol::type: переменная может стать константной
     // позже (became-const, `x := 42; x^ += 1;`), но её ДЕКЛАРАЦИЯ обязана остаться не-const
@@ -269,6 +268,23 @@ void DeclEmitter::generateVarDeclToFile(const VarDecl& var_node, MapperFile outp
     if (var_node.has_attr(m_ectx.m_ctx.attrs(), attr::ThreadLocal)) {
         prefix += "thread_local ";
     }
+
+    // Экспорт: единая генерация линковочного символа (asm-метка) - конкретное нативное имя для
+    // секции .trust.sabi и для линковки. В определении (модуль) объявление с asm выводится ДО
+    // определения (вне маппинга); в forward-decl (сайт импорта) asm идёт на самом extern-объявлении
+    // (тот же символ). `extern`-декларация с тем же типом, включая const/thread_local.
+    const bool exportable = var_node.m_initializer && !var_name.empty() && !m_ectx.m_inCppBlock && m_ectx.m_hiddenNamespaceDepth == 0 && !m_ectx.m_inRecordBody;
+    std::string export_symbol;
+    if (exportable) {
+        export_symbol = "__trust_var_" + sanitizeSymbolPart(m_ectx.qualifiedCppName(var_name));
+        if (!m_ectx.m_forwardDeclOnly) {
+            // Объявление с asm — префиксом в ТОЙ ЖЕ строке перед определением (без нового перевода
+            // строки): не нарушает сохранение раскладки исходника (LSP/source-map).
+            m_ectx.m_ctx.source().output_append(output_idx, "extern " + prefix + cpp_type + " " + var_name + " asm(\"" + export_symbol + "\"); ");
+        }
+    }
+
+    MapperScope scope(m_ectx.m_ctx.source(), var_node.range(), output_idx);
     // Forward-объявление `x:Type := ...;` → C++ extern-декларация переменной (объявление без
     // определения); иначе - определение с инициализатором. Смещение имени в выводе зависит
     // от наличия префикса "extern " (source-map).
@@ -279,7 +295,9 @@ void DeclEmitter::generateVarDeclToFile(const VarDecl& var_node, MapperFile outp
     const bool noneInit = isNoneMarker(var_node.m_initializer.get());
     uint32_t namePrefixLen = static_cast<uint32_t>(prefix.length()) + static_cast<uint32_t>(cpp_type.length()) + 1;
     if (!var_node.m_initializer || m_ectx.m_forwardDeclOnly) {
-        m_ectx.m_ctx.source().output_append(output_idx, "extern " + prefix + cpp_type + " " + var_name + ";");
+        // Сайт импорта: extern-декларация несёт ту же asm-метку, что и определение в модуле.
+        const std::string asm_suffix = (m_ectx.m_forwardDeclOnly && !export_symbol.empty()) ? (" asm(\"" + export_symbol + "\")") : std::string{};
+        m_ectx.m_ctx.source().output_append(output_idx, "extern " + prefix + cpp_type + " " + var_name + asm_suffix + ";");
         namePrefixLen += 7; // strlen("extern ")
     } else {
         // Reference-wrapper (trust::Shared/Weak/Take): explicit-конструкторы, поэтому инициализируем
@@ -386,7 +404,10 @@ void DeclEmitter::generateVarDeclToFile(const VarDecl& var_node, MapperFile outp
     // Локальные (внутри функций/блоков кода), скрытая область '_' и forward-объявления
     // (нет инициализатора → нет определения, `&::name` не связался бы) - не экспортируются.
     if (var_node.m_initializer && !var_name.empty() && !m_ectx.m_inCppBlock && m_ectx.m_hiddenNamespaceDepth == 0) {
-        m_ectx.m_exports.push_back({std::string(var_node.text()), m_ectx.qualifiedCppName(var_name), buildTrustForwardDecl(var_node)});
+        const std::string qualified_name = m_ectx.qualifiedCppName(var_name);
+        // Правая часть объявления в .trust.sabi — конкретное нативное имя (для линковки).
+        const std::string symbol_ref = "%" + export_symbol;
+        m_ectx.m_exports.push_back({std::string(var_node.text()), qualified_name, buildTrustForwardDecl(var_node), symbol_ref});
     }
 }
 

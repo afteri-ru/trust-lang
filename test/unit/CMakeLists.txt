@@ -18,6 +18,7 @@ set(TEST_SOURCES
     pipeline/module_registry_test.cpp
     pipeline/module_loader_test.cpp
     pipeline/module_export_test.cpp
+    pipeline/module_sabi_test.cpp
     #  parser/token_gen_test.cpp
     pipeline/pipeline_test.cpp
     pipeline/pipeline_symbol_test.cpp

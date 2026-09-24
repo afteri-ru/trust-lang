@@ -2,7 +2,7 @@
 
 > scope: include/types
 > role: persistent-memory
-> last_reviewed: 2026-09-17
+> last_reviewed: 2026-09-24
 > review_period: 30
 > max_size: 36400
 
@@ -154,6 +154,12 @@
   Лексическая поверхность оператора — backtick-символ (лексема REFLECTION); реестр используют и семантика
   (валидация), и кодоген (эмиссия `operator<sym>`). Символ вне реестра — «not implemented» (объявлять
   нельзя); `()`/`[]` — member-only (требование C++).
+- **⚠ Граница type-borne / per-Symbol — ПОЛОВИНА `TypeId`:** старшая (`TypeKind` + структурные дети +
+  `TypeDescriptor::attrs`) — идентичность; младшая (`kSymbolFlagsMask`: kInferred/kConst/kUninit) —
+  per-Symbol, снимается `structuralType`, в идентичность (интернирование/сигнатуры) НЕ входит.
+- **⚠ `getFullTypeName` для `shared`/`weak` с policy включает И `impl` (третий аргумент):**
+  `shared<T, Policy, Impl>` — impl входит в идентичность (`RefTypeData::implType`/`TypeKey`), без него
+  суффикс перегрузки (`overloadCppSuffix`) не различил бы `shared<T,P,I1>`/`shared<T,P,I2>`.
 
 ## Decisions
 

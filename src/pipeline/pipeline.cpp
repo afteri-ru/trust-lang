@@ -588,7 +588,7 @@ void Pipeline::transpileModuleBody(std::size_t idx, const std::filesystem::path&
 int Pipeline::execute() {
     // -- 1. Special modes (module-info) --
     if (m_opts.module_info_requested) {
-        return showModuleInfo(m_opts.input_file, m_opts.verbose);
+        return showModuleInfo(m_ctx, m_opts.input_file, m_opts.module_info_masks, m_opts.verbose);
     }
 
     // -- 1a. --format-dump-config: печать настроек форматирования с дефолтами/комментариями --

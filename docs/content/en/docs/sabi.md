@@ -47,6 +47,19 @@ The semantic definition is a **typed prototype in the Trust language** (a signat
 attributes). That is, a module is distributed by **prototypes, not by source text**: this is
 enough to import an object from a precompiled module.
 
+The semantic definition is stored in a dedicated versioned ELF section `.trust.sabi`, which is read
+at compile time **without loading the module** (`dlopen` is not required). The section contains a
+header (magic, format version, compiler version, source record, record count, compression flag) and
+an array of **Trust declarations** of the exports (one per export, `\0`-separated, the block may be
+compressed). A declaration is self-sufficient: the name, the typed signature and the right-hand side —
+a concrete native symbol name (`%<symbol>`). The compiler **generates the symbol name itself** and pins
+it with an `asm` label (an operator's C++ name is not expressible as a Trust name, so the name is
+generated from the qualified/C++ name). In a textual module the right-hand side is `...`
+(a forward declaration). The kind of the entity (function/variable/…) is derived
+from the declaration text. The command `trust --module-info[=<masks>]` prints the version, the
+source record and the declarations; name masks (`?`, `*`, `,`) filter the list. The declarations are
+validated by the language parser (an invalid section is an explicit error).
+
 ### Overloads in the table {#overloads}
 
 An overloaded object (one name — several signatures) is represented in the table by **several

@@ -316,6 +316,20 @@ TEST_F(RefTypeFixture, GetFullTypeNameRefKinds) {
     EXPECT_EQ(reg.getFullTypeName(reg.applyRefType(int32, RefType::kUnique, freeD)), "unique<Int32, FreeDeleter>");
     EXPECT_EQ(reg.getFullTypeName(reg.applyRefType(int32, RefType::kUnique, myD)), "unique<Int32, MyDel2>");
 }
+TEST_F(RefTypeFixture, GetFullTypeNameIncludesPolicyAndImpl) {
+    TypeRegistry& reg = m_ctx.types();
+    const TypeId int32 = reg.getType("Int32");
+    const TypeId policy = reg.getType(type::AccessMutex);
+    const TypeId impl1 = reg.getType(type::AccessRwMutex);
+    const TypeId impl2 = reg.getType(type::AccessSingleThread);
+    const TypeId s1 = reg.applyRefType(int32, RefType::kShared, INVALID_TYPE_ID, policy, impl1);
+    const TypeId s2 = reg.applyRefType(int32, RefType::kShared, INVALID_TYPE_ID, policy, impl2);
+    // impl входит в идентичность (TypeKey): разные impl -> разные TypeId.
+    EXPECT_NE(s1, s2);
+    // Имя отражает и политику, И impl (иначе суффикс перегрузки не различит их).
+    EXPECT_EQ(reg.getFullTypeName(s1), "shared<Int32, AccessMutex, AccessRwMutex>");
+    EXPECT_EQ(reg.getFullTypeName(s2), "shared<Int32, AccessMutex, AccessSingleThread>");
+}
 
 TEST_F(RefTypeFixture, TypesEqualFastPathNoAttrs) {
     TypeRegistry& reg = m_ctx.types();

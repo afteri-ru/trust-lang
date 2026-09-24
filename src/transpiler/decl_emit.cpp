@@ -463,14 +463,17 @@ void DeclEmitter::emitRecordDecl(const RecordDecl& rec, TypeId rec_id, MapperFil
     m_ectx.m_ctx.source().output_append(output_idx, out);
 
     // Методы: переиспользуем генерацию функции (метод - член struct). Метод НЕ является
-    // экспортом модуля - откатываем возможные записи в m_exports после генерации.
+    // экспортом модуля - откатываем возможные записи в m_exports после генерации и запрещаем
+    // генерацию линковочного символа (asm-метки) флагом m_inRecordBody.
     const size_t exportsBefore = m_ectx.m_exports.size();
+    m_ectx.m_inRecordBody = true;
     for (const auto& m : *rec.m_body) {
         if (!m || m->kind() != ParserToken::Kind::FuncDecl) {
             continue;
         }
         generateFuncDeclToFile(static_cast<const FuncDecl&>(*m), output_idx);
     }
+    m_ectx.m_inRecordBody = false;
     if (m_ectx.m_exports.size() > exportsBefore) {
         m_ectx.m_exports.resize(exportsBefore);
     }

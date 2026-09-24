@@ -3,12 +3,15 @@
 // source-map + записи кеша --run в ELF-секции. Модуль (декомпозиция pipeline.cpp).
 #include "pipeline/source_map.hpp"
 #include "pipeline/io.hpp"
+#include "module_loader/module_sabi.hpp"
+#include "utils/error.hpp"
 #include "utils/io.hpp"
 #include "utils/file_io.hpp"
 #include "trust/version.h"
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <string_view>
 namespace trust {
 
 // -- Helper: read a small text file into a string (for #embed) --
@@ -49,6 +52,17 @@ static std::string cppStringEscape(const std::string& s) {
         }
     }
     return out;
+}
+
+// Правая часть объявления экспорта в секции .trust.sabi: `name(...):Ret := <symbolRef>;`, где
+// symbolRef - конкретное нативное имя символа (`%<symbol>`), используемое при линковке.
+// Все экспорты бинарного модуля имеют сгенерированный символ (asm-метку); пустая ссылка -
+// нарушение инварианта.
+static std::string binaryExportDecl(const std::string& fwdDecl, const std::string& symbolRef) {
+    static const std::string kTail = " := ...;";
+    EXPECT(!symbolRef.empty() && "binary export declaration invariant (non-empty symbol reference)");
+    EXPECT(fwdDecl.ends_with(kTail) && "binary export declaration invariant (' := ...;' tail)");
+    return fwdDecl.substr(0, fwdDecl.size() - kTail.size()) + " := " + symbolRef + ";";
 }
 
 bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::filesystem::path& cppt_path, bool verbose, const std::vector<ExportEntry>& exports,
@@ -122,6 +136,24 @@ bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::files
                 decls += entry.fwdDecl;
                 decls += '\n';
             }
+            // -- Секция семантического ABI (.trust.sabi): заголовок + массив Trust-деклараций. --
+            // Двоичная форма декларации: `:= %<symbol>;` (привязка к символу модуля). Сжатие —
+            // отдельный флаг: OFF в dev (удобно readelf), ON в release.
+            std::vector<std::string> sabi_decls;
+            for (const auto& entry : exports) {
+                if (entry.fwdDecl.empty()) {
+                    continue;
+                }
+                sabi_decls.push_back(binaryExportDecl(entry.fwdDecl, entry.symbolRef));
+            }
+            const bool sabi_compress = std::string_view(TRUST_BUILD_MODE) == "release";
+            const std::vector<unsigned char> sabi = buildSabiSection(sabi_decls, TRUST_VERSION, program_record, sabi_compress);
+            cpp_content += "\n// Semantic ABI: Trust declarations (section .trust.sabi)\n";
+            cpp_content += "static const unsigned char __trust_sabi[] __attribute__((section(\".trust.sabi\"), used)) = {";
+            for (const unsigned char b : sabi) {
+                cpp_content += std::format("0x{:02x},", b);
+            }
+            cpp_content += "};\n\n";
             cpp_content += "static const __trust_export_entry __trust_export_entries[] = {\n";
             for (const auto& entry : exports) {
                 // Адрес символа: перегруженные функции имеют УНИКАЛЬНОЕ C++-имя (суффикс сигнатуры),
