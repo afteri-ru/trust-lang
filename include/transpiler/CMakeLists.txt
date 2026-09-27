@@ -17,7 +17,7 @@ add_library(transpiler_lib STATIC
     ${PROJECT_SOURCE_DIR}/transpiler/ref_emit.cpp
     ${PROJECT_SOURCE_DIR}/transpiler/contract_emit.cpp
 )
-target_link_libraries(transpiler_lib PUBLIC analysis_lib session_lib sourcemap_lib trust_include_dirs)
+target_link_libraries(transpiler_lib PUBLIC analysis_lib mangling_lib session_lib sourcemap_lib trust_include_dirs)
 # transpiler.cpp includes syntax/term.h → parser.h → generated parser.yy.h
 target_include_directories(transpiler_lib PRIVATE "${CMAKE_BINARY_DIR}/syntax")
 add_dependencies(transpiler_lib gen_syntax_parsers)

@@ -21,10 +21,10 @@ static std::string makeTargetForMode(CompileMode mode) {
         return "object";
     case CompileMode::StaticLib:
         return "static-lib";
-    case CompileMode::SharedLib:
-        return "shared-lib";
     case CompileMode::TrustModule:
-        return "shared-lib";
+        // -m: объекты главного и импортированных модулей (пакуются в .pcp; отдельная
+        // линковка не выполняется - см. assemblePcp).
+        return "objects";
     case CompileMode::Executable:
         return "executable";
     }
@@ -224,7 +224,7 @@ bool writeBuildFiles(const PipelineOpts& opts, const std::filesystem::path& cppt
 
     // -- Нативные библиотеки (@[link(\"имя\")]) --
     // Флаги линковки (-l<имя>) добавляются в LIBS только для целей с шагом линковки
-    // (executable / shared-lib / trust-module). Существование библиотеки/символа НЕ
+    // (executable). Существование библиотеки/символа НЕ
     // проверяется - ответственность линковщика.
     // CLI-библиотеки объединяются с библиотеками из исходника (@[link] + -l<name>).
     std::vector<std::string> all_link_libs = link_libs;
@@ -243,8 +243,7 @@ bool writeBuildFiles(const PipelineOpts& opts, const std::filesystem::path& cppt
         }
         conf += "\n";
     }
-    const bool linksAtLinkStep =
-        opts.compile_mode == CompileMode::Executable || opts.compile_mode == CompileMode::SharedLib || opts.compile_mode == CompileMode::TrustModule;
+    const bool linksAtLinkStep = opts.compile_mode == CompileMode::Executable;
     if (!all_link_libs.empty() && linksAtLinkStep) {
         conf += "\n# Native libraries (@[link(...)] and -l<name>)\n";
         conf += "LIBS     += ";
@@ -342,7 +341,7 @@ bool compileAndLink(const PipelineOpts& opts, const std::filesystem::path& cppt_
         }
     }
 
-    if (!opts.output_file.empty()) {
+    if (!opts.output_file.empty() && opts.compile_mode != CompileMode::TrustModule) {
         fs::path output_path(opts.output_file);
         fs::path default_output;
         switch (opts.compile_mode) {
@@ -352,11 +351,8 @@ bool compileAndLink(const PipelineOpts& opts, const std::filesystem::path& cppt_
         case CompileMode::StaticLib:
             default_output = build_dir / (basename.string() + ".a");
             break;
-        case CompileMode::SharedLib:
-            default_output = build_dir / (basename.string() + ".so");
-            break;
         case CompileMode::TrustModule:
-            default_output = build_dir / (basename.string() + ".so");
+            // -o для .pcp обрабатывается в assemblePcp (сам `.pcp`, а не объектный артефакт).
             break;
         case CompileMode::Executable:
             default_output = build_dir / basename;

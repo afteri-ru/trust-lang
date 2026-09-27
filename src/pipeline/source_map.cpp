@@ -1,24 +1,17 @@
 // src/pipeline/source_map.cpp
-// Сохранение сгенерированного .cppt, копия LICENSE, экспорт-таблица и встраивание
-// source-map + записи кеша --run в ELF-секции. Модуль (декомпозиция pipeline.cpp).
+// Сохранение сгенерированного .cppt, копия LICENSE и встраивание source-map + записи кеша
+// --run в ELF-секции. Модуль (декомпозиция pipeline.cpp). Semantic-интерфейс пакета (.pcp)
+// формируется как Trust-текст (buildInterfaceText) - отдельной ELF-секции больше нет.
 #include "pipeline/source_map.hpp"
 #include "pipeline/io.hpp"
-#include "module_loader/module_sabi.hpp"
-#include "utils/error.hpp"
+#include "mangling/mangling.hpp"
 #include "utils/io.hpp"
-#include "utils/file_io.hpp"
 #include "trust/version.h"
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <string_view>
 namespace trust {
-
-// -- Helper: read a small text file into a string (for #embed) --
-static std::string readFileContents(const std::filesystem::path& path) {
-    auto content = trust::utils::FileIO::read<std::string>(path.string());
-    return content ? *content : std::string{};
-}
 
 // -- Встроенная лицензия: текст LICENSE компилируется в бинарник через #embed --
 // Относительный путь от каталога исходника (src/pipeline/ → корень проекта). Служит
@@ -54,19 +47,31 @@ static std::string cppStringEscape(const std::string& s) {
     return out;
 }
 
-// Правая часть объявления экспорта в секции .trust.sabi: `name(...):Ret := <symbolRef>;`, где
-// symbolRef - конкретное нативное имя символа (`%<symbol>`), используемое при линковке.
-// Все экспорты бинарного модуля имеют сгенерированный символ (asm-метку); пустая ссылка -
-// нарушение инварианта.
-static std::string binaryExportDecl(const std::string& fwdDecl, const std::string& symbolRef) {
-    static const std::string kTail = " := ...;";
-    EXPECT(!symbolRef.empty() && "binary export declaration invariant (non-empty symbol reference)");
-    EXPECT(fwdDecl.ends_with(kTail) && "binary export declaration invariant (' := ...;' tail)");
-    return fwdDecl.substr(0, fwdDecl.size() - kTail.size()) + " := " + symbolRef + ";";
+// Trust-интерфейс экспортов: единый источник для интерфейсного `.src` в `.pcp`.
+// Правая часть объявления (` := %<symbol>;`) формируется mangling::interfaceDecl
+// (include/mangling/mangling.hpp).
+std::vector<std::string> exportInterfaceDecls(const std::vector<ExportEntry>& exports) {
+    std::vector<std::string> decls;
+    for (const auto& entry : exports) {
+        if (entry.fwdDecl.empty()) {
+            continue;
+        }
+        decls.push_back(mangling::interfaceDecl(entry.fwdDecl, entry.symbolRef));
+    }
+    return decls;
 }
 
-bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::filesystem::path& cppt_path, bool verbose, const std::vector<ExportEntry>& exports,
-                              bool embed_export_table, const std::string& program_record, bool embed_source_map, const std::string& trust_options) {
+std::string buildInterfaceText(const std::vector<ExportEntry>& exports) {
+    std::string text;
+    for (const std::string& decl : exportInterfaceDecls(exports)) {
+        text += decl;
+        text += '\n';
+    }
+    return text;
+}
+
+bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::filesystem::path& cppt_path, bool verbose, const std::string& program_record,
+                              bool embed_source_map, const std::string& trust_options) {
     namespace fs = std::filesystem;
     {
         // -- Шапка автогенерируемого файла (1-я строка) --
@@ -100,89 +105,12 @@ bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::files
             }
         }
 
-        if (embed_export_table) {
-            cpp_content += "\n// Exported symbols for dynamic loading\n";
-            std::string module_api_content = readFileContents(PROJECT_INCLUDE_DIR "/runtime/module_api.h");
-            if (!module_api_content.empty()) {
-                static const std::string pragma_once = "#pragma once\n";
-                auto pos = module_api_content.find(pragma_once);
-                if (pos != std::string::npos) {
-                    module_api_content.erase(pos, pragma_once.length());
-                }
-                cpp_content += "// Embedded from include/runtime/module_api.h\n";
-                cpp_content += module_api_content;
-                cpp_content += "\n";
-            } else {
-                cpp_content += "struct __trust_export_entry {\n"
-                               "    const char* name;\n"
-                               "    void* addr;\n"
-                               "};\n"
-                               "struct __trust_exports {\n"
-                               "    int count;\n"
-                               "    const char* version;\n"
-                               "    const __trust_export_entry* entries;\n"
-                               "    const char* decls;\n"
-                               "    const char* srcHash;\n"
-                               "};\n\n";
-            }
-            // Строка-перечисление экспортируемых ПРЕДВАРИТЕЛЬНЫХ ОБЪЯВЛЕНИЙ в Trust-синтаксисе
-            // (разделитель '\n') - реальные семантические конструкции, пригодные для парсинга
-            // при загрузке модуля как бинарного файла (напр. "x:Int32 := ...;\n").
-            std::string decls;
-            for (const auto& entry : exports) {
-                if (entry.fwdDecl.empty()) {
-                    continue;
-                }
-                decls += entry.fwdDecl;
-                decls += '\n';
-            }
-            // -- Секция семантического ABI (.trust.sabi): заголовок + массив Trust-деклараций. --
-            // Двоичная форма декларации: `:= %<symbol>;` (привязка к символу модуля). Сжатие —
-            // отдельный флаг: OFF в dev (удобно readelf), ON в release.
-            std::vector<std::string> sabi_decls;
-            for (const auto& entry : exports) {
-                if (entry.fwdDecl.empty()) {
-                    continue;
-                }
-                sabi_decls.push_back(binaryExportDecl(entry.fwdDecl, entry.symbolRef));
-            }
-            const bool sabi_compress = std::string_view(TRUST_BUILD_MODE) == "release";
-            const std::vector<unsigned char> sabi = buildSabiSection(sabi_decls, TRUST_VERSION, program_record, sabi_compress);
-            cpp_content += "\n// Semantic ABI: Trust declarations (section .trust.sabi)\n";
-            cpp_content += "static const unsigned char __trust_sabi[] __attribute__((section(\".trust.sabi\"), used)) = {";
-            for (const unsigned char b : sabi) {
-                cpp_content += std::format("0x{:02x},", b);
-            }
-            cpp_content += "};\n\n";
-            cpp_content += "static const __trust_export_entry __trust_export_entries[] = {\n";
-            for (const auto& entry : exports) {
-                // Адрес символа: перегруженные функции имеют УНИКАЛЬНОЕ C++-имя (суффикс сигнатуры),
-                // поэтому `&::<cppName>` однозначен и специальных приведений не нужно.
-                cpp_content += std::format("    {{ \"{}\", reinterpret_cast<void*>(&::{}) }},\n", entry.trustName, entry.cppName);
-            }
-            cpp_content += "};\n\n";
-            cpp_content += "static const char __trust_export_decls[] = \"";
-            cpp_content += cppStringEscape(decls);
-            cpp_content += "\";\n\n";
-            // Запись кеша --run: первая строка - версия компилятора "trust-lang\t<TRUST_VERSION>",
-            // далее список "файл\tmd5\n" (главный файл, затем модули) - в отдельной ELF-секции
-            // .debug_trust_hash. Читается через utils::elf::readElfSection - dlopen не
-            // работает для PIE-исполняемых. Та же строка доступна и как __trust_exports.srcHash.
-            cpp_content +=
-                "static const char kTrustSrcHash[] __attribute__((section(\".debug_trust_hash\"), used)) = \"" + cppStringEscape(program_record) + "\";\n\n";
-            cpp_content += "extern \"C\" __trust_exports __trust_get_exports(void)\n"
-                           "    __attribute__((visibility(\"default\")));\n"
-                           "extern \"C\" __trust_exports __trust_get_exports(void) {\n"
-                           "    __trust_exports result;\n"
-                           "    result.count = static_cast<int>("
-                           "sizeof(__trust_export_entries) / sizeof(__trust_export_entries[0]));\n"
-                           "    result.version = \"" TRUST_VERSION "\";\n"
-                           "    result.entries = __trust_export_entries;\n"
-                           "    result.decls = __trust_export_decls;\n"
-                           "    result.srcHash = kTrustSrcHash;\n"
-                           "    return result;\n"
-                           "}\n\n";
-        }
+        // Запись кеша --run: первая строка - версия компилятора "trust-lang\t<TRUST_VERSION>",
+        // далее список "файл\tmd5\n" (главный файл, затем модули) - в отдельной ELF-секции
+        // .debug_trust_hash. Читается через utils::elf::readElfSection - dlopen не
+        // работает для PIE-исполняемых.
+        cpp_content +=
+            "static const char kTrustSrcHash[] __attribute__((section(\".debug_trust_hash\"), used)) = \"" + cppStringEscape(program_record) + "\";\n\n";
         std::ofstream ofs(cppt_path);
         if (!ofs) {
             trust::errs() << "error: failed to write output file: " << cppt_path << "\n";

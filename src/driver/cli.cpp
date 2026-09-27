@@ -30,7 +30,6 @@ enum class DriverOptId {
     SingleFile,
     ObjectFile,
     StaticLib,
-    SharedLib,
     TrustModule,
     Run,
     ModuleInfo,
@@ -164,9 +163,6 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         break;
     case DriverOptId::StaticLib:
         opts.compile_mode = CompileMode::StaticLib;
-        break;
-    case DriverOptId::SharedLib:
-        opts.compile_mode = CompileMode::SharedLib;
         break;
     case DriverOptId::TrustModule:
         opts.compile_mode = CompileMode::TrustModule;
@@ -359,11 +355,11 @@ std::vector<DriverOption> buildTrustTable() {
          CliCategory::CompileModel},
         {int(DriverOptId::ObjectFile), "c", "", CliOpt::Flag, "", "Compile to object file (.o)", CliCategory::CompileModel},
         {int(DriverOptId::StaticLib), "static-lib", "a", CliOpt::Flag, "", "Compile to static library (.a)", CliCategory::CompileModel},
-        {int(DriverOptId::SharedLib), "shared-lib", "", CliOpt::Flag, "", "Compile to shared library (.so)", CliCategory::CompileModel},
-        {int(DriverOptId::TrustModule), "module", "m", CliOpt::Flag, "", "Compile to trust module (.trust)", CliCategory::CompileModel},
+        {int(DriverOptId::TrustModule), "module", "m", CliOpt::Flag, "",
+         "Compile to a precompiled Trust package (.pcp): static objects + Trust interface (.src) + manifest", CliCategory::CompileModel},
         {int(DriverOptId::Run), "run", "", CliOpt::Flag, "", "Build and run the program", CliCategory::CompileModel},
         {int(DriverOptId::ModuleInfo), "module-info", "", CliOpt::OptionalValue, "masks",
-         "Show exported symbols and version of a .trust module (read from ELF section .trust.sabi, no dlopen). "
+         "Show the Trust interface and version of a precompiled package (.pcp). "
          "Optional comma-separated name masks with '?'/'*' (empty = all)",
          CliCategory::CompileModel},
         // Linking

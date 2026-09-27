@@ -30,4 +30,12 @@ namespace trust {
 /// Возвращает ИСХОДНЫЕ термы объявлений (term()) для кодового имени/range-диагностики.
 [[nodiscard]] std::vector<TermPtr> collectExportedDecls(const std::vector<AstNodePtr>& body, std::string_view masks);
 
+/// Имя сущности из текста Trust-декларации: до '(' / ':' / ' ' / '=' (для оператора - целиком
+/// `` `sym` ``). Используется для фильтрации деклараций интерфейса (`.pcp`) масками.
+[[nodiscard]] std::string_view declName(std::string_view declText);
+
+/// Отфильтровать декларации интерфейса по comma-маскам имён (matchesAnyMask).
+/// Пустая/пробельная строка масок = без фильтра (все). Пустой результат - не ошибка.
+[[nodiscard]] std::vector<std::string> filterModuleDecls(const std::vector<std::string>& decls, std::string_view commaMasks);
+
 } // namespace trust

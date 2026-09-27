@@ -5,13 +5,16 @@
 // the final consistent selection (one version per package name) is computed by
 // libsolv, fed with the candidate pool built from the configured sources.
 
-#include "pm/manifest.hpp"
+#include "packages/manifest.hpp"
 
 #include <filesystem>
 #include <string>
 #include <vector>
 
 namespace trust::pm {
+
+using packages::Dependency;
+using packages::Manifest;
 
 /// A candidate package known to the resolver.
 struct PackageRecord {

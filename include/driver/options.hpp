@@ -58,8 +58,7 @@ enum class CompileMode {
     Executable,  ///< Compile to executable (default)
     ObjectFile,  ///< Compile to object file only (-c)
     StaticLib,   ///< Compile to static library (-a / --static-lib)
-    SharedLib,   ///< Compile to shared library (-l / --shared-lib)
-    TrustModule, ///< Compile to trust module (.trust, shared library with exports)
+    TrustModule, ///< Compile to a precompiled Trust package (.pcp: static objects + Trust interface + manifest) (-m / --module)
 };
 
 // -- Runtime link mode --

@@ -12,3 +12,4 @@ tags: [overview, development, verification]
 - [x] Сформулирована концепция [гарантий языка](/ru/docs/safety/)
 - [x] Разработана [песочница](/ru/docs/sandbox/) для тестирования примеров
 - [x] Менеджер пакетов [trust-pm](/ru/docs/pm/): контракт CLI+JSON, формат `*.trust`, кэш и офлайн-режим
+- [x] Сборка предкомпилированного пакета `*.pcp` (`trust -m`): Trust-интерфейс + статические объекты; просмотр — `trust --module-info`

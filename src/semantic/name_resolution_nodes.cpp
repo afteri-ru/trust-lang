@@ -2,6 +2,7 @@
 // Группы узлов обхода NameResolutionPass, вынесенные из analyzeNode как отдельные зоны
 // ответственности: скоуп-контейнеры, with, объявления функций/лямбд, catch-ветки,
 // термины trust-контрактов и пост-обработка (типизация + синтетические временные).
+#include "mangling/mangling.hpp"
 #include "semantic/name_resolution.hpp"
 #include "diag/flag_values.hpp"
 #include "semantic/analysis_common.hpp"
@@ -219,7 +220,7 @@ void NameResolutionPass::analyzeNodeTail(AstNodePtr& self) {
         auto& match = static_cast<MatchStmt&>(*self);
         if (match.m_value) {
             const TypeId vt = m_actx.exprType(*match.m_value);
-            const std::string tmpName = "_match" + std::to_string(m_actx.nextMatchTempId());
+            const std::string tmpName = mangling::tmpName(mangling::TempKind::Match, m_actx.nextMatchTempId());
             auto tmp = std::make_shared<VarDecl>(tmpName, nullptr, std::move(match.m_value));
             if (vt != INVALID_TYPE_ID) {
                 tmp->inferredType = clearFlag(vt, SymbolFlag::Inferred);
@@ -248,7 +249,7 @@ void NameResolutionPass::analyzeNodeTail(AstNodePtr& self) {
             const bool hasPost = js.m_funcDecl->hasTrustProperty(PropertyKind::Post);
             if (hasPost) {
                 const TypeId vt = m_actx.exprType(*js.m_value);
-                const std::string tmpName = "__trust_res_" + std::to_string(m_actx.nextResultTempId());
+                const std::string tmpName = mangling::tmpName(mangling::TempKind::Result, m_actx.nextResultTempId());
                 auto tmp = std::make_shared<VarDecl>(tmpName, nullptr, std::move(js.m_value));
                 if (vt != INVALID_TYPE_ID) {
                     tmp->inferredType = clearFlag(vt, SymbolFlag::Inferred);

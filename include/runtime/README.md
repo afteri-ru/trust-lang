@@ -121,8 +121,6 @@ Makefile после объектных файлов.
 - `trust/any_convert.hpp` - типизированная конверсия из элемента словаря
   `trust::any_to<T>(TypedValue)`: диспетчеризация по `kind` (TypeKind: числовое/строковое,
   декодируется `TypedValue`), конверсия с контролем диапазона (`checked_cast`) и диагностикой.
-- `module_api.h` - ABI-структуры экспорта модулей (`__trust_exports`,
-  `__trust_get_exports`).
 - `tensor.hpp` - обёртка над тензорами LibTorch (`TorchTensor`); собирается как
   отдельный плагин `tensor_cpu` только при `WITH_TORCH`.
 

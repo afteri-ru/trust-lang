@@ -7,6 +7,7 @@
 # CHECK: PASS no-export
 # CHECK: PASS no-export-fn
 
-# Флаг -fno-sourcemap: файл .src_map генерируется ВСЕГДА, но `#embed "<name>.src_map"` и
-# экспорт-таблица (__trust_export_entries / __trust_get_exports) в C++-код НЕ встраиваются.
+# Флаг -fno-sourcemap: файл .src_map генерируется ВСЕГДА, но `#embed "<name>.src_map"` в
+# C++-код НЕ встраивается. Экспорт-таблицы (__trust_export_entries / __trust_get_exports)
+# не существует вовсе (семантику несёт Trust-интерфейс `.pcp`).
 x := 42;

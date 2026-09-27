@@ -14,9 +14,9 @@ the **semantic ABI**: binary symbols are bound not only to an address, but also 
 **semantic definition** of the object in the Trust language, and the restoration of the type and the matching
 are performed by the **language compiler**, not by the linker.
 
-Building a `.trust` module (`trust -m`) and viewing the export table (`trust --module-info`) are already
-implemented; loading/importing already compiled modules is **not** yet (import works only by
-the source text `.src`). The current boundaries — in [Status](status/).
+Building a precompiled package (`*.pcp`, `trust -m`) and viewing its Trust interface
+(`trust --module-info`) are already implemented; importing already compiled packages is **not** yet
+(import works only by the source text `.src`). The current boundaries — in [Status](status/).
 
 ## Why a semantic ABI is needed {#why}
 
@@ -37,29 +37,27 @@ additional properties).
 
 ## Formation of the module ABI {#module-abi}
 
-A compiled module carries a **semantic ABI table** — a correspondence between a
-binary symbol (the address of an object) and its symbolic definition in TrustLang. An exported
-binary symbol has the form of an `extern "C"` name, which points to the namespace, the class/method and
-the position in the table: by this name one can obtain the position of the record, and from the record — the address of the object and
-the semantic definition.
+A precompiled package (`.pcp`) carries a **Trust interface** — a correspondence between a binary
+symbol (the address of an object) and its symbolic definition in TrustLang. For each exported entity
+the compiler assigns a concrete native symbol name and pins it with an `asm` label in the object code;
+the same name is written in the interface to the right of the declaration (`<decl> := %<symbol>;`).
 
 The semantic definition is a **typed prototype in the Trust language** (a signature with types and
-attributes). That is, a module is distributed by **prototypes, not by source text**: this is
-enough to import an object from a precompiled module.
+attributes). That is, a package is distributed by **prototypes, not by source text**: this is
+enough to import an object from a precompiled package.
 
-The semantic definition is stored in a dedicated versioned ELF section `.trust.sabi`, which is read
-at compile time **without loading the module** (`dlopen` is not required). The section contains a
-header (magic, format version, compiler version, source record, record count, compression flag) and
-an array of **Trust declarations** of the exports (one per export, `\0`-separated, the block may be
-compressed). A declaration is self-sufficient: the name, the typed signature and the right-hand side —
-a concrete native symbol name (`%<symbol>`). The compiler **generates the symbol name itself** and pins
-it with an `asm` label (an operator's C++ name is not expressible as a Trust name, so the name is
-generated from the qualified/C++ name). In a textual module the right-hand side is `...`
-(a forward declaration). The kind of the entity (function/variable/…) is derived
-from the declaration text. The command `trust --module-info[=<masks>]` prints the version, the
-source record and the declarations; name masks (`?`, `*`, `,`) filter the list. The declarations are
-validated by the language parser (an invalid section is an explicit error). In the target model, the
-module interface is a single canonical Trust text (see [Module interface](#interface)).
+The interface is stored in the `.pcp` container as a Trust file `<module>.src` (the layout mirrors the
+source package) and is read at compile time **without loading a library** (`dlopen` is not required).
+The type and signature are carried by canonical Trust text, so a separate binary ELF section of
+semantics is not needed: a declaration is self-sufficient — the name, the typed signature and the
+right-hand side — a concrete native symbol name (`%<symbol>`). The compiler **generates the symbol
+name itself** and pins it with an `asm` label (an operator's C++ name is not expressible as a Trust
+name, so the name is generated from the qualified/C++ name). In a textual form (`*.src`) the right-hand
+side is `...` (a forward declaration). The kind of the entity (function/variable/…) is derived
+from the declaration text. The command `trust --module-info[=<masks>]` prints the version (from the
+package manifest) and the interface declarations; name masks (`?`, `*`, `,`) filter the list. The
+declarations are validated by the language parser (an invalid interface is an explicit error). In the
+target model, the module interface is a single canonical Trust text (see [Module interface](#interface)).
 
 ### Overloads in the table {#overloads}
 
@@ -140,7 +138,7 @@ through the `asm` label (a single `%<symbol>`).
 
 ### Interface versioning {#versioning}
 
-- A **module container** stores the source record (`srcRecord`) and the compiler version.
+- The **package manifest** (`trust.pkg.json`) stores the package metadata (`name`/`version`).
 - The **C++ header `*.hppt`** (an external artifact) stores the **hash of the module** it was generated
   from and the Trust compiler version: this is an external reference to a specific build (no
   self-reference) and it lets one detect a "header versus library" mismatch. Header generation must be
@@ -150,17 +148,18 @@ through the `asm` label (a single `%<symbol>`).
 
 Two independent levels of names are distinguished:
 
-- **The export C name** — the name of the binary symbol of the module. It is fixed in form (the namespace,
-  class, method, position in the table) and serves as an entry point for matching through the
-  semantic ABI table.
+- **The export symbol** — the name of the binary symbol of the package. The compiler GENERATES it from
+  the qualified name of the entity (`__trust_fn_`/`__trust_var_`/`__trust_op_`) and pins it with an
+  `asm` label; the same name is written in the Trust interface to the right of the declaration
+  (`%<symbol>`). It serves as an entry point for matching through the package interface.
 - **The internal C++ mangling of code generation** — the transformation of trust names into C++ identifiers
   inside the generated translation units. This is a code generation detail, not part of the inter-module
   contract.
 
 ## Principles of linking and loading {#linking}
 
-- The model is **precompiled**: the module is compiled in advance, and on import the compiler
-  matches the required name through the semantic ABI table.
+- The model is **precompiled**: the package is compiled in advance, and on import the compiler
+  matches the required name through the Trust interface of the package.
 - **A linker alone is not enough**: the correct matching of an object by type is performed by the
   *language compiler*. The linker can bind symbols, but not restore semantics and types.
 - With a predefined interface, a **parallel `extern "C"` export** of

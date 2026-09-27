@@ -17,6 +17,7 @@
 #include "types/group.hpp"
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
+#include "mangling/mangling.hpp"
 #include "types/overload_resolve.hpp"
 #include "types/type_names.hpp"
 #include "utils/strings.hpp"
@@ -256,7 +257,7 @@ void DeclAnalyzer::analyzeRecordDecl(Binary& binary_node) {
         for (const auto& [bare, ft, decl] : methodRegs) {
             if (countByName[bare] > 1) {
                 decl->m_isOverloaded = true;
-                decl->m_overloadSuffix = overloadCppSuffix(reg, ft);
+                decl->m_overloadSuffix = mangling::overloadSuffix(reg, ft);
             }
         }
     }

@@ -159,7 +159,7 @@
   per-Symbol, снимается `structuralType`, в идентичность (интернирование/сигнатуры) НЕ входит.
 - **⚠ `getFullTypeName` для `shared`/`weak` с policy включает И `impl` (третий аргумент):**
   `shared<T, Policy, Impl>` — impl входит в идентичность (`RefTypeData::implType`/`TypeKey`), без него
-  суффикс перегрузки (`overloadCppSuffix`) не различил бы `shared<T,P,I1>`/`shared<T,P,I2>`.
+  суффикс перегрузки (`mangling::overloadSuffix`) не различил бы `shared<T,P,I1>`/`shared<T,P,I2>`.
 
 ## Decisions
 

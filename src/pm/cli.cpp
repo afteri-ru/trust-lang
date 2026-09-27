@@ -2,7 +2,7 @@
 #include "pm/cli.hpp"
 
 #include "pm/cache.hpp"
-#include "pm/manifest.hpp"
+#include "packages/manifest.hpp"
 #include "pm/net.hpp"
 #include "pm/protocol.hpp"
 
@@ -28,6 +28,26 @@ namespace trust::pm {
 namespace {
 
 namespace fs = std::filesystem;
+using packages::Dependency;
+using packages::kManifestFileName;
+using packages::Manifest;
+using packages::manifestToJson;
+
+// The manifest is parsed as DATA by `packages`; semver strictness of `version` is the
+// consumer's (solver-side) concern. Validate it here to preserve the previous behaviour.
+Manifest parseManifestChecked(const nlohmann::json& json) {
+    Manifest manifest = packages::parseManifest(json);
+    (void)parseSemver(manifest.version);
+    return manifest;
+}
+
+Manifest loadManifestChecked(const fs::path& file) {
+    Manifest manifest = packages::loadManifest(file);
+    (void)parseSemver(manifest.version);
+    return manifest;
+}
+
+
 
 struct CommandLine {
     std::string command;
@@ -142,7 +162,7 @@ bool hasFlag(const CommandLine& line, const std::string& name) {
 // Builds a candidate record from a `.trust` archive manifest.
 PackageRecord recordFromArchive(const fs::path& archive, const std::string& source) {
     const std::string manifest_text = packages::readArchiveEntry(archive, kManifestFileName);
-    const Manifest manifest = parseManifest(nlohmann::json::parse(manifest_text));
+    const Manifest manifest = parseManifestChecked(nlohmann::json::parse(manifest_text));
     PackageRecord record;
     record.name = manifest.name;
     record.version = manifest.version;
@@ -398,7 +418,7 @@ int runInfo(const CommandLine& line, std::ostream& out) {
     const fs::path target(path);
     nlohmann::json data;
     if (fs::is_regular_file(target) && target.extension() == ".trust") {
-        const Manifest manifest = parseManifest(nlohmann::json::parse(packages::readArchiveEntry(target, kManifestFileName)));
+        const Manifest manifest = parseManifestChecked(nlohmann::json::parse(packages::readArchiveEntry(target, kManifestFileName)));
         data["manifest"] = manifestToJson(manifest);
         data["sha256"] = trust::utils::sha256File(target);
         nlohmann::json entries = nlohmann::json::array();
@@ -411,7 +431,7 @@ int runInfo(const CommandLine& line, std::ostream& out) {
         if (fs::is_directory(target)) {
             manifest_file = target / kManifestFileName;
         }
-        data["manifest"] = manifestToJson(loadManifest(manifest_file));
+        data["manifest"] = manifestToJson(loadManifestChecked(manifest_file));
     }
     if (line.json) {
         return finish(line, out, data);
@@ -436,7 +456,7 @@ int runPack(const CommandLine& line, std::ostream& out) {
     }
     const fs::path dir = line.positionals.front();
     // A package root is marked by its manifest; validate it before packing.
-    const Manifest manifest = loadManifest(dir / kManifestFileName);
+    const Manifest manifest = loadManifestChecked(dir / kManifestFileName);
     std::string out_path = firstValue(line, "o");
     if (out_path.empty() && line.positionals.size() > 1) {
         out_path = line.positionals[1];
@@ -455,7 +475,7 @@ int runPack(const CommandLine& line, std::ostream& out) {
 
 int runResolve(const CommandLine& line, std::ostream& out) {
     const fs::path manifest_path = rootManifestPath(line);
-    const Manifest root = loadManifest(manifest_path);
+    const Manifest root = loadManifestChecked(manifest_path);
     const DownloadOptions net_options = netOptions(line);
     std::vector<Resolved> resolved;
     if (hasFlag(line, "frozen")) {
@@ -526,7 +546,7 @@ fs::path resolveStored(Cache& cache, const Resolved& item, const DownloadOptions
 
 int runFetch(const CommandLine& line, std::ostream& out, bool install) {
     const fs::path manifest_path = rootManifestPath(line);
-    const Manifest root = loadManifest(manifest_path);
+    const Manifest root = loadManifestChecked(manifest_path);
     const DownloadOptions net_options = netOptions(line);
     std::vector<Resolved> resolved;
     if (hasFlag(line, "frozen")) {

@@ -1,6 +1,6 @@
 # RUN: TD=%t.dir && mkdir -p $TD
-# RUN: %trust -q --temp-dir $TD -m -o $TD/module.trust %s
-# RUN: %trust --module-info $TD/module.trust | %FileCheck %s
+# RUN: %trust -q --temp-dir $TD -m -o $TD/exports.pcp %s
+# RUN: %trust --module-info $TD/exports.pcp | %FileCheck %s
 # CHECK: version: {{[0-9]+.[0-9]+.[0-9]+}}
 # CHECK: exports: 3
 # CHECK: x := %__trust_var_c_5fx;

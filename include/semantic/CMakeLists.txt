@@ -30,7 +30,7 @@ add_library(semantic_lib STATIC
     ${PROJECT_SOURCE_DIR}/semantic/ref_cycle.cpp
     ${PROJECT_SOURCE_DIR}/semantic/operator_check.cpp
 )
-target_link_libraries(semantic_lib PUBLIC ast_lib types_lib analysis_lib session_lib sourcemap_lib trust_include_dirs)
+target_link_libraries(semantic_lib PUBLIC ast_lib types_lib analysis_lib mangling_lib session_lib sourcemap_lib trust_include_dirs)
 
 # Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
 target_link_libraries(semantic_lib PRIVATE trust_pch)

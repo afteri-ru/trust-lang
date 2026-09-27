@@ -11,6 +11,7 @@
 #include "semantic/solver.hpp"
 #include "analysis/symbol_table.hpp"
 #include "semantic/overload_call.hpp"
+#include "mangling/mangling.hpp"
 #include "types/overload_resolve.hpp"
 #include "semantic/type_inference.hpp"
 #include "attrs/attr_builtin.hpp"
@@ -501,7 +502,7 @@ void ExprTyper::typeCallNode(CallExpr& call) {
                         call.resolvedSignature = chosen;
                         if (sigs.size() > 1) {
                             // Уникальное C++-имя перегрузки (кодоген не полагается на C++-разрешение).
-                            call.resolvedCalleeSuffix = overloadCppSuffix(m_actx.ctx().types(), chosen);
+                            call.resolvedCalleeSuffix = mangling::overloadSuffix(m_actx.ctx().types(), chosen);
                         }
                         if (const auto* fd = m_actx.ctx().types().getTypeDataAs<FunctionTypeData>(chosen)) {
                             m_actx.setExprType(&call, fd->returnType);

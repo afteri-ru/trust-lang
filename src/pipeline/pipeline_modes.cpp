@@ -39,97 +39,97 @@ namespace trust {
 
 // --format / --format-check: pretty-print с .trust-format и CLI-переопределениями.
 int Pipeline::runFormatMode() {
-        if (m_opts.input_file.empty()) {
-            trust::errs() << "error: --format requires an input file\n";
-            return 1;
-        }
-        if (!std::filesystem::exists(m_opts.input_file)) {
-            trust::errs() << "error: input file not found: " << m_opts.input_file << "\n";
-            return 1;
-        }
-        auto data = trust::utils::FileIO::read<std::vector<char>>(m_opts.input_file);
-        if (!data) {
-            trust::errs() << "error: cannot read file: " << m_opts.input_file << "\n";
-            return 1;
-        }
-        std::string sourceText(data->data(), data->size());
+    if (m_opts.input_file.empty()) {
+        trust::errs() << "error: --format requires an input file\n";
+        return 1;
+    }
+    if (!std::filesystem::exists(m_opts.input_file)) {
+        trust::errs() << "error: input file not found: " << m_opts.input_file << "\n";
+        return 1;
+    }
+    auto data = trust::utils::FileIO::read<std::vector<char>>(m_opts.input_file);
+    if (!data) {
+        trust::errs() << "error: cannot read file: " << m_opts.input_file << "\n";
+        return 1;
+    }
+    std::string sourceText(data->data(), data->size());
 
-        // Резолвим конфиг .trust-format (если задан) + CLI-переопределения.
-        trust::formatter::FormatConfig cfg;
-        cfg.ok = true;
-        std::string cfgPath;
-        if (!m_opts.format_config.empty()) {
-            cfgPath = m_opts.format_config;
-        } else if (!m_opts.format_no_config) {
-            cfgPath = trust::formatter::findConfig(std::filesystem::path(m_opts.input_file).parent_path().string());
+    // Резолвим конфиг .trust-format (если задан) + CLI-переопределения.
+    trust::formatter::FormatConfig cfg;
+    cfg.ok = true;
+    std::string cfgPath;
+    if (!m_opts.format_config.empty()) {
+        cfgPath = m_opts.format_config;
+    } else if (!m_opts.format_no_config) {
+        cfgPath = trust::formatter::findConfig(std::filesystem::path(m_opts.input_file).parent_path().string());
+    }
+    if (!cfgPath.empty()) {
+        cfg = trust::formatter::loadConfig(cfgPath);
+        if (!cfg.ok) {
+            trust::errs() << "error: " << cfg.error << "\n";
+            return 1;
         }
-        if (!cfgPath.empty()) {
-            cfg = trust::formatter::loadConfig(cfgPath);
-            if (!cfg.ok) {
-                trust::errs() << "error: " << cfg.error << "\n";
-                return 1;
-            }
-        }
-        trust::formatter::FormatOptions fopts = cfg.opts;
-        // Эффективные keywords (дефолт dsl + приоритет CLI > .trust-format) для форматирования.
-        fopts.keywords = effectiveKeywords();
-        // CLI --keyword-sigil (валидирован в parseArgs) переопределяет .trust-format.
-        trust::formatter::KeywordSigil ksig;
-        if (!m_opts.keyword_sigil.empty() && trust::formatter::keywordSigilFromString(m_opts.keyword_sigil, ksig)) {
-            fopts.keyword_sigil = ksig;
-        }
+    }
+    trust::formatter::FormatOptions fopts = cfg.opts;
+    // Эффективные keywords (дефолт dsl + приоритет CLI > .trust-format) для форматирования.
+    fopts.keywords = effectiveKeywords();
+    // CLI --keyword-sigil (валидирован в parseArgs) переопределяет .trust-format.
+    trust::formatter::KeywordSigil ksig;
+    if (!m_opts.keyword_sigil.empty() && trust::formatter::keywordSigilFromString(m_opts.keyword_sigil, ksig)) {
+        fopts.keyword_sigil = ksig;
+    }
 
-        // Форматтер подписывается на Macro::on_macro_kind, прогоняет парсинг (в т.ч. модули) и
-        // собирает классификацию макросов in-stream. Диагностики парсинга подавлены.
-        m_ctx.diag().setMinSeverity(trust::Severity::Fatal);
-        trust::Parser parser(m_ctx);
-        auto fres = trust::formatter::format(sourceText, m_opts.input_file, fopts, parser);
-        if (!fres.ok) {
-            trust::errs() << "error: cannot format '" << m_opts.input_file << "': " << fres.error << "\n";
-            return 1;
+    // Форматтер подписывается на Macro::on_macro_kind, прогоняет парсинг (в т.ч. модули) и
+    // собирает классификацию макросов in-stream. Диагностики парсинга подавлены.
+    m_ctx.diag().setMinSeverity(trust::Severity::Fatal);
+    trust::Parser parser(m_ctx);
+    auto fres = trust::formatter::format(sourceText, m_opts.input_file, fopts, parser);
+    if (!fres.ok) {
+        trust::errs() << "error: cannot format '" << m_opts.input_file << "': " << fres.error << "\n";
+        return 1;
+    }
+    if (m_opts.format_check) {
+        if (fres.text == sourceText) {
+            return 0;
         }
-        if (m_opts.format_check) {
-            if (fres.text == sourceText) {
-                return 0;
-            }
-            trust::errs() << m_opts.input_file << ": not formatted\n";
-            return 1;
-        }
-        trust::outs() << fres.text;
-        return 0;
+        trust::errs() << m_opts.input_file << ": not formatted\n";
+        return 1;
+    }
+    trust::outs() << fres.text;
+    return 0;
 }
 
 // --emit-lexemes: быстрый путь только через legacy лексер.
 int Pipeline::runLexemesOnlyMode(MapperFile inputFile) {
-        loadDslMacros();
-        // Файл уже загружен (inputFile) - парсим из реального источника.
-        trust::Parser parser(m_ctx);
-        trust::TermPtr term = parser.ParseWithSource(inputFile, /*expand_module=*/false);
-        if (term) {
-            // Walk the tree and print leaf terms
-            std::function<void(const trust::TermPtr&)> dumpTerm = [&](const trust::TermPtr& t) {
-                if (!t || t->getTermID() == trust::TermID::END) {
-                    return;
+    loadDslMacros();
+    // Файл уже загружен (inputFile) - парсим из реального источника.
+    trust::Parser parser(m_ctx);
+    trust::TermPtr term = parser.ParseWithSource(inputFile, /*expand_module=*/false);
+    if (term) {
+        // Walk the tree and print leaf terms
+        std::function<void(const trust::TermPtr&)> dumpTerm = [&](const trust::TermPtr& t) {
+            if (!t || t->getTermID() == trust::TermID::END) {
+                return;
+            }
+            trust::outs() << t->getText() << "\t" << trust::toString(t->getTermID()) << "\n";
+            for (const auto& child : t->m_sequence) {
+                dumpTerm(child);
+            }
+            if (t->m_args) {
+                for (const auto& [_, arg] : *t->m_args) {
+                    dumpTerm(arg);
                 }
-                trust::outs() << t->getText() << "\t" << trust::toString(t->getTermID()) << "\n";
-                for (const auto& child : t->m_sequence) {
-                    dumpTerm(child);
-                }
-                if (t->m_args) {
-                    for (const auto& [_, arg] : *t->m_args) {
-                        dumpTerm(arg);
-                    }
-                }
-                if (t->m_left) {
-                    dumpTerm(t->m_left);
-                }
-                if (t->m_right) {
-                    dumpTerm(t->m_right);
-                }
-            };
-            dumpTerm(term);
-        }
-        return 0;
+            }
+            if (t->m_left) {
+                dumpTerm(t->m_left);
+            }
+            if (t->m_right) {
+                dumpTerm(t->m_right);
+            }
+        };
+        dumpTerm(term);
+    }
+    return 0;
 }
 
 // solver-mode=export|calculate: генерация SMT-LIB 2 / авто-выполнение через решатель.
@@ -234,110 +234,131 @@ int Pipeline::runSolverMode(MapperFile inputFile) {
 
 // Режим компиляции: transpile + сборка/линковка (или --emit-build-dir).
 int Pipeline::runCompileMode(MapperFile inputFile) {
-        // --run: кеш по md5 исходника - если файл(ы) не менялись и exe существует,
-        // НЕ перекомпилировать, а сразу запустить (md5 встроен в exe: __trust_exports.srcHash).
-        if (auto cached_rc = tryRunCached(m_opts); cached_rc.has_value()) {
-            return *cached_rc;
-        }
+    // --run: кеш по md5 исходника - если файл(ы) не менялись и exe существует,
+    // НЕ перекомпилировать, а сразу запустить (md5 встроен в exe: ELF-секция .debug_trust_hash).
+    if (auto cached_rc = tryRunCached(m_opts); cached_rc.has_value()) {
+        return *cached_rc;
+    }
 
-        auto out = runTranspileAndSave(inputFile);
-        if (!out.valid) {
-            return 1;
+    auto out = runTranspileAndSave(inputFile);
+    if (!out.valid) {
+        return 1;
+    }
+    // Корень исходного пакета (для зеркальной раскладки `.pcp`) — каталог входного файла;
+    // главный модуль входит в `.pcp` первым (интерфейс + .cppt/.o).
+    m_pkgRoot = std::filesystem::path(m_opts.input_file).parent_path();
+    m_pcpModules.clear();
+    {
+        std::error_code relEc;
+        std::filesystem::path rel =
+            m_pkgRoot.empty() ? std::filesystem::path() : std::filesystem::relative(std::filesystem::path(m_opts.input_file), m_pkgRoot, relEc);
+        if (relEc || rel.empty() || rel.string().rfind("..", 0) == 0) {
+            rel = std::filesystem::path(m_opts.input_file).filename();
         }
-        // Исходные модули компилируются отдельными единицами и линкуются с главным файлом.
-        std::vector<std::string> module_runtime_headers;
-        std::vector<std::string> module_link_libs;
-        auto moduleCppts = generateModuleOutputs(&module_runtime_headers, &module_link_libs);
-        // Рантайм-заголовки главного файла + модулей - только реально использованные.
-        std::vector<std::string> runtime_headers = out.runtimeHeaders;
-        runtime_headers.insert(runtime_headers.end(), module_runtime_headers.begin(), module_runtime_headers.end());
-        // Флаги линковки нативных библиотек главного файла + модулей.
-        std::vector<std::string> link_libs = out.linkLibs;
-        link_libs.insert(link_libs.end(), module_link_libs.begin(), module_link_libs.end());
-        // Имя entry-функции совпадает с DSL-макросом `main`: <имя_модуля>__main__.
-        std::string entry_func_name = m_ctx.source().moduleName(inputFile) + "__main__";
+        rel.replace_extension();
+        m_pcpModules.push_back(PcpModule{rel, out.cpptPath, buildInterfaceText(out.exports)});
+    }
+    // Исходные модули компилируются отдельными единицами и линкуются с главным файлом.
+    std::vector<std::string> module_runtime_headers;
+    std::vector<std::string> module_link_libs;
+    auto moduleCppts = generateModuleOutputs(&module_runtime_headers, &module_link_libs);
+    // Рантайм-заголовки главного файла + модулей - только реально использованные.
+    std::vector<std::string> runtime_headers = out.runtimeHeaders;
+    runtime_headers.insert(runtime_headers.end(), module_runtime_headers.begin(), module_runtime_headers.end());
+    // Флаги линковки нативных библиотек главного файла + модулей.
+    std::vector<std::string> link_libs = out.linkLibs;
+    link_libs.insert(link_libs.end(), module_link_libs.begin(), module_link_libs.end());
+    // Имя entry-функции совпадает с DSL-макросом `main`: <имя_модуля>__main__.
+    std::string entry_func_name = m_ctx.source().moduleName(inputFile) + "__main__";
 
-        // Однофайловый режим: встроить main-обёртку в тот же .cppt модуля (без отдельного
-        // _main.cppt). Заголовки для обёртки (trust/args.hpp и т.п.) извлекает writeBuildFiles
-        // ниже по entry_params; здесь только дописываем текст main в конец модуля.
-        if (m_opts.single_file) {
-            const bool usesStackCheck = std::find(runtime_headers.begin(), runtime_headers.end(), "trust/stack_check.hpp") != runtime_headers.end();
-            const bool usesSync = std::find(runtime_headers.begin(), runtime_headers.end(), "trust/trusted-cpp-sync.hpp") != runtime_headers.end();
-            // Entry-функция может быть задана и НЕ DSL-объявлением @main (out.hasEntry), а C++-embed
-            // `{% int <модуль>__main__() {...} %}` (тесты run_cache и т.п.). Тогда в .cppt реально есть
-            // `<модуль>__main__`. Если определения entry нет вовсе (чистая библиотека / «модуль-скрипт»
-            // без main) - режим module-as-script не реализован: явная диагностика без fallback.
-            if (!out.hasEntry) {
-                std::ifstream in(out.cpptPath);
-                bool hasMain = false;
-                std::string line;
-                while (std::getline(in, line)) {
-                    if (line.find(entry_func_name) != std::string::npos) {
-                        hasMain = true;
-                        break;
-                    }
-                }
-                if (!hasMain) {
-                    trust::errs() << "error: single-file mode (-fsingle-file, default for --run) requires a main "
-                                     "entry point (@main or {% ... __main__() ... %}); 'module-as-script' "
-                                     "(top-level code without main) is not supported yet. Build in multi-file "
-                                     "mode with -fno-single-file.\n";
-                    return 1;
+    // Однофайловый режим: встроить main-обёртку в тот же .cppt модуля (без отдельного
+    // _main.cppt). Заголовки для обёртки (trust/args.hpp и т.п.) извлекает writeBuildFiles
+    // ниже по entry_params; здесь только дописываем текст main в конец модуля.
+    if (m_opts.single_file) {
+        const bool usesStackCheck = std::find(runtime_headers.begin(), runtime_headers.end(), "trust/stack_check.hpp") != runtime_headers.end();
+        const bool usesSync = std::find(runtime_headers.begin(), runtime_headers.end(), "trust/trusted-cpp-sync.hpp") != runtime_headers.end();
+        // Entry-функция может быть задана и НЕ DSL-объявлением @main (out.hasEntry), а C++-embed
+        // `{% int <модуль>__main__() {...} %}` (тесты run_cache и т.п.). Тогда в .cppt реально есть
+        // `<модуль>__main__`. Если определения entry нет вовсе (чистая библиотека / «модуль-скрипт»
+        // без main) - режим module-as-script не реализован: явная диагностика без fallback.
+        if (!out.hasEntry) {
+            std::ifstream in(out.cpptPath);
+            bool hasMain = false;
+            std::string line;
+            while (std::getline(in, line)) {
+                if (line.find(entry_func_name) != std::string::npos) {
+                    hasMain = true;
+                    break;
                 }
             }
-            std::ofstream main_ofs(out.cpptPath, std::ios::app);
-            if (!main_ofs) {
-                trust::errs() << "error: failed to inline main wrapper into " << out.cpptPath << "\n";
+            if (!hasMain) {
+                trust::errs() << "error: single-file mode (-fsingle-file, default for --run) requires a main "
+                                 "entry point (@main or {% ... __main__() ... %}); 'module-as-script' "
+                                 "(top-level code without main) is not supported yet. Build in multi-file "
+                                 "mode with -fno-single-file.\n";
                 return 1;
             }
-            main_ofs << "\n" << buildEntryMainSource(m_opts, usesStackCheck, usesSync, entry_func_name, out.entryParams);
-            if (m_opts.verbose) {
-                trust::errs() << "info: inlined main wrapper into " << out.cpptPath << "\n";
-            }
         }
-
-        // --emit-build-dir: только генерируем build-каталог (единый переносимый build.conf),
-        // БЕЗ компиляции/линковки. Используется trust-lsp для скачиваемого архива.
-        if (m_opts.emit_build_dir_only) {
-            if (!writeBuildFiles(m_opts, out.cpptPath, moduleCppts, runtime_headers, link_libs, entry_func_name, out.entryParams)) {
-                return 1;
-            }
-            return 0;
-        }
-        if (!compileAndLink(m_opts, out.cpptPath, moduleCppts, runtime_headers, link_libs, entry_func_name, out.entryParams)) {
+        std::ofstream main_ofs(out.cpptPath, std::ios::app);
+        if (!main_ofs) {
+            trust::errs() << "error: failed to inline main wrapper into " << out.cpptPath << "\n";
             return 1;
         }
-        // --run: запустить собранный исполняемый файл (md5 исходника встроен в srcHash).
-        if (m_opts.run && m_opts.compile_mode == CompileMode::Executable) {
-            return runBuiltExecutable(m_opts, out.cpptPath);
+        main_ofs << "\n" << buildEntryMainSource(m_opts, usesStackCheck, usesSync, entry_func_name, out.entryParams);
+        if (m_opts.verbose) {
+            trust::errs() << "info: inlined main wrapper into " << out.cpptPath << "\n";
+        }
+    }
+
+    // --emit-build-dir: только генерируем build-каталог (единый переносимый build.conf),
+    // БЕЗ компиляции/линковки. Используется trust-lsp для скачиваемого архива.
+    if (m_opts.emit_build_dir_only) {
+        if (!writeBuildFiles(m_opts, out.cpptPath, moduleCppts, runtime_headers, link_libs, entry_func_name, out.entryParams)) {
+            return 1;
         }
         return 0;
+    }
+    if (!compileAndLink(m_opts, out.cpptPath, moduleCppts, runtime_headers, link_libs, entry_func_name, out.entryParams)) {
+        return 1;
+    }
+    // Режим модуля (-m): собрать precompiled-пакет `.pcp` (Trust-интерфейс + .cppt/.o)
+    // в выходном каталоге (temp), повторяющем раскладку исходного пакета.
+    if (m_opts.compile_mode == CompileMode::TrustModule) {
+        if (!assemblePcp(computeBuildDir(m_opts))) {
+            return 1;
+        }
+    }
+    // --run: запустить собранный исполняемый файл (md5 исходника встроен в srcHash).
+    if (m_opts.run && m_opts.compile_mode == CompileMode::Executable) {
+        return runBuiltExecutable(m_opts, out.cpptPath);
+    }
+    return 0;
 }
 
 // --emit-cpp: transpile и вывод результата в stdout.
 int Pipeline::runEmitCppMode(MapperFile inputFile) {
-        auto out = runTranspileAndSave(inputFile);
-        if (!out.valid) {
-            return 1;
-        }
-        trust::outs() << m_ctx.source().output_result(out.outputIdx);
-        return 0;
+    auto out = runTranspileAndSave(inputFile);
+    if (!out.valid) {
+        return 1;
+    }
+    trust::outs() << m_ctx.source().output_result(out.outputIdx);
+    return 0;
 }
 
 // Прочие emit-режимы (tokens/ast/macros).
 int Pipeline::runOtherEmitModes(MapperFile inputFile) {
-        auto steps = determineSteps(m_opts.emit_flags);
-        auto result = runPipeline(steps, inputFile);
-        if (!result.isValid() && steps != PipelineSteps::None) {
-            return 1;
-        }
-        // Диагностические emit-режимы завершаются ошибкой при наличии ошибок парсинга
-        // (аналог -fsyntax-only в clang): выходной поток может быть неполным, а тесты
-        // `%not %trust --emit-...` должны видеть ненулевой код возврата.
-        if (m_ctx.diag().errorCount() > 0) {
-            return 1;
-        }
-        return emitOutput(result);
+    auto steps = determineSteps(m_opts.emit_flags);
+    auto result = runPipeline(steps, inputFile);
+    if (!result.isValid() && steps != PipelineSteps::None) {
+        return 1;
+    }
+    // Диагностические emit-режимы завершаются ошибкой при наличии ошибок парсинга
+    // (аналог -fsyntax-only в clang): выходной поток может быть неполным, а тесты
+    // `%not %trust --emit-...` должны видеть ненулевой код возврата.
+    if (m_ctx.diag().errorCount() > 0) {
+        return 1;
+    }
+    return emitOutput(result);
 }
 
 } // namespace trust

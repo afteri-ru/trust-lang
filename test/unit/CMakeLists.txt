@@ -18,7 +18,6 @@ set(TEST_SOURCES
     pipeline/module_registry_test.cpp
     pipeline/module_loader_test.cpp
     pipeline/module_export_test.cpp
-    pipeline/module_sabi_test.cpp
     #  parser/token_gen_test.cpp
     pipeline/pipeline_test.cpp
     pipeline/pipeline_symbol_test.cpp
@@ -119,9 +118,12 @@ set(TEST_SOURCES
     formatter/format_config_test.cpp
     formatter/format_contract_test.cpp
     formatter/format_tail_test.cpp
+    # mangling component tests
+    mangling/mangling_test.cpp
     # packages component tests
     packages/model_test.cpp
     packages/archive_test.cpp
+    packages/manifest_test.cpp
     # Package manager tests
     pm/basic_test.cpp
 )
@@ -151,6 +153,7 @@ target_link_libraries(unit_tests PRIVATE
     semantic_lib
     transpiler_lib
     types_lib
+    mangling_lib
     pipeline_lib
     module_loader_lib
     debug_lib

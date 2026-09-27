@@ -364,6 +364,8 @@ add_subdirectory(include/attrs)
 add_subdirectory(include/ast)
 add_subdirectory(include/types)
 add_subdirectory(include/analysis)
+# mangling: единый источник правил именования (Trust → C++/нативные имена); ДО semantic/transpiler.
+add_subdirectory(include/mangling)
 add_subdirectory(include/semantic)
 add_subdirectory(include/transpiler)
 add_subdirectory(include/utils)
@@ -422,6 +424,10 @@ add_subdirectory(test/integration)
 
 # -- Package manager integration (после integration) --
 add_subdirectory(test/pm)
+
+# -- Precompiled package (.pcp) integration (после pm) --
+# Создание .pcp режимом `trust -m` и эквивалентность Trust-интерфейса символам в упакованном .o.
+add_subdirectory(test/pcp)
 
 # -- Distribution archive / Debian package tests (see test/package/CMakeLists.txt) --
 # Registered in the LAST test subdirectory, so their CTest numbers are the final ones

@@ -133,4 +133,26 @@ std::vector<TermPtr> collectExportedDecls(const std::vector<AstNodePtr>& body, s
     return out;
 }
 
+std::string_view declName(std::string_view declText) {
+    if (!declText.empty() && declText.front() == '`') {
+        const std::size_t close = declText.find('`', 1);
+        return (close == std::string_view::npos) ? declText : declText.substr(0, close + 1);
+    }
+    if (!declText.empty() && declText.front() == '%') {
+        declText.remove_prefix(1);
+    }
+    const std::size_t end = declText.find_first_of("(: =");
+    return (end == std::string_view::npos) ? declText : declText.substr(0, end);
+}
+
+std::vector<std::string> filterModuleDecls(const std::vector<std::string>& decls, std::string_view commaMasks) {
+    std::vector<std::string> out;
+    for (const auto& d : decls) {
+        if (matchesAnyMask(commaMasks, declName(d))) {
+            out.push_back(d);
+        }
+    }
+    return out;
+}
+
 } // namespace trust

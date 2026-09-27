@@ -21,6 +21,7 @@
 #include "types/type_id.hpp"
 #include "types/type_names.hpp"
 #include "transpiler/diag.hpp"
+#include "mangling/mangling.hpp"
 #include "utils/strings.hpp"
 #include <cstdint>
 #include <format>
@@ -86,8 +87,8 @@ void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile o
     // Entry - без манглинга, иначе не совпадёт с `extern int <имя>__main__()` в _main.cppt.
     // Оператор (имя-СИМВОЛ в обратных кавычках) эмитится как C++ `operator<sym>`: `` `==` `` →
     // `operator==`, `` `()` `` → `operator()`, `` `[]` `` → `operator[]` (манглинг trust-имени
-    // к символу неприменим). Единая точка вычисления имени - cppFuncName (emit_common.hpp).
-    std::string name = cppFuncName(trust_name, func_node.m_isOperator, isEntry);
+    // к символу неприменим). Единая точка вычисления имени - mangling::cppFuncIdent (include/mangling/mangling.hpp).
+    std::string name = mangling::cppFuncIdent(trust_name, func_node.m_isOperator, isEntry);
     EXPECT((!func_node.m_isOperator || !name.empty()) && "operator declaration: unknown operator symbol (semantic must validate first)");
     // Перегруженное имя: C++-имя перегрузки обязано быть УНИКАЛЬНЫМ (иначе C++ выберет не ту -
     // литералы/конверсии в C++ и TrustLang расходятся). Суффикс детерминирован по сигнатуре и
@@ -233,7 +234,7 @@ void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile o
         func_node.m_body && !name.empty() && !m_ectx.m_inCppBlock && m_ectx.m_hiddenNamespaceDepth == 0 && !isEntry && !m_ectx.m_inRecordBody;
     std::string export_symbol;
     if (exportable) {
-        export_symbol = "__trust_" + std::string(func_node.m_isOperator ? "op_" : "fn_") + sanitizeSymbolPart(m_ectx.qualifiedCppName(name));
+        export_symbol = mangling::exportSymbol(m_ectx.qualifiedCppName(name), func_node.m_isOperator ? mangling::ExportKind::Operator : mangling::ExportKind::Function);
         if (!m_ectx.m_forwardDeclOnly) {
             // Объявление с asm — префиксом в ТОЙ ЖЕ строке перед определением (без нового перевода
             // строки): не нарушает сохранение раскладки исходника (LSP/source-map). Квалификаторы
@@ -370,7 +371,7 @@ void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile o
         if (func_node.m_isOverloaded) {
             export_name += "#" + std::to_string(m_ectx.m_exports.size());
         }
-        // Правая часть объявления в .trust.sabi — конкретное нативное имя (для линковки):
+        // Правая часть объявления в Trust-интерфейсе `.pcp` — конкретное нативное имя (для линковки):
         // сгенерированный символ экспорта; entry (не участвует в asm) — его C++-имя.
         const std::string symbol_ref = export_symbol.empty() ? ("%" + cpp_name) : ("%" + export_symbol);
         m_ectx.m_exports.push_back({export_name, cpp_name, buildTrustForwardDecl(func_node), symbol_ref});

@@ -1,8 +1,0 @@
-# RUN: %not %trust --module-info %s 2>&1 | %FileCheck %s --check-prefix=ERR
-#
-# Отсутствие секции .trust.sabi (входной файл - не модуль) → явная ошибка, не тихий успех.
-
-# ERR: error:
-# ERR: .trust.sabi
-
-x := 1;

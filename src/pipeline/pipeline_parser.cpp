@@ -175,7 +175,7 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
             trust::errs() << "warning: --options is ignored when using emit flags\n";
         }
         if (result.opts.compile_mode != CompileMode::Executable) {
-            trust::errs() << "warning: -c/-a/--shared-lib is ignored when using emit flags\n";
+            trust::errs() << "warning: -c/-a/-m is ignored when using emit flags\n";
         }
         if (result.opts.run) {
             trust::errs() << "warning: --run is ignored when using emit flags\n";

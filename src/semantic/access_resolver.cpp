@@ -4,6 +4,7 @@
 #include "semantic/analysis_common.hpp"
 #include "semantic/ellipsis.hpp"
 #include "semantic/overload_call.hpp"
+#include "mangling/mangling.hpp"
 #include "types/overload_resolve.hpp"
 #include "semantic/format_check.hpp"
 #include "semantic/solver.hpp"
@@ -426,7 +427,7 @@ void AccessResolver::handleMethodCall(Binary& n) {
         // суффикс (иначе C++ выберет не ту). При одной сигнатуре C++-имя уникально и без суффикса.
         // Нативные имена фиксированы внешней библиотекой - суффикс не добавляется (резолв C++).
         if (sigs.size() > 1 && reg.isRecordType(reg.getCanonicalTypeId(objType))) {
-            n.resolvedMethodSuffix = overloadCppSuffix(reg, chosen);
+            n.resolvedMethodSuffix = mangling::overloadSuffix(reg, chosen);
         }
     }
 

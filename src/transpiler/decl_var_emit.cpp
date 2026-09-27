@@ -20,6 +20,7 @@
 #include "types/type_id.hpp"
 #include "types/type_names.hpp"
 #include "transpiler/diag.hpp"
+#include "mangling/mangling.hpp"
 #include "utils/strings.hpp"
 #include <cstdint>
 #include <format>
@@ -270,13 +271,13 @@ void DeclEmitter::generateVarDeclToFile(const VarDecl& var_node, MapperFile outp
     }
 
     // Экспорт: единая генерация линковочного символа (asm-метка) - конкретное нативное имя для
-    // секции .trust.sabi и для линковки. В определении (модуль) объявление с asm выводится ДО
+    // секции Trust-интерфейса `.pcp` и для линковки. В определении (модуль) объявление с asm выводится ДО
     // определения (вне маппинга); в forward-decl (сайт импорта) asm идёт на самом extern-объявлении
     // (тот же символ). `extern`-декларация с тем же типом, включая const/thread_local.
     const bool exportable = var_node.m_initializer && !var_name.empty() && !m_ectx.m_inCppBlock && m_ectx.m_hiddenNamespaceDepth == 0 && !m_ectx.m_inRecordBody;
     std::string export_symbol;
     if (exportable) {
-        export_symbol = "__trust_var_" + sanitizeSymbolPart(m_ectx.qualifiedCppName(var_name));
+        export_symbol = mangling::exportSymbol(m_ectx.qualifiedCppName(var_name), mangling::ExportKind::Variable);
         if (!m_ectx.m_forwardDeclOnly) {
             // Объявление с asm — префиксом в ТОЙ ЖЕ строке перед определением (без нового перевода
             // строки): не нарушает сохранение раскладки исходника (LSP/source-map).
@@ -405,7 +406,7 @@ void DeclEmitter::generateVarDeclToFile(const VarDecl& var_node, MapperFile outp
     // (нет инициализатора → нет определения, `&::name` не связался бы) - не экспортируются.
     if (var_node.m_initializer && !var_name.empty() && !m_ectx.m_inCppBlock && m_ectx.m_hiddenNamespaceDepth == 0) {
         const std::string qualified_name = m_ectx.qualifiedCppName(var_name);
-        // Правая часть объявления в .trust.sabi — конкретное нативное имя (для линковки).
+        // Правая часть объявления в Trust-интерфейсе `.pcp` — конкретное нативное имя (для линковки).
         const std::string symbol_ref = "%" + export_symbol;
         m_ectx.m_exports.push_back({std::string(var_node.text()), qualified_name, buildTrustForwardDecl(var_node), symbol_ref});
     }

@@ -18,7 +18,7 @@ struct LocatedEntry {
 };
 
 /// Resolves a module `path` relative to `base` within the tree.
-/// Candidates: `<base>/<path>.src`, `<base>/<path>.trust`, `<base>/<path>/` (a directory).
+/// Candidates: `<base>/<path>.src`, `<base>/<path>.trust`, `<base>/<path>.pcp`, `<base>/<path>/`.
 /// Absence and ambiguity (more than one candidate) are errors.
 [[nodiscard]] LocatedEntry locate(const SourceTree& tree, std::string_view base, std::string_view path);
 

@@ -1,6 +1,6 @@
 // test/unit/pm/basic_test.cpp - unit tests for the package manager component.
 #include "pm/cache.hpp"
-#include "pm/manifest.hpp"
+#include "packages/manifest.hpp"
 #include "pm/protocol.hpp"
 #include "pm/resolver.hpp"
 #include "pm/semver.hpp"
@@ -17,6 +17,7 @@
 #include <vector>
 
 namespace fs = std::filesystem;
+namespace packages = trust::packages;
 using namespace trust::pm;
 using trust::utils::sha256File;
 
@@ -56,29 +57,18 @@ TEST(PmSemver, SatisfiesRanges) {
     EXPECT_TRUE(satisfiesRange(v, "1.4.2"));
 }
 
-// --- manifest ---
+// --- manifest (structure is the `packages` concern; semver strictness is the consumer's) ---
 
-TEST(PmManifest, ParsesValidManifest) {
-    const nlohmann::json json = nlohmann::json::parse(R"({"schema":1,"name":"acme/foo","version":"1.0.0","dependencies":{"acme/bar":"^2.0"}})");
-    const Manifest manifest = parseManifest(json);
-    EXPECT_EQ(manifest.name, "acme/foo");
-    EXPECT_EQ(manifest.version, "1.0.0");
-    ASSERT_EQ(manifest.dependencies.size(), 1u);
-    EXPECT_EQ(manifest.dependencies[0].name, "acme/bar");
-    EXPECT_EQ(manifest.dependencies[0].range, "^2.0");
-}
-
-TEST(PmManifest, RejectsInvalidManifest) {
-    EXPECT_THROW(parseManifest(nlohmann::json::parse(R"({"name":"a","version":"1.0.0"})")), PmException);
-    EXPECT_THROW(parseManifest(nlohmann::json::parse(R"({"schema":99,"name":"a","version":"1.0.0"})")), PmException);
-    EXPECT_THROW(parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"a","version":"1.0"})")), PmException);
-    EXPECT_THROW(parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"a","version":"1.0.0","dependencies":{"x":1}})")), PmException);
+TEST(PmManifest, VersionStrictnessIsConsumerConcern) {
+    // `packages` carries `version` as DATA (no semver); the solver validates it (see PmSemver).
+    const packages::Manifest manifest = packages::parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"a","version":"1.0"})"));
+    EXPECT_THROW(parseSemver(manifest.version), PmException);
 }
 
 // --- resolver ---
 
 TEST(PmResolver, SelectsHighestSatisfyingVersion) {
-    const Manifest root = parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"acme/app","version":"0.1.0","dependencies":{"acme/bar":"^2.0"}})"));
+    const Manifest root = packages::parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"acme/app","version":"0.1.0","dependencies":{"acme/bar":"^2.0"}})"));
     std::vector<PackageRecord> candidates;
     candidates.push_back(PackageRecord{"acme/bar", "2.0.0", {}, {}, {}, {}, "local"});
     candidates.push_back(PackageRecord{"acme/bar", "2.1.0", {}, {}, {}, {}, "local"});
@@ -90,7 +80,7 @@ TEST(PmResolver, SelectsHighestSatisfyingVersion) {
 }
 
 TEST(PmResolver, ResolvesTransitiveDependencies) {
-    const Manifest root = parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"acme/app","version":"0.1.0","dependencies":{"acme/bar":"^1.0"}})"));
+    const Manifest root = packages::parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"acme/app","version":"0.1.0","dependencies":{"acme/bar":"^1.0"}})"));
     std::vector<PackageRecord> candidates;
     candidates.push_back(PackageRecord{"acme/bar", "1.0.0", {Dependency{"acme/baz", "^1.0"}}, {}, {}, {}, "local"});
     candidates.push_back(PackageRecord{"acme/baz", "1.2.0", {}, {}, {}, {}, "local"});
@@ -101,7 +91,7 @@ TEST(PmResolver, ResolvesTransitiveDependencies) {
 }
 
 TEST(PmResolver, ConflictsWithoutCandidates) {
-    const Manifest root = parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"acme/app","version":"0.1.0","dependencies":{"acme/bar":"^2.0"}})"));
+    const Manifest root = packages::parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"acme/app","version":"0.1.0","dependencies":{"acme/bar":"^2.0"}})"));
     std::vector<PackageRecord> candidates;
     candidates.push_back(PackageRecord{"acme/bar", "1.0.0", {}, {}, {}, {}, "local"});
     EXPECT_THROW(resolveDependencies(root, candidates), PmException);

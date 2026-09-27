@@ -18,7 +18,6 @@
 #include "types/type_names.hpp"
 #include "types/typekind.hpp"
 
-#include <cctype>
 #include <cstddef>
 #include <span>
 #include <string>
@@ -26,34 +25,6 @@
 #include <vector>
 
 namespace trust {
-
-/// C++-суффикс имени перегрузки, ДЕТЕРМИНИРОВАННЫЙ по СИГНАТУРЕ (имена типов параметров,
-/// стабильные между единицами трансляции - не зависят от registry_index). Одинаков для
-/// объявления (FuncDecl::m_overloadSuffix) и сайта вызова (CallExpr::resolvedCalleeSuffix),
-/// поэтому перегруженные C++-функции различаются по имени и C++-разрешение не участвует.
-inline std::string overloadCppSuffix(const TypeRegistry& reg, TypeId sig) {
-    const auto* fd = reg.getTypeDataAs<FunctionTypeData>(structuralType(sig));
-    if (fd == nullptr) {
-        return {};
-    }
-    std::string s = "_";
-    const auto sanitize = [](std::string_view n) {
-        std::string out;
-        out.reserve(n.size());
-        for (const char c : n) {
-            out += (std::isalnum(static_cast<unsigned char>(c)) != 0) ? c : '_';
-        }
-        return out;
-    };
-    for (const TypeId p : fd->paramTypes) {
-        s += sanitize(reg.getFullTypeName(p));
-        s += "_";
-    }
-    if (fd->variadicType != INVALID_TYPE_ID) {
-        s += "vararg_";
-    }
-    return s;
-}
 
 /// Ранг конверсии аргумента (from) в параметр (to). -1 = кандидат нежизнеспособен; меньше - лучше.
 /// Модель близка к C++: exact (0) < integral/floating promotion (tier 1) < numeric conversion

@@ -237,7 +237,6 @@ TEST(Parser, CombinedCompileOptions) {
 TEST(Parser, StaticLibShort) {
     auto r = do_parse({"trust", "-a", "input.src"});
     EXPECT_EQ(r.opts.compile_mode, CompileMode::StaticLib);
-    EXPECT_NE(r.opts.compile_mode, CompileMode::SharedLib);
 }
 
 TEST(Parser, StaticLibLong) {
@@ -245,9 +244,12 @@ TEST(Parser, StaticLibLong) {
     EXPECT_EQ(r.opts.compile_mode, CompileMode::StaticLib);
 }
 
-TEST(Parser, SharedLibLong) {
-    auto r = do_parse({"trust", "--shared-lib", "input.src"});
-    EXPECT_EQ(r.opts.compile_mode, CompileMode::SharedLib);
+TEST(Parser, TrustModuleShortLong) {
+    // -m / --module: предкомпилированный Trust-пакет (.pcp).
+    auto r = do_parse({"trust", "-m", "input.src"});
+    EXPECT_EQ(r.opts.compile_mode, CompileMode::TrustModule);
+    auto r2 = do_parse({"trust", "--module", "input.src"});
+    EXPECT_EQ(r2.opts.compile_mode, CompileMode::TrustModule);
 }
 
 // -l<name> теперь (по конвенции gcc/clang) - библиотека линковки, а не shared-lib.
@@ -269,7 +271,7 @@ TEST(Parser, DriverHelpGroupedByCategory) {
     EXPECT_NE(help.find("Input & Output:"), std::string::npos);
     EXPECT_NE(help.find("Compilation model:"), std::string::npos);
     EXPECT_NE(help.find("Linking:"), std::string::npos);
-    EXPECT_NE(help.find("--shared-lib"), std::string::npos);
+    EXPECT_NE(help.find("--module"), std::string::npos);
     EXPECT_NE(help.find("-l"), std::string::npos);
 }
 

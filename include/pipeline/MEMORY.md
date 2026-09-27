@@ -35,14 +35,14 @@ ParseAST НЕ запускает semantic/transpile. Фиктивные in-memor
   `<исходник>/.trust/<stem>/` (`--run` — `<cwd>/.trust/<stem>/`); не-`--run` кладёт артефакты ТОЛЬКО в
   `.trust`. Позиционные ПОСЛЕ входа при `--run` — аргументы программы (и через шебанг); без `--run`
   лишний позиционный — ошибка.
-- **`--module-info[=<маски>]` читает ELF-секцию `.trust.sabi` БЕЗ `dlopen`** (`module_loader::readModuleSabi`):
-  version/src-record + Trust-декларации экспортов; декларации валидируются парсером (`Parser::ParseText`);
-  фильтр имён масками `?`/`*`/`,` — через `matchesAnyMask`. Секция встраивается в `.cppt` при
-  `embed_export_table` (`src/pipeline/source_map.cpp`); правая часть декларации — конкретное нативное
-  имя `%<symbol>` (компилятор ГЕНЕРИРУЕТ имя символа сам и закрепляет его `asm`-меткой; в текстовом
-  модуле — `...`). Линковочный символ: `__trust_fn_`/`__trust_var_`/`__trust_op_` + санитизированное
-  квалифицированное имя; сайт импорта ЗЕРКАЛИТ ту же `asm`-метку; методы/entry не участвуют.
-  Отсутствие/битая/несовместимая секция — явная ошибка.
+- **`--module-info[=<маски>]` читает Trust-интерфейс из `.pcp`** (`packages::readArchiveEntry`):
+  version из манифеста + Trust-декларации экспортов (`<stem>.src`); декларации валидируются парсером
+  (`Parser::ParseText`); фильтр имён масками `?`/`*`/`,` — через `filterModuleDecls`/`matchesAnyMask`
+  (`module_loader/module_export`). Правая часть декларации — конкретное нативное имя `%<symbol>`
+  (компилятор ГЕНЕРИРУЕТ имя символа сам и закрепляет его `asm`-меткой; в текстовом модуле — `...`).
+  Линковочный символ: `__trust_fn_`/`__trust_var_`/`__trust_op_` + санитизированное квалифицированное
+  имя; сайт импорта ЗЕРКАЛИТ ту же `asm`-метку; методы/entry не участвуют.
+  Отсутствующий/битый `.pcp` или несовпадающее имя интерфейса — явная ошибка.
 - **Шапка `.cppt` несёт `// trust-options: <args>`** (та же `codegenArgsRecord`): пишется ТОЛЬКО при
   непустых фактически заданных codegen-опциях и входит в `prefix` (учитывается source-map). Это
   трассируемость, НЕ механизм кеша.
@@ -64,6 +64,16 @@ ParseAST НЕ запускает semantic/transpile. Фиктивные in-memor
 - **LSP-режим:** `allow_semantic_on_errors` (LSP включает всегда) разрешает семантику на частичном AST;
   Transpile при ошибках не выполняется. `releaseTypes()` отдаёт владение TypeRegistry вызывающему
   (чтобы TypeId в SymbolIndex оставался валидным).
+- **Режимы компиляции:** `Executable` (default), `ObjectFile` (`-c`, `.o`), `StaticLib` (`-a`, `.a`),
+  `TrustModule` (`-m`/`--module`, `.pcp`). Генерации `.so` из Trust-`.src` нет.
+- **Режим `-m` (`CompileMode::TrustModule`) собирает precompiled-пакет `.pcp`:** Makefile-цель `objects`
+  (объекты главного и импортированных модулей, БЕЗ линковки; `.so` не создаётся), затем `assemblePcp` —
+  `<stem>.pcp` (`packages::packArchive`, tar+zstd): Trust-интерфейс `<модуль>.src` (объявления экспортов
+  ` := %<native>;`, `mangling::interfaceDecl`) + сгенерированные `.cppt`/`.o` + манифест, в раскладке
+  исходного пакета (staging удаляется). Ровно `-o <file>` получает сам `.pcp`. `.hppt` пока НЕ генерируется.
+- **Семантический интерфейс модуля — Trust-текст (`buildInterfaceText`), а не ELF-секция:**
+  `__trust_exports`/`.trust.sabi` удалены; символ экспорта = `asm`-метка в `.o`, тип/сигнатура — в
+  `<stem>.src` внутри `.pcp`. Кеш `--run` независим (ELF-секция `.debug_trust_hash`).
 - **Декомпозиция:** `pipeline.cpp` разбит на модульные TU (только перестановка кода); `kEmbeddedDslSrc`
   (#embed dsl.src) остаётся в `pipeline.cpp`. `-Wno-c23-extensions` нужен файлам с #embed.
 

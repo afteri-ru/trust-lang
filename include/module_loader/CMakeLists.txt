@@ -7,7 +7,6 @@ add_library(module_loader_lib STATIC
     ${PROJECT_SOURCE_DIR}/module_loader/module_loader.cpp
     ${PROJECT_SOURCE_DIR}/module_loader/module_registry.cpp
     ${PROJECT_SOURCE_DIR}/module_loader/module_export.cpp
-    ${PROJECT_SOURCE_DIR}/module_loader/module_sabi.cpp
 )
 target_link_libraries(module_loader_lib PUBLIC trust_include_dirs ast_lib session_lib)
 target_link_libraries(module_loader_lib PRIVATE syntax_lib)

@@ -2,7 +2,7 @@
 
 > scope: include/transpiler
 > role: persistent-memory
-> last_reviewed: 2026-09-24
+> last_reviewed: 2026-09-27
 > review_period: 30
 > max_size: 26000
 
@@ -18,7 +18,7 @@
 
 - **⚠ Экспорт модуля — ГЕНЕРИРУЕМЫЕ линковочные символы (`asm`-метка):** для каждой экспортируемой
   сущности (функция/переменная/оператор) кодоген генерирует имя символа и закрепляет его
-  `asm`-меткой: `__trust_fn_`/`__trust_var_`/`__trust_op_` + `sanitizeSymbolPart` (ИНЪЕКТИВНОЕ
+  `asm`-меткой: `__trust_fn_`/`__trust_var_`/`__trust_op_` + `mangling::sanitizeSymbolPart` (ИНЪЕКТИВНОЕ
   hex-кодирование не-алфанумерических символов, вкл. `_`) от квалифицированного C++-имени. Причина:
   C++-имя оператора (`operator==`) невыразимо как Trust-имя нативного символа (`%`+backtick недопустим),
   а бинарному модулю нужен конкретный линковочный идентификатор. Определение: объявление с `asm` —
@@ -26,7 +26,8 @@
   (`lead`/`trail`, напр. `constexpr`/`noexcept`) ПОВТОРЯЮТСЯ (иначе «exception specification ...
   does not match»). Сайт импорта (`m_forwardDeclOnly`) ЗЕРКАЛИТ ту же метку на forward-decl. Методы
   класса и entry НЕ участвуют (`CppEmitContext::m_inRecordBody`; символ entry задаёт `_main.cppt`).
-  Секция модуля (RHS `%<symbol>`) встраивается `source_map.cpp` (см. `include/pipeline/MEMORY.md`).
+  Trust-интерфейс модуля (`<stem>.src`: RHS `%<symbol>`) формируется `source_map.cpp`/`assemblePcp`
+  (см. `include/pipeline/MEMORY.md`).
 
 - **Наборы типов (`:A + :B`) — term→AST sugar, узлов не создаёт:** разворот в N `FuncDecl` делает
   `ast/type_set_expand.cpp`; `CppTranspiler::visit_TypeSet` — no-op (контракт KindVisitor). Эмиссия
@@ -118,7 +119,7 @@
 - **Кодоген НЕ знает о многоточии:** семейство МАТЕРИАЛИЗУЕТ семантика — в AST приходит готовый
   список. Аргументы вызова эмитит единый `emitCallArgs(call)`, используемый и в `visit_CallExpr`, и в
   вызовах МЕТОДОВ (чтобы цикл по аргументам не дублировался). `visit_Filling`/`visit_Ellipsis` — FAULT.
-- **Операторы — C++-имя `operator<sym>` — ЕДИНАЯ точка `cppFuncName` (`emit_common.hpp`),**
+- **Операторы — C++-имя `operator<sym>` — ЕДИНАЯ точка `mangling::cppFuncIdent` (`include/mangling/mangling.hpp`),**
   используется и кодогеном (`decl_func_emit`), и экспортом модуля: `==` → `operator==`, `()` →
   `operator()`, `[]` → `operator[]`; `name_to_cpp` к символу НЕ применяется. Member — inline внутри
   `struct` (ветка `emitRecordDecl`), free — top-level. Контракты оператора (`trust_pre/trust_post`) -

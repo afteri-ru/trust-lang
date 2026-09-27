@@ -17,6 +17,7 @@
 #include "types/intrinsics.hpp"
 #include "types/type_id.hpp"
 #include "types/type_names.hpp"
+#include "mangling/mangling.hpp"
 #include "transpiler/diag.hpp"
 #include "utils/strings.hpp"
 #include <format>
@@ -43,7 +44,7 @@ void ExprEmitter::emitBinaryOpRaw(const Binary& binary_node) {
             // типов результат по значению не меняется. Блок - немедленное разрушение (не конец
             // функции); имя уникально (__trust_discard_N). Прежняя форма `std::move(x);` была
             // no-op (отбрасываемый xvalue не вызывает move).
-            const std::string tmp = "__trust_discard_" + std::to_string(m_ectx.m_discardCounter++);
+            const std::string tmp = mangling::tmpName(mangling::TempKind::Discard, m_ectx.m_discardCounter++);
             m_ectx.m_ctx.source().output_append(m_ectx.m_out, "{ auto " + tmp + " = std::move(");
             m_driver.emitExpr(binary_node.m_left.get());
             m_ectx.m_ctx.source().output_append(m_ectx.m_out, "); (void)" + tmp + "; }");

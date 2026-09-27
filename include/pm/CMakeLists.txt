@@ -7,7 +7,6 @@
 add_library(pm_lib STATIC
     ${PROJECT_SOURCE_DIR}/pm/protocol.cpp
     ${PROJECT_SOURCE_DIR}/pm/semver.cpp
-    ${PROJECT_SOURCE_DIR}/pm/manifest.cpp
     ${PROJECT_SOURCE_DIR}/pm/cache.cpp
     ${PROJECT_SOURCE_DIR}/pm/net.cpp
     ${PROJECT_SOURCE_DIR}/pm/resolver.cpp

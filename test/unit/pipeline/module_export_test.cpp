@@ -34,6 +34,27 @@ TEST(ModuleExportTest, GlobAnyMask) {
     EXPECT_TRUE(matchesAnyMask("a,,b", "a")); // пустая маска между запятыми = без фильтра
 }
 
+// -- Тесты утилит Trust-интерфейса (перенесены вместе с declName/filterModuleDecls). --
+
+TEST(ModuleExportTest, DeclNameForms) {
+    EXPECT_EQ(declName("f(a:Int32):Bool := %c_f;"), "f");
+    EXPECT_EQ(declName("x:Int64 := %c_y;"), "x");
+    EXPECT_EQ(declName("x := %c_x;"), "x");
+    EXPECT_EQ(declName("`==`(a:V):Bool := %operator__;"), "`==`");
+}
+
+TEST(ModuleExportTest, FilterMasks) {
+    const std::vector<std::string> decls = {"alpha := %c_a;", "alpha2 := %c_a2;", "beta(a:Int32):Bool := %c_b;"};
+    EXPECT_EQ(filterModuleDecls(decls, "").size(), 3u);            // пустая маска = все
+    EXPECT_EQ(filterModuleDecls(decls, "   ").size(), 3u);         // пробелы = все
+    EXPECT_EQ(filterModuleDecls(decls, "alpha").size(), 1u);       // точно
+    EXPECT_EQ(filterModuleDecls(decls, "alpha*").size(), 2u);      // *
+    EXPECT_EQ(filterModuleDecls(decls, "alph?").size(), 1u);       // ?
+    EXPECT_EQ(filterModuleDecls(decls, "beta, alpha").size(), 2u); // список
+    EXPECT_EQ(filterModuleDecls(decls, " beta ").size(), 1u);      // пробелы вокруг маски
+    EXPECT_TRUE(filterModuleDecls(decls, "nope").empty());         // нет совпадений - пусто
+}
+
 // -- Интеграция: сбор экспортов из загруженного модуля --
 
 class ModuleExportIntegrationTest : public ::testing::Test {

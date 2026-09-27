@@ -1,9 +1,9 @@
 # RUN: TD=%t.dir && mkdir -p $TD
-# RUN: %trust -q --temp-dir $TD -m -o $TD/m.trust %s
-# RUN: %trust --module-info='f*' $TD/m.trust | %FileCheck %s --check-prefix=STAR
-# RUN: %trust --module-info='f?,x' $TD/m.trust | %FileCheck %s --check-prefix=MIX
-# RUN: %trust --module-info='zzz' $TD/m.trust | %FileCheck %s --check-prefix=NONE
-# RUN: %trust --module-info='' $TD/m.trust | %FileCheck %s --check-prefix=ALL
+# RUN: %trust -q --temp-dir $TD -m -o $TD/masks.pcp %s
+# RUN: %trust --module-info='f*' $TD/masks.pcp | %FileCheck %s --check-prefix=STAR
+# RUN: %trust --module-info='f?,x' $TD/masks.pcp | %FileCheck %s --check-prefix=MIX
+# RUN: %trust --module-info='zzz' $TD/masks.pcp | %FileCheck %s --check-prefix=NONE
+# RUN: %trust --module-info='' $TD/masks.pcp | %FileCheck %s --check-prefix=ALL
 
 # STAR: exports: 2
 # STAR:   f1

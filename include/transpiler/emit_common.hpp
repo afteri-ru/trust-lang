@@ -11,7 +11,6 @@
 #include "sourcemap/mapper.hpp"
 #include "location/location.hpp"
 #include "types/int_literal.hpp"
-#include "types/operator_registry.hpp"
 #include "types/registry.hpp"
 #include "types/type_id.hpp"
 #include "types/type_names.hpp"
@@ -143,40 +142,6 @@ inline std::vector<DictElement> dictElements(const DictLiteralNode& n) {
         }
         const auto& a = static_cast<const ArgNode&>(*el);
         out.push_back(DictElement{std::string(a.text()), a.m_value.get(), a.resultType});
-    }
-    return out;
-}
-
-/// C++-имя функции/метода/оператора - ЕДИНАЯ точка вычисления (кодоген + экспорт модуля +
-/// forward-decl): оператор (имя-СИМВОЛ) → `operator<sym>` (types/operator_registry.hpp);
-/// entry-функция модуля (`<модуль>__main__`) → сырое имя без манглинга; иначе - name_to_cpp.
-inline std::string cppFuncName(std::string_view trustName, bool isOperator, bool isEntry) {
-    if (isOperator) {
-        return op::operatorCppName(trustName);
-    }
-    if (isEntry) {
-        return std::string(utils::strip_native_prefix(trustName));
-    }
-    return utils::name_to_cpp(trustName);
-}
-
-/// Детерминированное валидное имя линковочного символа экспортируемой сущности (единая генерация).
-/// Каждый не-алфанумерический символ (включая `_`) кодируется `_<hex>`; это делает преобразование
-/// ИНЪЕКТИВНЫМ (разные имена → разные символы; важно для уникальности асм-метки), а результат -
-/// валидным идентификатором C. Напр. `ns::operator==` -> `ns_3a_3aoperator_3d_3d`.
-inline std::string sanitizeSymbolPart(std::string_view s) {
-    static constexpr char kHex[] = "0123456789abcdef";
-    std::string out;
-    out.reserve(s.size() * 2);
-    for (const char c : s) {
-        const auto u = static_cast<unsigned char>(c);
-        if ((u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || (u >= '0' && u <= '9')) {
-            out += static_cast<char>(u);
-        } else {
-            out += '_';
-            out += kHex[(u >> 4) & 0xf];
-            out += kHex[u & 0xf];
-        }
     }
     return out;
 }

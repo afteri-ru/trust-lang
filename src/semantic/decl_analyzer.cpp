@@ -7,6 +7,7 @@
 #include "semantic/operator_check.hpp"
 #include "semantic/solver.hpp"
 #include "analysis/symbol_table.hpp"
+#include "mangling/mangling.hpp"
 #include "types/overload_resolve.hpp"
 #include "semantic/type_inference.hpp"
 #include "attrs/attr_builtin.hpp"
@@ -393,7 +394,7 @@ void DeclAnalyzer::analyzeFuncDecl(FuncDecl& func_node) {
 
     // Детерминированный C++-суффикс перегрузки по сигнатуре (кодоген применяет его ТОЛЬКО если
     // имя перегружено: `m_isOverloaded`). Ставим всегда - бесплатно и не зависит от порядка.
-    func_node.m_overloadSuffix = overloadCppSuffix(m_actx.ctx().types(), structuralType(sym.type));
+    func_node.m_overloadSuffix = mangling::overloadSuffix(m_actx.ctx().types(), structuralType(sym.type));
 
     // Регистрация в текущем скоупе (дубликат - ошибка). Forward-объявление (без тела) может
     // быть завершено последующим определением того же имени (declareOrComplete → Completed).
