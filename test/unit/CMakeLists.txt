@@ -119,6 +119,9 @@ set(TEST_SOURCES
     formatter/format_config_test.cpp
     formatter/format_contract_test.cpp
     formatter/format_tail_test.cpp
+    # packages component tests
+    packages/model_test.cpp
+    packages/archive_test.cpp
     # Package manager tests
     pm/basic_test.cpp
 )
@@ -156,6 +159,7 @@ target_link_libraries(unit_tests PRIVATE
     solver_lib
     syntax_lib
     formatter_lib
+    packages_lib
     pm_lib
     gmp_interface
     GTest::gtest

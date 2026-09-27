@@ -1,7 +1,9 @@
-// src/pm/package.cpp
-#include "pm/package.hpp"
+// src/packages/archive.cpp
+#include "packages/archive.hpp"
 
-#include "pm/protocol.hpp"
+#include "packages/errors.hpp"
+
+#include "utils/hash.hpp"
 
 #include <archive.h>
 #include <archive_entry.h>
@@ -12,14 +14,10 @@
 #include <system_error>
 #include <vector>
 
-namespace trust::pm {
+namespace trust::packages {
 namespace {
 
 namespace fs = std::filesystem;
-
-[[noreturn]] void fail(const char* code, std::string message, nlohmann::json context) {
-    throw PmException(PmError{code, std::move(message), std::move(context)});
-}
 
 std::string archiveError(struct archive* a, const char* action) {
     const char* message = archive_error_string(a);
@@ -56,7 +54,7 @@ struct EntryGuard {
 void writeFileData(struct archive* a, const fs::path& file) {
     std::ifstream in(file, std::ios::binary);
     if (!in) {
-        fail("pm.package.read", "cannot read file: " + file.string(), nlohmann::json{{"file", file.string()}});
+        fail("packages.archive.read", "cannot read file: '{}'", file.string());
     }
     std::array<char, 65536> buffer{};
     while (in) {
@@ -65,7 +63,7 @@ void writeFileData(struct archive* a, const fs::path& file) {
         if (got > 0) {
             const la_ssize_t written = archive_write_data(a, buffer.data(), static_cast<std::size_t>(got));
             if (written < 0) {
-                fail("pm.package.pack", archiveError(a, "archive_write_data"), nlohmann::json{{"file", file.string()}});
+                fail("packages.archive.pack", archiveError(a, "archive_write_data"));
             }
         }
     }
@@ -77,7 +75,7 @@ std::string readAll(struct archive* a) {
     for (;;) {
         const la_ssize_t got = archive_read_data(a, buffer.data(), buffer.size());
         if (got < 0) {
-            fail("pm.package.read", archiveError(a, "archive_read_data"), nlohmann::json::object());
+            fail("packages.archive.read", archiveError(a, "archive_read_data"));
         }
         if (got == 0) {
             break;
@@ -90,14 +88,14 @@ std::string readAll(struct archive* a) {
 // Rejects entry names escaping the extraction root.
 void checkSafeEntry(const std::string& path) {
     if (path.empty() || path[0] == '/' || path.find('\\') != std::string::npos) {
-        fail("pm.package.unsafe", "unsafe entry path: " + path, nlohmann::json{{"entry", path}});
+        fail("packages.archive.unsafe", "unsafe entry path: '{}'", path);
     }
     std::size_t pos = 0;
     while (pos <= path.size()) {
         const std::size_t slash = path.find('/', pos);
         const std::string_view part = (slash == std::string::npos) ? std::string_view(path).substr(pos) : std::string_view(path).substr(pos, slash - pos);
         if (part == "..") {
-            fail("pm.package.unsafe", "unsafe entry path: " + path, nlohmann::json{{"entry", path}});
+            fail("packages.archive.unsafe", "unsafe entry path: '{}'", path);
         }
         if (slash == std::string::npos) {
             break;
@@ -108,46 +106,59 @@ void checkSafeEntry(const std::string& path) {
 
 } // namespace
 
-void packPackage(const fs::path& root, const fs::path& out) {
+std::string packArchive(const fs::path& root, const fs::path& out) {
     std::error_code ec;
     if (!fs::is_directory(root, ec)) {
-        fail("pm.package.root", "package root is not a directory: " + root.string(), nlohmann::json{{"root", root.string()}});
+        fail("packages.archive.root", "package root is not a directory: '{}'", root.string());
     }
 
+    std::error_code iter_ec;
     std::vector<fs::path> files;
-    for (fs::recursive_directory_iterator it(root, ec), end; !ec && it != end; it.increment(ec)) {
+    for (fs::recursive_directory_iterator it(root, iter_ec), end; !iter_ec && it != end; it.increment(iter_ec)) {
         std::error_code fec;
         if (it->is_regular_file(fec)) {
             files.push_back(it->path());
         }
     }
-    const fs::path out_abs = fs::weakly_canonical(out, ec);
+    if (iter_ec) {
+        fail("packages.archive.read", "cannot list package tree '{}': {}", root.string(), iter_ec.message());
+    }
+    std::error_code canon_ec;
+    const fs::path out_abs = fs::weakly_canonical(out, canon_ec);
+    if (canon_ec) {
+        fail("packages.archive.pack", "cannot resolve output path '{}': {}", out.string(), canon_ec.message());
+    }
     // Sort by relative path for a deterministic archive.
-    std::sort(files.begin(), files.end(),
-              [&root](const fs::path& a, const fs::path& b) { return fs::relative(a, root).generic_string() < fs::relative(b, root).generic_string(); });
+    std::sort(files.begin(), files.end(), [&root](const fs::path& a, const fs::path& b) {
+        return a.lexically_relative(root).generic_string() < b.lexically_relative(root).generic_string();
+    });
 
     ArchiveWriter writer;
     writer.handle = archive_write_new();
     if (writer.handle == nullptr) {
-        fail("pm.package.pack", "cannot create libarchive writer", nlohmann::json::object());
+        fail("packages.archive.pack", "cannot create libarchive writer");
     }
     archive_write_set_format_pax_restricted(writer.handle);
     archive_write_add_filter_zstd(writer.handle);
     archive_write_set_filter_option(writer.handle, "zstd", "compression-level", "19");
     if (archive_write_open_filename(writer.handle, out.c_str()) != ARCHIVE_OK) {
-        fail("pm.package.pack", archiveError(writer.handle, "archive_write_open_filename"), nlohmann::json{{"out", out.string()}});
+        fail("packages.archive.pack", archiveError(writer.handle, "archive_write_open_filename"));
     }
 
     for (const fs::path& file : files) {
         std::error_code cec;
-        if (!out_abs.empty() && fs::weakly_canonical(file, cec) == out_abs) {
+        const fs::path file_abs = fs::weakly_canonical(file, cec);
+        if (cec) {
+            fail("packages.archive.read", "cannot resolve path '{}': {}", file.string(), cec.message());
+        }
+        if (file_abs == out_abs) {
             continue; // never embed the output archive into itself
         }
-        const std::string rel = fs::relative(file, root).generic_string();
+        const std::string rel = file.lexically_relative(root).generic_string();
         std::error_code sec;
         const std::uintmax_t size = fs::file_size(file, sec);
         if (sec) {
-            fail("pm.package.read", "cannot stat file: " + file.string(), nlohmann::json{{"file", file.string()}});
+            fail("packages.archive.read", "cannot stat file: '{}'", file.string());
         }
         EntryGuard guard;
         guard.entry = archive_entry_new();
@@ -163,23 +174,24 @@ void packPackage(const fs::path& root, const fs::path& out) {
         archive_entry_set_uname(guard.entry, "");
         archive_entry_set_gname(guard.entry, "");
         if (archive_write_header(writer.handle, guard.entry) != ARCHIVE_OK) {
-            fail("pm.package.pack", archiveError(writer.handle, "archive_write_header"), nlohmann::json{{"entry", rel}});
+            fail("packages.archive.pack", archiveError(writer.handle, "archive_write_header"));
         }
         writeFileData(writer.handle, file);
     }
 
     if (archive_write_close(writer.handle) != ARCHIVE_OK) {
-        fail("pm.package.pack", archiveError(writer.handle, "archive_write_close"), nlohmann::json{{"out", out.string()}});
+        fail("packages.archive.pack", archiveError(writer.handle, "archive_write_close"));
     }
+    return trust::utils::sha256File(out);
 }
 
-std::vector<std::string> listPackage(const fs::path& archive) {
+std::vector<std::string> listEntries(const fs::path& archive) {
     ArchiveReader reader;
     reader.handle = archive_read_new();
     archive_read_support_filter_all(reader.handle);
     archive_read_support_format_tar(reader.handle);
     if (archive_read_open_filename(reader.handle, archive.c_str(), 10240) != ARCHIVE_OK) {
-        fail("pm.package.read", archiveError(reader.handle, "archive_read_open_filename"), nlohmann::json{{"archive", archive.string()}});
+        fail("packages.archive.read", archiveError(reader.handle, "archive_read_open_filename"));
     }
     std::vector<std::string> entries;
     struct archive_entry* entry = nullptr;
@@ -189,7 +201,7 @@ std::vector<std::string> listPackage(const fs::path& archive) {
             break;
         }
         if (rc != ARCHIVE_OK) {
-            fail("pm.package.read", archiveError(reader.handle, "archive_read_next_header"), nlohmann::json{{"archive", archive.string()}});
+            fail("packages.archive.read", archiveError(reader.handle, "archive_read_next_header"));
         }
         if (archive_entry_filetype(entry) != AE_IFREG) {
             continue;
@@ -200,13 +212,13 @@ std::vector<std::string> listPackage(const fs::path& archive) {
     return entries;
 }
 
-std::string readPackageEntry(const fs::path& archive, const std::string& entry) {
+std::string readArchiveEntry(const fs::path& archive, std::string_view entry) {
     ArchiveReader reader;
     reader.handle = archive_read_new();
     archive_read_support_filter_all(reader.handle);
     archive_read_support_format_tar(reader.handle);
     if (archive_read_open_filename(reader.handle, archive.c_str(), 10240) != ARCHIVE_OK) {
-        fail("pm.package.read", archiveError(reader.handle, "archive_read_open_filename"), nlohmann::json{{"archive", archive.string()}});
+        fail("packages.archive.read", archiveError(reader.handle, "archive_read_open_filename"));
     }
     struct archive_entry* current = nullptr;
     for (;;) {
@@ -215,17 +227,17 @@ std::string readPackageEntry(const fs::path& archive, const std::string& entry) 
             break;
         }
         if (rc != ARCHIVE_OK) {
-            fail("pm.package.read", archiveError(reader.handle, "archive_read_next_header"), nlohmann::json{{"archive", archive.string()}});
+            fail("packages.archive.read", archiveError(reader.handle, "archive_read_next_header"));
         }
         const char* name = archive_entry_pathname(current);
-        if (name != nullptr && entry == name && archive_entry_filetype(current) == AE_IFREG) {
+        if (name != nullptr && entry == std::string_view(name) && archive_entry_filetype(current) == AE_IFREG) {
             return readAll(reader.handle);
         }
     }
-    fail("pm.package.entry_missing", "entry not found in package: " + entry, nlohmann::json{{"archive", archive.string()}, {"entry", entry}});
+    fail("packages.archive.entry_missing", "entry not found in package: '{}'", std::string(entry));
 }
 
-void extractPackage(const fs::path& archive, const fs::path& dest) {
+void unpackArchive(const fs::path& archive, const fs::path& dest) {
     std::error_code ec;
     fs::create_directories(dest, ec);
     ArchiveReader reader;
@@ -233,7 +245,7 @@ void extractPackage(const fs::path& archive, const fs::path& dest) {
     archive_read_support_filter_all(reader.handle);
     archive_read_support_format_tar(reader.handle);
     if (archive_read_open_filename(reader.handle, archive.c_str(), 10240) != ARCHIVE_OK) {
-        fail("pm.package.read", archiveError(reader.handle, "archive_read_open_filename"), nlohmann::json{{"archive", archive.string()}});
+        fail("packages.archive.read", archiveError(reader.handle, "archive_read_open_filename"));
     }
     struct archive_entry* entry = nullptr;
     for (;;) {
@@ -242,7 +254,7 @@ void extractPackage(const fs::path& archive, const fs::path& dest) {
             break;
         }
         if (rc != ARCHIVE_OK) {
-            fail("pm.package.read", archiveError(reader.handle, "archive_read_next_header"), nlohmann::json{{"archive", archive.string()}});
+            fail("packages.archive.read", archiveError(reader.handle, "archive_read_next_header"));
         }
         const char* name = archive_entry_pathname(entry);
         const std::string rel = name != nullptr ? name : "";
@@ -253,18 +265,18 @@ void extractPackage(const fs::path& archive, const fs::path& dest) {
             continue;
         }
         if (archive_entry_filetype(entry) != AE_IFREG) {
-            fail("pm.package.unsafe", "unsupported entry type (symlink/special): " + rel, nlohmann::json{{"entry", rel}});
+            fail("packages.archive.unsafe", "unsupported entry type (symlink/special): '{}'", rel);
         }
         fs::create_directories(target.parent_path(), ec);
         std::ofstream out(target, std::ios::binary);
         if (!out) {
-            fail("pm.package.extract", "cannot write file: " + target.string(), nlohmann::json{{"file", target.string()}});
+            fail("packages.archive.extract", "cannot write file: '{}'", target.string());
         }
         std::array<char, 65536> buffer{};
         for (;;) {
             const la_ssize_t got = archive_read_data(reader.handle, buffer.data(), buffer.size());
             if (got < 0) {
-                fail("pm.package.read", archiveError(reader.handle, "archive_read_data"), nlohmann::json{{"entry", rel}});
+                fail("packages.archive.read", archiveError(reader.handle, "archive_read_data"));
             }
             if (got == 0) {
                 break;
@@ -274,4 +286,4 @@ void extractPackage(const fs::path& archive, const fs::path& dest) {
     }
 }
 
-} // namespace trust::pm
+} // namespace trust::packages

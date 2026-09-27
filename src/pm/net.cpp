@@ -1,8 +1,9 @@
 // src/pm/net.cpp
 #include "pm/net.hpp"
 
-#include "pm/cache.hpp"
 #include "pm/protocol.hpp"
+
+#include "utils/hash.hpp"
 
 #include <curl/curl.h>
 
@@ -93,7 +94,7 @@ std::string downloadToFile(const std::string& url, const fs::path& dest, const D
         fs::remove(dest, ec);
         failFetch(url, curl_easy_strerror(code));
     }
-    return sha256File(dest);
+    return trust::utils::sha256File(dest);
 }
 
 } // namespace trust::pm

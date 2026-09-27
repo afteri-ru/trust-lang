@@ -1,16 +1,16 @@
 // test/unit/pm/basic_test.cpp - unit tests for the package manager component.
 #include "pm/cache.hpp"
 #include "pm/manifest.hpp"
-#include "pm/package.hpp"
 #include "pm/protocol.hpp"
 #include "pm/resolver.hpp"
 #include "pm/semver.hpp"
+
+#include "utils/hash.hpp"
 
 #include "test_data.hpp"
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -18,6 +18,7 @@
 
 namespace fs = std::filesystem;
 using namespace trust::pm;
+using trust::utils::sha256File;
 
 namespace {
 
@@ -25,14 +26,6 @@ void writeFile(const fs::path& path, const std::string& data) {
     fs::create_directories(path.parent_path());
     std::ofstream out(path, std::ios::binary);
     out << data;
-}
-
-fs::path makePackageTree(const std::string& name, const std::string& dir_name, const std::string& version) {
-    const fs::path dir = trust::test::makeTestDataDir(dir_name);
-    writeFile(dir / kManifestFileName, "{\"schema\":1,\"name\":\"" + name + "\",\"version\":\"" + version + "\",\"dependencies\":{}}\n");
-    writeFile(dir / "README.md", "package " + name + "\n");
-    writeFile(dir / "src" / "main.src", "# " + name + "\n");
-    return dir;
 }
 
 } // namespace
@@ -80,39 +73,6 @@ TEST(PmManifest, RejectsInvalidManifest) {
     EXPECT_THROW(parseManifest(nlohmann::json::parse(R"({"schema":99,"name":"a","version":"1.0.0"})")), PmException);
     EXPECT_THROW(parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"a","version":"1.0"})")), PmException);
     EXPECT_THROW(parseManifest(nlohmann::json::parse(R"({"schema":1,"name":"a","version":"1.0.0","dependencies":{"x":1}})")), PmException);
-}
-
-// --- package format ---
-
-TEST(PmPackage, PackIsDeterministicAndRoundTrips) {
-    const fs::path dir = makePackageTree("acme/foo", "pm_pkg_tree", "1.2.0");
-    const fs::path out_dir = trust::test::makeTestDataDir("pm_pkg_out");
-    const fs::path a = out_dir / "a.trust";
-    const fs::path b = out_dir / "b.trust";
-    packPackage(dir, a);
-    packPackage(dir, b);
-    EXPECT_EQ(sha256File(a), sha256File(b));
-
-    const std::vector<std::string> entries = listPackage(a);
-    EXPECT_EQ(entries.size(), 3u);
-    EXPECT_NE(std::find(entries.begin(), entries.end(), std::string(kManifestFileName)), entries.end());
-    const std::string manifest_text = readPackageEntry(a, kManifestFileName);
-    const Manifest manifest = parseManifest(nlohmann::json::parse(manifest_text));
-    EXPECT_EQ(manifest.name, "acme/foo");
-    EXPECT_EQ(manifest.version, "1.2.0");
-
-    const fs::path dest = out_dir / "extracted";
-    extractPackage(a, dest);
-    EXPECT_TRUE(fs::is_regular_file(dest / kManifestFileName));
-    EXPECT_TRUE(fs::is_regular_file(dest / "src" / "main.src"));
-}
-
-TEST(PmPackage, MissingEntryThrows) {
-    const fs::path dir = makePackageTree("acme/foo", "pm_pkg_tree2", "1.0.0");
-    const fs::path out_dir = trust::test::makeTestDataDir("pm_pkg_out2");
-    const fs::path archive = out_dir / "a.trust";
-    packPackage(dir, archive);
-    EXPECT_THROW(readPackageEntry(archive, "does/not/exist"), PmException);
 }
 
 // --- resolver ---

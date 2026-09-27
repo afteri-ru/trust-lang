@@ -4,12 +4,15 @@
 #include "pm/cache.hpp"
 #include "pm/manifest.hpp"
 #include "pm/net.hpp"
-#include "pm/package.hpp"
 #include "pm/protocol.hpp"
+
+#include "packages/archive.hpp"
+#include "packages/errors.hpp"
 #include "pm/resolver.hpp"
 #include "pm/semver.hpp"
 
 #include "trust/version.h"
+#include "utils/hash.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -138,7 +141,7 @@ bool hasFlag(const CommandLine& line, const std::string& name) {
 
 // Builds a candidate record from a `.trust` archive manifest.
 PackageRecord recordFromArchive(const fs::path& archive, const std::string& source) {
-    const std::string manifest_text = readPackageEntry(archive, kManifestFileName);
+    const std::string manifest_text = packages::readArchiveEntry(archive, kManifestFileName);
     const Manifest manifest = parseManifest(nlohmann::json::parse(manifest_text));
     PackageRecord record;
     record.name = manifest.name;
@@ -316,7 +319,7 @@ void writeLock(const fs::path& path, const Manifest& root, const std::vector<Res
         if (!item.sha256.empty()) {
             entry["sha256"] = item.sha256;
         } else if (!item.file.empty() && fs::is_regular_file(item.file)) {
-            entry["sha256"] = sha256File(item.file);
+            entry["sha256"] = trust::utils::sha256File(item.file);
         }
         packages.push_back(std::move(entry));
     }
@@ -395,11 +398,11 @@ int runInfo(const CommandLine& line, std::ostream& out) {
     const fs::path target(path);
     nlohmann::json data;
     if (fs::is_regular_file(target) && target.extension() == ".trust") {
-        const Manifest manifest = parseManifest(nlohmann::json::parse(readPackageEntry(target, kManifestFileName)));
+        const Manifest manifest = parseManifest(nlohmann::json::parse(packages::readArchiveEntry(target, kManifestFileName)));
         data["manifest"] = manifestToJson(manifest);
-        data["sha256"] = sha256File(target);
+        data["sha256"] = trust::utils::sha256File(target);
         nlohmann::json entries = nlohmann::json::array();
-        for (const std::string& entry : listPackage(target)) {
+        for (const std::string& entry : packages::listEntries(target)) {
             entries.push_back(entry);
         }
         data["entries"] = entries;
@@ -441,8 +444,8 @@ int runPack(const CommandLine& line, std::ostream& out) {
     if (out_path.empty()) {
         out_path = (sanitizeName(manifest.name) + "-" + manifest.version + ".trust");
     }
-    packPackage(dir, out_path);
-    nlohmann::json data{{"archive", out_path}, {"sha256", sha256File(out_path)}, {"entries", listPackage(out_path).size()}};
+    const std::string sha = packages::packArchive(dir, out_path);
+    nlohmann::json data{{"archive", out_path}, {"sha256", sha}, {"entries", packages::listEntries(out_path).size()}};
     if (line.json) {
         return finish(line, out, data);
     }
@@ -491,7 +494,7 @@ fs::path resolveStored(Cache& cache, const Resolved& item, const DownloadOptions
         return cache.artifactPath(hash);
     }
     if (!item.file.empty()) {
-        const std::string actual = sha256File(item.file);
+        const std::string actual = trust::utils::sha256File(item.file);
         if (!hash.empty() && hash != actual) {
             throw PmException(PmError{"pm.integrity", "local package hash mismatch: " + item.file.string(),
                                       nlohmann::json{{"file", item.file.string()}, {"expected", hash}, {"actual", actual}}});
@@ -544,7 +547,7 @@ int runFetch(const CommandLine& line, std::ostream& out, bool install) {
         std::string hash;
         const fs::path stored = resolveStored(cache, item, net_options, hash);
         if (install) {
-            extractPackage(stored, cache.root() / "installed" / item.name / item.version);
+            packages::unpackArchive(stored, cache.root() / "installed" / item.name / item.version);
         }
         fetched.push_back(nlohmann::json{{"name", item.name}, {"version", item.version}, {"sha256", hash}, {"path", stored.string()}});
     }
@@ -631,6 +634,14 @@ int runCli(const std::vector<std::string>& args, std::ostream& out, std::ostream
     } catch (const PmException& e) {
         if (line.json) {
             out << errorEnvelope(e.error()).dump(2) << "\n";
+        } else {
+            err << kProgramName << ": " << e.error().message << "\n";
+        }
+        return 1;
+    } catch (const packages::PackageException& e) {
+        // The packages component owns its codes; surface them in the JSON envelope as-is.
+        if (line.json) {
+            out << errorEnvelope(PmError{e.error().code, e.error().message}).dump(2) << "\n";
         } else {
             err << kProgramName << ": " << e.error().message << "\n";
         }

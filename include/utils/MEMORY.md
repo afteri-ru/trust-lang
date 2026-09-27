@@ -12,6 +12,9 @@
 `TRUST_DEBUG` (сообщения) и `TRUST_SCOPE` (дамп). Полное описание и порядок использования — в
 корневом `MEMORY.md` («Отладочная диагностика анализатора»).
 
+`utils/hash.hpp` — общий примитив целостности: `sha256Hex(string_view)`/`sha256File(path)` на
+`llvm::SHA256` (lowercase hex). Единый источник хеша для `packages` и `pm`.
+
 ## Facts and invariants
 
 - **Гейт `TRUST_TRACE_ENABLED`** (CMake `TRUST_ENABLE_TRACE`: dev ON / release OFF): при 0 макросы

@@ -3,18 +3,12 @@
 
 #include "pm/protocol.hpp"
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/Support/SHA256.h"
-
 #include <fcntl.h>
 #include <sys/file.h>
 #include <unistd.h>
 
-#include <array>
 #include <cerrno>
-#include <cstdint>
 #include <cstring>
-#include <fstream>
 #include <system_error>
 
 namespace trust::pm {
@@ -22,36 +16,7 @@ namespace {
 
 namespace fs = std::filesystem;
 
-std::string toHex(llvm::ArrayRef<uint8_t> bytes) {
-    static const char* kHex = "0123456789abcdef";
-    std::string out;
-    out.reserve(bytes.size() * 2);
-    for (const uint8_t byte : bytes) {
-        out.push_back(kHex[byte >> 4]);
-        out.push_back(kHex[byte & 0x0F]);
-    }
-    return out;
-}
-
 } // namespace
-
-std::string sha256File(const fs::path& file) {
-    std::ifstream in(file, std::ios::binary);
-    if (!in) {
-        throw PmException(PmError{"pm.cache.read", "cannot read file for hashing: " + file.string(), nlohmann::json{{"file", file.string()}}});
-    }
-    llvm::SHA256 hasher;
-    std::array<char, 65536> buffer{};
-    while (in) {
-        in.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
-        const std::streamsize got = in.gcount();
-        if (got > 0) {
-            hasher.update(llvm::ArrayRef<uint8_t>(reinterpret_cast<const uint8_t*>(buffer.data()), static_cast<std::size_t>(got)));
-        }
-    }
-    const std::array<uint8_t, 32> hash = hasher.final();
-    return toHex(hash);
-}
 
 FileLock::FileLock(const fs::path& path) {
     std::error_code ec;

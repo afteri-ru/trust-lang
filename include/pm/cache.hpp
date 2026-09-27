@@ -10,9 +10,6 @@
 
 namespace trust::pm {
 
-/// Lowercase hex sha256 of a file (streamed).
-[[nodiscard]] std::string sha256File(const std::filesystem::path& file);
-
 /// Advisory exclusive lock (flock) held for the object lifetime.
 class FileLock {
   public:

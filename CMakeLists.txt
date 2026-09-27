@@ -375,6 +375,8 @@ add_subdirectory(include/stdlib)
 add_subdirectory(include/pipeline)
 add_subdirectory(include/solver)
 add_subdirectory(include/driver)
+# packages: общая модель модулей/пакетов (.trust); ДО include/pm (pm_lib линкует packages_lib).
+add_subdirectory(include/packages)
 add_subdirectory(include/pm)
 add_subdirectory(include/runtime)
 add_subdirectory(include/debug)

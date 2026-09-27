@@ -6,6 +6,8 @@
 // manifest (nested) is a nested package. The human-readable description is a
 // separate file (README.md), never a field of the manifest.
 
+#include "packages/package.hpp"
+
 #include <nlohmann/json.hpp>
 
 #include <filesystem>
@@ -14,8 +16,8 @@
 
 namespace trust::pm {
 
-/// File name that marks a package root.
-inline constexpr const char* kManifestFileName = "trust.pkg.json";
+/// Package-root marker, owned by the `packages` component (single source).
+using packages::kManifestFileName;
 
 /// Current manifest schema version.
 inline constexpr int kManifestSchema = 1;

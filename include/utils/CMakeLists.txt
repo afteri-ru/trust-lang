@@ -7,6 +7,7 @@ add_library(utils_lib STATIC
     ${PROJECT_SOURCE_DIR}/utils/backtrace.cpp
     ${PROJECT_SOURCE_DIR}/utils/elf.cpp
     ${PROJECT_SOURCE_DIR}/utils/file_io.cpp
+    ${PROJECT_SOURCE_DIR}/utils/hash.cpp
     ${PROJECT_SOURCE_DIR}/utils/io.cpp
     ${PROJECT_SOURCE_DIR}/utils/zstd_compress.cpp
 )
