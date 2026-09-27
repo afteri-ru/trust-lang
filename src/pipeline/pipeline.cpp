@@ -1,6 +1,7 @@
 #include "pipeline/pipeline.hpp"
 #include "driver/cli.hpp"
 #include "pipeline/makefile_build.hpp"
+#include "pipeline/pm_client.hpp"
 #include "ast/term_to_ast.hpp"
 #include "attrs/attr.hpp"
 #include "module_loader/module_export.hpp"
@@ -589,6 +590,16 @@ int Pipeline::execute() {
     // -- 1. Special modes (module-info) --
     if (m_opts.module_info_requested) {
         return showModuleInfo(m_ctx, m_opts.input_file, m_opts.module_info_masks, m_opts.verbose);
+    }
+
+    // -- 1b. Package dependencies via trust-pm (CLI + JSON contract) --
+    // The compiler consults the package manager before processing the input.
+    // Network/TLS stays inside trust-pm; here we only speak the CLI contract.
+    if (m_opts.pm_mode != "off" && !m_opts.input_file.empty()) {
+        const std::vector<std::string> pm_files = resolvePackageModules(m_opts);
+        if (m_opts.verbose && !pm_files.empty()) {
+            trust::errs() << "trust: resolved " << pm_files.size() << " package(s) via trust-pm\n";
+        }
     }
 
     // -- 1a. --format-dump-config: печать настроек форматирования с дефолтами/комментариями --

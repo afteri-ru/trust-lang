@@ -108,6 +108,13 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
         }
     }
 
+    // Валидация значения --pm-mode (режим обращения к менеджеру пакетов).
+    if (result.opts.pm_mode != "auto" && result.opts.pm_mode != "on" && result.opts.pm_mode != "off") {
+        trust::errs() << "error: invalid value for --pm-mode: '" << result.opts.pm_mode << "' (expected: auto|on|off)\n";
+        result.exit_code = 1;
+        return result;
+    }
+
     // Валидация значения --solver-mode (см. include/semantic/solver.hpp): только поведенческие режимы.
     if (!result.opts.solver_mode.empty() && !semantic::parseSolverMode(result.opts.solver_mode)) {
         trust::errs() << "error: invalid value for --solver-mode: '" << result.opts.solver_mode << "' (expected: assert|export|calculate)\n";

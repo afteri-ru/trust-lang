@@ -11,3 +11,4 @@ tags: [overview, development, verification]
 - [x] Парсер и литералы для [базовых типов данных](/ru/docs/types/)
 - [x] Сформулирована концепция [гарантий языка](/ru/docs/safety/)
 - [x] Разработана [песочница](/ru/docs/sandbox/) для тестирования примеров
+- [x] Менеджер пакетов [trust-pm](/ru/docs/pm/): контракт CLI+JSON, формат `*.trust`, кэш и офлайн-режим

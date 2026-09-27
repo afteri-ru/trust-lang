@@ -2,7 +2,7 @@
 
 > scope: . (root, project-level)
 > role: persistent-memory
-> last_reviewed: 2026-09-23
+> last_reviewed: 2026-09-27
 > review_period: 30
 > max_size: 14200
 
@@ -97,3 +97,5 @@ TrustLang — транспилятор высокоуровневого язык
 
 - Перекрёстные связи компонентов — в пер-компонентных `MEMORY.md` (Relations/Facts), напр. transpiler и
   semantic зависят от diag.
+- Менеджер пакетов — отдельный компонент `include/pm` (приложение `trust-pm`), связан с компилятором
+  только контрактом CLI+JSON; компиляторная сторона — `include/pipeline/pm_client.hpp`.

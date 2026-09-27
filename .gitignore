@@ -19,6 +19,7 @@ _output/
 contrib/
 build/
 _build/
+_build-nopch/
 examples/trust/
 examples/LICENSE
 *.src_map

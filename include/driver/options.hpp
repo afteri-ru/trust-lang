@@ -82,6 +82,15 @@ struct PipelineOpts {
     bool module_info_requested = false; ///< --module-info flag
     std::string module_info_masks;      ///< --module-info=<masks>: comma-маски имён (пусто = все)
 
+    // Package manager integration (CLI + JSON contract with trust-pm).
+    std::string pm_path;                ///< --pm=<path> (default: env TRUST_PM, else "trust-pm" on PATH)
+    std::string pm_mode = "auto";       ///< --pm-mode=auto|on|off (off = local files only)
+    std::string pm_manifest;            ///< explicit package manifest (default: <input dir>/trust.pkg.json)
+    std::vector<std::string> pm_sources; ///< --pm-source=<dir|url> (repeatable)
+    std::string pm_cache;               ///< --pm-cache=<dir>
+    bool pm_offline = false;            ///< --offline: never touch the network (cache only)
+    bool pm_frozen = false;             ///< --frozen: use the lock file only
+
     // Compile options
     std::string temp_dir;
     std::string compiler;

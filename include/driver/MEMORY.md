@@ -2,7 +2,7 @@
 
 > scope: include/driver
 > role: persistent-memory
-> last_reviewed: 2026-09-16
+> last_reviewed: 2026-09-27
 > review_period: 30
 > max_size: 8000
 
@@ -34,6 +34,11 @@
 - **`codegen_args` в `PipelineOpts`** — нормализованный список ФАКТИЧЕСКИ заданных codegen-релевантных
   опций (вход кеша `--run`; логика кеша — в `pipeline`); нерелевантные (`-v/-q/-W/--temp-dir`) туда
   не попадают.
+
+- **Опции интеграции с менеджером пакетов** (`--pm`, `--pm-mode=auto|on|off`, `--pm-manifest`,
+  `--pm-source`, `--pm-cache`, `--offline`, `--frozen`) — поведенческие, `CliCategory::ProjectSpecific`;
+  объявлены в таблице драйвера `trust` (driver/cli.cpp) и применяются в `Pipeline::execute()` через
+  `pipeline/pm_client`. `--pm-mode` валидируется в `Pipeline::parseArgs` (auto|on|off).
 
 ## Decisions
 

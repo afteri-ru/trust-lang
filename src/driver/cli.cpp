@@ -58,6 +58,13 @@ enum class DriverOptId {
     FormatStyle,
     CompleteOptions,
     CompleteFiles,
+    PmPath,
+    PmMode,
+    PmManifest,
+    PmSource,
+    PmCache,
+    PmOffline,
+    PmFrozen,
 };
 
 namespace {
@@ -281,6 +288,27 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
     case DriverOptId::CompleteFiles:
         opts.complete_files = true;
         break;
+    case DriverOptId::PmPath:
+        opts.pm_path = value;
+        break;
+    case DriverOptId::PmMode:
+        opts.pm_mode = value;
+        break;
+    case DriverOptId::PmManifest:
+        opts.pm_manifest = value;
+        break;
+    case DriverOptId::PmSource:
+        opts.pm_sources.push_back(value);
+        break;
+    case DriverOptId::PmCache:
+        opts.pm_cache = value;
+        break;
+    case DriverOptId::PmOffline:
+        opts.pm_offline = true;
+        break;
+    case DriverOptId::PmFrozen:
+        opts.pm_frozen = true;
+        break;
     default:
         break;
     }
@@ -353,6 +381,18 @@ std::vector<DriverOption> buildTrustTable() {
         {int(DriverOptId::NoDsl), "no-dsl", "", CliOpt::Flag, "", "Disable loading DSL macros", CliCategory::ProjectSpecific},
         {int(DriverOptId::SemanticOnErrors), "semantic-on-errors", "", CliOpt::Flag, "", "Run the semantic analyzer even when the lexer/parser produced errors",
          CliCategory::ProjectSpecific},
+        {int(DriverOptId::PmPath), "pm", "", CliOpt::Value, "path",
+         "Path to the trust-pm executable (default: env TRUST_PM, else 'trust-pm' on PATH)", CliCategory::ProjectSpecific},
+        {int(DriverOptId::PmMode), "pm-mode", "", CliOpt::Value, "mode",
+         "Package manager mode: auto (default, resolve if a package manifest is present) | on (require) | off (local files only)",
+         CliCategory::ProjectSpecific},
+        {int(DriverOptId::PmManifest), "pm-manifest", "", CliOpt::Value, "file",
+         "Explicit package manifest (default: <input dir>/trust.pkg.json)", CliCategory::ProjectSpecific},
+        {int(DriverOptId::PmSource), "pm-source", "", CliOpt::ValueList, "dir|url",
+         "Package source (local directory or HTTP index URL; repeatable)", CliCategory::ProjectSpecific},
+        {int(DriverOptId::PmCache), "pm-cache", "", CliOpt::Value, "dir", "Package cache directory", CliCategory::ProjectSpecific},
+        {int(DriverOptId::PmOffline), "offline", "", CliOpt::Flag, "", "Never touch the network; serve packages from the cache", CliCategory::ProjectSpecific},
+        {int(DriverOptId::PmFrozen), "frozen", "", CliOpt::Flag, "", "Use only the lock file (no re-resolution)", CliCategory::ProjectSpecific},
         // Formatting
         {int(DriverOptId::Format), "format", "", CliOpt::Flag, "", "Format the input Trust source file and print the result to stdout",
          CliCategory::Formatting},

@@ -119,6 +119,8 @@ set(TEST_SOURCES
     formatter/format_config_test.cpp
     formatter/format_contract_test.cpp
     formatter/format_tail_test.cpp
+    # Package manager tests
+    pm/basic_test.cpp
 )
 
 # Tensor tests (require WITH_TORCH)
@@ -154,6 +156,7 @@ target_link_libraries(unit_tests PRIVATE
     solver_lib
     syntax_lib
     formatter_lib
+    pm_lib
     gmp_interface
     GTest::gtest
 )

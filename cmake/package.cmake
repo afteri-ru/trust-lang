@@ -67,7 +67,7 @@ configure_file(
 add_custom_target(package ALL
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/make_package.cmake
-    DEPENDS trust trust-lsp trust-playground trust_runtime trust_runtime_static
+    DEPENDS trust trust-lsp trust-playground trust-pm trust_runtime trust_runtime_static
     COMMENT "Building distribution archive ${TRUST_PKG_ARCHIVE}"
 )
 
@@ -113,7 +113,7 @@ if(DPKG_DEB_EXECUTABLE)
         # Clean-tree pre-check (same as `package`): a .deb is a release artifact.
         COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
         COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/make_deb.cmake
-        DEPENDS trust trust-lsp trust-playground trust_runtime trust_runtime_static
+        DEPENDS trust trust-lsp trust-playground trust-pm trust_runtime trust_runtime_static
         COMMENT "Building Debian package (trust-lang_<version>_<arch>.deb)"
     )
     message(STATUS "Deb package enabled (dpkg-deb: ${DPKG_DEB_EXECUTABLE})")

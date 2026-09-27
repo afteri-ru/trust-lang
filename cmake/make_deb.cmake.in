@@ -23,6 +23,7 @@ file(WRITE "${_shlibs_dir}/debian/control" "Source: trust-lang\nBinary: trust-la
 file(COPY "@CMAKE_BINARY_DIR@/trust" DESTINATION "${_root}/usr/bin")
 file(COPY "@CMAKE_BINARY_DIR@/trust-lsp" DESTINATION "${_root}/usr/bin")
 file(COPY "@CMAKE_BINARY_DIR@/trust-playground" DESTINATION "${_root}/usr/bin")
+file(COPY "@CMAKE_BINARY_DIR@/trust-pm" DESTINATION "${_root}/usr/bin")
 
 # -- Runtime libraries (shared + static) --
 file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.so" DESTINATION "${_root}/usr/lib")
@@ -35,7 +36,7 @@ file(RENAME "${_root}/usr/share/bash-completion/completions/trust-completion.bas
             "${_root}/usr/share/bash-completion/completions/trust")
 
 # Ensure the executables carry the executable bit inside the package.
-foreach(_bin trust trust-lsp trust-playground)
+foreach(_bin trust trust-lsp trust-playground trust-pm)
     file(CHMOD "${_root}/usr/bin/${_bin}"
          PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
                      GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
@@ -46,7 +47,7 @@ set(_deps "")
 execute_process(
     COMMAND "@DPKG_SHLIBDEPS_EXECUTABLE@" -O
             "${_root}/usr/bin/trust" "${_root}/usr/bin/trust-lsp"
-            "${_root}/usr/bin/trust-playground"
+            "${_root}/usr/bin/trust-playground" "${_root}/usr/bin/trust-pm"
             "${_root}/usr/lib/trust-runtime.so"
     WORKING_DIRECTORY "${_shlibs_dir}"
     OUTPUT_VARIABLE _shlibs_out

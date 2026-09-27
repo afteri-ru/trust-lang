@@ -12,6 +12,13 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(ZSTD REQUIRED IMPORTED_TARGET libzstd)
 pkg_check_modules(GMP REQUIRED gmp)
 
+# -- Package manager (component pm) libraries --
+# Reused libraries (not a third-party package manager): libsolv (solver),
+# libarchive (tar), libcurl (network/TLS, linked into trust-pm only).
+pkg_check_modules(SOLV REQUIRED IMPORTED_TARGET libsolv)
+pkg_check_modules(ARCHIVE REQUIRED IMPORTED_TARGET libarchive)
+pkg_check_modules(CURL REQUIRED IMPORTED_TARGET libcurl)
+
 find_package(nlohmann_json REQUIRED)
 
 # -- msgpack-c (для бинарного source mapping) - статическая линковка --

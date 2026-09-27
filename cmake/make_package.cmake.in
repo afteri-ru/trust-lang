@@ -21,6 +21,7 @@ file(MAKE_DIRECTORY "${_staging}/bin" "${_staging}/lib" "${_staging}/share/bash-
 file(COPY "@CMAKE_BINARY_DIR@/trust" DESTINATION "${_staging}/bin")
 file(COPY "@CMAKE_BINARY_DIR@/trust-lsp" DESTINATION "${_staging}/bin")
 file(COPY "@CMAKE_BINARY_DIR@/trust-playground" DESTINATION "${_staging}/bin")
+file(COPY "@CMAKE_BINARY_DIR@/trust-pm" DESTINATION "${_staging}/bin")
 
 # -- Runtime libraries (shared + static) --
 # The public headers (trust/rational.hpp) and the stdlib sources are intentionally

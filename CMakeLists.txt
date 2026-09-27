@@ -375,6 +375,7 @@ add_subdirectory(include/stdlib)
 add_subdirectory(include/pipeline)
 add_subdirectory(include/solver)
 add_subdirectory(include/driver)
+add_subdirectory(include/pm)
 add_subdirectory(include/runtime)
 add_subdirectory(include/debug)
 add_subdirectory(include/lsp)
@@ -417,6 +418,9 @@ add_subdirectory(test/examples)
 # examples_tests (фикстура integration_deps).
 add_subdirectory(test/integration)
 
+# -- Package manager integration (после integration) --
+add_subdirectory(test/pm)
+
 # -- Distribution archive / Debian package tests (see test/package/CMakeLists.txt) --
 # Registered in the LAST test subdirectory, so their CTest numbers are the final ones
 # (after integration_tests). They still run only after the unit/lit/vscode suites pass
@@ -433,7 +437,7 @@ endif()
 # Задачи редактора (VSCode tasks.json) ссылаются ТОЛЬКО на готовые target'ы
 # (test-binaries / run_tests), а НЕ перечисляют бинарники вручную.
 # trust-dap НЕ входит в сборку тестов (собирается отдельно и только при TRUST_BUILD_DAP=ON).
-set(_run_tests_targets unit_tests trust trust-lsp trust-playground integration generate_lit_cfg_py)
+set(_run_tests_targets unit_tests trust trust-lsp trust-playground integration trust-pm pm_integration generate_lit_cfg_py)
 
 # Только сборка тестовых бинарников (без запуска ctest).
 add_custom_target(test-binaries

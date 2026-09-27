@@ -15,12 +15,14 @@ add_library(pipeline_lib STATIC
     ${PROJECT_SOURCE_DIR}/pipeline/source_map.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/archive.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/module_info.cpp
+    ${PROJECT_SOURCE_DIR}/pipeline/pm_client.cpp
 )
 target_link_libraries(pipeline_lib PUBLIC semantic_lib transpiler_lib solver_lib stdlib_lib driver_lib analysis_lib session_lib sourcemap_lib trust_include_dirs)
 target_link_libraries(pipeline_lib PRIVATE
     syntax_lib
     module_loader_lib
     formatter_lib
+    nlohmann_json::nlohmann_json
     trust_llvm_dirs
 )
 # build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.

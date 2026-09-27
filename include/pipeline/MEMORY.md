@@ -2,7 +2,7 @@
 
 > scope: include/pipeline
 > role: persistent-memory
-> last_reviewed: 2026-09-24
+> last_reviewed: 2026-09-27
 > review_period: 30
 > max_size: 11900
 
@@ -15,6 +15,13 @@ ParseAST НЕ запускает semantic/transpile. Фиктивные in-memor
 префиксом `@`.
 
 ## Facts and invariants
+
+- **Интеграция с менеджером пакетов — через `pm_client` (CLI+JSON).** `Pipeline::execute()` до
+  обработки исходника вызывает `resolvePackageModules(m_opts)` (`src/pipeline/pm_client.cpp`),
+  если рядом с входным файлом есть `trust.pkg.json` и `--pm-mode` != `off`. Компилятор НЕ выходит
+  в сеть: он запускает `trust-pm` (по `--pm`/env `TRUST_PM`/PATH) и разбирает JSON-конверт. При
+  отсутствии PM — явная ошибка с инструкцией; `pm_client` печатает сообщение в `trust::errs()`
+  перед `FatalError` (обработчик в `trust.cpp` сам ничего не печатает).
 
 - **Кеш `--run` учитывает codegen-опции.** Запись `.debug_trust_hash`: версия, строка `@opts\t<args>`,
   затем `файл\tmd5` главного файла и модулей. `<args>` — нормализованный список ФАКТИЧЕСКИ заданных
