@@ -58,7 +58,8 @@ generated from the qualified/C++ name). In a textual module the right-hand side 
 (a forward declaration). The kind of the entity (function/variable/…) is derived
 from the declaration text. The command `trust --module-info[=<masks>]` prints the version, the
 source record and the declarations; name masks (`?`, `*`, `,`) filter the list. The declarations are
-validated by the language parser (an invalid section is an explicit error).
+validated by the language parser (an invalid section is an explicit error). In the target model, the
+module interface is a single canonical Trust text (see [Module interface](#interface)).
 
 ### Overloads in the table {#overloads}
 
@@ -69,6 +70,81 @@ deterministic suffix by signature (a code generation detail, not part of the int
 On import, the compiler restores a SET of prototypes by the name and resolves the call by the same
 algorithm as inside a single module (an exact match is preferable to a widening; several
 incomparable best ones — an "ambiguous" error).
+
+## Module interface {#interface}
+
+The module interface is a **single canonical textual form in Trust itself**: full semantic definitions
+of types and declarations (prototypes) **without implementation**. It is printed by
+`trust --module-info` and is not a standalone file: the interface is tied to a specific build of the
+module (it contains the binding to that build's symbols), therefore it is distributed together with the
+module.
+
+The key invariant: **only the implementation is precompiled**. Even for a precompiled module, the
+consumer receives **full semantic definitions of all data types**, not merely a "machine" signature.
+This allows the language compiler to perform the usual checks (member access, overload resolution,
+ownership and borrowing) over the imported entities, although their bodies are absent. ABI/SABI apply
+**only to precompiled modules**: for a source module (`.src`) everything is rebuilt from the source
+text, and no ABI checks apply to it.
+
+The binding to the ABI is expressed uniformly. A declaration in the interface is an ordinary Trust
+declaration (a prototype), and its link symbol is given by the right-hand side `%<symbol>` (an extern
+name). The same mechanism serves C/C++ integration: a declaration with `%<symbol>` binds a Trust name
+to a native symbol. The compiler **generates** the symbol name and pins it with an `asm` label; for
+trivial C/C++ integration the right-hand side may point directly at a native name. The binding is
+**stored** in the interface rather than re-derived: name generation depends on attributes, declaration
+order and generated names and is not deterministic.
+
+The interface is **order-independent and extensible**: a type (class) is defined once, while its methods
+and specializations may appear later as separate declarations (just as class methods are declared
+outside the class body). For the analyzer, when loading a module it does not matter whether an entity
+was added at the type definition or at the end of the interface: all declarations are merged into a
+single model.
+
+### Kinds of artifacts {#artifacts}
+
+| Artifact | Purpose |
+|---|---|
+| `*.src` | source text of a module/program |
+| `*.srcp` | package: an archive with one or more `*.src` (including subdirectories) and metadata (publisher, project link, integrity control, etc.) |
+| `*.cppt` | generated C++ code (implementation) |
+| `*.hppt` | generated C++ header (ABI interface for C/C++) |
+| module | compiled code together with semantics; static or dynamic form |
+| application | the final program (the result of compiling code and modules) |
+
+### Single container {#container}
+
+A module is a **single container**: object code plus a section (or sections) with semantics (for a
+dynamic module — additionally the dynamic linking configuration). The dynamic form is a shared object
+(e.g. `.so`), the static form is a static library; the semantics is read by the compiler **without
+loading the module**. A single container eliminates the "code versus semantics" mismatch and simplifies
+distribution.
+
+### Two interfaces {#interfaces}
+
+Two **interfaces** are built from a single semantic model of a module — for two different consumers:
+
+| | Trust interface | C++ interface (`*.hppt`) |
+|---|---|---|
+| Consumer | the TrustLang compiler/analyzer | external C/C++ toolchain |
+| Format | canonical Trust text | C++ header |
+| Completeness | full semantics (without implementation) | projection onto the binary ABI |
+| Output | `trust --module-info` | header export |
+
+The Trust interface is **lossless**; the C++ interface is a **projection**, so some information is not
+carried over: attributes, contracts and ownership rules are **dropped** (a C++ consumer does not check
+them), while type properties are reflected **only partially** — by what is expressible in C++ (for
+example `const` and wrappers such as `trust::Shared`). The boundary of the C++ interface is **anything
+expressible in a header file**: declarations, type definitions and definitions of inline/template
+entities. In C++, overloads receive unique names, while the binding to the binary symbol still goes
+through the `asm` label (a single `%<symbol>`).
+
+### Interface versioning {#versioning}
+
+- A **module container** stores the source record (`srcRecord`) and the compiler version.
+- The **C++ header `*.hppt`** (an external artifact) stores the **hash of the module** it was generated
+  from and the Trust compiler version: this is an external reference to a specific build (no
+  self-reference) and it lets one detect a "header versus library" mismatch. Header generation must be
+  deterministic.
 
 ## Name mangling in binary files {#mangling}
 
@@ -97,9 +173,16 @@ Two independent levels of names are distinguished:
 
 ## Open questions {#open}
 
-The exact format of a compiled module, the scheme of table keys/positions and the composition of the semantic
-description (which object properties it includes) are implementation details left to separate
-tasks.
+Settled in principle: a single module container (code together with semantics); two interfaces from a
+single semantic model (Trust and C++); the way to bind to the ABI (a single `%sym` as the extern name of
+a prototype); the order-independence and extensibility of the interface; versioning (the source record
+and the compiler version in the container; the module hash and the compiler version in `*.hppt`).
+
+Still open (implementation details left to separate tasks): the final name and role of the module
+extension; the self-containment of `*.hppt` (require runtime headers or embed the needed declarations);
+the format and metadata of the `*.srcp` package; combining semantics and object code in one container
+versus a separate platform-independent semantic artifact; the module dependency model; the linking and
+visibility of implementation symbols; dynamic loading at runtime.
 
 ## Links {#links}
 

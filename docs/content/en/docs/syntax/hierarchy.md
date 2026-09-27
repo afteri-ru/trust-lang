@@ -78,6 +78,16 @@ linking of libraries):
 With dynamic loading, the compilation of the module and all checks are performed at application runtime;
 static loading allows detecting possible errors at compile time.
 
+Three kinds of modules are distinguished. A **source module** (`*.src`) is a language unit distributed
+as source text. A **precompiled binary module** (`*.trust`) is distributed without source text: its
+interface — full semantic definitions of types and prototype declarations without implementation — is
+read by the compiler. A **native library** (C/C++) is linked as an ordinary external object.
+
+Besides a single `*.src`, source text can be distributed as a **package** (`*.srcp`) — an archive with
+one or more `*.src` (including subdirectories) and metadata. A ready module is a **single container**
+(code together with semantics), from which two interfaces are built: an internal Trust interface for the
+compiler and an external C++ header for C/C++ — see [Semantic ABI of modules](../sabi/).
+
 Besides import by source text, TrustLang describes a **semantic ABI** — a way of
 representing a compiled module in which binary symbols are bound to a typed
 semantic definition, while the matching of objects is performed by the language compiler. The principle
