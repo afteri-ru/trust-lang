@@ -2,7 +2,7 @@
 
 > scope: include/mangling
 > role: persistent-memory
-> last_reviewed: 2026-09-27
+> last_reviewed: 2026-09-28
 > review_period: 30
 > max_size: 3000
 
@@ -22,8 +22,7 @@
   поэтому разные имена дают разные линковочные символы.
 - `exportSymbol` — единая схема линковочного имени экспорта: `__trust_<fn|var|op>_` +
   `sanitizeSymbolPart(qualifiedCppName)`; одна точка для кодогена (asm-метка) и Trust-интерфейса.
-- `interfaceDecl` — единый рендер привязки интерфейса: `fwdDecl` (` := ...;`) → ` := %<symbol>;`
-  (используется Trust-интерфейсом `.pcp`).
+- `interfaceDecl` — единый рендер привязки интерфейса: `fwdDecl` (` := ...;`) → ` := %<symbol>;`.
 - `overloadSuffix` детерминирован по СИГНАТУРЕ (не зависит от `registry_index`) — совпадает
   у объявления и сайта вызова.
 

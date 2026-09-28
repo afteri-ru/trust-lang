@@ -25,13 +25,13 @@ std::string buildEntryMainSource(const PipelineOpts& opts, bool usesStackCheck, 
 
 bool writeBuildFiles(const PipelineOpts& opts, const std::filesystem::path& cppt_path, const std::vector<std::filesystem::path>& module_cppt_paths,
                      const std::vector<std::string>& runtime_headers, const std::vector<std::string>& link_libs, const std::string& entry_func_name,
-                     const std::string& entry_params);
+                     const std::string& entry_params, const std::string& program_record);
 
 /// writeBuildFiles + запуск make для цели compile_mode и копирование артефакта
 /// в opts.output_file (если задан). false при ошибке компиляции/линковки.
 bool compileAndLink(const PipelineOpts& opts, const std::filesystem::path& cppt_path, const std::vector<std::filesystem::path>& module_cppt_paths,
                     const std::vector<std::string>& runtime_headers, const std::vector<std::string>& link_libs, const std::string& entry_func_name,
-                    const std::string& entry_params);
+                    const std::string& entry_params, const std::string& program_record);
 
 /// build_dir = temp_dir (если задан) или <каталог исходника>/.trust/<stem> (для --run — <cwd>/.trust/<stem>).
 std::filesystem::path computeBuildDir(const PipelineOpts& opts);

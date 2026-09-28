@@ -55,9 +55,6 @@ void walk(const SourceTree& tree, std::string_view dir, std::string_view prefix,
             pkg.entries.push_back(PackageEntry{join(prefix, withoutSuffix(child, ".src")), full, EntryKind::Source});
         } else if (hasSuffix(child, ".trust")) {
             pkg.entries.push_back(PackageEntry{join(prefix, withoutSuffix(child, ".trust")), full, EntryKind::Package});
-        } else if (hasSuffix(child, ".pcp")) {
-            // Precompiled package: same package layout as `.trust`, each module is an interface.
-            pkg.entries.push_back(PackageEntry{join(prefix, withoutSuffix(child, ".pcp")), full, EntryKind::Package});
         }
     }
 }

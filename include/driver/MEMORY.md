@@ -2,7 +2,7 @@
 
 > scope: include/driver
 > role: persistent-memory
-> last_reviewed: 2026-09-27
+> last_reviewed: 2026-09-28
 > review_period: 30
 > max_size: 8000
 
@@ -36,9 +36,8 @@
   не попадают.
 
 - **Модель опций компиляции — по артефакту назначения, без генерации `.so` из Trust-`.src`:**
-  `Executable` (default), `ObjectFile` (`-c`, `.o`), `StaticLib` (`-a`, `.a`), `TrustModule`
-  (`-m`/`--module`, `.pcp` — набор статических `.o` + Trust-интерфейс + манифест). `SharedLib`
-  (`--shared-lib`) не существует. Для `TrustModule` `-o <file>` указывает сам `.pcp`.
+  `Executable` (default), `ObjectFile` (`-c`, `.o`), `StaticLib` (`-a`, `.a`). `SharedLib`
+  (`--shared-lib`) не существует.
 - **Опции интеграции с менеджером пакетов** (`--pm`, `--pm-mode=auto|on|off`, `--pm-manifest`,
   `--pm-source`, `--pm-cache`, `--offline`, `--frozen`) — поведенческие, `CliCategory::ProjectSpecific`;
   объявлены в таблице драйвера `trust` (driver/cli.cpp) и применяются в `Pipeline::execute()` через

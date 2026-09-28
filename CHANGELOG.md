@@ -1,5 +1,13 @@
 # Version history
 
+## [Unreleased]
+
+- Removed the precompiled `*.pcp` package: no `-m`/`--module` mode, no `--module-info`, and no
+  `.pcp` recognition in the package component. Packages are distributed as source `*.trust` only.
+- Added a local build cache: each generated `.cppt` (main, imported modules, `_main.cppt`) carries a
+  `// trust-src-hash:` marker (compiler version + codegen options + md5 of all program sources).
+  When sources are unchanged the file is not rewritten, so `make` skips recompilation by timestamp.
+
 ## [Release v0.6.0](https://github.com/afteri/trust-lang/releases/tag/v0.6.0)
 
 Подробнее на сайте: https://trust-lang.net/ru/blog/releases/v0.6.0/

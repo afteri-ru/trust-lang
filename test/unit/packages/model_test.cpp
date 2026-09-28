@@ -144,7 +144,6 @@ TEST(PackagesLocate, ResolvesModules) {
     writeFile(dir / "nested" / "trust.pkg.json", "{}\n");
     writeFile(dir / "nested" / "c.src", "C");
     writeFile(dir / "pkg.trust", "stub");
-    writeFile(dir / "comp.pcp", "stub");
 
     const DirectoryTree tree(dir);
     EXPECT_EQ(locate(tree, "", "a").relative, "a.src");
@@ -153,37 +152,6 @@ TEST(PackagesLocate, ResolvesModules) {
     EXPECT_EQ(locate(tree, "", "nested/c").relative, "nested/c.src");
     EXPECT_EQ(locate(tree, "", "pkg").kind, EntryKind::Package);
     EXPECT_EQ(locate(tree, "", "nested").kind, EntryKind::Package);
-    // Precompiled package (`.pcp`) is a package archive, like `.trust`.
-    EXPECT_EQ(locate(tree, "", "comp").relative, "comp.pcp");
-    EXPECT_EQ(locate(tree, "", "comp").kind, EntryKind::Package);
-}
-
-TEST(PackagesModel, DiscoversPrecompiledPackageArchive) {
-    const fs::path dir = trust::test::makeTestDataDir("packages_pcp_model");
-    writeFile(dir / "trust.pkg.json", "{}\n");
-    writeFile(dir / "a.src", "A");
-    writeFile(dir / "a.cppt", "C++");
-    writeFile(dir / "a.hppt", "hdr");
-    writeFile(dir / "a.o", "obj");
-    writeFile(dir / "dep.pcp", "stub");
-
-    const DirectoryTree tree(dir);
-    const Package pkg = discoverPackage(tree, "");
-    // The `.pcp` is a nested package entry; generated artifacts are not package entries.
-    ASSERT_EQ(pkg.entries.size(), 2u);
-    const PackageEntry* dep = findEntry(pkg, "dep");
-    ASSERT_NE(dep, nullptr);
-    EXPECT_EQ(dep->kind, EntryKind::Package);
-    EXPECT_EQ(dep->relative, "dep.pcp");
-    EXPECT_EQ(findEntry(pkg, "a")->kind, EntryKind::Source);
-}
-
-TEST(PackagesLocate, AmbiguousSourceAndPcpCandidatesFail) {
-    const fs::path dir = trust::test::makeTestDataDir("packages_locate_src_pcp");
-    writeFile(dir / "z.src", "src");
-    writeFile(dir / "z.pcp", "archive");
-    const DirectoryTree tree(dir);
-    EXPECT_EQ(errorCode([&] { (void)locate(tree, "", "z"); }), "packages.locate.ambiguous");
 }
 
 TEST(PackagesLocate, MissingModuleFails) {

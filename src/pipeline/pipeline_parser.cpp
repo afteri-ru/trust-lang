@@ -67,23 +67,12 @@ ParseResult Pipeline::parseArgs(std::span<char*> argv) {
         return result;
     }
 
-    // --module-info: нужен только входной файл, всё остальное игнорируется
-    if (result.opts.module_info_requested) {
-        if (result.opts.input_file.empty()) {
-            trust::errs() << "error: --module-info requires a .trust module file\n";
-            result.exit_code = 1;
-            return result;
-        }
-        // Возвращаем результат без дополнительной обработки
-        return result;
-    }
-
     // --format-dump-config / --complete-options / --complete-files: входной файл не требуется.
     if (result.opts.format_dump_config || result.opts.complete_options || result.opts.complete_files) {
         return result;
     }
 
-    // Проверка входного файла (кроме --module-info)
+    // Проверка входного файла
     if (result.opts.input_file.empty()) {
         trust::errs() << "error: no input file specified\n";
         trust::errs() << driverHelp();

@@ -244,16 +244,6 @@ TEST(Parser, StaticLibLong) {
     EXPECT_EQ(r.opts.compile_mode, CompileMode::StaticLib);
 }
 
-TEST(Parser, TrustModuleShortLong) {
-    // -m / --module: предкомпилированный Trust-пакет (.pcp).
-    auto r = do_parse({"trust", "-m", "input.src"});
-    EXPECT_EQ(r.opts.compile_mode, CompileMode::TrustModule);
-    auto r2 = do_parse({"trust", "--module", "input.src"});
-    EXPECT_EQ(r2.opts.compile_mode, CompileMode::TrustModule);
-}
-
-// -l<name> теперь (по конвенции gcc/clang) - библиотека линковки, а не shared-lib.
-// Повторяемые -l накапливаются в link_libs_cli (пересечение с @[link] из исходника).
 TEST(Parser, LinkLibParsing) {
     auto r = do_parse({"trust", "-l", "mylib", "-l", "gmp", "-L", "/opt/libs", "input.src"});
     EXPECT_EQ(r.opts.compile_mode, CompileMode::Executable);
@@ -271,7 +261,7 @@ TEST(Parser, DriverHelpGroupedByCategory) {
     EXPECT_NE(help.find("Input & Output:"), std::string::npos);
     EXPECT_NE(help.find("Compilation model:"), std::string::npos);
     EXPECT_NE(help.find("Linking:"), std::string::npos);
-    EXPECT_NE(help.find("--module"), std::string::npos);
+    EXPECT_NE(help.find("--static-lib"), std::string::npos);
     EXPECT_NE(help.find("-l"), std::string::npos);
 }
 

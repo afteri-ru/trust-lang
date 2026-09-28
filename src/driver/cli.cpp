@@ -30,9 +30,7 @@ enum class DriverOptId {
     SingleFile,
     ObjectFile,
     StaticLib,
-    TrustModule,
     Run,
-    ModuleInfo,
     LinkLib,
     LinkDir,
     LinkRuntime,
@@ -164,16 +162,9 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
     case DriverOptId::StaticLib:
         opts.compile_mode = CompileMode::StaticLib;
         break;
-    case DriverOptId::TrustModule:
-        opts.compile_mode = CompileMode::TrustModule;
-        break;
     case DriverOptId::Run:
         opts.compile_mode = CompileMode::Executable;
         opts.run = true;
-        break;
-    case DriverOptId::ModuleInfo:
-        opts.module_info_requested = true;
-        opts.module_info_masks = value;
         break;
     // -- Linking --
     case DriverOptId::LinkLib:
@@ -355,13 +346,7 @@ std::vector<DriverOption> buildTrustTable() {
          CliCategory::CompileModel},
         {int(DriverOptId::ObjectFile), "c", "", CliOpt::Flag, "", "Compile to object file (.o)", CliCategory::CompileModel},
         {int(DriverOptId::StaticLib), "static-lib", "a", CliOpt::Flag, "", "Compile to static library (.a)", CliCategory::CompileModel},
-        {int(DriverOptId::TrustModule), "module", "m", CliOpt::Flag, "",
-         "Compile to a precompiled Trust package (.pcp): static objects + Trust interface (.src) + manifest", CliCategory::CompileModel},
         {int(DriverOptId::Run), "run", "", CliOpt::Flag, "", "Build and run the program", CliCategory::CompileModel},
-        {int(DriverOptId::ModuleInfo), "module-info", "", CliOpt::OptionalValue, "masks",
-         "Show the Trust interface and version of a precompiled package (.pcp). "
-         "Optional comma-separated name masks with '?'/'*' (empty = all)",
-         CliCategory::CompileModel},
         // Linking
         {int(DriverOptId::LinkLib), "l", "", CliOpt::ValueList, "lib", "Additional library to link (repeatable; merged with @[link(...)])",
          CliCategory::Linking},

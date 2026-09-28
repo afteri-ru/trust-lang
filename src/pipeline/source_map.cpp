@@ -1,10 +1,11 @@
 // src/pipeline/source_map.cpp
 // Сохранение сгенерированного .cppt, копия LICENSE и встраивание source-map + записи кеша
-// --run в ELF-секции. Модуль (декомпозиция pipeline.cpp). Semantic-интерфейс пакета (.pcp)
+// --run в ELF-секции. Модуль (декомпозиция pipeline.cpp). Trust-интерфейс экспортов
 // формируется как Trust-текст (buildInterfaceText) - отдельной ELF-секции больше нет.
 #include "pipeline/source_map.hpp"
 #include "pipeline/io.hpp"
 #include "mangling/mangling.hpp"
+#include "utils/hash.hpp"
 #include "utils/io.hpp"
 #include "trust/version.h"
 #include <filesystem>
@@ -12,6 +13,27 @@
 #include <string>
 #include <string_view>
 namespace trust {
+
+namespace {
+
+// Маркер локального кеша генерации: первая строка `.cppt` вида `// trust-src-hash: <sha256>`.
+// Хеш считается по записи кеша (версия + codegen-опции + md5 всех исходников программы).
+constexpr const char* kSrcHashMarkerPrefix = "// trust-src-hash: ";
+
+// True, если первая строка файла равна маркеру (файл сгенерирован из тех же исходников).
+bool hasSourceHashMarker(const std::filesystem::path& path, const std::string& marker) {
+    std::ifstream in(path);
+    if (!in) {
+        return false;
+    }
+    std::string first;
+    if (!std::getline(in, first)) {
+        return false;
+    }
+    return first == marker;
+}
+
+} // namespace
 
 // -- Встроенная лицензия: текст LICENSE компилируется в бинарник через #embed --
 // Относительный путь от каталога исходника (src/pipeline/ → корень проекта). Служит
@@ -47,7 +69,7 @@ static std::string cppStringEscape(const std::string& s) {
     return out;
 }
 
-// Trust-интерфейс экспортов: единый источник для интерфейсного `.src` в `.pcp`.
+// Trust-интерфейс экспортов: единый источник интерфейсного текста модуля.
 // Правая часть объявления (` := %<symbol>;`) формируется mangling::interfaceDecl
 // (include/mangling/mangling.hpp).
 std::vector<std::string> exportInterfaceDecls(const std::vector<ExportEntry>& exports) {
@@ -71,17 +93,20 @@ std::string buildInterfaceText(const std::vector<ExportEntry>& exports) {
 }
 
 bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::filesystem::path& cppt_path, bool verbose, const std::string& program_record,
-                              bool embed_source_map, const std::string& trust_options) {
+                              bool embed_source_map, const std::string& trust_options, bool embed_elf_hash, bool* out_skipped) {
     namespace fs = std::filesystem;
+    // -- Шапка автогенерируемого файла --
+    // Первая строка - маркер локального кеша (см. ниже); далее сообщение об автогенерации,
+    // версия компилятора и дата/время. Кладётся в leading-префикс выходного буфера (до
+    // инклудов), а source-map учитывает его через prepend-смещение (toReader → prependSizes).
+    // Префикс применяется ВСЕГДА (в т.ч. при кэш-хите), иначе emit-режимы, печатающие буфер
+    // (--emit-cpp), выводили бы код без шапки. Текст LICENSE НЕ встраивается - только копия
+    // в каталог сборки (ниже), рядом с Makefile/build.conf.
+    const std::string src_hash_marker = std::string(kSrcHashMarkerPrefix) + utils::sha256Hex(program_record + '\x1f' + trust_options);
     {
-        // -- Шапка автогенерируемого файла (1-я строка) --
-        // Первая строка: сообщение о том, что файл автогенерируемый, название проекта,
-        // полная версия компилятора и дата/время генерации. Кладётся в leading-префикс
-        // выходного буфера (первой строкой, до инклудов), а source-map учитывает его
-        // через prepend-смещение (toReader → prependSizes).
-        // Текст LICENSE в выходной файл НЕ встраивается - лицензия просто копируется
-        // в каталог сборки (ниже), рядом с Makefile/build.conf.
         std::string prefix;
+        prefix += src_hash_marker;
+        prefix += '\n';
         prefix += "// This file was generated automatically by TrustLang " TRUST_VERSION " on " + currentTimestamp() + "\n";
         // Строка фактически заданных codegen-опций (трассируемость) - только при непустых опциях,
         // чтобы дефолтные сборки оставались неизменными. Входит в prefix (учитывается source-map).
@@ -90,9 +115,24 @@ bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::files
         }
         prefix += "\n";
         ctx.source().output_prepend_leading(cpp_idx, prefix);
+    }
+    std::string cpp_content = ctx.source().output_result(cpp_idx);
 
-        std::string cpp_content = ctx.source().output_result(cpp_idx);
-
+    // Локальный кеш: если `.cppt` уже сгенерирован из тех же исходников (маркер совпал),
+    // не перезаписываем файл - make сам пропустит пересборку `.o` по mtime.
+    if (fs::exists(cppt_path) && hasSourceHashMarker(cppt_path, src_hash_marker)) {
+        if (out_skipped != nullptr) {
+            *out_skipped = true;
+        }
+        if (verbose) {
+            trust::errs() << "info: " << cppt_path.filename().string() << " is up to date (sources unchanged)\n";
+        }
+        return true;
+    }
+    if (out_skipped != nullptr) {
+        *out_skipped = false;
+    }
+    {
         // -- Копия LICENSE в каталог сборки (рядом с Makefile/build.conf). --
         const std::string license_text = embeddedLicenseText();
         if (!license_text.empty()) {
@@ -108,9 +148,12 @@ bool saveCppAndEmbedSourceMap(Context& ctx, MapperFile cpp_idx, const std::files
         // Запись кеша --run: первая строка - версия компилятора "trust-lang\t<TRUST_VERSION>",
         // далее список "файл\tmd5\n" (главный файл, затем модули) - в отдельной ELF-секции
         // .debug_trust_hash. Читается через utils::elf::readElfSection - dlopen не
-        // работает для PIE-исполняемых.
-        cpp_content +=
-            "static const char kTrustSrcHash[] __attribute__((section(\".debug_trust_hash\"), used)) = \"" + cppStringEscape(program_record) + "\";\n\n";
+        // работает для PIE-исполняемых. Только в главном `.cppt` (модульные не эмитят секцию:
+        // секции объединяются линкером, дубликаты сломали бы разбор записи).
+        if (embed_elf_hash) {
+            cpp_content +=
+                "static const char kTrustSrcHash[] __attribute__((section(\".debug_trust_hash\"), used)) = \"" + cppStringEscape(program_record) + "\";\n\n";
+        }
         std::ofstream ofs(cppt_path);
         if (!ofs) {
             trust::errs() << "error: failed to write output file: " << cppt_path << "\n";

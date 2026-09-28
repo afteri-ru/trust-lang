@@ -1,7 +1,0 @@
-# RUN: TD=%t.dir && mkdir -p $TD
-# RUN: %trust -q --temp-dir $TD -m -o $TD/build.pcp %s
-# RUN: test -f $TD/build.pcp && echo "PASS"
-# CHECK: PASS
-
-x := 42;
-y := "hello";

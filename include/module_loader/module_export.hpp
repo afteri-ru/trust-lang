@@ -31,7 +31,7 @@ namespace trust {
 [[nodiscard]] std::vector<TermPtr> collectExportedDecls(const std::vector<AstNodePtr>& body, std::string_view masks);
 
 /// Имя сущности из текста Trust-декларации: до '(' / ':' / ' ' / '=' (для оператора - целиком
-/// `` `sym` ``). Используется для фильтрации деклараций интерфейса (`.pcp`) масками.
+/// `` `sym` ``). Используется для фильтрации деклараций интерфейса масками.
 [[nodiscard]] std::string_view declName(std::string_view declText);
 
 /// Отфильтровать декларации интерфейса по comma-маскам имён (matchesAnyMask).

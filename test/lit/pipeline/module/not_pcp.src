@@ -1,9 +1,0 @@
-# RUN: %not %trust --module-info %s 2>&1 | %FileCheck %s --check-prefix=ERR
-#
-# Вход --module-info должен быть предкомпилированным пакетом .pcp. Обычный .src - явная ошибка
-# (не тихий успех): пакет .pcp не открывается как архив.
-
-# ERR: error:
-# ERR: .pcp
-
-x := 1;

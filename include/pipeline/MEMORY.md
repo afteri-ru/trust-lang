@@ -2,7 +2,7 @@
 
 > scope: include/pipeline
 > role: persistent-memory
-> last_reviewed: 2026-09-27
+> last_reviewed: 2026-09-28
 > review_period: 30
 > max_size: 11900
 
@@ -35,17 +35,14 @@ ParseAST НЕ запускает semantic/transpile. Фиктивные in-memor
   `<исходник>/.trust/<stem>/` (`--run` — `<cwd>/.trust/<stem>/`); не-`--run` кладёт артефакты ТОЛЬКО в
   `.trust`. Позиционные ПОСЛЕ входа при `--run` — аргументы программы (и через шебанг); без `--run`
   лишний позиционный — ошибка.
-- **`--module-info[=<маски>]` читает Trust-интерфейс из `.pcp`** (`packages::readArchiveEntry`):
-  version из манифеста + Trust-декларации экспортов (`<stem>.src`); декларации валидируются парсером
-  (`Parser::ParseText`); фильтр имён масками `?`/`*`/`,` — через `filterModuleDecls`/`matchesAnyMask`
-  (`module_loader/module_export`). Правая часть декларации — конкретное нативное имя `%<symbol>`
-  (компилятор ГЕНЕРИРУЕТ имя символа сам и закрепляет его `asm`-меткой; в текстовом модуле — `...`).
-  Линковочный символ: `__trust_fn_`/`__trust_var_`/`__trust_op_` + санитизированное квалифицированное
-  имя; сайт импорта ЗЕРКАЛИТ ту же `asm`-метку; методы/entry не участвуют.
-  Отсутствующий/битый `.pcp` или несовпадающее имя интерфейса — явная ошибка.
 - **Шапка `.cppt` несёт `// trust-options: <args>`** (та же `codegenArgsRecord`): пишется ТОЛЬКО при
   непустых фактически заданных codegen-опциях и входит в `prefix` (учитывается source-map). Это
-  трассируемость, НЕ механизм кеша.
+  трассируемость.
+- **Локальный кеш генерации: маркер `// trust-src-hash: <sha256>` в первой строке `.cppt`**
+  (главного, модулей и `_main.cppt`); хеш — по записи кеша (версия + codegen-опции + md5 всех
+  исходников программы). Совпадение маркера → файл НЕ перезаписывается (mtime сохраняется) →
+  `make` пропускает пересборку `.o`. ELF-секцию `.debug_trust_hash` эмитит ТОЛЬКО главный `.cppt`
+  (дубликаты секции от модулей сломали бы разбор записи в исполняемом файле).
 - **Однофайловый режим `-fsingle-file`/`-fno-single-file`:** обёртка `int main` встраивается в тот же
   `.cppt` модуля; отдельный `_main.cppt`/`SRC_MAIN` не создаётся. По умолчанию включён при `--run`.
   «Модуль-скрипт» (top-level код без `__main__`) — python-подобно: top-level операторы (вкл. `x := ...`)
@@ -64,16 +61,11 @@ ParseAST НЕ запускает semantic/transpile. Фиктивные in-memor
 - **LSP-режим:** `allow_semantic_on_errors` (LSP включает всегда) разрешает семантику на частичном AST;
   Transpile при ошибках не выполняется. `releaseTypes()` отдаёт владение TypeRegistry вызывающему
   (чтобы TypeId в SymbolIndex оставался валидным).
-- **Режимы компиляции:** `Executable` (default), `ObjectFile` (`-c`, `.o`), `StaticLib` (`-a`, `.a`),
-  `TrustModule` (`-m`/`--module`, `.pcp`). Генерации `.so` из Trust-`.src` нет.
-- **Режим `-m` (`CompileMode::TrustModule`) собирает precompiled-пакет `.pcp`:** Makefile-цель `objects`
-  (объекты главного и импортированных модулей, БЕЗ линковки; `.so` не создаётся), затем `assemblePcp` —
-  `<stem>.pcp` (`packages::packArchive`, tar+zstd): Trust-интерфейс `<модуль>.src` (объявления экспортов
-  ` := %<native>;`, `mangling::interfaceDecl`) + сгенерированные `.cppt`/`.o` + манифест, в раскладке
-  исходного пакета (staging удаляется). Ровно `-o <file>` получает сам `.pcp`. `.hppt` пока НЕ генерируется.
-- **Семантический интерфейс модуля — Trust-текст (`buildInterfaceText`), а не ELF-секция:**
-  `__trust_exports`/`.trust.sabi` удалены; символ экспорта = `asm`-метка в `.o`, тип/сигнатура — в
-  `<stem>.src` внутри `.pcp`. Кеш `--run` независим (ELF-секция `.debug_trust_hash`).
+- **Режимы компиляции:** `Executable` (default), `ObjectFile` (`-c`, `.o`), `StaticLib` (`-a`, `.a`).
+  Генерации `.so` из Trust-`.src` нет.
+- **Экспорт-символы (`__trust_fn_`/`__trust_var_`/`__trust_op_`) — `asm`-метки в `.o`:** тип/сигнатура
+  несутся Trust-текстом (`buildInterfaceText`), отдельной ELF-секции экспорта нет. Кеш `--run` независим
+  (ELF-секция `.debug_trust_hash`).
 - **Декомпозиция:** `pipeline.cpp` разбит на модульные TU (только перестановка кода); `kEmbeddedDslSrc`
   (#embed dsl.src) остаётся в `pipeline.cpp`. `-Wno-c23-extensions` нужен файлам с #embed.
 

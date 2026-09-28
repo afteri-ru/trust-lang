@@ -1,9 +1,0 @@
-# RUN: TD=%t.dir && mkdir -p $TD
-# RUN: %trust -q --temp-dir $TD -m -o $TD/types.pcp %s
-# RUN: %trust --module-info $TD/types.pcp | %FileCheck %s
-# CHECK: exports: 2
-# CHECK:   a
-# CHECK:   b
-
-a:Int32 := 42;
-b:Int64 := 100;

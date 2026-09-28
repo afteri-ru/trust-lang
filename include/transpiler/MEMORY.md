@@ -2,7 +2,7 @@
 
 > scope: include/transpiler
 > role: persistent-memory
-> last_reviewed: 2026-09-27
+> last_reviewed: 2026-09-28
 > review_period: 30
 > max_size: 26000
 
@@ -26,7 +26,7 @@
   (`lead`/`trail`, напр. `constexpr`/`noexcept`) ПОВТОРЯЮТСЯ (иначе «exception specification ...
   does not match»). Сайт импорта (`m_forwardDeclOnly`) ЗЕРКАЛИТ ту же метку на forward-decl. Методы
   класса и entry НЕ участвуют (`CppEmitContext::m_inRecordBody`; символ entry задаёт `_main.cppt`).
-  Trust-интерфейс модуля (`<stem>.src`: RHS `%<symbol>`) формируется `source_map.cpp`/`assemblePcp`
+  Trust-интерфейс модуля (`<stem>.src`: RHS `%<symbol>`) формируется `source_map.cpp`
   (см. `include/pipeline/MEMORY.md`).
 
 - **Наборы типов (`:A + :B`) — term→AST sugar, узлов не создаёт:** разворот в N `FuncDecl` делает
@@ -125,7 +125,7 @@
   `struct` (ветка `emitRecordDecl`), free — top-level. Контракты оператора (`trust_pre/trust_post`) -
   общий механизм FuncDecl. Использование: `a op b` (сравнения) и `a(5)` (вызов) — существующие пути;
   индексация `a[i]` — ветка `visit_ArrayAccess` по `lhsType`-record с `[]` эмитит `(obj)[idx]` (не
-  `.at()`). Свободные операторы ЭКСПОРТИРУЮТСЯ (интерфейс модуля, `count` в `--module-info`); Trust-
+  `.at()`). Свободные операторы ЭКСПОРТИРУЮТСЯ (интерфейс модуля); Trust-
   forward-decl оператора — символ в обратных кавычках (`buildTrustForwardDecl`).
 - **⚠ Перегруженные функции — УНИКАЛЬНОЕ C++-имя (нельзя опираться на C++-разрешение):** при
   `FuncDecl::m_isOverloaded` кодоген добавляет к `c_<name>` детерминированный по сигнатуре суффикс

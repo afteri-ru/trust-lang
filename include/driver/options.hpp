@@ -58,7 +58,6 @@ enum class CompileMode {
     Executable,  ///< Compile to executable (default)
     ObjectFile,  ///< Compile to object file only (-c)
     StaticLib,   ///< Compile to static library (-a / --static-lib)
-    TrustModule, ///< Compile to a precompiled Trust package (.pcp: static objects + Trust interface + manifest) (-m / --module)
 };
 
 // -- Runtime link mode --
@@ -78,8 +77,6 @@ struct PipelineOpts {
     bool quiet = false;
     bool help_requested = false;
     bool version_requested = false;
-    bool module_info_requested = false; ///< --module-info flag
-    std::string module_info_masks;      ///< --module-info=<masks>: comma-маски имён (пусто = все)
 
     // Package manager integration (CLI + JSON contract with trust-pm).
     std::string pm_path;                ///< --pm=<path> (default: env TRUST_PM, else "trust-pm" on PATH)

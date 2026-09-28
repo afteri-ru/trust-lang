@@ -249,10 +249,6 @@ The linking of a native declaration depends on the presence of `::` in the nativ
 (`%sqrt`) — `extern "C"` (a C symbol of libc/libm); with `::` (`%std::sqrt`) — C++ linking
 without `extern "C"`. More about C++ generation — in [Architecture](../architecture/).
 
-For **modules in TrustLang itself**, a different mechanism is used — the *semantic ABI*: the type
-of an object is restored by the language compiler from the attached semantic definition, and not from the
-decorated name of the symbol. The principle is described in [Semantic ABI of modules](../sabi/).
-
 ## Links
 
 - [Generic programming](generics/)

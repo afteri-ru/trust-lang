@@ -89,16 +89,10 @@ TEST(Compile, DISABLED_ObjectFile) {
 TEST(Compile, DISABLED_StaticLibrary) {
     FAIL();
 }
-TEST(Compile, DISABLED_TrustModule) {
-    FAIL();
-}
 TEST(Compile, DISABLED_ObjectFileDefaultOutput) {
     FAIL();
 }
 TEST(Compile, DISABLED_StaticLibraryDefaultOutput) {
-    FAIL();
-}
-TEST(Compile, DISABLED_TrustModuleDefaultOutput) {
     FAIL();
 }
 TEST(Compile, DISABLED_ExecutableWithEmbedMain) {
@@ -111,9 +105,6 @@ TEST(Compile, DISABLED_ValidateObjectFile) {
     FAIL();
 }
 TEST(Compile, DISABLED_ValidateStaticLibrary) {
-    FAIL();
-}
-TEST(Compile, DISABLED_ValidateTrustModule) {
     FAIL();
 }
 TEST(Compile, DISABLED_ValidateExecutable) {

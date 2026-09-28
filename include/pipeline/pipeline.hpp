@@ -130,6 +130,12 @@ class Pipeline {
         /// True, если модуль содержит entry-функцию (`<module>__main__`) - отличает программу
         /// от библиотеки/скрипта (entryParams пуст и для `@main()` без параметров).
         bool hasEntry = false;
+        /// Запись кеша (версия + codegen-опции + хеши исходников программы) - для маркеров
+        /// локального кеша генерации build-файлов.
+        std::string programRecord;
+        /// True, если главный `.cppt` не был перезаписан (исходники не изменились) - значит
+        /// main-обёртку (`-fsingle-file`) повторно встраивать не нужно.
+        bool cpptUpToDate = false;
         bool valid = false;
     };
     TranspileOutput runTranspileAndSave(MapperFile inputFile);
@@ -146,21 +152,6 @@ class Pipeline {
                              std::vector<std::string>* link_libs = nullptr);
 
     std::size_t m_mainModuleIndex{0}; ///< Индекс корневого (главного) модуля
-
-    // -- Сборка precompiled-пакета `.pcp` (режим -m) --
-    // выходные файлы генерируются в каталог, повторяющий раскладку исходного пакета,
-    // и упаковываются в `<pkg>.pcp` (архив tar+zstd с манифестом).
-    struct PcpModule {
-        std::filesystem::path relative; ///< путь модуля относительно корня пакета (без завершающего расширения)
-        std::filesystem::path cpptPath; ///< сгенерированный `.cppt`
-        std::string interfaceText;      ///< Trust-интерфейс модуля (объявления + `%<native>`)
-    };
-    std::vector<PcpModule> m_pcpModules; ///< модули для `.pcp` (главный + импортированные)
-    std::filesystem::path m_pkgRoot;     ///< корень исходного пакета (для зеркальной раскладки)
-
-    /// Собирает `<pkg>.pcp` из `m_pcpModules`: интерфейсные `.src` + копии `.cppt`/`.o`
-    /// в раскладке пакета + манифест, затем упаковывает через `packages::packArchive`.
-    bool assemblePcp(const std::filesystem::path& buildDir);
 };
 
 // -- Free functions (old parse_args wrappers) --
@@ -185,4 +176,3 @@ inline bool Pipeline::isSpecialExit(const ParseResult& r) {
 #include "pipeline/run.hpp"
 #include "pipeline/source_map.hpp"
 #include "pipeline/archive.hpp"
-#include "pipeline/module_info.hpp"

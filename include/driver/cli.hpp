@@ -43,7 +43,7 @@ enum class CliCategory {
     CompileModel,    ///< CompileMode, EmitFlags, --run, --semantic-on-errors
     Linking,         ///< -l<lib>, -L<dir>, --link-runtime, --linker
     Toolchain,       ///< --compiler, --ar, --std, -O, -g
-    ProjectSpecific, ///< --dsl, --no-dsl, --no-stdlib, --module-info
+    ProjectSpecific, ///< --dsl, --no-dsl, --no-stdlib
     Formatting       ///< --format, --format-check, --keywords, --format-config, ...
 };
 

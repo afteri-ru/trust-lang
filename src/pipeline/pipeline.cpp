@@ -2,8 +2,6 @@
 #include "driver/cli.hpp"
 #include "pipeline/makefile_build.hpp"
 #include "pipeline/pm_client.hpp"
-#include "packages/archive.hpp"
-#include "packages/errors.hpp"
 #include "ast/term_to_ast.hpp"
 #include "attrs/attr.hpp"
 #include "module_loader/module_export.hpp"
@@ -503,9 +501,10 @@ Pipeline::TranspileOutput Pipeline::runTranspileAndSave(MapperFile inputFile) {
         return out;
     }
 
-    if (!saveCppAndEmbedSourceMap(m_ctx, out.outputIdx, out.cpptPath, m_opts.verbose,
-                                  buildProgramRecord(std::filesystem::path(m_opts.input_file), m_ctx, m_mainModuleIndex, m_opts),
-                                  /*embed_source_map=*/m_opts.embed_source_map, codegenArgsRecord(m_opts))) {
+    out.programRecord = buildProgramRecord(std::filesystem::path(m_opts.input_file), m_ctx, m_mainModuleIndex, m_opts);
+    if (!saveCppAndEmbedSourceMap(m_ctx, out.outputIdx, out.cpptPath, m_opts.verbose, out.programRecord,
+                                  /*embed_source_map=*/m_opts.embed_source_map, codegenArgsRecord(m_opts),
+                                  /*embed_elf_hash=*/true, &out.cpptUpToDate)) {
         return out;
     }
 
@@ -582,114 +581,18 @@ void Pipeline::transpileModuleBody(std::size_t idx, const std::filesystem::path&
     }
     // Модуль-исходник линкуется в программу: экспорт-таблица принадлежит главному файлу.
     // Встраивание source map управляется флагом -fsourcemap (по умолчанию встраивается).
-    saveCppAndEmbedSourceMap(m_ctx, outputIdx, cpptPath, m_opts.verbose, {},
-                             /*embed_source_map=*/m_opts.embed_source_map, codegenArgsRecord(m_opts));
-
-    // Учёт модуля для сборки `.pcp`: Trust-интерфейс (объявления + нативные имена) и путь
-    // в раскладке исходного пакета (модуль → тот же относительный путь).
-    {
-        std::error_code relEc;
-        fs::path rel = m_pkgRoot.empty() ? fs::path() : fs::relative(fs::path(m_ctx.loader().moduleName(idx)), m_pkgRoot, relEc);
-        if (relEc || rel.empty() || rel.string().rfind("..", 0) == 0) {
-            rel = fs::path(m_ctx.loader().moduleName(idx)).filename();
-        }
-        rel.replace_extension();
-        m_pcpModules.push_back(PcpModule{rel, cpptPath, buildInterfaceText(transpiler.exports())});
-    }
-}
-
-// -- assemblePcp: сборка precompiled-пакета `.pcp` (режим -m) --
-// Выходные файлы складываются в staging-каталог, повторяющий раскладку исходного пакета,
-// затем упаковываются в `<pkg>.pcp` (tar+zstd) вместе с манифестом. Staging удаляется.
-
-bool Pipeline::assemblePcp(const std::filesystem::path& buildDir) {
-    namespace fs = std::filesystem;
-    std::error_code ec;
-    const fs::path pkgName = fs::path(m_opts.input_file).stem();
-    const fs::path staging = buildDir / (pkgName.string() + ".pcp.d");
-
-    struct StagingGuard {
-        fs::path dir;
-        ~StagingGuard() {
-            std::error_code e;
-            fs::remove_all(dir, e);
-        }
-    } guard{staging};
-
-    fs::remove_all(staging, ec);
-    fs::create_directories(staging, ec);
-    if (ec) {
-        trust::errs() << "error: cannot create .pcp staging directory: " << staging << "\n";
-        return false;
-    }
-
-    // Манифест: копируем исходный, если он есть; иначе синтезируем минимальный.
-    const fs::path srcManifest = m_pkgRoot.empty() ? fs::path("trust.pkg.json") : m_pkgRoot / "trust.pkg.json";
-    if (fs::is_regular_file(srcManifest, ec)) {
-        fs::copy_file(srcManifest, staging / "trust.pkg.json", fs::copy_options::overwrite_existing, ec);
-        if (ec) {
-            trust::errs() << "error: cannot copy manifest into .pcp: " << srcManifest << "\n";
-            return false;
-        }
-    } else {
-        std::ofstream mf(staging / "trust.pkg.json");
-        mf << "{\"schema\":1,\"name\":\"" << pkgName.string() << "\",\"version\":\"0.0.0\"}\n";
-    }
-
-    for (const PcpModule& mod : m_pcpModules) {
-        const fs::path relDir = mod.relative.parent_path();
-        if (!relDir.empty()) {
-            fs::create_directories(staging / relDir, ec);
-        }
-        const std::string base = mod.relative.string();
-        // Интерфейс Trust (вместо полного .src).
-        {
-            std::ofstream iface(staging / (base + ".src"));
-            iface << mod.interfaceText;
-        }
-        // Сгенерированный C++.
-        fs::copy_file(mod.cpptPath, staging / (base + ".cppt"), fs::copy_options::overwrite_existing, ec);
-        if (ec) {
-            trust::errs() << "error: cannot copy .cppt into .pcp: " << mod.cpptPath << "\n";
-            return false;
-        }
-        // Объектный код: обязателен для `.pcp` (набор `.o`). Отсутствие — явная ошибка, не тихий пропуск.
-        const fs::path obj = buildDir / (mod.cpptPath.stem().string() + ".o");
-        if (!fs::is_regular_file(obj, ec)) {
-            trust::errs() << "error: object file missing for .pcp: " << obj << "\n";
-            return false;
-        }
-        fs::copy_file(obj, staging / (base + ".o"), fs::copy_options::overwrite_existing, ec);
-        if (ec) {
-            trust::errs() << "error: cannot copy .o into .pcp: " << obj << "\n";
-            return false;
-        }
-    }
-
-    const fs::path pcp = m_opts.output_file.empty() ? (buildDir / (pkgName.string() + ".pcp")) : fs::path(m_opts.output_file);
-    if (!pcp.parent_path().empty()) {
-        fs::create_directories(pcp.parent_path(), ec);
-    }
-    try {
-        (void)packages::packArchive(staging, pcp);
-    } catch (const packages::PackageException& e) {
-        trust::errs() << "error: failed to pack .pcp: " << e.what() << "\n";
-        return false;
-    }
-    if (m_opts.verbose) {
-        trust::errs() << "info: precompiled package written to " << pcp << "\n";
-    }
-    return true;
+    // Запись кеша (хеши всех исходников программы) - для маркера локального кеша: при
+    // неизменных исходниках `.cppt` не перезаписывается (ELF-секцию эмитит только главный
+    // `.cppt`, иначе дубликаты секции сломали бы разбор записи в исполняемом файле).
+    saveCppAndEmbedSourceMap(m_ctx, outputIdx, cpptPath, m_opts.verbose,
+                             buildProgramRecord(std::filesystem::path(m_opts.input_file), m_ctx, m_mainModuleIndex, m_opts),
+                             /*embed_source_map=*/m_opts.embed_source_map, codegenArgsRecord(m_opts),
+                             /*embed_elf_hash=*/false);
 }
 
 // -- Execute: полный цикл для CLI --
 
 int Pipeline::execute() {
-    // -- 1. Special modes (module-info) --
-    if (m_opts.module_info_requested) {
-        return showModuleInfo(m_ctx, m_opts.input_file, m_opts.module_info_masks, m_opts.verbose);
-    }
-
     // -- 1b. Package dependencies via trust-pm (CLI + JSON contract) --
     // The compiler consults the package manager before processing the input.
     // Network/TLS stays inside trust-pm; here we only speak the CLI contract.

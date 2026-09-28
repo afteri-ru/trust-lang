@@ -5,6 +5,7 @@
 #include "pipeline/io.hpp"
 #include "pipeline/run.hpp"
 #include "pipeline/runtime_locator.hpp"
+#include "utils/hash.hpp"
 #include "utils/io.hpp"
 #include "utils/utils.hpp"
 #include <cstdlib>
@@ -21,10 +22,6 @@ static std::string makeTargetForMode(CompileMode mode) {
         return "object";
     case CompileMode::StaticLib:
         return "static-lib";
-    case CompileMode::TrustModule:
-        // -m: объекты главного и импортированных модулей (пакуются в .pcp; отдельная
-        // линковка не выполняется - см. assemblePcp).
-        return "objects";
     case CompileMode::Executable:
         return "executable";
     }
@@ -83,7 +80,7 @@ std::string buildEntryMainSource(const PipelineOpts& opts, bool usesStackCheck, 
 //    --emit-build-dir.
 bool writeBuildFiles(const PipelineOpts& opts, const std::filesystem::path& cppt_path, const std::vector<std::filesystem::path>& module_cppt_paths,
                      const std::vector<std::string>& runtime_headers, const std::vector<std::string>& link_libs, const std::string& entry_func_name,
-                     const std::string& entry_params) {
+                     const std::string& entry_params, const std::string& program_record) {
     namespace fs = std::filesystem;
     fs::path build_dir = cppt_path.parent_path();
     fs::path basename = cppt_path.stem();
@@ -103,21 +100,33 @@ bool writeBuildFiles(const PipelineOpts& opts, const std::filesystem::path& cppt
     // (+ SRC_MODULES для импортированных модулей).
     if (opts.compile_mode == CompileMode::Executable && !opts.single_file) {
         main_cppt_path = build_dir / (basename.string() + "_main.cppt");
-        std::ofstream main_ofs(main_cppt_path);
-        if (!main_ofs) {
-            trust::errs() << "error: failed to create entry file: " << main_cppt_path << "\n";
-            return false;
+        // Локальный кеш: если исходники не менялись (маркер совпал), `_main.cppt` не
+        // перезаписывается - make пропускает пересборку `_main.o` по mtime.
+        const std::string main_marker = "// trust-src-hash: " + utils::sha256Hex(program_record + '\x1f' + "main");
+        bool up_to_date = false;
+        {
+            std::ifstream existing(main_cppt_path);
+            std::string first;
+            up_to_date = existing && static_cast<bool>(std::getline(existing, first)) && first == main_marker;
         }
-        main_ofs << "// This file was generated automatically by TrustLang " TRUST_VERSION " on " << currentTimestamp() << "\n";
-        const std::string trust_opts = codegenArgsRecord(opts);
-        if (!trust_opts.empty()) {
-            main_ofs << "// trust-options: " << trust_opts << "\n";
-        }
-        main_ofs << "// Generated entry point by trust pipeline\n"
-                 << "// Module: " << cppt_path.filename().string() << "\n\n";
-        main_ofs << buildEntryMainSource(opts, usesStackCheck, usesSync, entry_func_name, entry_params);
-        if (opts.verbose) {
-            trust::errs() << "info: generated entry file: " << main_cppt_path << "\n";
+        if (!up_to_date) {
+            std::ofstream main_ofs(main_cppt_path);
+            if (!main_ofs) {
+                trust::errs() << "error: failed to create entry file: " << main_cppt_path << "\n";
+                return false;
+            }
+            main_ofs << main_marker << "\n";
+            main_ofs << "// This file was generated automatically by TrustLang " TRUST_VERSION " on " << currentTimestamp() << "\n";
+            const std::string trust_opts = codegenArgsRecord(opts);
+            if (!trust_opts.empty()) {
+                main_ofs << "// trust-options: " << trust_opts << "\n";
+            }
+            main_ofs << "// Generated entry point by trust pipeline\n"
+                     << "// Module: " << cppt_path.filename().string() << "\n\n";
+            main_ofs << buildEntryMainSource(opts, usesStackCheck, usesSync, entry_func_name, entry_params);
+            if (opts.verbose) {
+                trust::errs() << "info: generated entry file: " << main_cppt_path << "\n";
+            }
         }
     }
 
@@ -270,13 +279,13 @@ bool writeBuildFiles(const PipelineOpts& opts, const std::filesystem::path& cppt
 
 bool compileAndLink(const PipelineOpts& opts, const std::filesystem::path& cppt_path, const std::vector<std::filesystem::path>& module_cppt_paths,
                     const std::vector<std::string>& runtime_headers, const std::vector<std::string>& link_libs, const std::string& entry_func_name,
-                    const std::string& entry_params) {
+                    const std::string& entry_params, const std::string& program_record) {
     namespace fs = std::filesystem;
     fs::path build_dir = cppt_path.parent_path();
     fs::path basename = cppt_path.stem();
     // build-файлы (Makefile, build.conf, _main.cppt, LICENSE, trust/) - единая функция,
     // используется и trust-lsp --emit-build-dir (build.conf одинаковый).
-    if (!writeBuildFiles(opts, cppt_path, module_cppt_paths, runtime_headers, link_libs, entry_func_name, entry_params)) {
+    if (!writeBuildFiles(opts, cppt_path, module_cppt_paths, runtime_headers, link_libs, entry_func_name, entry_params, program_record)) {
         return false;
     }
     // Единый переносимый build.conf линкует `-ltrust-runtime`. В локальной сборке runtime
@@ -341,7 +350,7 @@ bool compileAndLink(const PipelineOpts& opts, const std::filesystem::path& cppt_
         }
     }
 
-    if (!opts.output_file.empty() && opts.compile_mode != CompileMode::TrustModule) {
+    if (!opts.output_file.empty()) {
         fs::path output_path(opts.output_file);
         fs::path default_output;
         switch (opts.compile_mode) {
@@ -350,9 +359,6 @@ bool compileAndLink(const PipelineOpts& opts, const std::filesystem::path& cppt_
             break;
         case CompileMode::StaticLib:
             default_output = build_dir / (basename.string() + ".a");
-            break;
-        case CompileMode::TrustModule:
-            // -o для .pcp обрабатывается в assemblePcp (сам `.pcp`, а не объектный артефакт).
             break;
         case CompileMode::Executable:
             default_output = build_dir / basename;

@@ -7,7 +7,6 @@
 #include "pipeline/makefile_build.hpp"
 #include "ast/term_to_ast.hpp"
 #include "attrs/attr.hpp"
-#include "module_loader/module_export.hpp"
 #include "syntax/lexer.h"
 #include "syntax/macro.h"
 #include "syntax/parser.h"
@@ -244,20 +243,6 @@ int Pipeline::runCompileMode(MapperFile inputFile) {
     if (!out.valid) {
         return 1;
     }
-    // Корень исходного пакета (для зеркальной раскладки `.pcp`) — каталог входного файла;
-    // главный модуль входит в `.pcp` первым (интерфейс + .cppt/.o).
-    m_pkgRoot = std::filesystem::path(m_opts.input_file).parent_path();
-    m_pcpModules.clear();
-    {
-        std::error_code relEc;
-        std::filesystem::path rel =
-            m_pkgRoot.empty() ? std::filesystem::path() : std::filesystem::relative(std::filesystem::path(m_opts.input_file), m_pkgRoot, relEc);
-        if (relEc || rel.empty() || rel.string().rfind("..", 0) == 0) {
-            rel = std::filesystem::path(m_opts.input_file).filename();
-        }
-        rel.replace_extension();
-        m_pcpModules.push_back(PcpModule{rel, out.cpptPath, buildInterfaceText(out.exports)});
-    }
     // Исходные модули компилируются отдельными единицами и линкуются с главным файлом.
     std::vector<std::string> module_runtime_headers;
     std::vector<std::string> module_link_libs;
@@ -274,7 +259,9 @@ int Pipeline::runCompileMode(MapperFile inputFile) {
     // Однофайловый режим: встроить main-обёртку в тот же .cppt модуля (без отдельного
     // _main.cppt). Заголовки для обёртки (trust/args.hpp и т.п.) извлекает writeBuildFiles
     // ниже по entry_params; здесь только дописываем текст main в конец модуля.
-    if (m_opts.single_file) {
+    // Если `.cppt` не перезаписывался (исходники не менялись, out.cpptUpToDate) - обёртка
+    // уже встроена, повторное встраивание дублировало бы `main`.
+    if (m_opts.single_file && !out.cpptUpToDate) {
         const bool usesStackCheck = std::find(runtime_headers.begin(), runtime_headers.end(), "trust/stack_check.hpp") != runtime_headers.end();
         const bool usesSync = std::find(runtime_headers.begin(), runtime_headers.end(), "trust/trusted-cpp-sync.hpp") != runtime_headers.end();
         // Entry-функция может быть задана и НЕ DSL-объявлением @main (out.hasEntry), а C++-embed
@@ -313,20 +300,13 @@ int Pipeline::runCompileMode(MapperFile inputFile) {
     // --emit-build-dir: только генерируем build-каталог (единый переносимый build.conf),
     // БЕЗ компиляции/линковки. Используется trust-lsp для скачиваемого архива.
     if (m_opts.emit_build_dir_only) {
-        if (!writeBuildFiles(m_opts, out.cpptPath, moduleCppts, runtime_headers, link_libs, entry_func_name, out.entryParams)) {
+        if (!writeBuildFiles(m_opts, out.cpptPath, moduleCppts, runtime_headers, link_libs, entry_func_name, out.entryParams, out.programRecord)) {
             return 1;
         }
         return 0;
     }
-    if (!compileAndLink(m_opts, out.cpptPath, moduleCppts, runtime_headers, link_libs, entry_func_name, out.entryParams)) {
+    if (!compileAndLink(m_opts, out.cpptPath, moduleCppts, runtime_headers, link_libs, entry_func_name, out.entryParams, out.programRecord)) {
         return 1;
-    }
-    // Режим модуля (-m): собрать precompiled-пакет `.pcp` (Trust-интерфейс + .cppt/.o)
-    // в выходном каталоге (temp), повторяющем раскладку исходного пакета.
-    if (m_opts.compile_mode == CompileMode::TrustModule) {
-        if (!assemblePcp(computeBuildDir(m_opts))) {
-            return 1;
-        }
     }
     // --run: запустить собранный исполняемый файл (md5 исходника встроен в srcHash).
     if (m_opts.run && m_opts.compile_mode == CompileMode::Executable) {

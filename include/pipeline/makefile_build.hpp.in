@@ -36,15 +36,11 @@ OBJ_MAIN  ?= $(SRC_MAIN:.cppt=.o)
 OBJ_MODULES ?= $(SRC_MODULES:.cppt=.o)
 TARGET    ?= $(SRC:.cppt=)
 
-.PHONY: all object objects static-lib executable clean
+.PHONY: all object static-lib executable clean
 
 all: executable
 
 object: $(OBJ)
-
-# Сборка объектов главного модуля и импортированных модулей без линковки.
-# Используется режимом -m (- CompileMode::TrustModule): объекты пакуются в .pcp.
-objects: $(OBJ) $(OBJ_MODULES)
 
 static-lib: $(OBJ) $(OBJ_MODULES)
 	$(AR) $(ARFLAGS) $(TARGET).a $^

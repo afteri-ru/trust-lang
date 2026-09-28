@@ -14,7 +14,6 @@ add_library(pipeline_lib STATIC
     ${PROJECT_SOURCE_DIR}/pipeline/run.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/source_map.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/archive.cpp
-    ${PROJECT_SOURCE_DIR}/pipeline/module_info.cpp
     ${PROJECT_SOURCE_DIR}/pipeline/pm_client.cpp
 )
 target_link_libraries(pipeline_lib PUBLIC semantic_lib transpiler_lib solver_lib stdlib_lib driver_lib analysis_lib mangling_lib session_lib sourcemap_lib packages_lib trust_include_dirs)

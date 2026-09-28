@@ -27,16 +27,12 @@ LocatedEntry locate(const SourceTree& tree, std::string_view base, std::string_v
     std::vector<LocatedEntry> found;
     const std::string src = join(base, norm + ".src");
     const std::string archive = join(base, norm + ".trust");
-    const std::string compiled = join(base, norm + ".pcp");
     const std::string directory = join(base, norm);
     if (tree.isRegularFile(src)) {
         found.push_back(LocatedEntry{src, EntryKind::Source});
     }
     if (tree.isRegularFile(archive)) {
         found.push_back(LocatedEntry{archive, EntryKind::Package});
-    }
-    if (tree.isRegularFile(compiled)) {
-        found.push_back(LocatedEntry{compiled, EntryKind::Package});
     }
     if (tree.isDirectory(directory)) {
         found.push_back(LocatedEntry{directory, EntryKind::Package});

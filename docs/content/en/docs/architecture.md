@@ -39,8 +39,3 @@ draft: true
    the ability to insert C++ code is lost (but fragments of another language can be inserted),
    however, greater versatility appears through the use of different backends.
 
-If the build target is a module, the compiler forms the **module interface**: full semantic definitions
-of types and prototype declarations without implementation, which the compiler reads when importing that
-module. A module is a **single container** (code together with semantics); two interfaces are built from
-it: an internal Trust interface and an external C++ header. The principle is described in
-[Semantic ABI](sabi/).

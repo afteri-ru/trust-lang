@@ -425,10 +425,6 @@ add_subdirectory(test/integration)
 # -- Package manager integration (после integration) --
 add_subdirectory(test/pm)
 
-# -- Precompiled package (.pcp) integration (после pm) --
-# Создание .pcp режимом `trust -m` и эквивалентность Trust-интерфейса символам в упакованном .o.
-add_subdirectory(test/pcp)
-
 # -- Distribution archive / Debian package tests (see test/package/CMakeLists.txt) --
 # Registered in the LAST test subdirectory, so their CTest numbers are the final ones
 # (after integration_tests). They still run only after the unit/lit/vscode suites pass

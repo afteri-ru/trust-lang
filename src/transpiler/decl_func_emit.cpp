@@ -371,7 +371,7 @@ void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile o
         if (func_node.m_isOverloaded) {
             export_name += "#" + std::to_string(m_ectx.m_exports.size());
         }
-        // Правая часть объявления в Trust-интерфейсе `.pcp` — конкретное нативное имя (для линковки):
+        // Правая часть объявления в Trust-интерфейсе — конкретное нативное имя (для линковки):
         // сгенерированный символ экспорта; entry (не участвует в asm) — его C++-имя.
         const std::string symbol_ref = export_symbol.empty() ? ("%" + cpp_name) : ("%" + export_symbol);
         m_ectx.m_exports.push_back({export_name, cpp_name, buildTrustForwardDecl(func_node), symbol_ref});

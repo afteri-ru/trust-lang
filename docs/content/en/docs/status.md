@@ -12,4 +12,3 @@ tags: [overview, development, verification]
 - [x] The concept of [language guarantees](/en/docs/safety/) has been formulated
 - [x] The [playground](/en/docs/sandbox/) for testing examples has been developed
 - [x] Package manager [trust-pm](/en/docs/pm/): CLI+JSON contract, `*.trust` format, cache and offline mode
-- [x] Building the precompiled package `*.pcp` (`trust -m`): Trust interface + static objects; inspection — `trust --module-info`
