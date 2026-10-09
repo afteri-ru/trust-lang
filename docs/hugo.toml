@@ -3,7 +3,7 @@ title = "TrustLang"
 
 # Language settings
 contentDir = "content"
-defaultContentLanguage = "ru"
+defaultContentLanguage = "en"
 defaultContentLanguageInSubdir = true
 # false
 # Useful when translating.
