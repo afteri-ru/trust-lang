@@ -11,6 +11,6 @@
 @main(argv^: Dict, args^: Dict) := {
     $a0 := :StrChar(argv[0]);
     $a1 := :StrChar(argv[1]);
-    @print('a0={} a1={}\n', $a0, $a1);
+    @print("a0={} a1={}\n", $a0, $a1);
     return 0;
 }

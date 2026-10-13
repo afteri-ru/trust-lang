@@ -4,14 +4,14 @@
 # `a(42)` → вызов C++ operator(), `a[7]` → (obj)[idx] (operator[]), `a == b` → operator==.
 :Point ::= :Class{
     x: Int32 := _;
-    `==`(o: Point): Bool := { return true; };
-    `()`(i: Int32): Int32 := { return i; };
-    `[]`(i: Int32): Int32 := { return i; };
+    __eq__(o: Point): Bool := { return true; };
+    __call__(i: Int32): Int32 := { return i; };
+    __getitem__(i: Int32): Int32 := { return i; };
 };
 @main() := {
     a : Point := :Point(1);
     b : Point := :Point(2);
-    @print('{} {} {}\n', a == b, a(42), a[7]);
+    @print("{} {} {}\n", a == b, a(42), a[7]);
     @return 0;
 }
 # CHECK: (c_a == c_b)

@@ -1,28 +1,31 @@
-// Generated: src/transpiler/transpiler.cpp (driver)
 #include "transpiler/transpiler.hpp"
 #include "diag/flag_values.hpp"
-#include "transpiler/emit_common.hpp"
+#include "transpiler/emit/emit_common.hpp"
 #include "ast/ast_nodes.hpp"
 #include "attrs/attr_builtin.hpp"
 #include "ast/ident_name.hpp"
-#include "ast/kind_visitor.hpp"
+#include "ast/kind_dispatch.hpp"
 #include "ast/token_type.hpp"
 #include "session/context.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
-#include "analysis/symbol_table.hpp"
-#include "syntax/term.h"
-#include "types/registry.hpp"
+#include "syntax/term/term.h"
+#include "types/type_system.hpp"
 #include "types/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/type_id.hpp"
-#include "types/type_names.hpp"
-#include "transpiler/diag.hpp"
+#include "types/names.hpp"
+#include "transpiler/emit/diag.hpp"
+#include "utils/partial_switch.hpp"
 #include "utils/strings.hpp"
 #include <format>
 #include <memory>
 
 namespace trust {
+
+// Полнота контракта exhaustive consumer (ast/kind_dispatch.hpp): новый kind в PARSER_TOKEN_KINDS
+// без обработчика в CppTranspiler не компилируется.
+static_assert(hasAllKindHandlers<CppTranspiler>(), "CppTranspiler обязан реализовать visit_<Kind> для каждого kind");
 
 // -- Пер-компонентная регистрация опций кодогенерации (см. diag/registry.hpp) --
 // Регистрирует на static-init feature-флаги, которыми владеет компонент transpiler
@@ -61,8 +64,8 @@ struct TranspilerDiagnosticsRegistrar {
 const TranspilerDiagnosticsRegistrar kTranspilerDiagnostics;
 } // namespace
 
-CppTranspiler::CppTranspiler(Context& ctx, const SymbolTable* resolvedTypes, analysis::BehavioralModes behavioral)
-: m_ectx(ctx, resolvedTypes, std::move(behavioral))
+CppTranspiler::CppTranspiler(Context& ctx, analysis::BehavioralModes behavioral)
+: m_ectx(ctx, std::move(behavioral))
 , m_type(m_ectx, *this)
 , m_decl(m_ectx, *this)
 , m_stmt(m_ectx, *this)
@@ -94,7 +97,7 @@ void CppTranspiler::emitDocumentation(const AstNodeBase& node, MapperFile output
     while (pos <= all.size()) {
         const size_t nl = all.find('\n', pos);
         const std::string_view line = (nl == std::string_view::npos) ? all.substr(pos) : all.substr(pos, nl - pos);
-        m_ectx.m_ctx.source().output_append(output_idx, m_ectx.indentPrefix());
+        m_ectx.m_ctx.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
         if (line.starts_with("##")) {
             m_ectx.m_ctx.source().output_append(output_idx, "///");
             m_ectx.m_ctx.source().output_append(output_idx, line.substr(2));
@@ -109,9 +112,19 @@ void CppTranspiler::emitDocumentation(const AstNodeBase& node, MapperFile output
     }
 }
 
-void CppTranspiler::generateToFile(const std::vector<AstNodePtr>& ast_nodes, MapperFile output_idx) {
+void CppTranspiler::configureModuleUnit(std::string include, const std::vector<const AstNodeBase*>& published) {
+    m_ectx.m_output.selfHeaderInclude = std::move(include);
+    m_ectx.m_declFacts.publishedByHeader.clear();
+    for (const AstNodeBase* node : published) {
+        if (node != nullptr) {
+            m_ectx.m_declFacts.publishedByHeader.insert(node);
+        }
+    }
+}
+
+void CppTranspiler::generateToFile(const HirModule& hir, MapperFile output_idx) {
     const AstNodeBase* prev = nullptr;
-    for (const auto& node : ast_nodes) {
+    for (const auto& node : hir.nodes()) {
         if (!node) {
             continue;
         }
@@ -122,18 +135,83 @@ void CppTranspiler::generateToFile(const std::vector<AstNodePtr>& ast_nodes, Map
         generateNodeToFile(*node, output_idx);
         prev = node.get();
     }
-    if (!ast_nodes.empty()) {
+    if (!hir.nodes().empty()) {
         m_ectx.m_ctx.source().output_append(output_idx, "\n");
     }
     // МЕХАНИЗМ №1 - ПО ТИПУ: только ПОСЛЕ полного обхода AST формируем инклуды из собранных
-    // типов (m_ectx.m_usedTypes), затем препендим все директивы (emitCollectedIncludes).
+    // типов (m_ectx.m_accumulators.usedTypes), затем препендим все директивы (emitCollectedIncludes).
     // POD-проверки инстанциаций Struct-шаблонов собираем ДО emitCollectedIncludes (чтобы попало
     // <type_traits>), а эмитим - ПОСЛЕ инклудов (в конце файла).
     m_type.collectTypeIncludes();
     m_type.collectStructPodAsserts();
     m_type.emitCollectedIncludes(output_idx);
     m_type.emitStructPodAsserts(output_idx);
+    // Единица трансляции модуля включает СВОЙ заголовок: типы интерфейса определены там, а в этом
+    // TU они намеренно не повторяются (`configureModuleUnit`).
+    if (!m_ectx.m_output.selfHeaderInclude.empty()) {
+        m_ectx.m_ctx.source().output_prepend_leading(output_idx, "#include \"" + m_ectx.m_output.selfHeaderInclude + "\"\n\n");
+    }
 }
+
+void CppTranspiler::generateHeaderToFile(const HirModule& hir, MapperFile output_idx, ModuleIndex module, const std::vector<AstNodePtr>& exports,
+                                         const std::vector<std::string>& moduleIncludes, const std::set<const AstNodeBase*>& publishedDecls) {
+    // Заголовок — производный артефакт: позиции объявлений принадлежат `.cppt` модуля, поэтому
+    // маппинги подавлены (иначе коллизия trustKey между `.hpp` и `.cppt`).
+    m_ectx.m_output.currentModule = module;
+    m_ectx.m_ctx.source().suppressMapping();
+    std::set<const AstNodeBase*> exportTerms;
+    for (const auto& exported : exports) {
+        if (exported) {
+            exportTerms.insert(exported.get());
+        }
+    }
+    if (!exportTerms.empty()) {
+        // Публикуемый набор нужен эмиттеру members/free-функций: ссылка на модульный символ
+        // ВНЕ набора (напр. `__::`) невыразима в заголовке шаблона/constexpr - это диагностика.
+        m_ectx.m_declFacts.headerPublishedDecls = publishedDecls;
+        // Namespace модуля открывает САМ эмиттер (группировка «вне/внутри конверта»): нативные
+        // декларации и entry остаются вне него.
+        m_ectx.m_mode.forwardDeclOnly = true;
+        m_decl.emitModuleHeaderBody(hir.nodes(), exportTerms, output_idx, m_ectx.moduleNamespace(module));
+        m_ectx.m_mode.forwardDeclOnly = false;
+        m_ectx.m_declFacts.headerPublishedDecls.clear();
+    }
+    m_ectx.m_ctx.source().resumeMapping();
+    // Инклуды по использованным типам — тот же механизм, что у `.cppt` (собираются на эмиссии).
+    m_type.collectTypeIncludes();
+    m_type.emitCollectedIncludes(output_idx);
+    // `#pragma once` и umbrella-заголовки РЕЭКСПОРТИРУЕМЫХ модулей — первыми в файле
+    // (leading-буфер). Свои объявления фасада идут ниже.
+    std::string leading = "#pragma once\n";
+    if (!moduleIncludes.empty()) {
+        leading += "\n";
+        for (const auto& include : moduleIncludes) {
+            leading += "#include \"" + include + "\"\n";
+        }
+    }
+    leading += "\n";
+    m_ectx.m_ctx.source().output_prepend_leading(output_idx, leading);
+}
+
+namespace {
+
+/// Текст, с которого начнётся вывод блока (для пробела на одной строке). Прозрачные
+/// синтетические обёртки (SemicolonStmt/ErrorExpr) собственного текста НЕ имеют -
+/// разворачиваем ребёнка явно; узел без текста (нет WithText в классе) - пусто.
+std::string_view blockLeadingText(const AstNodeBase& node) {
+    if (node.kind() == ParserToken::Kind::SemicolonStmt) {
+        const auto& semi = static_cast<const SemicolonStmt&>(node);
+        return semi.m_expr ? blockLeadingText(*semi.m_expr) : std::string_view{};
+    }
+    if (node.kind() == ParserToken::Kind::ErrorExpr) {
+        const auto& error = static_cast<const ErrorExpr&>(node);
+        return error.m_original ? blockLeadingText(*error.m_original) : std::string_view{};
+    }
+    const HasText* text = node.as_text();
+    return text != nullptr ? text->text() : std::string_view{};
+}
+
+} // namespace
 
 void CppTranspiler::emitBlockSeparator(const AstNodeBase* prev, const AstNodeBase& node, MapperFile output_idx) {
     // Перевод строки между блоками вставляется только если они в исходнике на разных
@@ -146,7 +224,7 @@ void CppTranspiler::emitBlockSeparator(const AstNodeBase* prev, const AstNodeBas
     if (!sameSourceLine) {
         m_ectx.m_ctx.source().output_append(output_idx, "\n");
     } else {
-        emitSameLineSpace(node.text(), output_idx);
+        emitSameLineSpace(blockLeadingText(node), output_idx);
     }
 }
 
@@ -162,12 +240,38 @@ void CppTranspiler::emitSameLineSpace(std::string_view nextText, MapperFile outp
     }
 }
 
+void CppTranspiler::emitBlockChild(const AstNodeBase& child, MapperFile output_idx) {
+    const size_t before = m_ectx.m_ctx.source().output_body(output_idx).size();
+    if (!is_block_kind(child.kind())) {
+        m_ectx.m_ctx.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
+    }
+    if (child.isFilePrivate()) {
+        // Файл-приватное объявление внутри области имён (`ns:: { ... }`) - та же изоляция
+        // C++-имени, что и на верхнем уровне модуля (см. emitSequenceBody).
+        ++m_ectx.m_output.hiddenNamespaceDepth;
+        m_ectx.m_ctx.source().output_append(output_idx, "namespace {\n");
+        emitDocumentation(child, output_idx);
+        generateNodeToFile(child, output_idx);
+        m_ectx.m_ctx.source().output_append(output_idx, m_ectx.m_output.indentPrefix() + "}\n");
+        --m_ectx.m_output.hiddenNamespaceDepth;
+    } else {
+        emitDocumentation(child, output_idx);
+        generateNodeToFile(child, output_idx);
+    }
+    if (m_ectx.m_ctx.source().output_body(output_idx).size() != before) {
+        const std::string_view body = m_ectx.m_ctx.source().output_body(output_idx);
+        if (body.empty() || body.back() != '\n') {
+            m_ectx.m_ctx.source().output_append(output_idx, "\n");
+        }
+    }
+}
+
 void CppTranspiler::emitSequenceBody(const Sequence& node, MapperFile output_idx) {
     // Sequence, ScopeBlock or ModuleNode → walk body. Метки именованных блоков и goto
     // вставляются анализатором (lowering) как отдельные узлы LabelStmt/GotoStmt - здесь
     // только кодогенерация: каждый узел m_body эмитится по своему kind.
 
-    const bool inBlock = m_ectx.indentLevel() > 0;
+    const bool inBlock = m_ectx.m_output.indentLevel() > 0;
     const AstNodeBase* prev = nullptr;
     for (const auto& child : node.m_body) {
         if (!child) {
@@ -181,25 +285,25 @@ void CppTranspiler::emitSequenceBody(const Sequence& node, MapperFile output_idx
             // Для блочных детей (ScopeBlock/sequence/ModuleDecl) отступ выставляет их собственный обход.
             // Перевод строки добавляется ПОСЛЕ каждого реально выведенного узла (а не до),
             // чтобы подавленные доки/пустые bundle'ы не оставляли «сиротских» пустых строк.
-            const size_t before = m_ectx.m_ctx.source().output_body(output_idx).size();
-            // Документирующий комментарий объявления (из term->m_docs) - строками с отступом.
-            emitDocumentation(*child, output_idx);
-            if (!is_block_kind(child->kind())) {
-                m_ectx.m_ctx.source().output_append(output_idx, m_ectx.indentPrefix());
-            }
-            generateNodeToFile(*child, output_idx);
-            if (m_ectx.m_ctx.source().output_body(output_idx).size() != before) {
-                const std::string_view body = m_ectx.m_ctx.source().output_body(output_idx);
-                if (body.empty() || body.back() != '\n') {
-                    m_ectx.m_ctx.source().output_append(output_idx, "\n");
-                }
-            }
+            emitBlockChild(*child, output_idx);
         } else {
-            // На верхнем уровне (indent==0) - прежнее поведение (зеркалирование строк исходника).
+            // На верхнем уровне (indent==0) - зеркалирование строк исходника.
             emitBlockSeparator(prev, *child, output_idx);
-            // Документирующий комментарий объявления (из term->m_docs) - строками без отступа.
-            emitDocumentation(*child, output_idx);
-            generateNodeToFile(*child, output_idx);
+            if (child->isFilePrivate()) {
+                // Файл-приватное объявление (вне интерфейса файла): C++-имя не должно совпадать
+                // с одноимённым приватным объявлением другого файла (иначе duplicate symbol при
+                // линковке) ⇒ anonymous namespace, как у `__::`. Порядок объявлений сохраняется;
+                // документирующий комментарий остаётся при объявлении.
+                ++m_ectx.m_output.hiddenNamespaceDepth;
+                m_ectx.m_ctx.source().output_append(output_idx, "namespace {\n");
+                emitDocumentation(*child, output_idx);
+                generateNodeToFile(*child, output_idx);
+                m_ectx.m_ctx.source().output_append(output_idx, "}\n");
+                --m_ectx.m_output.hiddenNamespaceDepth;
+            } else {
+                emitDocumentation(*child, output_idx);
+                generateNodeToFile(*child, output_idx);
+            }
             prev = child.get();
         }
     }
@@ -215,6 +319,8 @@ void CppTranspiler::emitSingleFileModuleBody(const ModuleNode& node, MapperFile 
     // Виды узлов, остающиеся НА ВЕРХНЕМ УРОВНЕ (namespace): определения (функции/типы/области).
     // Всё прочее (VarDecl/вызовы/управление/...) - top-level операторы скрипта.
     const auto isModuleDefKind = [](Kind k) {
+        // Частичный предикат множества: прочие kinds - top-level операторы скрипта (осознанно).
+        TRUST_PARTIAL_ENUM_SWITCH_BEGIN
         switch (k) {
         case Kind::FuncDecl:
         case Kind::ModuleDecl:
@@ -229,6 +335,7 @@ void CppTranspiler::emitSingleFileModuleBody(const ModuleNode& node, MapperFile 
         default:
             return false;
         }
+        TRUST_PARTIAL_ENUM_SWITCH_END
     };
 
     std::vector<const AstNodeBase*> scripts;
@@ -256,12 +363,12 @@ void CppTranspiler::emitSingleFileModuleBody(const ModuleNode& node, MapperFile 
         return;
     }
 
-    // Синтезируем entry-функцию `<модуль>__main__` (её имя задал runPipeline через
+    // Синтезируем entry-функцию `<модуль>__main__` (её имя задал Pipeline через
     // configureSingleFile и совпадает с ожидаемым pipeline entry_func_name).
-    const std::string entryName = m_ectx.m_singleFileEntryName.empty() ? "trust_script__main__" : m_ectx.m_singleFileEntryName;
+    const std::string entryName = m_ectx.m_unit.singleFileEntryName.empty() ? "trust_script__main__" : m_ectx.m_unit.singleFileEntryName;
     m_ectx.m_ctx.source().output_append(output_idx, "\nint " + entryName + "() {\n");
-    m_ectx.m_scopeStack.push_back({/*indent=*/1});
-    m_ectx.m_inCppBlock = true;
+    m_ectx.m_output.scopeStack.push_back({/*indent=*/1});
+    m_ectx.m_mode.inCppBlock = true;
     for (const AstNodeBase* child : scripts) {
         if (!child) {
             continue;
@@ -269,63 +376,76 @@ void CppTranspiler::emitSingleFileModuleBody(const ModuleNode& node, MapperFile 
         if (isSuppressedDoc(child->kind())) {
             continue;
         }
-        const size_t before = m_ectx.m_ctx.source().output_body(output_idx).size();
-        emitDocumentation(*child, output_idx);
-        if (!is_block_kind(child->kind())) {
-            m_ectx.m_ctx.source().output_append(output_idx, m_ectx.indentPrefix());
-        }
-        generateNodeToFile(*child, output_idx);
-        if (m_ectx.m_ctx.source().output_body(output_idx).size() != before) {
-            const std::string_view body = m_ectx.m_ctx.source().output_body(output_idx);
-            if (body.empty() || body.back() != '\n') {
-                m_ectx.m_ctx.source().output_append(output_idx, "\n");
-            }
-        }
+        emitBlockChild(*child, output_idx);
     }
-    m_ectx.m_ctx.source().output_append(output_idx, m_ectx.indentPrefix() + "return 0;\n");
-    m_ectx.m_inCppBlock = false;
-    m_ectx.m_scopeStack.pop_back();
+    m_ectx.m_ctx.source().output_append(output_idx, m_ectx.m_output.indentPrefix() + "return 0;\n");
+    m_ectx.m_mode.inCppBlock = false;
+    m_ectx.m_output.scopeStack.pop_back();
     m_ectx.m_ctx.source().output_append(output_idx, "}\n");
 }
 
 // Placeholder для нереализованных expression-only kinds: "{}" только в expression-контексте.
 void CppTranspiler::emitPlaceholderExpr(MapperFile output_idx) {
-    if (m_ectx.m_exprDepth > 0) {
+    if (m_ectx.m_mode.exprDepth > 0) {
         m_ectx.m_ctx.source().output_append(output_idx, "{}");
     }
 }
 
-// Унифицированный вывод текста как вложенного выражения (только при m_exprDepth>0).
+// Унифицированный вывод текста как вложенного выражения (только при m_mode.exprDepth>0).
 void CppTranspiler::emitExprText(std::string_view text) {
-    if (m_ectx.m_exprDepth > 0) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, text);
+    if (m_ectx.m_mode.exprDepth > 0) {
+        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, text);
     }
 }
 
 void CppTranspiler::generateNodeToFile(const AstNodeBase& node, MapperFile output_idx) {
-    if (node.kind() == ParserToken::Kind::END) {
-        return;
-    }
-
-    // Единая диспетчеризация ПО KIND (см. ast/kind_visitor.hpp): класс - наследник абстрактного
-    // KindVisitor, поэтому dispatchKind вызывает соответствующий visit_<Kind> прямо на *this.
-    // Каждый kind реализован (или явный no-op): пропуск генерации не даст скомпилироваться.
-    m_ectx.m_out = output_idx;
-    dispatchKind(node, *this);
+    // KIND_DISPATCH_GUARD_BEGIN - внутри блока запрещены if/switch по kind() (см. cmake guard).
+    // Единая диспетчеризация ПО KIND (ast/kind_dispatch.hpp, exhaustive consumer): каждый kind
+    // реализован - эмиссия либо явный reject/skip; полнота набора проверена static_assert выше.
+    // END - не узел: dispatchEmit падает (FAULT), тихого пропуска нет (AGENTS §5).
+    m_ectx.m_output.out = output_idx;
+    // В statement-контексте expression-kind допустим как standalone-выражение (так его видят
+    // блоки и unit-тесты); контекстная проверка выполняется для обратного направления -
+    // statement-kind в emitExpr.
+    dispatchEmit(node, *this);
+    // KIND_DISPATCH_GUARD_END
 }
 
 void CppTranspiler::emitExpr(const AstNodeBase* node) {
+    // KIND_DISPATCH_GUARD_BEGIN - внутри блока запрещены if/switch по kind() (см. cmake guard).
     if (!node) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, "{}");
+        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "{}");
         return;
     }
-    // Единая диспетчеризация ПО KIND (ast/kind_visitor.hpp) - как и для statement.
-    // Различие statement/expression - глубина m_ectx.m_exprDepth: visit_<Kind> добавляет
-    // mapStart/mapStop и ';' только на верхнем уровне (m_ectx.m_exprDepth==0); вложенный
-    // вызов emitExpr (m_ectx.m_exprDepth>0) - только текст выражения (без ';' и map).
-    ++m_ectx.m_exprDepth;
-    dispatchKind(*node, *this);
-    --m_ectx.m_exprDepth;
+    // Единая диспетчеризация ПО KIND (ast/kind_dispatch.hpp, exhaustive consumer) - как и для statement.
+    // Различие statement/expression - глубина m_ectx.m_mode.exprDepth: visit_<Kind> добавляет
+    // mapStart/mapStop и ';' только на верхнем уровне (m_ectx.m_mode.exprDepth==0); вложенный
+    // вызов emitExpr (m_ectx.m_mode.exprDepth>0) - только текст выражения (без ';' и map).
+    ++m_ectx.m_mode.exprDepth;
+    dispatchEmit(*node, *this, KindCategory::ExprOnly);
+    --m_ectx.m_mode.exprDepth;
+    // KIND_DISPATCH_GUARD_END
+}
+
+std::string CppTranspiler::renderExprToString(const AstNodeBase* node) {
+    EXPECT(node != nullptr && "renderExprToString: null expression");
+    const MapperFile savedOut = m_ectx.m_output.out;
+    const int savedDepth = m_ectx.m_mode.exprDepth;
+    const bool savedDefaultArg = m_ectx.m_mode.inDefaultArg;
+    const std::string name = std::format("__trust_default_{}.cppt", m_exprRenderCounter++);
+    MapperFile tmp = m_ectx.m_ctx.source().add_output(name);
+    m_ectx.m_output.out = tmp;
+    m_ectx.m_mode.exprDepth = 0;
+    m_ectx.m_mode.inDefaultArg = true;
+    m_ectx.m_ctx.source().suppressMapping();
+    emitExpr(node);
+    m_ectx.m_ctx.source().resumeMapping();
+    std::string text = m_ectx.m_ctx.source().output_result(tmp);
+    m_ectx.m_output.out = savedOut;
+    m_ectx.m_mode.exprDepth = savedDepth;
+    m_ectx.m_mode.inDefaultArg = savedDefaultArg;
+    EXPECT(m_ectx.m_ctx.source().output_drop(tmp) && "renderExprToString: temporary output must be last");
+    return text;
 }
 
 void CppTranspiler::emitBodyNode(const AstNodePtr& body, MapperFile output_idx, bool mapBlock, const std::string& beforeCloseLabel,
@@ -336,11 +456,11 @@ void CppTranspiler::emitBodyNode(const AstNodePtr& body, MapperFile output_idx, 
     m_stmt.emitBlockBodyToFile(stmts, blockRange, output_idx, mapBlock, beforeCloseLabel, afterOpen);
 }
 
-// -- KindVisitor: visit_<Kind> (statement-контекст, потоковый вывод в m_out) --
+// -- Контракт exhaustive consumer: visit_<Kind> (statement-контекст, потоковый вывод в m_output.out) --
 
 // Блоки-обёртки: обход тела; Attr - не обход.
 void CppTranspiler::visit_sequence(const Sequence& n) {
-    emitSequenceBody(n, m_ectx.m_out);
+    emitSequenceBody(n, m_ectx.m_output.out);
 }
 
 // Return/Throw inline; Break/Continue → goto.
@@ -350,36 +470,37 @@ void CppTranspiler::emitJumpValue(std::string_view keyword, const JumpStmt& n) {
     const MapperRange r = n.range();
     std::unique_ptr<MapperScope> scope;
     if (!r.isInvalid()) {
-        scope = std::make_unique<MapperScope>(m_ectx.m_ctx.source(), r, m_ectx.m_out);
+        scope = std::make_unique<MapperScope>(m_ectx.m_ctx.source(), r, m_ectx.m_output.out);
     }
     if (n.m_value) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, keyword);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, " ");
+        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, keyword);
+        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, " ");
         emitExpr(n.m_value.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ";");
+        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ";");
     } else {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, keyword);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_out, ";");
+        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, keyword);
+        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ";");
     }
 }
 
-// AstNodeAttr-kind'ы, не генерируемые как statement → no-op.
-void CppTranspiler::visit_Program(const AstNodeAttr&) {
+// AstNodeAttr-kind'ы, не генерируемые как statement → осознанный Skip (узел не производится).
+void CppTranspiler::visit_Program(const AstNodeAttr& node) {
+    // Program - корневой маркер, не узел AST (нет производителя).
+    faultUnexpectedKind("CppTranspiler", node);
 }
 
 // Kind=Unimplemented: конвертер Term→Ast (convertForKind<Unimplemented>) не строит узел и выдаёт
-// ошибку, поэтому такой узел в AST не появляется. Метод - no-op (требуется строгим контрактом KindVisitor).
-void CppTranspiler::visit_Unimplemented(const AstNodeAttr&) {
+// ошибку, поэтому такой узел в AST не появляется. Достижение кодогена - инвариант-нарушение.
+void CppTranspiler::visit_Unimplemented(const AstNodeAttr& node) {
+    faultUnexpectedKind("CppTranspiler", node);
 }
 
 // Kind=NotApplicable: узел никогда не строится (convertForKind<NotApplicable> → Fatal), в AST не
-// появляется. Метод - no-op (требуется строгим контрактом KindVisitor).
-void CppTranspiler::visit_NotApplicable(const AstNodeAttr&) {
+// появляется. Достижение кодогена - инвариант-нарушение.
+void CppTranspiler::visit_NotApplicable(const AstNodeAttr& node) {
+    faultUnexpectedKind("CppTranspiler", node);
 }
 
-// Kind=TypeSet: набор типов (`:A + :B`) НЕ эмитится как узел - определения наборов пропускаются,
-// а функции с набором в сигнатуре разворачиваются в N определений на уровне term_to_ast
-// (visit_TYPE_SET сообщает ошибку, если набор дошёл до значения). Метод - no-op (контракт KindVisitor).
 // Kind=TypeSet: набор типов (`:A + :B`) допустим ТОЛЬКО как тип (определение/параметр/возврат).
 // Узел доходит до кодогена лишь при использовании набора КАК ЗНАЧЕНИЯ → явная ошибка
 // (без молчаливой пустой инициализации).
@@ -467,9 +588,10 @@ void CppTranspiler::visit_LastResultCapture(const LastResultCapture& n) {
     m_stmt.visit_LastResultCapture(n);
 }
 
-void CppTranspiler::visit_ErrorExpr(const ErrorExpr&) {
-    // Error-заглушка: сюда не должно доходить без предварительной ошибки (см. ErrorExpr). No-op:
-    // владеемое ошибочное под-дерево (m_original) намеренно НЕ эмитится и НЕ обходится.
+void CppTranspiler::visit_ErrorExpr(const ErrorExpr& node) {
+    // ErrorExpr создаётся diagnose-then-replace и означает уже сообщённую ошибку: кодоген после
+    // ошибки не выполняется. Достижение здесь - нарушение инварианта, а не «тихий» пропуск.
+    faultUnexpectedKind("CppTranspiler", node);
 }
 
 void CppTranspiler::visit_IfStmt(const IfStmt& n) {
@@ -548,6 +670,10 @@ void CppTranspiler::visit_MathOp(const Binary& n) {
     m_expr.visit_MathOp(n);
 }
 
+void CppTranspiler::visit_IncDecOp(const Binary& n) {
+    m_expr.visit_IncDecOp(n);
+}
+
 void CppTranspiler::visit_BitwiseOp(const Binary& n) {
     m_expr.visit_BitwiseOp(n);
 }
@@ -606,11 +732,11 @@ void CppTranspiler::visit_DebugStmt(const DebugStmt& n) {
     FAULT("DebugStmt reached the transpiler (must be removed by the analyzer)");
 }
 
-void CppTranspiler::visit_EmbedExpr(const AstNodeAttr& n) {
+void CppTranspiler::visit_EmbedExpr(const RawText& n) {
     m_expr.visit_EmbedExpr(n);
 }
 
-void CppTranspiler::visit_Document(const AstNodeAttr& n) {
+void CppTranspiler::visit_Document(const RawText& n) {
     m_expr.visit_Document(n);
 }
 

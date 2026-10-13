@@ -6,6 +6,8 @@
 // Вынесена из pipeline_lib, чтобы драйверные бинарники (trust/trust-lsp/trust-dap/playground)
 // и LSP-слой опций использовали её без линковки всего конвейера.
 
+#include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -30,36 +32,55 @@ inline constexpr EmitFlags operator&(EmitFlags a, EmitFlags b) {
     return static_cast<EmitFlags>(static_cast<int>(a) & static_cast<int>(b));
 }
 
-// -- Pipeline steps (bitmask) --
+// -- Pipeline frontend steps (bitmask) --
 
-enum class PipelineSteps {
+/// Шаги фронтенда прогона. Бэкенды (C++/SMT) шагами не являются — они запрашиваются
+/// через `RunRequest::cpp`/`RunRequest::smt` (присутствие optional = запрос).
+enum class FrontendSteps {
     None = 0,
-    ParseAST = 1 << 0,  // Parser (lexing + parsing together)
-    Semantic = 1 << 1,  // pass-менеджер семантики (SemanticPassRunner)
-    Transpile = 1 << 2, // CppTranspiler
-    Solver = 1 << 3,    // генерация SMT-LIB 2 (TrustToSmt) для --solver-mode=export/calculate
+    ParseAST = 1 << 0, // Parser (lexing + parsing together)
+    Semantic = 1 << 1, // pass-менеджер семантики (SemanticPassRunner)
 };
 
-inline constexpr PipelineSteps operator|(PipelineSteps a, PipelineSteps b) {
-    return static_cast<PipelineSteps>(static_cast<int>(a) | static_cast<int>(b));
+inline constexpr FrontendSteps operator|(FrontendSteps a, FrontendSteps b) {
+    return static_cast<FrontendSteps>(static_cast<int>(a) | static_cast<int>(b));
 }
 
-inline constexpr PipelineSteps operator&(PipelineSteps a, PipelineSteps b) {
-    return static_cast<PipelineSteps>(static_cast<int>(a) & static_cast<int>(b));
+inline constexpr FrontendSteps operator&(FrontendSteps a, FrontendSteps b) {
+    return static_cast<FrontendSteps>(static_cast<int>(a) & static_cast<int>(b));
 }
 
-inline constexpr bool hasStep(PipelineSteps flags, PipelineSteps step) {
+inline constexpr bool hasStep(FrontendSteps flags, FrontendSteps step) {
     return (static_cast<int>(flags) & static_cast<int>(step)) != 0;
 }
 
+// -- Прогон: режим построения AST --
+
+/// kProgram - программный режим: главный модуль помечается в source map (`setMainModuleFile`),
+/// его индекс сохраняется для генерации модульных TU, а сайты импорта получают экспорт-интерфейс
+/// (`resolveImportExports`). kAnalysis - разбор без программной обвязки (emit-режимы, тесты).
+enum class RunMode {
+    kAnalysis,
+    kProgram,
+};
+
 // -- Compile mode --
 
+/// Единый источник: X-макрос генерирует и enum, и make-цель (makeTargetForMode в toolchain/build/compile.cpp).
+#define TRUST_COMPILE_MODE_TARGETS(O)                   \
+    /* Compile to executable (default) */               \
+    O(Executable, "executable")                         \
+    /* Compile to object file only (-c) */              \
+    O(ObjectFile, "object")                             \
+    /* Compile to static library (-a / --static-lib) */ \
+    O(StaticLib, "static-lib")                          \
+    /* Compile to shared library (-l / --shared-lib) */ \
+    O(SharedLib, "shared-lib")
+
 enum class CompileMode {
-    Executable,  ///< Compile to executable (default)
-    ObjectFile,  ///< Compile to object file only (-c)
-    StaticLib,   ///< Compile to static library (-a / --static-lib)
-    SharedLib,   ///< Compile to shared library (-l / --shared-lib)
-    TrustModule, ///< Compile to trust module (.trust, shared library with exports)
+#define TRUST_COMPILE_MODE_ENUM(name, target) name,
+    TRUST_COMPILE_MODE_TARGETS(TRUST_COMPILE_MODE_ENUM)
+#undef TRUST_COMPILE_MODE_ENUM
 };
 
 // -- Runtime link mode --
@@ -79,10 +100,15 @@ struct PipelineOpts {
     bool quiet = false;
     bool help_requested = false;
     bool version_requested = false;
-    bool module_info_requested = false; ///< --module-info flag
 
     // Compile options
     std::string temp_dir;
+    /// Корень проекта для путей `\file`/`\\module\...`; пусто = каталог входного файла.
+    std::string module_root;
+    /// Дополнительные корни поиска модулей (`-I`, repeatable; порядок значим).
+    std::vector<std::string> module_paths;
+    /// Дополнительные корни поиска пакетов (`--package-path`, repeatable; порядок значим).
+    std::vector<std::string> package_paths;
     std::string compiler;
     std::string compiler_options;
     CompileMode compile_mode = CompileMode::Executable;
@@ -104,10 +130,22 @@ struct PipelineOpts {
     /// Перечень функций (comma-separated trust-имена), ограничивающих m_stack_limit для limit-проверок:
     /// `--stack-check-functions=<names>`. Пусто = все функции .stack_sizes.
     std::string stack_check_functions;
+    /// Гейт доказательств `--verify=<mode>` (сейчас: all). Пустая строка = опция не передана.
+    std::string verify;
     /// Compile-time дефолт таймаута детектора взаимной блокировки для синхронизированных ссылок:
     /// `-fsync-deadlock=<ms|s|us|ns|nano>` (без суффикса = секунды; дефолт рантайма 5s). Пустая строка =
     /// опция не передана. Встраивается в начало main через trust::runtime::setSyncDeadlockFromString.
     std::string sync_deadlock_timeout;
+    /// Режим создания пакета: `--package <dir>` - упаковать каталог с исходниками
+    /// (содержащий `trust.toml`) в архив `.trust`. Вход - каталог (позиционный input_file).
+    /// `version` — semver ПАКЕТА: упаковщик сохраняет авторское значение, а при отсутствии
+    /// подставляет версию компилятора (TRUST_VERSION_SHORT) как provenance; версия toolchain
+    /// фиксируется в `[build].toolchain`.
+    bool package_requested = false;
+    /// Режим распаковки пакета: `--extract <archive.trust> [-o <dir>]` - распаковать архив
+    /// `.trust` в каталог. Вход - архив (позиционный input_file); `-o` = каталог назначения
+    /// (по умолчанию подкаталог `<name>/` в cwd).
+    bool extract_requested = false;
     bool run = false; ///< --run: после сборки исполняемого файла запустить его
     /// Аргументы командной строки, передаваемые запущенной программе при --run.
     /// Собираются из позиционных аргументов ПОСЛЕ входного файла (шебанг: ./prog.src a b).
@@ -117,9 +155,13 @@ struct PipelineOpts {
     /// архива. build.conf при этом формируется переносимым (без абсолютных путей и
     /// привязки к рантайм-библиотеке).
     bool emit_build_dir_only = false;
+    /// Emit-граф файловых зависимостей (`--emit-module-deps`): правила make
+    /// `<target>: <deps>` для главного `.cppt`, `.cppt` модулей и использованных пакетов.
+    /// Не влияет на `should_compile()` (это отдельный emit-режим, не EmitFlags).
+    bool emit_module_deps = false;
     /// Однофайловый режим генерации исполняемой программы (`-fsingle-file`/`-fno-single-file`):
     /// `int main`-обёртка встраивается в тот же `.cppt`, отдельный `_main.cppt` не создаётся.
-    /// По умолчанию включается при `--run` (резолв - в pipeline_parser.cpp). Скрипт без
+    /// По умолчанию включается при `--run` (резолв - в pipeline/cli.cpp). Скрипт без
     /// `__main__` в этом режиме пока не поддерживается - выводится диагностика (включение
     /// даст будущий функционал «модуль-скрипт»).
     bool single_file = false;
@@ -141,9 +183,14 @@ struct PipelineOpts {
     /// (-v/-q/-W/--temp-dir/-o) сюда не попадают; порядок нормализуется сортировкой.
     std::vector<std::string> codegen_args;
     /// Поведенческий флаг `-fsourcemap`/`-fno-sourcemap` (не диагностика): добавлять ли
-    /// маппинг (source map) и экспорт-таблицу в генерируемый C++-файл. Файл `.src_map`
-    /// генерируется всегда; флаг управляет только `#embed "<name>.src_map"` и экспорт-таблицей.
+    /// маппинг (source map) в генерируемый C++-файл. Файл `.src_map`
+    /// генерируется всегда; флаг управляет только `#embed "<name>.src_map"`.
     bool embed_source_map = true;
+
+    /// Поведенческая опция `-ferror-limit=<N>`/`--error-limit=<N>` (не диагностика):
+    /// предел числа ошибок (0 = без лимита). nullopt = опция не передана (DiagnosticEngine
+    /// использует kDefaultErrorLimit).
+    std::optional<std::size_t> error_limit;
 
     // -- Linking options (CLI-пересечение с @[link(...)] из исходника) --
     /// Дополнительные библиотеки линковки из CLI (`-l<name>`). Объединяются с
@@ -157,7 +204,7 @@ struct PipelineOpts {
 
     // DSL macros options
     bool no_dsl = false;  // true если --no-dsl
-    std::string dsl_file; // --dsl <file> вместо встроенного trust/dsl.src
+    std::string dsl_file; // --dsl <file> вместо stdlib/dsl.src из пакета stdlib
 
     // Режим LSP-сервера: разрешает запускать семантический анализатор даже при наличии
     // ошибок лексера/парсера (AST может быть частичным). Transpile при этом по-прежнему
@@ -196,7 +243,7 @@ struct ParseResult {
     std::vector<std::string> diag_args;
     /// true, если в diag_args есть `-Whelp` (справка по диагностикам). Выставляется
     /// парсером parseDriverArgs (единый источник для раннего пропуска проверки входного
-    /// файла в Pipeline::parseArgs; сама справка - через Options::helpRequested()).
+    /// файла в parseCommandLine (pipeline/cli.hpp); сама справка - через Options::helpRequested()).
     bool diag_help_requested = false;
     int exit_code = 0; // 0 = OK, 1 = error
 };

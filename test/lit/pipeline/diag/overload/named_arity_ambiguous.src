@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Разная арность перегрузок после materialization defaults: кандидаты сравниваются по общему
+# префиксу, и при равенстве вызов неоднозначен (нет молчаливого выбора более короткой сигнатуры).
+f(a:Int32):Int32 := { @return a; };
+f(a:Int32, b:Int32 = 2):Int32 := { @return a + b; };
+@main() := {
+    @print("{}\n", f(1));
+    @return 0;
+}
+# CHECK: call to overloaded function 'f' is ambiguous

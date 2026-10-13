@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Тип в `__::` и экспортируемый тип с тем же spelling - дубль (как и у функций):
+# конфликт ключей видимости своего модуля, а не неоднозначность импорта.
+# CHECK: error: duplicate declaration 'T'
+
+__:: {
+    :T ::= :Struct{ x:Int32 := _; };
+};
+:T ::= :Struct{ y:Int32 := _; };
+@main():Int32 := { @return 0; };

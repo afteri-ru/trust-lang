@@ -123,36 +123,117 @@ check_eq "TaskComplete: failures" "1" "$(grep -m1 '^- failures:' "${TASK_FILE}" 
 if [ ! -f "${TOOLS_FILE}" ]; then pass "TaskComplete: .tools.log удалён"; else fail "TaskComplete: .tools.log удалён"; fi
 
 # --- 5. PreToolUse ---------------------------------------------------------
-out=$(run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"run_commands\",\"parameters\":{\"commands\":[\"git status\"]}}}")
-check_eq "PreToolUse: git блокируется (commands, массив)" "true" "$(echo "$out" | jq -r '.cancel')"
+# Хук НИКОГДА не отменяет вызов (cancel=false): он передаёт модели сообщение о нарушении.
+pt() {  # pt <json-commands-массив> -> вывод хука
+  run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"run_commands\",\"parameters\":{\"commands\":$1}}}"
+}
+check_json() {  # <описание> <вывод>: пустой/битый вывод не должен проходить как «PASS»
+  if [ -n "$2" ] && printf '%s' "$2" | jq -e '.cancel | type == "boolean"' >/dev/null 2>&1; then
+    pass "$1"
+  else
+    fail "$1 (вывод хука не является корректным JSON: '$2')"
+  fi
+}
+
+# Все хуки должны быть исполняемыми: иначе хук не запускается, и проверки «пусто» ложно проходят.
+for _h in "${HOOKS_DIR}"/*; do
+  [ -f "$_h" ] || continue
+  if [ -x "$_h" ]; then pass "hooks: $(basename "$_h") исполняемый"; else fail "hooks: $(basename "$_h") не исполняемый (chmod +x)"; fi
+done
+
+out=$(pt '["git status"]')
+check_json "PreToolUse: вывод — корректный JSON" "$out"
+check_eq "PreToolUse: git не блокируется (cancel=false)" "false" "$(echo "$out" | jq -r '.cancel')"
+check_contains "PreToolUse: git — модели передано сообщение о запрете" "$(echo "$out" | jq -r '.contextModification')" "ЗАПРЕТ GIT"
 
 out=$(run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"run_commands\",\"parameters\":{\"commands\":\"[\\\"git log\\\"]\"}}}")
-check_eq "PreToolUse: git блокируется (commands, JSON-строка)" "true" "$(echo "$out" | jq -r '.cancel')"
+check_eq "PreToolUse: git в форме JSON-строки — сообщение о запрете" "false" "$(echo "$out" | jq -r '.cancel')"
+check_contains "PreToolUse: git (JSON-строка) — сообщение" "$(echo "$out" | jq -r '.contextModification')" "ЗАПРЕТ GIT"
 
 out=$(run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"execute_command\",\"parameters\":{\"command\":\"git status\"}}}")
-check_eq "PreToolUse: git блокируется (старое имя инструмента)" "true" "$(echo "$out" | jq -r '.cancel')"
+check_eq "PreToolUse: git в старом имени инструмента — сообщение о запрете" "false" "$(echo "$out" | jq -r '.cancel')"
+check_contains "PreToolUse: git (execute_command) — сообщение" "$(echo "$out" | jq -r '.contextModification')" "ЗАПРЕТ GIT"
 
-out=$(run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"run_commands\",\"parameters\":{\"commands\":[\"grep -rn foo src --exclude-dir=.git\"]}}}")
-check_eq "PreToolUse: defensive grep с --exclude-dir=.git не блокируется" "false" "$(echo "$out" | jq -r '.cancel')"
+# Защитные фильтры поиска (форма из AGENTS.md п.8) — не использование git.
+out=$(pt '["grep -rn foo src --exclude-dir={_build,.tasklog,.git,_trust,node_modules}"]')
+check_eq "PreToolUse: grep с brace-списком --exclude-dir не считается git" "false" "$(echo "$out" | jq -r '.cancel')"
+check_empty "PreToolUse: grep с brace-списком --exclude-dir без предупреждений" "$(echo "$out" | jq -r '.contextModification')"
 
-out=$(run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"run_commands\",\"parameters\":{\"commands\":[\"cmake --build build\"]}}}")
+# Подстрока git в обычном слове — не git и не рекурсивный grep: сообщений нет.
+out=$(pt '["grep -rn digit src --exclude-dir=_build"]')
+check_empty "PreToolUse: слово digit не считается git" "$(echo "$out" | jq -r '.contextModification')"
+
+out=$(pt '["cat .gitignore"]')
+check_empty "PreToolUse: .gitignore не считается использованием git" "$(echo "$out" | jq -r '.contextModification')"
+
+# Батч: сборка не страдает от соседней команды.
+out=$(pt '["make build","grep -rn foo src --exclude-dir={_build,.tasklog,.git,_trust}"]')
+check_eq "PreToolUse: батч сборка+grep не блокируется" "false" "$(echo "$out" | jq -r '.cancel')"
+check_empty "PreToolUse: батч сборка+grep — без сообщений" "$(echo "$out" | jq -r '.contextModification')"
+
+out=$(pt '["bash -c \"git log\""]')
+check_contains "PreToolUse: git внутри bash -c обнаружен" "$(echo "$out" | jq -r '.contextModification')" "ЗАПРЕТ GIT"
+
+out=$(pt '["cmake --build build"]')
 check_eq "PreToolUse: cmake с посторонним каталогом не блокируется" "false" "$(echo "$out" | jq -r '.cancel')"
-check_nonempty "PreToolUse: cmake - предупреждение в errorMessage" "$(echo "$out" | jq -r '.errorMessage')"
-check_nonempty "PreToolUse: cmake - контекст CMakeLists.txt добавлен" "$(echo "$out" | jq -r '.contextModification')"
+check_nonempty "PreToolUse: cmake с посторонним каталогом — сообщение" "$(echo "$out" | jq -r '.contextModification')"
+check_empty "PreToolUse: cmake — errorMessage пуст (нефатальная ситуация)" "$(echo "$out" | jq -r '.errorMessage')"
 
-out=$(run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"run_commands\",\"parameters\":{\"commands\":[\"cmake --build _build\"]}}}")
+out=$(pt '["cmake --build _build"]')
 check_eq "PreToolUse: cmake --build _build разрешён" "false" "$(echo "$out" | jq -r '.cancel')"
-check_empty "PreToolUse: cmake --build _build без предупреждений" "$(echo "$out" | jq -r '.contextModification')"
+check_contains "PreToolUse: cmake --build _build без -j — подсказка о политике" "$(echo "$out" | jq -r '.contextModification')" "jobs="
 
-out=$(run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"run_commands\",\"parameters\":{\"commands\":[\"grep -rn foo src\"]}}}")
+out=$(pt '["cmake --build _build --parallel 999"]')
+check_contains "PreToolUse: несоответствующее -j — подсказка" "$(echo "$out" | jq -r '.contextModification')" "ожидается -j"
+
+out=$(pt '["grep -rn foo src"]')
 check_eq "PreToolUse: grep без --exclude-dir не блокируется" "false" "$(echo "$out" | jq -r '.cancel')"
 check_nonempty "PreToolUse: grep без --exclude-dir - предупреждение" "$(echo "$out" | jq -r '.contextModification')"
 
-out=$(run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"run_commands\",\"parameters\":{\"commands\":[\"grep -rn foo src --exclude-dir=_build\"]}}}")
+out=$(pt '["grep -rn foo src --exclude-dir=_build"]')
 check_empty "PreToolUse: grep с --exclude-dir без предупреждений" "$(echo "$out" | jq -r '.contextModification')"
 
 out=$(run_hook PreToolUse "{\"taskId\":\"${ID}\",\"preToolUse\":{\"toolName\":\"read_files\",\"parameters\":{\"files\":[\"a\"]}}}")
+check_json "PreToolUse: read_files — корректный JSON" "$out"
 check_eq "PreToolUse: read_files не блокируется" "false" "$(echo "$out" | jq -r '.cancel')"
+
+# Деструктивные операции — единственный блокирующий класс правил.
+pt_blocked() {  # pt_blocked <описание> <команда>
+  local out
+  out=$(pt "[\"$2\"]")
+  check_eq "$1 (cancel=true)" "true" "$(echo "$out" | jq -r '.cancel')"
+  check_contains "$1 (причина)" "$(echo "$out" | jq -r '.errorMessage')" "ДЕСТРУКТИВНАЯ КОМАНДА"
+}
+pt_allowed() {  # pt_allowed <описание> <команда>
+  local out
+  out=$(pt "[\"$2\"]")
+  check_eq "$1 (cancel=false)" "false" "$(echo "$out" | jq -r '.cancel')"
+}
+pt_blocked "PreToolUse: удаление .git заблокировано" "rm -rf .git"
+pt_blocked "PreToolUse: удаление .tasklog заблокировано" "rm -rf .tasklog"
+pt_blocked "PreToolUse: удаление src заблокировано" "rm -rf src"
+pt_blocked "PreToolUse: удаление корня заблокировано" "rm -rf /"
+pt_blocked "PreToolUse: удаление текущего каталога заблокировано" "rm -rf ."
+pt_blocked "PreToolUse: find . -delete заблокирован" "find . -delete"
+pt_blocked "PreToolUse: chmod -R на проекте заблокирован" "chmod -R 777 ."
+pt_blocked "PreToolUse: перезапись истории git заблокирована" "git reset --hard"
+pt_blocked "PreToolUse: запись на блочное устройство заблокирована" "dd if=/dev/zero of=/dev/sda"
+pt_blocked "PreToolUse: перенос src заблокирован" "mv src /tmp"
+
+pt_blocked "PreToolUse: удаление src через bash -c заблокировано" "bash -c 'rm -rf src'"
+pt_blocked "PreToolUse: sudo rm защищённого объекта заблокирован" "sudo rm -rf .tasklog"
+pt_allowed "PreToolUse: очистка _build разрешена" "rm -rf _build"
+pt_allowed "PreToolUse: удаление отдельного файла разрешено" "rm -rf src/foo.cpp"
+pt_allowed "PreToolUse: find с -name -delete разрешён" "find . -name *.o -delete"
+pt_allowed "PreToolUse: rm -f временного pid-файла разрешён" "rm -f /tmp/build.pid"
+pt_allowed "PreToolUse: rm после cmake -S . (разные сегменты) разрешён" "cmake -S . -B _build && rm -f /tmp/x.pid"
+pt_allowed "PreToolUse: rmdir в сегменте после find include src разрешён" "find include src -type d -empty | sort && rmdir include/toolchain/cache"
+pt_blocked "PreToolUse: rm -rf src внутри составной команды блокируется" "echo start && rm -rf src"
+
+out=$(pt '["make build","rm -rf src"]')
+check_eq "PreToolUse: батч с деструктивной командой блокируется" "true" "$(echo "$out" | jq -r '.cancel')"
+
+
 
 # --- 6. PreCompact: отсутствующие поля -------------------------------------
 run_hook PreCompact "{\"taskId\":\"${ID}\",\"preCompact\":{\"tokensIn\":1500}}" >/dev/null

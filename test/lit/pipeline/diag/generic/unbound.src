@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# T встречается только в возврате: вывести её из аргументов нельзя.
+<T> make(): T := %some::make...;
+
+r : Int32 := make();
+
+# CHECK: error: cannot deduce template parameter 'T' for function 'make'

@@ -1,0 +1,11 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# `:Any` — известный конкретный тип: голый типовой параметр выводится как `T := Any`
+# (C++-модель вывода), вызов инстанцируется явным `c_id<std::any>`.
+<T> id(x: T): T := { @return x; };
+
+a: Any := 5;
+r : Any := id(a);
+
+# CHECK: template <typename T> T c_id{{_[A-Za-z0-9_]+}}(T c_x)
+# CHECK: std::any c_r = c_id{{_[A-Za-z0-9_]+}}<std::any>(c_a)

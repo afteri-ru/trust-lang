@@ -2,19 +2,23 @@
 #define MACRO_TEST_FIXTURE_HPP
 // Shared MacroTest fixture for macro/parser unit tests
 // (macro_core_test.cpp, macro_options_test.cpp, macro_mapping_test.cpp).
-#include "syntax/warning_push.h"
+#include "syntax/util/warning_push.h"
 #include <gtest/gtest.h>
-#include "syntax/warning_pop.h"
+#include "syntax/util/warning_pop.h"
 
 #include "syntax/macro.h"
 #include "syntax/lexer.h"
 #include "syntax/parser.h"
-#include "transpiler/diag.hpp"
+#include "transpiler/emit/diag.hpp"
+#include "utils/strings.hpp"
 
 #include <string>
 #include <vector>
 
-using namespace trust;
+using trust::MacroPtr;
+using trust::Parser;
+using trust::TermID;
+using trust::TermPtr;
 
 class MacroTest : public ::testing::Test {
   protected:
@@ -55,7 +59,7 @@ class MacroTest : public ::testing::Test {
             }
             result += m_postlex[i];
         }
-        trim(result);
+        result = std::string(trust::utils::trim(result));
         return result;
     }
 

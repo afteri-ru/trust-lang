@@ -2,9 +2,9 @@
 // dap_handler.cpp - реализация DapHandler (DAP-логика)
 // -----------------------------------------------------------------------
 
-#include "debug/dap_handler.hpp"
-#include "debug/gdb_debug.h"
-#include "utils/io.hpp"
+#include "debug/dap/dap_handler.hpp"
+#include "debug/gdb/gdb_debug.h"
+#include "utils/utils.hpp"
 
 #include <algorithm>
 #include <cerrno>
@@ -14,7 +14,6 @@
 #include <iostream>
 #include <sstream>
 #include <system_error>
-#include "utils/io.hpp"
 
 using json = nlohmann::json;
 

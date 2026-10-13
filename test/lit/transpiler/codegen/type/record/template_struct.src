@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 # RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/template_struct.o %s && test -f $TD/template_struct.o
 
 # Struct-шаблон: определение эмитится БЕЗ static_assert (проверка POD над шаблоном невыразима и

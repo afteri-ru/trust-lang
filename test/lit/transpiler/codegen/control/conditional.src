@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Проверка генерации C++ для условного оператора if/else-if/else (нормальное форматирование)
 x:Int32 := 10;

@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Неизвестный тип в тип-паттерне match - пользовательская диагностика семантики
+# (а не ICE верификатора HIR): аннотация обязана быть материализована анализом.
+x:Int32 := 5;
+@match(x) ~> {
+    @case(:MissingType) { y := 1; };
+    @default { y := 0; };
+};
+
+# CHECK: error: unknown type 'MissingType' in match pattern

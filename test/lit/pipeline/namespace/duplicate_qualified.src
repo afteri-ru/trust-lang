@@ -1,0 +1,13 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Два объявления одного имени в одном namespace-контейнере - дубль.
+# CHECK: error: duplicate declaration 'ns::f'
+
+ns:: {
+    f():Int32 := { @return 1; };
+};
+ns:: {
+    f():Int32 := { @return 2; };
+};
+
+@main():Int32 := { @return 0; };

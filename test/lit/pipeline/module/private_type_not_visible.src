@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Private-тип модуля не виден импортёру.
+# CHECK: error: type 'Point' not found
+
+//--- main.src
+\lib(api);
+f(a:Point):Int32 := { @return 0; };
+@main():Int32 := { @return api(); };
+
+//--- lib.src
+\lib;
+__:: {
+    :Point ::= :Struct{ x:Int32 := _; };
+};
+api():Int32 := { @return 0; };

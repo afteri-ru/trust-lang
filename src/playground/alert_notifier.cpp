@@ -1,9 +1,9 @@
 // src/playground/alert_notifier.cpp
-// trust-playground: реализация AlertNotifier (см. include/playground/alert_notifier.h).
+// trust-playground: реализация AlertNotifier (см. include/playground/limits/alert_notifier.h).
 
-#include "playground/alert_notifier.h"
+#include "playground/limits/alert_notifier.h"
 
-#include "playground/util.h" // utcNowString
+#include "playground/server/util.h" // utcNowString
 
 #include <cstdio>
 #include <ctime>

@@ -1,0 +1,28 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/b -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# RUN: %trust -q --emit-cpp $TD/main.src > %t.cpp 2>&1
+# RUN: %FileCheck %s --check-prefix=CPP <%t.cpp
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/b/lib.hpp
+# CHECK: PASS
+# CPP: #include "lib.hpp"
+#
+# Forward-тип в интерфейсе: клиент получает только предварительное объявление
+# (`struct c_Handle;`), полное определение остаётся в единице трансляции владельца.
+# Клиент вправе использовать такой тип только за невладеющей ссылкой.
+# HDR: #pragma once
+# HDR: namespace lib {
+# HDR: struct c_Handle;
+# HDR-NOT: c_Handle {
+
+//--- main.src
+\lib(Handle);
+peek(h: @[reftype("ptr")@] Handle):Int32 := { @return 0; };
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib {
+    Handle ::= :Struct ...;
+};
+:Handle ::= :Struct{ id:Int32 := _; };

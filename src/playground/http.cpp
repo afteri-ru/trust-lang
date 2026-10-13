@@ -3,10 +3,10 @@
 // POST /run (Trust-код) → transpileToResult() → resultToJson() (контракт lsp/HTML.md).
 // Также HTTP-клиент (httpPost) для воркера и интеграционных тестов.
 
-#include "playground/http.h"
+#include "playground/http/http.h"
 
 #include "lsp/html_emit.h"
-#include "utils/transport.hpp"
+#include "utils/utils.hpp"
 
 #include <arpa/inet.h>
 #include <cerrno>
@@ -89,22 +89,6 @@ bool readWithTimeout(int fd, std::string& buf, int timeout_ms) {
             return false;
         }
     }
-}
-
-// Пишет весь буфер в fd (петля - защита от частичной записи большого тела).
-bool writeAll(int fd, const std::string& data) {
-    size_t off = 0;
-    while (off < data.size()) {
-        const ssize_t n = ::write(fd, data.data() + off, data.size() - off);
-        if (n <= 0) {
-            if (n < 0 && errno == EINTR) {
-                continue;
-            }
-            return false;
-        }
-        off += static_cast<size_t>(n);
-    }
-    return true;
 }
 
 } // namespace
@@ -319,7 +303,7 @@ HttpResult rawHttpPost(const UrlParts& url, const std::string& body, int timeout
     request += "Connection: close\r\n\r\n";
     request += body;
 
-    if (!writeAll(fd, request)) {
+    if (!utils::writeAllToFd(fd, request)) {
         ::close(fd);
         return res;
     }

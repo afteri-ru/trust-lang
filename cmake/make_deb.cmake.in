@@ -27,6 +27,13 @@ file(COPY "@CMAKE_BINARY_DIR@/trust-playground" DESTINATION "${_root}/usr/bin")
 # -- Runtime libraries (shared + static) --
 file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.so" DESTINATION "${_root}/usr/lib")
 file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.a" DESTINATION "${_root}/usr/lib")
+if(EXISTS "@CMAKE_BINARY_DIR@/libtensor_cpu.so")
+    file(COPY "@CMAKE_BINARY_DIR@/libtensor_cpu.so" DESTINATION "${_root}/usr/lib")
+endif()
+
+# -- Toolchain resource packages (share/trust/stdlib.trust) --
+# Located at run time relative to the executable: <prefix>/bin/trust -> <prefix>/share/trust.
+file(COPY "@CMAKE_BINARY_DIR@/share/trust" DESTINATION "${_root}/usr/share")
 
 # -- Bash completion (auto-loaded by bash-completion for the `trust` command) --
 file(COPY "@CMAKE_SOURCE_DIR@/include/pipeline/trust-completion.bash"

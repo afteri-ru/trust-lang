@@ -15,36 +15,37 @@ namespace {
 
 // TypeKind: Group(0-7) | Data/размерность(8-15). Значения групп - кодировка (ABI)
 // trust::TypedValue; здесь собраны виды, используемые в тестах словаря.
-// TypedValue хранит ПОЛНЫЙ TypeId (TypeKind в старших 32 битах) → оборачиваем makeTypeId.
-constexpr trust::TypeId kInt32 = trust::makeTypeId(3u | (32u << 8));
-constexpr trust::TypeId kFloat64 = trust::makeTypeId(5u | (64u << 8));
-constexpr trust::TypeId kBool = trust::makeTypeId(2u | (1u << 8));
-constexpr trust::TypeId kStrChar = trust::makeTypeId(9u | (1u << 8));
-constexpr trust::TypeId kDict = trust::makeTypeId(11u | (1u << 8));
-constexpr trust::TypeId kRational = trust::makeTypeId(8u | (1u << 8));
+// TypedValue хранит QualType; встроенные типы рантайма строятся как TypeId::fromKind (index = 0).
+constexpr trust::QualType kInt8 = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kIntegers, 8u)));
+constexpr trust::QualType kInt32 = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kIntegers, 32u)));
+constexpr trust::QualType kFloat64 = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kNumbers, 64u)));
+constexpr trust::QualType kBool = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kLogical, 1u)));
+constexpr trust::QualType kStrChar = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kStrChar, 1u)));
+constexpr trust::QualType kDict = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kDicts, 1u)));
+constexpr trust::QualType kRational = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kArbitraryPrecision, 1u)));
 
 TEST(DictTest, TypedValueKindDecode) {
     // Декодирование TypeKind методами TypedValue (группа/размерность/предикаты).
-    const TypedValue tvInt8{trust::makeTypeId(3u | (8u << 8)), int8_t(1)};
-    EXPECT_EQ(tvInt8.group(), 3u);
+    const TypedValue tvInt8{kInt8, int8_t(1)};
+    EXPECT_EQ(tvInt8.group(), trust::Group::kIntegers);
     EXPECT_EQ(tvInt8.data(), 8u);
     EXPECT_TRUE(tvInt8.isInteger());
     EXPECT_TRUE(tvInt8.isNumeric());
     EXPECT_FALSE(tvInt8.isString());
 
-    const TypedValue tvBool{trust::makeTypeId(2u | (1u << 8)), true};
+    const TypedValue tvBool{kBool, true};
     EXPECT_TRUE(tvBool.isBool());
     EXPECT_FALSE(tvBool.isNumeric()); // Bool - логическая группа, не арифметическая
 
-    const TypedValue tvStr{trust::makeTypeId(9u | (1u << 8)), std::string("x")};
+    const TypedValue tvStr{kStrChar, std::string("x")};
     EXPECT_TRUE(tvStr.isStrChar());
     EXPECT_TRUE(tvStr.isString());
 
-    const TypedValue tvF{trust::makeTypeId(5u | (64u << 8)), 1.0};
+    const TypedValue tvF{kFloat64, 1.0};
     EXPECT_TRUE(tvF.isFloat());
     EXPECT_TRUE(tvF.isNumeric());
 
-    const TypedValue tvDict{trust::makeTypeId(11u | (1u << 8)), Dict{}};
+    const TypedValue tvDict{kDict, Dict{}};
     EXPECT_TRUE(tvDict.isDict());
 }
 
@@ -207,6 +208,41 @@ TEST(DictTest, PopFront) {
     d.pop_front();
     EXPECT_TRUE(d.empty());
     EXPECT_THROW(d.pop_front(), std::out_of_range);
+}
+
+TEST(DictTest, RuntimeStateLayoutMatchesCompilerLayout) {
+    // Byte-aligned: registry_index - 24 бита, state-байт - 24..31. Layout общий для компилятора и
+    // рантайма (единственный заголовок trust/type_state.hpp), здесь фиксируется ABI-значение.
+    EXPECT_EQ(trust::kTypeIndexMask, 0x00FFFFFFu);
+    EXPECT_EQ(trust::kQualifierMask, 0xFF000000ull);
+    EXPECT_EQ(trust::kConstFlag, 0x40000000ull);
+    EXPECT_EQ(trust::kInferredFlag, 0x80000000ull);
+
+    const trust::TypeId maxIndex = trust::TypeId::fromParts(0u, trust::kMaxTypeIndex);
+    EXPECT_EQ(trust::getRegistryIndex(maxIndex), trust::kMaxTypeIndex);
+    EXPECT_EQ(trust::getUnqualifiedType(trust::TypeId::fromRaw(maxIndex.raw() | trust::kQualifierMask)), maxIndex);
+}
+
+TEST(DictTest, StateFlagsDoNotAffectValueEquality) {
+    // TypedValue несёт QualType (identity + квалификаторы), но равенство — по identity:
+    // const/inferred не создают новый тип и не влияют на сравнение элементов словаря.
+    const trust::QualType plain = kInt32;
+    const trust::QualType qualified = plain.withConst().withInferred();
+
+    const TypedValue a{plain, 1};
+    const TypedValue b{qualified, 1};
+    EXPECT_FALSE(a.type.isConst());
+    EXPECT_TRUE(b.type.isConst());
+    EXPECT_TRUE(b.type.isInferred());
+    EXPECT_EQ(a.type.getTypeId(), b.type.getTypeId());
+
+    const Dict left{{"x", a}};
+    const Dict right{{"x", b}};
+    EXPECT_TRUE(left == right);
+
+    // Разные identity (Int32 vs Int64) — разные значения, даже при совпадающей полезной нагрузке.
+    const Dict other{{"x", TypedValue{trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kIntegers, 64u))), 1}}};
+    EXPECT_FALSE(left == other);
 }
 
 TEST(DictTest, ToAnyNaturalType) {

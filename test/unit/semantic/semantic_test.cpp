@@ -1,4 +1,8 @@
 #include "semantic/semantic_test_fixture.hpp"
+#include "ir/hir_module.hpp"
+#include "semantic/ref/definite_assignment.hpp"
+#include "semantic/diag.hpp"
+#include "../types/type_flag_test_utils.hpp"
 
 namespace trust {
 TEST_F(SemanticTest, VarDeclSimple) {
@@ -21,6 +25,87 @@ TEST_F(SemanticTest, VarDeclSimple) {
     ASSERT_NE(sym->decl, nullptr);
     EXPECT_EQ(sym->decl->kind(), ParserToken::Kind::VarDecl);
     EXPECT_TRUE(static_cast<const VarDecl&>(*sym->decl).m_initializer != nullptr);
+}
+
+// Разрешённый тип аннотации — материализованный факт анализа: семантика записывает его в узел
+// (`IdentName::resolvedTypeId`), клон HIR наследует поле, и кодоген рендерит тип БЕЗ таблицы
+// символов/повторного резолва имени.
+TEST_F(SemanticTest, AnnotationTypeMaterializedForBackend) {
+    auto term = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
+    auto typeNode = std::make_shared<IdentType>("Int32");
+    IdentType* typePtr = typeNode.get();
+    auto var = std::make_shared<VarDecl>(std::move(term), std::move(typeNode), std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5"));
+
+    std::vector<AstNodePtr> seq;
+    seq.push_back(std::move(var));
+
+    SemanticPassRunner runner(m_ctx);
+    ASSERT_TRUE(runner.run(seq));
+    ASSERT_TRUE(typePtr->resolvedTypeId.isValid()) << "semantic analysis must materialize the annotation type on the node";
+    const auto int32 = m_ctx.readTypes().findType("Int32");
+    ASSERT_TRUE(int32.has_value());
+    EXPECT_EQ(typePtr->resolvedTypeId, *int32);
+
+    HirModule hir = buildHir(seq, m_ctx);
+    ASSERT_EQ(hir.size(), 1u);
+    const auto& hirVar = static_cast<const VarDecl&>(*hir.nodes()[0]);
+    ASSERT_NE(hirVar.m_type, nullptr);
+    const auto* hirType = hirVar.m_type->as<IdentType>();
+    ASSERT_NE(hirType, nullptr);
+    EXPECT_EQ(hirType->resolvedTypeId, *int32) << "HIR clone must inherit the materialized fact";
+}
+
+// Имя объявления типа и база алиаса — материализованные тип-имена (`IdentName::resolvedTypeId`):
+// кодоген не резолвит их в реестре.
+TEST_F(SemanticTest, TypeNameIdentMaterializedForBackend) {
+    auto declName = std::make_shared<IdentName>("MyInt");
+    auto base = std::make_shared<IdentType>("Int32");
+    auto decl = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, declName, base);
+
+    auto aliasBase = std::make_shared<IdentName>("MyInt");
+    auto aliasName = std::make_shared<IdentName>("Big");
+    auto alias = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, aliasName, aliasBase);
+
+    std::vector<AstNodePtr> seq;
+    seq.push_back(decl);
+    seq.push_back(alias);
+
+    SemanticPassRunner runner(m_ctx);
+    ASSERT_TRUE(runner.run(seq));
+    const auto myInt = m_ctx.readTypes().findType("MyInt");
+    ASSERT_TRUE(myInt.has_value());
+    ASSERT_TRUE(declName->isTypeName());
+    EXPECT_EQ(declName->resolvedTypeId, *myInt);
+    ASSERT_TRUE(base->resolvedTypeId.isValid()) << "annotation type must be materialized";
+    ASSERT_TRUE(aliasBase->isTypeName()) << "alias base denotes a type";
+    EXPECT_EQ(aliasBase->resolvedTypeId, *myInt);
+    const auto big = m_ctx.readTypes().findType("Big");
+    ASSERT_TRUE(big.has_value());
+    ASSERT_TRUE(aliasName->isTypeName());
+    EXPECT_EQ(aliasName->resolvedTypeId, *big);
+}
+
+// Кэш типов выражений хранит ПОЛНОЕ type-state (identity + inferred), а `exprType` отдаёт
+// identity-проекцию: derived-квалификаторы не теряются в кэше (аналог QualType в Expr у Clang).
+TEST_F(SemanticTest, ExprStateKeepsInferredQualifier) {
+    auto term = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
+    auto init = std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42");
+    AstNodeBase* initPtr = init.get();
+    auto var = std::make_shared<VarDecl>(std::move(term), nullptr, std::move(init));
+
+    std::vector<AstNodePtr> seq;
+    seq.push_back(std::move(var));
+
+    SemanticPassRunner runner(m_ctx);
+    ASSERT_TRUE(runner.run(seq));
+
+    const QualType st = runner.analysis().facts().exprState(*initPtr);
+    EXPECT_TRUE(st.isInferred());
+    EXPECT_NE(st.getTypeId(), INVALID_TYPE_ID);
+    // exprType отдаёт IDENTITY (state-биты снимаются); полное состояние - exprState.
+    EXPECT_EQ(runner.analysis().facts().exprType(*initPtr), st.getTypeId());
+    // identity-проекция - через fromTypeId.
+    EXPECT_EQ(QualType::fromTypeId(runner.analysis().facts().exprType(*initPtr)).getTypeId(), st.getTypeId());
 }
 
 // @[reftype("shared")] на аннотации ТИПА (`x : @[reftype("shared")@] Int32`) устанавливает вид
@@ -46,16 +131,16 @@ TEST_F(SemanticTest, VarDeclReftypeSetsRefType) {
 
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
-    ASSERT_NE(sym->type, INVALID_TYPE_ID);
-    EXPECT_EQ(getRefType(getKindFromId(sym->type)), RefType::kShared);
+    ASSERT_NE(sym->type.getTypeId(), INVALID_TYPE_ID);
+    EXPECT_EQ(getRefType(getTypeKind(sym->type.getTypeId())), RefType::kShared);
 }
 
 // Проверка утверждений: runtime-символы (trust::trust__abort__ / trust::formatMessage)
-// зарегистрированы в TypeRegistry - это база для распознавания их вызовов
+// зарегистрированы в TypeSystem - это база для распознавания их вызовов
 // (%trust::trust__abort__ и т.п.) как известных нативных функций (не «undefined name»).
 TEST_F(SemanticTest, RuntimeSymbolsRegistered) {
     std::set<std::string> names;
-    for (const auto& rs : m_ctx.types().runtimeSymbols()) {
+    for (const auto& rs : m_ctx.readTypes().builtins().runtimeSymbols()) {
         names.insert(rs.symbol);
     }
     EXPECT_NE(names.find("trust::trust__abort__"), names.end());
@@ -76,14 +161,14 @@ TEST_F(SemanticTest, RangeExprElementTypeJoin) {
     ASSERT_TRUE(runner.run(seq));
 
     // Элементный тип диапазона - Int64 (join двух Int-литералов).
-    EXPECT_EQ(rng->elementType, m_ctx.types().getType(type::Int64));
+    EXPECT_EQ(rng->elementType.getTypeId(), m_ctx.readTypes().getType(type::Int64));
     // Тип переменной - структурный Range<Int64> (не абстрактный :Range).
     auto* sym = runner.analysis().symbols().resolve("r");
     ASSERT_NE(sym, nullptr);
-    const TypeId expected = m_ctx.types().getOrCreateRangeType(m_ctx.types().getType(type::Int64));
-    EXPECT_EQ(m_ctx.types().getCanonicalTypeId(sym->type), expected);
-    EXPECT_TRUE(m_ctx.types().isRangeType(expected));
-    EXPECT_EQ(m_ctx.types().rangeElementType(expected), m_ctx.types().getType(type::Int64));
+    const TypeId expected = m_ctx.types().interner().getOrCreateRangeType(m_ctx.readTypes().getType(type::Int64));
+    EXPECT_EQ(m_ctx.readTypes().store().desugaredTypeId(sym->type.getTypeId()), expected);
+    EXPECT_TRUE(m_ctx.readTypes().store().isRangeType(expected));
+    EXPECT_EQ(m_ctx.readTypes().store().rangeElementType(expected), m_ctx.readTypes().getType(type::Int64));
 }
 
 TEST_F(SemanticTest, DupDeclError) {
@@ -167,7 +252,7 @@ TEST_F(SemanticTest, LiteralStandalone) {
 
 // Helper: Color ::= :Enum(RED=1, GREEN=2,) - TypeDecl(left=Ident, right=DictLiteral с аннотацией «Enum»).
 static std::shared_ptr<Binary> makeEnumTypeDecl(const char* name, std::initializer_list<std::pair<const char*, const char*>> ms) {
-    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
+    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral);
     dict->m_type = std::make_shared<IdentType>(std::string("Enum"));
     for (const auto& [mname, mval] : ms) {
         dict->m_body.push_back(
@@ -188,20 +273,20 @@ TEST_F(SemanticTest, EnumDeclRegistersType) {
     EXPECT_TRUE(ok);
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
-    auto tid = m_types->findType("Color");
+    auto tid = m_types->read().findType("Color");
     ASSERT_TRUE(tid.has_value());
     EXPECT_TRUE(isEnumType(*tid, *m_types));
-    const auto* ed = m_types->getTypeDataAs<EnumTypeData>(*tid);
+    const auto* ed = m_types->read().store().getTypeDataAs<EnumTypeData>(*tid);
     ASSERT_NE(ed, nullptr);
     EXPECT_EQ(ed->members.size(), 2u);
     EXPECT_EQ(ed->members[0].name, "RED");
     EXPECT_EQ(ed->members[1].name, "GREEN");
     // Тип значений по СТАНДАРТНЫМ правилам: 1→Int8, 2→Int8 → valueType Int8.
-    EXPECT_EQ(m_types->getCanonicalTypeId(ed->valueType), m_types->getType(type::Int8));
+    EXPECT_EQ(m_types->read().store().desugaredTypeId(ed->valueType), m_types->read().getType(type::Int8));
     // Классические методы зарегистрированы (резолвятся семантикой): count/fromName/fromValue.
     const auto hasMethod = [&](std::string_view n) {
-        const auto m = m_types->findMethodInfo(*tid, n);
-        return m.has_value() && !m->signatures.empty();
+        const auto m = m_types->read().methods().findMethodInfo(*tid, n);
+        return m.has_value() && !m->entries.empty();
     };
     EXPECT_TRUE(hasMethod("count"));
     EXPECT_TRUE(hasMethod("fromName"));
@@ -245,7 +330,7 @@ TEST_F(SemanticTest, EnumMemberAccessResolvesToEnumType) {
 TEST_F(SemanticTest, VariantDeclRegistersType) {
     // Value ::= :Variant(RED=5, GREEN='g',) → TypeDecl+DictLiteral(аннотация Variant).
     // Каждый член имеет СВОЙ тип (Int8 и StrChar) - гетерогенный вариант.
-    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
+    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral);
     dict->m_type = std::make_shared<IdentType>(std::string("Variant"));
     dict->m_body.push_back(std::make_shared<ArgNode>(std::string("RED"), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5")));
     dict->m_body.push_back(std::make_shared<ArgNode>(std::string("GREEN"), nullptr, std::make_shared<Literal>(ParserToken::Kind::StrChar, "g")));
@@ -258,22 +343,22 @@ TEST_F(SemanticTest, VariantDeclRegistersType) {
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
-    auto tid = m_types->findType("Value");
+    auto tid = m_types->read().findType("Value");
     ASSERT_TRUE(tid.has_value());
     EXPECT_TRUE(isVariantType(*tid, *m_types));
-    const auto* vd = m_types->getTypeDataAs<VariantTypeData>(*tid);
+    const auto* vd = m_types->read().store().getTypeDataAs<VariantTypeData>(*tid);
     ASSERT_NE(vd, nullptr);
     ASSERT_EQ(vd->members.size(), 2u);
     EXPECT_EQ(vd->members[0].name, "RED");
-    EXPECT_EQ(m_types->getCanonicalTypeId(vd->members[0].type), m_types->getType(type::Int8));
+    EXPECT_EQ(m_types->read().store().desugaredTypeId(vd->members[0].type), m_types->read().getType(type::Int8));
     EXPECT_EQ(vd->members[1].name, "GREEN");
-    EXPECT_EQ(m_types->getCanonicalTypeId(vd->members[1].type), m_types->getType(type::StrChar));
+    EXPECT_EQ(m_types->read().store().desugaredTypeId(vd->members[1].type), m_types->read().getType(type::StrChar));
 }
 
 TEST_F(SemanticTest, VariantUnknownMemberTypeReportsError) {
     // Value ::= :Variant(OK=5, BAD:NonExistentType,) - явный тип члена не резолвится → ОШИБКА
     // «unknown member type» (симметрично enum), а не тихий fallback на тип из значения/ординал.
-    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
+    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral);
     dict->m_type = std::make_shared<IdentType>(std::string("Variant"));
     dict->m_body.push_back(std::make_shared<ArgNode>(std::string("OK"), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5")));
     // Явный тип `BAD:NonExistentType` - тип в ArgNode.m_type (без обёртки значения).
@@ -326,16 +411,16 @@ TEST_F(SemanticTest, StructDeclRegistersPodRecord) {
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
-    auto tid = m_types->findType("Point");
+    auto tid = m_types->read().findType("Point");
     ASSERT_TRUE(tid.has_value());
-    EXPECT_TRUE(m_types->isStructType(*tid));
-    EXPECT_FALSE(m_types->isClassType(*tid));
-    const auto* rd = m_types->recordData(*tid);
+    EXPECT_TRUE(m_types->read().store().isStructType(*tid));
+    EXPECT_FALSE(m_types->read().store().isClassType(*tid));
+    const auto* rd = m_types->read().store().recordData(*tid);
     ASSERT_NE(rd, nullptr);
     ASSERT_EQ(rd->fields.size(), 2u);
     EXPECT_EQ(rd->fields[0].name, "x");
-    EXPECT_EQ(m_types->getCanonicalTypeId(rd->fields[0].type), m_types->getType(type::Int32));
-    EXPECT_TRUE(m_types->baseClasses(*tid).empty());
+    EXPECT_EQ(m_types->read().store().desugaredTypeId(rd->fields[0].type.getTypeId()), m_types->read().getType(type::Int32));
+    EXPECT_TRUE(m_types->read().store().baseClasses(*tid).empty());
 }
 
 TEST_F(SemanticTest, StructFieldWithDefaultIsError) {
@@ -358,17 +443,17 @@ TEST_F(SemanticTest, ClassDeclRegistersAndInherits) {
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
-    auto animal = m_types->findType("Animal");
-    auto dog = m_types->findType("Dog");
+    auto animal = m_types->read().findType("Animal");
+    auto dog = m_types->read().findType("Dog");
     ASSERT_TRUE(animal.has_value());
     ASSERT_TRUE(dog.has_value());
-    EXPECT_TRUE(m_types->isClassType(*dog));
-    EXPECT_FALSE(m_types->isStructType(*dog));
-    ASSERT_EQ(m_types->baseClasses(*dog).size(), 1u);
-    EXPECT_EQ(m_types->getCanonicalTypeId(m_types->baseClasses(*dog)[0]), m_types->getCanonicalTypeId(*animal));
-    EXPECT_NE(m_types->findField(*dog, "name"), INVALID_TYPE_ID); // унаследованное поле
-    EXPECT_NE(m_types->findField(*dog, "age"), INVALID_TYPE_ID);
-    EXPECT_EQ(m_types->findField(*dog, "missing"), INVALID_TYPE_ID);
+    EXPECT_TRUE(m_types->read().store().isClassType(*dog));
+    EXPECT_FALSE(m_types->read().store().isStructType(*dog));
+    ASSERT_EQ(m_types->read().store().baseClasses(*dog).size(), 1u);
+    EXPECT_EQ(m_types->read().store().desugaredTypeId(m_types->read().store().baseClasses(*dog)[0]), m_types->read().store().desugaredTypeId(*animal));
+    EXPECT_TRUE(m_types->read().store().findField(*dog, "name").isValid()); // унаследованное поле
+    EXPECT_TRUE(m_types->read().store().findField(*dog, "age").isValid());
+    EXPECT_FALSE(m_types->read().store().findField(*dog, "missing").isValid());
 }
 
 TEST_F(SemanticTest, ClassFieldMayBeUninitialized) {
@@ -396,7 +481,7 @@ TEST_F(SemanticTest, StructCannotInherit) {
 TEST_F(SemanticTest, EnumTypedAndBareMembersViaArgNode) {
     // Flag ::= (LOW:Int8, HIGH,):Enum - явный тип члена (ArgNode.m_type) + безнарный член
     // (имя в value-Ident). Проверяет каноническое чтение членов из ArgNode (enumVariantMember).
-    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
+    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral);
     dict->m_type = std::make_shared<IdentType>(std::string("Enum"));
     // LOW:Int8 - безнарный типизированный член: имя в value-Ident, тип в m_type.
     dict->m_body.push_back(
@@ -412,16 +497,16 @@ TEST_F(SemanticTest, EnumTypedAndBareMembersViaArgNode) {
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
-    auto tid = m_types->findType("Flag");
+    auto tid = m_types->read().findType("Flag");
     ASSERT_TRUE(tid.has_value());
     EXPECT_TRUE(isEnumType(*tid, *m_types));
-    const auto* ed = m_types->getTypeDataAs<EnumTypeData>(*tid);
+    const auto* ed = m_types->read().store().getTypeDataAs<EnumTypeData>(*tid);
     ASSERT_NE(ed, nullptr);
     ASSERT_EQ(ed->members.size(), 2u);
     EXPECT_EQ(ed->members[0].name, "LOW");
     EXPECT_EQ(ed->members[1].name, "HIGH");
     // Явный тип члена LOW:Int8 задаёт единый тип значений.
-    EXPECT_EQ(m_types->getCanonicalTypeId(ed->valueType), m_types->getType(type::Int8));
+    EXPECT_EQ(m_types->read().store().desugaredTypeId(ed->valueType), m_types->read().getType(type::Int8));
 }
 
 TEST_F(SemanticTest, ForwardVarDecl) {
@@ -434,7 +519,7 @@ TEST_F(SemanticTest, ForwardVarDecl) {
     EXPECT_TRUE(runner.run(seq));
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
-    EXPECT_NE(sym->type, INVALID_TYPE_ID);
+    EXPECT_NE(sym->type.getTypeId(), INVALID_TYPE_ID);
     ASSERT_NE(sym->decl, nullptr);
     EXPECT_EQ(sym->decl->kind(), ParserToken::Kind::VarDecl);
     EXPECT_FALSE(static_cast<const VarDecl&>(*sym->decl).m_initializer) << "forward-переменная без инициализатора";
@@ -530,17 +615,17 @@ TEST_F(SemanticTest, TypeAliasBoundInScopeAndResolvable) {
     ASSERT_TRUE(runner.run(seq));
 
     // Алиас зарегистрирован в реестре и связан в скоуп-стеке.
-    auto y_id = m_ctx.types().findType("y");
+    auto y_id = m_ctx.readTypes().findType("y");
     ASSERT_TRUE(y_id.has_value());
     const Symbol* ys = runner.analysis().symbols().resolve("y");
     ASSERT_NE(ys, nullptr);
-    EXPECT_EQ(ys->type, *y_id);
-    EXPECT_EQ(m_ctx.types().getCanonicalTypeId(*y_id), m_ctx.types().findType("Int32").value());
+    EXPECT_EQ(ys->type.getTypeId(), *y_id);
+    EXPECT_EQ(m_ctx.readTypes().store().desugaredTypeId(*y_id), m_ctx.readTypes().findType("Int32").value());
 
     // Переменная, аннотированная y, получила тип алиаса (единый резолв через скоуп).
     const Symbol* xs = runner.analysis().symbols().resolve("x");
     ASSERT_NE(xs, nullptr);
-    EXPECT_EQ(xs->type, *y_id);
+    EXPECT_EQ(xs->type.getTypeId(), *y_id);
 }
 
 TEST_F(SemanticTest, TypeAliasCollidesWithVar) {
@@ -561,7 +646,7 @@ TEST_F(SemanticTest, TypeAliasCollidesWithVar) {
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
 
-TEST_F(SemanticTest, TypeRegistryResetPerRun) {
+TEST_F(SemanticTest, TypeSystemResetPerRun) {
     // y ::= Int32; - первый run регистрирует алиас в реестре.
     auto opTerm = Term::Create(TermID::CREATE_TYPE, "::=", {}, parser::token_type::END);
     auto typeDecl = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::move(opTerm));
@@ -573,18 +658,19 @@ TEST_F(SemanticTest, TypeRegistryResetPerRun) {
 
     SemanticPassRunner r1(m_ctx);
     ASSERT_TRUE(r1.run(seq));
-    ASSERT_TRUE(m_ctx.types().findType("y").has_value());
+    ASSERT_TRUE(m_ctx.readTypes().findType("y").has_value());
 
     // Второй run сбрасывает реестр к builtin-состоянию (упорядоченный жизненный цикл).
     SemanticPassRunner r2(m_ctx);
     std::vector<AstNodePtr> empty;
     ASSERT_TRUE(r2.run(empty));
-    EXPECT_FALSE(m_ctx.types().findType("y").has_value());
+    EXPECT_FALSE(m_ctx.readTypes().findType("y").has_value());
 }
 
 TEST_F(SemanticTest, LoweringWrapsSemicolonStmt) {
-    // x += 3 → после analyze() обёрнут в SemicolonStmt: решение о ';' для statement-выражений
-    // зашивается в AST анализатором (lowering), а не выводится транспилятором из контекста.
+    // x += 3 → в HIR (клон AST + lowering) обёрнут в SemicolonStmt: решение о ';' для
+    // statement-выражений зашивается при построении HIR, а не выводится транспилятором.
+    // Исходная AST при этом остаётся неизменённой (lowering не мутирует вход анализа).
     MapperFile input_file = m_ctx.source().add_source("low.src", "x := 0; x += 3;", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 9), m_ctx.source().makeLoc(input_file, 16));
 
@@ -603,11 +689,16 @@ TEST_F(SemanticTest, LoweringWrapsSemicolonStmt) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    // После lowering: [VarDecl x, SemicolonStmt(AssignOp)] - statement-выражение обёрнуто в SemicolonStmt.
-    ASSERT_EQ(seq.size(), 2u);
-    ASSERT_EQ(seq[0]->kind(), ParserToken::Kind::VarDecl);
-    ASSERT_EQ(seq[1]->kind(), ParserToken::Kind::SemicolonStmt);
-    auto* es = static_cast<SemicolonStmt*>(seq[1].get());
+    // Lowering выполняется при построении HIR (клон AST + lowering): сама AST остаётся неизменённой,
+    // производная форма строится отдельно.
+    HirModule hir = buildHir(seq, m_ctx);
+    ASSERT_EQ(hir.size(), 2u);
+    const auto& out = hir.nodes();
+    ASSERT_EQ(out[0]->kind(), ParserToken::Kind::VarDecl);
+    ASSERT_EQ(out[1]->kind(), ParserToken::Kind::SemicolonStmt);
+    // Исходная AST не содержит синтетики: lowering в неё не пишет.
+    EXPECT_EQ(seq[1]->kind(), ParserToken::Kind::AssignOp);
+    auto* es = static_cast<SemicolonStmt*>(out[1].get());
     ASSERT_NE(es->m_expr, nullptr);
     EXPECT_EQ(es->m_expr->kind(), ParserToken::Kind::AssignOp);
 }
@@ -670,17 +761,17 @@ TEST_F(SemanticTest, DictFieldTypeInference) {
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
-    const TypeId int8 = m_types->findType(type::Int8).value_or(INVALID_TYPE_ID);
+    const TypeId int8 = m_types->read().findType(type::Int8).value_or(INVALID_TYPE_ID);
     // d.two → Int8; d[0] → Int8 (элемент 0 - `1` → Int8).
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType, int8);
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[2]).inferredType, int8);
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType.getTypeId(), int8);
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[2]).inferredType.getTypeId(), int8);
     // На символе d: размерность и типы полей.
     const Symbol* dSym = runner.analysis().symbols().resolve("d");
     ASSERT_NE(dSym, nullptr);
     EXPECT_EQ(dSym->dims, 3);
     ASSERT_EQ(dSym->dictFieldTypes.size(), 3u);
     EXPECT_EQ(dSym->dictFieldTypes[1].first, "two");
-    EXPECT_EQ(clearFlag(dSym->dictFieldTypes[1].second, SymbolFlag::Inferred), int8);
+    EXPECT_EQ(clearFlag(dSym->dictFieldTypes[1].second.getTypeId(), TypeFlag::Inferred), int8);
 }
 
 TEST_F(SemanticTest, DictAppendSpreadLiteral) {
@@ -715,15 +806,15 @@ TEST_F(SemanticTest, DictAppendSpreadLiteral) {
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
-    const TypeId int8 = m_types->findType(type::Int8).value_or(INVALID_TYPE_ID);
+    const TypeId int8 = m_types->read().findType(type::Int8).value_or(INVALID_TYPE_ID);
     const Symbol* dSym = runner.analysis().symbols().resolve("d");
     ASSERT_NE(dSym, nullptr);
     EXPECT_EQ(dSym->dims, 4);
     ASSERT_EQ(dSym->dictFieldTypes.size(), 4u);
     EXPECT_EQ(dSym->dictFieldTypes[2].first, "three");
-    EXPECT_EQ(clearFlag(dSym->dictFieldTypes[2].second, SymbolFlag::Inferred), int8);
+    EXPECT_EQ(clearFlag(dSym->dictFieldTypes[2].second.getTypeId(), TypeFlag::Inferred), int8);
     EXPECT_EQ(dSym->dictFieldTypes[3].first, "");
-    EXPECT_EQ(clearFlag(dSym->dictFieldTypes[3].second, SymbolFlag::Inferred), int8);
+    EXPECT_EQ(clearFlag(dSym->dictFieldTypes[3].second.getTypeId(), TypeFlag::Inferred), int8);
 }
 
 TEST_F(SemanticTest, DictAppendSpreadVar) {
@@ -773,8 +864,8 @@ TEST_F(SemanticTest, LoweringRewritesNamedBreakToGoto) {
     auto funcTerm = Term::Create(TermID::NAME, "%f", {}, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
 
-    // Именованный break: L:: ++ (BreakStmt с label L).
-    auto breakTerm = Term::Create(TermID::INT_PLUS, "L::");
+    // Именованный break: L:: |>| (BreakStmt с label L).
+    auto breakTerm = Term::Create(TermID::INT_BREAK, "L::");
     auto breakStmt = std::make_shared<JumpStmt>(ParserToken::Kind::BreakStmt, std::move(breakTerm));
 
     func->m_body = std::vector<AstNodePtr>{std::move(breakStmt)};
@@ -785,13 +876,15 @@ TEST_F(SemanticTest, LoweringRewritesNamedBreakToGoto) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    // Тело функции: [BreakStmt] → после lowering именованный break стал GotoStmt (LabelRef).
-    auto* fd = static_cast<FuncDecl*>(seq[0].get());
+    // Тело функции в HIR: [BreakStmt] → именованный break стал GotoStmt (LabelRef).
+    HirModule hir = buildHir(seq, m_ctx);
+    ASSERT_EQ(hir.size(), 1u);
+    auto* fd = static_cast<FuncDecl*>(hir.nodes()[0].get());
     ASSERT_TRUE(fd->m_body.has_value());
     ASSERT_EQ(fd->m_body->size(), 1u);
     ASSERT_EQ((*fd->m_body)[0]->kind(), ParserToken::Kind::GotoStmt);
     auto* gs = static_cast<LabelRef*>((*fd->m_body)[0].get());
-    EXPECT_EQ(gs->m_name, "L_break");
+    EXPECT_EQ(requiredText(*gs), "L_break");
 }
 
 // -- Опциональный анализатор LintHook (управляется флагом semantic::FlagKind::Lint) --
@@ -853,7 +946,7 @@ TEST_F(SemanticTest, LintUnusedVarInModule) {
 
     auto t = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(t), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
-    auto mod = std::make_shared<ModuleNode>(0u, "m");
+    auto mod = std::make_shared<ModuleNode>(ModuleIndex{0}, "m");
     mod->m_body = std::vector<AstNodePtr>{std::move(var)};
 
     std::vector<AstNodePtr> seq;
@@ -905,7 +998,7 @@ TEST_F(SemanticTest, ContextMacroNamespaceStringified) {
     const auto& v = static_cast<const VarDecl&>(*seq[0]->as_sequence()->m_body[0]);
     ASSERT_NE(v.m_initializer, nullptr);
     EXPECT_EQ(v.m_initializer->kind(), ParserToken::Kind::StrChar);
-    EXPECT_EQ(v.m_initializer->text(), "::ns::");
+    EXPECT_EQ(requiredText(*v.m_initializer), "::ns::");
 }
 
 TEST_F(SemanticTest, ContextMacroFuncSigAlwaysString) {
@@ -926,7 +1019,7 @@ TEST_F(SemanticTest, ContextMacroFuncSigAlwaysString) {
     const auto& v = static_cast<const VarDecl&>(*fd.m_body->at(0));
     ASSERT_NE(v.m_initializer, nullptr);
     EXPECT_EQ(v.m_initializer->kind(), ParserToken::Kind::StrChar);
-    EXPECT_EQ(v.m_initializer->text(), "f():Void");
+    EXPECT_EQ(requiredText(*v.m_initializer), "f():Void");
 }
 
 TEST_F(SemanticTest, ContextMacroFuncOutsideFunctionError) {
@@ -1024,13 +1117,13 @@ TEST_F(SemanticTest, InferredLiteralType) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    const TypeId int8 = m_types->findType(type::Int8).value_or(INVALID_TYPE_ID);
+    const TypeId int8 = m_types->read().findType(type::Int8).value_or(INVALID_TYPE_ID);
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
-    EXPECT_TRUE(testFlag(sym->type, SymbolFlag::Inferred));
-    EXPECT_EQ(clearFlag(sym->type, SymbolFlag::Inferred), int8);
+    EXPECT_TRUE(sym->type.isInferred());
+    EXPECT_EQ(sym->type.getTypeId(), int8);
     // Выведенный тип записан на узле объявления - для кодогенерации после сброса скоуп-стека.
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType, int8);
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType.getTypeId(), int8);
 }
 
 TEST_F(SemanticTest, InferredWideningByAssignment) {
@@ -1050,12 +1143,12 @@ TEST_F(SemanticTest, InferredWideningByAssignment) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    const TypeId int16 = m_types->findType(type::Int16).value_or(INVALID_TYPE_ID);
+    const TypeId int16 = m_types->read().findType(type::Int16).value_or(INVALID_TYPE_ID);
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
-    EXPECT_TRUE(testFlag(sym->type, SymbolFlag::Inferred));
-    EXPECT_EQ(clearFlag(sym->type, SymbolFlag::Inferred), int16);
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType, int16);
+    EXPECT_TRUE(sym->type.isInferred());
+    EXPECT_EQ(sym->type.getTypeId(), int16);
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType.getTypeId(), int16);
 }
 
 TEST_F(SemanticTest, InferredIntWidenedByCompoundArith) {
@@ -1075,12 +1168,12 @@ TEST_F(SemanticTest, InferredIntWidenedByCompoundArith) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    const TypeId int32 = m_types->findType(type::Int32).value_or(INVALID_TYPE_ID);
+    const TypeId int32 = m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID);
     auto* sym = runner.analysis().symbols().resolve("mult");
     ASSERT_NE(sym, nullptr);
-    EXPECT_TRUE(testFlag(sym->type, SymbolFlag::Inferred));
-    EXPECT_EQ(clearFlag(sym->type, SymbolFlag::Inferred), int32);
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType, int32);
+    EXPECT_TRUE(sym->type.isInferred());
+    EXPECT_EQ(sym->type.getTypeId(), int32);
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType.getTypeId(), int32);
 }
 
 TEST_F(SemanticTest, ExplicitBoolNotWidenedByCompoundArith) {
@@ -1122,7 +1215,7 @@ TEST_F(SemanticTest, ExpressionResultTypeCppPromotion) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType, m_types->findType(type::Int32).value_or(INVALID_TYPE_ID));
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType.getTypeId(), m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID));
 }
 
 TEST_F(SemanticTest, ExplicitTypeNotWidened) {
@@ -1142,11 +1235,11 @@ TEST_F(SemanticTest, ExplicitTypeNotWidened) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    const TypeId int32 = m_types->findType(type::Int32).value_or(INVALID_TYPE_ID);
+    const TypeId int32 = m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID);
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
-    EXPECT_FALSE(testFlag(sym->type, SymbolFlag::Inferred));
-    EXPECT_EQ(sym->type, int32); // явный тип - структурный, без бита inferred
+    EXPECT_FALSE(sym->type.isInferred());
+    EXPECT_EQ(sym->type.getTypeId(), int32); // явный тип - структурный, без бита inferred
 }
 
 // -- Константность (kConstFlag) на переменных ('^' → attr::ReadOnly) --
@@ -1162,12 +1255,12 @@ TEST_F(SemanticTest, ReadOnlyVarSetsConstBitTyped) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    const TypeId int32 = m_types->findType(type::Int32).value_or(INVALID_TYPE_ID);
+    const TypeId int32 = m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID);
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
-    EXPECT_TRUE(testFlag(sym->type, SymbolFlag::Const));
-    EXPECT_EQ(clearFlag(sym->type, SymbolFlag::Const), int32);
-    EXPECT_FALSE(testFlag(sym->type, SymbolFlag::Inferred)); // явный тип - без бита inferred
+    EXPECT_TRUE(sym->type.isConst());
+    EXPECT_EQ(sym->type.getTypeId(), int32);
+    EXPECT_FALSE(sym->type.isInferred()); // явный тип - без бита inferred
 }
 
 TEST_F(SemanticTest, ReadOnlyVarSetsConstBitUntyped) {
@@ -1181,14 +1274,14 @@ TEST_F(SemanticTest, ReadOnlyVarSetsConstBitUntyped) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    const TypeId int8 = m_types->findType(type::Int8).value_or(INVALID_TYPE_ID);
+    const TypeId int8 = m_types->read().findType(type::Int8).value_or(INVALID_TYPE_ID);
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
-    EXPECT_TRUE(testFlag(sym->type, SymbolFlag::Const));
-    EXPECT_TRUE(testFlag(sym->type, SymbolFlag::Inferred));
-    EXPECT_EQ(clearFlag(clearFlag(sym->type, SymbolFlag::Inferred), SymbolFlag::Const), int8);
+    EXPECT_TRUE(sym->type.isConst());
+    EXPECT_TRUE(sym->type.isInferred());
+    EXPECT_EQ(sym->type.getTypeId(), int8);
     // inferredType на узле - структурный (без битов), для кодогенерации.
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType, int8);
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType.getTypeId(), int8);
 }
 
 // -- Become-const (`x^ = ...`) и защита от записи в константу --
@@ -1201,7 +1294,7 @@ AttrId ReadOnlyAttr(Context& ctx) {
 } // namespace
 
 TEST_F(SemanticTest, BecomeConstViaCaretAssignment) {
-    // x := 42; x^ += 1 → x становится константной (kConstFlag на Symbol::type), ошибок нет.
+    // x := 42; x^ += 1 → became-const отслеживает DA-проход (flow-факт), ошибок нет.
     auto t = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(t), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
 
@@ -1218,11 +1311,13 @@ TEST_F(SemanticTest, BecomeConstViaCaretAssignment) {
     seq.push_back(std::move(assign));
 
     SemanticPassRunner runner(m_ctx);
-    ASSERT_TRUE(runner.run(seq));
+    EXPECT_TRUE(runner.run(seq));
+    EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
+    // QualType не носитель became-const: DA хранит flow-факт отдельно.
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
-    EXPECT_TRUE(testFlag(sym->type, SymbolFlag::Const));
+    EXPECT_FALSE(sym->type.isConst());
 }
 
 TEST_F(SemanticTest, WriteToConstDeclarationIsError) {
@@ -1263,13 +1358,24 @@ TEST_F(SemanticTest, WriteToBecomeConstIsError) {
     assignConst->m_left = std::make_shared<IdentName>("x");
     assignConst->m_right = std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5");
 
+    std::vector<AstNodePtr> body;
+    body.push_back(std::move(var));
+    body.push_back(makeCaretAssign());
+    body.push_back(std::move(assignConst));
+
+    auto fn = std::make_shared<FuncDecl>("f");
+    fn->m_body = std::move(body);
+
     std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(var));
-    seq.push_back(makeCaretAssign());
-    seq.push_back(std::move(assignConst));
+    seq.push_back(std::move(fn));
 
     SemanticPassRunner runner(m_ctx);
-    EXPECT_FALSE(runner.run(seq));
+    // Семантика проходит: запись в ставшую константной переменную ловит flow-анализ DA, который
+    // выполняется в HIR-фазе Pipeline (semantic → buildHir → verify → flow), а не в runner'е.
+    ASSERT_TRUE(runner.run(seq));
+    HirModule hir = buildHir(seq, m_ctx);
+    flow::MirModule mir = flow::buildMir(hir.nodes(), m_ctx.attrs());
+    semantic::DefiniteAssignmentPass(m_ctx).run(mir);
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
 
@@ -1332,12 +1438,12 @@ TEST_F(SemanticTest, AnyOperandResultPromotion) {
 
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType, m_types->findType(type::Int32).value_or(INVALID_TYPE_ID));
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType.getTypeId(), m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID));
 }
 
 TEST_F(SemanticTest, LiteralBoolAndStringWidthTyping) {
-    // t := 1 → Int8; c := 'w' (одинарные кавычки, узкая строка) → StrChar;
-    // s := "hi" (двойные кавычки, широкая строка) → StrWide.
+    // t := 1 → Int8; c := "w" (двойные кавычки, узкая строка) → StrChar;
+    // s := 'hi' (одинарные кавычки, широкая строка) → StrWide.
     auto tt = Term::Create(TermID::NAME, "t", {}, parser::token_type::NAME);
     auto tvar = std::make_shared<VarDecl>(std::move(tt), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1"));
     auto tc = Term::Create(TermID::NAME, "c", {}, parser::token_type::NAME);
@@ -1353,14 +1459,14 @@ TEST_F(SemanticTest, LiteralBoolAndStringWidthTyping) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
 
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType, m_types->findType(type::Int8).value_or(INVALID_TYPE_ID));
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType, m_types->findType(type::StrChar).value_or(INVALID_TYPE_ID));
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[2]).inferredType, m_types->findType(type::StrWide).value_or(INVALID_TYPE_ID));
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType.getTypeId(), m_types->read().findType(type::Int8).value_or(INVALID_TYPE_ID));
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType.getTypeId(), m_types->read().findType(type::StrChar).value_or(INVALID_TYPE_ID));
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[2]).inferredType.getTypeId(), m_types->read().findType(type::StrWide).value_or(INVALID_TYPE_ID));
 }
 
-TEST_F(SemanticTest, DictBoolFieldPromotedInArithmetic) {
-    // d := (1, 2); x := d[0] + d[1];  →  d[0]=Bool(из литерала 1), d[1]=Int8;
-    // auto-Bool продвигается по общим правилам приведения (bool→int) → результат Int32.
+TEST_F(SemanticTest, DictIntElementArithmeticIsInt32) {
+    // d := (1, 2); x := d[0] + d[1];  →  элементы словаря из литералов 0/1 - Int8 (НЕ Bool);
+    // Int8 + Int8 → Int32 (обычное C++-продвижение). Bool в арифметике запрещён, но здесь его нет.
     auto dictTerm = Term::Create(TermID::DICT, "", {}, parser::token_type::END);
     auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::move(dictTerm));
     dict->m_body.push_back(std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1"));
@@ -1389,11 +1495,11 @@ TEST_F(SemanticTest, DictBoolFieldPromotedInArithmetic) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType, m_types->findType(type::Int32).value_or(INVALID_TYPE_ID));
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType.getTypeId(), m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID));
 }
 
-TEST_F(SemanticTest, LiteralBoolPromotedInArithmetic) {
-    // x := 1 + 2;  →  `1`→Bool(auto), `2`→Int8; auto-Bool → Int32 → результат Int32.
+TEST_F(SemanticTest, LiteralIntArithmeticIsInt32) {
+    // x := 1 + 2;  →  литералы `1`/`2` - Int8 (НЕ Bool); Int8 + Int8 → Int32.
     auto opTerm = Term::Create(TermID::OP_MATH, "+", {}, parser::token_type::END);
     auto add = std::make_shared<Binary>(ParserToken::Kind::MathOp, std::move(opTerm));
     add->m_left = std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1");
@@ -1406,7 +1512,7 @@ TEST_F(SemanticTest, LiteralBoolPromotedInArithmetic) {
     SemanticPassRunner runner(m_ctx);
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
-    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType, m_types->findType(type::Int32).value_or(INVALID_TYPE_ID));
+    EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType.getTypeId(), m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID));
 }
 
 TEST_F(SemanticTest, ExplicitBoolInArithmeticError) {
@@ -1433,10 +1539,12 @@ TEST_F(SemanticTest, ExplicitBoolInArithmeticError) {
 // Хук, записывающий месторасположение (storage) объявляемых переменных во время обхода.
 class StorageProbe : public InlineAnalysisHook {
   public:
+    [[nodiscard]] std::string_view name() const override { return "storage-probe"; }
+
     void onDeclare(const Symbol& sym) override {
         // sym не moved-from (declareOrComplete копирует): storage/decl и name валидны.
         if (sym.decl && sym.decl->kind() == ParserToken::Kind::VarDecl) {
-            m_storage[std::string(sym.decl->text())] = sym.storage;
+            m_storage[std::string(requiredText(*sym.decl))] = sym.storage;
         }
     }
     std::map<std::string, Storage> m_storage;
@@ -1544,7 +1652,7 @@ TEST_F(SemanticTest, BareNameInfersSigilForFunctionAndParam) {
 TEST_F(SemanticTest, EmbedUsageOptionDefaultWarns) {
     // Опция -Wembed (default Warning): сам факт использования узла {% ... %} даёт предупреждение.
     auto embedTerm = Term::Create(TermID::EMBED, "int x = 5;", {}, parser::token_type::END);
-    auto embed = std::make_shared<AstNodeAttr>(ParserToken::Kind::EmbedExpr, std::move(embedTerm));
+    auto embed = std::make_shared<RawText>(ParserToken::Kind::EmbedExpr, std::move(embedTerm));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(embed));
     SemanticPassRunner runner(m_ctx);
@@ -1557,7 +1665,7 @@ TEST_F(SemanticTest, EmbedUsageOptionIgnore) {
     // -Wembed=ignore → предупреждение за сам факт {% ... %} подавляется.
     m_ctx.opts().set(semantic::DiagId::Embed, Severity::Ignore);
     auto embedTerm = Term::Create(TermID::EMBED, "int x = 5;", {}, parser::token_type::END);
-    auto embed = std::make_shared<AstNodeAttr>(ParserToken::Kind::EmbedExpr, std::move(embedTerm));
+    auto embed = std::make_shared<RawText>(ParserToken::Kind::EmbedExpr, std::move(embedTerm));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(embed));
     SemanticPassRunner runner(m_ctx);

@@ -1,15 +1,11 @@
 // trust/dict.hpp - universal heterogeneous dictionary for the Trust runtime.
 //
-// Public runtime header: self-contained (standard headers only) so that generated
-// C++ programs can include it without depending on the compiler's include tree.
-// At build time it is embedded into trust-runtime.so/.a (via #embed, in an ELF
-// section named "trust/dict.hpp"); the pipeline extracts it into a temporary
-// `trust/` directory when a program actually uses the Dict type.
+// Delivery: package file `include/trust/dict.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 //
 // Design notes:
 //   - Dict is a *universal* heterogeneous 1-D container (like a tuple + struct
 //     at once): each element is a (name, value) pair, where value is TypedValue
-//     (kind + value). The value uses a std::variant fast-path for known categories
+//     (type-state + value). The value uses a std::variant fast-path for known categories
 //     (numbers/bool/strings/Rational) plus a std::any fallback, so an element can hold a
 //     value of any type, including a nested Dict.
 //   - Elements are accessed by integer index (0-based; negative = from the end)
@@ -37,36 +33,18 @@
 
 // Rational (pimpl, полный тип без gmp.h) - встраивается по значению в быструю ветку variant.
 #include "rational.hpp"
+// TypeId/QualType - единственное определение (общее с компилятором, types/type_id.hpp).
+#include "type_state.hpp"
 
 namespace trust {
 
-// Логический тип TrustLang - TypeKind (кодировка Group(0-7)|Data(8-15)|…), тот же тип-алиас,
-// что и в компиляторе (types/typekind.hpp: `using TypeKind = uint32_t`). Рантайм-заголовок
-// самодостаточен и не включает дерево компилятора, поэтому алиас объявлен здесь (один и тот же
-// формат). Поле kind объявлено через TypeKind, а не голый uint32_t, чтобы тип-намерение был
-// яdiог эволюционировать.
-using TypeKind = uint32_t;
-
-// Полный идентификатор типа рантайма (совместим с компиляторным types/type_id.hpp):
-//   старшие 32 бита - TypeKind; младшие 32 - registry_index (0 для встроенных) + резервные
-//   биты пер-Symbol флагов (kSymbolFlagsMask). TypedValue хранит TypeId ЦЕЛИКОМ; идентичность
-//   сравнивается СТРУКТУРНО (structuralTypeId - флаги снимаются), поэтому флаги на сравнение
-//   не влияют, но сохраняются для прочих операций.
-using TypeId = std::uint64_t;
-constexpr std::uint64_t kSymbolFlagsMask = 0xE0000000ull; // биты 29-31 младшей половины
-constexpr TypeId makeTypeId(TypeKind k) noexcept {
-    return static_cast<TypeId>(k) << 32;
-}
-constexpr TypeKind kindOf(TypeId id) noexcept {
-    return static_cast<TypeKind>(id >> 32);
-}
-constexpr TypeId structuralTypeId(TypeId id) noexcept {
-    return id & ~kSymbolFlagsMask;
-}
-/// Структурное равенство типов (единая точка сравнения идентичности типа рантайма).
-constexpr bool typeIdSame(TypeId a, TypeId b) noexcept {
-    return structuralTypeId(a) == structuralTypeId(b);
-}
+// Тип значения — QualType (identity + квалификаторы в одном 64-битном слове):
+//   старшие 32 бита - TypeKind; младшие 24 - registry_index; биты 24-31 - state
+//   (const/inferred + reserved). Identity — `getTypeId()` (qualifier-байт снимается), сравнение
+//   типов — `TypeId::operator==`, которое тоже сравнивает только identity.
+// Рантайм-продюсеры (args/range) строят тип как `QualType::fromTypeId(TypeId::fromKind(...))`
+// (identity kind-only, index 0): для встроенных типов kind уникален, а registry_index — слот
+// реестра компилятора и в рантайме не воспроизводим.
 
 // Предварительное объявление хелпера типизированного доступа (определяется в namespace detail
 // ниже, в разделе inline-helper'ов dict.hpp): нужен для TypedValue::getAs<T>().
@@ -76,8 +54,8 @@ template <typename T>
 [[nodiscard]] T typedGet(const TypedValue& tv);
 } // namespace detail
 
-/// Типизированное значение элемента словаря: само значение + kind - TypeKind (логический
-/// тип TrustLang, закодирован как Group|Data).
+/// Типизированное значение элемента словаря: само значение + `QualType` (identity: TypeKind
+/// (Group|Data) + registry_index; квалификаторы const/inferred).
 ///
 /// Значение хранится в std::variant из ОБОБЩЁННЫХ C++-типов (быстрая ветка для заранее
 /// известных категорий: числа/bool/строки/Rational) + std::any (открытые/реестровые типы, в т.ч.
@@ -86,39 +64,41 @@ template <typename T>
 /// Точный тип и размерность всегда в kind (Group|Data); storage хранит только обобщение:
 /// int8..int64 → int64_t, uint8..uint64 → uint64_t, float/double → double. Такой доступ не требует
 /// typeid-каскада: ветка выбирается по группе (std::get), размерность кастуется static_cast по
-/// data() из kind. Декодирование kind - автономно, без TypeRegistry: кодировка самодостаточна.
+/// data() из kind. Декодирование kind - автономно, без TypeSystem: кодировка самодостаточна.
 struct TypedValue {
-    TypeId typeId = 0; ///< Полный TypeId: TypeKind (старшие 32) | registry_index/флаги (младшие 32).
+    /// Тип значения (identity + квалификаторы). Identity — `type.getTypeId()`; квалификаторы
+    /// (const/inferred) — `type.isConst()/isInferred()`, на равенство типов не влияют.
+    QualType type = {};
     std::variant<std::monostate, bool, std::int64_t, std::uint64_t, double, std::string, std::wstring, std::any, Rational>
         storage; ///< Значение: быстрая ветка (обобщённый тип / Rational) либо std::any (прочие/открытые).
 
     TypedValue() = default;
 
-    /// Конструирует значение с типом typeId. В быструю ветку variant кладёт значение, если его
+    /// Конструирует значение с типом `state`. В быструю ветку variant кладёт значение, если его
     /// C++-тип соответствует группе типа (число → обобщение, строка → строка, bool → bool);
     /// иначе - в std::any (в т.ч. вложенный Dict и реестровые/открытые типы).
     template <typename T>
-    TypedValue(TypeId id, T&& v)
-    : typeId(id) {
+    TypedValue(QualType state, T&& v)
+    : type(state) {
         store(std::forward<T>(v));
     }
 
-    /// -- Декодирование TypeKind (биты, как в types/typekind.hpp) --
-    /// Группа (логическая категория), биты 0-7.
-    [[nodiscard]] uint8_t group() const noexcept { return static_cast<uint8_t>(kindOf(typeId) & 0xFFu); }
-    /// Data - размерность в битах / код, биты 8-15.
-    [[nodiscard]] uint8_t data() const noexcept { return static_cast<uint8_t>((kindOf(typeId) >> 8) & 0xFFu); }
+    /// -- Декодирование TypeKind (единый layout — runtime/trust/type_state.hpp) --
+    /// Группа (логическая категория).
+    [[nodiscard]] Group group() const noexcept { return static_cast<Group>((kindOf(type) & kTypeKindGroupMask) >> kTypeKindGroupShift); }
+    /// Data - размерность в битах / код.
+    [[nodiscard]] uint8_t data() const noexcept { return static_cast<uint8_t>((kindOf(type) & kTypeKindDataMask) >> kTypeKindDataShift); }
 
-    [[nodiscard]] bool isBool() const noexcept { return group() == kGroupLogical; }
-    [[nodiscard]] bool isInteger() const noexcept { return group() == kGroupIntegers; }
-    [[nodiscard]] bool isUnsigned() const noexcept { return group() == kGroupUnsigned; }
-    [[nodiscard]] bool isFloat() const noexcept { return group() == kGroupNumbers; }
+    [[nodiscard]] bool isBool() const noexcept { return group() == Group::kLogical; }
+    [[nodiscard]] bool isInteger() const noexcept { return group() == Group::kIntegers; }
+    [[nodiscard]] bool isUnsigned() const noexcept { return group() == Group::kUnsigned; }
+    [[nodiscard]] bool isFloat() const noexcept { return group() == Group::kNumbers; }
     [[nodiscard]] bool isNumeric() const noexcept { return isInteger() || isUnsigned() || isFloat(); }
-    [[nodiscard]] bool isStrChar() const noexcept { return group() == kGroupStrChar; }
-    [[nodiscard]] bool isStrWide() const noexcept { return group() == kGroupStrWide; }
+    [[nodiscard]] bool isStrChar() const noexcept { return group() == Group::kStrChar; }
+    [[nodiscard]] bool isStrWide() const noexcept { return group() == Group::kStrWide; }
     [[nodiscard]] bool isString() const noexcept { return isStrChar() || isStrWide(); }
-    [[nodiscard]] bool isDict() const noexcept { return group() == kGroupDicts; }
-    [[nodiscard]] bool isRational() const noexcept { return group() == kGroupArbitraryPrecision; }
+    [[nodiscard]] bool isDict() const noexcept { return group() == Group::kDicts; }
+    [[nodiscard]] bool isRational() const noexcept { return group() == Group::kArbitraryPrecision; }
 
     /// Типизированный доступ к значению по C++-типу T (быстрая ветка variant или std::any).
     /// Несовпадение категории T с группой значения → std::bad_any_cast.
@@ -150,47 +130,47 @@ struct TypedValue {
     template <typename T>
     void store(T&& v) {
         using DT = std::decay_t<T>;
-        const uint8_t g = group();
+        const Group g = group();
         if constexpr (std::is_same_v<DT, bool>) {
-            if (g == kGroupLogical) {
+            if (g == Group::kLogical) {
                 storage = static_cast<bool>(std::forward<T>(v));
                 return;
             }
         } else if constexpr (std::is_integral_v<DT> && std::is_signed_v<DT>) {
-            if (g == kGroupIntegers) {
+            if (g == Group::kIntegers) {
                 storage = static_cast<std::int64_t>(std::forward<T>(v));
                 return;
             }
-            if (g == kGroupUnsigned) {
+            if (g == Group::kUnsigned) {
                 storage = static_cast<std::uint64_t>(std::forward<T>(v));
                 return;
             }
         } else if constexpr (std::is_integral_v<DT> && std::is_unsigned_v<DT>) {
-            if (g == kGroupUnsigned) {
+            if (g == Group::kUnsigned) {
                 storage = static_cast<std::uint64_t>(std::forward<T>(v));
                 return;
             }
-            if (g == kGroupIntegers) {
+            if (g == Group::kIntegers) {
                 storage = static_cast<std::int64_t>(std::forward<T>(v));
                 return;
             }
         } else if constexpr (std::is_floating_point_v<DT>) {
-            if (g == kGroupNumbers) {
+            if (g == Group::kNumbers) {
                 storage = static_cast<double>(std::forward<T>(v));
                 return;
             }
         } else if constexpr (std::is_same_v<DT, std::string>) {
-            if (g == kGroupStrChar) {
+            if (g == Group::kStrChar) {
                 storage = std::forward<T>(v);
                 return;
             }
         } else if constexpr (std::is_same_v<DT, std::wstring>) {
-            if (g == kGroupStrWide) {
+            if (g == Group::kStrWide) {
                 storage = std::forward<T>(v);
                 return;
             }
         } else if constexpr (std::is_same_v<DT, Rational>) {
-            if (g == kGroupArbitraryPrecision) {
+            if (g == Group::kArbitraryPrecision) {
                 storage = std::forward<T>(v); // по значению; копирование - внутренний deep-copy Rational
                 return;
             }
@@ -199,16 +179,6 @@ struct TypedValue {
     }
 
   private:
-    // Значения Group из types/group.hpp - кодировка TypeKind (ABI рантайма).
-    // Группа 8 = произвольная точность (kArbitraryPrecision): Rational (и BigInteger).
-    static constexpr uint8_t kGroupLogical = 2;
-    static constexpr uint8_t kGroupIntegers = 3;
-    static constexpr uint8_t kGroupUnsigned = 4;
-    static constexpr uint8_t kGroupNumbers = 5;
-    static constexpr uint8_t kGroupStrChar = 9;
-    static constexpr uint8_t kGroupStrWide = 10;
-    static constexpr uint8_t kGroupDicts = 11;
-    static constexpr uint8_t kGroupArbitraryPrecision = 8;
 };
 
 class Dict {
@@ -467,7 +437,7 @@ namespace detail {
 
 /// -- Типизированный доступ по TypeKind (быстрая ветка std::variant) --
 /// Ветка выбирается по группе (std::get_if), без typeid-каскада; размерность кастуется по
-/// data() из kind. std::any-ветка (открытые/реестровые типы) - прежний anyTo* путь.
+/// data() из kind. std::any-ветка (открытые/реестровые типы) - anyTo*.
 
 /// Приведение TypedValue к int64_t по группе (числа/bool/строки).
 [[nodiscard]] inline int64_t typedToInt64(const TypedValue& tv) {
@@ -511,7 +481,7 @@ namespace detail {
             return p->GetAsInteger();
         }
     }
-    // std::any-ветка (несоответствие типа при конструировании) - прежний anyToInt64.
+    // std::any-ветка (несоответствие типа при конструировании) - anyToInt64.
     if (const std::any* a = std::get_if<std::any>(&tv.storage)) {
         return anyToInt64(*a);
     }
@@ -790,7 +760,7 @@ inline bool Dict::operator==(const Dict& other) const {
         if (m_items[i].first != other.m_items[i].first) {
             return false;
         }
-        if (!typeIdSame(m_items[i].second.typeId, other.m_items[i].second.typeId)) {
+        if (m_items[i].second.type.getTypeId() != other.m_items[i].second.type.getTypeId()) {
             return false;
         }
         if (!detail::typedEqual(m_items[i].second, other.m_items[i].second)) {

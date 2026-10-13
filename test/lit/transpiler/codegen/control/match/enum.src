@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Значение типа перечисления в match → C++ switch по лежащему целочисленному значению
 # (switch (_matchN.value)); шаблоны - члены enum (Color.RED) резолвятся в скалярные case-метки.

@@ -1,5 +1,5 @@
 // test/unit/attrs/parse_test.cpp - тесты разбора атрибутов (@[...]) и битмаски AttrId.
-#include "ast/attr_parser.hpp"
+#include "ast/nodes/attr_parser.hpp"
 #include "attrs/attr_builtin.hpp"
 #include "ast/token.hpp"
 #include "ast/token_base.hpp"
@@ -373,6 +373,23 @@ TEST_F(AttrParserTest, AddAttrKeepsCapabilityFlags) {
     EXPECT_TRUE(detail::is_analyzer_supported(node->attrs()[0]));
     EXPECT_TRUE(detail::is_codegen_supported(node->attrs()[0]));
     EXPECT_TRUE(detail::is_handled(node->attrs()[0]));
+}
+
+TEST_F(AttrParserTest, CoroutineRegistered) {
+    // @coroutine - маркер корутинной (асинхронной) функции. Зарегистрирован как built-in;
+    // обрабатывается анализатором (потребитель - семантика), кодогенератором - нет.
+    // Наличие analyzer-флага => -Wunhandled-attr не выдаётся.
+    auto cor = m_ctx.attrs().lookup(attr::Coroutine);
+    ASSERT_TRUE(cor.has_value());
+    EXPECT_TRUE(detail::is_builtin(*cor));
+    EXPECT_TRUE(detail::is_analyzer_supported(*cor));
+    EXPECT_FALSE(detail::is_codegen_supported(*cor));
+    EXPECT_TRUE(detail::is_handled(*cor));
+
+    // Разбор @[coroutine] резолвится в зарегистрированный атрибут (не unknown).
+    auto parsed = parse_attr(m_ctx, m_range, attr::Coroutine);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(*parsed, *cor);
 }
 
 } // namespace trust

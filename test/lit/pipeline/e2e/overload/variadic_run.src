@@ -12,6 +12,6 @@ f(a:Int32, ...):Int32 := { @return a + 1; };
 f(a:StrChar):Int32 := { @return 99; };
 
 @main() := {
-    @print('{} {}\n', f(1, 2, 3), f('x'));
+    @print("{} {}\n", f(1, 2, 3), f("x"));
     @return 0;
 }

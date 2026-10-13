@@ -4,7 +4,7 @@ tags: [concurrency, thread, async]
 description: >
     Multithreading and asynchrony: concept and implementation status
 weight: 75
-draft: true
+# draft: true
 ---
 
 ## Model of multithreaded and asynchronous programming
@@ -27,8 +27,28 @@ To distribute tasks across cores, `:AsyncTask`/`:AsyncPool` are provided.
 Access to shared data is provided by the reference model ([Memory](../safety/memory/)): capturing
 a reference synchronizes access to the object.
 
+## Library async layer {#async-layer}
+
+The types are declared in the stdlib prelude (`async.src`) and are available without an import:
+
+| TrustLang | C++ | Purpose |
+|---|---|---|
+| `AsyncTask<T>` | `trust::Task<T>` | lazy task; starts on `co_await` or `sync_wait` |
+| `AsyncGenerator<T>` | `trust::AsyncGenerator<T>` | pull generator; `next()` → `Task<std::optional<T>>`, single consumer |
+| `AsyncPool` | `trust::ThreadPool` | thread pool; `co_await pool.schedule()` resumes the coroutine on a worker |
+| `AsyncMutex` | `trust::AsyncMutex` | async mutex with FIFO waiting |
+
+`trust::sync_wait(task)` blocks the current thread until the task completes and rethrows its
+exception; it must not be called on a `ThreadPool` worker (the worker would be blocked).
+
+The headers live in `@stdlib/async/*.hpp` and use standard C++ only (`<coroutine>`, `<thread>`,
+`<mutex>`, `<condition_variable>`). `-pthread` is linked on demand — only when `AsyncPool` is used.
+
 ## Status
 
-Multithreading and asynchrony are **not implemented** in the current version: there is no `:Thread`, coroutines,
-`:AsyncTask`/`:AsyncPool`, Awaitable objects and the operators `@co_yield`/`@co_await`/`@co_return`.
+The language-level coroutine mechanism is **not implemented** yet: there is no `:Thread`, no
+`co_await`/`co_yield`/`co_return` code generation and no awaitable type deduction (`@[awaitable]`).
+Coroutine functions are marked with the `@[coroutine]` attribute (the marker is registered).
+The library async layer (`trust::async`) is usable from native declarations and C++ embed
+blocks — see [Library async layer](#async-layer).
 The current list is in [Status](../status/).

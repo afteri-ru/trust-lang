@@ -18,12 +18,12 @@ freed():Int32 := %freed_count...;
 do_work():Int32 := {
     h : @[reftype("unique")@] @[deleter(CountDel)@] Int32 := alloc_handle();
     *h = 42;
-    print('val={}\n', *h);
+    print("val={}\n", *h);
     return 0;
 };
 
 @main():Int32 := {
     _ := do_work();
-    print('freed={}\n', freed());
+    print("freed={}\n", freed());
     return 0;
 };

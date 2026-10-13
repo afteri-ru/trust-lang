@@ -1,0 +1,40 @@
+# RUN: TD=%t.dir && mkdir -p $TD/o2 $TD/o3
+# RUN: %trust -q --temp-dir $TD/o2 --options "-O2" -o $TD/o2/safety %s
+# RUN: $TD/o2/safety > %t.o2
+# RUN: %trust -q --temp-dir $TD/o3 --options "-O3" -o $TD/o3/safety %s
+# RUN: $TD/o3/safety > %t.o3
+# RUN: %FileCheck %s --check-prefix=CHK < %t.o2
+# RUN: %FileCheck %s --check-prefix=CHK < %t.o3
+
+# Safety-проверки TrustLang обязаны переживать оптимизацию C++ (-O2/-O3):
+# переполнение, деление и остаток на ноль остаются наблюдаемыми и ловятся trust-блоком.
+# CHK: overflow-caught
+# CHK: divzero-caught
+# CHK: modzero-caught
+
+%check():Void := {
+    a:Int32 := 2000000000;
+    b:Int32 := 2000000000;
+    {-
+        s := a + b;
+    -};
+    print("overflow-caught");
+
+    c:Int32 := 10;
+    d:Int32 := 0;
+    {-
+        z := c // d;
+    -};
+    print("divzero-caught");
+
+    {-
+        r := c % d;
+    -};
+    print("modzero-caught");
+};
+
+{% int safety_checks__main__() {
+    check();
+    return 0;
+}
+%}

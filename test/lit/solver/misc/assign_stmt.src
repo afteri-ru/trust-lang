@@ -1,0 +1,22 @@
+# RUN: %trust -q --solver-mode=export -o %t.smt2 %s > %t.out 2>&1 && %FileCheck --check-prefix=SM2 %s <%t.smt2
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Statement-выражение-присваивание в теле функции с контрактом: тело кодируется как SSA
+# (`y := 0` задаёт значение места, `y = x + 1` — новое), контракт доказуем.
+# Вход solver'а — pre-lowering AST (контракты формулируются на уровне источника): синтетики
+# lowering (`SemicolonStmt`, goto/метки) в теле нет.
+
+f(x:Int32):Int32 trust_pre( x < 1000 ) trust_post( f > x ) := {
+    y := 0;
+    y = x + 1;
+    return y;
+};
+
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun f_x () (_ BitVec 32))
+# SM2: (declare-fun f ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (and (bvslt f_x (_ bv1000 32)) (not (=> true (bvsgt (bvadd f_x (_ bv1 32)) f_x)))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# Z3: unsat

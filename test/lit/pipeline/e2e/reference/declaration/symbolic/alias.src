@@ -15,6 +15,6 @@ MyInt ::= :Int32;
     &* s : &* MyInt := 5;
     &? w : &? MyInt := & s;
     && u : && MyInt := 7;
-    print('s={} w={} u={}\n', *s, *w, *u);
+    print("s={} w={} u={}\n", *s, *w, *u);
     return 0;
 };

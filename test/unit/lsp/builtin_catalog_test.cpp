@@ -2,7 +2,7 @@
 // Unit tests for BuiltinCatalog - глобальный каталог встроенных имён LSP
 // -----------------------------------------------------------------------
 
-#include "lsp/builtin_catalog.h"
+#include "lsp/catalog/builtin_catalog.h"
 
 #include "syntax/macro.h"
 #include "syntax/parser.h"
@@ -152,8 +152,8 @@ TEST_F(BuiltinCatalogTest, PragmaDocOverridesExistingAndErrorsUnknown) {
     // Существующий предdef-дефолт переопределяется (с '@' и без - ключ один).
     // Неизвестный макрос -> error. Оба в одном ParseText (см. заметку про повторный ParseText).
     ASSERT_NO_THROW(p.ParseText("@__PRAGMA_DOC__(\"@__LINE__\", \"Номер строки в текущем файле\"); @__PRAGMA_DOC__(\"no_such_macro\", \"текст\");", "@t"));
-    const std::string* line = Context::macroDoc("__LINE__");   // без '@'
-    const std::string* line2 = Context::macroDoc("@__LINE__"); // с '@' - тот же ключ
+    const std::string_view* line = Context::macroDoc("__LINE__");   // без '@'
+    const std::string_view* line2 = Context::macroDoc("@__LINE__"); // с '@' - тот же ключ
     ASSERT_TRUE(line != nullptr);
     ASSERT_TRUE(line2 != nullptr);
     EXPECT_EQ(line, line2);

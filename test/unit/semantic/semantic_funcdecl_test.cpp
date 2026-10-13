@@ -1,4 +1,6 @@
 #include "semantic/semantic_test_fixture.hpp"
+#include "semantic/decl/func_signature_check.hpp"
+#include "semantic/core/pass.hpp"
 
 namespace trust {
 TEST_F(FuncDeclTest, ForwardDeclNoReturn) {
@@ -163,12 +165,12 @@ TEST_F(FuncDeclTest, BuildsFunctionType) {
 
     auto* sym = runner.analysis().symbols().resolve("func");
     ASSERT_NE(sym, nullptr);
-    EXPECT_NE(sym->type, INVALID_TYPE_ID);
+    EXPECT_NE(sym->type.getTypeId(), INVALID_TYPE_ID);
 
-    const auto* ft = m_ctx.types().getTypeDataAs<FunctionTypeData>(sym->type);
+    const auto* ft = m_ctx.readTypes().store().getTypeDataAs<FunctionTypeData>(sym->type.getTypeId());
     ASSERT_NE(ft, nullptr);
-    auto int32 = m_ctx.types().findType("Int32");
-    auto bool_id = m_ctx.types().findType("Bool");
+    auto int32 = m_ctx.readTypes().findType("Int32");
+    auto bool_id = m_ctx.readTypes().findType("Bool");
     ASSERT_TRUE(int32.has_value());
     ASSERT_TRUE(bool_id.has_value());
     EXPECT_EQ(ft->returnType, *bool_id);
@@ -192,7 +194,7 @@ TEST_F(FuncDeclTest, NativeForwardFuncWithReturnType) {
     EXPECT_TRUE(runner.run(seq));
     auto* sym = runner.analysis().symbols().resolve("%f");
     ASSERT_NE(sym, nullptr);
-    EXPECT_NE(sym->type, INVALID_TYPE_ID);
+    EXPECT_NE(sym->type.getTypeId(), INVALID_TYPE_ID);
 }
 
 // Forward-объявление нативной функции `%f() := ...;` без типа возврата → ошибка (нативные имена
@@ -242,5 +244,56 @@ TEST_F(FuncDeclTest, ForwardFuncCompletedByDefinition) {
 }
 
 // Forward-объявление переменной `x:Int32 := ...;` (без инициализатора) - регистрируется в
+
+// Pack-проверки сигнатуры (semantic/func_signature_check): изолированно от обхода AST.
+TEST_F(FuncDeclTest, PackUsageRejectsSingleTypePosition) {
+    // <T...> f(a: T, xs: T...): pack-параметр недопустим в ОДИНОЧНОЙ позиции типа параметра.
+    AnalysisContext actx(m_ctx);
+    FuncDecl f("f");
+    auto pack_decl = std::make_shared<ArgNode>("T");
+    pack_decl->isTypePack = true;
+    f.m_templateParams = std::vector<AstNodePtr>{pack_decl};
+    auto single = std::make_shared<ArgNode>("a", std::make_shared<IdentType>("T"));
+    auto pack_slot = std::make_shared<ArgNode>("xs", std::make_shared<IdentType>("T"));
+    pack_slot->isTypePack = true;
+    f.m_params = std::vector<AstNodePtr>{single, pack_slot};
+
+    actx.types().pushTemplateParamScope({{"T", m_ctx.types().interner().getOrCreateTemplateParamType("T")}});
+    const TypeId func_type = actx.types().buildFuncType(f);
+    actx.types().popTemplateParamScope();
+    ASSERT_NE(func_type, INVALID_TYPE_ID);
+
+    EXPECT_FALSE(semantic::validatePackUsage(m_ctx, f, func_type, semantic::collectPackParams(f)));
+    EXPECT_GT(m_ctx.diag().errorCount(), 0);
+}
+
+TEST_F(FuncDeclTest, PackSlotShapeRejectsNonTrailing) {
+    // <T...> f(xs: T..., a: Int32): pack-слот обязан быть ПОСЛЕДНИМ параметром.
+    FuncDecl f("f");
+    auto pack_decl = std::make_shared<ArgNode>("T");
+    pack_decl->isTypePack = true;
+    f.m_templateParams = std::vector<AstNodePtr>{pack_decl};
+    auto pack_slot = std::make_shared<ArgNode>("xs", std::make_shared<IdentType>("T"));
+    pack_slot->isTypePack = true;
+    auto trailing = std::make_shared<ArgNode>("a", std::make_shared<IdentType>("Int32"));
+    f.m_params = std::vector<AstNodePtr>{pack_slot, trailing};
+
+    EXPECT_FALSE(semantic::validatePackSlotShape(m_ctx, f, semantic::collectPackParams(f)));
+    EXPECT_GT(m_ctx.diag().errorCount(), 0);
+}
+
+TEST_F(FuncDeclTest, PackSlotShapeAcceptsTrailingPack) {
+    // <T...> g(xs: T...): единственный pack-слот в хвосте - валидная форма.
+    FuncDecl g("g");
+    auto pack_decl = std::make_shared<ArgNode>("T");
+    pack_decl->isTypePack = true;
+    g.m_templateParams = std::vector<AstNodePtr>{pack_decl};
+    auto pack_slot = std::make_shared<ArgNode>("xs", std::make_shared<IdentType>("T"));
+    pack_slot->isTypePack = true;
+    g.m_params = std::vector<AstNodePtr>{pack_slot};
+
+    EXPECT_TRUE(semantic::validatePackSlotShape(m_ctx, g, semantic::collectPackParams(g)));
+    EXPECT_EQ(m_ctx.diag().errorCount(), 0);
+}
 
 } // namespace trust

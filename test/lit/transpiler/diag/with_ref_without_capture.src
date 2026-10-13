@@ -1,7 +1,7 @@
-# RUN: %trust --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %trust --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 # (без -q: предупреждение попадает в 2>&1.)
 
-# Биндинг `with` со ссылочным типом БЕЗ захвата `*`/`*^` (`with(v = x)`, где x - trust::Shared):
+# Биндинг `with` со ссылочным типом БЕЗ захвата __deref__/`*^` (`with(v = x)`, где x - trust::Shared):
 # `v` копирует ссылку, а не блокирует доступ - предупреждение. Корректный захват `with(l = *x)` -
 # предупреждения НЕ даёт.
 

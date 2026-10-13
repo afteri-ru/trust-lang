@@ -1,0 +1,21 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# `using namespace` принимает ТОЛЬКО namespace-области: значение, функция и тип (членский скоуп
+# `T::member`) — ошибки, а не молчаливое включение в поиск.
+# CHECK: error: target 'K' is a value, not a namespace
+# CHECK: error: target 'f' is a function, not a namespace
+# CHECK: error: target 'MyStr' is a type, not a namespace
+
+K:Int32 := 5;
+using namespace K;
+
+f():Int32 := { @return 1; };
+using namespace f;
+
+@include("string")
+MyStr ::= %std::string {
+    @::npos: Int64 := ...;
+};
+using namespace MyStr;
+
+@main():Int32 := { @return 0; };

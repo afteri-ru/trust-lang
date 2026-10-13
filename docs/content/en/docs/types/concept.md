@@ -31,7 +31,7 @@ corresponding pages of the section):
 | Strings | `:StrChar` (UTF-8), `:StrWide` | [Character strings](strings/) |
 | Ranges and arrays | `:Range`, `:Array` (one-dimensional, `std::vector`) | [Ranges, arrays and tensors](containers/) |
 | Dictionaries | `:Dictionary` (positional and named elements) | [Dictionaries and sets](dicts/) |
-| User-defined | enumerations `:Enum`, variants `:Variant`, tuples `:Tuple`, aliases `::=` | [Dictionaries and sets](dicts/) |
+| User-defined | enumerations `:Enum`, variants `:Variant`, tuples `:Tuple`, aliases `::=` (new type) and `::-` (second name of an existing one) | [Dictionaries and sets](dicts/) |
 | Native | import and forward declaration of C/C++ types and templates | [Native types](native/) |
 
 Variables can store a value directly or be **reference** variables (strong/weak references,
@@ -50,7 +50,7 @@ in this case an explicit qualification of the name is required when calling the 
 Of the "object-oriented" capabilities, the basic `:Struct`/`:Class` (fields, methods,
 inheritance), the types `Enum`/`Variant`/`Tuple` and the forward declaration of native classes
 are implemented (see [Classes](class/)). Complex numbers (`:Complex16/32/64`), multidimensional tensors (full-fledged
-`:Tensor`), virtual methods/`@[override]` (full-fledged OOP), coroutines and pure functions are not
+`:Tensor`), virtual methods/`@[override]` (full-fledged OOP), coroutines and automatic purity checking are not
 implemented — more in [Implementation status and limitations](../status/).
 
 ## Type conversion

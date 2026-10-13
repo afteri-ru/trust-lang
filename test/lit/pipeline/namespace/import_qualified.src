@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ns_import $TD/main.src
+# RUN: $TD/ns_import && echo "PASS"
+# CHECK: PASS
+#
+# Импорт namespace-экспорта: доступ по квалифицированному имени.
+
+//--- main.src
+\lib(api);
+@main():Int32 := { @return ns::api() - 1; };
+
+//--- lib.src
+\lib;
+ns:: {
+    api():Int32 := { @return 1; };
+};

@@ -1,9 +1,9 @@
 // trust/any_convert.hpp - типизированная конверсия из элемента словаря (TypedValue).
 //
 // Public runtime header. Используется кодогенерацией для `:Type(d.field)` - когда операнд
-// каста является элементом словаря (TypedValue: kind + std::any). Категория и размерность
-// значения закодированы в kind (TypeKind: Group|Data) и декодируются методами TypedValue -
-// автономно, без TypeRegistry:
+// каста является элементом словаря (TypedValue: QualType + значение). Категория и размерность
+// значения закодированы в identity QualType (TypeKind: Group|Data) и декодируются методами
+// TypedValue - автономно, без TypeSystem:
 //   - числовой целевой тип ← kind-число       → checked_cast (контроль диапазона);
 //   - std::string          ← kind-строка      → конверсия;
 //   - иной целевой тип                          → std::any_cast (точное совпадение);
@@ -63,7 +63,7 @@ namespace detail {
     if (const std::any* a = std::get_if<std::any>(&tv.storage)) {
         return static_cast<long double>(anyToDouble(*a));
     }
-    throw std::runtime_error("trust::any_to: dict element of kind 0x" + kindHex(kindOf(tv.typeId)) + " is not numeric");
+    throw std::runtime_error("trust::any_to: dict element of kind 0x" + kindHex(kindOf(tv.type)) + " is not numeric");
 }
 
 /// Извлечение строки из TypedValue по TypeKind (StrChar→std::string, StrWide→сужение в
@@ -81,7 +81,7 @@ namespace detail {
     if (const std::any* a = std::get_if<std::any>(&tv.storage)) {
         return anyToString(*a);
     }
-    throw std::runtime_error("trust::any_to: dict element of kind 0x" + kindHex(kindOf(tv.typeId)) + " is not a string");
+    throw std::runtime_error("trust::any_to: dict element of kind 0x" + kindHex(kindOf(tv.type)) + " is not a string");
 }
 
 } // namespace detail
@@ -95,6 +95,9 @@ template <typename To>
         return checked_cast<To>(detail::typedToNumber(tv));
     } else if constexpr (std::is_same_v<To, std::string>) {
         return detail::typedToString(tv);
+    } else if constexpr (std::is_same_v<To, std::any>) {
+        // `:Any(expr)` — значение как std::any его естественного типа (см. TypedValue::toAny).
+        return tv.toAny();
     } else if constexpr (std::is_same_v<To, Rational>) {
         // Rational - быстрая ветка variant (по значению).
         if (const Rational* p = std::get_if<Rational>(&tv.storage)) {
@@ -107,6 +110,25 @@ template <typename To>
             return std::any_cast<To>(*a);
         }
         throw std::bad_any_cast();
+    }
+}
+
+/// Явная конверсия `:T(anyExpr)` из `std::any` (переменная/параметр/результат вызова).
+/// В отличие от TypedValue-версии здесь НЕТ kind: числовые цели извлекаются универсальными
+/// runtime-конвертерами (anyToInt64/anyToDouble), строки - anyToString, иначе - точный
+/// std::any_cast. Несовместимый тип - std::bad_any_cast (явная runtime-ошибка, не fallback).
+template <typename To>
+[[nodiscard]] To any_to(const std::any& value) {
+    if constexpr (std::is_same_v<To, std::any>) {
+        return value; // `:Any(anyExpr)` — identity (std::any уже есть)
+    } else if constexpr (std::is_integral_v<To>) {
+        return checked_cast<To>(detail::anyToInt64(value));
+    } else if constexpr (std::is_floating_point_v<To>) {
+        return checked_cast<To>(detail::anyToDouble(value));
+    } else if constexpr (std::is_same_v<To, std::string>) {
+        return detail::anyToString(value);
+    } else {
+        return std::any_cast<To>(value);
     }
 }
 

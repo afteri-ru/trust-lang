@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/stem_app $TD/main.src
+# RUN: test "$(ls $TD/util-*.cppt | wc -l)" -eq 2
+# RUN: $TD/stem_app && echo "PASS"
+# CHECK: PASS
+#
+# Два модуля с ОДИНАКОВЫМ именем файла в разных каталогах: артефакты модулей строятся по
+# хешу канонического пути (`util-<hash>.cppt`), поэтому не перезаписывают друг друга и оба линкуются.
+
+//--- main.src
+\\a\util(fa);
+\\b\util(fb);
+@main():Int32 := { @return fa() + fb() - 3; };
+
+//--- a/util.src
+\\a\util;
+fa():Int32 := { @return 1; };
+
+//--- b/util.src
+\\b\util;
+fb():Int32 := { @return 2; };

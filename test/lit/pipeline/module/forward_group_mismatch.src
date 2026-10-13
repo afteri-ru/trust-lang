@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Формат объявления обязан совпадать с реализацией: forward `:Struct` нельзя доопределить
+# как `:Class` (группа типа фиксируется объявлением).
+# CHECK: error: record 'Pt' was declared as Struct and cannot be defined as Class
+
+//--- main.src
+\lib();
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib {
+    :Pt ::= :Struct ...;
+};
+:Pt ::= :Class{ x:Int32 := _; };

@@ -1,4 +1,4 @@
-# RUN: %trust --temp-dir %T --emit-cpp --stack-check=recursion %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %trust --temp-dir %t.dir --emit-cpp --stack-check=recursion %s > %t.out 2>&1 && %FileCheck %s <%t.out
 # (без -q: предупреждение -Wstack-check-infer попадает в 2>&1.)
 
 # Рекурсивная функция без явной защиты: в режиме --stack-check=recursion семантика выдаёт
@@ -12,5 +12,5 @@
     @return recurse(n - 1) + 1;
 };
 
-@main() := { @print('d={}\n', recurse(100)); };
+@main() := { @print("d={}\n", recurse(100)); };
 # CHECK: warning: recursive function 'recurse' is not protected against stack overflow

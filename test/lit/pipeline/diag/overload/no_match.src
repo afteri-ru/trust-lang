@@ -5,8 +5,8 @@
 f(a:Int32):Int32 := { @return 1; };
 f(a:Int64):Int32 := { @return 2; };
 @main() := {
-    s : StrChar := 'x';
-    @print('{}\n', f(s));
+    s : StrChar := "x";
+    @print("{}\n", f(s));
     @return 0;
 }
 # CHECK: error: no matching overload for function 'f'

@@ -1,0 +1,25 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/cross_name $TD/main.src > %t.out 2>&1
+# RUN: $TD/cross_name && echo "PASS" >> %t.out
+# RUN: %FileCheck %s <%t.out
+#
+# Модульная идентичность: одноимённые экспорты РАЗНЫХ модулей не являются дублем объявления и
+# сосуществуют. Голое `f` после двух импортов неоднозначно (см. ambiguous_name.src), поэтому
+# обращение — только квалифицированное `\модуль::f`. C++-символы получают модульный префикс
+# (Этап B): одноимённые определения разных модулей линкуются в одну программу.
+# CHECK: PASS
+# CHECK-NOT: error:
+
+//--- main.src
+\lib_a(f);
+\lib_b(f);
+@main():Int32 := { @return \lib_a::f(1) + \lib_b::f(2) - 3; };
+
+//--- lib_a.src
+\lib_a;
+f(a:Int32):Int32 := { @return a; };
+
+//--- lib_b.src
+\lib_b;
+f(a:Int32):Int32 := { @return a; };

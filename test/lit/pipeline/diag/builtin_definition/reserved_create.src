@@ -1,0 +1,5 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Встроенное имя предобъявлено: `::=` создаёт НОВЫЙ тип и запрещён.
+Rational ::= %trust::Rational { };
+# CHECK: error: built-in type 'Rational' is pre-declared; use '=' to define its implementation

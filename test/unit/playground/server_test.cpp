@@ -1,8 +1,8 @@
 // -----------------------------------------------------------------------
-// Unit tests for trust-playground HTTP server core (playground/http.h).
+// Unit tests for trust-playground HTTP server core (playground/http/http.h).
 // -----------------------------------------------------------------------
 
-#include "playground/http.h"
+#include "playground/http/http.h"
 
 #include <gtest/gtest.h>
 

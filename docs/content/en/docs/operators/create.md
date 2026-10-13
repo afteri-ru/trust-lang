@@ -9,11 +9,11 @@ weight: 10
 <!--
 ##### Object scope != object lifetime {#important}
 An object *always* has a name, even when the object itself is not physically created yet.
-The scope of a *name* is determined by its location in the program code (code block, namespace, module, etc.).
+The scope of a *name* is determined by its location in the program code (code block, namespace, file, etc.).
 An object may exist but be inaccessible from the current scope, for example, shadowed by another object with the same name.
 
 The lifetime of a local/automatic (i.e. temporary) object is always limited by the scope of the current code block,
-while the lifetime of a static object is limited by the lifetime of the module in which it is defined, or by the lifetime of the program if the object is global.
+while the lifetime of a static object is limited by the lifetime of the file in which it is defined, or by the lifetime of the program if the object is global.
 But *initialization of the initial value of a static object* occurs in accordance with the executed program code,
 (i.e. when executing the code with the statement creating the static object).
 -->
@@ -25,18 +25,31 @@ TrustLang uses several operators to create objects:
                         If an object with such a name does not exist yet, it is created; otherwise the value is reassigned.
                         Example: `x := 5;`, `hello(str) := { ... };`.
 
-- "**::=**" — declares a **type** (an alias or a typed type), for example `MyInt ::= :Int32;`,
+- "**::=**" — declares a **new named type** (in C++ it may be implemented as an alias/`using`),
+                        for example `MyInt ::= :Int32;`,
                         `Status ::= (OK=0, ERROR=1, BUSY=2,):Enum;`. Using "**::=**" to create
                         values/functions is impossible — the compiler reports: *"cannot assign a type ... to a value variable; use '::=' to declare a type alias"*.
 
   Also, a **forward declaration of a native class** is declared via `::=`:
   `String ::= %std::string { %size(): UInt64 := ...; };` — the RHS is the class name (native — with a leading `%`),
   the body `{ ... }` — interface members (methods/fields/constructors), each `:= ...` (without a body). Constructing
-  an object — calling the class name: `s: String := String('hello');` → `std::string("hello")`. More — in
+  an object — calling the class name: `s: String := String("hello");` → `std::string("hello")`. More — in
   [Native types](../types/native/).
 
-The operators "**::-**" and "**:-**" are not implemented in the current version; earlier they were intended
-for pure functions and compile-time computed values.
+- "**::-**" applied to a **type** — declares a **second name of an already existing type** (semantic
+                        synonym): `:MyAlias ::- MyInt;` or `:MyAlias ::- :Int32;` (including the
+                        cross-module form `:MyAlias ::- \lib::T;`). No new type is created: `MyAlias`
+                        and the target share one `TypeId` (interchangeable in overloads, `~~~` yields
+                        `true`), while the C++ name and diagnostics use the target's name. Unlike `::=`,
+                        which creates a NEW nominal type with the target as its base. The RHS must be a
+                        type: a value/variable on the right is an error. The name on the left carries the
+                        type sigil: `:A ::- T;`; `A ::- T;` and `:A = T;` are errors (`=` performs
+                        assignment and implements an already declared type).
+
+- "**:-**" applied to a **name** — a **name alias**: a new name for an existing function
+                        (`f :- \lib::g;`): no dedicated entity or C++ symbol is created, the target is
+                        the target's OVERLOAD SET (selection happens at the call site). More — in
+                        [Module hierarchy](../syntax/hierarchy/#func-alias).
 
 ### Assigning a new value {#assign}
 
@@ -76,14 +89,14 @@ General rule: `X []= v` is equivalent to `X.push_back(v)`.
 ```python
     d := (1, two=2,);
     d []= 999;        # add a positional element → size 3
-    d []= 'x';        # add one more element
+    d []= "x";        # add one more element
     d []= ... (a=100, b=200,);  # merge a literal → size 5 (a and b added)
     d2 := (three=3, 4,);
     d []= ... d2;     # merge a dictionary variable → size 7
 
-    s := 'abc';
-    s []= 'd';        # the string became "abcd"
-    @print('{}', s);   # > abcd
+    s := "abc";
+    s []= "d";        # the string became "abcd"
+    @print("{}", s);   # > abcd
 ```
 
 Adding a **named** element of a dictionary is performed by the assignment operator `d[name] = value` (set/add by key).
@@ -106,9 +119,9 @@ Adding a **named** element of a dictionary is performed by the assignment operat
     $var := 99; # Create a temporary variable $var
     {
         $var := 100; # The new variable shadows the higher-level $var
-        @print('{}', $var)    # > 100
+        @print("{}", $var)    # > 100
     }
-    @print('{}', $var)    # > 99
+    @print("{}", $var)    # > 99
 ```
 
 ### Assigning a value to several variables at once and the dictionary unpacking operator {#expand}

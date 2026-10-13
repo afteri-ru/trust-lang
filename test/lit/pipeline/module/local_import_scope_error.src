@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Импорт внутри блока НЕ виден после выхода из блока — ни коротким именем, ни `\lib::f`.
+# CHECK: error:
+//--- main.src
+@main():Int32 := {
+    {
+        \lib(f);
+    };
+    @return f() + \lib::f();
+};
+
+//--- lib.src
+\lib;
+f():Int32 := { @return 1; };

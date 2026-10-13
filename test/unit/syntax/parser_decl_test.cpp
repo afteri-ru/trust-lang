@@ -1,4 +1,7 @@
 #include "syntax/parser_test_fixture.hpp"
+#include "location/module_name.hpp"
+
+using namespace trust;
 TEST_F(ParserTest, Docs) {
     ASSERT_TRUE(Parse("/** doc */ { }"));
     ASSERT_TRUE(Parse("/// \n{ }"));
@@ -11,7 +14,7 @@ TEST_F(ParserTest, Docs) {
 }
 
 TEST_F(ParserTest, HelloWorld) {
-    ASSERT_TRUE(Parse("hello(str=\"\") := { printf(format:FmtChar, ...):Int32 := Pointer('printf'); printf('%s', $1); $str;};"));
+    ASSERT_TRUE(Parse("hello(str=\"\") := { printf(format:FmtChar, ...):Int32 := Pointer(\"printf\"); printf(\"%s\", $1); $str;};"));
     //    ASSERT_EQ("!!!!!!!!!!!!!!", ast->toString());
 }
 
@@ -135,7 +138,7 @@ TEST_F(ParserTest, Module) {
     //    ASSERT_TRUE(Parse("\\dir\\dir\\module (::ns::func, _)"));
 
     ASSERT_TRUE(Parse("\\module (name=func, name=func2, name=::func3)"));
-    ASSERT_TRUE(Parse("\\\\dir\\module (name=ns::func, name='')"));
+    ASSERT_TRUE(Parse("\\\\dir\\module (name=ns::func, name=\"\")"));
     ASSERT_TRUE(Parse("\\dir\\dir\\module (name=::ns::func, name=_)"));
 
     ASSERT_TRUE(Parse("\\module::var"));
@@ -149,10 +152,10 @@ TEST_F(ParserTest, Module) {
     //    ASSERT_TRUE(Parse("\\module (name=func, name=::name::*)"));
     //    ASSERT_TRUE(Parse("\\dir.module (name=ns::name::*, name=*)"));
 
-    ASSERT_FALSE(CheckCharModuleName("\\_module"));
-    ASSERT_FALSE(CheckCharModuleName("\\\\_module"));
-    ASSERT_FALSE(CheckCharModuleName("\\module_"));
-    ASSERT_FALSE(CheckCharModuleName("\\\\module_"));
+    ASSERT_FALSE(isValidModuleLogicalName("\\_module"));
+    ASSERT_FALSE(isValidModuleLogicalName("\\\\_module"));
+    ASSERT_FALSE(isValidModuleLogicalName("\\module_"));
+    ASSERT_FALSE(isValidModuleLogicalName("\\\\module_"));
 
     m_ctx.diag().clear();
     EXPECT_NO_THROW(Parse("\\_module"));
@@ -466,7 +469,7 @@ TEST_F(ParserTest, CallArgRefType) {
 }
 
 TEST_F(ParserTest, CallArgStringName) {
-    ASSERT_TRUE(Parse("term('name'=1);"));
+    ASSERT_TRUE(Parse("term(\"name\"=1);"));
     ASSERT_EQ(TermID::NAME, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ(1, ast->size());
     ASSERT_EQ("name", ast->at(0).first);

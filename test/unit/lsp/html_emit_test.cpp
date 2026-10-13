@@ -4,7 +4,7 @@
 
 #include "lsp/html_emit.h"
 #include "lsp/lsp_protocol.h"
-#include "utils/file_io.hpp"
+#include "utils/utils.hpp"
 
 #include <gtest/gtest.h>
 

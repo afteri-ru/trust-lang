@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 # RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/template_ctor_explicit.o %s && test -f $TD/template_ctor_explicit.o
 
 # Явная конструкция шаблон-типа в позиции значения: `:Box<Int32>(...)` (record-шаблон) и

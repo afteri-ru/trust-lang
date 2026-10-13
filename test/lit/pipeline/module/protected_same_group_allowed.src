@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prot $TD/main.src
+# RUN: $TD/prot && echo "PASS"
+# CHECK: PASS
+#
+# `_::` (protected) доступно файлам той же группы: main и lib лежат в одном каталоге, поэтому
+# защищённое имя импортируется и программа исполняется (единое правило видимости сайта —
+# types/site_visibility.hpp). Парная фикстура — protected_other_group_denied.src.
+
+//--- main.src
+\lib(h);
+@main():Int32 := { @return h() - 1; };
+
+//--- lib.src
+\lib;
+_:: { h():Int32 := { @return 1; }; };

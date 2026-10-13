@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 # Экземплярные члены с ведущей точкой регистрируются как методы/поля нативного класса:
 #   .method() / .field / .%method() / .%field
 # Доступ: s.method(), s.field, s.%method(), s.%field → (c_s).name (нативное имя без '%').

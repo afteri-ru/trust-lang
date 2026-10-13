@@ -10,7 +10,7 @@ Opt ::= %std::optional<Int32> { };
     a : Int32 := 1;
     d : Opt := Opt(a);
     a = 2;
-    @print('{}\n', d);
+    @print("{}\n", d);
     return 0;
 }
-# CHECK: error: using the dependent variable 'd' after changing the main variable 'a'
+# CHECK: error: cannot change the owner 'a' while dependent variable(s) 'd' are alive

@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Qualified-маска исключает `ns::g`: имя не видно импортёру.
+# CHECK: error: undefined name 'ns::g'
+
+//--- main.src
+\lib(ns::f);
+@main():Int32 := { @return ns::g(); };
+
+//--- lib.src
+\lib;
+ns:: {
+    f():Int32 := { @return 1; };
+    g():Int32 := { @return 2; };
+};

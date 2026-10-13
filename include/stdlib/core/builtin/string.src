@@ -1,0 +1,11 @@
+\\\stdlib\stdlib\builtin\string;
+# builtin/string.src - auto implementation of string built-in types backed by the C++ standard library.
+#
+# The definition uses `=` (implementation of a PRE-DECLARED type), not `::=`
+# (new type). This file is loaded as part of the stdlib prelude by default.
+
+@[include("string")@]
+StrChar = %std::string { };
+
+@[include("string")@]
+StrWide = %std::wstring { };

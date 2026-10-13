@@ -1,4 +1,4 @@
-# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # Для area param/var/named второй аргумент (имя) ОБЯЗАТЕЛЕН.
 @main():Int32 := {

@@ -3,11 +3,7 @@
 // Public runtime header for the Trust runtime. Implemented in
 // src/runtime/rational.cpp (part of trust-runtime.so).
 //
-// This header is self-contained (standard headers only) so that generated C++
-// programs can include it without depending on the compiler's include tree.
-// At build time it is embedded into trust-runtime.so (via #embed, in an ELF
-// section named "trust/rational.hpp"); the pipeline extracts it into a
-// temporary `trust/` directory when a program actually uses the Rational type.
+// Delivery: package file `include/trust/rational.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 
 #pragma once
 

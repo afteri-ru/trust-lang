@@ -1,13 +1,20 @@
 // src/trust.cpp - точка входа в компилятор/транспилятор Trust
 #include "pipeline/pipeline.hpp"
+#include "pipeline/cli.hpp"
+#include "pipeline/commands.hpp"
 #include "driver/cli.hpp"
 #include "driver/analysis_options.hpp"
+#include "formatter/command.hpp"
+#include "formatter/format.hpp"
+#include "package/package.hpp"
+#include "semantic/solver.hpp"
 #include "session/context.hpp"
 #include "diag/diag.hpp"
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include <map>
 #include <ostream>
 #include <sstream>
@@ -19,7 +26,7 @@
 // из них ниже генерируются таблицы имён/описаний для справки `-Whelp-predef-macros`.
 #include "syntax/predef_macro_x.hpp"
 #include "syntax/pragma_macro_x.hpp"
-#include "ast/check_area.hpp"
+#include "syntax/check_area.hpp"
 
 namespace trust {
 namespace {
@@ -115,7 +122,7 @@ std::vector<std::pair<std::string, std::string>> predefMacroHelpEntries() {
     return out;
 }
 
-// Печать списка макросов загруженного DSL (trust/dsl.src или --dsl): имена и доки берём из
+// Печать списка макросов загруженного DSL (stdlib/dsl.src или --dsl): имена и доки берём из
 // реестра Context::macroDefs() (заполняется recordMacro при разборе DSL) — «из списка
 // зарегистрированных макросов». В справку выводится первая строка документирующего
 // комментария (## / ##<), если она есть.
@@ -210,10 +217,10 @@ int main(int argc, char* argv[], char* envp[]) {
     }
 
     // Парсинг аргументов командной строки
-    auto result = trust::Pipeline::parseArgs(static_cast<int>(newArgv.size()), newArgv.data());
+    auto result = trust::parseCommandLine(std::span<char*>(newArgv.data(), newArgv.size()));
 
     // Help/version/errors - выходим сразу
-    if (trust::Pipeline::isSpecialExit(result)) {
+    if (trust::isSpecialExit(result)) {
         return result.exit_code;
     }
 
@@ -251,9 +258,77 @@ int main(int argc, char* argv[], char* envp[]) {
             }
         }
     }
-    trust::Pipeline pipeline(ctx, result.opts);
+    const trust::PipelineOpts& opts = result.opts;
+
+    // -- CLI-команды, не требующие конвейера ------------------------------------------------
+    if (opts.format_dump_config) {
+        trust::outs() << trust::formatter::dumpConfig({});
+        return 0;
+    }
+    if (opts.complete_options) {
+        for (const std::string& t : trust::driverOptionTokens()) {
+            trust::outs() << t << "\n";
+        }
+        for (const std::string& w : ctx.opts().allWNames()) {
+            trust::outs() << w << "\n";
+        }
+        return 0;
+    }
+    if (opts.complete_files) {
+        for (const std::string& t : trust::driverFileValueTokens()) {
+            trust::outs() << t << "\n";
+        }
+        return 0;
+    }
+    if (opts.format_requested) {
+        return trust::runFormatCommand(ctx, opts, trust::effectiveKeywords(ctx, opts));
+    }
+    if (opts.package_requested) {
+        if (opts.input_file.empty()) {
+            trust::errs() << "error: --package requires a source directory\n";
+            return 1;
+        }
+        return trust::createTrustPackage(opts.input_file, opts.output_file);
+    }
+    if (opts.extract_requested) {
+        if (opts.input_file.empty()) {
+            trust::errs() << "error: --extract requires an archive\n";
+            return 1;
+        }
+        return trust::extractTrustPackage(opts.input_file, opts.output_file);
+    }
+
+    // -- Конвейер --------------------------------------------------------------------------
+    if (!std::filesystem::exists(opts.input_file)) {
+        trust::errs() << "error: input file not found: " << opts.input_file << "\n";
+        return 1;
+    }
+    trust::MapperFile inputFile = ctx.source().load_file(opts.input_file);
+    if (opts.verbose) {
+        trust::errs() << "info: loaded " << opts.input_file << "\n";
+    }
+
+    trust::Pipeline pipeline(ctx, opts);
+
+    if ((opts.emit_flags & trust::EmitFlags::LexemesOnly) != trust::EmitFlags::None) {
+        return trust::runLexemesCommand(ctx, opts, inputFile);
+    }
+
     try {
-        return pipeline.execute();
+        const auto smode = trust::semantic::solverModeFromOptions(ctx.opts());
+        if (smode == trust::analysis::SolverMode::kExport || smode == trust::analysis::SolverMode::kCalculate) {
+            return trust::runSolverCommand(pipeline, ctx, opts, inputFile);
+        }
+        if (opts.should_compile()) {
+            if (opts.emit_module_deps) {
+                return pipeline.emitModuleDepsToStdout(inputFile);
+            }
+            return pipeline.compileProgram(inputFile);
+        }
+        if ((opts.emit_flags & trust::EmitFlags::Cpp) != trust::EmitFlags::None) {
+            return pipeline.emitCppToStdout(inputFile);
+        }
+        return trust::runOtherEmitCommand(pipeline, ctx, opts, inputFile);
     } catch (const trust::FatalError&) {
         // Диагностика уже выведена в diag(); Fatal прерывает выполнение.
         return 1;

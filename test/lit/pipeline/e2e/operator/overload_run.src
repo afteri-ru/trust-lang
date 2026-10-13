@@ -1,0 +1,24 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: 1 2 true false 3 4
+
+# Внутритиповые перегрузки операторов: один символ - несколько сигнатур.
+# Выбор делает семантика (exact match); кодоген эмитит explicit member-вызов с кастом
+# аргумента к объявленному типу параметра, поэтому C++ не выбирает перегрузку повторно.
+:P ::= :Class{
+    x: Int32 := _;
+    __getitem__(i: Int32): Int32 := { return 1; };
+    __getitem__(i: Int64): Int32 := { return 2; };
+    __eq__(o: Int32): Bool := { return true; };
+    __eq__(o: Int64): Bool := { return false; };
+    __call__(i: Int32): Int32 := { return 3; };
+    __call__(i: Int64): Int32 := { return 4; };
+};
+
+@main() := {
+    p : P := :P(1);
+    @print("{} {} {} {} {} {}\n", p[1:Int32], p[2:Int64], p == 1:Int32, p == 2:Int64, p(5:Int32), p(6:Int64));
+    @return 0;
+}

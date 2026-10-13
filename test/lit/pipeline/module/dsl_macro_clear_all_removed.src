@@ -1,0 +1,10 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Удаления ВСЕХ макросов нет: `@@@@` удаляет только явно названный макрос, `_` — обычное имя
+# (не макрос), поэтому операция завершается диагностикой «не найден».
+# CHECK: error: Macro '_' not found for removal!
+
+@@ mine @@ 5 @@@@;
+@@ _ @@@@;
+@main():Int32 := { @return 0; };

@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Интерфейс с namespace-областью: `ns::f` объявлено в интерфейсе, определено в теле; импортёр
+# видит квалифицированное имя.
+
+//--- main.src
+\lib(ns::f);
+@main():Int32 := { @return ns::f() - 7; };
+
+//--- lib.src
+\lib {
+    ns:: {
+        f():Int32 := ...;
+    };
+};
+ns:: {
+    f():Int32 := { @return 7; };
+};

@@ -9,8 +9,8 @@
 };
 @main() := {
     c : C := C();
-    s : StrChar := 'x';
-    @print('{}\n', c.f(s));
+    s : StrChar := "x";
+    @print("{}\n", c.f(s));
     @return 0;
 }
 # CHECK: error: no matching overload for method 'f'

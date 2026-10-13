@@ -11,16 +11,16 @@
 // точка, где имена уровня модуля наблюдаемы (после run() модульный скоуп вытолкнут).
 // NameResolutionPass гоняется напрямую (SemanticPassRunner не даёт подключить произвольный хук).
 
-#include "semantic/name_resolution.hpp"
-#include "semantic/pass.hpp"
-#include "semantic/inline_hook.hpp"
-#include "analysis/symbol_table.hpp"
+#include "semantic/core/name_resolution.hpp"
+#include "semantic/core/pass.hpp"
+#include "semantic/core/inline_hook.hpp"
+#include "symbols/symbol_table.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/ident_name.hpp"
 #include "ast/token.hpp"
 #include "ast/token_type.hpp"
 #include "session/context.hpp"
-#include "types/registry.hpp"
+#include "types/type_system.hpp"
 #include "types/type_id.hpp"
 #include "gtest/gtest.h"
 
@@ -38,14 +38,16 @@ class NameProbeHook : public InlineAnalysisHook {
     explicit NameProbeHook(AnalysisContext& actx)
     : m_actx(actx) {}
 
+    [[nodiscard]] std::string_view name() const override { return "name-probe"; }
+
     // onResolve срабатывает для Ident-ссылки (lookupOrError) во время обхода. Захватываем
     // тип (значение TypeId) - на момент вызова скоуп модуля активен, поэтому ссылка на
     // верхнеуровневую переменную обязана разрешиться (sym != nullptr).
     void onResolve(const AstNodeBase& node, const Symbol* sym) override {
-        if (node.text() == kRefName) {
+        if (requiredText(node) == kRefName) {
             m_refResolved = (sym != nullptr);
             if (sym) {
-                m_refType = sym->type;
+                m_refType = sym->type.getTypeId();
             }
             ++m_refObservations;
         }
@@ -54,7 +56,7 @@ class NameProbeHook : public InlineAnalysisHook {
     // onDeclare срабатывает при объявлении тип-алиаса (MyInt ::= :Int32). Фиксируем его TypeId (значение).
     void onDeclare(const Symbol& sym) override {
         if (sym.decl && sym.decl->kind() == ParserToken::Kind::TypeDecl) {
-            m_aliasType = sym.type;
+            m_aliasType = sym.type.getTypeId();
         }
     }
 
@@ -76,7 +78,7 @@ class NameProbeHook : public InlineAnalysisHook {
 // Скоупы (модульный) активны ТОЛЬКО во время обхода; хук проверяет резолв в этот момент.
 TEST(ScopeLiveness, ModuleLevelNamesResolveDuringTraversal) {
     Context ctx;
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     AnalysisContext actx(ctx);
     NameResolutionPass core(actx);
@@ -104,12 +106,12 @@ TEST(ScopeLiveness, ModuleLevelNamesResolveDuringTraversal) {
     // Во время обхода (скоуп модуля активен) ссылка на x разрешилась корректно.
     EXPECT_GE(probe_ptr->refObservations(), 1);
     EXPECT_TRUE(probe_ptr->refResolved());
-    EXPECT_EQ(probe_ptr->refType(), ctx.types().getType("Int32"));
+    EXPECT_EQ(probe_ptr->refType(), ctx.readTypes().getType("Int32"));
 
     // MyInt ::= :Int32: семантика в момент активного скоупа зарегистрировала тип-алиас MyInt.
     TypeId alias = probe_ptr->aliasType();
     ASSERT_NE(alias, INVALID_TYPE_ID);
-    EXPECT_EQ(ctx.types().getCanonicalTypeId(alias), ctx.types().getType("Int32"));
+    EXPECT_EQ(ctx.readTypes().store().desugaredTypeId(alias), ctx.readTypes().getType("Int32"));
 
     // Контраст: ПОСЛЕ обхода модульный скоуп вытолкнут - x уровня модуля в SymbolTable недоступен
     // (поэтому транспайлер, читающий таблицу после анализа, использует реестр).
@@ -119,7 +121,7 @@ TEST(ScopeLiveness, ModuleLevelNamesResolveDuringTraversal) {
 // Оператор '::=' создаёт ТОЛЬКО типы: ссылка на переменную справа - ошибка, а не «алиас на переменную».
 TEST(ScopeLiveness, AliasOnVariableIsError) {
     Context ctx;
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     AnalysisContext actx(ctx);
     NameResolutionPass core(actx);
@@ -137,7 +139,7 @@ TEST(ScopeLiveness, AliasOnVariableIsError) {
 
     EXPECT_GT(ctx.diag().errorCount(), 0);
     // y НЕ зарегистрирован как тип.
-    EXPECT_FALSE(ctx.types().findType("y").has_value());
+    EXPECT_FALSE(ctx.readTypes().findType("y").has_value());
 }
 
 } // namespace

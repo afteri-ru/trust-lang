@@ -1,0 +1,30 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust --package pkg -o mod_header.trust > %t.out && test -f mod_header.trust
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# C++-заголовок пакета лежит в include/ и подключается через @[include(...)].
+# Пакет распаковывается в <build>/packages/mod_header; build.conf добавляет
+# -Ipackages/mod_header и -Ipackages/mod_header/include, поэтому
+# #include <header.hpp> разрешается без копирования заголовка в build-dir.
+
+//--- pkg/trust.toml
+name = 'mod_header'
+//--- pkg/include/header.hpp
+#pragma once
+
+namespace pkg_header {
+inline int value() { return 42; }
+} // namespace pkg_header
+//--- pkg/mod_header.src
+\\\mod_header\mod_header;
+@[include("header.hpp")@]
+%pkg_header::value():Int32 := ...;
+
+marker:Int32 := 1;
+//--- main.src
+\\\mod_header\mod_header(marker);
+
+{% int main__main__() { return 0; } %}

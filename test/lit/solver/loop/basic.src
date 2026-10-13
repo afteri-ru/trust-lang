@@ -11,6 +11,24 @@ sum(n:Int32):Int32 trust_pre( n >= 0 ) trust_post( sum >= 0 ) := {
     @return s;
 };
 
-# SM2: (assert (forall ((sum_n (_ BitVec 32))) (=> (bvsge sum_n (_ bv0 32)) (bvsge (sum sum_n) (_ bv0 32)))))
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun sum_n () (_ BitVec 32))
+# SM2: (declare-fun sum ((_ BitVec 32)) (_ BitVec 32))
+# SM2: (declare-fun __havoc_$s_445 () (_ BitVec 8))
+# SM2: (declare-fun __havoc_$i_453 () (_ BitVec 8))
+# SM2: (push 1)
+# SM2: (assert (and (bvsge sum_n (_ bv0 32)) (not (bvsge (_ bv0 8) (_ bv0 8)))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (push 1)
+# SM2: (assert (and (bvsge sum_n (_ bv0 32)) (and (and (bvsge __havoc_$s_445 (_ bv0 8)) (bvslt ((_ sign_extend 24) __havoc_$i_453) sum_n)) (not (bvsge __havoc_$s_445 (_ bv0 8))))))
+# SM2: (check-sat)
+# SM2: (pop 1)
+# SM2: (push 1)
+# SM2: (assert (and (bvsge sum_n (_ bv0 32)) (not (=> (and (bvsge __havoc_$s_445 (_ bv0 8)) (not (bvslt ((_ sign_extend 24) __havoc_$i_453) sum_n))) (bvsge ((_ sign_extend 24) __havoc_$s_445) (_ bv0 32))))))
+# SM2: (check-sat)
+# SM2: (pop 1)
 
+# Z3: unsat
+# Z3: unsat
 # Z3: unsat

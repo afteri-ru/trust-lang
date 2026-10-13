@@ -1,0 +1,12 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/app %s
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+
+@include("algorithm")
+<T> mymax(a: T, b: T): T := %std::max...;
+
+@main():Int32 := {
+    r : Int32 := mymax(1:Int32, 2:Int32);
+    if (r == 2) { @return 0; } else { @return 1; };
+};

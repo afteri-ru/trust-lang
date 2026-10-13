@@ -3,8 +3,9 @@
 # RUN: %FileCheck --check-prefix=SM2 %s <%t.smt2
 
 # По умолчанию (без -fsolver-loop-unroll и без инварианта) цикл НЕ разворачивается: выдаётся
-# диагностика `-Wsolver-loop` (default: warning) и цикл не участвует в доказательстве (нет ite).
-# Инвариант или -fsolver-loop-unroll снимают диагностику (см. basic / unroll).
+# диагностика `-Wsolver-loop` (default: warning). Тело цикла при этом не закодировано, поэтому
+# собственная VC функции ПРОПУСКАЕТСЯ (`-Wverify-envelope`) и не считается доказанной.
+# Инвариант или -fsolver-loop-unroll снимают обе диагностики (см. basic / unroll).
 
 sum(n:Int32):Int32 trust_post( sum >= 0 ) := {
     s := 0; i := 0;
@@ -13,6 +14,9 @@ sum(n:Int32):Int32 trust_post( sum >= 0 ) := {
 };
 
 # WARN: loop without an invariant is not verified by the solver
+# WARN: outside verification envelope
 # SM2: (set-logic UFBV)
+# SM2: (declare-fun sum_n () (_ BitVec 32))
+# SM2: (declare-fun sum ((_ BitVec 32)) (_ BitVec 32))
 # SM2-NOT: ite
-# SM2: (assert (not (bvsge ((_ sign_extend 24) (_ bv0 8)) (_ bv0 32))))
+# SM2-NOT: (check-sat)

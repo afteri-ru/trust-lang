@@ -1,0 +1,25 @@
+# include/stdlib/tensor/trust.toml
+# Provider package: stable TrustLang tensor API backed by the toolchain `tensor_cpu`
+# plugin. The plugin (and through it libtorch) is an implementation detail: generated
+# programs link only the plugin, never libtorch itself. Raw libtorch access, if ever
+# needed, belongs to a separate opt-in `torch` provider package.
+name = "tensor"
+description = "Tensor provider: stable trust/tensor.hpp handle over the tensor_cpu toolchain plugin"
+
+# Trust-исходники пакета: tensor.src (source-dir/archive-dir по умолчанию ".")
+[[layout.layers]]
+patterns = ["*.src"]
+
+# Link-контракт. `capabilities = ["with-torch"]` требует toolchain, собранный с
+# -DWITH_TORCH=ON; иначе использование пакета даёт диагностику до линковки.
+[[artifact]]
+provides = ["tensor"]
+kind = "toolchain"
+libs = ["tensor_cpu"]
+capabilities = ["with-torch"]
+
+# Потребность по заголовку: прямое включение `@trust/tensor.hpp` тоже обязано линковать
+# провайдер (страховка для ручного include; штатный путь - @[link] на определении Tensor).
+[[link.headers]]
+header = "trust/tensor.hpp"
+libs = ["tensor"]

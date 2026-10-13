@@ -1,8 +1,8 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Деструктуризация кортежа (без `...`, структурный источник, std::get<N>).
 # Сгруппированы сценарии (были destructure_tuple / destructure_tuple_rest / destructure_typed_target + новый skip):
-#  - `a, b, c := t` - связывание auto (тип элемента кортежа);
+#  - `a, b, c := t` - связывание конкретным типом элемента кортежа (int8_t);
 #  - `x, y, rest... := u` - rest = под-кортеж std::make_tuple(std::get<2>, std::get<3>);
 #  - `v, _... := u` - отброс остатка;
 #  - `t1:Int32, t2 := w` - аннотация типа цели: int32_t c_t1 вместо auto;
@@ -19,18 +19,18 @@
     s := (1, 2, 3,):Tuple;
     p, _, r := s;
 };
-# CHECK: auto c_t = std::make_tuple(10, 20, 30);
-# CHECK-NEXT: auto c_a = std::get<0>(c_t);
-# CHECK-NEXT: auto c_b = std::get<1>(c_t);
-# CHECK-NEXT: auto c_c = std::get<2>(c_t);
-# CHECK-NEXT: auto c_u = std::make_tuple(10, 20, 30, 40);
-# CHECK-NEXT: auto c_x = std::get<0>(c_u);
-# CHECK-NEXT: auto c_y = std::get<1>(c_u);
-# CHECK-NEXT: auto c_rest = std::make_tuple(std::get<2>(c_u), std::get<3>(c_u));
-# CHECK-NEXT: auto c_v = std::get<0>(c_u);
-# CHECK-NEXT: auto c_w = std::make_tuple(10, 20);
+# CHECK: std::tuple<int8_t, int8_t, int8_t> c_t = std::make_tuple(10, 20, 30);
+# CHECK-NEXT: int8_t c_a = std::get<0>(c_t);
+# CHECK-NEXT: int8_t c_b = std::get<1>(c_t);
+# CHECK-NEXT: int8_t c_c = std::get<2>(c_t);
+# CHECK-NEXT: std::tuple<int8_t, int8_t, int8_t, int8_t> c_u = std::make_tuple(10, 20, 30, 40);
+# CHECK-NEXT: int8_t c_x = std::get<0>(c_u);
+# CHECK-NEXT: int8_t c_y = std::get<1>(c_u);
+# CHECK-NEXT: std::tuple<int8_t, int8_t> c_rest = std::make_tuple(std::get<2>(c_u), std::get<3>(c_u));
+# CHECK-NEXT: int8_t c_v = std::get<0>(c_u);
+# CHECK-NEXT: std::tuple<int8_t, int8_t> c_w = std::make_tuple(10, 20);
 # CHECK-NEXT: int32_t c_t1 = std::get<0>(c_w);
-# CHECK-NEXT: auto c_t2 = std::get<1>(c_w);
-# CHECK-NEXT: auto c_s = std::make_tuple(1, 2, 3);
-# CHECK-NEXT: auto c_p = std::get<0>(c_s);
-# CHECK-NEXT: auto c_r = std::get<2>(c_s);
+# CHECK-NEXT: int8_t c_t2 = std::get<1>(c_w);
+# CHECK-NEXT: std::tuple<int8_t, int8_t, int8_t> c_s = std::make_tuple(1, 2, 3);
+# CHECK-NEXT: int8_t c_p = std::get<0>(c_s);
+# CHECK-NEXT: int8_t c_r = std::get<2>(c_s);

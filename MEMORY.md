@@ -2,98 +2,123 @@
 
 > scope: . (root, project-level)
 > role: persistent-memory
-> last_reviewed: 2026-09-23
+> last_reviewed: 2026-11-05
 > review_period: 30
-> max_size: 14200
+> max_size: 13600
 
 ## Architecture
 
-TrustLang — транспилятор высокоуровневого языка в C++. Архитектура компонентов — в пер-компонентных
-`MEMORY.md` (по одному на каталог); они же — единый источник истины об архитектуре и персистентной
-памяти. Пользовательская документация — `docs/content/ru` (рус., первоисточник); `docs/content/en` — её
-синхронный перевод; `README.md` — обзор.
+TrustLang — транспилятор высокоуровневого языка в C++. Архитектура — в `MEMORY.md` компонентов:
+корневой `include/<c>/MEMORY.md` — только публичный API и правила, детали реализации — в `MEMORY.md`
+internal-подкаталогов (покрывают и `src/<c>/<internal-dir>/`); это единственный источник истины о
+компонентах и ловушках.
+Пользовательская документация — `docs/content/ru` (первоисточник), `content/en` — синхронный перевод;
+правила документации — `docs/MEMORY.md` и AGENTS.md.
 
-### Отладочная диагностика анализатора (кратко)
-
-Проверка внутреннего состояния анализатора AST (скоупы, регистрация имён, borrow-checker) без правки
-кода: два уровня + гейт сборки. Гейт: CMake `TRUST_ENABLE_TRACE` (dev ON / release OFF) →
-`TRUST_TRACE_ENABLED`; при 0 C++-макросы вырезаны (тихий no-op; аргументы не вычисляются), а
-`.src`-макросы не создают вывода и дают `Severity::Warning`.
-
-- Источник (C++, только dev): `TRUST_DEBUG("tags","fmt",args...)` — сообщение;
-  `TRUST_SCOPE("tags", symbols[, "level=all", …])` — ручной дамп состояния.
-- Управление (TrustLang-макросы в `.src`): `@__DEBUG__("<маски>")`/`@__DEBUG__()` — включить/выключить
-  ФИЛЬТР сообщений; `@__DEBUG_SCOPE__([<маски имён>][, key=value…])` — дамп состояния, от фильтра НЕ
-  зависит (позиционные = маски имён; значения опций без кавычек: `level|types|max|count`).
-- Фильтр: авто-токены из `__FILE__` (`root|path|component|rel|stem|file`) + явные теги; маски `*`/`?`,
-  списки через `,`. Без заданного фильтра сообщения молчат. Каждая строка префиксуется
-  `.../файл:строка:` (для `TRUST_DEBUG` — место вызова, для `@__DEBUG*` — локация самого макроса).
-- Готовые теги: `scope` (вход/выход скоупа), `resolve` (резолв имени), `declare` (var/func), `borrow`
-  (вид/владение/регион, заём→anchor, эпоха, R4/R6).
+**Отладочная диагностика:** `TRUST_DEBUG(msg)`/`TRUST_SCOPE(...)` (C++) и `@__DEBUG__`/`@__DEBUG_SCOPE__`
+(`.src`) под гейтом `TRUST_ENABLE_TRACE` → `TRUST_TRACE_ENABLED`: при 0 C++-макросы вырезаны, `.src` дают
+`Warning` без вывода. `@__DEBUG__` — фильтр, `@__DEBUG_SCOPE__` — дамп всегда; ядро — `utils`.
 
 ## Facts and invariants
 
-- **Контроль целочисленного переполнения включён по умолчанию** (`-foverflow-check`/
-  `-fno-overflow-check`): знаковая арифметика `+ - *` и `+= -= *=` транслируется через
-  `__builtin_*_overflow` с `throw trust::IntMinus` (ловится `{-…-}`); только знаковые машинные целые.
-  Составные присваивания в AST — `AssignOp` (лексер `OP_ASSIGN`), арифметика — `MathOp`.
-- **Тесты всегда адаптируются под изменения кода, никогда наоборот** (AGENTS.md правило 10), вкл.
-  parser-тесты, закрепляющие внутреннюю структуру term/AST.
-- **Временные переменные — уровень анализатора, не транспилятора:** конструкции, требующие временную
-  (match, while-else, деструктуризация, hoist возврата), обязаны иметь её в AST как `const VarDecl`,
-  созданный проходом lowering (подробно — `include/transpiler/MEMORY.md`).
+- **⚠ Видимость на сайте импорта — одно правило:** `types/site_visibility.hpp`
+  (`siteVisibilityOf`/`siteKeysFor`) решает «видно ли имя с сайта и под каким ключом»; `SymbolTable`
+  применяет решение, `module_loader` даёт ДАННЫЕ сайта (проекция экспорт-набора). `utils::ImportMasks` —
+  только разбор/матчинг строки масок. `_::` без доступа группы — невидимо (в т.ч. на сайте, первым
+  запустившем анализ тела модуля).
+- **Переполнение целых включено по умолчанию** (`-foverflow-check`): знаковые `+ - *`/`+= -= *=` →
+  `throw trust::IntMinus` (ловится `{-…-}`). Классификацию решает `semantic` (`Binary::m_overflowCheck`),
+  кодоген только читает. **Целочисленные `//`/`%` проверяются ВСЕГДА** (деление на ноль и `INT_MIN / -1` —
+  не wrap-арифметика, флаг на них не влияет).
+- **Временные переменные создаёт ТОЛЬКО анализатор** (lowering) как реальные `const VarDecl` в AST;
+  транспилятор их не синтезирует (исключения — `transpiler/MEMORY.md`).
 - **LIT-подкаталоги не перечисляются вручную:** выводятся из реальных `.src`/`.ast` через GLOB_RECURSE
   CONFIGURE_DEPENDS.
-- **Конвенция опций CLI (диагностики vs поведение, GCC/Clang-стиль):** диагностики — фикс. набор
-  `ignore|warning|error`, орфография `-W<name>=<sev>`; поведенческие — произвольные значения,
-  `--<name>=<value>`/`-f<name>`. `solver` — severity `-Wsolver=` (не выдаётся при активном
-  `--solver-mode`) + поведенческий `--solver-mode=assert|export|calculate`. Применение единообразно в
-  CLI и LSP: определены ОДИН раз (`commonAnalysisOptions`), применяются центрально
-  (`applyAnalysisArgs`); boolean-поведенческие флаги валидируются единообразно (`parseBoolFlagValue`);
-  LSP не объявляет их (analysis_passthrough). LSP применяет окружение и шебанг ПО ИСТОЧНИКУ
-  (trust.shebangMode): ошибка из шебанга — диагностика на строке шебанга, из окружения — в лог.
-- **Слои встраиваемых артефактов разделены компонентами (префиксы НЕ смешиваются):** встроенные типы
-  → `include/runtime/` (публикуются как `@trust/…`); стандартная библиотека → `include/stdlib/`
-  (вшиты в КОМПИЛЯТОР, публикуются как `@stdlib/…`); инфраструктура компилятора → `include/trust.cppm`
-  + генерируемый `version.h`. Ассеты ОБОИХ слоёв описаны ЕДИНЫМ каталогом `include/assets/asset_catalog.hpp`
-  (поле `AssetSource`); извлечение — единый алгоритм с двумя бэкендами: `#embed`-провайдер компилятора
-  (`src/assets/asset_provider.cpp`) и ELF-секции trust-runtime. Критерии отнесения — в пер-компонентных `MEMORY.md`.
-
-- **Сравнение типов `<~`/`~~`/`~~~` — статическая (компиляционная) свёртка:** результат `Bool`;
-  номинальная (`<~`) — с наследованием (реестр `baseClasses`), утиная (`~~`) и строгая (`~~~`) — по
-  полям/тождеству. Кодоген эмитит `true`/`false` (нулевая стоимость). Динамическая (рантайм) проверка
-  стёртых значений и имя типа из строковой переменной НЕ реализованы — явная ошибка компиляции
-  (без silent fallback). Символы: только `<~`/`~~`/`~~~` (отрицаний нет; голая `~` — не оператор).
+- **Опции CLI (GCC/Clang-стиль):** диагностики — `ignore|warning|error`/`-W<name>=<sev>`; поведение —
+  `--<name>=<value>`/`-f<name>`. `solver`: severity `-Wsolver=` + `--solver-mode`. Определены ОДИН раз
+  (`commonAnalysisOptions`) и применяются центрально (`applyAnalysisArgs`) в CLI и LSP.
+- **Встроенный тип — предобъявление, реализация отдельно** (`=` — определение, `::=` — новый тип и для
+  встроенного имени запрещён); провайдеры — intrinsic, auto C++ std или внешние. Модель — `types`,
+  реализации и пакет `stdlib.trust` — `stdlib/core`, рантайм-заголовки — `runtime`, ресурсы — `package`.
+- **Сравнение типов `<~`/`~~`/`~~~` — статическая свёртка в `Bool`:** `<~` — номинальная с наследованием,
+  `~~` — утиная по полям, `~~~` — строгая по тождеству; кодоген эмитит константу. Динамической проверки и
+  имени типа из строки НЕТ (явная ошибка компиляции); голая `~` — не оператор.
+- **Generic-функции/native-import:** `<T> f(...)` → C++ `template` с явными `c_f<...>(...)`;
+  `<T> run(...) := %native...;` — алиас без эмиссии, результат выводится унификацией. Type-packs
+  `<T...>`/`xs:T...` — только trailing у функций и в пользовательских native class templates. Встроенных
+  C++ FFI-синонимов нет: `Tuple<...>` — ошибка.
+- **`:Tensor` — Core-тип с провайдером:** предобъявлен (`types`), реализация — `tensor.trust`
+  (libtorch-плагин `tensor_cpu`); без `with-torch` — диагностика до линковки.
+- **HIR — единственный вход бэкендов, MIR — структура:** семантика материализует факты в поля узлов,
+  `buildHir` их клонирует, поэтому codegen и solver не резолвят имена/типы повторно; solver не зависит от
+  `semantic`, режимы получает данными.
+- **AST неизменяема, производная форма — HIR/MIR:** анализ работает по `(AST, SymbolTable)`; AST и её факты
+  не мутируются после семантики (кроме ErrorExpr-recovery), lowering — только на клоне. Диагностики/LSP
+  читают pre-lowering AST, кодоген — HIR, flow-анализы — MIR. «Мутированная AST в роли IR» запрещена.
+- **⚠ Домены имён — единственные точки:** spelling → trust-имя (`utils::qualifyTrustName`) → storage-ключ
+  (`StorageKey`) → C++-имя (`cppName`); модульная идентичность — `ModuleIndex`. Ручной сбор/разбор ключей
+  запрещён (гейт `name_domains_guard`); маски импорта — только `utils::ImportMasks`. LSP не показывает
+  storage-ключи.
+- **Соответствие include-графа графу сборки** — гейт `component_deps_guard`: include покрыт link-замыканием,
+  ребро подкреплено include-ами, PUBLIC-ребро используется в публичных заголовках (детали — `cmake/MEMORY.md`).
+- **⚠ Идентичность узлов и факты AST↔HIR:** идентичность узла — указатель на неизменяемый узел в пределах
+  компиляции; HIR-клон несёт `origin`. Факты для бэкендов материализуются в ПОЛЯХ узлов, side-table по
+  `NodeId` запрещён; пользовательские имена резолвит только семантика. `NodeId`/`SymbolId`, межпрогонный
+  кэш и сериализация не вводятся (TypeId реестрово-локален).
+- **Фазы пайплайна принадлежат `Pipeline`:** semantic → buildHir → `verifyHir` → buildMir →
+  `verifyFlowModule` → `ir` (DA/borrow по MIR) → backend-конвейер (данные: стадии `Solver` →
+  `Cpp`, см. `pipeline/MEMORY.md`). `SemanticPassRunner` выполняет только семантику.
+  MIR — единственный вход и flow-анализов, и верификатора: DA/borrow — штатные потребители MIR (не
+  удаляются), их требования входят в контракт MIR.
+- **⚠ Видимость имён (default-public):** top-level и `::`/`name::` — exported; `__::` — private (C++
+  anonymous namespace); `_::` — protected для файлов той же группы/пакета. Одноимённые экспорты разных
+  файлов сосуществуют (модульная идентичность), голое имя становится неоднозначным на сайте использования.
+  Детали и ловушки — `module_loader`, `symbols`, `types`.
+- **⚠ Модуль — часть идентичности экспорта:** `\a::f` и `\b::f` сосуществуют; ссылка `\path::name` модуль
+  НЕ загружает. C++-изоляция модуля — автоматический `namespace <enc>` для всех сущностей
+  (entry/`{% %}`/нативные декларации вне); headerless root её не получает.
+- **⚠ Префиксы путей — тип первого компонента:** `\file` — файл в корне проекта, `\\module\...` —
+  модуль-каталог, `\\\pkg\...` — пакет-архив; позиционной семантики (импортёр/корень программы/глобальный
+  корень) нет.
 
 ## Decisions
 
-- **Общий PCH — только оптимизация, НЕ несущая (`TRUST_USE_PCH`):** default ON в dev / OFF в release;
-  `ON` в release — ошибка конфигурации (`release_checks`-стиль). Обязательный верификационный конфиг —
-  `TRUST_USE_PCH=OFF` (PCH маскирует отсутствующий `#include`). Стабильный префикс —
-  `include/precompiled/trust_pch.hpp` (без `trust/version.h`); актуальность — depfile.
-  Детали — `include/precompiled/MEMORY.md`.
-- **Порядок CTest и фикстуры (обязательный):** unit → lit → vscode → examples → integration → package.
-  Пакетные тесты регистрируются ПОСЛЕДНИМИ (их CTest-номера финальные); REQUIRE фикстуру `package_deps`
-  (SET UP unit/lit/vscode). Перенос пакетных тестов в начало ломает нумерацию.
-- **Сборка/тесты пакетов — только в релизе:** дистрибутивный архив и `.deb` (`package`/`deb`)
-  существуют ТОЛЬКО при `CMAKE_BUILD_TYPE=Release`. Опция `TRUST_BUILD_PACKAGE` — default ON в release,
-  OFF в dev (принудительно `-D...=ON`). При OFF ни targets `package`/`deb`, ни скрипты, ни
-  package-тесты не существуют.
-- **Версия по режиму сборки:** `TRUST_VERSION_SHORT` (X.Y.Z), `TRUST_VERSION_FULL` (X.Y.Z-<hash>) и
-  эффективная `TRUST_VERSION` = SHORT в release / FULL в dev. Продуктовые строки, кеш `--run` и имена
-  артефактов используют эффективную; языковые predef-макросы зафиксированы независимо:
-  `@__TRUST_VERSION__`→SHORT, `@__TRUST_VERSION_FULL__`→FULL (locus — `cmake/version.cmake`).
-- **Релизная сборка — release/*-ветка + строгий annotated-тэг `v<X.Y.Z>`:** при `Release` конфиг
-  допустим только если HEAD стоит ровно на annotated-тэге `v<X.Y.Z>` == VERSION И ветка —
-  `release/<MAJOR>.<MINOR>.X` или `release/<MAJOR>.X`, либо detached на этом тэге; дерево полностью
-  чистое и в шапке CHANGELOG.md есть `[Release v<X.Y.Z>]`. Иначе — ошибка конфигурации. Релизные
-  бинарники встраивают чистый номер версии, поэтому он обязан соответствовать источнику сборки.
-- **Артефакты `package`/`deb`/VSIX — только из полностью чистого дерева:** чистота по
-  `git status --porcelain` (вкл. staged/untracked; в manifest архива — GitHash). Любые незакоммиченные
-  изменения → ошибка в release (артефакты в дефолтной сборке), предупреждение при принудительном
-  включении в dev. `TRUST_BUILD_VSIX` — как `TRUST_BUILD_PACKAGE`: default ON в release, OFF в dev.
+- **Раскладка компонента: корень — только публичный интерфейс.** Публичный API — объявленные заголовки
+  корня `include/<c>/` (`PUBLIC_HEADERS`); детали — в подкаталогах `INTERNAL_DIRS`/`PUBLIC_DIRS`
+  (рекурсивны, классификация по длиннейшему префиксу — `cmake/internal_dirs.cmake`); документов
+  разработки в корне и TU в корне `src/<c>/` у немалых компонентов нет. Гейты: `internal_boundary_guard`
+  (чужие internal-подкаталоги), `public_api_guard` (полнота/доступность API), `internal_memory_guard`
+  (память: корень — контракт и таблица подкаталогов, детали — в их `MEMORY.md`; необязательна при ≤3
+  файлах/≤16 KiB), `subdir_layout_guard` (раскладка, allowlist долга).
+
+- **Порядок CTest:** unit → lit → vscode → examples → integration → package (пакетные — последними;
+  REQUIRE-фикстура `package_deps`).
+- **Пакеты/`.deb` — только в `Release`** (`TRUST_BUILD_PACKAGE` default ON в release / OFF в dev; при OFF
+  нет targets, скриптов и package-тестов); `TRUST_BUILD_VSIX` — так же.
+- **Provider-пакеты и link-контракт:** необязательные нативные библиотеки — отдельные `.trust` в
+  `share/trust`; линковка demand-driven (извлечение пакета само link-опций не добавляет).
+  `trust-runtime`/`gmp`/`tensor_cpu`/`pthread` — `toolchain`/`system` артефакты; async-слой — header-only в
+  `stdlib.trust`, `-pthread` ON-USE.
+- **Версия по режиму сборки:** `TRUST_VERSION` = SHORT (X.Y.Z) в release / FULL (X.Y.Z-<hash>) в dev;
+  predef `@__TRUST_VERSION__`→SHORT, `@__TRUST_VERSION_FULL__`→FULL.
+- **Релизная сборка — ветка `release/*` + строгий annotated-тэг `v<X.Y.Z>`:** конфиг `Release` допустим,
+  только если HEAD ровно на тэге `v<X.Y.Z>` == VERSION, ветка `release/<MAJOR>.<MINOR>.X` или
+  `release/<MAJOR>.X` (либо detached на тэге), дерево полностью чистое и в шапке CHANGELOG.md есть
+  `[Release v<X.Y.Z>]`; иначе — ошибка конфигурации.
+- **Артефакты `package`/`deb`/VSIX — только из чистого дерева** (вкл. untracked): изменения → ошибка в
+  release / warning в dev.
+- **TrustLang не владеет оптимизацией:** единственное изменение формы — lowering; производительность —
+  C++ компилятор. Safety-проверки обязаны сохраняться (side-effect/`throw`), тесты на `-O2/-O3`.
+- **Бэкенд — данные, не `if`:** контракт — internal-подкаталог `pipeline/backend/`
+  (`BackendRequest{HIR,MIR,modes,target}`, `CodegenArtifact`), C++/LLVM — реализации; C++-сборка
+  (`make`) — слой `toolchain`, не pipeline.
+- **Доказательства — слой `verify`:** модель обязательств/отчёт/сертификат `*.trustcert` принадлежат
+  `verify`, решатель — сменный `ProofBackend`; гейт `--verify=all` — ошибка на недоказанное
+  обязательство (Envelope ≠ доказано). Флаги применяются по cli-имени из `diag/flag_ids.hpp`.
 
 ## Relations
 
-- Перекрёстные связи компонентов — в пер-компонентных `MEMORY.md` (Relations/Facts), напр. transpiler и
-  semantic зависят от diag.
+- Перекрёстные связи компонентов — в `MEMORY.md` компонентов и их подкаталогов (Relations/Facts).
+- Build-хелперы и CI-гейты (PCH libtorch, `cmake/check_*.cmake`) — в `cmake/`; их память —
+  `cmake/MEMORY.md`. Каталог `include/*` — только компоненты.
+- Компонентные знания обязательны перед планированием: см. AGENTS.md п.11 и `.clinerules/TASK.md`.

@@ -12,6 +12,6 @@
     && a := 10:Int32;
     &* b := 20:Int32;
     *a :=: *b;
-    print('a={} b={}\n', *a, *b);
+    print("a={} b={}\n", *a, *b);
     return 0;
 };

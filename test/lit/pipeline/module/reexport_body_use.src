@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Реэкспорт публикует имя через `m_reExported`, но тело фасада сохраняет доступ к нему
+# (scope-привязка импорта), а клиент видит имя по короткому и квалифицированному имени.
+//--- main.src
+\facade(f);
+@main():Int32 := { @return f(1) + \facade::f(2) - 5; };
+
+//--- lib.src
+\lib;
+f(x:Int32):Int32 := { @return x + 1; };
+
+//--- facade.src
+\facade {
+    \lib(f);
+};
+facade_use():Int32 := { @return f(1); };

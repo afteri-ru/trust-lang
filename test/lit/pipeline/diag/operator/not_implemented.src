@@ -1,6 +1,6 @@
 # RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
-# Объявление нереализованного оператора - явная ошибка (без silent fallback, AGENTS п.5).
+# Объявление незарегистрированного системного имени — явная ошибка (без silent fallback, AGENTS п.5).
 :P ::= :Class{ x: Int32 := _; };
-`+`(a: P, b: P): P := { return a; };
-# CHECK: error: operator '+' is not implemented
+__frob__(a: P, b: P): P := { return a; };
+# CHECK: error: system name '__frob__' is reserved; only registered operator system functions may be declared

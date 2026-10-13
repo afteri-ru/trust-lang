@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Групповой импорт регистрирует spelling КАЖДОГО загруженного файла у владельца:
+# `\\grp\b::h` и `\m :- \\grp\b` работают без отдельного импорта файла.
+
+//--- main.src
+\\grp(a_c, h);
+\m :- \\grp\b;
+@main():Int32 := { @return \m::h() + a_c() - 3; };
+
+//--- grp/a.src
+\\grp\a;
+a_c():Int32 := { @return 1; };
+
+//--- grp/b.src
+\\grp\b;
+h():Int32 := { @return 2; };

@@ -1,6 +1,21 @@
 # include/runtime/CMakeLists.txt
 # C++20 module infrastructure (trust.runtime module)
 
+# Runtime-заголовки: `runtime/trust/` — намеренно публикуемый ABI-каталог
+# (include/trust/*.hpp в пакете), поэтому он в PUBLIC_DIRS, а не в INTERNAL_DIRS.
+# `runtime/torch/` — compiler-side torch-адаптер (`TorchTensor`), в пакет не входит и
+# другими компонентами не включается (internal-зона). Реализации (rational/big_integer/tensor)
+# собираются не в компонентную библиотеку, а в флейворы trust-runtime и плагин tensor_cpu —
+# их TU помечаются явно.
+trust_component(runtime
+    INTERFACE
+    INTERNAL_DIRS torch
+    PUBLIC_DIRS trust
+    LINK_PUBLIC trust_include_dirs
+)
+
+trust_claim_sources(runtime/rational.cpp runtime/big_integer.cpp runtime/tensor.cpp)
+
 # -- PCM build configuration --
 set(RUNTIME_PCM_DIR "${CMAKE_CURRENT_BINARY_DIR}")
 set(RUNTIME_PCM "${RUNTIME_PCM_DIR}/trust.runtime.pcm")
@@ -17,7 +32,6 @@ get_target_property(_gmp_includes gmp_interface INTERFACE_INCLUDE_DIRECTORIES)
 set(RUNTIME_COMPILE_OPTIONS
     -std=c++${CMAKE_CXX_STANDARD}
     -I${PROJECT_INCLUDE_DIR}
-    -I${PROJECT_INCLUDE_DIR}/runtime
     -I${RUNTIME_PCM_DIR}
     -I${_gmp_includes}
 )
@@ -49,24 +63,19 @@ add_custom_command(
 
 add_custom_target(runtime_pcm_target_all ALL DEPENDS ${RUNTIME_PCM_OBJ})
 
-# -- Library: runtime_lib (header-only) --
-add_library(runtime_lib INTERFACE)
-target_link_libraries(runtime_lib INTERFACE types_lib trust_include_dirs)
-
 # -- Library: trust-runtime (shared trust-runtime.so + static trust-runtime.a) --
 # One runtime implementation built in two flavours: the dynamic library and the static library.
 # The shared one is produced as trust-runtime.so, the static one as trust-runtime.a (both under the
-# same OUTPUT_NAME 'trust-runtime', PREFIX ""). Public runtime headers (e.g. trust/rational.hpp) are
-# embedded into each via #embed into ELF sections named after the header path; the pipeline extracts
-# them back out when needed. Generated programs link against the static library by default (the
-# executable carries the runtime code and needs no trust-runtime.so at run time).
+# same OUTPUT_NAME 'trust-runtime', PREFIX ""). Public runtime headers (e.g. trust/rational.hpp)
+# are NOT embedded into the libraries: they are delivered by the standard library package
+# (share/trust/stdlib.trust, include/trust/). Generated programs link against the static library
+# by default (the executable carries the runtime code and needs no trust-runtime.so at run time).
 function(trust_add_runtime_flavour _variant)
     set(_srcs
-        ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
-        ${PROJECT_SOURCE_DIR}/runtime/big_integer.cpp
-        ${PROJECT_SOURCE_DIR}/runtime/trust_headers.cpp
-        ${PROJECT_SOURCE_DIR}/utils/io.cpp
-        ${PROJECT_SOURCE_DIR}/utils/backtrace.cpp
+        ${TRUST_SRC_DIR}/runtime/rational.cpp
+        ${TRUST_SRC_DIR}/runtime/big_integer.cpp
+        ${TRUST_SRC_DIR}/utils/io/io.cpp
+        ${TRUST_SRC_DIR}/utils/proc/backtrace.cpp
     )
     if(_variant STREQUAL "SHARED")
         set(_target trust_runtime)
@@ -77,16 +86,17 @@ function(trust_add_runtime_flavour _variant)
     endif()
     add_library(${_target} ${_variant} ${_srcs})
     # Заголовки встроенных типов публикуются как "trust/<h>.hpp" (include/runtime/trust/...):
-    # include/runtime добавлен в пути поиска, чтобы compiler-side include'ы ("trust/assert.hpp")
-    # и внутренние кросс-инклюды ("trust/interrupt.hpp") разрешались и здесь.
-    target_include_directories(${_target} PUBLIC ${PROJECT_INCLUDE_DIR} ${PROJECT_INCLUDE_DIR}/runtime)
+    # include/runtime нужен ТОЛЬКО для компиляции самой runtime-библиотеки (реализация по
+    # умолчанию). В общие include-пути компилятора он не входит: переопределяемые заголовки
+    # не должны быть доступны компилятору как обычные файлы.
+    target_include_directories(${_target} PRIVATE ${PROJECT_INCLUDE_DIR} ${PROJECT_INCLUDE_DIR}/runtime)
     target_link_libraries(${_target} PUBLIC gmp_interface)
     set_target_properties(${_target} PROPERTIES
         OUTPUT_NAME "trust-runtime"
         PREFIX ""
         ${_outdir_prop} ${CMAKE_BINARY_DIR}
     )
-    # The trust CLI needs the built .so/.a at runtime (extracts embedded headers), so building
+    # The trust CLI needs the built .so/.a at link time, so building
     # `trust` must also build this flavour.
     add_dependencies(trust ${_target})
 endfunction()
@@ -94,20 +104,20 @@ endfunction()
 trust_add_runtime_flavour(SHARED)
 trust_add_runtime_flavour(STATIC)
 
-# trust_headers.cpp uses C23 #embed - suppress the extension warning (applies to both flavours).
-set_source_files_properties(
-    ${PROJECT_SOURCE_DIR}/runtime/trust_headers.cpp
-    PROPERTIES COMPILE_OPTIONS "-Wno-c23-extensions"
-)
-
 # -- Library: tensor_cpu (torch-dependent, shared plugin) --
 if(WITH_TORCH)
     add_library(tensor_cpu SHARED
-        ${PROJECT_SOURCE_DIR}/runtime/tensor.cpp
+        ${TRUST_SRC_DIR}/runtime/tensor.cpp
     )
 
     target_include_directories(tensor_cpu PUBLIC
         ${PROJECT_INCLUDE_DIR}
+    )
+    # `trust/tensor.hpp` is delivered as `include/trust/tensor.hpp` (package layout) and
+    # includes `trust/tensor_backend.hpp`; inside the source tree those headers live under
+    # include/runtime. This directory is needed only to compile the plugin itself.
+    target_include_directories(tensor_cpu PRIVATE
+        ${PROJECT_INCLUDE_DIR}/runtime
     )
     target_include_directories(tensor_cpu SYSTEM PUBLIC
         ${LIBTORCH_INCLUDE_DIRS}
@@ -119,20 +129,15 @@ if(WITH_TORCH)
 
     target_link_libraries(tensor_cpu PUBLIC
         runtime_lib
+        torch_pch
         torch
         c10
         torch_cpu
     )
 
-    set_target_properties(tensor_cpu PROPERTIES
-        CXX_VISIBILITY_PRESET hidden
-        VISIBILITY_INLINES_HIDDEN ON
-    )
-
-    target_compile_definitions(tensor_cpu PRIVATE
-        TRUST_PLUGIN_DIR="${CMAKE_BINARY_DIR}"
-    )
-
+    # SHARED library is PIC by default; an explicit -fPIC is NOT added here: the libtorch PCH
+    # is built WITH -fPIC (cmake/torch_pch.cmake), и clang отвергает смешивание PCH и TU с
+    # разным PIC ("is pie differs"), поэтому флаги PCH и этого TU должны совпадать.
     add_dependencies(tensor_cpu runtime_pcm_target_all)
 endif()
 

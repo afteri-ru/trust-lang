@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Объявление в интерфейсе обязано быть определено в ЭТОМ файле (интерфейс описывает реализацию,
+# а не абстрактный контракт с внешней реализацией).
+# CHECK: 'f' is declared in the file interface but not defined in this file
+
+//--- main.src
+\lib();
+@main():Int32 := { @return f(); };
+
+//--- lib.src
+\lib {
+    f():Int32 := ...;
+};

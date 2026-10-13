@@ -1,0 +1,33 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Пользовательские *, ++, -- (prefix/postfix): C++ operator*, operator++(), operator++(int),
+# operator--(), operator--(int). Postfix dummy эмитится как int.
+:Counter ::= :Class{
+    x: Int32 := 0;
+    __deref__(): Int32 := { return x; };
+    __inc__(): Int32 := { x += 1; return x; };
+    __inc__(dummy: Int32): Int32 := { x += 1; return x; };
+    __dec__(): Int32 := { x -= 1; return x; };
+    __dec__(dummy: Int32): Int32 := { x -= 1; return x; };
+};
+
+@main():Int32 := {
+    c : Counter := :Counter(0);
+    a := *c;
+    ++c;
+    c++;
+    --c;
+    c--;
+    @print("{} {}\n", a, *c);
+    @return 0;
+}
+# CHECK: int32_t operator*()
+# CHECK: int32_t operator++()
+# CHECK: int32_t operator++(int)
+# CHECK: int32_t operator--()
+# CHECK: int32_t operator--(int)
+# CHECK: (*c_c)
+# CHECK: ++c_c;
+# CHECK: c_c++;
+# CHECK: --c_c;
+# CHECK: c_c--;

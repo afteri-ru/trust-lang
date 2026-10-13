@@ -1,4 +1,6 @@
 #include "transpiler/transpile_lsp_test_util.hpp"
+
+using namespace trust;
 // ============================================================================
 // 8. Reverse name mapping: hover target is the whole name, not a shifted sub-range
 // ============================================================================
@@ -7,7 +9,7 @@
 // имени (иначе наведение на середину многосимвольного имени даёт сдвинутый target).
 TEST(TranspileLspTest, ReverseNameMappingWholeNameNotShifted) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     const std::string code = "msg := 10;\n";
     MapperFile trustIdx = ctx.source().add_source("test.src", code);
@@ -16,7 +18,7 @@ TEST(TranspileLspTest, ReverseNameMappingWholeNameNotShifted) {
     trust::PipelineOpts popts;
     popts.input_file = "test.src";
     trust::Pipeline pipeline(ctx, popts);
-    pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+    pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
     ASSERT_EQ(ctx.diag().errorCount(), 0);
 
     auto* reader = ctx.source().toReader();
@@ -38,7 +40,7 @@ TEST(TranspileLspTest, ReverseNameMappingWholeNameNotShifted) {
 // {% ... %} - отдельный EmbedExpr-узел со своим range.
 TEST(TranspileLspTest, EmbedBlockRangeCoversOnlyBody) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     const std::string code = "{% int x = 42; %}\n";
     MapperFile trustIdx = ctx.source().add_source("test.src", code);
@@ -47,7 +49,7 @@ TEST(TranspileLspTest, EmbedBlockRangeCoversOnlyBody) {
     trust::PipelineOpts popts;
     popts.input_file = "test.src";
     trust::Pipeline pipeline(ctx, popts);
-    pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+    pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
     ASSERT_EQ(ctx.diag().errorCount(), 0);
 
     auto* reader = ctx.source().toReader();
@@ -70,7 +72,7 @@ TEST(TranspileLspTest, EmbedBlockRangeCoversOnlyBody) {
 // исходника; соседние {% ... %} на одной строке остаются на одной строке в C++.
 TEST(TranspileLspTest, SameLineEmbedBlocksJoinOnOneLine) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     const std::string code = "{% int x = 42; %}; {% printf(\"hi\"); %}";
     MapperFile trustIdx = ctx.source().add_source("test.src", code);
@@ -79,7 +81,7 @@ TEST(TranspileLspTest, SameLineEmbedBlocksJoinOnOneLine) {
     trust::PipelineOpts popts;
     popts.input_file = "test.src";
     trust::Pipeline pipeline(ctx, popts);
-    pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+    pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
     ASSERT_EQ(ctx.diag().errorCount(), 0);
 
     std::string cpp(ctx.source().output_body(cppIdx));
@@ -95,7 +97,7 @@ TEST(TranspileLspTest, SameLineEmbedBlocksJoinOnOneLine) {
 // узла совпадает со строкой начала следующего - между ними '\n' не вставляется.
 TEST(TranspileLspTest, SameLineStatementsJoinOnOneLine) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     const std::string code = "a := 1; b := 2;\n";
     MapperFile trustIdx = ctx.source().add_source("test.src", code);
@@ -104,7 +106,7 @@ TEST(TranspileLspTest, SameLineStatementsJoinOnOneLine) {
     trust::PipelineOpts popts;
     popts.input_file = "test.src";
     trust::Pipeline pipeline(ctx, popts);
-    pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+    pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
     ASSERT_EQ(ctx.diag().errorCount(), 0);
 
     std::string cpp(ctx.source().output_body(cppIdx));
@@ -122,7 +124,7 @@ TEST(TranspileLspTest, FunctionBodyProperFormatting) {
     // Одно-строчный блок: нормальное многострочное форматирование с отступами.
     {
         Context ctx(".");
-        TypeRegistry types(ctx.diag(), ctx.opts());
+        TypeSystem types(ctx.diag(), ctx.opts());
         ctx.setTypes(&types);
         const std::string code = "%foo():Void := { a := 1; b := 2; }\n";
         MapperFile trustIdx = ctx.source().add_source("test.src", code);
@@ -130,7 +132,7 @@ TEST(TranspileLspTest, FunctionBodyProperFormatting) {
         trust::PipelineOpts popts;
         popts.input_file = "test.src";
         trust::Pipeline pipeline(ctx, popts);
-        pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+        pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
         ASSERT_EQ(ctx.diag().errorCount(), 0);
         std::string cpp(ctx.source().output_body(cppIdx));
         // Операторы тела функции - с отступом, каждый на своей строке.
@@ -139,7 +141,7 @@ TEST(TranspileLspTest, FunctionBodyProperFormatting) {
     // Много-строчный блок: то же нормальное форматирование с отступами.
     {
         Context ctx(".");
-        TypeRegistry types(ctx.diag(), ctx.opts());
+        TypeSystem types(ctx.diag(), ctx.opts());
         ctx.setTypes(&types);
         const std::string code = "%foo():Void := {\n  a := 1;\n  b := 2;\n}\n";
         MapperFile trustIdx = ctx.source().add_source("test.src", code);
@@ -147,7 +149,7 @@ TEST(TranspileLspTest, FunctionBodyProperFormatting) {
         trust::PipelineOpts popts;
         popts.input_file = "test.src";
         trust::Pipeline pipeline(ctx, popts);
-        pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+        pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
         ASSERT_EQ(ctx.diag().errorCount(), 0);
         std::string cpp(ctx.source().output_body(cppIdx));
         EXPECT_NE(cpp.find("void foo() {\n    int8_t c_a = 1;\n    int8_t c_b = 2;\n}"), std::string::npos) << cpp;
@@ -161,7 +163,7 @@ TEST(TranspileLspTest, FunctionBodyProperFormatting) {
 // отдельной строке и имеет собственный source-map range.
 TEST(TranspileLspTest, MultipleEmbedBlocksSeparateLines) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     const std::string code = "{% int x = 42; %};\n{% printf(\"hi\"); %}\n";
     MapperFile trustIdx = ctx.source().add_source("test.src", code);
@@ -170,7 +172,7 @@ TEST(TranspileLspTest, MultipleEmbedBlocksSeparateLines) {
     trust::PipelineOpts popts;
     popts.input_file = "test.src";
     trust::Pipeline pipeline(ctx, popts);
-    pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+    pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
     ASSERT_EQ(ctx.diag().errorCount(), 0);
 
     std::string cpp(ctx.source().output_body(cppIdx));
@@ -206,7 +208,7 @@ TEST(TranspileLspTest, MultipleEmbedBlocksSeparateLines) {
 // от m_left до m_right, иначе trust-lsp подчёркивает только оператор.
 TEST(TranspileLspTest, CompoundAssignmentRangeCoversWholeStatement) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     const std::string code = "x := 1;\nx += 5;\n";
     MapperFile trustIdx = ctx.source().add_source("test.src", code);
@@ -215,7 +217,7 @@ TEST(TranspileLspTest, CompoundAssignmentRangeCoversWholeStatement) {
     trust::PipelineOpts popts;
     popts.input_file = "test.src";
     trust::Pipeline pipeline(ctx, popts);
-    pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+    pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
     ASSERT_EQ(ctx.diag().errorCount(), 0);
 
     auto* reader = ctx.source().toReader();
@@ -247,7 +249,7 @@ TEST(TranspileLspTest, CompoundAssignmentRangeCoversWholeStatement) {
 // видны в C++, а имя функции - отдельным name-маппингом на "func".
 TEST(TranspileLspTest, FuncDeclSignatureAndBodyMappedSeparately) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     const std::string code = "%foo():Void := { x := 1;\n}\n";
     MapperFile trustIdx = ctx.source().add_source("test.src", code);
@@ -256,7 +258,7 @@ TEST(TranspileLspTest, FuncDeclSignatureAndBodyMappedSeparately) {
     trust::PipelineOpts popts;
     popts.input_file = "test.src";
     trust::Pipeline pipeline(ctx, popts);
-    pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trustIdx, cppIdx);
+    pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
     ASSERT_EQ(ctx.diag().errorCount(), 0);
 
     std::string cpp(ctx.source().output_body(cppIdx));
@@ -314,10 +316,10 @@ TEST(TranspileLspTest, FuncDeclSignatureAndBodyMappedSeparately) {
 // ============================================================================
 TEST(TranspileLspTest, DictionarySpreadMapping) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     MapperFile cppIdx;
-    runPipeline(ctx,
+    transpileForTest(ctx,
                 "@main() := {\n"
                 "    d := (1, 2, 3,);\n"
                 "    a, b, c := ... d;\n"

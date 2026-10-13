@@ -1,0 +1,15 @@
+# RUN: %not %trust -q --emit-lexemes %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Восстановление внутри блока: ошибка не уничтожает ни предыдущий, ни следующий оператор.
+
+{
+  a := ;
+  b := 1;
+  c := ;
+  d := 2;
+}
+
+# CHECK: error: syntax error
+# CHECK: error: syntax error
+# CHECK: b	NAME
+# CHECK: d	NAME

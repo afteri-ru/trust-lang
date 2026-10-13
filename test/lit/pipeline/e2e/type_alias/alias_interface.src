@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Синоним типа в интерфейсе файла — ФАСАД: публикуется ВТОРОЕ имя уже существующего типа
+# (один TypeId), поэтому сигнатура `make():ApiInt` совпадает с реализацией `make():Int32`.
+# Нового C++-типа синоним не создаёт: в C++ везде используется имя цели (`int32_t`).
+
+//--- main.src
+\lib(ApiInt, make);
+@main():Int32 := { $v: ApiInt := make(); @return v - 7; };
+
+//--- lib.src
+\lib {
+    :ApiInt ::- :Int32;
+    make():ApiInt := ...;
+};
+make():Int32 := { @return 7; };

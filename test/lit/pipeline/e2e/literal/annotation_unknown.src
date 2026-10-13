@@ -1,11 +1,9 @@
 # RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # Постфиксная аннотация типа на числовом литерале `literal :Type` с НЕСУЩЕСТВУЮЩИМ типом обязана
-# дать диагностику «unknown type annotation» ровно ОДИН раз на узел. Раньше неразрешимая аннотация
-# тихо игнорировалась (1:BadType → int8_t без ошибки) из-за слепого текст-fallback в resolvedType;
-# после добавления репорта появился риск дублей, т.к. тип литерала может вычисляться дважды
-# (провизионный dictElementType + авторитетный typeExpr). Единый решатель annotatedLiteralType +
-# единственный репортёр applyLiteralTypeAnnotation исключают и проглатывание, и дубли.
+# дать диагностику «unknown type annotation» ровно ОДИН раз на узел: тип литерала может вычисляться
+# дважды (провизионный dictElementType + авторитетный typeExpr), поэтому репорт централизован в
+# applyLiteralTypeAnnotation (единый решатель annotatedLiteralType).
 
 a := 1 :AA1;
 # CHECK: error: unknown type annotation 'AA1' on a literal

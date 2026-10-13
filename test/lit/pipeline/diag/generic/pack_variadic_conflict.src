@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# C-вариадик и type-pack несовместимы.
+<T...> bad(xs: T..., ...): Int32 := { @return 0; };
+
+# CHECK: error: C-style variadic '...' cannot be combined with a type parameter pack

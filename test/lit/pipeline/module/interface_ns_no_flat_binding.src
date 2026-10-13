@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD/build --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Повторный сайт импорта (bindImportedModule) связывает только реальные имена модуля:
+# у `ns::f` нет плоской записи `f`, поэтому маска `f` не делает голое имя видимым.
+# CHECK: error: undefined name 'f'
+
+//--- main.src
+\lib();
+\lib(f);
+@main():Int32 := { @return f() - 7; };
+
+//--- lib.src
+\lib;
+ns:: {
+    f():Int32 := { @return 7; };
+};

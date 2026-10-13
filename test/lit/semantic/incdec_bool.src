@@ -1,0 +1,10 @@
+# RUN: %not %trust -q -Wsigil=ignore --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Bool в арифметике запрещён: __inc__/__dec__ над Bool-значением (`true`/`false` = `1:Bool`/`0:Bool`) -
+# ошибка компиляции (авто-продвижения Bool нет).
+b := true;
+b++;
+c := false;
+c--;
+# CHECK: error: cannot use Bool value in arithmetic '++'
+# CHECK: error: cannot use Bool value in arithmetic '--'

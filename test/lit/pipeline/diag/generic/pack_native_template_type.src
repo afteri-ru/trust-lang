@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Pack в native template type declaration (`<T...> %Cpp() := ...;`) не поддержан:
+# используйте native class template `<T...> Name ::= %Cpp<T...> { };`.
+<T...> %std::tuple() := ...;
+
+# CHECK: error: type parameter packs in native template type declarations are not implemented

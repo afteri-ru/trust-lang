@@ -1,0 +1,20 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# OpenSSL provider: Rational/BigInteger implemented by OpenSSL BIGNUM.
+# The provider header lives next to the provider .src and is published as @stdlib/...
+@[include("@stdlib/builtin/rational_openssl.hpp")@]
+@[link("crypto")@]
+Rational = %openssl::Rational { };
+
+@[include("@stdlib/builtin/rational_openssl.hpp")@]
+@[link("crypto")@]
+BigInteger = %openssl::BigInteger { };
+
+r :Rational := 1\2;
+b :BigInteger := 100;
+e :Rational := 100 :Rational;
+@main() := { @return 0; }
+# CHECK: #include "stdlib/builtin/rational_openssl.hpp"
+# CHECK: openssl::Rational c_r = openssl::Rational(
+# CHECK: openssl::BigInteger c_b = 100;
+# CHECK: openssl::Rational c_e = openssl::Rational("100", "1");

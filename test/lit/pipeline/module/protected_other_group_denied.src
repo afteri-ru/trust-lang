@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1; true
+# RUN: %FileCheck %s <%t.out
+#
+# `_::` (protected) доступно только файлам ТОЙ ЖЕ группы/пакета. Импорт из другой группы
+# (`\\sub\lib`) защищённое имя не приносит — ни плоским именем, ни квалифицированной ссылкой
+# (единое правило видимости сайта — types/site_visibility.hpp).
+# CHECK: error: undefined name 'h'
+
+//--- main.src
+\\sub\lib();
+@main():Int32 := { @return h(); };
+
+//--- sub/lib.src
+\\sub\lib;
+_:: { h():Int32 := { @return 1; }; };

@@ -1,0 +1,25 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Реэкспорт транзитивен: фасад над фасадом публикует имена владельца и КОРОТКИМ именем, и
+# квалифицированно (`\outer::f`). Владельцем C++-символа остаётся исходный файл.
+//--- main.src
+\outer(f);
+@main():Int32 := { @return f(1) + \outer::f(2) - 5; };
+
+//--- outer.src
+\outer {
+    \middle(f);
+};
+
+//--- middle.src
+\middle {
+    \leaf(f);
+};
+
+//--- leaf.src
+\leaf;
+f(x:Int32):Int32 := { @return x + 1; };

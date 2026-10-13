@@ -1,0 +1,52 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --package pkg -o mod_header.trust > %t.pkg1 2>&1
+# RUN: cd $TD && %trust -q -v --run --temp-dir $TD main.src > %t.o1 2> %t.e1
+# RUN: grep -q "make executable succeeded" %t.e1
+# RUN: ! grep -q "running cached" %t.e1
+# RUN: cd $TD && %trust -q -v --run --temp-dir $TD main.src > %t.o2 2> %t.e2
+# RUN: grep -q "running cached" %t.e2
+# RUN: ! grep -q "make executable succeeded" %t.e2
+# RUN: cd $TD && %trust -q --package pkg2 -o mod_header.trust > %t.pkg2 2>&1
+# RUN: cd $TD && %trust -q -v --run --temp-dir $TD main.src > %t.o3 2> %t.e3
+# RUN: grep -q "make executable succeeded" %t.e3
+# RUN: ! grep -q "running cached" %t.e3
+#
+# Кеш --run инвалидируется по замыканию зависимостей: изменение ТОЛЬКО C++-заголовка пакета
+# (не .src) меняет архив mod_header.trust, который входит в @dep-ключ, поэтому программа
+# пересобирается. Хеши модулей покрывают .src, но не заголовки пакета.
+
+//--- pkg/trust.toml
+name = 'mod_header'
+//--- pkg/include/header.hpp
+#pragma once
+
+namespace pkg_header {
+inline int value() { return 42; }
+} // namespace pkg_header
+//--- pkg/mod_header.src
+\\\mod_header\mod_header;
+@[include("header.hpp")@]
+%pkg_header::value():Int32 := ...;
+
+marker:Int32 := 42;
+//--- pkg2/trust.toml
+name = 'mod_header'
+//--- pkg2/include/header.hpp
+#pragma once
+
+namespace pkg_header {
+inline int value() { return 43; }
+} // namespace pkg_header
+//--- pkg2/mod_header.src
+\\\mod_header\mod_header;
+@[include("header.hpp")@]
+%pkg_header::value():Int32 := ...;
+
+marker:Int32 := 42;
+//--- main.src
+\\\mod_header\mod_header(marker);
+{% int main__main__() {
+    return @marker == 42 ? 0 : 1;
+}
+%}

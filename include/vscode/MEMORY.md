@@ -10,7 +10,8 @@
 
 VS Code extension: trust-dap (DAP) и trust-lsp (LSP через vscode-languageclient). Пути к серверам —
 `trust.dapPath`/`trust.lspPath`. Сборка при F5 — в `resolveDebugConfiguration` (preLaunchTask типа
-`'trust-build'`, с `withProgress`: transpile → compile → trust-dap).
+`'trust-build'`, с `withProgress`: transpile → compile → trust-dap). Исходники расширения —
+`extensions/trust-lang/` (package.json, `src/`, темы), грамматика — `syntaxes/`, упаковщик — `packager/`.
 
 ## Facts and invariants
 
@@ -25,12 +26,11 @@ VS Code extension: trust-dap (DAP) и trust-lsp (LSP через vscode-languagec
 - **⚠ trap: цветовая тема «Trust Language» самодостаточна** (генерируется `packager/merge_theme.py`,
   без `extends`); `configurationDefaults.textMateRules` — fallback. Новый scope синхронизировать в
   ОБОИХ списках (textMateRules И тема).
-- **⚠ trap: VSIX собирается двумя путями** (CMake `package_vsix.cmake` и packager/package-extension.sh),
-  ОБА обязаны включать `syntaxes/trust.tmLanguage.json` и `node_modules/vscode-languageclient`; для vsce
-  НЕ использовать `--no-dependencies`/не исключать node_modules. Версия в CMake-пути = эффективная
-  `TRUST_VERSION`; `include/vscode/CMakeLists.txt` НЕ читает VERSION сам — берёт `TRUST_VERSION`/
-  `TRUST_VERSION_SHORT` из родительского scope. Отдельная npx-цель `extension_vsix` всегда берёт
-  VERSION+git-хеш и не знает о режиме сборки.
+- **VSIX собирается CMake-целью `vsix-trust-lang`** (`package_vsix.cmake`): она обязана включать
+  `syntaxes/trust.tmLanguage.json` и `node_modules/vscode-languageclient` (для vsce НЕ использовать
+  `--no-dependencies`/не исключать node_modules). Версия = эффективная `TRUST_VERSION` (dev несёт
+  git-хеш); `include/vscode/CMakeLists.txt` не читает VERSION сам — берёт `TRUST_VERSION`/
+  `TRUST_VERSION_SHORT` из родительского scope.
 - **VSIX — дефолтный артефакт только в release:** `TRUST_BUILD_VSIX` default ON в Release, OFF в dev
   (принудительный `-DTRUST_BUILD_VSIX=ON` допустим). Сборка (обе цели) требует чистого дерева.
 - **Опции анализа:** `trust.shebangMode` (default env-after-shebang) → `--shebang-mode`; `trust.lspArgs`

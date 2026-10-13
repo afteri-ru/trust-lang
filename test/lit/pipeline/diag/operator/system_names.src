@@ -1,0 +1,14 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Пространство имён `__...__` зарезервировано за компилятором: переменные, типы и параметры
+# не могут использовать системные имена.
+__x__ := 1;
+# CHECK: error: system name '__x__' is reserved for compiler-generated entities
+
+__T__ ::= :Int32;
+# CHECK: error: system name '__T__' is reserved for compiler-generated entities
+
+f(__y__: Int32): Int32 := { @return __y__; };
+# CHECK: error: system name '__y__' is reserved for compiler-generated entities
+
+@main() := { @return 0; }

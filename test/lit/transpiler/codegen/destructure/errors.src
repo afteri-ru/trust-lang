@@ -19,6 +19,7 @@
 # duplicate, const_assign, dict_assign_rest_reuse).
 
 //--- single_name.src
+\single_name;
 @main() := {
     d := (1,2,3,);
     x := ... d;
@@ -26,6 +27,7 @@
 # CHECK-A: error: spread '...' requires multiple destructuring targets
 
 //--- spread_arity.src
+\spread_arity;
 @main() := {
     d := (1,2,3,4,);
     a, b := ... d;
@@ -33,6 +35,7 @@
 # CHECK-B: error: destructuring arity mismatch: 2 target(s) but dictionary has 4 element(s)
 
 //--- non_collection.src
+\non_collection;
 @main() := {
     n := 42;
     a, b := ... n;
@@ -40,6 +43,7 @@
 # CHECK-C: error: spread destructuring source must be a dictionary (Dict)
 
 //--- tuple_error.src
+\tuple_error;
 @main() := {
     t := (10, 20,):Tuple;
     a, b, c := t;
@@ -47,12 +51,14 @@
 # CHECK-D: error: destructuring arity mismatch: 3 target(s) but tuple has 2 element(s)
 
 //--- assign_error.src
+\assign_error;
 @main() := {
     a, b = (1,2,):Tuple;
 };
 # CHECK-E: error: destructuring assignment target '{{.*}}' is not declared (use ':=' to create a variable)
 
 //--- tuple_rest_reuse.src
+\tuple_rest_reuse;
 @main() := {
     t := (10, 20, 30,):Tuple;
     a, t... := t;
@@ -60,6 +66,7 @@
 # CHECK-F: error: tuple rest target '{{.*}}...' cannot reuse an existing variable; tuple rest is not a mutation (unlike dictionary spread)
 
 //--- dict_rest_annotation.src
+\dict_rest_annotation;
 @main() := {
     d := (1,2,3,);
     a, rest:Dict... := ... d;
@@ -67,6 +74,7 @@
 # CHECK-G: error: type annotation on a rest target 'rest...' is not supported; rest type is inferred
 
 //--- tuple_rest_annotation.src
+\tuple_rest_annotation;
 @main() := {
     t := (10, 20,):Tuple;
     a, rest:Tuple... := t;
@@ -74,6 +82,7 @@
 # CHECK-H: error: type annotation on a rest target 'rest...' is not supported; rest type is inferred
 
 //--- duplicate.src
+\duplicate;
 @main() := {
     d := (1,2,);
     a, a := ... d;
@@ -81,6 +90,7 @@
 # CHECK-I: error: duplicate declaration '{{.*}}'
 
 //--- const_assign.src
+\const_assign;
 @main() := {
     d := (1,2,);
     a^:Int64 := 0;

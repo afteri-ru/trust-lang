@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Имя синонима резервируется как обычное имя типа: повторное второе имя (и коллизия с уже
+# существующим типом) — диагностика реестра, а не assert.
+# CHECK: error: duplicate type name 'MyIntAlias'
+
+:MyInt ::= :Int32;
+:MyIntAlias ::- :MyInt;
+:MyIntAlias ::- :MyInt;

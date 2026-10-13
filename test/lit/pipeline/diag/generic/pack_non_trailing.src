@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Non-trailing pack по-прежнему не поддержан — явная диагностика с позицией.
+<T...> bad(xs: T..., a: Int32): Int32 := { @return 0; };
+
+# CHECK: error: type parameter pack must be the last parameter (non-trailing packs are not implemented)

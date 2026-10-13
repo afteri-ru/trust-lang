@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# `alias <цель> as <имя>` раскрывается в оператор `:-`: для типа нужен вид с `:` у нового имени
+# (`as :T`), иначе это ошибка алиаса имени.
+# CHECK: error: name alias supports functions and values only
+
+//--- main.src
+\lib(Pt);
+alias \lib::Pt as kk;
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib;
+:Pt ::= :Struct{ x:Int32 := _; };

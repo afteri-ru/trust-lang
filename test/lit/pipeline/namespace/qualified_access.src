@@ -1,0 +1,11 @@
+# RUN: %trust -q --temp-dir %t.dir -o %t.app %s
+# RUN: %t.app && echo "PASS"
+# CHECK: PASS
+#
+# Namespace-контейнер: объявления `ns::` доступны квалифицированно после выхода из блока.
+
+ns:: {
+    f():Int32 := { @return 1; };
+};
+
+@main():Int32 := { @return ns::f() - 1; };

@@ -1,5 +1,6 @@
 // test/unit/pipeline/pipeline_test.cpp - unit-тесты конвейера (emitBuildDirArchive и пр.).
 #include "pipeline/pipeline.hpp"
+#include "pipeline/archive/archive.hpp"
 #include "driver/cli.hpp"
 #include <gtest/gtest.h>
 

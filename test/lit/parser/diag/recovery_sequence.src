@@ -1,0 +1,15 @@
+# RUN: %not %trust -q --emit-lexemes %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Восстановление после синтаксической ошибки на границе оператора: ошибочные операторы
+# пропускаются, корректные операторы после ошибок остаются в дереве Term. Все ошибки
+# репортятся за ОДИН прогон.
+
+x := ;
+y := 1;
+z := ;
+w := 2;
+
+# CHECK: error: syntax error
+# CHECK: error: syntax error
+# CHECK: y	NAME
+# CHECK: w	NAME

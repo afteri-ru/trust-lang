@@ -1,0 +1,14 @@
+# RUN: %not %trust -q --emit-cpp -Wborrow-owner-moved=error -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Flow: представление живо на ОБОИХ путях ветвления -> мутация источника
+# диагностируется ровно один раз (may-живость на join).
+@main() := {
+    &* x := 5;
+    &? w := & x;
+    if (true) {
+        x :=: _;
+    };
+    @print("{}\n", *w);
+}
+# CHECK: error: cannot move/swap source 'x' while a derived view is alive
+# CHECK-NOT: cannot move/swap source 'x'

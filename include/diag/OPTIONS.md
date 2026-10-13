@@ -40,12 +40,13 @@
 > Severity-диагностики используют фиксированный набор значений `-W<name>=ignore|warning|error`
 > (напр. `-Wsolver=`, `-Wsolver-loop=`). Поведенческий флаг с произвольным значением не выносится
 > под `-W` (и наоборот): value-флаги, управляющие поведением, задаются как `--<name>=<value>`
-> (напр. `--keywords=`, `--solver-mode=`), булевы — `-f<name>`/`-fno-<name>` (напр.
+> (напр. `--keywords=`, `--solver-mode=`) или `-f<name>=<value>` (напр. `-ferror-limit=20`,
+> `-fsync-deadlock=5s`), булевы — `-f<name>`/`-fno-<name>` (напр.
 > `-fsolver-loop-unroll`). Severity-значения (`ignore|warning|error`) не являются значениями
 > поведенческих флагов.
 
 Каждая компонента объявляет СВОИ диагностики/флаги в своём заголовке (`semantic/diag.hpp`,
-`syntax/diag.hpp`, `transpiler/diag.hpp`, `diag/base_diags.hpp`) через `TRUST_DIAG_SET`/
+`syntax/util/diag.hpp`, `transpiler/diag.hpp`, `diag/base_diags.hpp`) через `TRUST_DIAG_SET`/
 `TRUST_FLAG_SET` — это **пер-компонентный единственный источник данных** (enum + имя + help +
 severity + группы + категория). Регистрация `Options::add<T>`/`add_flag<T>` подтягивает метаданные
 через ADL; справочная информация выводится централизованно через `-Whelp`.
@@ -120,6 +121,12 @@ severity диагностики, а не включение группы; `"depr
   (для `CliOpt::Flag` value пуст; потребитель различает флаг/значение по `id`/`kind`);
 - позиционные аргументы собираются отдельно (не «доедаются» опциями-списками);
 - `-W...` собираются в `diag_args` и применяются позже через единую точку `applyDiagnostics` → `Options::parse_argv`;
+- `-f<name>`/`-fno-<name>` — булевы поведенческие флаги; `-f<name>=<value>` — значение
+  небулевой поведенческой опции (clang/gcc-стиль), эквивалент `--<name>=<value>`
+  (напр. `-ferror-limit=20`, `-fsync-deadlock=5s`);
+- **`-ferror-limit=<N>`** — предел числа ошибок (0 = без лимита, default 20). Владелец —
+  `DiagnosticEngine`: после N-й ошибки одно итоговое Note-сообщение, дальнейшие не-Fatal
+  диагностики подавляются. Это поведенческая опция, НЕ severity (`-Werror` — отдельный механизм);
 - `driverHelp` генерирует сгруппированную справку `--help`.
 
 Используется `trust` (таблица `buildTrustTable()` из `cli.cpp`), `trust-lsp`, `trust-dap`,
@@ -145,7 +152,7 @@ helper `extractServerCommand` в `cli.hpp`.
 DSL/макросы. `Options` лишь фиксирует тему запроса через `Options::helpTopic()`
 (`HelpTopic::{DslMacros, PredefMacros}`; `-Whelp` → `HelpTopic::Diagnostics`), а печать списков
 выполняется в приложении (`trust.cpp`):
-- `-Whelp-dsl` — имена макросов загруженного DSL (`trust/dsl.src` или `--dsl`) из реестра
+- `-Whelp-dsl` — имена макросов загруженного DSL (`stdlib/dsl.src` или `--dsl`) из реестра
   `Context::macroDefs()` + первая строка документирующего комментария (`##`/`##<`), если он есть;
 - `-Whelp-predef-macros` — предопределённые макросы вида `@__...__` (value + context + прагмы)
   из x-macro таблиц (`predef_macro_x.hpp`/`pragma_macro_x.hpp`) с описанием.
@@ -165,7 +172,7 @@ DSL/макросы. `Options` лишь фиксирует тему запрос�
    `Options::add_flag<T>` на static-init через `registerDiagnostics()`. `Context` при создании
    `Options` применяет их через `applyRegisteredDiagnostics()` (плюс базовые diag-владения:
    `Deprecated`, `ParseError` — общая, используется и transpiler, и types). Компоненты-примеры:
-   `syntax` → `MacroRedefined`; `semantic` → `UnusedVariable`, `UnusedParameter`, `Embed`, `NoSigil`,
+   `syntax` → `MacroRedefined`, `DslMacroRedefined`; `semantic` → `UnusedVariable`, `UnusedParameter`, `Embed`, `NoSigil`,
    `Format`, `WidenAny` + флаги `Lint/Effect/Trust/Extended/Symbols`; `transpiler` → флаги
    `Comments/Assert/Backtrace` (включая дефолты: assert/backtrace/comments включены). Обобщённые
    `report<T>`/`add<T>` используют ADL (`diagName`/`flagName`), поэтому diag остаётся листом.
@@ -219,7 +226,7 @@ DSL/макросы. `Options` лишь фиксирует тему запрос�
 
 - `ParseResult::diag_help_requested` — **ранний драйверный сигнал**: выставляется в
   `parseDriverArgs` (детект литералов `-Whelp`/`-Whelp-dsl`/`-Whelp-predef-macros`). Нужен
-  `Pipeline::parseArgs`/`trust.cpp`, чтобы пропустить проверку обязательности входного файла
+  `parseCommandLine`/`trust.cpp`, чтобы пропустить проверку обязательности входного файла
   **до** создания `Context`/`Options`.
 - `Options::helpRequested()`/`helpTopic()` — **собственно флаг/тема справки**: выставляется в
   `Options::parse_argv`. Печать идёт по теме: `HelpTopic::Diagnostics` → `Options::printHelp()`;

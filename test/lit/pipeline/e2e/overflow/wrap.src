@@ -10,7 +10,7 @@
     a:Int32 := 2000000000;
     b:Int32 := 2000000000;
     s := a + b;
-    print('s={}', s);
+    print("s={}", s);
 };
 {% int wrap__main__() {
     chk();

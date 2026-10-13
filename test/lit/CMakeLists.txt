@@ -43,13 +43,10 @@ endif()
 # LIT integration tests run as a single CTest test (via the trust CLI + FileCheck).
 # LIT always runs in succinct (brief) mode: `-v` (verbose) is deliberately
 # NOT used so the output stays concise.
-add_test(NAME lit_tests
-    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/test/lit
-)
-set_tests_properties(lit_tests PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit
+trust_add_test_suite(lit_tests
     TIMEOUT 300
-    # Final stage examples_tests runs only after all suites pass (fixture examples_deps);
-    # package_target_test/deb_package_test run after these suites (fixture package_deps).
-    FIXTURES_SETUP "examples_deps;package_deps"
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test/lit
+    # Final stage examples_tests/package tests run only after the early suites pass.
+    FIXTURES_SETUP "${TRUST_SUITE_FIXTURES}"
+    COMMAND ${LIT_EXECUTABLE} --succinct ${CMAKE_SOURCE_DIR}/test/lit
 )

@@ -1,14 +1,16 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Контроль включается ТОЛЬКО для знаковых машинных целых: беззнаковые (wrap -
-# корректная семантика), BigInteger, '/','//' и '%' не оборачиваются.
+# корректная семантика), BigInteger. Остаток `%` защищён от нулевого делителя ВСЕГДА
+# (единый классификатор проверок), поэтому вместо `(7 % 3)` эмитится защищённая форма.
 
 u:UInt32 := 4000000000;
 w := u + 1000000;
 # CHECK: int32_t c_w = (c_u + 1000000);
 
 q := 7 % 3;
-# CHECK: int32_t c_q = (7 % 3);
+# CHECK: integer remainder by zero
+# CHECK: return __l % __r;
 
 
 b:BigInteger := 7;

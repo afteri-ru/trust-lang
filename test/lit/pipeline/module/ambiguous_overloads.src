@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Одноимённые функции из двух модулей: наборы перегрузок сливаются, выбор — по аргументам
+# (C++/D/Ada-модель). Квалификация нужна только при неразрешимой неоднозначности.
+
+//--- main.src
+\lib_a(f);
+\lib_b(f);
+@main():Int32 := { @return f(1) + f(1, 2) - 4; };
+
+//--- lib_a.src
+\lib_a;
+f(x:Int32):Int32 := { @return x; };
+
+//--- lib_b.src
+\lib_b;
+f(x:Int32, y:Int32):Int32 := { @return x + y; };

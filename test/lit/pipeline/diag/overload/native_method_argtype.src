@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Тип аргумента нативного/встроенного метода проверяет АНАЛИЗАТОР (не только арность):
+# StrChar в параметре Int64 - ошибка компиляции TrustLang, а не C++-слоя.
+@main() := {
+    xs : Array := [1, 2, 3,];
+    y : Int8 := xs.%at("q");
+    @return 0;
+}
+# CHECK: error: no matching overload for method '%at'

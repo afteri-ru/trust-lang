@@ -3,62 +3,22 @@
 
 #include "ast/ast_nodes.hpp"
 #include "ast/token.hpp"
-#include "syntax/term.h"
+#include "syntax/term/term.h"
+#include "types/names.hpp"
+#include "utils/import_masks.hpp"
+#include "utils/strings.hpp"
 
 #include <algorithm>
 #include <cctype>
+#include <string>
+#include <unordered_set>
 
 namespace trust {
 
-bool matchGlob(std::string_view pattern, std::string_view name) {
-    // Итеративный DP по маске и имени (как в gtest, но только '*' и '?').
-    const std::size_t np = pattern.size();
-    const std::size_t nn = name.size();
-    std::vector<std::vector<bool>> dp(np + 1, std::vector<bool>(nn + 1, false));
-    dp[0][0] = true;
-    for (std::size_t i = 1; i <= np; ++i) {
-        dp[i][0] = dp[i - 1][0] && pattern[i - 1] == '*';
-    }
-    for (std::size_t i = 1; i <= np; ++i) {
-        for (std::size_t j = 1; j <= nn; ++j) {
-            if (pattern[i - 1] == '*') {
-                dp[i][j] = dp[i - 1][j] || dp[i][j - 1];
-            } else if (pattern[i - 1] == '?' || pattern[i - 1] == name[j - 1]) {
-                dp[i][j] = dp[i - 1][j - 1];
-            }
-        }
-    }
-    return dp[np][nn];
-}
-
-bool matchesAnyMask(std::string_view commaMasks, std::string_view name) {
-    std::size_t start = 0;
-    while (start <= commaMasks.size()) {
-        std::size_t end = commaMasks.find(',', start);
-        if (end == std::string_view::npos) {
-            end = commaMasks.size();
-        }
-        std::string_view mask = commaMasks.substr(start, end - start);
-        // Обрезаем пробелы/табы вокруг маски.
-        while (!mask.empty() && std::isspace(static_cast<unsigned char>(mask.front()))) {
-            mask.remove_prefix(1);
-        }
-        while (!mask.empty() && std::isspace(static_cast<unsigned char>(mask.back()))) {
-            mask.remove_suffix(1);
-        }
-        // Пустая маска (между запятыми) считается «без фильтра».
-        if (mask.empty() || matchGlob(mask, name)) {
-            return true;
-        }
-        if (end == commaMasks.size()) {
-            break;
-        }
-        start = end + 1;
-    }
-    return false;
-}
-
 namespace {
+
+/// Признак out-of-line определений в поддереве (реализация ниже).
+bool subtreeHasDefinitions(const std::vector<AstNodePtr>& roots);
 
 /// Является ли AST-узел экспортируемым объявлением (топ-левел декларация).
 bool isExportDeclKind(ParserToken::Kind kind) {
@@ -81,55 +41,309 @@ std::string_view declNameOf(const AstNodeBase& node) {
     std::string_view name;
     if (node.kind() == ParserToken::Kind::TypeDecl) {
         const auto& b = static_cast<const Binary&>(node);
-        if (b.m_left && b.m_left->kind() == ParserToken::Kind::Ident) {
-            name = b.m_left->text();
+        // Имя типа слева: `Name` (Ident) либо `:Name` (TypeName) — оба варианта допустимы.
+        if (b.m_left && (b.m_left->kind() == ParserToken::Kind::Ident || b.m_left->kind() == ParserToken::Kind::TypeName)) {
+            name = requiredText(*b.m_left);
         } else {
             return {};
         }
     } else {
-        name = node.text();
+        name = requiredText(node);
     }
     if (!name.empty() && name.front() == '%') {
+        name.remove_prefix(1);
+    }
+    if (!name.empty() && name.front() == ':') {
         name.remove_prefix(1);
     }
     return name;
 }
 
-/// Рекурсивный сбор экспортируемых термов из плоского тела (контейнеры SEQUENCE уже
-/// развёрнуты; пользовательские { ... } сохраняются как ScopeBlock). Скоупы с анонимной
-/// (`_`) областью и безымянные кодовые блоки пропускаются целиком; именованные/глобальные
-/// области обходятся рекурсивно (квалификация имён для кодовой генерации выполняется
-/// транспайлером через его собственный стек областей имён).
-void collectRec(const std::vector<AstNodePtr>& body, std::string_view masks, std::vector<TermPtr>& out) {
-    for (const auto& node : body) {
+/// Namespace-путь из текста ScopeBlock (`ns::`/`::ns::`/`ns::sub::`) относительно родителя.
+std::string extendPrefix(std::string_view prefix, std::string_view blockText) {
+    std::string_view text = blockText;
+    if (text.rfind("::", 0) == 0) {
+        text.remove_prefix(2);
+    }
+    if (text.size() >= 2 && text.substr(text.size() - 2) == "::") {
+        text.remove_suffix(2);
+    }
+    if (text.empty()) {
+        return std::string(prefix);
+    }
+    return utils::qualifyTrustName(prefix, text);
+}
+
+/// Рекурсивный ЕДИНСТВЕННЫЙ обход тела модуля: экспорт-записи (с происхождением) и
+/// экспортируемые namespace-алиасы блока интерфейса. Контейнеры SEQUENCE уже развёрнуты;
+/// пользовательские `{ ... }` сохраняются как ScopeBlock. Скоупы с анонимной (`_`) областью и
+/// безымянные кодовые блоки пропускаются целиком; именованные/глобальные области обходятся
+/// рекурсивно с накоплением namespace-пути. Корневой `ModuleNode` разворачивается: модуль - не
+/// namespace-сегмент. `container` — top-level узел, из которого пришла запись (для разбиения
+/// экспорт-набора по блоку интерфейса без повторного обхода).
+void scanRec(const std::vector<AstNodePtr>& body, std::string_view prefix, AstNodeBase::Visibility visibility, const AstNodeBase* container, bool inInterface,
+             ModuleBodyScan& scan) {
+    for (const AstNodePtr& node : body) {
         if (!node) {
             continue;
         }
+        const AstNodeBase* nodeContainer = container != nullptr ? container : node.get();
+        // Корневой модуль (не сайт импорта): тело - это и есть содержимое единицы текста.
+        if (node->kind() == ParserToken::Kind::ModuleDecl) {
+            const auto& mn = static_cast<const ModuleNode&>(*node);
+            if (!mn.isImport()) {
+                scanRec(mn.m_body, prefix, visibility, nodeContainer, inInterface, scan);
+                continue;
+            }
+        }
+        if (node->is<FuncDecl>()) {
+            const auto& fn = *node->as<FuncDecl>();
+            // Namespace-алиас (`ns:: :- \lib::ns::;`) - привязка префикса в скоупе, а не имя:
+            // в экспорт-набор не входит. Экспортируется только из блока интерфейса.
+            if (fn.aliasKind() == AliasKind::Namespace) {
+                if (inInterface) {
+                    const std::string_view alias = utils::namespaceAliasName(fn.text());
+                    const AstNodeBase* targetNode = fn.aliasTarget().get();
+                    if (!alias.empty() && targetNode != nullptr && targetNode->is<IdentName>()) {
+                        const auto& target = *targetNode->as<IdentName>();
+                        if (target.moduleRef.has_value()) {
+                            scan.namespaceAliases.push_back(
+                                ModuleNamespaceAlias{utils::qualifyTrustName(prefix, alias), *target.moduleRef, std::string(target.text())});
+                        }
+                    }
+                }
+                continue;
+            }
+            if (fn.aliasKind() == AliasKind::Module) {
+                continue;
+            }
+        }
         if (isExportDeclKind(node->kind())) {
-            // Экспортируем декларацию, если имя подходит под фильтр (пустой фильтр = всё).
-            if (const TermPtr& t = node->term(); t) {
-                if (matchesAnyMask(masks, declNameOf(*node))) {
-                    out.push_back(t);
+            const std::string_view name = declNameOf(*node);
+            if (!name.empty()) {
+                scan.entries.push_back(ExportEntry{node, utils::qualifyTrustName(prefix, name), visibility, nodeContainer});
+            }
+            // Out-of-line определения: тело функции/инициализатор переменной. Тела методов внутри
+            // record и определения в скрытых блоках сюда не попадают (обход их пропускает) —
+            // они считаются поддеревом явно.
+            if (!scan.hasOutOfLineDefinitions) {
+                if (node->is<FuncDecl>()) {
+                    scan.hasOutOfLineDefinitions = node->as<FuncDecl>()->m_body.has_value();
+                } else if (node->is<VarDecl>()) {
+                    scan.hasOutOfLineDefinitions = node->as<VarDecl>()->m_initializer != nullptr;
+                } else {
+                    scan.hasOutOfLineDefinitions = subtreeHasDefinitions({node});
                 }
             }
             continue;
         }
         // Области имён (ScopeBlock). Анонимная `_` и безымянный кодовый блок - пропускаем.
-        if (const auto* scope = node->as_sequence(); scope && node->kind() == ParserToken::Kind::ScopeBlock) {
+        if (node->as_sequence() != nullptr && node->kind() == ParserToken::Kind::ScopeBlock) {
             const ScopeBlock& sb = static_cast<const ScopeBlock&>(*node);
-            if (sb.is_hidden() || sb.is_anonymous()) {
+            // Блок интерфейса файла - container уровня модуля: объявления экспортируются без
+            // namespace-префикса (эквивалент `::`), а сам блок становится происхождением записей.
+            if (sb.isModuleInterface()) {
+                if (scan.interfaceBlock == nullptr) {
+                    scan.interfaceBlock = node.get();
+                }
+                scanRec(sb.m_body, prefix, visibility, node.get(), /*inInterface=*/true, scan);
                 continue;
             }
-            collectRec(sb.m_body, masks, out);
+            if (sb.is_private() || sb.is_anonymous()) {
+                // Скрытый/кодовый блок в экспорт-набор не входит, но его определения требуют
+                // собственного `.cppt` (эмитятся только в TU владельца).
+                if (!scan.hasOutOfLineDefinitions) {
+                    scan.hasOutOfLineDefinitions = subtreeHasDefinitions(sb.m_body);
+                }
+                continue;
+            }
+            const AstNodeBase::Visibility childVisibility = sb.is_protected() ? AstNodeBase::Visibility::Protected : visibility;
+            const std::string_view text = sb.text();
+            // Глобальная область `::` - содержимое без изменения пути; `_::` - module-level
+            // protected без namespace-сегмента.
+            if (sb.is_protected()) {
+                scanRec(sb.m_body, prefix, childVisibility, nodeContainer, inInterface, scan);
+            } else {
+                scanRec(sb.m_body, text == "::" ? prefix : extendPrefix(prefix, text), childVisibility, nodeContainer, inInterface, scan);
+            }
         }
     }
 }
 
 } // namespace
 
-std::vector<TermPtr> collectExportedDecls(const std::vector<AstNodePtr>& body, std::string_view masks) {
-    std::vector<TermPtr> out;
-    collectRec(body, masks, out);
+/// Эквивалент `findFunctionDefinition`: определение функции по qualified-имени и C++-суффиксу.
+AstNodePtr ModuleInterfaceFacts::findFunctionDefinition(std::string_view qualifiedName, std::string_view cppSuffix) const {
+    const auto found = functionDefinitions.find(std::string(qualifiedName));
+    if (found == functionDefinitions.end()) {
+        return nullptr;
+    }
+    for (const AstNodePtr& candidate : found->second) {
+        if (candidate && candidate->is<FuncDecl>() && candidate->as<FuncDecl>()->m_cppSuffix == cppSuffix) {
+            return candidate;
+        }
+    }
+    return nullptr;
+}
+
+namespace {
+
+/// `TypeDecl` (`::=`/`=`) с RHS-RecordDecl: forward либо определение (см. ниже).
+/// Есть ли в поддереве определения, требующие собственного `.cppt`: тело функции, инициализатор
+/// переменной или тело метода внутри record. Сайты импорта пропускаются (чужое тело).
+bool subtreeHasDefinitions(const std::vector<AstNodePtr>& roots) {
+    std::vector<AstNodePtr> stack(roots.begin(), roots.end());
+    while (!stack.empty()) {
+        AstNodePtr node = std::move(stack.back());
+        stack.pop_back();
+        if (!node) {
+            continue;
+        }
+        if (node->kind() == ParserToken::Kind::ModuleDecl) {
+            const auto& mn = static_cast<const ModuleNode&>(*node);
+            if (mn.isImport()) {
+                continue;
+            }
+            stack.insert(stack.end(), mn.m_body.begin(), mn.m_body.end());
+            continue;
+        }
+        if (node->is<FuncDecl>()) {
+            if (node->as<FuncDecl>()->m_body.has_value()) {
+                return true;
+            }
+            continue;
+        }
+        if (node->is<VarDecl>()) {
+            if (node->as<VarDecl>()->m_initializer != nullptr) {
+                return true;
+            }
+            continue;
+        }
+        // Области имён и тело record'а содержат определения того же модуля.
+        if (node->kind() == ParserToken::Kind::ScopeBlock || node->is<RecordDecl>()) {
+            for (const AstNodePtr& child : node->children()) {
+                stack.push_back(child);
+            }
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+ModuleBodyScan scanModuleBody(const std::vector<AstNodePtr>& roots) {
+    ModuleBodyScan scan;
+    scanRec(roots, /*prefix=*/{}, AstNodeBase::Visibility::Public, /*container=*/nullptr, /*inInterface=*/false, scan);
+    // Определение record, объявленного forward'ом в интерфейсе файла, не входит в экспорт-набор
+    // (сайт импорта видит только forward), поэтому эмитится ТОЛЬКО в TU владельца: такому модулю
+    // нужен `.cppt` и без out-of-line функций/переменных. Forward-имена — из того же обхода.
+    if (scan.hasOutOfLineDefinitions || scan.interfaceBlock == nullptr) {
+        return scan;
+    }
+    std::unordered_set<std::string> interfaceForwards;
+    for (const ExportEntry& entry : scan.entries) {
+        if (entry.container == scan.interfaceBlock && isRecordTypeDecl(entry.node, /*wantBody=*/false)) {
+            interfaceForwards.insert(entry.qualifiedName);
+        }
+    }
+    for (const ExportEntry& entry : scan.entries) {
+        if (interfaceForwards.contains(entry.qualifiedName) && isRecordTypeDecl(entry.node, /*wantBody=*/true)) {
+            scan.hasOutOfLineDefinitions = true;
+            break;
+        }
+    }
+    return scan;
+}
+
+std::vector<const ExportEntry*> selectExportEntries(const std::vector<ExportEntry>& entries, const utils::ImportMasks& masks) {
+    std::vector<const ExportEntry*> selected;
+    selected.reserve(entries.size());
+    for (const ExportEntry& entry : entries) {
+        if (masks.matches(entry.qualifiedName)) {
+            selected.push_back(&entry);
+        }
+    }
+    return selected;
+}
+
+bool isRecordTypeDecl(const AstNodePtr& node, bool wantBody) {
+    if (!node || node->kind() != ParserToken::Kind::TypeDecl || !node->is<Binary>()) {
+        return false;
+    }
+    const auto& b = static_cast<const Binary&>(*node);
+    if (!b.m_right || b.m_right->kind() != ParserToken::Kind::StructDecl) {
+        return false;
+    }
+    return static_cast<const RecordDecl&>(*b.m_right).m_body.has_value() == wantBody;
+}
+
+ModuleInterfaceFacts collectModuleInterface(const std::vector<AstNodePtr>& roots, const std::vector<ExportEntry>& interfaceExports,
+                                            const std::vector<ExportEntry>& reExported) {
+    return collectModuleInterface(scanModuleBody(roots), interfaceExports, reExported);
+}
+
+ModuleInterfaceFacts collectModuleInterface(const ModuleBodyScan& scan, const std::vector<ExportEntry>& interfaceExports,
+                                            const std::vector<ExportEntry>& reExported) {
+    ModuleInterfaceFacts facts;
+    // Блок интерфейса — факт того же обхода тела (повторного поиска по `roots` нет).
+    if (scan.interfaceBlock != nullptr) {
+        facts.entries = interfaceExports;
+        facts.entries.insert(facts.entries.end(), reExported.begin(), reExported.end());
+        // Namespace-алиасы блока интерфейса собраны тем же ЕДИНСТВЕННЫМ обходом тела.
+        facts.namespaceAliases = scan.namespaceAliases;
+        for (const ExportEntry& entry : scan.entries) {
+            if (entry.visibility == AstNodeBase::Visibility::Protected) {
+                facts.protectedEntries.push_back(entry);
+            }
+        }
+    } else {
+        for (const ExportEntry& entry : scan.entries) {
+            if (entry.visibility == AstNodeBase::Visibility::Protected) {
+                facts.protectedEntries.push_back(entry);
+            } else {
+                facts.entries.push_back(entry);
+            }
+        }
+    }
+
+    for (const ExportEntry& entry : scan.entries) {
+        if (!entry.node) {
+            continue;
+        }
+        if (entry.node->is<FuncDecl>()) {
+            const FuncDecl& fn = *entry.node->as<FuncDecl>();
+            if (fn.m_body.has_value()) {
+                facts.functionDefinitions[entry.qualifiedName].push_back(entry.node);
+            }
+        }
+    }
+
+    facts.hasOutOfLineDefinitions = scan.hasOutOfLineDefinitions;
+    return facts;
+}
+
+std::vector<AstNodePtr> filterExportEntries(const std::vector<ExportEntry>& entries, const std::vector<ModuleNamespaceAlias>& namespaceAliases,
+                                            const utils::ImportMasks& masks, std::vector<std::string>* unmatchedMasks) {
+    std::vector<const ExportEntry*> selected = selectExportEntries(entries, masks);
+    std::vector<AstNodePtr> out;
+    out.reserve(selected.size());
+    for (const ExportEntry* entry : selected) {
+        out.push_back(entry->node);
+    }
+
+    if (unmatchedMasks != nullptr && !masks.empty()) {
+        // Имена — views на уже посчитанные qualified-имена (копий строк нет). Namespace-алиас —
+        // публичная привязка префикса: маска, выбравшая только её, считается совпавшей.
+        std::vector<std::string_view> names;
+        names.reserve(entries.size() + namespaceAliases.size());
+        for (const ExportEntry& entry : entries) {
+            names.push_back(entry.qualifiedName);
+        }
+        for (const ModuleNamespaceAlias& alias : namespaceAliases) {
+            names.push_back(alias.alias);
+        }
+        *unmatchedMasks = masks.unmatchedIn(names);
+    }
     return out;
 }
 

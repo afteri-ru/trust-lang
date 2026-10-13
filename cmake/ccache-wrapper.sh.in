@@ -1,0 +1,12 @@
+#!/bin/sh
+# ccache-wrapper.sh (генерируется CMake из cmake/ccache-wrapper.sh.in -> _build/ccache-wrapper.sh).
+#
+# Обёртка компилятора для ccache. Переменные окружения CCACHE_* задаются ЗДЕСЬ, а не при
+# configure: `set(ENV{...})` в CMake живёт до конца configure-процесса и не долетает до
+# сборки (make -> cmake --build -> компилятор). Кэш — <root>/.cache/ccache (`.cache` в .gitignore),
+# CCACHE_BASEDIR — корень проекта: пути-префиксы общих каталогов не ломают кэш при переносе
+# исходников в другой путь.
+CCACHE_DIR="@TRUST_CCACHE_DIR@" \
+CCACHE_BASEDIR="@CMAKE_SOURCE_DIR@" \
+CCACHE_MAXSIZE="@TRUST_CCACHE_MAXSIZE@" \
+exec "@TRUST_CCACHE_EXECUTABLE@" "$@"

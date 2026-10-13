@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Private-тип не может затенять встроенное имя.
+# CHECK: error: built-in type 'Int32' is pre-declared
+
+__:: {
+    :Int32 ::= :Struct{ x:Int32 := _; };
+};
+@main():Int32 := { @return 0; };

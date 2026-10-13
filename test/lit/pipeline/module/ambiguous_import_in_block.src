@@ -1,0 +1,24 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Импорт двух модулей ВНУТРИ блока функции: запись неоднозначности живёт в том же скоупе, где
+# привязка сайта, поэтому голое имя обязано диагностироваться, а не молча связаться с первым
+# импортом (`resolve` проверяет неоднозначность на любом уровне скоупа).
+# CHECK: error: ambiguous name 'f'
+# CHECK-SAME: \lib_a::f
+
+//--- main.src
+@main():Int32 := {
+    \lib_a(f);
+    \lib_b(f);
+    @return f(1);
+};
+
+//--- lib_a.src
+\lib_a;
+f(a:Int32):Int32 := { @return a; };
+
+//--- lib_b.src
+\lib_b;
+f(a:Int32):Int32 := { @return a; };

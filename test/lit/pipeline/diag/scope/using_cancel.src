@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# `... = _` — ошибка: поиск привязан к области видимости, отдельного сброса нет.
+
+using namespace _;
+# CHECK: error: extended name search cannot be cancelled

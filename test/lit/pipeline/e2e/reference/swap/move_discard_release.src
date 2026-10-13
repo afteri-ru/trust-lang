@@ -14,8 +14,8 @@ freed():Int32 := %freed_count...;
 
 @main():Int32 := {
     h : @[reftype("unique")@] @[deleter(CountDel)@] Int32 := alloc_handle();
-    @print('freed_before_move={}\n', freed());
+    @print("freed_before_move={}\n", freed());
     @move(h);
-    @print('freed_after_move={}\n', freed());
+    @print("freed_after_move={}\n", freed());
     return 0;
 };

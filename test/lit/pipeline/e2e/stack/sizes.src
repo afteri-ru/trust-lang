@@ -26,7 +26,7 @@
 @main() := {
     big_frame();
     small_frame();
-    @print('limit={}\n', %trust_stack_check_get_limit());
+    @print("limit={}\n", %trust_stack_check_get_limit());
     return 0;
 }
 

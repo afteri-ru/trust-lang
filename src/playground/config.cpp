@@ -1,7 +1,9 @@
 // src/playground/config.cpp
-// trust-playground: загрузка единого конфига (см. include/playground/config.h).
+// trust-playground: загрузка единого конфига (см. include/playground/http/config.h).
 
-#include "playground/config.h"
+#include "playground/http/config.h"
+
+#include "utils/strings.hpp"
 
 #include <cctype>
 #include <cstring>
@@ -111,15 +113,6 @@ bool parseInt(const std::string& key, const std::string& value, int& out, std::s
     }
 }
 
-std::string trim(const std::string& s) {
-    const size_t b = s.find_first_not_of(" \t\r\n");
-    if (b == std::string::npos) {
-        return std::string();
-    }
-    const size_t e = s.find_last_not_of(" \t\r\n");
-    return s.substr(b, e - b + 1);
-}
-
 } // namespace
 
 std::string unquote(const std::string& s) {
@@ -144,7 +137,7 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
     int line_no = 0;
     while (std::getline(file, line)) {
         ++line_no;
-        std::string trimmed = trim(line);
+        std::string trimmed(utils::trim(line));
         if (trimmed.empty() || trimmed[0] == '#') {
             continue;
         }
@@ -169,7 +162,7 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
                 }
             }
             if (hash != std::string::npos) {
-                trimmed = trim(trimmed.substr(0, hash));
+                trimmed = std::string(utils::trim(trimmed.substr(0, hash)));
             }
         }
         if (trimmed.empty()) {
@@ -180,8 +173,8 @@ bool loadConfig(const std::string& path, PlaygroundConfig& out, std::string& err
             error = "line " + std::to_string(line_no) + ": expected 'key=value'";
             return false;
         }
-        const std::string key = trim(trimmed.substr(0, eq));
-        const std::string value = unquote(trim(trimmed.substr(eq + 1)));
+        const std::string key(utils::trim(trimmed.substr(0, eq)));
+        const std::string value = unquote(std::string(utils::trim(trimmed.substr(eq + 1))));
         if (key.empty()) {
             error = "line " + std::to_string(line_no) + ": empty key";
             return false;
@@ -425,13 +418,13 @@ bool saveWorkerConfig(const std::string& path, const PlaygroundConfig& cfg, std:
         std::ifstream f(path);
         std::string line;
         while (std::getline(f, line)) {
-            const std::string t = trim(line);
+            const std::string t(utils::trim(line));
             if (t.empty() || t[0] == '#') {
                 keep.push_back(line);
                 continue;
             }
             const size_t eq = t.find('=');
-            const std::string key = (eq == std::string::npos) ? t : trim(t.substr(0, eq));
+            const std::string key = (eq == std::string::npos) ? t : std::string(utils::trim(t.substr(0, eq)));
             if (key.rfind("worker.", 0) != 0) {
                 keep.push_back(line); // playground.* и записи реестра (токены) сохраняем
             }

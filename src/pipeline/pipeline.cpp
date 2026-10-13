@@ -1,137 +1,47 @@
 #include "pipeline/pipeline.hpp"
-#include "driver/cli.hpp"
-#include "pipeline/makefile_build.hpp"
-#include "ast/term_to_ast.hpp"
-#include "attrs/attr.hpp"
-#include "module_loader/module_export.hpp"
-#include "syntax/lexer.h"
-#include "syntax/macro.h"
-#include "syntax/parser.h"
-#include "syntax/term.h"
-#include "ast/ast_nodes.hpp"
-#include "semantic/pass_runner.hpp"
+#include "pipeline/backend/stages.hpp"
+#include "syntax/module_header.hpp"
+#include "pipeline/backend/checks.hpp"
+#include "pipeline/dsl/dsl.hpp"
+#include "pipeline/paths/paths.hpp"
+#include "pipeline/run/run.hpp"
+#include "pipeline/modules/symbols.hpp"
+#include "toolchain/build.hpp"
+#include "toolchain/hash.hpp"
+#include "verify/verify.hpp"
+#include "module_loader/import_exports.hpp"
+#include "module_loader/module_loader.hpp"
 #include "semantic/diag.hpp"
-#include "semantic/behavioral_modes.hpp"
-#include "semantic/solver.hpp"
+#include "semantic/analysis_api.hpp"
+#include "session/context.hpp"
 #include "solver/trust_to_smt.hpp"
-#include "solver/smt_printer.hpp"
-#include "solver/solver.hpp"
-#include "transpiler/transpiler.hpp"
-#include "trust/version.h"
-#include "assets/asset_catalog.hpp"
-#include "assets/asset_provider.hpp"
-
-#include "utils/io.hpp"
-#include "utils/file_io.hpp"
-#include "formatter/format.hpp"
+#include "ir/analysis_manager.hpp"
+#include "symbols/reference_index.hpp"
+#include "ir/hir_module.hpp"
+#include "ir/hir_verify.hpp"
+#include "types/type_system.hpp"
+#include "utils/error.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <filesystem>
-#include <fstream>
-#include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace trust {
 
 // Документирующие комментарии к объявлениям привязываются ГРАММАТИКОЙ к терму-идентификатора
-// (term->m_docs, см. include/syntax/parser.y.in: attachLeadingDoc/attachTrailingDoc) и переносятся
+// (term->m_docs, см. include/syntax/grammar/parser.y.in: attachLeadingDoc/attachTrailingDoc) и переносятся
 // в узел объявления TermToAstConverter::convert → AstNodeBase::documentation. SymbolCollectorHook
 // читает их в finalize. Отдельный AST-обход (moduleDocMap/attachDocumentation) не требуется.
 // -- Ассеты стандартной библиотеки (dsl.src, iterator.src) --
-// Вшиты в бинарник компилятора ЕДИНЫМ провайдером компонента stdlib
-// (src/assets/asset_provider.cpp, каталог include/assets/asset_catalog.hpp, префикс "@stdlib/…").
-// Локальных #embed здесь НЕТ: иначе содержимое дублировалось бы с провайдером и с LSP
-// (src/lsp/builtin_catalog.cpp использует тот же аксессор).
-
-// -----------------------------------------------------------------------------
-// reportUnhandledAttributes - обход всех узлов AST (проверка «признака обработки»).
-//
-// Для каждого узла, несущего атрибуты (AstNodeAttr::attrs()), проверяется, что у
-// атрибута установлен хотя бы один из двух «признаков обработки» - анализатором
-// (analyzer) или кодогенератором (codegen), см. detail::is_handled. Атрибут без
-// обоих признаков - «необработанный»: выдаётся диагностика -Wunhandled-attr на
-// severity из опций (default Warning; silence -Wunhandled-attr=ignore).
-// Вызывается в конвейере: после конвертации Term→AST (runPipeline без Transpile)
-// и после итоговой кодогенерации C++ (runPipeline/transpileModuleBody с Transpile).
-// -----------------------------------------------------------------------------
-namespace {
-
-void reportUnhandledAttributes(Context& ctx, const std::vector<AstNodePtr>& roots) {
-    if (roots.empty()) {
-        return;
-    }
-    // Диагностика semantic-уровня: если не зарегистрирована (parse-only путь без семантики) -
-    // пропускаем. Severity::Ignore = "ignore" (пользователь выключил -Wunhandled-attr=ignore).
-    if (!ctx.opts().is_registered(semantic::DiagId::UnhandledAttr)) {
-        return;
-    }
-    const Severity sev = ctx.opts().get(semantic::DiagId::UnhandledAttr);
-    if (sev == Severity::Ignore) {
-        return;
-    }
-    std::vector<AstNodePtr> stack(roots.begin(), roots.end());
-    while (!stack.empty()) {
-        AstNodePtr node = std::move(stack.back());
-        stack.pop_back();
-        if (!node) {
-            continue;
-        }
-        if (const AstNodeAttr* attrNode = node->as_attr()) {
-            for (const AttrId id : attrNode->attrs()) {
-                if (detail::is_handled(id)) {
-                    continue;
-                }
-                ctx.diag().report(sev, node->range(), semantic::DiagId::UnhandledAttr,
-                                  "attribute '{}' is not handled by the analyzer or the C++ code generator", ctx.attrs().get_name(id));
-            }
-        }
-        for (const AstNodePtr& child : node->children()) {
-            if (child) {
-                stack.push_back(child);
-            }
-        }
-    }
-}
-
-} // namespace
-
-// -- Stdlib prelude: объявления типов из ассета stdlib/iterator.src --
-// Парсится после dsl.src (нужны макросы, напр. @include) и добавляется ПЕРЕД главным модулем,
-// чтобы ClassDecl(ы) (Iterator<T> с @[borrowed]) дошли до семантики (TypeRegistry + NativeRefHook).
-// Отключается через --no-stdlib (use_stdlib=false).
-static void appendStdlibPrelude(Context& ctx, bool enabled, std::vector<AstNodePtr>& out) {
-    if (!enabled) {
-        return;
-    }
-    const std::string source(embeddedAssetContent(AssetId::kStdlibIteratorSrc));
-    const auto errors_before = ctx.diag().errorCount();
-    Parser parser(ctx);
-    TermPtr term = parser.ParseText(source, "@stdlib/iterator");
-    if (!term || ctx.diag().errorCount() != errors_before) {
-        return; // битый prelude не должен валить компиляцию молча - ошибки уже в diag()
-    }
-    convertModuleBody(ctx, term, out);
-}
-
-// -- determineSteps: EmitFlags → PipelineSteps --
-// Transpile включён в битмаску для Cpp-режима.
-
-PipelineSteps Pipeline::determineSteps(EmitFlags flags) {
-    if ((flags & EmitFlags::Cpp) != EmitFlags::None) {
-        return PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile;
-    }
-    if ((flags & EmitFlags::AST) != EmitFlags::None) {
-        return PipelineSteps::ParseAST;
-    }
-    if ((flags & EmitFlags::Tokens) != EmitFlags::None) {
-        return PipelineSteps::ParseAST;
-    }
-    if ((flags & EmitFlags::Macros) != EmitFlags::None) {
-        return PipelineSteps::ParseAST;
-    }
-    return PipelineSteps::None;
-}
+// Prelude-файлы читаются из пакета ресурсов `share/trust/stdlib.trust`
+// (package::readResourcePackageEntry). Локальных #embed здесь НЕТ: иначе
+// содержимое дублировалось бы с провайдером и с LSP (src/lsp/catalog/builtin_catalog.cpp использует
+// тот же аксессор).
 
 // -- Pipeline constructor --
 
@@ -139,526 +49,260 @@ Pipeline::Pipeline(Context& ctx, const PipelineOpts& opts)
 : m_ctx(ctx)
 , m_opts(opts) {
     m_ctx.diag().setMinSeverity(opts.quiet ? Severity::Error : Severity::Remark);
-    // Pipeline владеет ModuleLoader и TypeRegistry и внедряет их в Context
+    // Pipeline владеет ModuleLoader и TypeSystem и внедряет их в Context
     // (невладеющие указатели), чтобы diag не зависел от module_loader и types.
     m_loader = std::make_unique<ModuleLoader>(m_ctx);
-    m_ctx.setLoader(m_loader.get());
-    m_types = std::make_unique<TypeRegistry>(m_ctx.diag(), m_ctx.opts());
+    m_ctx.setModuleResolver(m_loader.get());
+    m_types = std::make_shared<TypeSystem>(m_ctx.diag(), m_ctx.opts());
+    // Провайдер логического имени модуля: C++-проекция имени типа (модульная изоляция) —
+    // из того же источника, что и кодоген/загрузчик; отдельной таблицы имён нет.
+    m_types->setModuleNames(m_loader.get());
     m_ctx.setTypes(m_types.get());
 }
 
-// -- Pipeline::loadDslMacros --
-// By default the embedded trust/dsl.src is loaded into m_ctx. --dsl <file>
-// replaces it, --no-dsl disables loading entirely. The Macro is unique by
-// m_ctx and inherited by every (nested) Parser via Context.
+Pipeline::~Pipeline() = default;
 
 void Pipeline::loadDslMacros() {
-    if (m_opts.no_dsl || m_ctx.macro()) {
-        return;
-    }
-
-    // Снимок CLI-значения keywords ДО загрузки dsl: value-флаг может быть установлен через
-    // `--keywords=` (и, как побочный эффект value-флага, через `-Wkeywords=`). Это значение
-    // побеждает дефолт из dsl.src (и .trust-format). Выполняется только один раз (первый реальный
-    // загруз dsl); повторные вызовы упираются в guard выше и настройки CLI не переопределяют.
-    std::string cliKw;
-    if (auto v = m_ctx.opts().flagValueByName("keywords"); v && !v->empty()) {
-        cliKw = std::string(*v);
-    }
-
-    std::string source;
-    if (!m_opts.dsl_file.empty()) {
-        auto content = trust::utils::FileIO::read<std::string>(m_opts.dsl_file);
-        if (!content) {
-            FAULT("Failed to open DSL file '{}'", m_opts.dsl_file);
-        }
-        source = std::move(*content);
-    } else {
-        source = std::string(embeddedAssetContent(AssetId::kStdlibDslSrc));
-    }
-
-    auto macro = std::make_shared<Macro>(m_ctx);
-    m_ctx.setMacro(macro);
-    Parser parser(m_ctx);
-    // Встроенный DSL - «фиктивный» in-memory источник под именем "@stdlib/dsl"
-    // (префикс '@' = файла на диске нет, readFilesFromDisk его пропускает).
-    // Содержимое "@stdlib/dsl" - это stdlib/dsl.src; LSP сохраняет его на диск как
-    // <tempDir>/stdlib/dsl.src, чтобы ссылки на определения макросов были
-    // навигируемы (см. lsp/NAVIGATION.md).
-    TermPtr term = parser.ParseText(source, "@stdlib/dsl");
-    if (!term || m_ctx.diag().errorCount() > 0) {
-        FAULT("Failed to parse DSL source");
-    }
-
-    // Приоритет keywords: CLI (снимок) > .trust-format "Keywords:" > дефолт dsl.src.
-    if (!cliKw.empty()) {
-        // CLI побеждает всё (в т.ч. дефолт dsl и .trust-format).
-        m_ctx.opts().setFlagValueByName("keywords", cliKw);
-    } else {
-        // CLI не задан: .trust-format переопределяет дефолт dsl.
-        const std::string cfgPath = trust::formatter::findConfig(std::filesystem::path(m_opts.input_file).parent_path().string());
-        if (!cfgPath.empty()) {
-            auto cfg = trust::formatter::loadConfig(cfgPath);
-            if (cfg.ok && !cfg.opts.keywords.empty()) {
-                std::string kwList;
-                for (const auto& k : cfg.opts.keywords) {
-                    if (!kwList.empty()) {
-                        kwList += ",";
-                    }
-                    kwList += k;
-                }
-                m_ctx.opts().setFlagValueByName("keywords", kwList);
-            }
-        }
-    }
+    trust::loadDslMacros(m_ctx, m_opts);
 }
 
-// Возвращает эффективный список keywords (для -Wsigil и для форматирования).
 std::vector<std::string> Pipeline::effectiveKeywords() {
-    loadDslMacros();
-    std::vector<std::string> out;
-    if (auto v = m_ctx.opts().flagValueByName("keywords"); v && !v->empty()) {
-        out = trust::formatter::splitKeywordList(*v);
-    }
-    return out;
+    return trust::effectiveKeywords(m_ctx, m_opts);
 }
-// -- runPipeline (без Transpile) --
 
-PipelineResult Pipeline::runPipeline(PipelineSteps steps, MapperFile inputFile) {
-    PipelineResult result;
+PipelineResult Pipeline::run(const RunRequest& req, MapperFile inputFile) {
+    // Бэкенды кодируют уже разрешённые имена/типы: без семантики они бессмысленны.
+    EXPECT((!req.smt || hasStep(req.steps, FrontendSteps::Semantic)) && "SMT backend requires the Semantic step");
+    EXPECT((!req.cpp || hasStep(req.steps, FrontendSteps::Semantic)) && "C++ backend requires the Semantic step");
+    // Все тексты AST/HIR/символов этой компиляции интернируются в пул строк Context
+    // (per-compilation), а не в процессный interner: память освобождается вместе с Context/результатом.
+    StringInternerScope stringsScope(m_ctx.strings());
+    // Runner живёт до конца прогона, чтобы разрешённая семантикой таблица символов (TypeId) была
+    // доступна кодогенерации (проброс в CppTranspiler).
+    SemanticPassRunner runner(m_ctx, m_opts.allow_semantic_on_errors);
+    FrontendResult fr = runFrontend(req.steps, inputFile, req.mode, runner);
+    PipelineResult result = std::move(fr.result);
+    result.mainModuleIndex = fr.mainModuleIndex;
+    if (!fr.stopped) {
+        runBackends(result, req);
+    }
+    // Результат разделяет владение пулом строк: AST/HIR/SymbolIndex остаются валидны
+    // после разрушения Context.
+    result.strings = m_ctx.stringsPool();
+    return result;
+}
+
+// -- lowerAndAnalyze: HIR + flow-анализы (потребители производного представления) --
+
+Pipeline::LoweredUnit Pipeline::lowerAndAnalyze(const std::vector<AstNodePtr>& roots, bool verify, bool runFlow) {
+    // HIR — производная форма (глубокий клон AST + lowering): единственный структурный вход
+    // бэкендов и flow-анализов. Строится ПОСЛЕ семантики и из неизменённой AST.
+    HirModule hir = buildHir(roots, m_ctx);
+    // Гейт контракта J2: структурная корректность и полнота материализованных фактов
+    // проверяются ДО потребителей (flow-анализы/кодоген). Нарушение — ICE-политика.
+    if (verify) {
+        if (const auto violation = verifyHir(hir)) {
+            reportInternalError(m_ctx, m_opts.allow_semantic_on_errors, *violation);
+            // Потребители HIR не запускаются на непроверенном представлении: в recover-режиме
+            // (LSP) возвращаем HIR без flow-анализов, чтобы не каскадировать ICE.
+            return LoweredUnit{std::move(hir), std::nullopt};
+        }
+    }
+    if (!runFlow) {
+        // Модульный юнит: семантика уже выполнена над этими же (разделяемыми) узлами AST
+        // в главном юните. Повторный semantic/flow-прогон не нужен; HIR строится из
+        // материализованных фактов, verifyHir остаётся гейтом контракта.
+        return LoweredUnit{std::move(hir), std::nullopt};
+    }
+    // MIR — единственный вход flow-анализов и верификатора: CFG строятся ОДИН раз (buildMir),
+    // анализы запускаются менеджером в порядке зависимостей (DA → borrow). HIR остаётся входом
+    // кодогена, а MIR отдаётся в PipelineResult как единая производная форма.
+    flow::MirModule mir = flow::buildMir(hir.nodes(), m_ctx.attrs());
+    if (verify) {
+        if (const auto violation = flow::verifyFlowModule(mir)) {
+            reportInternalError(m_ctx, m_opts.allow_semantic_on_errors, *violation);
+            return LoweredUnit{std::move(hir), std::nullopt};
+        }
+    }
+    flow::AnalysisManager manager;
+    manager.add(std::make_unique<semantic::DefiniteAssignmentPass>(m_ctx));
+    manager.add(std::make_unique<semantic::BorrowFlowPass>(m_ctx));
+    manager.run(mir);
+    return LoweredUnit{std::move(hir), std::move(mir)};
+}
+
+Pipeline::FrontendResult Pipeline::runFrontend(FrontendSteps steps, MapperFile inputFile, RunMode mode, SemanticPassRunner& runner) {
+    FrontendResult fr;
     // Stdlib prelude участвует ТОЛЬКО в семантике (регистрация типа Iterator + @[borrowed]),
     // но НЕ в кодогенерации (иначе добавляет лишнюю строку в вывод).
-    std::vector<AstNodePtr> preludeNodes;
-
-    if (hasStep(steps, PipelineSteps::ParseAST)) {
+    if (hasStep(steps, FrontendSteps::ParseAST)) {
         // Read source and register main file as a module.
         // parseSourceModule recursively parses the file (expand_module=true)
         // and stores the result in the registry.
         loadDslMacros();
+        // Пакеты (.trust) извлекаются в build/temp-каталог (не рядом с архивом),
+        // чтобы исходники пакета не оседали в дереве исходников пакета.
+        loader().setPackageCacheDir(computeBuildDir(m_opts) / std::string(toolchain::kPackagesSubdir));
+        // Scope root: явный --module-root или каталог входного файла; пути модулей/пакетов — из CLI.
+        std::filesystem::path moduleRoot =
+            m_opts.module_root.empty() ? std::filesystem::path(m_opts.input_file).parent_path() : std::filesystem::path(m_opts.module_root);
+        if (moduleRoot.empty()) {
+            moduleRoot = std::filesystem::current_path();
+        }
+        std::error_code root_ec;
+        const std::filesystem::path canonicalRoot = std::filesystem::weakly_canonical(moduleRoot, root_ec);
+        if (!root_ec) {
+            moduleRoot = canonicalRoot;
+        }
+        std::vector<std::filesystem::path> modulePaths;
+        modulePaths.reserve(m_opts.module_paths.size());
+        for (const std::string& path : m_opts.module_paths) {
+            modulePaths.emplace_back(path);
+        }
+        loader().setModuleSearchPaths(std::move(modulePaths));
+        std::vector<std::filesystem::path> packagePaths;
+        packagePaths.reserve(m_opts.package_paths.size());
+        for (const std::string& path : m_opts.package_paths) {
+            packagePaths.emplace_back(path);
+        }
+        loader().setPackageSearchPaths(std::move(packagePaths));
+        if (mode == RunMode::kProgram) {
+            // Главный файл программы - от него отсчитывается имя модуля (@__MODULE_NAME__)
+            // и имя entry-функции. Должен быть установлен до парсинга (parseSourceModule).
+            m_ctx.source().setMainModuleFile(inputFile);
+        }
         std::string moduleName = std::string(m_ctx.source().filename(inputFile));
-        std::size_t idx = m_ctx.loader().parseSourceModule(moduleName, inputFile);
+        // Идентичность модуля — канонический путь файла (как у импортируемых модулей); source-map
+        // имя относительно baseDirectory оставляем только как display-имя корневого ModuleNode.
+        std::error_code input_path_ec;
+        std::filesystem::path canonicalInput = std::filesystem::weakly_canonical(std::filesystem::path(m_opts.input_file), input_path_ec);
+        if (input_path_ec) {
+            canonicalInput = std::filesystem::absolute(std::filesystem::path(m_opts.input_file), input_path_ec);
+        }
+        const std::string moduleId = input_path_ec ? std::string(m_opts.input_file) : canonicalInput.generic_string();
+        std::filesystem::path inputDir = std::filesystem::path(m_opts.input_file).parent_path();
+        if (inputDir.empty()) {
+            inputDir = std::filesystem::current_path();
+        }
+        std::error_code input_ec;
+        const std::filesystem::path canonicalInputDir = std::filesystem::weakly_canonical(inputDir, input_ec);
+        if (!input_ec) {
+            inputDir = canonicalInputDir;
+        }
+        const bool rootProgram = (inputDir == moduleRoot);
+        const bool allowNoHeader = rootProgram;
+        const ModuleIndex idx = loader().parseSourceModule(moduleId, inputFile, {}, moduleRoot, {}, allowNoHeader);
+        fr.mainModuleIndex = idx; // главный модуль — всегда модуль входного файла
 
         // Root node of the program is a ModuleNode wrapping the module body.
-        auto modTerm = Term::Create(TermID::MODULE, moduleName);
-        auto mn = std::make_shared<ModuleNode>(idx, std::move(modTerm));
-        convertModuleBody(m_ctx, m_ctx.loader().body(idx), mn->m_body);
-        std::vector<AstNodePtr> astNodes;
-        appendStdlibPrelude(m_ctx, m_opts.use_stdlib, preludeNodes);
-        astNodes.push_back(std::move(mn));
-        result.astNodes = std::move(astNodes);
-        // Контроль «признака обработки» атрибутов сразу после конвертации Term→AST
-        // (severity -Wunhandled-attr; в этом режиме без Transpile это единственная точка).
-        reportUnhandledAttributes(m_ctx, *result.astNodes);
+        // Тело каждого загруженного модуля уже сконвертировано ОДИН раз загрузчиком
+        // (сразу после парсинга), поэтому здесь конверсии нет.
+        std::vector<AstNodePtr> astNodes = buildModuleRoot(moduleName, idx);
+        appendStdlibPrelude(m_ctx, m_opts.use_stdlib, fr.preludeNodes);
+        fr.result.astNodes = std::move(astNodes);
+        if (mode == RunMode::kProgram) {
+            // Заполнить экспорт-интерфейс сайтов импорта (анализатор).
+            resolveImportExports(m_ctx, loader(), *fr.result.astNodes);
+        } else {
+            // Контроль «признака обработки» атрибутов сразу после конвертации Term->AST
+            // (severity -Wunhandled-attr). В программном режиме отчёт идёт после
+            // кодогенерации; в аналитическом без неё это единственная точка.
+            reportUnhandledAttributes(m_ctx, *fr.result.astNodes);
+        }
     }
 
-    // Если конвертация Term→AST дала ошибки (например нереализованная конструкция:
+    // Если конвертация Term->AST дала ошибки (например нереализованная конструкция:
     // await/yield/when/filling) - семантический анализ и транспиляция на неполном/повреждённом
     // AST не запускаются (могут упасть на незаполненных детях). astNodes структурно построены;
     // факт ошибки виден вызывающему по diag().errorCount()>0.
-    if (hasStep(steps, PipelineSteps::ParseAST) && m_ctx.diag().errorCount() > 0 && !m_opts.allow_semantic_on_errors) {
-        return result;
+    if (hasStep(steps, FrontendSteps::ParseAST) && m_ctx.diag().errorCount() > 0 && !m_opts.allow_semantic_on_errors) {
+        fr.stopped = true;
+        return fr;
     }
 
-    if (hasStep(steps, PipelineSteps::Semantic)) {
-        EXPECT(result.astNodes.has_value() && "runAst must produce astNodes");
-        SemanticPassRunner runner(m_ctx);
+    if (hasStep(steps, FrontendSteps::Semantic)) {
+        EXPECT(fr.result.astNodes.has_value() && "runAst must produce astNodes");
         // Prelude идёт ПЕРВЫМ, чтобы @[borrowed]-классы были помечены до анализа пользовательского кода.
         std::vector<AstNodePtr> semanticRoots;
-        semanticRoots.reserve(preludeNodes.size() + result.astNodes->size());
-        semanticRoots.insert(semanticRoots.end(), preludeNodes.begin(), preludeNodes.end());
-        semanticRoots.insert(semanticRoots.end(), result.astNodes->begin(), result.astNodes->end());
-        bool ok = runner.run(semanticRoots);
-        // Сбор символов для LSP - выполняется даже при ошибках (частичный AST).
-        if (m_ctx.opts().is_enabled(semantic::FlagKind::Symbols)) {
-            result.symbols = runner.takeSymbolIndex();
-            // Макроопределения, записанные во время парсинга (не теряются после PopScope модуля).
-            appendMacroSymbols(m_ctx, *result.symbols);
+        semanticRoots.reserve(fr.preludeNodes.size() + fr.result.astNodes->size());
+        semanticRoots.insert(semanticRoots.end(), fr.preludeNodes.begin(), fr.preludeNodes.end());
+        semanticRoots.insert(semanticRoots.end(), fr.result.astNodes->begin(), fr.result.astNodes->end());
+        const bool ok = runner.run(semanticRoots);
+        // Семантическая модель — продукт фазы, а не LSP-опция: таблица символов (persistent),
+        // видимость импорта и ссылки собираются всегда, в т.ч. на частичном AST после ошибок.
+        // Макросы дособираются до передачи контекста анализа в модель (дальше она неизменяема).
+        appendMacroSymbols(m_ctx, runner.symbolIndex());
+        ModuleProjection modules;
+        modules.mainModuleIndex = fr.mainModuleIndex;
+        modules.moduleNames.reserve(loader().moduleCount());
+        for (std::size_t i = 0; i < loader().moduleCount(); ++i) {
+            modules.moduleNames.emplace_back(loader().moduleLogicalName(ModuleIndex{i}));
+        }
+        modules.moduleAliases = loader().moduleAliases(fr.mainModuleIndex);
+        // Ссылки имя→объявление текущего файла (переход/hover по ссылке):
+        // один обход AST по материализованным семантикой фактам.
+        ReferenceIndex references;
+        for (const AstNodePtr& root : *fr.result.astNodes) {
+            if (root != nullptr) {
+                collectReferences(*root, inputFile, m_ctx.types(), m_ctx.source(), references);
+            }
+        }
+        fr.result.semantics.emplace(runner.takeAnalysis(), m_ctx.stringsPool(), m_types, std::move(modules), std::move(references));
+        // HIR-фаза выполняется и на частичном AST (LSP recover): flow-диагностики сохраняются.
+        // После ICE представление недостоверно - HIR не строим.
+        std::optional<LoweredUnit> lowered;
+        if (!runner.crashed()) {
+            lowered.emplace(lowerAndAnalyze(semanticRoots, /*verify=*/ok));
         }
         if (!ok) {
-            return result;
+            fr.stopped = true;
+            return fr;
         }
+        // S4c: exported generic без определения в компиляции (declaration-only форма не
+        // выражает шаблоны). Диагностика добавляет ошибки - общий error-gate ниже её учитывает.
+        checkExportedGenericDeclarations(fr.mainModuleIndex);
+        // Flow-анализы и верификатор выполняются ПОСЛЕ `run()`, поэтому их ошибки (uninit,
+        // borrow, ICE-политика) обязаны так же останавливать бэкенды, как и ошибки семантики.
+        if (m_ctx.diag().errorCount() > 0) {
+            fr.stopped = true;
+            return fr;
+        }
+        EXPECT(lowered.has_value() && "successful semantic run must produce HIR");
+        // HIR главного модуля отдаётся без prelude-части (последняя участвует только в семантике).
+        const std::size_t preludeCount = fr.preludeNodes.size();
+        EXPECT(lowered->hir.size() >= preludeCount && "buildHir must preserve the number of roots (prelude + module)");
+        fr.result.hirNodes = lowered->hir.tailFrom(preludeCount);
+        fr.result.mir = std::move(lowered->mir);
     }
 
-    // Transpile без cppOut - FAULT
-    if (hasStep(steps, PipelineSteps::Transpile)) {
-        FAULT("runPipeline without cppOut called with Transpile step");
-    }
-
-    return result;
+    return fr;
 }
 
-// -- runPipeline (с Transpile) --
+// -- runBackends: упорядоченный backend-конвейер (solver → cpp) --
 
-namespace {
-
-/// Рекурсивно заполняет экспорт-интерфейс всех сайтов импорта (`ModuleNode::isImport()`):
-/// связывает индекс модуля через loader, сохраняет «полный» экспорт в реестре и кладёт
-/// отфильтрованный (по маскам `\module(mod, masks)`) список экспортов в узел. Это шаг
-/// «анализатора», выполняемый в конвейере после построения AST.
-void resolveImportExports(Context& ctx, const std::vector<AstNodePtr>& astNodes) {
-    for (const auto& node : astNodes) {
-        if (!node) {
-            continue;
-        }
-        if (node->kind() == ParserToken::Kind::ModuleDecl) {
-            const auto& mn = static_cast<const ModuleNode&>(*node);
-            if (mn.isImport()) {
-                if (auto idx = ctx.loader().indexOf(mn.moduleId()); idx) {
-                    const_cast<ModuleNode&>(mn).setModuleIndex(*idx);
-                    const auto& body = mn.m_body;
-                    std::vector<TermPtr> full = collectExportedDecls(body, "");
-                    ctx.loader().setInterface(*idx, full);
-                    const_cast<ModuleNode&>(mn).setExports(collectExportedDecls(body, mn.importMasks()));
-                } else {
-                    ctx.diag().report(Severity::Error, mn.range(), "Module '{}' is not loaded", mn.moduleId());
-                }
-            }
-        }
-        // Обход детей (в т.ч. тела импортированного модуля - там могут быть вложенные импорты).
-        for (const auto& child : node->children()) {
-            if (child) {
-                std::vector<AstNodePtr> one{child};
-                resolveImportExports(ctx, one);
-            }
-        }
-    }
-}
-
-} // namespace
-PipelineResult Pipeline::runPipeline(PipelineSteps steps, MapperFile inputFile, MapperFile cppOut, std::vector<ExportEntry>* out_exports,
-                                     std::vector<std::string>* out_runtime_headers, std::vector<std::string>* out_link_libs, solver::SmtScript* out_script,
-                                     std::string* out_entry_params, bool* out_saw_entry) {
-    PipelineResult result;
-    // Stdlib prelude участвует ТОЛЬКО в семантике (регистрация типа Iterator + @[borrowed]),
-    // но НЕ в кодогенерации (иначе добавляет лишнюю строку в вывод).
-    std::vector<AstNodePtr> preludeNodes;
-
-    if (hasStep(steps, PipelineSteps::ParseAST)) {
-        // Read source and register main file as a module.
-        // parseSourceModule recursively parses the file (expand_module=true)
-        // and stores the result in the registry.
-        loadDslMacros();
-        std::string moduleName = std::string(m_ctx.source().filename(inputFile));
-        // Главный файл программы - от него отсчитывается имя модуля (@__MODULE_NAME__)
-        // и имя entry-функции. Должен быть установлен до парсинга (parseSourceModule).
-        m_ctx.source().setMainModuleFile(inputFile);
-        std::size_t idx = m_ctx.loader().parseSourceModule(moduleName, inputFile);
-        m_mainModuleIndex = idx;
-
-        // Root node of the program is a ModuleNode wrapping the module body.
-        auto modTerm = Term::Create(TermID::MODULE, moduleName);
-        auto mn = std::make_shared<ModuleNode>(idx, std::move(modTerm));
-        convertModuleBody(m_ctx, m_ctx.loader().body(idx), mn->m_body);
-        std::vector<AstNodePtr> astNodes;
-        appendStdlibPrelude(m_ctx, m_opts.use_stdlib, preludeNodes);
-        astNodes.push_back(std::move(mn));
-        result.astNodes = std::move(astNodes);
-
-        // Заполнить экспорт-интерфейс сайтов импорта (анализатор).
-        resolveImportExports(m_ctx, *result.astNodes);
-    }
-
-    // Если конвертация Term→AST дала ошибки (например нереализованная конструкция:
-    // await/yield/when/filling) - семантический анализ и транспиляция на неполном/повреждённом
-    // AST не запускаются (могут упасть на незаполненных детях). astNodes структурно построены;
-    // факт ошибки виден вызывающему по diag().errorCount()>0.
-    if (hasStep(steps, PipelineSteps::ParseAST) && m_ctx.diag().errorCount() > 0 && !m_opts.allow_semantic_on_errors) {
-        return result;
-    }
-
-    // Семантический анализ. Runner живёт до конца функции, чтобы разрешённая семантикой
-    // таблица символов (TypeId) была доступна кодогенерации (проброс в CppTranspiler).
-    SemanticPassRunner runner(m_ctx);
-    if (hasStep(steps, PipelineSteps::Semantic)) {
-        EXPECT(result.astNodes.has_value() && "runAst must produce astNodes");
-        // Prelude идёт ПЕРВЫМ, чтобы @[borrowed]-классы были помечены до анализа пользовательского кода.
-        std::vector<AstNodePtr> semanticRoots;
-        semanticRoots.reserve(preludeNodes.size() + result.astNodes->size());
-        semanticRoots.insert(semanticRoots.end(), preludeNodes.begin(), preludeNodes.end());
-        semanticRoots.insert(semanticRoots.end(), result.astNodes->begin(), result.astNodes->end());
-        bool ok = runner.run(semanticRoots);
-        // Сбор символов для LSP - выполняется даже при ошибках (частичный AST).
-        if (m_ctx.opts().is_enabled(semantic::FlagKind::Symbols)) {
-            result.symbols = runner.takeSymbolIndex();
-            // Макроопределения, записанные во время парсинга (не теряются после PopScope модуля).
-            appendMacroSymbols(m_ctx, *result.symbols);
-        }
-        if (!ok) {
-            return result;
-        }
-    }
-
-    // Шаг Solver: генерация SMT-LIB 2 (--solver-mode=export/calculate). После семантики имена/типы
-    // разрешены; TrustToSmt переводит контракты функций в VCs (SmtScript), SmtPrinter печатает
-    // его в файл (export) или SolverInterface исполняет (calculate) на стороне execute().
-    if (hasStep(steps, PipelineSteps::Solver)) {
-        EXPECT(result.astNodes.has_value() && "runAst must produce astNodes");
-        solver::TrustToSmt bridge(m_ctx);
-        auto script = bridge.generate(*result.astNodes);
-        if (!script) {
-            return result; // диагностика уже выдана (неподдерживаемая конструкция)
-        }
-        if (out_script) {
-            *out_script = std::move(*script);
-        }
-    }
-
-    if (hasStep(steps, PipelineSteps::Transpile)) {
-        EXPECT(result.astNodes.has_value() && "runAst must produce astNodes");
-        EXPECT(!cppOut.isInvalid() && "cppOut must be a valid output file");
-        // Проброс разрешённых типов из семантики в кодогенерацию (единый TypeId с анализом).
-        CppTranspiler transpiler(m_ctx, &runner.analysis().symbols(), semantic::behavioralModesFromOptions(m_ctx.opts()));
-        // Однофайловый режим (-fsingle-file): активен для корневого модуля главного файла;
-        // имя синтезируемого implicit-entry совпадает с ожидаемым entry_func_name обёртки.
-        if (m_opts.single_file) {
-            transpiler.configureSingleFile(true, m_ctx.source().moduleName(inputFile) + "__main__");
-        }
-        transpiler.generateToFile(*result.astNodes, cppOut);
-        // Финальная сеть после итоговой генерации C++: не должно остаться ни одного
-        // «необработанного» атрибута (без признака обработки анализатором/кодогенератором)
-        // ни на одном узле AST. Severity -Wunhandled-attr (default Warning).
-        reportUnhandledAttributes(m_ctx, *result.astNodes);
-        if (out_exports) {
-            *out_exports = transpiler.exports();
-        }
-        if (out_runtime_headers) {
-            const auto& hdrs = transpiler.runtimeHeaders();
-            out_runtime_headers->assign(hdrs.begin(), hdrs.end());
-        }
-        if (out_link_libs) {
-            const auto& libs = transpiler.linkLibs();
-            out_link_libs->assign(libs.begin(), libs.end());
-        }
-        if (out_entry_params) {
-            *out_entry_params = transpiler.entryParams();
-        }
-        if (out_saw_entry) {
-            *out_saw_entry = transpiler.sawEntry();
-        }
-    }
-
-    return result;
-}
-
-std::unique_ptr<TypeRegistry> Pipeline::releaseTypes() {
-    return std::move(m_types);
-}
-
-// -- emitOutput: вывод для emit-режимов --
-
-int Pipeline::emitOutput(const PipelineResult& result) {
-    auto flags = m_opts.emit_flags;
-
-    if ((flags & EmitFlags::Tokens) != EmitFlags::None) {
-        EXPECT(result.astNodes.has_value() && "runAst must produce astNodes");
-        for (const auto& nodePtr : *result.astNodes) {
-            if (nodePtr) {
-                trust::outs() << nodePtr->text() << "\t" << ParserToken::name(nodePtr->kind()) << "\n";
-            }
-        }
-        return 0;
-    }
-
-    if ((flags & EmitFlags::AST) != EmitFlags::None) {
-        EXPECT(result.astNodes.has_value() && "runAst must produce astNodes");
-        for (const auto& nodePtr : *result.astNodes) {
-            if (nodePtr) {
-                trust::outs() << nodePtr->dump() << "\n";
-            }
-        }
-        return 0;
-    }
-
-    if ((flags & EmitFlags::Macros) != EmitFlags::None) {
-        // Дамп макроопределений (для отладки/диагностики макропроцессора).
-        for (const auto& md : m_ctx.macroDefs()) {
-            trust::outs() << md.name << "\n";
-        }
-        return 0;
-    }
-
-    FAULT("unreachable: emitOutput called for emit-flags without matching handler");
-    return 1;
-}
-
-// -- runTranspileAndSave: общий helper для compile и emit-cpp --
-
-Pipeline::TranspileOutput Pipeline::runTranspileAndSave(MapperFile inputFile) {
-    TranspileOutput out;
-    out.cpptPath = computeCpptPath(m_opts);
-    // Use the real .cppt basename so the source map's output filename can be
-    // resolved back to the generated file (findFile / findCppToTrust).
-    out.outputIdx = m_ctx.source().add_output(out.cpptPath.filename().string());
-    if (out.outputIdx.isInvalid()) {
-        trust::errs() << "error: failed to create output file entry\n";
-        return out;
-    }
-
-    auto steps = PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile;
-    auto result = runPipeline(steps, inputFile, out.outputIdx, &out.exports, &out.runtimeHeaders, &out.linkLibs, nullptr, &out.entryParams, &out.hasEntry);
-    if (!result.isValid() || m_ctx.diag().errorCount() > 0) {
-        return out;
-    }
-
-    if (!saveCppAndEmbedSourceMap(m_ctx, out.outputIdx, out.cpptPath, m_opts.verbose, out.exports, /*embed_export_table=*/m_opts.embed_source_map,
-                                  buildProgramRecord(std::filesystem::path(m_opts.input_file), m_ctx, m_mainModuleIndex, m_opts),
-                                  /*embed_source_map=*/m_opts.embed_source_map, codegenArgsRecord(m_opts))) {
-        return out;
-    }
-
-    if (m_opts.verbose) {
-        trust::errs() << "info: generated " << out.cpptPath << "\n";
-    }
-
-    out.valid = true;
-    return out;
-}
-
-// -- generateModuleOutputs / transpileModuleBody: отдельные .cppt исходных модулей --
-
-std::vector<std::filesystem::path> Pipeline::generateModuleOutputs(std::vector<std::string>* module_runtime_headers,
-                                                                   std::vector<std::string>* module_link_libs) {
-    namespace fs = std::filesystem;
-    std::vector<fs::path> paths;
-    const fs::path build_dir = computeBuildDir(m_opts);
-    for (std::size_t idx = 0; idx < m_ctx.loader().moduleCount(); ++idx) {
-        if (idx == m_mainModuleIndex) {
-            continue; // главный файл генерируется как основной .cppt
-        }
-        if (!m_ctx.loader().isLoaded(idx)) {
-            continue; // незагруженный (бинарный/заглушка) модуль не транслируем
-        }
-        const fs::path stem = fs::path(m_ctx.loader().moduleName(idx)).stem();
-        const fs::path modPath = build_dir / (stem.string() + ".cppt");
-        transpileModuleBody(idx, modPath, module_runtime_headers, module_link_libs);
-        paths.push_back(std::move(modPath));
-    }
-    return paths;
-}
-
-void Pipeline::transpileModuleBody(std::size_t idx, const std::filesystem::path& cpptPath, std::vector<std::string>* runtime_headers,
-                                   std::vector<std::string>* link_libs) {
-    namespace fs = std::filesystem;
-    MapperFile outputIdx = m_ctx.source().add_output(cpptPath.filename().string());
-    if (outputIdx.isInvalid()) {
+void Pipeline::runBackends(PipelineResult& result, const RunRequest& req) {
+    if (!req.cpp && !req.smt) {
         return;
     }
-
-    // Корневой узел модуля с полным телом (определения) - отдельная единица трансляции.
-    auto modTerm = Term::Create(TermID::MODULE, m_ctx.loader().moduleName(idx));
-    auto mn = std::make_shared<ModuleNode>(idx, std::move(modTerm));
-    convertModuleBody(m_ctx, m_ctx.loader().body(idx), mn->m_body);
-    std::vector<AstNodePtr> astNodes;
-    astNodes.push_back(std::move(mn));
-    resolveImportExports(m_ctx, astNodes); // вложенные импорты внутри модуля
-
-    if (m_ctx.diag().errorCount() > 0) {
-        return;
+    // Режимы разрешаются ОДИН раз (единственная точка) и передаются стадиям данными.
+    const analysis::BehavioralModes modes = semantic::behavioralModesFromOptions(m_ctx.opts());
+    backend::BackendRequest back_req{
+        result.hirNodes ? &*result.hirNodes : nullptr, result.mir ? &*result.mir : nullptr, modes, result.mainModuleIndex, req.cpp, req.smt};
+    // Гейт доказательств: режим — данные стадии; сертификат пишется рядом с входом.
+    if (verify::verifyModeFromOptions(m_ctx.opts()).has_value()) {
+        back_req.verifyAll = true;
+        if (!m_opts.input_file.empty()) {
+            // Сертификат — артефакт сборки: <build_dir>/<stem>.trustcert (тот же каталог, что .cppt).
+            const std::filesystem::path build_dir = computeBuildDir(m_opts);
+            std::filesystem::path cert = build_dir / std::filesystem::path(m_opts.input_file).stem();
+            cert += ".trustcert";
+            back_req.certificatePath = cert;
+            back_req.inputHash = toolchain::fileHash(m_opts.input_file);
+        }
     }
-
-    // Семантика + кодогенерация тела модуля (аналогично главному файлу).
-    SemanticPassRunner runner(m_ctx);
-    if (!runner.run(astNodes)) {
-        return;
-    }
-    CppTranspiler transpiler(m_ctx, &runner.analysis().symbols(), semantic::behavioralModesFromOptions(m_ctx.opts()));
-    transpiler.generateToFile(astNodes, outputIdx);
-    // Финальная сеть (как в runPipeline): после кодогенерации тела модуля не должно
-    // остаться «необработанных» атрибутов (severity -Wunhandled-attr).
-    reportUnhandledAttributes(m_ctx, astNodes);
-    if (runtime_headers) {
-        const auto& hdrs = transpiler.runtimeHeaders();
-        runtime_headers->insert(runtime_headers->end(), hdrs.begin(), hdrs.end());
-    }
-    if (link_libs) {
-        const auto& libs = transpiler.linkLibs();
-        link_libs->insert(link_libs->end(), libs.begin(), libs.end());
-    }
-    if (m_ctx.diag().errorCount() > 0) {
-        return;
-    }
-    // Модуль-исходник линкуется в программу: экспорт-таблица принадлежит главному файлу.
-    // Встраивание source map управляется флагом -fsourcemap (по умолчанию встраивается).
-    saveCppAndEmbedSourceMap(m_ctx, outputIdx, cpptPath, m_opts.verbose, transpiler.exports(), /*embed_export_table=*/false, {},
-                             /*embed_source_map=*/m_opts.embed_source_map, codegenArgsRecord(m_opts));
+    backend::BackendServices services{m_ctx, m_opts, loader()};
+    backend::runBackendStages(backend::kBackendStages, services, back_req, result);
 }
 
-// -- Execute: полный цикл для CLI --
-
-int Pipeline::execute() {
-    // -- 1. Special modes (module-info) --
-    if (m_opts.module_info_requested) {
-        return showModuleInfo(m_opts.input_file, m_opts.verbose);
-    }
-
-    // -- 1a. --format-dump-config: печать настроек форматирования с дефолтами/комментариями --
-    if (m_opts.format_dump_config) {
-        trust::outs() << trust::formatter::dumpConfig({});
-        return 0;
-    }
-
-    // -- 1a'. --complete-options: имена опций и -W-диагностик для shell-completion --
-    if (m_opts.complete_options) {
-        for (const std::string& t : trust::driverOptionTokens()) {
-            trust::outs() << t << "\n";
-        }
-        for (const std::string& w : m_ctx.opts().allWNames()) {
-            trust::outs() << w << "\n";
-        }
-        return 0;
-    }
-
-    // -- 1a''. --complete-files: опции со значением-файлом/путём для shell-completion --
-    if (m_opts.complete_files) {
-        for (const std::string& t : trust::driverFileValueTokens()) {
-            trust::outs() << t << "\n";
-        }
-        return 0;
-    }
-
-
-    // -- 1b. Форматирование (pretty-print): --format / --format-check --
-    if (m_opts.format_requested) {
-        return runFormatMode();
-    }
-
-    // -- 2. Load input file --
-    if (!std::filesystem::exists(m_opts.input_file)) {
-        trust::errs() << "error: input file not found: " << m_opts.input_file << "\n";
-        return 1;
-    }
-
-    MapperFile inputFile = m_ctx.source().load_file(m_opts.input_file);
-    if (m_opts.verbose) {
-        trust::errs() << "info: loaded " << m_opts.input_file << "\n";
-    }
-
-    // -- 3. LexemesOnly - быстрый путь: только legacy лексер --
-    // Модули здесь не раскрываются: это режим вывода лексем, а не загрузки AST.
-    if ((m_opts.emit_flags & EmitFlags::LexemesOnly) != EmitFlags::None) {
-        return runLexemesOnlyMode(inputFile);
-    }
-
-    // -- 4a. Solver: export/calculate (генерация SMT-LIB 2 для z3) --
-    {
-        const auto smode = semantic::solverModeFromOptions(m_ctx.opts());
-        if (smode == semantic::SolverMode::kExport || smode == semantic::SolverMode::kCalculate) {
-            return runSolverMode(inputFile);
-        }
-    }
-
-    // -- 4. Compile mode --
-    if (m_opts.should_compile()) {
-        return runCompileMode(inputFile);
-    }
-
-    // -- 5. Emit: Cpp mode (transpile + stdout) --
-    if ((m_opts.emit_flags & EmitFlags::Cpp) != EmitFlags::None) {
-        return runEmitCppMode(inputFile);
-    }
-
-    // -- 6. Other emit modes (Tokens, AST, Macros) --
-    return runOtherEmitModes(inputFile);
-}
 
 } // namespace trust

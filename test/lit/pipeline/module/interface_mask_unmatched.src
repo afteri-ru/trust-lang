@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1; true
+# RUN: %FileCheck %s <%t.out
+#
+# Маски сайта импорта применяются к ЭКСПОРТ-НАБОРУ файла, который задан его интерфейсом: имя, не
+# упомянутое в интерфейсе, не совпадает ни с одной маской (предупреждение) и не попадает в
+# forward-declarations импортёра.
+# CHECK: import mask 'g' does not match any exported declaration of module '\lib'
+# CHECK-NOT: c_g(
+
+//--- main.src
+\lib(f, g);
+@main():Int32 := { @return f(); };
+
+//--- lib.src
+\lib {
+    f():Int32 := ...;
+};
+f():Int32 := { @return 1; };
+g():Int32 := { @return 2; };

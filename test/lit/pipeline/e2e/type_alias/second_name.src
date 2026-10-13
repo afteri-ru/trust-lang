@@ -1,0 +1,29 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: 10
+# CHECK: alias-strict=true
+# CHECK: alias-branch=true
+# CHECK: chain=10
+#
+# `:A ::- T;` — ВТОРОЕ имя существующего типа (один TypeId), в отличие от `::=` (новый тип):
+#   - значение alias-типа принимается параметром, объявленным через ИМЯ ЦЕЛИ (одна перегрузка);
+#   - `~~~` (строгое тождество) и `<~` (номинальная совместимость) дают true;
+#   - RHS может быть как sigil-формой (`:MyInt`), так и именем типа (`MyInt`).
+
+:MyInt ::= :Int32;
+:MyIntAlias ::- :MyInt;
+:MyIntAlias2 ::- MyInt;
+
+f(a:MyInt):Int32 := { @return 10; };
+
+@main():Int32 := {
+    x : MyIntAlias := 5;
+    @print("{}\n", f(x));
+    @print("alias-strict={}\n", :MyIntAlias ~~~ :MyInt);
+    @print("alias-branch={}\n", :MyIntAlias2 <~ :Int32);
+    y : MyIntAlias2 := 5;
+    @print("chain={}\n", f(y));
+    @return 0;
+};

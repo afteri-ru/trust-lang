@@ -2,9 +2,9 @@
 // Extended unit tests for DapHandler - setBreakpoints, stackTrace, variables
 // -----------------------------------------------------------------------
 
-#include "debug/dap_handler.hpp"
-#include "debug/dap_transport.h"
-#include "debug/gdb_debug.h"
+#include "debug/dap/dap_handler.hpp"
+#include "debug/dap/dap_transport.h"
+#include "debug/gdb/gdb_debug.h"
 #include "sourcemap/mapper.hpp"
 
 #include "mock_transport.hpp"

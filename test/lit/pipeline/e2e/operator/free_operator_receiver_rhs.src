@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Пользовательским может быть ЛЮБОЙ операнд, а не только получатель: свободный оператор
+# объявлен для (Int32, P), вызов `5 == p` разрешается в него.
+:P ::= :Class{
+    v: Int32 := _;
+};
+__eq__(i: Int32, p: P): Bool := { return true; };
+@main() := {
+    p : P := :P(7);
+    @print("result={}\n", 5 == p);
+    @return 0;
+}
+# CHECK: result=true

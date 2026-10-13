@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "utils/cache.hpp"
+#include "utils/utils.hpp"
 
 namespace trust {
 namespace {

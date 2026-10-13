@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # try_error/try_return (классический синтаксис): try_error { } → {- ... -} (IntMinus),
 # try_return { } → {+ ... +} (IntPlus). Класс блока задаёт try-ключевое слово; ветки — общий catch.

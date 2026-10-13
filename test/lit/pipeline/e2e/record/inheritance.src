@@ -33,7 +33,7 @@
 p:Point := Point(2, 3);
 r:Rect := Rect();
 s:Square := Square();
-@print('p=({},{})\n', p.x, p.y);
-@print('desc={}\n', r.describe());
-@print('area={}\n', r.area());
-@print('square_desc={} area={} side={}\n', s.describe(), s.area(), s.side);
+@print("p=({},{})\n", p.x, p.y);
+@print("desc={}\n", r.describe());
+@print("area={}\n", r.area());
+@print("square_desc={} area={} side={}\n", s.describe(), s.area(), s.side);

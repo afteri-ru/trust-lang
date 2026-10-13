@@ -1,0 +1,19 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/private_helpers $TD/main.src
+# RUN: $TD/private_helpers && echo "PASS"
+# CHECK: PASS
+#
+# Default-public + `__::` file-private: private helper виден экспортируемой функции
+# своего модуля (module-context), но не участвует в интерфейсе импорта.
+
+//--- main.src
+\lib(api);
+@main():Int32 := { @return api(1) - 2; };
+
+//--- lib.src
+\lib;
+__:: {
+    helper(x:Int32):Int32 := { @return x + 1; };
+};
+api(x:Int32):Int32 := { @return helper(x); };

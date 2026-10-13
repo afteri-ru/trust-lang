@@ -1,3 +1,13 @@
-# RUN: %trust -q --dsl %S/custom.dsl --emit-ast %s > %t.out && %FileCheck %s <%t.out
+# RUN: %not %trust -q --dsl %S/custom.dsl --emit-ast %s > %t.out 2>&1 && %FileCheck %s --check-prefix=ERR <%t.out
+# RUN: %trust -q -Wdsl-macro-redefined=warning --dsl %S/custom.dsl --emit-ast %s > %t2.out && %FileCheck %s --check-prefix=BODY <%t2.out
+#
+# Базовый скоуп DSL (`--dsl custom.dsl`) неизменяем из файла: переопределение группы `foo`
+# отклоняется диагностикой `-Wdsl-macro-redefined` (по умолчанию Error) и НЕ применяется —
+# `@foo` раскрывается БАЗОВЫМ телом (42), а не телом из файла (7).
+# ERR: error: macro group 'foo' is defined in the DSL base scope; a file cannot redefine it
+# BODY: IntLiteral 42
+# BODY-NOT: IntLiteral 7
+
+@@ foo @@ 7 @@@@;
 @foo
-# CHECK: IntLiteral 42
+

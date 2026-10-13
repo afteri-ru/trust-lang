@@ -1,0 +1,32 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --module-root $TD -I $TD/ext --temp-dir $TD/b1 --emit-cpp $TD/main_lib_first.src > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %not %trust -q --module-root $TD -I $TD/ext --temp-dir $TD/b2 --emit-cpp $TD/main_dep_first.src > %t2.out 2>&1 && %FileCheck %s <%t2.out
+#
+# Spelling импорта резолвится В SCOPE импортёра: `lib` (scope ext) находит ext/dep, а главный
+# файл с roots project+ext видит ДВА dep и обязан сообщить неоднозначность. Результат не зависит
+# от порядка импортов (глобального кэша spelling нет).
+# CHECK: fatal: Module '\dep' not found: module is ambiguous
+
+//--- main_lib_first.src
+\lib();
+\dep(g);
+@main():Int32 := { @return lib_f() + g() - 3; };
+
+//--- main_dep_first.src
+\dep(g);
+\lib();
+@main():Int32 := { @return lib_f() + g() - 3; };
+
+//--- dep.src
+\dep;
+g():Int32 := { @return 1; };
+
+//--- ext/lib.src
+\lib;
+\dep(g);
+lib_f():Int32 := { @return g(); };
+
+//--- ext/dep.src
+\dep;
+g():Int32 := { @return 2; };

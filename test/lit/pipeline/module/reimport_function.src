@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/reimport_fn $TD/main.src
+# RUN: $TD/reimport_fn && echo "PASS"
+# CHECK: PASS
+#
+# Повторный импорт ОДНОГО И ТОГО ЖЕ модуля идемпотентен: одна AST на модуль ⇒ повторная
+# регистрация того же объявления (тот же узел) не является дублем. Дубль — только когда
+# одноимённые объявления приходят из РАЗНЫХ модулей (см. cross_module_same_name.src).
+
+//--- main.src
+\lib(f);
+\lib();
+@main():Int32 := { @return f(1) - 2; };
+
+//--- lib.src
+\lib;
+f(a:Int32):Int32 := { @return a + 1; };

@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/priv_body $TD/main.src
+# RUN: $TD/priv_body && echo PASS
+# CHECK: PASS
+#
+# S1 negative: приватные ОБЪЯВЛЕНИЯ (не типы) в теле экспортируемой функции - норма.
+
+//--- main.src
+\lib(f);
+@main():Int32 := { @return f() - 2; };
+
+//--- lib.src
+\lib;
+__:: {
+    g():Int32 := { @return 1; };
+};
+f():Int32 := { @return g() + 1; };

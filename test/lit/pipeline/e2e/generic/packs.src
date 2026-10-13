@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/app %s
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+
+# End-to-end: packs работают для пользовательской generic-функции и для
+# пользовательского native class template `StdTuple` (C++ std::tuple).
+@include("tuple")
+<T...> StdTuple ::= %std::tuple<T...> { };
+
+<T...> makeStdTuple(xs: T...): StdTuple<T...> := %std::make_tuple...;
+<T...> count(xs: T...): Int32 := { @return 0; };
+
+@main():Int32 := {
+    t0 := makeStdTuple();
+    t1 := makeStdTuple(1:Int32);
+    t2 := makeStdTuple(1:Int32, "x");
+    r0 := count();
+    r1 := count(1:Int32);
+    r2 := count(1:Int32, 2:Int32);
+    if (r0 + r1 + r2 == 0) { @return 0; } else { @return 1; };
+};

@@ -1,0 +1,15 @@
+# RUN: %not %trust -q --emit-lexemes %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Восстановление в теле класса (class_props): ошибка члена не уничтожает остальные члены.
+
+:Point ::= :Struct {
+  x:Int32 := ;
+  y:Int32 := 1;
+  z:Int32 := ;
+  w:Int32 := 2;
+};
+
+# CHECK: error: syntax error
+# CHECK: error: syntax error
+# CHECK: y	NAME
+# CHECK: w	NAME

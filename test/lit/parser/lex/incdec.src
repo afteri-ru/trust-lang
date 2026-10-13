@@ -1,0 +1,17 @@
+# RUN: %trust -q --emit-lexemes %s > %t.out && %FileCheck %s <%t.out
+#
+# Инкремент/декремент: лексер отдаёт ДВУХСИМВОЛЬНЫЕ токены OP_INC (__inc__) и OP_DEC (__dec__).
+# Позицию (префикс `++x` / постфикс `x++`) различает ГРАММАТИКА по слоту операнда, а не лексер.
+x := 1;
+x++;
+++x;
+x--;
+--x;
+# CHECK: ++	OP_INC
+# CHECK-NEXT: x	NAME
+# CHECK-NEXT: ++	OP_INC
+# CHECK-NEXT: x	NAME
+# CHECK-NEXT: --	OP_DEC
+# CHECK-NEXT: x	NAME
+# CHECK-NEXT: --	OP_DEC
+# CHECK-NEXT: x	NAME

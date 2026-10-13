@@ -1,4 +1,6 @@
 #include "syntax/lexer_test_fixture.hpp"
+
+using namespace trust;
 TEST_F(Lexer, TrustMarkers) {
     ASSERT_GT(TokenParse("@{ a @} @{ c @} @{ d @}"), 0u);
     ASSERT_EQ(9u, tokens.size());

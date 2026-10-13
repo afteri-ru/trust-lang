@@ -13,6 +13,6 @@
 %chk():Void := {
     x:BigInteger := 9223372036854775808;
     y := :BigInteger(9223372036854775810);
-    print('x={} y={}', x, y);
+    print("x={} y={}", x, y);
 };
 {% int integer_literal__main__() { chk(); return 0; } %}

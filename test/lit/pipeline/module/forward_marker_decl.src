@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Короткий маркер вида ссылки в аннотации (`&& Handle`) — узел-обёртка БЕЗ текста.
+# Маркер разворачивается до имени типа; владение неполным типом — ошибка.
+# CHECK: error: parameter 'h' of 'peek' holds an owning 'unique' reference to incomplete type 'Handle'
+
+//--- main.src
+\lib(Handle);
+peek(h: && Handle):Int32 := { @return 0; };
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib {
+    Handle ::= :Struct ...;
+};
+:Handle ::= :Struct{ id:Int32 := _; };

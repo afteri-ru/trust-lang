@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Порядок зон: Z5 (форма оператора) - ранний выход ДО report-only Z7 (@[stack_check]).
+@[stack_check(abc)@]
+<T> __eq__(a: T, b: T): Bool := ...;
+
+# CHECK: error: template operators are not implemented
+# CHECK-NOT: @[stack_check(

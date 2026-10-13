@@ -58,6 +58,11 @@ broken by a `weak` back-reference), `-Wrecursive-unique` — mutual `unique` own
 default `error`, switched by `-Wrecursive-*=ignore|warning|error`. Self-reference by a `unique` pointer is a
 legal owned list and is not diagnosed.
 
+**Module loading** cycles are forbidden (the import graph is a DAG), so mutually recursive **nominal
+types in different modules** cannot be expressed directly. Runtime data cycles (references between
+objects) are allowed; for mutual types use a shared third module with the types, a forward handle,
+or `:Any` on one side.
+
 For **`:Struct`** (strictly POD) a default field value is **forbidden** by the analyzer (NSDMI violates
 triviality): the field is declared as `field:Type := _;`. For **`:Class`** the field value is not checked —
 both `:= <value>` (emitted as a C++ default member initializer) and `:= _` (without an initializer) are allowed.
@@ -67,35 +72,45 @@ their use leads to an explicit compilation error (rather than silent ignoring).
 
 ## Operator overloading {#operators}
 
-An operator is declared by a **symbol name in backticks** (the `REFLECTION` lexeme): in the class body —
-as a method, at the top level of a module — as a free function. The body and signature are like those of an ordinary method.
+An operator is declared as an **ordinary function with a system name** (`__eq__`, `__ne__`, `__lt__`,
+`__gt__`, `__le__`, `__ge__`, `__call__`, `__getitem__`, `__deref__`, `__inc__`, `__dec__`): in a class
+body — as a method, at file top level — as a free function. The body and signature are like those of an
+ordinary method.
 
 ```python
 Point ::= :Class{
     x: Int32 := _;
-    `==`(o: Point): Bool := { ... };      # member → C++ operator==
-    `()`(i: Int32): Int32 := { ... };     # operator()  (member only)
-    `[]`(i: Int32): Int32 := { ... };     # operator[]  (member only)
+    __eq__(o: Point): Bool := { ... };       # member → C++ operator==
+    __call__(i: Int32): Int32 := { ... };    # operator()  (member only)
+    __getitem__(i: Int32): Int32 := { ... }; # operator[]  (member only)
 };
 
-`!=`(a: Point, b: Point): Bool := { ... };   # free operator (all operands are parameters)
+__ne__(a: Point, b: Point): Bool := { ... }; # free operator (all operands are parameters)
 ```
 
-The symbol is transferred into the C++ `operator<sym>` (`` `==` `` → `operator==`, `` `()` `` → `operator()`);
-the expressions `a == b` / `a != b` for user types are resolved by C++ overloading, therefore
-the operator can be used in ordinary expressions.
+The `__...__` namespace is reserved for the compiler: only registered operator system functions may be
+declared; an unknown `__frob__` is an explicit error. The symbol (`==`, `[]`, `()`, …) remains syntax
+sugar: `a == b` is equivalent to `__eq__(a, b)`, `a[i]` — `__getitem__(a, i)`, `a(5)` — `__call__(a, 5)`.
+Direct calls `__eq__(a,b)` / `a.__eq__(b)` are also allowed.
 
-Usage in TrustLang code: `a == b` (comparisons), `a(5)` (calling a value — the `()` operator),
-`a[i]` (indexing — the `[]` operator). Each form is transferred into the corresponding C++ operation
-(`a(5)` → `a(5)`, `a[i]` → `(a)[i]`) and resolved by C++ overloading.
+Code generation: the system name **never** appears in C++ (identifiers with `__` are reserved) — it is
+translated into `operator<sym>` (`__eq__` → `operator==`, `__getitem__` → `operator[]`,
+`__call__` → `operator()`). Overload selection is always performed by the analyzer; when several
+signatures exist, arguments are explicitly cast to the declared parameter types (`static_cast`), so C++
+never selects the overload again.
 
-Implemented: comparisons `== != < > <= >=` (both as a member and free) and call/index `()` / `[]`
-(**member only** — a C++ requirement; `[]` accepts exactly one parameter). The arity is checked
-(a comparison — one parameter for a member and two for a free one), a repeated symbol in a type is forbidden.
+Overloading is a normal **signature set** of one system name: different parameter types are allowed
+(including several `__eq__`, `__getitem__`, `__call__` in one type). An exact signature duplicate is an
+error; overloading on the return type alone is impossible (C++ compatibility). Implemented: comparisons
+`== != < > <= >=` (member and free), call/index `()`/`[]` (**member only**; `[]` accepts exactly one
+parameter), `*`, prefix/postfix `++`/`--`; the postfix dummy must be `Int32` (emitted as C++ `int`).
+A free operator must have at least one user-defined parameter type.
 
-The usage is checked at the analysis stage: a comparison/call/indexing requires a declared operator
-on the type (otherwise — a compilation error, not a C++ error); the arity of the call is checked against the declaration;
-a conflict "member + free function" of the same symbol is diagnosed as ambiguity. Operators
-support **contracts** (`trust_pre`/`trust_post`, like functions and methods). Template operators
-(`<T> \`==\`(...)`) are not implemented — an explicit error.
+Usage is checked at the analysis stage: comparison/call/indexing require a declared operator on the type
+(otherwise — a compilation error, not a C++ error). The member and free forms of one symbol form
+**one overload set**: the choice follows the usual conversion rules (C++), so both forms compete on
+equal terms and ambiguity arises only for incomparable best candidates. Operators support **contracts**
+(`trust_pre`/`trust_post`, like functions and methods). Template operators (`<T> __eq__(...)`) are not
+implemented — an explicit error.
+
 

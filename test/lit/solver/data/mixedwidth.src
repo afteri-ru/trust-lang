@@ -6,6 +6,13 @@
 
 f(x:Int8, y:Int32):Int32 trust_post( f == (y + x) ) := { z := x + y; @return z; };
 
-# SM2: (assert (not (= (bvadd ((_ sign_extend 24) f_x) f_y) (bvadd f_y ((_ sign_extend 24) f_x)))))
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun f_x () (_ BitVec 8))
+# SM2: (declare-fun f_y () (_ BitVec 32))
+# SM2: (declare-fun f ((_ BitVec 8) (_ BitVec 32)) (_ BitVec 32))
+# SM2: (push 1)
+# SM2: (assert (not (=> true (= (bvadd ((_ sign_extend 24) f_x) f_y) (bvadd f_y ((_ sign_extend 24) f_x))))))
+# SM2: (check-sat)
+# SM2: (pop 1)
 
 # Z3: unsat

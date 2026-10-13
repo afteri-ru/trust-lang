@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && test -f %T/loop.src_map && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && test -f %t.dir/loop.src_map && %FileCheck %s <%t.out
 
 # Проверка генерации C++ для циклов while и do-while, а также src_map (нормальное форматирование).
 z := 0;

@@ -1,0 +1,31 @@
+#!../../_build/trust --run
+#
+# Tensor basics: создание из литерала, форма/ранг/размер, индексация (включая
+# отрицательные индексы), поэлементная арифметика, reshape.
+#
+# Требуется toolchain, собранный с -DWITH_TORCH=ON.
+
+\\\tensor();
+
+m :Float32[2,3] := [1,2,3, 4,5,6,];
+
+sh := m.shape();
+@print("shape={}x{} rank={} size={}\n", sh[0], sh[1], m.rank(), m.size());
+
+x :Float32 := m[1,-1];
+@print("m[1,-1]={}\n", x);
+
+n := m * 2;
+y :Float32 := n[0,0];
+@print("(m*2)[0,0]={}\n", y);
+
+r := m.reshape(3,2);
+z :Float32 := r[2,1];
+@print("reshape(3,2)[2,1]={}\n", z);
+
+neg :Float32 := m[-1,-1];
+@print("m[-1,-1]={}\n", neg);
+
+mi :Tensor[2,2] := [1:Float32,2,3,4,];
+iv :Float32 := mi[0,0];
+@print("inferred[0,0]={}\n", iv);

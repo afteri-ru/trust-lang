@@ -1,7 +1,7 @@
 // src/playground/util.cpp
-// trust-playground: реализация общих утилит (см. include/playground/util.h).
+// trust-playground: реализация общих утилит (см. include/playground/server/util.h).
 
-#include "playground/util.h"
+#include "playground/server/util.h"
 
 #include <cstdio>
 #include <ctime>

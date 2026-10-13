@@ -16,6 +16,6 @@
 
 @main(argv^: Dict, args^: Dict) := {
     $a0 := :StrChar(argv[0]);
-    @print('got {}\n', $a0);
+    @print("got {}\n", $a0);
     return 0;
 }

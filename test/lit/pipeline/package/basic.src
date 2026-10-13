@@ -1,0 +1,50 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust --package pkg -o out.trust > %t.out && test -f out.trust
+# RUN: tar tzf $TD/out.trust | sort > %t.list
+# RUN: %FileCheck %s --check-prefix=LIST <%t.list
+# RUN: cd $TD && %trust --extract out.trust -o extracted > %t.extract && test -f extracted/trust.toml
+# RUN: %FileCheck %s --check-prefix=MANIFEST <$TD/extracted/trust.toml
+# RUN: test -f $TD/extracted/mod_a.src
+# RUN: test -f $TD/extracted/sub/deep/mod_c.src
+#
+# --package: каталог с trust.toml упаковывается в архив .trust (tar.gz). В архив попадают
+# *.src (с относительной структурой вложенных каталогов), прочие файлы и КОПИЯ манифеста с
+# добавленной таблицей [build] (formatVersion/toolchain/created). Build-каталог `.trust` и
+# производные (*.cppt) исключаются. Исходный trust.toml не изменяется.
+# --extract: архив .trust распаковывается в каталог назначения (-o <dir>).
+
+# LIST: ./mod_a.src
+# LIST: ./notes.txt
+# LIST: ./sub/deep/mod_c.src
+# LIST: ./sub/mod_b.src
+# LIST: ./trust.toml
+# LIST-NOT: junk.cppt
+# LIST-NOT: .trust/
+
+# MANIFEST: name = 'nested'
+# MANIFEST: version = '1.2.3'
+# MANIFEST: [build]
+# MANIFEST: formatVersion = 1
+# MANIFEST: toolchain
+
+//--- pkg/trust.toml
+name = 'nested'
+version = '1.2.3'
+description = 'Test package with nested submodules'
+//--- pkg/mod_a.src
+\\\nested\mod_a;
+a:Int32 := 1;
+//--- pkg/sub/mod_b.src
+\\\nested\sub\mod_b;
+b:Int32 := 2;
+//--- pkg/sub/deep/mod_c.src
+\\\nested\sub\deep\mod_c;
+c:Int32 := 3;
+//--- pkg/notes.txt
+Some non-source file that must be included in the package.
+//--- pkg/junk.cppt
+// Generated artifact - must be excluded from the package.
+//--- pkg/.trust/leftover.txt
+// Build directory - must be excluded from the package.
+

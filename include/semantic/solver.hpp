@@ -24,70 +24,36 @@
 namespace trust {
 namespace semantic {
 
-// Value-типы и хелперы поведенческих режимов — из `analysis` (единый источник).
-using analysis::kSolverModeCount;
-using analysis::kSolverModeNames;
-using analysis::parseSolverMode;
-using analysis::SolverMode;
-using analysis::solverModeName;
+// Value-типы и хелперы поведенческих режимов — только из `analysis` (единый источник):
+// здесь они используются с полной квалификацией, отдельных имён в `semantic` нет.
 
 /// Поведенческий режим из diag::Options (значение флага SolverMode). Если флаг не имеет
 /// значения (опция --solver-mode не задана) - nullopt (никакое поведение).
-[[nodiscard]] inline std::optional<SolverMode> solverModeFromOptions(const Options& opts) noexcept {
+[[nodiscard]] inline std::optional<analysis::SolverMode> solverModeFromOptions(const Options& opts) noexcept {
     if (auto val = opts.flag_value(semantic::FlagKind::SolverMode)) {
-        return parseSolverMode(*val);
+        return analysis::parseSolverMode(*val);
     }
     return std::nullopt;
 }
 
 /// Включены ли рантайм-проверки trust-условий (`--solver-mode=assert`).
 [[nodiscard]] inline bool solverAssertEnabled(const Options& opts) noexcept {
-    return solverModeFromOptions(opts) == SolverMode::kAssert;
+    return solverModeFromOptions(opts) == analysis::SolverMode::kAssert;
 }
 
-// -- Единый источник значений опции `-Wsolver-loop` (диагностика циклов без инварианта) ------
-#define SOLVER_LOOP_MODE_LIST(M) \
-    M(kIgnore, "ignore")         \
-    M(kWarning, "warning")       \
-    M(kError, "error")
-
-#define SOLVER_LOOP_MODE_ENUM(name, cli) name,
-enum class SolverLoopMode { SOLVER_LOOP_MODE_LIST(SOLVER_LOOP_MODE_ENUM) };
-#undef SOLVER_LOOP_MODE_ENUM
-
-#define SOLVER_LOOP_MODE_NAME(name, cli) cli,
-inline constexpr std::string_view kSolverLoopModeNames[] = {SOLVER_LOOP_MODE_LIST(SOLVER_LOOP_MODE_NAME)};
-#undef SOLVER_LOOP_MODE_NAME
-
-inline constexpr std::size_t kSolverLoopModeCount = sizeof(kSolverLoopModeNames) / sizeof(kSolverLoopModeNames[0]);
-
-/// Имя режима диагностики циклов (для диагностик/справки).
-[[nodiscard]] inline std::string_view solverLoopModeName(SolverLoopMode m) noexcept {
-    const int idx = static_cast<int>(m);
-    return (idx >= 0 && idx < static_cast<int>(kSolverLoopModeCount)) ? kSolverLoopModeNames[idx] : "unknown";
-}
-
-/// Разбор строкового значения `-Wsolver-loop`. Неизвестное значение - nullopt (без тихого fallback).
-[[nodiscard]] inline std::optional<SolverLoopMode> parseSolverLoopMode(std::string_view v) noexcept {
-    for (std::size_t i = 0; i < kSolverLoopModeCount; ++i) {
-        if (kSolverLoopModeNames[i] == v) {
-            return static_cast<SolverLoopMode>(i);
-        }
-    }
-    return std::nullopt;
-}
-
-#undef SOLVER_LOOP_MODE_LIST
+// -- Режим диагностики циклов без инварианта (`-Wsolver-loop`) --------------------------------
+// Value-типы и имена — из `analysis/modes.hpp` (единый источник, разделяемый с верификатором,
+// который получает режим ДАННЫМИ через `BehavioralModes`, а не из `diag::Options`).
 
 /// Режим диагностики циклов без инварианта из diag::Options (значение флага SolverLoop).
 /// По умолчанию - kWarning.
-[[nodiscard]] inline SolverLoopMode solverLoopModeFromOptions(const Options& opts) noexcept {
+[[nodiscard]] inline analysis::SolverLoopMode solverLoopModeFromOptions(const Options& opts) noexcept {
     if (auto val = opts.flag_value(semantic::FlagKind::SolverLoop)) {
-        if (auto m = parseSolverLoopMode(*val)) {
+        if (auto m = analysis::parseSolverLoopMode(*val)) {
             return *m;
         }
     }
-    return SolverLoopMode::kWarning;
+    return analysis::SolverLoopMode::kWarning;
 }
 
 /// Включён ли глобальный bounded-unrolling для циклов без инварианта (флаг SolverLoopUnroll).

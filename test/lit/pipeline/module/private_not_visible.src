@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Private helper не экспортируется и не виден импортёру (module-context при выходе из модуля).
+# CHECK: error: undefined name 'helper'
+
+//--- main.src
+\lib(api);
+@main():Int32 := { @return helper(1); };
+
+//--- lib.src
+\lib;
+__:: {
+    helper(x:Int32):Int32 := { @return x; };
+};
+api(x:Int32):Int32 := { @return helper(x); };

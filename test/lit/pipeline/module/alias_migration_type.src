@@ -1,0 +1,11 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Миграция: второе имя типа задаётся оператором `::-`; `:A = T;` - явная ошибка, а не тихое
+# переосмысление (прежде такая форма молча трактовалась как алиас ФУНКЦИИ).
+# CHECK: error: a type cannot be assigned; use '::-' to declare a second name for an existing type
+
+//--- main.src
+:MyInt = Int32;
+@main():Int32 := { @return 0; };

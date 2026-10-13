@@ -1,0 +1,14 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/app %s
+# RUN: grep -q -- '-lpthread' $TD/build.conf
+# RUN: %not grep -q -- '-ltrust-runtime' $TD/build.conf
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Async types come from the stdlib prelude (async.src), not from a third-party package.
+# `AsyncPool` maps to trust::ThreadPool; its header pulls -lpthread ON-USE only.
+
+@main():Int32 := {
+    pool : AsyncPool := {% trust::ThreadPool(2) %};
+    @return 0;
+};

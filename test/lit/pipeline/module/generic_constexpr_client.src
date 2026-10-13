@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/lib.hpp
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Тело exported @[constexpr] free-функции обязано быть в заголовке: клиент использует её
+# определение из другого модуля. `.cppt` модуля тело не повторяет.
+# HDR: namespace lib {
+# HDR: constexpr int32_t
+# HDR: return 7;
+
+//--- main.src
+\lib(k);
+@main():Int32 := { @return k() - 7; };
+
+//--- lib.src
+\lib;
+@[constexpr@] k():Int32 := { @return 7; };

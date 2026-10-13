@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+# cmake/trust-build.sh.in -> <build>/trust-build.sh (генерируется CMake; правьте шаблон).
+#
+# Единственная точка запуска сборки проекта: число задач вычисляется из бюджета памяти
+# (cmake/parallelism.cmake), поэтому -j руками не передаётся.
+#
+# Использование:
+#   trust-build.sh [аргументы cmake --build]        # синхронная сборка
+#   trust-build.sh --jobs                           # показать вычисленное -j
+#   trust-build.sh --background <pidfile> <log> [аргументы]
+#   trust-build.sh --wait <pidfile> <log>           # ожидание фоновой сборки ОДНИМ вызовом
+#   trust-build.sh --help
+#
+# --wait опрашивает с РАЗНЫМИ интервалами: повторяющиеся одинаковые вызовы ожидания
+# выглядят для агентского рантайма как зацикливание, поэтому ожидание — один вызов.
+
+set -euo pipefail
+
+ROOT="@CMAKE_SOURCE_DIR@"
+BUILD_DIR="@CMAKE_BINARY_DIR@"
+JOBS_FILE="${BUILD_DIR}/trust-build-jobs.txt"
+
+RESERVE_MIB="@TRUST_BUILD_MEMORY_RESERVE_MIB@"
+PER_JOB_MIB="@TRUST_BUILD_MEMORY_PER_JOB_MIB@"
+CONFIGURED_JOBS="@TRUST_BUILD_JOBS@"
+
+usage() {
+    cat <<EOF
+trust-build.sh — сборка проекта с вычисленным параллелизмом.
+
+Политика: jobs = clamp(floor(budget / ${PER_JOB_MIB} MiB), 1, cores),
+budget = min(MemAvailable, запас в cgroup, TOTAL - ${RESERVE_MIB} MiB при отсутствии MemAvailable).
+Одновременные сборки сериализуются блокировкой ${BUILD_DIR}/.trust-build.lock (flock).
+
+  trust-build.sh [args...]                  cmake --build ${BUILD_DIR} -j<jobs> [args...]
+  trust-build.sh --jobs                     напечатать вычисленное число задач
+  trust-build.sh --background <pid> <log> [args...]
+                                            запустить сборку в фоне, вернуться сразу
+  trust-build.sh --wait <pid> <log>         дождаться фоновой сборки (один вызов),
+                                            затем напечатать хвост лога и вернуть её код
+  trust-build.sh --help
+
+Переопределение: -DTRUST_BUILD_JOBS=<n> при configure или TRUST_BUILD_JOBS=<n> в окружении.
+EOF
+}
+
+compute_jobs() {
+    cmake -DOUT="${JOBS_FILE}" \
+          -DTRUST_BUILD_MEMORY_RESERVE_MIB="${RESERVE_MIB}" \
+          -DTRUST_BUILD_MEMORY_PER_JOB_MIB="${PER_JOB_MIB}" \
+          -DTRUST_BUILD_JOBS="${TRUST_BUILD_JOBS:-${CONFIGURED_JOBS}}" \
+          -P "${ROOT}/cmake/build_jobs.cmake" >/dev/null
+    tr -d '[:space:]' < "${JOBS_FILE}"
+}
+
+build() {
+    # Одна сборка за раз: несколько сессий с общим build-dir иначе делят память и каждая
+    # получает полный бюджет -> OOM. Число задач считается ПОСЛЕ захвата блокировки:
+    # к этому моменту память уже отражает работу предыдущей сборки.
+    if command -v flock >/dev/null 2>&1; then
+        exec 9>"${BUILD_DIR}/.trust-build.lock"
+        if ! flock -n 9; then
+            echo "[trust-build] другая сборка уже идёт, ждём освобождения блокировки" >&2
+            flock 9
+        fi
+    else
+        echo "[trust-build] flock не найден: сериализация одновременных сборок недоступна" >&2
+    fi
+    cmake --build "${BUILD_DIR}" -j"$(compute_jobs)" "$@"
+}
+
+start_background() {
+    local pid_file="$1"
+    local log_file="$2"
+    shift 2
+    : > "${log_file}"
+    TRUST_BUILD_INNER=1 TRUST_BUILD_LOG="${log_file}" TRUST_BUILD_STATUS_FILE="${pid_file}.status" \
+        nohup "$0" "$@" >/dev/null 2>&1 &
+    echo $! > "${pid_file}"
+    echo "[trust-build] started pid $(cat "${pid_file}"), log ${log_file}"
+}
+
+wait_for_build() {
+    local pid_file="$1"
+    local log_file="$2"
+    local status_file="${pid_file}.status"
+    if [[ ! -f "${pid_file}" ]]; then
+        echo "[trust-build] pid file not found: ${pid_file}" >&2
+        exit 2
+    fi
+    local pid
+    pid="$(tr -d '[:space:]' < "${pid_file}")"
+    # Non-uniform intervals: never poll in the same rhythm twice.
+    local -a intervals=(3 5 8 13 21 34)
+    local i=0
+    while [[ ! -f "${status_file}" ]]; do
+        if ! kill -0 "${pid}" 2>/dev/null; then
+            # The process may have exited a moment before writing its status file.
+            sleep 1
+            [[ -f "${status_file}" ]] && break
+            echo "[trust-build] background process ${pid} exited without a status file" >&2
+            exit 1
+        fi
+        sleep "${intervals[$((i % ${#intervals[@]}))]}"
+        i=$((i + 1))
+    done
+    local rc
+    rc="$(tr -d '[:space:]' < "${status_file}")"
+    rm -f "${pid_file}" "${status_file}"
+    tail -n 60 "${log_file}" || true
+    echo "[trust-build] exit code: ${rc}"
+    exit "${rc}"
+}
+
+# Внутренний режим фоновой сборки (перезапуск этого же скрипта через nohup).
+if [[ "${TRUST_BUILD_INNER:-0}" == "1" ]]; then
+    set +e
+    build "$@" > "${TRUST_BUILD_LOG}" 2>&1
+    rc=$?
+    printf '%s\n' "${rc}" > "${TRUST_BUILD_STATUS_FILE}"
+    exit "${rc}"
+fi
+
+case "${1:-}" in
+    --help|-h)
+        usage
+        ;;
+    --jobs)
+        compute_jobs
+        echo
+        ;;
+    --background)
+        [[ $# -ge 3 ]] || { echo "usage: trust-build.sh --background <pidfile> <log> [args...]" >&2; exit 2; }
+        BG_PID_FILE="$2"
+        BG_LOG_FILE="$3"
+        shift 3
+        start_background "$BG_PID_FILE" "$BG_LOG_FILE" "$@"
+        ;;
+    --wait)
+        [[ $# -ge 3 ]] || { echo "usage: trust-build.sh --wait <pidfile> <log>" >&2; exit 2; }
+        wait_for_build "$2" "$3"
+        ;;
+    *)
+        build "$@"
+        ;;
+esac

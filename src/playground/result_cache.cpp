@@ -1,7 +1,7 @@
 // src/playground/result_cache.cpp
-// trust-playground: реализация ResultCache (см. include/playground/result_cache.h).
+// trust-playground: реализация ResultCache (см. include/playground/limits/result_cache.h).
 
-#include "playground/result_cache.h"
+#include "playground/limits/result_cache.h"
 
 namespace trust {
 namespace playground {

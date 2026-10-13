@@ -22,6 +22,6 @@
     %trust_stack_check(2048);
     %trust_stack_check_set_reserve(8192);
     %trust_stack_check_set_limit(guarded_size, guarded_limit);
-    @print('guarded_size = {}\n', guarded_size(21));
-    @print('guarded_limit = {}\n', guarded_limit(41));
+    @print("guarded_size = {}\n", guarded_size(21));
+    @print("guarded_limit = {}\n", guarded_limit(41));
 }

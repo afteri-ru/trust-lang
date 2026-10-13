@@ -6,15 +6,16 @@
 # CHECK: r={{3\\4}}
 
 # Use of the `print` system function must make the transpiler emit
-# `#include "trust/io.hpp"`; the pipeline extracts the header from the runtime
-# library and links it, and the program formats args (std::format) into
-# trust::outs(). Rational values print as their symbolic string "num\den".
+# `#include "trust/io.hpp"`; the header is available from the extracted
+# `stdlib.trust` package via -Istdlib/include, and the runtime library is linked.
+# The program formats args (std::format) into trust::outs(). Rational values print
+# as their symbolic string "num\den".
 
 %chk():Void := {
-    print('val={} s={}', 42, 'x');
+    print("val={} s={}", 42, "x");
     r :Rational := 0;
     {% $r = trust::Rational("3", "4"); %};
-    print('r={}', r);
+    print("r={}", r);
 };
 {% int print__main__() {
     chk();

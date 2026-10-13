@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Пустые операторы ';' в sequence (ведущие/хвостовые/одиночные) - допустимы.
 # Раньше грамматика требовала expression после ';' внутри блока (см. `sequence` в parser.y.in);
@@ -6,7 +6,7 @@
 
 # Без пустых операторов (baseline).
 %f(a:Int32):Int32 := {
-    f ++ a ++;
+    f |+ a +|;
 };
 # CHECK: int32_t f(int32_t c_a) {
 # CHECK-NEXT:     return c_a;
@@ -15,7 +15,7 @@
 # Ведущий пустой оператор.
 %g(a:Int32):Int32 := {
     ;
-    g ++ a ++;
+    g |+ a +|;
 };
 # CHECK: int32_t g(int32_t c_a) {
 # CHECK-NEXT:     return c_a;
@@ -23,7 +23,7 @@
 
 # Хвостовой пустой оператор.
 %h(a:Int32):Int32 := {
-    h ++ a ++;
+    h |+ a +|;
     ;
 };
 # CHECK: int32_t h(int32_t c_a) {
@@ -34,7 +34,7 @@
 %j(a:Int32):Int32 := {
     ;
     ;
-    j ++ a ++;
+    j |+ a +|;
     ;
 };
 # CHECK: int32_t j(int32_t c_a) {

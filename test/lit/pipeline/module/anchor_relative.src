@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Относительные якоря: `\\$$` — каталог без текущего файла, `\\\$$` — корень проекта/пакета.
+# Для корневого файла оба дают пустой префикс, поэтому `\\$$\other` и `\\\$$\other` — это `\other`.
+
+//--- main.src
+\\$$\other(x);
+\\\$$\other2(y);
+@main():Int32 := { @return x() + y() - 3; };
+
+//--- other.src
+\other;
+x():Int32 := { @return 1; };
+
+//--- other2.src
+\other2;
+y():Int32 := { @return 2; };

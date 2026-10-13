@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Алиас значения: `kk :- \lib::K` — второе имя константы; C++-сущность не эмитится,
+# обращение печатается C++-именем цели.
+//--- main.src
+\lib(K);
+kk :- \lib::K;
+@main():Int32 := { @return kk - 5; };
+
+//--- lib.src
+\lib;
+K:Int32 := 5;

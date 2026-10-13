@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Поле нативного класса `%field:Type` регистрируется как типизированный член; доступ `obj.%field`
 # эмитит `(obj).field` (нативное имя без '%') с типом поля, а не словарный `.at(...)`.

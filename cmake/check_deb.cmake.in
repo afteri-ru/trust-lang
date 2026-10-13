@@ -1,21 +1,15 @@
 # cmake/check_deb.cmake.in
-# CTest script for the `deb` target: builds the Debian package (incrementally),
-# then verifies the archive name, its control fields and its members.
+# CTest script for the `deb` target: verifies the archive name, its control fields and members.
+#
+# Проект здесь НЕ пересобирается: `deb` входит в обычную сборку (ALL) при наличии dpkg-инструментов.
 
 set(_stem "trust-lang_@TRUST_VERSION_SHORT@_@TRUST_DEB_ARCH@")
 set(_deb "@CMAKE_BINARY_DIR@/dist/${_stem}.deb")
 
-# Ensure the package is built (incremental when binaries already exist).
-execute_process(
-    COMMAND "@CMAKE_COMMAND@" --build "@CMAKE_BINARY_DIR@" --target deb
-    RESULT_VARIABLE _build_res
-)
-if(NOT _build_res EQUAL 0)
-    message(FATAL_ERROR "deb target failed to build")
-endif()
-
 if(NOT EXISTS "${_deb}")
-    message(FATAL_ERROR "debian package not found: ${_deb}")
+    message(FATAL_ERROR
+        "debian package not found: ${_deb}\n"
+        "Build it first:  make build   (or: _build/trust-build.sh --target deb)")
 endif()
 
 # -- Verify control fields (Version / Architecture) --
@@ -58,6 +52,46 @@ set(_required
 foreach(_need IN LISTS _required)
     if(NOT _list MATCHES "${_need}")
         message(FATAL_ERROR "deb missing member: ${_need}")
+    endif()
+endforeach()
+if(NOT _list MATCHES "usr/share/trust/[^/]+\\.trust")
+    message(FATAL_ERROR "deb has no toolchain packages under usr/share/trust")
+endif()
+
+# All toolchain packages are shipped uniformly: every share/trust/*.trust must contain
+# a trust.toml and the generated [files] integrity table. No package names are hardcoded.
+file(GLOB _packages "@CMAKE_BINARY_DIR@/share/trust/*.trust")
+if(NOT _packages)
+    message(FATAL_ERROR "no .trust packages found in @CMAKE_BINARY_DIR@/share/trust")
+endif()
+foreach(_pkg IN LISTS _packages)
+    execute_process(
+        COMMAND "@CMAKE_COMMAND@" -E tar tf "${_pkg}"
+        OUTPUT_VARIABLE _pkg_list
+        RESULT_VARIABLE _pkg_res
+    )
+    if(NOT _pkg_res EQUAL 0)
+        message(FATAL_ERROR "cannot list package: ${_pkg}")
+    endif()
+    string(FIND "${_pkg_list}" "./trust.toml" _pos)
+    if(_pos EQUAL -1)
+        message(FATAL_ERROR "package missing trust.toml: ${_pkg}")
+    endif()
+    set(_pkg_tmp "@CMAKE_BINARY_DIR@/pkg-check-tmp")
+    file(REMOVE_RECURSE "${_pkg_tmp}")
+    file(MAKE_DIRECTORY "${_pkg_tmp}")
+    execute_process(
+        COMMAND "@CMAKE_COMMAND@" -E tar xzf "${_pkg}"
+        WORKING_DIRECTORY "${_pkg_tmp}"
+        RESULT_VARIABLE _mf_res
+    )
+    if(NOT _mf_res EQUAL 0 OR NOT EXISTS "${_pkg_tmp}/trust.toml")
+        message(FATAL_ERROR "package missing trust.toml: ${_pkg}")
+    endif()
+    file(READ "${_pkg_tmp}/trust.toml" _pkg_manifest)
+    file(REMOVE_RECURSE "${_pkg_tmp}")
+    if(NOT _pkg_manifest MATCHES "\\[files\\]")
+        message(FATAL_ERROR "package missing [files] integrity table: ${_pkg}")
     endif()
 endforeach()
 

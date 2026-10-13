@@ -10,7 +10,7 @@
     a : Int32 := 1;
     b : Box<Int32> := Box(a);
     a = 2;
-    @print('{}\n', b);
+    @print("{}\n", b);
     return 0;
 }
-# CHECK: error: using the dependent variable 'b' after changing the main variable 'a'
+# CHECK: error: cannot change the owner 'a' while dependent variable(s) 'b' are alive

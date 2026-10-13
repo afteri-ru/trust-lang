@@ -2,31 +2,40 @@
 
 ## Назначение
 
-Генерация C++ кода из AST и SymbolTable после успешного семантического анализа. Преобразует узлы AST (декларации переменных, литералы, type aliases, функции, выражения) в синтаксически корректный C++ код.
+Генерация C++ кода из HIR (производная от AST структурная форма: клон AST + lowering) после успешного семантического анализа. Преобразует узлы HIR (декларации переменных, литералы, type aliases, функции, выражения) в синтаксически корректный C++ код. Исходная AST не мутируется; для эмиссии читается HIR, а данные анализа — ТОЛЬКО из материализованных полей узлов (`IdentName::resolvedTypeId`, `VarDecl::inferredType`, `CallExpr::resolvedSignature`); `SymbolTable`/кэш модели в бэкенд не передаются.
 
 ## Особенности реализации
 
 - **Единственный метод генерации** - `generateToFile()` записывает C++ код в выходной файл (созданный через `ctx.source().add_output()`) с построением source-map (RangeMap trust→cpp через стек mapStart/mapStop). Строковая генерация в stdout отсутствует.
 - **In-process** - транспиляция выполняется внутри процесса компиляции (через Context), без вызова внешнего компилятора.
-- **Source-map** - для каждого узла AST создаётся маппинг trust-range → cpp-range; имена переменных, функций, типов и параметров функций дополнительно маппятся через `addNameMapping` для hover-ссылок (единый хелпер `mapDeclaredName`). Source map встраивается в ELF-секцию `.debug_trust_map` на этапе компиляции C++ (через `ModuleApi::packToMsgpack()`), внешние `.trust` файлы не используются.
-- **Наследник KindVisitor** - `CppTranspiler : KindVisitor` (`ast/kind_visitor.hpp`); `generateNodeToFile` → `dispatchKind(node, *this)`, `visit_<Kind>` - тонкие делегирования в компоненты-эмиттеры (compile-time проверка полноты: новый kind не обработан → не компилируется). **Декомпозиция**: общий контекст `CppEmitContext` (`emit_ctx.hpp`) + эмиттеры `TypeEmitter`/`DeclEmitter`/`StmtEmitter`/`ExprEmitter`/`ContractEmitter` (`*_emit.hpp`) разделяют ответственность (типы/инклуды, декларации, операторы, выражения, trust-контракты); общие помощники - `emit_common.hpp`. Обход тела блоков - `emitBlockBodyToFile`/`emitBodyNode`/`emitSequenceBody`. Отступ хранится в стеке `m_scopeStack` (`ScopeContext{indent}`). Имя функции транспилятору не нужно (его заменяют синтетические узлы lowering); единственный флаг контекста - `m_inCppBlock` (внутри C++ compound statement), определяющий форму эмиссии пользовательских блоков (см. «Блоки и области видимости»).
-- **Потоковый вывод** - кодек пишет C++ текст прямо в `m_ctx.source()`, без возврата `std::string`. Единая диспетчеризация ПО KIND: `emitExpr` - это `dispatchKind(*node, *this)` с инкрементом `m_exprDepth`. Точка с запятой для statement-выражений НЕ выводится транспилятором по контексту: statement-позиции выражений обёрнуты анализатором в `SemicolonStmt`, и `visit_SemicolonStmt` добавляет `;` + source-map (statement-root, без скобок). Вложенные выражения (`m_exprDepth>0`) - только текст, бинарные - в скобках. Source-map строится естественно по позиции в выходном файле; для тестов строка читается из выходного файла (`output_result`).
-- **Единые хелперы** - `resolveCppType` (разрешение типа: findType→canonical→cppName→include), `mapDeclaredName` (расчёт cpp-оффсета имени) используются несколькими `generate*ToFile`, снижая дублирование; бинарные операторы (`//`/`//=` integer-division) обрабатываются единообразно в `emitBinaryOpRaw`; пары mapStart/mapStop обёрнуты RAII `MapperScope`. Codegen обращается к диапазонам/именам только через методы узлов AST (`range()`, `nameRange()`, `blockRange()`, `text()`), не трогая `Term` напрямую.
-- **Пользовательские алиасы сохраняют имя** - `resolveCppType` для пользовательского алиаса (`TypeRegistry::isUserDefinedType`) возвращает trust-имя (`MyInt`, `Big`), для машинных и встроенных алиасов - каноническое C++-имя (`int64_t`, `std::string`). Include всегда от канонического типа. Нераспознанный/структурный тип - **явная ошибка** через `m_ctx.report(range, OptKind::ParseError, ...)`, fallback (`auto`, исходное имя) запрещён.
-- **Экспорт символов** - `exports()` возвращает список `ExportEntry{trustName, cppName}`, собранный в процессе генерации (например для `x := 42` и `%func() ::= {}`).
+- **Source-map** - для каждого узла HIR создаётся маппинг trust-range → cpp-range; имена переменных, функций, типов и параметров функций дополнительно маппятся через `addNameMapping` для hover-ссылок (единый хелпер `mapDeclaredName`). Source map встраивается в ELF-секцию `.debug_trust_map` на этапе компиляции C++ (через `ModuleApi::packToMsgpack()`), внешние `.trust` файлы не используются.
+- **Exhaustive consumer (kind-dispatch)** - `CppTranspiler`: контракт полноты задаёт `static_assert(hasAllKindHandlers<CppTranspiler>())` (`ast/kind_dispatch.hpp`), диспетчер - `generateNodeToFile` → `dispatchEmit(node, *this)`; `visit_<Kind>` - тонкие делегирования в компоненты-эмиттеры. `dispatchEmit` получает `KindCategory`: statement-only kind в `emitExpr` отвергается; expression-kind допустим как standalone-выражение в блоке/на верхнем уровне. «Недопустимый здесь» kind - явный `faultUnexpectedKind` (FAULT с именем kind), «осознанно пропустить» - `skipNode`; пустых тел нет (`ErrorExpr` → fault). **Декомпозиция**: общий контекст `CppEmitContext` (`emit/emit_ctx.hpp`) разделён на именованные зоны состояния (`OutputState` — вывод/области имён, `EmitModeState` — режимы точки эмиссии, `DeclFacts` — факты объявлений, `EmissionAccumulators` — инклуды/типы/линковка, `UnitState` — entry/single-file, `ResultBinding`); счётчики временных принадлежат своим эмиттерам. Эмиттеры `TypeEmitter`/`DeclEmitter`/`StmtEmitter`/`ExprEmitter`/`ContractEmitter` (`*_emit.hpp`) разделяют ответственность (типы/инклуды, декларации, операторы, выражения, trust-контракты); `TypeEmitter` — фасад над `TypeNameResolver` (рендеринг C++-имени) и `TypeIncludeCollector` (include/link/POD-проверки); `TypeNameResolver::resolveCppTypeId` диспетчеризует по единственному дискриминатору — альтернативе `TypeData` (`std::visit`, необработанный вариант не компилируется); объявления разрезаны по владельцу: `emit/decl_emit.cpp` (visitor'ы), `type_emit/decl_emit.cpp` (типы), `module/module_emit.cpp` (модульные юниты), общие помощники — `decl_emit/emit_common.hpp`; операторы — `emit/stmt_emit.cpp` (блоки/области/with/try/jump) и `emit/stmt_control_emit.cpp` (if/while/do/match/switch); общие помощники - `emit/emit_common.hpp`. Обход тела блоков - `emitBlockBodyToFile`/`emitBodyNode`/`emitSequenceBody`. Отступ хранится в стеке `m_output.scopeStack` (`ScopeContext{indent}`). Имя функции транспилятору не нужно (его заменяют синтетические узлы lowering); единственный флаг контекста - `m_mode.inCppBlock` (внутри C++ compound statement), определяющий форму эмиссии пользовательских блоков (см. «Блоки и области видимости»).
+- **Потоковый вывод** - кодек пишет C++ текст прямо в `m_ctx.source()`, без возврата `std::string`. Единая диспетчеризация ПО KIND: `emitExpr` - это `dispatchEmit(*node, *this)` с инкрементом `m_mode.exprDepth`. Точка с запятой для statement-выражений НЕ выводится транспилятором по контексту: statement-позиции выражений обёрнуты анализатором в `SemicolonStmt`, и `visit_SemicolonStmt` добавляет `;` + source-map (statement-root, без скобок). Вложенные выражения (`m_mode.exprDepth>0`) - только текст, бинарные - в скобках. Source-map строится естественно по позиции в выходном файле; для тестов строка читается из выходного файла (`output_result`).
+- **Приведения аргументов/операндов — данные семантики** - `emitCastCallArgs` (нативные
+  перегрузки, свободные операторы, `operator()`) и `emitOperatorDispatch` печатают
+  `static_cast` по `CallExpr::argCasts`/`Binary::argCasts`; `FunctionTypeData` для выбора
+  приведения в этих путях не читается. Слот `INVALID_TYPE_ID` в `CallExpr` = без приведения
+  (Any/неизвестный параметр); `Binary::argCasts` заполняется только для пути
+  `emitOperatorDispatch` (member 1/free 2); inc/dec, type-check, swap и `ArrayAccess`/`RefTakeExpr`
+  имеют свои эмиттеры и эти слоты не читают.
+- **Единые хелперы** - `emitTypeNameForNode`/`emitTypeName`/`resolveCppTypeId` (рендер типа: материализованный `resolvedTypeId` → canonical → C++-имя → include), `mapDeclaredName` (расчёт cpp-оффсета имени) используются несколькими `generate*ToFile`, снижая дублирование; бинарные операторы (`//`/`//=` integer-division) обрабатываются единообразно в `emitBinaryOpRaw`; пары mapStart/mapStop обёрнуты RAII `MapperScope`. Codegen обращается к диапазонам/именам только через методы узлов AST (`range()`, `nameRange()`, `blockRange()`, `text()`), не трогая `Term` напрямую.
+- **Пользовательские алиасы сохраняют имя** - `resolveCppTypeId` для пользовательского алиаса (`TypeSystem::isUserDefinedType`) возвращает trust-имя (`MyInt`, `Big`), для машинных и встроенных алиасов - каноническое C++-имя (`int64_t`, `std::string`). Include всегда от канонического типа. Нераспознанный/структурный тип - **явная ошибка** через `m_ctx.report(range, OptKind::ParseError, ...)`, fallback (`auto`, исходное имя) запрещён.
 - **Pipeline position** - расположен после SemanticAnalyzer; не запускается при наличии семантических ошибок.
-- **Не зависит от анализатора (`transpiler → semantic` разорвана)** - общие продукты анализа
-  (`SymbolTable`/`SymbolIndex`) и value-типы режимов живут в `include/analysis`; поведенческие режимы
-  (solver/stack-check) передаются как данные (`CppEmitContext::m_behavioral`), а не читаются из
+- **Не зависит от анализатора (`transpiler → semantic` разорвана)** - кодоген читает только HIR
+  (факты материализованы в полях узлов); value-типы режимов живут в `include/analysis`, поведенческие
+  режимы (solver/stack-check) передаются как данные (`CppEmitContext::m_behavioral`), а не читаются из
   `diag::Options`. `transpiler_lib` не линкует `semantic_lib`.
-- **Манглинг имён** - все trust-идентификаторы в C++-выводе конвертируются через единый конвертер
-  `utils::name_to_cpp`: `x → c_x`, `MyInt → c_MyInt`, `ns → c_ns`; нативные имена с ведущим `%`
-  срезаются и остаются без изменений (`%add → add`). Вставки `{% ... %}` оставляют C++-текст как есть,
-  кроме маркеров `$name`/`@name` (trust-имена → `name_to_cpp`); их доступность проверяет семантический
-  анализатор (см. semantic/MEMORY.md).
-- **Два механизма подключения инклудов** - (1) *по типу*: во время обхода AST в `m_usedTypes`
+- **Манглинг имён** - единая точка C++-имени: `cppName(trustName, CppEntityKind, moduleNamespace)`
+  (`emit/emit_common.hpp`) для типов/функций/значений (`ns::Point → c_ns::c_Point`), `utils::qualifiedCppName` /
+  `utils::cppDeclName` / `utils::cppIdent` (один сегмент) и `utils::cppNamespacePath` (namespace-
+  сегменты). Нативные имена с ведущим `%` остаются C++-символами без изменений (`%add → add`).
+  Модульная изоляция — автоматический `namespace <enc>` для ВСЕХ сущностей импортируемого юнита
+  (entry `__main__` и top-level `{% %}` — вне конверта); headerless root не изолируется. Номинальное C++-имя типа строит `printType(kCpp)` (namespace-путь и модуль из
+  storage-ключа). Вставки `{% ... %}` оставляют C++-текст как есть, кроме маркеров `$name`/`@name`;
+  их доступность и модуль имени резолвит семантический анализатор (см. semantic/MEMORY.md).
+- **Два механизма подключения инклудов** - (1) *по типу*: во время обхода AST в `m_accumulators.usedTypes`
   собираются только использованные типы (канонические `TypeId`), а директивы из них
-  (`TypeRegistry::preprocIncludes`) формируются **после** обхода (`collectTypeIncludes`);
+  (`TypeSystem::preprocIncludes`) формируются **после** обхода (`collectTypeIncludes`);
   (2) *по рантайм-символу*: для EMBED-узлов и рантайм-функций, где типа нет, заголовки
   подключаются через ЕДИНСТВЕННЫЙ метод `recordRuntimeSymbolHeaders(RuntimeSymbolId)`
   (строковой перегрузки нет). Единый источник имён/заголовков символов - компайлтайм-таблица
@@ -68,7 +77,9 @@ ScopeBlock-обёртка); тело функции уже плоское и э�
 - `FuncDecl` - сигнатура и тело, forward declaration (`;`), возврат `return expr;`
   Квалификаторы из атрибутов: `@[func_const]` → `__attribute__((const))`, `@[func_pure]` → `__attribute__((pure))`,
   `@[constexpr]` → `constexpr`, `@[noexcept]` → завершающий `noexcept`
-- Expression statements - присваивания `=`, `+=`, `-=`, `*=`, `/=`, `%=`, целочисленное деление `//` → `static_cast<int64_t>(...) / ...`
+- Expression statements - присваивания `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `//=`, целочисленное
+  деление/остаток `//`/`%` → проверяемая форма (`static_cast<int64_t>(...)` + контроль нулевого
+  делителя и `INT_MIN / -1`)
 - `JumpStmt` - `return expr;`, `throw expr;`
 - `IfStmt` - `if (cond) { ... } else if (cond2) { ... } else { ... }`
 - `WhileStmt` - `while (cond) { ... }`, с else - `while (cond) { ... } else { ... }`

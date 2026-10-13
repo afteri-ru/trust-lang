@@ -1,0 +1,29 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/nested_imp $TD/nested_main.src
+# RUN: $TD/nested_imp && echo "PASS"
+# CHECK: PASS
+#
+# Импорт модулей с ВЛОЖЕННЫМИ подмодулями (идиома split-file): главный модуль импортирует
+# модуль верхнего уровня и модули из вложенных каталогов. `%split-file` создаёт подкаталоги
+# по маркерам `//--- sub/mod_b.src`. Каждый модуль - отдельная единица трансляции (.cppt),
+# линкуется с главным файлом; импортированные имена видны как `@x`.
+# Программа возвращает 0, если 1 + 2 + 3 == 6.
+
+//--- nested_main.src
+\mod_a(a);
+\\sub\mod_b(b);
+\\sub\deep\mod_c(c);
+{% int nested_main__main__() {
+    return (@a + @b + @c) == 6 ? 0 : 1;
+}
+%}
+//--- mod_a.src
+\mod_a;
+a:Int32 := 1;
+//--- sub/mod_b.src
+\\sub\mod_b;
+b:Int32 := 2;
+//--- sub/deep/mod_c.src
+\\sub\deep\mod_c;
+c:Int32 := 3;

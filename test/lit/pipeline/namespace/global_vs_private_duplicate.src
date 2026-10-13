@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Внутри модуля private и exported (`::`) с одним spelling - дубль.
+# CHECK: error: duplicate declaration 'f'
+
+__:: {
+    f():Int32 := { @return 1; };
+};
+:: {
+    f():Int32 := { @return 2; };
+};
+@main():Int32 := { @return 0; };

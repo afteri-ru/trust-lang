@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Импорт внутри блока действует в этом блоке: имя доступно до выхода из него.
+//--- main.src
+@main():Int32 := {
+    {
+        \lib(f);
+        @return f() - 1;
+    };
+};
+
+//--- lib.src
+\lib;
+f():Int32 := { @return 1; };

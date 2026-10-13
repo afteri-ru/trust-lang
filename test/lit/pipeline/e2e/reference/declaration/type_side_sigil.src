@@ -13,6 +13,6 @@
     x : &*Int32 := 5;
     y : @[reftype("shared")@] Int32 := 7;
     w : &?Int32 := & x;
-    print('x={} y={} w={}\n', *x, *y, *w);
+    print("x={} y={} w={}\n", *x, *y, *w);
     return 0;
 };

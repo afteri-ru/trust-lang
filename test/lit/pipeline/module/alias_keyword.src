@@ -1,0 +1,19 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Ключевое слово `alias` — сахар над операторами `:-` (имя) и `::-` (второе имя типа):
+# вид задаётся `:` у нового имени (`as :Имя`), поэтому вид не нужно указывать словом.
+
+//--- main.src
+\lib(Pt, g);
+alias \lib::g as f;
+alias \lib::Pt as :MyPt;
+@main():Int32 := { p:MyPt := MyPt(7); @return f(1) + p.x - 9; };
+
+//--- lib.src
+\lib;
+:Pt ::= :Struct{ x:Int32 := _; };
+g(x:Int32):Int32 := { @return x + 1; };

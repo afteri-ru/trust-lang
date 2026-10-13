@@ -1,0 +1,22 @@
+#!../../_build/trust --run
+#
+# Tensor matrix multiplication: matmul, форма результата, сумма элементов.
+#
+# Требуется toolchain, собранный с -DWITH_TORCH=ON.
+
+\\\tensor();
+
+a := :Float32[2,3]( 1,2,3, 4,5,6);
+b :Tensor[3,2] := [1,2, 3,4, 5,6,]: Float32;
+
+c := a.matmul(b);
+sh := c.shape();
+@print("matmul shape={}x{}\n", sh[0], sh[1]);
+
+x :Float32 := c[0,0];
+y :Float32 := c[1,1];
+@print("c[0,0]={} c[1,1]={}\n", x, y);
+
+s := c.sum();
+total :Float32 := s[0];
+@print("sum={}\n", total);

@@ -4,7 +4,7 @@ tags: [concurrency, thread, async]
 description: >
     Многопоточность и асинхронность: концепция и статус реализации
 weight: 75
-draft: true
+# draft: true
 ---
 
 ## Модель многопоточного и асинхронного программирования
@@ -27,8 +27,28 @@ draft: true
 Доступ к разделяемым данным обеспечивает модель ссылок ([Память](../safety/memory/)): захват
 ссылки синхронизирует обращение к объекту.
 
+## Библиотечный async-слой {#async-layer}
+
+Типы объявлены в stdlib prelude (`async.src`) и доступны без импорта:
+
+| TrustLang | C++ | Назначение |
+|---|---|---|
+| `AsyncTask<T>` | `trust::Task<T>` | ленивая задача; запускается при `co_await` или `sync_wait` |
+| `AsyncGenerator<T>` | `trust::AsyncGenerator<T>` | pull-генератор; `next()` → `Task<std::optional<T>>`, один потребитель |
+| `AsyncPool` | `trust::ThreadPool` | пул потоков; `co_await pool.schedule()` возобновляет корутину на воркере |
+| `AsyncMutex` | `trust::AsyncMutex` | асинхронный мьютекс с FIFO-ожиданием |
+
+`trust::sync_wait(task)` блокирует текущий поток до завершения задачи и пробрасывает её исключение;
+вызывать его на воркере `ThreadPool` нельзя (воркер будет заблокирован).
+
+Заголовки — `@stdlib/async/*.hpp` (только стандартный C++: `<coroutine>`, `<thread>`, `<mutex>`,
+`<condition_variable>`). `-pthread` подключается по требованию — только при использовании
+`AsyncPool`.
+
 ## Статус
 
-Многопоточность и асинхронность в текущей версии **не реализованы**: нет `:Thread`, корутин,
-`:AsyncTask`/`:AsyncPool`, Awaitable-объектов и операторов `@co_yield`/`@co_await`/`@co_return`.
+Языковой механизм корутин пока **не реализован**: нет `:Thread`, кодогена `co_await`/`co_yield`/
+`co_return` и вывода awaitable-типов (`@[awaitable]`). Корутинные функции помечаются атрибутом
+`@[coroutine]` (маркер зарегистрирован). Библиотечный async-слой (`trust::async`) доступен из
+нативных объявлений и C++-вставок — см. раздел [Библиотечный async-слой](#async-layer).
 Актуальный перечень — в [Статусе](../status/).

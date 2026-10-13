@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Forward-объявление типа в интерфейсе: клиент видит ТОЛЬКО предварительное
+# объявление, поэтому не вправе использовать тип по значению (поле, параметр, возврат).
+# Владеющая `unique`-ссылка тоже требует полного типа (C++ разрушает объект), а `ptr` — нет.
+# CHECK: error: field 'h' uses incomplete type 'Handle' by value
+# CHECK: error: parameter 'h' of 'take' uses incomplete type 'Handle' by value
+# CHECK: error: parameter 'h' of 'uniq' holds an owning 'unique' reference to incomplete type 'Handle'
+
+//--- main.src
+\lib(Handle);
+:Holder ::= :Struct{ h: Handle := _; };
+take(h: Handle):Int32 := { @return 0; };
+uniq(h: @[reftype("unique")@] Handle):Int32 := { @return 0; };
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib {
+    Handle ::= :Struct ...;
+};
+:Handle ::= :Struct{ id:Int32 := _; };

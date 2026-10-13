@@ -1,0 +1,21 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Две НЕсравнимые перегрузки ОДНОЙ формы (свободные операторы): амбигуа ранжирования.
+:P ::= :Class{
+    v: Int32 := 0;
+};
+:B ::= :Class{
+    w: Int32 := 0;
+};
+:D ::= :B{
+    z: Int32 := 0;
+};
+__eq__(a: D, b: B): Bool := { return false; };
+__eq__(a: B, b: D): Bool := { return false; };
+@main() := {
+    a : D := :D();
+    b : D := :D();
+    @print("{}\n", a == b);
+    @return 0;
+}
+# CHECK: error: operator '==' is ambiguous for types 'D' and 'D'

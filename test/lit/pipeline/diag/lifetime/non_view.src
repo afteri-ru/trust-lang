@@ -1,4 +1,4 @@
-# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # @[lifetime(...)] применим только к НЕвладеющему view (Native-ось: ptr/ref/rref).
 # Без reftype вид = value (владение значением) -> диагностика ошибки.

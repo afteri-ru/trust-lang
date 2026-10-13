@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Алиас имени вне блока интерфейса файл-приватен: в экспорт-набор он не входит и импортёру
+# не виден (как и прочие объявления вне блока интерфейса).
+# CHECK: error: undefined name 'f'
+
+//--- main.src
+\facade(f);
+@main():Int32 := { @return f(1); };
+
+//--- lib.src
+\lib;
+g(x:Int32):Int32 := { @return x + 1; };
+
+//--- facade.src
+\facade {
+    api():Int32 := ...;
+};
+api():Int32 := { @return g(1); };
+\lib(g);
+f :- \lib::g;

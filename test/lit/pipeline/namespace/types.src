@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ns_types $TD/main.src
+# RUN: $TD/ns_types && echo "PASS"
+# CHECK: PASS
+#
+# Types in namespace containers: storage-ключ реестра namespace-квалифицирован
+# (`ns::Point`), display-имя остаётся коротким. Одинаковый spelling в разных namespace
+# не конфликтует (и не затирает друг друга). Использование - внутри своего namespace
+# и квалифицированный вызов функции снаружи.
+
+//--- main.src
+ns:: {
+    :Point ::= :Struct{ x:Int32 := _; };
+    MyInt ::= :Int32;
+    make(v:Int32):Int32 := { p:Point := Point(v); @return p.x; };
+};
+ns2:: {
+    :Point ::= :Struct{ x:Int32 := _; };
+    MyInt ::= :Int32;
+    make(v:Int32):Int32 := { p:Point := Point(v + 1); @return p.x; };
+};
+@main():Int32 := { @return ns::make(1) + ns2::make(1) - 3; };

@@ -1,0 +1,14 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Native single-signature operator `[]`: анализатор проверяет тип индекса (C++-делегации
+# без проверки нет).
+@include("string")
+MyStr ::= %std::string {
+    __getitem__(i:Int32):Int32 := ...;
+};
+@main() := {
+    s : MyStr := MyStr();
+    y : Int32 := s["a"];
+    @return 0;
+}
+# CHECK: error: no matching overload for operator '[]' of 'MyStr'

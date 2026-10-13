@@ -3,13 +3,15 @@
 // Shared helpers for transpiler pipeline + source map tests
 // (transpile_lsp_test.cpp / transpile_lsp_mapping_test.cpp).
 #include "session/context.hpp"
-#include "types/registry.hpp"
+#include "types/type_system.hpp"
 #include "ast/term_to_ast.hpp"
-#include "semantic/pass_runner.hpp"
+#include "semantic/core/pass_runner.hpp"
+#include "ir/hir_module.hpp"
 #include "syntax/parser.h"
-#include "syntax/term.h"
+#include "syntax/term/term.h"
 #include "transpiler/transpiler.hpp"
 #include "pipeline/pipeline.hpp"
+#include "pipeline/sourcemap/source_map.hpp"
 #include "sourcemap/mapper.hpp"
 #include "syntax/macro.h"
 
@@ -23,12 +25,12 @@
 #include <string_view>
 #include <vector>
 
-using namespace trust;
+namespace trust {
 
-// Helper: run full pipeline and return source map reader
+// Helper: transpile test source directly (Parser -> AST -> semantic -> C++), returns output idx
 // Note: Parser::ParseText registers the text under the given source name
 // (see Parser::ParseText: m_ctx.source().add_source(sourceName, text)).
-inline void runPipeline(Context& ctx, std::string_view trustCode, MapperFile* outCppIdx = nullptr) {
+inline void transpileForTest(Context& ctx, std::string_view trustCode, MapperFile* outCppIdx = nullptr) {
     // 1. Parse with legacy parser (registers "input" source file)
     trust::Parser parser(ctx);
     trust::TermPtr term = parser.ParseText(trustCode);
@@ -42,11 +44,15 @@ inline void runPipeline(Context& ctx, std::string_view trustCode, MapperFile* ou
     SemanticPassRunner runner(ctx);
     runner.run(ast_nodes);
 
-    // 4. Generate C++
+    // 4. HIR: производная форма (клон AST + lowering) — структурный вход кодогенерации.
+    //    Исходная AST остаётся неизменённой.
+    HirModule hir = buildHir(ast_nodes, ctx);
+
+    // 5. Generate C++
     MapperFile cppIdx = ctx.source().add_output("test.cpp", true);
     ASSERT_FALSE(cppIdx.isInvalid());
     CppTranspiler transpiler(ctx);
-    transpiler.generateToFile(ast_nodes, cppIdx);
+    transpiler.generateToFile(hir, cppIdx);
 
     if (outCppIdx) {
         *outCppIdx = cppIdx;
@@ -112,5 +118,7 @@ inline bool findInputBySource(const SourceMapReader* reader, std::string_view sr
     }
     return false;
 }
+
+} // namespace trust
 
 #endif // TRANSPILE_LSP_TEST_UTIL_HPP

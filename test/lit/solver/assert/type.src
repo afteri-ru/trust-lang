@@ -6,6 +6,10 @@
 
 MyInt @{ type --> MyInt > 0 @} ::= :Int32;
 
+# SM2: (set-logic UFBV)
+# SM2: (push 1)
 # SM2: (assert (not (forall ((MyInt (_ BitVec 32))) (bvsgt MyInt (_ bv0 32)))))
+# SM2: (check-sat)
+# SM2: (pop 1)
 
 # Z3: sat

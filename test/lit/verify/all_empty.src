@@ -1,0 +1,6 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp --verify=all %s > %t.out 2>&1 && test -f %t.dir/all_empty.trustcert
+
+# --verify=all без trust-условий: обязательств нет, гейт проходит; сертификат пишется в
+# build-каталог (рядом с .cppt) и содержит пустой список обязательств.
+
+@main() := { };

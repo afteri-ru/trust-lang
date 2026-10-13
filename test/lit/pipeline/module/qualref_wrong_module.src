@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Ссылка ограничена экспорт-набором УКАЗАННОГО модуля: `f` экспортирует `\b`, а не `\a`,
+# поэтому `\a::f()` — ошибка (плоское пространство не «подставляет» чужой экспорт).
+
+# CHECK: error: module '\a' has no exported name 'f'
+
+//--- main.src
+\a();
+\b();
+@main():Int32 := { @return \a::f(); };
+
+//--- a.src
+\a;
+a_only():Int32 := { @return 0; };
+
+//--- b.src
+\b;
+f():Int32 := { @return 1; };

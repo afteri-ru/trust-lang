@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Объявления вне интерфейса файла (`\path { ... };`) файл-приватны: одноимённые helper'ы в двух
+# файлах не конфликтуют (C++ anonymous namespace), а каждый виден только внутри своего файла.
+
+//--- main.src
+\a(api_a);
+\b(api_b);
+@main():Int32 := { @return api_a() + api_b() - 3; };
+
+//--- a.src
+\a {
+    api_a():Int32 := ...;
+};
+helper():Int32 := { @return 1; };
+api_a():Int32 := { @return helper(); };
+
+//--- b.src
+\b {
+    api_b():Int32 := ...;
+};
+helper():Int32 := { @return 1; };
+api_b():Int32 := { @return helper() + 1; };

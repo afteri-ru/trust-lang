@@ -7,16 +7,16 @@
 //   - ContextMacroId - «контекст-макросы» (информация анализатора): разрешаются на этапе анализатора
 //                      (NameResolutionPass), часть (@__MODULE_NAME__) статически вычислима на парсере.
 // Прагмы (директивы/опции) - отдельный класс PragmaEvaluator (pragma_evaluator.hpp).
-// Вынесен из монолита Parser (src/syntax/parser.cpp) в отдельный класс - одна
+// Вынесен из монолита Parser (src/syntax/parser/parser.cpp) в отдельный класс - одна
 // ответственность, изолированно тестируем. Реестры - общие на процесс (static),
 // экземпляр нужен только для раскрытия (Context + timestamp).
 
-#include "syntax/term_types.h"
+#include "syntax/term/term_types.h"
 #include "syntax/predef_macro_x.hpp"
 
-#include "syntax/warning_push.h"
+#include "syntax/util/warning_push.h"
 #include "parser.yy.h"
-#include "syntax/warning_pop.h"
+#include "syntax/util/warning_pop.h"
 
 #include <ctime>
 #include <optional>

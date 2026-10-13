@@ -2,7 +2,7 @@
 #include "driver/cli.hpp"
 #include <iostream>
 #include <vector>
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 
 // -- LSP Protocol helpers --
 
@@ -57,7 +57,9 @@ namespace {
 enum class LspOptId { Help, Trace, Json, Html, HtmlFull, MonacoUrl, ServerUrl, ExamplesDir, ProjectDir, TempDir, EmitBuildDir, ShebangMode };
 
 std::vector<trust::DriverOption> lspTable() {
-    using namespace trust;
+    using trust::CliCategory;
+    using trust::CliOpt;
+    using trust::DriverOption;
     std::vector<DriverOption> out = {
         {int(LspOptId::Help), "help", "h", CliOpt::Flag, "", "Show this help message", CliCategory::General},
         {int(LspOptId::Trace), "trace", "", CliOpt::Flag, "", "Trace LSP protocol traffic", CliCategory::General},

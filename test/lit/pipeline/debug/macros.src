@@ -12,7 +12,7 @@
 #     включая ЭХО применённого фильтра (ENABLED/DISABLED).
 # Проверяемый вывод размещён НЕПОСРЕДСТВЕННО после макроса, который его генерирует.
 #
-@__DEBUG__("scope,resolve");
+@__DEBUG__('scope,resolve');
 # Эхо применения фильтра (префикс - локация самого макроса в .src):
 # CHECK: .../macros.src:{{[0-9]+}}: @__DEBUG__: debug messages ENABLED, filter='scope,resolve'
 f() : Int32 := {

@@ -13,8 +13,8 @@
   диапазонов, подсчёт количества ошибок.
 - **Опции** - система именованных опций, поддержка push/pop. Severity-диагностики и feature-флаги
   объявляются ПЕР-КОМПОНЕНТНО через `TRUST_DIAG_SET`/`TRUST_FLAG_SET` (`diag/diag_set.hpp`); каждая
-  компонента - свой enum в своём заголовке (`syntax/diag.hpp`, `semantic/diag.hpp`,
-  `transpiler/diag.hpp`, `diag/base_diags.hpp`). Единственный источник данных - пер-компонентный
+  компонента - свой enum в своём заголовке (`syntax/util/diag.hpp`, `semantic/diag.hpp`,
+  `transpiler/emit/diag.hpp`, `diag/base_diags.hpp`). Единственный источник данных - пер-компонентный
   набор (enum + имя + help + severity + группы + категория). Регистрация - `Options::add<T>`/
   `Options::add_flag<T>` (метаданные через ADL). Управление: `-W<имя>[=severity]`, `-Wno-<имя>`,
   группы `-Wall/-Wextra/...`, `-Werror`; справка - `-Whelp`.

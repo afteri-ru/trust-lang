@@ -8,6 +8,7 @@
 #pragma once
 
 #include "ast/ident_name.hpp"
+#include "ast/slots/slot_engine.hpp"
 #include "ast/token.hpp"
 #include <optional>
 #include <string>
@@ -20,17 +21,18 @@ namespace trust {
 /// Имя типа (то, что после ':') хранится в унаследованном text().
 class IdentType : public IdentName {
   public:
+    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
+    AST_SLOT_METHOD(IdentName, SLOTS_IdentType)
     IdentType() { m_kind = ParserToken::Kind::TypeName; }
 
     explicit IdentType(std::string name)
-    : IdentName(std::move(name)) {
-        m_kind = ParserToken::Kind::TypeName;
-    }
+    : IdentName(ParserToken::Kind::TypeName, std::string_view(name), nullptr) {}
 
-    /// Терм-конструктор: имя читается из Term; kind=TypeName нормализует через
-    /// normalizeTermText (срез ведущего ':' и хвостового '^') в базовом IdentName.
-    IdentType(TermPtr term, std::optional<std::vector<AstNodePtr>> dims = std::nullopt, std::optional<std::vector<AstNodePtr>> params = std::nullopt)
-    : IdentName(std::move(term), ParserToken::Kind::TypeName)
+    /// Терм-конструктор: имя читается из Term; правило имени (срез ведущего ':' и хвостового '^')
+    /// применяет assignNameFromRaw в базовом IdentName.
+    IdentType(TermPtr term, std::optional<std::vector<AstNodePtr>> dims = std::nullopt, std::optional<std::vector<AstNodePtr>> params = std::nullopt,
+              AttrPool* pool = nullptr)
+    : IdentName(term, ParserToken::Kind::TypeName, pool)
     , m_dims(std::move(dims))
     , m_params(std::move(params)) {}
 
@@ -49,6 +51,13 @@ class IdentType : public IdentName {
     const auto& templateArgs() const noexcept { return m_templateArgs; }
     /// Устанавливает типовые аргументы нативного шаблона (visit_TYPE для `vector<Int32>`).
     void setTemplateArgs(std::vector<AstNodePtr> args) { m_templateArgs = std::move(args); }
+    /// Параллельные флаги pack-expansion для templateArgs (`Tuple<:T...>`).
+    void setTemplateArgPacks(std::vector<bool> packs) { m_templateArgPacks = std::move(packs); }
+    const auto& templateArgPacks() const noexcept { return m_templateArgPacks; }
+
+    /// Материализованный семантикой тип аннотации с квалификаторами (const/reftype/policy/impl).
+    /// Невалиден, если аннотация без квалификаторов. Кодоген рендерит его без повторного применения.
+    mutable QualType resolvedState{};
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
@@ -58,6 +67,8 @@ class IdentType : public IdentName {
     /// Типовые аргументы нативного шаблона `vector<Int32>` (из `LT template_args GT`).
     /// Каждый аргумент - узел типа (IdentType/IdentName). Наличие = это шаблон-тип.
     std::optional<std::vector<AstNodePtr>> m_templateArgs;
+    /// Параллельные флаги pack-expansion (`:T...`): true - аргумент является PackExpansion(T).
+    std::optional<std::vector<bool>> m_templateArgPacks;
 };
 
 } // namespace trust

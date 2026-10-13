@@ -1,10 +1,10 @@
 // src/playground/pow_guard.cpp
-// trust-playground: реализация PowGuard (см. include/playground/pow_guard.h).
+// trust-playground: реализация PowGuard (см. include/playground/limits/pow_guard.h).
 
-#include "playground/pow_guard.h"
+#include "playground/limits/pow_guard.h"
 
-#include "playground/http.h" // sha256Hex
-#include "playground/util.h" // randomBytes
+#include "playground/http/http.h" // sha256Hex
+#include "playground/server/util.h" // randomBytes
 
 namespace trust {
 namespace playground {

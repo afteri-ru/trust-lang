@@ -1,0 +1,13 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app %s
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Ссылка через `using` квалифицируется в C++ (`c_ns::c_f`), а не эмитится плоской.
+
+ns:: {
+    f(): Int32 := { @return 7; };
+    base: Int32 := 5;
+};
+using namespace ns;
+@main(): Int32 := { @return f() + base - 12; };

@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Контроль знакового целочисленного переполнения (default on): +,-,* в value-позиции
 # генерируются лямбдой-IIFE с встроенным __builtin_*_overflow; на переполнение -

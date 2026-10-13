@@ -3,11 +3,7 @@
 // Public runtime header for the Trust runtime. Implemented in
 // src/runtime/big_integer.cpp (part of trust-runtime.so/.a).
 //
-// This header is self-contained (standard headers only) so that generated C++
-// programs can include it without depending on the compiler's include tree.
-// At build time it is embedded into trust-runtime.so (via #embed, in an ELF
-// section named "trust/big_integer.hpp"); the pipeline extracts it into a
-// temporary `trust/` directory when a program actually uses the BigInteger type.
+// Delivery: package file `include/trust/big_integer.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 
 #pragma once
 

@@ -1,0 +1,16 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1
+# RUN: %FileCheck --check-prefix=WARN %s <%t.out
+
+# A call in statement position whose callee has no contract: its effect/result is not modeled,
+# so the body is NOT encoded completely. The VC is therefore skipped and reported as outside the
+# verification envelope (a silent skip would make the VC incomplete).
+
+add(x:Int32):Int32 := { return x + 1; };
+
+g(x:Int32):Int32 trust_pre( x > 0 ) trust_post( g > 0 ) := {
+    add(x);
+    return x;
+};
+
+# WARN: outside verification envelope: call to 'add' has no contract (result is not modeled)
+# WARN: условие(й) вне области проверки

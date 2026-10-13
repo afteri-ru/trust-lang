@@ -1,13 +1,15 @@
 #include "transpiler/transpile_lsp_test_util.hpp"
+
+using namespace trust;
 // ============================================================================
 // 1. Variable declaration (string)
 // ============================================================================
 TEST(TranspileLspTest, StringVarDecl) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     MapperFile cppIdx;
-    runPipeline(ctx, "msg := 'hello world';\n", &cppIdx);
+    transpileForTest(ctx, "msg := \"hello world\";\n", &cppIdx);
 
     // Check C++ output contains the variable declaration
     std::string cpp(ctx.source().output_body(cppIdx));
@@ -39,10 +41,10 @@ TEST(TranspileLspTest, StringVarDecl) {
 // ============================================================================
 TEST(TranspileLspTest, EmbedWithPrintf) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     MapperFile cppIdx;
-    runPipeline(ctx, "msg := 'hello world';\n{% printf(\"msg: %s\\n\", $msg); %}\n", &cppIdx);
+    transpileForTest(ctx, "msg := \"hello world\";\n{% printf(\"msg: %s\\n\", $msg); %}\n", &cppIdx);
 
     // Check C++ output contains variable declaration and printf
     std::string cpp(ctx.source().output_body(cppIdx));
@@ -65,11 +67,11 @@ TEST(TranspileLspTest, EmbedWithPrintf) {
 // ============================================================================
 TEST(TranspileLspTest, EmbedExpandsPredefMacro) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     MapperFile cppIdx;
     // Вставка на строке 2: @__LINE__ внутри {% %} раскрывается в 2.
-    runPipeline(ctx, "x := 5;\n{% printf(\"%d\", @__LINE__); %}\n", &cppIdx);
+    transpileForTest(ctx, "x := 5;\n{% printf(\"%d\", @__LINE__); %}\n", &cppIdx);
     std::string cpp(ctx.source().output_body(cppIdx));
     EXPECT_NE(cpp.find("printf(\"%d\", 2);"), std::string::npos) << cpp;
     // Значение-макрос ушёл: в выводе не должно быть мангл-имени c___LINE__.
@@ -81,10 +83,10 @@ TEST(TranspileLspTest, EmbedExpandsPredefMacro) {
 // ============================================================================
 TEST(TranspileLspTest, TypeAlias) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     MapperFile cppIdx;
-    runPipeline(ctx, "MyInt ::= :Int32;\n", &cppIdx);
+    transpileForTest(ctx, "MyInt ::= :Int32;\n", &cppIdx);
 
     std::string cpp(ctx.source().output_body(cppIdx));
     EXPECT_NE(cpp.find("using c_MyInt = int32_t;"), std::string::npos);
@@ -104,10 +106,10 @@ TEST(TranspileLspTest, TypeAlias) {
 // ============================================================================
 TEST(TranspileLspTest, MultipleStatements) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     MapperFile cppIdx;
-    runPipeline(ctx, "a := 'hello';\nb := 'world';\n", &cppIdx);
+    transpileForTest(ctx, "a := \"hello\";\nb := \"world\";\n", &cppIdx);
 
     std::string cpp(ctx.source().output_body(cppIdx));
     EXPECT_NE(cpp.find("std::string c_a = \"hello\";"), std::string::npos);
@@ -128,10 +130,10 @@ TEST(TranspileLspTest, MultipleStatements) {
 // ============================================================================
 TEST(TranspileLspTest, RoundtripFull) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     MapperFile cppIdx;
-    runPipeline(ctx, "msg := \"hello\";\n{% y = 1; %}\n", &cppIdx);
+    transpileForTest(ctx, "msg := \"hello\";\n{% y = 1; %}\n", &cppIdx);
 
     auto* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -161,10 +163,10 @@ TEST(TranspileLspTest, RoundtripFull) {
 // ============================================================================
 TEST(TranspileLspTest, SkipComments) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     MapperFile cppIdx;
-    runPipeline(ctx, "# this is a comment\n\nx := 5;\n", &cppIdx);
+    transpileForTest(ctx, "# this is a comment\n\nx := 5;\n", &cppIdx);
 
     auto* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -184,10 +186,10 @@ TEST(TranspileLspTest, SkipComments) {
 // ============================================================================
 TEST(TranspileLspTest, VarDeclTrustRangesAreOneBasedAndPointToName) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     MapperFile cppIdx;
-    runPipeline(ctx, "msg := \"hello world\";\ncount := 5 + 3;\n", &cppIdx);
+    transpileForTest(ctx, "msg := \"hello world\";\ncount := 5 + 3;\n", &cppIdx);
 
     auto* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -225,7 +227,7 @@ TEST(TranspileLspTest, VarDeclTrustRangesAreOneBasedAndPointToName) {
 // ============================================================================
 TEST(TranspileLspTest, MacroThenTranspileAndSave) {
     Context ctx(".");
-    TypeRegistry types(ctx.diag(), ctx.opts());
+    TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
     // Parser::ParseText раскрывает макросы только при установленном макро-буфере.
     ctx.setMacro(std::make_shared<Macro>(ctx));
@@ -240,7 +242,7 @@ TEST(TranspileLspTest, MacroThenTranspileAndSave) {
     // 2. Пользовательский код с вызовом макроса.
     const std::string src = "y := fortytwo;\n";
     MapperFile cppIdx;
-    runPipeline(ctx, src, &cppIdx);
+    transpileForTest(ctx, src, &cppIdx);
 
     // Пользовательский исходник находится по содержимому (вложенные Parser::ParseText
     // регистрируют дополнительные одноимённые источники "input").

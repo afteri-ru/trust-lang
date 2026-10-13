@@ -3,26 +3,31 @@
 // Shared ParserTest fixture for parser unit tests
 // (parser_test.cpp, parser_stmt_test.cpp, parser_expr_test.cpp,
 //  parser_decl_test.cpp, parser_trust_test.cpp).
-#include "syntax/warning_push.h"
+#include "syntax/util/warning_push.h"
 #include <gtest/gtest.h>
-#include "syntax/warning_pop.h"
+#include "syntax/util/warning_pop.h"
 
 #include "ast/ast_nodes.hpp"
 #include "attrs/attr_builtin.hpp"
 #include "ast/token_type.hpp"
 #include "ast/term_to_ast.hpp"
 #include "syntax/parser.h"
-#include "syntax/term.h"
+#include "syntax/term/term.h"
 #include "trust/version.h"
 #include "syntax/macro.h"
 #include "module_loader/module_loader.hpp"
+#include "utils/strings.hpp"
 
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
-using namespace trust;
+using trust::MacroPtr;
+using trust::ModuleLoader;
+using trust::Parser;
+using trust::TermID;
+using trust::TermPtr;
 
 namespace {
 // Рекурсивный подсчёт DOCUMENT-термов в дереве Term (используется doc-тестами).
@@ -82,9 +87,9 @@ class ParserTest : public ::testing::Test {
 
     void SetUp() {
         m_ctx.diag().clear();
-        // Парсер может обрабатывать import-модули через ctx.loader().
+        // Парсер обрабатывает import-модули через ctx.moduleResolver().
         m_loader = std::make_unique<ModuleLoader>(m_ctx);
-        m_ctx.setLoader(m_loader.get());
+        m_ctx.setModuleResolver(m_loader.get());
     }
 
     void TearDown() {}
@@ -117,7 +122,7 @@ class ParserTest : public ::testing::Test {
             }
             result += m_postlex[i];
         }
-        trim(result);
+        result = std::string(trust::utils::trim(result));
         return result;
     }
 

@@ -235,7 +235,9 @@ pkill -f 'hugo server --source docs'   # hugo (если запущен)
 
 Остальные эндпоинты: `GET /health` (мониторинг), `GET /stats` (оператор, по токену),
 `OPTIONS /run` (CORS-preflight). Развёрнутое описание эндпоинтов - в коде
-`src/playground/server.cpp` (`handle`/`handleRun`/…).
+`src/playground/`: `server.cpp` (`handle`/роутинг), `server_endpoints.cpp`
+(`handleRun`/`handlePoll`/`handleResult`/`handleDownload`), `server_stats.cpp`
+(`/stats`, логин/выход, PoW-челлендж), `server_http.cpp` (origin/CORS/IP/cookie/escaping).
 
 ## 6. Build-архив
 

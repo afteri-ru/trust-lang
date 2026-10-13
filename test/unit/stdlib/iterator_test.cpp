@@ -1,7 +1,9 @@
-// Test file: trust::IteratorRange - universal iterator-cursor (bundled range).
-#include "stdlib/iterator.hpp"
+// Test file: trust::Iterator - the single universal type-erased iterator.
+#include "stdlib/core/iterator.hpp"
 
+#include <concepts>
 #include <cstdint>
+#include <forward_list>
 #include <list>
 #include <map>
 #include <stdexcept>
@@ -11,151 +13,115 @@
 
 #include <gtest/gtest.h>
 
-using trust::IteratorRange;
-using trust::makeIteratorRange;
+using trust::Iterator;
+using trust::makeIterator;
 
 namespace {
 
-TEST(IteratorRangeTest, FromNativeIterators) {
+TEST(IteratorTest, FromNativeIterators) {
     std::vector<int> values{1, 2, 3, 4};
-    IteratorRange it{values.begin(), values.end()};
+    Iterator<int> it{values.begin(), values.end()};
     int sum = 0;
     while (it) {
         sum += *it;
         ++it;
     }
     EXPECT_EQ(sum, 10);
-    EXPECT_FALSE(it);
-    EXPECT_TRUE(it.empty());
-}
-
-TEST(IteratorRangeTest, CursorAdvancesAndCompares) {
-    std::vector<int> values{10, 20};
-    IteratorRange it{values.begin(), values.end()};
-    EXPECT_EQ(*it, 10);
-    EXPECT_EQ(it.current(), values.begin());
-    EXPECT_EQ(it.limit(), values.end());
-    IteratorRange copy = it++;
-    EXPECT_EQ(*copy, 10);
-    EXPECT_EQ(*it, 20);
-    ++it;
-    EXPECT_TRUE(it.empty());
-    EXPECT_EQ(it.current(), values.end());
-}
-
-TEST(IteratorRangeTest, FromContainerIsBorrowedView) {
-    std::vector<int> values{1, 2, 3, 4};
-    IteratorRange it{values};
-    EXPECT_EQ(it.size(), 4);
-    const auto& limit = it.limit();
-    EXPECT_EQ(limit, values.end());
-}
-
-TEST(IteratorRangeTest, DefaultConstructedIsEmpty) {
-    IteratorRange<std::vector<int>::iterator> it;
-    EXPECT_TRUE(it.empty());
     EXPECT_FALSE(static_cast<bool>(it));
 }
 
-TEST(IteratorRangeTest, DereferenceExhaustedThrows) {
-    std::vector<int> values{1};
-    IteratorRange it{values.begin(), values.end()};
+TEST(IteratorTest, FromContainer) {
+    std::vector<int> values{1, 2, 3};
+    Iterator<int> it{values};
+    EXPECT_EQ(*it, 1);
+    EXPECT_EQ(*it++, 1);
+    EXPECT_EQ(*it, 2);
+    EXPECT_EQ(*++it, 3);
+    EXPECT_TRUE(it.hasNext());
     ++it;
-    EXPECT_TRUE(it.empty());
-    EXPECT_THROW(*it, std::out_of_range);
+    EXPECT_FALSE(it.hasNext());
 }
 
-TEST(IteratorRangeTest, RandomAccessOperations) {
-    std::vector<int> values{1, 2, 3, 4};
-    IteratorRange it{values.begin(), values.end()};
-    it += 2;
-    EXPECT_EQ(*it, 3);
-    EXPECT_EQ(it.size(), 2);
-    it -= 1;
-    EXPECT_EQ(*it, 2);
-}
-
-TEST(IteratorRangeTest, BidirectionalOperations) {
-    std::list<int> values{1, 2, 3};
-    IteratorRange it{values.begin(), values.end()};
-    ++it;
-    ++it;
-    EXPECT_EQ(*it, 3);
-    --it;
-    EXPECT_EQ(*it, 2);
-    IteratorRange copy = it--;
+TEST(IteratorTest, CopyIsIndependent) {
+    std::vector<int> values{1, 2, 3};
+    Iterator<int> it{values};
+    Iterator<int> copy = it;
+    ++copy;
+    EXPECT_EQ(*it, 1);
     EXPECT_EQ(*copy, 2);
-    EXPECT_EQ(*it, 1);
 }
 
-TEST(IteratorRangeTest, MutableWriteThrough) {
+TEST(IteratorTest, ReverseWithExplicitIterators) {
     std::vector<int> values{1, 2, 3};
-    IteratorRange it{values.begin(), values.end()};
-    *it = 100;
-    EXPECT_EQ(values[0], 100);
-}
-
-TEST(IteratorRangeTest, ConstIteratorYieldsConstReference) {
-    std::vector<int> values{1, 2, 3};
-    IteratorRange it{values.cbegin(), values.cend()};
-    static_assert(std::is_same_v<decltype(*it), const int&>);
-    EXPECT_EQ(*it, 1);
-}
-
-TEST(IteratorRangeTest, RawPointerIterators) {
-    int raw[] = {5, 6, 7};
-    IteratorRange it{raw, raw + 3};
+    Iterator<int> it{values.rbegin(), values.rend()};
     int sum = 0;
-    for (int value : it) {
-        sum += value;
+    while (it) {
+        sum += *it;
+        ++it;
     }
-    EXPECT_EQ(sum, 18);
+    EXPECT_EQ(sum, 6);
 }
 
-TEST(IteratorRangeTest, RangeForIteratesRemaining) {
-    std::vector<int> values{1, 2, 3, 4};
-    IteratorRange it{values.begin(), values.end()};
+TEST(IteratorTest, DecrementBidirectional) {
+    std::list<int> values{1, 2, 3};
+    Iterator<int> it{values.begin(), values.end()};
     ++it;
-    int sum = 0;
-    for (int value : it) {
-        sum += value;
-    }
-    EXPECT_EQ(sum, 9); // 2 + 3 + 4
+    ++it;
+    EXPECT_EQ(*it, 3);
+    EXPECT_EQ(*it--, 3);
+    EXPECT_EQ(*it, 2);
+    EXPECT_EQ(*--it, 1);
 }
 
-TEST(IteratorRangeTest, MapKeyValuePair) {
+TEST(IteratorTest, DecrementForwardOnlyThrows) {
+    // input_iterator без bidirectional: std::istream_iterator-like поведение моделируем
+    // через forward-итератор-подобный тип нельзя; проверяем на std::forward_list.
+    std::forward_list<int> values{1, 2};
+    Iterator<int> it{values.begin(), values.end()};
+    EXPECT_THROW(--it, std::logic_error);
+}
+
+TEST(IteratorTest, EmptyIteratorThrows) {
+    Iterator<int> it;
+    EXPECT_FALSE(it.hasNext());
+    EXPECT_THROW(*it, std::out_of_range);
+    EXPECT_THROW(++it, std::out_of_range);
+    EXPECT_THROW(--it, std::out_of_range);
+}
+
+TEST(IteratorTest, ExhaustedThrows) {
+    std::vector<int> values{1};
+    Iterator<int> it{values};
+    EXPECT_EQ(*it, 1);
+    ++it;
+    EXPECT_FALSE(it.hasNext());
+    EXPECT_THROW(*it, std::out_of_range);
+    EXPECT_THROW(++it, std::out_of_range);
+}
+
+TEST(IteratorTest, MapValues) {
     std::map<std::string, int> values{{"a", 1}, {"b", 2}};
-    IteratorRange it{values};
+    Iterator<std::pair<const std::string, int>> it{values};
     int sum = 0;
-    for (const auto& entry : it) {
-        sum += entry.second;
+    while (it) {
+        sum += (*it).second;
+        ++it;
     }
     EXPECT_EQ(sum, 3);
 }
 
-TEST(IteratorRangeTest, ResetAndEquality) {
+TEST(IteratorTest, Factories) {
     std::vector<int> values{1, 2, 3};
-    IteratorRange lhs{values.begin(), values.end()};
-    IteratorRange rhs{values.begin(), values.end()};
-    EXPECT_TRUE(lhs == rhs);
-    ++rhs;
-    EXPECT_FALSE(lhs == rhs);
-    lhs.reset(values.begin(), values.end());
-    EXPECT_EQ(*lhs, 1);
+    auto from_iterators = makeIterator<int>(values.begin(), values.end());
+    auto from_range = makeIterator<int>(values);
+    static_assert(std::is_same_v<decltype(from_iterators), decltype(from_range)>);
+    EXPECT_EQ(*from_iterators, 1);
+    EXPECT_EQ(*from_range, 1);
 }
 
-TEST(IteratorRangeTest, Factories) {
-    std::vector<int> values{1, 2, 3};
-    auto from_iterators = makeIteratorRange(values.begin(), values.end());
-    auto from_range = makeIteratorRange(values);
-    static_assert(std::is_same_v<decltype(from_iterators), decltype(from_range)>);
-    EXPECT_EQ(from_iterators.size(), 3);
-    EXPECT_EQ(from_range.size(), 3);
-    int sum = 0;
-    for (int value : from_range) {
-        sum += value;
-    }
-    EXPECT_EQ(sum, 6);
+TEST(IteratorTest, RejectsTemporaryContainer) {
+    static_assert(!std::constructible_from<Iterator<int>, std::vector<int>>);
+    static_assert(std::constructible_from<Iterator<int>, std::vector<int>&>);
 }
 
 } // namespace

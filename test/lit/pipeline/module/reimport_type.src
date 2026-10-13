@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/reimport_type $TD/main.src
+# RUN: $TD/reimport_type && echo "PASS"
+# CHECK: PASS
+#
+# Повторный импорт модуля с типом идемпотентен: повторная регистрация того же объявления
+# (тот же узел AST) не является дублем; анализ тела модуля выполняется ОДИН раз.
+
+//--- main.src
+\lib(Point);
+\lib();
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib;
+:Point ::= :Struct{ x:Int32 := _; };

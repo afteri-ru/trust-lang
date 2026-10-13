@@ -1,0 +1,14 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Single-signature free operator `*`: тип операнда проверяется единым конвейером
+# (объявлен для Int32, применён к Point → no matching operator).
+:Point ::= :Class{
+    x : Int32 := _;
+};
+__deref__(p:Int32):Int32 := { @return p; };
+@main() := {
+    a : Point := :Point(1);
+    y : Int32 := *a;
+    @return 0;
+}
+# CHECK: error: no matching operator '*' for type 'Point'

@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Базовый скоуп DSL неизменяем из файлов: переопределение группы, определённой вне модулей,
+# отклоняется (`-Wdsl-macro-redefined`, по умолчанию Error) и НЕ применяется. Поэтому интерфейс
+# файла не зависит от импортёра: без запрета `flag` получил бы тело из main.src.
+# CHECK: error: macro group 'true' is defined in the DSL base scope; a file cannot redefine it
+
+//--- main.src
+@@ true @@ 0 @@@@;
+\lib(flag);
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib {
+    flag:Bool := true;
+};

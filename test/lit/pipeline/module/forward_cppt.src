@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust --temp-dir $TD --emit-module-deps main.src > %t.out
+# RUN: %FileCheck %s <%t.out
+#
+# Модуль, у которого тип объявлен forward'ом в интерфейсе и определён в теле, НУЖДАЕТСЯ в
+# собственном `.cppt` даже без out-of-line функций: определение не публикуется на сайте импорта.
+# CHECK: {{.*}}lib-{{[0-9a-f]+}}.cppt:{{.*}}lib.src
+
+//--- main.src
+\lib();
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib {
+    :Pt ::= :Struct ...;
+};
+:Pt ::= :Struct{ x:Int32 := _; };

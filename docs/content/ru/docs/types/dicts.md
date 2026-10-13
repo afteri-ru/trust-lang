@@ -55,7 +55,7 @@ Flag  ::= (LOW:Int8, HIGH,):Enum;            # явный тип члена за
 берётся минимальный знаковый целый по позиции.
 
 ```python
-Data ::= (i=42, s='text', r=1\2,):Variant;  # типы членов: Int8, StrChar, Rational
+Data ::= (i=42, s="text", r=1\2,):Variant;  # типы членов: Int8, StrChar, Rational
 V    ::= (X:Int64=7, Y:Rational,):Variant;  # явные типы членов
 ```
 

@@ -1,10 +1,6 @@
 // trust/interrupt.hpp - прерывания потока выполнения для TrustLang.
 //
-// Public runtime header: self-contained (standard headers only) so that generated
-// C++ programs can include it without depending on the compiler's include tree.
-// At build time it is embedded into trust-runtime.so/.a (via #embed, in an ELF
-// section named "trust/interrupt.hpp"); the pipeline extracts it into a temporary
-// `trust/` directory when a generated program uses try/catch-блоки (TRY_*).
+// Delivery: package file `include/trust/interrupt.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 //
 // Классификация «ошибка или нет» идёт по классу прерывания (см.
 // docs/architecture/errors.md):

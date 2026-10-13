@@ -1,166 +1,18 @@
 # ═══════════════════════════════════════════════════════════════════════
-#  Build System Rules
+#  Build System — краткая справка
+#  Соглашения о путях, манифесте компонента, публичном API и PCH проверяются
+#  автоматически (trust_component + cmake/check_*.cmake), поэтому здесь их нет.
 # ═══════════════════════════════════════════════════════════════════════
 #
-#  1. Source file paths
-#     ┌ src/ files   →  ${PROJECT_SOURCE_DIR}/<component>/<file>.cpp
-#     │                  (PROJECT_SOURCE_DIR = ${CMAKE_SOURCE_DIR}/src)
-#     ├ non-src files →  ${CMAKE_SOURCE_DIR}/<path>/<file>.cpp
-#     │                  (tests/, contrib/, etc.)
-#     └ Generated     →  ${CMAKE_BINARY_DIR}/<path>/<file>.cpp
-#     NO relative paths with ".." in source file lists.
-#
-#  2. Header directories
-#     ┌ Project headers →  trust_include_dirs INTERFACE target
-#     │                    (adds ${PROJECT_INCLUDE_DIR} = include/)
-#     └ Component-local →  target_include_directories(<lib> PUBLIC/PRIVATE ...)
-#
-#  3. Libraries (static)
-#     name: <component>_lib
-#     type: STATIC
-#     visibility: PUBLIC propagates upstream, PRIVATE for impl details
-#
-#  4. Executables (tools)
-#     name: prefixed by purpose (trust_cli, stdlib, ...)
-#     CMAKE_RUNTIME_OUTPUT_DIRECTORY = ${CMAKE_BINARY_DIR} (all binaries flat).
-#
-#  5. Test categories
-#     Tests are registered with CTest (enable_testing in the root CMakeLists.txt)
-#     and run via `ctest --output-on-failure`. Each suite (unit_tests, lit_tests,
-#     vscode_*) is a single CTest test; on failure `--output-on-failure` prints
-#     the full report including the failing test names.
-#     ┌ unit/  - C++ unit tests (single executable: unit_tests)
-#     │           Sources under test/unit/, registered in test/unit/CMakeLists.txt.
-#     ├ lit/   - LIT integration tests (lit.cfg.py.in → lit.cfg.py)
-#     │           Sources under test/lit/, registered in test/lit/CMakeLists.txt.
-#     ├ vscode/ - VSCode extension unit & integration tests
-#     │           (run by jest/node, registered in test/vscode/CMakeLists.txt).
-#     ├ examples/ - standalone programs (examples/*.src), run one-by-one via
-#     │           `trust --run` as a late CTest stage `examples_tests` (after
-#     │           unit/lit/vscode, gated via the `examples_deps` fixture). NOT lit tests.
-#     ├ integration/ - playground end-to-end chain (after examples; fixture integration_deps).
-#     └ package/ - Distribution archive + Debian package tests (test/package/),
-#                   registered as the LAST test subdirectory, so they run only once
-#                   all prior suites pass (FIXTURES_REQUIRED package_deps).
-#                   Built/tested ONLY on release builds (default TRUST_BUILD_PACKAGE=ON
-#                   when CMAKE_BUILD_TYPE=Release, OFF otherwise); see cmake/package.cmake.
-#
-#  6. Debug executables (gdb_debuggee / gdb_main)
-#     - Declared in test/unit/CMakeLists.txt (standalone debuggee + GDB harness).
-#     - Helper executables; debug tests are not part of the CTest suite.
-#     To build manually:  cmake --build _build --target gdb_main gdb_debuggee
-#
-#  7. Generated files
-#     custom_command + custom_target + add_dependencies for ordering.
-#
-#  8. C++20 modules
-#     Separate PCM build via custom_command.
-#     target_trust_module() / target_runtime_module() to attach.
-#
-#  9. Component CMakeLists.txt
-#     Each component has exactly one CMakeLists.txt file, located
-#     at include/<component>/CMakeLists.txt. This file defines the static
-#     library and/or executables for the component. The src/<component>/
-#     directory contains only .cpp implementation files, but does not
-#     contain its own CMakeLists.txt file.
-#     This rule applies only to project COMPONENTS (include/*/). Test
-#     directories (test/*) are not components and may have their own
-#     CMakeLists.txt layout.
-#
-# 10. VSCode tasks.json
-#     The project root must always contain an up-to-date .vscode/tasks.json.
-#     Configuration is a SEPARATE step from build/test. Both configure tasks use ONE
-#     build dir (_build/); the active build type is the one configured last:
-#     - "cmake: configure (dev)"      -> cmake -B _build -DCMAKE_BUILD_TYPE=Debug
-#     - "cmake: configure (release)"  -> cmake -B _build -DCMAKE_BUILD_TYPE=Release
-#     Build/test tasks never re-run configure; they operate on the pre-configured _build/:
-#     - "cmake: build (full)"            (default build)
-#     - "cmake: build test binaries"     (unit_tests, trust, trust-dap, trust-lsp, ...)
-#     - "test: all via ctest" / verbose
-#     - Direct execution of unit_tests with shuffle and filter
-#     There may be more tasks, but these must be present. To build/test a RELEASE, run
-#     "cmake: configure (release)" first (it reconfigures _build as Release), then use the
-#     same build/test tasks on _build/.
-#
-# 11. Common build commands
-#     ----------------------------------------------------------
-#     # Конфигурация (из корня проекта)
-#     cmake -B _build -G "Unix Makefiles"
-#     cmake -B _build -G "Unix Makefiles" -DWITH_TORCH=ON   # с Torch
-#
-#     # Сборка всего проекта
-#     cmake --build _build
-#
-#     # Сборка отдельных библиотек
-#     cmake --build _build --target <component>_lib         # e.g. ast_lib, diag_lib
-#
-#     # Сборка исполняемых файлов
-#     cmake --build _build --target <name>                  # e.g. trust, trust-dap, trust-lsp
-#
-#     # Сборка и запуск тестов
-#     cmake --build _build --target unit_tests             # сборка unit-тестов (без запуска)
-#     ctest --test-dir _build --output-on-failure          # запуск ВСЕХ тестов (GTest + lit + vscode + examples)
-#     ctest --test-dir _build --output-on-failure -R 'lit_tests'   # только lit
-#     ctest --test-dir _build --output-on-failure -R 'vscode_'     # только vscode
-#     ctest --test-dir _build --output-on-failure -R '^examples_tests$'  # финальная стадия examples (фикстуры прогонят и предыдущие суиты)
-#     cmake --build _build --target run_tests              # собрать бинарники + запустить ctest (все тесты)
-#
-#     # Генерация парсеров (bison + flex) в _build/syntax
-#     cmake --build _build --target gen_syntax_parsers
-#
-#     # Очистка артефактов сборки (исходники не затрагиваются)
-#     cmake --build _build --target clean
-#
-# 12. AI agent build commands
-#     ----------------------------------------------------------
-#     Неинтерактивные команды для запуска сборки ИИ-агентом
-#     (например, Cline). Все команды выполнять из корня проекта.
-#     Избегать шагов, требующих ввода или TTY.
-#
-#     # 1) Configure - генерация make-файлов (аналог "cmake: configure"
-#     #    из .vscode/tasks.json). Опции задаются здесь.
-#     cmake -B _build -G "Unix Makefiles"
-#     cmake -B _build -G "Unix Makefiles" -DWITH_TORCH=ON   # с опциями
-#
-#     # 2) Configure + build одной командой (полный цикл с нуля)
-#     cmake -B _build -G "Unix Makefiles" && cmake --build _build -j"$(nproc)"
-#
-#     # 3) Инкрементальная параллельная сборка (после изменения кода)
-#     cmake --build _build -j"$(nproc)"
-#
-#     # 4) Сборка конкретной цели (библиотека/исполняемый/тесты)
-#     cmake --build _build --target ast_lib -j"$(nproc)"
-#     cmake --build _build --target trust -j"$(nproc)"
-#     cmake --build _build --target unit_tests -j"$(nproc)"
-#
-#     # 5) Запуск тестов ОБЯЗАТЕЛЬНО с timeout (антизависание):
-#     timeout 600 ctest --test-dir _build --output-on-failure   # все тесты (включая examples - финальная стадия)
-#     timeout 600 cmake --build _build --target run_tests       # собрать бинарники + ctest
-#
-#     # 5a) Финальная стадия examples (examples/*.src - standalone-программы).
-#     #     Выполнится только если все предыдущие суиты прошли (fixture examples_deps);
-#     #     иначе ctest пометит examples_tests как "Not Run".
-#     #     Примечание: из-за фикстуры -R прогонит также setup-суиты (unit/lit/vscode/package).
-#     timeout 600 ctest --test-dir _build --output-on-failure -R '^examples_tests$'
-#
-#     # 6) Переконфигурация (обычно выполняется сама через
-#     #    CMAKE_CONFIGURE_DEPENDS после правки CMakeLists/терминалов)
-#     cmake -B _build -G "Unix Makefiles"
-#
-#     # 7) Очистка артефактов сборки (не трогает исходники)
-#     cmake --build _build --target clean
-#
-#     # Требования к окружению (см. cmake/dependencies.cmake):
-#     #   clang/clang++-22, CMake >= 3.28, GTest, flex, bison, lit,
-#     #   libzstd, gmp, nlohmann_json, CLI11, msgpack-c (static), LLVM 22.
-#     # Опции конфигурации (задаются на шаге configure):
-#     #   -DCMAKE_BUILD_TYPE=Release  релизная сборка (архив + .deb собираются только здесь)
-#     #   -DCMAKE_BUILD_TYPE=Debug     сборка разработки (default, версия с git-хешем)
-#     #   -DWITH_TORCH=ON        libtorch (tensor_cpu plugin)
-#     #   -DWITH_SOLVER=ON       SMT solver Z3
-#     #   -DTRUST_BUILD_VSIX=OFF  отключить сборку .vsix (требует Node.js/npm)
-#     #   -DTRUST_BUILD_PACKAGE=ON  архив + deb даже на dev-сборке (default: ON в Release)
-#     #   -DTRUST_USE_PCH=OFF    отключить общий precompiled header (в release ОБЯЗАТЕЛЬНО OFF)
+#  конфигурация:  cmake -B _build -G "Unix Makefiles" [-D<OPT>=...]
+#  сборка/тесты:  make build | timeout 900 make test | make test-quiet
+#  фон:           _build/trust-build.sh --background <pid> <log>,
+#                 затем ОДИН вызов --wait <pid> <log> (разные интервалы внутри)
+#  параллелизм:   политика в cmake/parallelism.cmake; -j вручную НЕ передаётся
+#  компоненты:    include/<component>/CMakeLists.txt = trust_component(...) (манифест)
+#  опции:         WITH_TORCH, WITH_SOLVER, TRUST_BUILD_VSIX, TRUST_BUILD_PACKAGE, TRUST_BUILD_DAP,
+#                 TRUST_BUILD_DEBUG_INFO (fine|gmlt|none), TRUST_USE_CCACHE, TRUST_CCACHE_MAXSIZE
+#  линковка:      lld при наличии (CMAKE_EXE/SHARED_LINKER_FLAGS += -fuse-ld), иначе системный bfd
 #
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -174,8 +26,10 @@ set(CMAKE_CXX_COMPILER clang++-${CLANG_VERSION} CACHE FILEPATH "" FORCE)
 project(trust-lang LANGUAGES C CXX)
 
 # -- Common paths --
+# PROJECT_INCLUDE_DIR / TRUST_SRC_DIR — пути проекта. НЕ переопределяем встроенные
+# переменные CMake (PROJECT_SOURCE_DIR принадлежит project() и указывает на корень проекта).
 set(PROJECT_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
-set(PROJECT_SOURCE_DIR "${CMAKE_SOURCE_DIR}/src")
+set(TRUST_SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 
 # -- Global settings --
 set(CMAKE_CXX_STANDARD 23)
@@ -213,6 +67,20 @@ add_compile_options(
 # в стеке вызовов. Применяем ко всем исполняемым файлам.
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -rdynamic")
 
+# -- lld linker (fallback на системный bfd) --
+# Измерение (Debug, llvm-22): линковка unit_tests bfd ~5.7s против lld ~0.8s.
+# Берём АБСОЛЮТНЫЙ путь: clang выводит lld по имени из своего каталога LLVM, но в Debian
+# `ld.lld` в PATH нет (есть ld.lld-<версия>), поэтому по имени могут быть расхождения.
+find_program(TRUST_LD_LLD NAMES "ld.lld" "ld.lld-${CLANG_VERSION}"
+             HINTS "/usr/lib/llvm-${CLANG_VERSION}/bin" "/usr/local/lib/llvm-${CLANG_VERSION}/bin")
+if(TRUST_LD_LLD)
+    set(CMAKE_EXE_LINKER_FLAGS    "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=${TRUST_LD_LLD}")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=${TRUST_LD_LLD}")
+    message(STATUS "Linker:     ${TRUST_LD_LLD}")
+else()
+    message(STATUS "Linker: lld не найден, используется системный линкер (bfd)")
+endif()
+
 # -- Module path & version module --
 # CMAKE_MODULE_PATH must be set before any include(<cmake module>). cmake/version.cmake is
 # included BEFORE the options below because option defaults (TRUST_BUILD_PACKAGE /
@@ -222,35 +90,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(version)
 include(release_checks)
 
-# -- Release-mode flag: single source of truth used by the release gate below, the
-# distribution-artifact option defaults and the clean-tree severity. TRUST_BUILD_MODE is computed
-# in cmake/version.cmake (release == CMAKE_BUILD_TYPE=Release; Debug / unset => dev).
-set(_trust_mode_release OFF)
-if(TRUST_BUILD_MODE STREQUAL "release")
-    set(_trust_mode_release ON)
-endif()
-
-# -- Shared precompiled header (build-time optimization; dev-focused) --
-# A PCH precompiles the stable, heavy header prefix (libstdc++ + AST/types/analysis) once,
-# cutting per-TU front-end time. It is a pure optimization: it must NEVER be load-bearing, so
-# every TU has to compile with TRUST_USE_PCH=OFF (that config is the mandatory verification one).
-# Release builds MUST NOT use the PCH: the distributed artifact is compiled from fully explicit
-# includes (a PCH can mask a missing #include). Overriding to ON is a configuration error.
-# Defined BEFORE the release-consistency gate so this cheap, self-contained misconfiguration is
-# reported first (fail fast).
-set(_trust_pch_default ON)
-if(_trust_mode_release)
-    set(_trust_pch_default OFF)
-endif()
-option(TRUST_USE_PCH "Use the shared project precompiled header (build speedup)" ${_trust_pch_default})
-if(_trust_mode_release AND TRUST_USE_PCH)
-    message(FATAL_ERROR
-        "Release build configuration error: TRUST_USE_PCH=ON is not allowed in release builds.\n"
-        "  A release artifact must be compiled with explicit includes only (a PCH can mask a missing #include).\n"
-        "Fix:\n"
-        "    cmake -B _build -DCMAKE_BUILD_TYPE=Release -DTRUST_USE_PCH=OFF\n"
-        "  For everyday work use a dev build (CMAKE_BUILD_TYPE=Debug) with TRUST_USE_PCH=ON.")
-endif()
+# TRUST_IS_RELEASE is defined in cmake/version.cmake — the single source of truth for the mode.
 
 # Release-consistency gate (configuration time): a release build embeds the clean release
 # number, so it is allowed only on a release branch 'release/<MAJOR>.<MINOR>.X' or
@@ -258,25 +98,31 @@ endif()
 # 'v<X.Y.Z>', a fully clean tree (git status --porcelain empty) and a matching '[Release v<X.Y.Z>]'
 # entry in CHANGELOG.md (or detached at that tag). Any other git state -> configuration error
 # ending with a `git` fix command. Runs only for CMAKE_BUILD_TYPE=Release.
-if(_trust_mode_release)
+if(TRUST_IS_RELEASE)
     trust_check_release_consistency()
 endif()
 
 # -- Options --
 option(WITH_TORCH "Enable libtorch support (builds libtensor_cpu.so)" OFF)
+# Capability flag for C++ code: CMake's WITH_TORCH is not visible to sources. The
+# existing TRUST_HAS_TORCH macro is the single source of truth for "this toolchain was
+# built with libtorch" (also used by runtime/tensor.hpp and src/runtime/tensor.cpp).
+if(WITH_TORCH)
+    add_compile_definitions(TRUST_HAS_TORCH=1)
+endif()
 option(WITH_SOLVER "Enable SMT solver (Z3) for formal verification" OFF)
 # Distribution artifacts (VSIX / archive + .deb) are part of the default build only in release
 # builds, so their option defaults follow the release-mode flag; they can still be forced on a
 # dev build (-DTRUST_BUILD_VSIX=ON / -DTRUST_BUILD_PACKAGE=ON) to run their tests.
-option(TRUST_BUILD_VSIX "Build trust-lang VSIX package (requires Node.js)" ${_trust_mode_release})
+option(TRUST_BUILD_VSIX "Build trust-lang VSIX package (requires Node.js)" ${TRUST_IS_RELEASE})
 option(TRUST_BUILD_DAP "Build trust-dap debug adapter (requires GDB)" OFF)
-option(TRUST_BUILD_PACKAGE "Build distribution archive and Debian package (and run their tests)" ${_trust_mode_release})
+option(TRUST_BUILD_PACKAGE "Build distribution archive and Debian package (and run their tests)" ${TRUST_IS_RELEASE})
 
 # -- Compiler debug tracing (two levels: C++ TRUST_DEBUG/TRUST_SCOPE and TrustLang @__DEBUG__/@__DEBUG_SCOPE__) --
 # TRUST_TRACE_ENABLED=1 in dev builds, 0 in release: at 0 the C++ macros are compiled out entirely
 # (arguments not evaluated) and the TrustLang system macros produce no output (a warning instead).
 set(_trust_trace_default ON)
-if(_trust_mode_release)
+if(TRUST_IS_RELEASE)
     set(_trust_trace_default OFF)
 endif()
 option(TRUST_ENABLE_TRACE "Enable compiler debug tracing (TRUST_TRACE_ENABLED)" ${_trust_trace_default})
@@ -286,12 +132,27 @@ else()
     add_compile_definitions(TRUST_TRACE_ENABLED=0)
 endif()
 
+# -- C++ debug information (Debug builds) --
+# fine — полный -g (по умолчанию, текущее поведение); gmlt — только line-tables (-gmlt: сборка
+# быстрее/легче, в отладчике нет локальных переменных); none — без отладочной информации.
+set(TRUST_BUILD_DEBUG_INFO "fine" CACHE STRING "C++ debug info level: fine | gmlt | none")
+set_property(CACHE TRUST_BUILD_DEBUG_INFO PROPERTY STRINGS fine gmlt none)
+if(NOT TRUST_BUILD_DEBUG_INFO MATCHES "^(fine|gmlt|none)$")
+    message(FATAL_ERROR
+        "TRUST_BUILD_DEBUG_INFO: ожидается fine, gmlt или none (получено '${TRUST_BUILD_DEBUG_INFO}')")
+endif()
+if(TRUST_BUILD_DEBUG_INFO STREQUAL "gmlt")
+    string(REPLACE "-g" "-gmlt" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+elseif(TRUST_BUILD_DEBUG_INFO STREQUAL "none")
+    set(CMAKE_CXX_FLAGS_DEBUG "")
+endif()
+
 # -- Clean-tree pre-check severity for artifact targets (package / deb / VSIX) --
 # Artifacts that embed VERSION/TRUST_VERSION must correspond to a committed state: hard error in
 # release builds (artifacts in the default build), warning when force-enabled on a dev build.
 # require_clean_tree.cmake.in is configured once here; referenced by cmake/package.cmake and
-# include/vscode/CMakeLists.txt (and the root `extension_vsix` target below).
-if(_trust_mode_release)
+# include/vscode/CMakeLists.txt.
+if(TRUST_IS_RELEASE)
     set(TRUST_CLEAN_SEVERITY "error")
 else()
     set(TRUST_CLEAN_SEVERITY "warning")
@@ -322,6 +183,22 @@ include(dependencies)
 include(generate_files)
 include(generate_parsers)
 include(package)
+include(component)
+include(parallelism)
+include(test)
+
+# -- Build parallelism: single policy (cmake/parallelism.cmake) --
+# The job count is recomputed by the generated `trust-build.sh` on every build: available
+# memory and the cgroup headroom at build time differ from the configure-time ones.
+# Configure only reports the current value; trust-build-jobs.txt is written EXCLUSIVELY by
+# the wrapper (single writer) — a configure-time copy would be stale between builds.
+trust_compute_build_jobs(TRUST_BUILD_JOBS_EFFECTIVE)
+# Тестовый параллелизм ctest: независим от бюджета памяти сборки (см. parallelism.cmake).
+set(TRUST_TEST_JOBS "" CACHE STRING "ctest -j for tests (default: logical cores)")
+trust_compute_test_jobs(TRUST_TEST_JOBS_EFFECTIVE)
+configure_file(cmake/trust-build.sh.in "${CMAKE_BINARY_DIR}/trust-build.sh" @ONLY)
+file(CHMOD "${CMAKE_BINARY_DIR}/trust-build.sh"
+     PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
 # -- Configuration display --
 message(STATUS "═══════════════════════════════════════════════════")
@@ -332,9 +209,14 @@ message(STATUS "  C++ Standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "  Build Type:   ${CMAKE_BUILD_TYPE}")
 message(STATUS "  Build Mode:   ${TRUST_BUILD_MODE} (release|dev)")
 message(STATUS "  Build Dir:    ${CMAKE_BINARY_DIR}")
+message(STATUS "  Build jobs:   -j${TRUST_BUILD_JOBS_EFFECTIVE} (memory budget ${TRUST_BUILD_MEMORY_BUDGET_MIB} MiB, ${TRUST_BUILD_CORES} cores)")
+message(STATUS "  Test jobs:    -j${TRUST_TEST_JOBS_EFFECTIVE} (ctest)")
+message(STATUS "  ccache:       ${TRUST_CCACHE_LAUNCHER}")
+message(STATUS "  Debug info:   ${TRUST_BUILD_DEBUG_INFO}")
 message(STATUS "  lit:          ${LIT_EXECUTABLE}")
 message(STATUS "  Flex:         ${FLEX_EXECUTABLE}")
 message(STATUS "  nlohmann_json: ${nlohmann_json_VERSION}")
+message(STATUS "  tomlplusplus:  ${tomlplusplus_VERSION}")
 message(STATUS "  LLVM:         ${LLVM_VERSION}")
 message(STATUS "  Version:      ${TRUST_VERSION}")
 
@@ -342,46 +224,67 @@ message(STATUS "═════════════════════�
 
 # -- Interface targets --
 add_library(trust_include_dirs INTERFACE)
-target_include_directories(trust_include_dirs INTERFACE ${PROJECT_INCLUDE_DIR} ${PROJECT_INCLUDE_DIR}/runtime ${CMAKE_BINARY_DIR}/include)
+target_include_directories(trust_include_dirs INTERFACE ${PROJECT_INCLUDE_DIR} ${CMAKE_BINARY_DIR}/include)
 
 # -- Unified LLVM system include target --
+# `-idirafter` (not `-isystem`): with clang++-22 over libstdc++ 14 an `-isystem` LLVM dir
+# shadows <cxxabi.h> with LLVM's libc++abi header; gtest (which includes <cxxabi.h>) then
+# fails with conflicting __cxa_init_primary_exception declarations. LLVM headers remain
+# available, but standard-library headers are searched first.
 add_library(trust_llvm_dirs INTERFACE)
-target_include_directories(trust_llvm_dirs SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS})
+foreach(_llvm_include IN LISTS LLVM_INCLUDE_DIRS)
+    target_compile_options(trust_llvm_dirs INTERFACE "-idirafter" "${_llvm_include}")
+endforeach()
 
-# -- Subdirectories --
+# -- Subdirectories (компоненты) --
+# Компонент = каталог include/<component>/ с CMakeLists.txt, поэтому список
+# НЕ поддерживается вручную: он выводится из дерева (CONFIGURE_DEPENDS). Порядок —
+# алфавитный; явные исключения ниже нужны потому, что от порядка зависит существование
+# целей на момент вызова add_dependencies (target `trust` создаётся в include/pipeline
+# и требуется runtime/stdlib-пакетам).
 add_subdirectory(include/trust)
 
-# Precompiled headers: torch_pch (WITH_TORCH) / trust_pch (TRUST_USE_PCH). Always added: the
-# trust_pch INTERFACE target must exist for component targets that link it unconditionally.
-add_subdirectory(include/precompiled)
+# Precompiled header: torch_pch (libtorch, WITH_TORCH) only; project TUs always compile from fully
+# explicit includes. PCH is a build helper, not a component: it lives in cmake/torch_pch.cmake.
+include(cmake/torch_pch.cmake)
 
-add_subdirectory(include/location)
-add_subdirectory(include/module_loader)
-add_subdirectory(include/diag)
-add_subdirectory(include/sourcemap)
-add_subdirectory(include/session)
-add_subdirectory(include/attrs)
-add_subdirectory(include/ast)
-add_subdirectory(include/types)
-add_subdirectory(include/analysis)
-add_subdirectory(include/semantic)
-add_subdirectory(include/transpiler)
-add_subdirectory(include/utils)
-# Стандартная библиотека: ассеты (.src/.hpp) + провайдер src/stdlib/stdlib_assets.cpp.
-# ДО include/pipeline: pipeline_lib линкует stdlib_lib (извлечение stdlib-заголовков),
-# include/lsp получает его транзитивно через pipeline_lib.
-add_subdirectory(include/assets)
-add_subdirectory(include/stdlib)
-add_subdirectory(include/pipeline)
-add_subdirectory(include/solver)
-add_subdirectory(include/driver)
-add_subdirectory(include/runtime)
-add_subdirectory(include/debug)
-add_subdirectory(include/lsp)
-add_subdirectory(include/playground)
-add_subdirectory(include/vscode)
-add_subdirectory(include/syntax)
-add_subdirectory(include/formatter)
+file(GLOB _trust_component_dirs CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/*/CMakeLists.txt")
+list(SORT _trust_component_dirs)
+foreach(_component_cmake IN LISTS _trust_component_dirs)
+    get_filename_component(_component_dir "${_component_cmake}" DIRECTORY)
+    get_filename_component(_component_name "${_component_dir}" NAME)
+    if(_component_name STREQUAL "trust")
+        continue()  # инфраструктура модуля добавлена выше
+    endif()
+    add_subdirectory("${_component_dir}")
+endforeach()
+
+# Core stdlib and provider packages are built from these subdirectories and delivered as
+# `.trust` archives in share/trust. Each package self-registers its target; `trust` already
+# exists here (include/pipeline), поэтому пакеты добавляются после всех компонентов.
+add_subdirectory(include/stdlib/core)
+add_subdirectory(include/stdlib/tensor)
+
+# Каждый .cpp компонента зарегистрирован ровно в одном trust_component(SOURCES ...) —
+# ловит TU, выпавшие из сборки после перегруппировки файлов (см. cmake/component.cmake).
+trust_component_verify_sources()
+
+# All packages (core stdlib and providers) self-register in TRUST_PACKAGE_TARGETS (see their
+# CMakeLists). One aggregate target keeps distribution/test ordering free of a hardcoded
+# package list; the archive itself copies the whole share/trust directory.
+get_property(TRUST_PACKAGE_TARGETS GLOBAL PROPERTY TRUST_PACKAGE_TARGETS)
+add_custom_target(trust_packages ALL)
+if(TRUST_PACKAGE_TARGETS)
+    add_dependencies(trust_packages ${TRUST_PACKAGE_TARGETS})
+endif()
+
+if(TARGET package)
+    add_dependencies(package trust_packages)
+endif()
+if(TARGET deb)
+    add_dependencies(deb trust_packages)
+endif()
 
 # -- Общие пути для тестовых данных --
 # Определены здесь (до test-поддиректорий), чтобы быть доступными во всех test/CMakeLists.txt
@@ -399,6 +302,57 @@ add_subdirectory(test/unit)
 
 # -- LIT tests --
 add_subdirectory(test/lit)
+
+# -- Link-guard: syntax/ast/session не зависят от module_loader --
+add_subdirectory(test/guards)
+
+# -- CI-гейты: позитивный прогон на дереве + негативный self-test на фикстуре (WILL_FAIL) --
+# Обвязка — cmake/guard_common.cmake, регистрация — cmake/guard_register.cmake.
+include(cmake/guard_register.cmake)
+
+# kind-диспетчеризация только через ast/kind_dispatch.hpp (switch/case по ParserToken::Kind —
+# лишь в allowlist-файлах).
+trust_add_guard(kind_dispatch_guard cmake/check_kind_dispatch.cmake FIXTURE test/guards/fixture_root)
+
+# Домены имён: storage-ключ — только types/storage_key.*, trust-имя — только через
+# utils::qualifyTrustName, namespace-путь — только в allowlist-точках.
+trust_add_guard(name_domains_guard cmake/check_name_domains.cmake FIXTURE test/guards/fixture_name_domains)
+
+# Единый источник состава AST-узла: каждое поле-слот объявлено строкой ast/node_slots_x.hpp,
+# каждый класс с непустыми строками объявляет AST_SLOT_METHOD.
+trust_add_guard(ast_slots_guard cmake/check_ast_slots.cmake FIXTURE test/guards/fixture_ast_slots)
+
+# Зависимости кода соответствуют зависимостям сборки: каждый include покрыт link-замыканием
+# компонента, каждое ребро подкреплено include-ами, PUBLIC-ребро используется в заголовках.
+trust_add_guard(component_deps_guard cmake/check_component_deps.cmake FIXTURE test/guards/fixture_component_deps)
+
+# Публичная граница компонента: другой компонент не включает <comp>/<zone>/...
+# (детали реализации) — только заголовки корня компонента.
+trust_add_guard(internal_boundary_guard cmake/check_internal_boundary.cmake FIXTURE test/guards/fixture_internal_boundary)
+
+# Публичный API компонента = только объявленные в манифесте заголовки корня; каждый объявленный
+# доступен снаружи (или через зонтичный заголовок), каждый подкаталог классифицирован.
+trust_add_guard(public_api_guard cmake/check_public_api.cmake FIXTURE test/guards/fixture_public_api)
+
+# MEMORY.md есть у компонента и у каждого подкаталога, шапка корректна.
+# МАРКЕР: скрипт cmake/check_internal_memory.cmake — инструмент ручной проверки; в run_tests
+# не регистрируется (объём MEMORY.md не блокирует сборку).
+# trust_add_guard(internal_memory_guard cmake/check_internal_memory.cmake FIXTURE test/guards/fixture_internal_memory)
+
+# Раскладка подкаталогов: реализация вне корня src/<component>/ у немалых компонентов, каждый
+# подкаталог объявлен (INTERNAL_DIRS/PUBLIC_DIRS), в корне include/<component>/ — только интерфейс,
+# корень компонента не публикуется как include-путь. Долг до реорганизации — в allowlist гейта.
+trust_add_guard(subdir_layout_guard cmake/check_subdir_layout.cmake FIXTURE test/guards/fixture_subdir_layout)
+
+# CODESTYLE §3: `using namespace` запрещён в заголовках; `using namespace std/clang/llvm` — везде.
+trust_add_guard(using_namespace_guard cmake/check_using_namespace.cmake FIXTURE test/guards/fixture_using_namespace)
+
+# Хуки (.clinerules/hooks): классы правил PreToolUse (блокировка/информирование) и запись tasklog.
+trust_add_test_suite(hooks_selftest
+    TIMEOUT 120
+    LABELS hooks
+    COMMAND bash ${CMAKE_SOURCE_DIR}/test/hooks/selftest.sh
+)
 
 # -- VSCode extension tests --
 add_subdirectory(test/vscode)
@@ -435,36 +389,34 @@ endif()
 # trust-dap НЕ входит в сборку тестов (собирается отдельно и только при TRUST_BUILD_DAP=ON).
 set(_run_tests_targets unit_tests trust trust-lsp trust-playground integration generate_lit_cfg_py)
 
+# The standard library package and all registered provider packages must exist before
+# anything that runs the pipeline (LSP, playground, unit tests, integration harness).
+add_dependencies(trust-lsp trust_packages)
+add_dependencies(trust-playground trust_packages)
+add_dependencies(unit_tests trust_packages)
+add_dependencies(integration trust_packages)
+
 # Только сборка тестовых бинарников (без запуска ctest).
+# Обычная агрегирующая цель: сборка идёт ОДНИМ вызовом cmake --build, поэтому политика
+# параллелизма (cmake/parallelism.cmake) применяется ровно один раз — в обёртке trust-build.sh.
 add_custom_target(test-binaries
-    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target ${_run_tests_targets}
     DEPENDS ${_run_tests_targets}
-    COMMENT "Build test binaries (unit/lit/vscode/integration), no ctest"
+    COMMENT "Test binaries (unit/lit/vscode/integration), no ctest"
 )
+
+# Плагин tensor_cpu (WITH_TORCH) входит в `all`, но НЕ в линк-замыкание тестовых бинарников.
+# Лит-тест codegen/tensor/run.src загружает его В РАНТАЙМ «рядом с trust» (runtime locator).
+# Без явной зависимости сборка только test-binaries после clean дала бы missing plugin.
+if(TARGET tensor_cpu)
+    add_dependencies(test-binaries tensor_cpu)
+endif()
 
 # Собирает тестовые бинарники и запускает ВСЕ зарегистрированные CTest-тесты.
 add_custom_target(run_tests
-    COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${CMAKE_BINARY_DIR} --output-on-failure
+    COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${CMAKE_BINARY_DIR} --output-on-failure -j ${TRUST_TEST_JOBS_EFFECTIVE}
     DEPENDS test-binaries
     COMMENT "Build test binaries, then run all tests via CTest (unit + lit + vscode + integration)"
 )
 
 
-# -- Упаковка VS Code расширения (VSIX) --
-# Версия для имени пакета берётся из файла VERSION (см. include/vscode/packager/package-extension.sh), а не из
-# жёстко заданной include/vscode/extensions/trust-lang/package.json, поэтому имя .vsix всегда
-# соответствует актуальной версии проекта (не нужно править вручную при каждом изменении).
-# Запуск: cmake --build _build --target extension_vsix
-find_program(NPX_EXECUTABLE npx)
-if(NPX_EXECUTABLE)
-    add_custom_target(extension_vsix
-        # Clean-tree pre-check: VSIX embeds the version (with git hash on dev builds), so it must
-        # correspond to a committed state (error in release, warning in dev - see require_clean_tree.cmake).
-        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
-        COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/include/vscode/packager/package-extension.sh
-        COMMENT "Package Trust VS Code extension VSIX (version from VERSION file)"
-        VERBATIM
-    )
-else()
-    message(WARNING "npx not found - target 'extension_vsix' (VS Code extension packaging) is unavailable")
-endif()
+

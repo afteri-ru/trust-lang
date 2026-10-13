@@ -9,13 +9,13 @@
 //   4) каждая прагма присутствует в списке прагм (pragmaMacroNames) и распознаётся pragmaEval
 //      (не выводит «Uknown pragma»).
 
-#include "syntax/warning_push.h"
+#include "syntax/util/warning_push.h"
 #include <gtest/gtest.h>
-#include "syntax/warning_pop.h"
+#include "syntax/util/warning_pop.h"
 
 #include "syntax/predef_macro.hpp"
-#include "syntax/pragma_evaluator.hpp"
-#include "syntax/term.h"
+#include "syntax/macro/pragma_evaluator.hpp"
+#include "syntax/term/term.h"
 #include "session/context.hpp"
 
 #include <algorithm>

@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Член ШАБЛОННОГО record обязан быть определён в заголовке, а `__::`-хелпер в заголовок не попадает:
+# вызов модульного символа из шаблонного тела невыразим в C++ → явная Trust-диагностика вместо
+# ошибки C++ у клиента.
+# CHECK: error: member 'Box::dbl' references a module-level entity that the module header does not publish
+
+//--- main.src
+\lib(apply);
+@main():Int32 := { @return apply(1) - 2; };
+
+//--- lib.src
+\lib;
+__:: {
+    helper(x:Int32):Int32 := { @return x + 1; };
+};
+<T> :Box ::= :Class{
+    v:T := _;
+    dbl():Int32 := { return helper(1); };
+};
+apply(x:Int32):Int32 := { return helper(x); };

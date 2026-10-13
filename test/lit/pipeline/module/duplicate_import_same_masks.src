@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Повторный импорт того же файла с теми же нормализованными масками в одном скоупе — ошибка
+# (конфигурируемая диагностика duplicate-import).
+# CHECK: error: duplicate import of module '\lib' with the same masks in this scope
+
+//--- main.src
+\lib();
+\lib();
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib;
+f():Int32 := { @return 1; };

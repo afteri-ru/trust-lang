@@ -5,6 +5,6 @@
 @main() := {
     && u := 5:Int32;
     b := & u;
-    @print('{}\n', *b);
+    @print("{}\n", *b);
 }
 # CHECK: error: cannot take a reference to a monopolistic 'unique' owner

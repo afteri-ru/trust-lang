@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# `using` с целью-namespace-алиасом: `ns:: :- \lib::ns::;` привязывает префикс, а `... = ns;`
+# расширяет поиск по тому же пути — обе формы идут через единый `NameResolver::resolveUsing` →
+# `findVisibleFromModule`, поэтому короткое имя разрешается из экспорт-набора модуля.
+
+//--- main.src
+\lib();
+ns:: :- \lib::ns::;
+... = ns;
+@main():Int32 := { @return f(1) - 1; };
+
+//--- lib.src
+\lib;
+ns:: {
+    f(x:Int32):Int32 := { @return x; };
+};

@@ -1,0 +1,14 @@
+# RUN: %trust -q --emit-cpp -Wborrowed=error -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Flow: @[borrowed]-представление вышло из области видимости -> мутация источника
+# после блока допустима (ScopeExit на всех путях).
+@main() := {
+    a := [1, 2, 3,];
+    {
+        @[borrowed@] w := a;
+        @print("{}\n", w[0]);
+    };
+    a = [4, 5, 6,];
+    @print("{}\n", a[0]);
+}
+# CHECK-NOT: while dependent variable(s)

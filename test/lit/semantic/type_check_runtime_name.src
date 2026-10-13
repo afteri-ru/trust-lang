@@ -2,6 +2,6 @@
 #
 # Нереализованные формы сравнения типов → явная диагностика-ошибка (без silent fallback).
 # CHECK: error: type name from a runtime variable is not implemented
-name := 'Int32';
+name := "Int32";
 x := 5;
 r := x <~ name;

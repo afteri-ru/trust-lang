@@ -9,7 +9,7 @@
 // parameter) and hands Locker an opaque release handle (detail::SyncRelease) whose unlock() is
 // called by the Locker destructor.
 //
-// Built-in access-synchronization policies (registered in the TypeRegistry as built-in types
+// Built-in access-synchronization policies (registered in the TypeSystem as built-in types
 // under Group::kSync, marked with the `sync` attribute; referenced by name as the 2nd argument
 // of @[reftype("shared"/"weak", <policy>)@]):
 //   AccessSingleThread - object usable ONLY in the thread where it was created;
@@ -21,9 +21,7 @@
 // that and report a deadlock on expiry; 0 - no wait (non-blocking); <0 - block forever (detector
 // off, classic mutex). On a positive timeout the blocking lock() throws trust::IntMinus (deadlock).
 //
-// This header is self-contained (std headers only) and embedded into trust-runtime
-// (ELF section "trust/trusted-cpp-sync.hpp"); the pipeline extracts it when a program uses a
-// synchronized reference.
+// Delivery: package file `include/trust/trusted-cpp-sync.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 //
 // RE-ENTRANCY: shared_timed_mutex is NOT recursive. Taking a lock_const() (shared) while already
 // holding lock() (exclusive) on the SAME object within one thread is a user error -> self-deadlock

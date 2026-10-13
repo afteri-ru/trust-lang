@@ -1,6 +1,11 @@
 # include/trust/CMakeLists.txt
 # C++20 module infrastructure (trust module)
 
+# Компонент — инфраструктура C++20-модуля `trust`: библиотечной цели нет (только PCM/объект),
+# манифест объявлен для единообразия проверок (public_api_guard).
+trust_component(trust NO_LIB)
+
+
 # -- PCM build configuration --
 set(TRUST_PCM "${CMAKE_CURRENT_BINARY_DIR}/trust.pcm")
 set(TRUST_PCM_OBJ "${CMAKE_CURRENT_BINARY_DIR}/trust_module.o")
@@ -10,8 +15,9 @@ set(TRUST_MODULE_HEADERS
     types/typekind.hpp
     types/type_id.hpp
     types/group.hpp
-    types/registry.hpp
-    types/promotion.hpp
+    types/type_system.hpp
+    types/call/promotion.hpp
+    runtime/trust/type_state.hpp
 )
 list(TRANSFORM TRUST_MODULE_HEADERS PREPEND "${PROJECT_INCLUDE_DIR}/")
 
@@ -22,7 +28,6 @@ set(TRUST_MODULE_GENERATED_HEADERS
 set(TRUST_COMPILE_OPTIONS
     -std=c++${CMAKE_CXX_STANDARD}
     -I${PROJECT_INCLUDE_DIR}
-    -I${PROJECT_INCLUDE_DIR}/runtime
     -I${CMAKE_CURRENT_BINARY_DIR}
     -I${CMAKE_BINARY_DIR}/include
 )

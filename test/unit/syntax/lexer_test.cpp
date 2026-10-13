@@ -1,4 +1,6 @@
 #include "syntax/lexer_test_fixture.hpp"
+
+using namespace trust;
 TEST_F(Lexer, Word) {
     ASSERT_EQ(1, TokenParse("alpha  "));
     EXPECT_EQ(1, Count(TermID::NAME));
@@ -18,32 +20,32 @@ TEST_F(Lexer, Word) {
 }
 
 TEST_F(Lexer, StringEmpty) {
-    ASSERT_EQ(1, TokenParse("''"));
+    ASSERT_EQ(1, TokenParse("\"\""));
     EXPECT_EQ(1, Count(TermID::STRCHAR));
     EXPECT_EQ("", tokens[0]->getText()) << tokens[0]->getText();
 }
 
 TEST_F(Lexer, StringEmpty2) {
-    ASSERT_EQ(1, TokenParse("\"\""));
+    ASSERT_EQ(1, TokenParse("''"));
     EXPECT_EQ(1, Count(TermID::STRWIDE));
     EXPECT_EQ("", tokens[0]->getText()) << tokens[0]->getText();
 }
 
 TEST_F(Lexer, StringSimple) {
-    ASSERT_EQ(1, TokenParse("' '"));
+    ASSERT_EQ(1, TokenParse("\" \""));
     EXPECT_EQ(1, Count(TermID::STRCHAR));
     EXPECT_EQ(" ", tokens[0]->getText()) << tokens[0]->getText();
 }
 
 TEST_F(Lexer, StringSimple2) {
-    ASSERT_EQ(1, TokenParse("\" \""));
+    ASSERT_EQ(1, TokenParse("' '"));
     EXPECT_EQ(1, Count(TermID::STRWIDE));
     EXPECT_EQ(" ", tokens[0]->getText()) << tokens[0]->getText();
 }
 
 TEST_F(Lexer, FullString) {
     ASSERT_EQ(1, TokenParse("'  \t \xFF\r\\''"));
-    EXPECT_EQ(1, Count(TermID::STRCHAR));
+    EXPECT_EQ(1, Count(TermID::STRWIDE));
     /* Esc-последовательности больше не декодируются лексером */
     /* Вход: '  \t \xFF\r\' '  → содержимое:   \t \xFF\r\' */
     EXPECT_EQ("  \t \xFF\r\\'", tokens[0]->getText()) << tokens[0]->getText();
@@ -51,10 +53,41 @@ TEST_F(Lexer, FullString) {
 
 TEST_F(Lexer, FullString2) {
     ASSERT_EQ(1, TokenParse("\"  \t \xFF\r\\\"\""));
-    EXPECT_EQ(1, Count(TermID::STRWIDE));
+    EXPECT_EQ(1, Count(TermID::STRCHAR));
     /* Esc-последовательности больше не декодируются лексером */
     /* Вход: "  \t \xFF\r\" "  → содержимое:   \t \xFF\r\" */
     EXPECT_EQ("  \t \xFF\r\\\"", tokens[0]->getText()) << tokens[0]->getText();
+}
+
+TEST_F(Lexer, StringApostropheInStrChar) {
+    ASSERT_EQ(1, TokenParse("\"it's\""));
+    EXPECT_EQ(1, Count(TermID::STRCHAR));
+    EXPECT_EQ("it's", tokens[0]->getText()) << tokens[0]->getText();
+}
+
+TEST_F(Lexer, StringDoubleQuoteInStrWide) {
+    ASSERT_EQ(1, TokenParse("'say \"hi\"'"));
+    EXPECT_EQ(1, Count(TermID::STRWIDE));
+    EXPECT_EQ("say \"hi\"", tokens[0]->getText()) << tokens[0]->getText();
+}
+
+TEST_F(Lexer, RawStringStrChar) {
+    ASSERT_EQ(1, TokenParse("R\"(abc)\""));
+    EXPECT_EQ(1, Count(TermID::STRCHAR));
+    EXPECT_EQ("abc", tokens[0]->getText()) << tokens[0]->getText();
+}
+
+TEST_F(Lexer, RawStringStrWide) {
+    ASSERT_EQ(1, TokenParse("R'(abc)'"));
+    EXPECT_EQ(1, Count(TermID::STRWIDE));
+    EXPECT_EQ("abc", tokens[0]->getText()) << tokens[0]->getText();
+}
+
+TEST_F(Lexer, AdjacentStringLiterals) {
+    ASSERT_EQ(2, TokenParse("\"a\" \"b\""));
+    EXPECT_EQ(2, Count(TermID::STRCHAR));
+    EXPECT_EQ("a", tokens[0]->getText());
+    EXPECT_EQ("b", tokens[1]->getText());
 }
 
 TEST_F(Lexer, Integer) {
@@ -70,6 +103,27 @@ TEST_F(Lexer, Integer) {
     EXPECT_EQ("123456", tokens[0]->getText()) << tokens[0]->getText();
     EXPECT_EQ("*", tokens[1]->getText()) << tokens[1]->getText();
     EXPECT_EQ("123", tokens[2]->getText()) << tokens[2]->getText();
+}
+
+TEST_F(Lexer, YieldGlyph) {
+    // yield: маркер |^| (симметричная форма |^| значение |^|) - цельный токен.
+    ASSERT_EQ(1, TokenParse("|^|"));
+    EXPECT_EQ(1, Count(TermID::YIELD)) << Dump();
+    EXPECT_EQ("|^|", tokens[0]->getText()) << tokens[0]->getText();
+}
+TEST_F(Lexer, AwaitWhenGlyphs) {
+    // await: |*| (один), |**| (ВСЕ), |***| (ХОТЯ БЫ ОДИН) - цельные токены рамки передач.
+    ASSERT_EQ(1, TokenParse("|*|"));
+    EXPECT_EQ(1, Count(TermID::AWAIT)) << Dump();
+    EXPECT_EQ("|*|", tokens[0]->getText()) << tokens[0]->getText();
+
+    ASSERT_EQ(1, TokenParse("|**|"));
+    EXPECT_EQ(1, Count(TermID::WHEN_ALL)) << Dump();
+    EXPECT_EQ("|**|", tokens[0]->getText()) << tokens[0]->getText();
+
+    ASSERT_EQ(1, TokenParse("|***|"));
+    EXPECT_EQ(1, Count(TermID::WHEN_ANY)) << Dump();
+    EXPECT_EQ("|***|", tokens[0]->getText()) << tokens[0]->getText();
 }
 
 TEST_F(Lexer, Float) {
@@ -176,7 +230,7 @@ TEST_F(Lexer, AssignEq) {
     ASSERT_EQ(3, TokenParse("token:=\"ssssssss\""));
     EXPECT_EQ(1, Count(TermID::NAME));
     EXPECT_EQ(1, Count(TermID::CREATE_NAME));
-    EXPECT_EQ(1, Count(TermID::STRWIDE));
+    EXPECT_EQ(1, Count(TermID::STRCHAR));
 
     EXPECT_EQ("token", tokens[0]->getText()) << tokens[0]->getText();
     EXPECT_EQ("ssssssss", tokens[2]->getText()) << tokens[2]->getText();
@@ -184,7 +238,7 @@ TEST_F(Lexer, AssignEq) {
     ASSERT_EQ(3, TokenParse("    token   \t  ::=   'ssssssss'       "));
     EXPECT_EQ(1, Count(TermID::NAME));
     EXPECT_EQ(1, Count(TermID::CREATE_TYPE));
-    EXPECT_EQ(1, Count(TermID::STRCHAR));
+    EXPECT_EQ(1, Count(TermID::STRWIDE));
 
     EXPECT_EQ("token", tokens[0]->getText()) << tokens[0]->getText();
     EXPECT_EQ("ssssssss", tokens[2]->getText()) << tokens[2]->getText();
@@ -303,7 +357,7 @@ TEST_F(Lexer, Arg) {
 }
 
 TEST_F(Lexer, Args) {
-    ASSERT_EQ(11, TokenParse("$0 $1 $22 $333 $4sss $sss1 -- ++ $* $^  ")) << Dump();
+    ASSERT_EQ(11, TokenParse("$0 $1 $22 $333 $4sss $sss1 |-| |+| $* $^  ")) << Dump();
     EXPECT_EQ(5, Count(TermID::ARGUMENT)) << Dump();
     // `$^` (псевдопеременная «результат последней операции») — НЕ аргумент: лексится как NAME (как `$$`),
     // чтобы доходить до AST обычным IdentName('$^'), а не ArgNode (см. is_last_result / token_base).
@@ -315,7 +369,7 @@ TEST_F(Lexer, Args) {
 }
 
 TEST_F(Lexer, MutArgs) {
-    ASSERT_EQ(11, TokenParse("$0^ $1^ $22 $333 $4sss^ $sss1^ -- ++ $* $^  ")) << Dump();
+    ASSERT_EQ(11, TokenParse("$0^ $1^ $22 $333 $4sss^ $sss1^ |-| |+| $* $^  ")) << Dump();
     EXPECT_EQ(5, Count(TermID::ARGUMENT)) << Dump();
     EXPECT_EQ(1, Count(TermID::ARGS)) << Dump();
     EXPECT_EQ(1, Count(TermID::INT_PLUS)) << Dump();
@@ -450,34 +504,32 @@ TEST_F(Lexer, ContinuationShortRationalWarns) {
     EXPECT_EQ(1, ctx.diag().warningCount()); // 4 цифры < 9 - предупреждение
 }
 
-TEST_F(Lexer, ContinuationStrWide) {
-    ctx.diag().clear();
-    ASSERT_EQ(1, TokenParse("\"ab\\\ncd\"")) << Dump();
-    EXPECT_EQ(1, Count(TermID::STRWIDE)) << Dump();
-    EXPECT_EQ("abcd", tokens[0]->getText()) << tokens[0]->getText();
-    EXPECT_EQ(0, ctx.diag().errorCount());
-    EXPECT_EQ(0, ctx.diag().warningCount());
-}
-
 TEST_F(Lexer, ContinuationStrChar) {
     ctx.diag().clear();
-    ASSERT_EQ(1, TokenParse("'ab\\\ncd'")) << Dump();
+    ASSERT_EQ(1, TokenParse("\"ab\\\ncd\"")) << Dump();
     EXPECT_EQ(1, Count(TermID::STRCHAR)) << Dump();
     EXPECT_EQ("abcd", tokens[0]->getText()) << tokens[0]->getText();
     EXPECT_EQ(0, ctx.diag().errorCount());
     EXPECT_EQ(0, ctx.diag().warningCount());
 }
 
-TEST_F(Lexer, ContinuationSpaceBetweenErrorStrWide) {
+TEST_F(Lexer, ContinuationStrWide) {
+    ctx.diag().clear();
+    ASSERT_EQ(1, TokenParse("'ab\\\ncd'")) << Dump();
+    EXPECT_EQ(1, Count(TermID::STRWIDE)) << Dump();
+    EXPECT_EQ("abcd", tokens[0]->getText()) << tokens[0]->getText();
+    EXPECT_EQ(0, ctx.diag().errorCount());
+    EXPECT_EQ(0, ctx.diag().warningCount());
+}
+
+TEST_F(Lexer, ContinuationSpaceBetweenErrorStrChar) {
     ctx.diag().clear();
     TokenParse("\"ab\\ \ncd\"");
-    EXPECT_GT(ctx.diag().errorCount(), 0)
-        << "whitespace between '\\' and newline inside a string must be a lexer error";
+    EXPECT_GT(ctx.diag().errorCount(), 0) << "whitespace between '\\' and newline inside a string must be a lexer error";
 }
 
 TEST_F(Lexer, ContinuationSpaceBetweenErrorInteger) {
     ctx.diag().clear();
     TokenParse("12\\ \n3");
-    EXPECT_GT(ctx.diag().errorCount(), 0)
-        << "whitespace between '\\' and newline after an integer must be a lexer error";
+    EXPECT_GT(ctx.diag().errorCount(), 0) << "whitespace between '\\' and newline after an integer must be a lexer error";
 }

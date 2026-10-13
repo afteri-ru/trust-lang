@@ -1,0 +1,25 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --emit-cpp main.src > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+#
+# F2: вид защиты стека привязан к ОБЪЯВЛЕНИЮ callee, а не к тексту trust-имени.
+# Два модуля объявляют одноимённую защищаемую функцию с РАЗНЫМИ лимитами; клиент вызывает
+# обе квалифицированно — каждая получает СВОЮ проверку (раньше обе брали одну запись).
+# CHECK: check_overflow(4096)
+# CHECK: check_overflow(8192)
+
+//--- main.src
+\sa(guard);
+\sb(guard);
+@main():Int32 := { @print("{} {}\n", \sa::guard(1), \sb::guard(2)); @return 0; };
+
+//--- sa.src
+\sa;
+@[stack_check(4096)@]
+guard(x:Int32):Int32 := { @return x; };
+
+//--- sb.src
+\sb;
+@[stack_check(8192)@]
+guard(x:Int32):Int32 := { @return x; };

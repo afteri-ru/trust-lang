@@ -12,6 +12,6 @@
     with(_ = *x) {
         *x = 9;
     };
-    print('after={}\n', *x);
+    print("after={}\n", *x);
     return 0;
 };

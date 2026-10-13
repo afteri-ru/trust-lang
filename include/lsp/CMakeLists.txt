@@ -1,62 +1,34 @@
 # include/lsp/CMakeLists.txt
-# LSP: Trust-lang Language Server Protocol (source mapping)
+# LSP: Trust-lang Language Server Protocol (source mapping) + executable `trust-lsp`.
 
-# -- Library --
-add_library(lsp_lib STATIC
-    ${PROJECT_SOURCE_DIR}/lsp/lsp_protocol.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/trust_lsp.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/document_manager.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/hover_service.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/navigation_service.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/analysis_service.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/code_action.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/formatting_service.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/html_emit.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/builtin_catalog.cpp
-    ${PROJECT_SOURCE_DIR}/lsp/completion.cpp
+trust_component(lsp
+    INTERNAL_DIRS catalog services
+    PUBLIC_HEADERS html_emit.h lsp_protocol.h
+    SOURCES
+        lsp_protocol.cpp html_emit.cpp
+        catalog/trust_lsp.cpp catalog/builtin_catalog.cpp
+        services/document_manager.cpp services/hover_service.cpp services/navigation_service.cpp
+        services/analysis_service.cpp services/code_action.cpp services/formatting_service.cpp
+        services/completion.cpp
+    LINK_PUBLIC
+        trust_include_dirs driver_lib symbols_lib session_lib sourcemap_lib semantic_lib
+    LINK_PRIVATE
+        transpiler_lib pipeline_lib formatter_lib nlohmann_json::nlohmann_json
+    # Для доступа к макропроцессору (syntax/macro.h) и реестру предопределённых макросов
+    # (syntax/parser.h), которые тянут генерируемый bison-заголовок parser.yy.h.
+    INCLUDE_PRIVATE ${CMAKE_BINARY_DIR}/syntax
+    # #embed (ресурсы playground: CSS/HTML/JS) - расширение Clang в режиме C++23.
+    COMPILE_OPTIONS -Wno-c23-extensions
 )
-
-target_link_libraries(lsp_lib PUBLIC
-    trust_include_dirs
-    debug_lib
-    semantic_lib
-    transpiler_lib
-    pipeline_lib
-    stdlib_lib
-    driver_lib
-    analysis_lib
-    session_lib
-    sourcemap_lib
-)
-
-target_link_libraries(lsp_lib PRIVATE
-    formatter_lib
-    nlohmann_json::nlohmann_json
-)
-
-# Для доступа к trust/version.h (генерируется в build/include) - приходит транзитивно через
-# trust_include_dirs, отдельный PRIVATE include не нужен.
-# Для доступа к макропроцессору (syntax/macro.h) и реестру предопределённых макросов
-# (syntax/parser.h), которые тянут генерируемый bison-заголовок parser.yy.h.
-target_include_directories(lsp_lib PRIVATE ${CMAKE_BINARY_DIR}/syntax)
-
-target_include_directories(lsp_lib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
-# #embed (ассеты playground) - расширение Clang в режиме C++23; выключаем предупреждение.
-# Ассеты stdlib (dsl.src) в lsp больше не вшиваются - приходят из stdlib_lib
-# (src/assets/asset_provider.cpp).
-set_target_properties(lsp_lib PROPERTIES COMPILE_OPTIONS "-Wno-c23-extensions")
 
 # ИНВАРИАНТ: зависимости от #embed-файлов (glue.js, trust.monarch.js, playground.css/html,
 # playground_page.html) НЕ прописываются вручную (нет OBJECT_DEPENDS):
-# clang >= 19 пишет #embed в depfile, и CMake пересобирает .cpp автоматически. Проверено по
-# _build/*.o.d (содержат все #embed-файлы). НЕ добавлять OBJECT_DEPENDS.
+# clang >= 19 пишет #embed в depfile, и CMake пересобирает .cpp автоматически. НЕ добавлять OBJECT_DEPENDS.
 
 # -- trust-lsp: LSP server для trust-lang source mapping --
+trust_claim_sources(lsp/main.cpp)
 add_executable(trust-lsp
-    ${PROJECT_SOURCE_DIR}/lsp/main.cpp
+    ${TRUST_SRC_DIR}/lsp/main.cpp
 )
 
 target_link_libraries(trust-lsp PRIVATE
@@ -66,7 +38,4 @@ target_link_libraries(trust-lsp PRIVATE
 
 target_include_directories(trust-lsp PRIVATE
     ${PROJECT_INCLUDE_DIR}
-    ${PROJECT_INCLUDE_DIR}/runtime
 )
-# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
-target_link_libraries(lsp_lib PRIVATE trust_pch)

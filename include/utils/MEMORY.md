@@ -2,36 +2,40 @@
 
 > scope: include/utils
 > role: persistent-memory
-> last_reviewed: 2026-09-23
+> last_reviewed: 2026-11-05
 > review_period: 30
-> max_size: 4100
+> max_size: 4000
 
 ## Architecture
 
-`utils/trace.hpp` — ядро отладочного вывода КОМПИЛЯТОРА (уровень 2: источник данных):
-`TRUST_DEBUG` (сообщения) и `TRUST_SCOPE` (дамп). Полное описание и порядок использования — в
-корневом `MEMORY.md` («Отладочная диагностика анализатора»).
+Общие утилиты. Публичный API — корень: `utils.hpp` (umbrella + `resolveTempDir`/`executablePath`),
+`error.hpp` (`FAULT`/`EXPECT`), `hash.hpp` (MD5), `string_interner.hpp` (пул строк),
+`import_masks.hpp`, `partial_switch.hpp`, `string_view_hash.hpp`, `strings.hpp` (umbrella строковых
+утилит). Другие компоненты включают ТОЛЬКО эти заголовки.
+
+Детали реализации — в internal-подкаталогах:
+
+| каталог | MEMORY | ответственность |
+|---|---|---|
+| `utils/io/` | `io/MEMORY.md` | `io`/`file_io`/`socket_io`, транспортный фрейминг, URI, zstd |
+| `utils/proc/` | `proc/MEMORY.md` | ELF-секции, backtrace, кеш, время |
+| `utils/digest/` | — (инварианты в коде) | хеширование содержимого (MD5: `md5Hex`/`md5HexFile`) |
+| `utils/strings/` | `strings/MEMORY.md` | `strings_text/ident/names/embed/escape/utf8` |
+| `utils/trace/` | `trace/MEMORY.md` | отладочная трассировка и реестр опций дампа |
 
 ## Facts and invariants
 
-- **Гейт `TRUST_TRACE_ENABLED`** (CMake `TRUST_ENABLE_TRACE`: dev ON / release OFF): при 0 макросы
-  вырезаны (аргументы не вычисляются, вызовы — no-op). Дефолт в заголовке — 0.
-- `setFilter`/`@__DEBUG__` управляет ТОЛЬКО сообщениями `TRUST_DEBUG`; `@__DEBUG_SCOPE__` от фильтра
-  НЕ зависит. Пустой фильтр → сообщения молчат.
-- **Авто-токены `Site` из `__FILE__`** (разбор один раз на call-site `static const Site`):
-  `root|path|component|rel|stem|file` + явные теги; маски `*`/`?`, списки через `,`; абсолютный путь не
-  хранится и не печатается (детерминизм при разной точке сборки).
-- **Первый аргумент макросов — строковый литерал.**
-- **Префикс на каждой строке вывода** (`utils::prefixEachLine`/`shortenedPath`): `.../file:line:` — место
-  вызова для `TRUST_DEBUG`, локация макроса для `@__DEBUG*`; `@__DEBUG__` дополнительно печатает эхо
-  применённого фильтра.
-- **Реестр опций дампа — `utils/trace_options.hpp`** (x-macro `TRUST_SCOPE_DUMP_OPTIONS`):
-  `level|types|max|count` (сентинел `Count`); значения без кавычек. Единый источник: валидация парсером
-  (до AST, диагностика со списком) + применение семантикой.
-
-## Decisions
+- **⚠ `StringInterner` (пул строк):** append-only, адреса стабильны (`deque` + `unordered_set`);
+  `internText()` пишет в АКТИВНЫЙ пул (`StringInternerScope`, thread-local), вне компиляции —
+  `manualStringInterner()`. Пул компиляции — per-Context без mutex; процессный — с mutex. Удалять
+  записи НЕЛЬЗЯ (view инвалидируются); `owns()` — проверка владения.
+- **`qualifyTrustName` живёт здесь, а не в `types/names.hpp`:** домен trust-имени нужен слоям
+  НИЖЕ `types` (`ast`), и он обязан оставаться в одной точке.
+- **⚠ Предикаты имён — ОДИН владелец `utils/strings.hpp`:** `isStaticName`/`isNativeName`/
+  `isMacroName`/`isLocalName`/`isLocalAnyName`/`isTrustReservedName`/`isQualifiedName`; `IdentName`
+  делегирует им, локальные `find("::")` в потребителях запрещены.
 
 ## Relations
 
-- Связь с языком: `include/syntax` (захват `@__DEBUG__`/`@__DEBUG_SCOPE__`) и `include/semantic`
-  (дамп, `analyzeDebugStmt`).
+- Связь с языком: `syntax` (захват `@__DEBUG__`/`@__DEBUG_SCOPE__`) и `semantic` (дамп состояния).
+- Отладочная диагностика целиком описана в корневом `MEMORY.md` и `utils/README.md`.

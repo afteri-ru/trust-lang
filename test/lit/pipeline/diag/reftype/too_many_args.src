@@ -1,4 +1,4 @@
-# RUN: %not %trust -q --temp-dir %T --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # Атрибут reftype принимает максимум 3 аргумента: kind[, access_policy[, impl]].
 # Пер-объектный таймаут детектора в атрибуте НЕ задаётся (настройка глобальная).

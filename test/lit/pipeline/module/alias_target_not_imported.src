@@ -1,0 +1,12 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --emit-cpp alias_target_not_imported.src > %t.out 2>&1 || true
+# RUN: %FileCheck %s --check-prefix=ERR <%t.out
+#
+# C: Ссылка в правой части алиаса НЕ загружает модуль: `\lib::g` без импорта `\lib` -
+# ошибка (ссылка обязана указывать на уже загруженный модуль), а не молчаливая привязка.
+# ERR: Module {{.*}}lib{{.*}} is not loaded
+
+//--- alias_target_not_imported.src
+\alias_target_not_imported;
+f :- \lib::g;

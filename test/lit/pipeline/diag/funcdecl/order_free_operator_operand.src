@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Z14: свободный оператор обязан иметь хотя бы один параметр пользовательского типа - иначе он
+# никогда не участвует в разрешении (built-in операторы - интринсики) и был бы мёртвым.
+__eq__(a: Int32, b: Int32): Bool := ...;
+
+# CHECK: error: free operator '__eq__' must have at least one parameter of a user-defined type

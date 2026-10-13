@@ -118,7 +118,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
                                   "        mult += 1;\n"
                                   "    };\n"
                                   "    @assert( fact == 3\\4 );\n"
-                                  "    print('{}', :StrChar(fact));\n"
+                                  "    print(\"{}\", :StrChar(fact));\n"
                                   "}\n";
     openTrustFile();
 
@@ -296,7 +296,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
         while (p <= trustText.size()) {
             auto nl = trustText.find('\n', p);
             std::string line = (nl == std::string::npos) ? trustText.substr(p) : trustText.substr(p, nl - p);
-            if (line.find("@assert") != std::string::npos || line.find("@while") != std::string::npos || line.find("print('{}'") != std::string::npos) {
+            if (line.find("@assert") != std::string::npos || line.find("@while") != std::string::npos || line.find("print(\"{}\"") != std::string::npos) {
                 for (int ch = 0; ch < static_cast<int>(line.size()); ++ch) {
                     if (!(std::isalnum(static_cast<unsigned char>(line[ch])) || line[ch] == '@')) {
                         continue;
@@ -352,6 +352,33 @@ TEST_F(TrustLspTest, HandleHover_ShowsDocumentation) {
     EXPECT_NE(first.find("документ для msg"), std::string::npos) << "hover[0]='" << first << "'";
 }
 
+// S2: документация РЕЭКСПОРТИРОВАННОГО фасадом имени. Символ принадлежит владельцу (`\lib`),
+// но видим на сайте импорта фасада — hover обязан показать его док.
+TEST_F(TrustLspTest, HandleHover_FacadeReExportShowsDocumentation) {
+    std::ofstream(tmpDir + "/lib.src") << "\\lib;\n/// док владельца\nreexported():Int32 := { @return 1; };\n";
+    std::ofstream(tmpDir + "/facade.src") << "\\facade {\n    \\lib(reexported);\n};\n";
+    std::ofstream(testSrcFile) << "\\facade(reexported);\nx := reexported();\n";
+    openTrustFile();
+
+    std::string fileUri = "file://" + testSrcFile;
+    json hoverReq = {{"jsonrpc", "2.0"},
+                     {"id", 43},
+                     {"method", "textDocument/hover"},
+                     {"params", {{"textDocument", {{"uri", fileUri}}}, {"position", {{"line", 1}, {"character", 6}}}}}};
+    lsp->handleRequest(hoverReq);
+
+    json resp = transport.lastResponse();
+    ASSERT_FALSE(resp.is_discarded());
+    ASSERT_TRUE(resp.contains("result") && resp["result"].contains("contents")) << resp.dump();
+    bool found = false;
+    for (const auto& part : resp["result"]["contents"]) {
+        if (part.is_string() && part.get<std::string>().find("док владельца") != std::string::npos) {
+            found = true;
+        }
+    }
+    EXPECT_TRUE(found) << resp.dump();
+}
+
 // Hover по каталоговому DSL-макросу (@func): макрос не транслируется в source map,
 // но док берётся из единого хранилища BuiltinCatalog::macroDocs() (см. ранний return
 // в hover-обработчике).
@@ -397,4 +424,30 @@ TEST_F(TrustLspTest, HandleHover_ShowsPragmaMacroDoc) {
     EXPECT_TRUE(contents[0].is_string());
     const std::string first = contents[0].get<std::string>();
     EXPECT_NE(first.find("@__OPTION_PUSH__"), std::string::npos) << "hover[0]='" << first << "'";
+}
+
+// S6: hover по ССЫЛКЕ показывает документ РАЗРЕШЁННОГО объявления (проекция семантики),
+// включая чужой модуль.
+TEST_F(TrustLspTest, HandleHover_ReferenceShowsResolvedDocumentation) {
+    std::ofstream(tmpDir + "/lib.src") << "\\lib;\n/// doc imported\nlf():Int32 := { @return 1; };\n";
+    std::ofstream(testSrcFile) << "\\lib(lf);\ny := \\lib::lf();\n";
+    openTrustFile();
+
+    std::string fileUri = "file://" + testSrcFile;
+    json hoverReq = {{"jsonrpc", "2.0"},
+                     {"id", 203},
+                     {"method", "textDocument/hover"},
+                     {"params", {{"textDocument", {{"uri", fileUri}}}, {"position", {{"line", 1}, {"character", 12}}}}}};
+    lsp->handleRequest(hoverReq);
+
+    json resp = transport.lastResponse();
+    ASSERT_FALSE(resp.is_discarded());
+    ASSERT_TRUE(resp.contains("result") && resp["result"].contains("contents")) << resp.dump();
+    bool found = false;
+    for (const auto& part : resp["result"]["contents"]) {
+        if (part.is_string() && part.get<std::string>().find("doc imported") != std::string::npos) {
+            found = true;
+        }
+    }
+    EXPECT_TRUE(found) << resp.dump();
 }

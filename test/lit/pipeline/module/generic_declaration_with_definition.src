@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/gen.hpp
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# S4c (обратная сторона): предварительное объявление generic-функции + её определение в
+# компиляции - S4c-диагностики НЕТ (проверяется только отсутствие определения).
+# H-модель: тело шаблона публикуется в заголовке модуля, поэтому клиент инстанцирует его.
+# HDR: namespace gen {
+# HDR: template <typename T>
+# HDR: return c_x;
+# HDR-NOT: template <typename T> T c_id_P5T0_3B_(T c_x);
+
+//--- main.src
+\gen(id);
+@main():Int32 := { @return id(1) - 1; };
+
+//--- gen.src
+\gen;
+<T> id(x:T):T := ...;
+<T> id(x:T):T := { @return x; };

@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Тип-алиас на типизированный шаблон `copy ::= :vector<Int32>;`: RHS `::=` - ЧИСТЫЙ ТИП (нет
 # арифметики), алиас становится `std::vector<int32_t>` (резолвится через `:Array`).

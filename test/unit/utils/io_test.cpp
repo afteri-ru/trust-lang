@@ -2,12 +2,10 @@
 //   - trust::trust__print__ - форматирование в стиле std::format и вывод в trust::outs()
 //     (бэкенд DSL-макроса `print`).
 //   - Rational форматируется как символьная строка "num\den" через std::format / print.
-//   - секция "trust/io.hpp" встроена в trust-runtime.so/.a.
 
 #include "trust/io.hpp"
 #include "trust/rational.hpp"
-#include "utils/elf.hpp"
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -87,20 +85,6 @@ TEST(PrintTest, RationalRejectsOverflowWidth) {
     trust::Rational r("3", "4");
     EXPECT_THROW(std::vformat("{:100000}", std::make_format_args(r)), std::format_error);
     EXPECT_THROW(std::vformat("{:99999999999999999999}", std::make_format_args(r)), std::format_error);
-}
-
-// -- Секция "trust/io.hpp" в рантайм-библиотеке ---------
-
-TEST(RuntimeHeaderTest, IoHeaderEmbeddedInSharedAndStatic) {
-    auto so = trust::utils::readSectionFromLibrary(TRUST_RUNTIME_SHARED_PATH, "trust/io.hpp");
-    ASSERT_TRUE(so.has_value());
-    auto a = trust::utils::readSectionFromLibrary(TRUST_RUNTIME_STATIC_PATH, "trust/io.hpp");
-    ASSERT_TRUE(a.has_value());
-
-    const std::string so_str(so->begin(), so->end());
-    const std::string a_str(a->begin(), a->end());
-    EXPECT_NE(so_str.find("trust__print__"), std::string::npos);
-    EXPECT_NE(a_str.find("trust__print__"), std::string::npos);
 }
 
 } // namespace

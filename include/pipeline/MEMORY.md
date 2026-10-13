@@ -1,57 +1,52 @@
 # MEMORY.md
 
-> scope: include/pipeline
+> scope: include/pipeline (public API)
 > role: persistent-memory
-> last_reviewed: 2026-09-15
+> last_reviewed: 2026-11-05
 > review_period: 30
-> max_size: 11900
+> max_size: 7000
 
 ## Architecture
 
-Оркестратор компиляции: syntax Parser (Flex/Bison; DSL `@trust/dsl` через `ParseText`) →
-`TermToAstConverter` (loader-free, НЕ мутирует Term) → semantic → transpile → сборка C++ через Makefile
-(`kMakefileBuild` + `build.conf`, дефолты из CMake, `-std=c++23`). `runPipeline` при errorCount>0 после
-ParseAST НЕ запускает semantic/transpile. Фиктивные in-memory источники помечаются в source map
-префиксом `@`.
+Оркестратор компиляции: Parser (Flex/Bison; DSL через `ParseText`) → `TermToAstConverter` (loader-free) →
+semantic (ядро → `materializeArgCasts` → `verifyTypedAst`) → `buildHir` → `verifyHir` → `buildMir` →
+DA/borrow по MIR → transpile → сборка C++ через `toolchain` (Makefile/`build.conf`). Прогон описывается `RunRequest`
+и возвращает `PipelineResult`; файлы артефактов пишет только сам `Pipeline` и только по непустому
+target-пути (пустой = артефакт остаётся в памяти, LSP/playground). Параметры кодогенерации берутся из
+`PipelineOpts`, а не из target. Публичный API — `pipeline.hpp` (umbrella: value-типы, forward declarations
+и реэкспорт archive/dsl/paths/sourcemap/symbols), `cli.hpp`, `commands.hpp`.
+
+Детали реализации — в internal-подкаталогах:
+
+| internal-подкаталог | MEMORY | ответственность |
+|---|---|---|
+| `pipeline/archive/` | — (инварианты в коде) | tar.gz-архив build-каталога (`--emit-build-dir`) |
+| `pipeline/backend/` | `backend/MEMORY.md` | контракт стадий + реализации (C++/SMT/Verify), emit/checks, оркестрация |
+| `pipeline/dsl/` | — (инварианты в коде) | DSL-макросы, stdlib prelude, эффективные keywords |
+| `pipeline/modules/` | `modules/MEMORY.md` | модульные юниты, заголовки `.hpp`/`.cppt` |
+| `pipeline/paths/` | — (инварианты в коде) | расчёт путей build-каталога и `.cppt`/`.hpp` |
+| `pipeline/run/` | `run/MEMORY.md` | `RunRequest`/`PipelineResult`, single-file, LSP-режим, DSL-bootstrap |
+| `pipeline/sourcemap/` | — (инварианты в коде) | сохранение `.cppt` + `#embed` source-map, ELF-секции |
 
 ## Facts and invariants
 
-- **Кеш `--run` учитывает codegen-опции.** Запись `.debug_trust_hash`: версия, строка `@opts\t<args>`,
-  затем `файл\tmd5` главного файла и модулей. `<args>` — нормализованный список ФАКТИЧЕСКИ заданных
-  codegen-релевантных опций (`PipelineOpts::codegen_args`, каноничная форма, сортировка + санитайз
-  переводов строк). Нерелевантные (`-v/-q/-W/--temp-dir/-o`) кеш НЕ инвалидируют; значимые (напр.
-  `-fno-overflow-check`) инвалидируют без смены исходников. Старые записи без `@opts` невалидны (одна
-  пересборка).
-- **`--run` и кеш:** бинарник запускается после сборки; кеш встраивается в ELF-секцию
-  `.debug_trust_hash`, пути ОТНОСИТЕЛЬНЫЕ от CWD; чтение — `utils::elf::readElfSection` (dlopen для PIE
-  не работает). Другой каталог с тем же именем файла — кеш НЕ применяется. Без `--temp-dir` выход —
-  `<исходник>/.trust/<stem>/` (`--run` — `<cwd>/.trust/<stem>/`); не-`--run` кладёт артефакты ТОЛЬКО в
-  `.trust`. Позиционные ПОСЛЕ входа при `--run` — аргументы программы (и через шебанг); без `--run`
-  лишний позиционный — ошибка.
-- **Шапка `.cppt` несёт `// trust-options: <args>`** (та же `codegenArgsRecord`): пишется ТОЛЬКО при
-  непустых фактически заданных codegen-опциях и входит в `prefix` (учитывается source-map). Это
-  трассируемость, НЕ механизм кеша.
-- **Однофайловый режим `-fsingle-file`/`-fno-single-file`:** обёртка `int main` встраивается в тот же
-  `.cppt` модуля; отдельный `_main.cppt`/`SRC_MAIN` не создаётся. По умолчанию включён при `--run`.
-  «Модуль-скрипт» (top-level код без `__main__`) — python-подобно: top-level операторы (вкл. `x := ...`)
-  DeclEmitter оборачивает в синтезируемую entry `<модуль>__main__` (переменные скрипта — локальные
-  main); функции/типы/области/`{% %}`-embed остаются на namespace. Entry может задаваться C++-embed,
-  поэтому при `!sawEntry` он проверяется по тексту `.cppt`.
-- **Скачиваемый архив песочницы (`emitBuildDirArchive`, trust-lsp `--emit-build-dir`) — однофайловый**
-  (`opts.single_file = true`, тот же путь, что `--run`): скрипт без `__main__` компилируется.
-  Многофайловый путь (`-o` без `-fsingle-file`) скрипт без main НЕ поддерживает.
-- **CLI и модель опций вынесены в `driver`** (`driver/options.hpp`, `driver/cli.hpp`,
-  `driver/analysis_options.hpp`): arity-aware `parseDriverArgs`/`DriverOption`, единый
-  `commonAnalysisOptions`, единая точка применения `-W` (`applyDiagnostics`), `parseBoolFlagValue`.
-  Подробности — `include/driver/MEMORY.md`.
-- **Макросы:** `trust/dsl.src` загружается один раз в `Context` (`setMacro`); каждый Parser наследует
-  Macro через `Context&`. `--dsl <file>` заменяет, `--no-dsl` отключает.
-- **LSP-режим:** `allow_semantic_on_errors` (LSP включает всегда) разрешает семантику на частичном AST;
-  Transpile при ошибках не выполняется. `releaseTypes()` отдаёт владение TypeRegistry вызывающему
-  (чтобы TypeId в SymbolIndex оставался валидным).
-- **Декомпозиция:** `pipeline.cpp` разбит на модульные TU (только перестановка кода); `kEmbeddedDslSrc`
-  (#embed dsl.src) остаётся в `pipeline.cpp`. `-Wno-c23-extensions` нужен файлам с #embed.
-
-## Decisions
+- **При errorCount>0 после ParseAST semantic/transpile НЕ запускаются** (AST — восстановленный префикс
+  после parser error recovery, а не только обрезанный). Фиктивные in-memory источники помечаются в
+  source map префиксом `@`.
+- **⚠ Резолв путей и групповой импорт:** тип первого компонента (`\` файл, `\\` модуль, `\\\` пакет),
+  scope root (project/package), `-I`/`--package-path`; build-каталог — не корень поиска. Групповой
+  импорт нерекурсивный и разворачивается в файловые импорты; `dir.src` и `dir/` одновременно — ошибка.
+- **⚠ `checkExportedGenericDeclarations` — пост-проход Pipeline:** exported generic без тела и без
+  определения в ТОМ ЖЕ модуле — ошибка Trust, а не отложенная ошибка C++.
+- **⚠ `PipelineResult::strings` — владение текстами результата:** `shared_ptr<StringInterner>` (пул
+  `Context::strings()`), разделяется с AST/HIR/`SemanticModel` и держит тексты валидными после
+  разрушения `Context`. `PipelineResult::semantics` — модель семантики (persistent-таблица +
+  проекции), строится при шаге `Semantic`.
+- **⚠ Декомпозиция:** `pipeline.hpp` — только value-типы + forward declarations; модульные заголовки
+  самодостаточны (без «зонтика»). Prelude и пакетные заголовки — из `share/trust/stdlib.trust` в
+  `<build>/stdlib`; `-Wno-c23-extensions` нужен файлам с `#embed`.
 
 ## Relations
+
+- `semantic`, `transpiler`, `ir`, `solver`, `toolchain`, `module_loader`, `symbols`, `driver`, `package`, `formatter`;
+  диспетчеризация команд — `trust.cpp` (composition root).

@@ -4,7 +4,12 @@ tags: [syntax, macros]
 weight: 30
 ---
 
-Macros in **TrustLang** are elements of metaprogramming.
+Macros in **TrustLang** are a mechanism of **syntactic extension** (DSL), not type-level
+metaprogramming. Macros are expanded before the AST is built and before the type system, so they do
+not see data types, are not checked by the type system, and cannot select an implementation by type.
+Generic (type-level) metaprogramming is implemented by generic functions and templates — see
+[Generic programming](../types/generics/). The absence of macro export between files limits only the
+syntactic layer, not type-level metaprogramming.
 
 A macro is one or several consecutive terms that are replaced by another term
 or by a whole syntactic construct (a sequence of lexemes) and
@@ -22,9 +27,19 @@ Defining macros is similar to the [definition](/en/docs/operators/create/) of ot
 i.e. the usual operators **:=** or **=** are used to create a new or redefine an existing object,
 and the macro name is specified between two characters "**@@**" and may contain one or several lexemes (terms).
 
-All macros belong to the global namespace, therefore the first term in the macro name must be unique,
-otherwise it will shadow local and global variables during [name lookup](/en/docs/syntax/naming/),
-if they are written in the program text without [qualifiers (sigils)](/en/docs/syntax/naming/#sigil).
+Macros have **file scope**. Macros defined in an imported file are local to it and are **not visible** to the
+importer after the import completes. Macros of the calling file that are defined **before** the import statement are
+visible in the imported file (it inherits the already opened macro scopes). DSL and predefined (`@__...__`) macros are
+visible everywhere. Therefore shadowing of local and global variables during [name lookup](/en/docs/syntax/naming/) is
+possible only within the visible macro scope.
+
+The DSL base set is **immutable from files**: a group defined in the base scope (DSL/`--dsl`) cannot be
+redefined, extended with another arity or removed from a file — the compiler reports
+`-Wdsl-macro-redefined` (an error by default) and the definition is ignored (the base body stays in
+effect). The meaning of the language surface therefore does not depend on which files are loaded or in
+which order; a custom surface is provided via `--dsl`/configuration. The same rule makes the
+[file interface block](/en/docs/syntax/hierarchy/#file-interface) independent of the importer: only
+base-scope and predefined macros are allowed there.
 
 The body of a macro can be a valid language expression, a sequence of lexemes (which is enclosed in double at-signs "**@@**",
 i.e. **`@@ lexeme1 lexeme2 @@`**) or an ordinary text string (which must be specified between triple at-signs "**@@@**", i.e. **`@@@ text string @@@@`**).
@@ -128,7 +143,7 @@ For example, the same logic "loop up to 5" — in two forms:
 };</code></pre></td><td><pre><code>count := 1;
 [ 1 ] &lt;-&gt; {
     [ count &gt; 5 ] --&gt; {
-        -- 42 --;
+        |+ 42 +|;
     };
     count += 1;
 };
@@ -161,14 +176,14 @@ Filtering of messages is mandatory: without a specified `@__DEBUG__` filter, `TR
 printed. You can filter by a keyword, by a component, by a file and by a compiler path.
 
 ```trust
-@__DEBUG__("scope,resolve");        # enable TRUST_DEBUG messages by these keywords
+@__DEBUG__('scope,resolve');        # enable TRUST_DEBUG messages by these keywords
 x := 1;
 @__DEBUG_SCOPE__();                                        # full dump of the analyzer state
-@__DEBUG_SCOPE__("x*", level=all, types=on, max=10);       # with a name filter and options
+@__DEBUG_SCOPE__('x*', level=all, types=on, max=10);       # with a name filter and options
 @__DEBUG__();                       # disable messages (does not affect the dump)
 ```
 Output (a fragment): `prog.src:1: @__DEBUG__: debug messages ENABLED, filter='scope,resolve'`,
-`src/semantic/name_resolution.cpp:129: enter FuncDecl depth=3`,
+`src/semantic/core/name_resolution.cpp:129: enter FuncDecl depth=3`,
 `prog.src:3: scope: depth=2 names=1`, `prog.src:3:   [1] ModuleDecl \`prog.src\`: x`.
 
 ### Keyword syntax (DSL): the familiar keyword-based syntax
@@ -192,7 +207,7 @@ To avoid having to remember grammar rules and special characters, some DSL macro
 The `@func` command — defining a function without needing to remember the operator `:=`:
 
 ```trust
-@func myfn ( a:Int32 ) { @print('{}', a); };
+@func myfn ( a:Int32 ) { @print("{}", a); };
 @func add ( a:Int32, b:Int32 ): Int32 { @return a + b; };
 # → void myfn(int32_t a);  int32_t add(int32_t a, int32_t b);
 ```
@@ -232,9 +247,9 @@ The `@func` command — defining a function without needing to remember the oper
 ## Built-in functions and checks
 
 - *@assert( cond )* — Evaluate the expression and check it for truth at runtime
-- *@assert( cond, 'fmt', args... )* — A check with a message: on failure, instead of the condition text, `std::format(fmt, args...)` is output (the format string is a narrow literal `'...'`)
+- *@assert( cond, "fmt", args... )* — A check with a message: on failure, instead of the condition text, `std::format(fmt, args...)` is output (the format string is a narrow literal `"..."`)
 - *@verify( cond )* — Evaluate the expression and check it for truth at runtime; unlike `@assert`, the condition is evaluated even when checks are disabled
-- *@verify( cond, 'fmt', args... )* — The same, but with a format message on failure
+- *@verify( cond, "fmt", args... )* — The same, but with a format message on failure
 
 *If you run the compiler with the flag `-Wno-assert`, then the runtime checks of `@assert` are removed from the program text,
 while the computations inside `@verify` are performed, but their result is ignored.*

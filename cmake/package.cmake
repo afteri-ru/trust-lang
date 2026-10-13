@@ -8,6 +8,27 @@
 # derived (CMAKE_SYSTEM_NAME / CMAKE_SYSTEM_PROCESSOR), so the same logic works
 # for a native Linux build, a WSL2 build and, later, a native Windows build.
 
+# trust_artifact_target(<name> [ALL] COMMENT <text> COMMAND <cmd...> DEPENDS <target...>)
+# ЕДИНСТВЕННАЯ регистрация артефакта дистрибутива (архив, .deb, .vsix): clean-tree pre-check
+# (артефакт встраивает VERSION/TRUST_VERSION и должен соответствовать закоммиченному
+# состоянию, см. cmake/require_clean_tree.cmake) + скрипт сборки артефакта.
+function(trust_artifact_target _name)
+    cmake_parse_arguments(A "ALL" "COMMENT" "COMMAND;DEPENDS" ${ARGN})
+    if(NOT A_COMMAND)
+        message(FATAL_ERROR "trust_artifact_target(${_name}): COMMAND is required")
+    endif()
+    set(_all "")
+    if(A_ALL)
+        set(_all "ALL")
+    endif()
+    add_custom_target(${_name} ${_all}
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
+        COMMAND ${A_COMMAND}
+        DEPENDS ${A_DEPENDS}
+        COMMENT "${A_COMMENT}"
+    )
+endfunction()
+
 # Gated by the top-level option TRUST_BUILD_PACKAGE (default ON for release builds,
 # OFF for dev): the `package`/`deb` targets (and the configured build/check scripts)
 # exist only when the option is ON. Without it the distribution archive and the Debian
@@ -51,6 +72,9 @@ set(TRUST_PKG_STAGING "${CMAKE_BINARY_DIR}/package/${TRUST_PKG_STEM}")
 message(STATUS "Package stem:  ${TRUST_PKG_STEM}")
 message(STATUS "Package arch:  ${TRUST_PKG_ARCHIVE}")
 
+# Both distribution artifacts depend on the same produced binaries; keep the list in one place.
+set(TRUST_DIST_DEPENDS trust trust-lsp trust-playground trust_runtime trust_runtime_static)
+
 # -- Build-time script (configured once, run via cmake -P at build time) --
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/make_package.cmake.in
@@ -62,13 +86,11 @@ configure_file(
 # `ALL`: архив собирается как часть обычной сборки (`cmake --build _build`),
 # независимо от шагов выполнения тестов (test-бинарники и ctest не требуются).
 # Явный запуск по-прежнему возможен: `cmake --build _build --target package`.
-# Первый COMMAND - clean-tree pre-check (см. require_clean_tree.cmake): архив записывает
-# GitHash/версию в manifest, поэтому строится только из чистого закоммиченного дерева.
-add_custom_target(package ALL
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/make_package.cmake
-    DEPENDS trust trust-lsp trust-playground trust_runtime trust_runtime_static
+# Регистрация — через общий helper (clean-tree pre-check + скрипт сборки).
+trust_artifact_target(package ALL
     COMMENT "Building distribution archive ${TRUST_PKG_ARCHIVE}"
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/make_package.cmake
+    DEPENDS ${TRUST_DIST_DEPENDS}
 )
 
 # -- Test script (configured here; the add_test registration lives in the root
@@ -108,13 +130,11 @@ configure_file(
 
 if(DPKG_DEB_EXECUTABLE)
     # `ALL` only when dpkg tooling is present; otherwise a normal build must not
-    # depend on Debian-only tools.
-    add_custom_target(deb ALL
-        # Clean-tree pre-check (same as `package`): a .deb is a release artifact.
-        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
-        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/make_deb.cmake
-        DEPENDS trust trust-lsp trust-playground trust_runtime trust_runtime_static
+    # depend on Debian-only tools. Clean-tree pre-check — в общем helper.
+    trust_artifact_target(deb ALL
         COMMENT "Building Debian package (trust-lang_<version>_<arch>.deb)"
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/make_deb.cmake
+        DEPENDS ${TRUST_DIST_DEPENDS}
     )
     message(STATUS "Deb package enabled (dpkg-deb: ${DPKG_DEB_EXECUTABLE})")
 else()

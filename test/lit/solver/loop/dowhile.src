@@ -9,10 +9,9 @@
 # SM2: (declare-fun sum_n () (_ BitVec 32))
 # SM2: (declare-fun sum ((_ BitVec 32)) (_ BitVec 32))
 # SM2: (push 1)
-# SM2: (assert (and (bvsge sum_n (_ bv0 32)) (not (bvsge ((_ sign_extend 24) (ite (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n)
+# SM2: (assert (and (bvsge sum_n (_ bv0 32)) (not (=> (or (or (not (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n)) (and (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n) (not (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n)))) (and (and (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n) (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n)) (not (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n)))) (bvsge ((_ sign_extend 24) (ite (and (and (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n) (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n)) (not (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n))) (_ bv0 8) (ite (and (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n) (not (bvslt ((_ sign_extend 24) (_ bv0 8)) sum_n))) (_ bv0 8) (_ bv0 8)))) (_ bv0 32))))))
 # SM2: (check-sat)
 # SM2: (pop 1)
-# SM2: (assert (forall ((sum_n (_ BitVec 32))) (=> (bvsge sum_n (_ bv0 32)) (bvsge (sum sum_n) (_ bv0 32)))))
 
 # Z3: unsat
 

@@ -7,6 +7,8 @@
 
 #include <vector>
 
+using namespace trust;
+
 namespace {
 
 // Рекурсивный сбор всех узлов kind=Filling через единый источник детей collectChildren.
@@ -44,7 +46,7 @@ TEST_F(ParserTest, FillingInArrayLiteralParsesToAstNode) {
     ASSERT_EQ(slots.size(), 1u);
     ASSERT_NE(slots.front()->get(), nullptr);
     EXPECT_EQ(slots.front()->get()->kind(), ParserToken::Kind::IntLiteral);
-    EXPECT_EQ(slots.front()->get()->text(), "7");
+    EXPECT_EQ(requiredText(*slots.front()->get()), "7");
 }
 
 // `... expr ...` в аргументах вызова: тот же узел (правило `arg` - общее для всех `args`).
@@ -60,5 +62,5 @@ TEST_F(ParserTest, FillingInCallArgsParsesToAstNode) {
     ASSERT_EQ(f.m_body.size(), 1u);
     ASSERT_NE(f.m_body[0].get(), nullptr);
     EXPECT_EQ(f.m_body[0]->kind(), ParserToken::Kind::IntLiteral);
-    EXPECT_EQ(f.m_body[0]->text(), "9");
+    EXPECT_EQ(requiredText(*f.m_body[0]), "9");
 }

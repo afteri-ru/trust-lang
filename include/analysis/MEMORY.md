@@ -2,49 +2,36 @@
 
 > scope: include/analysis
 > role: persistent-memory
-> last_reviewed: 2026-09-17
+> last_reviewed: 2026-11-03
 > review_period: 30
-> max_size: 7000
+> max_size: 4000
 
 ## Architecture
 
-Продукты анализа, общие для анализатора (`semantic`) и кодогенерации (`transpiler`):
-- `symbol_table.hpp` — `Symbol`/`DeclResult`/`Storage`/`Scope`/`SymbolTable` (стек лексических скоупов);
-- `symbol_index.hpp` — `SymbolInfo`/`SymbolIndex` (плоский индекс для LSP);
-- `modes.hpp` — value-типы поведенческих режимов (`SolverMode`/`StackCheckMode`), имена нативных функций
-  контроля стека и структура `BehavioralModes` (разрешённые значения, передаваемые в кодоген как данные).
-
-Компонент НИЖЕ semantic/transpiler: опирается только на `ast`/`types`/`location`.
+Контракт анализа для БЭКЕНДОВ и верификатора (header-only): поведенческие режимы компилятора
+(`modes.hpp` — `BehavioralModes`, значения `--solver-mode`/`--stack-check`/`-Wsolver-loop`, имена
+нативных функций контроля стека) и классификация рантайм-проверок (`runtime_checks.hpp` —
+`RuntimeCheckKind`, `runtimeCheckOf`). Правила анализа живут в `semantic`, структура тела — в `ir`,
+символы — в `symbols`.
 
 ## Facts and invariants
 
-- **`SymbolTable` владеет `Symbol`;** `lookup`/`resolve` возвращают НЕвладеющие указатели (валидны до
-  `pop` скоупа/пересоздания таблицы).
-- **`declareOrComplete` НЕ перемещает `sym`** (кладёт копию): хук `onDeclare(sym)` видит полноценный
-  Symbol (имя/тип/decl), а не moved-from.
-- **⚠ Перегрузка функций — на ПРИВЯЗКЕ ИМЕНИ, не отдельный тип:** `Symbol::overloads` (непусто) —
-  набор сигнатур (интернированные FunctionTypeData TypeId); тогда `Symbol.type` — лишь
-  ПРЕДСТАВИТЕЛЬ (первая сигнатура) и НЕ является «сигнатурой имени» — единственный корректный путь
-  к выбору — резолвер (`semantic/overload_resolve.hpp`). `declareOrComplete` для двух функций с
-  одним именем и РАЗНЫМИ сигнатурами → `DeclResult::Overloaded` (набор расширяется), точный дубль
-  сигнатуры → `Duplicate`. Набор помечает ВСЕ объявления `FuncDecl::m_isOverloaded` (кодоген:
-  уникальные C++-имена/экспорт-записи).
-- **Скоуп-стек — часть драйвера обхода:** класс-скоуп открывается ТОЛЬКО через
-  `NameResolutionPass::enterScope/exitScope` (прямой `symbols().push/pop` рассинхронизирует хуки).
-- **`modes.hpp`: владелец ФЛАГОВ (`FlagKind`) — `semantic`;** этот компонент держит только value-типы,
-  чистые parse/format-хелперы и `BehavioralModes`. Имена нативных функций контроля стека — единый
-  источник (опечатка в распознавании/эмиссии невозможна).
-- `BehavioralModes{ solver (nullopt=не задан), stackCheck=explicit, reserve, functions }`; чистые
-  предикаты `solverAssertEnabled`/`stackCheckActive` принимают `BehavioralModes`, а не `Options`.
+- **⚠ Поведенческие режимы приходят ДАННЫМИ:** значения разрешает владелец флагов `semantic`
+  (`semantic::behavioralModesFromOptions`) и передаёт `BehavioralModes`; кодоген и верификатор НЕ
+  обращаются к `diag::Options`/`FlagKind` — иначе появились бы зависимости `transpiler`/`solver` →
+  `semantic`.
+- **⚠ `runtime_checks.hpp` — единый предикат «какая проверка нужна узлу»** по ФАКТАМ семантики
+  (`Binary::m_overflowCheck`, `RefTakeExpr::m_lowering`), а не по повторному выводу из типов/скоупов.
+  Политика (флаги) остаётся у потребителя; проверки, которых у кодогена нет, классификатор НЕ выдумывает.
+- **Имена нативных функций контроля стека — единый источник** (`analysis::stack_check_fn`): по ним
+  распознаёт семантика и эмитит вызов кодоген (опечатка в одном месте исключена).
 
 ## Decisions
 
-- Продукты анализа вынесены из `semantic`, чтобы `transpiler` не зависел от анализатора (P5): кодогену
-  нужен `SymbolTable` только как источник типов/сигнатур, а не сам анализатор.
-- Поведенческие режимы передаются в кодоген ДАННЫМИ (`BehavioralModes`), а не читаются из
-  `diag::Options` в эмиттерах — снята последняя связь `transpiler → semantic`.
+- Value-типы режимов принадлежат нейтральному компоненту: `transpiler`/`solver` получают данные, не
+  завися от анализатора.
 
 ## Relations
 
-- Зависит от `ast`, `types`, `location`.
-- `semantic_lib` и `transpiler_lib` линкуют `analysis_lib`; `pipeline_lib`/`lsp_lib` — тоже (SymbolIndex).
+- `ast` (узлы для `runtimeCheckOf`), `semantic` (владелец флагов), `transpiler`/`solver` — потребители;
+  `ir` — структура тела, `symbols` — таблица символов.

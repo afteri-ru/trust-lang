@@ -1,0 +1,13 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Запись в const-поле диагностируется на уровне Trust (квалификатор объявленного
+# поля сохранён в QualType, а не потерян при сохранении RecordTypeData).
+
+:Holder ::= :Class{ b:Int32^ := 5; };
+
+@main():Int32 := {
+    h:Holder := Holder();
+    h.b += 7;
+    return h.b;
+};
+# CHECK: error: cannot assign to constant field 'b'

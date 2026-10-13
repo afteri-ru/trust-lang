@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Внутри одного модуля private и exported с одним именем - дубль (нельзя оба).
+# CHECK: error: duplicate declaration 'helper'
+
+//--- main.src
+\lib(api);
+@main():Int32 := { @return api(1); };
+
+//--- lib.src
+\lib;
+__:: {
+    helper(x:Int32):Int32 := { @return x; };
+};
+helper(x:Int32):Int32 := { @return x; };
+api(x:Int32):Int32 := { @return helper(x); };

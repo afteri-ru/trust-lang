@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Generic-функции с опущенным default пока не поддерживаются: явная диагностика вместо
+# невнятного no-matching-overload.
+<T> f(a:T, b:Int32 = 1):Int32 := { @return b; };
+@main() := {
+    @print("{}\n", f(7));
+    @return 0;
+}
+# CHECK: default arguments are not supported for generic function 'f'

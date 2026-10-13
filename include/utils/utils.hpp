@@ -1,6 +1,22 @@
 #pragma once
 
 #include "utils/error.hpp"
+// Umbrella: детали сгруппированы в internal-подкаталогах (io/ — ввод-вывод/транспорт/uri/zstd,
+// proc/ — ELF/backtrace/кеш/время, trace/ — отладочная трассировка, strings/ — строковые утилиты).
+// Другие компоненты включают ТОЛЬКО этот заголовок (и, при необходимости, отдельные публичные
+// заголовки корня: error/hash/string_interner/import_masks/partial_switch/string_view_hash/strings).
+#include "utils/io/file_io.hpp"
+#include "utils/io/io.hpp"
+#include "utils/io/socket_io.hpp"
+#include "utils/io/transport.hpp"
+#include "utils/io/uri.hpp"
+#include "utils/io/zstd_compress.hpp"
+#include "utils/proc/backtrace.hpp"
+#include "utils/proc/cache.hpp"
+#include "utils/proc/elf.hpp"
+#include "utils/proc/time.hpp"
+#include "utils/trace/trace.hpp"
+#include "utils/trace/trace_options.hpp"
 
 #include <filesystem>
 #include <string_view>
@@ -40,6 +56,22 @@ inline std::filesystem::path resolveTempDir(std::string_view baseDir = {}, bool 
     }
 
     return result;
+}
+
+// -----------------------------------------------------------------------
+// executablePath -- путь к реальному исполняемому файлу
+// -----------------------------------------------------------------------
+//
+// Симлинки раскрываются через /proc/self/exe. Пустой путь - определить не удалось
+// (вызывающий решает, что делать; тихого fallback нет).
+
+inline std::filesystem::path executablePath() {
+    std::error_code ec;
+    std::filesystem::path exe = std::filesystem::canonical("/proc/self/exe", ec);
+    if (ec) {
+        return {};
+    }
+    return exe;
 }
 
 } // namespace trust::utils

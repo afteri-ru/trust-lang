@@ -18,6 +18,6 @@ MyInt ::= :Int32;
     w : @[reftype("weak")@] MyInt := s;
     u : @[reftype("unique")@] MyInt := 7;
     i : @[reftype("shared")@] Integer := 3;
-    print('s={} w={} u={} i={}\n', *s, *w, *u, *i);
+    print("s={} w={} u={} i={}\n", *s, *w, *u, *i);
     return 0;
 };

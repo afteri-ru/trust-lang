@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q -Wduplicate-import=warning --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# duplicate-import — severity-опция: при warning повторный импорт не останавливает компиляцию.
+//--- main.src
+\lib();
+\lib();
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib;
+f():Int32 := { @return 1; };

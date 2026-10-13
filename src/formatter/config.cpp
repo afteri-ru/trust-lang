@@ -1,6 +1,7 @@
 #include "formatter/format.hpp"
 
-#include "utils/file_io.hpp"
+#include "utils/utils.hpp"
+#include "utils/strings.hpp"
 
 #include <cctype>
 #include <filesystem>
@@ -65,13 +66,8 @@ bool parseBool(const std::string& v, bool& out) {
 }
 
 bool parseInt(const std::string& v, int& out) {
-    if (v.empty()) {
+    if (!utils::isNumber(v)) {
         return false;
-    }
-    for (char c : v) {
-        if (!std::isdigit(static_cast<unsigned char>(c)) && c != '-') {
-            return false;
-        }
     }
     try {
         out = std::stoi(v);

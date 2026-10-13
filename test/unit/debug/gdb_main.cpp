@@ -1,9 +1,9 @@
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 // Integration test for GDB via GdbDebug wrapper
 //
 // Usage: ./gdb_main <path_to_gdb_debuggee_binary>
 
-#include "debug/gdb_debug.h"
+#include "debug/gdb/gdb_debug.h"
 
 #include <chrono>
 #include <iostream>

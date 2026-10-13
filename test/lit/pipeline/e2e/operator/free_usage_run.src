@@ -5,17 +5,17 @@
 # CHECK: eq=true ne=false lt=true gt=false le=true ge=true
 
 # РЕАЛЬНОЕ использование СВОБОДНЫХ операторов в TrustLang-выражениях: все сравнения
-# резолвятся C++-ом в top-level operator<sym>; результат исполняется и проверяется.
+# резолвятся анализатором в dunder-наборы и эмитятся как top-level operator<sym>.
 :Val ::= :Class{ v: Int32 := _; };
-`==`(a: Val, b: Val): Bool := { return true; };
-`!=`(a: Val, b: Val): Bool := { return false; };
-`<`(a: Val, b: Val): Bool := { return true; };
-`>`(a: Val, b: Val): Bool := { return false; };
-`<=`(a: Val, b: Val): Bool := { return true; };
-`>=`(a: Val, b: Val): Bool := { return true; };
+__eq__(a: Val, b: Val): Bool := { return true; };
+__ne__(a: Val, b: Val): Bool := { return false; };
+__lt__(a: Val, b: Val): Bool := { return true; };
+__gt__(a: Val, b: Val): Bool := { return false; };
+__le__(a: Val, b: Val): Bool := { return true; };
+__ge__(a: Val, b: Val): Bool := { return true; };
 @main() := {
     a : Val := :Val(1);
     b : Val := :Val(2);
-    @print('eq={} ne={} lt={} gt={} le={} ge={}\n', a == b, a != b, a < b, a > b, a <= b, a >= b);
+    @print("eq={} ne={} lt={} gt={} le={} ge={}\n", a == b, a != b, a < b, a > b, a <= b, a >= b);
     @return 0;
 }

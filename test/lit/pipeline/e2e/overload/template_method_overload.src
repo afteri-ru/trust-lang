@@ -1,0 +1,18 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Перегрузка метода ШАБЛОН-КЛАССА с типовым параметром в сигнатуре: C++-имя объявления и вызова
+# обязаны совпадать (суффикс считается от ОБЪЯВЛЕННОЙ сигнатуры, а не от подставленной T→Int32).
+<T> :Box ::= :Class{
+    v:T := _;
+    f(a:T):Int32 := { @return 1; };
+    f(a:StrChar):Int32 := { @return 2; };
+};
+@main() := {
+    b : Box<Int32> := Box();
+    @print("{}\n", b.f(1));
+    @return 0;
+}
+# CHECK: c_f_{{.*}}T{{.*}}(T c_a)
+# CHECK: c_f_{{.*}}StrChar{{.*}}(std::string c_a)
+# CHECK: (c_b).c_f_{{.*}}T{{.*}}(1)
+# CHECK-NOT: c_f_{{.*}}Int32{{.*}}(1)

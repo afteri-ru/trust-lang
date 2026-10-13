@@ -1,0 +1,16 @@
+# RUN: %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Статические перегрузки native-класса: набор сигнатур сохраняется, вызов разрешается по типам,
+# C++-имя фиксировано внешней библиотекой (без trust-суффикса/манглинга).
+@include("string")
+MyStr ::= %std::string {
+    @::pick(x:Int32):Int32 := ...;
+    @::pick(x:StrChar):Int64 := ...;
+};
+@main() := {
+    @print("{} {}\n", MyStr::pick(1), MyStr::pick("a"));
+    @return 0;
+}
+# CHECK: std::string::pick(static_cast<int32_t>(1))
+# CHECK: std::string::pick(static_cast<std::string>("a"))
+# CHECK-NOT: c_pick

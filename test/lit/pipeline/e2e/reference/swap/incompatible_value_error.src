@@ -5,7 +5,7 @@
 
 @main():Int32 := {
     a : Int32 := 1;
-    b : StrChar := 'x';
+    b : StrChar := "x";
     a :=: b;
     return 0;
 };

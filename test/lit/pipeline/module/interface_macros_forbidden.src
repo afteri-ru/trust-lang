@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Макрос, определённый В МОДУЛЕ (здесь - в импортёре), в блоке интерфейса запрещён: скопы
+# макросов наследуются, поэтому публичный API файла зависел бы от того, кто его импортирует.
+# CHECK: macro '@twice' cannot be used in the file interface: it is defined in a module
+
+//--- main.src
+@@ twice($x) @@ @$x + @$x @@@@;
+\lib();
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib {
+    f():Int32 := @twice(1);
+};

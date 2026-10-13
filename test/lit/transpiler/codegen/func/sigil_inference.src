@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Правила вывода сигилов имён + возврат кортежа + линковка:
 #  - bare `fib` в вызове резолвится в нативную функцию `%fib` → C++-имя `fib`;
@@ -18,9 +18,9 @@
 @main() := {
     calc(100);
 };
-# CHECK: auto fib(trust::Rational c_n) {
-# CHECK-NEXT:     auto c_p = fib((c_n - 1));
+# CHECK: std::tuple<trust::Rational, trust::Rational> fib(trust::Rational c_n) {
+# CHECK-NEXT:     std::tuple<trust::Rational, trust::Rational> c_p = fib((c_n - 1));
 # CHECK: void calc(trust::Rational c_n) {
-# CHECK-NEXT:     auto c_result = fib(c_n);
+# CHECK-NEXT:     std::tuple<trust::Rational, trust::Rational> c_result = fib(c_n);
 # CHECK:     calc(100);
 # CHECK-NOT: extern "C"

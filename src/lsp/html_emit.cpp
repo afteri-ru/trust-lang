@@ -3,7 +3,7 @@
 // In-process транспиляция Trust→C++ + построчный source-map → JSON/HTML.
 
 #include "lsp/html_emit.h"
-#include "lsp/lsp_options.hpp"
+#include "lsp/catalog/lsp_options.hpp"
 
 #include "session/context.hpp"
 #include "sourcemap/mapper.hpp"
@@ -12,8 +12,7 @@
 #include "driver/analysis_options.hpp"
 #include "transpiler/transpiler.hpp"
 #include "utils/error.hpp"
-#include "utils/file_io.hpp"
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -195,7 +194,7 @@ HtmlResult transpileToResult(const std::string& trust_code, const std::string& f
         trust::MapperFile cpp_idx = ctx->source().add_output("playground.cppt");
 
         trust::Pipeline pipeline(*ctx, pipeline_opts);
-        pipeline.runPipeline(trust::PipelineSteps::ParseAST | trust::PipelineSteps::Semantic | trust::PipelineSteps::Transpile, trust_idx, cpp_idx);
+        pipeline.run(trust::RunRequest::withCpp(cpp_idx), trust_idx);
 
         const trust::SourceMapReader* reader = ctx->source().toReader();
         const trust::ReaderFile trust_reader_idx = trust::ReaderFile::from(trust_idx);

@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Голое имя после импорта двух модулей с одинаковым экспортом неоднозначно: выбор должен быть
+# явным (`\lib_a::f`). Диагностика — на сайте ИСПОЛЬЗОВАНИЯ (импорт сам по себе не ошибка).
+# CHECK: error: ambiguous name 'f'
+# CHECK-SAME: \lib_a::f
+
+//--- main.src
+\lib_a(f);
+\lib_b(f);
+@main():Int32 := { @return f(1); };
+
+//--- lib_a.src
+\lib_a;
+f(a:Int32):Int32 := { @return a; };
+
+//--- lib_b.src
+\lib_b;
+f(a:Int32):Int32 := { @return a; };

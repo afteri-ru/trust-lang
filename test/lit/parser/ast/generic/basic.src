@@ -1,0 +1,9 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Generic-функция: типовые параметры отображаются в AST-dump.
+<T> identity(x: T): T := { @return x; };
+
+# CHECK: FuncDecl 'identity'
+# CHECK: TypeName ':T' <T>
+# CHECK: ArgNode 'x'
+# CHECK: TypeName ':T'

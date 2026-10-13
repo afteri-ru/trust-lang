@@ -2,9 +2,9 @@
 // Unit tests for DapHandler
 // -----------------------------------------------------------------------
 
-#include "debug/dap_handler.hpp"
-#include "debug/dap_transport.h"
-#include "debug/gdb_debug.h"
+#include "debug/dap/dap_handler.hpp"
+#include "debug/dap/dap_transport.h"
+#include "debug/gdb/gdb_debug.h"
 #include "sourcemap/mapper.hpp"
 
 #include "mock_transport.hpp"
@@ -27,7 +27,7 @@ TEST(DapHandlerTest, IsTrustFileExt_TrueForSrc) {
 }
 
 TEST(DapHandlerTest, IsTrustFileExt_FalseForTrust) {
-    // .trust - бинарный скомпилированный модуль, не исходный файл
+    // .trust - архив исходников (пакет), не редактируемый исходный файл
     EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("/path/to/file.trust"));
     EXPECT_FALSE(trust::SourceMapReader::isTrustFileExt("file.trust"));
 }

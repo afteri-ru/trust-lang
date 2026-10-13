@@ -19,7 +19,7 @@
 
 b : Box<Int32> := Box();
 b.set(42);
-@print('box={}\n', b.get());
+@print("box={}\n", b.get());
 
 <T> :Base ::= :Class{
     value: T := _;
@@ -34,13 +34,13 @@ b.set(42);
 
 d : Derived<Int32> := Derived();
 d.set(7);
-@print('base={} extra={}\n', d.get(), d.getExtra());
+@print("base={} extra={}\n", d.get(), d.getExtra());
 
 # Struct-шаблон: POD-проверка на конкретной инстанциации, поля-параметры.
 <T> :Point ::= :Struct{ x: T := _; y: T := _; };
 pt : Point<Int32> := Point(3, 4);
-@print('pt={} {}\n', pt.x, pt.y);
+@print("pt={} {}\n", pt.x, pt.y);
 
 # Явная конструкция `:Box<Int32>(...)` (RHS-форма).
 be : Box<Int32> := :Box<Int32>(9);
-@print('explicit={}\n', be.get());
+@print("explicit={}\n", be.get());

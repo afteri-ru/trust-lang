@@ -1,0 +1,29 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src > %t.out 2>&1
+# RUN: $TD/app >> %t.out && echo "PASS" >> %t.out
+# RUN: %FileCheck %s <%t.out
+#
+# F2: имя-зависимые факты кодогена (native-адрес) привязаны к ОБЪЯВЛЕНИЮ, а не к тексту
+# trust-имени. Два модуля объявляют одноимённый native-import (`f`) с РАЗНЫМИ нативными
+# именами (`sqrt`/`cbrt`); клиент вызывает оба квалифицированно. Заголовок модуля публикует
+# только C++-декларации, поэтому адрес нативной функции клиент получает из экспорт-набора
+# импортированного модуля.
+# CHECK: 4
+# CHECK: PASS
+# CHECK-NOT: error:
+
+//--- main.src
+\na(f);
+\nb(f);
+@main():Int32 := { @print("{}\n", \na::f(4.0) + \nb::f(8.0)); @return 0; };
+
+//--- na.src
+\na;
+@[include("<cmath>")@]
+f(x:Float64):Float64 := %sqrt...;
+
+//--- nb.src
+\nb;
+@[include("<cmath>")@]
+f(x:Float64):Float64 := %cbrt...;

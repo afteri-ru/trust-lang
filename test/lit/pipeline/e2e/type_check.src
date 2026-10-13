@@ -26,12 +26,12 @@
 
 @main():Int32 := {
     x := 5;
-    @print('a={}\n', x <~ :Integers);
-    @print('b={}\n', x ~~~ :Int8);
-    @print('c={}\n', :Dog <~ :Animal);
-    @print('d={}\n', :Animal <~ :Dog);
+    @print("a={}\n", x <~ :Integers);
+    @print("b={}\n", x ~~~ :Int8);
+    @print("c={}\n", :Dog <~ :Animal);
+    @print("d={}\n", :Animal <~ :Dog);
     y:Dog := Dog();
-    @print('e={}\n', y ~~ (age=_,));
-    @print('f={}\n', y ~~ (nope=_,));
+    @print("e={}\n", y ~~ (age=_,));
+    @print("f={}\n", y ~~ (nope=_,));
     @return 0;
 }

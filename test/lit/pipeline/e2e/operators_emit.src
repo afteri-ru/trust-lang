@@ -1,0 +1,24 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Представление операторов: consumers берут глиф из BinaryOp (m_op), вывод не меняется.
+# Битовые trust-глифы (.&./.>>.) по-прежнему эмитятся как есть (кодоген битовых не реализован).
+f(a:Int32, b:Int32):Int32 := {
+    x := a + b;
+    y := a < b;
+    z := (a == b) && (a != b);
+    q := (a < b) || (a > b);
+    w := a .&. b;
+    v := a .>>. b;
+    a += 1;
+    return x;
+};
+
+# CHECK: integer overflow in '+'
+# CHECK: c_a < c_b
+# CHECK: c_a == c_b
+# CHECK: &&
+# CHECK: c_a != c_b
+# CHECK: ||
+# CHECK: c_a .&. c_b
+# CHECK: c_a .>>. c_b
+# CHECK: integer overflow in '+='

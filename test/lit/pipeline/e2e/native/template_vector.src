@@ -12,6 +12,6 @@
 
 @main() := {
     v: vector<Int32> := [1, 2, 3,];
-    @print('first={} size={}\n', v[0], :Int64( {% $v.size() %} ));
+    @print("first={} size={}\n", v[0], :Int64( {% $v.size() %} ));
     @return 0;
 }

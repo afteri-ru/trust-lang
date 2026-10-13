@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: test -z "$(ls $TD/build/lib*.cppt 2>/dev/null)"
+# RUN: test -z "$(grep '^SRC_MODULES' $TD/build/build.conf)"
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# G5: модуль без out-of-line определений (экспортный тип с одними полями — тела методов и
+# шаблоны отсутствуют) даёт ТОЛЬКО заголовок `<enc>.hpp`: собственный `.cppt` не создаётся
+# и модуль не входит в `SRC_MODULES`.
+
+//--- main.src
+\lib(Point);
+@main():Int32 := { $p: Point := Point(5); @return p.x - 5; };
+
+//--- lib.src
+\lib {
+    :Point ::= :Struct{ x:Int32 := _; };
+};

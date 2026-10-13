@@ -18,6 +18,7 @@
 }
 %}
 //--- mod_import_mod.src
+\mod_import_mod;
 x:Int32 := 42;
 
 

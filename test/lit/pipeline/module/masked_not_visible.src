@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Имя, исключённое маской, не видно импортёру (file-local ключ), но анализ тела модуля
+# не ломается (см. mask_body.src).
+# CHECK: error: undefined name 'g'
+
+//--- main.src
+\lib(f);
+@main():Int32 := { @return g(); };
+
+//--- lib.src
+\lib;
+g():Int32 := { @return 1; };
+f():Int32 := { @return g(); };

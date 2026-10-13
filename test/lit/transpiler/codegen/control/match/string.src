@@ -1,11 +1,11 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Строковое значение в match → НЕ switch (C++ switch не применим к std::string): остаётся
 # if/else-if цепочка со сравнением ==. Значение по-прежнему вычисляется однократно в temp.
-s:StrChar := 'hello';
+s:StrChar := "hello";
 @match(s) ==> {
-    @case('hello') { y := 1; };
-    @case('world') { y := 2; };
+    @case("hello") { y := 1; };
+    @case("world") { y := 2; };
     @default { y := 0; };
 };
 # CHECK: const std::string c__match1 = c_s;

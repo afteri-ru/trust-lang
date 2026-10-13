@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q -Wunmatched-mask=error --temp-dir $TD/build -o $TD/app main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Маски группового импорта применяются к ОБЪЕДИНЁННОМУ экспорт-набору сайта: маска, совпавшая
+# в ЛЮБОМ файле группы, не является несовпавшей. Иначе на каждый «чужой» файл группы выдавался
+# бы лишний -Wunmatched-mask (здесь он был бы ошибкой компиляции).
+# Программа возвращает a_c() + h() - 3 = 0.
+
+//--- main.src
+\\grp(a_c, h);
+@main():Int32 := { @return a_c() + h() - 3; };
+
+//--- grp/a.src
+\\grp\a;
+a_c():Int32 := { @return 1; };
+
+//--- grp/b.src
+\\grp\b;
+h():Int32 := { @return 2; };

@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 # RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/struct_class.o %s && test -f $TD/struct_class.o
 
 # Struct (строго POD) и Class (наследование) - единый C++ `struct`. Различаются только базой:
@@ -32,7 +32,7 @@
 # Определение с прототипом метода (`:= ...`) - это ПОЛНОЕ определение (не forward): прототип внутри struct.
 :Proto ::= :Class{ run():Int32 := ...; };
 # CHECK: struct c_Proto {
-# CHECK-NEXT: int32_t c_run();};
+# CHECK-NEXT: int32_t c_run{{_[A-Za-z0-9_]+}}();};
 
 p:Point := Point(1, 2);
 # CHECK: c_Point c_p = c_Point(1, 2);
@@ -40,6 +40,6 @@ p:Point := Point(1, 2);
 d:Dog := Dog();
 # CHECK: c_Dog c_d = c_Dog();
 
-@print('{} {} {}', p.x, d.name, d.speak());
-# CHECK: trust__print__("{} {} {}", (c_p).c_x, (c_d).c_name, (c_d).c_speak());
+@print("{} {} {}", p.x, d.name, d.speak());
+# CHECK: trust__print__("{} {} {}", (c_p).c_x, (c_d).c_name, (c_d).c_speak{{_[A-Za-z0-9_]+}}());
 

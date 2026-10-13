@@ -30,16 +30,9 @@
 #include <span>
 #include <memory>
 
+#include "utils/string_view_hash.hpp"
+
 namespace trust {
-
-// ----------------------------------------------------------------------------
-// StringViewHash - transparent hash for std::string_view (to avoid copying)
-// ----------------------------------------------------------------------------
-
-struct StringViewHash {
-    using is_transparent = void;
-    [[nodiscard]] auto operator()(std::string_view s) const noexcept { return std::hash<std::string_view>{}(s); }
-};
 
 // ----------------------------------------------------------------------------
 // AttrPool - mutable attribute registry

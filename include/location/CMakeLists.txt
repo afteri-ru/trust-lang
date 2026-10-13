@@ -1,7 +1,11 @@
 # include/location/CMakeLists.txt
-# Location - низкоуровневые примитивы позиций и теги файлов:
+# Location — низкоуровневые примитивы позиций и тегов файлов:
 #   TaggedFile / TaggedLocation / Location / RangeType / MapperRange
-# Header-only, зависит только от utils (FAULT/EXPECT).
+# Header-only; зависит только от utils (FAULT/EXPECT).
 
-add_library(location_lib INTERFACE)
-target_link_libraries(location_lib INTERFACE utils_lib trust_include_dirs)
+trust_component(location
+    INTERFACE
+    PUBLIC_HEADERS
+        location.hpp module_index.hpp module_name.hpp module_path.hpp namespace_alias.hpp
+    LINK_PUBLIC utils_lib trust_include_dirs
+)

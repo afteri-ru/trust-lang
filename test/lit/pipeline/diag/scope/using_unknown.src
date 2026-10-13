@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Опечатка в имени области — ошибка компиляции (проверка на выходе из скоупа).
+# CHECK: error: namespace 'NoSuchNamespace' has no names
+
+using namespace NoSuchNamespace;
+@main():Int32 := { @return 0; };

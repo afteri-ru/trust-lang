@@ -2,17 +2,14 @@
 // trust-lsp: Language Server для отображения и синхронизации Trust ↔ C++ кода
 
 #include "lsp/lsp_protocol.h"
-#include "lsp/trust_lsp.h"
+#include "lsp/catalog/trust_lsp.h"
 #include "lsp/html_emit.h"
 #include "pipeline/pipeline.hpp"
-#include "utils/backtrace.hpp"
-#include "utils/file_io.hpp"
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 
 #include <iostream>
 #include <iterator>
 #include <memory>
-#include "utils/io.hpp"
 
 int main(int argc, const char* argv[]) {
     trust::utils::install_fault_handler();

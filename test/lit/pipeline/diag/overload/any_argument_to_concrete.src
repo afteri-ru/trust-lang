@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# `:Any` — КОНКРЕТНЫЙ тип (`std::any`) без неявной конверсии: передача Any-значения
+# в конкретный параметр — ошибка компиляции, а не невалидный C++ (нет silent fallback).
+f(x:Int32):Int32 := { @return x; };
+@main():Int32 := {
+    a:Any := 5;
+    @return f(a);
+}
+# CHECK: error: no matching overload for function 'f'

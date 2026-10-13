@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 # RUN: TD=%t.dir && mkdir -p $TD && %trust -q --temp-dir $TD -c -o $TD/var_multilevel.o %s && test -f $TD/var_multilevel.o && file $TD/var_multilevel.o | grep ELF
 
 # Переменные на нескольких уровнях вложенности:

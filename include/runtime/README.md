@@ -11,8 +11,8 @@ runtime не добавляются.
 ## Библиотеки runtime: `trust-runtime.so` и `trust-runtime.a`
 
 Runtime собирается двумя способами из одних и тех же исходников
-(`src/runtime/rational.cpp`, `src/runtime/trust_headers.cpp`,
-`src/utils/io.cpp`, `src/utils/backtrace.cpp`):
+(`src/runtime/rational.cpp`, `src/runtime/big_integer.cpp`,
+`src/utils/io/io.cpp`, `src/utils/proc/backtrace.cpp`):
 
 - **`trust-runtime.so`** - динамическая библиотека (цель CMake `trust_runtime`);
 - **`trust-runtime.a`** - статическая библиотека (цель CMake `trust_runtime_static`).
@@ -24,7 +24,7 @@ Runtime собирается двумя способами из одних и т
 - ошибки/завершение: `trust::formatMessage` и `trust::trust__abort__`
   (публичный заголовок `include/runtime/trust/assert.hpp`), а также глобальные потоки
   `trust::outs()`/`trust::errs()` и `trust::utils::backtrace_string()`
-  (`src/utils/io.cpp`, `src/utils/backtrace.cpp`) - они доступны автономным
+  (`src/utils/io/io.cpp`, `src/utils/proc/backtrace.cpp`) - они доступны автономным
   сгенерированным программам.
 - форматный вывод: `trust::trust__print__` (публичный заголовок
   `include/runtime/trust/io.hpp`) - `fmt`-подобная функция (стиль `std::format`),
@@ -32,19 +32,20 @@ Runtime собирается двумя способами из одних и т
   `trust::Rational` форматируется как символьная строка `num\den`
   (специализация `std::formatter<trust::Rational>` в `trust/rational.hpp`).
 
-### Встраивание публичных заголовков (#embed)
+### Доставка публичных заголовков (пакет стандартной библиотеки)
 
-Публичные рантайм-заголовки (например `trust/rational.hpp`, `trust/assert.hpp`)
-встраиваются в объектный код библиотеки через `#embed` в ELF-секцию, названную
-путём заголовка (`src/runtime/trust_headers.cpp`). Когда сгенерированная программа
-использует такой тип/символ, pipeline:
+Публичные рантайм-заголовки (например `trust/rational.hpp`, `trust/assert.hpp`) входят в пакет
+стандартной библиотеки `share/trust/stdlib.trust` как `include/trust/*.hpp`
+(staging/сборка пакета: `include/stdlib/core/CMakeLists.txt`).
+Когда сгенерированная программа собирается, pipeline:
 
-1. находит рантайм-библиотеку в соответствии с режимом линковки `--link-runtime`
-   (см. ниже): `trust-runtime.so` либо `trust-runtime.a`;
-2. извлекает секцию по пути заголовка во временный каталог `<build_dir>/trust/`
-   (`utils::readSectionFromLibrary`: `.so` читается как ELF напрямую, `.a` - как
-   ar-архив, секция ищется в ELF-членах);
-3. добавляет в `build.conf` include-путь и линковку рантайм-библиотеки + GMP.
+1. распаковывает `stdlib.trust` в `<build>/stdlib` и добавляет в `build.conf`
+   `-Istdlib -Istdlib/include` (заголовки доступны без поштучного копирования);
+2. добавляет в `build.conf` линковку рантайм-библиотеки + GMP, если использованы
+   runtime-backed типы.
+
+Саму рантайм-библиотеку (`trust-runtime.so`/`.a`) для линковки находит `locateRuntimeLibrary`
+в соответствии с режимом `--link-runtime`.
 
 Это позволяет распространять рантайм-библиотеку без дерева исходников компилятора.
 
@@ -94,10 +95,11 @@ Makefile после объектных файлов.
   владеющем виде (`@[reftype("unique"|"shared")]`): `D` входит в тип (`trust::Unique<T,D>`) или
   стирается (`trust::Shared<T>` + `adopt`). Секция `trust/resource.hpp`; самодостаточен.
 - `trust/dict.hpp` - универсальный гетерогенный словарь `trust::Dict` (элементы
-  `(имя, TypedValue{kind, std::any})` - тип элемента закодирован в `kind` (TypeKind:
-  группа+размерность), декодируется методами `TypedValue` (`group()`/`data()`/предикаты
-  `isNumeric()`/`isString()`/…) **автономно, без TypeRegistry**; значение хранится точным
-  C++-типом; доступ по имени/индексу, конвертеры). Встраивается в trust-runtime (секция
+  `(имя, TypedValue{QualType, значение})` - тип элемента закодирован в `QualType`: identity
+  (TypeKind: группа+размерность) + квалификаторы const/inferred, декодируется методами `TypedValue`
+  (`group()`/`data()`/предикаты `isNumeric()`/`isString()`/…) **автономно, без TypeSystem**;
+  значение хранится точным C++-типом; доступ по имени/индексу, конвертеры). `TypeId`/`QualType`
+  берутся из общего ABI-заголовка `trust/type_state.hpp`. Встраивается в trust-runtime (секция
   `trust/dict.hpp`) и извлекается pipeline при использовании типа `:Dict`.
 - `trust/range.hpp` - универсальный арифметический диапазон `trust::Range<T>` - шаблон по
   элементному типу `T` (интегральные, float, `trust::Rational`, универсальный `std::any` для
@@ -111,7 +113,7 @@ Makefile после объектных файлов.
   доверенном коде как `r.count()/r.size()/r.length()(алиас→count)/r.empty()/r.at(i)/r.toVector()/
   r.toDict()/...`; сигнатуры элемент-зависимых методов (`at/start/stop/step/contains`) объявлены
   с типовым параметром `T` и подставляются (T→Elem) при резолве - точные типы, а не Any
-  (регистрация на `:Range` через `TypeRegistry::addMethod` полным ключом с нативностью `%` и
+  (регистрация на `:Range` через `MethodTable::addMethod` полным ключом с нативностью `%` и
   константностью `^`, напр. `"%count^"`; алиас `length` → нативное `count` - опциональный
   параметр `aliases` у `addMethod`, с проверкой консистентности). Формы вызова: `r.size()`/`r.%size()`/`r.size^()` - обычный,
   нативный (`%`) и const-вызов (`^` → `const_cast<const T&>(r).method(...)` - гарантированно
@@ -121,10 +123,11 @@ Makefile после объектных файлов.
 - `trust/any_convert.hpp` - типизированная конверсия из элемента словаря
   `trust::any_to<T>(TypedValue)`: диспетчеризация по `kind` (TypeKind: числовое/строковое,
   декодируется `TypedValue`), конверсия с контролем диапазона (`checked_cast`) и диагностикой.
-- `module_api.h` - ABI-структуры экспорта модулей (`__trust_exports`,
-  `__trust_get_exports`).
-- `tensor.hpp` - обёртка над тензорами LibTorch (`TorchTensor`); собирается как
-  отдельный плагин `tensor_cpu` только при `WITH_TORCH`.
+- `trust/tensor.hpp` - стабильный self-contained тип значения (`trust::Tensor<Elem>`,
+  `trust::TensorHandle`) БЕЗ torch-заголовков; C ABI бэкенда - `trust/tensor_backend.hpp`
+  (`trust_tensor_*`); оба доставляются пакетом `stdlib.trust`. Реализация бэкенда - отдельный
+  плагин `tensor_cpu` (provider-пакет `tensor.trust`, `kind="toolchain"`), собирается только при
+  `WITH_TORCH`; compiler-side `TorchTensor` - `include/runtime/torch/tensor.hpp` (в пакет не входит).
 
 ## Зависимости
 

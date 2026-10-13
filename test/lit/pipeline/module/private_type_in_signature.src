@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# S1: file-private тип в сигнатуре экспортируемой функции - ошибка семантики
+# (C++-имя private-типа недоступно в TU импортёра).
+# CHECK: error: exported function 'f' uses file-private type 'P'
+
+//--- main.src
+\lib(f);
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib;
+__:: {
+    :P ::= :Struct{ x:Int32 := _; };
+};
+f(p:P):Int32 := { @return p.x; };

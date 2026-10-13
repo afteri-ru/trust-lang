@@ -1,4 +1,4 @@
-#include "solver/smt_op.hpp"
+#include "solver/smt/smt_op.hpp"
 #include "solver/smt_ast.hpp"
 
 #include <gtest/gtest.h>

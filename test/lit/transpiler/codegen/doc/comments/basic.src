@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Документирующие комментарии в разных позициях попадают в C++-вывод (с сохранением маркеров).
 
@@ -10,7 +10,7 @@ x := 42;
 /// Строка один
 /// Строка два
 %foo():Void := {
-    foo ++ 7 ++;
+    foo |+ 7 +|;
 };
 # CHECK: /// Строка один
 # CHECK-NEXT: /// Строка два
@@ -34,7 +34,7 @@ MyInt ::= :Int32;
 
 /** блочный док в любом месте */
 %blockdoc():Void := {
-    blockdoc ++ 1 ++;
+    blockdoc |+ 1 +|;
 };
 # CHECK: /** блочный док в любом месте */
 # CHECK-NEXT: void blockdoc() {

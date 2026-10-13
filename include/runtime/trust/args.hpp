@@ -1,10 +1,6 @@
 // trust/args.hpp - разбор аргументов командной строки скомпилированной trust-программы.
 //
-// Public runtime header: самодостаточный (только стандартные заголовки + trust/dict.hpp),
-// чтобы сгенерированная C++ программа (в т.ч. `_main.cppt`) могла его подключить без
-// зависимости от include-дерева компилятора. На этапе сборки встраивается в
-// trust-runtime.so/.a (через #embed, в ELF-секцию "trust/args.hpp"); pipeline извлекает
-// его в каталог сборки `trust/` вместе с остальными рантайм-заголовками.
+// Delivery: package file `include/trust/args.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 //
 // Назначение: генерируемый `main(int argc, char* argv[])` отделяет аргументы среды по
 // единому префиксу (по умолчанию `--trust:` - зарезервировано для будущей настройки
@@ -38,7 +34,7 @@ struct ParsedArgs {
 /// argv[0] (имя программы) пропускается. Значения всех элементов - строки (StrChar).
 inline ParsedArgs parseArgs(int argc, char* argv[], const std::string_view env_prefix) {
     ParsedArgs out;
-    constexpr uint32_t kStrChar = 9u | (1u << 8);
+    constexpr uint32_t kStrChar = trust::makeGroupTypeKind(trust::Group::kStrChar, 1u);
     bool after_ddash = false; // всё после `--` - позиционные аргументы
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
@@ -55,14 +51,14 @@ inline ParsedArgs parseArgs(int argc, char* argv[], const std::string_view env_p
             const std::string body = arg.substr(2);
             const std::size_t eq = body.find('=');
             if (eq != std::string::npos) {
-                out.args.push_back(body.substr(0, eq), trust::TypedValue(trust::makeTypeId(kStrChar), body.substr(eq + 1)));
+                out.args.push_back(body.substr(0, eq), trust::TypedValue(trust::QualType::fromTypeId(trust::TypeId::fromKind(kStrChar)), body.substr(eq + 1)));
             } else {
-                out.args.push_back(body, trust::TypedValue(trust::makeTypeId(kStrChar), std::string("true")));
+                out.args.push_back(body, trust::TypedValue(trust::QualType::fromTypeId(trust::TypeId::fromKind(kStrChar)), std::string("true")));
             }
             continue;
         }
         // Позиционный аргумент -> элемент Dict с пустым именем.
-        out.argv.push_back(std::string(), trust::TypedValue(trust::makeTypeId(kStrChar), arg));
+        out.argv.push_back(std::string(), trust::TypedValue(trust::QualType::fromTypeId(trust::TypeId::fromKind(kStrChar)), arg));
     }
     return out;
 }

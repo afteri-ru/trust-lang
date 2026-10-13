@@ -1,10 +1,10 @@
 // -----------------------------------------------------------------------
-// Unit tests for trust-playground worker helpers (playground/worker.h):
+// Unit tests for trust-playground worker helpers (playground/server/worker.h):
 // redactToken (маскировка токена в публичном ответе) и validateWorkerSettings
 // (fail-fast проверка настроек воркера при запуске).
 // -----------------------------------------------------------------------
 
-#include "playground/worker.h"
+#include "playground/server/worker.h"
 
 #include <gtest/gtest.h>
 

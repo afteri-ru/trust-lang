@@ -8,7 +8,7 @@
 # CHECK: warning: @__DEBUG__: debug output is not available in a release build
 # CHECK: warning: @__DEBUG_SCOPE__: debug output is not available in a release build
 f() : Int32 := {
-    @__DEBUG__("scope");
+    @__DEBUG__('scope');
     @__DEBUG_SCOPE__();
     return 0;
 };

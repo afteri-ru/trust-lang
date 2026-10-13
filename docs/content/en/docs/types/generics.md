@@ -10,10 +10,36 @@ work with different types, regardless of their concrete form. Different language
 in their own way; a comparative analysis of the approaches in other languages is published in a separate
 [blog article](/en/blog/comparison/generics/).
 
+This is type-level metaprogramming in *TrustLang*. [Macros](../syntax/macros/) are a syntactic
+extension: they are expanded before the AST and the type system, do not see data types, and do not
+replace generic programming.
+
 In *TrustLang*, generics are implemented in the current version through **type parameters** and their substitution in
 declarations of native template types and methods of collections/ranges. The "generic
 dispatcher function" model with runtime dispatch by types and a separate template syntax is not yet
-implemented (see the "What is not implemented" section below).
+implemented (see the "What is not implemented" section below). Static generic functions (`<T> f(...)`)
+**are** implemented — see the "Generic functions" section.
+
+## Generic functions {#generic-functions}
+
+A function with type parameters (`<T>`, `<T,U>`) deduces them from the argument types at a call site.
+In C++ it is emitted as `template <typename T>`, and the call is instantiated with explicit type arguments:
+
+```trust
+<T> id(x: T): T := { @return x; };
+
+a  : Int32 := 5;
+r  : Int32 := id(a);      # T := Int32 -> c_id<int32_t>(c_a)
+v0 : Any := 5;
+v  : Any := id(v0);       # T := Any   -> c_id<std::any>(c_v0)  (:Any is a concrete type)
+```
+
+If nothing can be deduced (e.g. `T` appears only in the return type) it is an explicit error
+(`cannot deduce template parameter ...`); a structural mismatch is `no matching overload`.
+Type packs (`<T...>`, `xs:T...`) are supported only as a trailing function parameter.
+Not supported: named/default arguments for generic functions, generic methods/operators/lambdas,
+explicit template arguments at a call site (deduction is always automatic). See
+[Functions](funcs/#overload) for overload resolution details.
 
 ## Native template types {#native-template}
 
@@ -118,16 +144,16 @@ v := :vector<Int32>(1, 2, 3);     # → std::vector<int32_t> c_v = std::vector<i
 
 ## Restrictions of the `::=` operator
 
-A non-type in the RHS of `::=` (`func(...) ::= { }`, `name ::= '123'`, `term ::= term2(arg)`) is an error: `::=`
+A non-type in the RHS of `::=` (`func(...) ::= { }`, `name ::= "123"`, `term ::= term2(arg)`) is an error: `::=`
 creates a type, it has no arithmetic/expressions. The "class-with-body" form (`func(arg) ::= Class(){...}`)
 is not implemented in the current version (planned).
 
 ## Sets of allowed types {#type-sets}
 
-A special case of type variability is implemented as a **set of allowed types** — sugar over explicit
-overloading: `Name ::= :A + :B;` (named) or `:(:A + :B)` (inline). A function with a set parameter
-is expanded into N definitions with a common body. Details and restrictions — in
-[Functions](funcs/#type-sets).
+> ⚠ **Not implemented in the current version** (the diagnostic is “type set definitions are not
+> implemented yet”). The target model is sugar over explicit overloading: `Name ::= :A + :B;`
+> (named) or `:(:A + :B)` (inline); a function with a set parameter expands into N definitions with
+> a common body. Details and restrictions — see [Functions](funcs/#type-sets).
 
 ## What is not implemented
 

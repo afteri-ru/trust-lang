@@ -7,7 +7,7 @@
 # Форматная строка без значений тоже допустима.
 
 %chk():Void := {
-    verify( 1 == 0, 'verify failed: {}', 7 );
+    verify( 1 == 0, "verify failed: {}", 7 );
 };
 {% int macro_msg__main__() {
     chk();

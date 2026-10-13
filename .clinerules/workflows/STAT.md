@@ -71,7 +71,7 @@
 | `resumes_per_task` | число `TaskResume prevMessages=N` | - | - |
 | `prompts_per_task` | число `UserPromptSubmit` | - | - |
 | `premature_completion` | доля задач с Δ>0 между 1-м и 2-м TaskComplete | - | - |
-| `scope_creep_rate` | reopened по причине «расширение scope» / completed | - | - |
+| `scope_creep_rate` | reopened по причине «расширение scope» / completed; изменение объёма считается только ОТНОСИТЕЛЬНО СОГЛАСОВАННОГО (зафиксированного при переходе в ACT) объёма — дробление предложения на проверяемые этапы на стадии планирования расширением не является | - | - |
 | `plan_overrun_rate` | доля задач с plan_iterations>5 (порог из TASK.md) | - | - |
 | `median_tool_duration_ms` | медиана duration_ms из `.tools.log` (для всех задач) | - | - |
 

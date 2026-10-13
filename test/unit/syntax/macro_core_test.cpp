@@ -1,4 +1,6 @@
 #include "syntax/macro_test_fixture.hpp"
+
+using namespace trust;
 TEST_F(MacroTest, ParseTerm) {
 
     TermPtr term;
@@ -42,7 +44,7 @@ TEST_F(MacroTest, ParseTerm) {
     ASSERT_TRUE(term->isCall());
     ASSERT_EQ("second()", term->toString());
 
-    buff.erase(buff.end()); // second (
+    buff.pop_back(); // second (
 
     buff.push_back(Term::Create(TermID::NAME, "name", {}, parser::token_type::NAME)); // second ( name
     ASSERT_ANY_THROW(Parser::ParseTerm(term, buff, m_ctx, 0));
@@ -55,7 +57,7 @@ TEST_F(MacroTest, ParseTerm) {
     ASSERT_TRUE(term->isCall());
     ASSERT_EQ("second(name)", term->toString());
 
-    buff.erase(buff.end());                                                    // second ( name
+    buff.pop_back();                                                           // second ( name
     buff.push_back(Term::Create(TermID::EQ, "=", {}, parser::token_type::EQ)); // second ( name =
     ASSERT_ANY_THROW(Parser::ParseTerm(term, buff, m_ctx, 0));
 
@@ -247,8 +249,8 @@ TEST_F(MacroTest, Buffer) {
     ASSERT_TRUE(macro_buf->IdentityMacro(buffer, term));
 
     // Разные имена терминов
-    term->getText() = "macro2";
-    term->m_left->m_sequence[0]->getText() = "macro2";
+    term->setTextOwned("macro2");
+    term->m_left->m_sequence[0]->setTextOwned("macro2");
     ASSERT_FALSE(macro_buf->IdentityMacro(buffer, term));
 
     ASSERT_EQ(2, buffer.size());
@@ -309,9 +311,14 @@ TEST_F(MacroTest, Buffer) {
     ASSERT_EQ(1, macro->CountInScope(0)) << macro->Dump();
     // удаление alias в новом формате; LexOut см. ниже
 
+    m_ctx.diag().clear();
     ASSERT_TRUE(Parse("@@ _ @@@@;", macro));
+    EXPECT_GT(m_ctx.diag().errorCount(), 0); // `_` - не имя макроса: удаления всех макросов нет
+    ASSERT_EQ(1, macro->CountInScope(0)) << macro->Dump();
+
+    // Убрать макрос можно только по имени.
+    ASSERT_TRUE(Parse("@@ alias2 @@@@;", macro));
     ASSERT_EQ(0, macro->CountInScope(0)) << macro->Dump();
-    // удаление _ в новом формате
 
     ASSERT_TRUE(term = Parse("@@if(args)@@ [@$args] --> @@@@", macro));
     ASSERT_EQ(1, macro->CountInScope(0)) << macro->Dump();
@@ -1045,7 +1052,7 @@ TEST_F(MacroTest, MacroArgs) {
     ASSERT_NO_THROW(count = macro->ExtractArgs(buff, macro_alias1, macro_args));
     ASSERT_EQ(3, count);
 
-    buff.erase(buff.end());
+    buff.pop_back();
 
     //    ASSERT_ANY_THROW(MacroBuffer::ExtractArgs(buff, macro_alias2, macro_args));
     //    ASSERT_ANY_THROW(MacroBuffer::ExtractArgs(buff, macro_alias3, macro_args));
@@ -1060,7 +1067,7 @@ TEST_F(MacroTest, MacroArgs) {
     ASSERT_EQ(4, buff.size());
     ASSERT_NO_THROW(count = macro->ExtractArgs(buff, macro_alias1, macro_args)) << macro->Dump(buff);
     ASSERT_EQ(4, count);
-    buff.erase(buff.end());
+    buff.pop_back();
 
     //    ASSERT_ANY_THROW(MacroBuffer::ExtractArgs(buff, macro_alias2, macro_args));
     //    ASSERT_ANY_THROW(MacroBuffer::ExtractArgs(buff, macro_alias3, macro_args));
@@ -1281,30 +1288,30 @@ TEST_F(MacroTest, MacroArityGrouping) {
     MacroPtr macro = std::make_shared<Macro>(m_ctx);
     ASSERT_TRUE(macro->isEmpty());
 
-    ASSERT_NO_THROW(Parse("@@ break @@ ++ @@@@;", macro)) << macro->Dump();
-    ASSERT_NO_THROW(Parse("@@ break $label @@ @$label ++ @@@@;", macro)) << macro->Dump();
+    ASSERT_NO_THROW(Parse("@@ break @@ |>| @@@@;", macro)) << macro->Dump();
+    ASSERT_NO_THROW(Parse("@@ break $label @@ @$label |>| @@@@;", macro)) << macro->Dump();
     ASSERT_EQ(2, macro->CountInScope(0)) << macro->Dump();
 
     // Переопределение ТОЙ ЖЕ сигнатуры (break) - по умолчанию предупреждение.
-    ASSERT_NO_THROW(Parse("@@ break @@ ++ @@@@;", macro)) << macro->Dump();
+    ASSERT_NO_THROW(Parse("@@ break @@ |>| @@@@;", macro)) << macro->Dump();
     ASSERT_EQ(2, macro->CountInScope(0)) << macro->Dump();
 
     // Шаблоны той же арности и структуры (break $label / break $x) - одна сигнатура.
 
     // Longest-match: `break;` → arity-1; `break outer;` → arity-2.
     ASSERT_NO_THROW(Parse("break;", macro)) << macro->Dump();
-    ASSERT_STREQ("++ ;", LexOut().c_str());
+    ASSERT_STREQ("|>| ;", LexOut().c_str());
     ASSERT_NO_THROW(Parse("break outer;", macro)) << macro->Dump();
-    ASSERT_STREQ("outer ++ ;", LexOut().c_str());
+    ASSERT_STREQ("outer |>| ;", LexOut().c_str());
 
     // Void vs value: шаблон как последний терм сигнатуры НЕ матчит `;`.
     // `ret;` → void-макрос (arity-1), а НЕ varargs с пустым аргументом.
-    ASSERT_NO_THROW(Parse("@@ ret @@ :: ++ @@@@;", macro)) << macro->Dump();
-    ASSERT_NO_THROW(Parse("@@ ret $... @@ :: ++ @$... ++ @@@@;", macro)) << macro->Dump();
+    ASSERT_NO_THROW(Parse("@@ ret @@ :: |+| @@@@;", macro)) << macro->Dump();
+    ASSERT_NO_THROW(Parse("@@ ret $... @@ :: |+ @$... +| @@@@;", macro)) << macro->Dump();
     ASSERT_NO_THROW(Parse("ret;", macro)) << macro->Dump();
-    ASSERT_STREQ(":: ++ ;", LexOut().c_str());
+    ASSERT_STREQ(":: |+| ;", LexOut().c_str());
     ASSERT_NO_THROW(Parse("ret 42;", macro)) << macro->Dump();
-    ASSERT_STREQ(":: ++ 42 ++ ;", LexOut().c_str());
+    ASSERT_STREQ(":: |+ 42 +| ;", LexOut().c_str());
 }
 
 TEST_F(MacroTest, MacroCheck) {
@@ -1336,9 +1343,9 @@ TEST_F(MacroTest, MacroCheck) {
     EXPECT_NO_THROW(Parse("@@ return() $... @@ @$... @@@@", macro)) << macro->Dump();
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 
-    ASSERT_NO_THROW(Parse("@@ return $... @@ :: ++ @$... ++ @@@@", macro)) << macro->Dump();
+    ASSERT_NO_THROW(Parse("@@ return $... @@ :: |+ @$... +| @@@@", macro)) << macro->Dump();
     ASSERT_NO_THROW(Parse("return (1, 2, 3,)", macro)) << macro->Dump() << " ------  " << LexOut().c_str();
-    ASSERT_STREQ(":: ++ ( 1 , 2 , 3 , ) ++", LexOut().c_str());
+    ASSERT_STREQ(":: |+ ( 1 , 2 , 3 , ) +|", LexOut().c_str());
     // TEST_F(NamedTest, MacroExpand) {
     //
     //     std::string macro = "@macro 12345";
@@ -1548,6 +1555,17 @@ TEST_F(MacroTest, ToStr) {
     ASSERT_NO_THROW(Parse("@show 42", macro));
     ASSERT_STREQ("42", LexOut().c_str());
     ASSERT_TRUE(ast);
+    EXPECT_EQ(TermID::STRWIDE, ast->getTermID()) << trust::toString(ast->getTermID());
+}
+
+TEST_F(MacroTest, ToStrCharMarker) {
+    MacroPtr macro = std::make_shared<Macro>(m_ctx);
+
+    ASSERT_NO_THROW(Parse("@@ show $x @@ @#\" @$x @@@@;", macro));
+    ASSERT_NO_THROW(Parse("@show 42", macro));
+    ASSERT_STREQ("42", LexOut().c_str());
+    ASSERT_TRUE(ast);
+    EXPECT_EQ(TermID::STRCHAR, ast->getTermID()) << trust::toString(ast->getTermID());
 }
 
 TEST_F(MacroTest, Recursion) {

@@ -29,8 +29,10 @@ set(TRUST_VERSION_SHORT "${PROJECT_VERSION}")
 # Release == CMAKE_BUILD_TYPE=Release (CMake convention); Debug / unset => dev.
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(TRUST_BUILD_MODE "release")
+    set(TRUST_IS_RELEASE ON)
 else()
     set(TRUST_BUILD_MODE "dev")
+    set(TRUST_IS_RELEASE OFF)
 endif()
 
 execute_process(

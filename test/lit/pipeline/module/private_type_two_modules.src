@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/private_type $TD/main.src
+# RUN: $TD/private_type && echo "PASS"
+# CHECK: PASS
+#
+# Одноимённые private-типы в разных модулях: module-qualified TypeId identity,
+# каждый модуль эмитит тип в своём anonymous namespace.
+
+//--- main.src
+\lib_a(fa);
+\lib_b(fb);
+@main():Int32 := { @return fa() + fb() - 2; };
+
+//--- lib_a.src
+\lib_a;
+__:: {
+    :Point ::= :Struct{ x:Int32 := _; };
+};
+fa():Int32 := { @return 1; };
+
+//--- lib_b.src
+\lib_b;
+__:: {
+    :Point ::= :Struct{ x:Int32 := _; };
+};
+fb():Int32 := { @return 1; };

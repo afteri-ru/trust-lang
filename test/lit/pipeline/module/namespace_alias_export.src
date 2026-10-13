@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Namespace-алиас в блоке интерфейса экспортируется: импортёр фасада получает привязку
+# префикса и может писать и `ns::f`, и `\facade::ns::f`.
+//--- main.src
+\facade(ns);
+@main():Int32 := { @return ns::f() + \facade::ns::f() - 2; };
+
+//--- lib.src
+\lib;
+sub:: {
+    f():Int32 := { @return 1; };
+};
+
+//--- facade.src
+\facade {
+    \lib();
+    ns:: :- \lib::sub::;
+};

@@ -11,7 +11,7 @@
     {-
         y := -x;
     -};
-    print('unary-caught');
+    print("unary-caught");
 };
 {% int unary__main__() {
     chk();

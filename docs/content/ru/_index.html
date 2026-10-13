@@ -72,9 +72,10 @@ title: TrustLang
     <div class="col-lg-4 mb-4" style="opacity: 0.5;">
         <h4>Автоматичсеквя защита от&nbsp;dangling ссылок</h4>
         <p>
-            Статический аналих висящих ссылок (аналог владения и заимствования в&nbsp;Rust), 
-            но&nbsp;для <nobr>C++</nobr> без <i>UB</i> и <i>segfault</i> в&nbsp;рантайме.
-            <a href="/ru/docs/safety/invalidation/">Контроль владения<b>*</b>&nbsp;&rarr;</a>
+            Статический анализ висящих ссылок: контроль инвалидации производных представлений
+            (view/итераторов/наблюдателей) при мутации источника — без <i>UB</i> и <i>segfault</i>
+            в&nbsp;рантайме. Это не&nbsp;модель заимствования Rust.
+            <a href="/ru/docs/safety/borrowing/">Контроль инвалидации представлений<b>*</b>&nbsp;&rarr;</a>
         </p>
     </div>
 </div>

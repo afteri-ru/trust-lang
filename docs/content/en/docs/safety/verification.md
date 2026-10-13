@@ -4,7 +4,7 @@ tags: [syntax, verification]
 description: >
     Trust contracts (pre/postconditions and assertions) and their checking by an SMT solver (AoRTE)
 weight: 80
-draft: true
+# draft: true
 ---
 
 TrustLang provides **static checking of dynamic expressions** — a formal analysis of
@@ -48,6 +48,35 @@ The compiler checks trust constructs in two ways:
 The behavior is set by the options `-Wsolver` and `--solver-mode`; the values and auxiliary flags
 need not be listed here — they are available in the help `trust --help` / `trust -Whelp`.
 
+### How to read the result (plain words)
+
+The solver answers with the protocol words `sat`/`unsat`; for a human they mean:
+
+| Answer | What it means |
+|---|---|
+| `unsat` | **no violation found** — the requirements hold for all allowed inputs |
+| `sat` | **violation found** — the input values (a violation example) are printed below |
+| `unknown` | **could not check** — the solver gave no answer |
+| not checked | the code is outside the verification envelope (see below) or no solver is available |
+
+`sat`/`unsat` are SMT-LIB 2 protocol tokens (Z3): they stay in `.smt2` and are shown in
+parentheses next to the plain wording, so no theory knowledge is required.
+
+Every violation report is tied to the source (`file:line`) and names the **obligation kind**:
+postcondition, assertion, loop invariant (entry/preservation), call precondition or type assertion.
+
+## Verification envelope
+
+Not every construct can be verified. Native calls without a model, ownership references
+(`shared`/`weak`/`unique`), `:Any`, generic parameters, strings/tensors and loops without an
+invariant **do not participate** in the proof; also outside the envelope: `match`/`with`/`try`,
+exceptions (`throw`), swap/reset (`a :=: b`, `x :=: _`), `append`, destructuring and writes through
+a field/index projection (`a[i] := x`, `p.f := x`). When such code is met, the compiler emits
+`-Wverify-envelope` (default `warning`) and does **not** treat the condition as checked: that
+verification is skipped and counted separately. Proof profile:
+`--solver-mode=calculate -Wverify-envelope=error` (any unverifiable construct makes the check
+fail). The full list is in `include/solver/VERIFICATION_ENVELOPE.md`.
+
 ## Examples
 
 ### Function contracts
@@ -89,7 +118,7 @@ trust_post( z3_forall(i, 0 <= i and i < count) => arr[i] > 0 )
 
 ## Limitations and status
 
-Implemented: function contracts (pre/postconditions, assertions; integers → BitVec; body — SSA),
+Implemented: function contracts (pre/postconditions, assertions; integers → BitVec; body — symbolic execution over MIR (CFG)),
 branching (`if`/`else` → `ite`), loops with invariant induction or unrolling `z3_unroll(N)`,
 interprocedural calls (contract axiom), arrays (`select`/`store`), autonomous/variable and
 type assertions, bitwise operators. Uncovered constructs do not participate in the proof.

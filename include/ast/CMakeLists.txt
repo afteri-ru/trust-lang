@@ -2,33 +2,36 @@
 # AST library - token definitions, naming, AST node types and the @[...] attribute parser.
 # Pure attribute value/registry types (AttrId/Attr/AttrPool/built-in names) live in attrs_lib.
 
-# -- AST library --
-add_library(ast_lib STATIC
-    ${PROJECT_SOURCE_DIR}/ast/ident_name.cpp
-    ${PROJECT_SOURCE_DIR}/ast/ast_children.cpp
-    ${PROJECT_SOURCE_DIR}/ast/ast_base.cpp
-    ${PROJECT_SOURCE_DIR}/ast/ast_expr.cpp
-    ${PROJECT_SOURCE_DIR}/ast/ast_decl.cpp
-    ${PROJECT_SOURCE_DIR}/ast/ast_stmt.cpp
-    ${PROJECT_SOURCE_DIR}/ast/ast_contract.cpp
-    ${PROJECT_SOURCE_DIR}/ast/token_base.cpp
-    ${PROJECT_SOURCE_DIR}/ast/token_type.cpp
-    ${PROJECT_SOURCE_DIR}/ast/attr_parser.cpp
-    ${PROJECT_SOURCE_DIR}/ast/ref_syntax.cpp
-    ${PROJECT_SOURCE_DIR}/ast/term_to_ast.cpp
-    ${PROJECT_SOURCE_DIR}/ast/lowering.cpp
+trust_component(ast
+    INTERNAL_DIRS convert nodes slots
+    PUBLIC_HEADERS
+        ast_nodes.hpp binary_op.hpp clone.hpp ident_name.hpp kind_dispatch.hpp
+        ref_syntax.hpp term_to_ast.hpp token_base.hpp token.hpp token_type.hpp trust_prop.hpp
+    SOURCES
+        nodes/ident_name.cpp nodes/ast_children.cpp slots/ast_slots.cpp nodes/clone.cpp
+        nodes/ast_base.cpp nodes/ast_expr.cpp nodes/ast_decl.cpp nodes/ast_stmt.cpp nodes/token_type.cpp
+        convert/term_to_ast.cpp convert/term_to_ast_decl.cpp convert/term_to_ast_expr.cpp
+    LINK_PUBLIC diag_lib syntax_lib attrs_lib types_lib session_lib trust_include_dirs
+    LINK_PRIVATE trust_llvm_dirs
+    # syntax/term/term.h includes syntax/parser.h → generated parser.yy.h
+    INCLUDE_PRIVATE ${CMAKE_BINARY_DIR}/syntax
+    DEPENDS gen_syntax_parsers
 )
-target_link_libraries(ast_lib PUBLIC diag_lib syntax_lib attrs_lib session_lib sourcemap_lib trust_include_dirs)
-target_link_libraries(ast_lib PRIVATE trust_llvm_dirs)
-# syntax/term.h includes syntax/parser.h → generated parser.yy.h
-target_include_directories(ast_lib PRIVATE "${CMAKE_BINARY_DIR}/syntax")
+
 # term_to_ast.cpp includes syntax headers (term.h → parser.h) that trigger
 # -Wswitch / old-style-cast warnings - suppress as errors.
 set_source_files_properties(
-    ${PROJECT_SOURCE_DIR}/ast/term_to_ast.cpp
+    ${TRUST_SRC_DIR}/ast/convert/term_to_ast.cpp
+    ${TRUST_SRC_DIR}/ast/convert/term_to_ast_decl.cpp
+    ${TRUST_SRC_DIR}/ast/convert/term_to_ast_expr.cpp
     PROPERTIES COMPILE_OPTIONS "-Wno-error=switch;-Wno-error=old-style-cast"
 )
-add_dependencies(ast_lib gen_syntax_parsers)
 
-# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
-target_link_libraries(ast_lib PRIVATE trust_pch)
+# -- Kind-диспетчеризация: полнота switch по ParserToken::Kind проверяется компилятором. --
+# Флаг включён ТОЛЬКО для TU со switch по kind (структурный клон: kind→класс в shallowCopy):
+# новый kind без решения ломает сборку. Частичные (предикатные) switch помечены
+# TRUST_PARTIAL_ENUM_SWITCH_*.
+set_source_files_properties(
+    ${TRUST_SRC_DIR}/ast/nodes/clone.cpp
+    PROPERTIES COMPILE_OPTIONS "-Wswitch-enum"
+)

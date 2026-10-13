@@ -35,4 +35,9 @@ namespace trust {
 /// проверки «вид задан у типа» в семантике. nullopt - у типа вида нет.
 [[nodiscard]] std::optional<RefType> refKindOfTypeSpec(const AstNodeBase* typeNode, const AttrPool& attrs);
 
+/// Авто-маркерный (короткий) вид ссылки на узле объявления: term_to_ast конвертирует символьный
+/// маркер ПЕРЕД именем (`&* x := ...`) в атрибут @[reftype] с manual=false; явный `@[reftype(...)]`
+/// имеет manual=true. Используется правилом «короткие маркеры запрещены на границе API».
+[[nodiscard]] bool hasAutoRefKindAttr(const AstNodeAttr& node, const AttrPool& pool);
+
 } // namespace trust

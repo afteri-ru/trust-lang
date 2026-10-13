@@ -1,26 +1,23 @@
 # include/module_loader/CMakeLists.txt
 # Module loader library - needed by diag::Context (and pipeline_lib)
 
-set(SYNTAX_GEN_DIR "${CMAKE_BINARY_DIR}/syntax")
+trust_component(module_loader
+    INTERNAL_DIRS interface package path registry
+    PUBLIC_HEADERS import_exports.hpp module_export.hpp module_loader.hpp
+    SOURCES
+        module_loader.cpp module_export.cpp import_exports.cpp
+        path/module_path_policy.cpp package/package_store.cpp
+        interface/interface_install.cpp registry/module_registry.cpp
+    LINK_PUBLIC trust_include_dirs ast_lib session_lib
+    LINK_PRIVATE types_lib syntax_lib package_lib
+    # build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.
+    INCLUDE_PRIVATE ${CMAKE_BINARY_DIR}/syntax
+    DEPENDS generate_makefile_header gen_syntax_parsers
+)
 
-add_library(module_loader_lib STATIC
-    ${PROJECT_SOURCE_DIR}/module_loader/module_loader.cpp
-    ${PROJECT_SOURCE_DIR}/module_loader/module_registry.cpp
-    ${PROJECT_SOURCE_DIR}/module_loader/module_export.cpp
-)
-target_link_libraries(module_loader_lib PUBLIC trust_include_dirs ast_lib session_lib)
-target_link_libraries(module_loader_lib PRIVATE syntax_lib)
-# build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.
-target_include_directories(module_loader_lib PRIVATE
-    ${SYNTAX_GEN_DIR}
-)
-# module_loader.cpp includes syntax headers (macro.h → term.h)
-# that trigger -Wswitch/old-style-cast
+# module_loader.cpp includes syntax headers (macro.h → term.h) that trigger -Wswitch/old-style-cast
 set_source_files_properties(
-    ${PROJECT_SOURCE_DIR}/module_loader/module_loader.cpp
+    ${TRUST_SRC_DIR}/module_loader/module_loader.cpp
+    ${TRUST_SRC_DIR}/module_loader/interface/interface_install.cpp
     PROPERTIES COMPILE_OPTIONS "-Wno-error=switch;-Wno-error=old-style-cast"
 )
-add_dependencies(module_loader_lib generate_makefile_header gen_syntax_parsers)
-
-# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
-target_link_libraries(module_loader_lib PRIVATE trust_pch)

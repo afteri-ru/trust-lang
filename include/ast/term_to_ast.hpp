@@ -10,15 +10,12 @@
 // которые выполняют класс-селекцию узла. Раскладку детей строят сами терм-конструкторы
 // узлов (категорийные ast_*.cpp, тот же ast_lib) через этот класс.
 
-#include "ast/term_visitor.hpp"
+#include "ast/convert/term_visitor.hpp"
 
 #include <memory>
 #include <vector>
 
 namespace trust {
-
-class Term;
-using TermPtr = std::shared_ptr<Term>;
 
 /// TermID-visitor конвертации Term -> AstNode (вход по TermID из TERMS).
 class TermToAstConverter : public TermVisitorDefault {
@@ -48,6 +45,16 @@ class TermToAstConverter : public TermVisitorDefault {
     /// (`Pair ::= %std::pair<T1,T2>{...};`): RHS-терм CLASS с m_left = ИМЯ (native/голое), а не
     /// type_class (`:Base`) пользовательского класса → right = ClassDecl; иначе generic.
     AstNodePtr visit_CREATE_TYPE(const trust::TermPtr& term, Context& ctx) override;
+    /// `=` - ОПРЕДЕЛЕНИЕ ранее объявленного типа (`Rational = %trust::Rational { ... };`).
+    /// RHS - native class/template или пользовательская record-форма; узел TypeDecl, отличие
+    /// от `::=` - TermID оператора (семантика различает объявление и определение).
+    AstNodePtr visit_TYPE_DEFINE(const trust::TermPtr& term, Context& ctx) override;
+    /// `:A ::- T;` - ВТОРОЕ имя существующего типа (тот же TypeId): узел TypeDecl с кэшем
+    /// `Binary::m_isTypeAlias`; грамматика допускает только типовой RHS.
+    AstNodePtr visit_ALIAS_TYPE(const trust::TermPtr& term, Context& ctx) override;
+    /// `f :- \lib::g;` - АЛИАС ИМЕНИ: FuncDecl-узел с `aliasTarget()` (новая сущность не
+    /// создаётся, C++-функция не эмитится). Цель: модульная ссылка либо qualified-имя.
+    AstNodePtr visit_ALIAS_NAME(const trust::TermPtr& term, Context& ctx) override;
     /// `a, b = ... source;` - деструктуризация-присваивание (многоимённый LHS + `=`): построить
     /// DestructureDecl(m_isAssign=true); одиночный `a = expr` - обычный AssignOp (generic).
     AstNodePtr visit_ASSIGN(const trust::TermPtr& term, Context& ctx) override;
@@ -70,10 +77,15 @@ class TermToAstConverter : public TermVisitorDefault {
     /// `[1,2,3,]` / `[1,2,3,]:Int32` - литерал массива → DictLiteralNode(kind=ArrayInit).
     /// Аннотация `]:Type` сохраняется в m_type; элементы - из канонических пар (как visit_DICT).
     AstNodePtr visit_TENSOR(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_INDEX(const trust::TermPtr& term, Context& ctx) override;
     /// `start..stop[..step]` - литерал диапазона → RangeExpr. Помимо generic-построения (m_body из
     /// m_args), переносит явные аннотации типа операндов (`start:Type`, `stop:Type`) из m_type
     /// терма-операнда в RangeExpr::operandTypes (для учёта в analyzeRangeExpr, напр. `0..100:Rational`).
     AstNodePtr visit_RANGE(const trust::TermPtr& term, Context& ctx) override;
+
+    /// `&` в позиции типа (`x : &&Int32`/`&*Int32`/`&?Int32`): RefMakeExpr + `m_sigilKind`
+    /// из маркера.
+    AstNodePtr visit_OPERATOR_PTR(const trust::TermPtr& term, Context& ctx) override;
 
     /// Немедленный вызов лямбды `( lambda )(args)` (TermID::LAMBDA_CALL): callee - не идентификатор,
     /// а лямбда-терм (m_left), поэтому generic-путь (callee=IdentName) не подходит. Аргументы - m_args.

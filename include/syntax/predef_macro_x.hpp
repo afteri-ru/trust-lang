@@ -45,7 +45,7 @@
     X(Function, "@__FUNCTION__", ("Current function name"))                                                                                 \
     X(FuncDName, "@__FUNCDNAME__", ("Decorated of current function name"))                                                                  \
     X(FuncSig, "@__FUNCSIG__", ("Signature of current function"))                                                                           \
-    X(ModuleName, "@__MODULE_NAME__", ("Current module name (without extension, relative to the main file, separators replaced with '_')")) \
+    X(ModuleName, "@__MODULE_NAME__", ("Current module name (without extension, relative to the project/package root; '\\' -> '_', '_' -> '__')")) \
     X(BareNamespace, "@$$", ("Current namespace (bare)"))                            \
     X(CheckArea, "@__CHECK_AREA__",                                                  \
       ("Restrict the enclosing macro/site to an allowed syntactic area: @__CHECK_AREA__(<area> [, <behavior>] [, <attr>...]). The marker is validated by the analyzer and emits no code.")) \

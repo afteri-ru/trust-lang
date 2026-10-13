@@ -1,0 +1,13 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1; true
+# RUN: %FileCheck %s --implicit-check-not="fatal: Module" <%t.out
+#
+# Отсутствующий модуль: РОВНО ОДНО фатальное сообщение. Диагностика принадлежит загрузке;
+# материализация экспорт-проекции сайта (resolveImportExports вызывается и для главного
+# юнита, и для модульных) второго сообщения не даёт. Фиксирует текущее поведение (baseline).
+# CHECK: fatal: Module
+
+//--- main.src
+\missing();
+@main():Int32 := { @return 0; };

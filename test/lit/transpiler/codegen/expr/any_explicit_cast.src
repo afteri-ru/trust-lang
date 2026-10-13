@@ -1,0 +1,19 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Явная конверсия Any -> T: `:T(expr)` для Any-операнда эмитит trust::any_to<T>
+# (runtime-проверка), а НЕ checked_cast<T>(std::any) (последнее не компилируется).
+a:Any := 5;
+# CHECK: std::any c_a = 5;
+
+x:Int32 := :Int32(a);
+# CHECK: int32_t c_x = trust::any_to<int32_t>(c_a);
+
+@useAny(v:Any):Int64 := {
+    @return :Int64(v);
+};
+# CHECK: trust::any_to<int64_t>(c_v)
+
+# Конкретный операнд по-прежнему идёт через checked_cast (диапазонная проверка).
+n:Int64 := 7;
+y:Int32 := :Int32(n);
+# CHECK: int32_t c_y = trust::checked_cast<int32_t>(c_n);

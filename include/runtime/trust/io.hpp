@@ -1,14 +1,9 @@
 // trust/io.hpp - I/O helpers for the Trust runtime.
 //
-// Public runtime header: self-contained (standard headers only) so that
-// generated C++ programs can include it without depending on the compiler's
-// include tree. At build time it is embedded into trust-runtime.so/.a (via
-// #embed, in an ELF section named "trust/io.hpp"); the pipeline extracts it
-// into a temporary `trust/` directory and links the runtime library when a
-// generated program actually uses one of its symbols (trust::trust__print__).
+// Delivery: package file `include/trust/io.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 //
 // The backing symbol trust::outs() is provided by the linked trust-runtime
-// library (src/utils/io.cpp), which is why it is only forward-declared here.
+// library (src/utils/io/io.cpp), which is why it is only forward-declared here.
 
 #pragma once
 

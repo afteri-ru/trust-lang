@@ -1,0 +1,16 @@
+# RUN: %trust -q --emit-cpp -Wborrow-owner-mutated=error -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Flow: представление, объявленное в теле цикла, не живо на входе следующей
+# итерации и после цикла -> мутация источника после цикла допустима.
+@main() := {
+    &* x := 5;
+    i := 0;
+    while (i < 2) {
+        &? w := & x;
+        @print("{}\n", *w);
+        i++;
+    };
+    x :=: _;
+    @print("{}\n", 1);
+}
+# CHECK-NOT: while a derived view is alive

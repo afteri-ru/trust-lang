@@ -23,7 +23,7 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtSimpleAssign) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("x = 5;") != std::string::npos) << "result: " << result;
@@ -65,7 +65,7 @@ TEST_F(TranspilerTest, GenerateCallExprInInitializer) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("foo(1, 2)") != std::string::npos) << "result: " << result;
@@ -95,7 +95,7 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundAdd) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("__builtin_add_overflow(c_x, 3, &c_x)") != std::string::npos) << "result: " << result;
@@ -127,7 +127,7 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundSub) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("__builtin_sub_overflow(c_x, 3, &c_x)") != std::string::npos) << "result: " << result;
@@ -159,7 +159,7 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundMul) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("__builtin_mul_overflow(c_x, 3, &c_x)") != std::string::npos) << "result: " << result;
@@ -191,7 +191,7 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundDiv) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("x /= 3;") != std::string::npos) << "result: " << result;
@@ -223,10 +223,14 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundRem) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("x %= 3;") != std::string::npos) << "result: " << result;
+    // `%=` защищён от нулевого делителя (единый классификатор `runtimeCheckOf`) — форма та же,
+    // что у `//=`; сообщение различает остаток от деления.
+    EXPECT_TRUE(result.find("c_x = ([&]{ int64_t __l = static_cast<int64_t>(c_x);") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("integer remainder by zero") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("return __l % __r; }())") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -255,7 +259,7 @@ TEST_F(TranspilerTest, GenerateExprIntDiv) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("int64_t __l = static_cast<int64_t>(c_x)") != std::string::npos) << "result: " << result;
@@ -288,7 +292,7 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundIntDiv) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("c_x = ([&]{ int64_t __l = static_cast<int64_t>(c_x)") != std::string::npos) << "result: " << result;
@@ -326,7 +330,7 @@ TEST_F(TranspilerTest, GenerateFuncDeclInt8Param) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("void func(int8_t c_arg)") != std::string::npos) << "result: " << result;
@@ -377,7 +381,7 @@ TEST_F(TranspilerTest, GenerateFuncDeclTyped) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     // Возврат - зарегистрированный тип Int64 → каноническое C++-имя int64_t.
@@ -411,7 +415,7 @@ TEST_F(TranspilerTest, GenerateFuncDeclForward) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("void forward_func()") != std::string::npos) << "result: " << result;
@@ -450,7 +454,7 @@ TEST_F(TranspilerTest, GenerateForwardFuncDeclInt32) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("int32_t add(int32_t c_a, int32_t c_b);") != std::string::npos) << "result: " << result;
@@ -479,7 +483,7 @@ TEST_F(TranspilerTest, GenerateForwardVarDecl) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("extern int32_t c_x;") != std::string::npos) << "result: " << result;
@@ -508,7 +512,7 @@ TEST_F(TranspilerTest, GenerateNativeVarManglesPercent) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("int32_t x = 5;") != std::string::npos) << "result: " << result;
@@ -523,7 +527,7 @@ TEST_F(TranspilerTest, GenerateThrowStmt) {
     MapperFile input_file = m_ctx.source().add_source("test.src", "-- value --;", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 14));
 
-    auto opTerm = Term::Create(TermID::INT_MINUS, "--", range, parser::token_type::END);
+    auto opTerm = Term::Create(TermID::INT_MINUS, "|-|", range, parser::token_type::END);
     auto stmt = std::make_shared<JumpStmt>(ParserToken::Kind::ThrowStmt, std::move(opTerm));
     stmt->m_value = std::make_shared<IdentName>("value");
     std::vector<AstNodePtr> seq;
@@ -538,7 +542,7 @@ TEST_F(TranspilerTest, GenerateThrowStmt) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("throw trust::IntMinus(c_value);") != std::string::npos) << "result: " << result;
@@ -549,7 +553,7 @@ TEST_F(TranspilerTest, GenerateThrowVoid) {
     MapperFile input_file = m_ctx.source().add_source("test.src", "-- --;", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 7));
 
-    auto opTerm = Term::Create(TermID::INT_MINUS, "--", range, parser::token_type::END);
+    auto opTerm = Term::Create(TermID::INT_MINUS, "|-|", range, parser::token_type::END);
     auto stmt = std::make_shared<JumpStmt>(ParserToken::Kind::ThrowStmt, std::move(opTerm));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(stmt));
@@ -563,7 +567,7 @@ TEST_F(TranspilerTest, GenerateThrowVoid) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("throw trust::IntMinus();") != std::string::npos) << "result: " << result;
@@ -577,13 +581,13 @@ TEST_F(TranspilerTest, GenerateTryCatchStmt) {
     auto blockTerm = Term::Create(TermID::BLOCK_MINUS, "{-", MapperRange(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 16)),
                                   parser::token_type::END);
     auto block = std::make_shared<TryCatchStmt>(ParserToken::Kind::TryCatchStmt, std::move(blockTerm));
-    auto throwTerm = Term::Create(TermID::INT_MINUS, "--", MapperRange(m_ctx.source().makeLoc(input_file, 5), m_ctx.source().makeLoc(input_file, 13)),
+    auto throwTerm = Term::Create(TermID::INT_MINUS, "|-|", MapperRange(m_ctx.source().makeLoc(input_file, 5), m_ctx.source().makeLoc(input_file, 13)),
                                   parser::token_type::END);
     auto throwStmt = std::make_shared<JumpStmt>(ParserToken::Kind::ThrowStmt, std::move(throwTerm));
     throwStmt->m_value = std::make_shared<IdentName>("err");
     block->m_body.push_back(std::move(throwStmt));
     // синтетическая ветка catch для IntMinus (как строит visit_BLOCK_MINUS)
-    auto cb = std::make_shared<CatchBlock>(ParserToken::Kind::CatchBlock, std::string());
+    auto cb = std::make_shared<CatchBlock>(ParserToken::Kind::CatchBlock);
     cb->m_binding = std::make_shared<IdentType>(std::string("IntMinus"));
     block->m_catches.push_back(std::move(cb));
     std::vector<AstNodePtr> seq;
@@ -598,7 +602,7 @@ TEST_F(TranspilerTest, GenerateTryCatchStmt) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("try {") != std::string::npos) << "result: " << result;
@@ -625,15 +629,15 @@ TEST_F(TranspilerTest, GenerateStandaloneLiteral) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("42;") != std::string::npos) << "result: " << result;
 }
 
-/// Test: standalone narrow string literal ('hello' → "hello";)
+/// Test: standalone narrow string literal ("hello" → "hello";)
 TEST_F(TranspilerTest, GenerateStandaloneStringLiteral) {
-    MapperFile input_file = m_ctx.source().add_source("test.src", "'hello';", true);
+    MapperFile input_file = m_ctx.source().add_source("test.src", "\"hello\";", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 9));
 
     auto litTerm = Term::Create(TermID::STRCHAR, "hello", range, parser::token_type::END);
@@ -649,52 +653,27 @@ TEST_F(TranspilerTest, GenerateStandaloneStringLiteral) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("\"hello\";") != std::string::npos) << "result: " << result;
 }
 
-/// Test: exports() contains variable declarations and function declarations
-TEST_F(TranspilerTest, GenerateExports) {
-    MapperFile input_file = m_ctx.source().add_source("test.src", "x := 42; %foo():Void := { };", true);
-    MapperRange var_range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 9));
-    MapperRange func_range(m_ctx.source().makeLoc(input_file, 10), m_ctx.source().makeLoc(input_file, 28));
-
-    std::string varName = "x";
-    auto varTerm = Term::Create(TermID::NAME, varName, var_range, parser::token_type::NAME);
-    auto var = std::make_shared<VarDecl>(std::move(varTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
-
-    auto funcTerm = Term::Create(TermID::NAME, "%foo", func_range, parser::token_type::NAME);
-    auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
-    func->m_params = std::vector<AstNodePtr>{};
-    func->m_type = std::make_shared<IdentType>("None");
-    func->m_body = std::vector<AstNodePtr>{};
-
+/// Test: Sequence node walks body (nested declarations)
+TEST_F(TranspilerTest, UnproducibleKindIsExplicitError) {
+    // Program не производится AST-конвертером: попадание в кодоген - нарушение инварианта,
+    // а не молчаливый skip.
+    MapperFile input_file = m_ctx.source().add_source("program.src", "program", true);
+    MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 8));
+    auto term = Term::Create(TermID::NAME, "program", range, parser::token_type::NAME);
     std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(var));
-    seq.push_back(std::move(func));
+    seq.push_back(std::make_shared<AstNodeAttr>(ParserToken::Kind::Program, std::move(term)));
 
-    {
-        SemanticPassRunner runner(m_ctx);
-        runner.run(seq);
-    }
-
-    MapperFile out_idx = m_ctx.source().add_output("test_exports.cpp", true);
-    ASSERT_FALSE(out_idx.isInvalid());
-
+    MapperFile out_idx = m_ctx.source().add_output("program_out.cpp", true);
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
-
-    const auto& exports = gen.exports();
-    ASSERT_EQ(exports.size(), 2u);
-    EXPECT_EQ(exports[0].trustName, "x");
-    EXPECT_EQ(exports[0].cppName, "c_x");
-    EXPECT_EQ(exports[1].trustName, "%foo");
-    EXPECT_EQ(exports[1].cppName, "foo");
+    EXPECT_THROW(gen.generateToFile(hirOf(seq), out_idx), std::exception);
 }
 
-/// Test: Sequence node walks body (nested declarations)
 TEST_F(TranspilerTest, GenerateSequenceWalk) {
     MapperFile input_file = m_ctx.source().add_source("test.src", "{ x := 1; y := 2; }", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 22));
@@ -725,16 +704,16 @@ TEST_F(TranspilerTest, GenerateSequenceWalk) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("int8_t c_x = 1;") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("int8_t c_y = 2;") != std::string::npos) << "result: " << result;
 }
 
-/// Test: narrow string literal with embedded quote is escaped ('a"b' → "a\"b")
+/// Test: narrow string literal with embedded quote is escaped ("a\"b" → "a\"b")
 TEST_F(TranspilerTest, GenerateStringWithEscapedQuote) {
-    MapperFile input_file = m_ctx.source().add_source("test.src", "s := 'a\"b';", true);
+    MapperFile input_file = m_ctx.source().add_source("test.src", "s := \"a\\\"b\";", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 7));
 
     std::string name = "s";
@@ -752,7 +731,7 @@ TEST_F(TranspilerTest, GenerateStringWithEscapedQuote) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("std::string c_s = \"a\\\"b\";") != std::string::npos) << "result: " << result;
@@ -779,7 +758,7 @@ TEST_F(TranspilerTest, GenerateReadOnlyAttrUnchanged) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("const int8_t c_x = 42;") != std::string::npos) << "result: " << result;
@@ -817,7 +796,7 @@ TEST_F(TranspilerTest, GenerateUntypedVarUnknownTypeIsErrorNoFallback) {
     MapperFile out_idx = m_ctx.source().add_output("test_err.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx); // без разрешённой таблицы символов
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     // Диагностика ошибки вывода (нет тихого std::any).
     EXPECT_GT(m_ctx.diag().errorCount(), 0);

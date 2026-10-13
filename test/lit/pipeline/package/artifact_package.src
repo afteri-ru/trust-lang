@@ -1,0 +1,59 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %cxx -Ipkg/include -c pkg/demo.cpp -o pkg/demo.o
+# RUN: cd $TD && mkdir -p pkg/lib
+# RUN: cd $TD && ar rcs pkg/lib/libdemo.a pkg/demo.o
+# RUN: cd $TD && %trust --package pkg -o pkg_demo.trust > %t.out
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: grep -Eq 'packages/pkg_demo-[0-9a-f]+/lib/libdemo.a' $TD/build.conf
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# [[artifact]] kind="package": the library file is INSIDE the package archive; the resolver
+# validates its existence and emits a build-relative path (no -L/-l for the logical name).
+
+//--- pkg/trust.toml
+name = 'pkg_demo'
+
+[[layout.layers]]
+source-dir = '.'
+archive-dir = '.'
+patterns = ['*.src']
+
+[[layout.layers]]
+source-dir = 'include'
+archive-dir = 'include'
+patterns = ['*.hpp']
+
+[[layout.layers]]
+source-dir = 'lib'
+archive-dir = 'lib'
+patterns = ['*.a']
+
+[[artifact]]
+provides = ['demo']
+kind = 'package'
+libs = ['lib/libdemo.a']
+
+//--- pkg/include/demo.hpp
+#pragma once
+
+inline int demo_value() { return 7; }
+
+//--- pkg/demo.cpp
+#include "demo.hpp"
+
+int demo_anchor() { return demo_value(); }
+
+//--- pkg/pkg_demo.src
+\\\pkg_demo\pkg_demo;
+@[include("<demo.hpp>")@]
+@[link("demo")@]
+demo_value:Int32 := {% demo_value() %};
+
+//--- main.src
+\\\pkg_demo\pkg_demo(demo_value);
+
+{% int main__main__() {
+    return @demo_value == 7 ? 0 : 1;
+} %}

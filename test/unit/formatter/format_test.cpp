@@ -135,4 +135,11 @@ TEST(FormatterTest, KeywordSigilRemoveBareUntouched) {
     EXPECT_EQ(fmt(in, opts), exp);
 }
 
+TEST(FormatterTest, IncDecPrefixPostfixSpacing) {
+    // Префикс `++x`/`--x` приклеен к операнду справа; постфикс `x++`/`x--` - слева.
+    const std::string in = "x:=0;y:=x++;z:=++x;x--;--x;";
+    const std::string exp = "x := 0;\ny := x++;\nz := ++x;\nx--;\n--x;\n";
+    EXPECT_EQ(fmt(in), exp);
+}
+
 } // namespace trust::formatter

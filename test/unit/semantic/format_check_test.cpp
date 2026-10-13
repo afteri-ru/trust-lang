@@ -2,12 +2,13 @@
 // Юнит-тесты printf-формат проверки (semantic/format_check.hpp): парсер printf-спецификаторов
 // и сверка ожидаемой категории аргумента с фактическим типом (атрибут @[format("printf", ...)]).
 
-#include "semantic/format_check.hpp"
-#include "types/registry.hpp"
+#include "semantic/verify/format_check.hpp"
+#include "types/type_system.hpp"
 #include "session/context.hpp"
 #include "gtest/gtest.h"
 
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -49,22 +50,32 @@ TEST(FormatCheck, ParseInvalid) {
     EXPECT_FALSE(format_check::parse_printf_format("%q", convs));   // неизвестный конверсионный символ
 }
 
+TEST(FormatCheck, ExpectNameAndInvalidFaults) {
+    using format_check::Expect;
+    EXPECT_STREQ(format_expect_name(Expect::Integer), "integer");
+    EXPECT_STREQ(format_expect_name(Expect::Unsigned), "unsigned integer");
+    EXPECT_STREQ(format_expect_name(Expect::Float), "floating point");
+    EXPECT_STREQ(format_expect_name(Expect::StrChar), "string");
+    EXPECT_STREQ(format_expect_name(Expect::Pointer), "pointer");
+    EXPECT_THROW((void)format_expect_name(static_cast<Expect>(255)), std::runtime_error);
+}
+
 class FormatCheckTypeFixture : public ::testing::Test {
   protected:
     void SetUp() override {
-        m_types = std::make_unique<TypeRegistry>(m_ctx.diag(), m_ctx.opts());
+        m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
     }
     Context m_ctx;
-    std::unique_ptr<TypeRegistry> m_types;
+    std::unique_ptr<TypeSystem> m_types;
 };
 
 TEST_F(FormatCheckTypeFixture, ArgMatchesExpect) {
-    TypeRegistry& reg = m_ctx.types();
-    const TypeId int32 = reg.getType("Int32");
-    const TypeId str = reg.getType("StrChar");
-    const TypeId cstr = reg.getType("CString");
-    const TypeId flt = reg.getType("Float64");
+    TypeSystem& reg = m_ctx.types();
+    const TypeId int32 = reg.read().getType("Int32");
+    const TypeId str = reg.read().getType("StrChar");
+    const TypeId cstr = reg.read().getType("CString");
+    const TypeId flt = reg.read().getType("Float64");
     ASSERT_NE(int32, INVALID_TYPE_ID);
     ASSERT_NE(str, INVALID_TYPE_ID);
     ASSERT_NE(cstr, INVALID_TYPE_ID);

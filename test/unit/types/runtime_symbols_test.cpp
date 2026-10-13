@@ -1,11 +1,11 @@
 // test/unit/types/runtime_symbols_test.cpp
 // Тесты единой таблицы рантайм-символов (types/runtime_symbols.hpp) и инварианта
-// TypeRegistry: рантайм-символы - только не-типовые функции; типы (Dict/Rational)
+// TypeSystem: рантайм-символы - только не-типовые функции; типы (Dict/Rational)
 // не дублируются как символы (их заголовки подключаются по-типу).
 
-#include "types/registry.hpp"
+#include "types/type_system.hpp"
 #include "types/runtime_symbols.hpp"
-#include "types/type_names.hpp"
+#include "types/names.hpp"
 #include "session/context.hpp"
 #include "gtest/gtest.h"
 
@@ -42,7 +42,7 @@ TEST(RuntimeSymbolsTest, TableHeadersAreNonEmptyRuntimeDirectives) {
         const auto headers = runtimeSymbolHeaders(id);
         EXPECT_FALSE(headers.empty());
         for (const auto h : headers) {
-            // Заголовок - директива с маркером '@' (путь = ELF-секция trust-runtime).
+            // Заголовок - директива с маркером '@' (путь внутри пакета stdlib.trust).
             EXPECT_FALSE(h.empty());
             EXPECT_EQ(h.front(), '@');
         }
@@ -52,16 +52,16 @@ TEST(RuntimeSymbolsTest, TableHeadersAreNonEmptyRuntimeDirectives) {
 class RuntimeSymbolsFixture : public ::testing::Test {
   protected:
     Context m_ctx;
-    std::unique_ptr<TypeRegistry> m_types;
+    std::unique_ptr<TypeSystem> m_types;
 
     void SetUp() override {
-        m_types = std::make_unique<TypeRegistry>(m_ctx.diag(), m_ctx.opts());
+        m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
     }
 };
 
 TEST_F(RuntimeSymbolsFixture, RegistryMatchesCompileTimeTable) {
-    const auto& syms = m_ctx.types().runtimeSymbols();
+    const auto& syms = m_ctx.readTypes().builtins().runtimeSymbols();
     // Ровно kCount символов - все из компайлтайм-таблицы (регистрация циклом по kCount).
     ASSERT_EQ(syms.size(), static_cast<size_t>(RuntimeSymbolId::kCount));
 
@@ -77,20 +77,20 @@ TEST_F(RuntimeSymbolsFixture, RegistryMatchesCompileTimeTable) {
 
 TEST_F(RuntimeSymbolsFixture, DictIsNotARuntimeSymbol) {
     // Инвариант: trust::Dict - ТИП, а не рантайм-символ (заголовки по-типу).
-    const auto& syms = m_ctx.types().runtimeSymbols();
+    const auto& syms = m_ctx.readTypes().builtins().runtimeSymbols();
     for (const auto& rs : syms) {
         EXPECT_NE(rs.symbol, "trust::Dict");
     }
     // Но тип Dict зарегистрирован (и его заголовки доступны по-типу).
-    auto dictId = m_ctx.types().findType(type::Dict);
+    auto dictId = m_ctx.readTypes().findType(type::Dict);
     ASSERT_TRUE(dictId.has_value());
-    EXPECT_FALSE(m_ctx.types().getPreprocIncludes(*dictId).empty());
+    EXPECT_FALSE(m_ctx.readTypes().builtins().preprocIncludesOf(*dictId).empty());
 }
 
 TEST_F(RuntimeSymbolsFixture, ResetRepopulatesSymbolsWithoutDuplicates) {
     // Фикс латентного бага: reset() не накапливает дубли m_runtimeSymbols.
     m_ctx.types().reset();
-    const auto& syms = m_ctx.types().runtimeSymbols();
+    const auto& syms = m_ctx.readTypes().builtins().runtimeSymbols();
     ASSERT_EQ(syms.size(), static_cast<size_t>(RuntimeSymbolId::kCount));
 }
 

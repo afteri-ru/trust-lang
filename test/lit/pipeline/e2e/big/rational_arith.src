@@ -21,6 +21,6 @@
     bi:BigInteger := 8; rn:Rational := 2;
     m := bi * rn;
     big := 9223372036854775808;
-    print('z={} q={} rq={} m={} big={}', z, q, rq, m, big);
+    print("z={} q={} rq={} m={} big={}", z, q, rq, m, big);
 };
 {% int rational_arith__main__() { chk(); return 0; } %}

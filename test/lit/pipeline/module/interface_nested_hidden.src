@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Скрытая область `__::` запрещена в блоке интерфейса на ЛЮБОЙ глубине (в т.ч. внутри
+# namespace-области), а не только прямым ребёнком блока.
+# CHECK: error: non-public block ('__::') is not allowed in the file interface
+
+//--- main.src
+\facade(f);
+@main():Int32 := { @return f(); };
+
+//--- facade.src
+\facade {
+    ns:: {
+        __:: {
+            helper():Int32 := { @return 1; };
+        };
+    };
+};

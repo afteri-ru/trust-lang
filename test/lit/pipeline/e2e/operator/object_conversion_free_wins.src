@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Унаследованный member-оператор участвует в том же ранжировании: его параметр требует
+# derived→base (widening), свободная форма точна - побеждает free.
+:Base ::= :Class{
+    v: Int32 := 0;
+    __eq__(o: Base): Bool := { return false; };
+};
+:D ::= :Base{
+    w: Int32 := 0;
+};
+__eq__(a: D, b: D): Bool := { return true; };
+@main() := {
+    a : D := :D();
+    b : D := :D();
+    @print("result={}\n", a == b);
+    @return 0;
+}
+# CHECK: result=true
+

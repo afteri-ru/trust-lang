@@ -1,0 +1,24 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Перегруженный оператор: выбранная сигнатура связывается ЯВНО (static_cast), C++ не выбирает.
+:P ::= :Class{
+    x: Int32 := _;
+    __eq__(o: Int32): Bool := { return true; };
+    __eq__(o: Int64): Bool := { return false; };
+    __getitem__(i: Int32): Int32 := { return 1; };
+    __getitem__(i: Int64): Int32 := { return 2; };
+};
+@main() := {
+    p : P := :P(1);
+    a := p == 1:Int32;
+    b := p == 2:Int64;
+    c := p[3:Int32];
+    d := p[4:Int64];
+    @return 0;
+}
+# CHECK: bool operator==(int32_t c_o)
+# CHECK: bool operator==(int64_t c_o)
+# CHECK: .operator==(static_cast<int32_t>(1)
+# CHECK: .operator==(static_cast<int64_t>(2)
+# CHECK: [static_cast<int32_t>(3)]
+# CHECK: [static_cast<int64_t>(4)]

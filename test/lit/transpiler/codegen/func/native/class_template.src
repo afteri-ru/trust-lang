@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Forward-объявление НАТИВНОГО шаблон-класса (ЯВНАЯ реализация): `<T1,T2> Pair ::= %std::pair<T1,T2>{...};`.
 # Использование `Pair<Int32, StrChar>` эмитит `std::pair<int32_t, std::string>` + on-use `#include <utility>`.

@@ -1,9 +1,9 @@
 // src/playground/stats_session_store.cpp
-// trust-playground: реализация StatsSessionStore (см. include/playground/stats_session_store.h).
+// trust-playground: реализация StatsSessionStore (см. include/playground/limits/stats_session_store.h).
 
-#include "playground/stats_session_store.h"
+#include "playground/limits/stats_session_store.h"
 
-#include "playground/util.h"
+#include "playground/server/util.h"
 
 namespace trust {
 namespace playground {

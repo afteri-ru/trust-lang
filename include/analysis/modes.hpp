@@ -1,15 +1,18 @@
 #pragma once
 
 // include/analysis/modes.hpp
-// Поведенческие режимы компилятора, разделяемые АНАЛИЗОМ и КОДОГЕНЕРАЦИЕЙ как ДАННЫЕ:
+// Поведенческие режимы компилятора, разделяемые АНАЛИЗОМ, КОДОГЕНЕРАЦИЕЙ и ВЕРИФИКАТОРОМ как
+// ДАННЫЕ:
 //   * режим trust-контрактов `--solver-mode` (assert/export/calculate);
+//   * режим диагностики циклов без инварианта `-Wsolver-loop` и глобальный unroll;
 //   * режим контроля переполнения стека `--stack-check` (off/explicit/recursion/auto);
 //   * резерв и перечень функций контроля стека;
 //   * имена нативных функций контроля стека (общие для распознавания семантикой и эмиссии кодогеном).
 //
 // Владелец ФЛАГОВ (`FlagKind`) — `semantic`: он разрешает значения из `diag::Options`
-// (`semantic::behavioralModesFromOptions`) и передаёт их в кодоген структурой `BehavioralModes`.
-// Кодоген НЕ обращается к `diag::Options`/`FlagKind` — это снимает зависимость transpiler → semantic.
+// (`semantic::behavioralModesFromOptions`) и передаёт их потребителям структурой
+// `BehavioralModes`. Ни кодоген, ни верификатор НЕ обращаются к `diag::Options`/`FlagKind` —
+// это снимает зависимости transpiler → semantic и solver → semantic.
 
 #include <cstddef>
 #include <optional>
@@ -48,6 +51,35 @@ inline constexpr std::size_t kSolverModeCount = sizeof(kSolverModeNames) / sizeo
     for (std::size_t i = 0; i < kSolverModeCount; ++i) {
         if (kSolverModeNames[i] == v) {
             return static_cast<SolverMode>(i);
+        }
+    }
+    return std::nullopt;
+}
+
+// -- Единый источник значений опции `-Wsolver-loop` (диагностика циклов без инварианта) ------
+// Значения нужны валидатору флага (`semantic`) и верификатору (severity сообщения о цикле);
+// верификатор получает их ДАННЫМИ через `BehavioralModes`.
+#define ANALYSIS_SOLVER_LOOP_MODE_LIST(M) \
+    M(kIgnore, "ignore")                  \
+    M(kWarning, "warning")                \
+    M(kError, "error")
+
+#define ANALYSIS_SOLVER_LOOP_MODE_ENUM(name, cli) name,
+enum class SolverLoopMode { ANALYSIS_SOLVER_LOOP_MODE_LIST(ANALYSIS_SOLVER_LOOP_MODE_ENUM) };
+#undef ANALYSIS_SOLVER_LOOP_MODE_ENUM
+
+#define ANALYSIS_SOLVER_LOOP_MODE_NAME(name, cli) cli,
+inline constexpr std::string_view kSolverLoopModeNames[] = {ANALYSIS_SOLVER_LOOP_MODE_LIST(ANALYSIS_SOLVER_LOOP_MODE_NAME)};
+#undef ANALYSIS_SOLVER_LOOP_MODE_NAME
+#undef ANALYSIS_SOLVER_LOOP_MODE_LIST
+
+inline constexpr std::size_t kSolverLoopModeCount = sizeof(kSolverLoopModeNames) / sizeof(kSolverLoopModeNames[0]);
+
+/// Разбор строкового значения `-Wsolver-loop`. Неизвестное значение - nullopt (без тихого fallback).
+[[nodiscard]] inline std::optional<SolverLoopMode> parseSolverLoopMode(std::string_view v) noexcept {
+    for (std::size_t i = 0; i < kSolverLoopModeCount; ++i) {
+        if (kSolverLoopModeNames[i] == v) {
+            return static_cast<SolverLoopMode>(i);
         }
     }
     return std::nullopt;
@@ -113,17 +145,25 @@ inline constexpr std::string_view kAll[] = {kCheck, kSetReserve, kGetReserve, kG
 } // namespace stack_check_fn
 
 // -- Разрешённые поведенческие режимы (данные для кодогена) -------------------
-/// Значения, разрешённые владельцем флагов (`semantic`) из `diag::Options` и переданные в кодоген.
+/// Значения, разрешённые владельцем флагов (`semantic`) из `diag::Options` и переданные
+/// потребителям (кодоген, верификатор) как ДАННЫЕ.
 struct BehavioralModes {
     std::optional<SolverMode> solver;                      ///< `--solver-mode`; nullopt = опция не задана.
     StackCheckMode stackCheck = StackCheckMode::kExplicit; ///< `--stack-check`; default explicit.
     std::optional<std::size_t> stackCheckReserve;          ///< `--stack-check-reserve` (байты).
     std::vector<std::string> stackCheckFunctions;          ///< `--stack-check-functions` (trust-имена).
+    SolverLoopMode solverLoop = SolverLoopMode::kWarning;  ///< `-Wsolver-loop`: цикл без инварианта.
+    bool solverLoopUnroll = false;                         ///< `-fsolver-loop-unroll`: глобальный unroll.
 };
 
 /// Включены ли рантайм-проверки trust-условий (`--solver-mode=assert`).
 [[nodiscard]] inline bool solverAssertEnabled(const BehavioralModes& m) noexcept {
     return m.solver.has_value() && *m.solver == SolverMode::kAssert;
+}
+
+/// Включён ли глобальный bounded-unrolling циклов без инварианта (режим верификатора).
+[[nodiscard]] inline bool solverLoopUnrollEnabled(const BehavioralModes& m) noexcept {
+    return m.solverLoopUnroll;
 }
 
 /// Активен ли контроль переполнения стека (режим != off).

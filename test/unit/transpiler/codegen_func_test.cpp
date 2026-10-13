@@ -16,7 +16,7 @@ TEST_F(TranspilerTest, NameMapping_VarDecl) {
     MapperFile out_idx = m_ctx.source().add_output("test_nm_var.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -49,7 +49,7 @@ TEST_F(TranspilerTest, NameMapping_TypeDecl) {
     MapperFile out_idx = m_ctx.source().add_output("test_nm_type.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -75,8 +75,7 @@ TEST_F(TranspilerTest, NameMapping_TypeDeclAliasChain) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -111,14 +110,14 @@ TEST_F(TranspilerTest, NameMapping_TypeDeclAliasChain) {
 /// членов: тип → c_<Тип>, член → c_<Член>. Маппинг добавлен в emitEnumStruct/emitVariantStruct
 /// (раньше у Enum/Variant его не было вовсе - только у алиасов/переменных/функций).
 TEST_F(TranspilerTest, NameMapping_EnumVariantTypeAndMembers) {
-    const std::string src = "Level ::= (LOW='low', HIGH='high',):Enum;\nData ::= (i=42, s='text',):Variant;\n";
+    const std::string src = "Level ::= (LOW=\"low\", HIGH=\"high\",):Enum;\nData ::= (i=42, s=\"text\",):Variant;\n";
     MapperFile input = m_ctx.source().add_source("evmap.src", src, true);
     MapperFile out = m_ctx.source().add_output("evmap.cpp", true);
     ASSERT_FALSE(out.isInvalid());
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, nullptr);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -141,14 +140,14 @@ TEST_F(TranspilerTest, NameMapping_EnumVariantTypeAndMembers) {
 /// Test: name-маппинг (hover) для переменных структурных типов Tuple/Dict/Array: имя переменной
 /// маппится на C++-имя (c_t/c_d/c_a) через generateVarDeclToFile (стандартный var-маппинг).
 TEST_F(TranspilerTest, NameMapping_TupleDictArrayVars) {
-    const std::string src = "t := (1, 2,):Tuple;\nd := (1, two=2, name='3',);\na := [1,2,3,];\n";
+    const std::string src = "t := (1, 2,):Tuple;\nd := (1, two=2, name=\"3\",);\na := [1,2,3,];\n";
     MapperFile input = m_ctx.source().add_source("tdamap.src", src, true);
     MapperFile out = m_ctx.source().add_output("tdamap.cpp", true);
     ASSERT_FALSE(out.isInvalid());
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, nullptr);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -182,7 +181,7 @@ TEST_F(TranspilerTest, NameMapping_FuncDeclName) {
     MapperFile out_idx = m_ctx.source().add_output("test_nm_func.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_NE(result.find("void func();"), std::string::npos) << result;
@@ -221,7 +220,7 @@ TEST_F(TranspilerTest, NameMapping_FuncParams) {
     MapperFile out_idx = m_ctx.source().add_output("test_nm_params.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_NE(result.find("void func(int32_t c_a, int32_t c_b);"), std::string::npos) << result;
@@ -255,8 +254,7 @@ TEST_F(TranspilerTest, GenerateControlFlow_MapsRanges) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
@@ -309,8 +307,7 @@ TEST_F(TranspilerTest, GenerateWhileElse_Codegen) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
@@ -325,8 +322,8 @@ TEST_F(TranspilerTest, GenerateWhileElse_Codegen) {
 TEST_F(TranspilerTest, GenerateBreakContinue_Codegen) {
     const std::string name = "bc.src";
     const std::string src = "z := 0;\n"
-                            "[z < 10] <-> { ++; -+; };\n"
-                            "{ ++; } <-> [z > 0];";
+                            "[z < 10] <-> { |>|; |<|; };\n"
+                            "{ |>|; } <-> [z > 0];";
 
     MapperFile input = m_ctx.source().add_source(name, src, true);
     MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
@@ -335,8 +332,7 @@ TEST_F(TranspilerTest, GenerateBreakContinue_Codegen) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
@@ -349,8 +345,8 @@ TEST_F(TranspilerTest, GenerateBreakContinue_Codegen) {
 /// Test: return со значением (func ++ N ++) и void (func ++ _ ++) - кодогенерация.
 TEST_F(TranspilerTest, GenerateReturn_Codegen) {
     const std::string name = "ret.src";
-    const std::string src = "%f():Int32 := { f ++ 42 ++; };\n"
-                            "%g():Void := { g ++ _ ++; };";
+    const std::string src = "%f():Int32 := { f |+ 42 +|; };\n"
+                            "%g():Void := { g |+ _ +|; };";
 
     MapperFile input = m_ctx.source().add_source(name, src, true);
     MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
@@ -359,8 +355,7 @@ TEST_F(TranspilerTest, GenerateReturn_Codegen) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
@@ -381,8 +376,7 @@ TEST_F(TranspilerTest, GenerateMatch_Codegen) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
@@ -410,8 +404,7 @@ TEST_F(TranspilerTest, GenerateMatchEnum_Codegen) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
     ASSERT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -427,8 +420,8 @@ TEST_F(TranspilerTest, GenerateMatchEnum_Codegen) {
 /// остаётся if/else-if цепочка со сравнением ==.
 TEST_F(TranspilerTest, GenerateMatchString_Codegen) {
     const std::string name = "match_string.src";
-    const std::string src = "s:StrChar := 'hello';\n"
-                            "[s] ==> { ['hello'] --> { y := 1; }; ['world'] --> { y := 2; }; [...] --> { y := 0; }; };\n";
+    const std::string src = "s:StrChar := \"hello\";\n"
+                            "[s] ==> { [\"hello\"] --> { y := 1; }; [\"world\"] --> { y := 2; }; [...] --> { y := 0; }; };\n";
 
     MapperFile input = m_ctx.source().add_source(name, src, true);
     MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
@@ -437,8 +430,7 @@ TEST_F(TranspilerTest, GenerateMatchString_Codegen) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
     ASSERT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -454,7 +446,7 @@ TEST_F(TranspilerTest, GenerateMatchString_Codegen) {
 /// Test: именованные блоки - метки <имя>_continue/_break для именованных break/continue (только внутри функций).
 TEST_F(TranspilerTest, GenerateNamedBlockLabels_Codegen) {
     const std::string name = "nb.src";
-    const std::string src = "%f():Void := { outer { z:Int32 := 0; [z < 3] <-> { outer ++; outer -+; }; }; };";
+    const std::string src = "%f():Void := { outer { z:Int32 := 0; [z < 3] <-> { outer |>|; outer |<|; }; }; };";
 
     MapperFile input = m_ctx.source().add_source(name, src, true);
     MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
@@ -463,8 +455,7 @@ TEST_F(TranspilerTest, GenerateNamedBlockLabels_Codegen) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
@@ -490,8 +481,7 @@ TEST_F(TranspilerTest, NamedBlock_NoLabelsAtTopLevel) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
@@ -503,8 +493,8 @@ TEST_F(TranspilerTest, NamedBlock_NoLabelsAtTopLevel) {
 /// именованный return (func:: ++ value ++) = return value.
 TEST_F(TranspilerTest, GenerateFuncLabelBreak_ReturnsVoid) {
     const std::string name = "fr.src";
-    const std::string src = "%f():Int32 := { f:: ++ 42 ++; };\n"
-                            "%g():Void := { g:: ++; };";
+    const std::string src = "%f():Int32 := { f:: |+ 42 +|; };\n"
+                            "%g():Void := { g:: |+|; };";
 
     MapperFile input = m_ctx.source().add_source(name, src, true);
     MapperFile out = m_ctx.source().add_output(name + ".cpp", true);
@@ -513,8 +503,7 @@ TEST_F(TranspilerTest, GenerateFuncLabelBreak_ReturnsVoid) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
@@ -539,8 +528,7 @@ TEST_F(TranspilerTest, GenerateToFileAliasChainAndVar) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -563,8 +551,7 @@ TEST_F(TranspilerTest, GenerateToFileUnknownTypeReportsError) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
 
     // Явная ошибка из транспайлера (Void не имеет C++-имени), а не молчаливый fallback.
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
@@ -583,8 +570,7 @@ TEST_F(TranspilerTest, GenerateTopLevelNamespaceScope) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -612,8 +598,7 @@ TEST_F(TranspilerTest, GenerateNestedTopLevelNamespaces) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
 
     const std::string cpp = m_ctx.source().output_result(out);
@@ -631,8 +616,7 @@ TEST_F(TranspilerTest, GenerateBlockInFunction_Compound) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -651,14 +635,14 @@ TEST_F(TranspilerTest, GenerateNamespaceTypeDecl_NameMapping) {
     PipelineOpts opts;
     opts.no_dsl = true;
     Pipeline pipeline(m_ctx, opts);
-    std::vector<ExportEntry> exports;
-    auto res = pipeline.runPipeline(PipelineSteps::ParseAST | PipelineSteps::Semantic | PipelineSteps::Transpile, input, out, &exports);
+    auto res = pipeline.run(RunRequest::withCpp(out), input);
     ASSERT_TRUE(res.isValid());
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
     const std::string cpp = m_ctx.source().output_result(out);
     // Объявление типа и переменная - внутри namespace ns (не в глобальном скоупе).
-    EXPECT_NE(cpp.find("namespace c_ns {\n    using c_MyInt = int32_t;\n    c_MyInt c_y = 20;\n}"), std::string::npos) << cpp;
+    // Тип на use-site квалифицирован (единая C++-проекция): `c_ns::c_MyInt` (валидно и внутри c_ns).
+    EXPECT_NE(cpp.find("namespace c_ns {\n    using c_MyInt = int32_t;\n    c_ns::c_MyInt c_y = 20;\n}"), std::string::npos) << cpp;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -686,7 +670,7 @@ TEST_F(TranspilerTest, GenerateVarDeclReadOnlyConst) {
     MapperFile out_idx = m_ctx.source().add_output("test_output.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("const int32_t c_x = 42;") != std::string::npos) << result;
@@ -709,7 +693,7 @@ TEST_F(TranspilerTest, GenerateVarDeclThreadLocal) {
     MapperFile out_idx = m_ctx.source().add_output("test_output.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("thread_local int32_t c_x = 42;") != std::string::npos) << result;
@@ -733,7 +717,7 @@ TEST_F(TranspilerTest, GenerateVarDeclReadOnlyThreadLocal) {
     MapperFile out_idx = m_ctx.source().add_output("test_output.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("const thread_local int32_t c_x = 42;") != std::string::npos) << result;
@@ -780,7 +764,7 @@ TEST_F(TranspilerTest, GenerateFuncDeclAttributeQualifiers) {
     MapperFile out_idx = m_ctx.source().add_output("test_func.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("__attribute__((const)) void fc()") != std::string::npos) << result;
@@ -816,7 +800,7 @@ TEST_F(TranspilerTest, GenerateNativeFuncCollectsLinkLib) {
     MapperFile out_idx = m_ctx.source().add_output("test_link.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     const auto& libs = gen.linkLibs();
     EXPECT_NE(libs.find("-lm"), libs.end()) << "expected -lm in linkLibs";
@@ -853,7 +837,7 @@ TEST_F(TranspilerTest, GenerateNativeIncludeEmitsHeader) {
     MapperFile out_idx = m_ctx.source().add_output("test_inc.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     const std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_NE(result.find("#include <cstdlib>"), std::string::npos) << result;
@@ -879,7 +863,7 @@ TEST_F(TranspilerTest, GenerateNativeNoIncludeByDefault) {
     MapperFile out_idx = m_ctx.source().add_output("test_ni.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     const std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_EQ(result.find("#include <cstdlib>"), std::string::npos) << result;
@@ -907,7 +891,7 @@ TEST_F(TranspilerTest, GenerateNativeImportAlias) {
     MapperFile out_idx = m_ctx.source().add_output("test_import.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     // Импортируемая функция не эмитится как C++-функция (алиас на нативную abs).
@@ -933,7 +917,7 @@ TEST_F(TranspilerTest, GenerateNativeDeclLinkage) {
         }
         MapperFile out_idx = m_ctx.source().add_output(std::string(outName) + ".cpp", true);
         CppTranspiler gen(m_ctx);
-        gen.generateToFile(seq, out_idx);
+        gen.generateToFile(hirOf(seq), out_idx);
         return m_ctx.source().output_result(out_idx);
     };
 
@@ -975,7 +959,7 @@ TEST_F(TranspilerTest, ReadOnlyParamEmitsConst) {
     MapperFile out_idx = m_ctx.source().add_output("test_ro_param.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     // Read-only параметр → const int32_t (имя манглится в c_x).

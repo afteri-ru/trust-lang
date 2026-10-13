@@ -8,17 +8,19 @@
 
 # SM2: (set-logic UFBV)
 # SM2: (declare-fun f_x () (_ BitVec 32))
-# SM2: (push 1)
-# SM2: (assert (not (= (bvand f_x (_ bv1 32)) (bvand f_x (_ bv1 32)))))
-# SM2: (check-sat)
-# SM2: (pop 1)
-# SM2: (assert (forall ((f_x (_ BitVec 32))) (= (f f_x) (bvand f_x (_ bv1 32)))))
+# SM2: (declare-fun f ((_ BitVec 32)) (_ BitVec 32))
 # SM2: (declare-fun g_x () (_ BitVec 32))
+# SM2: (declare-fun g ((_ BitVec 32)) (_ BitVec 32))
 # SM2: (push 1)
-# SM2: (assert (not (= (bvashr g_x (_ bv1 32)) (bvashr g_x (_ bv1 32)))))
+# SM2: (assert (forall ((g_x (_ BitVec 32))) (= (g g_x) (bvashr g_x (_ bv1 32)))))
+# SM2: (assert (not (=> true (= (bvand f_x (_ bv1 32)) (bvand f_x (_ bv1 32))))))
 # SM2: (check-sat)
 # SM2: (pop 1)
-# SM2: (assert (forall ((g_x (_ BitVec 32))) (= (g g_x) (bvashr g_x (_ bv1 32)))))
+# SM2: (push 1)
+# SM2: (assert (forall ((f_x (_ BitVec 32))) (= (f f_x) (bvand f_x (_ bv1 32)))))
+# SM2: (assert (not (=> true (= (bvashr g_x (_ bv1 32)) (bvashr g_x (_ bv1 32))))))
+# SM2: (check-sat)
+# SM2: (pop 1)
 
 # Z3: unsat
 # Z3: unsat

@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Маска импорта скрывает и ТИП: он зарегистрирован под file-local ключом и не находится
+# импортёром (visibility относится к имени, а не только к функциям/переменным).
+# CHECK: error: type 'Point' not found
+
+//--- main.src
+\lib(api);
+take(p:Point):Int32 := { @return 0; };
+@main():Int32 := { @return api(); };
+
+//--- lib.src
+\lib;
+:Point ::= :Struct{ x:Int32 := _; };
+api():Int32 := { @return 0; };

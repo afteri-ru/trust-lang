@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Spelling алиаса модуля уникален в МОДУЛЕ-ВЛАДЕЛЬЦЕ: он не может совпадать со spelling импорта
+# этого же модуля (импортный spelling `\lib` уже адресует файл).
+# CHECK: error: module alias '\lib' is already bound in this module
+
+//--- main.src
+\lib(g);
+\other(h);
+\lib :- \other;
+@main():Int32 := { @return g() + h(); };
+
+//--- lib.src
+\lib;
+g():Int32 := { @return 1; };
+
+//--- other.src
+\other;
+h():Int32 := { @return 2; };

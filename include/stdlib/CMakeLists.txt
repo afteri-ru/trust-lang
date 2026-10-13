@@ -1,9 +1,11 @@
 # include/stdlib/CMakeLists.txt
-# Standard library component: TrustLang sources (stdlib/*.src) and headers of library types
-# (stdlib/*.hpp). The assets themselves are described and embedded by the `assets` component
-# (src/assets/asset_provider.cpp, catalog include/assets/asset_catalog.hpp) and published under
-# the `@stdlib/…` prefix. stdlib_lib is header-only (the sources are embedded assets).
+# Standard library container: `stdlib_lib` (header-only interface) plus the core and
+# provider packages in subdirectories. `include/stdlib` itself is NOT a package: each
+# package is a directory with its own trust.toml (`core/`, `tensor/`).
+# The packages are added by the root CMakeLists.txt after the `trust` target exists.
 
-add_library(stdlib_lib INTERFACE)
-target_link_libraries(stdlib_lib INTERFACE trust_include_dirs assets_lib)
-
+trust_component(stdlib
+    INTERFACE
+    PUBLIC_DIRS core tensor
+    LINK_PUBLIC trust_include_dirs
+)

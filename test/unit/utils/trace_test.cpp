@@ -4,8 +4,7 @@
 //   - match(Site, tags) и обязательная фильтрация (без фильтра - вывод пуст);
 //   - макрос TRUST_DEBUG (dev-сборка), печать `path:line: msg`.
 
-#include "utils/io.hpp"
-#include "utils/trace.hpp"
+#include "utils/utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -14,19 +13,24 @@
 
 namespace {
 
-using trust::trace::globMatch;
 using trust::trace::maskListMatches;
 using trust::trace::Site;
+using trust::utils::globMatch;
 
 // -- Site: разбор путей (constexpr) --
 
-constexpr Site kAbsoluteSrc{"/home/user/trust-lang/src/semantic/name_resolution.cpp"};
+constexpr Site kAbsoluteSrc{"/home/user/trust-lang/src/semantic/core/name_resolution.cpp"};
 static_assert(kAbsoluteSrc.root == "src");
-static_assert(kAbsoluteSrc.path == "src/semantic/name_resolution.cpp");
+static_assert(kAbsoluteSrc.path == "src/semantic/core/name_resolution.cpp");
 static_assert(kAbsoluteSrc.component == "semantic");
-static_assert(kAbsoluteSrc.rel == "semantic/name_resolution.cpp");
+static_assert(kAbsoluteSrc.rel == "semantic/core/name_resolution.cpp");
 static_assert(kAbsoluteSrc.stem == "name_resolution");
 static_assert(kAbsoluteSrc.file == "name_resolution.cpp");
+
+constexpr Site kAbsoluteInclude{"/home/user/trust-lang/include/ast/nodes/expr_nodes.hpp"};
+static_assert(kAbsoluteInclude.root == "include");
+static_assert(kAbsoluteInclude.component == "ast");
+static_assert(kAbsoluteInclude.rel == "ast/nodes/expr_nodes.hpp");
 
 constexpr Site kRelativeTest{"test/unit/utils/trace_test.cpp"};
 static_assert(kRelativeTest.root == "test");
@@ -70,8 +74,8 @@ TEST(TraceSite, FallbackForNonAnchoredPath) {
 
 TEST(TraceSite, AbsoluteAndRelativeAgreeOnTokens) {
     // Абсолютный префикс сборки не влияет на относительные токены (детерминизм).
-    const Site abs{"/home/user/trust-lang/src/semantic/name_resolution.cpp"};
-    const Site rel{"src/semantic/name_resolution.cpp"};
+    const Site abs{"/home/user/trust-lang/src/semantic/core/name_resolution.cpp"};
+    const Site rel{"src/semantic/core/name_resolution.cpp"};
     EXPECT_EQ(abs.path, rel.path);
     EXPECT_EQ(abs.rel, rel.rel);
     EXPECT_EQ(abs.component, rel.component);
@@ -83,7 +87,7 @@ TEST(TraceSite, AbsoluteAndRelativeAgreeOnTokens) {
 TEST(TraceGlob, Wildcards) {
     EXPECT_TRUE(globMatch("*", "anything"));
     EXPECT_TRUE(globMatch("src*", "src/semantic/x.cpp"));
-    EXPECT_TRUE(globMatch("*/name_resolution.cpp", "src/semantic/name_resolution.cpp"));
+    EXPECT_TRUE(globMatch("*/name_resolution.cpp", "src/semantic/core/name_resolution.cpp"));
     EXPECT_TRUE(globMatch("name???", "name123"));
     EXPECT_FALSE(globMatch("src*", "include/x.cpp"));
     EXPECT_FALSE(globMatch("name?4", "name123"));

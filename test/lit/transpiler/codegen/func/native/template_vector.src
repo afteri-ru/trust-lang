@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Нативный шаблон-тип: `@include("vector") <T> %std::vector() := ...;` объявляет тип `vector<T>`.
 # Использование `vector<Int32>` эмитит `std::vector<int32_t>` (массив-литерал коэрцируется к типу

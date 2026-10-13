@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Порядок зон: Z15 (использование pack в типах) - ДО регистрации символа (Z16). Невалидное
+# объявление в таблицу символов не попадает, поэтому повторное объявление того же имени НЕ даёт
+# «duplicate declaration» - диагностируется только нарушение pack-позиции (дважды, по объявлению).
+<T...> f(a: T, xs: T...): Int32 := ...;
+<T...> f(a: T, xs: T...): Int32 := ...;
+
+# CHECK: error: type parameter packs are only allowed as the trailing pack parameter ('xs: T...')
+# CHECK: error: type parameter packs are only allowed as the trailing pack parameter ('xs: T...')
+# CHECK-NOT: duplicate declaration

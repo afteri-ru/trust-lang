@@ -13,9 +13,9 @@
     a : Int32 := 1;
     b : Int32 := 2;
     a :=: b;
-    print('a={} b={}\n', a, b);
+    print("a={} b={}\n", a, b);
     m := 0;
     m :=: _;
-    print('moved={}\n', m);
+    print("moved={}\n", m);
     return 0;
 };

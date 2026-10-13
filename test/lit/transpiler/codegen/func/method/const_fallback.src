@@ -1,0 +1,19 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Explicit const call `b.get^()` on a type without a const form selects the non-const
+# overload: semantic does not reject it, and codegen casts the object to a const reference
+# before calling the mutating method. Const-correctness of method calls is not checked.
+
+:Box ::= :Class{
+    value: Int32 := 0;
+    get(): Int32 := { @return value; };
+};
+
+@main():Int32 := {
+    b: Box := Box();
+    @return b.get^();
+};
+
+# CHECK: struct c_Box {
+# CHECK: int32_t c_get{{_[A-Za-z0-9_]+}}() {
+# CHECK: return const_cast<const c_Box&>(c_b).c_get{{_[A-Za-z0-9_]+}}();

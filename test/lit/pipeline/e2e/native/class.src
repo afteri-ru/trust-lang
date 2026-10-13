@@ -15,7 +15,7 @@ MyStr ::= %std::string {
 };
 
 @main() := {
-    s: MyStr := MyStr('hello');
-    @print('size={} empty={}\n', s.%size(), s.%empty());
+    s: MyStr := MyStr("hello");
+    @print("size={} empty={}\n", s.%size(), s.%empty());
     @return 0;
 }

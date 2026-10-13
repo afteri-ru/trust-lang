@@ -11,28 +11,36 @@
 # marks examples_tests "Not Run".
 
 file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/examples/*.src")
+# Тензорные примеры требуют toolchain-возможность with-torch (иначе capability-диагностика).
+if(WITH_TORCH)
+    file(GLOB TENSOR_EXAMPLE_SOURCES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/examples/tensor/*.src")
+    list(APPEND EXAMPLE_SOURCES ${TENSOR_EXAMPLE_SOURCES})
+endif()
 list(SORT EXAMPLE_SOURCES)
 # prime.src и fibonacci.src требуют аргументов командной строки (без дефолтов);
-# указываем их для автозапуска в examples-гарнессе (см. cmake/run_examples.cmake.in).
+# указываем их для автозапуска в examples-гарнессе (см. cmake/run_examples.sh.in).
 set(EXAMPLE_RUN_ARGS "prime:2 10;fibonacci:3000")
+# Сколько примеров запускать одновременно (bash-гарнесс фоном, wait -n).
+set(EXAMPLES_PARALLEL 4 CACHE STRING "parallel examples run concurrently")
 
-# Substituted into run_examples.cmake by configure_file(@ONLY).
+# Substituted into run_examples.sh by configure_file(@ONLY).
 set(TRUST_BIN "${CMAKE_BINARY_DIR}/trust")
 set(RUN_DIR "${CMAKE_BINARY_DIR}/examples_run")
 set(EXAMPLES_TIMEOUT 240)
 
 configure_file(
-    ${CMAKE_SOURCE_DIR}/cmake/run_examples.cmake.in
-    ${CMAKE_BINARY_DIR}/cmake/run_examples.cmake
+    ${CMAKE_SOURCE_DIR}/cmake/run_examples.sh.in
+    ${CMAKE_BINARY_DIR}/cmake/run_examples.sh
     @ONLY
 )
-
-add_test(NAME examples_tests
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/run_examples.cmake
+file(CHMOD ${CMAKE_BINARY_DIR}/cmake/run_examples.sh
+    PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 )
-set_tests_properties(examples_tests PROPERTIES
+
+trust_add_test_suite(examples_tests
+    TIMEOUT 600
     FIXTURES_REQUIRED examples_deps
     FIXTURES_SETUP integration_deps
-    RUN_SERIAL TRUE
-    TIMEOUT 600
+    RUN_SERIAL
+    COMMAND bash ${CMAKE_BINARY_DIR}/cmake/run_examples.sh
 )

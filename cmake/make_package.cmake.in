@@ -23,12 +23,21 @@ file(COPY "@CMAKE_BINARY_DIR@/trust-lsp" DESTINATION "${_staging}/bin")
 file(COPY "@CMAKE_BINARY_DIR@/trust-playground" DESTINATION "${_staging}/bin")
 
 # -- Runtime libraries (shared + static) --
-# The public headers (trust/rational.hpp) and the stdlib sources are intentionally
-# NOT copied: their contents are embedded into the runtime libraries / the compiler
-# and stay version-synced with them. The pipeline extracts a header on demand from
-# the runtime library, so a separate copy in the archive is redundant.
+# Runtime libraries carry only compiled code (linking). Every TrustLang header (stdlib/*.hpp and
+# built-in-type trust/*.hpp) is delivered by the standard library package
+# share/trust/stdlib.trust (see below), located at run time relative to the executable.
 file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.so" DESTINATION "${_staging}/lib")
 file(COPY "@CMAKE_BINARY_DIR@/trust-runtime.a" DESTINATION "${_staging}/lib")
+# Tensor provider plugin (built only with -DWITH_TORCH=ON). libtorch itself is a system
+# dependency of the plugin; the plugin lives next to the compiler/trust-runtime.
+if(EXISTS "@CMAKE_BINARY_DIR@/libtensor_cpu.so")
+    file(COPY "@CMAKE_BINARY_DIR@/libtensor_cpu.so" DESTINATION "${_staging}/lib")
+endif()
+
+# -- Toolchain resource packages (share/trust/stdlib.trust) --
+# The compiler locates the standard library package at run time relative to its executable
+# (<prefix>/bin/trust -> <prefix>/share/trust).
+file(COPY "@CMAKE_BINARY_DIR@/share/trust" DESTINATION "${_staging}/share")
 
 # -- Metadata --
 file(COPY "@CMAKE_SOURCE_DIR@/VERSION" DESTINATION "${_staging}")

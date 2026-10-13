@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust --temp-dir $TD -Wunmatched-mask=error --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Несовпадение маски импорта — именованная диагностика с настраиваемой severity:
+# при -Wunmatched-mask=error сайт импорта становится ошибкой компиляции.
+# CHECK: error: import mask 'zzz' does not match any exported declaration of module '\lib'
+
+//--- main.src
+\lib(zzz);
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib;
+f():Int32 := { @return 1; };

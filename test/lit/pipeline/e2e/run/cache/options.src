@@ -14,6 +14,6 @@
     a:Int32 := 2000000000;
     b:Int32 := 2000000000;
     s:Int32 := a + b;
-    @print('s={}\n', s);
+    @print("s={}\n", s);
     @return 0;
 }

@@ -1,0 +1,9 @@
+# RUN: %not %trust -q -Wsigil=ignore --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Bool в числовой арифметике запрещён (нет авто-продвижения): и в value-операторах (`+`),
+# и в составных (`+=`). Буквальные 0/1 - Int8, поэтому обычная числовая арифметика не затронута.
+b := true;
+c := b + 1;
+d := b += 1;
+# CHECK: error: cannot use Bool value in arithmetic '+'
+# CHECK: error: cannot use Bool value in arithmetic '+='

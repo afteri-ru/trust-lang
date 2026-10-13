@@ -3,11 +3,12 @@
 // intTypeForWidth, literalType, isAnyType и is_binary_expr_kind.
 
 #include "types/group.hpp"
-#include "types/int_literal.hpp"
-#include "types/registry.hpp"
+#include "type_flag_test_utils.hpp"
+#include "types/call.hpp"
+#include "types/type_system.hpp"
 #include "types/type_id.hpp"
-#include "semantic/type_inference.hpp"
-#include "semantic/analysis_common.hpp"
+#include "semantic/typer/type_inference.hpp"
+#include "semantic/typer/literal_annotation.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/token.hpp"
 #include "session/context.hpp"
@@ -32,53 +33,53 @@ TEST(TypeHelperTest, IsArithmeticGroup) {
 class TypeHelpersFixture : public ::testing::Test {
   protected:
     Context m_ctx;
-    std::unique_ptr<TypeRegistry> m_types;
+    std::unique_ptr<TypeSystem> m_types;
     void SetUp() override {
-        m_types = std::make_unique<TypeRegistry>(m_ctx.diag(), m_ctx.opts());
+        m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
     }
 };
 
 TEST_F(TypeHelpersFixture, IntTypeForWidth) {
-    TypeRegistry& reg = m_ctx.types();
-    EXPECT_EQ(intTypeForWidth(reg, 8), reg.getType("Int8"));
-    EXPECT_EQ(intTypeForWidth(reg, 16), reg.getType("Int16"));
-    EXPECT_EQ(intTypeForWidth(reg, 32), reg.getType("Int32"));
-    EXPECT_EQ(intTypeForWidth(reg, 64), reg.getType("Int64"));
-    EXPECT_EQ(intTypeForWidth(reg, 0), reg.getType("Int64")); // default → Int64
+    TypeSystem& reg = m_ctx.types();
+    EXPECT_EQ(intTypeForWidth(reg, 8), reg.read().getType("Int8"));
+    EXPECT_EQ(intTypeForWidth(reg, 16), reg.read().getType("Int16"));
+    EXPECT_EQ(intTypeForWidth(reg, 32), reg.read().getType("Int32"));
+    EXPECT_EQ(intTypeForWidth(reg, 64), reg.read().getType("Int64"));
+    EXPECT_EQ(intTypeForWidth(reg, 0), reg.read().getType("Int64")); // default → Int64
 }
 
 TEST_F(TypeHelpersFixture, LiteralType) {
-    TypeRegistry& reg = m_ctx.types();
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "1"), reg), reg.getType("Int8"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "0"), reg), reg.getType("Int8"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "42"), reg), reg.getType("Int8"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "1000"), reg), reg.getType("Int16"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "100000"), reg), reg.getType("Int32"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "999999999999"), reg), reg.getType("Int64"));
+    TypeSystem& reg = m_ctx.types();
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "1"), reg), reg.read().getType("Int8"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "0"), reg), reg.read().getType("Int8"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "42"), reg), reg.read().getType("Int8"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "1000"), reg), reg.read().getType("Int16"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "100000"), reg), reg.read().getType("Int32"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "999999999999"), reg), reg.read().getType("Int64"));
     // Разделители разрядов '_' срезаются до парсинга (единый хелпер stripDigitSeparators).
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "10_000"), reg), reg.getType("Int16"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "2_147_483_647"), reg), reg.getType("Int32"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "2_147_483_648"), reg), reg.getType("Int64"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "100_000"), reg), reg.getType("Int32"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "999_999_999_999"), reg), reg.getType("Int64"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::FloatLiteral, "1.5"), reg), reg.getType("Float64"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::StrChar, "a"), reg), reg.getType("StrChar"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::StrWide, "ab"), reg), reg.getType("StrWide"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "10_000"), reg), reg.read().getType("Int16"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "2_147_483_647"), reg), reg.read().getType("Int32"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "2_147_483_648"), reg), reg.read().getType("Int64"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "100_000"), reg), reg.read().getType("Int32"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "999_999_999_999"), reg), reg.read().getType("Int64"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::FloatLiteral, "1.5"), reg), reg.read().getType("Float64"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::StrChar, "a"), reg), reg.read().getType("StrChar"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::StrWide, "ab"), reg), reg.read().getType("StrWide"));
     // Рациональный литерал `num\den` - отдельная лексема → Rational.
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::RationalLiteral, "1\\1"), reg), reg.getType("Rational"));
-    EXPECT_EQ(literalType(Literal(ParserToken::Kind::RationalLiteral, "-55\\3"), reg), reg.getType("Rational"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::RationalLiteral, "1\\1"), reg), reg.read().getType("Rational"));
+    EXPECT_EQ(literalType(Literal(ParserToken::Kind::RationalLiteral, "-55\\3"), reg), reg.read().getType("Rational"));
     // Не-числовой/не-строковый kind → тип не выведен.
     EXPECT_EQ(literalType(Literal(ParserToken::Kind::Ident, "x"), reg), INVALID_TYPE_ID);
 }
 
 TEST_F(TypeHelpersFixture, IsAnyType) {
-    TypeRegistry& reg = m_ctx.types();
-    EXPECT_TRUE(isAnyType(reg.getType("Any"), reg));
-    EXPECT_FALSE(isAnyType(reg.getType("Int32"), reg));
+    TypeSystem& reg = m_ctx.types();
+    EXPECT_TRUE(isAnyType(reg.read().getType("Any"), reg));
+    EXPECT_FALSE(isAnyType(reg.read().getType("Int32"), reg));
     EXPECT_FALSE(isAnyType(INVALID_TYPE_ID, reg));
     // Алиас на Any канонизируется → любой.
-    TypeId alias = reg.registerType("AnyAlias", reg.getType("Any"));
+    TypeId alias = reg.registrar().registerType("AnyAlias", reg.read().getType("Any"));
     if (alias != INVALID_TYPE_ID) {
         EXPECT_TRUE(isAnyType(alias, reg));
     }
@@ -86,61 +87,66 @@ TEST_F(TypeHelpersFixture, IsAnyType) {
 
 // -- Константность (kConstFlag) - ортогональный квалификатор --
 TEST_F(TypeHelpersFixture, ConstFlagMechanics) {
-    TypeRegistry& reg = m_ctx.types();
-    const TypeId i8 = reg.getType("Int8");
-    const TypeId c = setFlag(i8, SymbolFlag::Const);
+    TypeSystem& reg = m_ctx.types();
+    const TypeId i8 = reg.read().getType("Int8");
+    const TypeId c = setFlag(i8, TypeFlag::Const);
 
     // Бит ставится/снимается хелперами, ортогонален структурной идентичности.
-    EXPECT_TRUE(testFlag(c, SymbolFlag::Const));
-    EXPECT_FALSE(testFlag(i8, SymbolFlag::Const));
-    EXPECT_EQ(clearFlag(c, SymbolFlag::Const), i8);
-    EXPECT_EQ(setFlag(i8, SymbolFlag::Const), c);
+    EXPECT_TRUE(testFlag(c, TypeFlag::Const));
+    EXPECT_FALSE(testFlag(i8, TypeFlag::Const));
+    EXPECT_EQ(clearFlag(c, TypeFlag::Const), i8);
+    EXPECT_EQ(setFlag(i8, TypeFlag::Const), c);
+    // TypeId — identity-value: const-бит не входит в значение, только в raw().
+    EXPECT_EQ(c, i8);
+    EXPECT_NE(c.raw(), i8.raw());
 
-    // getIndexFromId снимает const-бит - структурный индекс не меняется.
-    EXPECT_EQ(getIndexFromId(c), getIndexFromId(i8));
+    // getRegistryIndex снимает const-бит - структурный индекс не меняется.
+    EXPECT_EQ(getRegistryIndex(c), getRegistryIndex(i8));
     // Каноника снимает const-бит - const T и T разделяют канонический тип.
-    EXPECT_EQ(reg.getCanonicalTypeId(c), reg.getCanonicalTypeId(i8));
+    EXPECT_EQ(reg.read().store().desugaredTypeId(c), reg.read().store().desugaredTypeId(i8));
 
-    // getCppTypeName даёт лидирующий `const `.
-    auto base = reg.getCppTypeName(i8);
-    auto ccpp = reg.getCppTypeName(c);
+    // getCppTypeName(QualType) даёт лидирующий `const `; TypeId-версия — identity-only.
+    auto base = reg.read().printer().getCppTypeName(i8);
+    auto ccpp = reg.read().printer().getCppTypeName(QualType::fromTypeId(i8).withConst());
     ASSERT_TRUE(base.has_value());
     ASSERT_TRUE(ccpp.has_value());
     EXPECT_EQ(*ccpp, "const " + *base);
     EXPECT_NE(*ccpp, *base);
+    // TypeId-перегрузка — identity-only: raw state не влияет на C++-имя.
+    EXPECT_EQ(reg.read().printer().getCppTypeName(c).value(), *base);
 
     // Полное trust-имя и lookup по структурному имени от const не зависят.
-    EXPECT_EQ(reg.getFullTypeName(c), reg.getFullTypeName(i8));
+    EXPECT_EQ(reg.read().printer().getTypeName(c), reg.read().printer().getTypeName(i8));
 }
 
 TEST_F(TypeHelpersFixture, ConstAndInferredAreIndependent) {
     // kConstFlag и kInferredFlag - независимые биты одной нижней половины.
-    const TypeId c = setFlag(setFlag(123, SymbolFlag::Inferred), SymbolFlag::Const);
-    EXPECT_TRUE(testFlag(c, SymbolFlag::Const));
-    EXPECT_TRUE(testFlag(c, SymbolFlag::Inferred));
-    EXPECT_EQ(clearFlag(c, SymbolFlag::Const), setFlag(123, SymbolFlag::Inferred));
-    EXPECT_EQ(clearFlag(c, SymbolFlag::Inferred), setFlag(123, SymbolFlag::Const));
-    // getIndexFromId снимает оба бита.
-    EXPECT_EQ(getIndexFromId(c), getIndexFromId(123));
+    const TypeId c = setFlag(setFlag(TypeId::fromRaw(123), TypeFlag::Inferred), TypeFlag::Const);
+    EXPECT_TRUE(testFlag(c, TypeFlag::Const));
+    EXPECT_TRUE(testFlag(c, TypeFlag::Inferred));
+    EXPECT_EQ(clearFlag(c, TypeFlag::Const), setFlag(TypeId::fromRaw(123), TypeFlag::Inferred));
+    EXPECT_EQ(clearFlag(c, TypeFlag::Inferred), setFlag(TypeId::fromRaw(123), TypeFlag::Const));
+    // getRegistryIndex снимает оба бита.
+    EXPECT_EQ(getRegistryIndex(c), getRegistryIndex(TypeId::fromRaw(123)));
 }
 
 // -- Dict / Dictionary - регистрация универсального словаря --
 TEST_F(TypeHelpersFixture, DictTypeRegistered) {
-    TypeRegistry& reg = m_ctx.types();
+    TypeSystem& reg = m_ctx.types();
     // Оба имени резолвятся; Dictionary - алиас на Dict.
-    TypeId dict = reg.getType("Dict");
-    TypeId dictionary = reg.getType("Dictionary");
+    TypeId dict = reg.read().getType("Dict");
+    TypeId dictionary = reg.read().getType("Dictionary");
     EXPECT_NE(dict, INVALID_TYPE_ID);
-    EXPECT_EQ(reg.getCanonicalTypeId(dictionary), dict);
+    EXPECT_EQ(reg.read().store().desugaredTypeId(dictionary), dict);
     // C++-имя и заголовок (маркер '@' = нужен trust-runtime).
-    auto cpp = reg.getCppTypeName(dict);
+    auto cpp = reg.read().printer().getCppTypeName(dict);
     ASSERT_TRUE(cpp.has_value());
     EXPECT_EQ(*cpp, "trust::Dict");
-    EXPECT_EQ(reg.getPreprocInclude(dict), "@trust/dict.hpp");
+    EXPECT_EQ(reg.read().builtins().preprocIncludeOf(dict), "@trust/dict.hpp");
     // Группа kDicts - конкретная (Data≠0), категория Containers.
-    EXPECT_EQ(getGroup(getKindFromId(dict)), Group::kDicts);
-    EXPECT_TRUE(getData(getKindFromId(dict)) != 0);
-    EXPECT_TRUE(belongsToCategory(getGroup(getKindFromId(dict)), Category::kContainers));
+    EXPECT_EQ(getGroup(getTypeKind(dict)), Group::kDicts);
+    EXPECT_TRUE(getData(getTypeKind(dict)) != 0);
+    EXPECT_TRUE(belongsToCategory(getGroup(getTypeKind(dict)), Category::kContainers));
 }
 
 TEST(TypeHelperTest, ParseIntegerLiteralUnified) {
@@ -209,29 +215,29 @@ TEST(TypeHelperTest, IntFitsTargetSignAware) {
 
 TEST_F(TypeHelpersFixture, IntLiteralTypeConverter) {
     // Единый конвертер типа целочисленного литерала (int_literal.hpp).
-    TypeRegistry& reg = m_ctx.types();
+    TypeSystem& reg = m_ctx.types();
     // 0/1 → минимальный знаковый Int (Int8); НЕ Bool (Bool - только явная аннотация).
-    EXPECT_EQ(intLiteralType(reg, "0"), reg.getType("Int8"));
-    EXPECT_EQ(intLiteralType(reg, "1"), reg.getType("Int8"));
+    EXPECT_EQ(intLiteralType(reg, "0"), reg.read().getType("Int8"));
+    EXPECT_EQ(intLiteralType(reg, "1"), reg.read().getType("Int8"));
     // Минимальный знаковый Int, вмещающий значение.
-    EXPECT_EQ(intLiteralType(reg, "42"), reg.getType("Int8"));
-    EXPECT_EQ(intLiteralType(reg, "1000"), reg.getType("Int16"));
-    EXPECT_EQ(intLiteralType(reg, "100000"), reg.getType("Int32"));
-    EXPECT_EQ(intLiteralType(reg, "999999999999"), reg.getType("Int64"));
+    EXPECT_EQ(intLiteralType(reg, "42"), reg.read().getType("Int8"));
+    EXPECT_EQ(intLiteralType(reg, "1000"), reg.read().getType("Int16"));
+    EXPECT_EQ(intLiteralType(reg, "100000"), reg.read().getType("Int32"));
+    EXPECT_EQ(intLiteralType(reg, "999999999999"), reg.read().getType("Int64"));
     // Разделители '_' срезаются.
-    EXPECT_EQ(intLiteralType(reg, "10_000"), reg.getType("Int16"));
+    EXPECT_EQ(intLiteralType(reg, "10_000"), reg.read().getType("Int16"));
     // Сверхразрядный (модуль > 2^63) → BigInteger.
-    EXPECT_EQ(intLiteralType(reg, "9223372036854775808"), reg.getType("BigInteger"));
-    EXPECT_EQ(intLiteralType(reg, "9_223_372_036_854_775_808"), reg.getType("BigInteger"));
-    EXPECT_EQ(intLiteralType(reg, "99999999999999999999999999"), reg.getType("BigInteger"));
+    EXPECT_EQ(intLiteralType(reg, "9223372036854775808"), reg.read().getType("BigInteger"));
+    EXPECT_EQ(intLiteralType(reg, "9_223_372_036_854_775_808"), reg.read().getType("BigInteger"));
+    EXPECT_EQ(intLiteralType(reg, "99999999999999999999999999"), reg.read().getType("BigInteger"));
     // Отрицательные литералы типизируются (знак-учитывающий выбор ширины).
-    EXPECT_EQ(intLiteralType(reg, "-5"), reg.getType("Int8"));
-    EXPECT_EQ(intLiteralType(reg, "-128"), reg.getType("Int8"));                  // == INT8_MIN
-    EXPECT_EQ(intLiteralType(reg, "-129"), reg.getType("Int16"));                 // < INT8_MIN
-    EXPECT_EQ(intLiteralType(reg, "-9223372036854775808"), reg.getType("Int64")); // == INT64_MIN
-    EXPECT_EQ(intLiteralType(reg, "-9223372036854775809"), reg.getType("BigInteger"));
+    EXPECT_EQ(intLiteralType(reg, "-5"), reg.read().getType("Int8"));
+    EXPECT_EQ(intLiteralType(reg, "-128"), reg.read().getType("Int8"));                  // == INT8_MIN
+    EXPECT_EQ(intLiteralType(reg, "-129"), reg.read().getType("Int16"));                 // < INT8_MIN
+    EXPECT_EQ(intLiteralType(reg, "-9223372036854775808"), reg.read().getType("Int64")); // == INT64_MIN
+    EXPECT_EQ(intLiteralType(reg, "-9223372036854775809"), reg.read().getType("BigInteger"));
     // intTypeForLiteral: значение >= 2^63 → BigInteger (исправлено, раньше Int64).
-    EXPECT_EQ(intTypeForLiteral(reg, 9223372036854775808ULL), reg.getType("BigInteger"));
+    EXPECT_EQ(intTypeForLiteral(reg, 9223372036854775808ULL), reg.read().getType("BigInteger"));
 }
 
 // -- Срезание разделителей разрядов '_' в числовых литералах (единый хелпер) --
@@ -256,34 +262,34 @@ TEST(TypeHelperTest, StripDigitSeparatorsAndParse) {
 
 // -- BigInteger - регистрация в той же группе kArbitraryPrecision, что и Rational --
 TEST_F(TypeHelpersFixture, BigIntegerTypeRegistered) {
-    TypeRegistry& reg = m_ctx.types();
-    TypeId bi = reg.getType("BigInteger");
-    TypeId rat = reg.getType("Rational");
+    TypeSystem& reg = m_ctx.types();
+    TypeId bi = reg.read().getType("BigInteger");
+    TypeId rat = reg.read().getType("Rational");
     EXPECT_NE(bi, INVALID_TYPE_ID);
     EXPECT_NE(rat, INVALID_TYPE_ID);
     // Та же группа kArbitraryPrecision (BigInteger - составная часть Rational); Data различаются.
-    EXPECT_EQ(getGroup(getKindFromId(bi)), Group::kArbitraryPrecision);
-    EXPECT_EQ(getGroup(getKindFromId(rat)), Group::kArbitraryPrecision);
+    EXPECT_EQ(getGroup(getTypeKind(bi)), Group::kArbitraryPrecision);
+    EXPECT_EQ(getGroup(getTypeKind(rat)), Group::kArbitraryPrecision);
     EXPECT_NE(bi, rat);
     // C++-имя и заголовок (маркер '@' = нужен trust-runtime).
-    auto cpp = reg.getCppTypeName(bi);
+    auto cpp = reg.read().printer().getCppTypeName(bi);
     ASSERT_TRUE(cpp.has_value());
     EXPECT_EQ(*cpp, "trust::BigInteger");
-    EXPECT_EQ(reg.getPreprocInclude(bi), "@trust/big_integer.hpp");
+    EXPECT_EQ(reg.read().builtins().preprocIncludeOf(bi), "@trust/big_integer.hpp");
     // Категория Arithmetics (как у Rational).
-    EXPECT_TRUE(belongsToCategory(getGroup(getKindFromId(bi)), Category::kArithmetics));
+    EXPECT_TRUE(belongsToCategory(getGroup(getTypeKind(bi)), Category::kArithmetics));
 }
 
 // -- Строгая типизация арифметики BigInteger/Rational (не std::any) --
 TEST_F(TypeHelpersFixture, ArbitraryPrecisionArithmetic) {
-    TypeRegistry& reg = m_ctx.types();
-    const TypeId bi = reg.getType("BigInteger");
-    const TypeId rat = reg.getType("Rational");
-    const TypeId i64 = reg.getType("Int64");
-    const TypeId i32 = reg.getType("Int32");
-    const TypeId f64 = reg.getType("Float64");
-    const TypeId biC = reg.getCanonicalTypeId(bi);
-    const TypeId ratC = reg.getCanonicalTypeId(rat);
+    TypeSystem& reg = m_ctx.types();
+    const TypeId bi = reg.read().getType("BigInteger");
+    const TypeId rat = reg.read().getType("Rational");
+    const TypeId i64 = reg.read().getType("Int64");
+    const TypeId i32 = reg.read().getType("Int32");
+    const TypeId f64 = reg.read().getType("Float64");
+    const TypeId biC = reg.read().store().desugaredTypeId(bi);
+    const TypeId ratC = reg.read().store().desugaredTypeId(rat);
     // BigInteger op BigInteger → BigInteger; Rational op Rational → Rational.
     EXPECT_EQ(arbitraryPrecisionArithmeticType(reg, bi, bi), biC);
     EXPECT_EQ(arbitraryPrecisionArithmeticType(reg, rat, rat), ratC);
@@ -299,11 +305,11 @@ TEST_F(TypeHelpersFixture, ArbitraryPrecisionArithmetic) {
 }
 
 TEST_F(TypeHelpersFixture, ResultTypeBinaryBigRational) {
-    TypeRegistry& reg = m_ctx.types();
-    const TypeId bi = reg.getType("BigInteger");
-    const TypeId rat = reg.getType("Rational");
-    const TypeId biC = reg.getCanonicalTypeId(bi);
-    const TypeId ratC = reg.getCanonicalTypeId(rat);
+    TypeSystem& reg = m_ctx.types();
+    const TypeId bi = reg.read().getType("BigInteger");
+    const TypeId rat = reg.read().getType("Rational");
+    const TypeId biC = reg.read().store().desugaredTypeId(bi);
+    const TypeId ratC = reg.read().store().desugaredTypeId(rat);
     // z := x*y (BigInteger) → BigInteger (не std::any).
     EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::Mul, bi, bi, reg), biC);
     // Rational / Rational → Rational (точное деление).
@@ -311,11 +317,11 @@ TEST_F(TypeHelpersFixture, ResultTypeBinaryBigRational) {
     // BigInteger * Rational → Rational.
     EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::Mul, bi, rat, reg), ratC);
     // Rational + Int64 → Rational.
-    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::Add, rat, reg.getType("Int64"), reg), ratC);
+    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::Add, rat, reg.read().getType("Int64"), reg), ratC);
     // // на BigInteger → INVALID (целочисленное деление недоступно).
     EXPECT_EQ(resultTypeBinary(ParserToken::Kind::MathOp, BinaryOp::IntDiv, bi, bi, reg), INVALID_TYPE_ID);
     // Compare → Bool.
-    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::CompareOp, BinaryOp::None, bi, bi, reg), reg.getType("Bool"));
+    EXPECT_EQ(resultTypeBinary(ParserToken::Kind::CompareOp, BinaryOp::None, bi, bi, reg), reg.read().getType("Bool"));
 }
 
 TEST(TypeHelperTest, IsBinaryExprKind) {
@@ -330,6 +336,18 @@ TEST(TypeHelperTest, IsBinaryExprKind) {
     EXPECT_FALSE(is_binary_expr_kind(K::TypeDecl));
     EXPECT_FALSE(is_binary_expr_kind(K::MemberAccess));
     EXPECT_FALSE(is_binary_expr_kind(K::VarDecl));
+}
+
+TEST(TypeHelperTest, QualTypeKeepsIdentitySeparateFromState) {
+    const TypeId int8 = makeTypeId(makeTypeKind(Group::kIntegers, 8));
+    const QualType state = QualType::fromTypeId(int8).withConst().withInferred();
+    EXPECT_EQ(state.getTypeId(), int8); // identity-проекция снимает все state-флаги
+    EXPECT_TRUE(state.isConst());
+    EXPECT_TRUE(state.isInferred());
+
+    const QualType other = QualType::fromTypeId(int8);
+    EXPECT_EQ(state.getTypeId(), other.getTypeId()); // identity совпадает
+    EXPECT_NE(state.raw(), other.raw());             // state различается
 }
 
 } // namespace

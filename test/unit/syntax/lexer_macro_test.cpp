@@ -1,4 +1,6 @@
 #include "syntax/lexer_test_fixture.hpp"
+
+using namespace trust;
 TEST_F(Lexer, DocCommentFullText) {
     // Доки сохраняются целиком, включая маркеры (string_view в m_text).
     ASSERT_EQ(1, TokenParse("/** Block doc */"));
@@ -89,20 +91,6 @@ TEST_F(Lexer, Macro) {
     // EXPECT_EQ(1, Count(TermID::LOCAL));
     // EXPECT_EQ(1, Count(TermID::CREATE_NAME));
     // EXPECT_EQ(1, Count(TermID::MACRO_SEQ));
-}
-
-TEST_F(Lexer, Mangled) {
-    ASSERT_EQ(1, TokenParse("_$$_123$")) << Dump();
-    ASSERT_EQ(1, Count(TermID::MANGLED)) << Dump();
-
-    ASSERT_EQ(1, TokenParse("_$name_$_123$")) << Dump();
-    ASSERT_EQ(1, Count(TermID::MANGLED)) << Dump();
-
-    ASSERT_EQ(1, TokenParse("_$na12me_$_name$$$")) << Dump();
-    ASSERT_EQ(1, Count(TermID::MANGLED)) << Dump();
-
-    ASSERT_EQ(1, TokenParse("_$na$_12me_$_name$$$")) << Dump();
-    ASSERT_EQ(1, Count(TermID::MANGLED)) << Dump();
 }
 
 TEST_F(Lexer, MacroDefNewSyntax) {
@@ -213,7 +201,7 @@ TEST_F(Lexer, MacroBodyArithmeticAndLiterals) {
     ASSERT_EQ(15, TokenParse("@@ r @@ 1 + 2.5 'str' ( a , b , ) @@@@;")) << Dump();
     ASSERT_EQ(TermID::INTEGER, tokens[3]->getTermID());
     ASSERT_EQ(TermID::NUMBER, tokens[5]->getTermID());
-    ASSERT_EQ(TermID::STRCHAR, tokens[6]->getTermID());
+    ASSERT_EQ(TermID::STRWIDE, tokens[6]->getTermID());
     ASSERT_EQ(TermID::LPAREN, tokens[7]->getTermID());
 }
 

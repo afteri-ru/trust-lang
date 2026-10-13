@@ -180,6 +180,14 @@
       "patterns": [
         {
           "name": "keyword.operator.assignment.trust",
+          "match": "::-"
+        },
+        {
+          "name": "keyword.operator.assignment.trust",
+          "match": ":-"
+        },
+        {
+          "name": "keyword.operator.assignment.trust",
           "match": "::="
         },
         {

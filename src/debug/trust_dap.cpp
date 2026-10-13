@@ -8,16 +8,14 @@
 // для трансляции позиций между trust- и C++-файлами.
 // -----------------------------------------------------------------------
 
-#include "debug/dap_handler.hpp"
-#include "debug/dap_transport.h"
-#include "utils/io.hpp"
+#include "debug/dap/dap_handler.hpp"
+#include "debug/dap/dap_transport.h"
+#include "utils/utils.hpp"
 
 #include <nlohmann/json.hpp>
-#include "utils/io.hpp"
 
 #include <iostream>
 #include <memory>
-#include "utils/io.hpp"
 
 using json = nlohmann::json;
 

@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust --package pkg -o mod_import_mod.trust > %t.out && test -f mod_import_mod.trust
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/imp $TD/main.src
+# RUN: $TD/imp && echo "PASS"
+# CHECK: PASS
+#
+# Подключение пакета (.trust) при парсинге и компиляции: главный модуль импортирует
+# \mod_import_mod(x), который лежит в пакете mod_import_mod.trust (gzip-tar архив исходников).
+# module_loader распаковывает пакет в <каталог архива>/.trust/packages/<stem>/ и грузит
+# mod_import_mod.src как обычный исходник; имя x видно как @x. Программа возвращает 0.
+
+//--- pkg/trust.toml
+name = 'mod_import_mod'
+//--- pkg/mod_import_mod.src
+\\\mod_import_mod\mod_import_mod;
+x:Int32 := 42;
+//--- main.src
+\\\mod_import_mod\mod_import_mod(x);
+{% int main__main__() {
+    return @x == 42 ? 0 : 1;
+}
+%}

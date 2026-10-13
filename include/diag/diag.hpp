@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <format>
 #include <initializer_list>
 #include <optional>
@@ -12,6 +13,7 @@
 #include "location/location.hpp"
 #include "diag/severity.hpp"
 #include "diag/options.hpp"
+#include "diag/source_text_provider.hpp"
 
 namespace trust {
 
@@ -37,8 +39,10 @@ struct DiagnosticEntry {
     std::vector<FixitSuggestion> fixits; // привязанные fixit-подсказки
 };
 
-class Context;
 class Options;
+
+/// Лимит ошибок по умолчанию (как в clang: -ferror-limit=20). 0 = без лимита.
+inline constexpr std::size_t kDefaultErrorLimit = 20;
 
 class DiagnosticEngine {
   public:
@@ -47,10 +51,17 @@ class DiagnosticEngine {
     DiagnosticEngine(const DiagnosticEngine&) = delete;
     DiagnosticEngine& operator=(const DiagnosticEngine&) = delete;
 
-    void setSourceManager(const Context* ctx) { m_ctx = ctx; }
+    void setSourceTextProvider(const SourceTextProvider* provider) { m_source = provider; }
 
     void setMinSeverity(Severity sev);
     Severity minSeverity() const;
+
+    /// Лимит ошибок (0 = без лимита). После достижения выводится ОДНО итоговое
+    /// Note-сообщение, дальнейшие не-Fatal диагностики подавляются.
+    void setErrorLimit(std::size_t limit);
+    std::size_t errorLimit() const;
+    /// true, если лимит задан (ненулевой) и число ошибок достигло его.
+    bool errorLimitReached() const;
 
     void setOptions(Options* opts) { m_opts = opts; }
 
@@ -89,13 +100,15 @@ class DiagnosticEngine {
     void clear();
 
   private:
-    DiagnosticEntry* output(Severity sev, MapperRange range, std::string_view opt_name, std::string_view msg);
+    DiagnosticEntry* output(Severity sev, MapperRange range, std::string_view opt_name, std::string_view msg, bool internal = false);
 
     Severity m_minSeverity = Severity::Remark;
     Options* m_opts = nullptr;
     int m_errorCount = 0;
     int m_warningCount = 0;
-    const Context* m_ctx = nullptr;
+    std::size_t m_errorLimit = kDefaultErrorLimit;
+    bool m_errorLimitReported = false;
+    const SourceTextProvider* m_source = nullptr; ///< источник текста для печати (внедряет session)
     std::vector<DiagnosticEntry> m_diagnostics; // накопленные диагностики
 };
 

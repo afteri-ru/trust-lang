@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# C-символ (`%foo`, extern "C") нельзя перегрузить: у всех сигнатур одно C++-имя. Явная
+# диагностика вместо генерации невалидного C++ с манглированными объявлениями.
+%foo(arg:Int8):None := ...;
+%foo(arg:Byte):None := ...;
+@main() := {
+    %foo(3:Int8);
+    @return 0;
+}
+# CHECK: error: overloaded native function '%foo' is not supported

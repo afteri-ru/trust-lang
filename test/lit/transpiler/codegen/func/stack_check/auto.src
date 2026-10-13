@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp --stack-check=auto -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp --stack-check=auto -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 
 # В режиме --stack-check=auto рекурсивная функция авто-маркируется @[stack_check@]
 # (manual=false), поэтому каждый вызов (в т.ч. рекурсивный self-call) оборачивается в
@@ -11,7 +11,7 @@
     @return recurse(n - 1) + 1;
 };
 
-@main() := { @print('d={}\n', recurse(100)); }
+@main() := { @print("d={}\n", recurse(100)); }
 # CHECK: #include "trust/stack_check.hpp"
-# CHECK: (trust::stack_check::check_stack_limit(), c_recurse((c_n - 1)))
-# CHECK: (trust::stack_check::check_stack_limit(), c_recurse(100))
+# CHECK: (trust::stack_check::check_stack_limit(), c_recurse{{_[A-Za-z0-9_]+}}((c_n - 1)))
+# CHECK: (trust::stack_check::check_stack_limit(), c_recurse{{_[A-Za-z0-9_]+}}(100))

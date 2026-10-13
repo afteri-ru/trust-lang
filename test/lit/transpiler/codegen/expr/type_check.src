@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 #
 # Операторы сравнения типов: `<~` (номинальная is-a), `~~` (утиная), `~~~` (строгая).
 # Все операнды статически известны → результат свёрнут в константу true/false.

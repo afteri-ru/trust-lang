@@ -1,5 +1,5 @@
-# RUN: %trust --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck --check-prefix=CHECK-LOOP %s <%t.out
-# RUN: %trust --temp-dir %T --emit-cpp %s > %t.out2 2>&1 && %FileCheck --check-prefix=CHECK-OUT %s <%t.out2
+# RUN: %trust --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck --check-prefix=CHECK-LOOP %s <%t.out
+# RUN: %trust --temp-dir %t.dir --emit-cpp %s > %t.out2 2>&1 && %FileCheck --check-prefix=CHECK-OUT %s <%t.out2
 # (без -q: предупреждения попадают в 2>&1; проверяем ТЕКСТ предупреждений о widening.)
 
 # Внутри цикла тип деструктурируемого элемента нетипизированного словаря расширяется до МАКСИМАЛЬНОГО

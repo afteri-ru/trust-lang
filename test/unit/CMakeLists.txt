@@ -4,6 +4,7 @@
 set(TEST_SOURCES
     unittest.cpp
     diag/basic_test.cpp
+    diag/error_limit_test.cpp
     diag/options_test.cpp
     session/context_test.cpp
     session/context_bitpack_test.cpp
@@ -13,50 +14,113 @@ set(TEST_SOURCES
     sourcemap/save_and_read_test.cpp
     transpiler/src_map_cli_test.cpp
     attrs/parse_test.cpp
-    ast/visit_test.cpp
+    attrs/attr_args_test.cpp
+    ast/kind_dispatch_test.cpp
     ast/type_access_test.cpp
+    ast/clone_test.cpp
+    ast/text_storage_test.cpp
+    ast/text_model_test.cpp
+    ast/binary_op_test.cpp
+    ast/alias_kind_test.cpp
+    ast/slots_test.cpp
+    ir/hir/hir_verify_test.cpp
     pipeline/module_registry_test.cpp
     pipeline/module_loader_test.cpp
+    pipeline/module_path_test.cpp
     pipeline/module_export_test.cpp
     #  parser/token_gen_test.cpp
     pipeline/pipeline_test.cpp
     pipeline/pipeline_symbol_test.cpp
     pipeline/uninit_inference_test.cpp
+    pipeline/package_test.cpp
+    pipeline/link_plan_test.cpp
+    pipeline/stdlib_package_test.cpp
     pipeline/compile_test.cpp
+    pipeline/backend_stage_test.cpp
+    verify/report_test.cpp
+    verify/certificate_test.cpp
     driver/parse_test.cpp
     driver/analysis_options_test.cpp
+    debug/mi_parse_test.cpp
+    debug/mi_transport_test.cpp
+    semantic/analysis_zones_test.cpp
     semantic/semantic_test.cpp
+    semantic/semantic_model_test.cpp
+    semantic/hook_registry_test.cpp
     semantic/semantic_table_test.cpp
     semantic/semantic_funcdecl_test.cpp
     semantic/symbol_collector_test.cpp
-    analysis/scope_test.cpp
+    symbols/scope_test.cpp
+    symbols/scope_stack_test.cpp
+    symbols/module_context_test.cpp
+    symbols/import_sites_test.cpp
+    symbols/alias_registry_test.cpp
+    symbols/decl_registry_test.cpp
+    symbols/module_surface_test.cpp
+    symbols/symbol_arena_test.cpp
+    symbols/symbol_table_overload_test.cpp
+    symbols/symbol_visibility_test.cpp
+    symbols/site_visibility_behavior_test.cpp
+    symbols/name_resolver_test.cpp
+    symbols/scope_path_test.cpp
+    ir/cfg_test.cpp
+    ir/analysis_manager_test.cpp
+    ir/mir_build_test.cpp
+    ir/dataflow_test.cpp
+    ir/places_test.cpp
+    ir/cfg_verify_test.cpp
+    analysis/runtime_checks_test.cpp
     semantic/scope_liveness_test.cpp
     semantic/debug_scope_test.cpp
     semantic/multilevel_var_test.cpp
     semantic/format_check_test.cpp
     semantic/type_set_test.cpp
-    semantic/borrow_check_test.cpp
+    semantic/internal_error_policy_test.cpp
+    semantic/arg_casts_test.cpp
+    semantic/verify_typed_ast_test.cpp
     transpiler/codegen_literal_test.cpp
     transpiler/codegen_stmt_test.cpp
     transpiler/codegen_func_test.cpp
+    transpiler/type_name_render_test.cpp
+    transpiler/cpp_name_test.cpp
+    transpiler/runtime_type_tag_test.cpp
     transpiler/transpile_lsp_test.cpp
     transpiler/transpile_lsp_mapping_test.cpp
     # pipeline/pipelineopt_test.cpp
     types/type_alias_test.cpp
+    types/type_storage_key_test.cpp
+    types/storage_key_test.cpp
+    types/builtin_definition_test.cpp
     types/type_helpers_test.cpp
+    types/type_invariant_test.cpp
+    types/type_identity_test.cpp
+    types/type_traits_test.cpp
     types/reftype_test.cpp
     types/type_method_test.cpp
+    types/call_signature_test.cpp
+    types/fn_identity_test.cpp
+    types/overload_resolve_test.cpp
+    types/method_signatures_test.cpp
+    types/template_unify_test.cpp
+    types/type_intern_key_test.cpp
+    types/type_zone_access_test.cpp
+    types/type_write_access_test.cpp
+    types/type_read_view_test.cpp
     types/array_type_test.cpp
-    types/native_template_test.cpp
-    types/native_class_test.cpp
+    types/tensor_type_test.cpp
+    types/native_type_test.cpp
+    types/template_pack_test.cpp
+    types/template_subst_test.cpp
     types/trust_flag_test.cpp
     types/runtime_symbols_test.cpp
     types/stack_check_test.cpp
     types/operator_registry_test.cpp
-    assets/catalog_test.cpp
     stdlib/iterator_test.cpp
-    stdlib/any_iterator_test.cpp
     stdlib/generator_test.cpp
+    stdlib/async_task_test.cpp
+    stdlib/async_pool_test.cpp
+    stdlib/async_mutex_test.cpp
+    stdlib/async_generator_test.cpp
     runtime/rational_test.cpp
     runtime/big_integer_test.cpp
     runtime/dict_test.cpp
@@ -72,8 +136,8 @@ set(TEST_SOURCES
     runtime/trusted_cpp_concepts_test.cpp
     runtime/trusted_cpp_selfref_test.cpp
     runtime/trusted_cpp_api_test.cpp
-    ${PROJECT_SOURCE_DIR}/runtime/rational.cpp
-    ${PROJECT_SOURCE_DIR}/runtime/big_integer.cpp
+    ${TRUST_SRC_DIR}/runtime/rational.cpp
+    ${TRUST_SRC_DIR}/runtime/big_integer.cpp
     lsp/lsp_handler_test.cpp
     lsp/lsp_hover_test.cpp
     lsp/lsp_completion_test.cpp
@@ -90,13 +154,14 @@ set(TEST_SOURCES
     utils/file_io_test.cpp
     utils/strings_test.cpp
     utils/transport_test.cpp
-    utils/elf_archive_test.cpp
     utils/error_test.cpp
     utils/io_test.cpp
     utils/trace_test.cpp
+    utils/text_interner_test.cpp
     solver/smt_printer_test.cpp
     solver/smt_printer_z3_test.cpp
     solver/smt_op_test.cpp
+    solver/smt_assembler_test.cpp
     # Syntax tests
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/lexer_macro_test.cpp
@@ -105,6 +170,8 @@ set(TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_options_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/macro_mapping_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/term_text_api_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_recovery_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_stmt_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_expr_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_decl_test.cpp
@@ -112,6 +179,7 @@ set(TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/parser_trust_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/predef_pragma_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/debug_macro_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/module_name_test.cpp
     # Formatter tests
     formatter/format_test.cpp
     formatter/format_comments_test.cpp
@@ -130,12 +198,12 @@ add_executable(unit_tests ${TEST_SOURCES})
 
 # -- Torch configuration for unit_tests --
 if(WITH_TORCH)
-    target_compile_definitions(unit_tests PRIVATE TRUST_HAS_TORCH)
     target_include_directories(unit_tests SYSTEM PRIVATE ${LIBTORCH_INCLUDE_DIRS})
+    target_include_directories(unit_tests PRIVATE ${TRUST_SRC_DIR}/include/runtime)
     target_link_directories(unit_tests PRIVATE ${LIBTORCH_LIB_DIRS})
     target_link_libraries(unit_tests PRIVATE torch c10 torch_cpu)
     target_compile_options(unit_tests PRIVATE -frtti)
-    target_sources(unit_tests PRIVATE ${PROJECT_SOURCE_DIR}/runtime/tensor.cpp)
+    target_sources(unit_tests PRIVATE ${TRUST_SRC_DIR}/runtime/tensor.cpp)
 endif()
 
 # -- Link all libraries --
@@ -153,6 +221,9 @@ target_link_libraries(unit_tests PRIVATE
     solver_lib
     syntax_lib
     formatter_lib
+    # LLVM headers are used directly by sourcemap/hash tests; the target centralizes the
+    # -idirafter handling (see the trust_llvm_dirs comment in the root CMakeLists).
+    trust_llvm_dirs
     gmp_interface
     GTest::gtest
 )
@@ -166,11 +237,7 @@ target_include_directories(unit_tests PRIVATE
     ${CMAKE_BINARY_DIR}/include
     ${CMAKE_BINARY_DIR}/syntax
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include/runtime
-)
-target_include_directories(unit_tests SYSTEM PRIVATE
-    ${LLVM_INCLUDE_DIRS}
 )
 
 target_compile_definitions(unit_tests PRIVATE
@@ -184,7 +251,7 @@ target_compile_definitions(unit_tests PRIVATE
 # -- Attach trust module --
 target_trust_module(unit_tests)
 
-# elf_archive_test needs the built runtime library files to extract headers from.
+# Unit tests link/run against the built trust-runtime libraries.
 add_dependencies(unit_tests trust_runtime trust_runtime_static)
 
 target_compile_options(unit_tests PRIVATE
@@ -231,16 +298,37 @@ target_include_directories(gdb_main PRIVATE
     ${CMAKE_SOURCE_DIR}/include
 )
 # -- CTest registration --
-# unit_tests is registered as a single CTest test: progress stays compact
-# (one line), and `ctest --output-on-failure` shows the full GTest report
-# (including the failing test names) only when the suite fails.
-add_test(NAME unit_tests
-    COMMAND $<TARGET_FILE:unit_tests>
-)
-set_tests_properties(unit_tests PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    TIMEOUT 300
-    # Final stage examples_tests runs only after all suites pass (fixture examples_deps);
-    # package_target_test/deb_package_test run after these suites (fixture package_deps).
-    FIXTURES_SETUP "examples_deps;package_deps"
-)
+# Единый бинарник unit_tests (одна линковка), но в тестовом прогоне его можно разбить
+# на ШАРДЫ через --gtest_filter (TRUST_UNIT_SHARDS, default 4), чтобы `ctest -j`
+# параллелил их на разных ядрах. Фильтры покрывают ВСЕ первые буквы A-Z (+ '_' как
+# catch-all) — новый сьют никогда не останется «непокрытым»; префиксы шардов не
+# пересекаются между собой. При TRUST_UNIT_SINGLE / TRUST_UNIT_SHARDS<=1 — как раньше,
+# одна компактная запись CTest.
+set(TRUST_UNIT_SHARDS 4 CACHE STRING "number of parallel CTest shards for unit_tests (0/1 = single)")
+option(TRUST_UNIT_SINGLE "register unit_tests as ONE compact CTest entry" OFF)
+
+# trust_add_test_suite требует TIMEOUT/FIXTURES_SETUP; шард — та же программа с фильтром.
+function(trust_register_unit_shard _name _filter)
+    trust_add_test_suite(${_name}
+        TIMEOUT 300
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        FIXTURES_SETUP "${TRUST_SUITE_FIXTURES}"
+        COMMAND $<TARGET_FILE:unit_tests> --gtest_filter=${_filter}
+    )
+endfunction()
+
+if(TRUST_UNIT_SINGLE OR NOT TRUST_UNIT_SHARDS GREATER 1)
+    trust_add_test_suite(unit_tests
+        TIMEOUT 300
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        # Final stage examples_tests/package tests run only after the early suites pass.
+        FIXTURES_SETUP "${TRUST_SUITE_FIXTURES}"
+        COMMAND $<TARGET_FILE:unit_tests>
+    )
+else()
+    # Шарды по первым буквам сьютов (суммы тестов: 554 / 501 / 609 / 657).
+    trust_register_unit_shard(unit_tests_shard1 "P*:E*:G*:H*:I*:K*:N*:U*:V*:W*:_*")
+    trust_register_unit_shard(unit_tests_shard2 "M*:C*:L*:B*")
+    trust_register_unit_shard(unit_tests_shard3 "S*:R*:O*:D*:F*")
+    trust_register_unit_shard(unit_tests_shard4 "T*:A*")
+endif()

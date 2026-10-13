@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Один и тот же T выведен как Int32 и Int64 -> конфликт унификации.
+<T> pick(a: T, b: T): T := { @return a; };
+
+r : Int32 := pick(1:Int32, 2:Int64);
+
+# CHECK: error: cannot deduce template parameter for function 'pick': conflicting deductions

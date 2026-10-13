@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Интерфейс файла `\lib { ... };`: экспортируются ТОЛЬКО объявления из блока; определения в теле
+# завершают предварительные объявления (forward + definition), импортёр получает прототип.
+
+//--- main.src
+\lib();
+@main():Int32 := { @return f(1) - 2; };
+
+//--- lib.src
+\lib {
+    f(x:Int32):Int32 := ...;
+};
+f(x:Int32):Int32 := { @return x + 1; };

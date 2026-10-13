@@ -2,11 +2,11 @@
 #define LEXER_TEST_FIXTURE_HPP
 // Shared Lexer fixture for lexer unit tests (lexer_test.cpp, lexer_macro_test.cpp,
 // lexer_trust_test.cpp). Tokenizes a source string via Scanner and exposes helpers.
-#include "syntax/warning_push.h"
+#include "syntax/util/warning_push.h"
 #include <gtest/gtest.h>
-#include "syntax/warning_pop.h"
+#include "syntax/util/warning_pop.h"
 
-#include "syntax/term.h"
+#include "syntax/term/term.h"
 #include "syntax/lexer.h"
 #include "syntax/parser.h"
 #include "syntax/macro.h"
@@ -14,7 +14,10 @@
 #include <string>
 #include <vector>
 
-using namespace trust;
+using trust::Scanner;
+using trust::TermID;
+using trust::TermPtr;
+using trust::toString;
 
 class Lexer : public ::testing::Test {
   protected:
@@ -32,7 +35,7 @@ class Lexer : public ::testing::Test {
 
         tokens.clear();
         TermPtr tok;
-        while (lexer.lex(&tok) != parser::token::END) {
+        while (lexer.lex(&tok) != trust::parser::token::END) {
             tokens.push_back(tok);
         }
         return tokens.size();

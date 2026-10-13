@@ -1,0 +1,9 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Удаление макроса базового скоупа из файла запрещено тем же правилом: базовый DSL неизменяем
+# (иначе языковая поверхность зависела бы от загружаемых файлов).
+# CHECK: error: macro group 'true' is defined in the DSL base scope; a file cannot remove it
+
+@@ true @@@@;
+@main():Int32 := { @return 0; };

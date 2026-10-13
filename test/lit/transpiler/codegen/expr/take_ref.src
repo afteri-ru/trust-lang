@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # Оператор TAKE: *ref -> *(ref.lock()) (мутабельный лок), *^ref -> *(ref.lock_const())
 # (read-only лок). Reference-переменная @[reftype("shared")@] объявляется как trust::Shared<T>

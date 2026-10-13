@@ -4,6 +4,6 @@
 # понятная диагностика вместо сломанного C++ (std::format) на этапе компиляции.
 
 @main() := {
-    s := '{1}'(42);
+    s := "{1}"(42);
 }
 # CHECK: error: format string '{1}' references argument index 1 but only 1 argument(s) provided

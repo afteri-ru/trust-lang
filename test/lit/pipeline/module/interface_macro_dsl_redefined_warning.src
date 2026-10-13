@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -Wdsl-macro-redefined=warning --temp-dir $TD -o $TD/app $TD/main.src 2>&1 | %FileCheck %s --check-prefix=WARN
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Даже при понижении severity до warning переопределение базового макроса НЕ применяется:
+# `true` в интерфейсе раскрывается БАЗОВЫМ телом (DSL: 1), поэтому интерфейс независим от
+# импортёра, а приложение завершается с кодом 0 (при применённом переопределении — 1).
+# WARN: warning: macro group 'true' is defined in the DSL base scope; a file cannot redefine it
+
+//--- main.src
+@@ true @@ 0 @@@@;
+\lib(flag);
+@main():Int32 := { if(flag) { @return 0; }; @return 1; };
+
+//--- lib.src
+\lib {
+    flag:Bool := true;
+};

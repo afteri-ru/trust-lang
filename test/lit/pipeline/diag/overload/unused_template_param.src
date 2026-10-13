@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Типовой параметр, не встречающийся в сигнатуре, невыводим при вызове (C++ deduction fails):
+# явная диагностика на объявлении вместо невалидного C++.
+<T,U> f(a:U):Int32 := { @return 1; };
+@main():Int32 := { @return 0; }
+# CHECK: error: template parameter 'T' is not used in the signature

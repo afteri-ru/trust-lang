@@ -4,6 +4,6 @@
 @main() := {
     x := 5;
     x = _;
-    @print('{}', x);
+    @print("{}", x);
 };
 # CHECK: error: variable 'x' is read before it is initialized

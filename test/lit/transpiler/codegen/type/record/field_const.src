@@ -1,0 +1,10 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# Type-level const объявленного поля Class сохраняется в RecordTypeData::fields
+# (TupleElementData::type -> QualType) и доезжает до кодогенерации.
+
+:Holder ::= :Class{ b:Int32^ := 5; };
+
+# CHECK: struct c_Holder {
+# CHECK-NEXT:     const int32_t c_b{5};
+# CHECK-NEXT: };

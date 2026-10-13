@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Границы Z15: абстрактные контейнеры не принимают pack как типовой аргумент - элемент Range выводится
+# из диапазонного литерала, элемент Tensor - из аннотации/инициализатора. Поэтому соответствующие ветки
+# обхода типов для pack-проверки в сигнатуре недостижимы (элемент не может быть template-param).
+<T...> r(xs: T...): Range := ...;
+<T...> t(xs: T...): Tensor := ...;
+
+# CHECK: error: abstract type ':Range' has no C++ representation
+# CHECK: error: tensor element type is unknown

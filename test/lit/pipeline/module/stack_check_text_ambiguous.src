@@ -1,0 +1,15 @@
+# RUN: %trust -q --stack-check-functions=guard --emit-cpp %s > %t.out 2>&1 || true
+# RUN: %FileCheck %s <%t.out
+#
+# Текстовый домен `--stack-check-functions` не несёт идентичности объявления: одноимённые
+# функции разных namespace — явная диагностика (не «первый победил»).
+# CHECK: ambiguous function 'guard' in stack-check functions list
+
+ns1:: {
+    guard(x:Int32):Int32 := { @return x; };
+};
+ns2:: {
+    guard(x:Int32):Int32 := { @return x; };
+};
+
+@main():Int32 := { @print("{} {}\n", ns1::guard(1), ns2::guard(2)); @return 0; };

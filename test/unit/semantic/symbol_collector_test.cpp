@@ -1,15 +1,15 @@
-#include "semantic/pass_runner.hpp"
-#include "semantic/symbol_collector.hpp"
-#include "analysis/symbol_index.hpp"
+#include "semantic/core/pass_runner.hpp"
+#include "semantic/core/symbol_collector.hpp"
+#include "symbols/symbol_index.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/ident_name.hpp"
 #include "ast/token_type.hpp"
 #include "session/context.hpp"
 #include "diag/diag.hpp"
-#include "types/registry.hpp"
-#include "types/type_names.hpp"
-#include "syntax/term.h"
-#include "utils/io.hpp"
+#include "types/type_system.hpp"
+#include "types/names.hpp"
+#include "syntax/term/term.h"
+#include "utils/utils.hpp"
 #include "gtest/gtest.h"
 
 #include <algorithm>
@@ -25,16 +25,15 @@ class SymbolCollectorTest : public ::testing::Test {
     void SetUp() override {
         m_stream.str("");
         m_prev_err = setErrs(&m_stream);
-        m_types = std::make_unique<TypeRegistry>(m_ctx.diag(), m_ctx.opts());
+        m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
-        m_ctx.opts().set_enabled(semantic::FlagKind::Symbols, true);
     }
     void TearDown() override { setErrs(m_prev_err); }
 
     std::ostream* m_prev_err = nullptr;
     std::ostringstream m_stream;
     Context m_ctx;
-    std::unique_ptr<TypeRegistry> m_types;
+    std::unique_ptr<TypeSystem> m_types;
 };
 
 TEST_F(SymbolCollectorTest, CollectsTypedAndInferred) {
@@ -52,10 +51,9 @@ TEST_F(SymbolCollectorTest, CollectsTypedAndInferred) {
     SemanticPassRunner runner(m_ctx);
     runner.run(seq);
 
-    EXPECT_TRUE(m_ctx.opts().is_enabled(semantic::FlagKind::Symbols));
     EXPECT_EQ(runner.analysis().symbols().globalSize(), 2u); // семантика обработала обе переменные
 
-    const auto& idx = runner.analysis().symbolIndex();
+    const auto& idx = runner.analysis().state().symbolIndex();
     ASSERT_EQ(idx.size(), 2u);
 
     auto it = std::find_if(idx.begin(), idx.end(), [](const SymbolInfo& s) { return s.name == "x"; });
@@ -69,15 +67,15 @@ TEST_F(SymbolCollectorTest, CollectsTypedAndInferred) {
     EXPECT_FALSE(it2->typeName.empty());
 }
 
-TEST_F(SymbolCollectorTest, FlagDisabledCollectsNothing) {
-    m_ctx.opts().set_enabled(semantic::FlagKind::Symbols, false);
+TEST_F(SymbolCollectorTest, CollectsWithoutOptions) {
+    // Модель семантики — продукт фазы: сбор идёт независимо от опций.
     auto x = std::make_shared<VarDecl>(Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME), nullptr,
                                        std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(x));
     SemanticPassRunner runner(m_ctx);
     runner.run(seq);
-    EXPECT_TRUE(runner.analysis().symbolIndex().empty());
+    ASSERT_EQ(runner.analysis().state().symbolIndex().size(), 1u);
 }
 
 } // namespace

@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1; true
+# RUN: %FileCheck %s <%t.out
+#
+# Модуль без экспортов: импорт приносит пустой набор имён — отдельная диагностика
+# (причина иная, чем у несовпавшей маски: путь/группа выбраны неверно).
+# CHECK: warning: import of module '\lib' brings no declarations into scope
+
+//--- main.src
+\lib();
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib;
+__:: {
+    helper():Int32 := { @return 1; };
+};

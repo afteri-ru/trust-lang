@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # `x :=: _` - перемещение значения в discard: МАТЕРИАЛИЗУЕТСЯ временное (move-ctor вызывается
 # реально), временное разрушается в конце блока. Для владеющих ссылок это освобождает ресурс,

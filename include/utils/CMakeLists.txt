@@ -1,18 +1,17 @@
 # include/utils/CMakeLists.txt
-# Utils - общие вспомогательные утилиты
+# Utils - общие вспомогательные утилиты (единственный источник `FAULT`/`EXPECT`, пул строк,
+# debug-трассировка; реализация сгруппирована по internal-подкаталогам io/proc/digest/strings/trace).
 
-# -- Utils library --
-add_library(utils_lib STATIC
-    ${PROJECT_SOURCE_DIR}/utils/cache.cpp
-    ${PROJECT_SOURCE_DIR}/utils/backtrace.cpp
-    ${PROJECT_SOURCE_DIR}/utils/elf.cpp
-    ${PROJECT_SOURCE_DIR}/utils/file_io.cpp
-    ${PROJECT_SOURCE_DIR}/utils/io.cpp
-    ${PROJECT_SOURCE_DIR}/utils/zstd_compress.cpp
+trust_component(utils
+    INTERNAL_DIRS strings io proc trace digest
+    PUBLIC_HEADERS
+        utils.hpp error.hpp hash.hpp string_interner.hpp import_masks.hpp partial_switch.hpp
+        string_view_hash.hpp strings.hpp
+    SOURCES
+        proc/cache.cpp proc/backtrace.cpp proc/elf.cpp proc/time.cpp
+        io/io.cpp io/file_io.cpp io/zstd_compress.cpp
+        digest/hash.cpp
+    INCLUDE_PUBLIC ${PROJECT_INCLUDE_DIR}
+    LINK_PUBLIC PkgConfig::ZSTD
+    LINK_PRIVATE trust_llvm_dirs LLVMSupport
 )
-target_include_directories(utils_lib PUBLIC ${PROJECT_INCLUDE_DIR} ${PROJECT_INCLUDE_DIR}/runtime)
-target_link_libraries(utils_lib PRIVATE trust_llvm_dirs LLVMSupport)
-target_link_libraries(utils_lib PUBLIC PkgConfig::ZSTD)
-
-# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
-target_link_libraries(utils_lib PRIVATE trust_pch)

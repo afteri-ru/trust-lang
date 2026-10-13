@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/lib.hpp
+# RUN: cat $TD/build/lib-[0-9a-f]*.cppt | %FileCheck %s --check-prefix=IMPL
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Метод типа, опубликованного заголовком модуля, НЕ эмитится inline в `.hpp`: заголовок содержит
+# прототип, а тело живёт в исполняющем артефакте модуля (`.cppt`) как out-of-line определение.
+# До этого тела методов публикуемых типов не эмитились вообще (undefined reference у клиента).
+
+# HDR: struct c_Shape {
+# HDR: int32_t c_describe_P0_();
+# IMPL: c_Shape::c_describe_P0_()
+
+//--- main.src
+\lib(Shape, mk);
+@main():Int32 := { s:Shape := mk(); @return s.describe() - 107; };
+
+//--- lib.src
+\lib;
+:Shape ::= :Class{
+    kind:Int32 := 7;
+    describe():Int32 := { return kind + 100; };
+};
+mk():Shape := { return Shape(); };

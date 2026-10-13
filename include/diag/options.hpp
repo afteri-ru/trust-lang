@@ -1,9 +1,10 @@
 #pragma once
 
 #include "diag/severity.hpp"
-#include "diag/options_decl.hpp"
+#include "diag/decl/options_decl.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <initializer_list>
 #include <optional>
@@ -170,6 +171,10 @@ class Options {
 
     void push();
     void pop();
+
+    /// Единая точка применения лимита ошибок из CLI: делегирует DiagnosticEngine
+    /// (0 = без лимита; значение по умолчанию — kDefaultErrorLimit).
+    void setErrorLimit(std::size_t limit);
 
     /// CLI-суффикс группы → WarnGroup ("all"→WG_Wall, "unused"→WG_Wunused, ...);
     /// WG_None, если имя не является группой.

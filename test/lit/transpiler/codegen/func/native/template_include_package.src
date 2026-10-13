@@ -1,0 +1,12 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Пакетный заголовок ('@'-префикс) на объявлении нативного шаблона-ТИПА: путь резолвится как
+# quoted-include пакета (attrs::includeDirective возвращает аргумент как есть).
+@[include("@stdlib/opt.hpp")@]
+<T> %std::optional() := ...;
+
+o: optional<Int32> := _;
+
+# CHECK-NOT: <@stdlib/opt.hpp>
+# CHECK: #include "stdlib/opt.hpp"
+# CHECK: std::optional<int32_t> c_o;

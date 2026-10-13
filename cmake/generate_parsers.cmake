@@ -5,6 +5,9 @@
 # в директивах %token, поэтому %token-блок собирается здесь и вставляется в parser.y.in.
 
 set(SYNTAX_LIB_DIR "${CMAKE_SOURCE_DIR}/include/syntax")
+set(SYNTAX_GRAMMAR_DIR "${SYNTAX_LIB_DIR}/grammar")
+set(SYNTAX_LEXER_DIR "${SYNTAX_LIB_DIR}/lexer")
+set(SYNTAX_TERM_DIR "${SYNTAX_LIB_DIR}/term")
 set(SYNTAX_GEN_DIR "${CMAKE_BINARY_DIR}/syntax")
 
 # -- Ensure output directory exists --
@@ -14,7 +17,7 @@ file(MAKE_DIRECTORY "${SYNTAX_GEN_DIR}")
 # Источник имён токенов - TERMS (записи с маркером T) и SYMBOL_TOKENS (все). END объявляется
 # отдельно как %token END 0 (специальный EOF-код). Текстовые описания токенов не генерируются.
 function(gen_tokens)
-    file(READ "${SYNTAX_LIB_DIR}/term_types.h" _content)
+    file(READ "${SYNTAX_TERM_DIR}/term_types.h" _content)
     set(_tokens "%token END 0\n")
 
     string(FIND "${_content}" "#define TERMS(" _p1)
@@ -43,9 +46,20 @@ function(gen_tokens)
         string(APPEND _tokens "%token ${_name}\n")
     endforeach()
 
-    file(READ "${SYNTAX_LIB_DIR}/parser.y.in" _yin)
+    file(READ "${SYNTAX_GRAMMAR_DIR}/parser.y.in" _yin)
     string(REPLACE "@@TOKENS@@" "${_tokens}" _yout "${_yin}")
-    file(WRITE "${SYNTAX_GEN_DIR}/parser.y" "${_yout}")
+
+    # Запись ТОЛЬКО при изменении содержимого: иначе каждый configure обновлял бы mtime parser.y,
+    # bison перегенерировал бы parser.yy.h, и пересобирался бы весь проект (parser.yy.h включён
+    # почти во все компоненты).
+    set(_yout_path "${SYNTAX_GEN_DIR}/parser.y")
+    set(_yout_old "")
+    if(EXISTS "${_yout_path}")
+        file(READ "${_yout_path}" _yout_old)
+    endif()
+    if(NOT _yout STREQUAL _yout_old)
+        file(WRITE "${_yout_path}" "${_yout}")
+    endif()
 endfunction()
 
 gen_tokens()
@@ -70,7 +84,7 @@ add_custom_command(
 )
 
 # -- Flex lexer generation --
-set(FLEX_LEXER_L "${SYNTAX_LIB_DIR}/lexer.l")
+set(FLEX_LEXER_L "${SYNTAX_LEXER_DIR}/lexer.l")
 set(FLEX_LEXER_CPP "${SYNTAX_GEN_DIR}/lexer.yy.cpp")
 set(FLEX_LEXER_H "${SYNTAX_GEN_DIR}/lexer.yy.h")
 
@@ -94,7 +108,8 @@ add_custom_target(gen_syntax_parsers
 
 # -- Перезапуск configure при изменении источника токенов/шаблона --
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    "${SYNTAX_LIB_DIR}/term_types.h"
-    "${SYNTAX_LIB_DIR}/parser.y.in"
+    "${SYNTAX_TERM_DIR}/term_types.h"
+    "${SYNTAX_GRAMMAR_DIR}/parser.y.in"
+    "${SYNTAX_LEXER_DIR}/lexer.l"
     "${CMAKE_CURRENT_LIST_FILE}"
 )

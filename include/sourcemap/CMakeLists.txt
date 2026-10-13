@@ -2,20 +2,13 @@
 # Source map: хранение исходников/вывода, маппинг вход↔выход, msgpack-сериализация.
 # Отделено от diag: чистые диагностики/опции не тянут msgpack/zstd/elf.
 
-add_library(sourcemap_lib STATIC
-    ${PROJECT_SOURCE_DIR}/sourcemap/mapper.cpp
-    ${PROJECT_SOURCE_DIR}/sourcemap/reader.cpp
+trust_component(sourcemap
+    INTERNAL_DIRS serialize store
+    PUBLIC_HEADERS mapper.hpp protocol.hpp writer.hpp
+    SOURCES
+        store/output_buffer.cpp store/writer_files.cpp store/writer_mapping.cpp store/writer_to_reader.cpp
+        serialize/reader.cpp serialize/reader_codec.cpp serialize/reader_lookup.cpp
+    LINK_PUBLIC trust_include_dirs diag_lib location_lib utils_lib msgpack-c-static
+    # reader.cpp читает LLVM-типы (ArrayRef) для распаковки source map.
+    LINK_PRIVATE trust_llvm_dirs LLVMSupport
 )
-
-target_link_libraries(sourcemap_lib PUBLIC
-    trust_include_dirs
-    diag_lib
-    location_lib
-    utils_lib
-    msgpack-c-static
-)
-# reader.cpp читает LLVM-типы (ArrayRef) для распаковки source map.
-target_link_libraries(sourcemap_lib PRIVATE trust_llvm_dirs LLVMSupport)
-
-# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
-target_link_libraries(sourcemap_lib PRIVATE trust_pch)

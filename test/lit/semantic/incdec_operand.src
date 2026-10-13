@@ -1,0 +1,7 @@
+# RUN: %not %trust -q -Wsigil=ignore --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Инкремент/декремент требует ЧИСЛОВОЙ операнд: строка -> явная ошибка компиляции
+# (без silent fallback).
+# CHECK: error: operator '++' requires a numeric operand
+s := "abc";
+s++;

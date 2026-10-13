@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Связывание переменной catch: catch(e:IntMinus) регистрирует e как ЛОКАЛЬНУЮ в скоупе своей
 # ветки (анализатор имён) и манглит её как обычную локальную (e → c_e) в C++-параметре:

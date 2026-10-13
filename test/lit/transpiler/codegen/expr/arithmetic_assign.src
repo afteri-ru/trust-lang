@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 
 # Проверка генерации составных операторов присваивания
 x:Int32 := 10;
@@ -17,4 +17,5 @@ x /= 4;
 # CHECK-NEXT: c_x /= 4;
 
 x %= 3;
-# CHECK-NEXT: c_x %= 3;
+# CHECK-NEXT: c_x = ([&]{ int64_t __l = static_cast<int64_t>(c_x); int64_t __r = static_cast<int64_t>(3);
+# CHECK-SAME: integer remainder by zero

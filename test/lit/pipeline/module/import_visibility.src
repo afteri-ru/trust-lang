@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/import_vis $TD/main.src
+# RUN: $TD/import_vis && echo "PASS"
+# CHECK: PASS
+#
+# Импортированные имена видны в текущем скоупе: вызов f из Trust-кода резолвится.
+# main возвращает 0, если f(1) == 2.
+
+//--- main.src
+\lib(f);
+@main():Int32 := { @return f(1) - 2; };
+
+//--- lib.src
+\lib;
+f(a:Int32):Int32 := { @return a + 1; };

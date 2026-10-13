@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/ctx $TD/main.src
+# RUN: $TD/ctx && echo "PASS"
+# CHECK: PASS
+#
+# Экспорт с узлом, который СЕМАНТИКА удаляет из тела (`@__CHECK_AREA__` заменяется пустым
+# узлом): экспорт-набор/факты интерфейса держат саму ДЕКЛАРАЦИЮ (FuncDecl), её идентичность
+# не меняется, поэтому заголовок и .cppt владельца остаются согласованными, а вызывающий код
+# видит функцию через импорт. Фиксирует текущее поведение (baseline для C5).
+
+//--- main.src
+\lib(answer);
+@main():Int32 := { @return answer() - 1; };
+
+//--- lib.src
+\lib;
+answer():Int32 := {
+    @__CHECK_AREA__(function, error);
+    @return 1;
+};

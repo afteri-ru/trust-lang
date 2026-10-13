@@ -5,7 +5,8 @@
 // diag::Options. Разделяет два источника опций (конвенция GCC/Clang):
 //   - `-W<name>=<sev>`  - severity-диагностики (применяются через applyDiagnostics);
 //   - `--solver-mode=`, `--keywords=`, `-fsolver-loop-unroll` - ПОВЕДЕНЧЕСКИЕ флаги,
-//     выставляемые в diag::Options (FlagKind::SolverMode / Keywords / SolverLoopUnroll).
+//     выставляемые в diag::Options по cli-имени из `diag/flag_ids.hpp` (владельцы флагов -
+//     semantic/transpiler/verify - не включаются: ребро driver-><владелец> отсутствует).
 //
 // Используется единообразно в trust (CLI compile), pipeline (CLI format),
 // trust-lsp (transpileSource / handleFormatting) и html_emit (--json/--html), чтобы
@@ -14,11 +15,10 @@
 // делегируется arity-aware парсеру драйвера trust (parseDriverArgs), поэтому определения
 // опций не дублируются.
 
+#include "diag/flag_ids.hpp"
 #include "diag/options.hpp"
 #include "driver/cli.hpp"
 #include "driver/options.hpp"
-#include "semantic/diag.hpp"
-#include "transpiler/diag.hpp"
 
 #include <span>
 #include <stdexcept>
@@ -28,54 +28,64 @@
 namespace trust {
 
 /// Применяет ПОВЕДЕНЧЕСКИЕ флаги анализа из уже разобранного ParseResult к Options:
-/// `--solver-mode` → FlagKind::SolverMode, `--keywords` → FlagKind::Keywords,
-/// `-fsolver-loop-unroll` → FlagKind::SolverLoopUnroll.
+/// `-ferror-limit` → DiagnosticEngine::setErrorLimit, `--solver-mode` → flag `solver-mode`,
+/// `--keywords` → flag `keywords`, `-fsolver-loop-unroll` → flag `solver-loop-unroll`.
 /// Опции исполнения/линковки (--run, -o, -l, --compiler, ...) НЕ являются опциями
 /// анализа и здесь игнорируются (это не тихая подмена — они разобраны в ParseResult,
 /// просто не имеют смысла для diag::Options).
 /// Возвращает сообщение об ошибке применения (пусто = успех), напр. невалидное значение
-/// `--solver-mode=bogus` (set_flag_value возвращает false - нет тихого пропуска).
+/// `--solver-mode=bogus` (setFlagValueByName возвращает false - нет тихого пропуска).
 inline std::string applyBehavioralFlags(Options& opts, const ParseResult& result) {
     std::string err;
-    if (!result.opts.solver_mode.empty() && !opts.set_flag_value(semantic::FlagKind::SolverMode, result.opts.solver_mode)) {
-        // Имя опции берём из самой опции (flagName из реестра), а не хардкодим.
-        err = "invalid value for --" + std::string(flagName(semantic::FlagKind::SolverMode)) + ": '" + result.opts.solver_mode + "'";
+    // -ferror-limit/--error-limit: предел ошибок (0 = без лимита); значение проверено драйвером.
+    if (result.opts.error_limit) {
+        opts.setErrorLimit(*result.opts.error_limit);
+    }
+    if (!result.opts.solver_mode.empty() && !opts.setFlagValueByName(diag::flag_id::kSolverMode, result.opts.solver_mode)) {
+        // Имя опции берём из нейтрального реестра идентификаторов (diag/flag_ids.hpp).
+        err = "invalid value for --" + std::string(diag::flag_id::kSolverMode) + ": '" + result.opts.solver_mode + "'";
     }
     if (result.opts.solver_loop_unroll) {
-        opts.set_enabled(semantic::FlagKind::SolverLoopUnroll, true);
+        opts.setEnabledByName(diag::flag_id::kSolverLoopUnroll, true);
     }
     // -fcomments/-fno-comments: поведенческий флаг вставки док-комментариев в C++-код (НЕ диагностика,
     // поэтому не -Wcomments). Default = true; применение идемпотентно для путей без кодогенерации.
-    opts.set_enabled(transpiler::FlagKind::Comments, result.opts.comments);
+    opts.setEnabledByName(diag::flag_id::kComments, result.opts.comments);
     // -foverflow-check/-fno-overflow-check: поведенческий флаг детекции знакового целочисленного
     // переполнения в арифметике (НЕ диагностика, поэтому не -Woverflow-check). Default = true;
     // применение идемпотентно для путей без кодогенерации.
-    opts.set_enabled(transpiler::FlagKind::OverflowCheck, result.opts.overflow_check);
-    if (!result.opts.keywords.empty() && !opts.set_flag_value(semantic::FlagKind::Keywords, result.opts.keywords)) {
+    opts.setEnabledByName(diag::flag_id::kOverflowCheck, result.opts.overflow_check);
+    if (!result.opts.verify.empty() && !opts.setFlagValueByName(diag::flag_id::kVerify, result.opts.verify)) {
         if (!err.empty()) {
             err += "; ";
         }
-        err += "invalid value for --" + std::string(flagName(semantic::FlagKind::Keywords));
+        err += "invalid value for --" + std::string(diag::flag_id::kVerify) + ": '" + result.opts.verify + "' (expected: all)";
     }
-    if (!result.opts.stack_check_mode.empty() && !opts.set_flag_value(semantic::FlagKind::StackCheck, result.opts.stack_check_mode)) {
+    if (!result.opts.keywords.empty() && !opts.setFlagValueByName(diag::flag_id::kKeywords, result.opts.keywords)) {
         if (!err.empty()) {
             err += "; ";
         }
-        err += "invalid value for --" + std::string(flagName(semantic::FlagKind::StackCheck)) + ": '" + result.opts.stack_check_mode +
+        err += "invalid value for --" + std::string(diag::flag_id::kKeywords);
+    }
+    if (!result.opts.stack_check_mode.empty() && !opts.setFlagValueByName(diag::flag_id::kStackCheck, result.opts.stack_check_mode)) {
+        if (!err.empty()) {
+            err += "; ";
+        }
+        err += "invalid value for --" + std::string(diag::flag_id::kStackCheck) + ": '" + result.opts.stack_check_mode +
                "' (expected: off|explicit|recursion|auto)";
     }
-    if (!result.opts.stack_check_reserve.empty() && !opts.set_flag_value(semantic::FlagKind::StackCheckReserve, result.opts.stack_check_reserve)) {
+    if (!result.opts.stack_check_reserve.empty() && !opts.setFlagValueByName(diag::flag_id::kStackCheckReserve, result.opts.stack_check_reserve)) {
         if (!err.empty()) {
             err += "; ";
         }
-        err += "invalid value for --" + std::string(flagName(semantic::FlagKind::StackCheckReserve)) + ": '" + result.opts.stack_check_reserve +
+        err += "invalid value for --" + std::string(diag::flag_id::kStackCheckReserve) + ": '" + result.opts.stack_check_reserve +
                "' (expected: non-negative integer bytes)";
     }
-    if (!result.opts.stack_check_functions.empty() && !opts.set_flag_value(semantic::FlagKind::StackCheckFunctions, result.opts.stack_check_functions)) {
+    if (!result.opts.stack_check_functions.empty() && !opts.setFlagValueByName(diag::flag_id::kStackCheckFunctions, result.opts.stack_check_functions)) {
         if (!err.empty()) {
             err += "; ";
         }
-        err += "invalid value for --" + std::string(flagName(semantic::FlagKind::StackCheckFunctions));
+        err += "invalid value for --" + std::string(diag::flag_id::kStackCheckFunctions);
     }
     return err;
 }

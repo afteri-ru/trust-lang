@@ -1,16 +1,10 @@
 // trust/assert.hpp - runtime error helpers for the Trust runtime.
 //
-// Public runtime header: self-contained (standard headers only) so that
-// generated C++ programs can include it without depending on the compiler's
-// include tree. At build time it is embedded into trust-runtime.so/.a (via
-// #embed, in an ELF section named "trust/assert.hpp"); the pipeline extracts it
-// into a temporary `trust/` directory and links the runtime library when a
-// generated program actually uses one of its symbols (trust__abort__ /
-// trust::formatMessage).
+// Delivery: package file `include/trust/assert.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 //
 // The backing symbols trust::errs() and trust::utils::backtrace_string() are
-// provided by the linked trust-runtime library (src/utils/io.cpp and
-// src/utils/backtrace.cpp), which is why they are only forward-declared here.
+// provided by the linked trust-runtime library (src/utils/io/io.cpp and
+// src/utils/proc/backtrace.cpp), which is why they are only forward-declared here.
 
 #pragma once
 

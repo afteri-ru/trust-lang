@@ -15,6 +15,6 @@
     r := 5 :Rational;
     bi := 9223372036854775808 :BigInteger;
     i := 256 :Int16;
-    print('b={} r={} bi={} i={}', b, r, bi, i);
+    print("b={} r={} bi={} i={}", b, r, bi, i);
 };
 {% int annotation__main__() { chk(); return 0; } %}

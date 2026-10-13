@@ -45,8 +45,9 @@ Additionally, **unary minus** is controlled (`-x`: overflow at `-INT_MIN`) and
 ### Boolean type {#bool}
 
 The boolean type `:Bool` accepts only the values `0` or `1` (`false`/`true`). It is singled out into a separate
-category (the values `@true`/`@false` in DSL are `1 :Bool`/`0 :Bool`) and, depending on the operation, can
-behave as an integer. An explicit `0 :Bool`/`1 :Bool` annotation creates exactly a logical value.
+category (the values `@true`/`@false` in DSL are `1 :Bool`/`0 :Bool`). `Bool` **does not participate in
+numeric arithmetic**: `+ - *`, compound `+= …` and `++`/`--` over `Bool` are a compilation error (an explicit
+integer type or a cast is required).
 
 ## Floating-point numbers
 
@@ -69,7 +70,7 @@ reports, diagnostics), `:BigInteger` has the method `display(L)`, which returns 
 
 ```python
 x :BigInteger := 123456789012345678901234567890;
-@print('{}', x.display(3));   # 123...890 (30)
+@print("{}", x.display(3));   # 123...890 (30)
 ```
 
 If there are few digits (`N <= 2L + 1`), the full number is returned. The sign is output in front, and `N`

@@ -4,9 +4,9 @@
 # CHECK: PASS
 
 # Use of trust::formatMessage in an embedded C++ block must make the transpiler
-# emit `#include "trust/assert.hpp"`; the pipeline extracts the header from
-# trust-runtime.a and links the runtime library into the executable, which must
-# then format and return 0.
+# emit `#include "trust/assert.hpp"`; the header is available from the extracted
+# `stdlib.trust` package via -Istdlib/include, and the runtime library is linked into
+# the executable, which must then format and return 0.
 
 {% int basic__main__() {
     std::string m = trust::formatMessage("/dir/file.cpp", 7, "val={}", 42);

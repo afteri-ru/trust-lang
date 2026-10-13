@@ -112,3 +112,26 @@ TEST(SrcMapCliReadback, EmitCppProducesReadableMap) {
         EXPECT_TRUE(reader->verifyHash(srcFile)) << "source file hash mismatch (stale map?)";
     }
 }
+
+// `--temp-dir` указывает на ещё не существующий каталог: компилятор обязан его создать
+// (emit-cpp без этого падает на записи "failed to write output file").
+TEST(SrcMapCliReadback, CreatesMissingTempDir) {
+    fs::path dir = fs::path(TEST_DATA_DIR) / "src_map_cli_creates_temp";
+    fs::remove_all(dir);
+    ASSERT_FALSE(fs::exists(dir)) << "precondition: temp dir must not exist";
+
+    fs::path srcDir = fs::path(TEST_DATA_DIR) / "src_map_cli_creates_temp_src";
+    fs::create_directories(srcDir);
+    fs::path srcPath = srcDir / "prog.src";
+    {
+        std::ofstream ofs(srcPath);
+        ofs << "x:Int32 := 1;\n";
+    }
+
+    std::string cmd = std::string(TRUST_BINARY_PATH) + " --quiet --temp-dir \"" + dir.string() + "\" --emit-cpp \"" + srcPath.string() + "\" >/dev/null";
+    int rc = std::system(cmd.c_str());
+    ASSERT_EQ(rc, 0) << "trust exited with code " << rc;
+
+    EXPECT_TRUE(fs::is_directory(dir)) << "missing --temp-dir must be created";
+    EXPECT_TRUE(fs::exists(dir / "prog.cppt"));
+}

@@ -1,9 +1,9 @@
 // -----------------------------------------------------------------------
-// Unit tests for trust-playground balancer dispatch (playground/server.h).
+// Unit tests for trust-playground balancer dispatch (playground/server/server.h).
 // -----------------------------------------------------------------------
 
-#include "playground/server.h"
-#include "playground/config.h"
+#include "playground/server/server.h"
+#include "playground/http/config.h"
 #include "trust/version.h"
 
 #include <gtest/gtest.h>

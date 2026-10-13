@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Деструктуризация `item, dictionary... := ... dictionary` (rest-цель == источнику → мутация на месте)
 # + истинность словаря в @while:
@@ -15,7 +15,7 @@
         item, dictionary... := ... dictionary;
         summa += item;
     };
-    @print('{}', summa);
+    @print("{}", summa);
 }
 # CHECK: while (c_dictionary) {
 # CHECK-NEXT: if (c_dictionary.size() < 1) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");

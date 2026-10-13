@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # @[deleter(D)] на владеющем виде: создание ресурса через <Wrapper>::adopt(handle, D{}).
 # unique<T,D> - D ЧАСТЬ ТИПА (trust::Unique<T, D>, как unique_ptr<T,D>); shared<T> - D

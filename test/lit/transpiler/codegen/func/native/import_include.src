@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # @include на НАТИВНОМ ИМПОРТЕ (`name := %native...;`) должен подтягивать заголовок.
 # Нативные импорты не эмитят C++-функцию и выходят ранним return - сбор @include/@link

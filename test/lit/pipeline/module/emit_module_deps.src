@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust --temp-dir $TD --emit-module-deps main.src > %t.out
+# RUN: %FileCheck %s <%t.out
+#
+# --emit-module-deps: граф файловых зависимостей правилами make (`target: deps`).
+# Цель главного правила - `.cppt` входного файла; он зависит от входного файла и всех
+# загруженных модулей. Отдельное правило даёт `.cppt` модуля (имя = stem + хеш пути).
+# G4: зависимости ТРАНЗИТИВНЫ (заголовок модуля подключает заголовки своих импортов):
+# правило для `lib` (прямой импорт `deep`) содержит и `deep.src`, и заголовки модулей,
+# иначе изменение интерфейса глубокого модуля даёт stale build.
+# CHECK: {{.*}}lib.hpp:{{.*}}deep.hpp{{.*}}deep.src{{.*}}lib.src
+# CHECK: {{.*}}lib-{{[0-9a-f]+}}.cppt:{{.*}}deep.src{{.*}}lib.src
+# CHECK: {{.*}}main.cppt:{{.*}}deep.src{{.*}}lib.src{{.*}}main.src
+
+//--- main.src
+\lib();
+@main():Int32 := { @return f(); };
+
+//--- lib.src
+\lib;
+\deep();
+f():Int32 := { @return g(1); };
+
+//--- deep.src
+\deep;
+g(x:Int32):Int32 := { @return x; };

@@ -1,5 +1,5 @@
-// Test file: trust::Generator - lazy coroutine generator (R3 representation).
-#include "stdlib/generator.hpp"
+// Test file: trust::Generator - lazy coroutine generator.
+#include "stdlib/core/async/generator.hpp"
 #include "trust/range.hpp"
 
 #include <cstdint>
@@ -72,6 +72,26 @@ TEST(GeneratorTest, PropagatesException) {
             }
         },
         std::runtime_error);
+}
+
+TEST(GeneratorTest, RejectsSecondBegin) {
+    Generator<int> generator = makeInts();
+    auto first = generator.begin();
+    ASSERT_NE(first, std::default_sentinel);
+    EXPECT_THROW(generator.begin(), std::logic_error);
+}
+
+TEST(GeneratorTest, RejectsDereferenceAfterEnd) {
+    Generator<int> generator = makeEmpty();
+    auto it = generator.begin();
+    EXPECT_EQ(it, std::default_sentinel);
+    EXPECT_THROW(*it, std::logic_error);
+}
+
+TEST(GeneratorTest, RejectsIncrementPastEnd) {
+    Generator<int> generator = makeEmpty();
+    auto it = generator.begin();
+    EXPECT_THROW(++it, std::logic_error);
 }
 
 TEST(GeneratorTest, LazyRangeOverVector) {

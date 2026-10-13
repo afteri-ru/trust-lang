@@ -1,15 +1,33 @@
 #pragma once
 
-#include "trust/assert.hpp"
-#include "utils/backtrace.hpp"
+#include "utils/proc/backtrace.hpp"
 
 #include <cassert>
 #include <exception>
 #include <format>
+#include <string>
 #include <string_view>
+#include <utility>
+
+namespace trust::utils {
+
+/// Форматирует диагностическое сообщение с префиксом "файл:строка:".
+/// Компиляторный вариант: не зависит от публичного runtime-заголовка `trust/assert.hpp`,
+/// чтобы переопределяемые реализации встроенных типов не попадали в include-пути сборки
+/// компилятора.
+template <typename... Args>
+std::string formatMessage(std::string_view file, int line, std::format_string<Args...> fmt, Args&&... args) {
+    std::string_view fname = file;
+    if (auto pos = file.rfind('/'); pos != std::string_view::npos) {
+        fname = file.substr(pos + 1);
+    }
+    return std::format("{}:{}: {}", fname, line, std::format(fmt, std::forward<Args>(args)...));
+}
+
+} // namespace trust::utils
 
 #ifndef FAULT_AS
-#define FAULT_AS(exception_type, ...) throw exception_type(trust::formatMessage(__FILE__, __LINE__, __VA_ARGS__))
+#define FAULT_AS(exception_type, ...) throw exception_type(trust::utils::formatMessage(__FILE__, __LINE__, __VA_ARGS__))
 #endif
 
 #ifndef FAULT

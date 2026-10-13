@@ -5,7 +5,7 @@
 @main() := {
     &* x := 5;
     w := & x;
-    @print('{}\\n', *w);
+    @print("{}\\n", *w);
 }
 # CHECK: error: taking a weak reference from a shared variable requires the weak-reference marker; declare '&? w' instead of 'w'
 # CHECK: note: fix-it: replace with '&? w'

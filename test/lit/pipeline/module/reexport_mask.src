@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main_ok.src
+# RUN: $TD/app
+# RUN: %not %trust -q -Wunmatched-mask=error --temp-dir $TD/b --emit-cpp main_bad.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# I4: маски сайта-фасада фильтруют набор реэкспорта. Фасад публикует только `f`, поэтому импорт
+# `\facade(g)` не находит ни одного имени — `-Wunmatched-mask` (здесь возведён в ошибку).
+# CHECK: error: import mask 'g' does not match any exported declaration of module '\facade'
+
+//--- main_ok.src
+\facade(f);
+@main():Int32 := { @return f(1) - 2; };
+
+//--- main_bad.src
+\facade(g);
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib;
+f(x:Int32):Int32 := { @return x + 1; };
+g(x:Int32):Int32 := { @return x + 2; };
+
+//--- facade.src
+\facade {
+    \lib(f);
+};

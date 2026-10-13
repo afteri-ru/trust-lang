@@ -12,17 +12,17 @@
 %chk():Void := {
     try_error {
         try_error {
-            -- 1 --;
+            |- 1 -|;
         } catch(_) {
-            print('inner=1');
+            print("inner=1");
         } else {
-            print('inner_else=BAD');
+            print("inner_else=BAD");
         };
-        print('after-inner');
+        print("after-inner");
     } catch(_) {
-        print('outer_catch=BAD');
+        print("outer_catch=BAD");
     } else {
-        print('outer_else=1');
+        print("outer_else=1");
     };
 };
 {% int nested_macro__main__() {

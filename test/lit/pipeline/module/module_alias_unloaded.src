@@ -1,0 +1,13 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Алиас модуля не загружает цель: цель обязана быть уже загружена импортом.
+# CHECK: error: Module '\lib' is not loaded
+//--- main.src
+@main():Int32 := { @return 0; };
+\m :- \lib;
+
+//--- lib.src
+\lib;
+g():Int32 := { @return 1; };

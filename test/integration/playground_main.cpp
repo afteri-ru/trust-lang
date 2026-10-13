@@ -12,7 +12,7 @@
 //   - обработка ошибок: нет воркеров -> 503 {unavailable,instructionsUrl},
 //     неверный токен воркера -> 403, ошибка транспиляции -> ok:false + диагностика.
 
-#include "playground/http.h"
+#include "playground/http/http.h"
 
 #include <nlohmann/json.hpp>
 

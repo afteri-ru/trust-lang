@@ -8,58 +8,9 @@
 namespace trust {
 
 // -- Group (0..255) ---------------------------------------
-// Плоский enum всех групп.
-// Any=0 (корень всех типов), Void=1 (Void/None).
-// Остальные - автоматически.
-enum class Group : uint8_t {
-    kAny = 0,  // Корень всех типов (Data=0, registry)
-    kVoid = 1, // Void(Data=1), None(Data=2)
-
-    // -- Встроенные группы (Data≠0 для конкретных) ------
-    kLogical,  // Bool(Data=1)           - 2
-    kIntegers, // 8,16,32,64             - 3
-    kUnsigned, // 8,16,32,64             - 4
-    kNumbers,  // 16,32,64               - 5
-    kBFloat,   // 16                     - 6
-    kComplex,  // 32,64                  - 7
-    // Произвольная точность: Rational (Data=1) и BigInteger (Data=2) - общий признак
-    // «безграничная точность»; Rational построен поверх BigInteger.
-    kArbitraryPrecision, // 1=Rational, 2=BigInteger - 8
-    kStrChar,            // 1                      - 9
-    kStrWide,            // 1                      - 10
-    kDicts,              // 1                      - 11
-
-    // -- Группы для реестра (Data=0) ---------------------
-    kTensors,        // 12
-    kContainers,     // 13
-    kStructured,     // 14
-    kCallable,       // 15
-    kClasses,        // 16
-    kRanges,         // 17
-    kIterators,      // 18
-    kDateTime,       // 19
-    kAsync,          // 20
-    kSync,           // 21
-    kExceptions,     // 22
-    kNative,         // 23
-    kEllipsis,       // 24
-    kArithmetics,    // 25
-    kTemplateParam,  // 26 - template type parameter (data=depth)
-    kReftype,        // 27 - ссылочные/указательные составные типы (реестр, Data≠0, RefType=вид)
-    kEnums,          // 28 - типобезопасные перечисления (реестр, EnumTypeData)
-    kVariants,       // 29 - гетерогенные варианты (реестр, VariantTypeData; → std::variant)
-    kNativeTemplate, // 30 - пользовательский нативный шаблон-тип (реестр, NativeTemplateTypeData)
-    kAccessPolicy,   // 31 - встроенные политики доступа (реестр, Data=1..3,
-                     //      cppName = trust::Access*, помечены атрибутом `sync`)
-    kNativeClass,    // 32 - forward-объявление НАТИВНОГО класса (реестр,
-                     //      NativeClassTypeData{cppName}, методы в TypeDescriptor::methods)
-    kDeleterPolicy,  // 33 - встроенные deleter-типы ресурсов (реестр, Data=1.., cppName =
-                     //      trust::FreeDeleter, помечены атрибутом-признаком; см. trust::resource.hpp)
-    kStructs,        // 34 - пользовательские Struct-типы (реестр, RecordTypeData, Data=1);
-                     //      строго POD (статические поля), признак POD = сама группа
-    kClassDefs       // 35 - пользовательские Class-типы (реестр, RecordTypeData, Data=1);
-                     //      допускают наследование и виртуальные члены
-};
+// `Group` объявлен в общем ABI-заголовке `runtime/trust/type_state.hpp` (рядом с TypeKind),
+// чтобы компилятор и рантайм использовали ОДНИ числовые коды. Здесь - только Category и
+// таблица принадлежности.
 // -- Category (≤ 32 категорий) ----------------------------
 enum class Category : uint8_t {
     kVoid,

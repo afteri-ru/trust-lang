@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Алиас изменяемого значения — второе имя того же места хранения: запись через алиас
+# видна по имени цели.
+//--- main.src
+\lib(v);
+a :- \lib::v;
+@main():Int32 := { a = 3; @return \lib::v - 3; };
+
+//--- lib.src
+\lib;
+v:Int32 := 1;

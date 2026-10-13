@@ -12,13 +12,13 @@ using trust::TypedValue;
 namespace {
 
 // TypeKind: Group(0-7) | Data/размерность(8-15) - кодировка (ABI) trust::TypedValue.
-// TypedValue хранит ПОЛНЫЙ TypeId → оборачиваем makeTypeId (TypeKind в старших 32 битах).
-constexpr trust::TypeId kInt8 = trust::makeTypeId(3u | (8u << 8));
-constexpr trust::TypeId kInt32 = trust::makeTypeId(3u | (32u << 8));
-constexpr trust::TypeId kInt64 = trust::makeTypeId(3u | (64u << 8));
-constexpr trust::TypeId kFloat64 = trust::makeTypeId(5u | (64u << 8));
-constexpr trust::TypeId kBool = trust::makeTypeId(2u | (1u << 8));
-constexpr trust::TypeId kStrChar = trust::makeTypeId(9u | (1u << 8));
+// TypedValue хранит QualType; встроенные типы строятся как TypeId::fromKind (index = 0).
+constexpr trust::QualType kInt8 = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kIntegers, 8u)));
+constexpr trust::QualType kInt32 = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kIntegers, 32u)));
+constexpr trust::QualType kInt64 = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kIntegers, 64u)));
+constexpr trust::QualType kFloat64 = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kNumbers, 64u)));
+constexpr trust::QualType kBool = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kLogical, 1u)));
+constexpr trust::QualType kStrChar = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kStrChar, 1u)));
 
 TEST(AnyConvertTest, NumericTarget) {
     EXPECT_EQ(any_to<int32_t>(TypedValue{kInt8, int8_t(42)}), 42);
@@ -40,7 +40,7 @@ TEST(AnyConvertTest, StringFromNumberThrows) {
 }
 
 TEST(AnyConvertTest, RationalTarget) {
-    constexpr trust::TypeId kRational = trust::makeTypeId(8u | (1u << 8));
+    constexpr trust::QualType kRational = trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kArbitraryPrecision, 1u)));
     // Rational - быстрая ветка variant (по значению); any_to<Rational> читает её напрямую.
     const Rational r = any_to<Rational>(TypedValue{kRational, Rational("3", "4")});
     EXPECT_EQ(r.GetAsString(), "3\\4");

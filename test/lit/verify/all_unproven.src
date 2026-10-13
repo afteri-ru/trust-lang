@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp --verify=all %s > %t.out 2>&1
+# RUN: %FileCheck --check-prefix=ERR %s <%t.out
+# RUN: test -f %t.dir/all_unproven.trustcert
+
+# --verify=all: недоказанное обязательство — ОШИБКА (не тихий warning). Постусловие заведомо
+# нарушимо (add возвращает x, а требуется x > 100), поэтому гейт падает и при stub, и при Z3.
+
+add(x:Int32):Int32 trust_post( add > 100 ) := { return x; };
+y := add(1);
+
+# ERR: --verify=all
+# ERR: obligation not proved

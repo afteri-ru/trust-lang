@@ -3,7 +3,7 @@
 # Вызов несуществующего метода на типе - диагностика ДО генерации C++.
 
 @main() := {
-    s: StrChar := 'abc';
+    s: StrChar := "abc";
     p := s.no_such();
 }
 # CHECK: error: type 'StrChar' has no method 'no_such'

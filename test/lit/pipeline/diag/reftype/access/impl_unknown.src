@@ -1,4 +1,4 @@
-# RUN: %not %trust -q --temp-dir %T --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # Класс реализации (3-й аргумент reftype) должен быть зарегистрированным типом.
 @main():Int32 := {

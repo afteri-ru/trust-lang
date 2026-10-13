@@ -2,10 +2,8 @@
 //   - trust::formatMessage - форматирование диагностического сообщения.
 //   - trust__abort__ - печать в errs() и завершение через SIGABRT (в дочернем
 //     процессе, с захватом stderr через pipe).
-//   - секция "trust/assert.hpp" встроена в trust-runtime.so/.a.
 
 #include "trust/assert.hpp"
-#include "utils/elf.hpp"
 
 #include <gtest/gtest.h>
 
@@ -81,21 +79,6 @@ TEST(AbortTest, TraceAddsBacktrace) {
     EXPECT_EQ(WEXITSTATUS(status), EXIT_FAILURE);
     EXPECT_NE(err.find("boom"), std::string::npos);
     EXPECT_NE(err.find('#'), std::string::npos) << "backtrace should contain frames";
-}
-
-// -- Секция "trust/assert.hpp" в рантайм-библиотеке ---------
-
-TEST(RuntimeHeaderTest, AssertHeaderEmbeddedInSharedAndStatic) {
-    auto so = trust::utils::readSectionFromLibrary(TRUST_RUNTIME_SHARED_PATH, "trust/assert.hpp");
-    ASSERT_TRUE(so.has_value());
-    auto a = trust::utils::readSectionFromLibrary(TRUST_RUNTIME_STATIC_PATH, "trust/assert.hpp");
-    ASSERT_TRUE(a.has_value());
-
-    const std::string so_str(so->begin(), so->end());
-    const std::string a_str(a->begin(), a->end());
-    EXPECT_NE(so_str.find("#pragma once"), std::string::npos);
-    EXPECT_NE(so_str.find("trust__abort__"), std::string::npos);
-    EXPECT_NE(a_str.find("trust::formatMessage"), std::string::npos);
 }
 
 } // namespace

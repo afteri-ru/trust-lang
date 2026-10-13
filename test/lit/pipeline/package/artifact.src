@@ -1,0 +1,50 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust --package pkg -o artifact_demo.trust > %t.out
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: grep -q -- '-lm' $TD/build.conf
+# RUN: %not grep -q -- '-ldemo' $TD/build.conf
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# [[artifact]] + [[link.headers]]: @[link("demo")] is a LOGICAL name; the package
+# artifact maps it to the system library `m` (kind="system"), so build.conf gets -lm.
+# The package include dir is added automatically through the extracted package.
+
+//--- pkg/trust.toml
+name = 'artifact_demo'
+
+[[layout.layers]]
+source-dir = '.'
+archive-dir = '.'
+patterns = ['*.src']
+
+[[layout.layers]]
+source-dir = 'include'
+archive-dir = 'include'
+patterns = ['*.hpp']
+
+[[artifact]]
+provides = ['demo']
+kind = 'system'
+libs = ['m']
+
+//--- pkg/include/demo.hpp
+#pragma once
+
+namespace pkg_demo {
+inline int value() { return 42; }
+} // namespace pkg_demo
+
+//--- pkg/artifact_demo.src
+\\\artifact_demo\artifact_demo;
+@[include("<demo.hpp>")@]
+@[link("demo")@]
+demo_value:Int32 := {% pkg_demo::value() %};
+
+//--- main.src
+\\\artifact_demo\artifact_demo(demo_value);
+
+{% int main__main__() {
+    return @demo_value == 42 ? 0 : 1;
+} %}

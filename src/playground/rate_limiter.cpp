@@ -1,7 +1,7 @@
 // src/playground/rate_limiter.cpp
-// trust-playground: реализация RateLimiter (см. include/playground/rate_limiter.h).
+// trust-playground: реализация RateLimiter (см. include/playground/limits/rate_limiter.h).
 
-#include "playground/rate_limiter.h"
+#include "playground/limits/rate_limiter.h"
 
 #include <algorithm>
 

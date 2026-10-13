@@ -1,10 +1,12 @@
 #include "syntax/parser_test_fixture.hpp"
+
+using namespace trust;
 TEST_F(ParserTest, ParserParser) {
     ASSERT_TRUE(Parse("100"));
     ASSERT_EQ(TermID::INTEGER, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("100", ast->getText());
 
-    ASSERT_TRUE(Parse("'str'"));
+    ASSERT_TRUE(Parse("\"str\""));
     ASSERT_EQ(TermID::STRCHAR, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("str", ast->getText());
 
@@ -22,7 +24,7 @@ TEST_F(ParserTest, ParserParser) {
     ASSERT_EQ("name=1;", ast->toString());
 
     // RHS у `::=` - ТОЛЬКО тип; строковый литерал в RHS типа - ОШИБКА (не «общее выражение»).
-    Parse("name ::= '123';");
+    Parse("name ::= \"123\";");
     ASSERT_GT(m_ctx.diag().errorCount(), 0);
 
     ASSERT_TRUE(Parse("name ::= term;"));
@@ -53,7 +55,7 @@ TEST_F(ParserTest, TermCreateStringView) {
     EXPECT_EQ(source.size(), cterm.getText().size());
     EXPECT_EQ("some_name", cterm.getText());
 
-    // Не-const getText()/toString() материализует string_view в std::string
+    // getText() - const и не материализует string_view: view остаётся view.
     EXPECT_EQ("some_name", term->toString());
     EXPECT_EQ("some_name", term->getText());
 }
@@ -82,33 +84,33 @@ TEST_F(ParserTest, LiteralNumber) {
 
 TEST_F(ParserTest, LiteralString) {
     ASSERT_TRUE(Parse("\"\";"));
-    ASSERT_EQ(TermID::STRWIDE, ast->getTermID()) << trust::toString(ast->getTermID());
+    ASSERT_EQ(TermID::STRCHAR, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("\"\"", ast->toString());
 }
 
 TEST_F(ParserTest, LiteralString0) {
     ASSERT_TRUE(Parse("\"\"(123);"));
     ASSERT_TRUE(Parse("\"\"(123);"));
-    ASSERT_EQ(TermID::STRWIDE, ast->getTermID()) << trust::toString(ast->getTermID());
+    ASSERT_EQ(TermID::STRCHAR, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("\"\"(123)", ast->toString());
 }
 
 TEST_F(ParserTest, LiteralString1) {
-    ASSERT_TRUE(Parse("\"\";"));
-    ASSERT_EQ(TermID::STRWIDE, ast->getTermID()) << trust::toString(ast->getTermID());
-    ASSERT_EQ("\"\"", ast->toString());
-}
-
-TEST_F(ParserTest, LiteralString3) {
     ASSERT_TRUE(Parse("'';"));
-    ASSERT_EQ(TermID::STRCHAR, ast->getTermID()) << trust::toString(ast->getTermID());
+    ASSERT_EQ(TermID::STRWIDE, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ("''", ast->toString());
 }
 
-TEST_F(ParserTest, LiteralString4) {
-    ASSERT_TRUE(Parse("'strbyte'(term(), 123);"));
+TEST_F(ParserTest, LiteralString3) {
+    ASSERT_TRUE(Parse("\"\";"));
     ASSERT_EQ(TermID::STRCHAR, ast->getTermID()) << trust::toString(ast->getTermID());
-    ASSERT_EQ("'strbyte'(term(), 123)", ast->toString());
+    ASSERT_EQ("\"\"", ast->toString());
+}
+
+TEST_F(ParserTest, LiteralString4) {
+    ASSERT_TRUE(Parse("\"strbyte\"(term(), 123);"));
+    ASSERT_EQ(TermID::STRCHAR, ast->getTermID()) << trust::toString(ast->getTermID());
+    ASSERT_EQ("\"strbyte\"(term(), 123)", ast->toString());
 }
 
 TEST_F(ParserTest, LiteralRational) {
@@ -144,7 +146,7 @@ TEST_F(ParserTest, LiteralRational) {
 // буферизации указывал в произвольное место (конец/середину следующего оператора).
 TEST_F(ParserTest, SyntaxErrorPointsAtMissingSemicolon) {
     m_ctx.diag().clear();
-    ASSERT_NO_THROW(Parse(R"(Level ::= (LOW='low', HIGH='high',):Enum
+    ASSERT_NO_THROW(Parse(R"(Level ::= (LOW="low", HIGH="high",):Enum
 Data ::= (i=42,):Variant;)"));
     ASSERT_GT(m_ctx.diag().errorCount(), 0);
 
@@ -157,7 +159,7 @@ Data ::= (i=42,):Variant;)"));
     }
     ASSERT_NE(syntax, nullptr) << "must report a syntax error";
 
-    // Пропущенный ';' - конец строки "Level ::= (LOW='low', HIGH='high',):Enum".
+    // Пропущенный ';' - конец строки "Level ::= (LOW="low", HIGH="high",):Enum".
     const auto begin = m_ctx.source().line_column(syntax->range.begin);
     const auto end = m_ctx.source().line_column(syntax->range.end);
     EXPECT_EQ(1u, begin.line) << "error must point at the line of the missing ';', not the next decl";
@@ -168,14 +170,14 @@ Data ::= (i=42,):Variant;)"));
 
 TEST_F(ParserTest, EnumVariantWithSemicolonValid) {
     m_ctx.diag().clear();
-    ASSERT_NO_THROW(Parse(R"(Level ::= (LOW='low', HIGH='high',):Enum;
+    ASSERT_NO_THROW(Parse(R"(Level ::= (LOW="low", HIGH="high",):Enum;
 Data ::= (i=42,):Variant;)"));
     EXPECT_EQ(0, m_ctx.diag().errorCount()) << "with ';' after :Enum the file is valid";
 }
 
 TEST_F(ParserTest, EnumAtEofWithoutSemicolonValid) {
     m_ctx.diag().clear();
-    ASSERT_NO_THROW(Parse("Level ::= (LOW='low', HIGH='high',):Enum"));
+    ASSERT_NO_THROW(Parse("Level ::= (LOW=\"low\", HIGH=\"high\",):Enum"));
     EXPECT_EQ(0, m_ctx.diag().errorCount()) << "single :Enum decl at EOF without ';' is valid";
 }
 
@@ -183,7 +185,7 @@ TEST_F(ParserTest, EnumAtEofWithoutSemicolonValid) {
 // подчёркивается именно промежуток [конец последнего токена, начало неожиданного].
 TEST_F(ParserTest, SyntaxErrorMissingCommaSameLineIsGap) {
     m_ctx.diag().clear();
-    ASSERT_NO_THROW(Parse("Level ::= (LOW='low' HIGH='high',):Enum;"));
+    ASSERT_NO_THROW(Parse("Level ::= (LOW=\"low\" HIGH=\"high\",):Enum;"));
     ASSERT_GT(m_ctx.diag().errorCount(), 0);
 
     const DiagnosticEntry* syntax = nullptr;
@@ -517,19 +519,19 @@ TEST_F(ParserTest, DictType) {
     ASSERT_TRUE(Parse("(1, arg=2,)"));
     ASSERT_EQ("(1, arg=2,)", ast->toString());
 
-    ASSERT_TRUE(Parse("(1, arg=2, '',)"));
-    ASSERT_EQ("(1, arg=2, '',)", ast->toString());
+    ASSERT_TRUE(Parse("(1, arg=2, \"\",)"));
+    ASSERT_EQ("(1, arg=2, \"\",)", ast->toString());
 
     ASSERT_TRUE(Parse("(1, .arg=2,)"));
     ASSERT_EQ("(1, arg=2,)", ast->toString());
 
-    ASSERT_TRUE(Parse("(1, arg=2, '',)"));
-    ASSERT_EQ("(1, arg=2, '',)", ast->toString());
+    ASSERT_TRUE(Parse("(1, arg=2, \"\",)"));
+    ASSERT_EQ("(1, arg=2, \"\",)", ast->toString());
     //    ASSERT_TRUE(Parse("(arg1=, arg2=22, arg3=,):Enum"));
     //    ASSERT_EQ("(arg1=, arg2=22, arg3=,):Enum", ast->toString());
 
-    ASSERT_TRUE(Parse("(1, arg=2, '',):Class"));
-    ASSERT_EQ("(1, arg=2, '',):Class", ast->toString());
+    ASSERT_TRUE(Parse("(1, arg=2, \"\",):Class"));
+    ASSERT_EQ("(1, arg=2, \"\",):Class", ast->toString());
 }
 
 TEST_F(ParserTest, TermNoArg) {
@@ -744,7 +746,6 @@ TEST_F(ParserTest, Misc) {
     ASSERT_NO_THROW(Parse("func( &? arg = term(0) ) := { };"));
     ASSERT_NO_THROW(Parse("func( &* arg = term(0) ) := { };"));
     ASSERT_NO_THROW(Parse("func( && arg = term(0) ) := { };"));
-
 
     ASSERT_NO_THROW(Parse("func( & arg:Int32 = val ) := { };"));
     ASSERT_NO_THROW(Parse("func( &? arg:Int32 = val ) := { };"));
@@ -1112,4 +1113,3 @@ TEST_F(ParserTest, TypeCheckOperators) {
     ASSERT_TRUE(Parse("r := x ~~~ :Int32;"));
     ASSERT_EQ("~~~", ast->m_right->getText());
 }
-

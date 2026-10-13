@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Импорт-реэкспорт допустим только на ВЕРХНЕМ уровне блока интерфейса: во вложенной
+# namespace-области семантика qualified-реэкспорта не определена, поэтому это явная ошибка,
+# а не молчаливое отсутствие имён.
+# CHECK: error: re-export import is allowed only at the top level of the file interface
+
+//--- main.src
+\facade(f);
+@main():Int32 := { @return f(); };
+
+//--- lib.src
+\lib;
+f():Int32 := { @return 1; };
+
+//--- facade.src
+\facade {
+    ns:: {
+        \lib(f);
+    };
+};

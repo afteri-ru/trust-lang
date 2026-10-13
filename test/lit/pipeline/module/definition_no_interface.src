@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Файл без блока интерфейса экспортирует все top-level объявления: полное определение
+# входит в экспорт-набор, клиент видит полный тип.
+
+//--- main.src
+\lib(Point);
+@main():Int32 := { $p: Point := Point(5); @return p.x - 5; };
+
+//--- lib.src
+\lib;
+:Point ::= :Struct{ x:Int32 := _; };

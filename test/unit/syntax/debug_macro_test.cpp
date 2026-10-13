@@ -7,15 +7,15 @@
 // стираются и выдаётся информационное предупреждение - ветка проверки стоит прямо в теле каждого
 // теста под `#if TRUST_TRACE_ENABLED`.
 
-#include "syntax/pragma_evaluator.hpp"
+#include "syntax/macro/pragma_evaluator.hpp"
 
 #include "ast/ast_nodes.hpp"
 #include "ast/term_to_ast.hpp"
 #include "session/context.hpp"
 #include "syntax/predef_macro.hpp"
-#include "syntax/term.h"
-#include "syntax/term_types.h"
-#include "utils/trace.hpp"
+#include "syntax/term/term.h"
+#include "syntax/term/term_types.h"
+#include "utils/utils.hpp"
 
 #include <gtest/gtest.h>
 

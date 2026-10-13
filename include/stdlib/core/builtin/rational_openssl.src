@@ -1,0 +1,14 @@
+\\\stdlib\stdlib\builtin\rational_openssl;
+# builtin/rational_openssl.src - OpenSSL implementation of built-in Rational/BigInteger,
+# implemented with OpenSSL BIGNUM (libcrypto). Not loaded by default: import/copy this
+# file into a project/package to override the default trust/rational.hpp implementation.
+#
+# Definitions use `=` (implementation of a pre-declared type), not `::=` (new type).
+
+@[include("@stdlib/builtin/rational_openssl.hpp")@]
+@[link("crypto")@]
+Rational = %openssl::Rational { };
+
+@[include("@stdlib/builtin/rational_openssl.hpp")@]
+@[link("crypto")@]
+BigInteger = %openssl::BigInteger { };

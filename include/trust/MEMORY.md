@@ -2,7 +2,7 @@
 
 > scope: include/trust
 > role: persistent-memory
-> last_reviewed: 2026-09-14
+> last_reviewed: 2026-10-24
 > review_period: 30
 > max_size: 4000
 
@@ -15,14 +15,14 @@
 
 ## Facts and invariants
 
-- **⚠ `TRUST_COMPILE_OPTIONS` (сборка `trust.pcm`) должны включать И `-I${PROJECT_INCLUDE_DIR}`,
-  И `-I${PROJECT_INCLUDE_DIR}/runtime`:** заголовки встроенных типов публикуются как `trust/<h>.hpp`,
-  но физически лежат в `include/runtime/trust/` (иначе падает precompile модуля —
-  `utils/error.hpp` → `trust/assert.hpp`).
+- **Общий ABI-заголовок типов:** `TypeId`/`QualType` определены в `include/runtime/trust/type_state.hpp`
+  и подключаются компилятором как `runtime/trust/type_state.hpp` (через `-I${PROJECT_INCLUDE_DIR}`).
+  Поэтому `TRUST_COMPILE_OPTIONS` НЕ добавляет `-I${PROJECT_INCLUDE_DIR}/runtime`: прочие
+  переопределяемые runtime-заголовки компилятору не видны (и `utils/error.hpp` от них не зависит).
 
 ## Decisions
 
 ## Relations
 
 - Встроенные типы, рантайм-заголовки и критерий встроенности — `include/runtime/MEMORY.md`.
-- Стандартная библиотека — `include/stdlib/MEMORY.md`.
+- Стандартная библиотека — `include/stdlib/MEMORY.md` (контейнер), ядро — `core/MEMORY.md`.

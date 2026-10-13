@@ -1,0 +1,49 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust --package missing > %t.1 2>&1; test $? -ne 0
+# RUN: %FileCheck %s --check-prefix=NOFILE <%t.1
+# RUN: cd $TD && %trust --package badtoml > %t.2 2>&1; test $? -ne 0
+# RUN: %FileCheck %s --check-prefix=TOML <%t.2
+# RUN: cd $TD && %trust --package badname > %t.3 2>&1; test $? -ne 0
+# RUN: %FileCheck %s --check-prefix=NAME <%t.3
+# RUN: cd $TD && %trust --package badver > %t.4 2>&1; test $? -ne 0
+# RUN: %FileCheck %s --check-prefix=VER <%t.4
+# RUN: cd $TD && %trust --package collide > %t.5 2>&1; test $? -ne 0
+# RUN: %FileCheck %s --check-prefix=COLL <%t.5
+# RUN: cd $TD && %trust --extract nope.trust > %t.6 2>&1; test $? -ne 0
+# RUN: %FileCheck %s --check-prefix=XNOFILE <%t.6
+# RUN: mkdir -p $TD/nomfdir && echo "a:Int32 := 1;" > $TD/nomfdir/a.src
+# RUN: tar czf $TD/nomf.trust -C $TD/nomfdir .
+# RUN: cd $TD && %trust --extract nomf.trust > %t.7 2>&1; test $? -ne 0
+# RUN: %FileCheck %s --check-prefix=XNOMF <%t.7
+#
+# Негативные случаи: --package (отсутствие манифеста, невалидный TOML, невалидные name/version,
+# коллизия `name.src`/`name.trust`) и --extract (нет файла, нет манифеста в архиве).
+# Все - ошибка (без silent fallback), код возврата != 0.
+
+# NOFILE: error: --package: no 'trust.toml'
+# TOML: error: --package: trust.toml: invalid TOML
+# NAME: error: --package: trust.toml: invalid package name
+# VER: error: --package: trust.toml: invalid package version
+# COLL: error: --package: name collision
+# XNOFILE: error: --extract: 'nope.trust' is not a file
+# XNOMF: error: --extract: no 'trust.toml'
+
+//--- missing/readme.txt
+No manifest here.
+//--- badtoml/trust.toml
+name = 'x'
+version =
+//--- badname/trust.toml
+name = 'Bad-Name'
+//--- badver/trust.toml
+name = 'ok'
+version = '1'
+//--- collide/trust.toml
+name = 'collide'
+//--- collide/dup.src
+\\\collide\dup;
+a:Int32 := 1;
+//--- collide/dup.trust
+// A nested package archive with the same base name as dup.src - collision.
+

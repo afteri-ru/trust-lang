@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace trust {
@@ -12,14 +13,15 @@ using AstNodePtr = std::shared_ptr<AstNodeBase>;
 class Context;
 } // namespace trust
 
-#include "syntax/types.h"
+#include "syntax/parser/parser_error.hpp"
+#include "syntax/term/term_types.h"
 
 #include "syntax/predef_macro.hpp"
-#include "syntax/pragma_evaluator.hpp"
+#include "syntax/macro/pragma_evaluator.hpp"
 
-#include "syntax/warning_push.h"
+#include "syntax/util/warning_push.h"
 #include "parser.yy.h"
-#include "syntax/warning_pop.h"
+#include "syntax/util/warning_pop.h"
 
 namespace trust {
 TermPtr ProcessMacro(Parser& parser, TermPtr& term);
@@ -56,7 +58,7 @@ struct RecentTokens {
         prev = {};
     }
 
-    /** Диапазон синтаксической ошибки (реализация - в src/syntax/parser.cpp). */
+    /** Диапазон синтаксической ошибки (реализация - в src/syntax/parser/parser.cpp). */
     trust::MapperRange syntaxErrorRange(const trust::Context& ctx) const;
 };
 
@@ -111,6 +113,15 @@ class Parser {
 
     TermPtr GetAst();
 
+    /// Диапазон последней синтаксической ошибки. Используется правилами восстановления
+    /// грамматики, чтобы представить пропущенный фрагмент пустым SEQUENCE-термом с корректным
+    /// диапазоном (диагностика уже выдана в error()).
+    [[nodiscard]] MapperRange lastSyntaxErrorRange() const noexcept { return m_lastSyntaxErrorRange.value_or(MapperRange{}); }
+
+    /// Достигнут ли настроенный лимит ошибок DiagnosticEngine (правила восстановления
+    /// делают YYABORT). Лимит и итоговое сообщение принадлежат DiagnosticEngine.
+    [[nodiscard]] bool syntaxErrorLimitReached() const;
+
     SequenceType m_macro_analisys_buff; ///< Последовательность лексем для анализа на наличие макросов
 
     /// Последние токены, реально потреблённые bison - единственный источник позиции
@@ -131,6 +142,39 @@ class Parser {
 
     /// Глубина раскрытия макросов (защита от бесконечной рекурсии)
     size_t m_macro_depth = 0;
+
+    /// Блок интерфейса файла (`\path { … };`): раскрытие макросов модуля запрещено — скопы макросов
+    /// наследуются от импортёра, и публичный API файла зависел бы от того, кто его импортирует.
+    /// Допустимы макросы базового скоупа (он неизменяем из файлов, `Macro::isDslScopeGroup`) и
+    /// предопределённые. Флаг ставит загрузчик (начало блока), снимает грамматика по завершении
+    /// первого `block`; диагностика запрещённого макроса отложена до успешного разбора блока.
+    bool m_inFileInterface = false;
+    /// Смещение `{` интерфейса в шкале диапазонов термов (1-based, как `Location::offset()`).
+    size_t m_fileInterfaceBegin = 0;
+
+    /// true - макровызов в интерфейсе запрещён: раскрывать нельзя. Диагностика ОТЛОЖЕНА до
+    /// успешного разбора блока (см. `m_pendingInterfaceMacro`).
+    bool forbidFileInterfaceMacro(const TermPtr& callTerm);
+
+    /// Первый запрещённый макрос интерфейса: диагностика выдаётся только после успешного разбора
+    /// блока (незакрытый блок — интерфейса нет, ложного запрета для макросов тела не будет).
+    struct PendingInterfaceMacro {
+        MapperRange range;
+        std::string name;
+    };
+    std::optional<PendingInterfaceMacro> m_pendingInterfaceMacro;
+    /// Выдать отложенную диагностику запрещённого макроса (один раз на файл).
+    void reportPendingInterfaceMacro();
+
+    /// Снимает режим интерфейса, если разобранный блок начался с его `{` (вызов из грамматики).
+    /// `blockBegin` - 1-based смещение `{` из диапазона терма. Блок РАЗОБРАН — выдаём отложенную
+    /// диагностику запрещённого макроса (для незакрытого блока её не будет: интерфейса нет).
+    void leaveFileInterfaceIfAt(size_t blockBegin) {
+        if (m_inFileInterface && blockBegin == m_fileInterfaceBegin) {
+            m_inFileInterface = false;
+            reportPendingInterfaceMacro();
+        }
+    }
 
     /// Суммарное число раскрытий макросов в текущем операторе (защита от самовоспроизведения
     /// через границы чтений). Сбрасывается на границе оператора (буфер анализа пуст) в GetNextToken.
@@ -156,14 +200,17 @@ class Parser {
 
     /// Парсит текстовый фрагмент (не файл/модуль) под указанным «фиктивным» именем
     /// источника. Имена фиктивных источников помечаются префиксом '@' (in-memory,
-    /// файла на диске нет). По умолчанию "@input"; для встроенного DSL - "@trust/dsl".
+    /// файла на диске нет). По умолчанию "@input"; для DSL-макросов стандартной библиотеки -
+    /// "@stdlib/dsl".
     TermPtr ParseText(std::string_view text, std::string_view sourceName = "@input", bool expand_module = false);
 
     /// Парсит из уже зарегистрированного source-файла (не создавая in-memory
     /// псевдо-источник с префиксом '@'). Используется модульным загрузчиком для
     /// главного файла/модуля, чтобы маппинги (mapStart/mapStop) привязывались к
     /// реальному файлу.
-    TermPtr ParseWithSource(trust::MapperFile src, bool expand_module = false);
+    /// `fileInterface` - разбор начинается с блока интерфейса файла: внутри блока раскрытие
+    /// макросов запрещено (`m_inFileInterface`), режим снимает грамматика по завершении блока.
+    TermPtr ParseWithSource(trust::MapperFile src, bool expand_module = false, std::size_t skipPrefix = 0, bool fileInterface = false);
 
     // Собирает термин из последовательности лексем и удаляет их из входного буфера.
     // ctx задаёт контекст, из которого наследуется Macro; macro_expand=false
@@ -173,6 +220,14 @@ class Parser {
     static TermPtr ParseTerm(const char* proto, trust::Context& ctx, bool pragma_enable = true, bool macro_expand = true);
 
     TermPtr CheckModuleTerm(const TermPtr& term);
+
+    /// Ссылочная форма `\path::name` (в т.ч. `\path::name(...)`): модуль обязан быть УЖЕ
+    /// загружен. Индекс загруженного модуля кладётся в `m_moduleIndices` терма; загрузки
+    /// (resolveModules) НЕТ - ссылка не является оператором импорта.
+    TermPtr ResolveModuleReference(const TermPtr& term);
+    /// Зарегистрировать алиас модуля во время разбора (ссылки `\m::name` разрешаются парсером
+    /// ДО семантики). Регистрация идемпотентна; семантика повторно проверяет дубли.
+    void RegisterModuleAlias(const TermPtr& alias, const TermPtr& target);
 
     static size_t SkipBrackets(const SequenceType& buffer, size_t offset);
 
@@ -187,6 +242,10 @@ class Parser {
   private:
     TermPtr m_ast;
     PostLexerType* m_postlex;
+
+    /// Состояние восстановления после синтаксических ошибок (сбрасывается на каждый разбор).
+    /// Диапазон одновременно служит ключом дедупликации подряд идущих одинаковых ошибок.
+    std::optional<MapperRange> m_lastSyntaxErrorRange;
 };
 
 } // namespace trust

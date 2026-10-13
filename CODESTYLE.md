@@ -27,7 +27,10 @@ All macro in TrustLang *.src files MUST have `@` sigil prefix, except keyword li
 (`if`, `else`, `while`, `match`, `try`, `catch`, `return`, `break`, …), записываются **БЕЗ**
 ведущего `@` (это и есть «ключевые слова» — bare-вызовы). Все остальные макросы — с `@`.
 
-Identifiers must be self-documenting. Function names must contain a verb.
+Identifiers must be self-documenting: a name conveys meaning, units and ownership; function
+names must contain a verb. Documentation lives in names, not in narrative comments: comments
+explain WHY (invariant, constraint, non-obvious decision), never WHAT the code does. If a
+comment restates the code, rename the identifier or extract a function instead.
 
 ### Exceptions to naming rules and automatically generated names
 
@@ -55,12 +58,14 @@ Enumerations in ParserToken, TokenFlag, and TokenCategory use their own naming r
 - Constructor initializers: break before colon, one per line.
 - Include order in `.cpp`: the matching header first, then alphabetically.
 - Max empty lines: 1.
-- Comments: English only, ASCII.
+- Comments: explain WHY/constraints only; WHAT must be expressed by identifiers. Code-restating
+  and multi-line narrative comments are prohibited. Язык комментария = язык окружающего файла;
+  в проекте принят русский (код, идентификаторы и тексты диагностик — ASCII/English).
 
 ## 3. Prohibited
 
 - `using namespace std` / `clang` / `llvm`.
-- `using` in header files.
+- `using namespace` in header files.
 - `#define` for constants - use `constexpr` or `enum : type` with `k` prefix for all elements.
 - Ternary operators.
 - C-style casts.
@@ -110,3 +115,8 @@ C++ standard ≥ 20 (currently 23).
 - `bugprone-reserved-identifier`
 - `misc-redundant-expression`
 - `readability-identifier-naming`
+
+Запрещено использование лямбд там, где можно без них обойтись..
+Запрещено пистаь подробные комменатрии с примерами ради комментариев..
+Для примеров есть документация, а код должен говорить сам за себя и комметнарии требуются только в объеме,
+необходимом для понимания, если это очевидно из текущего кода

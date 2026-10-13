@@ -3,7 +3,7 @@
 # Широкая строка ("...", StrWide) в узкий строковый контейнер - потерянное сужение → ошибка.
 
 @main() := {
-    s := 'abc';
-    s []= "g";
+    s := "abc";
+    s []= 'g';
 }
 # CHECK: error: append '[]=': wide string cannot be appended to a narrow string container

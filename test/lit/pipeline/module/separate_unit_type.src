@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/separate_type $TD/main.src
+# RUN: $TD/separate_type && echo "PASS"
+# CHECK: PASS
+#
+# Модуль с типом + функцией: тип остаётся в модульном юните, функция импортируется.
+# Модульный юнит не выполняет повторную семантику, поэтому повторной регистрации типа нет.
+
+//--- main.src
+\lib(f);
+@main():Int32 := { @return f() - 1; };
+
+//--- lib.src
+\lib;
+:Point ::= :Struct{ x:Int32 := _; };
+f():Int32 := { @return 1; };

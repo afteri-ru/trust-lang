@@ -1,0 +1,24 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Метод публикуемого типа ссылается на файл-приватный (`__::`) хелпер: тело выносится из `.hpp`
+# в `.cppt`, где anonymous namespace с хелпером доступен. Семантика требует объявления до
+# использования, поэтому `__::`-блок стоит выше типа.
+
+//--- main.src
+\lib(T, mk);
+@main():Int32 := { t:T := mk(); @return t.calc() - 2; };
+
+//--- lib.src
+\lib;
+__:: {
+    helper(x:Int32):Int32 := { @return x + 1; };
+};
+:T ::= :Class{
+    v:Int32 := 1;
+    calc():Int32 := { return helper(v); };
+};
+mk():T := { return T(); };

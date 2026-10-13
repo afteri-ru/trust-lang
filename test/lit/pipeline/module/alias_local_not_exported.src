@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Локальный алиас (внутри функции) не попадает в экспорт-поверхность модуля:
+# импортёр не может обратиться к нему как к экспорту файла.
+# CHECK: error: undefined name 'h'
+
+//--- main.src
+\lib(h);
+@main():Int32 := { @return h(1); };
+
+//--- dep.src
+\dep;
+g(x:Int32):Int32 := { @return x + 1; };
+
+//--- lib.src
+\lib;
+\dep(g);
+probe():Int32 := {
+    h :- \dep::g;
+    @return h(1);
+};

@@ -1,4 +1,6 @@
 #include "syntax/macro_test_fixture.hpp"
+
+using namespace trust;
 // -- @__OPTION_PUSH__ / @__OPTION__ / @__OPTION_POP__ --
 
 TEST_F(MacroTest, OptionMacroRedefinedIgnore) {
@@ -216,4 +218,35 @@ TEST_F(MacroTest, CommaLexemeInMacroBody) {
 
     ASSERT_NO_THROW(Parse("@@ f @@ foo( a @\\, b ) @@@@; f;", macro));
     ASSERT_NE(std::string::npos, LexOut().find(',')) << LexOut();
+}
+
+// -- Базовый скоуп DSL неизменяем из файла (`DslMacroRedefined`) -----------------------------
+// Скоуп 0 - DSL (`--dsl`/stdlib); скоуп 1+ - файлы (загрузчик делает PushScope на каждый файл).
+// Файл не может ни переопределить, ни расширить, ни удалить группу базового скоупа: иначе смысл
+// языковой поверхности зависел бы от загруженных файлов, а интерфейс файла - от импортёра.
+
+TEST_F(MacroTest, DslScopeMacroRedefineRejected) {
+    MacroPtr macro = std::make_shared<Macro>(m_ctx);
+
+    ASSERT_NO_THROW(Parse("@@ A @@ 1 @@@@;", macro)); // базовое (DSL) определение
+    macro->PushScope();                               // файловый скоуп
+    m_ctx.diag().clear();
+    ASSERT_NO_THROW(Parse("@@ A @@ 2 @@@@;", macro)) << macro->Dump();
+    // Диагностика выдана, переопределение НЕ применено: действует базовое тело.
+    ASSERT_GT(m_ctx.diag().errorCount(), 0);
+    ASSERT_TRUE(macro->GetMacro(std::vector<std::string>({"A"})) != nullptr);
+    ASSERT_EQ("@@ 1 @@", macro->GetMacro(std::vector<std::string>({"A"}))->m_right->toString());
+    macro->PopScope();
+}
+
+TEST_F(MacroTest, DslScopeMacroRemoveRejected) {
+    MacroPtr macro = std::make_shared<Macro>(m_ctx);
+
+    ASSERT_NO_THROW(Parse("@@ B @@ 1 @@@@;", macro));
+    macro->PushScope();
+    m_ctx.diag().clear();
+    ASSERT_NO_THROW(Parse("@@ B @@@@;", macro)) << macro->Dump();
+    ASSERT_GT(m_ctx.diag().errorCount(), 0);
+    ASSERT_TRUE(macro->GetMacro(std::vector<std::string>({"B"})) != nullptr); // удаление не выполнено
+    macro->PopScope();
 }

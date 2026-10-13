@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Алиас имени (`:-`) — для значений и функций. Для ТИПА используется `::-`; попытка привязать
+# тип через `:-` — явная ошибка.
+# CHECK: error: name alias supports functions and values only
+
+//--- main.src
+\lib(Pt);
+kk :- \lib::Pt;
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib;
+:Pt ::= :Struct{ x:Int32 := _; };

@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Имя вне интерфейса файла не видно импортёру: вызов из импортёра - undefined name.
+# CHECK: error: undefined name 'helper'
+
+//--- main.src
+\lib();
+@main():Int32 := { @return helper(); };
+
+//--- lib.src
+\lib {
+    api():Int32 := ...;
+};
+api():Int32 := { @return helper(); };
+helper():Int32 := { @return 1; };

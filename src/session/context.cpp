@@ -1,5 +1,6 @@
 #include "session/context.hpp"
 #include "diag/registry.hpp"
+#include "types/type_system.hpp"
 #include "utils/error.hpp"
 #include "utils/strings.hpp"
 
@@ -11,9 +12,22 @@
 namespace trust {
 namespace fs = std::filesystem;
 
+void reportModuleNotLoaded(Context& ctx, MapperRange range, std::string_view spelling) {
+    ctx.diag().report(Severity::Error, range, "Module '{}' is not loaded", spelling);
+}
+
 // ЕДИНОЕ глобальное хранилище доков макросов (ключ = первый терм без '@').
+// Значения - view в ПРОЦЕССНЫЙ пул строк: хранилище статическое (живёт весь процесс), поэтому
+// per-Context пул компиляции здесь недопустим (view повис бы после разрушения Context).
 // Прозрачный компаратор std::less<> позволяет find() по string_view без временной строки.
-std::map<std::string, std::string, std::less<>> Context::m_macroDocs;
+std::map<std::string, std::string_view, std::less<>> Context::m_macroDocs;
+
+namespace {
+/// Интернирование дока макроса в процессный пул (стабильный view на весь процесс).
+std::string_view internMacroDoc(std::string_view doc) {
+    return doc.empty() ? std::string_view{} : manualStringInterner().intern(doc);
+}
+} // namespace
 
 namespace {
 // Документирующий комментарий (`///`, `##`, `/**`) на строках непосредственно ПЕРЕД defBegin
@@ -115,22 +129,26 @@ std::string macroDocComment(const SourceMapWriter& src, MapperLocation begin, Ma
 Context::Context()
 : m_sourceMap(std::make_unique<SourceMapWriter>())
 , m_diag(std::make_unique<DiagnosticEngine>()) {
-    m_diag->setSourceManager(this);
+    m_diag->setSourceTextProvider(this);
     m_opts = Options(*m_diag);
     m_diag->setOptions(&*m_opts);
     // Пер-компонентная регистрация диагностик/флагов (см. diag/registry.hpp): каждая
     // диагностика/флаг и их дефолты регистрируются компонентом-владельцем на static-init.
     applyRegisteredDiagnostics(*m_opts);
+    // Типичный файл даёт сотни уникальных spelling: предаллокация индекса пула убирает
+    // серию rehash в горячем пути конвертации Term->AST.
+    m_strings->reserve(512);
 }
 
 Context::Context(std::string_view basePath, std::string_view tempPath)
 : m_sourceMap(std::make_unique<SourceMapWriter>(basePath, tempPath))
 , m_diag(std::make_unique<DiagnosticEngine>()) {
-    m_diag->setSourceManager(this);
+    m_diag->setSourceTextProvider(this);
     m_opts = Options(*m_diag);
     m_diag->setOptions(&*m_opts);
     // Пер-компонентная регистрация диагностик/флагов (см. diag/registry.hpp).
     applyRegisteredDiagnostics(*m_opts);
+    m_strings->reserve(512);
 }
 
 // -- Доступ к компонентам --
@@ -141,6 +159,21 @@ SourceMapWriter& Context::source() {
 
 const SourceMapWriter& Context::source() const {
     return *m_sourceMap;
+}
+
+// -- SourceTextProvider --
+
+std::string_view Context::fileName(MapperLocation loc) const {
+    return m_sourceMap->get_file(loc.fileIdx()).getFilename();
+}
+
+std::string_view Context::fileContents(MapperLocation loc) const {
+    return m_sourceMap->get_file(loc.fileIdx()).getSource();
+}
+
+SourceTextProvider::LineColumn Context::lineColumn(MapperLocation loc) const {
+    const auto lc = m_sourceMap->line_column(loc);
+    return SourceTextProvider::LineColumn{lc.line, lc.column};
 }
 
 DiagnosticEngine& Context::diag() {
@@ -166,29 +199,25 @@ const Options& Context::opts() const {
     return *m_opts;
 }
 
-TypeRegistry& Context::types() {
+TypeSystem& Context::types() {
     EXPECT(m_type_registry);
     return *m_type_registry;
 }
 
-const TypeRegistry& Context::types() const {
+const TypeSystem& Context::types() const {
     EXPECT(m_type_registry);
     return *m_type_registry;
+}
+
+TypeReadModel Context::readTypes() const {
+    EXPECT(m_type_registry);
+    return TypeReadModel(m_type_registry->store(), m_type_registry->names(), m_type_registry->printer(), m_type_registry->builtins(),
+                         m_type_registry->methods(), m_type_registry->typeCodes());
 }
 
 const AttrPool& Context::attrs() const {
     EXPECT(m_attr_pool);
     return *m_attr_pool;
-}
-
-ModuleLoader& Context::loader() {
-    EXPECT(m_moduleLoader);
-    return *m_moduleLoader;
-}
-
-const ModuleLoader& Context::loader() const {
-    EXPECT(m_moduleLoader);
-    return *m_moduleLoader;
 }
 
 std::shared_ptr<Macro> Context::macro() const {
@@ -199,29 +228,29 @@ void Context::setMacro(std::shared_ptr<Macro> macro) {
     m_macro = std::move(macro);
 }
 
-bool Context::setMacroDoc(std::string name, std::string doc) {
+bool Context::setMacroDoc(std::string_view name, std::string_view doc) {
     // Поиск по string_view (прозрачный компаратор std::less<>) - без временной строки.
-    // Ведущий '@' срезается единым источником utils::strip_macro_sigil.
-    auto it = m_macroDocs.find(utils::strip_macro_sigil(name));
+    // Ведущий '@' срезается единым источником utils::stripMacroSigil.
+    auto it = m_macroDocs.find(utils::stripMacroSigil(name));
     if (it == m_macroDocs.end()) {
         return false; // переопределять нечего (макроса с таким ключом нет)
     }
     if (!doc.empty()) {
-        it->second = std::move(doc);
+        it->second = internMacroDoc(doc);
     }
     return true;
 }
 
-void Context::addMacroDoc(std::string name, std::string doc) {
-    const std::string_view key = utils::strip_macro_sigil(name);
+void Context::addMacroDoc(std::string_view name, std::string_view doc) {
+    const std::string_view key = utils::stripMacroSigil(name);
     if (!key.empty() && !doc.empty()) {
-        m_macroDocs.emplace(std::string(key), std::move(doc)); // вставка - ключ хранится как std::string
+        m_macroDocs.emplace(std::string(key), internMacroDoc(doc)); // ключ - owned, значение - interned view
     }
 }
 
-const std::string* Context::macroDoc(std::string_view name) noexcept {
+const std::string_view* Context::macroDoc(std::string_view name) noexcept {
     // Поиск по string_view без аллокации (прозрачный компаратор).
-    auto it = m_macroDocs.find(utils::strip_macro_sigil(name));
+    auto it = m_macroDocs.find(utils::stripMacroSigil(name));
     return it == m_macroDocs.end() ? nullptr : &it->second;
 }
 
@@ -229,10 +258,12 @@ void Context::recordMacro(std::string name, MapperRange range) {
     MacroDef md;
     md.name = std::move(name);
     md.range = range;
+    md.module = m_currentParseModule; // predef/stdlib DSL: разбор вне модуля → nullopt (видно везде)
     // Документирующий комментарий макроопределения (ведущий + хвостовой inline) - для LSP-док.
-    md.documentation = macroDocComment(*m_sourceMap, range.begin, range.end);
+    // Интернируется ОДИН раз в процессный пул: MacroDef и m_macroDocs делят один view.
+    md.documentation = internMacroDoc(macroDocComment(*m_sourceMap, range.begin, range.end));
     // Записываем док в ЕДИНОЕ хранилище (переопределение макроса перезаписывает док вместе с ним).
-    // ВАЖНО: до push_back(std::move(md)), иначе md.documentation уже пуст после move.
+    // ВАЖНО: до push_back(std::move(md)) - после move имя md читать нельзя (док здесь view).
     if (!md.documentation.empty()) {
         addMacroDoc(md.name, md.documentation);
     }

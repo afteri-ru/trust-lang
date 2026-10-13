@@ -1,0 +1,11 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# `=` — ОПРЕДЕЛЕНИЕ ранее объявленного встроенного типа (не создание нового).
+# Реализация привязывается к предобъявлению Rational; кодогенерация использует её.
+@[include("@trust/rational.hpp")@]
+Rational = %trust::Rational { };
+
+r :Rational := 1\2;
+@main() := { @return 0; }
+# CHECK: #include "trust/rational.hpp"
+# CHECK: trust::Rational c_r

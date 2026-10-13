@@ -1,10 +1,12 @@
 #include "syntax/parser_test_fixture.hpp"
+
+using namespace trust;
 TEST_F(ParserTest, DocCommentAnywhereInSequence) {
     // Док перед объявлением, standalone док, док внутри блока функции.
-    ASSERT_TRUE(Parse("/// перед переменной\nx := 42;\n/// после\n%f():Void := {\n/// внутри функции\n++ 1 ++;\n};"));
+    ASSERT_TRUE(Parse("/// перед переменной\nx := 42;\n/// после\n%f():Void := {\n/// внутри функции\n|+ 1 +|;\n};"));
     // Доки, привязанные к объявлениям (`x`, `%f`), лежат в m_docs терма-идентификатора и
     // НЕ являются отдельными DOCUMENT-термами. Док перед не-объявлением (`/// внутри функции`
-    // перед `++ 1 ++;`) остаётся sibling-узлом DOCUMENT. Без ошибок синтаксиса.
+    // перед `|+ 1 +|;`) остаётся sibling-узлом DOCUMENT. Без ошибок синтаксиса.
     ASSERT_EQ(countDeclDocs(ast), 2) << "x and %f must carry their leading docs in m_docs";
     ASSERT_EQ(countDocTerms(ast), 1) << "only the non-decl doc remains a DOCUMENT term";
 }

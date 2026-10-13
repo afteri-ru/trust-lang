@@ -1,0 +1,34 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Один spelling module-алиаса может быть объявлен независимо в разных модулях (и в main):
+# область — модуль-владелец, а не вся компиляция.
+//--- main.src
+\a();
+\b();
+\dep(g);
+\m :- \dep;
+@main():Int32 := { @return \m::g() + a_f() + b_f() - 5; };
+
+//--- a.src
+\a;
+\dep(g);
+\m :- \dep;
+a_f():Int32 := { @return \m::g(); };
+
+//--- b.src
+\b;
+\dep2(g);
+\m :- \dep2;
+b_f():Int32 := { @return \m::g() + 1; };
+
+//--- dep.src
+\dep;
+g():Int32 := { @return 1; };
+
+//--- dep2.src
+\dep2;
+g():Int32 := { @return 2; };

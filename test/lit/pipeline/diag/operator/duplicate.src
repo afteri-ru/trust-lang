@@ -1,10 +1,10 @@
 # RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
-# Повторное объявление одного символа оператора в типе запрещено (в C++ - перегрузка по
-# сигнатуре; здесь срез без перегрузок внутри типа).
+# Повторное объявление оператора с ТОЙ ЖЕ сигнатурой в типе запрещено; разные сигнатуры —
+# обычная перегрузка (C++ допускает перегрузку по параметрам).
 :P ::= :Class{
     x: Int32 := _;
-    `==`(a: P): Bool := { return true; };
-    `==`(b: P): Bool := { return true; };
+    __eq__(a: P): Bool := { return true; };
+    __eq__(b: P): Bool := { return true; };
 };
-# CHECK: error: operator '==' is already declared in this type
+# CHECK: error: operator '==' with the same parameter types is already declared in this type

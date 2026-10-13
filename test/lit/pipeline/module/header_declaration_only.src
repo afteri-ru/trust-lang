@@ -1,0 +1,23 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: ls $TD/build > %t.ls
+# RUN: %FileCheck %s --check-prefix=LS --implicit-check-not=decl- <%t.ls
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/decl.hpp
+# RUN: %cxx -fsyntax-only -x c++ $TD/build/decl.hpp
+# RUN: $TD/app
+#
+# H1: declaration-only модуль (только объявления, без тел) отдельной единицы трансляции не даёт
+# (`.cppt` нет), но заголовок получает: его интерфейс самостоятелен и компилируется.
+# LS: decl.hpp
+# HDR: #pragma once
+# HDR: namespace decl {
+# HDR: c_answer
+
+//--- main.src
+\decl();
+@main():Int32 := { @return 0; };
+
+//--- decl.src
+\decl;
+answer():Int32 := ...;

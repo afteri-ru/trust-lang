@@ -1,4 +1,4 @@
-# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # Первый аргумент @[lifetime(...)] - тип области из закрытого набора; неизвестное значение -> ошибка.
 @main():Int32 := {

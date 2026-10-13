@@ -13,7 +13,7 @@
     a :Int16 := 10_000;
     b :Int32 := 2_147_483_647;
     c :Int64 := 2_147_483_648;
-    print('a={} b={} c={}', a, b, c);
+    print("a={} b={} c={}", a, b, c);
 };
 {% int digit_separators__main__() {
     chk();

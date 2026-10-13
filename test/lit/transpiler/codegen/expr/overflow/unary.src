@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Унарный минус: типизируется (продвинутый тип операнда) и защищён от -INT_MIN
 # через встроенный __builtin_sub_overflow(0, x).

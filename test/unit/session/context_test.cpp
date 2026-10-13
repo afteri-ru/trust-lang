@@ -676,3 +676,26 @@ TEST(ContextTest, RecordMacroCapturesTrailingDocComment) {
     EXPECT_NE(ctx.macroDefs()[0].documentation.find("macro trail"), std::string::npos) << ctx.macroDefs()[0].documentation;
     EXPECT_NE(ctx.macroDefs()[0].documentation.find("///<"), std::string::npos);
 }
+
+// Доки макросов живут в ПРОЦЕССНОМ пуле (`manualStringInterner`): статическое хранилище доков
+// переживает Context, поэтому per-Context пул здесь недопустим (иначе view повис бы).
+TEST(ContextTest, MacroDocsAreInternedInProcessPoolAndSurviveContext) {
+    {
+        Context ctx;
+        MapperFile src = ctx.source().add_source("test.src", "@durable_macro_doc_test := 42 ///< durable macro doc");
+        auto begin = ctx.source().makeLoc(src, 1);
+        auto end = ctx.source().makeLoc(src, 30); // после `42`, перед `///<`
+        ctx.recordMacro("durable_macro_doc_test", MapperRange{begin, end});
+
+        ASSERT_EQ(ctx.macroDefs().size(), 1u);
+        const std::string_view definitionDoc = ctx.macroDefs()[0].documentation;
+        ASSERT_FALSE(definitionDoc.empty());
+        EXPECT_TRUE(manualStringInterner().owns(definitionDoc));
+        EXPECT_FALSE(ctx.strings().owns(definitionDoc)) << "macro docs must not use the per-Context pool";
+    }
+
+    const std::string_view* doc = Context::macroDoc("durable_macro_doc_test");
+    ASSERT_NE(doc, nullptr) << "macro doc must outlive the Context that recorded it";
+    EXPECT_NE(doc->find("durable macro doc"), std::string_view::npos);
+    EXPECT_TRUE(manualStringInterner().owns(*doc));
+}

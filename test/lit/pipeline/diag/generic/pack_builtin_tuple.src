@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Встроенный Tuple — не шаблон. C++-tuple задаётся пользовательским native class template.
+f(x: Tuple<:Int32>): Int32 := { @return 0; };
+
+# CHECK: error: type 'Tuple' is not a template

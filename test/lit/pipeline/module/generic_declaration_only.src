@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# S4c: declaration-only форма не выражает шаблоны. Exported generic-функция без тела и без
+# определения где-либо в компиляции - ошибка компиляции Trust (а не отложенная ошибка C++).
+# CHECK: error: module declares generic function 'id' without a body
+
+//--- main.src
+\gen(id);
+@main():Int32 := { @return id(1); };
+
+//--- gen.src
+\gen;
+<T> id(x:T):T := ...;

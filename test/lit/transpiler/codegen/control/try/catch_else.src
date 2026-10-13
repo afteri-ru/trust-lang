@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # try/catch/else (классический синтаксис): try { ... } catch(:T){...} catch(_){...} else {...}.
 # Прагма @__PRAGMA_TRY_CLOSE__ превращает финальную '}' try-блока в '*}', ветки - match-item'ы

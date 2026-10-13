@@ -3,24 +3,27 @@
 # Декомпозиция: драйвер CppTranspiler + компоненты-эмиттеры (Type/Decl/Stmt/Expr/Contract)
 # + общий контекст кодогенерации CppEmitContext. Отдельные TU ускоряют сборку.
 
-add_library(transpiler_lib STATIC
-    ${PROJECT_SOURCE_DIR}/transpiler/transpiler.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/emit_ctx.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/type_emit.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/decl_emit.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/decl_var_emit.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/decl_func_emit.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/stmt_emit.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/destructure_emit.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/expr_emit.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/member_emit.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/ref_emit.cpp
-    ${PROJECT_SOURCE_DIR}/transpiler/contract_emit.cpp
+trust_component(transpiler
+    INTERNAL_DIRS emit module type
+    PUBLIC_HEADERS transpiler.hpp
+    SOURCES
+        transpiler.cpp
+        emit/emit_ctx.cpp emit/decl_emit.cpp emit/type_decl_emit.cpp emit/decl_var_emit.cpp
+        emit/decl_func_emit.cpp emit/stmt_emit.cpp emit/stmt_control_emit.cpp
+        emit/destructure_emit.cpp emit/expr_emit.cpp emit/expr_arith_emit.cpp
+        emit/expr_call_emit.cpp emit/expr_stackcheck_emit.cpp emit/expr_literal_emit.cpp
+        emit/expr_container_emit.cpp emit/member_emit.cpp emit/ref_emit.cpp emit/contract_emit.cpp
+        type/type_emit.cpp type/type_include_collector.cpp type/type_name_resolver.cpp
+        module/module_emit.cpp
+    LINK_PUBLIC analysis_lib ir_lib sourcemap_lib trust_include_dirs
+    LINK_PRIVATE session_lib
+    # transpiler.cpp includes syntax/term/term.h → parser.h → generated parser.yy.h
+    INCLUDE_PRIVATE ${CMAKE_BINARY_DIR}/syntax
+    DEPENDS gen_syntax_parsers
 )
-target_link_libraries(transpiler_lib PUBLIC analysis_lib session_lib sourcemap_lib trust_include_dirs)
-# transpiler.cpp includes syntax/term.h → parser.h → generated parser.yy.h
-target_include_directories(transpiler_lib PRIVATE "${CMAKE_BINARY_DIR}/syntax")
-add_dependencies(transpiler_lib gen_syntax_parsers)
 
-# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
-target_link_libraries(transpiler_lib PRIVATE trust_pch)
+# Полнота switch по kind в драйвере кодогена (см. ast/kind_dispatch.hpp).
+set_source_files_properties(
+    ${TRUST_SRC_DIR}/transpiler/transpiler.cpp
+    PROPERTIES COMPILE_OPTIONS "-Wswitch-enum"
+)

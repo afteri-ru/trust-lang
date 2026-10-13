@@ -7,7 +7,7 @@
 using namespace trust;
 
 // ============================================================================
-// L2 contract conformance (see types/REFType.md §10): compile-time checks that
+// L2 contract conformance (see types/type/REFType.md §10): compile-time checks that
 // every memory-model type satisfies the fixed structural contract.
 // ============================================================================
 

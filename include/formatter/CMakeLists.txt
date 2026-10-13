@@ -1,35 +1,15 @@
 # include/formatter/CMakeLists.txt
-# Formatter - pretty-printing исходного текста Trust (шаг PipelineSteps::Format).
+# Formatter - pretty-printing исходного текста Trust (этап форматирования драйвера).
 
-set(SYNTAX_GEN_DIR "${CMAKE_BINARY_DIR}/syntax")
-
-# -- Formatter library --
-add_library(formatter_lib STATIC
-    ${PROJECT_SOURCE_DIR}/formatter/format.cpp
-    ${PROJECT_SOURCE_DIR}/formatter/config.cpp
+trust_component(formatter
+    INTERNAL_DIRS impl
+    PUBLIC_HEADERS command.hpp format.hpp
+    SOURCES format.cpp token_gap.cpp emitter.cpp config.cpp command.cpp
+    LINK_PUBLIC trust_include_dirs driver_lib syntax_lib
+    LINK_PRIVATE session_lib utils_lib
+    # build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.
+    INCLUDE_PRIVATE ${CMAKE_BINARY_DIR}/syntax
+    # Syntax headers trigger -Wswitch / old-style-cast warnings - suppress them.
+    COMPILE_OPTIONS -Wno-error=switch -Wno-error=old-style-cast
+    DEPENDS gen_syntax_parsers
 )
-
-target_link_libraries(formatter_lib PUBLIC
-    trust_include_dirs
-    syntax_lib
-    diag_lib
-    session_lib
-    sourcemap_lib
-    utils_lib
-)
-
-# build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.
-target_include_directories(formatter_lib PRIVATE
-    ${SYNTAX_GEN_DIR}
-)
-
-# Syntax headers trigger -Wswitch / old-style-cast warnings - suppress them.
-target_compile_options(formatter_lib PRIVATE
-    -Wno-error=switch
-    -Wno-error=old-style-cast
-)
-
-add_dependencies(formatter_lib gen_syntax_parsers)
-
-# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
-target_link_libraries(formatter_lib PRIVATE trust_pch)

@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/dcl_app $TD/main.src
+# RUN: test "$(ls $TD/dcl_mod*.cppt 2>/dev/null | wc -l)" -eq 0
+# RUN: grep -q -- '-lm' $TD/build.conf
+# RUN: $TD/dcl_app && echo "PASS"
+# CHECK: PASS
+#
+# S4b: declaration-only модуль (только объявление native-функции, без тел и инициализаторов)
+# не создаёт собственного `.cppt` и не входит в SRC_MODULES. Метаданные линковки при этом
+# доставляются сайтом импорта: `@[link("m")]` попадает в build.conf.
+
+//--- main.src
+\dcl_mod(fsqrt);
+@main():Int32 := { @return 0; };
+
+//--- dcl_mod.src
+\dcl_mod;
+@[include("<cmath>")@]
+@[link("m")@]
+fsqrt(x:Float64):Float64 := %sqrt...;

@@ -1,0 +1,13 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# @[reftype(ptr)] на возврате — часть ТИПА функции: неявная переменная получает указатель
+# (решение семантики), кодоген только печатает материализованный тип.
+
+raw():@[reftype(ptr)@] Int32 := %test_raw...;
+
+@main():Int32 := {
+    p := raw();
+    return *p;
+};
+# CHECK: int32_t* c_p = test_raw();
+# CHECK: return trust::checked_deref(c_p);

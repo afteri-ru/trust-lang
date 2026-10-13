@@ -3,10 +3,10 @@
 //   - форматирование (formatScopeStack): depth/names, level=current|all, маска имён, max,
 //     types=on, count=only.
 
-#include "semantic/debug_scope.hpp"
+#include "semantic/core/debug_scope.hpp"
 
 #include "ast/ast_nodes.hpp"
-#include "analysis/symbol_table.hpp"
+#include "symbols/symbol_table.hpp"
 
 #include <gtest/gtest.h>
 
@@ -91,6 +91,17 @@ TEST(ScopeDumpOpts, FromArgsFaultsOnInvalidInput) {
     EXPECT_NO_THROW((void)trust::debug::scopeDumpOptsFrom({}));
 }
 
+TEST(StorageName, AllValues) {
+    EXPECT_STREQ(trust::debug::storageName(trust::Storage::Global), "global");
+    EXPECT_STREQ(trust::debug::storageName(trust::Storage::Local), "local");
+    EXPECT_STREQ(trust::debug::storageName(trust::Storage::Static), "static");
+    EXPECT_STREQ(trust::debug::storageName(trust::Storage::ThreadLocal), "thread");
+}
+
+TEST(StorageName, InvalidValueFaults) {
+    EXPECT_THROW((void)trust::debug::storageName(static_cast<trust::Storage>(255)), std::runtime_error);
+}
+
 // -- formatScopeStack --
 
 namespace {
@@ -100,25 +111,25 @@ trust::SymbolTable makeStack(std::shared_ptr<trust::ScopeBlock>& blockOwner) {
     trust::SymbolTable st;
     trust::Symbol g;
     g.name = "gvar";
-    g.type = 1;
+    g.type = trust::QualType::fromTypeId(trust::TypeId::fromRaw(1));
     g.storage = trust::Storage::Global;
-    EXPECT_TRUE(st.declare(g));
+    EXPECT_EQ(st.declare(g), trust::DeclResult::Inserted);
 
     blockOwner = std::make_shared<trust::ScopeBlock>("blk");
     st.push(blockOwner.get());
     trust::Symbol x;
     x.name = "x";
-    x.type = 2;
+    x.type = trust::QualType::fromTypeId(trust::TypeId::fromRaw(2));
     st.declare(x);
     trust::Symbol y;
     y.name = "y";
-    y.type = 3;
+    y.type = trust::QualType::fromTypeId(trust::TypeId::fromRaw(3));
     st.declare(y);
 
     st.push(); // скоуп без узла-создателя
     trust::Symbol deep;
     deep.name = "deep";
-    deep.type = 4;
+    deep.type = trust::QualType::fromTypeId(trust::TypeId::fromRaw(4));
     st.declare(deep);
     return st;
 }
@@ -149,8 +160,12 @@ TEST(ScopeDump, AllLevelsShowCreatorsAndNames) {
     ScopeDumpOpts opts;
     opts.current_only = false;
     const std::string dump = formatScopeStack(st, opts);
+    // Объявления уровня модуля регистрируются под ключом модульной идентичности, поэтому
+    // проекция имени в дампе — `storageKeyText(moduleExportKey(...))`.
+    const std::string x = trust::storageKeyText(trust::moduleExportKey(trust::ModuleIndex{}, "", "x"));
+    const std::string y = trust::storageKeyText(trust::moduleExportKey(trust::ModuleIndex{}, "", "y"));
     EXPECT_NE(dump.find("[2] -: deep"), std::string::npos);
-    EXPECT_NE(dump.find("[1] ScopeBlock: x, y"), std::string::npos);
+    EXPECT_NE(dump.find("[1] ScopeBlock: " + x + ", " + y), std::string::npos);
     EXPECT_NE(dump.find("[0] global: gvar"), std::string::npos);
 }
 
@@ -173,7 +188,9 @@ TEST(ScopeDump, MaxNamesTruncates) {
     opts.current_only = false;
     opts.max_names = 1;
     const std::string dump = formatScopeStack(st, opts);
-    EXPECT_NE(dump.find("[1] ScopeBlock: x ..."), std::string::npos);
+    // Первое имя модульного скоупа — по порядку StorageKey (порядок детерминирован).
+    const std::string first = trust::storageKeyText(trust::moduleExportKey(trust::ModuleIndex{}, "", "x"));
+    EXPECT_NE(dump.find("[1] ScopeBlock: " + first + " ..."), std::string::npos);
 }
 
 TEST(ScopeDump, TypesShownWhenRequested) {

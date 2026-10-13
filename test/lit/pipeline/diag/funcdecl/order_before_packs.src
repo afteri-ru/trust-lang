@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Порядок зон: report-only Z7 (@[stack_check]) выполняется ДО fatal-зоны Z11 (несколько pack-параметров),
+# поэтому обе диагностики относятся к одному объявлению и идут в этом порядке.
+@[stack_check(abc)@]
+<T..., U...> f(xs: T..., ys: U...): Int32 := ...;
+
+# CHECK: @[stack_check(abc)@]: argument must be a non-negative integer (stack size in bytes)
+# CHECK: error: multiple type parameter packs are not supported (pack zipping is not implemented)

@@ -1,11 +1,7 @@
 // trust/trusted-cpp.hpp - base reference types of the runtime (Shared/Weak/Locker), PLAIN variant
 // WITHOUT inter-thread synchronization.
 //
-// Public runtime header: self-contained (standard headers only), so generated C++ programs can
-// include it without the compiler's include tree. At build time it is embedded into trust-runtime
-// (via #embed, ELF section "trust/trusted-cpp.hpp"); the pipeline extracts it into a temporary
-// trust/ directory when a program actually uses reference types (Shared/Weak) or the capture
-// operators `with` / `*` (TAKE).
+// Delivery: package file `include/trust/trusted-cpp.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 //
 // This header is the PLAIN (single-threaded, always used) variant: no <thread>, <mutex>,
 // <shared_mutex>, <chrono>. It models a strong reference (Shared), a weak reference (Weak), the
@@ -252,7 +248,6 @@ template <typename V>
 class Shared {
   public:
     using ValueType = V;
-    using DataType = V;
     using WeakType = std::weak_ptr<V>;
     using SharedType = std::shared_ptr<V>;
 
@@ -382,7 +377,7 @@ class Shared {
     /// Observer (escapable) borrow: returns a NON-OWNING reference that does NOT extend the object
     /// lifetime (it holds a weak observer, not a strong owner). Access is through
     /// `auto g = ref.access();` (a local Locker). The reference expires once the last strong owner
-    /// is gone; unlike the old move-out borrow it does NOT require use_count()==1 and does NOT
+    /// is gone; it does NOT require use_count()==1 and does NOT
     /// empty this reference.
     [[nodiscard]] SharedBorrowedRef<V, false> borrow() const {
         check();
@@ -590,7 +585,7 @@ class Weak {
 };
 
 /**
- * Self-reference mixin (K1 in types/REFType.md §8): lets an object hand out `Shared`/`Weak`
+ * Self-reference mixin (K1 in types/type/REFType.md §8): lets an object hand out `Shared`/`Weak`
  * references to ITSELF. The unique type `V` must derive from `EnableSharedFromThis<V>`;
  * `Shared<V>` attaches the control block when it creates/adopts such an object. `shared_from_this()`
  * throws `trust::IntMinus` if the object is not currently unique by a `Shared` (or the reference
@@ -822,7 +817,7 @@ template <typename U, typename V>
     return Shared<U>::from_shared_ptr(std::shared_ptr<U>(owner.get_shared(), ptr));
 }
 
-// -- L2 contract concepts (see types/REFType.md §10) -----------------------------------------
+// -- L2 contract concepts (see types/type/REFType.md §10) -----------------------------------------
 // These concepts fix the COMMON interface of the memory-model types so that any backend
 // (std-shared / intrusive / atomic / custom-deleter) is interchangeable and can be covered by a
 // single conformance test suite. They are purely structural (no runtime overhead) and do not

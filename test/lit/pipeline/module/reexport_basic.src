@@ -1,0 +1,29 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/facade.hpp
+# RUN: ls $TD/build > %t.ls
+# RUN: %FileCheck %s --check-prefix=LS --implicit-check-not=facade- <%t.ls
+# RUN: $TD/app
+#
+# I4: оператор загрузки В БЛОКЕ ИНТЕРФЕЙСА публикует имена чужого модуля. Владелец имени не
+# меняется: объявление живёт в заголовке владельца, а заголовок фасада — umbrella
+# (`#include "lib.hpp"` без собственных объявлений). Собственной единицы трансляции у фасада нет.
+# Клиент обращается к реэкспортированному имени и по короткому имени, и через `\facade::f`.
+# HDR: #pragma once
+# HDR: #include "lib.hpp"
+# HDR-NOT: namespace facade
+# LS: facade.hpp
+
+//--- main.src
+\facade(f);
+@main():Int32 := { @return f(1) + \facade::f(2) - 5; };
+
+//--- lib.src
+\lib;
+f(x:Int32):Int32 := { @return x + 1; };
+
+//--- facade.src
+\facade {
+    \lib(f);
+};

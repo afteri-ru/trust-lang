@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # with(_ = *ref){...} - игнорируемый биндинг: только Locker-темп `auto __cap_N = ref.lock();`
 # (без объявления значения `_`). Захват на всё тело блока.

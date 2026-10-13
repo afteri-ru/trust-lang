@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Контроль переполнения составных присваиваний идёт по ТИПУ ПРИЁМНИКА: диапазон берётся
 # из типа ячейки (__builtin_*_overflow(.., &lhs)). Поэтому узкие знаковые цели

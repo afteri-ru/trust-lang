@@ -7,12 +7,12 @@
 // если файла нет - нужны CLI-опции --playground-url и --token. При корректном запуске
 // с CLI-опциями они сохраняются в файл как настройки по умолчанию (или по --save-config).
 
-#include "playground/config.h"
-#include "playground/server.h"
-#include "playground/worker.h"
+#include "playground/http/config.h"
+#include "playground/server/server.h"
+#include "playground/server/worker.h"
 
 #include "driver/cli.hpp"
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 
 #include <algorithm>
 #include <csignal>
@@ -67,7 +67,9 @@ enum class PlaygroundOptId {
 };
 
 std::vector<trust::DriverOption> playgroundTable() {
-    using namespace trust;
+    using trust::CliCategory;
+    using trust::CliOpt;
+    using trust::DriverOption;
     return {
         {int(PlaygroundOptId::Help), "help", "h", CliOpt::Flag, "", "Show this help message", CliCategory::General},
         {int(PlaygroundOptId::Config), "config", "", CliOpt::Value, "path", "Config file (default: <binary dir>/trust-playground.conf)",

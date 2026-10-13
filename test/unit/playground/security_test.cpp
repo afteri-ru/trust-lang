@@ -4,9 +4,9 @@
 //   rate-limit по forwarded-IP, PoW (challenge + verify).
 // -----------------------------------------------------------------------
 
-#include "playground/http.h"
-#include "playground/server.h"
-#include "playground/config.h"
+#include "playground/http/http.h"
+#include "playground/server/server.h"
+#include "playground/http/config.h"
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>

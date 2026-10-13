@@ -18,10 +18,9 @@ namespace trust {
 
 namespace attr {
 
-// ReadOnly - ЕДИНСТВЕННЫЙ атрибут иммутабельности ('^' в имени). Прежний Const
-// и синонимы Immutable/FuncConst удалены: иммутабельность данных выражается
-// только attr::ReadOnly. FuncConst/FuncPure/FuncConstexpr - про эффекты/чистоту
-// функций, это ДРУГОЙ смысл (не иммутабельность данных), они оставлены.
+// ReadOnly - ЕДИНСТВЕННЫЙ атрибут иммутабельности ('^' в имени): иммутабельность
+// данных выражается только им. FuncConst/FuncPure/FuncConstexpr - про
+// эффекты/чистоту функций, это ДРУГОЙ смысл (не иммутабельность данных).
 inline constexpr std::string_view ReadOnly = "readonly";
 inline constexpr std::string_view Pure = "pure";
 inline constexpr std::string_view Send = "send";
@@ -31,8 +30,8 @@ inline constexpr std::string_view Optional = "optional";
 inline constexpr std::string_view NoExcept = "noexcept";
 // StackCheck - защита стека от переполнения. Без аргумента = limit (проверка максимального
 // размера стека функции из .stack_sizes + резерв reserve); с целочисленным аргументом N -
-// явный размер свободного места (check_overflow(N)). Прежний StackGuard ("stack_guard") заменён
-// на StackCheck. Атрибут на функцию - вставка проверки ПЕРЕД каждым вызовом этой функции;
+// явный размер свободного места (check_overflow(N)). Атрибут на функцию - вставка проверки
+// ПЕРЕД каждым вызовом этой функции;
 // отдельные явные функции (не атрибуты) - %stack_check/%stack_check_limit/%set_reserve/%set_reserve_functions.
 inline constexpr std::string_view StackCheck = "stack_check";
 
@@ -74,9 +73,9 @@ inline constexpr std::string_view FormatPrintf = "printf";
 // Расширенная форма для синхронизированной ссылки:
 //   @[reftype("shared"|"weak"[, <sync_policy>][, <timeout>])]
 //   - первый параметр - мнемоническое имя вида: value/shared/weak/unique/ptr/mptr/ref/rref/ptrptr
-//     (см. types/REFType.md);
+//     (см. types/type/REFType.md);
 //   - второй (опциональный, ТОЛЬКО для shared/weak) - РЕАЛЬНОЕ имя класса синхронизации доступа,
-//     зарегистрированного в TypeRegistry (встроенные политики Group::kAccessPolicy:
+//     зарегистрированного в TypeSystem (встроенные политики Group::kAccessPolicy:
 //     AccessMutex / AccessRwMutex / AccessSingleThread, cppName trust::Sync*Policy);
 //     резолвится через реестр (findType), НЕ строковым маппингом. Транслируется в
 //     trust::AccessShared<T, Policy> (shared) / trust::Weak<trust::AccessShared<T, Policy>> (weak);
@@ -88,11 +87,11 @@ inline constexpr std::string_view Reftype = "reftype";
 
 // Deleter - deleter внешнего (не-память) ресурса (`@[deleter(D)]`), отдельный атрибут на
 // владеющем объявлении (`@[reftype("unique"|"shared")]`). Ровно ОДИН аргумент - имя
-// deleter-ТИПА (функтор `void operator()(V*)`), зарегистрированного в TypeRegistry: встроенный
+// deleter-ТИПА (функтор `void operator()(V*)`), зарегистрированного в TypeSystem: встроенный
 // deleter-тип (Group::kDeleterPolicy, напр. FreeDeleter) или пользовательский нативный класс.
 // Для `unique` D входит в ТИП (`trust::Unique<T,D>`, как `unique_ptr<T,D>`), для `shared`
 // D стирается (тип остаётся `trust::Shared<T>`; применяется при создании через `adopt`).
-// Неприменим к не-владеющим видам (ptr/ref/weak/...) - диагностика ошибки. См. types/REFType.md §9.2.
+// Неприменим к не-владеющим видам (ptr/ref/weak/...) - диагностика ошибки. См. types/type/REFType.md §9.2.
 inline constexpr std::string_view Deleter = "deleter";
 
 // Borrowed - атрибут отслеживания ЗАВИСИМЫХ данных (`@[borrowed@]`): объект (переменная/ссылка/
@@ -116,7 +115,7 @@ inline constexpr std::string_view Borrowed = "borrowed";
 // идентичности объекта, поэтому перемещение/копирование недопустимо. Без параметров.
 // Обрабатывается анализатором; авто-вывод помечается `add_attr(..., /*manual=*/false)`
 // (существующий kAttrManualFlag), по образцу stack_check_infer. Пока - регистрация и проверка
-// применимости; pin-механика (запрет move/copy) - отдельная ветка (см. types/REFType.md).
+// применимости; pin-механика (запрет move/copy) - отдельная ветка (см. types/type/REFType.md).
 inline constexpr std::string_view Pin = "pin";
 
 // Lifetime - область жизни невладеющего view (`@[lifetime(<area>[, <name>])]`). Контракт:
@@ -127,16 +126,22 @@ inline constexpr std::string_view Pin = "pin";
 // Два wildcard-дефолта => 1..2 аргумента (см. Attr::matches_params). Обрабатывается анализатором.
 inline constexpr std::string_view Lifetime = "lifetime";
 
-// Legacy names (aliases for backward compatibility, kept in the same namespace)
+// Function qualifiers / storage class (consumed by the C++ code generator).
 inline constexpr std::string_view FuncConst = "func_const";
 inline constexpr std::string_view FuncPure = "func_pure";
 inline constexpr std::string_view FuncConstexpr = "constexpr";
 inline constexpr std::string_view ThreadLocal = "thread_local";
 
+// Coroutine - маркер корутинной (асинхронной) функции (`@[coroutine]`). Корутинные передачи
+// (`|^|` yield, `|*|` await) допустимы только в функции с этим атрибутом; `|+|` в такой
+// функции транслируется в `co_return`. Механизм корутин пока не реализован: атрибут
+// зарегистрирован как маркер (обрабатывается анализатором; -Wunhandled-attr не выдаётся).
+inline constexpr std::string_view Coroutine = "coroutine";
+
 // Virtual / Override - маркеры полиморфизма (виртуальные методы и переопределение).
 // ЗАРЕГИСТРИРОВАНЫ как встроенные (чтобы не выдавалось `-Wunknown-attributes`), но НЕ
 // реализованы: анализатор объявлений выдаёт явную ошибку «не реализовано» при их использовании
-// (см. semantic/record_decl_analyzer.cpp), чтобы они не игнорировались молча.
+// (см. semantic/decl/record_decl_analyzer.cpp), чтобы они не игнорировались молча.
 inline constexpr std::string_view Virtual = "virtual";
 inline constexpr std::string_view Override = "override";
 

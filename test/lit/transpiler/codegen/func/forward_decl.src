@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 # RUN: TD=%t.dir && mkdir -p $TD && %trust -q --temp-dir $TD -c -o $TD/forward_decl.o %s && test -f $TD/forward_decl.o && file $TD/forward_decl.o | grep ELF
 
 # Forward-объявление функции `%add(a:Int32, b:Int32):Int32 := ...;` → C++ декларация (без тела).

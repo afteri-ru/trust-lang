@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Member и свободная форма сравниваются ОДНОЙ шкалой конверсий (C++ [over.match.best]):
+# member-параметр Base требует derived→base (widening), свободная форма точна - побеждает free.
+:P ::= :Class{
+    v: Int32 := 0;
+};
+:D ::= :P{
+    w: Int32 := 0;
+    __eq__(o: P): Bool := { return false; };
+};
+__eq__(a: D, b: D): Bool := { return true; };
+@main() := {
+    a : D := :D();
+    b : D := :D();
+    @print("result={}\n", a == b);
+    @return 0;
+}
+# CHECK: result=true

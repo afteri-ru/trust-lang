@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD/build --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Module-алиас действует только в модуле объявления: алиас из `lib.src` не виден в `main.src`.
+# CHECK: error: Module '\m' is not loaded
+
+//--- main.src
+\lib();
+@main():Int32 := { @return \m::g() - 1; };
+
+//--- lib.src
+\lib;
+\dep(g);
+\m :- \dep;
+lib_probe():Int32 := { @return \m::g(); };
+
+//--- dep.src
+\dep;
+g():Int32 := { @return 1; };

@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Квалифицированная ссылка в ТИПОВОЙ позиции (`: \lib::Point`): имя типа принадлежит модулю,
+# ссылка проверяется по его экспорт-набору и не требует импорта типа под коротким именем.
+
+//--- main.src
+\lib(Point, make);
+@main():Int32 := { p: \lib::Point := \lib::make(); @return p.x - 7; };
+
+//--- lib.src
+\lib;
+:Point ::= :Struct{ x:Int32 := _; };
+make():Point := { @return Point(7); };

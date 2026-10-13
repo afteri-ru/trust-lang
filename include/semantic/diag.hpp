@@ -5,6 +5,7 @@
 // TRUST_DIAG_SET/TRUST_FLAG_SET генерируют trust::semantic::DiagId/FlagKind + ADL-доступы.
 
 #include "diag/diag_set.hpp"
+#include "diag/flag_ids.hpp"
 
 #define SEMANTIC_DIAG_LIST(M)                                                                                                                                  \
     M(UnusedVariable, "unused-variable", Warning, "Unused variable", WG_Wall | WG_Wextra | WG_Wunused)                                                         \
@@ -24,13 +25,13 @@
       "The same reference is captured ('*ref') more than once in one expression (self-deadlock risk for synchronized references)", WG_Wextra)                  \
     M(ClassMemberDot, "class-member-dot", Warning, "Class field/method should be registered with a leading '.'", WG_Wextra)                                    \
     M(StaticMemberAsField, "static-member-as-field", Warning, "Accessing a static member of a class as an instance field", WG_Wextra)                          \
-    M(Borrowed, "borrowed", Warning, "Using a borrowed (dependent) variable after its source object was mutated (severity; silence with -Wborrowed=ignore)",   \
-      WG_Wextra)                                                                                                                                               \
+    M(Borrowed, "borrowed", Warning, "Mutation/move of a source while a dependent view is alive (severity; silence with -Wborrowed=ignore)", WG_Wextra)        \
     M(NativeRef, "native-ref", Warning, "Use of a native (raw) C++ reference (transitional compat axis; silence with -Wnative-ref=ignore)", WG_Wextra)         \
     M(BorrowRegionMismatch, "borrow-region-mismatch", Warning,                                                                                                 \
-      "Borrowed view/borrow outlives its anchor (region mismatch); keep the view within the anchor's lifetime", WG_None)                                       \
-    M(BorrowOwnerMoved, "borrow-owner-moved", Warning, "Owner is moved/reset while it is borrowed", WG_None)                                                   \
-    M(BorrowOwnerMutated, "borrow-owner-mutated", Warning, "Borrowed variable is mutated while a live borrow exists", WG_None)                                 \
+      "Derived view outlives its source (region mismatch); keep the view within the source's lifetime", WG_None)                                               \
+    M(BorrowOwnerMoved, "borrow-owner-moved", Warning, "Source is moved/reset while a derived view is alive", WG_None)                                         \
+    M(BorrowOwnerMutated, "borrow-owner-mutated", Warning, "Source is mutated while a derived view is alive", WG_None)                                         \
+    M(BorrowEscape, "borrow-escape", Warning, "Derived @[borrowed] view escapes its scope (returned/stored out)", WG_None)                                     \
     M(UnhandledAttr, "unhandled-attr", Warning,                                                                                                                \
       "Attribute is not handled by the analyzer or the C++ code generator (severity; silence with -Wunhandled-attr=ignore)", WG_None)                          \
     M(CheckArea, "check-area", Warning, "Macro used in a forbidden syntactic area (violates @__CHECK_AREA__; severity; silence with -Wcheck-area=ignore)",     \
@@ -42,7 +43,13 @@
     M(RecursiveUnique, "recursive-unique", Error,                                                                                                              \
       "Mutually exclusive ('unique') ownership cycle in class fields (exclusive ownership cannot be mutual; silence with -Wrecursive-unique=ignore)", WG_None) \
     M(RecursiveValue, "recursive-value", Error,                                                                                                                \
-      "Recursive value containment in class fields (the type would have infinite size; silence with -Wrecursive-value=ignore)", WG_None)
+      "Recursive value containment in class fields (the type would have infinite size; silence with -Wrecursive-value=ignore)", WG_None)                       \
+    M(UnmatchedMask, "unmatched-mask", Warning, "Import mask matches no exported declaration of the module (severity; silence with -Wunmatched-mask=ignore)",  \
+      WG_None)                                                                                                                                                 \
+    M(EmptyImport, "empty-import", Warning,                                                                                                                    \
+      "Import brings no declarations into scope (the module exports nothing); indicates a wrong module path or an empty group", WG_None)                       \
+    M(DuplicateImport, "duplicate-import", Error,                                                                                                              \
+      "Duplicate import of the same file with the same normalized masks in one scope (severity; silence with -Wduplicate-import=ignore)", WG_None)
 
 TRUST_DIAG_SET(trust::semantic, DiagId, SEMANTIC_DIAG_LIST)
 
@@ -60,16 +67,16 @@ TRUST_DIAG_SET(trust::semantic, DiagId, SEMANTIC_DIAG_LIST)
     M(Effect, "effect", "", DiagGroup::Analysis, "Effect/effects analyzer")                                                                             \
     M(Trust, "trust", "", DiagGroup::Analysis, "Trust checker (memory safety)")                                                                         \
     M(Extended, "extended", "", DiagGroup::Analysis, "Extended analysis")                                                                               \
-    M(Symbols, "symbols", "", DiagGroup::Analysis, "Collect symbol index in the result")                                                                \
     M(SolverLoop, "solver-loop", "warning", DiagGroup::Analysis, "Loop verification when no invariant/unroll: ignore|warning|error (default: warning)") \
-    M(SolverLoopUnroll, "solver-loop-unroll", "", DiagGroup::Analysis, "Unroll loops without an invariant (behavioral; default: off)")                  \
-    M(SolverMode, "solver-mode", "", DiagGroup::Analysis, "Solver behavior: assert|export|calculate (runtime checks / SMT export + run)")               \
-    M(Keywords, "keywords", "", DiagGroup::Analysis,                                                                                                    \
+    M(SolverLoopUnroll, diag::flag_id::kSolverLoopUnroll, "", DiagGroup::Analysis, "Unroll loops without an invariant (behavioral; default: off)")      \
+    M(SolverMode, diag::flag_id::kSolverMode, "", DiagGroup::Analysis, "Solver behavior: assert|export|calculate (runtime checks / SMT export + run)")  \
+    M(Keywords, diag::flag_id::kKeywords, "", DiagGroup::Analysis,                                                                                      \
       "Macro names that may be written without the '@' sigil (keyword-like); comma-separated, entries may keep a leading '@'")                          \
-    M(StackCheck, "stack-check", "explicit", DiagGroup::Analysis, "Stack overflow protection mode: off|explicit|recursion|auto (default: explicit)")    \
-    M(StackCheckReserve, "stack-check-reserve", "", DiagGroup::Analysis,                                                                                \
+    M(StackCheck, diag::flag_id::kStackCheck, "explicit", DiagGroup::Analysis,                                                                          \
+      "Stack overflow protection mode: off|explicit|recursion|auto (default: explicit)")                                                                \
+    M(StackCheckReserve, diag::flag_id::kStackCheckReserve, "", DiagGroup::Analysis,                                                                    \
       "Minimum stack reserve (bytes) for exception handling, added to all stack checks; empty = runtime default (8192)")                                \
-    M(StackCheckFunctions, "stack-check-functions", "", DiagGroup::Analysis,                                                                            \
+    M(StackCheckFunctions, diag::flag_id::kStackCheckFunctions, "", DiagGroup::Analysis,                                                                \
       "Comma-separated function names limiting the automatic stack limit (m_stack_limit from .stack_sizes); empty = all functions")
 
 TRUST_FLAG_SET(trust::semantic, FlagKind, SEMANTIC_FLAG_LIST)

@@ -6,19 +6,18 @@ find_program(NPX npx)
 
 # -- CTest registration --
 # Each VSCode suite is a single CTest test.
-add_test(NAME vscode_unit
-    COMMAND timeout --kill-after=10 120 ${NPX} jest --config ${CMAKE_CURRENT_SOURCE_DIR}/extension/jest.config.js
-)
-set_tests_properties(vscode_unit PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/extension
+trust_add_test_suite(vscode_unit
     TIMEOUT 120
-    # examples_tests (final stage) runs after all suites pass; package tests after these
-    # suites - via fixtures examples_deps/package_deps.
-    FIXTURES_SETUP "examples_deps;package_deps"
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/extension
+    FIXTURES_SETUP "${TRUST_SUITE_FIXTURES}"
+    COMMAND timeout --kill-after=10 120 ${NPX} jest --config ${CMAKE_CURRENT_SOURCE_DIR}/extension/jest.config.js
 )
 
 if(TRUST_BUILD_DAP)
-    add_test(NAME vscode_dap
+    trust_add_test_suite(vscode_dap
+        TIMEOUT 60
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/integration
+        FIXTURES_SETUP "${TRUST_SUITE_FIXTURES}"
         COMMAND timeout --kill-after=10 60 ${NODE} ${CMAKE_CURRENT_SOURCE_DIR}/integration/dap-protocol.test.js
                 --dap-path ${CMAKE_BINARY_DIR}/trust-dap
                 --src "${TEST_SRC}"
@@ -26,25 +25,14 @@ if(TRUST_BUILD_DAP)
                 --map "${TEST_MAP}"
                 --binary "${TEST_BINARY}"
     )
-    set_tests_properties(vscode_dap PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/integration
-        TIMEOUT 60
-        # examples_tests (final stage) runs after all suites pass; package tests after these
-        # suites - via fixtures examples_deps/package_deps.
-        FIXTURES_SETUP "examples_deps;package_deps"
-    )
 endif()
 
-add_test(NAME vscode_lsp
+trust_add_test_suite(vscode_lsp
+    TIMEOUT 60
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/integration
+    FIXTURES_SETUP "${TRUST_SUITE_FIXTURES}"
     COMMAND timeout --kill-after=10 60 ${NODE} ${CMAKE_CURRENT_SOURCE_DIR}/integration/lsp-protocol.test.js
             --lsp-path ${CMAKE_BINARY_DIR}/trust-lsp
             --src "${TEST_SRC}"
             --work-dir "${TEST_DATA_DIR}/vscode_lsp"
-)
-set_tests_properties(vscode_lsp PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/integration
-    TIMEOUT 60
-    # examples_tests (final stage) runs after all suites pass; package tests after these
-    # suites - via fixtures examples_deps/package_deps.
-    FIXTURES_SETUP "examples_deps;package_deps"
 )

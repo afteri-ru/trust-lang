@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Обратная сторона единой шкалы: member-параметр точен, свободная форма требует
+# derived→base для обоих аргументов - побеждает member.
+:P ::= :Class{
+    v: Int32 := 0;
+};
+:D ::= :P{
+    w: Int32 := 0;
+    __eq__(o: D): Bool := { return true; };
+};
+__eq__(a: P, b: P): Bool := { return false; };
+@main() := {
+    a : D := :D();
+    b : D := :D();
+    @print("result={}\n", a == b);
+    @return 0;
+}
+# CHECK: result=true

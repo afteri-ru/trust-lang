@@ -1,0 +1,16 @@
+\\\tensor\tensor;
+# tensor.src - implementation provider for the Core type `Tensor`.
+#
+# Loaded only by an explicit import:
+#   \tensor(...)           - package next to the source / in TRUST_PACKAGE_PATH
+#   \\\tensor(...)         - toolchain package (share/trust/tensor.trust)
+#
+# `Tensor = ...` attaches the implementation (C++ type, header, link requirement) to the
+# pre-declared built-in type; `::=` is not used. The public header is self-contained (no
+# libtorch types); the backend is the `tensor_cpu` toolchain plugin, declared by
+# [[artifact]] in trust.toml. The logical link requirement `tensor` resolves to
+# the plugin library (-ltensor_cpu).
+
+@[include("@trust/tensor.hpp")@]
+@[link("tensor")@]
+Tensor = %trust::Tensor { };

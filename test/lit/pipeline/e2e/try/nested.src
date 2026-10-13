@@ -9,9 +9,9 @@
 
 %chk():Void := {
     {- 
-        {+ -- 1 --; +};
+        {+ |- 1 -|; +};
     -};
-    print('caught=1');
+    print("caught=1");
 };
 {% int nested__main__() {
     chk();

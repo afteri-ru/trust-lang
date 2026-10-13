@@ -5,8 +5,8 @@
 @main() := {
     x := _;
     x = 5;
-    x = "s";
-    @print('{}', x);
+    x = 's';
+    @print("{}", x);
 };
 # CHECK: error: cannot assign type 'StrWide'
 # CHECK: untyped 'x := _' declaration; use explicit 'x :Any := _'

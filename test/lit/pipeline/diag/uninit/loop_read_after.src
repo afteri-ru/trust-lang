@@ -9,6 +9,6 @@
         x = 5;
         $i += 1;
     };
-    @print('{}', x);
+    @print("{}", x);
 };
 # CHECK: error: variable 'x' is read before it is initialized

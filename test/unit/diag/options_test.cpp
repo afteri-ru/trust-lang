@@ -1,7 +1,7 @@
 #include "diag/diag.hpp"
 #include "diag/options.hpp"
 #include "semantic/diag.hpp"
-#include "transpiler/diag.hpp"
+#include "transpiler/emit/diag.hpp"
 #include "diag/base_diags.hpp"
 
 #include <gtest/gtest.h>

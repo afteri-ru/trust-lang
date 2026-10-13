@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 
 # CHECK: // trust-options: -fno-overflow-check
 # -fno-overflow-check отключает детекцию: обычная арифметика и составные присваивания.

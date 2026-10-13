@@ -1,0 +1,14 @@
+# RUN: %not %trust -q --emit-cpp -Wborrowed=error -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Flow: мутация источника внутри ветвления при живом @[borrowed]-представлении,
+# используемом после ветвления -> диагностика ровно один раз.
+@main() := {
+    a := [1, 2, 3,];
+    @[borrowed@] w := a;
+    if (true) {
+        a = [4, 5, 6,];
+    };
+    @print("{}\n", w[0]);
+}
+# CHECK: error: cannot change the owner 'a' while dependent variable(s) 'w' are alive
+# CHECK-NOT: cannot change the owner 'a'

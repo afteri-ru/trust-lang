@@ -13,13 +13,13 @@
 #                 (доступ args['key']).
 # Аргументы с префиксом среды "--trust:" (напр. --trust:verbosity=2) отделяются рантаймом
 # в `main()` и в argv/args НЕ попадают. Параметры объявлены read-only (`^`) - в C++
-# эмитится `const trust::Dict` (мутация невозможна). Разделитель `--`: всё после него -
+# эмитится `const trust::Dict` (мутация невозможна). Разделитель __dec__: всё после него -
 # позиционные аргументы.
 
 @main(argv^: Dict, args^: Dict) := {
-    @print('argv.size()={}\n', :Int32( {% $argv.size() %} ));
-    @print('argv[0]={}\n', argv[0]);
-    @print('name={}\n', args['name']);
-    @print('flag={}\n', args['flag']);
+    @print("argv.size()={}\n", :Int32( {% $argv.size() %} ));
+    @print("argv[0]={}\n", argv[0]);
+    @print("name={}\n", args["name"]);
+    @print("flag={}\n", args["flag"]);
     @return 0;
 }

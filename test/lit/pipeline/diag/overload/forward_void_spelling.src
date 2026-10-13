@@ -1,0 +1,17 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Позиция ВОЗВРАТА: отсутствие аннотации, `:Void` и `:None` кодогенер эмитит как `void` —
+# для C++ это ОДИН return type. Forward + definition с разным написанием — одна функция
+# (никакого ложного SignatureMismatch).
+f(a:Int32) := ...;
+f(a:Int32):Void := { @return; };
+
+g(a:Int64) := ...;
+g(a:Int64):None := { @return; };
+
+@main() := { @return 0; };
+
+# CHECK: void c_f{{_[A-Za-z0-9_]+}}(int32_t c_a);
+# CHECK: void c_f{{_[A-Za-z0-9_]+}}(int32_t c_a) {
+# CHECK: void c_g{{_[A-Za-z0-9_]+}}(int64_t c_a);
+# CHECK: void c_g{{_[A-Za-z0-9_]+}}(int64_t c_a) {

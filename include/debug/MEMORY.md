@@ -2,18 +2,21 @@
 
 > scope: include/debug
 > role: persistent-memory
-> last_reviewed: 2026-08-19
+> last_reviewed: 2026-11-05
 > review_period: 30
 > max_size: 4100
 
 ## Architecture
 
-Система отладки trust-lang через DAP-протокол (VSCode). `trust-dap` — DAP-сервер, драйвер `GdbDebug`
-взаимодействует с GDB через **GDB/MI** (subprocess fork/exec; НЕ LLDB — нет зависимости). `DapHandler`
-обрабатывает DAP-команды и через `trust::SourceMapReader` транслирует позиции trust↔C++. Source map
-загружается из **embedded ELF-секции `.debug_trust_map`** (`fromElf()`); внешние `.map`/`.trust` файлы
-НЕ используются. Транспорт: `StdioTransport` (интерактивный stdin/stdout), `TcpTransport`
-(`server[=<port>]`, default 4711).
+Система отладки trust-lang через DAP-протокол (VSCode): `trust-dap` — DAP-сервер, драйвер `GdbDebug`
+взаимодействует с GDB через **GDB/MI** (subprocess fork/exec; НЕ LLDB — нет зависимости).
+Публичного API у компонента НЕТ (tool-компонент): все заголовки — детали реализации.
+
+| каталог | MEMORY | ответственность |
+|---|---|---|
+| `debug/dap/` | `dap/MEMORY.md` | DAP-команды, трансляция позиций trust↔C++, транспорт |
+| `debug/gdb/` | — (инварианты в коде) | `GdbDebug` (сессия) и `StackFrameInfo` |
+| `debug/mi/` | — (инварианты в коде) | запуск GDB/MI и чистый разбор строк MI |
 
 ## Facts and invariants
 

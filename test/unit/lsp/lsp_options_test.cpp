@@ -1,10 +1,10 @@
 // test/unit/lsp/lsp_options_test.cpp
-// Юнит-тесты LSP-специфичной обработки опций анализа (lsp/lsp_options.hpp):
+// Юнит-тесты LSP-специфичной обработки опций анализа (lsp/catalog/lsp_options.hpp):
 //   - extractShebangOptions - извлечение опций компилятора из строки шебанга файла;
 //   - applyAnalysisArgsBySource - последовательное применение опций окружения и шебанга
 //     по приоритету shebangMode с атрибуцией ошибок по источнику.
 
-#include "lsp/lsp_options.hpp"
+#include "lsp/catalog/lsp_options.hpp"
 #include "session/context.hpp"
 #include "semantic/solver.hpp"
 #include "gtest/gtest.h"
@@ -66,7 +66,7 @@ TEST(ApplyBySource, EnvAfterShebangEnvOverrides) {
     const ApplyResult r = apply(ctx.opts(), env, shebang, ShebangMode::EnvAfterShebang);
     EXPECT_TRUE(r.errors.empty());
     // shebang сначала, env после -> env (export) сильнее.
-    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), semantic::SolverMode::kExport);
+    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), analysis::SolverMode::kExport);
 }
 
 TEST(ApplyBySource, EnvBeforeShebangShebangOverrides) {
@@ -76,7 +76,7 @@ TEST(ApplyBySource, EnvBeforeShebangShebangOverrides) {
     const ApplyResult r = apply(ctx.opts(), env, shebang, ShebangMode::EnvBeforeShebang);
     EXPECT_TRUE(r.errors.empty());
     // env сначала, shebang после -> shebang (assert) сильнее.
-    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), semantic::SolverMode::kAssert);
+    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), analysis::SolverMode::kAssert);
 }
 
 TEST(ApplyBySource, IgnoreUsesEnvOnly) {
@@ -85,7 +85,7 @@ TEST(ApplyBySource, IgnoreUsesEnvOnly) {
     const std::vector<std::string> shebang = {"--solver-mode=assert"};
     const ApplyResult r = apply(ctx.opts(), env, shebang, ShebangMode::Ignore);
     EXPECT_TRUE(r.errors.empty());
-    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), semantic::SolverMode::kCalculate);
+    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), analysis::SolverMode::kCalculate);
 }
 
 TEST(ApplyBySource, ShebangOnlyUsesShebang) {
@@ -94,7 +94,7 @@ TEST(ApplyBySource, ShebangOnlyUsesShebang) {
     const std::vector<std::string> shebang = {"--solver-mode=assert"};
     const ApplyResult r = apply(ctx.opts(), env, shebang, ShebangMode::ShebangOnly);
     EXPECT_TRUE(r.errors.empty());
-    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), semantic::SolverMode::kAssert);
+    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), analysis::SolverMode::kAssert);
 }
 
 TEST(ApplyBySource, ShebangErrorAttributedToShebang) {
@@ -106,7 +106,7 @@ TEST(ApplyBySource, ShebangErrorAttributedToShebang) {
     ASSERT_EQ(r.errors.size(), 1u);
     EXPECT_TRUE(r.errors[0].second); // fromShebang
     EXPECT_NE(r.errors[0].first.find("solver-mode"), std::string::npos);
-    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), semantic::SolverMode::kAssert);
+    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), analysis::SolverMode::kAssert);
 }
 
 TEST(ApplyBySource, EnvErrorAttributedToEnv) {

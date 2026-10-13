@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # Класс реализации механизма доступа (3-й аргумент reftype) входит в тип и композируется
 # третьим параметром обёртки: shared<T, AccessMutex, Impl> -> trust::AccessShared<T, Policy, Impl>.

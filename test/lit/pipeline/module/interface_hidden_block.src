@@ -1,0 +1,19 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# `__::` внутри интерфейса запрещён: интерфейс уже означает «публично»; скрытая область делает
+# намерение противоречивым.
+# CHECK: non-public block ('__::') is not allowed in the file interface
+
+//--- main.src
+\lib();
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib {
+    __:: {
+        f():Int32 := ...;
+    };
+};
+f():Int32 := { @return 1; };

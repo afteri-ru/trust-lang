@@ -1,4 +1,4 @@
-# RUN: %trust -q --emit-cpp -Wborrowed=error -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out --implicit-check-not='using the dependent variable'
+# RUN: %trust -q --emit-cpp -Wborrowed=error -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out --implicit-check-not='cannot change the owner'
 
 # Класс БЕЗ @[borrowed] не отслеживается: переменная Pln не становится зависимой.
 @include("optional")
@@ -8,7 +8,7 @@ Pln ::= %std::optional<Int32> { };
     a : Int32 := 1;
     d : Pln := Pln(a);
     a = 2;
-    @print('{}\n', d);
+    @print("{}\n", d);
     return 0;
 }
 # CHECK: This file was generated automatically

@@ -8,7 +8,7 @@ TEST_F(SymbolTableTest, DeclareResolveGlobal) {
     auto node = std::make_shared<VarDecl>("x");
     sym.decl = node.get();
 
-    EXPECT_TRUE(symtab.declare(sym));
+    EXPECT_EQ(symtab.declare(sym), DeclResult::Inserted);
     EXPECT_EQ(symtab.globalSize(), 1u);
     EXPECT_NE(symtab.resolve("x"), nullptr);
 }
@@ -23,8 +23,8 @@ TEST_F(SymbolTableTest, DupRejectedInScope) {
     s1.decl = n1.get();
     s2.decl = n2.get();
 
-    EXPECT_TRUE(symtab.declare(s1));
-    EXPECT_FALSE(symtab.declare(s2)); // дубликат в том же скоупе
+    EXPECT_EQ(symtab.declare(s1), DeclResult::Inserted);
+    EXPECT_EQ(symtab.declare(s2), DeclResult::Duplicate); // дубликат в том же скоупе
 }
 
 TEST_F(SymbolTableTest, ResolveNotFound) {

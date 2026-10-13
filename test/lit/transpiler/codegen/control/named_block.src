@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Именованный блок-метка (имя без '::') внутри функции: continue-метка ставится ПЕРЕД циклом
 # (после инициализации), break-метка после блока. Метки - отдельные узлы AST (LabelStmt),
@@ -7,8 +7,8 @@
     outer {
         z:Int32 := 0;
         [z < 3] <-> {
-            outer ++;
-            outer -+;
+            outer |>|;
+            outer |<|;
         };
     };
 };

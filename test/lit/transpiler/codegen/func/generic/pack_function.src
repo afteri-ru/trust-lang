@@ -1,0 +1,14 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Пользовательская generic-функция с type-pack: C++ `template <typename... T>` и
+# `T... xs`; вызовы 0/1/2 аргументов splice-ят типовые аргументы.
+<T...> count(xs: T...): Int32 := { @return 0; };
+
+r0 : Int32 := count();
+r1 : Int32 := count(1:Int32);
+r2 : Int32 := count(1:Int32, 2:Int32);
+
+# CHECK: template <typename... T> int32_t c_count{{_[A-Za-z0-9_]+}}(T... c_xs)
+# CHECK: c_count{{_[A-Za-z0-9_]+}}()
+# CHECK: c_count{{_[A-Za-z0-9_]+}}<int32_t>(1)
+# CHECK: c_count{{_[A-Za-z0-9_]+}}<int32_t, int32_t>(1, 2)

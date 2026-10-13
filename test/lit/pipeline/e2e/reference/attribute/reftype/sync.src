@@ -19,6 +19,6 @@
     *x = 7;
     a := *x;
     b := *w;
-    print('sync={}\n', a + b);
+    print("sync={}\n", a + b);
     return 0;
 };

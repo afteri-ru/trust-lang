@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# `_::` — protected: имена видны файлам той же группы/пакета, но не публичному экспорту.
+
+//--- main.src
+\lib(h);
+@main():Int32 := { @return \lib::h() - 5; };
+
+//--- lib.src
+\lib;
+_:: {
+    h():Int32 := { @return 5; };
+};

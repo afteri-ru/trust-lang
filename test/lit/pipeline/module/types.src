@@ -1,9 +1,0 @@
-# RUN: TD=$(dirname %t) && mkdir -p $TD
-# RUN: %trust -q --temp-dir $TD -m -o $TD/module.trust %s
-# RUN: %trust --module-info $TD/module.trust | %FileCheck %s
-# CHECK: exports: 2
-# CHECK:   a
-# CHECK:   b
-
-a:Int32 := 42;
-b:Int64 := 100;

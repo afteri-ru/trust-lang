@@ -1,0 +1,11 @@
+# RUN: %trust -q --temp-dir %t.dir -o %t.app %s
+# RUN: %t.app && echo "PASS"
+# CHECK: PASS
+#
+# Глобальная область `::` переносит объявления в корневой скоуп без квалификации.
+
+:: {
+    g():Int32 := { @return 1; };
+};
+
+@main():Int32 := { @return g() - 1; };

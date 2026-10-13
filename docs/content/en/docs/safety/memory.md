@@ -8,7 +8,7 @@ weight: 40
 No single memory management approach is the best or universal: different approaches win under different conditions:
 
 - Manual memory management can do anything, except one thing — guarantee the absence of errors.
-- Ownership and borrowing analysis at compile time makes it possible to prove the correctness of code without additional
+- Ownership and derived-view invalidation analysis at compile time makes it possible to prove the correctness of code without additional
 runtime checks, but some scenarios and algorithms cannot be proven statically at compile time.
 - Counting strong and weak references at runtime is convenient for shared ownership, but has a non-zero
 cost and does not protect against cyclic and cross dependencies.
@@ -44,7 +44,7 @@ The lifetime of an object is described by several **orthogonal** aspects; each i
 |---|---|---|---|
 | Ownership (reference kind) | `@[reftype(<kind>)@]` | who owns the object and how | yes |
 | Access/synchronization | 2nd/3rd argument of `reftype` | how access is synchronized | yes |
-| Object dependency  | `@[borrowing@]` | who owns the object and how | yes |
+| Object dependency  | `@[borrowed@]` | an object's data depends on another source (invalidated when it is mutated) | no (analysis only) |
 | Lifetime region | `@[lifetime(<area>[, <name>])@]` | how long a non-owning view is valid | no (analysis only) |
 | Destruction | `@[deleter(D@)]` | how the resource is released | yes for `unique`, erased for `shared` |
 | Mutability | `@[readonly@]` / `^` | constness of access | qualifier |

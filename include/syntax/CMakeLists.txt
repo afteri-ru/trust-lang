@@ -1,7 +1,30 @@
 # include/syntax/CMakeLists.txt
-# Syntax (lexer + parser) static library
+# Syntax (lexer + parser + macro + term) static library.
 
 set(SYNTAX_GEN_DIR "${CMAKE_BINARY_DIR}/syntax")
+
+trust_component(syntax
+    INTERNAL_DIRS grammar lexer macro parser util
+    PUBLIC_DIRS term
+    PUBLIC_HEADERS
+        check_area.hpp lexer.h macro.h module_header.hpp parser.h pragma_macro_x.hpp
+        predef_macro.hpp predef_macro_x.hpp
+    SOURCES
+        lexer/lexer.cpp macro/macro.cpp macro/macro_arg_parser.cpp macro/macro_expander.cpp
+        macro/macro_matcher.cpp macro/macro_validator.cpp macro/pragma_evaluator.cpp
+        macro/pragma_eval.cpp macro/predef_macro.cpp parser/parser.cpp term/term.cpp
+        "${SYNTAX_GEN_DIR}/lexer.yy.cpp"
+        "${SYNTAX_GEN_DIR}/parser.yy.cpp"
+    # build/include (для trust/version.h) и include/ приходят через trust_include_dirs.
+    INCLUDE_PRIVATE ${SYNTAX_GEN_DIR} ${CMAKE_CURRENT_SOURCE_DIR}
+    SYSTEM_INCLUDE_PRIVATE ${LLVM_INCLUDE_DIRS}
+    LINK_PUBLIC trust_include_dirs trust_llvm_dirs diag_lib session_lib
+    LINK_PRIVATE sourcemap_lib
+    # Syntax headers (term.h) contain switches over TermID with incomplete coverage.
+    # These are used by consumer libraries too, so the suppression must propagate.
+    PUBLIC_COMPILE_OPTIONS -Wno-error=switch
+    DEPENDS gen_syntax_parsers
+)
 
 # -- Mark generated parser files (flex/bison) --
 set_source_files_properties(
@@ -10,61 +33,9 @@ set_source_files_properties(
     PROPERTIES GENERATED TRUE
 )
 
-# -- Syntax library --
-add_library(syntax_lib STATIC
-    ${PROJECT_SOURCE_DIR}/syntax/lexer.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/macro.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/macro_arg_parser.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/macro_expander.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/macro_matcher.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/macro_validator.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/parser.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/pragma_evaluator.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/pragma_eval.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/predef_macro.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/term.cpp
-    ${PROJECT_SOURCE_DIR}/syntax/types.cpp
-    "${SYNTAX_GEN_DIR}/lexer.yy.cpp"
-    "${SYNTAX_GEN_DIR}/parser.yy.cpp"
-)
-
-# -- Ensure parsers are generated before building library --
-add_dependencies(syntax_lib gen_syntax_parsers)
-
-# -- Include paths --
-target_include_directories(syntax_lib PUBLIC
-    ${PROJECT_INCLUDE_DIR}
-    ${PROJECT_INCLUDE_DIR}/runtime
-)
-# build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.
-target_include_directories(syntax_lib PRIVATE
-    ${SYNTAX_GEN_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-target_include_directories(syntax_lib SYSTEM PRIVATE
-    ${LLVM_INCLUDE_DIRS}
-)
-
-# -- Link dependencies --
-target_link_libraries(syntax_lib PUBLIC
-    trust_include_dirs
-    trust_llvm_dirs
-    diag_lib
-    session_lib
-    sourcemap_lib
-)
-
-# Syntax headers (term.h) contain switches over TermID with incomplete coverage.
-# These are used by consumer libraries too, so the suppression must propagate.
-target_compile_options(syntax_lib PUBLIC
-    -Wno-error=switch
-)
-
 # Suppress warnings for generated files
 set_source_files_properties(
     "${SYNTAX_GEN_DIR}/lexer.yy.cpp"
     "${SYNTAX_GEN_DIR}/parser.yy.cpp"
     PROPERTIES COMPILE_OPTIONS "-Wno-old-style-cast"
 )
-# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
-target_link_libraries(syntax_lib PRIVATE trust_pch)

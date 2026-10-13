@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Голое имя ТИПА после импорта двух модулей с одноимённым типом неоднозначно: выбор — только
+# квалификацией `\lib_a::Point`. Диагностика — на сайте использования.
+# CHECK: error: ambiguous type name 'Point'
+# CHECK-SAME: \lib_a::Point
+
+//--- main.src
+\lib_a(Point);
+\lib_b(Point);
+take(p:Point):Int32 := { @return 0; };
+@main():Int32 := { @return 0; };
+
+//--- lib_a.src
+\lib_a;
+:Point ::= :Struct{ x:Int32 := _; };
+
+//--- lib_b.src
+\lib_b;
+:Point ::= :Struct{ x:Int32 := _; };

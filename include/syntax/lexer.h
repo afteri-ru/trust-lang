@@ -1,7 +1,7 @@
 #ifndef TRUST_SYNTAX_LEXER_H_INCLUDED_
 #define TRUST_SYNTAX_LEXER_H_INCLUDED_
 
-#include "syntax/term.h"
+#include "syntax/term/term.h"
 #include "syntax/parser.h"
 
 #include "session/context.hpp"
@@ -28,7 +28,7 @@ namespace trust {
 class Scanner : public NewLangFlexLexer {
   public:
     /** Create a new scanner object. Uses Context and SourceMapper to read input. */
-    Scanner(trust::Context& ctx, trust::MapperFile src);
+    Scanner(trust::Context& ctx, trust::MapperFile src, std::size_t skipPrefix = 0);
 
     /** Required for virtual functions */
     virtual ~Scanner();
@@ -131,7 +131,7 @@ class Scanner : public NewLangFlexLexer {
     int LexerInput(char* buf, int max_size) override;
 
     // -- Литералы с переносом строк '\'+перевод строки (склейка). Реализованы в
-    //    src/syntax/lexer.cpp, вызываются из правил flex (lexer.l). Убирают из текста
+    //    src/syntax/lexer/lexer.cpp, вызываются из правил flex (lexer.l). Убирают из текста
     //    склейки '\'+перевод строки; если склеек нет - терм остаётся view в исходник.
     //    buildNumberTerm дополнительно выдаёт Warning при переносе литерала с числом
     //    цифр меньше kMinContinuedDigits.

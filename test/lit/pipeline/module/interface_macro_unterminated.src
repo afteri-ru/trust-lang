@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Незакрытый блок интерфейса: интерфейса нет — нет и запрета макросов. Диагностика запрета
+# отложена до успешного разбора блока, поэтому макрос в ТЕЛЕ файла не получает ложной ошибки
+# «cannot be used in the file interface» (каскад); остаются только настоящие ошибки.
+# CHECK-NOT: cannot be used in the file interface
+# CHECK: syntax error, unexpected END
+# CHECK: file interface block was not parsed
+
+//--- main.src
+@@ twice($x) @@ @$x + @$x @@@@;
+\lib();
+@main():Int32 := { @return 0; };
+
+//--- lib.src
+\lib {
+    f():Int32 := 1;
+f2():Int32 := twice(2);

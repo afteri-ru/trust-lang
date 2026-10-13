@@ -1,12 +1,26 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app %s
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
 # Оператор `using` (макрос `@@ using $... @@ ... = @$... @@@@;` → реальный `... = X`)
-# регистрирует область имён для поиска: голое имя `count` резолвится как `MyStr::count`
-# (статический член, зарегистрированный персистентно). Кода оператор не генерирует.
-@include("string")
-MyStr ::= %std::string {
-    @::count: Int32 := ...;
-};
-using MyStr;
-x: Int32 := count;
+# регистрирует области имён для поиска: голое имя резолвится как `prefix::name` и текст ссылки
+# НОРМАЛИЗУЕТСЯ, поэтому программа полностью компилируется и работает. Тест намеренно
+# компилируется целиком (`-o` + запуск), а не только `--emit-cpp`: манглинг ссылки проверяет C++.
 
-# CHECK: int32_t c_x = c_count;
+ns:: {
+    value: Int32 := 5;
+};
+using namespace ns;
+y: Int32 := value;
+
+# Порядок объявления области относительно `using` не важен (проверка существования области —
+# на выходе из скоупа).
+using namespace later;
+later:: {
+    two: Int32 := 2;
+};
+z: Int32 := two;
+
+@main(): Int32 := { @return y + z - 7; };
+

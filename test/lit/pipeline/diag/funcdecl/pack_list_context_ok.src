@@ -1,0 +1,8 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Z15: pack допустим в СПИСКОВОМ контексте (аргументы native class template), а не одиночным типом.
+@include("tuple")
+<T...> StdTuple ::= %std::tuple<T...> { };
+<T...> f(xs: T...): StdTuple<T...> := ...;
+
+# CHECK: std::tuple<T...>

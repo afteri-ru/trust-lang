@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Namespace-алиас, вложенный в область интерфейса (`outer:: { ns:: :- \lib::sub::; }`),
+# экспортируется КВАЛИФИЦИРОВАННЫМ префиксом: клиент пишет `outer::ns::f` и
+# `\facade::outer::ns::f`; внутри файла фасада алиас тоже виден после блока.
+//--- main.src
+\facade();
+@main():Int32 := { @return outer::ns::f() + \facade::outer::ns::f() - 2; };
+
+//--- lib.src
+\lib;
+sub:: {
+    f():Int32 := { @return 1; };
+};
+
+//--- facade.src
+\facade {
+    \lib();
+    outer:: {
+        ns:: :- \lib::sub::;
+    };
+};
+facade_probe():Int32 := { @return outer::ns::f(); };

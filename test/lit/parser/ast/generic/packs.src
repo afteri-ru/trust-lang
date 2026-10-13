@@ -1,0 +1,15 @@
+# RUN: %trust -q --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# Pack-модель: `<T...>` у типового параметра, `xs: T...` у параметра функции и
+# пользовательский native class template `<T...> StdTuple ::= %std::tuple<T...> { };`.
+
+@include("tuple")
+<T...> StdTuple ::= %std::tuple<T...> { };
+
+<T...> count(xs: T...): Int32 := { @return 0; };
+
+# CHECK: ClassDecl 'StdTuple' -> std::tuple <T...>
+# CHECK: FuncDecl 'count'
+# CHECK: TypeName ':Int32' <T...>
+# CHECK: ArgNode 'xs'...
+# CHECK: TypeName ':T'

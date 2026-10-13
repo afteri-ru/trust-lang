@@ -1,0 +1,24 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Namespace-алиас (`ns:: :- \lib::ns::;`): ПРЕФИКС области привязывается к области модуля.
+# Сущность не создаётся, C++-имя не эмитится; ссылка `ns::f` разворачивается в поиск по
+# экспорт-набору модуля-владельца. Обе LHS-формы допустимы (`ns::` и `::ns::`).
+
+//--- main.src
+\lib();
+ns:: :- \lib::ns::;
+::deep:: :- \lib::deep::;
+@main():Int32 := { @return ns::f(1) + deep::g(1) - 5; };
+
+//--- lib.src
+\lib;
+ns:: {
+    f(x:Int32):Int32 := { @return x + 1; };
+};
+deep:: {
+    g(x:Int32):Int32 := { @return x + 2; };
+};

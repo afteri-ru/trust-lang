@@ -12,7 +12,7 @@
     {-
         z := a // b;
     -};
-    print('divzero-caught');
+    print("divzero-caught");
 };
 {% int divzero__main__() {
     chk();

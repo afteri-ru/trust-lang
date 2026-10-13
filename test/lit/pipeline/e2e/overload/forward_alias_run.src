@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: 7
+
+# Forward и определение с ОДНИМ И ТЕМ ЖЕ пользовательским алиасом — одна функция.
+MyInt ::= :Int32;
+f(a:MyInt):Int32 := ...;
+f(a:MyInt):Int32 := { @return a + 5; };
+@main() := {
+    x : MyInt := 2;
+    @print("{}\n", f(x));
+    @return 0;
+}

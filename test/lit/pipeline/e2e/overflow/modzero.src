@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/modzero %s
+# RUN: $TD/modzero > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: modzero-caught
+
+# Целочисленный остаток на ноль (UB) -> trust::IntMinus, ловится {- ... -}.
+# Проверка % обязательна так же, как для //: это не wrap-арифметика.
+
+%chk():Void := {
+    a:Int32 := 10;
+    b:Int32 := 0;
+    {-
+        z := a % b;
+    -};
+    print("modzero-caught");
+};
+{% int modzero__main__() {
+    chk();
+    return 0;
+}
+%}

@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Для группового импорта duplicate-import сообщается ОДИН раз на сайт, а не по разу на каждый
+# файл группы.
+# CHECK-COUNT-1: error: duplicate import of module '\\g' with the same masks in this scope
+
+//--- main.src
+\\g();
+\\g();
+@main():Int32 := { @return 0; };
+
+//--- g/a.src
+\\g\a;
+fa():Int32 := { @return 1; };
+
+//--- g/b.src
+\\g\b;
+fb():Int32 := { @return 2; };

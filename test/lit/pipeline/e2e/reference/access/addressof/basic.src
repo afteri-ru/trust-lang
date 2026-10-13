@@ -11,6 +11,6 @@
     &* x := 5;
     &? w := & x;
     *x = 9;
-    print('w={} x={}\n', *w, *x);
+    print("w={} x={}\n", *w, *x);
     return 0;
 };

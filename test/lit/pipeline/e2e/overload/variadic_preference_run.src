@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: 1 2
+
+# Variadic tie-break применяется ТОЛЬКО при полном равенстве рангов: точное совпадение с
+# variadic-прототипом выигрывает у худшей не-variadic конверсии. Equal-rank случай отдаёт
+# предпочтение не-variadic (см. unit NonVariadicWinsOnlyOnEqualRank).
+f(a:Int32, ...):Int32 := { @return 1; };
+f(a:Int64):Int32 := { @return 2; };
+@main() := {
+    x : Int32 := 5;
+    @print("{} {}\n", f(x), f(7:Int64));
+    @return 0;
+}

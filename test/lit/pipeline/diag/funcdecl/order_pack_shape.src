@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Порядок зон: Z12 (форма pack-слота) выполняется ДО buildFuncType, поэтому Z13
+# («типовой параметр не используется в сигнатуре») для этого объявления недостижима - U не
+# диагностируется, хотя и не встречается в сигнатуре.
+<T..., U> bad(xs: T..., a: Int32): Int32 := ...;
+
+# CHECK: error: type parameter pack must be the last parameter (non-trailing packs are not implemented)
+# CHECK-NOT: is not used in the signature

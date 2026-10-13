@@ -1,0 +1,14 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Нативное C++-имя (`%lib::f`) перегружается естественно: имя НЕ манглируется (символ фиксирован
+# внешней библиотекой, C++ linkage), анализатор выбирает сигнатуру только для типа результата.
+%mylib::parse(x:Int32):Int32 := ...;
+%mylib::parse(x:StrChar):Int32 := ...;
+@main() := {
+    r : Int32 := %mylib::parse("a");
+    @return 0;
+}
+# CHECK: int32_t mylib::parse(int32_t c_x);
+# CHECK: int32_t mylib::parse(std::string c_x);
+# CHECK: mylib::parse(static_cast<std::string>("a"))
+# CHECK-NOT: extern "C"

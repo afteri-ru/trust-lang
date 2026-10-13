@@ -23,7 +23,7 @@ f() : Int32 := {
     # маска "*a*" + types=on: только $a и с типом/классом памяти
     # CHECK: .../scope_params.src:{{[0-9]+}}:   [2] FuncDecl `f`: $a<T{{[0-9]+}},local>
     # CHECK-NOT: $b
-    @__DEBUG_SCOPE__("*a*", types=on);
+    @__DEBUG_SCOPE__('*a*', types=on);
     # count=only: только итоги, без разбивки по уровням
     # CHECK: .../scope_params.src:{{[0-9]+}}: scope: depth=
     # CHECK-NOT: [2] FuncDecl

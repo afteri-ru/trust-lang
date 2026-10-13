@@ -1,0 +1,14 @@
+\\\stdlib\stdlib\builtin\rational;
+# builtin/rational.src - external implementation of arbitrary-precision built-in types
+# (Rational and BigInteger).
+#
+# The definition uses `=` (implementation of a PRE-DECLARED type), not `::=`
+# (new type). This file is loaded on demand (by import/package).
+
+@[include("@trust/rational.hpp")@]
+@[link("gmp")@]
+Rational = %trust::Rational { };
+
+@[include("@trust/big_integer.hpp")@]
+@[link("gmp")@]
+BigInteger = %trust::BigInteger { };

@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # DSL-макросы: if / elif / else
 x:Int32 := 5;
@@ -51,7 +51,7 @@ w:Int32 := 0;
 
 # DSL loop (бесконечный цикл)
 @loop {
-    ++;
+    |>|;
 };
 # CHECK: while (1) {
 # CHECK-NEXT:     break;

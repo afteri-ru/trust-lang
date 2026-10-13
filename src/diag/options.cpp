@@ -15,6 +15,11 @@ Options::Options(DiagnosticEngine& diag)
 : m_diag(&diag) {
 }
 
+void Options::setErrorLimit(std::size_t limit) {
+    EXPECT(m_diag && "Options::setErrorLimit: DiagnosticEngine must be bound");
+    m_diag->setErrorLimit(limit);
+}
+
 // Регистрация severity-диагностики (по cli-имени). Проверяет дубликаты, сохраняет метаданные.
 void Options::add_impl(std::string_view name, std::string_view help, Severity default_severity, WarnGroup warn_groups, DiagGroup category) {
     if (by_name_.count(name)) {
@@ -137,7 +142,6 @@ Severity Options::getByName(std::string_view name) const {
         }
         throw std::invalid_argument("Unknown option name");
     }
-    // Глобальный -Werror: все предупреждения повышаются до ошибок (стиль clang/gcc).
     Severity sev = it->second.severity;
     if (m_werror && sev == Severity::Warning) {
         return Severity::Error;
@@ -360,7 +364,7 @@ void Options::printHelp(std::ostream& os) const {
     }
 
     os << "\n  -Whelp                show this list\n";
-    os << "  -Whelp-dsl            list DSL macros (from the loaded trust/dsl.src) with their doc comments\n";
+    os << "  -Whelp-dsl            list DSL macros (from the loaded stdlib/dsl.src) with their doc comments\n";
     os << "  -Whelp-predef-macros  list predefined macros (@__...__) with their descriptions\n";
     os << "  -Whelp-check-areas    list syntactic areas checkable via @__CHECK_AREA__\n";
 }

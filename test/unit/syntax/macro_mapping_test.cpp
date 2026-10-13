@@ -1,4 +1,6 @@
 #include "syntax/macro_test_fixture.hpp"
+
+using namespace trust;
 TEST_F(MacroTest, PredefRootDir) {
     MacroPtr macro = std::make_shared<Macro>(m_ctx);
 

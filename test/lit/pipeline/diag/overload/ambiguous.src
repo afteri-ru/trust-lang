@@ -7,7 +7,7 @@ f(a:Int64, b:Int32):Int32 := { @return 2; };
 @main() := {
     x : Int8 := 3;
     y : Int8 := 4;
-    @print('{}\n', f(x, y));
+    @print("{}\n", f(x, y));
     @return 0;
 }
 # CHECK: error: call to overloaded function 'f' is ambiguous

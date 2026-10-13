@@ -1,0 +1,19 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# При ОПУЩЕННОЙ аннотации полнота проверяется по объявлению callee: клиент не вправе
+# получить неполный тип по значению через вывод типа (`h := make();`).
+# CHECK: error: variable 'h' uses incomplete type 'Handle' by value
+
+//--- main.src
+\lib(Handle, make);
+@main():Int32 := { h := make(); @return 0; };
+
+//--- lib.src
+\lib {
+    Handle ::= :Struct ...;
+    make():Handle := ...;
+};
+:Handle ::= :Struct{ id:Int32 := _; };
+make():Handle := { @return Handle(1); };

@@ -42,7 +42,7 @@ weight: 60
     try_error {
         fib(1000000);
     } catch(_) {
-        @print('STACK OVERFLOW caught\\n');
+        @print("STACK OVERFLOW caught\\n");
     };
     return 0;
 };

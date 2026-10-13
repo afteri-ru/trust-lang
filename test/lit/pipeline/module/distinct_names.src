@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/distinct $TD/main.src
+# RUN: $TD/distinct && echo "PASS"
+# CHECK: PASS
+#
+# Разные имена из разных модулей не конфликтуют (плоское пространство, без дублей).
+
+//--- main.src
+\lib_a(f);
+\lib_b(g);
+@main():Int32 := { @return f(1) + g(2) - 3; };
+
+//--- lib_a.src
+\lib_a;
+f(a:Int32):Int32 := { @return a; };
+
+//--- lib_b.src
+\lib_b;
+g(a:Int32):Int32 := { @return a; };

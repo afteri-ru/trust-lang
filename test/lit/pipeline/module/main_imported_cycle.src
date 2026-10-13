@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Главный файл зарегистрирован по каноническому пути: его импорт из другого модуля — это
+# диагностируемый цикл с цепочкой, а не внутренний FAULT "Cyclic file load".
+# CHECK: fatal: Cyclic module dependency detected:
+# CHECK-SAME: -> \main
+
+//--- main.src
+\main;
+\a();
+@main():Int32 := { @return 0; };
+
+//--- a.src
+\a;
+\main();

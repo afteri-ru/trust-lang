@@ -12,7 +12,7 @@
 # @__DEBUG_SCOPE__ - префикс `<.src>:строка: ` (локация самого макроса).
 # Проверяемый вывод размещён НЕПОСРЕДСТВЕННО после соответствующего места в исходнике.
 #
-@__DEBUG__("scope,declare");
+@__DEBUG__('scope,declare');
 # CHECK: .../class_debug.src:{{[0-9]+}}: @__DEBUG__: debug messages ENABLED, filter='scope,declare'
 # Класс-скоуп открывается через enterScope:
 # CHECK: {{.*}}: enter StructDecl depth=3

@@ -1,9 +1,8 @@
 # RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
-# Оператор в forward-объявлении НАТИВНОГО класса валидируется так же, как у user-record
-# (раньше принимался молча - асимметрия).
+# Оператор в forward-объявлении НАТИВНОГО класса валидируется так же, как у user-record.
 Str2 ::= %std::string {
-    `+`(o: Str2): Str2 := ...;
+    __frob__(o: Str2): Str2 := ...;
 };
 @main() := { @return 0; }
-# CHECK: error: operator '+' is not implemented
+# CHECK: error: system name '__frob__' is reserved; only registered operator system functions may be declared

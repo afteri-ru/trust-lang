@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Конструктор native-шаблона требует явного типа-цели: без него тип Iterator<T> не выводится,
+# и молчаливый std::any/c_Iterator запрещён.
+@main():Int32 := {
+    a := [1, 2, 3,];
+    it := Iterator(a);
+    @return 0;
+}
+# CHECK: constructor of native template 'Iterator' requires an explicit target type

@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src > %t.out 2>&1
+# RUN: $TD/app >> %t.out && echo "PASS" >> %t.out
+# RUN: %FileCheck %s <%t.out
+#
+# Два сайта ОДНОГО модуля с разными масками: имя-зависимые факты регистрируются из экспорт-набора
+# каждой части (заголовок при этом подключается один раз).
+# CHECK: 2
+# CHECK: PASS
+
+//--- main.src
+\lib(helper);
+\lib(f);
+@main():Int32 := { @print("{}\n", f(4.0)); @return 0; };
+
+//--- lib.src
+\lib;
+helper(x:Int32):Int32 := { @return x; };
+@[include("<cmath>")@]
+f(x:Float64):Float64 := %sqrt...;

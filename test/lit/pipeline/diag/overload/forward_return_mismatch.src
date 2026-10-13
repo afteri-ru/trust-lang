@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Return type не входит в C++-идентичность перегрузки, но declaration и definition обязаны
+# иметь ОДИН return type (C++-требование). Ошибка диагностируется компилятором, а не C++-слоем.
+f(a:Int32):Int32 := ...;
+f(a:Int32):Int64 := { @return 1:Int64; };
+@main() := { @return 0; }
+# CHECK: error: definition of 'f' does not match the forward declaration: parameter types/template positions, return type or trust conditions differ

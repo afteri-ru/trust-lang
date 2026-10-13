@@ -1,8 +1,9 @@
 #pragma once
 
-#include "solver/smt_op.hpp"
+#include "solver/smt/smt_op.hpp"
 #include "location/location.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -31,6 +32,32 @@ struct SmtSort {
     std::shared_ptr<SmtSort> domain; ///< for kArray
     std::shared_ptr<SmtSort> range;  ///< for kArray
 };
+
+/// Вид обязательства проверки (источник цели). Источники — только те, что реально порождают
+/// цели в плане; рантайм-проверки операций появятся отдельными видами вместе с backlog D1/D2.
+/// Единый словарь для плана (`VcGoal`), скрипта (`SmtCommand`) и отчёта (`VcCheckResult`).
+#define SOLVER_OBLIGATION_LIST(M)                 \
+    M(kPost, "постусловие")                       \
+    M(kAssert, "утверждение")                     \
+    M(kInvariantEstablishment, "инвариант цикла (вход)")     \
+    M(kInvariantPreservation, "инвариант цикла (сохранение)") \
+    M(kCallPre, "предусловие вызова")             \
+    M(kTypeAssert, "утверждение типа")
+
+#define SOLVER_OBLIGATION_ENUM(name, label) name,
+enum class VcObligationKind { SOLVER_OBLIGATION_LIST(SOLVER_OBLIGATION_ENUM) };
+#undef SOLVER_OBLIGATION_ENUM
+
+#define SOLVER_OBLIGATION_LABEL(name, label) label,
+inline constexpr std::string_view kVcObligationLabels[] = {SOLVER_OBLIGATION_LIST(SOLVER_OBLIGATION_LABEL)};
+#undef SOLVER_OBLIGATION_LABEL
+#undef SOLVER_OBLIGATION_LIST
+
+/// Человекочитаемая метка вида обязательства (для отчёта). Известное значение обязательно.
+[[nodiscard]] inline constexpr std::string_view vcObligationLabel(VcObligationKind kind) noexcept {
+    const int idx = static_cast<int>(kind);
+    return (idx >= 0 && idx < static_cast<int>(std::size(kVcObligationLabels))) ? kVcObligationLabels[idx] : "обязательство";
+}
 
 /// Command kind in SMT-LIB 2
 enum class SmtCommandKind {
@@ -132,9 +159,9 @@ struct SmtCommand {
     // Set-logic
     std::string logic_name;
 
-    /// Для kAssert: true - VC, изолируемый через push/check-sat/pop (проверяется отдельно от
-    /// других VCs); false - глобальное утверждение/аксиома контракта (активно для всех VCs).
-    bool isolated = false;
+    /// Для изолированной цели: вид обязательства (для отчёта `file:line: <вид>`). nullopt —
+    /// команда не является целью.
+    std::optional<VcObligationKind> obligation;
 
     /// Диапазон trust-конструкции, из которой построена команда (для kAssert - что породило VC;
     /// для kDeclareFun - объявление параметра/функции). Заполняет построитель (TrustToSmt).
@@ -149,6 +176,10 @@ struct SmtScript {
     /// Символьный маппинг SMT-имя → {trust-имя, диапазон} (параметры func_param, функции,
     /// глобалы). Собирается построителем (TrustToSmt); используется для .smt2.map и LSP.
     std::vector<std::pair<std::string, SmtSymbolRef>> symbolMap;
+
+    /// Сколько условий проверки НЕ проверялось, потому что их код вне области проверки
+    /// (диагностика `-Wverify-envelope` уже выдана). Такие VC не считаются доказанными.
+    std::size_t outsideEnvelopeCount = 0;
 };
 
 } // namespace solver

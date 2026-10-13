@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Файл-приватность распространяется и на объявления внутри области имён (`ns:: { ... }`) вне
+# интерфейса файла: имя видно своему файлу, но не импортёру, и изолируется в C++ anonymous namespace.
+
+//--- main.src
+\lib(api);
+@main():Int32 := { @return api() - 1; };
+
+//--- lib.src
+\lib {
+    api():Int32 := ...;
+};
+ns:: {
+    helper():Int32 := { @return 2; };
+};
+api():Int32 := { @return ns::helper() - 1; };

@@ -1,8 +1,8 @@
 // -----------------------------------------------------------------------
-// Unit tests for trust-playground config parser (playground/config.h).
+// Unit tests for trust-playground config parser (playground/http/config.h).
 // -----------------------------------------------------------------------
 
-#include "playground/config.h"
+#include "playground/http/config.h"
 
 #include <gtest/gtest.h>
 

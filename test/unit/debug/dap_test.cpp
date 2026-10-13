@@ -5,8 +5,8 @@
 //
 // Без LLDB: тестируется только транспортный протокол и обработка DAP.
 
-#include "debug/dap_transport.h"
-#include "utils/transport.hpp"
+#include "debug/dap/dap_transport.h"
+#include "utils/utils.hpp"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

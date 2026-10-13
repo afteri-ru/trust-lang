@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/private_two $TD/main.src
+# RUN: $TD/private_two && echo "PASS"
+# CHECK: PASS
+#
+# Одноимённые private helper'ы в РАЗНЫХ модулях: разрешены (module-qualified identity),
+# в C++ каждый модуль эмитит свой anonymous namespace.
+
+//--- main.src
+\lib_a(fa);
+\lib_b(fb);
+@main():Int32 := { @return fa(1) + fb(1) - 5; };
+
+//--- lib_a.src
+\lib_a;
+__:: {
+    helper(x:Int32):Int32 := { @return x; };
+};
+fa(x:Int32):Int32 := { @return helper(x) + 1; };
+
+//--- lib_b.src
+\lib_b;
+__:: {
+    helper(x:Int32):Int32 := { @return x; };
+};
+fb(x:Int32):Int32 := { @return helper(x) + 2; };

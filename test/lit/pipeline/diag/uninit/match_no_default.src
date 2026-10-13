@@ -7,6 +7,6 @@
     @match(v) ==> {
         @case(1) { x = 5; };
     };
-    @print('{}', x);
+    @print("{}", x);
 };
 # CHECK: error: variable 'x' is read before it is initialized

@@ -17,9 +17,9 @@
 };
 
 %chk():Void := {
-    $bad := parse_i64('not a number');
-    $ok := parse_i64('123');
-    print('bad={} ok={}', $bad, $ok);
+    $bad := parse_i64("not a number");
+    $ok := parse_i64("123");
+    print("bad={} ok={}", $bad, $ok);
 };
 {% int catch_stdexception__main__() {
     chk();

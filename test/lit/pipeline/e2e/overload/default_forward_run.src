@@ -1,0 +1,13 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: 2
+
+# Default в forward-объявлении принадлежит API и переживает последующее определение без default.
+f(a:Int32 = 2):Int32 := ...;
+f(a:Int32):Int32 := { @return a; };
+@main() := {
+    @print("{}\n", f());
+    @return 0;
+}

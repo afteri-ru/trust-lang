@@ -42,7 +42,7 @@ An example of recursion protected by the attribute (the overflow is caught rathe
     try_error {
         fib(1000000);
     } catch(_) {
-        @print('STACK OVERFLOW caught\\n');
+        @print("STACK OVERFLOW caught\\n");
     };
     return 0;
 };

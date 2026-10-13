@@ -93,7 +93,7 @@ The types of the arguments and of the return value are specified explicitly.
     %read(fd:Int32, buf:StrChar, cnt:SizeT):SizeT := ...;
 
     %fd^:Int32 := 0;
-    fd = %open('foo.txt', 0);   # calling a native function by name
+    fd = %open("foo.txt", 0);   # calling a native function by name
 ```
 
 ### Other native types (status)
@@ -117,7 +117,7 @@ v: vector<Int32> := [1, 2, 3,];
 A type argument is a bare name `Int32` (a soft warning about the sigil `:`) or an explicit type
 `:Int32`/`:MyClass`/`:MyClass<:Int8>`. If the C++ name coincides with a built-in container
 (`std::vector`/`std::array` from `:Array`), a soft diagnostic is issued, and the instantiation is resolved
-through the built-in type. More — [Generics](/en/docs/syntax/generics/).
+through the built-in type. More — [Generics](/en/docs/types/generics/).
 
 ## Forward declaration of native classes {#native-class}
 
@@ -165,7 +165,7 @@ MyStr ::= %std::string {
     %data: CString := ...;   # object field → s.data
 };
 
-s: MyStr := MyStr('hello');              # constructor → std::string("hello")
+s: MyStr := MyStr("hello");              # constructor → std::string("hello")
 n: UInt64 := s.%size();                  # method → (c_s).size()
 d: CString := s.%data;                   # field → (c_s).data
 # → #include <string>
@@ -249,14 +249,10 @@ The linking of a native declaration depends on the presence of `::` in the nativ
 (`%sqrt`) — `extern "C"` (a C symbol of libc/libm); with `::` (`%std::sqrt`) — C++ linking
 without `extern "C"`. More about C++ generation — in [Architecture](../architecture/).
 
-For **modules in TrustLang itself**, a different mechanism is used — the *semantic ABI*: the type
-of an object is restored by the language compiler from the attached semantic definition, and not from the
-decorated name of the symbol. The principle is described in [Semantic ABI of modules](../sabi/).
-
 ## Links
 
 - [Generic programming](generics/)
-- [Code blocks](../operators/#block)
+- [Code blocks](../syntax/concept/#block)
 
 ## Native template types and template classes
 

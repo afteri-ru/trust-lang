@@ -1,4 +1,4 @@
-# RUN: %trust --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %trust --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # Статический член `@::count` (имя с '::') раскрывается в ns::Class::count; доступ `MyStr.count` →
 # `std::string::count` + диагностика -Wstatic-member-as-field (default Warning; без -q выводится).

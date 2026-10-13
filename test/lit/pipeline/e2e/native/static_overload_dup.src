@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Дубль C++-сигнатуры статического native-члена — диагностика анализатора (не EXPECT-падение).
+@include("string")
+MyStr ::= %std::string {
+    @::pick(x:Int32):Int32 := ...;
+    @::pick(x:Int32):Int32 := ...;
+};
+@main() := { @return 0; }
+# CHECK: error: static member 'pick' with the same parameter types is already declared in this type

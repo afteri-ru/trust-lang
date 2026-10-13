@@ -5,6 +5,6 @@
 @main() := {
     base := 5;
     add := [base](x : Int32) : Int32 { @return x + base; };
-    @print('{}\n', add(40));
+    @print("{}\n", add(40));
 }
 # CHECK: 45

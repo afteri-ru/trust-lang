@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --module-root $TD --emit-cpp $TD/a/b_c.src > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+#
+# Кодирование логического пути инъективно: тип scope входит в имя (m_ — группа, p_ — пакет),
+# разделитель \ -> _, символ _ -> __. Для пути группы \\a\b_c entry-символ равен
+# m_a_b__c__main__; без тега scope он совпал бы с пакетным \\\a\b_c (коллизия C++-имён).
+# CHECK: m_a_b__c__main__
+# CHECK-NOT: a_b_c__main__
+# CHECK-NOT: p_a_b__c__main__
+
+//--- a/b_c.src
+\\a\b_c;
+@main():Int32 := { @return 0; };

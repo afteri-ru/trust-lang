@@ -1,4 +1,4 @@
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 /**
  * gen_test_map.cpp - Generates binary .map files for LSP integration tests.
  *

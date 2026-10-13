@@ -1,0 +1,16 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Native template instantiations are distinguished by BOTH the C++ template name and the type
+# arguments: `Pair<Int32,Int32>` (std::pair) and `StdTuple<Int32,Int32>` (std::tuple) must not
+# intern into one TypeId (otherwise one of them would be emitted with the wrong C++ type).
+@include("utility")
+<T1,T2> Pair ::= %std::pair<T1,T2> { };
+
+@include("tuple")
+<T...> StdTuple ::= %std::tuple<T...> { };
+
+f(p: Pair<Int32, Int32>):Int32 := { @return 0; };
+f(t: StdTuple<Int32, Int32>):Int32 := { @return 1; };
+
+# CHECK: std::pair<int32_t, int32_t>
+# CHECK: std::tuple<int32_t, int32_t>

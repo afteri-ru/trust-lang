@@ -18,5 +18,5 @@
 
 v := triple(4);
 if (v >= 10) {
-    @print('triple_ok={}\n', v);
+    @print("triple_ok={}\n", v);
 }

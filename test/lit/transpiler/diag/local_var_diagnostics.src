@@ -1,4 +1,4 @@
-# RUN: %trust --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %trust --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 # (без -q: предупреждения попадают в 2>&1.)
 #
 # Затенение (shadowing) переменных допустимо ТОЛЬКО во вложенных скоупах:

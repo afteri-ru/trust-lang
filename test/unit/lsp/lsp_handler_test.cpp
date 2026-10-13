@@ -227,7 +227,7 @@ TEST_F(TrustLspTest, HandleDocumentLink_ForwardReverseTargets) {
                                   "        mult += 1;\n"
                                   "    };\n"
                                   "    @assert( fact == 3\\4 );\n"
-                                  "    print('{}', :StrChar(fact));\n"
+                                  "    print(\"{}\", :StrChar(fact));\n"
                                   "}\n";
     openTrustFile();
     std::string cppPath = fs::absolute(fs::path(testCppDir) / "test.cppt").string();
@@ -278,7 +278,7 @@ TEST_F(TrustLspTest, HandleDocumentLink_ForwardReverseTargets) {
     // -- Reverse: cpp→trust - print-строка ведёт в print-фрагмент, а не в начало функции --
     {
         int cppPrintLine = findLine(cppText, "trust__print__");
-        int srcPrintLine = findLine(srcText, "print('{}'");
+        int srcPrintLine = findLine(srcText, "print(\"{}\"");
         ASSERT_GE(cppPrintLine, 0) << "cpp print line not found";
         ASSERT_GE(srcPrintLine, 0) << "src print line not found";
 
@@ -318,7 +318,7 @@ TEST_F(TrustLspTest, DISABLED_HandleHover_MacroDefLinkFirst_WholeRange) {
                                   "        mult += 1;\n"
                                   "    };\n"
                                   "    @assert( fact == 3\\4 );\n"
-                                  "    print('{}', :StrChar(fact));\n"
+                                  "    print(\"{}\", :StrChar(fact));\n"
                                   "}\n";
     openTrustFile();
     std::string cppPath = fs::absolute(fs::path(testCppDir) / "test.cppt").string();
@@ -563,4 +563,42 @@ TEST_F(TrustLspTest, HandleNoSigilLocalVariable_HasFixit_AndCodeAction) {
         }
     }
     EXPECT_TRUE(foundQuickfix) << "expected a quickfix replacing bare name with '$extra'\n" << actionResp.dump();
+}
+
+// S6: переход по ССЫЛКЕ на локальную переменную (проекция семантики, не source-map объявления).
+TEST_F(TrustLspTest, HandleDefinition_ReferenceToLocalVariable) {
+    std::ofstream(testSrcFile) << "x := 1;\ny := x + 1;\n";
+    openTrustFile();
+
+    std::string fileUri = "file://" + testSrcFile;
+    json req = {{"jsonrpc", "2.0"},
+                {"id", 201},
+                {"method", "textDocument/definition"},
+                {"params", {{"textDocument", {{"uri", fileUri}}}, {"position", {{"line", 1}, {"character", 5}}}}}};
+    lsp->handleRequest(req);
+
+    json resp = transport.lastResponse();
+    ASSERT_FALSE(resp.is_discarded());
+    ASSERT_TRUE(resp.contains("result") && resp["result"].contains("range")) << resp.dump();
+    EXPECT_EQ(resp["result"]["range"]["start"]["line"].get<int>(), 0) << resp.dump();
+}
+
+// S6: переход по ссылке в ЧУЖОЙ модуль — цель в другом входном файле компиляции.
+TEST_F(TrustLspTest, HandleDefinition_ReferenceToImportedFunction) {
+    std::ofstream(tmpDir + "/lib.src") << "\\lib;\n/// doc lib\nlf():Int32 := { @return 1; };\n";
+    std::ofstream(testSrcFile) << "\\lib(lf);\ny := \\lib::lf();\n";
+    openTrustFile();
+
+    std::string fileUri = "file://" + testSrcFile;
+    json req = {{"jsonrpc", "2.0"},
+                {"id", 202},
+                {"method", "textDocument/definition"},
+                {"params", {{"textDocument", {{"uri", fileUri}}}, {"position", {{"line", 1}, {"character", 12}}}}}};
+    lsp->handleRequest(req);
+
+    json resp = transport.lastResponse();
+    ASSERT_FALSE(resp.is_discarded());
+    ASSERT_TRUE(resp.contains("result") && resp["result"].contains("uri")) << resp.dump();
+    EXPECT_NE(resp["result"]["uri"].get<std::string>().find("lib.src"), std::string::npos) << resp.dump();
+    EXPECT_EQ(resp["result"]["range"]["start"]["line"].get<int>(), 2) << resp.dump();
 }

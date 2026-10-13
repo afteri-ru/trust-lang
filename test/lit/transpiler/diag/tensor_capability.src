@@ -1,0 +1,10 @@
+# REQUIRES: no-torch
+# RUN: %trust -q --temp-dir %t.dir -o %t.bin %s 2>&1 | %FileCheck %s; true
+
+# Без toolchain-возможности with-torch использование провайдера tensor - диагностика ДО линковки.
+
+\\\tensor();
+
+m :Float32[2,2] := [1,2,3,4,];
+
+# CHECK: requires capability 'with-torch'

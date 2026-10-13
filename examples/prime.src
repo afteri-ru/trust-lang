@@ -72,23 +72,23 @@ callCount:Int64 := 0;
 
 @main(argv^:Dict, args^:Dict) := {
     if (:Int32({% $argv.size() %}) < 2) {
-        @print('Usage: prime <start_number> <count>\n');
-        @print('  <start_number> - start number (>= 2), BigInteger\n');
-        @print('  <count>        - how many primes to find (> 0)\n');
+        @print("Usage: prime <start_number> <count>\n");
+        @print("  <start_number> - start number (>= 2), BigInteger\n");
+        @print("  <count>        - how many primes to find (> 0)\n");
         @return 1;
     };
     $start := parse_bigint(:StrChar(argv[0]));
     $count := parse_i64(:StrChar(argv[1]));
     if ($start < 2) {
-        @print('Error: invalid <start_number>: "{}" (expected integer >= 2)\n', argv[0]);
+        @print("Error: invalid <start_number>: \"{}\" (expected integer >= 2)\n", argv[0]);
         return 1;
     };
     if ($count < 1) {
-        @print('Error: invalid <count>: "{}" (expected integer > 0)\n', argv[1]);
+        @print("Error: invalid <count>: \"{}\" (expected integer > 0)\n", argv[1]);
         return 1;
     };
 
-    @print('Searching for {} primes starting from {}:\n', $count, $start);
+    @print("Searching for {} primes starting from {}:\n", $count, $start);
 
     # The first call to the protected function checks whether the stack size is sufficient for the entire call depth.
     callCount = 0;
@@ -101,10 +101,10 @@ callCount:Int64 := 0;
         $found := 0;
         while ($found < $count) {
             if (isPrimeSafe($n, 2)) {
-                @print('  prime: {}\n', $n);
-                $found += 1;
+                @print("  prime: {}\n", $n);
+                $found++;
             };
-            $n += 1;
+            $n++;
         };
 
         # Copy the statistics of the protected version into local variables.
@@ -114,13 +114,13 @@ callCount:Int64 := 0;
     } catch(_) {
 
         # Handling any exception (in this case, a stack overflow)
-        @print('safe: STACK OVERFLOW caught at max depth={}, calls={}\n', maxDepth, callCount);
-        @print('safe: time until overflow = {} ticks\n', %clock() - $t0);
+        @print("safe: STACK OVERFLOW caught at max depth={}, calls={}\n", maxDepth, callCount);
+        @print("safe: time until overflow = {} ticks\n", %clock() - $t0);
         @return 0;
 
     } else {
 
-        @print('safe: completed, max depth={}, calls={}, time={} ticks\n', $safeMax, $safeCalls, $t1 - $t0);
+        @print("safe: completed, max depth={}, calls={}, time={} ticks\n", $safeMax, $safeCalls, $t1 - $t0);
 
         # The UNPROTECTED version executes only if the function with stack overflow protection has completed successfully.
         callCount = 0;
@@ -131,19 +131,19 @@ callCount:Int64 := 0;
         $found2 := 0;
         while ($found2 < $count) {
             if (isPrime($n2, 2)) {
-                @print('  prime: {}\n', $n2);
-                $found2 += 1;
+                @print("  prime: {}\n", $n2);
+                $found2++;
             };
-            $n2 += 1;
+            $n2++;
         };
         $t3 := %clock();
         $unprotMax := maxDepth;
         $unprotCalls := callCount;
-        @print('unprotected: completed, max depth={}, calls={}, time={} ticks\n', $unprotMax, $unprotCalls, $t3 - $t2);
+        @print("unprotected: completed, max depth={}, calls={}, time={} ticks\n", $unprotMax, $unprotCalls, $t3 - $t2);
 
         $du := $t3 - $t2;
         if ($du > 0) {
-            @print('difference: protected is {:.2f}% slower\n',1000.0*($t1 - $t0 - $du) / (10 * $du));
+            @print("difference: protected is {:.2f}% slower\n",1000.0*($t1 - $t0 - $du) / (10 * $du));
         };
         return 0;
     };

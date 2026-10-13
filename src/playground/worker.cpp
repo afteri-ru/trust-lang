@@ -1,5 +1,5 @@
 // src/playground/worker.cpp
-// trust-playground: реализация исполнителя (см. include/playground/worker.h).
+// trust-playground: реализация исполнителя (см. include/playground/server/worker.h).
 //
 // Reverse long-poll: каждый слот держит исходящее HTTP-соединение к балансировщику
 // (POST /poll блокирует до появления задачи или таймаута), выполняет транспиляцию
@@ -7,11 +7,11 @@
 // и отправляет результат (POST /result). Поддержка http (сырые сокеты) и https
 // (через curl, системный TLS-стек).
 
-#include "playground/worker.h"
+#include "playground/server/worker.h"
 
-#include "playground/http.h"
+#include "playground/http/http.h"
 #include "trust/version.h"
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 
 #include <nlohmann/json.hpp>
 

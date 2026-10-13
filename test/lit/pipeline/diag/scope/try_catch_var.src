@@ -8,5 +8,5 @@ try_error {
 } catch(e:IntMinus) {
     b := 2;
 };
-print('{}', e);   # e вне catch → undefined name 'e'
+print("{}", e);   # e вне catch → undefined name 'e'
 # CHECK: error: undefined name 'e'

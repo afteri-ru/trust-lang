@@ -1,0 +1,21 @@
+\\\stdlib\stdlib\async;
+# async.src - coroutine/async library types (standard library).
+#
+# Loaded as stdlib prelude (same mechanism as iterator.src): the types are available
+# unless --no-stdlib is used. Includes and link requirements are applied ON-USE only:
+# a program that never mentions an async type gets neither the headers nor -lpthread.
+#
+# The C++ implementation lives in @stdlib/async/*.hpp and uses only the standard C++
+# coroutine machinery (<coroutine>, <thread>, <mutex>).
+
+@[include("@stdlib/async/task.hpp")@]
+<T> AsyncTask ::= %trust::Task<T> { };
+
+@[include("@stdlib/async/generator.hpp")@]
+<T> AsyncGenerator ::= %trust::AsyncGenerator<T> { };
+
+@[include("@stdlib/async/thread_pool.hpp")@]
+AsyncPool ::= %trust::ThreadPool { };
+
+@[include("@stdlib/async/mutex.hpp")@]
+AsyncMutex ::= %trust::AsyncMutex { };

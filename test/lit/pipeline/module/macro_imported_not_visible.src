@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Макросы импортируемого модуля имеют модульную область видимости: после завершения
+# импорта они локальны для модуля и НЕ видны импортёру (имя остаётся нераскрытым,
+# семантика сообщает об неопределённом имени).
+# CHECK: error: undefined name 'LIBVAL'
+
+//--- main.src
+\lib(f);
+@main():Int32 := { @return LIBVAL; };
+
+//--- lib.src
+\lib;
+@@ LIBVAL @@ 7 @@@@;
+f():Int32 := { @return LIBVAL; };

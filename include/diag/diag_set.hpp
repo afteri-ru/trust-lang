@@ -10,7 +10,7 @@
 // повторяется вручную. Options::add<T> / report<T> в diag используют эти доступы через ADL,
 // поэтому diag остаётся листом (не включает заголовки компонентов).
 
-#include "diag/options_decl.hpp"
+#include "diag/decl/options_decl.hpp"
 
 #include <string_view>
 

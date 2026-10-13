@@ -55,7 +55,7 @@ is set by an explicit annotation (`name:Type`) or inferred from its value; for a
 the minimal signed integer by position is taken.
 
 ```python
-Data ::= (i=42, s='text', r=1\2,):Variant;  # member types: Int8, StrChar, Rational
+Data ::= (i=42, s="text", r=1\2,):Variant;  # member types: Int8, StrChar, Rational
 V    ::= (X:Int64=7, Y:Rational,):Variant;  # explicit member types
 ```
 

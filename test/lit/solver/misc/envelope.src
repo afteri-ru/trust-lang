@@ -1,0 +1,24 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1
+# RUN: %FileCheck --check-prefix=WARN %s <%t.out
+# RUN: %not %trust --solver-mode=export -Wverify-envelope=error -o %t2.smt2 %s > %t2.err 2>&1
+# RUN: %FileCheck --check-prefix=ERR %s <%t2.err
+# RUN: %trust --solver-mode=export -Wverify-envelope=ignore -o %t3.smt2 %s > %t3.out 2>&1
+# RUN: %FileCheck --check-prefix=SILENT %s <%t3.out
+
+# `-Wverify-envelope` управляет ТОЛЬКО сообщением: код вне области проверки в любом случае не
+# получает VC (нельзя «заглушить» непроверенный код и выдать его за проверенный).
+#   warning (default) - сообщение, экспорт продолжается;
+#   error             - ошибка, экспорт прерывается (профиль доказательств);
+#   ignore            - сообщения нет, VC всё равно пропущена.
+
+@[link("m")@] fabs32(x: Int32): Int32 := %abs...;
+
+f(x: Int32): Int32
+    trust_pre(x >= 0)
+    trust_post(f >= 0)
+:= { @return fabs32(x); };
+
+# WARN: warning: outside verification envelope: native call 'fabs32' has no model
+# WARN: условие(й) вне области проверки
+# ERR: error: outside verification envelope: native call 'fabs32' has no model
+# SILENT-NOT: outside verification envelope

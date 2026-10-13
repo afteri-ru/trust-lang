@@ -1,0 +1,21 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1
+# RUN: %FileCheck --check-prefix=WARN %s <%t.out
+# RUN: %FileCheck --check-prefix=SM2 %s <%t.smt2
+
+# A native call in a verified body has no model (no ABI/axiom linking `%abs` to its semantics).
+# The body is therefore OUTSIDE the verification envelope: no VC for `f` is emitted (the contract
+# axiom for callers is still emitted). This is reported explicitly instead of a spurious
+# "counterexample" produced by an uninterpreted function.
+
+@[link("m")@] fabs32(x: Int32): Int32 := %abs...;
+
+f(x: Int32): Int32
+    trust_pre(x >= 0)
+    trust_post(f >= 0)
+:= { @return fabs32(x); };
+
+# WARN: outside verification envelope: native call 'fabs32' has no model
+# SM2: (set-logic UFBV)
+# SM2: (declare-fun f_x () (_ BitVec 32))
+# SM2: (declare-fun f ((_ BitVec 32)) (_ BitVec 32))
+# SM2-NOT: (check-sat)

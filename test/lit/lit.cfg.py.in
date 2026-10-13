@@ -40,17 +40,16 @@ config.substitutions.append(('%FileCheck', '/usr/bin/FileCheck-' + '@CLANG_VERSI
 
 # -- Test file suffixes ------------------------------------------------
 config.suffixes = ['.ast', '.src']
+# ВНИМАНИЕ: lit сравнивает excludes по BASENAME, поэтому имена, встречающиеся в нескольких
+# каталогах, здесь исключать нельзя (иначе молча выключаются одноимённые рабочие тесты).
+# Файлы-фрагменты без RUN исключаются локально через `lit.local.cfg` своего каталога.
 config.excludes = [
     'enum_decl.ast',
     'struct_decl.ast',
     'macro_inside_braces.src',
     'variadic_error.src',
     'lexeme_next_error.src',
-    'call.src',
-    'named.src',
-    'type_simple.src',
-    'nested_parens.src',
-    'if_pattern.src',
+    r'/\.trust/',
 ]
 
 # -- Build-mode feature for debug-output tests --
@@ -64,5 +63,12 @@ if "@TRUST_ENABLE_TRACE@" == "ON":
     config.available_features.add("not-release")
 else:
     config.available_features.add("release")
+
+# Toolchain capability features: a test that links the tensor provider needs a compiler built
+# with libtorch; the capability-negative test runs on a toolchain without it.
+if "@WITH_TORCH@" == "ON":
+    config.available_features.add("with-torch")
+else:
+    config.available_features.add("no-torch")
 
 

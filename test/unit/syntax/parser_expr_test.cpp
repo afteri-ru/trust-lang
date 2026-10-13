@@ -1,4 +1,6 @@
 #include "syntax/parser_test_fixture.hpp"
+
+using namespace trust;
 TEST_F(ParserTest, Comment) {
     ASSERT_TRUE(Parse("#!line1"));
     ASSERT_TRUE(Parse("#!line1\n"));
@@ -186,7 +188,7 @@ TEST_F(ParserTest, BlockTry) {
     Parse("_()::={*1; 2; 3;*}; 4;");
     ASSERT_GT(m_ctx.diag().errorCount(), 0);
 
-    ASSERT_TRUE(Parse("_():={- 1; 2; 3; --4--; 5; 6;-}; 100;"));
+    ASSERT_TRUE(Parse("_():={- 1; 2; 3; |- 4 -|; 5; 6;-}; 100;"));
     ASSERT_EQ(2, ast->m_sequence.size());
     ASSERT_EQ(TermID::CREATE_NAME, ast->m_sequence[0]->getTermID()) << trust::toString(ast->m_sequence[0]->getTermID());
     ASSERT_EQ(TermID::INTEGER, ast->m_sequence[1]->getTermID()) << trust::toString(ast->m_sequence[1]->getTermID());
@@ -293,14 +295,14 @@ TEST_F(ParserTest, WithArgs) {
 
 TEST_F(ParserTest, WhenArgs) {
     // when_all (a, b)
-    ASSERT_TRUE(Parse("[**] (a, b)"));
+    ASSERT_TRUE(Parse("|**| (a, b)"));
     ASSERT_EQ(TermID::WHEN_ALL, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ(2, ast->size());
     ASSERT_EQ("a", ast->at(0).second->getText());
     ASSERT_EQ("b", ast->at(1).second->getText());
 
     // Именованный аргумент в when_any
-    ASSERT_TRUE(Parse("[***] (x = 1)"));
+    ASSERT_TRUE(Parse("|***| (x = 1)"));
     ASSERT_EQ(TermID::WHEN_ANY, ast->getTermID()) << trust::toString(ast->getTermID());
     ASSERT_EQ(1, ast->size());
     ASSERT_EQ("x", ast->at(0).first);
@@ -484,7 +486,7 @@ TEST_F(ParserTest, Follow4) {
 }
 
 TEST_F(ParserTest, Follow5) {
-    ASSERT_TRUE(Parse("[@test1('')] --> {then1;}, [$test2] --> {then2;then2;}, [@test3+$test3] --> {then3;};"));
+    ASSERT_TRUE(Parse("[@test1(\"\")] --> {then1;}, [$test2] --> {then2;then2;}, [@test3+$test3] --> {then3;};"));
     //    ASSERT_EQ("(@test1)->{then1;}\n ($test2)->{then2; then2;}\n(@test3+$test3)->{then3;};", ast->toString());
 }
 

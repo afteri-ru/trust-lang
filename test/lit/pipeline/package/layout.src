@@ -1,0 +1,42 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust --package pkg -o lay.trust > %t.out && test -f lay.trust
+# RUN: tar tzf lay.trust | sort > %t.list
+# RUN: %FileCheck %s --check-prefix=LIST <%t.list
+#
+# Раскладка пакета описывается манифестом ([[layout.layers]]): source-dir обходится
+# рекурсивно (подкаталоги входят автоматически), archive-dir задаёт каталог в архиве,
+# patterns — glob-маски имён файлов. Прочие файлы (notes.txt, CMakeLists.txt) в пакет
+# не попадают. CMake к сборке пакета отношения не имеет.
+
+# LIST: ./include/pkg/deep/inner.hpp
+# LIST: ./include/pkg/header.hpp
+# LIST: ./src/a.src
+# LIST: ./src/nested/b.src
+# LIST-NOT: notes.txt
+# LIST-NOT: CMakeLists.txt
+
+//--- pkg/trust.toml
+name = 'lay'
+[[layout.layers]]
+source-dir = '.'
+archive-dir = 'src'
+patterns = ['*.src']
+[[layout.layers]]
+source-dir = 'inc'
+archive-dir = 'include/pkg'
+patterns = ['*.hpp']
+//--- pkg/a.src
+\\\lay\a;
+a:Int32 := 1;
+//--- pkg/nested/b.src
+\\\lay\nested\b;
+b:Int32 := 2;
+//--- pkg/inc/header.hpp
+#pragma once
+//--- pkg/inc/deep/inner.hpp
+#pragma once
+//--- pkg/notes.txt
+not packed
+//--- pkg/CMakeLists.txt
+# not packed

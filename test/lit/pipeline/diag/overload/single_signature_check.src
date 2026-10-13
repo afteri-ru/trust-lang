@@ -6,7 +6,7 @@
 g(a:StrChar):Int32 := { @return 1; };
 @main() := {
     x : Int32 := 5;
-    @print('{}\n', g(x));
+    @print("{}\n", g(x));
     @return 0;
 }
 # CHECK: error: no matching overload for function 'g'

@@ -1,0 +1,22 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
+# RUN: %FileCheck %s --check-prefix=CALL <$TD/build/main.cppt
+# RUN: $TD/app
+#
+# C: Алиас функции в ТЕЛЕ файла (`\facade;` + `\lib(g);` + `f :- \lib::g;`): имя-алиас входит
+# в экспорт-набор файла и видно клиенту, вызов эмитится C++-именем цели с её суффиксом.
+# CALL: lib::c_g_P10N5_3AInt32_(1)
+
+//--- main.src
+\facade(f);
+@main():Int32 := { @return f(1) - 2; };
+
+//--- lib.src
+\lib;
+g(x:Int32):Int32 := { @return x + 1; };
+
+//--- facade.src
+\facade;
+\lib(g);
+f :- \lib::g;

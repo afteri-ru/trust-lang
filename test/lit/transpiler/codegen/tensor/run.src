@@ -1,0 +1,14 @@
+# REQUIRES: with-torch
+# RUN: rm -rf %t.dir && mkdir -p %t.dir && cd %t.dir && %trust -q --run %s > %t.out && cat %t.out | %FileCheck %s
+
+# End-to-end: Core-тип Tensor + провайдер tensor_cpu (libtorch) — кодогенерация, линковка,
+# выполнение. m = [[1,2],[3,4]], n = m * 2 → n[1,1] == 8.
+
+\\\tensor();
+
+m :Float32[2,2] := [1,2,3,4,];
+n := m * 2;
+x :Float32 := n[1,1];
+@print("n={}\n", x);
+
+# CHECK: n=8

@@ -43,7 +43,7 @@ enum class CliCategory {
     CompileModel,    ///< CompileMode, EmitFlags, --run, --semantic-on-errors
     Linking,         ///< -l<lib>, -L<dir>, --link-runtime, --linker
     Toolchain,       ///< --compiler, --ar, --std, -O, -g
-    ProjectSpecific, ///< --dsl, --no-dsl, --no-stdlib, --module-info
+    ProjectSpecific, ///< --dsl, --no-dsl, --no-stdlib
     Formatting       ///< --format, --format-check, --keywords, --format-config, ...
 };
 
@@ -180,15 +180,20 @@ inline std::string parseDriverArgs(std::span<std::string> args, std::span<const 
             }
         } else if (tok.size() >= 2 && tok[0] == '-') {
             if (tok[1] == 'f' && tok.size() >= 3) {
-                // Поведенческий feature-флаг по конвенции компиляторов (gcc/clang):
-                // `-f<name>` включает, `-fno-<name>` выключает. НЕ диагностика (не -W).
-                // Пример: -fsolver-loop-unroll / -fno-solver-loop-unroll.
-                std::string fname = tok.substr(2);
-                bool fenable = true;
-                if (fname.rfind("no-", 0) == 0) {
-                    fenable = false;
-                    fname = fname.substr(3);
+                // Поведенческая опция по конвенции компиляторов (gcc/clang):
+                //   -f<name>            включает булев флаг, -fno-<name> выключает;
+                //   -f<name>=<value>    задаёт значение небулевой опции (напр. -ferror-limit=20,
+                //                       -fsync-deadlock=5s).
+                std::string fbody = tok.substr(2);
+                bool fnegated = false;
+                if (fbody.rfind("no-", 0) == 0) {
+                    fnegated = true;
+                    fbody = fbody.substr(3);
                 }
+                const std::string::size_type feq = fbody.find('=');
+                const bool fhas_val = feq != std::string::npos;
+                const std::string fname = fhas_val ? fbody.substr(0, feq) : fbody;
+                const std::string fvalue = fhas_val ? fbody.substr(feq + 1) : std::string{};
                 const DriverOption* fo = findLong(fname);
                 if (!fo) {
                     // Неизвестный -f флаг: при analysis_passthrough (trust-lsp) - общая опция
@@ -199,11 +204,23 @@ inline std::string parseDriverArgs(std::span<std::string> args, std::span<const 
                     }
                     return "unknown option '-f" + fname + "'";
                 }
-                if (fo->kind != CliOpt::Flag) {
-                    return "option '-f" + fname + "' is not a boolean flag";
-                }
-                if (!apply(fo->id, fenable ? "on" : "off")) {
-                    return "invalid value for option '-f" + fname + "'";
+                if (fo->kind == CliOpt::Flag) {
+                    if (fhas_val) {
+                        return "option '-f" + fname + "' does not take a value";
+                    }
+                    if (!apply(fo->id, fnegated ? "off" : "on")) {
+                        return "invalid value for option '-f" + fname + "'";
+                    }
+                } else {
+                    if (fnegated) {
+                        return "option '-fno-" + fname + "' is not a boolean flag";
+                    }
+                    if (!fhas_val) {
+                        return "option '-f" + fname + "' requires a value ('-f" + fname + "=<value>')";
+                    }
+                    if (!apply(fo->id, fvalue)) {
+                        return "invalid value for option '-f" + fname + "'";
+                    }
                 }
                 continue;
             }
@@ -315,7 +332,7 @@ inline bool extractServerCommand(std::vector<std::string>& args, int& out_port, 
 /// (см. parseDriverArgs) и разбирает их тем же applyAnalysisArgs - общие опции не
 /// дублируются ни в одной таблице драйвера LSP.
 inline std::vector<DriverOption> commonAnalysisOptions(int solverModeId, int keywordsId, int solverLoopUnrollId, int stackCheckId = -1,
-                                                       int stackCheckReserveId = -1, int stackCheckFunctionsId = -1) {
+                                                       int stackCheckReserveId = -1, int stackCheckFunctionsId = -1, int verifyId = -1) {
     std::vector<DriverOption> opts = {
         {solverModeId, "solver-mode", "", CliOpt::Value, "mode",
          "Behavior for trust conditions (pre/post-conditions and assertions): "
@@ -347,6 +364,12 @@ inline std::vector<DriverOption> commonAnalysisOptions(int solverModeId, int key
         opts.push_back({stackCheckReserveId, "stack-check-reserve", "", CliOpt::Value, "bytes",
                         "Minimum stack reserve (bytes) for exception handling, added to all stack checks; "
                         "empty = runtime default (8192). Also settable via @__OPTION__(\"stack-check-reserve\", ...).",
+                        CliCategory::ProjectSpecific});
+    }
+    if (verifyId >= 0) {
+        opts.push_back({verifyId, "verify", "", CliOpt::Value, "mode",
+                        "Proof gate: 'all' requires EVERY proof obligation to be proved; writes a "
+                        "deterministic <input>.trustcert. Unproved obligations are errors (not warnings).",
                         CliCategory::ProjectSpecific});
     }
     if (stackCheckFunctionsId >= 0) {

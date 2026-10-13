@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD -Wunmatched-mask=error --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Маска, не совпавшая НИ В ОДНОМ файле группы, остаётся несовпавшей: пересечение непопаданий
+# по частям сайта не должно «съедать» диагностику.
+
+# CHECK: error: import mask 'zzz' does not match any exported declaration
+
+//--- main.src
+\\grp(zzz);
+@main():Int32 := { @return 0; };
+
+//--- grp/a.src
+\\grp\a;
+a_c():Int32 := { @return 1; };
+
+//--- grp/b.src
+\\grp\b;
+h():Int32 := { @return 2; };

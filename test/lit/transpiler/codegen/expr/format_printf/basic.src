@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # Атрибут @[format("printf", 1, 2)] + форматный параметр-указатель на константную строку:
 # генерируется сигнатура `const char*` с вариативностью `...`. Строковую ПЕРЕМЕННУЮ
@@ -9,8 +9,8 @@
 %puts(s: @[reftype(ptr)@] StrChar^):Int32 := ...;
 
 @main() := {
-    s: StrChar := 'abc';
-    %printf('hi %d\n', 42);
+    s: StrChar := "abc";
+    %printf("hi %d\n", 42);
     %puts(s.c_str());
 }
 # CHECK: extern "C" int32_t printf(const char* c_fmt, ...);

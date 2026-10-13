@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: 3 3 13 16 3 3 13
+
+# Именованные аргументы и значения по умолчанию для свободных функций, методов и operator().
+# Аргументы переставляются в порядок параметров; хвостовые defaults материализуются
+# на сайте вызова (C++-объявление не обязано содержать default-аргументы).
+f(a:Int32, b:Int32 = 2):Int32 := { @return a + b; };
+f(a:StrChar, b:Int32 = 3):Int32 := { @return b; };
+:C ::= :Class{
+    base:Int32 := 10;
+    m(a:Int32, b:Int32 = 5):Int32 := { @return base + a + b; };
+};
+:P ::= :Class{
+    x:Int32 := _;
+    __call__(a:Int32, b:Int32 = 10):Int32 := { @return a + b; };
+};
+
+@main() := {
+    c : C := C();
+    p : P := :P(1);
+    @print("{} {} {} {} {} {} {}\n", f(.b = 2, .a = 1), f(.b = 3, .a = "x"), c.m(.b = 2, .a = 1), c.m(1), f(1),
+           p(.b = 2, .a = 1), p(3));
+    @return 0;
+}

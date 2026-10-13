@@ -6,8 +6,8 @@ tags: [types]
 
 *TrustLang* supports two string types:
 
-- `:StrChar` — universal byte UTF-8 strings;
-- `:StrWide` — system (wide-character) strings.
+- `:StrChar` — universal byte UTF-8 strings; literal in double quotes `"…"`;
+- `:StrWide` — system (wide-character) strings; literal in single quotes `'…'`.
 
 ## Byte strings `:StrChar` {#StrChar}
 
@@ -25,6 +25,9 @@ always corresponds to one character cell without converting UTF-8 code points.
 
 Despite the different single element, the internal representation of both types is the same: the data of the strings
 is stored as a byte UTF-8 sequence.
+
+The width of a string literal is set by the quotes: `"…"` — `:StrChar`, `'…'` — `:StrWide`.
+Raw strings follow the same rule by delimiter: `R"(…)"` — `:StrChar`, `R'(…)'` — `:StrWide`.
 
 ## String formatting {#format}
 

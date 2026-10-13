@@ -1,0 +1,16 @@
+# RUN: %trust --solver-mode=export -o %t.smt2 %s > %t.out 2>&1
+# RUN: z3 -smt2 %t.smt2 2>&1 | %FileCheck --check-prefix=Z3 %s
+
+# Аргумент вызова приводится к сорту параметра callee (расширение разрядности): узкий литерал
+# (`k := 1` → Int8) не должен ломать приложение uninterpreted-функции (сорт параметра Int32).
+
+bump(x:Int32):Int32 trust_pre( x < 100 ) trust_post( bump > x ) := { @return x + 1; };
+
+passnarrow(n:Int32):Int32 trust_post( passnarrow > 0 ) := {
+    k := 1;
+    @return bump(k);
+};
+
+# Z3: unsat
+# Z3: unsat
+# Z3: unsat

@@ -1,5 +1,6 @@
-// test/unit/driver/parse_test.cpp - unit-тесты arity-aware парсера драйвера (Pipeline::parseArgs).
-#include "pipeline/pipeline.hpp"
+// test/unit/driver/parse_test.cpp - unit-тесты arity-aware парсера драйвера (parseCommandLine).
+#include "pipeline/cli.hpp"
+#include "pipeline/makefile_build.hpp"
 #include "driver/cli.hpp"
 #include <gtest/gtest.h>
 
@@ -56,7 +57,7 @@ static ParseResult do_parse(std::vector<const char*> args) {
     for (auto& a : processed) {
         argv.push_back(const_cast<char*>(a));
     }
-    return Pipeline::parseArgs(static_cast<int>(argv.size()), argv.data());
+    return parseCommandLine(std::span<char*>(argv.data(), argv.size()));
 }
 } // anonymous namespace
 
@@ -321,3 +322,38 @@ TEST(Parser, DslAndNoDslConflict) {
     EXPECT_EQ(r.exit_code, 1);
 }
 
+// -- Лимит ошибок: поведенческая опция (не severity) в форме clang/gcc `-f<name>=<value>`. --
+TEST(Parser, ErrorLimitLongEquals) {
+    auto r = do_parse({"trust", "--error-limit=5", "input.src"});
+    ASSERT_TRUE(r.opts.error_limit.has_value());
+    EXPECT_EQ(*r.opts.error_limit, 5u);
+    EXPECT_EQ(r.exit_code, 0);
+}
+
+TEST(Parser, ErrorLimitShortFEquals) {
+    auto r = do_parse({"trust", "-ferror-limit=7", "input.src"});
+    ASSERT_TRUE(r.opts.error_limit.has_value());
+    EXPECT_EQ(*r.opts.error_limit, 7u);
+    EXPECT_EQ(r.exit_code, 0);
+}
+
+TEST(Parser, ErrorLimitZeroDisables) {
+    auto r = do_parse({"trust", "-ferror-limit=0", "input.src"});
+    ASSERT_TRUE(r.opts.error_limit.has_value());
+    EXPECT_EQ(*r.opts.error_limit, 0u);
+}
+
+TEST(Parser, ErrorLimitRejectsInvalidValues) {
+    EXPECT_EQ(do_parse({"trust", "-ferror-limit=abc", "input.src"}).exit_code, 1);
+    EXPECT_EQ(do_parse({"trust", "-ferror-limit=-1", "input.src"}).exit_code, 1);
+    EXPECT_EQ(do_parse({"trust", "-ferror-limit=", "input.src"}).exit_code, 1);
+    EXPECT_EQ(do_parse({"trust", "-ferror-limit", "input.src"}).exit_code, 1);
+    EXPECT_EQ(do_parse({"trust", "-fno-error-limit", "input.src"}).exit_code, 1);
+}
+
+// -f<name>=<value> поддерживается и для -fsync-deadlock=<time>.
+TEST(Parser, SyncDeadlockShortFEquals) {
+    auto r = do_parse({"trust", "-fsync-deadlock=5s", "input.src"});
+    EXPECT_EQ(r.opts.sync_deadlock_timeout, "5s");
+    EXPECT_EQ(r.exit_code, 0);
+}

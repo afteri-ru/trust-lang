@@ -1,0 +1,12 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Кавычки в теле литерала: StrChar (двойные) допускает апостроф, StrWide (одинарные) -
+# сырую двойную кавычку. В C++-литералах двойная кавычка экранируется, апостроф - нет.
+a := "it's";
+# CHECK: std::string c_a = "it's";
+
+b := 'say "hi" raw';
+# CHECK-NEXT: std::wstring c_b = L"say \"hi\" raw";
+
+c := 'it\'s';
+# CHECK-NEXT: std::wstring c_c = L"it\'s";

@@ -1,6 +1,12 @@
 # include/vscode/CMakeLists.txt
 # VS Code Extension Build System
 
+# Компонент-инструмент: C++-заголовков и библиотечной цели нет (только цели упаковки VSIX).
+trust_component(vscode
+    NO_LIB
+    PUBLIC_DIRS extensions packager syntaxes
+)
+
 # Версия и хеш берутся из cmake/version.cmake (включён в корневом CMakeLists.txt ДО
 # этого подкаталога): TRUST_VERSION, TRUST_VERSION_SHORT, TRUST_GIT_HASH, TRUST_VERSION_FULL.
 # Не дублируем чтение VERSION и git rev-parse здесь - см. AGENTS.md (single source of truth).
@@ -71,11 +77,10 @@ add_custom_target(npm-install-vscode-deps
 # в ${VSIX_DIST_DIR} (_build/dist) - см. package_vsix.cmake (VSIX_OUTPUT_DIR).
 # Отключить можно через -DTRUST_BUILD_VSIX=OFF.
 if(TRUST_BUILD_VSIX)
-    add_custom_target(vsix-trust-lang ALL
+    # Регистрация — через общий helper: clean-tree pre-check (VSIX встраивает TRUST_VERSION,
+    # на dev-сборке с git-хешем) + упаковщик.
+    trust_artifact_target(vsix-trust-lang ALL
         COMMENT "Building trust-lang.vsix"
-        # Clean-tree pre-check: the VSIX embeds TRUST_VERSION (which carries the git hash on dev
-        # builds), so it must correspond to a committed state (error in release, warning in dev).
-        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/cmake/require_clean_tree.cmake
         COMMAND ${CMAKE_COMMAND}
             -D VSIX_SOURCE_DIR=${VSIX_STAGING}
             -D VSIX_OUTPUT_DIR=${VSIX_DIST_DIR}

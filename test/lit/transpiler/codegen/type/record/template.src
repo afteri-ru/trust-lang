@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 # RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/template.o %s && test -f $TD/template.o
 
 # Пользовательские шаблон-классы: `<T> :Box ::= :Class{...}` → C++ `template <typename T> struct c_Box`
@@ -13,8 +13,8 @@
 # CHECK: template <typename T>
 # CHECK-NEXT: struct c_Box {
 # CHECK-NEXT:     T c_value;
-# CHECK: T c_get() {
-# CHECK: void c_set(T c_v) {
+# CHECK: T c_get{{_[A-Za-z0-9_]+}}() {
+# CHECK: void c_set{{_[A-Za-z0-9_]+}}(T c_v) {
 # CHECK:     c_value = c_v;
 
 <T,U> :Pair ::= :Class{

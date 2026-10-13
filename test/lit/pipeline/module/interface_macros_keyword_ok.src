@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Макрос БАЗОВОГО скоупа (DSL-макрос `true`) в блоке интерфейса допустим: он определён вне
+# модулей, поэтому интерфейс не зависит от импортёра.
+
+//--- main.src
+\lib(flag);
+@main():Int32 := { if(flag) { @return 0; }; @return 1; };
+
+//--- lib.src
+\lib {
+    flag:Bool := true;
+};

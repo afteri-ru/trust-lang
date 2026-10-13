@@ -1,9 +1,10 @@
 // test/unit/types/type_alias_test.cpp
-// Прямые юнит-тесты TypeRegistry для регистрации нового типа-синонима
+// Прямые юнит-тесты TypeSystem для регистрации нового типа-синонима
 // (alias на Int32), проверки C++-имени, канонического типа, дубликатов,
 // цепочек алиасов и сброса реестра.
 
-#include "types/registry.hpp"
+#include "types/type_system.hpp"
+#include "types/names.hpp"
 #include "types/type_id.hpp"
 #include "session/context.hpp"
 #include "gtest/gtest.h"
@@ -16,106 +17,137 @@ namespace {
 class TypeAliasFixture : public ::testing::Test {
   protected:
     Context m_ctx;
-    std::unique_ptr<TypeRegistry> m_types;
+    std::unique_ptr<TypeSystem> m_types;
 
     void SetUp() override {
-        m_types = std::make_unique<TypeRegistry>(m_ctx.diag(), m_ctx.opts());
+        m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
     }
 
-    TypeId int32Id() { return m_ctx.types().getType("Int32"); }
+    TypeId int32Id() { return m_ctx.readTypes().getType("Int32"); }
 };
 
 TEST_F(TypeAliasFixture, RegisterSynonymOfInt) {
-    TypeRegistry& reg = m_ctx.types();
+    TypeSystem& reg = m_ctx.types();
 
     // Регистрация нового типа-синонима на базе Int32.
-    TypeId alias = reg.registerType("Age", int32Id());
+    TypeId alias = reg.registrar().registerType("Age", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
     // Алиас - отдельный TypeId, но канонически - Int32.
     EXPECT_NE(alias, int32Id());
-    EXPECT_EQ(reg.getCanonicalTypeId(alias), int32Id());
+    EXPECT_EQ(reg.read().store().desugaredTypeId(alias), int32Id());
 
     // Тип ищется по имени; C++-имя - у канонического (базового) типа.
-    auto found = reg.findType("Age");
+    auto found = reg.read().findType("Age");
     ASSERT_TRUE(found.has_value());
     EXPECT_EQ(*found, alias);
-    EXPECT_EQ(reg.getCppTypeName(reg.getCanonicalTypeId(alias)).value_or(""), "int32_t");
+    EXPECT_EQ(reg.read().printer().getCppTypeName(reg.read().store().desugaredTypeId(alias)).value_or(""), "int32_t");
 }
 
 TEST_F(TypeAliasFixture, DuplicateRegisterFails) {
-    TypeRegistry& reg = m_ctx.types();
+    TypeSystem& reg = m_ctx.types();
 
-    TypeId alias = reg.registerType("Age", int32Id());
+    TypeId alias = reg.registrar().registerType("Age", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
 
     // Повторная регистрация того же имени - ошибка (INVALID_TYPE_ID).
-    EXPECT_EQ(reg.registerType("Age", int32Id()), INVALID_TYPE_ID);
+    EXPECT_EQ(reg.registrar().registerType("Age", int32Id()), INVALID_TYPE_ID);
 }
 
 TEST_F(TypeAliasFixture, AliasChainCanonical) {
-    TypeRegistry& reg = m_ctx.types();
+    TypeSystem& reg = m_ctx.types();
 
-    TypeId age = reg.registerType("Age", int32Id());
+    TypeId age = reg.registrar().registerType("Age", int32Id());
     ASSERT_NE(age, INVALID_TYPE_ID);
-    TypeId myAge = reg.registerType("MyAge", age); // цепочка MyAge → Age → Int32
+    TypeId myAge = reg.registrar().registerType("MyAge", age); // цепочка MyAge → Age → Int32
     ASSERT_NE(myAge, INVALID_TYPE_ID);
 
     // Канонический тип разворачивает всю цепочку до Int32.
-    EXPECT_EQ(reg.getCanonicalTypeId(myAge), int32Id());
-    EXPECT_EQ(reg.getCppTypeName(reg.getCanonicalTypeId(myAge)).value_or(""), "int32_t");
+    EXPECT_EQ(reg.read().store().desugaredTypeId(myAge), int32Id());
+    EXPECT_EQ(reg.read().printer().getCppTypeName(reg.read().store().desugaredTypeId(myAge)).value_or(""), "int32_t");
 }
 
 TEST_F(TypeAliasFixture, ResetClearsUserAliases) {
-    TypeRegistry& reg = m_ctx.types();
+    TypeSystem& reg = m_ctx.types();
 
-    TypeId alias = reg.registerType("Age", int32Id());
+    TypeId alias = reg.registrar().registerType("Age", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
-    EXPECT_TRUE(reg.findType("Age").has_value());
+    EXPECT_TRUE(reg.read().findType("Age").has_value());
 
     // reset() очищает пользовательские алиасы, но builtin-типы остаются.
     reg.reset();
-    EXPECT_FALSE(reg.findType("Age").has_value());
-    EXPECT_TRUE(reg.findType("Int32").has_value());
+    EXPECT_FALSE(reg.read().findType("Age").has_value());
+    EXPECT_TRUE(reg.read().findType("Int32").has_value());
 }
 
 TEST_F(TypeAliasFixture, GetFullTypeNameUserAlias) {
-    TypeRegistry& reg = m_ctx.types();
+    TypeSystem& reg = m_ctx.types();
 
-    TypeId alias = reg.registerType("MyInt", int32Id());
+    TypeId alias = reg.registrar().registerType("MyInt", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
-    // Имя владеющее - getFullTypeName возвращает точное имя, а не мусор (латентный баг string_view).
-    EXPECT_EQ(reg.getFullTypeName(alias), "MyInt");
+    // Имя владеющее - getTypeName возвращает точное имя, а не мусор (латентный баг string_view).
+    EXPECT_EQ(reg.read().printer().getTypeName(alias), "MyInt");
     // Пользовательский алиас - это пользовательский тип.
-    EXPECT_TRUE(reg.isUserDefinedType(alias));
+    EXPECT_TRUE(reg.read().store().isUserDefinedType(alias));
 }
 
 TEST_F(TypeAliasFixture, IsUserDefinedDistinguishesBuiltinAndUser) {
-    TypeRegistry& reg = m_ctx.types();
+    TypeSystem& reg = m_ctx.types();
 
     // Машинные типы и встроенные алиасы - НЕ пользовательские.
-    EXPECT_FALSE(reg.isUserDefinedType(reg.getType("Int32")));
-    EXPECT_FALSE(reg.isUserDefinedType(reg.getType("Integer")));
-    EXPECT_FALSE(reg.isUserDefinedType(reg.getType("String")));
+    EXPECT_FALSE(reg.read().store().isUserDefinedType(reg.read().getType("Int32")));
+    EXPECT_FALSE(reg.read().store().isUserDefinedType(reg.read().getType("Integer")));
+    EXPECT_FALSE(reg.read().store().isUserDefinedType(reg.read().getType("String")));
 
     // Пользовательский алиас - пользовательский.
-    TypeId alias = reg.registerType("MyInt", int32Id());
+    TypeId alias = reg.registrar().registerType("MyInt", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
-    EXPECT_TRUE(reg.isUserDefinedType(alias));
+    EXPECT_TRUE(reg.read().store().isUserDefinedType(alias));
 }
 
 TEST_F(TypeAliasFixture, BuiltinAliasesStayBuiltinAfterReset) {
-    TypeRegistry& reg = m_ctx.types();
+    TypeSystem& reg = m_ctx.types();
 
-    TypeId alias = reg.registerType("Age", int32Id());
+    TypeId alias = reg.registrar().registerType("Age", int32Id());
     ASSERT_NE(alias, INVALID_TYPE_ID);
     reg.reset();
 
     // Пользовательский алиас очищен; встроенные остались и по-прежнему не пользовательские.
-    EXPECT_FALSE(reg.findType("Age").has_value());
-    EXPECT_TRUE(reg.findType("Integer").has_value());
-    EXPECT_FALSE(reg.isUserDefinedType(reg.getType("Integer")));
-    EXPECT_FALSE(reg.isUserDefinedType(reg.getType("Int32")));
+    EXPECT_FALSE(reg.read().findType("Age").has_value());
+    EXPECT_TRUE(reg.read().findType("Integer").has_value());
+    EXPECT_FALSE(reg.read().store().isUserDefinedType(reg.read().getType("Integer")));
+    EXPECT_FALSE(reg.read().store().isUserDefinedType(reg.read().getType("Int32")));
+}
+
+TEST_F(TypeAliasFixture, AliasTypeNameReusesTargetId) {
+    TypeSystem& reg = m_ctx.types();
+
+    const TypeId target = reg.registrar().registerType("MyInt", int32Id());
+    ASSERT_NE(target, INVALID_TYPE_ID);
+
+    // `:Alias = MyInt;` - ВТОРОЕ имя существующего типа: TypeId НЕ создаётся.
+    const TypeId alias = reg.names().aliasTypeName(target, exportedKey("", "Alias"), "Alias", {});
+    ASSERT_EQ(alias, target);
+    EXPECT_EQ(m_ctx.diag().errorCount(), 0u);
+
+    // Имя ищется под новым ключом, но display-имя и C++-представление - у цели.
+    EXPECT_EQ(reg.read().findType(exportedKey("", "Alias")).value_or(INVALID_TYPE_ID), target);
+    EXPECT_EQ(reg.read().printer().getTypeName(alias), "MyInt");
+    EXPECT_EQ(reg.read().printer().getCppTypeName(alias).value_or(""), "c_MyInt");
+    EXPECT_FALSE(reg.read().store().isFilePrivate(alias));
+}
+
+TEST_F(TypeAliasFixture, AliasTypeNameRejectsTakenName) {
+    TypeSystem& reg = m_ctx.types();
+
+    const TypeId age = reg.registrar().registerType("Age", int32Id());
+    ASSERT_NE(age, INVALID_TYPE_ID);
+
+    // Имя занято другим типом: пользовательская диагностика (не EXPECT), второго имени нет.
+    EXPECT_EQ(reg.names().aliasTypeName(int32Id(), exportedKey("", "Age"), "Age", {}), INVALID_TYPE_ID);
+    EXPECT_EQ(m_ctx.diag().errorCount(), 1u);
+    // Прежняя привязка имени не изменилась (ключ не переприсвоен другому TypeId).
+    EXPECT_EQ(reg.read().findType(exportedKey("", "Age")).value_or(INVALID_TYPE_ID), age);
 }
 
 } // namespace

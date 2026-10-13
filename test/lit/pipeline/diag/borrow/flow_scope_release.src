@@ -1,0 +1,14 @@
+# RUN: %trust -q --emit-cpp -Wborrow-owner-mutated=error -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Flow: представление вышло из области видимости на всех путях -> мутация
+# источника после блока НЕ является нарушением (ScopeExit).
+@main() := {
+    &* x := 5;
+    {
+        &? w := & x;
+        @print("{}\n", *w);
+    };
+    x :=: _;
+    @print("{}\n", 1);
+}
+# CHECK-NOT: while a derived view is alive

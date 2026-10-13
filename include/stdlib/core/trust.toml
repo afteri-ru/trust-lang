@@ -1,0 +1,102 @@
+# include/stdlib/core/trust.toml
+# Манифест core-пакета стандартной библиотеки (признак пакета).
+#
+# Поле `version` — semver САМОГО ПАКЕТА (например 1.2.3) и не связано с версией компилятора.
+# Упаковщик (`trust --package`) сохраняет авторскую версию; если поле не задано — подставляет
+# версию компилятора как provenance. Версия компилятора фиксируется в [build].toolchain.
+#
+# [[layout.layers]] описывает, какие файлы дерева входят в пакет и куда они попадают:
+#   source-dir  — каталог относительно этого манифеста (обходится РЕКУРСИВНО, подкаталоги
+#                 входят автоматически; относительный путь сохраняется под archive-dir);
+#   archive-dir — каталог внутри архива (относительный, без '..');
+#   patterns    — glob-маски ИМЁН файлов (*, ?); не совпавшие файлы в пакет не входят.
+# Без [[layout.layers]] пакетом становится всё дерево каталога манифеста.
+name = "stdlib"
+description = "TrustLang standard library: prelude sources, built-in type implementations and C++ headers"
+
+# trust-исходники: dsl.src, iterator.src, math.src, builtin/*.src
+# source-dir/archive-dir по умолчанию "." (каталог манифеста / корень архива).
+[[layout.layers]]
+archive-dir = "stdlib"
+patterns = ["*.src"]
+
+# C++-заголовки библиотечных типов: *.hpp, builtin/*.hpp
+[[layout.layers]]
+archive-dir = "include/stdlib"
+patterns = ["*.hpp"]
+
+# C++-заголовки встроенных типов лежат вне каталога пакета
+[[layout.layers]]
+source-dir = "../../runtime/trust"
+archive-dir = "include/trust"
+patterns = ["*.hpp"]
+
+# -- Link-контракт пакета ---------------------------------------------------
+# trust-runtime и gmp — обычные артефакты, как tensor/pthread. Пакет сам по себе
+# НЕ добавляет link-опции: линковка demand-driven через [[link.headers]] и @[link(...)].
+# `requires` — потребность САМОГО артефакта: архив trust-runtime.a содержит
+# big_integer/rational, собранные с GMP, поэтому `-lgmp` нужен при любой линковке
+# runtime, а не только при использовании BigInteger/Rational-заголовков.
+[[artifact]]
+provides = ["trust-runtime"]
+kind = "toolchain"
+libs = ["trust-runtime"]
+requires = ["gmp"]
+
+[[artifact]]
+provides = ["gmp"]
+kind = "system"
+libs = ["gmp"]
+
+# Потоки async-слоя (ThreadPool): системный артефакт, подключается ON-USE по заголовку.
+[[artifact]]
+provides = ["pthread"]
+kind = "system"
+libs = ["pthread"]
+link-options = ["-pthread"]
+
+# Потребность: используемый заголовок -> логические библиотеки.
+# Header-only заголовки (interrupt, trusted-cpp, trusted-cpp-sync, resource, enum,
+# stack_check) правил не имеют и runtime не тянут.
+# gmp в правилах НЕ дублируется: он приходит транзитивно через requires у trust-runtime.
+[[link.headers]]
+header = "trust/rational.hpp"
+libs = ["trust-runtime"]
+
+[[link.headers]]
+header = "trust/big_integer.hpp"
+libs = ["trust-runtime"]
+
+[[link.headers]]
+header = "trust/dict.hpp"
+libs = ["trust-runtime"]
+
+[[link.headers]]
+header = "trust/range.hpp"
+libs = ["trust-runtime"]
+
+[[link.headers]]
+header = "trust/args.hpp"
+libs = ["trust-runtime"]
+
+[[link.headers]]
+header = "trust/io.hpp"
+libs = ["trust-runtime"]
+
+[[link.headers]]
+header = "trust/assert.hpp"
+libs = ["trust-runtime"]
+
+[[link.headers]]
+header = "trust/checked_cast.hpp"
+libs = ["trust-runtime"]
+
+[[link.headers]]
+header = "trust/any_convert.hpp"
+libs = ["trust-runtime"]
+
+[[link.headers]]
+header = "stdlib/async/thread_pool.hpp"
+libs = ["pthread"]
+
+

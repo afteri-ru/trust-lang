@@ -20,13 +20,13 @@ TEST(StringsTest, Trim) {
 }
 
 TEST(StringsTest, IsNumber) {
-    EXPECT_FALSE(is_number(""));
-    EXPECT_TRUE(is_number("42"));
-    EXPECT_TRUE(is_number("-42"));
-    EXPECT_TRUE(is_number("0"));
-    EXPECT_FALSE(is_number("abc"));
-    EXPECT_FALSE(is_number("12a34"));
-    EXPECT_FALSE(is_number("-"));
+    EXPECT_FALSE(isNumber(""));
+    EXPECT_TRUE(isNumber("42"));
+    EXPECT_TRUE(isNumber("-42"));
+    EXPECT_TRUE(isNumber("0"));
+    EXPECT_FALSE(isNumber("abc"));
+    EXPECT_FALSE(isNumber("12a34"));
+    EXPECT_FALSE(isNumber("-"));
 }
 
 TEST(StringsTest, Tokenize) {
@@ -40,25 +40,25 @@ TEST(StringsTest, Tokenize) {
 }
 
 TEST(StringsTest, ExtractName) {
-    EXPECT_EQ(extract_name("", 0), "");
-    EXPECT_EQ(extract_name("abc", 10), "");
-    EXPECT_EQ(extract_name("hello world", 0), "hello");
-    EXPECT_EQ(extract_name("hello", 0), "hello");
-    EXPECT_EQ(extract_name(" hello", 3), "hello");
-    EXPECT_EQ(extract_name("my_var", 2), "my_var");
-    EXPECT_EQ(extract_name("std::vector", 5), "std::vector");
-    EXPECT_EQ(extract_name("123 abc", 0), "");
-    EXPECT_EQ(extract_name("var42", 3), "var42");
-    EXPECT_EQ(extract_name("_", 0), "_");
+    EXPECT_EQ(extractName("", 0), "");
+    EXPECT_EQ(extractName("abc", 10), "");
+    EXPECT_EQ(extractName("hello world", 0), "hello");
+    EXPECT_EQ(extractName("hello", 0), "hello");
+    EXPECT_EQ(extractName(" hello", 3), "hello");
+    EXPECT_EQ(extractName("my_var", 2), "my_var");
+    EXPECT_EQ(extractName("std::vector", 5), "std::vector");
+    EXPECT_EQ(extractName("123 abc", 0), "");
+    EXPECT_EQ(extractName("var42", 3), "var42");
+    EXPECT_EQ(extractName("_", 0), "_");
 }
 
 TEST(StringsTest, ExtractNameUtf8) {
     // "привет" в UTF8 - 12 байт
     const char* s = "\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82";
-    EXPECT_EQ(extract_name(s, 0), std::string_view(s, 12));
-    EXPECT_EQ(extract_name(s, 6), std::string_view(s, 12));
-    EXPECT_EQ(extract_name(s, 0), std::string_view(s, std::strlen(s)));
-    EXPECT_EQ(extract_name(s, 1), std::string_view(s, 12));
+    EXPECT_EQ(extractName(s, 0), std::string_view(s, 12));
+    EXPECT_EQ(extractName(s, 6), std::string_view(s, 12));
+    EXPECT_EQ(extractName(s, 0), std::string_view(s, std::strlen(s)));
+    EXPECT_EQ(extractName(s, 1), std::string_view(s, 12));
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -66,79 +66,79 @@ TEST(StringsTest, ExtractNameUtf8) {
 // ══════════════════════════════════════════════════════════════
 
 TEST(NameToCppTest, Ascii) {
-    EXPECT_EQ(name_to_cpp("hello"), "c_hello");
-    EXPECT_EQ(name_to_cpp("foo_bar"), "c_foo_bar");
-    EXPECT_EQ(name_to_cpp("_private"), "c__private");
+    EXPECT_EQ(nameToCpp("hello"), "c_hello");
+    EXPECT_EQ(nameToCpp("foo_bar"), "c_foo_bar");
+    EXPECT_EQ(nameToCpp("_private"), "c__private");
 }
 
 TEST(NameToCppTest, Empty) {
     // Пустое имя → пустая строка (владеющая), не ломает конвертацию.
-    EXPECT_EQ(name_to_cpp(""), "");
+    EXPECT_EQ(nameToCpp(""), "");
 }
 
 TEST(StripNativePrefixTest, SlicesLeadingPercent) {
-    EXPECT_EQ(strip_native_prefix("%add"), "add");
-    EXPECT_EQ(strip_native_prefix("%std::max"), "std::max");
-    EXPECT_EQ(strip_native_prefix("x"), "x");
-    EXPECT_EQ(strip_native_prefix(""), "");
+    EXPECT_EQ(stripNativePrefix("%add"), "add");
+    EXPECT_EQ(stripNativePrefix("%std::max"), "std::max");
+    EXPECT_EQ(stripNativePrefix("x"), "x");
+    EXPECT_EQ(stripNativePrefix(""), "");
     // Срезается только ВЕДУЩИЙ '%'.
-    EXPECT_EQ(strip_native_prefix("%a%"), "a%");
+    EXPECT_EQ(stripNativePrefix("%a%"), "a%");
 }
 
 TEST(NameToCppTest, CppQualified) {
-    EXPECT_EQ(name_to_cpp("std::vector"), "cpp_std$$vector");
-    EXPECT_EQ(name_to_cpp("a::b::c"), "cpp_a$$b$$c");
+    EXPECT_EQ(nameToCpp("std::vector"), "cpp_std$$vector");
+    EXPECT_EQ(nameToCpp("a::b::c"), "cpp_a$$b$$c");
 }
 
 TEST(NameToCppTest, RussianTranslit) {
-    EXPECT_EQ(name_to_cpp("\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82"), "ru_privet");
-    EXPECT_EQ(name_to_cpp("\xD0\x9C\xD0\xB8\xD1\x80"), "ru_Mir");
+    EXPECT_EQ(nameToCpp("\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82"), "ru_privet");
+    EXPECT_EQ(nameToCpp("\xD0\x9C\xD0\xB8\xD1\x80"), "ru_Mir");
     // Полностью русское "Ю" - транслитерация, а не HEX
-    EXPECT_EQ(name_to_cpp("\xD0\xAE"), "ru_Yu");
+    EXPECT_EQ(nameToCpp("\xD0\xAE"), "ru_Yu");
 }
 
 TEST(NameToCppTest, MixedIdentifierHexEncoded) {
     // Смешанный идентификатор (русская буква + латинская ASCII) - ветка u8_,
     // HEX-кодирование всех байтов: Ю = D0 AE, A = 41.
-    EXPECT_EQ(name_to_cpp("\xD0\xAE"
+    EXPECT_EQ(nameToCpp("\xD0\xAE"
                           "A"),
               "u8_D0AE41");
 }
 
 TEST(CppToNameTest, Ascii) {
-    EXPECT_EQ(cpp_to_name("c_hello"), "hello");
-    EXPECT_EQ(cpp_to_name("c_foo_bar"), "foo_bar");
+    EXPECT_EQ(cppToName("c_hello"), "hello");
+    EXPECT_EQ(cppToName("c_foo_bar"), "foo_bar");
 }
 
 TEST(CppToNameTest, CppQualified) {
-    EXPECT_EQ(cpp_to_name("cpp_std$$vector"), "std::vector");
-    EXPECT_EQ(cpp_to_name("cpp_a$$b$$c"), "a::b::c");
+    EXPECT_EQ(cppToName("cpp_std$$vector"), "std::vector");
+    EXPECT_EQ(cppToName("cpp_a$$b$$c"), "a::b::c");
 }
 
 TEST(CppToNameTest, RussianTranslit) {
-    EXPECT_EQ(cpp_to_name("ru_privet"), "\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82");
-    EXPECT_EQ(cpp_to_name("ru_Mir"), "\xD0\x9C\xD0\xB8\xD1\x80");
-    EXPECT_EQ(cpp_to_name("ru_Yu"), "\xD0\xAE");
+    EXPECT_EQ(cppToName("ru_privet"), "\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82");
+    EXPECT_EQ(cppToName("ru_Mir"), "\xD0\x9C\xD0\xB8\xD1\x80");
+    EXPECT_EQ(cppToName("ru_Yu"), "\xD0\xAE");
 }
 
 TEST(NameToCppTest, Native) {
     // Нативные %-имена - уже C++-символы рантайма: '%' срезается, остальное как есть.
-    EXPECT_EQ(name_to_cpp("%add"), "add");
-    EXPECT_EQ(name_to_cpp("%x"), "x");
-    EXPECT_EQ(name_to_cpp("%std::max"), "std::max");
+    EXPECT_EQ(nameToCpp("%add"), "add");
+    EXPECT_EQ(nameToCpp("%x"), "x");
+    EXPECT_EQ(nameToCpp("%std::max"), "std::max");
 }
 
 TEST(CppToNameTest, EmptyAndNative) {
-    EXPECT_EQ(cpp_to_name(""), "");
+    EXPECT_EQ(cppToName(""), "");
     // Имя без известного префикса - нативное C++-имя: восстанавливается маркер '%'.
-    EXPECT_EQ(cpp_to_name("a"), "%a");
-    EXPECT_EQ(cpp_to_name("ab"), "%ab");
-    EXPECT_EQ(cpp_to_name("add"), "%add");
+    EXPECT_EQ(cppToName("a"), "%a");
+    EXPECT_EQ(cppToName("ab"), "%ab");
+    EXPECT_EQ(cppToName("add"), "%add");
 }
 
 TEST(NameRoundTripTest, Native) {
     for (const char* n : {"%add", "%x", "%std::max"}) {
-        EXPECT_EQ(cpp_to_name(name_to_cpp(n)), std::string(n));
+        EXPECT_EQ(cppToName(nameToCpp(n)), std::string(n));
     }
 }
 
@@ -150,74 +150,74 @@ TEST(NameRoundTripTest, Russian) {
         "\xD0\xAE",
     };
     for (const char* name : russian) {
-        auto cpp = name_to_cpp(name);
+        auto cpp = nameToCpp(name);
         EXPECT_FALSE(cpp.empty());
-        EXPECT_EQ(cpp_to_name(cpp), std::string(name));
+        EXPECT_EQ(cppToName(cpp), std::string(name));
     }
 }
 
-// -- Вставки C++ (EmbedExpr): маркеры $/@ → name_to_cpp --
+// -- Вставки C++ (EmbedExpr): маркеры $/@ → nameToCpp --
 
 TEST(EmbedCppTest, TransformsLocalAndQualified) {
-    EXPECT_EQ(transform_embed_cpp("printf(\"%s\", $msg);"), "printf(\"%s\", c_msg);");
-    EXPECT_EQ(transform_embed_cpp("return @x == 42;"), "return c_x == 42;");
+    EXPECT_EQ(transformEmbedCpp("printf(\"%s\", $msg);"), "printf(\"%s\", c_msg);");
+    EXPECT_EQ(transformEmbedCpp("return @x == 42;"), "return c_x == 42;");
     // @-квалификация с :: → cpp_std$$vector.
-    EXPECT_EQ(transform_embed_cpp("@std::vector"), "cpp_std$$vector");
-    EXPECT_EQ(transform_embed_cpp("@ns::x"), "cpp_ns$$x");
+    EXPECT_EQ(transformEmbedCpp("@std::vector"), "cpp_std$$vector");
+    EXPECT_EQ(transformEmbedCpp("@ns::x"), "cpp_ns$$x");
     // Чистый C++-текст без маркеров остаётся без изменений.
-    EXPECT_EQ(transform_embed_cpp("int x = 42;"), "int x = 42;");
+    EXPECT_EQ(transformEmbedCpp("int x = 42;"), "int x = 42;");
     // Маркер не перед именем (в строке/после спецсимвола) - копируется как есть.
-    EXPECT_EQ(transform_embed_cpp("printf(\"$%d\", x);"), "printf(\"$%d\", x);");
+    EXPECT_EQ(transformEmbedCpp("printf(\"$%d\", x);"), "printf(\"$%d\", x);");
     // Юникодное trust-имя конвертируется.
-    EXPECT_EQ(transform_embed_cpp("$привет"), "ru_privet");
+    EXPECT_EQ(transformEmbedCpp("$привет"), "ru_privet");
 }
 
 TEST(EmbedCppTest, ExtractsNames) {
-    auto names = extract_embed_names("a + $x + @y::z");
+    auto names = extractEmbedNames("a + $x + @y::z");
     ASSERT_EQ(names.size(), 2u);
     // $x - локальная переменная (маркер $ сохраняется: после нормализации локальная хранится с $).
     EXPECT_EQ(names[0], "$x");
     EXPECT_EQ(names[1], "y::z");
     // Маркеры не перед именами не извлекаются.
-    EXPECT_TRUE(extract_embed_names("printf(\"$%d\", x);").empty());
+    EXPECT_TRUE(extractEmbedNames("printf(\"$%d\", x);").empty());
 }
 
 TEST(StringsTest, EscapeCppStringAllSpecial) {
     // Кавычка, backslash и все управляющие символами в C++-escape.
-    EXPECT_EQ(escape_cpp_string("\""), "\\\"");
-    EXPECT_EQ(escape_cpp_string("\\"), "\\\\");
-    EXPECT_EQ(escape_cpp_string("\n"), "\\n");
-    EXPECT_EQ(escape_cpp_string("\t"), "\\t");
-    EXPECT_EQ(escape_cpp_string("\r"), "\\r");
-    EXPECT_EQ(escape_cpp_string(std::string("\0", 1)), "\\0");
-    EXPECT_EQ(escape_cpp_string("\a"), "\\a");
-    EXPECT_EQ(escape_cpp_string("\b"), "\\b");
-    EXPECT_EQ(escape_cpp_string("\f"), "\\f");
-    EXPECT_EQ(escape_cpp_string("\v"), "\\v");
-    EXPECT_EQ(escape_cpp_string("?"), "\\?");
+    EXPECT_EQ(escapeCppString("\""), "\\\"");
+    EXPECT_EQ(escapeCppString("\\"), "\\\\");
+    EXPECT_EQ(escapeCppString("\n"), "\\n");
+    EXPECT_EQ(escapeCppString("\t"), "\\t");
+    EXPECT_EQ(escapeCppString("\r"), "\\r");
+    EXPECT_EQ(escapeCppString(std::string("\0", 1)), "\\0");
+    EXPECT_EQ(escapeCppString("\a"), "\\a");
+    EXPECT_EQ(escapeCppString("\b"), "\\b");
+    EXPECT_EQ(escapeCppString("\f"), "\\f");
+    EXPECT_EQ(escapeCppString("\v"), "\\v");
+    EXPECT_EQ(escapeCppString("?"), "\\?");
     // Прочие управляющие (0x1B, 0x01) → hex-escape.
-    EXPECT_EQ(escape_cpp_string(std::string("\x1B", 1)), "\\x1B");
-    EXPECT_EQ(escape_cpp_string(std::string("\x01", 1)), "\\x01");
+    EXPECT_EQ(escapeCppString(std::string("\x1B", 1)), "\\x1B");
+    EXPECT_EQ(escapeCppString(std::string("\x01", 1)), "\\x01");
     // UTF-8 / печатные - без изменений.
-    EXPECT_EQ(escape_cpp_string("abc_123"), "abc_123");
+    EXPECT_EQ(escapeCppString("abc_123"), "abc_123");
 }
 
 TEST(StringsTest, UnescapeCppString) {
 
-    EXPECT_EQ(unescape_cpp_string("\\\""), "\"");
-    EXPECT_EQ(unescape_cpp_string("\\\\"), "\\");
-    EXPECT_EQ(unescape_cpp_string("\\n"), "\n");
-    EXPECT_EQ(unescape_cpp_string("\\t"), "\t");
-    EXPECT_EQ(unescape_cpp_string("\\x1B"), "\x1B");
+    EXPECT_EQ(unescapeCppString("\\\""), "\"");
+    EXPECT_EQ(unescapeCppString("\\\\"), "\\");
+    EXPECT_EQ(unescapeCppString("\\n"), "\n");
+    EXPECT_EQ(unescapeCppString("\\t"), "\t");
+    EXPECT_EQ(unescapeCppString("\\x1B"), "\x1B");
     // Неизвестная escape-последовательность сохраняется как символ.
-    EXPECT_EQ(unescape_cpp_string("\\q"), "q");
+    EXPECT_EQ(unescapeCppString("\\q"), "q");
     // Строка без escapes - без изменений.
-    EXPECT_EQ(unescape_cpp_string("plain"), "plain");
+    EXPECT_EQ(unescapeCppString("plain"), "plain");
 }
 
 TEST(StringsTest, EscapeUnescapeRoundTrip) {
     const std::string src("a\"b\\c\nd\te\rf\0g\ah\bi\fj\vk?l\x1Bm", 25);
-    EXPECT_EQ(unescape_cpp_string(escape_cpp_string(src)), src);
+    EXPECT_EQ(unescapeCppString(escapeCppString(src)), src);
 }
 
 // -- Сокращение пути и префиксация строк (отладочный вывод) --

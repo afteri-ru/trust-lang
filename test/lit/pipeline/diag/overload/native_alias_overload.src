@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Нативный импорт-алиас с C-символом (`f := %foo...`): у C-символа одно C++-имя, перегрузка
+# такого алиаса запрещена явной диагностикой.
+f(x:Int8):None := %foo...;
+f(x:Byte):None := %foo...;
+@main() := {
+    f(1:Int8);
+    @return 0;
+}
+# CHECK: error: overloaded native function 'f' is not supported

@@ -5,7 +5,7 @@ $mult:Int32 := 1; # Fixed type
 
 while( mult <= 1000 ) {
     fact *= mult;
-    {% $mult++; %};  	# Increment as C++ embedded
+    $mult++;  	# Инкремент (постфикс: возвращаемое значение не используется)
 };
 
 # factorial 1000!
@@ -49,8 +49,8 @@ test := 402387260077093773543702433923003985719374864210714632\
 
 
 # Check factorial 1000!
-assert( fact == test, '{} != {}', fact.display(8), test.display(8));
+assert( fact == test, "{} != {}", fact.display(8), test.display(8));
 
 # Print result
-@print('{}\n', fact);
+@print("{}\n", fact);
 

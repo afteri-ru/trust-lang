@@ -1,4 +1,4 @@
-# RUN: %trust -q -fno-comments --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q -fno-comments --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Флаг -fno-comments подавляет документирующие комментарии в C++-выводе.
 
@@ -11,7 +11,7 @@ x := 42;
 
 /// док перед функцией
 %foo():Void := {
-    foo ++ 7 ++;
+    foo |+ 7 +|;
 };
 # CHECK: void foo() {
 # CHECK:     return 7;

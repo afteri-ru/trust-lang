@@ -13,7 +13,7 @@
     {-
         s := a + b;
     -};
-    print('overflow-caught');
+    print("overflow-caught");
 };
 {% int caught__main__() {
     chk();

@@ -1,12 +1,15 @@
 // include/ast/ident_name.hpp
-// IdentName - AST-узел для идентификатора с методами проверки,
-// нормализации, манглинга (перенесено из trust::Ident).
+// IdentName - AST-узел для идентификатора с методами проверки, нормализации, манглинга.
 
 #pragma once
 
 #include "ast/token_base.hpp"
+#include "ast/slots/slot_engine.hpp"
 #include "attrs/attr_builtin.hpp"
+#include "location/module_index.hpp"
+#include "types/type_id.hpp"
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -15,27 +18,60 @@ namespace trust {
 
 class AttrPool; // forward declaration
 
+/// Единственная точка правила имени: срез ведущего ':' (TypeName) и хвостового '^'
+/// (кроме специального имени "$^"), интернирование итогового spelling и attr::ReadOnly.
+/// Текст хранится в mixin HasText узла (text()); сам raw здесь не хранится.
+void assignNameFromRaw(AstNodeAttr& node, HasText& text, ParserToken::Kind kind, std::string_view raw, AttrPool* pool);
+
 /// IdentName - узел AST для хранения идентификатора.
 /// kind всегда ParserToken::Kind::Ident.
-/// Имя хранится в унаследованном от HasText поле m_text (text()).
-class IdentName : public HasText {
+/// Имя хранится в mixin HasText (интернированный view) и доступно через text().
+class IdentName : public WithText<AstNodeAttr> {
   public:
+    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
+    AST_SLOT_METHOD(AstNodeAttr, SLOTS_IdentName)
     IdentName()
-    : HasText() {
+    : WithText<AstNodeAttr>() {
         m_kind = ParserToken::Kind::Ident;
     }
 
     explicit IdentName(std::string name, AttrPool* pool = nullptr);
 
-    /// Терм-конструктор: имя читается из Term и нормализуется (см. normalizeTermText,
-    /// срезает '^'), затем stripCaretAndApplyReadonly(pool). Объявлен здесь, определён в .cpp.
+    /// Терм-конструктор: имя читается из Term и нормализуется ровно в одном месте
+    /// (assignNameFromRaw): срез '^' (кроме "$^") + attr::ReadOnly. Объявлен здесь, определён в .cpp.
     IdentName(TermPtr term, AttrPool* pool = nullptr);
     /// Uniform term-constructor for the generated factory (kind всегда Ident).
     /// Дети не строятся (Ident→CallExpr решается в override visit_NAME).
+    /// ctx не используется: ReadOnly для этого пути применяет convertAttrsToNode (idempotent).
     IdentName(ParserToken::Kind /*k*/, TermPtr term, Context* /*ctx*/ = nullptr)
-    : IdentName(std::move(term)) {}
+    : IdentName(term) {}
 
-    /// text() унаследован от HasText (m_text).
+    /// Объявленный узел, к которому разрешилась ссылка (VarDecl/ArgNode/цель DestructureDecl).
+    /// Невладеющая ссылка, заполняется семантикой при resolution; nullptr - имя не разрешено
+    /// (или это не value-ссылка). Нужен flow-анализам после обхода (SymbolTable уже пуста).
+    const AstNodeBase* resolvedDecl = nullptr;
+
+    /// Тип, ОБОЗНАЧАЕМЫЙ этим идентификатором (`Color.RED`, `MyStr.count`, `Cls.st()`,
+    /// `Big ::= MyInt`, callee-конструктор, имя `TypeDecl`). INVALID — идентификатор не тип.
+    /// Материализует семантика; кодоген рендерит тип-операнд по этому полю и НЕ резолвит имя.
+    /// `mutable`: факт пишется через логически-const сервисы (`lookupOrError`/`recordTypeName`).
+    mutable TypeId resolvedTypeId{INVALID_TYPE_ID};
+
+    /// Type-state ЗНАЧЕНИЯ, на которое ссылается идентификатор (identity + const/inferred).
+    /// Материализует семантика в точке использования и НЕ меняет после (аналог типа
+    /// DeclRefExpr у Clang). Invalid — идентификатор не является value-ссылкой
+    /// (тип-имя, `_`, runtime/интринсик, неразрешённое имя). Авторитет для `exprState`.
+    QualType valueType{};
+
+    /// Идентификатор обозначает тип (а не значение).
+    [[nodiscard]] bool isTypeName() const noexcept { return resolvedTypeId.isValid(); }
+
+    /// Модуль ссылочной формы `\path::name` — индекс УЖЕ загруженного модуля (загрузки нет).
+    /// `text()` при этом хранит полный spelling (`\a::f`); семантика нормализует его на
+    /// найденное trust-имя (как `$x`/`%x`). `nullopt` — обычное имя.
+    std::optional<ModuleIndex> moduleRef;
+
+    /// text() — интернированный view из HasText.
 
     /// Раскрывает ведущий квалификатор "@::" на текущую область имён namespace_path
     /// (пустая - без префикса): `@::x` + ns=`a::b` → `a::b::x`. Возвращает true, если имя
@@ -72,19 +108,12 @@ class IdentName : public HasText {
     [[nodiscard]] bool is_last_result() const noexcept; // $^
 
     // -- Имя без квалификатора --
-    [[nodiscard]] std::string_view bare_name() const noexcept;
+    [[nodiscard]] std::string_view bareName() const noexcept;
 
     // -- Валидация --
     static constexpr size_t max_name_length = 64;
     static bool is_valid_simple_name(std::string_view s) noexcept;
     static bool is_valid_module_name(std::string_view s) noexcept;
-
-    // -- Нормализация --
-    [[nodiscard]] IdentName normalized() const;
-    [[nodiscard]] bool is_normalized() const noexcept;
-
-    // -- Внутреннее имя --
-    [[nodiscard]] IdentName to_internal() const;
 
     // -- Разбивка квалифицированного имени на фрагменты --
     [[nodiscard]] std::vector<std::string_view> parts() const;
@@ -106,16 +135,22 @@ class IdentName : public HasText {
     friend bool operator==(const IdentName& a, std::string_view b) noexcept { return a.text() == b; }
     friend bool operator==(std::string_view a, const IdentName& b) noexcept { return a == b.text(); }
 
-  private:
-    void stripCaretAndApplyReadonly(AttrPool* pool);
-
   protected:
-    /// Терм-конструктор с явным kind: нормализация через normalizeTermText(kind, text)
-    /// (TypeName срезает ведущий ':', '^' - всегда). Используется IdentType (Kind::TypeName);
-    /// публичный IdentName(term, pool) делегирует с Kind::Ident.
+    /// Терм-конструктор с явным kind (IdentType → TypeName): raw = term->getText().
     IdentName(TermPtr term, ParserToken::Kind k, AttrPool* pool = nullptr);
 
-    // Имя хранится в унаследованном от HasText поле m_text (text()).
+    /// Manual-конструктор с явным kind (без TermPtr).
+    IdentName(ParserToken::Kind k, std::string_view name, AttrPool* pool);
+
+    /// Терм-конструктор с ЯВНЫМ raw-именем (Decl-семейство: имя может лежать в m_left,
+    /// а не в тексте операторного терма). range берётся из term, текст — из rawName.
+    IdentName(ParserToken::Kind k, TermPtr term, std::string_view rawName, AttrPool* pool);
+
+    /// Kind-only (текст задаёт наследник через assignNameFromRaw).
+    explicit IdentName(ParserToken::Kind k)
+    : WithText<AstNodeAttr>(k) {}
+
+    // Имя хранится в mixin HasText (view), доступно через text().
 };
 
 } // namespace trust

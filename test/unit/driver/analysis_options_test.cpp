@@ -42,7 +42,7 @@ TEST(AnalysisOptions, SolverModeAndSigilOrderIndependent) {
     const std::vector<std::string> args = {"-Wsigil=ignore", "--solver-mode=assert"};
     EXPECT_EQ(applyAnalysisArgs(ctx.opts(), args), "");
 
-    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), semantic::SolverMode::kAssert);
+    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), analysis::SolverMode::kAssert);
     EXPECT_TRUE(semantic::solverAssertEnabled(ctx.opts()));
     // -Wsigil=ignore: NoSigil выключен (Severity::Ignore).
     EXPECT_EQ(ctx.opts().get(semantic::DiagId::NoSigil), Severity::Ignore);
@@ -70,13 +70,34 @@ TEST(AnalysisOptions, OverflowCheckFlag) {
     EXPECT_TRUE(ctx.opts().isEnabledByName("overflow-check"));
 }
 
+TEST(AnalysisOptions, ErrorLimitAppliedToDiagnosticEngine) {
+    Context ctx;
+    EXPECT_EQ(ctx.diag().errorLimit(), kDefaultErrorLimit);
+
+    const std::vector<std::string> short_form = {"-ferror-limit=3"};
+    EXPECT_EQ(applyAnalysisArgs(ctx.opts(), short_form), "");
+    EXPECT_EQ(ctx.diag().errorLimit(), 3u);
+
+    const std::vector<std::string> long_form = {"--error-limit=0"};
+    EXPECT_EQ(applyAnalysisArgs(ctx.opts(), long_form), "");
+    EXPECT_EQ(ctx.diag().errorLimit(), 0u);
+}
+
+TEST(AnalysisOptions, InvalidErrorLimitReturnsError) {
+    Context ctx;
+    const std::vector<std::string> args = {"-ferror-limit=abc"};
+    EXPECT_NE(applyAnalysisArgs(ctx.opts(), args), "");
+    // Невалидное значение не применяется (лимит остаётся дефолтным).
+    EXPECT_EQ(ctx.diag().errorLimit(), kDefaultErrorLimit);
+}
+
 TEST(AnalysisOptions, ExecutionOptionsAreIgnored) {
     Context ctx;
     // Опции исполнения/линковки не являются опциями анализа и не должны ломаться/применяться.
     const std::vector<std::string> args = {"--run", "-o", "out", "--solver-mode=assert"};
     EXPECT_EQ(applyAnalysisArgs(ctx.opts(), args), "");
 
-    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), semantic::SolverMode::kAssert);
+    EXPECT_EQ(semantic::solverModeFromOptions(ctx.opts()), analysis::SolverMode::kAssert);
     // Отсутствие поведения при пустом списке.
     Context empty_ctx;
     applyAnalysisArgs(empty_ctx.opts(), {});

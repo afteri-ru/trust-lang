@@ -12,8 +12,8 @@
 @main():Int32 := {
     &* x := 5;
     &? w := & x;
-    print('val={}\n', *w);
+    print("val={}\n", *w);
     *x = 7;
-    print('shared={}\n', *x);
+    print("shared={}\n", *x);
     return 0;
 };

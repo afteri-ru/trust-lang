@@ -1,0 +1,28 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/diamond $TD/main.src
+# RUN: $TD/diamond && echo "PASS"
+# CHECK: PASS
+#
+# Ромбовидный импорт: main импортирует a и b, ОБА импортируют c. Одна AST на модуль ⇒
+# объявления c регистрируются ОДИН раз и связываются с видимостью каждого сайта; повторная
+# регистрация того же узла не является дублем. Программа возвращает 0, если f()+g()==2.
+
+//--- main.src
+\a(a_f);
+\b(b_f);
+@main():Int32 := { @return a_f() + b_f() - 2; };
+
+//--- a.src
+\a;
+\c(c_f);
+a_f():Int32 := { @return c_f(); };
+
+//--- b.src
+\b;
+\c(c_f);
+b_f():Int32 := { @return c_f(); };
+
+//--- c.src
+\c;
+c_f():Int32 := { @return 1; };

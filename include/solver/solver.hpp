@@ -61,11 +61,30 @@ class SolverInterface {
 /// With WITH_SOLVER=ON returns SolverZ3, otherwise returns SolverStub.
 std::unique_ptr<SolverInterface> createSolver();
 
+/// Результат одной изолированной проверки (цели): привязка к источнику + модель при SAT.
+struct VcCheckResult {
+    MapperRange srcRange;
+    /// Вид обязательства (из плана через скрипт); nullopt — вид не указан.
+    std::optional<VcObligationKind> kind;
+    SolverResult result = SolverResult::kError;
+    /// Значения 0-арных констант (параметры) при SAT — пример нарушения.
+    std::vector<std::pair<std::string, std::string>> model;
+};
+
+/// Отчёт о прогоне скрипта: все проверенные цели и итоговый вердикт.
+/// Итог: SAT, если нарушена хотя бы одна цель; иначе UNKNOWN, если решатель не ответил;
+/// иначе UNSAT. Отчёт позволяет печатать ВСЕ нарушения с привязкой к источнику.
+struct VerificationReport {
+    std::vector<VcCheckResult> checks;
+    SolverResult overall = SolverResult::kError;
+};
+
 /// Выполняет SMT-LIB 2 скрипт через бэкенд: set-logic/declare-fun/assert/check-sat (get-model и
-/// прочие команды игнорируются). Возвращает результат последнего check-sat; если check-sat не
-/// выполнялся (нет условий) - kError. При SAT (найден контрпример) в out_model (если не nullptr)
-/// собираются значения 0-арных констант (параметры func_param) из модели - для отчёта о контрпримере.
-SolverResult runScript(SolverInterface& solver, const SmtScript& script, std::vector<std::pair<std::string, std::string>>* out_model = nullptr);
+/// прочие команды игнорируются). Возвращает ИТОГОВЫЙ результат (см. VerificationReport).
+/// При SAT в out_model (если не nullptr) собираются значения 0-арных констант ПЕРВОГО нарушения;
+/// в report (если не nullptr) — результат каждой цели с диапазоном источника.
+SolverResult runScript(SolverInterface& solver, const SmtScript& script, std::vector<std::pair<std::string, std::string>>* out_model = nullptr,
+                       VerificationReport* report = nullptr);
 
 } // namespace solver
 } // namespace trust

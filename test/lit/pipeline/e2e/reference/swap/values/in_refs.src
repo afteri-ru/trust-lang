@@ -11,6 +11,6 @@
     &* a : &* Int32 := 1;
     &* b : &* Int32 := 2;
     *a :=: *b;
-    print('swap значений: a = {}, b = {}\n', *a, *b);
+    print("swap значений: a = {}, b = {}\n", *a, *b);
     return 0;
 };

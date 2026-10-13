@@ -3,16 +3,8 @@
 # Pure value/registry layer - depends only on location (MapperRange) and utils.
 # The @[...] parser (attr_parser) lives in ast: it needs Context/Diagnostics.
 
-add_library(attrs_lib STATIC
-    ${PROJECT_SOURCE_DIR}/attrs/attr_pool.cpp
-    ${PROJECT_SOURCE_DIR}/attrs/attr_builtin.cpp
+trust_component(attrs
+    PUBLIC_HEADERS attr_args.hpp attr_builtin.hpp attr.hpp attr_pool.hpp
+    SOURCES attr_pool.cpp attr_builtin.cpp
+    LINK_PUBLIC location_lib utils_lib trust_include_dirs
 )
-
-target_link_libraries(attrs_lib PUBLIC
-    location_lib
-    utils_lib
-    trust_include_dirs
-)
-
-# Shared precompiled header (opt-in: TRUST_USE_PCH; no-op when OFF).
-target_link_libraries(attrs_lib PRIVATE trust_pch)

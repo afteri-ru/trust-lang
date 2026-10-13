@@ -5,16 +5,16 @@
 // Узлы AST создаются программно (manual-конструкторы без TermPtr), поэтому
 // range()/text() из исходника недоступны, но для семантики это не требуется.
 
-#include "semantic/pass_runner.hpp"
-#include "analysis/symbol_table.hpp"
+#include "semantic/core/pass_runner.hpp"
+#include "symbols/symbol_table.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/ident_name.hpp"
 #include "ast/token.hpp"
 #include "ast/token_type.hpp"
 #include "session/context.hpp"
 #include "diag/diag.hpp"
-#include "types/registry.hpp"
-#include "utils/io.hpp"
+#include "types/type_system.hpp"
+#include "utils/utils.hpp"
 #include "gtest/gtest.h"
 
 #include <sstream>
@@ -29,7 +29,7 @@ class VarTypeFixture : public ::testing::Test {
     void SetUp() override {
         m_stream.str("");
         m_prev_err = setErrs(&m_stream);
-        m_types = std::make_unique<TypeRegistry>(m_ctx.diag(), m_ctx.opts());
+        m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
     }
 
@@ -38,7 +38,7 @@ class VarTypeFixture : public ::testing::Test {
     std::ostream* m_prev_err = nullptr;
     std::ostringstream m_stream;
     Context m_ctx;
-    std::unique_ptr<TypeRegistry> m_types;
+    std::unique_ptr<TypeSystem> m_types;
 
     /// x:Type := lit  - типизированное объявление переменной.
     AstNodePtr typedVar(const std::string& name, const std::string& type, const std::string& lit) {
@@ -53,7 +53,7 @@ class VarTypeFixture : public ::testing::Test {
         return std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>(name), std::make_shared<IdentType>(base));
     }
 
-    TypeId int32Id() { return m_ctx.types().getType("Int32"); }
+    TypeId int32Id() { return m_ctx.readTypes().getType("Int32"); }
 };
 
 // -- Переменные на нескольких уровнях вложенности ---------------
@@ -76,10 +76,10 @@ TEST_F(VarTypeFixture, GlobalAndNestedBlocks) {
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
     // Глобальная переменная видна на глобальном уровне.
-    const Symbol* g = runner.analysis().symbols().global().lookup("g");
+    const Symbol* g = runner.analysis().symbols().global().lookup(exportedKeyOf("g"));
     ASSERT_NE(g, nullptr);
-    EXPECT_EQ(g->type, int32Id());
-    EXPECT_NE(g->type, INVALID_TYPE_ID);
+    EXPECT_EQ(g->type.getTypeId(), int32Id());
+    EXPECT_NE(g->type.getTypeId(), INVALID_TYPE_ID);
 
     // Вложенные переменные были объявлены во вложенных скоупах и корректно
     // удалены после выхода из них (run() == true без ошибок - типы резолвятся).
@@ -104,9 +104,9 @@ TEST_F(VarTypeFixture, NestedScopeShadowing) {
     EXPECT_TRUE(runner.run(seq)); // shadowing на разных уровнях - не ошибка
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
-    const Symbol* g = runner.analysis().symbols().global().lookup("x");
+    const Symbol* g = runner.analysis().symbols().global().lookup(exportedKeyOf("x"));
     ASSERT_NE(g, nullptr);
-    EXPECT_EQ(g->type, int32Id());
+    EXPECT_EQ(g->type.getTypeId(), int32Id());
 }
 
 TEST_F(VarTypeFixture, DuplicateInSameNestedScope) {
@@ -152,15 +152,15 @@ TEST_F(VarTypeFixture, TypeAliasIntSynonym) {
     ASSERT_NE(sym, nullptr);
     ASSERT_NE(sym->decl, nullptr);
     EXPECT_EQ(sym->decl->kind(), ParserToken::Kind::TypeDecl);
-    TypeId alias = sym->type;
+    TypeId alias = sym->type.getTypeId();
     EXPECT_NE(alias, INVALID_TYPE_ID);
     EXPECT_NE(alias, int32Id()); // алиас - отдельный TypeId
 
     // Проверка через реестр типов: канонический тип и C++-имя.
     // У алиаса нет собственного C++-имени - оно берётся у канонического типа.
-    EXPECT_EQ(m_ctx.types().getCanonicalTypeId(alias), int32Id());
-    EXPECT_TRUE(m_ctx.types().findType("MyInt").has_value());
-    EXPECT_EQ(m_ctx.types().getCppTypeName(m_ctx.types().getCanonicalTypeId(alias)).value_or(""), "int32_t");
+    EXPECT_EQ(m_ctx.readTypes().store().desugaredTypeId(alias), int32Id());
+    EXPECT_TRUE(m_ctx.readTypes().findType("MyInt").has_value());
+    EXPECT_EQ(m_ctx.readTypes().printer().getCppTypeName(m_ctx.readTypes().store().desugaredTypeId(alias)).value_or(""), "int32_t");
 }
 
 TEST_F(VarTypeFixture, VarWithAliasType) {
@@ -178,8 +178,8 @@ TEST_F(VarTypeFixture, VarWithAliasType) {
     // Переменная получила TypeId алиаса, а не базового типа.
     const Symbol* alias = runner.analysis().symbols().resolve("MyInt");
     ASSERT_NE(alias, nullptr);
-    EXPECT_EQ(x->type, alias->type);
-    EXPECT_EQ(m_ctx.types().getCanonicalTypeId(x->type), int32Id());
+    EXPECT_EQ(x->type.getTypeId(), alias->type.getTypeId());
+    EXPECT_EQ(m_ctx.readTypes().store().desugaredTypeId(x->type.getTypeId()), int32Id());
 }
 
 TEST_F(VarTypeFixture, AliasChain) {
@@ -195,8 +195,8 @@ TEST_F(VarTypeFixture, AliasChain) {
     const Symbol* big = runner.analysis().symbols().resolve("Big");
     ASSERT_NE(big, nullptr);
     // Цепочка алиасов разворачивается до базового Int32.
-    EXPECT_EQ(m_ctx.types().getCanonicalTypeId(big->type), int32Id());
-    EXPECT_EQ(m_ctx.types().getCppTypeName(m_ctx.types().getCanonicalTypeId(big->type)).value_or(""), "int32_t");
+    EXPECT_EQ(m_ctx.readTypes().store().desugaredTypeId(big->type.getTypeId()), int32Id());
+    EXPECT_EQ(m_ctx.readTypes().printer().getCppTypeName(m_ctx.readTypes().store().desugaredTypeId(big->type.getTypeId())).value_or(""), "int32_t");
 }
 
 } // namespace

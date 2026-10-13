@@ -1,6 +1,6 @@
-#include "debug/dap_transport.h"
+#include "debug/dap/dap_transport.h"
 #include "driver/cli.hpp"
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 
 #include <vector>
 
@@ -70,7 +70,9 @@ namespace {
 enum class DapOptId { Help, ProjectDir, Gdb };
 
 std::vector<trust::DriverOption> dapTable() {
-    using namespace trust;
+    using trust::CliCategory;
+    using trust::CliOpt;
+    using trust::DriverOption;
     return {
         {int(DapOptId::Help), "help", "h", CliOpt::Flag, "", "Show this help message", CliCategory::General},
         {int(DapOptId::ProjectDir), "project-dir", "", CliOpt::Value, "dir", "Project working directory", CliCategory::InputOutput},

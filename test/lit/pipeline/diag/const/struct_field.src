@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Struct — строго POD: const-поле запрещено (const-член делает тип не тривиально
+# конструируемым). Явная диагностика вместо некорректного C++.
+
+:Bad ::= :Struct{ b:Int32^ := _; };
+# CHECK: error: Struct field 'b' cannot be constant (POD); use a Class or remove '^'

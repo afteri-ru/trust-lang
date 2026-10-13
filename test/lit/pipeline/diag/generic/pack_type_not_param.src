@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Тип pack-параметра обязан быть типовым параметром `<T...>`; T используется в обычном параметре,
+# чтобы сработала именно проверка pack-типа (а не «неиспользуемый template-параметр»).
+<T> bad(a:T, xs: Int32...): Int32 := { @return 0; };
+
+# CHECK: error: function parameter pack 'xs' requires a template parameter declared as '<T...>'

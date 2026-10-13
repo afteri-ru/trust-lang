@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Проверка генерации C++ для оператора match через DSL-макросы @match/@case/@default.
 # Scrutivee вычисляется один раз во временную const-переменную (создаёт LOWERING, не транспилятор);

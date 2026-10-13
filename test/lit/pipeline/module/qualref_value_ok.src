@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Квалифицированная ссылка в позиции значения: экспортируемая переменная модуля.
+
+//--- main.src
+\lib(counter);
+@main():Int32 := { @return \lib::counter - 5; };
+
+//--- lib.src
+\lib;
+counter:Int32 := 5;

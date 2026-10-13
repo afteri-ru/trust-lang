@@ -19,7 +19,7 @@ TEST_F(TranspilerTest, GenerateToFileIntVar) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("int8_t c_x = 42;") != std::string::npos);
@@ -48,7 +48,7 @@ TEST_F(TranspilerTest, GenerateToFileRationalLiteral) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_NE(result.find("trust::Rational(\"1\\\\1\")"), std::string::npos);
@@ -56,7 +56,7 @@ TEST_F(TranspilerTest, GenerateToFileRationalLiteral) {
 /// Test: generateToFile для литерала словаря `(1, two=2, name='3',)` (TermID::DICT)
 /// → `trust::Dict{ {"", 1}, {"two", 2}, {"name", std::string("3")} }` + include заголовка.
 TEST_F(TranspilerTest, GenerateToFileDictLiteral) {
-    MapperFile input_file = m_ctx.source().add_source("dict.src", "d := (1, two=2, name='3',);", true);
+    MapperFile input_file = m_ctx.source().add_source("dict.src", "d := (1, two=2, name=\"3\",);", true);
     MapperRange nameRange(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 2));
     MapperRange dictRange(m_ctx.source().makeLoc(input_file, 6), m_ctx.source().makeLoc(input_file, 27));
 
@@ -84,7 +84,7 @@ TEST_F(TranspilerTest, GenerateToFileDictLiteral) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     // Инклуд рантайм-заголовка словаря.
@@ -92,7 +92,7 @@ TEST_F(TranspilerTest, GenerateToFileDictLiteral) {
     // Конструкция trust::Dict{ ... } с элементами TypedValue{kind, значение-точного-типа}.
     EXPECT_NE(result.find("trust::Dict c_d = trust::Dict{"), std::string::npos) << result;
     EXPECT_NE(result.find("trust::TypedValue{"), std::string::npos) << result;
-    // `1`→Bool→int8_t(1); `2`→Int8→int8_t(2); `'3'`→StrChar→std::string("3").
+    // `1`→Bool→int8_t(1); `2`→Int8→int8_t(2); `"3"`→StrChar→std::string("3").
     EXPECT_NE(result.find("int8_t(1)"), std::string::npos) << result;
     EXPECT_NE(result.find("int8_t(2)"), std::string::npos) << result;
     EXPECT_NE(result.find("std::string(\"3\")"), std::string::npos) << result;
@@ -122,7 +122,7 @@ TEST_F(TranspilerTest, GenerateToFileRangeLiteral) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     // Инклуд рантайм-заголовка диапазона.
@@ -134,10 +134,9 @@ TEST_F(TranspilerTest, GenerateToFileRangeLiteral) {
 /// Test: составной литерал (ArrayInit) как значение члена Variant - анализ/регистрация работают,
 /// кодогенерация выдаёт «не реализовано» и НЕ эмитит сломанный C++ (memberValueCpp - скалярные).
 TEST_F(TranspilerTest, VariantCompositeMemberValueNotImplemented) {
-    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
+    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral);
     dict->m_type = std::make_shared<IdentType>(std::string("Variant"));
-    dict->m_body.push_back(
-        std::make_shared<ArgNode>(std::string("a"), nullptr, std::make_shared<DictLiteralNode>(ParserToken::Kind::ArrayInit, std::string(""))));
+    dict->m_body.push_back(std::make_shared<ArgNode>(std::string("a"), nullptr, std::make_shared<DictLiteralNode>(ParserToken::Kind::ArrayInit)));
     auto variantDecl = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>(std::string("Value")), std::move(dict));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(variantDecl));
@@ -149,7 +148,7 @@ TEST_F(TranspilerTest, VariantCompositeMemberValueNotImplemented) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
@@ -158,10 +157,9 @@ TEST_F(TranspilerTest, VariantCompositeMemberValueNotImplemented) {
 
 /// Test: составной литерал (ArrayInit) как значение члена Enum - кодогенерация «не реализовано».
 TEST_F(TranspilerTest, EnumCompositeMemberValueNotImplemented) {
-    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral, std::string(""));
+    auto dict = std::make_shared<DictLiteralNode>(ParserToken::Kind::DictLiteral);
     dict->m_type = std::make_shared<IdentType>(std::string("Enum"));
-    dict->m_body.push_back(
-        std::make_shared<ArgNode>(std::string("a"), nullptr, std::make_shared<DictLiteralNode>(ParserToken::Kind::ArrayInit, std::string(""))));
+    dict->m_body.push_back(std::make_shared<ArgNode>(std::string("a"), nullptr, std::make_shared<DictLiteralNode>(ParserToken::Kind::ArrayInit)));
     auto enumDecl = std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>(std::string("Color")), std::move(dict));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(enumDecl));
@@ -173,7 +171,7 @@ TEST_F(TranspilerTest, EnumCompositeMemberValueNotImplemented) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
@@ -220,7 +218,7 @@ TEST_F(TranspilerTest, GenerateToFileRangeConstCall) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     // const-вызов → const_cast<const trust::Range<int64_t>&>(c_r).size().
@@ -248,7 +246,7 @@ TEST_F(TranspilerTest, GenerateEntryFunction) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_NE(result.find("int foo__main__()"), std::string::npos);
@@ -275,10 +273,10 @@ TEST_F(TranspilerTest, GenerateRegularFunctionVoidMangled) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_NE(result.find("void c_helper()"), std::string::npos);
+    EXPECT_NE(result.find("void c_helper_P0_()"), std::string::npos);
 }
 
 /// Test: документирующий комментарий (Document) сразу после '}' функции — на отдельной строке,
@@ -291,7 +289,7 @@ TEST_F(TranspilerTest, DocumentAfterFunctionOnOwnLine) {
     func->m_body = std::vector<AstNodePtr>{};
 
     auto docTerm = Term::Create(TermID::DOCUMENT, "/// doc", fnRange, parser::token_type::DOCUMENT);
-    auto doc = std::make_shared<AstNodeAttr>(ParserToken::Kind::Document, std::move(docTerm));
+    auto doc = std::make_shared<RawText>(ParserToken::Kind::Document, std::move(docTerm));
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
@@ -304,7 +302,7 @@ TEST_F(TranspilerTest, DocumentAfterFunctionOnOwnLine) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     // Комментарий всегда с новой строки: после '}' функции идёт перевод строки ПЕРЕД комментарием
@@ -322,7 +320,7 @@ TEST_F(TranspilerTest, GenerateToFileWithDocument) {
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 8));
 
     auto docTerm = Term::Create(TermID::DOCUMENT, "/// doc", range, parser::token_type::DOCUMENT);
-    auto doc = std::make_shared<AstNodeAttr>(ParserToken::Kind::Document, std::move(docTerm));
+    auto doc = std::make_shared<RawText>(ParserToken::Kind::Document, std::move(docTerm));
 
     auto nameTerm = Term::Create(TermID::NAME, "x", range, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(nameTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
@@ -338,7 +336,7 @@ TEST_F(TranspilerTest, GenerateToFileWithDocument) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_NE(result.find("/// doc"), std::string::npos);
@@ -351,7 +349,7 @@ TEST_F(TranspilerTest, GenerateToFileSuppressDocument) {
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 8));
 
     auto docTerm = Term::Create(TermID::DOCUMENT, "/// doc", range, parser::token_type::DOCUMENT);
-    auto doc = std::make_shared<AstNodeAttr>(ParserToken::Kind::Document, std::move(docTerm));
+    auto doc = std::make_shared<RawText>(ParserToken::Kind::Document, std::move(docTerm));
 
     auto nameTerm = Term::Create(TermID::NAME, "x", range, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(nameTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
@@ -370,7 +368,7 @@ TEST_F(TranspilerTest, GenerateToFileSuppressDocument) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_EQ(result.find("/// doc"), std::string::npos);
@@ -383,7 +381,7 @@ TEST_F(TranspilerTest, GenerateToFileNormalizesHashDocument) {
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 7));
 
     auto docTerm = Term::Create(TermID::DOCUMENT, "## hash", range, parser::token_type::DOCUMENT);
-    auto doc = std::make_shared<AstNodeAttr>(ParserToken::Kind::Document, std::move(docTerm));
+    auto doc = std::make_shared<RawText>(ParserToken::Kind::Document, std::move(docTerm));
 
     auto nameTerm = Term::Create(TermID::NAME, "y", range, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(nameTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "7"));
@@ -399,7 +397,7 @@ TEST_F(TranspilerTest, GenerateToFileNormalizesHashDocument) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_NE(result.find("/// hash"), std::string::npos);
@@ -426,7 +424,7 @@ TEST_F(TranspilerTest, GenerateToFileStringVar) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("std::string c_s = \"hello\";") != std::string::npos);
@@ -454,7 +452,7 @@ TEST_F(TranspilerTest, GenerateToFileTypedVar) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("int32_t c_x = 42;") != std::string::npos);
@@ -490,7 +488,7 @@ TEST_F(TranspilerTest, GenerateToFileTypeDecl) {
     ASSERT_FALSE(out_idx.isInvalid());
 
     CppTranspiler gen(m_ctx);
-    gen.generateToFile(seq, out_idx);
+    gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("using c_MyInt = int32_t;") != std::string::npos);

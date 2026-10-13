@@ -1,4 +1,4 @@
-# RUN: %trust -q --temp-dir %T --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # unique с инициализатором-вставкой `{% %}` (конверсия shared→unique через
 # `to_unique()`): НЕ оборачивается в make_unique - эмитится прямым присваиванием

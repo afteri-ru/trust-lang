@@ -1,0 +1,17 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/prog %s
+# RUN: $TD/prog > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: 10
+# CHECK: 20
+
+# Алиас — отдельный номинальный тип Trust: обе перегрузки существуют и различимы
+# identity-суффиксом C++-имени; явные аннотации выбирают нужную.
+MyInt ::= :Int32;
+f(a:MyInt):Int32 := { @return 10; };
+f(a:Int32):Int32 := { @return 20; };
+@main() := {
+    @print("{}\n", f(5 : MyInt));
+    @print("{}\n", f(5 : Int32));
+    @return 0;
+}

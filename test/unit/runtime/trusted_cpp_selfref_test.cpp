@@ -5,7 +5,7 @@
 using namespace trust;
 
 // ============================================================================
-// Self-reference mixin (K1 in types/REFType.md §8): EnableSharedFromThis<V>
+// Self-reference mixin (K1 in types/type/REFType.md §8): EnableSharedFromThis<V>
 // ============================================================================
 
 namespace {

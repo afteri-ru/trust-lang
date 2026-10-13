@@ -1,0 +1,11 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/app %s
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+
+<T> identity(x: T): T := { @return x; };
+
+@main():Int32 := {
+    r : Int32 := identity(41:Int32);
+    if (r == 41) { @return 0; } else { @return 1; };
+};

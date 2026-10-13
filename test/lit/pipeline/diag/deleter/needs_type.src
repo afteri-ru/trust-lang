@@ -1,4 +1,4 @@
-# RUN: %not %trust -q --temp-dir %T --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # @[deleter(D)] без аннотации типа: T ресурса вывести из сырого handle нельзя -> явная ошибка
 # (не тихий пропуск атрибута).

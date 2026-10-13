@@ -1,0 +1,18 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Факт типа аннотации материализуется семантикой на узле (IdentName::resolvedTypeId) и НЕ
+# резолвится повторно в кодогене: локальный алиас с тем же именем, что и глобальный,
+# рендерится по решению анализа (shadowing учитывается), а не по имени в реестре.
+
+GlobalT ::= :Int32;
+# CHECK: using c_GlobalT = int32_t;
+
+f():Int32 := {
+    LocalT ::= :Float64;
+    # CHECK: using c_LocalT = double;
+    a:GlobalT := 1;
+    # CHECK: c_GlobalT c_a = 1;
+    b:LocalT := 1.5;
+    # CHECK: c_LocalT c_b = 1.5;
+    b
+};

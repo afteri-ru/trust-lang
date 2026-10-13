@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/shadow_main.src
+# RUN: $TD/app > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: 100
+#
+# Регресс: forward-decl импортированной функции `f(a:Int32)` и локальная `f(a:Int64)` раньше
+# эмитились с ОДНИМ C++-именем `c_f`; C++ выбирал перегрузку по литералу (`7` = int) и вызывал
+# импортированную функцию вместо выбранной анализатором. Identity-суффикс делает имена разными.
+
+//--- shadow_main.src
+\shadow_lib(f);
+f(a:Int64):Int32 := { @return 100; };
+@main():Int32 := {
+    @print("{}\n", f(7:Int64));
+    @return 0;
+};
+//--- shadow_lib.src
+\shadow_lib;
+f(a:Int32):Int32 := { @return a + 1; };

@@ -2,10 +2,10 @@
 #define TRUST_LSP_TEST_FIXTURE_HPP
 // Shared fixtures for TrustLsp unit tests
 // (lsp_handler_test.cpp, lsp_hover_test.cpp, lsp_completion_test.cpp, lsp_codeaction_test.cpp).
-#include "lsp/trust_lsp.h"
+#include "lsp/catalog/trust_lsp.h"
 #include "lsp/lsp_protocol.h"
 #include "sourcemap/mapper.hpp"
-#include "utils/transport.hpp"
+#include "utils/utils.hpp"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

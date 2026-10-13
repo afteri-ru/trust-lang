@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Тело generic-функции в заголовке не может ссылаться на `__::`-хелпер: он живёт в anonymous
+# namespace `.cppt` и в `.hpp` невыразим — явная Trust-диагностика, не отложенная ошибка C++.
+# CHECK: error: function 'id' references a module-level entity that the module header does not publish
+
+//--- main.src
+\gen(id);
+@main():Int32 := { @return id(1); };
+
+//--- gen.src
+\gen;
+__:: {
+    helper():Int32 := { @return 1; };
+};
+<T> id(x:T):T := { helper(); @return x; };

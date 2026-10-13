@@ -1,0 +1,13 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Ссылочная форма `\path::name` НЕ загружает модуль: загрузка - только оператор `\path(...)`.
+# Поэтому отсутствующий модуль даёт «is not loaded», а НЕ «not found» (последнее означало бы
+# попытку резолва/загрузки по файловой системе).
+
+# CHECK: error: Module '\lib' is not loaded
+# CHECK-NOT: not found
+
+//--- main.src
+@main():Int32 := { @return \lib::f(); };

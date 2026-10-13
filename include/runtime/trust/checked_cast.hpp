@@ -1,10 +1,6 @@
 // trust/checked_cast.hpp - checked numeric cast with a range check.
 //
-// Public runtime header: self-contained (standard headers + trust/assert.hpp),
-// embedded into trust-runtime.so/.a (ELF section "trust/checked_cast.hpp") and
-// included by generated C++ for explicit user casts `:Type(expr)` (→
-// trust::checked_cast<Type>(expr)). Unlike a plain static_cast, out-of-range
-// values abort with a runtime diagnostic instead of silently truncating.
+// Delivery: package file `include/trust/checked_cast.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 
 #pragma once
 

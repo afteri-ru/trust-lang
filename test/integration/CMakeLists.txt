@@ -14,10 +14,6 @@ target_link_libraries(integration PRIVATE
     nlohmann_json::nlohmann_json
 )
 
-target_include_directories(integration PRIVATE
-    ${CMAKE_SOURCE_DIR}/include
-)
-
 # Бинарники должны быть собраны до запуска теста.
 add_dependencies(integration trust-playground trust-lsp)
 
@@ -28,15 +24,13 @@ set_target_properties(integration PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-add_test(NAME integration_tests
+trust_add_test_suite(integration_tests
+    TIMEOUT 120
+    FIXTURES_REQUIRED integration_deps
+    RUN_SERIAL
     COMMAND $<TARGET_FILE:integration>
             $<TARGET_FILE:trust-playground>
             $<TARGET_FILE:trust-lsp>
             ${CMAKE_SOURCE_DIR}/examples
             $<TARGET_FILE_DIR:integration>
-)
-set_tests_properties(integration_tests PROPERTIES
-    FIXTURES_REQUIRED integration_deps
-    RUN_SERIAL TRUE
-    TIMEOUT 120
 )

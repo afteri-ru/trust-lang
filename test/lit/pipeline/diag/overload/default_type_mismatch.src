@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Тип default-значения должен быть совместим с типом параметра.
+f(a:Int32 = "x"):Int32 := { @return a; };
+@main() := { @return 0; }
+# CHECK: default value type 'StrChar' is not convertible to parameter 'a' of type 'Int32'

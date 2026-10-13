@@ -1,4 +1,4 @@
-#include "utils/io.hpp"
+#include "utils/utils.hpp"
 // Отлаживаемая программа для GDB: рекурсивный factorial
 #include <iostream>
 

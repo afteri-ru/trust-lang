@@ -1,0 +1,12 @@
+# RUN: %trust -q --emit-cpp -Wborrow-owner-mutated=error -Wsigil=ignore -Wno-shadow %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Flow: после последнего использования представления мутация источника
+# допустима (backward liveness / NLL-подобная точность).
+@main() := {
+    &* x := 5;
+    &? w := & x;
+    @print("{}\n", *w);
+    x :=: _;
+    @print("{}\n", 1);
+}
+# CHECK-NOT: while a derived view is alive

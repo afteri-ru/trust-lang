@@ -1,0 +1,9 @@
+# RUN: %not %trust -q -Wsigil=ignore --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Инвариант цикла обязан стоять непосредственно перед циклом: иначе обещание индукции не к
+# чему отнести и проверка была бы пропущена молча. Контракт остаётся оператором тела.
+f(x:Int32):Int32 trust_pre( x > 0 ) := {
+    @{ invariant --> x > 0 @};
+    @return x;
+};
+# CHECK: error: loop invariant is not attached to a loop

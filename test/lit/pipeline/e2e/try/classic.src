@@ -10,11 +10,11 @@
 
 %chk():Void := {
     try_error {
-        -- 1 --;
+        |- 1 -|;
     } catch(_) {
-        print('caught=1');
+        print("caught=1");
     } else {
-        print('else=BAD');
+        print("else=BAD");
     };
 };
 {% int classic__main__() {

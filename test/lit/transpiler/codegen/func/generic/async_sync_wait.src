@@ -1,0 +1,13 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Generic native-import: one alias deduces T from AsyncTask<T> (stdlib prelude type).
+@[include("@stdlib/async/task.hpp")@]
+<T> run(t: AsyncTask<:T>): T := %trust::sync_wait...;
+
+f(): AsyncTask<:Int32> := ...;
+
+r : Int32 := run(f());
+
+# CHECK: #include "stdlib/async/task.hpp"
+# CHECK: trust::sync_wait(c_f{{_[A-Za-z0-9_]+}}())
+# CHECK-NOT: c_run_

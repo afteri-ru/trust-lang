@@ -1,10 +1,6 @@
 // trust/range.hpp - universal arithmetic range for the Trust runtime.
 //
-// Public runtime header: self-contained (standard headers + rational.hpp + dict.hpp)
-// so that generated C++ programs can include it without depending on the compiler's
-// include tree. At build time it is embedded into trust-runtime.so/.a (via #embed, in
-// an ELF section named "trust/range.hpp"); the pipeline extracts it into a temporary
-// `trust/` directory when a program actually uses the Range type.
+// Delivery: package file `include/trust/range.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 //
 // Design:
 //   - `Range<T>` is a *template* over the concrete element type T (like trust::Dict is
@@ -172,15 +168,6 @@ template <typename T>
 constexpr T rangeNegOne() {
     return T(-1);
 }
-
-// TypeKind group codes (ABI: тот же формат, что trust::TypedValue / types/typekind.hpp:
-// Group в битах 0-7, Data/размерность в битах 8-15). Самодостаточный заголовок не включает
-// дерево компилятора, поэтому коды заданы локально (как в test/unit/runtime/dict_test.cpp).
-inline constexpr uint32_t kRangeGroupLogical = 2u;
-inline constexpr uint32_t kRangeGroupIntegers = 3u;
-inline constexpr uint32_t kRangeGroupUnsigned = 4u;
-inline constexpr uint32_t kRangeGroupNumbers = 5u;
-inline constexpr uint32_t kRangeGroupArbitraryPrecision = 8u;
 
 } // namespace detail
 
@@ -436,18 +423,18 @@ class Range {
     /// Элемент T → trust::TypedValue с естественным TypeKind (для toDict).
     static TypedValue rangeTypedValue_(const T& v) {
         if constexpr (std::is_same_v<T, trust::Rational>) {
-            return TypedValue(trust::makeTypeId(static_cast<trust::TypeKind>(detail::kRangeGroupArbitraryPrecision | (1u << 8))), v);
+            return TypedValue(trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kArbitraryPrecision, 1u))), v);
         } else if constexpr (std::is_same_v<T, bool>) {
-            return TypedValue(trust::makeTypeId(static_cast<trust::TypeKind>(detail::kRangeGroupLogical | (1u << 8))), v);
+            return TypedValue(trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kLogical, 1u))), v);
         } else if constexpr (std::is_floating_point_v<T>) {
-            return TypedValue(trust::makeTypeId(static_cast<trust::TypeKind>(detail::kRangeGroupNumbers | (sizeof(T) * 8u << 8))), v);
+            return TypedValue(trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kNumbers, sizeof(T) * 8u))), v);
         } else if constexpr (std::is_unsigned_v<T>) {
-            return TypedValue(trust::makeTypeId(static_cast<trust::TypeKind>(detail::kRangeGroupUnsigned | (sizeof(T) * 8u << 8))), v);
+            return TypedValue(trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kUnsigned, sizeof(T) * 8u))), v);
         } else if constexpr (std::is_integral_v<T>) {
-            return TypedValue(trust::makeTypeId(static_cast<trust::TypeKind>(detail::kRangeGroupIntegers | (sizeof(T) * 8u << 8))), v);
+            return TypedValue(trust::QualType::fromTypeId(trust::TypeId::fromKind(trust::makeGroupTypeKind(trust::Group::kIntegers, sizeof(T) * 8u))), v);
         } else {
-            // std::any и прочие - Any (typeId=0, значение в std::any-ветке).
-            return TypedValue(0, v);
+            // std::any и прочие - Any (невалидный QualType; значение в std::any-ветке).
+            return TypedValue(trust::QualType{}, v);
         }
     }
 

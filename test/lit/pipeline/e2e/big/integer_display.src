@@ -17,6 +17,6 @@
     b:BigInteger := 1234567890;
     c:BigInteger := -1234567890;
     r:Rational := 1000000000000000000000000000000\3;
-    print('a={} b={} c={} r={}', a.display(3), b.display(2), c.display(2), r.display(3));
+    print("a={} b={} c={} r={}", a.display(3), b.display(2), c.display(2), r.display(3));
 };
 {% int integer_display__main__() { chk(); return 0; } %}

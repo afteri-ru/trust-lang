@@ -1,0 +1,26 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %not %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Один префикс нельзя привязать к ДВУМ областям: повтор с другой целью — ошибка (тихого
+# перекрытия нет).
+# CHECK: error: namespace alias 'ns::' is already bound in this scope
+
+//--- main.src
+\lib1();
+\lib2();
+ns:: :- \lib1::ns::;
+ns:: :- \lib2::ns::;
+@main():Int32 := { @return 0; };
+
+//--- lib1.src
+\lib1;
+ns:: {
+    f(x:Int32):Int32 := { @return x + 1; };
+};
+
+//--- lib2.src
+\lib2;
+ns:: {
+    f(x:Int32):Int32 := { @return x + 2; };
+};

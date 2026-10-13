@@ -1,0 +1,10 @@
+# RUN: %not %trust -q -Wsigil=ignore --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Порядок зон объявления функции: Z1 (зарезервированное системное имя) - ранний выход ДО
+# report-only зон Z7 (@[stack_check]) и Z9 (короткие ref-маркеры). Их диагностик быть не должно.
+@[stack_check(-1)@]
+__frob__(x: Int32):&*Int32 := ...;
+
+# CHECK: error: system name '__frob__' is reserved; only registered operator system functions may be declared
+# CHECK-NOT: @[stack_check(
+# CHECK-NOT: short reference markers

@@ -1,0 +1,15 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/app %s
+# RUN: %not grep -q -- '-ltrust-runtime' $TD/build.conf
+# RUN: %not grep -q -- '-lgmp' $TD/build.conf
+# RUN: %not grep -q -- '-lpthread' $TD/build.conf
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Link demand is driven by actually used headers/declarations, not by the fact that
+# the stdlib package was extracted. A program with no runtime-backed headers must not
+# link trust-runtime/gmp (hello-world stays runtime-free).
+
+{% int basic__main__() {
+    return 0;
+} %}

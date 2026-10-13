@@ -1,0 +1,14 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: cd $TD && %trust -q --temp-dir $TD -o $TD/app %s
+# RUN: grep -q -- '-ltrust-runtime' $TD/build.conf
+# RUN: $TD/app > %t.out
+# RUN: %FileCheck %s <%t.out
+# CHECK: ok
+#
+# `print` expands to trust__print__ (trust/io.hpp). The [[link.headers]] rule in
+# stdlib.trust maps trust/io.hpp -> trust-runtime, so exactly this program links it.
+
+@main():Int32 := {
+    print("ok\n");
+    return 0;
+};

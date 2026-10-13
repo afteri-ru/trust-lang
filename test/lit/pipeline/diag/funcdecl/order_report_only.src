@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Порядок report-only зон на ОДНОМ объявлении: Z7 (@[stack_check]) -> Z8 (квалификаторы на типе
+# возврата, в порядке объявления атрибутов). Ни одна из них не прерывает проверку объявления.
+@[stack_check(abc)@]
+f(x: Int32): @[deleter(Int32)@] @[lifetime(program)@] Int32 := ...;
+
+# CHECK: @[stack_check(abc)@]: argument must be a non-negative integer (stack size in bytes)
+# CHECK: attribute 'deleter' is not supported on a function return type
+# CHECK: attribute 'lifetime' is not supported on a function return type

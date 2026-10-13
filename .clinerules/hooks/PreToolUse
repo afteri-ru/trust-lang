@@ -1,113 +1,324 @@
 #!/bin/bash
 #
 # PreToolUse Hook
-# 
-# Executes before any tool is used (read_file, write_to_file, execute_command, etc.)
-# 
-# Input: { taskId, preToolUse: { toolName: string, parameters: object }, ... }
-# Output: { cancel: boolean, contextModification?: string, errorMessage?: string }
-# 
-# Use cases:
-# - Block dangerous operations
-# - Add safety checks before file modifications
-# - Log tool usage
-# - Validate parameters before execution
+#
+# Проверяет команды перед выполнением:
+#   - Git запрещён (AGENTS.md п.8), кроме защитных фильтров поиска (--exclude-dir/--exclude/-v);
+#   - параллелизм сборки задаётся политикой (cmake/parallelism.cmake), а не руками;
+#   - рекурсивный grep должен исключать производные каталоги (AGENTS.md п.8);
+#   - повтор одной и той же команды сборки/теста предупреждается заранее.
+#
+# Вход:  { taskId, preToolUse: { toolName, parameters: {command|commands} } }
+# Выход: { cancel: boolean, contextModification: string, errorMessage: string }
+#
+# Два класса правил:
+#   БЛОКИРУЮТСЯ (cancel=true): деструктивные и необратимые операции — удаление защищённых
+#     объектов, запись на блочные устройства, перезапись истории git. Предупреждением здесь
+#     не обойтись: команда уже выполнится.
+#   ИНФОРМИРУЮТ (cancel=false, contextModification): нарушение соглашений (git, ручной -j,
+#     рекурсивный grep без --exclude-dir, повтор команды). Отмена здесь прерывала бы работу
+#     и сборку, поэтому решение остаётся за моделью.
+#
+# Ключевые инварианты реализации:
+#   - jq ОБЯЗАТЕЛЕН: без него вход не разобрать, а молчаливый пропуск отключает запрет git
+#     (fail-closed, см. AGENTS.md п.5).
+#   - Команды батча (parameters.commands) проверяются ПООТДЕЛЬНОСТИ: одна команда не может
+#     стать причиной отмены другой (например, сборки) в том же вызове. Внутри одной строки
+#     деструктивная проверка идёт по простым командам (; && || |) — аргументы `cmake -S .` или
+#     `find include src` не блокируют `rm` из другого сегмента.
+#   - git распознаётся только в позиции команды, .git — только как сегмент пути/аргумента;
+#     значения защитных фильтров поиска вырезаются из текста до проверки.
+#   - Рекомендованное число задач пересчитывается текущей политикой (cmake/build_jobs.cmake),
+#     а не берётся из файла, записанного при configure.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Read JSON input from stdin
 INPUT=$(cat)
 
-# Parse input using jq (or fallback to basic parsing)
-if command -v jq &> /dev/null; then
-  TOOL=$(echo "$INPUT" | jq -r '.preToolUse.toolName')
-  # Текст команды: старый рантайм - .parameters.command (строка),
-  # текущий - .parameters.commands (массив строк или JSON-строка массива).
-  COMMAND=$(echo "$INPUT" | jq -r '
-    [.preToolUse.parameters.command, .preToolUse.parameters.commands]
-    | map(select(. != null))
-    | map(if type == "array" then join("\n")
-          elif type == "string" then ((fromjson? | if type == "array" then join("\n") else . end) // .)
-          else "" end)
-    | join("\n")')
-else
-  TOOL="<tool>"
-  COMMAND=""
+emit() {
+  jq -nc --arg ctx "$1" --arg err "$2" \
+    '{cancel:false,contextModification:$ctx,errorMessage:$err}'
+}
+
+emit_block() {
+  jq -nc --arg err "$1" '{cancel:true,contextModification:"",errorMessage:$err}'
+}
+
+if ! command -v jq >/dev/null 2>&1; then
+  printf '%s\n' '{"cancel":false,"contextModification":"PreToolUse: jq не найден — хук не может разобрать вход и проверить команды. Установите jq; запрет git (AGENTS.md п.8) действует независимо от хука.","errorMessage":""}'
+  exit 0
 fi
 
-# True, если инструмент исполняет команды (оба поколения имён инструментов).
-is_command_tool() {
-  case "$1" in
-    execute_command|run_commands|bash) return 0 ;;
-    *) return 1 ;;
+TOOL="$(printf '%s' "$INPUT" | jq -r '.preToolUse.toolName // empty')"
+case "$TOOL" in
+  execute_command|run_commands|bash) ;;
+  *) emit "" ""; exit 0 ;;
+esac
+
+# -- Команды вызова ---------------------------------------------------------
+# base64 на каждую команду: переводы строк внутри команды не должны её разрывать.
+CMDS=()
+while IFS= read -r _encoded; do
+  [ -n "$_encoded" ] || continue
+  CMDS+=("$(printf '%s' "$_encoded" | base64 -d)")
+done < <(printf '%s' "$INPUT" | jq -r '
+  [.preToolUse.parameters.command, .preToolUse.parameters.commands]
+  | map(select(. != null))
+  | map(if type == "array" then .
+         elif type == "string" then ((fromjson? | if type == "array" then . else [.] end) // [.])
+         else [] end)
+  | add // []
+  | map(select(type == "string"))
+  | map(@base64)
+  | .[]')
+
+if [ ${#CMDS[@]} -eq 0 ]; then
+  emit "" ""
+  exit 0
+fi
+
+CTX=""
+add_ctx() {
+  if [ -n "$CTX" ]; then
+    CTX="${CTX}"$'\n'"$1"
+  else
+    CTX="$1"
+  fi
+}
+
+# -- Git --------------------------------------------------------------------
+# command_code <command>: текст команды без данных (тело heredoc) и без значений защитных
+# фильтров поиска — только он проверяется на использование git.
+command_code() {
+  local filtered
+  filtered="$(printf '%s' "$1" \
+    | awk 'BEGIN{h=0} h{if($0==d){h=0}; next} {print; if(i=index($0,"<<")){r=substr($0,i+2); sub(/^-/,"",r); sub(/^[ \t]*/,"",r); gsub(/["'"'"']/,"",r); split(r,a,/[^A-Za-z0-9_]/); if(a[1]!=""){d=a[1]; h=1}}}' \
+    | sed -E \
+        -e 's/--exclude(-dir|-from)?(=|[[:space:]]+)[^[:space:]]+//g' \
+        -e 's/(^|[[:space:]])-v[[:space:]]+[^[:space:]]+/\1/g')" \
+    || { printf '%s' "$1"; return; }  # фильтрация недоступна — проверяется исходный текст
+  printf '%s' "${filtered}"
+}
+
+# -- Деструктивные операции (единственный блокирующий класс) -----------------------------
+# Защищённые объекты: необратимое удаление/перезапись разрушает проект или данные задачи.
+PROTECTED_OBJECT_RE="(^|[[:space:]])(\./)?(docs/content|docs|examples|include|cmake|test|src|\.tasklog|\.git|\.\.|\.|[*]|~|\$HOME|/)([[:space:]\"';&|)]|$)"
+PROTECTED_DIR_RE="(^|[[:space:]])(\./)?(docs/content|docs|examples|include|cmake|test|src|\.tasklog|\.git)([[:space:]\"';&|)]|$)"
+DELETE_CMD_RE="(^|[;&|(]|-c[[:space:]]*[\"'])[[:space:]]*(sudo[[:space:]]+)?(rm|rmdir|mv)([[:space:]]|$)"
+RECURSIVE_OWNER_RE="(^|[;&|(]|-c[[:space:]]*[\"'])[[:space:]]*(sudo[[:space:]]+)?(chmod|chown)[[:space:]]+-[a-zA-Z]*R"
+FIND_DELETE_RE="(^|[;&|(]|-c[[:space:]]*[\"'])[[:space:]]*(sudo[[:space:]]+)?find[[:space:]].*(-delete|-exec[[:space:]]+rm)"
+DEVICE_WRITE_RE='(of=[[:space:]]*/dev/|[0-9]?>[[:space:]]*/dev/(sd|nvme|hd|vd|mmcblk)|(^|[[:space:]])(mkfs([.][a-z0-9]+)?|wipefs|blkdiscard)([[:space:]]|$))'
+FIND_FILTER_RE='(-name|-path)'
+GIT_REWRITE_RE='(^|[;&|(])[[:space:]]*(sudo[[:space:]]+)?git[[:space:]]+(reset[[:space:]]+--hard|clean[[:space:]]+-[a-zA-Z]*f|checkout[[:space:]]+--|branch[[:space:]]+-D|push[[:space:]][^;&|]*--force)'
+# Команда shell с inline-скриптом: кавычки НЕ вырезаются — содержимое `-c` исполняется.
+SHELL_C_RE='(^|[;&|(])[[:space:]]*(sudo[[:space:]]+)?(bash|sh|zsh|dash|ksh)[[:space:]]+-c'
+
+# simple_commands <code>: печатает простые команды (сегменты между ; && || |) по одной в строке.
+# Разделители внутри кавычек не считаются: `printf 'a && b'` — одна команда. Хук остаётся
+# эвристическим барьером (полный разбор shell не выполняется), но аргументы одной команды
+# (например `cmake -S .` → `.`, `find include src` → `src`) не блокируют удаление в другой.
+simple_commands() {
+  local code="$1" i c quote="" out="" n=${#1}
+  for ((i = 0; i < n; i++)); do
+    c="${code:i:1}"
+    if [ -n "$quote" ]; then
+      out+="$c"
+      [ "$c" = "$quote" ] && quote=""
+      continue
+    fi
+    case "$c" in
+      "'" | '"') quote="$c"; out+="$c" ;;
+      ';' | '|' | '&')
+        if [ "$c" = "&" ] && [ "${code:i+1:1}" != "&" ]; then
+          out+="$c"
+          continue
+        fi
+        if [ "$c" = "&" ]; then i=$((i + 1)); fi
+        if [ "$c" = "|" ] && [ "${code:i+1:1}" = "|" ]; then i=$((i + 1)); fi
+        printf '%s\n' "$out"
+        out=""
+        ;;
+      '\')
+        out+="$c"
+        i=$((i + 1))
+        if [ "$i" -lt "$n" ]; then out+="${code:i:1}"; fi
+        ;;
+      *) out+="$c" ;;
+    esac
+  done
+  printf '%s\n' "$out"
+}
+
+# strip_quoted <text>: текст без содержимого кавычек. Позиция команды ищется в нём, чтобы
+# `printf '%s' 'rm -rf src'` не считался удалением; `bash -c '<...>'` проверяется целиком.
+strip_quoted() {
+  local s="$1" i c quote="" out="" n=${#1}
+  for ((i = 0; i < n; i++)); do
+    c="${s:i:1}"
+    if [ -n "$quote" ]; then
+      [ "$c" = "$quote" ] && quote=""
+      continue
+    fi
+    case "$c" in
+      "'" | '"') quote="$c" ;;
+      *) out+="$c" ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
+destructive_reason() {
+  local code="$1"
+  if [[ "$code" =~ $DEVICE_WRITE_RE ]]; then
+    printf '%s' 'запись на блочное устройство'
+    return 0
+  fi
+  if [[ "$code" =~ $GIT_REWRITE_RE ]]; then
+    printf '%s' 'перезапись истории git'
+    return 0
+  fi
+  local segment probe
+  while IFS= read -r segment || [ -n "$segment" ]; do
+    [[ "$segment" =~ [^[:space:]] ]] || continue
+    probe="$segment"
+    if [[ ! "$segment" =~ $SHELL_C_RE ]]; then
+      probe="$(strip_quoted "$segment")"
+    fi
+    if [[ "$probe" =~ $DELETE_CMD_RE ]] && [[ "$segment" =~ $PROTECTED_OBJECT_RE ]]; then
+      printf '%s' 'удаление защищённого объекта'
+      return 0
+    fi
+    if [[ "$probe" =~ $RECURSIVE_OWNER_RE ]] && [[ "$segment" =~ $PROTECTED_OBJECT_RE ]]; then
+      printf '%s' 'смена прав на защищённый объект'
+      return 0
+    fi
+    if [[ "$probe" =~ $FIND_DELETE_RE ]] && [[ ! "$probe" =~ $FIND_FILTER_RE ]] \
+       && [[ "$segment" =~ $PROTECTED_OBJECT_RE ]]; then
+      printf '%s' 'массовое удаление защищённого объекта'
+      return 0
+    fi
+  done < <(simple_commands "$code")
+  return 1
+}
+
+for _cmd in "${CMDS[@]}"; do
+  if _reason="$(destructive_reason "$(command_code "$_cmd")")"; then
+    emit_block "ДЕСТРУКТИВНАЯ КОМАНДА заблокирована (${_reason}): '${_cmd}'. Уточните задачу у пользователя; для очистки используйте обратимые операции (например, удаление артефактов сборки в _build)."
+    exit 0
+  fi
+done
+
+# git — только в позиции команды: начало строки, после ; & | ( && ||, либо после `<shell> -c`.
+# Слово "git" внутри кавычек в остальных местах (проза, printf-формат) командой не считается.
+GIT_CMD_RE="(^|[;&|(]|[[:space:]]&&[[:space:]]|[[:space:]]\\|\\|[[:space:]]|-c[[:space:]]*[\"'])[[:space:]]*(sudo[[:space:]]+)?git([[:space:]]|\$)"
+# .git — только как сегмент пути/аргумента (.gitignore, .github, digit, legit не совпадают).
+GIT_DIR_RE='(^|[[:space:]/=,{])\.git([/[:space:]},]|$)'
+
+for _cmd in "${CMDS[@]}"; do
+  _code="$(command_code "$_cmd")"
+  if [[ "$_code" =~ $GIT_CMD_RE ]] || [[ "$_code" =~ $GIT_DIR_RE ]]; then
+    add_ctx "ЗАПРЕТ GIT (AGENTS.md п.8): использование git (в т.ч. команды и данные каталога .git) недопустимо. Команда: '${_cmd}'. Замените её чтением файлов/поиском по src/include/test/examples. Для поиска используйте grep с --exclude-dir={_build,.tasklog,.git,_trust,node_modules} — значение фильтра не считается использованием git."
+  fi
+done
+
+# -- Сборка -----------------------------------------------------------------
+# Пересчёт политики на момент вызова: cgroup-лимит мог измениться после configure.
+recommended_jobs() {
+  local tmp rc jobs
+  tmp="$(mktemp "${TMPDIR:-/tmp}/trust-build-jobs.XXXXXX")" || return 0
+  cmake -DOUT="$tmp" -P "${PROJECT_ROOT}/cmake/build_jobs.cmake" >/dev/null 2>&1
+  rc=$?
+  jobs=""
+  if [ $rc -eq 0 ] && [ -s "$tmp" ]; then
+    jobs="$(tr -d '[:space:]' < "$tmp")"
+  fi
+  rm -f "$tmp"
+  printf '%s' "$jobs"
+}
+
+# cmake в позиции команды; сегменты внутри одного вызова проверяются целиком (редкий случай).
+CMAKE_BUILD_RE='(^|[;&|(])[[:space:]]*cmake[[:space:]]+--build([[:space:]]|$)'
+
+for _cmd in "${CMDS[@]}"; do
+  [[ "$_cmd" =~ $CMAKE_BUILD_RE ]] || continue
+  case "$_cmd" in
+    *trust-build.sh*) continue ;;  # обёртка сама применяет политику
   esac
-}
 
-# Helper: read CMakeLists.txt and build contextModification
-read_cmake_context() {
-  local content
-  content=$(cat "${PROJECT_ROOT}/CMakeLists.txt" 2>/dev/null || echo "CMakeLists.txt not found")
-  printf 'cmake command failed. CMakeLists.txt content:\n```\n%s\n```' "$content"
-}
+  _jobs="$(recommended_jobs)"
 
-# Helper: output JSON with contextModification
-output_json() {
-  local cancel="$1"
-  local ctx="$2"
-  local err="$3"
-  if command -v jq &>/dev/null; then
-    jq -n --arg ctx "$ctx" --arg err "$err" \
-      '{"cancel":($cancel|test("true")),"contextModification":$ctx,"errorMessage":$err}' \
-      --arg cancel "$cancel"
-  else
-    ESCAPED_CTX=$(printf '%s' "$ctx" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g')
-    echo "{\"cancel\":${cancel},\"contextModification\":\"${ESCAPED_CTX}\",\"errorMessage\":\"${err}\"}"
+  if [[ ! "$_cmd" =~ cmake[[:space:]]+--build[[:space:]]+_build([[:space:]]|$) ]]; then
+    _dir="$(printf '%s' "$_cmd" | sed -nE 's/.*cmake[[:space:]]+--build[[:space:]]+([^[:space:]]+).*/\1/p' | head -n1)"
+    add_ctx "cmake --build разрешён только для _build (получено: '${_dir:-<нет>}'). Правила запуска — AGENTS.md п.14."
+    continue
   fi
-}
 
-# Check: cmake --build with non-_build directory - warn via contextModification
-if is_command_tool "$TOOL" && [[ "$COMMAND" =~ cmake[[:space:]]+--build ]]; then
-  # Case 1: cmake --build _build [...] → allowed, no modification
-  if [[ "$COMMAND" =~ cmake[[:space:]]+--build[[:space:]]+(_build)([[:space:]]|$) ]]; then
-    : # pass through
-  # Case 2: cmake --build <other_path> [...] → warn via contextModification
-  elif [[ "$COMMAND" =~ cmake[[:space:]]+--build[[:space:]]+([^[:space:]]+) ]]; then
-    BUILD_DIR="${BASH_REMATCH[1]}"
-    CTX=$(read_cmake_context)
-    output_json "false" "$CTX" "cmake --build is only allowed with '_build' directory. Got: $BUILD_DIR"
-    exit 0
-  # Case 3: cmake --build (no argument) or cmake --build --target [...] → warn via contextModification
-  else
-    CTX=$(read_cmake_context)
-    output_json "false" "$CTX" "cmake --build requires build directory. Use 'cmake --build _build'"
-    exit 0
+  _given=""
+  _has_jobs=0
+  if [[ "$_cmd" =~ (^|[[:space:]])-j([0-9]*) ]]; then
+    _given="${BASH_REMATCH[2]}"
+    _has_jobs=1
+  elif [[ "$_cmd" == *"--parallel"* ]]; then
+    _has_jobs=1
+    if [[ "$_cmd" =~ --parallel[=[:space:]]*([0-9]+) ]]; then
+      _given="${BASH_REMATCH[1]}"
+    fi
   fi
+
+  if [ -z "$_jobs" ]; then
+    add_ctx "Параллелизм сборки вычисляет cmake/parallelism.cmake; используйте 'make build' или '_build/trust-build.sh'."
+  elif [ $_has_jobs -eq 0 ]; then
+    add_ctx "cmake --build без -j собирает последовательно. Используйте 'make build' (jobs=${_jobs}, вычисляется из памяти)."
+  elif [ -z "$_given" ]; then
+    add_ctx "Голый -j/--parallel означает неограниченное число задач (риск OOM). Политика (cmake/parallelism.cmake) даёт -j${_jobs}."
+  elif [ "$_given" != "$_jobs" ]; then
+    add_ctx "Параллелизм вычисляется из памяти (cmake/parallelism.cmake): ожидается -j${_jobs}, передано -j${_given}."
+  fi
+done
+
+# -- Рекурсивный grep -------------------------------------------------------
+GREP_CMD_RE='(^|[;&|(])[[:space:]]*(sudo[[:space:]]+)?grep([[:space:]]|$)'
+GREP_RECURSIVE_RE='(^|[[:space:]])(-[A-Za-z]*[rR][A-Za-z]*|--recursive)([[:space:]]|$)'
+
+for _cmd in "${CMDS[@]}"; do
+  [[ "$_cmd" =~ $GREP_CMD_RE ]] || continue
+  [[ "$_cmd" =~ $GREP_RECURSIVE_RE ]] || continue
+  case "$_cmd" in
+    *--exclude-dir*) continue ;;
+  esac
+  add_ctx "ВНИМАНИЕ: рекурсивный grep без --exclude-dir может захватить мусор из _build/.tasklog/.git/.trust. Добавьте --exclude-dir={_build,.tasklog,.git,_trust,.trust,node_modules} и сузьте корень поиска до src/include/test/examples (AGENTS.md п.8)."
+done
+
+# -- Анти-цикл --------------------------------------------------------------
+# Совпадение только в позиции команды: «makefile», «cmake/…» в путях не считаются сборкой.
+BUILD_CMD_RE='(^|[;&|(])[[:space:]]*(cmake|make|ctest|trust-build\.sh|sleep)([[:space:]]|$)'
+TASK_ID="$(printf '%s' "$INPUT" | jq -r '.taskId // empty')"
+
+if [ -n "$TASK_ID" ]; then
+  for _cmd in "${CMDS[@]}"; do
+    [[ "$_cmd" =~ $BUILD_CMD_RE ]] || continue
+    mkdir -p "${TASKLOG_DIR:-${PROJECT_ROOT}/.tasklog}"
+    STATE_FILE="${TASKLOG_DIR:-${PROJECT_ROOT}/.tasklog}/${TASK_ID}.cmdseq"
+    CMD_HASH="$(printf '%s' "$_cmd" | sha256sum | cut -d' ' -f1)"
+    LAST_HASH=""
+    REPEAT=0
+    if [ -f "$STATE_FILE" ]; then
+      read -r LAST_HASH REPEAT < "$STATE_FILE" || true
+    fi
+    case "$REPEAT" in
+      ''|*[!0-9]*) REPEAT=0 ;;
+    esac
+    if [ "$CMD_HASH" = "$LAST_HASH" ]; then
+      REPEAT=$((REPEAT + 1))
+    else
+      REPEAT=1
+    fi
+    printf '%s %s\n' "$CMD_HASH" "$REPEAT" > "$STATE_FILE"
+    if [ "$REPEAT" -ge 2 ]; then
+      add_ctx "Та же команда повторяется ${REPEAT}-й раз. Для ожидания фоновой сборки/тестов используйте ОДИН вызов: _build/trust-build.sh --wait <pidfile> <log> (внутри разные интервалы)."
+    fi
+  done
 fi
 
-# Git check: allow only defensive search filters (--exclude-dir=.git, grep -v "\.git").
-# Any other occurrence of "git" (including ".git" and git commands) is forbidden.
-if is_command_tool "$TOOL" && [[ "$COMMAND" == *"git"* ]]; then
-  # Allowing check - defensive filters that exclude the .git dir, not a git usage
-  if [[ "$COMMAND" =~ '--exclude-dir=.git' ]] || [[ "$COMMAND" =~ 'grep -v "\.git"' ]] || [[ "$COMMAND" =~ 'grep -v ".git"' ]] || [[ "$COMMAND" =~ "grep -v '.git'" ]] ; then
-    : # pass - these are directory-exclusion filters, not git usage
-  else
-    # Forbidding check - any other "git" occurrence (including ".git" and git commands)
-    echo '{"cancel":true,"errorMessage":"Использование Git запрещено (см. AGENTS.md п.8)."}'
-    exit 0
-  fi
-fi
-
-# Grep check: рекурсивный grep должен исключать временные/производные каталоги,
-# иначе захватывает мусор из _build/.tasklog/.git/.trust. Предупреждение через
-# contextModification (не блокируем - у одиночного файлового grep фильтр не нужен).
-if is_command_tool "$TOOL" && [[ "$COMMAND" == *"grep"* ]]; then
-  if [[ "$COMMAND" != *"--exclude-dir"* ]] && [[ "$COMMAND" =~ (^|[[:space:]])-r ]]; then
-    CTX="ВНИМАНИЕ: рекурсивный grep без --exclude-dir может захватить мусор из _build/.tasklog/.git/.trust. Добавьте --exclude-dir={_build,.tasklog,.git,_trust,.trust,node_modules} и сузьте корень поиска до src/include/test/examples (AGENTS.md п.8)."
-    output_json "false" "$CTX" ""
-    exit 0
-  fi
-fi
-
-# Allow execution
-echo '{"cancel":false,"contextModification":"","errorMessage":""}'
+emit "$CTX" ""
