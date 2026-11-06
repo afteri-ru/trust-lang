@@ -1,0 +1,22 @@
+\\builtin\array;
+# builtin/array.src - implementation module of the built-in Array container.
+# Array<Elem> is compiler-selected: std::vector for mutable, std::array for const.
+# The native C++ name is a marker (abstract `:Array` is diagnosed before emission);
+# the module owns the C++ headers (vector + array) via array.hpp.
+#
+# Bindings `name(...) := %member ...;` attach interface methods to std::vector members; the
+# element slot is spelled with the interface type parameter `TemplateParam`.
+
+@[include("@stdlib/builtin/array.hpp")@]
+Array = %std::vector {
+    count^(): Int64 := %size ...;
+    size^(): Int64 := %size ...;
+    empty^(): Bool := %empty ...;
+    at^(i: Int64): TemplateParam := %at ...;
+    first^(): TemplateParam := %front ...;
+    last^(): TemplateParam := %back ...;
+    push_back(v: TemplateParam) := %push_back ...;
+    pop_back() := %pop_back ...;
+    clear() := %clear ...;
+    resize(n: Int64) := %resize ...;
+};

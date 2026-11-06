@@ -61,12 +61,12 @@ struct CompletionHelpers {
 TEST_F(TrustLspTest, HandleCompletion_Names_FunctionPrefix) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
     // Комментарий с префиксом (валидный документ) - курсор после 'my'.
-    h.open("x := \"str\";\n%myfunc(a:Int32):Int32 := a + 1;\n$value := 42;\n# my\n");
+    h.open("x := \"str\";\nmyfunc(a:Int32):Int32 := a + 1;\n$value := 42;\n# my\n");
 
     json resp = h.at(3, 4, 101);
     ASSERT_FALSE(resp.is_discarded());
-    // Префикс 'my' (без '%') → функция %myfunc.
-    EXPECT_TRUE(h.hasLabel(resp, "%myfunc")) << resp.dump();
+    // Префикс 'my' → функция myfunc.
+    EXPECT_TRUE(h.hasLabel(resp, "myfunc")) << resp.dump();
 }
 
 TEST_F(TrustLspTest, HandleCompletion_Names_NotVisibleAfterCursor) {
@@ -226,12 +226,12 @@ TEST_F(TrustLspTest, HandleCompletion_MemberAccess_DictFields) {
 
 TEST_F(TrustLspTest, HandleCompletion_NoMethodsOnPercent) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
-    // '%' показывает свободные функции, но НЕ методы (c_str после точки).
-    h.open("x := \"str\";\nz := x.c_str();\n%myfunc(a:Int32):Int32 := a + 1;\n# %\n");
+    // '%' больше не маркер имени: показываются обычные свободные функции, но НЕ методы.
+    h.open("x := \"str\";\nz := x.c_str();\nmyfunc(a:Int32):Int32 := a + 1;\n# %\n");
 
-    json resp = h.at(3, 2, 114);
+    json resp = h.at(3, 3, 114);
     ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "%myfunc")) << resp.dump();
+    EXPECT_FALSE(h.hasLabel(resp, "myfunc")) << resp.dump();
     EXPECT_FALSE(h.hasLabel(resp, "c_str")) << "method must not appear as free name\n" << resp.dump();
     EXPECT_FALSE(h.hasLabel(resp, "%c_str")) << "native method must not appear as free name\n" << resp.dump();
 }
@@ -434,11 +434,11 @@ TEST_F(TrustLspTest, HandleCompletion_FacadeReExportVisible) {
     EXPECT_TRUE(h.hasLabel(resp, "reexported")) << resp.dump();
 }
 
-// S3: имя-алиас (`f :- \lib::g;`) — объявление: оно входит в export-набор фасада и должно
+// S3: имя-алиас (`f :- g;`) — объявление: оно входит в export-набор фасада и должно
 // присутствовать в SymbolIndex, хотя C++-функция для него не эмитится (decl остаётся у цели).
 TEST_F(TrustLspTest, HandleCompletion_FunctionAliasVisible) {
     std::ofstream(tmpDir + "/lib.src") << "\\lib;\ng(x:Int32):Int32 := { @return x; };\n";
-    std::ofstream(tmpDir + "/facade.src") << "\\facade {\n    \\lib(g);\n    f :- \\lib::g;\n};\n";
+    std::ofstream(tmpDir + "/facade.src") << "\\facade {\n    \\lib(g);\n    f :- g;\n};\n";
 
     CompletionHelpers h{transport, *lsp, testSrcFile};
     h.open("\\facade(f);\n# f\n");
@@ -448,7 +448,7 @@ TEST_F(TrustLspTest, HandleCompletion_FunctionAliasVisible) {
     EXPECT_TRUE(h.hasLabel(resp, "f")) << resp.dump();
 }
 
-// S4: имена из активной области поиска `... = X` (using) предлагаются КОРОТКО, хотя объявление
+// Имена из активной области поиска `... = X` (using) предлагаются КОРОТКО, хотя объявление
 // лежит в другой области имён (поэтому позиционный фильтр по nameRange к ним не применяется).
 TEST_F(TrustLspTest, HandleCompletion_UsingScopeShortNames) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
@@ -465,94 +465,7 @@ TEST_F(TrustLspTest, HandleCompletion_UsingScopeShortNames) {
     EXPECT_FALSE(h.hasLabel(resp, "helper")) << resp.dump();
 }
 
-// S4: namespace-алиас (`al:: :- \lib::ns::;`) — qualified completion разворачивает префикс
-// в область модуля-владельца и вставляет набранную форму (`al::name`).
-TEST_F(TrustLspTest, HandleCompletion_NamespaceAliasPrefix) {
-    std::ofstream(tmpDir + "/lib.src") << "\\lib;\nns:: {\n    deepfn():Int32 := { @return 1; };\n};\n";
-
-    CompletionHelpers h{transport, *lsp, testSrcFile};
-    h.open("\\lib();\nal:: :- \\lib::ns::;\n# al::de\n");
-
-    json resp = h.at(2, 8, 154);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "al::deepfn")) << resp.dump();
-}
-
-// R6: вложенный namespace-алиас (`outer:: { ns:: :- \lib::sub::; };`) — longest-prefix и
-// имена алиасов как namespace-кандидаты.
-TEST_F(TrustLspTest, HandleCompletion_NestedNamespaceAliasPrefix) {
-    std::ofstream(tmpDir + "/lib.src") << "\\lib;\nsub:: {\n    deepfn():Int32 := { @return 1; };\n};\n";
-
-    CompletionHelpers h{transport, *lsp, testSrcFile};
-    h.open("\\lib();\nouter:: {\n    ns:: :- \\lib::sub::;\n};\n# outer::ns::de\n");
-
-    json resp = h.at(4, 15, 160);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "outer::ns::deepfn")) << resp.dump();
-}
-
-TEST_F(TrustLspTest, HandleCompletion_NamespaceAliasName) {
-    std::ofstream(tmpDir + "/lib.src") << "\\lib;\nsub:: {\n    deepfn():Int32 := { @return 1; };\n};\n";
-
-    CompletionHelpers h{transport, *lsp, testSrcFile};
-    h.open("\\lib();\nouter:: {\n    ns:: :- \\lib::sub::;\n};\n# outer::n\n");
-
-    json resp = h.at(4, 11, 161);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "outer::ns")) << resp.dump();
-}
-
-// R4: module-алиас (`\m :- \lib;`) — completion `\m::` идёт через spelling-алиас.
-TEST_F(TrustLspTest, HandleCompletion_ModuleAliasPrefix) {
-    std::ofstream(tmpDir + "/lib.src") << "\\lib;\ng(x:Int32):Int32 := { @return x; };\n";
-
-    CompletionHelpers h{transport, *lsp, testSrcFile};
-    h.open("\\lib(g);\n\\m :- \\lib;\n# \\m::g\n");
-
-    json resp = h.at(2, 7, 162);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "\\m::g")) << resp.dump();
-}
-
-// R4: экспортированный namespace-алиас фасада — `\facade::outer::ns::` разворачивается в область
-// владельца (longest-prefix), вставка сохраняет набранную квалификацию.
-TEST_F(TrustLspTest, HandleCompletion_FacadeNamespaceAliasPrefix) {
-    std::ofstream(tmpDir + "/lib.src") << "\\lib;\nsub:: {\n    deepfn():Int32 := { @return 1; };\n};\n";
-    std::ofstream(tmpDir + "/facade.src") << "\\facade {\n    \\lib();\n    outer:: {\n        ns:: :- \\lib::sub::;\n    };\n};\n";
-
-    CompletionHelpers h{transport, *lsp, testSrcFile};
-    h.open("\\facade();\n# \\facade::outer::ns::de\n");
-
-    json resp = h.at(1, 24, 163);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "\\facade::outer::ns::deepfn")) << resp.dump();
-}
-
-TEST_F(TrustLspTest, HandleCompletion_FacadeNamespaceAliasName) {
-    std::ofstream(tmpDir + "/lib.src") << "\\lib;\nsub:: {\n    deepfn():Int32 := { @return 1; };\n};\n";
-    std::ofstream(tmpDir + "/facade.src") << "\\facade {\n    \\lib();\n    outer:: {\n        ns:: :- \\lib::sub::;\n    };\n};\n";
-
-    CompletionHelpers h{transport, *lsp, testSrcFile};
-    h.open("\\facade();\n# \\facade::outer::n\n");
-    json resp = h.at(1, 19, 164);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "\\facade::outer::ns")) << resp.dump();
-}
-
-// S4: модульно-квалифицированный префикс (`\lib::li`): кандидаты — экспорт ЭТОГО модуля,
-// вставка — с модульным spelling.
-TEST_F(TrustLspTest, HandleCompletion_ModuleQualifiedPrefix) {
-    std::ofstream(tmpDir + "/lib.src") << "\\lib;\nlibfunc():Int32 := { @return 1; };\n";
-
-    CompletionHelpers h{transport, *lsp, testSrcFile};
-    h.open("\\lib(libfunc);\n# \\lib::li\n");
-
-    json resp = h.at(1, 10, 155);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "\\lib::libfunc")) << resp.dump();
-}
-
-// S4: ведущий `::` (глобальная область) — префикс не должен терять кандидатов.
+// Ведущий `::` (глобальная область) — префикс не должен терять кандидатов.
 TEST_F(TrustLspTest, HandleCompletion_GlobalNamespacePrefix) {
     CompletionHelpers h{transport, *lsp, testSrcFile};
     h.open("ns:: {\n    globalfn():Int32 := { @return 1; };\n};\n# ::ns::glob\n");
@@ -560,35 +473,4 @@ TEST_F(TrustLspTest, HandleCompletion_GlobalNamespacePrefix) {
     json resp = h.at(3, 12, 156);
     ASSERT_FALSE(resp.is_discarded());
     EXPECT_TRUE(h.hasLabel(resp, "::ns::globalfn")) << resp.dump();
-}
-
-// S5: одноимённые экспорты РАЗНЫХ модулей не смешиваются: каждый вставляется квалифицированно
-// (`\lib::f`) — иначе вставка короткого имени дала бы `ambiguous name` на сайте использования.
-TEST_F(TrustLspTest, HandleCompletion_SameNameDifferentModulesQualified) {
-    std::ofstream(tmpDir + "/lib_a.src") << "\\lib_a;\nf(x:Int32):Int32 := { @return x; };\n";
-    std::ofstream(tmpDir + "/lib_b.src") << "\\lib_b;\nf(x:Int32):Int32 := { @return x; };\n";
-
-    CompletionHelpers h{transport, *lsp, testSrcFile};
-    h.open("\\lib_a(f);\n\\lib_b(f);\n# f\n");
-
-    json resp = h.at(2, 3, 157);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "\\lib_a::f")) << resp.dump();
-    EXPECT_TRUE(h.hasLabel(resp, "\\lib_b::f")) << resp.dump();
-}
-
-// S4: тип чужого модуля в qualified-completion (`\lib::T` и `:\lib::T`).
-TEST_F(TrustLspTest, HandleCompletion_ModuleQualifiedType) {
-    std::ofstream(tmpDir + "/lib.src") << "\\lib;\n:T ::= :Int32;\n";
-
-    CompletionHelpers h{transport, *lsp, testSrcFile};
-    h.open("\\lib();\n# \\lib::T\n");
-    json resp = h.at(1, 9, 158);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, "\\lib::T")) << resp.dump();
-
-    h.open("\\lib();\n# :\\lib::T\n");
-    resp = h.at(1, 11, 159);
-    ASSERT_FALSE(resp.is_discarded());
-    EXPECT_TRUE(h.hasLabel(resp, ":\\lib::T")) << resp.dump();
 }

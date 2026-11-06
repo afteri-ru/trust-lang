@@ -19,7 +19,6 @@ TypeSystem::TypeSystem(DiagnosticEngine& diag, const Options& opts)
 , m_interner(m_read, m_store, m_names, diag, opts) {
     m_store.resetToBuiltin(builtinCore());
     m_names.setBuiltinCore(m_store.builtinCore());
-    m_builtins.setCore(m_store.builtinCore());
     // Продолжаем интернирование seed-структурных типов (единый TypeId на структуру).
     m_interner.reset(m_store.builtinCore()->structural);
     // On-demand материализация членов record-специализаций (C++-модель неявной инстанциации).
@@ -42,8 +41,12 @@ void TypeSystem::reset() {
     // тот же TypeId (одна структура - один TypeId).
     m_interner.reset(m_store.builtinCore()->structural);
     m_codes.clear(); // коды вычисляются из текущих дескрипторов/имён
-    m_builtins.reset();
-    m_builtins.setCore(m_store.builtinCore());
+    m_borrowedClasses.clear();
+    m_borrowedMethods.clear();
+    m_methods.clearBuiltinExtraMethods();
+    // Единственная точка инвалидации производных снимков (SemanticModel): снимок, снятый до
+    // reset(), при следующем обращении обнаружит расхождение поколения (R7).
+    ++m_generation;
 }
 
 } // namespace trust

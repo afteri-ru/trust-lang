@@ -2,9 +2,8 @@
 
 > scope: include/syntax (public API)
 > role: persistent-memory
-> last_reviewed: 2026-11-04
+> last_reviewed: 2026-11-12
 > review_period: 30
-> max_size: 8000
 
 ## Architecture
 
@@ -12,39 +11,43 @@ Scanner (Flex) → Macro → Parser (Bison) → Term-дерево. Раскры�
 подаёт термины в буфер, `Macro` раскрывает их до грамматики. Прагмы/предопределённые макросы —
 `PredefMacroResolver`/`PragmaEvaluator`; алгоритмика макропроцессора — свободные функции, `Macro` — реестр
 скоупов. **ЕДИНСТВЕННЫЕ источники списков макросов/прагм — x-macro** (`predef_macro_x.hpp`,
-`pragma_macro_x.hpp`): реестры/доки/стрингификация строятся ОДИН раз. Реализация — в internal-подкаталогах:
+`pragma_macro_x.hpp`).
 
 | internal-подкаталог | MEMORY | ответственность |
 |---|---|---|
-| `syntax/parser/` | `parser/MEMORY.md` | грамматика, recovery, узлы Term для конструкций |
-| `syntax/macro/` | `macro/MEMORY.md` | макропроцессор, DSL-скоуп, прагмы, контекст-макросы |
-| `syntax/lexer/` | `lexer/MEMORY.md` | правила Flex (`lexer.l`), лексемы, литералы, EOF, правила идентификаторов (`NAMING.md`) |
-| `syntax/grammar/` | `grammar/MEMORY.md` | вход генератора парсера (`parser.y.in`) и синтаксис конструкций (`SYNTAX.md`, `CREATE.md`) |
-| `syntax/util/` | `util/MEMORY.md` | внутренние диагностики и warning-прагмы |
-| `syntax/term/` | `term/MEMORY.md` | Term-дерево: `term.h` (`Term`, `dumpTermTree`), `term_types.h` (x-macro `TERMS` — единственный источник `TermID`) и реализация |
+| `syntax/parser/` | есть | грамматика, recovery, узлы Term |
+| `syntax/macro/` | есть | макропроцессор, DSL-скоуп, прагмы, контекст-макросы |
+| `syntax/lexer/` | есть | правила Flex (`lexer.l`), лексемы, литералы, EOF, правила идентификаторов |
+| `syntax/grammar/` | есть | вход генератора парсера (`parser.y.in`), синтаксис (`SYNTAX.md`, `CREATE.md`) |
+| `syntax/util/` | есть | внутренние диагностики и warning-прагмы |
+| `syntax/term/` | есть | Term-дерево: `term.h`, `term_types.h` (x-macro `TERMS` — единственный источник `TermID`) |
 
 ## Facts and invariants
 
-- **⚠ MODULE-терм: импорт vs ссылка — `m_right`, а НЕ `isCall()`:** `m_right` означает ССЫЛКУ
-  `\path::name` в любой позиции (индекс ставит `ResolveModuleReference` через `findLoaded` БЕЗ загрузки);
-  импорт (`\path(...)`) `m_right` не имеет. Различать по `isCall()` нельзя: `\path::f(1)` — ссылка
-  с `m_args`. Индексы загруженных модулей (`m_moduleIndices`) ставит загрузчик; пустой вектор — не сайт.
-- **⚠ Заголовок файла: путь — не AST, блок интерфейса — AST.** Первая значимая конструкция `<path>;` или
-  `<path> { ... };`: путь статичен (макроподстановка не применяется), маскируется перед разбором и в AST
-  не входит; блок интерфейса разбирается как один `ScopeBlock`. Сканер 0-based, `Location::offset()`
-  1-based. Заголовок обязателен для импортируемых/модульных/пакетных файлов, опционален только для
-  корневой программы.
-- **⚠ Имя entry-функции — ЕДИНСТВЕННАЯ формула `moduleEntryIdent(logical)`** (`location/module_name.hpp`):
-  её строит DSL-макрос `main`, её же передаёт `Pipeline`; при расхождении обёртка `_main.cppt` не найдёт
-  функцию.
-- **⚠ API текста Term:** единственный read-аксессор `getText()` (string_view); запись — `setTextOwned`/
-  `mutableText`. `Clone()` сохраняет природу текста. Term может владеть текстом только в syntax-фазе;
-  AST при конвертации интернирует текст в пул строк компиляции ТОЛЬКО для узлов-носителей.
-  Source-view Term валиден, пока жив SourceMap/Context.
-- **⚠ `getText()` и `m_mapperRange` — независимые факты:** при раскрытии макроса spelling остаётся из
-  определения, range переприсваивается на call-site. Не выводить одно из другого.
+- **⚠ Парсер не зависит от `session` (R34):** `Parser`/`Macro`/`Scanner`/`PredefMacroResolver`/`PragmaEvaluator`
+  принимают порт `ParserServices{diag, source, opts, strings, moduleResolver, macro, currentParseModule}`
+  (`syntax/parser_services.hpp`), собираемый владельцем (`makeParserServices`). `Parser` делает
+  `strings` АКТИВНЫМ пулом на время своего существования — доки/тексты разбора принадлежат прогону (E9).
+  Доки макросов пишутся через sink-и (`addMacroDoc`/`setMacroDoc`), регистрация — `recordMacro`-sink;
+  `value`/`context`-доки сидируются в ctor `PredefMacroResolver`, прагм-доки — при использовании прагмы.
+  Ребро `syntax→session` запрещено гейтом. `Macro` хранит порт ПО ЗНАЧЕНИЮ (живёт дольше разбора).
+- **⚠ MODULE-терм — только сайт импорта:** `\path(...)` (`CheckModuleTerm`); индексы загруженных
+  модулей ставит загрузчик (`m_moduleIndices`; пустой вектор — не сайт). Ссылочная форма
+  `\path::name` удалена из грамматики (`m_right` не производится).
+- **⚠ Заголовок файла: путь — не AST, блок интерфейса — AST.** `<path>;` или `<path> { ... };`: путь статичен
+  (макроподстановки нет), маскируется до разбора и в AST не входит; блок — один `ScopeBlock`. Сканер 0-based,
+  `Location::offset()` 1-based. Заголовок обязателен для импортируемых/модульных/пакетных файлов, опционален —
+  только для корневой программы.
+- **⚠ Имя entry-функции — ЕДИНСТВЕННАЯ формула `moduleEntryIdent(logical)`** (`location/module_name.hpp`): её
+  строит DSL-макрос `main`, её же передаёт `Pipeline`; при расхождении `_main.cppt` не найдёт функцию.
+- **⚠ API текста Term:** read — `getText()` (string_view); запись — `setTextOwned`/`mutableText`. `Clone()`
+  сохраняет природу текста. Term владеет текстом только в syntax-фазе; AST интернирует текст в пул строк
+  ТОЛЬКО для узлов-носителей. Source-view Term валиден, пока жив SourceMap/Context.
+- **⚠ `getText()` и `m_mapperRange` — независимые факты:** при раскрытии макроса spelling — из определения,
+  range переприсваивается на call-site. Не выводить одно из другого.
 
 ## Relations
 
-- `ast` (TermToAstConverter), `module_loader` (индексы/интерфейс), `session` (`Context`/`Macro`),
-  `utils` (trace_options), `location` (module_name).
+- `ast` (TermToAstConverter), `module_loader` (индексы/интерфейс), `utils` (trace_options),
+  `location` (module_name). Порт `ParserServices` (диагностика/источник/опции/резолвер) собирает владелец —
+  `syntax` от `session` не зависит.

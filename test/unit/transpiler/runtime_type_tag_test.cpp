@@ -5,6 +5,7 @@
 // Квалификаторы (const/inferred) сохраняются всегда.
 
 #include "session/context.hpp"
+#include "support/codegen_services_test_util.hpp"
 #include "transpiler/emit/emit_ctx.hpp"
 #include "transpiler/type/type_include_collector.hpp"
 #include "transpiler/type/type_name_resolver.hpp"
@@ -29,11 +30,15 @@ class RuntimeTypeTagTest : public ::testing::Test {
         m_prevErr = setErrs(&m_stream);
         m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
+        // Целевой контракт прогона (вне языковой модели) — как в боевом `Pipeline`: порт
+        // кодогенерации читает целевые C++-факты (`declCppFacts`/`target`).
+        m_target = std::make_unique<TargetContract>();
+        m_ctx.setTarget(m_target.get());
     }
     void TearDown() override { setErrs(m_prevErr); }
 
     QualType tag(QualType state) {
-        CppEmitContext ectx(m_ctx);
+        CppEmitContext ectx(codegenServices(m_ctx));
         TypeIncludeCollector includes(ectx);
         TypeNameResolver resolver(ectx, includes);
         return resolver.toRuntimeType(state);
@@ -42,6 +47,7 @@ class RuntimeTypeTagTest : public ::testing::Test {
     std::ostream* m_prevErr = nullptr;
     std::ostringstream m_stream;
     Context m_ctx;
+    std::unique_ptr<TargetContract> m_target;
     std::unique_ptr<TypeSystem> m_types;
 };
 
@@ -84,7 +90,8 @@ TEST_F(RuntimeTypeTagTest, UserAliasKeepsNominalIndex) {
 }
 
 TEST_F(RuntimeTypeTagTest, RecordTypeKeepsNominalIndex) {
-    const TypeId record = m_types->registrar().defineRecord("TagPoint", Group::kStructs, {TupleElementData{"x", QualType::fromTypeId(m_types->read().getType(type::Int32))}});
+    const TypeId record =
+        m_types->registrar().defineRecord("TagPoint", Group::kStructs, {TupleElementData{"x", QualType::fromTypeId(m_types->read().getType(type::Int32))}});
     ASSERT_NE(record, INVALID_TYPE_ID);
 
     const QualType out = tag(QualType::fromTypeId(record));

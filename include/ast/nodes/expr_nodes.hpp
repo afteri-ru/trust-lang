@@ -1,13 +1,9 @@
 #pragma once
-// include/ast/nodes/expr_nodes.hpp
-// Expression/storage AST nodes: literals, context markers, Binary, CallExpr, ArgNode,
-// Sequence and its value-like subtypes (dict/array/range), ScopeBlock, ModuleNode,
-// plus the kind-classification helpers used by semantic and codegen.
 
 #include "ast/token_base.hpp"
 #include "ast/slots/slot_engine.hpp"
 #include "ast/binary_op.hpp"
-#include "location/namespace_alias.hpp"
+#include "location/decl_id.hpp"
 #include "location/module_index.hpp"
 #include "ast/token.hpp"
 #include "syntax/check_area.hpp"
@@ -22,17 +18,18 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace trust {
 
-class Context;
+struct ConvertServices;
+class DeclCppFacts;
 
 class Literal : public WithText<AstNodeAttr> {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_Literal)
     Literal() = default;
 
@@ -41,7 +38,7 @@ class Literal : public WithText<AstNodeAttr> {
     : WithText<AstNodeAttr>(k, term) {}
 
     /// Uniform term-constructor for the generated factory (ctx игнорируется - литерал лист).
-    Literal(ParserToken::Kind k, TermPtr term, Context* /*ctx*/)
+    Literal(ParserToken::Kind k, TermPtr term, ConvertServices* /*ctx*/)
     : WithText<AstNodeAttr>(k, term) {}
 
     /// Manual-конструктор: текст задан явно, без TermPtr (range() вернёт invalid range).
@@ -78,7 +75,7 @@ class ContextMacro : public WithText<AstNodeAttr> {
     ContextMacro() = default;
 
     /// Uniform term-constructor for the generated factory (ctx игнорируется - лист).
-    ContextMacro(ParserToken::Kind k, TermPtr term, Context* /*ctx*/)
+    ContextMacro(ParserToken::Kind k, TermPtr term, ConvertServices* /*ctx*/)
     : WithText<AstNodeAttr>(k, term) {}
 
     /// Manual-конструктор: текст задан явно, без TermPtr (range() вернёт invalid range).
@@ -101,7 +98,7 @@ class CheckAreaStmt : public WithText<AstNodeAttr> {
 
     /// Uniform term-constructor for the generated factory (ctx игнорируется - лист;
     /// поля-ограничения заполняются конвертером/семантикой, т.к. из Term напрямую не читаются).
-    CheckAreaStmt(ParserToken::Kind k, TermPtr term, Context* /*ctx*/)
+    CheckAreaStmt(ParserToken::Kind k, TermPtr term, ConvertServices* /*ctx*/)
     : WithText<AstNodeAttr>(k, term) {}
 
     /// Manual-конструктор: текст задан явно, без TermPtr (range() вернёт invalid range).
@@ -136,7 +133,7 @@ class DebugStmt : public WithText<AstNodeAttr> {
     DebugStmt() = default;
 
     /// Uniform term-constructor (ctx игнорируется - лист; поля заполняет конвертер).
-    DebugStmt(ParserToken::Kind k, TermPtr term, Context* /*ctx*/)
+    DebugStmt(ParserToken::Kind k, TermPtr term, ConvertServices* /*ctx*/)
     : WithText<AstNodeAttr>(k, term) {}
 
     /// Manual-конструктор: текст задан явно, без TermPtr (range() вернёт invalid range).
@@ -160,14 +157,13 @@ class DebugStmt : public WithText<AstNodeAttr> {
 /// потребителей: семантика/кодоген/дамп; для диагностики - `binaryOpSpelling(m_op)`).
 class Binary : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_Binary)
     Binary() = default;
 
     /// Терм-конструктор: `m_op` заполняется из глифа term (конструктор требует валидный Term).
     /// При `ctx != nullptr` сам строит детей: m_left = TermToAstConverter(term->m_left),
     /// m_right = TermToAstConverter(term->m_right). Объявлен здесь, определён в ast_expr.cpp.
-    Binary(ParserToken::Kind k, TermPtr term, Context* ctx = nullptr);
+    Binary(ParserToken::Kind k, TermPtr term, ConvertServices* ctx = nullptr);
 
     /// Manual-конструктор с детьми (без TermPtr; range() вернёт invalid range).
     Binary(ParserToken::Kind k, AstNodePtr left, AstNodePtr right)
@@ -189,6 +185,12 @@ class Binary : public AstNodeAttr {
     [[nodiscard]] bool isTypeAlias() const noexcept { return m_isTypeAlias; }
 
     bool m_isTypeAlias = false; ///< cached TermID::ALIAS_TYPE (Term освобождается)
+
+    /// Идентичность объявления-обёртки `TypeDecl` (R23): `TypeDecl` без объявления-ребёнка
+    /// (alias/`::= <RHS без тела>`) — это само объявление, id живёт на обёртке. Для типа с телом
+    /// (`:Class{...}`) id остаётся у `ClassDecl`/`RecordDecl` (одна идентичность на объявление).
+    /// Назначает и пишет только `assignDeclarationIds` (владелец, R23); читается через `declId()`.
+    [[nodiscard]] DeclId declId() const noexcept { return m_declId; }
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
@@ -218,7 +220,7 @@ class Binary : public AstNodeAttr {
     int64_t tupleIndex{-1};
 
     /// Для MemberAccess-ВЫЗОВА `obj.method(args)`: C++-суффикс ВЫБРАННОЙ семантикой перегрузки
-    /// МЕТОДА (совпадает с `FuncDecl::m_cppSuffix` объявления; `FunctionIdentity::cppSuffix`).
+    /// МЕТОДА (совпадает с C++-суффиксом объявления; `FunctionIdentity::cppSuffix`).
     /// Заполняется для пользовательских Record-методов ВСЕГДА (имя метода = identity объявления);
     /// пусто - нативный/встроенный метод (имя фиксировано внешней библиотекой) или оператор.
     std::string resolvedMethodSuffix;
@@ -246,16 +248,20 @@ class Binary : public AstNodeAttr {
     TypeId resolvedOperatorSignature{INVALID_TYPE_ID};
     /// Форма выбранного оператора: member (неявный *this у LHS) или свободная функция.
     bool resolvedOperatorIsMember{false};
-    /// Модуль и trust-namespace объявления СВОБОДНОГО пользовательского оператора:
-    /// operator-функция не имеет идентификатора, поэтому изолируется namespace'ом модуля
-    /// (`<enc>::<ns>::operator…`), а вызов эмитится квалифицированно.
-    /// Member-форма — `kInvalid`/пусто (оператор уже внутри класса в namespace модуля).
-    ModuleIndex resolvedOperatorModule = ModuleIndex::invalid();
+    /// Свободная форма выбранного пользовательского оператора (не member): operator-функция не
+    /// имеет идентификатора, поэтому вызывается квалифицированно в trust-namespace
+    /// (`<ns>::operator…`; имя модуля в C++-символ не входит). Member-форма — false.
+    bool resolvedOperatorIsFree = false;
     std::string_view resolvedOperatorNamespace;
     /// Материализованные СЕМАНТИКОЙ цели конверсий операндов для `emitOperatorDispatch`:
     /// member - один элемент (правый операнд), free - два (левый, правый). Совпадает с формой,
     /// которую читает кодоген; пусто - оператор не перегружен/не выбирался.
     std::vector<TypeId> argCasts;
+
+  private:
+    friend void assignDeclarationIds(const std::vector<AstNodePtr>& roots, std::string_view moduleLogicalName, DeclCppFacts* declFacts);
+
+    DeclId m_declId{};
 };
 
 /// Является ли kind «блочным» узлом (имеет собственный обход тела с отступами:
@@ -320,7 +326,6 @@ class Binary : public AstNodeAttr {
 /// kind = CallExpr.
 class CallExpr : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_CallExpr)
     CallExpr() = default;
 
@@ -331,7 +336,7 @@ class CallExpr : public AstNodeAttr {
     /// Uniform term-constructor for the generated factory (kind = CallExpr).
     /// При ctx != nullptr строит детей: m_callee=IdentName(term), m_args=convertChildren(term).
     /// Объявлен здесь, определён в ast_expr.cpp.
-    CallExpr(ParserToken::Kind k, TermPtr term, Context* ctx);
+    CallExpr(ParserToken::Kind k, TermPtr term, ConvertServices* ctx);
 
     /// Manual-конструктор с callee (без TermPtr; range() вернёт invalid range).
     CallExpr(ParserToken::Kind k, AstNodePtr callee)
@@ -364,7 +369,7 @@ class CallExpr : public AstNodeAttr {
     /// INVALID_TYPE_ID - вызов не разрешён (ошибка уже диагностирована).
     TypeId resolvedSignature{INVALID_TYPE_ID};
 
-    /// C++-суффикс выбранной перегрузки (тот же, что FuncDecl::m_cppSuffix у её объявления):
+    /// C++-суффикс выбранной перегрузки (тот же, что C++-суффикс её объявления):
     /// считается от ОБЪЯВЛЕННОЙ сигнатуры (с `T`/паком), а не от resolvedSignature.
     /// Кодоген эмитит вызов `c_name<suffix>(args)` - однозначно, БЕЗ опоры на C++-разрешение
     /// (литералы/конверсии в C++ и в TrustLang могут дать разные перегрузки). Пусто - нативный
@@ -399,7 +404,6 @@ class CallExpr : public AstNodeAttr {
 /// значение (после '=') - в m_value; разрешённый тип значения - в resultType (ставит семантика).
 class ArgNode : public WithText<AstNodeAttr> {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_ArgNode)
     ArgNode() = default;
 
@@ -409,7 +413,7 @@ class ArgNode : public WithText<AstNodeAttr> {
 
     /// Uniform term-constructor for the generated factory (kind = ArgNode).
     /// При ctx != nullptr строит m_type из term. Объявлен здесь, определён в ast_base.cpp.
-    ArgNode(ParserToken::Kind /*k*/, TermPtr term, Context* ctx = nullptr);
+    ArgNode(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* ctx = nullptr);
 
     /// Manual-конструктор: имя задано явно, без TermPtr; тип/значение задаются отдельно.
     ArgNode(std::string name, AstNodePtr type = nullptr, AstNodePtr value = nullptr, AttrPool* pool = nullptr)
@@ -441,13 +445,12 @@ class ArgNode : public WithText<AstNodeAttr> {
 /// области (`Block` = ScopeBlock, ModuleNode) несут имя через собственный `WithText<Sequence>`.
 class Sequence : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_Sequence)
     Sequence() = default;
 
     /// Терм-конструктор: при `ctx != nullptr` сам строит m_body через TermToAstConverter.
     /// Объявлен здесь, определён в ast_base.cpp.
-    Sequence(ParserToken::Kind k, TermPtr term, Context* ctx = nullptr);
+    Sequence(ParserToken::Kind k, TermPtr term, ConvertServices* ctx = nullptr);
 
     /// Kind-only (контейнер без имени, manual/synthetic).
     explicit Sequence(ParserToken::Kind k)
@@ -496,9 +499,10 @@ class RefTakeExpr : public Sequence {
     /// вызов с приведением операнда. INVALID — обычный вывод `(*op)`.
     TypeId resolvedOperatorSignature{INVALID_TYPE_ID};
     bool resolvedOperatorIsMember{false};
-    /// Модуль/trust-namespace объявления СВОБОДНОГО `operator*`: квалифицированный вызов в
-    /// namespace модуля (см. Binary::resolvedOperatorModule). Member-форма — invalid/пусто.
-    ModuleIndex resolvedOperatorModule = ModuleIndex::invalid();
+    /// Свободная форма выбранного пользовательского `operator*`: квалифицированный вызов в
+    /// trust-namespace (см. Binary::resolvedOperatorIsFree; имя модуля в C++-символ не входит).
+    /// Member-форма — false.
+    bool resolvedOperatorIsFree = false;
     std::string_view resolvedOperatorNamespace;
 
     /// Type-state результата `*ref` (тип pointee); материализует семантика.
@@ -531,7 +535,6 @@ class RefMakeExpr : public Sequence {
 /// kind = DictLiteral (механический, ставит term_to_ast) | Tuple (уточняется анализатором).
 /// Наследует Sequence: m_body = элементы, нормализованные к Binary(AssignOp)
 /// (left=имя или пусто, right=значение), см. term_to_ast (visit_DICT).
-///
 /// Поле m_type - аннотация типа литерала/конструкции (`(args):Type` / `:Type(args)`),
 /// резолвится анализатором через TypeSystem. По резолвленному типу анализатор решает
 /// класс узла: если тип - Tuple (type_category::Tuple) - kind меняется на Tuple, а тип
@@ -540,7 +543,6 @@ class RefMakeExpr : public Sequence {
 /// - обычный словарь (trust::Dict). Никаких строковых дискриминаторов ("Tuple") нет.
 class DictLiteralNode : public Sequence {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(Sequence, SLOTS_DictLiteralNode)
     using Sequence::Sequence;
 
@@ -587,7 +589,6 @@ class DictLiteralNode : public Sequence {
 /// эмитит `trust::Range<elementType>`.
 class RangeExpr : public Sequence {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(Sequence, SLOTS_RangeExpr)
     using Sequence::Sequence;
 
@@ -654,10 +655,10 @@ class ScopeBlock : public WithText<Sequence> {
     /// Терм-конструктор: метка блока (имя области) читается из Term.
     /// При `ctx != nullptr` сам строит m_body (делегирует Sequence-конструктору).
     /// Объявлен здесь, определён в ast_base.cpp.
-    ScopeBlock(TermPtr term, Context* ctx = nullptr, int blockCounter = 0);
+    ScopeBlock(TermPtr term, ConvertServices* ctx = nullptr, int blockCounter = 0);
 
     /// Uniform term-constructor for the generated factory (kind всегда ScopeBlock).
-    ScopeBlock(ParserToken::Kind /*k*/, TermPtr term, Context* ctx = nullptr)
+    ScopeBlock(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* ctx = nullptr)
     : ScopeBlock(term, ctx) {}
 
     /// Manual-конструктор: метка задана явно, без TermPtr.
@@ -671,9 +672,9 @@ class ScopeBlock : public WithText<Sequence> {
     /// области ("name::", "::ns::name") и скрытая "_" - не анонимные.
     [[nodiscard]] bool is_anonymous() const noexcept { return text().empty() || text() == "{"; }
     /// `__::`/`__` — private: только текущий файл.
-    [[nodiscard]] bool is_private() const noexcept { return text() == "__" || text() == "__::"; }
+    [[nodiscard]] bool is_private() const noexcept { return visibilityOf(text()) == Visibility::Private; }
     /// `_::`/`_` — protected: файлы той же группы/пакета.
-    [[nodiscard]] bool is_protected() const noexcept { return text() == "_" || text() == "_::"; }
+    [[nodiscard]] bool is_protected() const noexcept { return visibilityOf(text()) == Visibility::Protected; }
     /// Любая непубличная область (`_`/`__`); для проверок, где конкретный уровень не важен.
     [[nodiscard]] bool is_hidden() const noexcept { return is_private() || is_protected(); }
     /// Блок интерфейса файла (`\path { ... };`): container уровня модуля. Объявления внутри
@@ -692,12 +693,11 @@ class ScopeBlock : public WithText<Sequence> {
 };
 
 /// ModuleNode - узел AST, представляющий загруженный модуль.
-/// Проекция сайта импорта на одну файловую часть модуля: отфильтрованный масками экспорт,
-/// экспортированные namespace-алиасы и несовпавшие маски. Один объект на пару `(модуль, маски)`,
-/// разделяется всеми сайтами с теми же масками (владелец — кэш загрузчика).
+/// Проекция сайта импорта на одну файловую часть модуля: отфильтрованный масками экспорт и
+/// несовпавшие маски. Один объект на пару `(модуль, маски)`, разделяется всеми сайтами с теми же
+/// масками (владелец — кэш загрузчика).
 struct SiteProjection {
     std::shared_ptr<const std::vector<AstNodePtr>> exports;
-    std::shared_ptr<const std::vector<ModuleNamespaceAlias>> namespaceAliases;
     /// Маски, не совпавшие ни с одним публичным именем части (диагностика `-Wunmatched-mask`).
     std::vector<std::string> unmatchedMasks;
     /// Отдельно — protected-набор (`_::`): его имена связываются только импортёром той же

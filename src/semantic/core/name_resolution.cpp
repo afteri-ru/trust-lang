@@ -28,7 +28,6 @@
 
 namespace trust {
 
-// -- Пер-компонентная регистрация диагностик семантики (см. diag/registry.hpp) --
 // Регистрирует на static-init severity-диагностики и feature-флаги, которыми владеет
 // компонент semantic (сообщаются в name_resolution.cpp / lint.cpp / pass_runner.cpp).
 namespace {
@@ -79,24 +78,18 @@ const SemanticDiagnosticsRegistrar kSemanticDiagnostics;
 } // namespace
 
 namespace {
-// Метка именованного прерывания без '%' и ':' (для сравнения с именем функции).
+// Метка именованного прерывания без ':' (для сравнения с именем функции).
 std::string interruptLabelName(std::string_view raw) {
-    std::string s(raw);
-    if (!s.empty() && s[0] == '%') {
-        s.erase(0, 1);
-    }
+    std::string s(utils::stripNativePrefix(raw));
     s.erase(std::remove(s.begin(), s.end(), ':'), s.end());
     return s;
 }
-// Имя функции без '%' и ':' (как funcNameOf в lowering) - для валидации меток прерываний.
+// Имя функции без ':' (как funcNameOf в lowering) - для валидации меток прерываний.
 std::string interruptFuncName(const FuncDecl* fd) {
     if (!fd) {
         return {};
     }
-    std::string s(requiredText(*fd));
-    if (!s.empty() && s[0] == '%') {
-        s.erase(0, 1);
-    }
+    std::string s(utils::stripNativePrefix(requiredText(*fd)));
     s.erase(std::remove(s.begin(), s.end(), ':'), s.end());
     return s;
 }
@@ -123,8 +116,6 @@ void NameResolutionPass::finalize() {
         hook->finalize();
     }
 }
-
-// -- Скоупы с уведомлением хуков --
 
 void NameResolutionPass::enterScope(const AstNodeBase& node) {
     m_actx.symbols().push(&node);
@@ -190,34 +181,30 @@ void NameResolutionPass::exitScope() {
 void NameResolutionPass::checkSearchScope(const UsingScopeRecord& search) {
     // Область поиска — NAMESPACE: имена под префиксом `ns::name`. Тип владеет ЧЛЕНСКИМ скоупом
     // (`T::member`) и namespace-областью не является; значение/функция области не создают.
-    const Symbol* owner =
-        search.targetModule.has_value() ? m_actx.symbols().findVisibleFromModule(*search.targetModule, search.path, /*maskBypass=*/false,
-                                                                                 /*viaAlias=*/true)
-                                        : m_actx.symbols().resolve(search.path);
+    const Symbol* owner = m_actx.symbols().resolve(search.path);
     if (owner != nullptr && m_actx.types().typeNameOfSymbol(*owner) != INVALID_TYPE_ID) {
         m_actx.ctx().diag().report(Severity::Error, search.operatorRange,
                                    "target '{}' is a type, not a namespace; 'using namespace' accepts namespaces only (use '{}::member' for static members)",
                                    search.path, search.path);
         return;
     }
-    const bool exists = search.targetModule.has_value() ? m_actx.symbols().hasNamespaceInModule(*search.targetModule, search.path)
-                                                        : m_actx.symbols().hasNamespaceInScopes(search.path);
+    const bool exists = m_actx.symbols().hasNamespaceInScopes(search.path);
     if (exists) {
         return;
     }
     if (owner != nullptr && owner->decl != nullptr && owner->decl->is<FuncDecl>()) {
-        m_actx.ctx().diag().report(Severity::Error, search.operatorRange, "target '{}' is a function, not a namespace; extended search has no effect", search.path);
+        m_actx.ctx().diag().report(Severity::Error, search.operatorRange, "target '{}' is a function, not a namespace; extended search has no effect",
+                                   search.path);
         return;
     }
     if (owner != nullptr) {
-        m_actx.ctx().diag().report(Severity::Error, search.operatorRange, "target '{}' is a value, not a namespace; extended search has no effect", search.path);
+        m_actx.ctx().diag().report(Severity::Error, search.operatorRange, "target '{}' is a value, not a namespace; extended search has no effect",
+                                   search.path);
         return;
     }
     m_actx.ctx().diag().report(Severity::Error, search.operatorRange, "namespace '{}' has no names; extended search has no effect (check the spelling)",
                                search.path);
 }
-
-// -- Обход --
 
 void NameResolutionPass::run(std::vector<AstNodePtr>& ast_nodes) {
     for (auto& node : ast_nodes) {
@@ -274,7 +261,6 @@ void NameResolutionPass::analyzeChildren(AstNodePtr& self) {
     }
 }
 
-// -- Kind → действие (partial pass, ast/kind_dispatch.hpp) --------------------------------
 // ОДНА таблица: fill(default) + точечные переопределения. Полнота по построению,
 // «незаполненного» kind не существует; поведение на новом kind задано default'ом явно.
 
@@ -319,8 +305,6 @@ const NameResolutionPass::NodeHandlerTable& NameResolutionPass::semaActions() {
     }();
     return kTable;
 }
-
-// -- Действие фазы для группы kinds --
 
 void NameResolutionPass::doReject(AstNodePtr& self, bool) {
     // END - не узел (default-конструктор AstNodeBase); молчаливый обход недопустим.
@@ -488,8 +472,6 @@ void NameResolutionPass::finishTraverse(AstNodePtr& self) {
     analyzeNodeTail(self);
 }
 
-// -- Групповые обработчики: leaf-действие + стандартный обход --
-
 void NameResolutionPass::doVarDecl(AstNodePtr& self, bool consumed) {
     if (!consumed) {
         handleVarDecl(self);
@@ -518,6 +500,16 @@ void NameResolutionPass::doIdentOrArg(AstNodePtr& self, bool consumed) {
         // который проход не покрыл (напр. `$^` в составе составного sink).
         if (requiredText(*self) == "$^") {
             reportResultCaptureError(self);
+        } else if (requiredText(*self) == "$0") {
+            // Текущий объект: тип - из символа `$0`, объявленного в класс-скоупе метода.
+            if (Symbol* selfSym = m_actx.symbols().resolveMutable("$0"); selfSym != nullptr) {
+                if (auto* arg = self->as<ArgNode>(); arg != nullptr) {
+                    arg->resultType = selfSym->type;
+                }
+                m_actx.facts().setExprType(self.get(), selfSym->type.getTypeId());
+            } else {
+                m_actx.ctx().diag().report(Severity::Error, self->range(), "'$0' (current object) is only valid inside a method");
+            }
         } else if (self->is<IdentName>()) {
             handleIdent(self);
         }
@@ -542,8 +534,6 @@ void NameResolutionPass::doAppendStmt(AstNodePtr& self, bool consumed) {
     }
     finishTraverse(self);
 }
-
-// -- Leaf-действия (без рекурсии) --
 
 void NameResolutionPass::handleVarDecl(AstNodePtr& self) {
     m_decl.analyzeVarDecl(*self->as<VarDecl>());
@@ -616,19 +606,17 @@ void NameResolutionPass::handleAppendNode(AstNodePtr& self) {
 }
 
 void NameResolutionPass::handleAppendStmt(const Binary& append) {
-    // Учёт `[]=` в статическом размере словаря: `d []= v` увеличивает известный размер
-    // (dims) целевого словаря - чтобы статическая проверка `d.N` далее по тексту видела
-    // выросший размер (после двух append размер 3 → 5). LHS - простой Ident (вложенный
-    // отклонён в typeExpr); dims >= 0 означает «словарь с известным размером».
-    //
+    // Учёт `[]=` в статическом составе словаря: `d []= v` добавляет элемент в известный набор
+    // (`dictElements`) целевого словаря - чтобы статическая проверка `d.N` далее по тексту видела
+    // выросший размер. LHS - простой Ident (вложенный отклонён в typeExpr); engaged `dictElements`
+    // означает «словарь с известным составом».
     // Spread-merge `d []= ... dict` (RHS - Ellipsis): добавляются ВСЕ элементы словаря-
-    // операнда, поэтому dims растёт на число элементов операнда, а типы полей переносятся
-    // в dictFieldTypes цели. Без `...` - одиночный элемент: dims += 1, типы полей
-    // не регистрируются - «Any» для добавленных позиционных.
+    // операнда, поэтому набор расширяется элементами операнда. Без `...` - одиночный элемент:
+    // регистрируется запись с пустым именем и типом (позиционный).
     if (append.m_left && append.m_left->kind() == ParserToken::Kind::Ident) {
         if (Symbol* s = resolveSimple(append.m_left.get(), requiredText(*append.m_left))) {
-            if (s->dims < 0) {
-                return; // статический размер цели неизвестен - отслеживать нечего
+            if (!s->dictElements.has_value()) {
+                return; // статический состав цели неизвестен - отслеживать нечего
             }
             const AstNodeBase* rhs = append.m_right.get();
             if (rhs && rhs->kind() == ParserToken::Kind::Ellipsis) {
@@ -644,40 +632,27 @@ void NameResolutionPass::handleAppendStmt(const Binary& append) {
                         std::string fname;
                         const AstNodeBase* val = nullptr;
                         collectionElementNameValue(el.get(), fname, val);
-                        s->dims += 1;
-                        s->dictFieldTypes.emplace_back(fname, val ? m_typer.dictElementType(val) : QualType{});
+                        s->dictElements->push_back(DictSlot{fname, val ? m_typer.dictElementType(val) : QualType{}});
                     }
                 } else if (operand && operand->kind() == ParserToken::Kind::Ident) {
-                    // Словарь-переменная: переносим её известный размер и типы полей.
+                    // Словарь-переменная: переносим её известный состав.
                     // Простое имя могло быть объявлено как локальная `$x` (опция -Wsigil).
                     if (Symbol* src = resolveSimple(nullptr, requiredText(*operand))) {
-                        if (isDictTypeId(m_actx.ctx().types(), src->type.getTypeId())) {
-                            if (src->dims >= 0) {
-                                s->dims += src->dims;
-                            }
-                            s->dictFieldTypes.insert(s->dictFieldTypes.end(), src->dictFieldTypes.begin(), src->dictFieldTypes.end());
+                        if (isDictTypeId(m_actx.registry(), src->type.getTypeId()) && src->dictElements.has_value()) {
+                            s->dictElements->insert(s->dictElements->end(), src->dictElements->begin(), src->dictElements->end());
                         }
                     }
                 }
-                // Прочий dict-операнд (выражение): статический размер неизвестен - не меняем.
+                // Прочий dict-операнд (выражение): статический состав неизвестен - не меняем.
                 return;
             }
-            // Одиночный элемент (не spread): размер +1 и регистрация типа поля по позиции,
-            // чтобы dictFieldTypes оставался выровнен по dims (инвариант: число записей
-            // dictFieldTypes == известный размер). Для литерала тип выводится, для
-            // переменной/выражения (до анализа) - Any (INVALID).
-            s->dims += 1;
-            s->dictFieldTypes.emplace_back("", rhs ? m_typer.dictElementType(rhs) : QualType{});
+            // Одиночный элемент (не spread): регистрация записи по позиции. Для литерала тип
+            // выводится, для переменной/выражения (до анализа) - Any (INVALID).
+            s->dictElements->push_back(DictSlot{"", rhs ? m_typer.dictElementType(rhs) : QualType{}});
         }
     }
     return;
 }
-
-// -- Встроенный маркер `@__CHECK_AREA__` -- -----------------------------------------
-
-// -- Trust-условия (пред/пост/утверждение) -------------------------
-
-// -- Разрешение имён --
 
 const Symbol* NameResolutionPass::lookupOrError(AstNodeBase& node) {
     const std::string name(requiredText(node));
@@ -701,8 +676,8 @@ const Symbol* NameResolutionPass::lookupOrError(AstNodeBase& node) {
                                        "cannot use function '{}' (return value) in a precondition; use it only in a postcondition", name);
         }
     }
-    // Зарегистрированные runtime-символы (например %trust::trust__abort__) и интринсики языка
-    // (например trust::intrinsic_assert, без native-префикса '%') - известные имена (публичный
+    // Зарегистрированные runtime-символы (например trust::trust__abort__) и интринсики языка
+    // (например trust::intrinsic_assert) - известные имена (публичный
     // runtime-заголовок / распознаваемые компилятором); «undefined name» для них не выдаём
     // (транспилер эмитит их разворачиванием на этапе генерации, см. CppTranspiler::emitIntrinsic).
     const bool isRuntime = !sym && (m_actx.types().isRegisteredRuntimeSymbol(name) || m_actx.types().isRegisteredIntrinsic(name));
@@ -731,15 +706,6 @@ const Symbol* NameResolutionPass::lookupOrError(AstNodeBase& node) {
         hook->onResolve(node, sym);
     }
     if (!sym && !isRuntime) {
-        // Модульная ссылка: единая точка текстов (M1) — «модуль такого имени не экспортирует»
-        // либо «имя скрыто маской сайта импорта».
-        if (node.is<IdentName>()) {
-            const auto& ident = static_cast<const IdentName&>(node);
-            if (ident.moduleRef.has_value()) {
-                m_actx.types().reportModuleRefError(ident);
-                return sym;
-            }
-        }
         // Неоднозначность голого имени: одноимённые экспорты/локальное объявление и импорт.
         // Разрешается квалификацией `\модуль::имя` (диагностика — на сайте использования).
         if (const std::vector<ModuleIndex>* candidates = m_actx.symbols().ambiguousModules(name); candidates != nullptr) {
@@ -755,11 +721,11 @@ const Symbol* NameResolutionPass::lookupOrError(AstNodeBase& node) {
 }
 
 // Единый алгоритм разрешения простого имени с правилами вывода сигилов.
-// Порядок для bare-имени `x`: `$x` (локальная) → `x` (глобал/параметр) → `%x` (нативная функция).
+// Порядок для bare-имени `x`: `$x` (локальная) → `x` (глобал/параметр/объявление).
 // Для `$`-имени `$x`: сначала `$x`; если нет - bare `x` (параметр/локальная без сигила): `n` и
-// `$n` - одно локальное имя. При попадании на `$x`/`%x` текст узла-ссылки (node) нормализуется
-// на эту форму, чтобы манглинг (nameToCpp срезает `$`/`%` → c_x / x) совпал с объявлением.
-// Квалифицированные/сигилные/нативные имена, найденные напрямую, резолвятся как есть.
+// `$n` - одно локальное имя. При попадании на `$x` текст узла-ссылки (node) нормализуется на
+// эту форму, чтобы манглинг (nameToCpp срезает `$`) совпал с объявлением.
+// Квалифицированные/сигилные имена, найденные напрямую, резолвятся как есть.
 // node может быть nullptr (тогда текст не меняется).
 void NameResolutionPass::normalizeResolvedRef(AstNodeBase* node, const Symbol& sym) {
     if (node == nullptr || node->kind() != ParserToken::Kind::Ident) {
@@ -779,19 +745,6 @@ void NameResolutionPass::normalizeResolvedRef(AstNodeBase* node, const Symbol& s
 }
 
 Symbol* NameResolutionPass::resolveSimple(AstNodeBase* node, std::string_view name) {
-    // Модульная ссылка `\path::name`: имя обязано быть экспортом ЭТОГО модуля и видимым на
-    // текущем сайте (M1). Обычный lookup не используется — иначе ссылка на чужой модуль
-    // молча связалась бы с одноимённым именем плоского пространства.
-    if (node != nullptr && node->is<IdentName>()) {
-        auto* ident = node->as<IdentName>();
-        if (ident->moduleRef.has_value()) {
-            const Symbol* resolved = m_actx.types().resolveModuleRef(*ident);
-            if (resolved != nullptr) {
-                normalizeResolvedRef(node, *resolved);
-            }
-            return const_cast<Symbol*>(resolved);
-        }
-    }
     const bool simple = isSimpleVarName(name);
     // bare x: сначала локальная $x (при попадании - нормализуем текст узла на $x).
     if (simple) {
@@ -811,19 +764,8 @@ Symbol* NameResolutionPass::resolveSimple(AstNodeBase* node, std::string_view na
         return s;
     }
     // Правила вывода сигилов:
-    //  - bare x → нативная функция %x (напр. %fib вызывается как fib);
     //  - $x → локальная/параметр без сигила (n и $n - одно локальное имя).
-    if (simple) {
-        const std::string native_name = "%" + std::string(name);
-        if (Symbol* s = m_actx.symbols().resolveMutable(native_name)) {
-            if (node && node->kind() == ParserToken::Kind::Ident) {
-                HasText* text = node->as_text();
-                EXPECT(text && "Ident node must carry text");
-                text->set_text_interned(native_name);
-            }
-            return s;
-        }
-    } else if (!name.empty() && name.front() == '$') {
+    if (!simple && !name.empty() && name.front() == '$') {
         if (Symbol* s = m_actx.symbols().resolveMutable(name.substr(1))) {
             return s;
         }
@@ -844,11 +786,6 @@ Symbol* NameResolutionPass::resolveSimple(AstNodeBase* node, std::string_view na
                 EXPECT(text != nullptr && "Ident node must carry text");
                 if (text != nullptr) {
                     text->set_text_interned(resolved.qualifiedText);
-                }
-                if (resolved.module.has_value()) {
-                    if (auto* ident = node->as<IdentName>(); ident != nullptr) {
-                        ident->moduleRef = resolved.module;
-                    }
                 }
             }
             return resolved.symbol;
@@ -893,12 +830,6 @@ bool NameResolutionPass::handleUsingImport(const AstNodeBase& self) {
     }
     // Области поиска живут до конца текущей области видимости; `_` — не область имён.
     for (const AstNodeBase* path_node : path_nodes) {
-        // Модульно-квалифицированная цель `... = \lib::ns;`: путь резолвится в экспорт-наборе
-        // указанного модуля (одноимённые области разных модулей больше не сливаются).
-        std::optional<ModuleIndex> targetModule;
-        if (path_node->is<IdentName>()) {
-            targetModule = path_node->as<IdentName>()->moduleRef;
-        }
         const std::string_view path = requiredText(*path_node);
         if (path.empty()) {
             m_actx.ctx().diag().report(Severity::Error, path_node->range(), "empty namespace path in extended name search");
@@ -909,9 +840,8 @@ bool NameResolutionPass::handleUsingImport(const AstNodeBase& self) {
                                        "extended name search cannot be cancelled: it ends with the current scope; use a nested block to limit it");
             continue;
         }
-        m_actx.symbols().aliases().recordUsing(
-            m_actx.symbols().current(),
-            UsingScopeRecord{m_actx.symbols().currentModule(), internText(path), targetModule, path_node->range(), m_actx.symbols().currentScopeRange()});
+        m_actx.symbols().aliases().recordUsing(m_actx.symbols().current(), UsingScopeRecord{m_actx.symbols().currentModule(), internText(path),
+                                                                                            path_node->range(), m_actx.symbols().currentScopeRange()});
     }
     return true;
 }

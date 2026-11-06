@@ -655,6 +655,7 @@ TEST(ContextTest, OutputPrepend_NoPrepend_OutputBodyUnchanged) {
 // Документирующий комментарий перед макроопределением записывается в MacroDef.
 TEST(ContextTest, RecordMacroCapturesDocComment) {
     Context ctx;
+    StringInternerScope stringsScope(ctx.strings());
     MapperFile src = ctx.source().add_source("test.src", "/// macro doc\n@foo");
     auto loc = ctx.source().loc_from_line(src, 2);
     ctx.recordMacro("foo", MapperRange{loc, loc});
@@ -667,6 +668,7 @@ TEST(ContextTest, RecordMacroCapturesDocComment) {
 // Хвостовой inline-док (`///<`) после определения макроса тоже привязывается к макроопределению.
 TEST(ContextTest, RecordMacroCapturesTrailingDocComment) {
     Context ctx;
+    StringInternerScope stringsScope(ctx.strings());
     MapperFile src = ctx.source().add_source("test.src", "@foo := 42 ///< macro trail");
     auto begin = ctx.source().makeLoc(src, 1);
     auto end = ctx.source().makeLoc(src, 11); // после `42`, перед `///<`
@@ -677,25 +679,40 @@ TEST(ContextTest, RecordMacroCapturesTrailingDocComment) {
     EXPECT_NE(ctx.macroDefs()[0].documentation.find("///<"), std::string::npos);
 }
 
-// Доки макросов живут в ПРОЦЕССНОМ пуле (`manualStringInterner`): статическое хранилище доков
-// переживает Context, поэтому per-Context пул здесь недопустим (иначе view повис бы).
-TEST(ContextTest, MacroDocsAreInternedInProcessPoolAndSurviveContext) {
-    {
-        Context ctx;
-        MapperFile src = ctx.source().add_source("test.src", "@durable_macro_doc_test := 42 ///< durable macro doc");
-        auto begin = ctx.source().makeLoc(src, 1);
-        auto end = ctx.source().makeLoc(src, 30); // после `42`, перед `///<`
-        ctx.recordMacro("durable_macro_doc_test", MapperRange{begin, end});
+// Доки макросов принадлежат прогону: интернируются в пул Context и живут, пока жив Context.
+TEST(ContextTest, MacroDocsAreInternedInRunPoolAndLiveWithContext) {
+    Context ctx;
+    StringInternerScope stringsScope(ctx.strings());
+    MapperFile src = ctx.source().add_source("test.src", "@durable_macro_doc_test := 42 ///< durable macro doc");
+    auto begin = ctx.source().makeLoc(src, 1);
+    auto end = ctx.source().makeLoc(src, 30); // после `42`, перед `///<`
+    ctx.recordMacro("durable_macro_doc_test", MapperRange{begin, end});
 
-        ASSERT_EQ(ctx.macroDefs().size(), 1u);
-        const std::string_view definitionDoc = ctx.macroDefs()[0].documentation;
-        ASSERT_FALSE(definitionDoc.empty());
-        EXPECT_TRUE(manualStringInterner().owns(definitionDoc));
-        EXPECT_FALSE(ctx.strings().owns(definitionDoc)) << "macro docs must not use the per-Context pool";
+    ASSERT_EQ(ctx.macroDefs().size(), 1u);
+    const std::string_view definitionDoc = ctx.macroDefs()[0].documentation;
+    ASSERT_FALSE(definitionDoc.empty());
+    EXPECT_TRUE(ctx.strings().owns(definitionDoc)) << "macro docs belong to the run string pool";
+    EXPECT_FALSE(manualStringInterner().owns(definitionDoc)) << "macro docs must not use the process pool";
+
+    const std::string_view* doc = ctx.macroDoc("durable_macro_doc_test");
+    ASSERT_NE(doc, nullptr) << "macro doc must be reachable through the run owner";
+    EXPECT_NE(doc->find("durable macro doc"), std::string_view::npos);
+}
+
+// Два последовательных прогона в одном процессе не разделяют мутабельное состояние доков (E9/R1).
+TEST(ContextTest, MacroDocsDoNotLeakBetweenRuns) {
+    {
+        Context first;
+        StringInternerScope stringsScope(first.strings());
+        MapperFile src = first.source().add_source("first.src", "@run_leak_probe := 1 ///< first run doc");
+        auto begin = first.source().makeLoc(src, 1);
+        auto end = first.source().makeLoc(src, 21);
+        first.recordMacro("run_leak_probe", MapperRange{begin, end});
+        ASSERT_NE(first.macroDoc("run_leak_probe"), nullptr);
     }
 
-    const std::string_view* doc = Context::macroDoc("durable_macro_doc_test");
-    ASSERT_NE(doc, nullptr) << "macro doc must outlive the Context that recorded it";
-    EXPECT_NE(doc->find("durable macro doc"), std::string_view::npos);
-    EXPECT_TRUE(manualStringInterner().owns(*doc));
+    Context second;
+    StringInternerScope stringsScope(second.strings());
+    EXPECT_EQ(second.macroDoc("run_leak_probe"), nullptr) << "macro docs must not be process-global";
+    EXPECT_TRUE(second.macroDocs().empty()) << "a fresh run must start without macro docs of the previous one";
 }

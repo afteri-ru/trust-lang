@@ -1,0 +1,17 @@
+# RUN: %trust -q --temp-dir %t.dir -o %t.exe %s && %t.exe > %t.out && %FileCheck %s <%t.out
+#
+# Строки: C++-классы trust::StrChar/StrWide ГЕНЕРИРУЮТСЯ из stdlib/builtin/string.src при
+# компиляции модуля (внешнего string.hpp нет). Проверяются базовый API, UTF-8-конверсии
+# (toWide/toNarrow, рантайм-примитив @trust/utf8.hpp), `chars()`-итератор и std::format.
+
+\std();
+@main():Int32 := {
+    s: StrChar := "hi";
+    w := s.toWide();
+    n := w.toNarrow();
+    it := s.chars();
+    has := it.hasNext();
+    @print("{} {} {} {}", s, n, s.size(), has);
+    @return 0;
+};
+# CHECK: hi hi 2 true

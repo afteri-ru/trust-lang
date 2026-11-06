@@ -25,9 +25,9 @@ namespace pkg_header {
 inline int value() { return 42; }
 } // namespace pkg_header
 //--- pkg/mod_header.src
-\\\mod_header\mod_header;
+\mod_header;
 @[include("header.hpp")@]
-%pkg_header::value():Int32 := ...;
+pkg_header::value():Int32 := %pkg_header...;
 
 marker:Int32 := 42;
 //--- pkg2/trust.toml
@@ -39,9 +39,9 @@ namespace pkg_header {
 inline int value() { return 43; }
 } // namespace pkg_header
 //--- pkg2/mod_header.src
-\\\mod_header\mod_header;
+\mod_header;
 @[include("header.hpp")@]
-%pkg_header::value():Int32 := ...;
+pkg_header::value():Int32 := %pkg_header...;
 
 marker:Int32 := 42;
 //--- main.src

@@ -4,7 +4,7 @@
 //   - Rational форматируется как символьная строка "num\den" через std::format / print.
 
 #include "trust/io.hpp"
-#include "trust/rational.hpp"
+#include "stdlib/core/builtin/rational.hpp"
 #include "utils/utils.hpp"
 
 #include <gtest/gtest.h>

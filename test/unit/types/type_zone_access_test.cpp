@@ -11,11 +11,13 @@
 
 #include "session/context.hpp"
 #include "types/names.hpp"
+#include "types/type_data.hpp"
 #include "gtest/gtest.h"
 
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace trust {
 namespace {
@@ -84,6 +86,23 @@ static_assert(!HasPublicRegisterType<TypeSystem>, "TypeSystem must not re-expose
 static_assert(!HasPublicAddMethod<TypeSystem>, "TypeSystem must not re-expose addMethod (MethodTable owns it)");
 static_assert(!HasPublicAliasKeyOnRoot<TypeSystem>, "TypeSystem must not re-expose aliasTypeKey (TypeNameIndex owns it)");
 
+// --- Compile-time guard: хранилище формы record не адресуется напрямую (R1/E1) ---------
+// Снаружи `types` форма читается ТОЛЬКО аксессорами TypeStore (fieldsOf/basesOf/templateParamsOf/
+// instanceOf); поля payload'а приватны, поэтому попытка прямой адресации — ошибка компиляции.
+template <class T>
+concept HasPublicRecordFields = requires(T data) { data.fields; };
+template <class T>
+concept HasPublicRecordTemplateParams = requires(T data) { data.templateParams; };
+template <class T>
+concept HasPublicRecordTemplateOf = requires(T data) { data.templateOf; };
+template <class T>
+concept HasPublicRecordTemplateArgs = requires(T data) { data.templateArgs; };
+
+static_assert(!HasPublicRecordFields<RecordTypeData>, "RecordTypeData::fields must be private (owner-only accessor fieldsOf)");
+static_assert(!HasPublicRecordTemplateParams<RecordTypeData>, "RecordTypeData::templateParams must be private (owner-only accessor templateParamsOf)");
+static_assert(!HasPublicRecordTemplateOf<RecordTypeData>, "RecordTypeData::templateOf must be private (owner-only accessor instanceOf)");
+static_assert(!HasPublicRecordTemplateArgs<RecordTypeData>, "RecordTypeData::templateArgs must be private (owner-only accessor instanceOf)");
+
 TEST(TypeZoneAccess, WritePrimitivesAreNotPublic) {
     // Проверка зафиксирована static_assert выше; тест фиксирует намерение в отчёте CTest.
     EXPECT_TRUE(true);
@@ -101,22 +120,20 @@ class TypeZoneAccessTest : public ::testing::Test {
     std::unique_ptr<TypeSystem> m_types;
 };
 
-TEST_F(TypeZoneAccessTest, DescriptorPointerStaysStableAcrossGrowth) {
+TEST_F(TypeZoneAccessTest, DescriptorDataStaysValidAcrossGrowth) {
     TypeSystem& reg = *m_types;
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId alias = reg.registrar().registerType("StableAlias", int32);
-    const TypeDescriptor* before = reg.read().store().descriptorOf(alias);
-    ASSERT_NE(before, nullptr);
-    EXPECT_EQ(before->name, "StableAlias");
+    EXPECT_EQ(reg.read().store().nameOf(alias), "StableAlias");
+    EXPECT_EQ(reg.read().store().baseTypeOf(alias), int32);
 
-    // Рост хранилища не инвалидирует ранее выданные указатели на дескрипторы.
+    // Рост хранилища не инвалидирует ранее выданные дескрипторы: данные читаются тем же аксессором.
     for (int i = 0; i < 512; ++i) {
         const TypeId id = reg.registrar().registerType("GrowthAlias" + std::to_string(i), int32);
         ASSERT_NE(id, INVALID_TYPE_ID);
     }
-    const TypeDescriptor* after = reg.read().store().descriptorOf(alias);
-    EXPECT_EQ(before, after);
-    EXPECT_EQ(after->name, "StableAlias");
+    EXPECT_EQ(reg.read().store().nameOf(alias), "StableAlias");
+    EXPECT_EQ(reg.read().store().baseTypeOf(alias), int32);
 }
 
 TEST_F(TypeZoneAccessTest, DuplicateTypeNameLeavesNoOrphanDescriptor) {
@@ -132,8 +149,8 @@ TEST_F(TypeZoneAccessTest, DuplicateTypeNameLeavesNoOrphanDescriptor) {
     const TypeId next = reg.registrar().registerType("DupTxNext", int32);
     ASSERT_NE(next, INVALID_TYPE_ID);
     EXPECT_EQ(getRegistryIndex(next), getRegistryIndex(first) + 1);
-    ASSERT_NE(reg.read().store().descriptorOf(first), nullptr);
-    EXPECT_EQ(reg.read().store().descriptorOf(first)->name, "DupTx");
+    ASSERT_TRUE(reg.read().store().hasDescriptor(first));
+    EXPECT_EQ(reg.read().store().nameOf(first), "DupTx");
 }
 
 TEST_F(TypeZoneAccessTest, DeclareThenDefineKeepsSameTypeId) {
@@ -146,9 +163,9 @@ TEST_F(TypeZoneAccessTest, DeclareThenDefineKeepsSameTypeId) {
     const TypeId defined = reg.registrar().defineRecord("TxPoint", Group::kStructs, {{"x", QualType::fromTypeId(int32)}});
     EXPECT_EQ(defined, declared);
     EXPECT_TRUE(reg.read().store().isCompleteType(defined));
-    ASSERT_NE(reg.read().store().recordData(defined), nullptr);
-    ASSERT_EQ(reg.read().store().recordData(defined)->fields.size(), 1u);
-    EXPECT_EQ(reg.read().store().recordData(defined)->fields.front().name, "x");
+    ASSERT_NE(reg.read().store().fieldsOf(defined), nullptr);
+    ASSERT_EQ(reg.read().store().fieldsOf(defined)->size(), 1u);
+    EXPECT_EQ(reg.read().store().fieldsOf(defined)->front().name, "x");
 }
 
 TEST_F(TypeZoneAccessTest, FailedDefineDoesNotConsumeDeclaration) {
@@ -163,6 +180,27 @@ TEST_F(TypeZoneAccessTest, FailedDefineDoesNotConsumeDeclaration) {
     const TypeId defined = reg.registrar().defineRecord("TxCls", Group::kStructs, {});
     EXPECT_EQ(defined, declared);
     EXPECT_TRUE(reg.read().store().isCompleteType(defined));
+}
+
+TEST_F(TypeZoneAccessTest, FieldTypeIsOwnedByTheForm) {
+    TypeSystem& reg = *m_types;
+    const TypeId i64 = reg.read().getType("Int64");
+    const TypeId f64 = reg.read().getType("Float64");
+    ASSERT_NE(i64, INVALID_TYPE_ID);
+    ASSERT_NE(f64, INVALID_TYPE_ID);
+
+    // Тип поля объявленного record: ЕДИНСТВЕННЫЙ владелец — форма (`types`). Пишется `defineRecord`.
+    const TypeId rec = reg.registrar().defineRecord("OwnerPoint", Group::kStructs, {{"a", QualType::fromTypeId(i64)}, {"b", QualType::fromTypeId(f64)}});
+    ASSERT_NE(rec, INVALID_TYPE_ID);
+
+    // Потребитель читает тип поля ТОЛЬКО через аксессор формы (`fieldsOf`); порядок — порядок объявления.
+    const std::vector<TupleElementData>* fields = reg.read().store().fieldsOf(rec);
+    ASSERT_NE(fields, nullptr);
+    ASSERT_EQ(fields->size(), 2u);
+    EXPECT_EQ(fields->at(0).name, "a");
+    EXPECT_EQ(fields->at(0).type.getTypeId(), i64);
+    EXPECT_EQ(fields->at(1).name, "b");
+    EXPECT_EQ(fields->at(1).type.getTypeId(), f64);
 }
 
 } // namespace

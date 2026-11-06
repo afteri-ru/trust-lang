@@ -2,9 +2,8 @@
 
 > scope: include/trust
 > role: persistent-memory
-> last_reviewed: 2026-10-24
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 4000
 
 ## Architecture
 

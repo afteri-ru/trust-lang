@@ -1,6 +1,5 @@
 #pragma once
 
-// include/lsp/services/hover_service.hpp
 // Hover (textDocument/hover) вынесен из монолита TrustLsp: построение содержимого
 // (buildHoverContents) + обработчик. Stateless - принимают transport/documents/opts.
 

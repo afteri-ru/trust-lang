@@ -28,8 +28,8 @@ namespace trust::semantic {
 /// `overloaded` - набор выбранной формы содержал >1 сигнатуру (кодогену нужен
 /// explicit-dispatch с кастами).
 /// Для СВОБОДНОЙ формы всегда заполняются `namespacePath`/`module` объявления: у оператора нет
-/// идентификатора, поэтому C++-изоляция — namespace модуля (`<enc>::<ns>::operator…`),
-/// а вызов всегда эмитится квалифицированно (member-форма — invalid/пусто).
+/// идентификатора, поэтому C++-имя — trust-namespace (`<ns>::operator…`; имя модуля в C++-символ
+/// не входит), а вызов всегда эмитится квалифицированно (member-форма — invalid/пусто).
 struct ResolvedUserOperator {
     TypeId returnType{INVALID_TYPE_ID};
     TypeId signature{INVALID_TYPE_ID};

@@ -5,7 +5,8 @@
 
 # assert(cond) при -Wno-assert (по умолчанию): проверка/диагностика выключены, программа не падает.
 
-%chk():Void := {
+@[export("chk")@]
+chk():Void := {
     assert( 1 == 0 );
 };
 {% int macro_off__main__() {

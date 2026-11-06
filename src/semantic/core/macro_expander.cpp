@@ -11,8 +11,6 @@ ContextMacroExpander::ContextMacroExpander(AnalysisContext& actx)
 : m_actx(actx) {
 }
 
-// -- Мутирующий обход узла --
-
 bool ContextMacroExpander::onNode(AstNodePtr& node) {
     if (!node) {
         return false;
@@ -46,8 +44,6 @@ bool ContextMacroExpander::onNode(AstNodePtr& node) {
     }
     return false;
 }
-
-// -- Раскрытие контекст-макросов --
 
 void ContextMacroExpander::expandContextMacro(AstNodePtr& self) {
     auto& cm = static_cast<ContextMacro&>(*self);

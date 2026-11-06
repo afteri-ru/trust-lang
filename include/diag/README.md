@@ -24,4 +24,7 @@
   (метаданные через ADL; не включает заголовки компонентов).
 - **Изолированность** - используется всеми компонентами (lexer, parser, transpiler, debug, lsp),
   не зависит от них.
+- **Вывод - сменный форматтер** (`diag/diag_formatter.hpp` + `diag/serialize/`): `--diagnostics-format=text|json|sarif`.
+  Все форматы - проекции ЕДИНОЙ записи `DiagnosticEntry` (второй модели данных нет); локация
+  декодируется единым `diag/diagnostic_location.hpp` (тем же и LSP). Детали - `serialize/MEMORY.md`.
 - **Source-маппинг и хранение исходников** вынесены в `sourcemap`; фасад `Context` - в `session`.

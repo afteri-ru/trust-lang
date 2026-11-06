@@ -33,10 +33,9 @@ bool isWordChar(char c) {
            c == '@' || c == '\\';
 }
 bool isSigil(char c) {
-    return c == '@' || c == '%' || c == '$' || c == ':';
+    return c == '@' || c == '$' || c == ':';
 }
 
-// -- Конвертация LSP-позиций (UTF-16 code units) ↔ байтовые смещения UTF-8 --
 // Позиции в LSP - UTF-16 code units; сканирование строки ведём по байтам.
 // Длина UTF-8 последовательности по первому байту (продолжающие байты не проверяются:
 // позиции LSP приходят для уже валидного текста).
@@ -172,8 +171,7 @@ int nameKind(const std::string& name) {
     return kKindVariable; // %, $, _, plain
 }
 
-// -- Типы (:Имя) - из глобального каталога встроенных (BuiltinCatalog) и
-// пер-файлового реестра пользовательских типов (заполняет анализатор). --
+// collectTypeItems: элементы пер-файлового реестра пользовательских типов (заполняет анализатор).
 void collectTypeItems(const trust::TypeSystem* reg, const trust::BuiltinCatalog* catalog, trust::ModuleIndex mainModule, const std::string& prefix, int line,
                       int utf16Start, int utf16End, json& items) {
     std::set<std::string> seen;
@@ -206,29 +204,22 @@ void collectTypeItems(const trust::TypeSystem* reg, const trust::BuiltinCatalog*
             if (!id.has_value()) {
                 return;
             }
-            add(reg->read().printer().getTypeName(*id), true);
+            add(reg->read().printer().typeNameOf(*id), true);
         });
     }
 }
 
-// -- Макросы (@...) - единый источник: глобальный каталог (predef + DSL) +
-// макроопределения, записанные анализатором (SymbolIndex, isMacro). --
-void collectMacroItems(const trust::BuiltinCatalog* catalog, const trust::SymbolIndex* symbols, trust::ModuleIndex mainModule, const std::string& prefix,
-                       int line, int utf16Start, int utf16End, json& items) {
-    // Имя макроса (первый терм группы, напр. `func`) → документирующий комментарий.
-    // Доки берём из ЕДИНОГО хранилища каталога (macroDocs(), ключ = первый терм без '@')
-    // и из таблицы анализатора (isMacro).
+// collectMacroItems: имена встроенных макросов (каталог) + макроопределения анализатора.
+// Доки — из хранилища прогона (Context файла): predef/DSL-сидинг, `##`-доки, прагма-переопределения.
+void collectMacroItems(const trust::BuiltinCatalog* catalog, const trust::Context* ctx, const trust::SymbolIndex* symbols, trust::ModuleIndex mainModule,
+                       const std::string& prefix, int line, int utf16Start, int utf16End, json& items) {
     std::map<std::string, std::string> nameDoc;
     if (catalog) {
-        const auto& docs = catalog->macroDocs();
         for (const auto& n : catalog->predefMacros()) {
-            std::string bare = (!n.empty() && n.front() == '@') ? n.substr(1) : n;
-            auto it = docs.find(bare);
-            nameDoc.emplace(n, it != docs.end() ? std::string(it->second) : std::string());
+            nameDoc.emplace(n, std::string());
         }
         for (const auto& n : catalog->dslMacros()) {
-            auto it = docs.find(n);
-            nameDoc.emplace(n, it != docs.end() ? std::string(it->second) : std::string());
+            nameDoc.emplace(n, std::string());
         }
     }
     if (symbols) {
@@ -241,12 +232,17 @@ void collectMacroItems(const trust::BuiltinCatalog* catalog, const trust::Symbol
             if (!trust::isMacroVisible(si, mainModule)) {
                 continue;
             }
-            // Док перезаписывается только непустым: DSL-макросы в таблице анализатора могут нести
-            // пустую документацию (их реальный док - в хранилище), и пустая запись не должна
-            // затирать док из macroDocs().
+            // Пустая документация анализатора не затирает док из хранилища прогона.
             auto [it, inserted] = nameDoc.emplace(std::string(si.name), std::string(si.documentation));
             if (!inserted && !si.documentation.empty()) {
                 it->second = std::string(si.documentation);
+            }
+        }
+    }
+    if (ctx != nullptr) {
+        for (const auto& [name, doc] : ctx->macroDocs()) {
+            if (!doc.empty()) {
+                nameDoc[std::string(name)] = std::string(doc);
             }
         }
     }
@@ -261,7 +257,6 @@ void collectMacroItems(const trust::BuiltinCatalog* catalog, const trust::Symbol
     }
 }
 
-// -- Тип объекта для member-доступа --
 // Определяет тип ЛИТЕРАЛА по самому объекту ('...', число, true/false) - без
 // сканирования документа. Возвращает "" если objExpr - не литерал.
 std::string literalTypeOf(const std::string& objExpr) {
@@ -287,7 +282,6 @@ std::string literalTypeOf(const std::string& objExpr) {
     return "";
 }
 
-// -- Квалифицированные имена (`ns::<TAB>`): только имена ИЗ ЭТОЙ области имён --
 // Аналог clangd: кандидаты фильтруются по namespace-пути объявления, а не по подстроке.
 // Контекст завершения: проекция видимости/поисковых областей, посчитанная семантикой.
 struct CompletionScope {
@@ -296,8 +290,6 @@ struct CompletionScope {
     const std::vector<trust::UsingScopeInfo>* usingScopes = nullptr;
     const std::vector<trust::NamespaceAliasInfo>* namespaceAliases = nullptr;
     const std::vector<std::string>* moduleNames = nullptr;
-    const std::vector<std::pair<std::string, trust::ModuleIndex>>* moduleAliases = nullptr;
-    const std::vector<trust::NamespaceAliasInfo>* exportedNamespaceAliases = nullptr;
 };
 
 // Курсор на строке `line` внутри диапазона скоупа (невалидный диапазон = уровень файла).
@@ -328,22 +320,6 @@ const trust::NamespaceAliasInfo* longestAliasPrefix(const std::vector<trust::Nam
     return best;
 }
 
-std::optional<trust::ModuleIndex> moduleBySpelling(const CompletionScope& scope, std::string_view spelling) {
-    for (std::size_t i = 0; i < scope.moduleNames->size(); ++i) {
-        if ((*scope.moduleNames)[i] == spelling) {
-            return trust::ModuleIndex{i};
-        }
-    }
-    if (scope.moduleAliases != nullptr) {
-        for (const auto& [alias, target] : *scope.moduleAliases) {
-            if (alias == spelling) {
-                return target;
-            }
-        }
-    }
-    return std::nullopt;
-}
-
 // Набранный qualified-префикс, разобранный в область поиска. `insertBase` — набранный текст
 // до короткого имени (вставка = insertBase + shortName, поэтому квалификация не дублируется).
 struct QualifiedSearch {
@@ -354,7 +330,7 @@ struct QualifiedSearch {
     bool viaAlias = false; ///< область получена через namespace-алиас (он же авторизует доступ)
 };
 
-// Разбор поддерживаемых форм: `ns::`, `ns::sub::`, `::ns::`, `\lib::`, `\lib::ns::`,
+// Разбор поддерживаемых форм: `ns::`, `ns::sub::`, `::ns::`,
 // `alias::` (namespace-алиас, привязанный в активном скоупе).
 std::optional<QualifiedSearch> parseQualifiedSearch(const CompletionScope& scope, const std::string& prefix, int line) {
     const std::size_t sep = prefix.rfind("::");
@@ -365,33 +341,12 @@ std::optional<QualifiedSearch> parseQualifiedSearch(const CompletionScope& scope
     search.insertBase = prefix.substr(0, sep + 2);
     search.partial = prefix.substr(sep + 2);
     std::string rest = prefix.substr(0, sep);
-    if (!rest.empty() && rest.front() == ':' && !rest.starts_with("::")) {
-        rest.erase(0, 1); // сигл типа перед qualified-именем
-    }
-    if (!rest.empty() && rest.front() == '\\') {
-        const std::size_t moduleSep = rest.find("::");
-        const std::string_view spelling = moduleSep == std::string::npos ? std::string_view(rest) : std::string_view(rest).substr(0, moduleSep);
-        search.module = moduleBySpelling(scope, spelling);
-        if (!search.module.has_value()) {
-            return std::nullopt; // модуль не загружен — кандидатов нет
-        }
-        rest = moduleSep == std::string::npos ? std::string() : rest.substr(moduleSep + 2);
-    }
     if (rest.starts_with("::")) {
         rest.erase(0, 2); // `::ns::` — глобальная область: путь без ведущего разделителя
     }
     std::string path = rest;
     if (!search.module.has_value() && scope.namespaceAliases != nullptr) {
         if (const trust::NamespaceAliasInfo* best = longestAliasPrefix(*scope.namespaceAliases, path, std::nullopt, *scope.ctx, line)) {
-            search.module = best->targetModule;
-            search.viaAlias = true;
-            const std::string tail = path.size() == best->alias.size() ? std::string() : path.substr(best->alias.size() + 2);
-            path = tail.empty() ? best->path : trust::utils::qualifyTrustName(best->path, tail);
-        }
-    }
-    // Экспортированный namespace-алиас импортируемого фасада: longest-prefix по его привязкам.
-    if (search.module.has_value() && scope.exportedNamespaceAliases != nullptr && !path.empty()) {
-        if (const trust::NamespaceAliasInfo* best = longestAliasPrefix(*scope.exportedNamespaceAliases, path, search.module, *scope.ctx, line)) {
             search.module = best->targetModule;
             search.viaAlias = true;
             const std::string tail = path.size() == best->alias.size() ? std::string() : path.substr(best->alias.size() + 2);
@@ -476,7 +431,7 @@ void collectQualifiedItems(const trust::TypeSystem* reg, const trust::SymbolInde
             if (!id.has_value()) {
                 return;
             }
-            const std::string display = reg->read().printer().getTypeName(*id);
+            const std::string display = reg->read().printer().typeNameOf(*id);
             addQualifiedItem(items, seen, search->partial, display, kKindClass, search->insertBase + display, line, utf16Start, utf16End);
         });
     }
@@ -484,14 +439,8 @@ void collectQualifiedItems(const trust::TypeSystem* reg, const trust::SymbolInde
         addAliasCandidates(items, seen, *scope.namespaceAliases, std::nullopt, search->namespacePath, search->partial, search->insertBase, line, *scope.ctx,
                            utf16Start, utf16End);
     }
-    // Экспортированные алиасы импортируемого фасада: `\facade::outer::n` → `\facade::outer::ns`.
-    if (search->module.has_value() && scope.exportedNamespaceAliases != nullptr) {
-        addAliasCandidates(items, seen, *scope.exportedNamespaceAliases, search->module, search->namespacePath, search->partial, search->insertBase, line,
-                           *scope.ctx, utf16Start, utf16End);
-    }
 }
 
-// -- Имена из анализатора (SymbolIndex) --
 // Единый источник имён пользовательского кода: объявленные переменные/функции/типы
 // с типами и фильтром видимости по позиции курсора. Сигнатура (% $ : @) сохраняется
 // в label - вставка через textEdit не дублирует набранную сигнатуру.
@@ -568,16 +517,14 @@ void collectSymbolItems(const trust::SymbolIndex* symbols, const trust::Context*
             if (name.empty() || trust::utils::isQualifiedName(name) || !matchesPrefix(name, prefix)) {
                 continue;
             }
-            const bool visible = search.targetModule.has_value() ? (si.module.has_value() && *si.module == *search.targetModule &&
-                                                                    trust::visibleSite(si, scope.visibility, *search.targetModule).has_value())
-                                                                 : (si.module.has_value() && *si.module == scope.visibility.mainModule);
+            const bool visible = si.module.has_value() && *si.module == scope.visibility.mainModule;
             if (visible) {
                 groups[name].push_back(Candidate{&si, std::nullopt});
             }
         }
     }
     // Одноимённые объявления РАЗНЫХ модулей не смешиваются: каждое вставляется квалифицированно
-    // (`\lib::f`) и получает различимую метку. Единственный кандидат — обычное короткое имя.
+    // (`ns::f`) и получает различимую метку. Единственный кандидат — обычное короткое имя.
     for (const auto& [name, candidates] : groups) {
         std::set<std::string> distinctSites;
         bool hasOwn = false;
@@ -606,7 +553,6 @@ void collectSymbolItems(const trust::SymbolIndex* symbols, const trust::Context*
     }
 }
 
-// -- Методы/поля для `obj.` --
 // Тип объекта резолвится из ЕДИНЫХ источников (без сканирования документа):
 //  1) objExpr - литерал → тип по значению (literalTypeOf);
 //  2) objExpr - имя типа → TypeId из пер-файлового реестра;
@@ -675,8 +621,7 @@ void collectMemberItems(const trust::TypeSystem* reg, const trust::BuiltinCatalo
         if (!seen.insert(raw).second) {
             return;
         }
-        const bool isNative = !raw.empty() && raw.front() == '%';
-        const std::string label = isNative ? raw.substr(1) : raw;
+        const std::string label = raw;
         const std::string insert = label + (isFunc ? "()" : "");
         if (!matchesPrefix(insert, prefix)) {
             return;
@@ -692,27 +637,29 @@ void collectMemberItems(const trust::TypeSystem* reg, const trust::BuiltinCatalo
     if (typeId != trust::INVALID_TYPE_ID && reg) {
         // Эмит методов дескриптора (методы + алиасы) с bare-именами (для автодополнения показываем
         // доверенные имена: "size", "length", "count" - без '%'/'^').
-        auto emitDescMethods = [&](const trust::TypeDescriptor* d) {
-            if (!d) {
+        auto emitDescMethods = [&](const trust::TypeStore& store, trust::TypeId id) {
+            const auto* methods = store.methodsOf(id);
+            if (methods == nullptr) {
                 return;
             }
-            for (const auto& [mname, funcType] : d->methods) {
+            for (const auto& [mname, funcType] : *methods) {
                 (void)funcType;
-                emitMember(utils::bareName(mname), true);
+                emitMember(mname.name, true);
             }
-            for (const auto& [alias, target] : d->methodAliases) {
-                (void)target;
-                emitMember(alias, true);
+            const auto* aliases = store.methodAliasesOf(id);
+            if (aliases != nullptr) {
+                for (const auto& [alias, target] : *aliases) {
+                    (void)target;
+                    emitMember(alias, true);
+                }
             }
         };
-        if (const auto* desc = reg->read().store().descriptorOf(typeId)) {
-            emitDescMethods(desc);
-        }
+        emitDescMethods(reg->read().store(), typeId);
         // Параметризованный Range<Elem> собственных методов не несёт: они объявлены на абстрактном
         // `:Range` (методы с типовым параметром T; см. findMethodInfo/registry). Для автодополнения
         // `$a.` (переменная диапазона) подмешиваем методы `:Range` (dedup через seen в emitMember).
         if (reg->read().store().isRangeType(typeId)) {
-            emitDescMethods(reg->read().store().descriptorOf(reg->read().getType(trust::type_category::Range)));
+            emitDescMethods(reg->read().store(), reg->read().getType(trust::type_category::Range));
         }
         // Члены классов/типов (TupleTypeData): имя → поле/метод (функциональный тип - метод).
         if (const auto* td = reg->read().store().getTypeDataAs<trust::TupleTypeData>(typeId)) {
@@ -800,10 +747,6 @@ void handleCompletion(trust::transport::Transport& transport, DocumentManager& d
         const std::vector<trust::NamespaceAliasInfo>* namespaceAliases = &noAliases;
         std::vector<std::string> noModuleNames;
         const std::vector<std::string>* moduleNames = &noModuleNames;
-        std::vector<std::pair<std::string, trust::ModuleIndex>> noModuleAliases;
-        const std::vector<std::pair<std::string, trust::ModuleIndex>>* moduleAliases = &noModuleAliases;
-        std::vector<trust::NamespaceAliasInfo> noExportedAliases;
-        const std::vector<trust::NamespaceAliasInfo>* exportedAliases = &noExportedAliases;
         auto cit = documents.sourceCache().find(trustFilePath);
         if (cit != documents.sourceCache().end() && cit->second.model.has_value()) {
             const trust::SemanticModel& model = *cit->second.model;
@@ -823,10 +766,8 @@ void handleCompletion(trust::transport::Transport& transport, DocumentManager& d
             usingScopes = &model.usingScopes();
             namespaceAliases = &model.namespaceAliases();
             moduleNames = &model.modules().moduleNames;
-            moduleAliases = &model.modules().moduleAliases;
-            exportedAliases = &model.exportedNamespaceAliases();
         }
-        const CompletionScope search{ctx, mainModule, importSites, reExports, usingScopes, namespaceAliases, moduleNames, moduleAliases, exportedAliases};
+        const CompletionScope search{ctx, mainModule, importSites, reExports, usingScopes, namespaceAliases, moduleNames};
 
         std::string lineStr = lineAt(docText, line);
         // Позиция курсора в байтах UTF-8 (LSP даёт UTF-16 code units).
@@ -876,7 +817,7 @@ void handleCompletion(trust::transport::Transport& transport, DocumentManager& d
             // Типы: встроенные (каталог) + пользовательские (реестр).
             collectTypeItems(reg, &catalog, mainModule, prefix, line, utf16Start, character, items);
             // Макросы: predef/DSL (каталог) + записанные анализатором (SymbolIndex).
-            collectMacroItems(&catalog, symbols, mainModule, prefix, line, utf16Start, character, items);
+            collectMacroItems(&catalog, ctx, symbols, mainModule, prefix, line, utf16Start, character, items);
         }
         items = sortCompletionItems(items);
     } catch (const std::exception& e) {

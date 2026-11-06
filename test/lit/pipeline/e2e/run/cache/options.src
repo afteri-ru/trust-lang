@@ -10,6 +10,7 @@
 # второй (-fno-overflow-check) пересобирается и печатает знаковый wrap.
 
 #!/usr/bin/env trust
+\std();
 @main() := {
     a:Int32 := 2000000000;
     b:Int32 := 2000000000;

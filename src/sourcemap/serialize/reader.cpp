@@ -1,4 +1,3 @@
-// src/sourcemap/reader.cpp
 // SourceMapReader/FileEntry: file I/O, FileEntry indexing and ELF loading.
 
 #include "location/location.hpp"
@@ -13,7 +12,6 @@
 #include <deque>
 #include <filesystem>
 #include <optional>
-
 
 namespace trust {
 
@@ -55,7 +53,6 @@ void FileEntry::ensureCache() const {
     }
 }
 
-// -- Вычисление строки/колонки по 1-based offset --
 FileEntry::LineColumn FileEntry::calc_column(size_t offset) const {
     ensureCache();
 
@@ -96,7 +93,6 @@ FileEntry::LineColumn FileEntry::calc_column(size_t offset) const {
     return {line, column};
 }
 
-// -- Вычисление offset (1-based) по номеру строки (1-based) --
 size_t FileEntry::calc_line_offset(size_t line) const {
     ensureCache();
 

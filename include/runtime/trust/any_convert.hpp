@@ -1,5 +1,4 @@
 // trust/any_convert.hpp - типизированная конверсия из элемента словаря (TypedValue).
-//
 // Public runtime header. Используется кодогенерацией для `:Type(d.field)` - когда операнд
 // каста является элементом словаря (TypedValue: QualType + значение). Категория и размерность
 // значения закодированы в identity QualType (TypeKind: Group|Data) и декодируются методами
@@ -8,8 +7,7 @@
 //   - std::string          ← kind-строка      → конверсия;
 //   - иной целевой тип                          → std::any_cast (точное совпадение);
 //   - несовместимое                              → std::runtime_error (не bad_any_cast).
-//
-// Зависит от trust/dict.hpp (TypedValue) и trust/checked_cast.hpp.
+// Зависит от stdlib/builtin/dict.hpp (TypedValue) и trust/checked_cast.hpp.
 
 #pragma once
 
@@ -19,7 +17,7 @@
 #include <string>
 #include <type_traits>
 
-#include "dict.hpp"
+#include "builtin/dict.hpp"
 #include "checked_cast.hpp"
 
 namespace trust {
@@ -93,8 +91,9 @@ template <typename To>
 [[nodiscard]] To any_to(const TypedValue& tv) {
     if constexpr (std::is_arithmetic_v<To>) {
         return checked_cast<To>(detail::typedToNumber(tv));
-    } else if constexpr (std::is_same_v<To, std::string>) {
-        return detail::typedToString(tv);
+    } else if constexpr (std::is_same_v<To, std::string> || std::is_base_of_v<std::string, To>) {
+        // To — std::string или производный от него тип-строка (напр. trust::StrChar).
+        return To(detail::typedToString(tv));
     } else if constexpr (std::is_same_v<To, std::any>) {
         // `:Any(expr)` — значение как std::any его естественного типа (см. TypedValue::toAny).
         return tv.toAny();
@@ -125,8 +124,8 @@ template <typename To>
         return checked_cast<To>(detail::anyToInt64(value));
     } else if constexpr (std::is_floating_point_v<To>) {
         return checked_cast<To>(detail::anyToDouble(value));
-    } else if constexpr (std::is_same_v<To, std::string>) {
-        return detail::anyToString(value);
+    } else if constexpr (std::is_same_v<To, std::string> || std::is_base_of_v<std::string, To>) {
+        return To(detail::anyToString(value));
     } else {
         return std::any_cast<To>(value);
     }

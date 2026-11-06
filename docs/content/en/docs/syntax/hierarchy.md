@@ -123,12 +123,12 @@ Rules:
   error);
 - **an incomplete type for the client is a forward in the export set**, not a separate marker. A full
   type definition directly in the interface block makes the type complete. An external C/C++ type is
-  described by a native class forward (`:T ::= %cpp_name { };` + `@[include]`);
+  described by a native class forward (`T ::= %cpp_name { };` + `@[include]`);
 - namespace blocks (`ns:: { ... }`), attributes (`@[...@]`) and **load operators with parentheses**
   (`\lib(a, b);`) are allowed inside; such an import means **re-export**: the name set filtered by
   masks joins this file's export set (name ownership does not change; the file's header gets
   `#include`s of those modules' headers). Re-export is **transitive**: a facade may re-export names of
-  another facade — the owner is still the original file. **Function aliases** (`f :- \lib::g;`, see
+  another facade — the owner is still the original file. **Function aliases** (`f :- g;`, see
   [Function aliases](#func-alias)) are declared here as facade curation: the client sees the new name.
   A load/re-export operator is allowed **only at the top level** of the interface block; an import
   inside a nested namespace block (`ns:: { \lib(f); };`) is an error (qualified re-export semantics are
@@ -175,42 +175,15 @@ Rules:
 name (a program stem or `\file`) is used as is; if two DIFFERENT paths produce the same derived
 name, the compiler reports an error.
 
-The same encoded name is used as the **automatic C++ namespace of the module**: ALL entities of an
-importable file (functions, values, types, free operators) live in `namespace <enc> { … }`
-(`m_util_open__file::c_f`, `m_util_open__file::c_ns::c_Point`), so same-named exports of different
-modules do not collide. The entry function (`<module>__main__`, an exact global name for
-`_main.cppt`) and top-level `{% %}` embeds stay outside the namespace. A headerless root program is
-not isolated: it cannot be imported and nothing can reference its symbols.
-
-### Qualified references {#module-qualified-refs}
-
-A name exported by a file can be written together with its module, in any name position:
-
-```
-\lib(f, counter, Point);
-\lib::f();                        # call
-x := \lib::counter;               # value
-p: :\lib::Point := \lib::make(); # type
-```
-
-Rules:
-
-- **A reference does not load the module.** Loading is only the `\path(...)` operator; the module
-  must already be loaded by an import, otherwise "Module '...' is not loaded".
-- **Reference visibility equals the unqualified visibility at that site:** import masks and the
-  file export set apply. A reference to a masked-out name, to `__::` (private), to a `_::` name not accessible from this group/package,
-  or to a declaration outside the file interface is an error.
-- **A reference is bound to the named module:** `\a::f` never falls back to a same-named export of
-  another file; if `f` is exported by `\b`, the reference is an error.
-- **The module is part of an exported name's identity.** `\a::f` and `\b::f` are DIFFERENT
-  entities and coexist: same-named exports of different files are not a duplicate declaration. A bare
-  name imported from several modules is **ambiguous** (`ambiguous name` diagnostic at the use site);
-  the choice is made by qualification `\a::f`. `namespace` groups names but does not separate
-  same-named declarations of different files.
-- **A reference names one file:** a group path (`\\group`) in a qualified-name position is
-  ambiguous and is an error (use the path of a file inside the group).
-- The module spelling in a reference matches the import site spelling (`\dir\mod`), because the
-  reference identity is the same import identifier.
+The encoded name is used as the **module header name** (`<enc>.hpp`) and the base of the entry
+function name (`<enc>__main__`) — structural consistency of build artifacts. The module name does
+**not** enter the symbol ABI: an entity's C++ name comes only from its namespace path (`ns::f` →
+`ns::f`, `MyStr.count` → `MyStr::count`), so a module is fully transparent relative to C++ (like a
+translation unit). Isolation of same-named exports of different modules is the programmer's
+responsibility via ordinary namespaces (`a:: { ... }`); without it, same-named definitions cause
+`multiple definition` — the compiler diagnoses the collision before the linker. The entry function
+(`<module>__main__`) and top-level `{% %}` embeds stay outside namespaces. A headerless root program
+cannot be imported: nothing can reference its symbols.
 
 ### File loading principles {#module-loading}
 
@@ -238,6 +211,30 @@ Rules:
 - **Duplicates:** inside one file always an error; same-named exports of different files coexist and
   the bare name becomes ambiguous (diagnostic at the use site); private names do not conflict;
   re-registering the same declaration of the same file is not a duplicate.
+
+### Module definition and loading diagnostics {#module-diagnostics}
+
+A module definition starts with the file's first significant construct — `<path>;` (no interface)
+or `<path> { … };` (interface block). Loading is the operator `<path>(...)` (round brackets, like a
+function call). The number of leading `\` selects the path kind (`\` file, `\\` group, `\\\`
+package) and is the same in the header and in the loading operator; `\std();` loads the standard
+library umbrella file.
+
+| Situation | Diagnostic |
+|---|---|
+| Imported file has no header | `module file '…' has no module header; expected '<path>;' as the first significant line` |
+| Header does not match the logical path | `module header '…' does not match path (expected '…')` |
+| Invalid header name | `invalid module header '…'` |
+| Path cannot be expressed relative to the scope root | `cannot compute module path relative to scope root '…'` |
+| Header started but not terminated by `;` | `module header must end with ';'` |
+| Header unterminated | `unterminated module header` |
+| Invalid module name in the operator | `Module name - backslash, underscore, lowercase English letters or number!` |
+| Loading resolved to no files | `Module '…' resolved to no files` |
+| Group path in a qualified reference | `Module reference '…' must name one file: a group import cannot be used in a qualified name` |
+| Reference to a not-yet-loaded module | `Module '…' is not loaded` |
+| File/package not found (fatal) | `Module '…' not found: …` |
+| Import cycle (fatal) | `Cyclic module dependency detected: …` |
+| File path with a subpath / directory without `\\` | `file path cannot have subpaths; use a module path (two leading backslashes)` / `directory import requires a module path (two leading backslashes)` |
 
 ### File dependency output {#module-deps}
 
@@ -274,10 +271,10 @@ is still generated — see below).
 ### Module header (`<enc>.hpp`) {#module-header}
 
 For every importable file the compiler generates a C++ header named `<encoded name>.hpp` (see
-"Path prefixes and the header"). Its content is the file's **export set** inside
-`namespace <enc> { … }`: declarations of exported types (a forward or a full definition, as in the
+"Path prefixes and the header"). Its content is the file's **export set** (no automatic module
+namespace): declarations of exported types (a forward or a full definition, as in the
 export set), function prototypes, `extern` variables; the
-first line is `#pragma once`. Native declarations and the entry stay outside the wrapper (qualified
+first line is `#pragma once`. Native declarations and the entry stay outside any wrapper (qualified
 external name / global symbol). The header is self-contained (it compiles as a separate translation
 unit); declaration positions for debugging and navigation stay in the module's `.cppt`.
 
@@ -296,9 +293,9 @@ unit); declaration positions for debugging and navigation stay in the module's `
   names; the facade header is an umbrella: `#pragma once` + `#include "<owner enc>.hpp"`. If the
   facade interface block has no declarations of its own, the header has no other declarations;
   otherwise the facade's own declarations are added next to the `#include`. Name ownership does not
-  change — the definition and the C++ symbol stay with the owner. Namespace aliases of re-exported
-  modules are **not** published automatically: to let a facade client see the prefix binding, declare
-  it in the facade interface block (`ns:: :- \lib::ns::;`).
+  change — the definition and the C++ symbol stay with the owner. A namespace alias by area applies
+  within the declaring module and is **not exported** to importers (re-export of namespace aliases is
+  not supported).
 - **Generic/constexpr free-function bodies go into the header:** an exported generic (`<T> f(...)`)
   and an `@[constexpr]` free function are published as definitions, so a client can instantiate/use
   them from another module; `.cppt` does not repeat those bodies. A reference from such a body to a
@@ -316,7 +313,11 @@ library with a stable name and import it through the existing native declaration
 language does not introduce a separate ABI contract for files. Implementation boundaries — in
 [Status](../status/).
 
-### Name aliases (`f :- \lib::g;`) {#func-alias}
+### Name aliases (`f :- g;`) {#func-alias}
+
+The difference between a declaration, a forward declaration, a native binding and an alias is
+summarized in the table [Declaration, definition and alias](../operators/create/#declaration-vs-alias):
+`:=` **never** creates an alias.
 
 An alias is a **new name for an existing function or value/constant** (facade curation): the client
 works with a short name (`f`), while the implementation and the C++ symbol stay with the owning module.
@@ -326,7 +327,7 @@ block — in the body (where default-public applies):
 ```trust-lang
 \facade {
     \lib(g);
-    f :- \lib::g;
+    f :- g;
 };
 ```
 
@@ -335,17 +336,17 @@ block — in the body (where default-public applies):
   For a value/constant the alias is a second name of the same storage: reads and writes are
   normalized to the target.
 - No dedicated C++ function is emitted for the alias: the generated code prints the target's C++ name
-  together with its identity suffix (`lib::c_g_P10N5_3AInt32_(1)`). The file's header includes the
+  together with its identity suffix (`g_P10N5_3AInt32_(1)`). The file's header includes the
   target owner's header (umbrella `#include`).
-- The alias name joins the file's export set (the client sees it both short `f` and qualified
-  `\facade::f`) if it is declared in the interface block or in a file **without** an interface block.
+- The alias name joins the file's export set (the client sees it short — `f`) if it is declared in the
+  interface block or in a file **without** an interface block.
   In the body of a file **with** an interface block the alias, like any declaration outside the block,
   is file-private and invisible to importers.
-- The right-hand side does not load the module: the target must already be loaded by an import of
-  this file; an alias with an unresolved reference is a compile error. The signature form
-  (`f(x:Int32):Int32 :- \lib::g;`) is not supported; types use `::-`, not `:-` (explicit diagnostic).
-- The `alias` keyword is the same operation in `import … as …` style: `alias \lib::g as f;`
-  (a name) and `alias \lib::T as :MyT;` (a second type name, see below); the kind is given by `:`
+- The right-hand side is the target NAME, introduced by an import of this file (`f :- g;` after
+  `\lib(g)`); an unresolved name is an error. The signature form
+  (`f(x:Int32):Int32 :- g;`) is not supported; types use `::-`, not `:-` (explicit diagnostic).
+- The `alias` keyword is the same operation in `import … as …` style: `alias g as f;`
+  (a name) and `alias T as :MyT;` (a second type name, see below); the kind is given by `:`
   on the new name.
 
 ### Type aliases (`:A ::- T;`) {#type-alias}
@@ -355,10 +356,10 @@ nominal type is created). It also works for a cross-module target:
 
 ```trust-lang
 :MyInt ::- :Int32;
-:MyPoint ::- \lib::Point;
+:MyPoint ::- Point;
 ```
 
-The equivalent spelling through the `alias` keyword: `alias \lib::Point as :MyPoint;`.
+The equivalent spelling through the `alias` keyword: `alias Point as :MyPoint;`.
 
 No C++ type is emitted: annotations and constructor calls through the alias name are printed with
 the target's name. A new nominal type is declared with `::=` (see
@@ -366,72 +367,33 @@ the target's name. A new nominal type is declared with `::=` (see
 
 Implementation limits — see [Status](../status/).
 
-### Namespace aliases (`ns:: :- \lib::ns::;`) {#namespace-alias}
-
-A namespace prefix may be bound to a namespace of another module — no entity is created and no C++
-name is emitted:
-
-```trust-lang
-ns:: :- \lib::ns::;
-x:Int32 := ns::f(1);      # → lib::c_ns::c_f(...)
-```
-
-- Both LHS forms are allowed: `ns::` and `::ns::`; the RHS must end with `::` (the "namespace, not a
-  name" marker).
-- The alias is bound to the declaration scope: inside an exported namespace block (`ns:: { ... }`,
-  interface block) it is hoisted into the module root with a qualified prefix (`outer::ns`); in other
-  blocks it lives until the block ends.
-- Inside the interface block the alias **is exported**, including a nested one (`\facade::outer::ns::f`):
-  an importer of the facade receives the prefix binding and may write `outer::ns::f` and
-  `\facade::outer::ns::f`; the import mask applies to the alias name by the general rules: a mask with
-  `::` matches the full name (`outer::ns`), one without `::` matches the short name (`ns`). A mask that selects only a
-  namespace alias (no declarations) counts as matched: it is neither `-Wunmatched-mask` nor
-  `-Wempty-import`. Outside the interface block
-  the alias is not exported.
-- The target namespace must exist in the given module (otherwise an error at the alias); one prefix
-  cannot be bound to two namespaces. The target must be module-qualified: an alias of a namespace of the
-  same file is not supported (use `... = ns` for short-name lookup).
-
-### Module aliases (`\m :- \pkg\deep\mod;`) {#module-alias}
-
-`:-` with a module on the left declares a **spelling alias of an already loaded module** (no new
-module identity is created):
-
-```trust-lang
-\lib(g);        # the target must already be loaded
-\m :- \lib;
-x:Int32 := \m::g();   # → lib::c_g(...)
-```
-
-- The alias does not load the target; an unloaded module is an error.
-- The alias is declared at module level (not inside a function) and is visible ONLY in the declaring
-  module: the spelling is unique per module, the same spelling is allowed in different modules, and the
-  alias is not exported. Rebinding it in the same module to another module is an error. The alias
-  spelling cannot coincide with an import spelling of the **same module** (the import-spelling table is
-  per module, not compilation-wide); the check does not depend on declaration order.
-- References `\m::name` are normalized to the target module; the header/imports use the target `.hpp`.
-
-Implementation limits — see [Status](../status/).
-
 ### Name visibility {#visibility}
 
-- **Top-level file declarations are exported** (public by default): the module is part of a name's
-  identity, so same-named exports of different files coexist; a bare name after importing several
-  modules is ambiguous (use `\module::name`).
+- **Top-level file declarations are exported** (public by default): a name's identity in the
+  COMPILER includes the module (different modules are distinguishable), but the module does not
+  enter the C++ symbol. **A module name is NOT a resolution prefix** (`\module::name` is
+  forbidden): a name is introduced by import; a bare name after importing several modules with the
+  same export is ambiguous — separate the exports with namespaces.
 - **`_:: { ... }` / `_{ ... }` at file top level is protected**: visible to the current file and to
   files of the same project group or the same package; not exported to outside importers. In the
-  current C++ backend it is emitted into the module namespace (not anonymous); Trust semantics
-  enforces visibility.
+  current C++ backend it is emitted flat (module-level); Trust semantics enforces visibility.
 - **`__:: { ... }` / `__{ ... }` at file top level is private**: visible only to the current file;
   emitted into a C++ anonymous namespace (internal linkage).
 - **`:: { ... }` / `name:: { ... }`** are exported namespaces. Their declarations have static
   lifetime: after the block they are accessible with qualification (`name::f`), and `::` contents
-  without qualification. In C++ they are emitted as namespaces (`c_<name>`); a call `name::f`
-  becomes `c_<name>::c_f`. An importable file additionally isolates its C++ names with the automatic
-  module namespace `<encoded name>` (see "Path prefixes and header").
+  without qualification. In C++ they are emitted as namespaces with the same name; a call `name::f`
+  becomes `name::f`. A module does NOT create an automatic namespace: same-named exports of
+  different modules without a common namespace cause `multiple definition` (diagnosed by the
+  compiler).
 - Duplicates inside one file are always an error. Private names from different files do not
-  conflict (their identity includes the file); same-named exports of different files coexist and
-  make the bare name ambiguous.
+  conflict; same-named exports of different files collide unless placed in different namespaces.
+- **The same markers select the inheritance access** in the parent class list
+  (`:D ::= __::, :A, ::, :B{ }`): a marker is a standalone list element that applies to all
+  subsequent bases until the next switch; the default is public for all types
+  (private/protected only by an explicit marker). See [Classes](../types/class/#inheritance-access).
+- **The same markers set the C++ access of methods and fields** in a class body
+  (`__::;` / `_::;` / `::;`): a standalone member that applies to all subsequent members; the default is
+  public. See [Classes](../types/class/#member-visibility).
 
 ### Alias and import limits {#alias-limits}
 
@@ -440,8 +402,6 @@ Implementation limits — see [Status](../status/).
 - **No alias chains:** a name alias of a name alias is normalized to the FINAL target; a namespace
   alias whose target is another namespace alias (including one exported by a facade) is not
   supported — the target must be a namespace of a module.
-- **A module alias is neither exported nor re-exported:** it only works in the declaring module
-  (unlike name and type aliases, which are part of the file's export set).
 - **No negating masks:** a mask only selects visible names (`*`, `?`); exclusion cannot be expressed.
 - **Visibility granularity is three-level:** file (`__::`), group/package (`_::`), file export;
   there is no intermediate granularity (like `pub(in path)`).

@@ -1,0 +1,24 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/member_access_derived.o %s && test -f $TD/member_access_derived.o
+
+# C++-доступ членов: protected член базового класса ДОСТУПЕН из метода наследника; собственные
+# private/protected члены доступны внутри класса. Отказ (private извне / private из наследника) —
+# в diag/member_access_denied.src.
+
+\std();
+:Base ::= :Class{
+    _::;
+    prot():Int32 := { return 1; };
+    __::;
+    priv():Int32 := { return 2; };
+    ::;
+    pub():Int32 := { return prot() + priv(); };  # собственные члены — доступны
+};
+:Der ::= :Base{
+    call(o:Der):Int32 := { return o.prot(); };  # protected из наследника ЧЕРЕЗ объект наследника — доступно
+};
+# CHECK: struct Base {
+# CHECK:   protected:
+# CHECK: struct Der : public Base {
+
+@main():Int32 := { d:Der := Der(); @return d.call(d) - 1; };

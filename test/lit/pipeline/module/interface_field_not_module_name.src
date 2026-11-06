@@ -2,12 +2,13 @@
 # RUN: %split-file %s $TD
 # RUN: %not %trust -q --temp-dir $TD/build --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
 #
-# Поле типа не является именем модуля: объявления из тела типа не попадают в экспорт-поверхность.
-# CHECK: error: module '\lib' has no exported name 'x'
+# Поле типа не является именем уровня модуля: объявления из тела типа не попадают в
+# экспорт-поверхность, поэтому `x` не резолвится.
+# CHECK: error: undefined name 'x'
 
 //--- main.src
 \lib();
-@main():Int32 := { @return \lib::x - 1; };
+@main():Int32 := { @return x - 1; };
 
 //--- lib.src
 \lib;

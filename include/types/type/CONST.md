@@ -12,7 +12,7 @@
 Признак константности нужен в двух ролях, которые часто смешивают, но это разные вещи:
 
 1. **«Константность в типе»** - тип сам по себе константен (`const T`). Декларация `x^ := 42`
-   порождает значение типа `const int8_t`. Этот признак влияет на C++-имя типа (`getCppTypeName`),
+   порождает значение типа `const int8_t`. Этот признак влияет на C++-имя типа (`CppTypeRenderer::render`),
    на сигнатуры/прототипы функций и на манглинг.
 2. **«Пер-переменная константность»** - переменная становится константной по мере анализа узлов AST
    (`x := 42; x^ += 1;` → далее `x` неизменяема). Это свойство **переменной**, а не типа; оно не
@@ -88,7 +88,7 @@ Trust разделяет **тип-квалификатор**, **констант
 
 | Признак | Где хранится | Влияет на |
 |---|---|---|
-| «Константность в типе» (`:Array^`, `@[readonly]` на типе) | `kConstFlag` в `QualType` | `getCppTypeName(QualType)` → `const T`; прототипы/манглинг |
+| «Константность в типе» (`:Array^`, `@[readonly]` на типе) | `kConstFlag` в `QualType` | `CppTypeRenderer::render(QualType)` → `const T`; прототипы/манглинг |
 | «Константность объявления» (`x^ := 42`, `@[readonly]` на переменной/параметре) | `attr::ReadOnly` на узле объявления; запись запрещает semantic | `const ` в C++-объявлении (`generateVarDeclToFile`) |
 | «Became-const» (`x := 42; x^ = ...`) | flow-факт DA-прохода (`semantic/definite_assignment`) | запрет последующих записей; C++-декларация остаётся не-const |
 | «Явный const-вызов» (`obj.method^()`) | `attr::ReadOnly` на `CallExpr` + `Binary::lhsType` | `const_cast<const T&>(obj)` для выбора const-перегрузки |
@@ -104,7 +104,7 @@ Trust разделяет **тип-квалификатор**, **констант
 - **Интернирование/каноника/индекс**: бит снимается (`getRegistryIndex`, `getDesugaredTypeId`,
   `EXPECT(isUnqualifiedType(child))` в `getOrCreateStructuralType`). `const T` и `T` разделяют слот реестра.
   Это конвенция top-level const: не плодит структурных типов и безопасна для манглинга.
-- **`getCppTypeName(QualType)`**: при `QualType::isConst()` → лидирующий `const ` (для любой категории типа); TypeId-перегрузка — identity-only.
+- **`CppTypeRenderer::render(QualType)`**: при `QualType::isConst()` → лидирующий `const ` (для любой категории типа); TypeId-перегрузка — identity-only.
 - **Применим к TypeId любой категории**: примитив, алиас, структура, класс, контейнер, тензор -
   const - квалификатор поверх структурного типа, а не свойство только «маленьких» типов.
 
@@ -136,7 +136,7 @@ Trust разделяет **тип-квалификатор**, **констант
 - `trust::TypedValue` (рантайм словаря) хранит `QualType`: квалификаторы доезжают до рантайма, а
   равенство (`Dict::operator==`) идёт по identity (`TypeId::operator==`), поэтому `const` не создаёт
   «другой тип» значения. ABI-identity встроенных типов нормализуется (`toRuntimeType`, index = 0).
-- `getCppTypeName(QualType)` даёт `const ` при `QualType::isConst()` (TypeId-перегрузка — identity-only);
+- `CppTypeRenderer::render(QualType)` даёт `const ` при `QualType::isConst()` (TypeId-перегрузка — identity-only);
   `getDesugaredTypeId` снимает qualifier-байт; `getOrCreateStructuralType` запрещает флаги в детях (`types/registry/structural_interner.cpp`).
 - `resolveCppTypeId` учитывает const-бит (добавляет `const ` к базовому имени и к trust-имени алиаса)
   (`transpiler.cpp`).
@@ -175,7 +175,7 @@ Trust разделяет **тип-квалификатор**, **констант
 ## 6. Итог
 
 Trust различает три независимых механизма:
-- **тип-квалификатор** `kConstFlag` в `QualType` (identity — `TypeId`) — влияет на `getCppTypeName`/прототипы;
+- **тип-квалификатор** `kConstFlag` в `QualType` (identity — `TypeId`) — влияет на `CppTypeRenderer::render`/прототипы;
 - **константность объявления** (`attr::ReadOnly`) — `const ` в C++-объявлении + запрет записи;
 - **became-const** — flow-факт DA, запрет последующих записей без изменения C++-типа/декларации.
 

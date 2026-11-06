@@ -7,17 +7,17 @@
 #   NoExcept    (@[noexcept])     -> noexcept                (завершающий).
 
 @[noexcept@] f():Void := { };
-# CHECK: void c_f{{_[A-Za-z0-9_]+}}() noexcept {
+# CHECK: void f{{_[A-Za-z0-9_]+}}() noexcept {
 
 @[func_const@] g(x:Int32):Int32 := { 42 };
-# CHECK: __attribute__((const)) int32_t c_g{{_[A-Za-z0-9_]+}}(int32_t c_x) {
+# CHECK: __attribute__((const)) int32_t g{{_[A-Za-z0-9_]+}}(int32_t x) {
 
 @[func_pure@] h(x:Int32):Int32 := { 42 };
-# CHECK: __attribute__((pure)) int32_t c_h{{_[A-Za-z0-9_]+}}(int32_t c_x) {
+# CHECK: __attribute__((pure)) int32_t h{{_[A-Za-z0-9_]+}}(int32_t x) {
 
 @[constexpr@] k():Int32 := { 7 };
-# CHECK: constexpr int32_t c_k{{_[A-Za-z0-9_]+}}() {
+# CHECK: constexpr int32_t k{{_[A-Za-z0-9_]+}}() {
 
 # Лидирующий + завершающий квалификатор вместе.
 @[func_const@] @[noexcept@] m(x:Int32):Int32 := { 42 };
-# CHECK: __attribute__((const)) int32_t c_m{{_[A-Za-z0-9_]+}}(int32_t c_x) noexcept {
+# CHECK: __attribute__((const)) int32_t m{{_[A-Za-z0-9_]+}}(int32_t x) noexcept {

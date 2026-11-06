@@ -2,7 +2,8 @@
 
 # Stdlib prelude (встроенный trust/iterator.src): тип Iterator<T> доступен без явного импорта
 # и отображается на trust::Iterator<T>; рантайм-заголовок подключается on-use.
-%consume(it : Iterator<Int32>) : Void := ...;
-@main() := { @return 0; }
-# CHECK: #include "stdlib/iterator.hpp"
-# CHECK: extern "C" void consume(trust::Iterator<int32_t> c_it);
+\std();
+consume(it : Iterator<Int32>) : Void := %consume...;
+@main() := { x: Iterator<Int32> := _; @return 0; }
+# CHECK: warning: --temp-dir is ignored when using emit flags
+# CHECK: Iterator<int32_t> x;

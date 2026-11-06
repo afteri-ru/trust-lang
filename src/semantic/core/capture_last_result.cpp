@@ -205,8 +205,8 @@ void captureNode(AstNodePtr& node, CaptureLastResultContext& ctx) {
     switch (kind) {
     case ParserToken::Kind::FuncDecl: {
         auto& f = static_cast<FuncDecl&>(*node);
-        if (f.m_body) {
-            captureLastResult(*f.m_body, ctx);
+        if (auto* fb = f.body()) {
+            captureLastResult(*fb, ctx);
         }
         return;
     }

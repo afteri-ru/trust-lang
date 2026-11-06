@@ -1,14 +1,11 @@
 #pragma once
 
-// include/semantic/decl/func_signature_check.hpp
 // Проверки СИГНАТУРЫ объявления функции (FuncDecl), не требующие скоупа, таблицы символов и
 // хуков драйвера. Оркестратор (`FuncDeclAnalyzer::analyzeFuncDecl`) задаёт порядок вызовов;
 // сами проверки не знают ни порядка, ни соседей и тестируются изолированно.
-//
 // Контракт по семействам имён:
 //   validate* - fatal: false = объявление невалидно, дальнейшие проверки и регистрация не выполняются;
 //   check*    - report-only: диагностика выдана, объявление продолжает проверяться.
-//
 // Драйверное состояние (внутри ли тела типа, внутри ли функции) передаётся ЗНАЧЕНИЕМ: ни одна
 // функция не обращается к NameResolutionPass и не открывает скоупы.
 
@@ -23,6 +20,7 @@ namespace trust {
 
 class AnalysisContext;
 class Context;
+class TypeSystem;
 
 namespace semantic {
 
@@ -39,9 +37,13 @@ namespace semantic {
 /// разворот сигнатуры (общий для обеих позиций).
 [[nodiscard]] bool validateTypeSetSignature(AnalysisContext& actx, const FuncDecl& func_node);
 
-/// Z6: нативная функция (`%...`) транслируется в C++ напрямую, поэтому тип возврата обязателен:
-/// иначе получилась бы голая декларация без типа.
+/// Z6: импорт нативной цели (`:= %cpp ...;`) обязан задать тип возврата: он определяет
+/// C++-сигнатуру внешнего символа.
 [[nodiscard]] bool validateNativeForwardDecl(Context& ctx, const FuncDecl& func_node);
+
+/// Z6a: цель делегирования (`:= name ...`) не может совпадать с именем самого объявления:
+/// такая запись неотличима от нативной привязки того же имени (`:= %name ...`) и скрывает намерение.
+[[nodiscard]] bool validateDelegationTarget(Context& ctx, const FuncDecl& func_node);
 
 /// Z7: `@[stack_check@]` (без аргумента, режим limit) либо `@[stack_check(N)@]` с одним целым N >= 0.
 void checkStackCheckAttr(Context& ctx, const FuncDecl& func_node);
@@ -63,7 +65,7 @@ void checkReturnRefMarkers(Context& ctx, const FuncDecl& func_node);
 
 /// Z13 (часть): каждый объявленный типовой параметр обязан встречаться в сигнатуре - иначе C++ не
 /// выведет его при вызове, а эмиссия явных template-аргументов пропустит такой параметр.
-[[nodiscard]] bool validateTemplateParamsUsed(Context& ctx, const FuncDecl& func_node, TypeId func_type);
+[[nodiscard]] bool validateTemplateParamsUsed(TypeSystem& reg, Context& ctx, const FuncDecl& func_node, TypeId func_type);
 
 /// Z14: свободный оператор обязан иметь хотя бы один параметр пользовательского типа - иначе он
 /// никогда не участвует в разрешении (built-in операторы - интринсики) и был бы мёртвым.

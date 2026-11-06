@@ -6,5 +6,4 @@
 <T...> r(xs: T...): Range := ...;
 <T...> t(xs: T...): Tensor := ...;
 
-# CHECK: error: abstract type ':Range' has no C++ representation
-# CHECK: error: tensor element type is unknown
+# CHECK: error: implementation of built-in type 'Tensor' is not defined

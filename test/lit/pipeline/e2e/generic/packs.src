@@ -5,6 +5,7 @@
 
 # End-to-end: packs работают для пользовательской generic-функции и для
 # пользовательского native class template `StdTuple` (C++ std::tuple).
+\std();
 @include("tuple")
 <T...> StdTuple ::= %std::tuple<T...> { };
 

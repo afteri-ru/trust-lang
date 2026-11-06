@@ -1,10 +1,10 @@
-// src/semantic/ref/ref_cycle.cpp
 // Реализация анализатора рекурсивных/циклических ссылок в полях классов (см. ref_cycle.hpp).
 #include "semantic/ref/ref_cycle.hpp"
 #include "semantic/diag.hpp"
 #include "session/context.hpp"
 #include "diag/diag.hpp"
 #include "types/group.hpp"
+#include "types/type_data.hpp"
 
 #include <algorithm>
 #include <functional>
@@ -184,19 +184,20 @@ const std::vector<RefCycleHook::Edge>& RefCycleHook::edgesOf(TypeId rec) {
     }
     const TypeReadModel reg = m_actx.ctx().readTypes();
     std::vector<Edge> out;
-    if (const RecordTypeData* rd = reg.store().recordData(rec); rd != nullptr) {
-        for (const auto& f : rd->fields) {
+    if (const std::vector<TupleElementData>* fields = reg.store().fieldsOf(rec)) {
+        for (const auto& f : *fields) {
             collectHolds(f.type.getTypeId(), EdgeKind::Inline, out, f.type.isConst());
         }
     }
-    for (const TypeId b : reg.store().baseClasses(rec)) {
-        collectHolds(b, EdgeKind::Inline, out);
+    for (const BaseClass& b : reg.store().basesOf(rec)) {
+        collectHolds(b.type, EdgeKind::Inline, out);
     }
     // Self-инстанциация абстрактного шаблона: поле `shared<Box<T>>` внутри `Box` ссылается на
     // инстанциацию с templateOf == rec. Это ребро НА САМ шаблон (поля инстанциации на момент
     // анализа тела ещё не заполнены, и её собственные рёбра недостоверны).
     for (auto& e : out) {
-        if (const RecordTypeData* td = reg.store().recordData(e.target); td != nullptr && td->templateOf == rec) {
+        const auto inst = reg.store().instanceOf(e.target);
+        if (inst && inst->templateOf == rec) {
             e.target = rec;
         }
     }
@@ -209,7 +210,7 @@ void RefCycleHook::collectHolds(TypeId type, EdgeKind kind, std::vector<Edge>& o
     }
     const TypeReadModel reg = m_actx.ctx().readTypes();
     const TypeId t = getUnqualifiedType(type);
-    const RefType rt = getRefType(getTypeKind(t));
+    const RefType rt = typeRefOf(t);
     if (rt != RefType::kValue) {
         EdgeKind nk = kind;
         switch (rt) {
@@ -275,7 +276,7 @@ void RefCycleHook::collectHolds(TypeId type, EdgeKind kind, std::vector<Edge>& o
 }
 
 std::string RefCycleHook::typeName(TypeId id) const {
-    return m_actx.ctx().readTypes().printer().getTypeName(id);
+    return m_actx.ctx().readTypes().printer().typeNameOf(id);
 }
 
 } // namespace trust

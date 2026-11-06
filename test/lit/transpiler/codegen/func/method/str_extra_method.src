@@ -1,0 +1,14 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# Метод, объявленный В МОДУЛЕ ШИРЕ ядрового интерфейса (string.src): регистрируется на
+# builtin-типе и эмитится как вызов C++-члена (clear -> (s).clear()). Ядро интерфейс не несёт.
+
+\std();
+@main() := {
+    s: StrChar := "abc";
+    s.clear();
+    w: StrWide := 'x';
+    w.clear();
+}
+# CHECK: (s).clear();
+# CHECK: (w).clear();

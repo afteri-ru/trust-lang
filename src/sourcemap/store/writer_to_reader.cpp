@@ -16,10 +16,6 @@ namespace trust {
 
 SourceMapWriter::~SourceMapWriter() = default;
 
-// ══════════════════════════════════════════════════════════════
-//              SourceMapWriter::toReader
-// ══════════════════════════════════════════════════════════════
-
 const SourceMapReader* SourceMapWriter::toReader() const {
     if (m_reader) {
         return m_reader.get();
@@ -73,8 +69,8 @@ const SourceMapReader* SourceMapWriter::toReader() const {
     auto offsetPrepends = [&prependSizes](auto& entries, bool cppIsFrom) {
         for (auto& [key, entry] : entries) {
             (void)key;
-            auto& cppRange = cppIsFrom ? entry.from : entry.to;
-            auto cppIdx = cppRange.begin.fileIdx();
+            auto& outRange = cppIsFrom ? entry.from : entry.to;
+            auto cppIdx = outRange.begin.fileIdx();
             if (!cppIdx.isOutput()) {
                 continue;
             }
@@ -83,12 +79,12 @@ const SourceMapReader* SourceMapWriter::toReader() const {
             if (prependSize == 0) {
                 continue;
             }
-            uint32_t beginOff = cppRange.begin.offset();
-            using LocType = decltype(cppRange.begin);
-            cppRange.begin = LocType::makeLoc(cppIdx, beginOff + static_cast<uint32_t>(prependSize));
-            if (!cppRange.end.isInvalid()) {
-                uint32_t endOff = cppRange.end.offset();
-                cppRange.end = LocType::makeLoc(cppIdx, endOff + static_cast<uint32_t>(prependSize));
+            uint32_t beginOff = outRange.begin.offset();
+            using LocType = decltype(outRange.begin);
+            outRange.begin = LocType::makeLoc(cppIdx, beginOff + static_cast<uint32_t>(prependSize));
+            if (!outRange.end.isInvalid()) {
+                uint32_t endOff = outRange.end.offset();
+                outRange.end = LocType::makeLoc(cppIdx, endOff + static_cast<uint32_t>(prependSize));
             }
         }
     };
@@ -110,8 +106,8 @@ const SourceMapReader* SourceMapWriter::toReader() const {
     }
 
     for (auto& entry : reader->m_nameMappings) {
-        auto& cppRange = entry.rangeMap.to;
-        auto cppIdx = cppRange.begin.fileIdx();
+        auto& outRange = entry.rangeMap.to;
+        auto cppIdx = outRange.begin.fileIdx();
         if (!cppIdx.isOutput()) {
             continue;
         }
@@ -120,11 +116,11 @@ const SourceMapReader* SourceMapWriter::toReader() const {
         if (prependSize == 0) {
             continue;
         }
-        uint32_t beginOff = cppRange.begin.offset();
-        cppRange.begin = ReaderLocation::makeLoc(cppIdx, beginOff + static_cast<uint32_t>(prependSize));
-        if (!cppRange.end.isInvalid()) {
-            uint32_t endOff = cppRange.end.offset();
-            cppRange.end = ReaderLocation::makeLoc(cppIdx, endOff + static_cast<uint32_t>(prependSize));
+        uint32_t beginOff = outRange.begin.offset();
+        outRange.begin = ReaderLocation::makeLoc(cppIdx, beginOff + static_cast<uint32_t>(prependSize));
+        if (!outRange.end.isInvalid()) {
+            uint32_t endOff = outRange.end.offset();
+            outRange.end = ReaderLocation::makeLoc(cppIdx, endOff + static_cast<uint32_t>(prependSize));
         }
     }
 

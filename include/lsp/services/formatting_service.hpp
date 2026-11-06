@@ -1,6 +1,5 @@
 #pragma once
 
-// include/lsp/services/formatting_service.hpp
 // textDocument/formatting: pretty-print всего документа через formatter_lib.
 // Вынесен из монолита TrustLsp (src/lsp/catalog/trust_lsp.cpp). Stateless: принимает
 // transport/documents/opts и сам отправляет ответ (как hover::/navigation::).

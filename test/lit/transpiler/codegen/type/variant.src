@@ -1,0 +1,13 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Variant-тип: alias `Variant = std::variant<...>`, статические члены СВОЕГО типа и
+# out-of-class определения значений (значения — из AST-литералов, имена/типы — из реестра).
+\std();
+Data ::= (i=42, s="text",):Variant;
+# CHECK: struct Data {
+# CHECK: using Variant = std::variant<int8_t, trust::StrChar>;
+# CHECK: static const int8_t i;
+# CHECK: static const trust::StrChar s;
+# CHECK: static constexpr int count() { return 2; }
+# CHECK: const int8_t Data::i{42};
+# CHECK: const trust::StrChar Data::s{"text"};

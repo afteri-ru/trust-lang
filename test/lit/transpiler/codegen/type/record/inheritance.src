@@ -3,49 +3,50 @@
 
 # Многоуровневое наследование Class (Shape → Rect → Square) и POD-Struct (Point).
 # Class-поля с default → C++ NSDMI (`{value}`); Struct-поля - без инициализатора (POD).
-# Наследование - C++ `: public c_Base`; методы - члены struct; доступ - `(obj).c_member`.
+# Наследование - C++ `: public Base`; методы - члены struct; доступ - `(obj).member`.
 
+\std();
 :Point ::= :Struct{ x:Int32 := _; y:Int32 := _; };
-# CHECK: struct c_Point {
-# CHECK-NEXT:     int32_t c_x;
-# CHECK-NEXT:     int32_t c_y;
+# CHECK: struct Point {
+# CHECK-NEXT:     int32_t x;
+# CHECK-NEXT:     int32_t y;
 # CHECK-NEXT: };
-# CHECK: static_assert(std::is_trivial_v<c_Point> && std::is_standard_layout_v<c_Point>, "trust: Struct 'Point' must be POD");
+# CHECK: static_assert(std::is_trivial_v<Point> && std::is_standard_layout_v<Point>, "trust: Struct 'Point' must be POD");
 
 :Shape ::= :Class{
     kind:Int32 := 7;
     describe():Int32 := { return kind + 100; };
     area():Int32 := { return 0; };
 };
-# CHECK: struct c_Shape {
-# CHECK-NEXT:     int32_t c_kind{7};
-# CHECK: int32_t c_describe{{_[A-Za-z0-9_]+}}() {
-# CHECK: int32_t c_area{{_[A-Za-z0-9_]+}}() {
+# CHECK: struct Shape {
+# CHECK-NEXT:     int32_t kind{7};
+# CHECK: int32_t describe{{_[A-Za-z0-9_]+}}() {
+# CHECK: int32_t area{{_[A-Za-z0-9_]+}}() {
 
 :Rect ::= :Shape{
     w:Int32 := 10;
     h:Int32 := 5;
     area():Int32 := { return w * h; };
 };
-# CHECK: struct c_Rect : public c_Shape {
-# CHECK-NEXT:     int32_t c_w{10};
-# CHECK-NEXT:     int32_t c_h{5};
-# CHECK: int32_t c_area{{_[A-Za-z0-9_]+}}() {
+# CHECK: struct Rect : public Shape {
+# CHECK-NEXT:     int32_t w{10};
+# CHECK-NEXT:     int32_t h{5};
+# CHECK: int32_t area{{_[A-Za-z0-9_]+}}() {
 
 :Square ::= :Rect{ side:Int32 := 4; };
-# CHECK: struct c_Square : public c_Rect {
-# CHECK-NEXT:     int32_t c_side{4};
+# CHECK: struct Square : public Rect {
+# CHECK-NEXT:     int32_t side{4};
 # CHECK-NEXT: };
 
 p:Point := Point(2, 3);
 r:Rect := Rect();
 s:Square := Square();
 @print("{} {} {} {} {}\n", p.x, r.describe(), r.area(), s.area(), s.side);
-# CHECK: c_Point c_p = c_Point(2, 3);
-# CHECK: c_Rect c_r = c_Rect();
-# CHECK: c_Square c_s = c_Square();
-# CHECK: (c_p).c_x
-# CHECK: (c_r).c_describe{{_[A-Za-z0-9_]+}}()
-# CHECK: (c_r).c_area{{_[A-Za-z0-9_]+}}()
-# CHECK: (c_s).c_area{{_[A-Za-z0-9_]+}}()
-# CHECK: (c_s).c_side
+# CHECK: Point p = Point(2, 3);
+# CHECK: Rect r = Rect();
+# CHECK: Square s = Square();
+# CHECK: (p).x
+# CHECK: (r).describe{{_[A-Za-z0-9_]+}}()
+# CHECK: (r).area{{_[A-Za-z0-9_]+}}()
+# CHECK: (s).area{{_[A-Za-z0-9_]+}}()
+# CHECK: (s).side

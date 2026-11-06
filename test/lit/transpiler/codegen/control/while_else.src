@@ -1,3 +1,5 @@
+\std();
+
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Проверка генерации C++ для цикла while с else через DSL-макросы @while/@else.
@@ -9,11 +11,11 @@ z := 0;
 } @else {
     z := -1;
 };
-# CHECK: bool c__we1 = 0;
-# CHECK-NEXT: while ((c_z < 10)) {
-# CHECK-NEXT:     c__we1 = true;
-# CHECK-NEXT:     std::any c_z = (c_z + 1);
+# CHECK: bool _we1 = 0;
+# CHECK-NEXT: while ((z < 10)) {
+# CHECK-NEXT:     _we1 = true;
+# CHECK-NEXT:     std::any z = (z + 1);
 # CHECK-NEXT: }
-# CHECK-NEXT: if (!c__we1) {
-# CHECK-NEXT:     int8_t c_z = -1;
+# CHECK-NEXT: if (!_we1) {
+# CHECK-NEXT:     int8_t z = -1;
 # CHECK-NEXT: }

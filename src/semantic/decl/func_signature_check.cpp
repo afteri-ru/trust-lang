@@ -1,4 +1,3 @@
-// src/semantic/decl/func_signature_check.cpp
 // Проверки сигнатуры объявления функции (см. include/semantic/decl/func_signature_check.hpp).
 #include "types/type_read.hpp"
 #include "semantic/core/ast_view.hpp"
@@ -18,6 +17,7 @@
 #include "types/types.hpp"
 #include "types/typekind.hpp"
 #include "utils/error.hpp"
+#include "utils/strings.hpp"
 #include <algorithm>
 #include <string>
 #include <string_view>
@@ -35,7 +35,7 @@ bool validateReservedFuncName(Context& ctx, const FuncDecl& func_node) {
 }
 
 bool validateGenericMethodDecl(Context& ctx, const FuncDecl& func_node, bool in_type_body) {
-    if (!func_node.m_templateParams.has_value() || func_node.m_isNativeTemplateImport || !in_type_body) {
+    if (!func_node.m_templateParams.has_value() || func_node.isNativeImport() || !in_type_body) {
         return true;
     }
     ctx.diag().report(Severity::Error, func_node.range(), "generic methods are not implemented yet");
@@ -64,11 +64,27 @@ bool validateTypeSetSignature(AnalysisContext& actx, const FuncDecl& func_node) 
 }
 
 bool validateNativeForwardDecl(Context& ctx, const FuncDecl& func_node) {
-    const std::string name{func_node.text()};
-    if (func_node.m_body.has_value() || name.empty() || name[0] != '%' || func_node.m_type) {
+    // Импорт — нативная цель справа (`:= %cpp ...;`). Тип возврата обязан быть явным: он
+    // определяет C++-сигнатуру внешнего символа, выводить его не из чего.
+    if (!func_node.isNativeImport() || func_node.hasBody() || func_node.m_type) {
         return true;
     }
-    ctx.diag().report(Severity::Error, func_node.range(), "native function '{}' must have a return type in a forward declaration", name);
+    ctx.diag().report(Severity::Error, func_node.range(), "native import of '{}' must declare an explicit return type: write 'name(...):T := %cpp ...;'",
+                      func_node.text());
+    return false;
+}
+
+bool validateDelegationTarget(Context& ctx, const FuncDecl& func_node) {
+    const std::string* target = func_node.forwardingTarget();
+    if (target == nullptr) {
+        return true; // не делегирование
+    }
+    const std::string self{utils::bareName(func_node.text())};
+    if (utils::bareName(*target) != self) {
+        return true;
+    }
+    ctx.diag().report(Severity::Error, func_node.range(), "declaration '{}' delegates to itself; bind the native C/C++ member on the right with ':= %{} ...;'",
+                      func_node.text(), self);
     return false;
 }
 
@@ -144,19 +160,18 @@ bool validateOperatorForm(Context& ctx, const FuncDecl& func_node, bool in_type_
     return validateOperatorDecl(ctx, func_node, /*isMember=*/false);
 }
 
-bool validateTemplateParamsUsed(Context& ctx, const FuncDecl& func_node, TypeId func_type) {
+bool validateTemplateParamsUsed(TypeSystem& reg, Context& ctx, const FuncDecl& func_node, TypeId func_type) {
     if (!func_node.m_templateParams.has_value()) {
         return true;
     }
-    TypeSystem& types = ctx.types();
     std::vector<TypeId> used_params;
-    collectTemplateParams(types, func_type, used_params);
+    collectTemplateParams(reg, func_type, used_params);
     bool ok = true;
     forEachArgParam(func_node.m_templateParams, [&](const ArgNode& binder, std::size_t) {
         if (!ok) {
             return;
         }
-        const TypeId param_id = types.interner().getOrCreateTemplateParamType(binder.text());
+        const TypeId param_id = reg.interner().getOrCreateTemplateParamType(binder.text());
         if (std::find(used_params.begin(), used_params.end(), param_id) != used_params.end()) {
             return;
         }
@@ -293,8 +308,7 @@ class PackUsageChecker {
         if (m_reg.store().isNativeTemplateType(type)) {
             return true;
         }
-        const auto* record = m_reg.store().getTypeDataAs<RecordTypeData>(type);
-        return record != nullptr && record->templateOf != INVALID_TYPE_ID;
+        return m_reg.store().instanceOf(type).has_value();
     }
 
     [[nodiscard]] bool visit(TypeId raw, bool list_context);

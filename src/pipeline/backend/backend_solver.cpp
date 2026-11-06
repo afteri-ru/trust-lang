@@ -1,7 +1,7 @@
 #include "pipeline/backend/stages.hpp"
 
 #include "pipeline/run/types.hpp" // PipelineResult: агрегат прогона с SMT-скриптом (владелец — оркестратор)
-#include "session/context.hpp"
+#include "session/run_services.hpp"
 #include "solver/smt_printer.hpp"
 #include "solver/trust_to_smt.hpp"
 #include "utils/error.hpp"
@@ -16,7 +16,7 @@ namespace backend {
 
 namespace {
 
-bool saveSmtFile(Context& ctx, const SmtTarget& target, const solver::SmtScript& script) {
+bool saveSmtFile(const RunServices& services, const SmtTarget& target, const solver::SmtScript& script) {
     const std::string smt2 = solver::SmtPrinter::printScript(script);
     std::ofstream ofs(target.path);
     if (!ofs) {
@@ -32,7 +32,7 @@ bool saveSmtFile(Context& ctx, const SmtTarget& target, const solver::SmtScript&
         trust::errs() << "error: cannot write solver map file: " << mapPath << "\n";
         return false;
     }
-    map_ofs << solver::SmtPrinter::buildSmt2Map(ctx, script, smt2);
+    map_ofs << solver::SmtPrinter::buildSmt2Map(services, script, smt2);
     trust::errs() << "info: wrote SMT-LIB 2 map: " << mapPath << "\n";
     return true;
 }
@@ -52,7 +52,7 @@ StageOutcome runSolverStage(BackendServices& services, const BackendRequest& req
     EXPECT(req.mir != nullptr && "solver stage requires MIR");
     EXPECT(req.smt.has_value() && "solver stage requested without SmtTarget");
 
-    solver::TrustToSmt bridge(services.ctx, req.modes);
+    solver::TrustToSmt bridge(services.services, req.modes);
     auto script = bridge.generate(*req.hir, *req.mir);
     if (!script) {
         return StageOutcome::Error;
@@ -68,7 +68,7 @@ StageOutcome runSolverStage(BackendServices& services, const BackendRequest& req
     if (req.smt->path.empty()) {
         return StageOutcome::Done;
     }
-    result->smt->saved = saveSmtFile(services.ctx, *req.smt, result->smt->script);
+    result->smt->saved = saveSmtFile(services.services, *req.smt, result->smt->script);
     return result->smt->saved ? StageOutcome::Done : StageOutcome::Error;
 }
 

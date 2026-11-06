@@ -4,6 +4,6 @@
 # транслируется через __builtin_*_overflow, на переполнении - throw trust::IntMinus.
 x:Int32 := 1;
 x++;
-# CHECK: __builtin_add_overflow(c_x, 1, &c_x)
+# CHECK: __builtin_add_overflow(x, 1, &x)
 y := x--;
-# CHECK: __builtin_sub_overflow(c_x, 1, &c_x)
+# CHECK: __builtin_sub_overflow(x, 1, &x)

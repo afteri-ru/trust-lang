@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --temp-dir %t.dir -o %t.app %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: namespace 'nope' not found
+#
+# Цель-область, которой нет среди видимых, — диагностика (без тихого fallback).
+
+a :- nope::;
+@main():Int32 := { @return 0; };

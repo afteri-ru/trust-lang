@@ -30,6 +30,19 @@ guard_begin(component_deps_guard)
 # отдельная задача, а не повод отключить гейт.
 set(_known_exceptions
     "types->runtime"     # type_id.hpp/typekind.hpp: runtime/trust/type_state.hpp — единое ABI-определение (MEMORY runtime)
+    "runtime->stdlib"    # заголовки встроенных типов (stdlib/core/builtin/*.hpp) и провайдера tensor (stdlib/tensor/*.hpp)
+                         # компилируются рантаймом (rational/big_integer/tensor + torch-адаптер) как C++-TU
+    "package->runtime"       # package.cpp: [build].runtime-abi — версия ABI из единого ABI-заголовка (E14/R48)
+    "module_loader->runtime" # package_store.cpp: сверка runtime-abi пакета с версией компилятора (R48)
+)
+
+# Запрещённые рёбра: семантическая граница слоёв (E20/R34). Ребро недопустимо ДАЖЕ если подкреплено
+# include — границу нельзя восстанавливать «случайной» ссылкой. `pipeline` — конвейер компиляции,
+# `toolchain` — сборка хостовым компилятором; конвейер от последнего не зависит (сборка — в `builddriver`).
+set(_forbidden_edges
+    "pipeline->toolchain"
+    "ast->session"    # AST-слой не зависит от фасада сессии: порты ConvertServices (R34)
+    "syntax->session" # парсер не зависит от фасада сессии: порт ParserServices (R34)
 )
 
 guard_components(_components)
@@ -258,6 +271,11 @@ foreach(_component IN LISTS _components)
         set(_dep_component "${${_owner_key}}")
         if(_dep_component STREQUAL _component)
             continue()  # ребро внутри компонента (например tensor_cpu -> runtime_lib)
+        endif()
+        list(FIND _forbidden_edges "${_component}->${_dep_component}" _forbidden_edge)
+        if(_forbidden_edge GREATER -1)
+            guard_violation("${_component}: запрещённое ребро -> '${_dep_component}' (${_dep_visibility}): граница слоёв (E20/R34)")
+            continue()
         endif()
         list(FIND _known_exceptions "${_component}->${_dep_component}" _known_edge)
         if(_known_edge GREATER -1)

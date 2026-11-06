@@ -1,20 +1,20 @@
 #include "transpiler/emit/decl_emit.hpp"
 #include "transpiler/emit/decl_emit_common.hpp"
+#include "analysis/builtin_class.hpp"
 #include "transpiler/transpiler.hpp"
 #include "transpiler/emit/emit_common.hpp"
 #include "ast/ast_nodes.hpp"
+#include "ast/declaration_ids.hpp"
 #include "attrs/attr_builtin.hpp"
 #include "ast/ref_syntax.hpp"
 #include "ast/ident_name.hpp"
 #include "ast/kind_dispatch.hpp"
 #include "ast/token_type.hpp"
-#include "session/context.hpp"
-#include "diag/registry.hpp"
-#include "diag/base_diags.hpp"
+#include "location/module_name.hpp"
 #include "syntax/term/term.h"
 #include "types/type_system.hpp"
 #include "types/types.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/type_id.hpp"
 #include "types/names.hpp"
@@ -55,7 +55,7 @@ void DeclEmitter::visit_ModuleDecl(const ModuleNode& n) {
             }
         }
         if (!hasEntry) {
-            // Синтезируемая entry обязана быть вне namespace модуля. Изоляция корня здесь не нужна:
+            // Синтезируемая entry — глобальный символ (вне областей имён). Изоляция корня здесь не нужна:
             // импорт корня образовал бы цикл, поэтому на его символы никто снаружи не ссылается.
             m_driver.emitSingleFileModuleBody(n, m_ectx.m_output.out);
             m_ectx.m_output.currentModule = previousModule;
@@ -66,70 +66,11 @@ void DeclEmitter::visit_ModuleDecl(const ModuleNode& n) {
     m_ectx.m_output.currentModule = previousModule;
 }
 
-// Тело модульного юнита с автоматическим namespace модуля. Entry-функции (`__main__`) и
-// top-level C++-вставки остаются ВНЕ конверта: entry связан с `_main.cppt` точным глобальным
-// именем, а `{% %}` — произвольный C++ (может объявлять глобальные символы/вход).
-namespace {
-
-/// Узел верхнего уровня модуля, который НЕЛЬЗЯ помещать в автоматический namespace модуля:
-/// entry (точное глобальное имя для `_main.cppt`), C++-вставки (произвольный C++, может объявлять
-/// глобальные символы), нативные декларации (квалифицированный внешний символ нельзя объявлять в
-/// чужом namespace) и сайты импорта (чужой модуль живёт в своём глобальном namespace).
-bool staysOutsideModuleNamespace(const AstNodePtr& child) {
-    if (!child) {
-        return false;
-    }
-    if (child->kind() == ParserToken::Kind::EmbedExpr) {
-        return true;
-    }
-    if (child->is<ModuleNode>()) {
-        return static_cast<const ModuleNode&>(*child).isImport();
-    }
-    if (child->is<FuncDecl>()) {
-        const auto& func = *child->as<FuncDecl>();
-        if (func.text().ends_with("__main__")) {
-            return true;
-        }
-        return func.m_isNativeImport || func.m_isNativeTemplateImport || func.m_isNativeTemplateCtor || (!func.text().empty() && func.text().front() == '%');
-    }
-    if (child->is<VarDecl>()) {
-        const auto& var = *child->as<VarDecl>();
-        return !var.text().empty() && var.text().front() == '%';
-    }
-    return false;
-}
-
-} // namespace
-
 void DeclEmitter::emitModuleBodyIsolated(const ModuleNode& n, MapperFile out) {
-    const std::string moduleNamespace = m_ectx.moduleNamespace(n.moduleIndex());
-    if (moduleNamespace.empty()) {
-        m_driver.emitSequenceBody(n, out);
-        return;
-    }
-    // Порядок сохраняется: подряд идущие дети группируются в один namespace-блок.
-    // Узлы, опубликованные заголовком модуля, отсекаются в `visit_*` (объявление может лежать
-    // и внутри блока интерфейса — верхнеуровневый фильтр его не покрыл бы).
-    std::size_t i = 0;
-    while (i < n.m_body.size()) {
-        const bool outside = staysOutsideModuleNamespace(n.m_body[i]);
-        std::size_t j = i;
-        while (j < n.m_body.size() && staysOutsideModuleNamespace(n.m_body[j]) == outside) {
-            ++j;
-        }
-        Sequence chunk(ParserToken::Kind::sequence);
-        chunk.m_body.assign(n.m_body.begin() + static_cast<std::ptrdiff_t>(i), n.m_body.begin() + static_cast<std::ptrdiff_t>(j));
-        if (outside) {
-            m_driver.emitSequenceBody(chunk, out);
-        } else {
-            ModuleNamespaceGuard guard(m_ectx, out, moduleNamespace);
-            m_driver.emitSequenceBody(chunk, out);
-        }
-        i = j;
-    }
+    // Модуль не создаёт автоматического C++ namespace: символы модуля эмитятся в их trust-namespace
+    // (изоляция одноимённых экспортов разных модулей — ответственность программиста через `ns::`).
+    m_driver.emitSequenceBody(n, out);
 }
-
-// -- Сайт импорта модуля: заголовок модуля вместо inline forward-decl --
 
 void DeclEmitter::emitModuleImportDecls(const ModuleNode& n) {
     // Интерфейс модуля публикует его заголовок `<enc>.hpp`; сайт даёт `#include` для КАЖДОЙ части
@@ -138,9 +79,13 @@ void DeclEmitter::emitModuleImportDecls(const ModuleNode& n) {
     for (const auto& part : n.parts()) {
         EXPECT(part.projection && part.projection->exports && "module part must carry a site projection");
         registerImportedDeclFacts(*part.projection->exports);
-        const std::string ns = m_ectx.moduleNamespace(part.index);
-        EXPECT(!ns.empty() && "importable module must have an automatic C++ namespace");
-        m_driver.m_type.recordRequiredInclude("#include \"" + ns + ".hpp\"");
+        // Имя заголовка модуля выводится из логического имени (структурная согласованность
+        // артефактов сборки); символы ABI модуль в себе не содержит.
+        const ModuleResolver* resolver = m_ectx.m_services.moduleResolver();
+        EXPECT(resolver != nullptr && "module_emit: module resolver is not set (Pipeline must inject it)");
+        const std::string headerName = moduleEncodedName(resolver->moduleLogicalName(part.index));
+        EXPECT(!headerName.empty() && "importable module must have an encoded header name");
+        m_driver.m_type.recordRequiredInclude("#include \"" + moduleHeaderFileName(headerName) + "\"");
     }
 }
 
@@ -151,60 +96,83 @@ void DeclEmitter::registerImportedDeclFacts(const std::vector<AstNodePtr>& nodes
             continue;
         }
         const FuncDecl& func = *node->as<FuncDecl>();
-        if (func.m_isNativeImport || func.m_isNativeTemplateImport) {
-            m_ectx.m_declFacts.registerNativeImport(&func, func.m_nativeName, func.text());
-        }
-        if (const auto guard = stackCheckGuardOf(func, m_ectx.m_ctx.attrs())) {
-            m_ectx.m_declFacts.registerStackCheck(&func, *guard);
+        if (const auto guard = stackCheckGuardOf(func, m_ectx.m_services.attrs())) {
+            m_ectx.m_declFacts.registerStackCheck(func, *guard);
         }
     }
 }
 
-void DeclEmitter::emitModuleHeaderBody(const std::vector<AstNodePtr>& roots, const std::set<const AstNodeBase*>& terms, MapperFile out,
-                                       std::string_view moduleNamespace) {
+void DeclEmitter::emitModuleHeaderBody(const std::vector<AstNodePtr>& roots, const std::set<DeclId>& terms, MapperFile out) {
     // Корневой узел модуля (ModuleNode, НЕ сайт импорта) — прозрачный контейнер: модуль не
-    // является namespace-сегментом. Объявления делятся на «внутри конверта» и «вне» тем же
-    // правилом, что и в единице трансляции модуля (`staysOutsideModuleNamespace`): entry/`{% %}`
-    // и нативные декларации (квалифицированное внешнее имя) внутри `namespace <enc>` недопустимы.
-    // Два прохода: сначала ТИПЫ (прототипы функций/переменные ссылаются на их определения),
-    // затем остальные объявления. Порядок внутри прохода — порядок тела (declare-before-use).
-    for (const bool types_pass : {true, false}) {
+    // является namespace-сегментом. Модуль не создаёт автоматического C++ namespace; объявления
+    // эмитятся в их trust-namespace.
+    // Три прохода: forward-декларации классов (сигнатуры членов могут ссылаться на тип,
+    // определённый ниже в том же заголовке), затем определения ТИПОВ (прототипы функций/переменные
+    // ссылаются на них), затем остальные объявления. Порядок внутри прохода — порядок тела.
+    for (const HeaderPass pass : {HeaderPass::kForwardDecls, HeaderPass::kTypes, HeaderPass::kRest}) {
         for (const auto& node : roots) {
             if (!node) {
                 continue;
             }
             if (node->kind() == ParserToken::Kind::ModuleDecl && !static_cast<const ModuleNode&>(*node).isImport()) {
-                emitModuleHeaderChunks(static_cast<const ModuleNode&>(*node).m_body, terms, out, moduleNamespace, types_pass);
+                emitImportScope(static_cast<const ModuleNode&>(*node).m_body, terms, out, pass);
                 continue;
             }
             const std::vector<AstNodePtr> single{node};
-            emitModuleHeaderChunks(single, terms, out, moduleNamespace, types_pass);
+            emitImportScope(single, terms, out, pass);
         }
     }
 }
 
-void DeclEmitter::emitModuleHeaderChunks(const std::vector<AstNodePtr>& body, const std::set<const AstNodeBase*>& terms, MapperFile out,
-                                         std::string_view moduleNamespace, bool types_pass) {
-    std::size_t i = 0;
-    while (i < body.size()) {
-        const bool outside = staysOutsideModuleNamespace(body[i]);
-        std::size_t j = i;
-        while (j < body.size() && staysOutsideModuleNamespace(body[j]) == outside) {
-            ++j;
-        }
-        Sequence chunk(ParserToken::Kind::sequence);
-        chunk.m_body.assign(body.begin() + static_cast<std::ptrdiff_t>(i), body.begin() + static_cast<std::ptrdiff_t>(j));
-        if (outside || moduleNamespace.empty()) {
-            emitImportScope(chunk.m_body, terms, out, types_pass);
-        } else {
-            ModuleNamespaceGuard guard(m_ectx, out, moduleNamespace);
-            emitImportScope(chunk.m_body, terms, out, types_pass);
-        }
-        i = j;
+void DeclEmitter::emitClassForwardDecl(const AstNodeBase& node, MapperFile out) {
+    if (node.kind() != ParserToken::Kind::TypeDecl || !node.is<Binary>()) {
+        return;
     }
+    const auto& typeDecl = *node.as<Binary>();
+    const AstNodeBase* right = typeDecl.m_right.get();
+    if (right == nullptr) {
+        return;
+    }
+    TypeId typeId = INVALID_TYPE_ID;
+    if (typeDecl.m_left && typeDecl.m_left->is<IdentName>()) {
+        typeId = typeDecl.m_left->as<IdentName>()->resolvedTypeId;
+    }
+    if (right->is<RecordDecl>()) {
+        return; // записи объявляются/определяются по месту (declare-before-use в .src)
+    }
+    if (!right->is<ClassDecl>()) {
+        return;
+    }
+    const auto& cls = *right->as<ClassDecl>();
+    const std::string_view native = m_ectx.m_services.declCppFacts().cppNameOf(cls.declId());
+    if (native.empty()) {
+        return;
+    }
+    const bool builtin = typeId != INVALID_TYPE_ID && m_ectx.m_services.readTypes().store().isBuiltinType(typeId);
+    if (builtin) {
+        if (!analysis::builtinImplGeneratesCppClass(cls, m_ectx.m_services.attrs())) {
+            return; // C++-тип приходит из внешнего заголовка — forward не нужен
+        }
+        // native C++-имя (`trust::StrChar`) задаёт namespace forward-декларации.
+        const CppQualifiedParts parts = splitCppName(native);
+        if (parts.name.empty()) {
+            return;
+        }
+        std::string text;
+        for (const std::string& ns : parts.namespaces) {
+            text += "namespace " + ns + " { ";
+        }
+        text += "class " + parts.name + ";";
+        for (std::size_t i = parts.namespaces.size(); i > 0; --i) {
+            text += " }";
+        }
+        m_ectx.m_services.source().output_append(out, text + "\n");
+        return;
+    }
+    // Обёртка нативного типа (`::=`): её интерфейс — внешний C++-заголовок, forward не нужен.
 }
 
-void DeclEmitter::emitImportScope(const std::vector<AstNodePtr>& body, const std::set<const AstNodeBase*>& terms, MapperFile out, bool types_pass) {
+void DeclEmitter::emitImportScope(const std::vector<AstNodePtr>& body, const std::set<DeclId>& terms, MapperFile out, HeaderPass pass) {
     for (const auto& node : body) {
         if (!node) {
             continue;
@@ -213,7 +181,7 @@ void DeclEmitter::emitImportScope(const std::vector<AstNodePtr>& body, const std
             const auto& sb = static_cast<const ScopeBlock&>(*node);
             // Блок интерфейса файла - прозрачный container: объявления эмитятся без обёртки.
             if (sb.isModuleInterface()) {
-                emitImportScope(sb.m_body, terms, out, types_pass);
+                emitImportScope(sb.m_body, terms, out, pass);
                 continue;
             }
             // Анонимная область `_` и безымянный кодовый блок - не экспортируются.
@@ -221,50 +189,49 @@ void DeclEmitter::emitImportScope(const std::vector<AstNodePtr>& body, const std
                 continue;
             }
             if (sb.is_protected()) {
-                emitImportScope(sb.m_body, terms, out, types_pass);
+                emitImportScope(sb.m_body, terms, out, pass);
                 continue;
             }
             const std::string_view text = sb.text();
             // Глобальная область `::` - содержимое без обёртки.
             if (text == "::") {
-                emitImportScope(sb.m_body, terms, out, types_pass);
+                emitImportScope(sb.m_body, terms, out, pass);
                 continue;
             }
             // Именованная область `ns::` - оборачиваем в `namespace ns { ... }`.
             const std::string nsName = utils::cppNamespacePath(m_ectx.m_output.namespaceCppName(text));
             m_ectx.m_output.namespaceStack.push_back(nsName);
             m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel() + 1});
-            m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix() + "namespace " + nsName + " {\n");
-            emitImportScope(sb.m_body, terms, out, types_pass);
+            m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix() + "namespace " + nsName + " {\n");
+            emitImportScope(sb.m_body, terms, out, pass);
             m_ectx.m_output.scopeStack.pop_back();
-            m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix() + "}\n");
+            m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix() + "}\n");
             m_ectx.m_output.namespaceStack.pop_back();
             continue;
         }
 
-        // Только отобранные экспорты. Кодоген работает на HIR-клоне: у клона origin указывает на
-        // исходный AST-узел, по которому Pipeline отобрал публикуемые объявления.
-        const AstNodeBase* exportKey = node->origin != nullptr ? node->origin : node.get();
-        if (terms.find(exportKey) == terms.end()) {
+        // Только отобранные экспорты. Идентичность узла — `DeclId` (R23): HIR-клон сохраняет id исходного
+        // объявления, поэтому повторного сопоставления по адресу (`origin`) не требуется.
+        const DeclId exportKey = declarationIdOf(*node);
+        if (!exportKey.isValid() || !terms.contains(exportKey)) {
             continue;
         }
-        // Два прохода заголовка: сначала ТИПЫ (их определения нужны прототипам), затем остальное.
         const bool is_type = node->kind() == ParserToken::Kind::TypeDecl;
-        if (is_type != types_pass) {
+        // Проходы: forward-декларации классов -> определения типов -> остальные объявления.
+        if (pass != HeaderPass::kForwardDecls && (is_type != (pass == HeaderPass::kTypes))) {
             continue;
         }
-        m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
+        if (pass == HeaderPass::kForwardDecls) {
+            emitClassForwardDecl(*node, out);
+            continue;
+        }
+        m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
         if (node->is<VarDecl>()) {
             generateVarDeclToFile(*node->as<VarDecl>(), out);
         } else if (node->is<FuncDecl>()) {
             const FuncDecl& fn = *node->as<FuncDecl>();
-            if (bodyMustBeInModuleHeader(fn, m_ectx.m_ctx.attrs())) {
-                if (bodyUsesNonPublishedEntity(fn, m_ectx.m_declFacts.headerPublishedDecls, m_ectx.m_output.currentModule)) {
-                    m_ectx.m_ctx.report(fn.range(), diag::DiagId::ParseError,
-                                        "function '{}' references a module-level entity that the module header does not publish "
-                                        "(e.g. a '__::' helper): a template or constexpr function must be defined in the header; "
-                                        "move the helper out of '__::' or drop the template",
-                                        fn.text());
+            if (bodyMustBeInModuleHeader(fn, m_ectx.m_services.attrs())) {
+                if (headerBodyUnpublishable(m_ectx, fn)) {
                     continue;
                 }
                 BodyEmitInHeaderGuard guard(m_ectx);
@@ -274,9 +241,13 @@ void DeclEmitter::emitImportScope(const std::vector<AstNodePtr>& body, const std
             }
         } else if (is_type) {
             generateTypeDeclToFile(*node->as<Binary>(), out);
+        } else {
+            // Экспорт-набор заголовка содержит только VarDecl/FuncDecl/TypeDecl (отбор — в
+            // pipeline/backend/emit.cpp). Иной kind здесь — нарушение внутреннего контракта,
+            // а не «пока не эмитим»: тихий пропуск объявления молча ломал бы заголовок.
+            faultUnexpectedKind("DeclEmitter(module header)", *node);
         }
-        // прочие экспорт-формы пока не эмитятся
-        m_ectx.m_ctx.source().output_append(out, "\n");
+        m_ectx.m_services.source().output_append(out, "\n");
     }
 }
 

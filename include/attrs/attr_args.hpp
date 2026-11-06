@@ -1,11 +1,5 @@
 #pragma once
 
-// include/attrs/attr_args.hpp
-// Чтение строковых аргументов встроенных атрибутов: ЕДИНСТВЕННАЯ точка для одноаргументных
-// атрибутов (`include`/`link`/`matcher`/...) и для формы эмитируемой директивы `#include`.
-// Шаблонный параметр узла - чтобы attrs не зависел от ast (слой атрибутов ниже AST): подходит
-// любой носитель с `has_attr(AttrId)` / `attr_args(AttrId)` (AstNodeAttr).
-
 #include "attrs/attr_pool.hpp"
 #include "utils/error.hpp"
 

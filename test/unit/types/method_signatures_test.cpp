@@ -38,5 +38,32 @@ TEST_F(MethodSignaturesTest, PreservesOrderAndSubstitutesElement) {
     EXPECT_EQ(fd->paramTypes.front(), i32); // T -> Elem
 }
 
+TEST_F(MethodSignaturesTest, MethodRefProjectionIsIndexAlignedWithEntries) {
+    // R14: единственный владелец набора — `MethodRef::entries`. `effectiveMethodSignatures(..., *method)`
+    // возвращает ПРОЕКЦИЮ, выровненную по индексу с владельцем (на этом держится выбор C++-суффикса
+    // и метаданных параметров). Дублирующего хранилища сигнатур нет — только производный вектор.
+    TypeSystem& reg = types();
+    const TypeId i32 = reg.read().getType(type::Int32);
+    const TypeId boolean = reg.read().getType(type::Bool);
+
+    const TypeId rec = reg.registrar().defineRecord("OrderRec", Group::kStructs, {});
+    ASSERT_NE(rec, INVALID_TYPE_ID);
+
+    const TypeId sig0 = reg.interner().getOrCreateFunctionType(boolean, {i32});
+    const TypeId sig1 = reg.interner().getOrCreateFunctionType(boolean, {i32, i32});
+    reg.methods().addMethod(rec, "f", sig0, {}, CallableParamInfo{});
+    reg.methods().addMethod(rec, "f", sig1, {}, CallableParamInfo{});
+
+    const auto method = reg.read().methods().findMethodInfo(rec, "f");
+    ASSERT_TRUE(method.has_value());
+    ASSERT_EQ(method->entries.size(), 2u);
+
+    const std::vector<TypeId> sigs = effectiveMethodSignatures(reg, rec, *method);
+    ASSERT_EQ(sigs.size(), method->entries.size());
+    for (std::size_t i = 0; i < sigs.size(); ++i) {
+        EXPECT_EQ(sigs[i], method->entries[i].signature) << "index=" << i;
+    }
+}
+
 } // namespace
 } // namespace trust

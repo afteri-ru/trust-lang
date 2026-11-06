@@ -1,0 +1,12 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# @[export("name")] — экспорт под точным C/C++-именем; ABI: `::` ⇒ C++, иначе C.
+@[export("fib")@] fib(n:Int32):Int32 := { return n; };
+
+@[export("ns::calc")@] calc(n:Int32):Int32 := { return n; };
+
+# CHECK: extern "C" int32_t fib(
+# CHECK: namespace ns {
+# CHECK: int32_t calc(
+# CHECK-NOT: fib
+# CHECK-NOT: calc

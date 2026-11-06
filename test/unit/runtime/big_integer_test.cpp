@@ -1,5 +1,5 @@
 // Test file: BigInteger runtime type.
-#include "trust/big_integer.hpp"
+#include "stdlib/core/builtin/big_integer.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
 #include <stdexcept>

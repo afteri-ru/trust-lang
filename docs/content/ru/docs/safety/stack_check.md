@@ -29,7 +29,7 @@ weight: 60
 
 ```trust
 @[ stack_check @]
-%fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {
+fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {
     if (n < 3) {
         $one:BigInteger := 1;
         return :Tuple($one, $one);
@@ -64,8 +64,8 @@ weight: 60
 
 ## Рантайм-функции контроля
 
-Для явного управления доступны нативные функции `%trust_stack_check(N)`,
-`%trust_stack_check_set_reserve(...)`, `%trust_stack_check_get_reserve()`,
-`%trust_stack_check_get_limit()` и `%trust_stack_check_set_limit(...)`. Полные сигнатуры — в
+Для явного управления доступны нативные функции `trust_stack_check(N)`,
+`trust_stack_check_set_reserve(...)`, `trust_stack_check_get_reserve()`,
+`trust_stack_check_get_limit()` и `trust_stack_check_set_limit(...)`. Полные сигнатуры — в
 справке `trust --help` / `-Whelp`.
 -->

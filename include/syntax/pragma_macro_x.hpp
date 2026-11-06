@@ -1,6 +1,5 @@
 #pragma once
 
-// include/syntax/pragma_macro_x.hpp
 // ЕДИНСТВЕННЫЙ источник прагм (препроцессорных макросов) @__PRAGMA_*/@__OPTION_*/@__HYGIENIC__.
 // X-macro: X(Name, "name", ("description")). Описание - та же справка, что сидируется в
 // Context::macroDocs (доки прагм задаются ЗДЕСЬ, а не в ветках кода, чтобы не рассинхронизироваться).

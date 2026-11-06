@@ -78,7 +78,7 @@ std::shared_ptr<T> kinded(ParserToken::Kind kind) {
 
 std::shared_ptr<FuncDecl> func(std::vector<AstNodePtr> body) {
     auto f = std::make_shared<FuncDecl>("f");
-    f->m_body = std::move(body);
+    f->m_definition = Definition::fromBody(std::move(body));
     return f;
 }
 

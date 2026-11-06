@@ -26,7 +26,7 @@ class NameResolverTest : public ::testing::Test {
     std::shared_ptr<FuncDecl> makeFunc(std::string_view name, ModuleIndex module) {
         auto term = Term::Create(TermID::NAME, std::string(name), {}, parser::token_type::NAME);
         auto func = std::make_shared<FuncDecl>(std::move(term));
-        func->m_body = std::vector<AstNodePtr>{};
+        func->m_definition = Definition::fromBody({});
         func->module = module;
         return func;
     }

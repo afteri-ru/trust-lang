@@ -1,6 +1,5 @@
 #pragma once
 
-// include/sourcemap/store/output_buffer.hpp
 // OutputBuffer: буфер prepend-данных выходного C++ файла.
 
 #include <map>
@@ -10,9 +9,6 @@
 
 namespace trust {
 
-// ══════════════════════════════════════════════════════════════
-//  OutputBuffer: буфер prepend-данных выходного C++ файла
-// ══════════════════════════════════════════════════════════════
 struct OutputBuffer {
     // ns -> set of unique prefix strings
     std::map<std::string, std::set<std::string>> m_prefixes;

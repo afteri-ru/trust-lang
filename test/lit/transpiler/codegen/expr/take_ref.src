@@ -1,3 +1,4 @@
+\mem();
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # Оператор TAKE: *ref -> *(ref.lock()) (мутабельный лок), *^ref -> *(ref.lock_const())
@@ -10,7 +11,7 @@
     z := *^x;
     return y;
 }
-# CHECK: #include "trust/trusted-cpp.hpp"
-# CHECK: trust::Shared<int32_t> c_x(5);
-# CHECK: int32_t c_y = *(c_x.lock());
-# CHECK: int32_t c_z = *(c_x.lock_const());
+# CHECK: #include "stdlib/trusted-cpp.hpp"
+# CHECK: trust::Shared<int32_t> x(5);
+# CHECK: int32_t y = *(x.lock());
+# CHECK: int32_t z = *(x.lock_const());

@@ -1,13 +1,10 @@
 #pragma once
 
-// include/semantic/ref/definite_assignment.hpp
 // Definite assignment как ПОСТ-проход по MIR (CFG + dataflow).
-//
 // Запускается `Pipeline` после семантики и buildHir/buildMir: сахар lowering'а
 // (SemicolonStmt, goto-метки, временные анализатора) уже материализован. Места (places) -
 // узлы объявлений HIR (VarDecl/ArgNode/цель DestructureDecl), а не Symbol*: SymbolTable после
 // обхода пуста, а resolvedDecl на ссылках переживает pop скоупов.
-//
 // Анализ intra-procedural: каждая функция/лямбда - отдельный CFG в `MirModule`. Глобалы/статические
 // переменные не отслеживаются (инициализация вне функции — вне DA). Capture-by-value лямбды —
 // чтение внешней переменной в точке создания лямбды; в теле лямбды захват считается

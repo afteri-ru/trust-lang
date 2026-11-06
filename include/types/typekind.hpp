@@ -10,7 +10,6 @@
 
 namespace trust {
 
-// -- Forward declarations --------------------------------
 enum class TypeClass : uint8_t;
 // ИНВАРИАНТ (двухосевая модель): RefType смешивает две независимые оси - ВЛАДЕНИЕ временем
 // жизни (value/shared/weak/unique) и ДОСТУП к объекту (сырой `&`/`*` против охраняемого
@@ -18,15 +17,12 @@ enum class TypeClass : uint8_t;
 // результат lock()/lock_const()); сырые ссылки (ptr/ref/rref) и эксклюзивное владение локера
 // не имеют (другая идеология - прямой доступ без guard'а). Null-безопасность - отдельная ось
 // (контракт типа), а не guard-объект.
-//
 // ИНВАРИАНТ (одноуровневое пересечение в операторе): многоуровневая ссылочность как ТИП
 // разрешена (каждый уровень - отдельно объявленный тип, напр. `Locker<Locker<T>>`), НО
 // пересечение нескольких уровней в ОДНОМ операторе/инструкции запрещено: каждый уровень
 // обрабатывается отдельной операцией над отдельным типом (сначала один, потом следующий).
 // Цепочечного `**`/`ref.lock().lock()` в одном выражении нет.
-//
 
-// -- TypeKind: uint32_t, упакованные характеристики типа (битовая структура - types/type/TYPE.md) --
 // `TypeKind` и сдвиги/маски битовых полей объявлены в общем ABI-заголовке
 // (`runtime/trust/type_state.hpp`); здесь повторных определений нет.
 //   [0-7] Group | [8-15] Data | [16-19] RefType | [20-21] TypeClass | [22] SizeUnit |
@@ -36,7 +32,6 @@ enum class TypeClass : uint8_t;
 // (без реестра); если флаг есть хоть у одного - требуется доступ к TypeSystem
 // (TypeSystem::typesEqual). Аналогичен kTrustFlag (семантический дифференциатор).
 
-// -- TypeClass (0..3) --------------------------------------
 enum class TypeClass : uint8_t {
     kTrivial = 0,     // trivially copyable/relocatable
     kRelocatable = 1, // relocatable (move = memcpy)
@@ -44,13 +39,11 @@ enum class TypeClass : uint8_t {
     kPolymorphic = 3, // virtual (polymorphic)
 };
 
-// -- SizeUnit (0..1) ---------------------------------------
 enum class SizeUnit : uint8_t {
     kBits = 0, // Data - в битах
     kBytes = 1 // Data - в байтах
 };
 
-// -- Builtin / Trust flag helpers --------------------------
 constexpr bool hasBuiltinFlag(TypeKind k) noexcept {
     return (k & kTypeKindBuiltinFlagMask) != 0;
 }
@@ -79,7 +72,7 @@ constexpr TypeKind setAttrsFlag(TypeKind k) noexcept {
 //   (kind, мнемоническое имя, значение бита, C++-имя шаблона-обёртки).
 // Мнемоническое имя используется в `@[reftype("...")]` и диагностике; C++-имя обёртки
 // (trust::Shared / trust::Weak / trust::Locker / trust::Unique) - в кодогенерации
-// getCppTypeName (registry.cpp), чтобы НЕ хардкодить имя класса вручную.
+// (CppTypeRenderer / TypeEmitter::wrapRefKind), чтобы НЕ хардкодить имя класса вручную.
 // Для не-обёрточных видов (value/ptr/mptr/ref/rref/ptrptr) C++-имя шаблона пустое.
 #define TRUST_REF_TYPE_TYPES(X)              \
     X(kValue, "value", 0, /*cpp*/ "")        \
@@ -99,7 +92,6 @@ enum class RefType : uint8_t {
 #undef TRUST_REF_TYPE_GEN_ENUM
 };
 
-// -- Строковое имя вида ссылки (для @[reftype("...")] и диагностики) --
 // Недопустимое значение enum — внутренняя ошибка (FAULT), не строка-заглушка.
 [[nodiscard]] inline std::string_view refTypeName(RefType r) {
     switch (r) {
@@ -112,7 +104,6 @@ enum class RefType : uint8_t {
     FAULT("unknown RefType value {}", static_cast<int>(r));
 }
 
-// -- C++-имя шаблона-обёртки (для кодогена getCppTypeName); пусто для не-обёрточных видов --
 // Пустая строка — валидный результат для value/ptr/ref/...; недопустимое значение — FAULT.
 [[nodiscard]] inline std::string_view refTypeCppTemplateName(RefType r) {
     switch (r) {
@@ -169,7 +160,6 @@ enum class RefType : uint8_t {
     return std::nullopt;
 }
 
-// -- Классификаторы вида ссылки (единый источник; заменяют инлайновые сравнения по месту) --
 /// true для НАТИВНЫХ (сырых C++) видов ссылки: `ptr`/`ref`/`rref`/`ptrptr`.
 [[nodiscard]] constexpr bool isNativeRefKind(RefType r) noexcept {
     return r == RefType::kPtr || r == RefType::kRef || r == RefType::kRref || r == RefType::kPtrPtr;
@@ -193,7 +183,6 @@ enum class RefType : uint8_t {
     return r != RefType::kRref && r != RefType::kPtrPtr;
 }
 
-// -- Ось ссылки (двухосевая модель; явная классификация вместо инлайновых сравнений) --
 // RefType смешивает две независимые оси: ВЛАДЕНИЕ временем жизни (Value/Shared/Unique) и
 // ДОСТУП к объекту (Native — сырой `&`/`*`; Locker — охраняемый). Ось — единая точка для
 // проверок совместимости (value-vs-reference, копирование/move, swap).
@@ -226,7 +215,6 @@ enum class RefAxis : uint8_t {
     std::unreachable(); // switch покрывает все значения RefType
 }
 
-// -- Construction -----------------------------------------
 constexpr TypeKind makeTypeKind(Group group, uint8_t data, TypeClass tc = TypeClass::kTrivial, RefType ref = RefType::kValue,
                                 SizeUnit su = SizeUnit::kBits) noexcept {
     const auto base = static_cast<uint32_t>(makeGroupTypeKind(group, data));
@@ -235,37 +223,34 @@ constexpr TypeKind makeTypeKind(Group group, uint8_t data, TypeClass tc = TypeCl
     return static_cast<TypeKind>(raw);
 }
 
-// -- Field extraction -------------------------------------
-constexpr Group getGroup(TypeKind k) noexcept {
+constexpr Group typeGroupOf(TypeKind k) noexcept {
     return static_cast<Group>(static_cast<uint32_t>(k) & kTypeKindGroupMask);
 }
 
-constexpr uint8_t getData(TypeKind k) noexcept {
+constexpr uint8_t typeDataOf(TypeKind k) noexcept {
     return static_cast<uint8_t>((static_cast<uint32_t>(k) & kTypeKindDataMask) >> kTypeKindDataShift);
 }
 
-constexpr RefType getRefType(TypeKind k) noexcept {
+constexpr RefType typeRefOf(TypeKind k) noexcept {
     return static_cast<RefType>((static_cast<uint32_t>(k) & kTypeKindRefTypeMask) >> kTypeKindRefTypeShift);
 }
 
-constexpr TypeClass getTypeClass(TypeKind k) noexcept {
+constexpr TypeClass typeClassOf(TypeKind k) noexcept {
     return static_cast<TypeClass>((static_cast<uint32_t>(k) & kTypeKindClassMask) >> kTypeKindClassShift);
 }
 
-constexpr SizeUnit getSizeUnit(TypeKind k) noexcept {
+constexpr SizeUnit typeSizeUnitOf(TypeKind k) noexcept {
     return static_cast<SizeUnit>((static_cast<uint32_t>(k) & kTypeKindSizeUnitMask) >> kTypeKindSizeUnitShift);
 }
 
-// -- Field setting (returns new TypeKind) ------------------
 constexpr TypeKind withRefType(TypeKind k, RefType ref) noexcept {
     auto raw = (static_cast<uint32_t>(k) & ~kTypeKindRefTypeMask) | (static_cast<uint32_t>(ref) << kTypeKindRefTypeShift);
     return static_cast<TypeKind>(raw);
 }
 
-// -- Classification helpers -------------------------------
 // Data != 0 → builtin concrete type (can be stored as value)
 constexpr bool isBuiltinConcrete(TypeKind k) noexcept {
-    return getData(k) != 0;
+    return typeDataOf(k) != 0;
 }
 
 } // namespace trust

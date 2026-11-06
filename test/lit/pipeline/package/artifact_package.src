@@ -46,14 +46,14 @@ inline int demo_value() { return 7; }
 int demo_anchor() { return demo_value(); }
 
 //--- pkg/pkg_demo.src
-\\\pkg_demo\pkg_demo;
+\pkg_demo;
 @[include("<demo.hpp>")@]
 @[link("demo")@]
-demo_value:Int32 := {% demo_value() %};
+demo_val:Int32 := {% demo_value() %};
 
 //--- main.src
-\\\pkg_demo\pkg_demo(demo_value);
+\\\pkg_demo\pkg_demo(demo_val);
 
 {% int main__main__() {
-    return @demo_value == 7 ? 0 : 1;
+    return @demo_val == 7 ? 0 : 1;
 } %}

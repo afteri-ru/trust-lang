@@ -7,6 +7,7 @@
 # Variadic tie-break применяется ТОЛЬКО при полном равенстве рангов: точное совпадение с
 # variadic-прототипом выигрывает у худшей не-variadic конверсии. Equal-rank случай отдаёт
 # предпочтение не-variadic (см. unit NonVariadicWinsOnlyOnEqualRank).
+\std();
 f(a:Int32, ...):Int32 := { @return 1; };
 f(a:Int64):Int32 := { @return 2; };
 @main() := {

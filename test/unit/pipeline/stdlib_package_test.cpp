@@ -37,18 +37,18 @@ TEST(StdlibPackage, InvalidPackageNameIsRejected) {
 }
 
 TEST(StdlibPackage, PreludeFilesAreReadableWithoutExtraction) {
-    const auto dsl = readResourcePackageEntry("stdlib", "stdlib/dsl.src");
-    ASSERT_TRUE(dsl.has_value()) << "stdlib/dsl.src must be readable from the package";
+    const auto dsl = readResourcePackageEntry("stdlib", "dsl.src");
+    ASSERT_TRUE(dsl.has_value()) << "dsl.src must be readable from the package";
     EXPECT_NE(dsl->find("assert"), std::string::npos) << "dsl.src must define the `assert` mnemonic";
 
-    const auto iterator = readResourcePackageEntry("stdlib", "stdlib/iterator.src");
+    const auto iterator = readResourcePackageEntry("stdlib", "iterator.src");
     ASSERT_TRUE(iterator.has_value());
     EXPECT_NE(iterator->find("Iterator"), std::string::npos);
     EXPECT_NE(iterator->find("@stdlib/iterator.hpp"), std::string::npos);
 
-    const auto strings = readResourcePackageEntry("stdlib", "stdlib/builtin/string.src");
+    const auto strings = readResourcePackageEntry("stdlib", "builtin/string.src");
     ASSERT_TRUE(strings.has_value());
-    EXPECT_NE(strings->find("StrChar = %std::string"), std::string::npos);
+    EXPECT_NE(strings->find("StrChar = %trust::StrChar"), std::string::npos);
 }
 
 TEST(StdlibPackage, MissingEntryIsAnError) {
@@ -56,7 +56,7 @@ TEST(StdlibPackage, MissingEntryIsAnError) {
     ASSERT_TRUE(archive.has_value());
     std::string content;
     std::string error;
-    EXPECT_FALSE(readPackageEntry(*archive, "stdlib/does_not_exist.src", content, error));
+    EXPECT_FALSE(readPackageEntry(*archive, "does_not_exist.src", content, error));
     EXPECT_FALSE(error.empty());
     EXPECT_FALSE(readPackageEntry(*archive, "../trust.toml", content, error));
 }
@@ -72,13 +72,13 @@ TEST(StdlibPackage, ExtractAndVerifyProvidesHeaders) {
     ASSERT_TRUE(extractAndVerifyPackage(*archive, dest, error)) << error;
 
     EXPECT_TRUE(fs::is_regular_file(dest / "trust.toml"));
-    EXPECT_TRUE(fs::is_regular_file(dest / "stdlib" / "dsl.src"));
-    EXPECT_TRUE(fs::is_regular_file(dest / "include" / "trust" / "rational.hpp"));
+    EXPECT_TRUE(fs::is_regular_file(dest / "dsl.src"));
+    EXPECT_TRUE(fs::is_regular_file(dest / "include" / "stdlib" / "builtin" / "rational.hpp"));
     EXPECT_TRUE(fs::is_regular_file(dest / "include" / "trust" / "io.hpp"));
     EXPECT_TRUE(fs::is_regular_file(dest / "include" / "stdlib" / "iterator.hpp"));
     EXPECT_TRUE(fs::is_regular_file(dest / "include" / "stdlib" / "builtin" / "rational_openssl.hpp"));
 
-    std::ifstream ifs(dest / "include" / "trust" / "rational.hpp", std::ios::binary);
+    std::ifstream ifs(dest / "include" / "stdlib" / "builtin" / "rational.hpp", std::ios::binary);
     const std::string rational{std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>()};
     EXPECT_NE(rational.find("class Rational"), std::string::npos);
 }

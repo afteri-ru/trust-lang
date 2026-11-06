@@ -1,14 +1,11 @@
 #pragma once
 
-// include/types/type_id.hpp
 // Компиляторный слой над ОБЩИМ ABI-заголовком рантайма `runtime/trust/type_state.hpp`:
 // TypeId/QualType, layout-константы и разбор битов определены РОВНО ОДИН РАЗ (там же, где их
 // использует рантайм), чтобы компилятор и рантайм не могли разойтись в представлении.
-//
 // Здесь остаются только компилятор-специфичные операции:
 //   * makeTypeId — валидирующее конструирование (EXPECT на 24-битный registry_index);
 //   * isTrustedType — семантический флаг TypeKind (компиляторное понятие).
-//
 // Путь `runtime/trust/...` разрешается через PROJECT_INCLUDE_DIR (include/): include-путь
 // компилятора НЕ расширяется, прочие переопределяемые runtime-заголовки ему не видны.
 
@@ -20,7 +17,45 @@
 
 namespace trust {
 
-// -- Construction -----------------------------------------
+/// Проекции TypeKind от готовой identity/state: единственный путь декодирования (R2).
+/// Канонизация НЕ выполняется — вызывающий сам решает, применять ли `desugaredTypeId`.
+constexpr Group typeGroupOf(TypeId id) noexcept {
+    return typeGroupOf(getTypeKind(id));
+}
+constexpr Group typeGroupOf(QualType state) noexcept {
+    return typeGroupOf(kindOf(state));
+}
+constexpr uint8_t typeDataOf(TypeId id) noexcept {
+    return typeDataOf(getTypeKind(id));
+}
+constexpr uint8_t typeDataOf(QualType state) noexcept {
+    return typeDataOf(kindOf(state));
+}
+constexpr RefType typeRefOf(TypeId id) noexcept {
+    return typeRefOf(getTypeKind(id));
+}
+constexpr RefType typeRefOf(QualType state) noexcept {
+    return typeRefOf(kindOf(state));
+}
+constexpr TypeClass typeClassOf(TypeId id) noexcept {
+    return typeClassOf(getTypeKind(id));
+}
+constexpr TypeClass typeClassOf(QualType state) noexcept {
+    return typeClassOf(kindOf(state));
+}
+constexpr SizeUnit typeSizeUnitOf(TypeId id) noexcept {
+    return typeSizeUnitOf(getTypeKind(id));
+}
+constexpr SizeUnit typeSizeUnitOf(QualType state) noexcept {
+    return typeSizeUnitOf(kindOf(state));
+}
+constexpr RefAxis refAxisOf(TypeId id) noexcept {
+    return refAxisOf(typeRefOf(id));
+}
+constexpr RefAxis refAxisOf(QualType state) noexcept {
+    return refAxisOf(typeRefOf(state));
+}
+
 /// registry_index обязан влезать в 24 бита (kMaxTypeIndex); новые индексы проверяет
 /// TypeStore::allocateTypeIndex (EXPECT). Явная диагностика вместо молчаливой маски: значение
 /// вне диапазона заняло бы qualifier-байт и схлопнулось бы с другим identity-ключом.
@@ -29,7 +64,6 @@ inline TypeId makeTypeId(TypeKind kind, uint32_t registry_index = 0) {
     return TypeId::fromParts(kind, registry_index);
 }
 
-// -- Флаг «тип несёт trust-условия» (kTrustFlag) -----------
 // Бит в TypeKind (верхняя половина TypeId, Reserved). Это СЕМАНТИЧЕСКИЙ дифференциатор
 // идентичности: тип/функция с пред-/пост-условиями/утверждениями не эквивалентен идентичному
 // без условий. В отличие от kInferred/kConst (нижняя половина, квалификаторы вхождения),

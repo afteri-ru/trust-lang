@@ -1,6 +1,5 @@
 #pragma once
 
-// include/lsp/services/analysis_service.hpp
 // Транспиляция/анализ/диагностика LSP: transpileSource/transpileSourceFile/publishDiagnostics.
 // Вынесены из монолита TrustLsp. Владеет opts_/documents_/transport_ ссылками; TrustLsp
 // делегирует. Также предоставляет общий конвертер LspOptions → PipelineOpts.
@@ -8,6 +7,8 @@
 #include "lsp/catalog/lsp_options.hpp"
 #include "lsp/services/document_manager.hpp"
 
+#include <map>
+#include <set>
 #include <string>
 
 namespace trust {
@@ -42,6 +43,12 @@ class AnalysisService {
     trust::transport::Transport& transport_;
     LspOptions& opts_;
     DocumentManager& documents_;
+    /// URI, в которые документ уже публиковал диагностики: при повторном анализе исчезнувшие URI
+    /// гасятся пустым массивом.
+    std::map<std::string, std::set<std::string>> publishedUrisByDocument_;
+    /// Владелец URI с кросс-файловыми диагностиками (последний опубликовавший документ): чужой
+    /// документ их не гасит.
+    std::map<std::string, std::string> uriOwners_;
 };
 
 } // namespace lsp

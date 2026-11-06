@@ -2,9 +2,8 @@
 
 > scope: include/lsp/catalog
 > role: persistent-memory
-> last_reviewed: 2026-11-04
+> last_reviewed: 2026-11-12
 > review_period: 30
-> max_size: 5000
 
 ## Architecture
 
@@ -14,9 +13,10 @@
 ## Facts and invariants
 
 - **Единые источники имён:** имена кода — `SymbolIndex`; встроенные — глобальный `BuiltinCatalog`
-  (строится ОДИН раз, не копируется). Доки макросов — `Context::macroDocs()`; прагма-макросы НЕ входят в
-  `m_predef_macro` (иначе ломается PragmaCheck).
-- **⚠ Макросы: видимость per-module, не per-site:** `nullopt` = прелюдия/stdlib DSL (виден везде),
+  (строится ОДИН раз, не копируется). Доки макросов — у владельца прогона (`Context` файла:
+  `macroDoc`; каталог хранит только имена); прагма-макросы НЕ входят в `m_predef_macro` (иначе
+  ломается PragmaCheck).
+- **⚠ Макросы: видимость per-module, не per-site:** `nullopt` = stdlib DSL (виден везде),
   значение = модуль определения. `isSymbolVisible` к макросам НЕ применяется.
 - **⚠ Опции применяются ПО ИСТОЧНИКУ** (`applyAnalysisArgsBySource`, приоритет `opts_.shebangMode`):
   ошибка из шебанга — диагностика на строке шебанга, из окружения — в лог. Общие опции LSP не

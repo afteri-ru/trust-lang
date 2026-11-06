@@ -1,19 +1,19 @@
 # RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
 # RUN: %split-file %s $TD
 # RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
-# RUN: grep -q "lib::c_Pt" $TD/build/main.cppt
-# RUN: %not grep -q "c_MyPt" $TD/build/main.cppt
+# RUN: grep -q "Pt" $TD/build/main.cppt
+# RUN: %not grep -q "MyPt" $TD/build/main.cppt
 # RUN: $TD/app && echo "PASS"
 # CHECK: PASS
 #
 # `::-` - ВТОРОЕ имя существующего типа (тот же TypeId, собственного C++-типа нет): аннотация и
-# конструктор через алиас печатаются именем ЦЕЛИ. Межмодульная форма `:A ::- \lib::T;` резолвится
-# единым путём (resolveTypeRef), без загрузки модуля ссылкой.
+# конструктор через алиас печатаются именем ЦЕЛИ. Цель алиаса вводится импортом (`\lib(Pt)`) и
+# разрешается по своему имени (`Pt`) — модуль как префикс разрешения не используется.
 
 //--- main.src
 \lib(Pt, g);
-f :- \lib::g;
-:MyPt ::- \lib::Pt;
+f :- g;
+:MyPt ::- Pt;
 :MyInt ::- :Int32;
 @main():Int32 := { p:MyPt := MyPt(7); m:MyInt := 2; @return f(1) + p.x - m - 7; };
 

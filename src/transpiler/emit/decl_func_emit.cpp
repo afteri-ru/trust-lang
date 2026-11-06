@@ -1,4 +1,5 @@
 #include "transpiler/emit/decl_emit.hpp"
+#include "transpiler/emit/decl_emit_common.hpp"
 #include "transpiler/transpiler.hpp"
 #include "transpiler/emit/emit_common.hpp"
 #include "ast/ast_nodes.hpp"
@@ -7,13 +8,12 @@
 #include "ast/ident_name.hpp"
 #include "ast/kind_dispatch.hpp"
 #include "ast/token_type.hpp"
-#include "session/context.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
 #include "syntax/term/term.h"
 #include "types/type_system.hpp"
 #include "types/types.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/call.hpp"
 #include "types/type_id.hpp"
@@ -21,7 +21,6 @@
 #include "transpiler/emit/diag.hpp"
 #include "utils/strings.hpp"
 #include <cstdint>
-#include <format>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -52,19 +51,72 @@ struct DeclEmitter::Signature {
     bool funcRangeValid = false;
     bool isEntry = false;
     bool emittedDefault = false;
+    /// Нативный экспорт с C-линковкой: к `lead` добавляется `extern "C" `.
+    bool nativeExportCLinkage = false;
+    /// namespace-сегменты extern (`extern("ns::fib")`): определение эмитится внутри них.
+    std::vector<std::string> namespaces;
     std::string name;
     std::string retType;
     std::string templateHeader;
     std::string lead;
     std::string trail;
     std::string paramsStr;
+    /// Позиция ИМЕНИ параметра ОТНОСИТЕЛЬНО начала `paramsStr` (для source-map). Абсолютное
+    /// смещение выводится в `emitFunctionSignature` из фактически напечатанного префикса —
+    /// формула «<prefix><name>(<params>» существует в одном месте.
     std::vector<std::pair<const ArgNode*, uint32_t>> paramNamePositions;
     /// Активные типовые параметры должны жить до конца эмиссии тела (generic-функция).
     std::unique_ptr<ActiveTemplateParamsGuard> templateGuard;
 };
 
+bool DeclEmitter::resolveParamCppType(const ArgNode& param, std::string& cppType) const {
+    // ЕДИНЫЙ рендер C++-типа параметра для функций и лямбд. Пустая аннотация — материализуемый
+    // Any (тип-имя из реестра), Void/None — "void". ReadOnly — const, type-pack — "...".
+    std::string type;
+    if (param.m_type && param.m_type->kind() == ParserToken::Kind::TypeName) {
+        const std::string_view pt = requiredText(*param.m_type);
+        if (pt == type::Void || pt == type::None) {
+            type = "void";
+        } else {
+            type = m_driver.m_type.emitTypeNameForNode(param.m_type.get());
+            if (type.empty()) {
+                return false; // диагностику уже выдал TypeEmitter
+            }
+        }
+    } else if (auto anyId = m_ectx.m_services.readTypes().findType(type_generic::Any)) {
+        auto anyName = m_driver.m_type.emitTypeName(*anyId);
+        EXPECT(anyName.has_value() && "untyped parameter: Any type must have a C++ name");
+        type = std::move(*anyName);
+    } else {
+        EXPECT(false && "untyped parameter: Any type must be registered");
+    }
+    if (param.has_attr(m_ectx.m_services.attrs(), attr::ReadOnly) && type != "void") {
+        type = "const " + type;
+    }
+    if (param.isTypePack) {
+        type += "...";
+    }
+    cppType = std::move(type);
+    return true;
+}
+
+bool DeclEmitter::resolveReturnCppType(const AstNodePtr& typeNode, std::string& cppType) const {
+    // ЕДИНЫЙ рендер типа возврата для функций и лямбд: Void/None (и отсутствие аннотации на этом
+    // уровне) — "void"; невыразимый тип — false (диагностика выдана).
+    cppType = "void";
+    if (!typeNode || typeNode->kind() != ParserToken::Kind::TypeName) {
+        return true;
+    }
+    const std::string_view rt = requiredText(*typeNode);
+    if (rt == type::Void || rt == type::None) {
+        return true;
+    }
+    cppType = m_driver.m_type.emitTypeNameForNode(typeNode.get());
+    return !cppType.empty();
+}
+
 bool DeclEmitter::prepareFunctionSignature(const FuncDecl& func_node, bool isMember, std::string_view memberOwner, bool suppressDefaults, Signature& sig) {
-    // АЛИАС функции (`f = \path::g;`): C++-функция не эмитится.
+    // АЛИАС имени (`f :- g;`): C++-функция не эмитится.
     if (func_node.aliasKind() != AliasKind::None) {
         return false;
     }
@@ -72,96 +124,81 @@ bool DeclEmitter::prepareFunctionSignature(const FuncDecl& func_node, bool isMem
     // C++-функцию, но их заголовки/линковка обязаны попасть в артефакт.
     m_driver.m_type.collectInclude(func_node);
     m_driver.m_type.collectLinkLib(func_node);
-    if (func_node.m_isNativeTemplateCtor) {
-        return false;
-    }
-    if (func_node.m_isNativeTemplateImport) {
-        m_ectx.m_declFacts.registerNativeImport(&func_node, func_node.m_nativeName, func_node.text());
-        return false;
-    }
-    if (func_node.m_isNativeImport) {
-        m_ectx.m_declFacts.registerNativeImport(&func_node, func_node.m_nativeName, func_node.text());
+    if (func_node.isNativeImport()) {
         return false;
     }
 
     sig.funcRangeValid = !func_node.range().isInvalid();
     const std::string trustName = std::string(func_node.text());
-    const bool emitTrustDefaults = !utils::isNativeName(trustName);
-    sig.isEntry = func_node.m_body && !m_ectx.m_mode.inCppBlock && m_ectx.m_output.hiddenNamespaceDepth == 0 && trustName.ends_with("__main__");
+    // Экспорт (`@[export("...")]`): символ публикуется под заданным
+    // C/C++-именем; trust-манглинг (identity-суффикс), модульная изоляция и trust-defaults
+    // не применяются. ABI задан атрибутом: C → `extern "C"`, C++ → без него.
+    const std::string_view native = m_ectx.m_services.declCppFacts().cppNameOf(func_node.declId());
+    const bool nativeExport = !native.empty();
+    const bool emitTrustDefaults = !nativeExport;
+    sig.isEntry = func_node.hasBody() && !m_ectx.m_mode.inCppBlock && m_ectx.m_output.hiddenNamespaceDepth == 0 && trustName.ends_with("__main__");
 
-    if (const auto guard = stackCheckGuardOf(func_node, m_ectx.m_ctx.attrs())) {
-        m_ectx.m_declFacts.registerStackCheck(&func_node, *guard);
+    if (const auto guard = stackCheckGuardOf(func_node, m_ectx.m_services.attrs())) {
+        m_ectx.m_declFacts.registerStackCheck(func_node, *guard);
     }
 
-    sig.name = cppFuncName(trustName, func_node.m_isOperator, sig.isEntry);
-    EXPECT((!func_node.m_isOperator || !sig.name.empty()) && "operator declaration: unknown operator symbol (semantic must validate first)");
-    if (!sig.isEntry && !func_node.m_isOperator && !utils::isNativeName(trustName) && !func_node.m_cppSuffix.empty()) {
-        sig.name += func_node.m_cppSuffix;
+    if (nativeExport) {
+        // `extern("ns::fib")`: внутри namespace-сегментов имя — последний компонент,
+        // сами сегменты открываются вокруг эмиссии (generateFuncDeclToFile). Разбор
+        // `ns::sub::name` — общий с типом/переменной (`splitCppName`).
+        const CppQualifiedParts parts = splitCppName(native);
+        sig.namespaces = parts.namespaces;
+        sig.name = parts.name;
+        sig.nativeExportCLinkage = cppLinkageOf(native) == CppLinkage::C;
+    } else {
+        sig.name = cppName(trustName, sig.isEntry ? CppEntityKind::kEntry : (func_node.m_isOperator ? CppEntityKind::kOperator : CppEntityKind::kFunction));
+        EXPECT((!func_node.m_isOperator || !sig.name.empty()) && "operator declaration: unknown operator symbol (semantic must validate first)");
+        const std::string_view cppSuffix = m_ectx.m_services.declCppFacts().cppSuffixOf(func_node.declId());
+        if (!sig.isEntry && !func_node.m_isOperator && !cppSuffix.empty()) {
+            sig.name += cppSuffix;
+        }
     }
     if (!memberOwner.empty()) {
         sig.name = std::string(memberOwner) + "::" + sig.name;
     }
     if (sig.isEntry) {
-        m_ectx.m_declFacts.registerFunctionName(&func_node, sig.name, trustName);
+        m_ectx.m_declFacts.registerFunctionName(func_node, sig.name, trustName);
+    } else if (nativeExport) {
+        // Экспорт: C/C++-имя символа фиксировано атрибутом (модульная изоляция не применяется).
+        m_ectx.m_declFacts.registerFunctionName(func_node, std::string(native), trustName);
     } else {
-        std::string qualified = m_ectx.m_output.qualifiedCppName(sig.name);
-        const std::string moduleNamespace = m_ectx.moduleNamespace(func_node.module);
-        if (!moduleNamespace.empty()) {
-            qualified = moduleNamespace + "::" + qualified;
-        }
-        m_ectx.m_declFacts.registerFunctionName(&func_node, std::move(qualified), trustName);
+        m_ectx.m_declFacts.registerFunctionName(func_node, m_ectx.m_output.qualifiedCppName(sig.name), trustName);
     }
 
-    const bool skipForwardDefaults = func_node.m_body.has_value() && m_ectx.m_declFacts.forwardFunctionDefaults.contains(sig.name);
+    const bool skipForwardDefaults = func_node.hasBody() && m_ectx.m_declFacts.forwardFunctionDefaults.contains(sig.name);
     const bool emitDefaults = emitTrustDefaults && !skipForwardDefaults && !suppressDefaults;
 
     // Типовые параметры активируются ДО рендера ret/params (`:T` -> `T`), guard живёт до конца
-    // эмиссии тела (generic-функция).
-    const bool genericFunc = func_node.m_templateParams.has_value() && !func_node.m_isNativeTemplateCtor && !func_node.m_isNativeTemplateImport;
-    if (genericFunc) {
-        std::vector<std::string> names;
-        names.reserve(func_node.m_templateParams->size());
-        sig.templateHeader = "template <";
-        bool first = true;
-        for (const auto& p : *func_node.m_templateParams) {
-            if (!p) {
-                continue;
-            }
-            const auto* an = p->is<ArgNode>() ? p->as<ArgNode>() : nullptr;
-            if (!first) {
-                sig.templateHeader += ", ";
-            }
-            first = false;
-            sig.templateHeader += (an != nullptr && an->isTypePack) ? "typename... " : "typename ";
-            sig.templateHeader += std::string(requiredText(*p));
-            names.push_back(std::string(requiredText(*p)));
+    // эмиссии тела (generic-функция). Шапка шаблона строится единым helper'ом (общим с
+    // record-классами и обёртками нативных классов).
+    if (func_node.m_templateParams.has_value()) {
+        const CppTemplateParams tpl = cppTemplateParams(func_node.m_templateParams);
+        if (!tpl.names.empty()) {
+            sig.templateHeader = tpl.header + " ";
+            sig.templateGuard = std::make_unique<ActiveTemplateParamsGuard>(m_ectx, tpl.names);
         }
-        sig.templateHeader += "> ";
-        sig.templateGuard = std::make_unique<ActiveTemplateParamsGuard>(m_ectx, std::move(names));
     }
 
     sig.retType = "void";
-    if (func_node.m_type && func_node.m_type->kind() == ParserToken::Kind::TypeName) {
-        const std::string_view rt = requiredText(*func_node.m_type);
-        if (rt != type::Void && rt != type::None) {
-            sig.retType = m_driver.m_type.emitTypeNameForNode(func_node.m_type.get());
-            if (sig.retType.empty()) {
-                return false;
-            }
-        }
+    if (!resolveReturnCppType(func_node.m_type, sig.retType)) {
+        return false;
     }
     if (sig.isEntry && func_node.m_type == nullptr) {
         sig.retType = "int";
     }
-    initFuncQualifiers(func_node, m_ectx.m_ctx.attrs(), sig.lead, sig.trail);
-    if (trustName.starts_with('%') && !func_node.m_body.has_value() && utils::stripNativePrefix(trustName).find("::") == std::string::npos) {
+    initFuncQualifiers(func_node, m_ectx.m_services.attrs(), sig.lead, sig.trail);
+    if (sig.nativeExportCLinkage) {
+        // extern: C-линковка (extern "C"); имя символа фиксировано атрибутом.
         sig.lead = "extern \"C\" " + sig.lead;
     }
 
     std::string paramTypesOnly;
     if (func_node.m_params) {
-        const uint32_t sigPrefix = static_cast<uint32_t>(sig.templateHeader.length()) + static_cast<uint32_t>(sig.lead.length()) +
-                                   static_cast<uint32_t>(sig.retType.length()) + 1 + static_cast<uint32_t>(sig.name.length()) + 1;
         for (size_t i = 0; i < func_node.m_params->size(); ++i) {
             if (i > 0) {
                 sig.paramsStr += ", ";
@@ -169,8 +206,9 @@ bool DeclEmitter::prepareFunctionSignature(const FuncDecl& func_node, bool isMem
             }
             auto* paramNode = static_cast<const ArgNode*>((*func_node.m_params)[i].get());
             if (!paramNode || paramNode->kind() != ParserToken::Kind::ArgNode) {
-                sig.paramsStr += "std::any";
-                paramTypesOnly += "std::any";
+                const std::string anyCpp = m_driver.m_type.anyTypeName();
+                sig.paramsStr += anyCpp;
+                paramTypesOnly += anyCpp;
                 continue;
             }
             if (isVariadicParamMarker(paramNode)) {
@@ -186,35 +224,16 @@ bool DeclEmitter::prepareFunctionSignature(const FuncDecl& func_node, bool isMem
                 paramTypesOnly += "int";
                 continue;
             }
-            std::string paramType;
-            if (paramNode->m_type && paramNode->m_type->kind() == ParserToken::Kind::TypeName) {
-                const std::string_view pt = requiredText(*paramNode->m_type);
-                if (pt == type::Void || pt == type::None) {
-                    paramType = "void";
-                } else {
-                    paramType = m_driver.m_type.emitTypeNameForNode(paramNode->m_type.get());
-                    if (paramType.empty()) {
-                        return false;
-                    }
-                }
-            } else if (auto aid = m_ectx.m_ctx.readTypes().findType(type_generic::Any)) {
-                auto anyName = m_driver.m_type.emitTypeName(*aid);
-                EXPECT(anyName.has_value() && "untyped parameter: Any type must have a C++ name");
-                paramType = std::move(*anyName);
-            } else {
-                EXPECT(false && "untyped parameter: Any type must be registered");
-            }
-            const bool paramReadonly = paramNode->has_attr(m_ectx.m_ctx.attrs(), attr::ReadOnly);
-            std::string paramCppType = (paramReadonly && paramType != "void") ? "const " + paramType : paramType;
-            if (paramNode->isTypePack) {
-                paramCppType += "...";
+            std::string paramCppType;
+            if (!resolveParamCppType(*paramNode, paramCppType)) {
+                return false;
             }
             paramTypesOnly += paramCppType;
             std::string paramName = utils::cppDeclName(requiredText(*paramNode));
             if (paramName.empty()) {
                 sig.paramsStr += paramCppType;
             } else {
-                const uint32_t namePos = sigPrefix + static_cast<uint32_t>(sig.paramsStr.size()) + static_cast<uint32_t>(paramCppType.length()) + 1;
+                const uint32_t namePos = static_cast<uint32_t>(sig.paramsStr.size()) + static_cast<uint32_t>(paramCppType.length()) + 1;
                 sig.paramsStr += paramCppType + " " + paramName;
                 sig.paramNamePositions.emplace_back(paramNode, namePos);
             }
@@ -229,44 +248,58 @@ bool DeclEmitter::prepareFunctionSignature(const FuncDecl& func_node, bool isMem
         m_ectx.m_unit.entryParams = paramTypesOnly;
         m_ectx.m_unit.sawEntry = true;
     }
+    if (sig.nativeExportCLinkage) {
+        // C-сцепление несовместимо с C++-именами (namespace/templates/std-типы): диагностика,
+        // иначе генерируется невалидный C++.
+        if (requiresCppLinkage(sig.retType) || requiresCppLinkage(sig.paramsStr)) {
+            m_ectx.m_services.report(func_node.range(), diag::DiagId::ParseError,
+                                     "C-linkage export '{}' requires C-compatible types (no C++ namespaces/templates)", func_node.text());
+            return false;
+        }
+    }
     return true;
 }
 
 void DeclEmitter::emitFunctionSignature(const FuncDecl& func_node, const Signature& sig, MapperFile output_idx) {
-    const std::string text = sig.templateHeader + std::format("{}{} {}({}){}", sig.lead, sig.retType, sig.name, sig.paramsStr, sig.trail);
-    m_ectx.m_ctx.source().output_append(output_idx, text);
-    if (!func_node.m_body.has_value() && sig.emittedDefault) {
+    // Позиции для source-map выводятся из фактически напечатанного префикса «<templateHeader><lead><ret> »:
+    // offset имени = длина префикса; параметры смещены от начала `paramsStr`.
+    const std::string prefix = sig.templateHeader + sig.lead + sig.retType + " ";
+    const std::string text = prefix + sig.name + "(" + sig.paramsStr + ")" + sig.trail;
+    m_ectx.m_services.source().output_append(output_idx, text);
+    const uint32_t namePrefix = static_cast<uint32_t>(prefix.size());
+    if (!func_node.hasBody() && sig.emittedDefault) {
         m_ectx.m_declFacts.forwardFunctionDefaults.insert(sig.name);
     }
-    // Имя функции выводится сразу после "<lead>ret_type " (offset = lead + ret + 1).
     if (sig.funcRangeValid && !sig.name.empty()) {
-        const MapperLocation trustFnBegin = m_ectx.m_ctx.source().makeLoc(func_node.range().begin.fileIdx(), func_node.range().begin.offset());
-        const MapperLocation trustFnEnd = m_ectx.m_ctx.source().makeLoc(
-            trustFnBegin.fileIdx(), trustFnBegin.offset() + static_cast<uint32_t>(utils::stripNativePrefix(func_node.text()).size()));
+        const MapperLocation trustFnBegin = m_ectx.m_services.source().makeLoc(func_node.range().begin.fileIdx(), func_node.range().begin.offset());
+        const MapperLocation trustFnEnd =
+            m_ectx.m_services.source().makeLoc(trustFnBegin.fileIdx(), trustFnBegin.offset() + static_cast<uint32_t>(func_node.text().size()));
         const MapperRange trustFnNameRange(trustFnBegin, trustFnEnd);
-        mapDeclaredName(output_idx, trustFnNameRange, static_cast<uint32_t>(sig.lead.length()) + static_cast<uint32_t>(sig.retType.length()) + 1,
-                        func_node.text(), sig.name);
+        mapDeclaredName(output_idx, trustFnNameRange, namePrefix, func_node.text(), sig.name);
     }
-    for (const auto& [paramNode, namePos] : sig.paramNamePositions) {
+    // paramsStr начинается после «<prefix><name>(».
+    const uint32_t paramsBegin = namePrefix + static_cast<uint32_t>(sig.name.size()) + 1;
+    for (const auto& [paramNode, relNamePos] : sig.paramNamePositions) {
         const std::string rawParam = std::string(requiredText(*paramNode));
         if (rawParam.empty()) {
             continue;
         }
-        mapDeclaredName(output_idx, paramNode->range(), namePos, rawParam, utils::cppDeclName(rawParam));
+        mapDeclaredName(output_idx, paramNode->range(), paramsBegin + relNamePos, rawParam, utils::cppDeclName(rawParam));
     }
-    if (sig.funcRangeValid && !m_ectx.m_ctx.source().mappingSuppressed()) {
-        m_ectx.m_ctx.source().mapStop(func_node.range());
+    if (sig.funcRangeValid && !m_ectx.m_services.source().mappingSuppressed()) {
+        m_ectx.m_services.source().mapStop(func_node.range());
     }
 }
 
 void DeclEmitter::emitFunctionBody(const FuncDecl& func_node, const Signature& sig, MapperFile output_idx) {
-    if (!func_node.m_body || m_ectx.m_mode.forwardDeclOnly) {
-        m_ectx.m_ctx.source().output_append(output_idx, ";");
+    auto* fb = func_node.body();
+    if (!fb || m_ectx.m_mode.forwardDeclOnly) {
+        m_ectx.m_services.source().output_append(output_idx, ";");
         return;
     }
     const MapperRange blockRange = func_node.blockRange();
     std::string beforeClose;
-    if (sig.isEntry && !bodyEndsWithReturn(*func_node.m_body)) {
+    if (sig.isEntry && !bodyEndsWithReturn(*fb)) {
         beforeClose = "return 0;";
     }
     std::string afterOpen;
@@ -308,8 +341,8 @@ void DeclEmitter::emitFunctionBody(const FuncDecl& func_node, const Signature& s
     }
     const bool isVoidFunc = (sig.retType == "void");
     m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel()});
-    m_driver.m_stmt.emitBlockBodyToFile(*func_node.m_body, blockRange, output_idx, /*mapBlock=*/true, beforeClose, afterOpen,
-                                        preTrust.empty() ? nullptr : &preTrust, (isVoidFunc && !postTrust.empty()) ? &postTrust : nullptr);
+    m_driver.m_stmt.emitBlockBodyToFile(*fb, blockRange, output_idx, /*mapBlock=*/true, beforeClose, afterOpen, preTrust.empty() ? nullptr : &preTrust,
+                                        (isVoidFunc && !postTrust.empty()) ? &postTrust : nullptr);
     m_ectx.m_output.scopeStack.pop_back();
 }
 
@@ -319,11 +352,25 @@ void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile o
         return;
     }
     // Заголовок модуля эмитит ту же сигнатуру с подавленным маппингом (позиции принадлежат `.cppt`).
-    if (sig.funcRangeValid && !m_ectx.m_ctx.source().mappingSuppressed()) {
-        m_ectx.m_ctx.source().mapStart(func_node.range(), output_idx);
+    // extern: определение живёт ВНУТРИ заданных namespace-сегментов; открываем их до mapStart,
+    // чтобы маппинг тела/сигнатуры не смещался.
+    for (const std::string& ns : sig.namespaces) {
+        m_ectx.m_services.source().output_append(output_idx, cppNamespaceOpen(ns, /*inlineForm=*/true));
     }
+    if (sig.funcRangeValid && !m_ectx.m_services.source().mappingSuppressed()) {
+        // Диапазон объявления записывается заголовком: в `.cppt` он принадлежит интерфейсу.
+        const bool recordRange = m_ectx.m_mode.forwardDeclOnly || m_ectx.m_output.selfHeaderInclude.empty();
+        m_ectx.m_services.source().mapStart(func_node.range(), output_idx, recordRange);
+    }
+    // Выражение приёмника `$0` доступно ТОЛЬКО в теле метода-члена (`(*this)`).
+    const std::string savedSelfExpr = m_ectx.m_output.selfExpr;
+    m_ectx.m_output.selfExpr = isMember ? "(*this)" : std::string();
     emitFunctionSignature(func_node, sig, output_idx);
     emitFunctionBody(func_node, sig, output_idx);
+    m_ectx.m_output.selfExpr = savedSelfExpr;
+    for (std::size_t i = 0; i < sig.namespaces.size(); ++i) {
+        m_ectx.m_services.source().output_append(output_idx, cppNamespaceClose(/*inlineForm=*/true));
+    }
 }
 
 // Лямбда-выражение как ЗНАЧЕНИЕ: `[captures](params)[ -> Ret] { body }`.
@@ -331,7 +378,7 @@ void DeclEmitter::generateFuncDeclToFile(const FuncDecl& func_node, MapperFile o
 // Специализированный путь: НЕ generateFuncDeclToFile (тот эмитит top-level определение и ломает выражение).
 void DeclEmitter::emitLambdaExpr(const FuncDecl& func_node) {
     // Список захватов (по значению): trust-имя -> C++-идентификатор (c_x).
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "[");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "[");
     bool firstCap = true;
     if (func_node.m_captures) {
         for (const auto& cap : *func_node.m_captures) {
@@ -339,84 +386,71 @@ void DeclEmitter::emitLambdaExpr(const FuncDecl& func_node) {
                 continue;
             }
             if (!firstCap) {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
             }
             firstCap = false;
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, utils::cppDeclName(requiredText(*cap)));
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, utils::cppDeclName(requiredText(*cap)));
         }
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "](");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "](");
     // Параметры.
     if (func_node.m_params) {
         for (size_t i = 0; i < func_node.m_params->size(); ++i) {
             if (i > 0) {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
             }
             const auto* p = static_cast<const ArgNode*>((*func_node.m_params)[i].get());
-            if (!p || p->kind() != ParserToken::Kind::ArgNode || requiredText(*p) == "...") {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "...");
+            if (!p || p->kind() != ParserToken::Kind::ArgNode) {
+                // Не-аргумент в списке параметров лямбды — нарушение контракта AST: диагностика
+                // (R9 — без молчаливой подстановки), параметр эмитится как Any (тип неизвестен).
+                m_ectx.m_services.report(func_node.range(), diag::DiagId::ParseError, "lambda parameter is not a valid argument node");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, m_driver.m_type.anyTypeName());
                 continue;
             }
-            // Тип параметра: явный (emitTypeNameForNode) либо :Any (std::any).
+            if (isVariadicParamMarker(p)) {
+                // Единый с функциями признак вариадик-маркера (не сравнение текста, R9).
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, "...");
+                continue;
+            }
+            // Тип параметра — ЕДИНЫЙ рендер с функциями (аннотация/Void/Any/const/pack). Невыразимый
+            // тип: диагностика уже выдана TypeEmitter, параметр эмитится как Any (значение всё равно
+            // не скомпилируется без типа, но без молчаливой подмены — диагностика есть).
             std::string ptype;
-            if (p->m_type) {
-                if (p->m_type->kind() == ParserToken::Kind::TypeName) {
-                    const std::string_view pt = requiredText(*p->m_type);
-                    if (pt == type::Void || pt == type::None) {
-                        ptype = "void";
-                    } else {
-                        ptype = m_driver.m_type.emitTypeNameForNode(p->m_type.get());
-                    }
-                } else {
-                    ptype = m_driver.m_type.emitTypeNameForNode(p->m_type.get());
-                }
-            } else if (auto anyId = m_ectx.m_ctx.readTypes().findType(type_generic::Any)) {
-                auto anyName = m_driver.m_type.emitTypeName(*anyId);
-                ptype = anyName ? std::move(*anyName) : std::string("std::any");
-            } else {
-                ptype = "std::any";
+            if (!resolveParamCppType(*p, ptype)) {
+                ptype = m_driver.m_type.anyTypeName();
             }
-            if (ptype.empty()) {
-                ptype = "std::any";
-            }
-            if (ptype != "void" && p->has_attr(m_ectx.m_ctx.attrs(), attr::ReadOnly)) {
-                ptype = "const " + ptype;
-            }
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ptype);
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, " ");
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, utils::cppDeclName(requiredText(*p)));
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ptype);
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, " ");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, utils::cppDeclName(requiredText(*p)));
             if (p->m_value) {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, " = ");
-                m_driver.emitExpr(p->m_value.get());
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, " = ");
+                // ТОТ ЖЕ путь, что default-аргумент функции (`renderExprToString`): подавленный
+                // mapping и ВЫКЛЮЧЕННЫЕ overflow-проверки (default — не тело функции; lambda-обёртка
+                // с захватом в значении по умолчанию недопустима).
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, m_driver.renderExprToString(p->m_value.get()));
             }
         }
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
-    // Тип возврата - только при явной аннотации (`void` для Void/None).
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
+    // Тип возврата — ЕДИНЫЙ рендер с функциями (Void/None → `void`).
     if (func_node.m_type) {
         std::string ret;
-        if (func_node.m_type->kind() == ParserToken::Kind::TypeName) {
-            const std::string_view rt = requiredText(*func_node.m_type);
-            if (rt == type::Void || rt == type::None) {
-                ret = "void";
-            } else {
-                ret = m_driver.m_type.emitTypeNameForNode(func_node.m_type.get());
-            }
-        } else {
-            ret = m_driver.m_type.emitTypeNameForNode(func_node.m_type.get());
+        if (!resolveReturnCppType(func_node.m_type, ret)) {
+            ret.clear(); // диагностика выдана; явная аннотация невыразима
         }
         if (!ret.empty()) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, " -> ");
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ret);
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, " -> ");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ret);
         }
     }
     // Тело.
-    if (func_node.m_body && !m_ectx.m_mode.forwardDeclOnly) {
+    auto* fbBody = func_node.body();
+    if (fbBody && !m_ectx.m_mode.forwardDeclOnly) {
         m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel()});
-        m_driver.m_stmt.emitBlockBodyToFile(*func_node.m_body, func_node.blockRange(), m_ectx.m_output.out, /*mapBlock=*/true, {}, {}, nullptr, nullptr);
+        m_driver.m_stmt.emitBlockBodyToFile(*fbBody, func_node.blockRange(), m_ectx.m_output.out, /*mapBlock=*/true, {}, {}, nullptr, nullptr);
         m_ectx.m_output.scopeStack.pop_back();
     } else {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, " {}");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, " {}");
     }
 }
 

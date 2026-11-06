@@ -8,7 +8,8 @@
 # Async types come from the stdlib prelude (async.src), not from a third-party package.
 # `AsyncPool` maps to trust::ThreadPool; its header pulls -lpthread ON-USE only.
 
+\std();
 @main():Int32 := {
-    pool : AsyncPool := {% trust::ThreadPool(2) %};
+    pool : AsyncPool := {% AsyncPool(2) %};
     @return 0;
 };

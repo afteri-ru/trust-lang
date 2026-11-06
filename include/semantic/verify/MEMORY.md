@@ -2,9 +2,8 @@
 
 > scope: include/semantic/verify
 > role: persistent-memory
-> last_reviewed: 2026-11-06
+> last_reviewed: 2026-11-11
 > review_period: 30
-> max_size: 5000
 
 ## Architecture
 
@@ -16,6 +15,11 @@
 
 - **⚠ `verifyTypedAst` — гейт полноты типизированной AST:** вызывается только на УСПЕШНОЙ семантике;
   нарушение — ICE-политика `reportInternalError` (Fatal в CLI, Error в LSP), не Warning.
+- **⚠ `verifyTypedAst` не видит тел импортированных модулей:** `ModuleNode` объявлен `AST_NO_SLOTS`,
+  обход идёт по `children()`; инварианты формы импортируемых record проверяются в точке записи (R13).
+- **⚠ Provider-gate — НЕ ICE и НЕ в `SemanticPassRunner`:** `verifySemanticProviders` (semantic/verify/
+  provider_check) вызывается Pipeline ПОСЛЕ успешной семантики и ДО HIR; ошибки — пользовательские `Error`
+  (missing implementation / зависимая реализация), после них кодоген не запускается.
 - **`@[format("printf", strIdx, firstToCheck)]`** — индексы 1-based (GCC); `%s` ожидает `const char*`,
   StrChar требует `.c_str()`.
 - **⚠ trust-контракты:** `collectChildren()` их не отдают — ядро обрабатывает явно; severity `-Wsolver`

@@ -1,10 +1,13 @@
-# RUN: %trust -q --stack-check-functions=guard --emit-cpp %s > %t.out 2>&1 || true
+# RUN: %trust --stack-check-functions=guard --emit-cpp %s > %t.out 2>&1 || true
 # RUN: %FileCheck %s <%t.out
 #
-# Текстовый домен `--stack-check-functions` не несёт идентичности объявления: одноимённые
-# функции разных namespace — явная диагностика (не «первый победил»).
+# Имя функции в текстовом домене `--stack-check-functions` — ДАННЫЕ ДЛЯ ЛИНКЕРА: кодоген
+# эмитит символ ДОСЛОВНО, а локальный резолв даёт лишь раннее предупреждение (warning),
+# не ошибку. Неоднозначное `guard` -> предупреждение + `&guard`.
 # CHECK: ambiguous function 'guard' in stack-check functions list
+# CHECK: reinterpret_cast<void*>(&guard)
 
+\std();
 ns1:: {
     guard(x:Int32):Int32 := { @return x; };
 };

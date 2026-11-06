@@ -1,0 +1,21 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Экспорт переменной: точное C/C++-имя; без trust-манглинга и модульной изоляции.
+@[export("g")@]
+g:Int32 := 42;
+
+# readonly `k^` — внешнее сцепление обязательно (namespace-scope const иначе internal).
+@[export("k")@]
+k^:Int32 := 5;
+
+@[export("ns2::v")@]
+v:Int32 := 7;
+
+# CHECK: extern "C" {
+# CHECK: int32_t g = 42;
+# CHECK: extern const int32_t k = 5;
+# CHECK: namespace ns2 {
+# CHECK: int32_t v = 7;
+# CHECK-NOT: g
+# CHECK-NOT: k
+# CHECK-NOT: v

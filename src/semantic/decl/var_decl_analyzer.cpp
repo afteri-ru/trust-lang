@@ -1,4 +1,3 @@
-// src/semantic/decl/var_decl_analyzer.cpp
 // Анализ объявлений переменных.
 #include "semantic/decl/var_decl_analyzer.hpp"
 #include "semantic/core/ast_view.hpp"
@@ -46,7 +45,7 @@ void VarDeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
     // Резолв необязательной аннотации типа.
     TypeId var_type = INVALID_TYPE_ID;
     if (var_node.m_type) {
-        auto type_id = m_actx.types().resolveTypeRef(*var_node.m_type);
+        auto type_id = m_actx.types().resolveTypeRef(*var_node.m_type, &var_node.m_deleterType);
         if (type_id.has_value()) {
             var_type = *type_id;
         } else {
@@ -102,10 +101,10 @@ void VarDeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
         return;
     }
 
-    // Предварительное (forward) объявление `x:Type := ...;` - инициализатора нет.
-    // Для нативного имени (%...) тип обязателен: имя напрямую транслируется в C++.
-    if (!init_node && !var_name.empty() && var_name[0] == '%' && !var_node.m_type) {
-        m_actx.ctx().diag().report(Severity::Error, var_range, "native variable '{}' must have a type in a forward declaration", var_name);
+    // Нативная привязка-импорт: тип обязателен (он задаёт C++-представление внешнего символа).
+    if (!init_node && var_node.isNativeImport() && !var_node.m_type) {
+        m_actx.ctx().diag().report(Severity::Error, var_range, "native import of variable '{}' must declare an explicit type: write '<name>:Type := %cpp ...;'",
+                                   var_name);
         return;
     }
 
@@ -130,7 +129,7 @@ void VarDeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
     sym.name = stableSymbolName(var_name);
     // Константность ('^' → attr::ReadOnly) и вид ссылки (@[reftype(...)]) - ортогональные
     // квалификаторы, применяемые единым хелпером (applyRefAttrs). Константность в типе даёт
-    // `const T` в C++ (getCppTypeName) и попадает в прототипы функций. Для нетипизированной
+    // `const T` в C++ (CppTypeRenderer) и попадает в прототипы функций. Для нетипизированной
     // переменной (var_type == INVALID) бит const выставляется позже, в typeExpr, когда тип
     // выводится из инициализатора.
     // Источник квалификаторов: И узел переменной (`@[reftype("shared")@] x`), и аннотация типа
@@ -146,10 +145,12 @@ void VarDeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
             var_state = annotation.resolvedState;
         }
     }
-    var_state = m_core.applyRefAttrs(var_state, var_node, var_range);
+    // Квалификаторы УЗЛА переменной применяются с материализацией факта deleter'а (R39: кодоген
+    // читает `VarDecl::deleterType`, а не резолвит имя по тексту).
+    var_state = m_core.applyRefAttrs(var_state, var_node, var_range, &var_node.m_deleterType);
     sym.type = var_state;
     // Кодоген рендерит ссылочную переменную из материализованного типа (без повторного reftype).
-    if (getRefType(getTypeKind(var_state.getTypeId())) != RefType::kValue) {
+    if (typeRefOf(var_state.getTypeId()) != RefType::kValue) {
         var_node.inferredType = QualType::fromTypeId(var_state.getTypeId());
     }
     // `^` на переменной и `@[readonly]` на типе уже применены applyRefAttrs к var_type;
@@ -173,7 +174,7 @@ void VarDeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
                 s = m_actx.symbols().resolve("$" + on); // локальные имена нормализованы в '$name'
             }
             if (s != nullptr && s->type.getTypeId() != INVALID_TYPE_ID) {
-                operandIsUnique = getRefType(getTypeKind(s->type.getTypeId())) == RefType::kUnique;
+                operandIsUnique = typeRefOf(s->type.getTypeId()) == RefType::kUnique;
             }
         }
         if (!operandIsUnique) {
@@ -250,13 +251,13 @@ void VarDeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
     // `x := _;` не инициализирует переменную: flow-факт (read-before-init) вычисляет
     // отдельный CFG/dataflow-проход (semantic/definite_assignment) после обхода.
 
-    // Статическая размерность из инициализатора-словаря (для статической проверки `d.1`)
-    // и типы полей (для вывода типа `d.two`/`d.1`/`d[0]`). Копируются на символ переменной
-    // (свойство Dims переменной; см. архитектуру). Иммутабельный случай.
+    // Статический состав словаря из инициализатора-литерала (размер для `d.1`, типы для `d.two`/`d[0]`):
+    // один контейнер записей `DictSlot` (R14).
     if (init_node && init_node->kind() == ParserToken::Kind::DictLiteral) {
         if (Symbol* s = m_actx.symbols().resolveMutable(var_name)) {
             const auto& dl = static_cast<const Sequence&>(*init_node);
-            s->dims = static_cast<int64_t>(dl.m_body.size());
+            s->dictElements.emplace();
+            s->dictElements->reserve(dl.m_body.size());
             for (const auto& el : dl.m_body) {
                 if (!el) {
                     continue;
@@ -264,7 +265,7 @@ void VarDeclAnalyzer::analyzeVarDecl(VarDecl& var_node) {
                 std::string fname;
                 const AstNodeBase* valueNode = nullptr;
                 collectionElementNameValue(el.get(), fname, valueNode);
-                s->dictFieldTypes.emplace_back(fname, valueNode ? m_core.typer().dictElementType(valueNode) : QualType{});
+                s->dictElements->push_back(DictSlot{fname, valueNode ? m_core.typer().dictElementType(valueNode) : QualType{}});
             }
         }
     }

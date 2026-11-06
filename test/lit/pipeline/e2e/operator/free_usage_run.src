@@ -6,6 +6,7 @@
 
 # РЕАЛЬНОЕ использование СВОБОДНЫХ операторов в TrustLang-выражениях: все сравнения
 # резолвятся анализатором в dunder-наборы и эмитятся как top-level operator<sym>.
+\std();
 :Val ::= :Class{ v: Int32 := _; };
 __eq__(a: Val, b: Val): Bool := { return true; };
 __ne__(a: Val, b: Val): Bool := { return false; };

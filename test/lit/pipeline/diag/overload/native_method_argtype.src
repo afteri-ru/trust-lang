@@ -4,7 +4,7 @@
 # StrChar в параметре Int64 - ошибка компиляции TrustLang, а не C++-слоя.
 @main() := {
     xs : Array := [1, 2, 3,];
-    y : Int8 := xs.%at("q");
+    y : Int8 := xs.at("q");
     @return 0;
 }
-# CHECK: error: no matching overload for method '%at'
+# CHECK: pipeline/diag/overload/native_method_argtype.src:7:20: error: no matching overload for method 'at' of type 'Array' with 1 argument(s)

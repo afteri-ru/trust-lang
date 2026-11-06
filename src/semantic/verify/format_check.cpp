@@ -1,4 +1,4 @@
-// format_check.cpp - парсер printf-формата и сверка типов аргументов.
+// Парсер printf-формата и сверка типов аргументов.
 
 #include "types/type_read.hpp"
 #include "semantic/verify/format_check.hpp"
@@ -113,8 +113,8 @@ bool arg_matches_expect(const TypeReadModel& reg, TypeId argType, Expect expect)
         return true;
     }
     const TypeKind k = getTypeKind(c);
-    const Group g = getGroup(k);
-    const bool isValue = (getRefType(k) == RefType::kValue);
+    const Group g = typeGroupOf(k);
+    const bool isValue = (typeRefOf(k) == RefType::kValue);
     switch (expect) {
     case Expect::Integer:
         // Любое целое по значению (числовые группы). %c - целый аргумент.

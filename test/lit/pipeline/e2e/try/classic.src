@@ -8,7 +8,9 @@
 # открывает {- @__PRAGMA_TRY_CLOSE__ ... , catch(_) → [ _ ] --> (IntAny), else → если прерываний
 # не было. При исполнении это покрывает путь прагмы @__PRAGMA_TRY_CLOSE__ end-to-end.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     try_error {
         |- 1 -|;
     } catch(_) {

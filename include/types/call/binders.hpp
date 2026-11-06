@@ -1,6 +1,5 @@
 #pragma once
 
-// include/types/call/binders.hpp
 // Лёгкий value-тип binder-контекста сигнатуры. Вынесен отдельно, чтобы `type_system.hpp` и
 // `symbols/symbol_table.hpp` могли принимать binder-контекст БЕЗ зависимости от тяжёлого
 // `fn_identity.hpp` (который включает registry). `FunctionIdentity` использует эти же типы.

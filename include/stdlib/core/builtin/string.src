@@ -1,11 +1,89 @@
-\\\stdlib\stdlib\builtin\string;
-# builtin/string.src - auto implementation of string built-in types backed by the C++ standard library.
+\\builtin\string;
+\iterator();
+# builtin/string.src - implementation of string built-in types. C++-КЛАССЫ ГЕНЕРИРУЮТСЯ ИЗ ЭТОГО
+# ФАЙЛА: базис задаётся СИНТАКСИСОМ (`Name = %cpp, ::, %base {...}`; `::` — публичное
+# наследование, дефолт генерируемого класса — private), методы с телами — члены класса, а
+# `name(...) := %member ...;` — нативные привязки к УЖЕ существующим членам базиса (объявления
+# не эмитятся: имя члена фиксировано базовым C++-классом). Внешнего `@[include]` класса нет —
+# заголовок модуля (<enc>.hpp) является интерфейсом типа.
 #
-# The definition uses `=` (implementation of a PRE-DECLARED type), not `::=`
-# (new type). This file is loaded as part of the stdlib prelude by default.
+# @[include("@trust/string_support.hpp")] — рантайм-примитивы: <string> для базисов, UTF-8
+# (toWide/toNarrow) и std::formatter<trust::StrChar>; один include допускается контрактом атрибута.
 
-@[include("string")@]
-StrChar = %std::string { };
+@[include("@trust/string_support.hpp")@]
+StrChar = %trust::StrChar, ::, %std::string {
+    # --- Ядровый интерфейс (предобъявлен в ядре; здесь реализация) ---
+    c_str(): CString := %c_str ...;
+    data(): CString := %data ...;
+    size(): UInt64 := %size ...;
+    # length: реализуется делегированием к ДРУГОЙ (не нативной) функции size (пример переопределения).
+    length(): UInt64 := size ...;
+    empty(): Bool := %empty ...;
 
-@[include("string")@]
-StrWide = %std::wstring { };
+    # --- Методы класса (members trust::StrChar: базовый std::string + собственные) ---
+    clear() := %clear ...;
+    at(i: UInt64): Int8 := %at ...;
+    front(): Int8 := %front ...;
+    back(): Int8 := %back ...;
+    capacity(): UInt64 := %capacity ...;
+    reserve(n: UInt64) := %reserve ...;
+    shrink_to_fit() := %shrink_to_fit ...;
+    resize(n: UInt64) := %resize ...;
+    append(s: StrChar) := %append ...;
+    push_back(c: Int8) := %push_back ...;
+    pop_back() := %pop_back ...;
+    insert(pos: UInt64, s: StrChar) := %insert ...;
+    erase(pos: UInt64, len: UInt64) := %erase ...;
+    replace(pos: UInt64, len: UInt64, s: StrChar) := %replace ...;
+    assign(s: StrChar) := %assign ...;
+    find(s: StrChar): Int64 := %find ...;
+    rfind(s: StrChar): Int64 := %rfind ...;
+    substr(pos: UInt64, len: UInt64): StrChar := %substr ...;
+    compare(s: StrChar): Int32 := %compare ...;
+    starts_with(s: StrChar): Bool := %starts_with ...;
+    ends_with(s: StrChar): Bool := %ends_with ...;
+    contains(s: StrChar): Bool := %contains ...;
+    # Собственные методы класса (не из базового std::string): итератор (borrowed) и конверсия.
+    chars(): Iterator<Int8> := {
+        {% return trust::Iterator<std::int8_t>(begin(), end()); %}
+    };
+    toWide(): StrWide := {
+        {% return trust::StrWide(trust::utf8::decode(*this)); %}
+    };
+};
+
+@[include("@trust/string_support.hpp")@]
+StrWide = %trust::StrWide, ::, %std::wstring {
+    # Интерфейс ядра у StrWide пуст — все методы объявляются здесь.
+    # (c_str/data не объявляются: их результат `const wchar_t*`, а встроенный CString = `const char*`.)
+    size(): UInt64 := %size ...;
+    empty(): Bool := %empty ...;
+    clear() := %clear ...;
+    at(i: UInt64): Int32 := %at ...;
+    front(): Int32 := %front ...;
+    back(): Int32 := %back ...;
+    capacity(): UInt64 := %capacity ...;
+    reserve(n: UInt64) := %reserve ...;
+    shrink_to_fit() := %shrink_to_fit ...;
+    resize(n: UInt64) := %resize ...;
+    append(s: StrWide) := %append ...;
+    push_back(c: Int32) := %push_back ...;
+    pop_back() := %pop_back ...;
+    insert(pos: UInt64, s: StrWide) := %insert ...;
+    erase(pos: UInt64, len: UInt64) := %erase ...;
+    replace(pos: UInt64, len: UInt64, s: StrWide) := %replace ...;
+    assign(s: StrWide) := %assign ...;
+    find(s: StrWide): Int64 := %find ...;
+    rfind(s: StrWide): Int64 := %rfind ...;
+    substr(pos: UInt64, len: UInt64): StrWide := %substr ...;
+    compare(s: StrWide): Int32 := %compare ...;
+    starts_with(s: StrWide): Bool := %starts_with ...;
+    ends_with(s: StrWide): Bool := %ends_with ...;
+    contains(s: StrWide): Bool := %contains ...;
+    chars(): Iterator<Int32> := {
+        {% return trust::Iterator<std::int32_t>(begin(), end()); %}
+    };
+    toNarrow(): StrChar := {
+        {% return trust::StrChar(trust::utf8::encode(*this)); %}
+    };
+};

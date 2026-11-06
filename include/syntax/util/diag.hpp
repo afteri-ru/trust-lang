@@ -1,6 +1,5 @@
 #pragma once
 
-// include/syntax/util/diag.hpp
 // Диагностики компонента syntax (единый источник данных для них).
 // TRUST_DIAG_SET генерирует trust::syntax::DiagId + ADL-доступы diagName/diagHelp/...
 

@@ -1,17 +1,16 @@
 # RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
 # RUN: %split-file %s $TD
 # RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
-# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/gen.hpp
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/gen.hppt
 # RUN: $TD/app && echo "PASS"
 # CHECK: PASS
 #
-# S4c (обратная сторона): предварительное объявление generic-функции + её определение в
-# компиляции - S4c-диагностики НЕТ (проверяется только отсутствие определения).
+# Обратная сторона гейта: предварительное объявление generic-функции с определением в
+# компиляции ошибки не даёт — проверяется только отсутствие определения.
 # H-модель: тело шаблона публикуется в заголовке модуля, поэтому клиент инстанцирует его.
-# HDR: namespace gen {
 # HDR: template <typename T>
-# HDR: return c_x;
-# HDR-NOT: template <typename T> T c_id_P5T0_3B_(T c_x);
+# HDR: return x;
+# HDR-NOT: template <typename T> T id_P5T0_3B_(T x);
 
 //--- main.src
 \gen(id);

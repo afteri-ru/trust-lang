@@ -23,7 +23,7 @@ concept HasRegisterType = requires(T& t, std::string_view name, TypeId base) { t
 template <class T>
 concept HasAddMethod = requires(T& t, TypeId type, std::string_view name, TypeId signature) { t.addMethod(type, name, signature); };
 template <class T>
-concept HasGetTypeName = requires(const T& t, TypeId id) { t.getTypeName(id); };
+concept HasGetTypeName = requires(const T& t, TypeId id) { t.typeNameOf(id); };
 template <class T>
 concept HasLookup = requires(const T& t, TypeId id) { t.lookup(id); };
 template <class T>
@@ -68,7 +68,7 @@ TEST_F(TypeReadViewTest, ModelIsBuiltFromZones) {
     const TypeReadModel fromZones(types().store(), types().names(), types().printer(), types().builtins(), types().methods(), types().typeCodes());
     EXPECT_EQ(fromZones.getType(type::Int32), int32);
     EXPECT_EQ(fromZones.findType(type::Int32), int32);
-    EXPECT_EQ(fromZones.store().descriptorOf(int32)->name, "Int32");
+    EXPECT_EQ(fromZones.store().nameOf(int32), "Int32");
 }
 
 TEST_F(TypeReadViewTest, UnknownTypeNameIsFaultWithoutFallback) {

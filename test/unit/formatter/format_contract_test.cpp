@@ -17,9 +17,9 @@ TEST(FormatterTest, AttributeBeforeKeywordWraps) {
 
 TEST(FormatterTest, InlineTypeAttributeStaysInline) {
     // Атрибут типа внутри сигнатуры (в скобках) не переносится на новую строку.
-    const std::string in = "@[format(\"printf\",1,2)@] %printf(fmt:@[reftype(ptr)@] StrChar^,...):Int32 := ...;\n";
+    const std::string in = "@[format(\"printf\",1,2)@] printf(fmt:@[reftype(ptr)@] StrChar^,...):Int32 := %printf...;\n";
     const std::string exp = "@[ format(\"printf\", 1, 2) @]\n"
-                            "%printf(fmt:@[ reftype(ptr) @] StrChar^, ...):Int32 := ...;\n";
+                            "printf(fmt:@[ reftype(ptr) @] StrChar^, ...):Int32 := %printf ...;\n";
     EXPECT_EQ(fmt(in), exp);
     EXPECT_EQ(fmt(fmt(in)), exp);
 }

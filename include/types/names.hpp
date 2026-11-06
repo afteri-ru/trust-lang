@@ -1,4 +1,3 @@
-// include/types/names.hpp
 // Umbrella домена имён типов: структурный `StorageKey`, видимость на сайте импорта и индекс имён.
 #pragma once
 

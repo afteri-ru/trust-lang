@@ -44,7 +44,6 @@ ExprTyper::ExprTyper(AnalysisContext& actx, NameResolutionPass& core)
 
 ExprTyper::~ExprTyper() = default;
 
-// -- Фасад: контейнерные литералы делегируются ContainerTyper --
 void ExprTyper::analyzeDictLiteral(Sequence& dict_node) {
     m_container->analyzeDictLiteral(dict_node);
 }
@@ -86,7 +85,6 @@ void ExprTyper::typeMethodCall(Binary& n) {
     m_method_call->typeMethodCall(n);
 }
 
-// -- Типизация выражений (post-order): диспетчеризация по семействам --
 // Семейства обрабатываются профильными типизаторами (Var/Call/MethodCall/Container/Binary/Ref).
 void ExprTyper::typeExpr(AstNodeBase* node) {
     if (!node) {
@@ -123,8 +121,6 @@ void ExprTyper::typeExpr(AstNodeBase* node) {
     }
 }
 
-// -- Компиляйт-тайм проверка printf-формата (атрибут @[format("printf", ...)]) --
-
 namespace {
 
 void reportLiteralAnnotProblem(trust::Context& ctx, const Literal& lit, std::optional<TypeId> ann, const TypeReadModel& reg, LiteralAnnotProblem problem) {
@@ -134,18 +130,18 @@ void reportLiteralAnnotProblem(trust::Context& ctx, const Literal& lit, std::opt
         break;
     case LiteralAnnotProblem::RationalExpected:
         ctx.diag().report(Severity::Error, lit.range(), "a rational literal 'num\\den' must be typed 'Rational' (found '{}')",
-                          reg.printer().getTypeName(reg.store().desugaredTypeId(*ann)));
+                          reg.printer().typeNameOf(reg.store().desugaredTypeId(*ann)));
         break;
     case LiteralAnnotProblem::BoolNot01:
         ctx.diag().report(Severity::Error, lit.range(), "boolean literal must be 0 or 1 (found '{}')", lit.text());
         break;
     case LiteralAnnotProblem::IntOverflow:
         ctx.diag().report(Severity::Error, lit.range(), "integer literal '{}' does not fit the annotated type '{}'", lit.text(),
-                          reg.printer().getTypeName(reg.store().desugaredTypeId(*ann)));
+                          reg.printer().typeNameOf(reg.store().desugaredTypeId(*ann)));
         break;
     case LiteralAnnotProblem::NonNumeric:
         ctx.diag().report(Severity::Error, lit.range(), "cannot annotate a numeric literal with non-numeric type '{}'",
-                          reg.printer().getTypeName(reg.store().desugaredTypeId(*ann)));
+                          reg.printer().typeNameOf(reg.store().desugaredTypeId(*ann)));
         break;
     case LiteralAnnotProblem::None:
         break;
@@ -168,7 +164,7 @@ void ExprTyper::typeFillingNode(Sequence& f) {
 
 // Типизация литерала: постфиксная аннотация `literal :Type` либо вывод по виду/тексту.
 void ExprTyper::typeLiteralNode(Literal& lit) {
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     // Литерал: тип задаёт постфиксная аннотация `literal :Type` (0 :Bool, 5 :Rational,
     // 5 :BigInteger, 256 :Int16, 1.5 :Float32; RationalLiteral `num\den` - только :Rational)
     // либо выводится по виду/тексту (literalType). Единые правила и единственный репортёр

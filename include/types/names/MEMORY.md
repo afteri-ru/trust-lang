@@ -2,9 +2,8 @@
 
 > scope: include/types/names (+ src/types)
 > role: persistent-memory
-> last_reviewed: 2026-11-05
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 3200
 
 ## Architecture
 
@@ -27,8 +26,8 @@
   а ПЛОСКИЙ ключ — привязка сайта импорта. Встроенные имена — ОТДЕЛЬНЫЙ процессный домен (`BuiltinTypeCore`):
   `findType(StorageKey)` ищет пользовательский реестр, затем — только для `Exported` без namespace —
   встроенные; неоднозначное имя текстом не резолвится.
-- **⚠ `nominalCppName` ставит модульный namespace `<enc>` ПЕРВЫМ сегментом** (`TypeSystem::moduleCppNamespace`;
-  провайдер `ModuleNameLookup` внедряет Pipeline, без него — FAULT, не тихое имя без изоляции).
+- **⚠ `nominalCppName` квалифицирует имя ТОЛЬКО namespace-путём типа** (модуль в C++-имя НЕ входит —
+  ABI прозрачен относительно C++; изоляция типов — области имён программиста).
   `declareRecord` идемпотентен ТОЛЬКО в пределах одного файла (другой файл ⇒ другой `TypeId`, а не
   `duplicate type name`); `reserveTypeName`/`reportDuplicateTypeName` — ЕДИНСТВЕННАЯ точка дубликат-диагностики.
 - **⚠ Класс видимости имеет ЕДИНСТВЕННЫЕ предикаты** (`switch` без `default`): новый перечислитель обязан

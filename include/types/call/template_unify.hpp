@@ -1,13 +1,10 @@
 #pragma once
 
-// include/types/call/template_unify.hpp
 // Унификация типовых параметров generic-функций/шаблонных native-import:
 //   AsyncTask<T>  ~  AsyncTask<Int32>   =>  T := Int32
-//
 // Модель привязок - TemplateBindings (types/binders.hpp): non-pack хранит ровно один тип,
 // pack - набор. Pack-параметр функции (`<T...>`/`xs: T...`) собирается здесь; splice
 // в списковые позиции выполняет substituteTemplateArgList (types/subst/template_subst.hpp).
-//
 // Унификация строгая: после связывания T требует КАНОНИЧЕСКОГО равенства. Числовые
 // конверсии применяются позже, к уже инстанцированной сигнатуре (overloadConversionRank).
 
@@ -93,7 +90,7 @@ inline void collectTemplateParams(const TypeReadModel& reg, TypeId type, std::ve
             stack.push_back(mp->memberType);
             continue;
         }
-        if (getRefType(getTypeKind(t)) != RefType::kValue) {
+        if (typeRefOf(t) != RefType::kValue) {
             stack.push_back(reg.store().getPointeeType(t));
             if (const auto* rd = reg.store().getTypeDataAs<RefTypeData>(t); rd != nullptr) {
                 stack.push_back(rd->deleterType);
@@ -155,8 +152,8 @@ inline bool unifyTemplateType(const TypeReadModel& reg, TypeId param, TypeId arg
         }
         return unifyTemplateType(reg, pm->memberType, am->memberType, ded);
     }
-    const RefType pr = getRefType(getTypeKind(p));
-    const RefType ar = getRefType(getTypeKind(a));
+    const RefType pr = typeRefOf(p);
+    const RefType ar = typeRefOf(a);
     if (pr != RefType::kValue || ar != RefType::kValue) {
         if (pr != ar) {
             ded.status = TemplateDeduction::Status::NotMatch;
@@ -222,9 +219,10 @@ inline bool unifyTemplateType(const TypeReadModel& reg, TypeId param, TypeId arg
         }
         return unifyTemplateType(reg, reg.store().packExpansionPattern(p), reg.store().packExpansionPattern(a), ded);
     }
-    // Нативные шаблоны (`AsyncTask<Int32>`): C++-имя + арность + рекурсия по аргументам.
+    // Нативные шаблоны (`AsyncTask<Int32>`): ЯЗЫКОВАЯ идентичность (абстрактный шаблон `templateOf`,
+    // R37) + арность + рекурсия по аргументам.
     if (reg.store().isNativeTemplateType(p) && reg.store().isNativeTemplateType(a)) {
-        if (reg.store().nativeTemplateCppName(p) != reg.store().nativeTemplateCppName(a)) {
+        if (reg.store().nativeTemplateOwner(p) != reg.store().nativeTemplateOwner(a)) {
             ded.status = TemplateDeduction::Status::NotMatch;
             return false;
         }
@@ -244,15 +242,15 @@ inline bool unifyTemplateType(const TypeReadModel& reg, TypeId param, TypeId arg
 
     // Инстанциации record-шаблонов.
     if (reg.store().isRecordType(p) && reg.store().isRecordType(a)) {
-        const auto* pr = reg.store().recordData(p);
-        const auto* ar = reg.store().recordData(a);
-        if (pr != nullptr && ar != nullptr && pr->templateOf != INVALID_TYPE_ID && ar->templateOf != INVALID_TYPE_ID) {
-            if (!identity.sameSemanticType(pr->templateOf, ar->templateOf) || pr->templateArgs.size() != ar->templateArgs.size()) {
+        const auto pInst = reg.store().instanceOf(p);
+        const auto aInst = reg.store().instanceOf(a);
+        if (pInst && aInst) {
+            if (!identity.sameSemanticType(pInst->templateOf, aInst->templateOf) || pInst->templateArgs.size() != aInst->templateArgs.size()) {
                 ded.status = TemplateDeduction::Status::NotMatch;
                 return false;
             }
-            for (size_t i = 0; i < pr->templateArgs.size(); ++i) {
-                if (!unifyTemplateType(reg, pr->templateArgs[i], ar->templateArgs[i], ded)) {
+            for (size_t i = 0; i < pInst->templateArgs.size(); ++i) {
+                if (!unifyTemplateType(reg, pInst->templateArgs[i], aInst->templateArgs[i], ded)) {
                     return false;
                 }
             }

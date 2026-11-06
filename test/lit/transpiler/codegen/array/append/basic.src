@@ -3,21 +3,22 @@
 # Проверка codegen оператора `[]=` (APPEND): правило `X []= v` = `X.push_back(v)`.
 # Словарь (безымянный append → push_back("", TypedValue{...})) и строки (append).
 
+\std();
 @main() := {
     d := (1, two=2,);
-    # CHECK: trust::Dict c_d = trust::Dict
+    # CHECK: trust::Dict d = trust::Dict
     d []= 999;
-    # CHECK: c_d.push_back
+    # CHECK: d.push_back
     # CHECK: int16_t(999)
     d []= "x";
-    # CHECK: std::string("x")
+    # CHECK: trust::StrChar("x")
     s := "abc";
-    # CHECK: std::string c_s = "abc";
+    # CHECK: trust::StrChar s = "abc";
     s []= "d";
-    # CHECK: c_s.append("d");
+    # CHECK: s.append("d");
     w := 'def';
-    # CHECK: std::wstring c_w = L"def";
+    # CHECK: trust::StrWide w = L"def";
     w []= 'g';
-    # CHECK: c_w.append(L"g");
+    # CHECK: w.append(L"g");
     return 0;
 }

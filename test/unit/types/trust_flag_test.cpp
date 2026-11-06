@@ -62,10 +62,10 @@ class TrustRegistryFixture : public ::testing::Test {
 };
 
 TEST_F(TrustRegistryFixture, RegisterAliasWithTrust) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId plain = reg.registrar().registerType("Plain", reg.read().getType("Int32"), {}, {});
     ASSERT_NE(plain, INVALID_TYPE_ID);
-    const TypeId trusted = reg.registrar().registerType("Trusted", reg.read().getType("Int32"), {}, {}, "", /*hasTrust=*/true);
+    const TypeId trusted = reg.registrar().registerType("Trusted", reg.read().getType("Int32"), {}, {}, /*hasTrust=*/true);
     ASSERT_NE(trusted, INVALID_TYPE_ID);
 
     // Обычный алиас не доверенный, алиас с trust - доверенный (разные TypeId).
@@ -75,7 +75,7 @@ TEST_F(TrustRegistryFixture, RegisterAliasWithTrust) {
 }
 
 TEST_F(TrustRegistryFixture, FunctionWithTrustDistinctFromPlain) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId ret = reg.read().getType("Int32");
     const TypeId fPlain = reg.interner().getOrCreateFunctionType(ret, {ret});
     const TypeId fTrusted = reg.interner().getOrCreateFunctionType(ret, {ret}, INVALID_TYPE_ID, /*hasTrust=*/true);

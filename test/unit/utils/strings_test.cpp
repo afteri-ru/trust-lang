@@ -19,6 +19,14 @@ TEST(StringsTest, Trim) {
     EXPECT_EQ(trim("   \t  "), "");
 }
 
+TEST(StringsTest, EscapeJson) {
+    EXPECT_EQ(escapeJson(""), "");
+    EXPECT_EQ(escapeJson("plain"), "plain");
+    EXPECT_EQ(escapeJson("a\"b\\c"), "a\\\"b\\\\c");
+    EXPECT_EQ(escapeJson("line1\nline2\r\t"), "line1\\nline2\\r\\t");
+    EXPECT_EQ(escapeJson(std::string_view("\x01", 1)), "\\u0001");
+}
+
 TEST(StringsTest, IsNumber) {
     EXPECT_FALSE(isNumber(""));
     EXPECT_TRUE(isNumber("42"));
@@ -65,15 +73,48 @@ TEST(StringsTest, ExtractNameUtf8) {
 //  Конвертация имени в C++ идентификатор и обратно
 // ══════════════════════════════════════════════════════════════
 
-TEST(NameToCppTest, Ascii) {
-    EXPECT_EQ(nameToCpp("hello"), "c_hello");
-    EXPECT_EQ(nameToCpp("foo_bar"), "c_foo_bar");
-    EXPECT_EQ(nameToCpp("_private"), "c__private");
+TEST(NameToCppTest, AsciiIsIdentity) {
+    // Безопасное ASCII-имя - тождественно: trust `hello` -> C++ `hello` (прозрачный ABI).
+    EXPECT_EQ(nameToCpp("hello"), "hello");
+    EXPECT_EQ(nameToCpp("foo_bar"), "foo_bar");
+    EXPECT_EQ(nameToCpp("_private"), "_private");
 }
 
 TEST(NameToCppTest, Empty) {
     // Пустое имя → пустая строка (владеющая), не ломает конвертацию.
     EXPECT_EQ(nameToCpp(""), "");
+}
+
+TEST(NameToCppTest, CppQualified) {
+    // Квалифицированное имя - namespace-путь, а не один экранированный сегмент.
+    EXPECT_EQ(nameToCpp("std::vector"), "std::vector");
+    EXPECT_EQ(nameToCpp("a::b::c"), "a::b::c");
+}
+
+TEST(NameToCppTest, KeywordEscaped) {
+    // Ключевое слово C++ экранируется маркером (иначе генерируемый C++ не скомпилируется).
+    EXPECT_EQ(nameToCpp("int"), "_u_int");
+    EXPECT_EQ(nameToCpp("class"), "_u_class");
+    EXPECT_EQ(decodeIdent(nameToCpp("int")), "int");
+}
+
+TEST(NameToCppTest, UnicodeEscapedReversibly) {
+    // "привет" в UTF8; юникод экранируется и ОБРАТИМО восстанавливается.
+    const char* privet = "\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82";
+    const std::string encoded = nameToCpp(privet);
+    EXPECT_TRUE(encoded.starts_with(std::string(kIdentEscapeMarker)));
+    EXPECT_EQ(decodeIdent(encoded), privet);
+    // Смешанный идентификатор (юникод + ASCII) - та же обратимая схема.
+    const std::string mixed = std::string("\xD0\xAE") + "A";
+    EXPECT_EQ(decodeIdent(nameToCpp(mixed)), mixed);
+}
+
+TEST(NameToCppTest, RoundTrip) {
+    // Кодек инъективен и обратим на произвольных именах (в т.ч. спецсимволы и маркер).
+    for (const std::string_view name :
+         {"f", "_tmp", "ns_x", "int", "operator", "\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82", "_u_x", "a$b", "with space"}) {
+        EXPECT_EQ(decodeIdent(encodeIdent(name)), name) << "name: " << name;
+    }
 }
 
 TEST(StripNativePrefixTest, SlicesLeadingPercent) {
@@ -85,91 +126,21 @@ TEST(StripNativePrefixTest, SlicesLeadingPercent) {
     EXPECT_EQ(stripNativePrefix("%a%"), "a%");
 }
 
-TEST(NameToCppTest, CppQualified) {
-    EXPECT_EQ(nameToCpp("std::vector"), "cpp_std$$vector");
-    EXPECT_EQ(nameToCpp("a::b::c"), "cpp_a$$b$$c");
-}
-
-TEST(NameToCppTest, RussianTranslit) {
-    EXPECT_EQ(nameToCpp("\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82"), "ru_privet");
-    EXPECT_EQ(nameToCpp("\xD0\x9C\xD0\xB8\xD1\x80"), "ru_Mir");
-    // Полностью русское "Ю" - транслитерация, а не HEX
-    EXPECT_EQ(nameToCpp("\xD0\xAE"), "ru_Yu");
-}
-
-TEST(NameToCppTest, MixedIdentifierHexEncoded) {
-    // Смешанный идентификатор (русская буква + латинская ASCII) - ветка u8_,
-    // HEX-кодирование всех байтов: Ю = D0 AE, A = 41.
-    EXPECT_EQ(nameToCpp("\xD0\xAE"
-                          "A"),
-              "u8_D0AE41");
-}
-
-TEST(CppToNameTest, Ascii) {
-    EXPECT_EQ(cppToName("c_hello"), "hello");
-    EXPECT_EQ(cppToName("c_foo_bar"), "foo_bar");
-}
-
-TEST(CppToNameTest, CppQualified) {
-    EXPECT_EQ(cppToName("cpp_std$$vector"), "std::vector");
-    EXPECT_EQ(cppToName("cpp_a$$b$$c"), "a::b::c");
-}
-
-TEST(CppToNameTest, RussianTranslit) {
-    EXPECT_EQ(cppToName("ru_privet"), "\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82");
-    EXPECT_EQ(cppToName("ru_Mir"), "\xD0\x9C\xD0\xB8\xD1\x80");
-    EXPECT_EQ(cppToName("ru_Yu"), "\xD0\xAE");
-}
-
-TEST(NameToCppTest, Native) {
-    // Нативные %-имена - уже C++-символы рантайма: '%' срезается, остальное как есть.
-    EXPECT_EQ(nameToCpp("%add"), "add");
-    EXPECT_EQ(nameToCpp("%x"), "x");
-    EXPECT_EQ(nameToCpp("%std::max"), "std::max");
-}
-
-TEST(CppToNameTest, EmptyAndNative) {
-    EXPECT_EQ(cppToName(""), "");
-    // Имя без известного префикса - нативное C++-имя: восстанавливается маркер '%'.
-    EXPECT_EQ(cppToName("a"), "%a");
-    EXPECT_EQ(cppToName("ab"), "%ab");
-    EXPECT_EQ(cppToName("add"), "%add");
-}
-
-TEST(NameRoundTripTest, Native) {
-    for (const char* n : {"%add", "%x", "%std::max"}) {
-        EXPECT_EQ(cppToName(nameToCpp(n)), std::string(n));
-    }
-}
-
-TEST(NameRoundTripTest, Russian) {
-    const char* russian[] = {
-        "\xD0\xBF\xD1\x80\xD0\xB8\xD0\xB2\xD0\xB5\xD1\x82",
-        "\xD0\x9C\xD0\xB8\xD1\x80",
-        "\xD0\xA2\xD0\xB5\xD1\x81\xD1\x82",
-        "\xD0\xAE",
-    };
-    for (const char* name : russian) {
-        auto cpp = nameToCpp(name);
-        EXPECT_FALSE(cpp.empty());
-        EXPECT_EQ(cppToName(cpp), std::string(name));
-    }
-}
-
 // -- Вставки C++ (EmbedExpr): маркеры $/@ → nameToCpp --
 
 TEST(EmbedCppTest, TransformsLocalAndQualified) {
-    EXPECT_EQ(transformEmbedCpp("printf(\"%s\", $msg);"), "printf(\"%s\", c_msg);");
-    EXPECT_EQ(transformEmbedCpp("return @x == 42;"), "return c_x == 42;");
-    // @-квалификация с :: → cpp_std$$vector.
-    EXPECT_EQ(transformEmbedCpp("@std::vector"), "cpp_std$$vector");
-    EXPECT_EQ(transformEmbedCpp("@ns::x"), "cpp_ns$$x");
+    // Прозрачное имя: trust-локальная `$msg` -> `msg`, `@x` -> `x`.
+    EXPECT_EQ(transformEmbedCpp("printf(\"%s\", $msg);"), "printf(\"%s\", msg);");
+    EXPECT_EQ(transformEmbedCpp("return @x == 42;"), "return x == 42;");
+    // @-квалификация с :: → namespace-путь C++.
+    EXPECT_EQ(transformEmbedCpp("@std::vector"), "std::vector");
+    EXPECT_EQ(transformEmbedCpp("@ns::x"), "ns::x");
     // Чистый C++-текст без маркеров остаётся без изменений.
     EXPECT_EQ(transformEmbedCpp("int x = 42;"), "int x = 42;");
     // Маркер не перед именем (в строке/после спецсимвола) - копируется как есть.
     EXPECT_EQ(transformEmbedCpp("printf(\"$%d\", x);"), "printf(\"$%d\", x);");
-    // Юникодное trust-имя конвертируется.
-    EXPECT_EQ(transformEmbedCpp("$привет"), "ru_privet");
+    // Юникодное trust-имя конвертируется в экранированную (обратимую) форму.
+    EXPECT_EQ(decodeIdent(transformEmbedCpp("$привет")), "привет");
 }
 
 TEST(EmbedCppTest, ExtractsNames) {
@@ -230,8 +201,7 @@ TEST(StringsTest, FileNameOfAndShortenedPath) {
 }
 
 TEST(StringsTest, PrefixEachLine) {
-    EXPECT_EQ(prefixEachLine("scope: depth=2\n  [1] ModuleDecl", ".../f.src:7: "),
-              ".../f.src:7: scope: depth=2\n.../f.src:7:   [1] ModuleDecl\n");
+    EXPECT_EQ(prefixEachLine("scope: depth=2\n  [1] ModuleDecl", ".../f.src:7: "), ".../f.src:7: scope: depth=2\n.../f.src:7:   [1] ModuleDecl\n");
 }
 
 TEST(StringsTest, PrefixEachLineTrailingNewline) {

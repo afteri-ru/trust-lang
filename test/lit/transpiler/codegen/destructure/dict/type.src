@@ -7,25 +7,26 @@
 #  - `p, q, _ := ... (1,2,3,)` - источник-литерал оценивается ОДИН раз в __trust_dst (не на каждую цель);
 #  - `_, r, tail... := ... (1,2,3,4,)` - `_` skip + r + rest; guard `size() < 2` перед pop'ами.
 
+\std();
 @main() := {
     d := (10, true, 20,);
     a, b, c := ... d;
     p, q, _ := ... (1,2,3,);
     _, r, tail... := ... (1,2,3,4,);
 };
-# CHECK: trust::Dict c_d = trust::Dict
-# CHECK-NEXT: trust::Dict c___trust_dst_0 = c_d;
-# CHECK-NEXT: if (c___trust_dst_0.size() < 3) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
-# CHECK-NEXT: int64_t c_a = std::any_cast<int64_t>(c___trust_dst_0.pop_front());
-# CHECK-NEXT: bool c_b = std::any_cast<bool>(c___trust_dst_0.pop_front());
-# CHECK-NEXT: int64_t c_c = std::any_cast<int64_t>(c___trust_dst_0.pop_front());
-# CHECK-NEXT: trust::Dict c___trust_dst_1 = trust::Dict
-# CHECK-NEXT: if (c___trust_dst_1.size() < 3) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
-# CHECK-NEXT: int64_t c_p = std::any_cast<int64_t>(c___trust_dst_1.pop_front());
-# CHECK-NEXT: int64_t c_q = std::any_cast<int64_t>(c___trust_dst_1.pop_front());
-# CHECK-NEXT: c___trust_dst_1.pop_front();
-# CHECK-NEXT: trust::Dict c___trust_dst_2 = trust::Dict
-# CHECK-NEXT: if (c___trust_dst_2.size() < 2) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
-# CHECK-NEXT: c___trust_dst_2.pop_front();
-# CHECK-NEXT: int64_t c_r = std::any_cast<int64_t>(c___trust_dst_2.pop_front());
-# CHECK-NEXT: trust::Dict c_tail = c___trust_dst_2;
+# CHECK: trust::Dict d = trust::Dict
+# CHECK-NEXT: trust::Dict __trust_dst_0 = d;
+# CHECK-NEXT: if (__trust_dst_0.size() < 3) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: int64_t a = std::any_cast<int64_t>(__trust_dst_0.pop_front());
+# CHECK-NEXT: bool b = std::any_cast<bool>(__trust_dst_0.pop_front());
+# CHECK-NEXT: int64_t c = std::any_cast<int64_t>(__trust_dst_0.pop_front());
+# CHECK-NEXT: trust::Dict __trust_dst_1 = trust::Dict
+# CHECK-NEXT: if (__trust_dst_1.size() < 3) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: int64_t p = std::any_cast<int64_t>(__trust_dst_1.pop_front());
+# CHECK-NEXT: int64_t q = std::any_cast<int64_t>(__trust_dst_1.pop_front());
+# CHECK-NEXT: __trust_dst_1.pop_front();
+# CHECK-NEXT: trust::Dict __trust_dst_2 = trust::Dict
+# CHECK-NEXT: if (__trust_dst_2.size() < 2) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: __trust_dst_2.pop_front();
+# CHECK-NEXT: int64_t r = std::any_cast<int64_t>(__trust_dst_2.pop_front());
+# CHECK-NEXT: trust::Dict tail = __trust_dst_2;

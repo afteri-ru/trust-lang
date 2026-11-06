@@ -1,8 +1,6 @@
 #pragma once
 
-// include/ir/dataflow.hpp
 // Обобщённый worklist/fixpoint dataflow поверх ir/cfg.hpp.
-//
 // Анализ задаётся duck-typed классом `Analysis`:
 //   using State = ...;
 //   static constexpr Direction direction;
@@ -15,7 +13,6 @@
 // Опционально:
 //   State transferTerminator(const BasicBlockT<Element>& block, State state) const;
 //   State transferEdge(const BasicBlockT<Element>& from, EdgeKind kind, State state) const;
-//
 // Framework НЕ навязывает направление итерации элементов: при наличии transferBlock
 // анализ сам отвечает за порядок; иначе forward идёт по elements, backward - в обратном
 // порядке (сначала terminator). Сходимость обеспечивается конечной высотой решётки анализа.

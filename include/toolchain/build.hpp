@@ -1,4 +1,3 @@
-// include/toolchain/build.hpp
 // Генерация build-каталога и компиляция/линковка сгенерированного .cppt через
 // Makefile. Выделено из pipeline.cpp (модуль BuildManager).
 #pragma once
@@ -11,9 +10,6 @@
 
 namespace trust {
 namespace toolchain {
-
-/// Подкаталог build-каталога, куда извлекаются пакеты (.trust) — источники include-путей сборки.
-inline constexpr std::string_view kPackagesSubdir = "packages";
 
 /// Генерирует C++-код главной функции `int main` (инклюды + extern + тело), идущий ПОСЛЕ
 /// тела модуля. Используется: (1) многофайловым путём - как содержимое отдельного

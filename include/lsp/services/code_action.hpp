@@ -1,6 +1,5 @@
 #pragma once
 
-// include/lsp/services/code_action.hpp
 // textDocument/codeAction: построение quickfix из fixits диагностики.
 // Вынесен из монолита TrustLsp (src/lsp/catalog/trust_lsp.cpp). Stateless: принимает только
 // нужные зависимости (transport + req) и сам отправляет ответ (как hover::/navigation::).

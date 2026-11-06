@@ -1,0 +1,12 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s < %t.out
+
+# R50: диагностика внутри раскрытия макроса несёт и место использования (локация ошибки — сайт
+# вызова), и точку раскрытия (`note: in expansion of macro` в определении). Цепочка — пара
+# `use → definition` владельца карты, прочитанная DiagnosticEngine::output(); отдельного поля
+# provenance и структурного id нет.
+
+@@ bad @@ nosuchvar @@@@;
+x := @bad;
+
+# CHECK: error: undefined name 'nosuchvar'
+# CHECK: note: in expansion of macro '@bad'

@@ -1,4 +1,3 @@
-// include/symbols/reference_index.hpp
 // Проекция ССЫЛОК имя→объявление для LSP (go-to-definition/hover по использованию).
 // Единственный источник решения «куда разрешилось имя» — материализованные семантикой факты:
 // `IdentName::resolvedDecl` (выбранная перегрузка/объявление) и `IdentName::resolvedTypeId`

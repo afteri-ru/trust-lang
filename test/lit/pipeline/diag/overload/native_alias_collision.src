@@ -3,7 +3,7 @@
 # Нативный C++-символ не различает `using`-алиасы: два объявления `%lib::f` с MyInt/Int32
 # дают одну C++-сигнатуру -> Duplicate (номинальность Trust здесь не помогает).
 MyInt ::= :Int32;
-%lib::f(a:MyInt):Int32 := ...;
-%lib::f(a:Int32):Int32 := ...;
+lib::f(a:MyInt):Int32 := %lib...;
+lib::f(a:Int32):Int32 := %lib...;
 @main() := { @return 0; }
-# CHECK: error: duplicate declaration '%lib::f' (indistinguishable in C++
+# CHECK: pipeline/diag/overload/native_alias_collision.src:7:6: error: duplicate declaration 'lib::f' (indistinguishable in C++: the same generated C++ name or the same native C++ signature; C++ cannot overload on return type)

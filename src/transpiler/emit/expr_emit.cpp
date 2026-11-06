@@ -1,4 +1,3 @@
-// src/transpiler/emit/expr_emit.cpp
 // ExprEmitter: Базовые бинарные операции: диспетчеризация, приведение операндов, переполняемая
 // арифметика верхнего уровня, type-check-операторы.
 
@@ -11,13 +10,12 @@
 #include "ast/ident_name.hpp"
 #include "ast/kind_dispatch.hpp"
 #include "ast/token_type.hpp"
-#include "session/context.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
 #include "syntax/term/term.h"
 #include "types/type_system.hpp"
 #include "types/call.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/type_id.hpp"
 #include "types/names.hpp"
@@ -37,24 +35,24 @@ void ExprEmitter::emitCheckedDiv(const Binary& binary_node, bool compoundAssign)
     // Проверка безусловна (не зависит от -foverflow-check): деление на ноль не «wrap-арифметика».
     const bool remainder = binary_node.m_op == BinaryOp::Mod || binary_node.m_op == BinaryOp::ModAssign;
     const std::string langOp = remainder ? (compoundAssign ? "%=" : "%") : (compoundAssign ? "//=" : "//");
-    m_driver.m_type.recordRequiredInclude("@trust/interrupt.hpp");
+    m_driver.m_type.recordRequiredInclude("@stdlib/interrupts.hpp");
     m_driver.m_type.recordRequiredInclude("@trust/assert.hpp");
     if (compoundAssign) {
         m_driver.emitExpr(binary_node.m_left.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, " = ([&]{ int64_t __l = static_cast<int64_t>(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, " = ([&]{ int64_t __l = static_cast<int64_t>(");
     } else {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "([&]{ int64_t __l = static_cast<int64_t>(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "([&]{ int64_t __l = static_cast<int64_t>(");
     }
     m_driver.emitExpr(binary_node.m_left.get());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "); int64_t __r = static_cast<int64_t>(");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "); int64_t __r = static_cast<int64_t>(");
     m_driver.emitExpr(binary_node.m_right.get());
-    const SourceLocation loc = sourceLocation(m_ectx.m_ctx.source(), binary_node.range());
+    const SourceLocation loc = sourceLocation(m_ectx.m_services.source(), binary_node.range());
     const std::string msgPrefix = (loc.line > 0 && !loc.file.empty())
                                       ? "trust::formatMessage(\"" + utils::escapeCppString(loc.file) + "\", " + std::to_string(loc.line) + ", "
                                       : std::string("std::string(");
     const std::string zeroMsg = msgPrefix + (remainder ? "\"integer remainder by zero\")" : "\"integer division by zero\")");
     const std::string ovMsg = msgPrefix + "\"integer overflow in '" + langOp + "'\")";
-    m_ectx.m_ctx.source().output_append(
+    m_ectx.m_services.source().output_append(
         m_ectx.m_output.out, "); if (__r == 0) throw trust::IntMinus(" + zeroMsg +
                                  "); "
                                  "if (__r == -1) { int64_t __q = 0; if (__builtin_sub_overflow(static_cast<int64_t>(0), __l, &__q)) throw trust::IntMinus(" +
@@ -76,8 +74,10 @@ void ExprEmitter::emitBinaryOpRaw(const Binary& binary_node) {
     }
     // Перегруженный пользовательский оператор либо СВОБОДНЫЙ оператор модуля: семантика выбрала
     // конкретную сигнатуру/объявление - эмитим explicit member/free вызов с приведением операндов
-    // (C++ не должен выбирать; свободный оператор к тому же живёт в namespace модуля).
-    const bool isolatedOperator = binary_node.resolvedOperatorModule.isValid() && !m_ectx.moduleNamespace(binary_node.resolvedOperatorModule).empty();
+    // (C++ не должен выбирать; свободный оператор к тому же живёт в trust-namespace).
+    // Свободный оператор объявлен в trust-namespace (модуль в имя не входит): семантика выбрала
+    // конкретную сигнатуру/объявление - эмитим explicit free-вызов с приведением операндов.
+    const bool isolatedOperator = binary_node.resolvedOperatorIsFree;
     if (binary_node.resolvedOperatorSignature != INVALID_TYPE_ID || isolatedOperator) {
         emitOperatorDispatch(binary_node);
         return;
@@ -95,15 +95,15 @@ void ExprEmitter::emitBinaryOpRaw(const Binary& binary_node) {
             // функции); имя уникально (__trust_discard_N). Форма `std::move(x);` без
             // материализации - no-op (отбрасываемый xvalue не вызывает move).
             const std::string tmp = "__trust_discard_" + std::to_string(m_discardCounter++);
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "{ auto " + tmp + " = std::move(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "{ auto " + tmp + " = std::move(");
             m_driver.emitExpr(binary_node.m_left.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "); (void)" + tmp + "; }");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "); (void)" + tmp + "; }");
         } else {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "std::swap(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "std::swap(");
             m_driver.emitExpr(binary_node.m_left.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
             m_driver.emitExpr(binary_node.m_right.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
         }
         return;
     }
@@ -129,7 +129,7 @@ void ExprEmitter::emitBinaryOpRaw(const Binary& binary_node) {
                 emitBinaryOperand(binary_node.m_left.get(), binary_node.lhsType.getTypeId(), binary_node.commonType.getTypeId());
             }
         }
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, " " + std::string(op) + " ");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, " " + std::string(op) + " ");
         if (binary_node.m_right) {
             emitBinaryOperand(binary_node.m_right.get(), binary_node.rhsType.getTypeId(), binary_node.commonType.getTypeId());
         }
@@ -141,23 +141,23 @@ void ExprEmitter::emitBinaryOperand(const AstNodeBase* operand, TypeId operandTy
     // trust::TypedValue → типизированный доступ .getAs<Cpp>() (fast-path variant); переменная
     // типа std::any → std::any_cast<Cpp>.
     if (operand && operandType != INVALID_TYPE_ID && castType != INVALID_TYPE_ID) {
-        if (isAnyType(operandType, m_ectx.m_ctx.readTypes())) {
+        if (isAnyType(operandType, m_ectx.m_services.readTypes())) {
             auto cpp = m_driver.m_type.emitTypeName(castType);
             if (cpp) {
                 const bool dictElement = operand->kind() == ParserToken::Kind::MemberAccess || operand->kind() == ParserToken::Kind::ArrayAccess;
                 if (dictElement) {
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+                    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
                     m_driver.emitExpr(operand);
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ").getAs<" + *cpp + ">()");
+                    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ").getAs<" + *cpp + ">()");
                 } else {
                     // std::any → универсальный runtime-конвертер anyToInt64. Точный
                     // `std::any_cast<Cpp>` ломался на гетерогенных значениях словаря (bool, int8,
                     // int64...), а конвертер принимает любую числовую/bool-категорию (dict.hpp).
                     // anyToInt64 требует <any> - подключаем по-типу (тип операнда Any).
                     m_driver.m_type.recordUsedType(operandType);
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "trust::detail::anyToInt64(");
+                    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "trust::detail::anyToInt64(");
                     m_driver.emitExpr(operand);
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+                    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
                 }
                 return;
             }
@@ -170,9 +170,9 @@ void ExprEmitter::emitCastOperand(const AstNodeBase* operand, TypeId paramType) 
     EXPECT(operand != nullptr && "operator dispatch: missing operand");
     auto cpp = m_driver.m_type.emitTypeName(paramType);
     EXPECT(cpp && !cpp->empty() && "operator dispatch: cannot emit the declared parameter type");
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "static_cast<" + *cpp + ">(");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "static_cast<" + *cpp + ">(");
     m_driver.emitExpr(operand);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
 }
 
 void ExprEmitter::emitOperatorDispatch(const Binary& binary_node) {
@@ -181,30 +181,30 @@ void ExprEmitter::emitOperatorDispatch(const Binary& binary_node) {
     // операнд), free - 2 (левый, правый). Неперегруженный свободный оператор кастов не несёт:
     // в его namespace ровно один кандидат, приведение не требуется.
     if (binary_node.resolvedOperatorIsMember) {
-        const std::string cppOp = op::operatorCppName(symbol);
+        const std::string cppOp = m_ectx.operatorCppName(symbol, std::string_view{});
         EXPECT(!cppOp.empty() && "operator dispatch: unknown operator symbol");
         EXPECT(binary_node.argCasts.size() == 1 && "member operator dispatch: expected one materialized operand cast");
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "((");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "((");
         m_driver.emitExpr(binary_node.m_left.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")." + cppOp + "(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")." + cppOp + "(");
         emitCastOperand(binary_node.m_right.get(), binary_node.argCasts[0]);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "))");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "))");
         return;
     }
-    const std::string cppOp = m_ectx.operatorCppName(symbol, binary_node.resolvedOperatorNamespace, binary_node.resolvedOperatorModule);
+    const std::string cppOp = m_ectx.operatorCppName(symbol, binary_node.resolvedOperatorNamespace);
     EXPECT(!cppOp.empty() && "operator dispatch: unknown operator symbol");
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(" + cppOp + "(");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(" + cppOp + "(");
     if (binary_node.argCasts.size() == 2) {
         emitCastOperand(binary_node.m_left.get(), binary_node.argCasts[0]);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
         emitCastOperand(binary_node.m_right.get(), binary_node.argCasts[1]);
     } else {
         EXPECT(binary_node.argCasts.empty() && "free operator dispatch: expected 0 or 2 materialized operand casts");
         m_driver.emitExpr(binary_node.m_left.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
         m_driver.emitExpr(binary_node.m_right.get());
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "))");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "))");
 }
 
 void ExprEmitter::emitBinaryStmtOrExpr(const Binary& binary_node) {
@@ -214,9 +214,9 @@ void ExprEmitter::emitBinaryStmtOrExpr(const Binary& binary_node) {
     if (stmt) {
         emitBinaryOpRaw(binary_node);
     } else {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
         emitBinaryOpRaw(binary_node);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
     }
 }
 
@@ -226,7 +226,7 @@ void ExprEmitter::emitBinaryStmtOrExpr(const Binary& binary_node) {
 // (диагностика НЕ дублируется).
 void ExprEmitter::emitTypeCheckOp(const Binary& n) {
     if (n.m_typeCheckConst.has_value()) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, *n.m_typeCheckConst ? "true" : "false");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, *n.m_typeCheckConst ? "true" : "false");
     }
 }
 
@@ -236,6 +236,13 @@ void ExprEmitter::visit_Attr(const Sequence& node) {
 }
 
 void ExprEmitter::visit_ArgNode(const ArgNode& node) {
+    // Системное имя текущего объекта `$0` (лексер: токен ARGUMENT) в теле метода: эмитит
+    // выражение приёмника (C++ `(*this)`). Вне метода selfExpr пуст - `$0` недопустим.
+    if (std::string_view(requiredText(node)) == "$0") {
+        EXPECT(!m_ectx.m_output.selfExpr.empty() && "`$0` (current object) is only valid inside a method");
+        m_driver.emitExprText(m_ectx.m_output.selfExpr);
+        return;
+    }
     // Значения аргументов эмитит emitCallArgValues; автономный ArgNode не выводится.
     skipNode(node);
 }

@@ -1,3 +1,4 @@
+\mem();
 # RUN: %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1
 # RUN: %FileCheck %s <%t.out
 
@@ -9,4 +10,4 @@
     v : Leaf := _;
 };
 @main():Int32 := { return 0; };
-# CHECK: struct c_Root
+# CHECK: struct Root

@@ -6,6 +6,6 @@ choose(x: Int32): Int32 := { @return x + 1; };
 
 r : Int32 := choose(3:Int32);
 
-# CHECK: template <typename T> T c_choose_
-# CHECK: c_choose_{{.*}}Int32{{.*}}(3)
-# CHECK-NOT: c_choose_{{.*}}<int32_t>(3)
+# CHECK: template <typename T> T choose_
+# CHECK: choose_{{.*}}Int32{{.*}}(3)
+# CHECK-NOT: choose_{{.*}}<int32_t>(3)

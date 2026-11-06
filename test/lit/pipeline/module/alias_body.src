@@ -4,9 +4,9 @@
 # RUN: %FileCheck %s --check-prefix=CALL <$TD/build/main.cppt
 # RUN: $TD/app
 #
-# C: Алиас функции в ТЕЛЕ файла (`\facade;` + `\lib(g);` + `f :- \lib::g;`): имя-алиас входит
+# C: Алиас функции в ТЕЛЕ файла (`\facade;` + `\lib(g);` + `f :- g;`): имя-алиас входит
 # в экспорт-набор файла и видно клиенту, вызов эмитится C++-именем цели с её суффиксом.
-# CALL: lib::c_g_P10N5_3AInt32_(1)
+# CALL: g_P10N5_3AInt32_(1)
 
 //--- main.src
 \facade(f);
@@ -19,4 +19,4 @@ g(x:Int32):Int32 := { @return x + 1; };
 //--- facade.src
 \facade;
 \lib(g);
-f :- \lib::g;
+f :- g;

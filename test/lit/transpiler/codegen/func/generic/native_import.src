@@ -2,11 +2,11 @@
 
 # G1: шаблонный native-import - функция-алиас, а НЕ нативный шаблон-тип.
 # `<T> mymax(a:T,b:T):T := %std::max...;` переписывает вызов в std::max(...);
-# C++-функция c_mymax НЕ эмитится.
+# C++-функция mymax НЕ эмитится.
 @include("algorithm")
 <T> mymax(a: T, b: T): T := %std::max...;
 
 r : Int32 := mymax(1:Int32, 2:Int32);
 
-# CHECK-NOT: c_mymax
+# CHECK-NOT: mymax
 # CHECK: std::max(1, 2)

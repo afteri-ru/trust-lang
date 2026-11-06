@@ -1,6 +1,5 @@
 #pragma once
 
-// include/solver/smt/smt_op.hpp
 // Встроенные операторы SMT-LIB 2 (BitVec-арифметика/сравнения, логика, равенство).
 // Единый источник: один список порождает enum SmtOp, имя (smtOpName) и обратный разбор
 // (parseSmtOp) - по образцу X-макросов ANALYSIS_SOLVER_MODE_LIST (analysis/modes.hpp) и diag_set.hpp.
@@ -11,7 +10,6 @@
 #include <optional>
 #include <string_view>
 
-// -- Единый список операторов: имя (enum) + SMT-LIB 2 имя (как в печати/диспетчере) --
 #define SOLVER_OPERATOR_LIST(M) \
     M(BvAdd, "bvadd")           \
     M(BvSub, "bvsub")           \

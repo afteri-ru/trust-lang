@@ -13,6 +13,7 @@
 # -fsync-deadlock= + --trust:fsync-deadlock=). Захват `*ref` идёт через lock()/lock_const().
 # Слабая ссылка w разделяет тот же синхронизированный объект, что и x (одинаковая политика).
 
+\std();
 @main():Int32 := {
     x : @[reftype("shared", "AccessMutex")@] Int32 := 5;
     w : @[reftype("weak", "AccessMutex")@] Int32 := x;

@@ -3,7 +3,7 @@
 # Квалификаторы (deleter/lifetime/pin) применяются только к объявлениям переменных/параметров.
 # На возвращаемом типе функции они НЕ применяются (reftype - применяется) -> явная диагностика
 # вместо тихого игнора.
-%foo(): @[reftype(ptr)@] @[lifetime(program)@] Int32 := ...;
+foo(): @[reftype(ptr)@] @[lifetime(program)@] Int32 := %foo...;
 @main():Int32 := {
     return 0;
 };

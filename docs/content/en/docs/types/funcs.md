@@ -284,15 +284,15 @@ the analyzer checks both the arity and the argument types; for a native **functi
 signature the argument conversion is performed by C++ (overloads of native functions are resolved
 by the analyzer — see below).
 
-Overloading of native functions is limited by the linkage model. A symbol without `::` (`%name`) is declared
-as `extern "C"` — a C symbol has a single C++ name, so **overloading such a name is forbidden**
-(an explicit compile-time diagnostic instead of invalid C++). A native C++ name (`%lib::name`) is overloaded
+Overloading of native targets is limited by the linkage model. A target without `::` (`%name`) has C linkage
+(`extern "C"`) — a C symbol has a single C++ name, so **overloading such a name is forbidden**
+(an explicit compile-time diagnostic instead of invalid C++). A target with `::` (`%lib::name`) is overloaded
 naturally: the analyzer selects the signature (for the result type and argument checking), and
 C++ selects the concrete overload from the same argument types — the symbol name is NOT mangled:
 
-```python
-%mylib::parse(x:Int32):Int32 := ...;    # C++ symbol (C++ linkage)
-%mylib::parse(x:StrChar):Int32 := ...;  # overload of the same C++ name
+```trust
+parse(x:Int32):Int32 := %mylib::parse...;    # C++ symbol (C++ linkage)
+parse(x:StrChar):Int32 := %mylib::parse...;  # overload of the same C++ name
 ```
 
 ### C++ names and signature identity {#signature-identity}

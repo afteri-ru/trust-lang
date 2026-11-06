@@ -1,5 +1,5 @@
 // Test file: Dict runtime type (universal heterogeneous dictionary with TypedValue).
-#include "trust/dict.hpp"
+#include "stdlib/core/builtin/dict.hpp"
 #include <cstdint>
 #include <format>
 #include <gtest/gtest.h>

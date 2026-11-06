@@ -1,0 +1,38 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/inheritance_access.o %s && test -f $TD/inheritance_access.o
+
+# Вариант наследования (public/protected/private) в списке баз record-типа.
+# Маркеры (аналог маркеров видимости области имён): public `::`, protected `_::`, private `__::`;
+# записываются как standalone-элементы списка баз (или макросами public/protected/private).
+# Маркер действует на ВСЕ последующие базы до нового маркера; дефолт record-типа (C++ struct) — public.
+
+\std();
+:A ::= :Class{ a:Int32 := _; };
+:B ::= :Class{ b:Int32 := _; };
+:C ::= :Class{ c:Int32 := _; };
+
+:D1 ::= :A{ };
+# CHECK: struct D1 : public A {
+
+:D2 ::= __::, :A{ };
+# CHECK: struct D2 : private A {
+
+:D3 ::= _::, :A{ };
+# CHECK: struct D3 : protected A {
+
+:D4 ::= ::, :A{ };
+# CHECK: struct D4 : public A {
+
+:D5 ::= :A, :B{ };
+# CHECK: struct D5 : public A, public B {
+
+:D6 ::= __::, :A, ::, :B{ };
+# CHECK: struct D6 : private A, public B {
+
+:D7 ::= private, :A, public, :B{ };
+# CHECK: struct D7 : private A, public B {
+
+:D8 ::= _::, :A, __::, :B, :C{ };
+# CHECK: struct D8 : protected A, private B, private C {
+
+@main(): Int32 := { @return 0; };

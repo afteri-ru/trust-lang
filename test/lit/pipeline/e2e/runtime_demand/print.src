@@ -8,6 +8,7 @@
 # `print` expands to trust__print__ (trust/io.hpp). The [[link.headers]] rule in
 # stdlib.trust maps trust/io.hpp -> trust-runtime, so exactly this program links it.
 
+\std();
 @main():Int32 := {
     print("ok\n");
     return 0;

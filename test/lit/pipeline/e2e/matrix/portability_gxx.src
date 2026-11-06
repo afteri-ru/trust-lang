@@ -1,0 +1,25 @@
+# REQUIRES: with-gxx
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD/build --compiler=%cxx_gcc -o $TD/build/prog %s && $TD/build/prog | %FileCheck %s --check-prefix=OUT
+# RUN: objcopy --dump-section .debug_trust_map=$TD/map.bin $TD/build/prog && cmp -n "$(wc -c < $TD/build/portability_gxx.src_map)" $TD/build/portability_gxx.src_map $TD/map.bin
+# RUN: %trust -q --temp-dir $TD/werror --compiler=%cxx_gcc --options "-Werror" -o $TD/werror/prog %s && $TD/werror/prog | %FileCheck %s --check-prefix=OUT
+#
+# R47 (целевая матрица): ВТОРОЙ компилятор (g++, стандарт — из целевого контракта) собирает,
+# линкует и исполняет сгенерированный артефакт без расширений Clang. Карта исходников
+# встраивается байтовым массивом, а не директивой `#embed` — иначе g++ не соберёт `.cppt`.
+# Третья строка доказывает, что карта ЧИТАЕТСЯ из артефакта: содержимое ELF-секции
+# `.debug_trust_map` побайтно равно сохранённому `.src_map` (читатель — `utils::readElfSection`,
+# `SourceMapReader::fromElf`).
+# Ось отключается ТОЛЬКО явно (`-DTRUST_SECOND_CXX=none`), см. test/lit/lit.cfg.py.in.
+# OUT: gxx-matrix-ok
+
+\std();
+@[export("run")@]
+run():Void := {
+    print("gxx-matrix-ok");
+};
+{% int portability_gxx__main__() {
+    run();
+    return 0;
+}
+%}

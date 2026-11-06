@@ -1,8 +1,6 @@
-// include/ast/ast_nodes.hpp
 // Специализированные AST-узлы: Literal, Sequence, ScopeBlock, ModuleNode, Binary,
 // CallExpr, JumpStmt, ControlFlowStmt/IfStmt/WhileStmt/DoWhileStmt, MatchStmt,
 // ArgNode, Decl/VarDecl/FuncDecl, LabelRef, SemicolonStmt, ContextMacro.
-//
 // Иерархия (полная - см. ast/MEMORY.md «Полная иерархия»; здесь - главные ветви):
 //   AstNodeBase (token_base.hpp) - kind + MapperRange (provenance); Term НЕ хранится.
 //     └-- AstNodeAttr - +attrs; текст у базовых узлов ОТСУТСТВУЕТ.
@@ -34,9 +32,7 @@
 //           │     ├-- WhileStmt
 //           │     └-- DoWhileStmt
 //           └-- AstNodeAttr (leaf-kind'ы: Program|VarRef|...)
-//
 // Поля узлов - AstNodePtr; списки узлов - std::vector<AstNodePtr>.
-//
 // Конструкторы с TermPtr - основной путь создания (из терминов синтаксического дерева).
 // Конструкторы без Term (test-only) существуют для unit-тестов; text() есть ТОЛЬКО у классов,
 // наследующих WithText (HasText): у прочих узлов метода text() нет (compile-time), а обобщённый
@@ -69,11 +65,9 @@
 
 namespace trust {
 
-// ============================================================================
 // AstNodeBase::is<T>() / as<T>() - типизированный доступ к узлу БЕЗ RTTI (R1).
 // Определены здесь: для std::is_base_of_v нужны ПОЛНЫЕ определения всех классов AST;
 // отображение kind->класс - из PARSER_TOKEN_KINDS (token.hpp).
-// ============================================================================
 
 template <class T>
 bool AstNodeBase::is() const noexcept {

@@ -7,11 +7,11 @@
 #   @{ post --> expr @}  - постусловие
 #   @{ check --> expr @} - утверждение
 
-%add(x:Int):Int @{ pre --> x > 0 @} @{ post --> r >= 0 @} := { r := x + 1; };
+add(x:Int):Int @{ pre --> x > 0 @} @{ post --> r >= 0 @} := { r := x + 1; };
 y @{ check --> y > 0 @} := 42;
 @{ check --> data != null @};
 
-# CHECK: FuncDecl '%add'
+# CHECK: ModuleDecl 'conds'
 # CHECK: trust:{{.*}}TrustContract kind=pre
 # CHECK: trust:{{.*}}TrustContract kind=post
 # CHECK: VarDecl 'y'

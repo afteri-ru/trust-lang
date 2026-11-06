@@ -4,16 +4,23 @@
 // (transpile_lsp_test.cpp / transpile_lsp_mapping_test.cpp).
 #include "session/context.hpp"
 #include "types/type_system.hpp"
+#include "target/target.hpp"
 #include "ast/term_to_ast.hpp"
 #include "semantic/core/pass_runner.hpp"
 #include "ir/hir_module.hpp"
 #include "syntax/parser.h"
 #include "syntax/term/term.h"
 #include "transpiler/transpiler.hpp"
+#include "support/codegen_services_test_util.hpp"
 #include "pipeline/pipeline.hpp"
 #include "pipeline/sourcemap/source_map.hpp"
 #include "sourcemap/mapper.hpp"
 #include "syntax/macro.h"
+#include "support/cpp_facts_test_util.hpp"
+#include "transpiler/builtin_string_impl_test_util.hpp"
+#include "transpiler/builtin_rational_impl_test_util.hpp"
+#include "transpiler/builtin_dict_impl_test_util.hpp"
+#include "transpiler/builtin_container_impl_test_util.hpp"
 
 #include <gtest/gtest.h>
 
@@ -30,7 +37,15 @@ namespace trust {
 // Helper: transpile test source directly (Parser -> AST -> semantic -> C++), returns output idx
 // Note: Parser::ParseText registers the text under the given source name
 // (see Parser::ParseText: m_ctx.source().add_source(sourceName, text)).
-inline void transpileForTest(Context& ctx, std::string_view trustCode, MapperFile* outCppIdx = nullptr) {
+inline void transpileForTest(TypeSystem& registry, Context& ctx, std::string_view trustCode, MapperFile* outCppIdx = nullptr) {
+    // Реализация StrChar/StrWide (в реальной сборке — из stdlib/builtin/string.src); юнит-тесты
+    // транслируют без prelude, поэтому сеют ту же реализацию напрямую.
+    test::seedIntrinsicCppFacts(ctx.target(), ctx.readTypes());
+    seedStringRuntimeImpl(ctx);
+    seedRationalRuntimeImpl(ctx);
+    seedDictRuntimeImpl(ctx);
+    seedArrayRuntimeImpl(ctx);
+    seedRangeRuntimeImpl(ctx);
     // 1. Parse with legacy parser (registers "input" source file)
     trust::Parser parser(ctx);
     trust::TermPtr term = parser.ParseText(trustCode);
@@ -41,17 +56,23 @@ inline void transpileForTest(Context& ctx, std::string_view trustCode, MapperFil
     ASSERT_FALSE(ast_nodes.empty());
 
     // 3. Semantic analysis
-    SemanticPassRunner runner(ctx);
+    SemanticPassRunner runner(ctx, registry);
     runner.run(ast_nodes);
 
     // 4. HIR: производная форма (клон AST + lowering) — структурный вход кодогенерации.
-    //    Исходная AST остаётся неизменённой.
-    HirModule hir = buildHir(ast_nodes, ctx);
+    //    Исходная AST остаётся неизменённой. Семантика могла сбросить TypeSystem (reset() чистит
+    //    per-instance определения BuiltinRegistry), поэтому перед HIR реализацию пере-сеем.
+    seedStringRuntimeImpl(ctx);
+    seedRationalRuntimeImpl(ctx);
+    seedDictRuntimeImpl(ctx);
+    seedArrayRuntimeImpl(ctx);
+    seedRangeRuntimeImpl(ctx);
+    HirModule hir = buildHir(ast_nodes, ctx, registry);
 
     // 5. Generate C++
     MapperFile cppIdx = ctx.source().add_output("test.cpp", true);
     ASSERT_FALSE(cppIdx.isInvalid());
-    CppTranspiler transpiler(ctx);
+    CppTranspiler transpiler(codegenServices(ctx));
     transpiler.generateToFile(hir, cppIdx);
 
     if (outCppIdx) {
@@ -72,19 +93,21 @@ inline void saveAndCheckDisk(Context& ctx, MapperFile cppIdx, const std::string&
     ASSERT_TRUE(fs::create_directories(dir));
 
     fs::path cpptPath = dir / (testName + ".cppt");
-    ASSERT_TRUE(trust::saveCppAndEmbedSourceMap(ctx, cppIdx, cpptPath, /*verbose=*/false));
+    ASSERT_TRUE(trust::saveCppAndEmbedSourceMap(ctx.runServices(), cppIdx, cpptPath, /*verbose=*/false));
 
     ASSERT_TRUE(fs::exists(cpptPath)) << "missing .cppt: " << cpptPath;
     fs::path mapPath = cpptPath;
     mapPath.replace_extension(".src_map");
     ASSERT_TRUE(fs::exists(mapPath)) << "missing .src_map: " << mapPath;
 
-    // .cppt содержит сгенерированный код и #embed-секцию source map
+    // .cppt содержит сгенерированный код и встроенную карту (байтовый массив в ELF-секции).
+    // Директива `#embed` запрещена: артефакт обязан собираться любым компилятором C++23 (R47).
     std::ifstream cppIfs(cpptPath);
     std::string cpp((std::istreambuf_iterator<char>(cppIfs)), std::istreambuf_iterator<char>());
     EXPECT_FALSE(cpp.empty());
-    EXPECT_NE(cpp.find("#embed"), std::string::npos) << cpp;
+    EXPECT_EQ(cpp.find("#embed"), std::string::npos) << cpp;
     EXPECT_NE(cpp.find("__debug_trust_source_map"), std::string::npos) << cpp;
+    EXPECT_NE(cpp.find("section(\".debug_trust_map\")"), std::string::npos) << cpp;
 
     // .src_map валиден и содержит range-маппинги (mapStart/mapStop).
     // Макро-раскрытие может регистрировать несколько одноимённых источников
@@ -96,7 +119,7 @@ inline void saveAndCheckDisk(Context& ctx, MapperFile cppIdx, const std::string&
     ASSERT_NE(reader, nullptr);
     size_t mappingCount = 0;
     for (uint32_t i = 0; i < reader->input_count(); ++i) {
-        mappingCount += reader->getTrustFileMappings(ReaderFile::make_input(i)).size();
+        mappingCount += reader->trustFileMappings(ReaderFile::make_input(i)).size();
     }
     EXPECT_GE(mappingCount, 1u);
 }

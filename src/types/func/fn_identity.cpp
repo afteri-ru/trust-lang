@@ -1,4 +1,3 @@
-// src/types/fn_identity.cpp
 // FunctionIdentity: the single implementation of function-signature identity.
 #include "types/func/fn_identity.hpp"
 #include "types/registry/type_code_cache.hpp"
@@ -173,17 +172,17 @@ SlotLayoutTag FunctionIdentity::slotLayout(std::size_t paramCount, bool hasVaria
 
 TypeKey FunctionIdentity::internKey(TypeId returnType, std::span<const TypeId> paramTypes, TypeId variadicType, TypeId paramPackType, uint8_t paramPackPosition,
                                     bool hasTrust) const {
-    std::vector<TypeId> children;
+    std::vector<TypeKeyChild> children;
     children.reserve(1 + paramTypes.size() + (variadicType != INVALID_TYPE_ID ? 1 : 0) + (paramPackType != INVALID_TYPE_ID ? 1 : 0));
-    children.push_back(getUnqualifiedType(returnType));
+    children.push_back(TypeKeyChild{getUnqualifiedType(returnType)});
     for (const TypeId param : paramTypes) {
-        children.push_back(getUnqualifiedType(param));
+        children.push_back(TypeKeyChild{getUnqualifiedType(param)});
     }
     if (variadicType != INVALID_TYPE_ID) {
-        children.push_back(getUnqualifiedType(variadicType));
+        children.push_back(TypeKeyChild{getUnqualifiedType(variadicType)});
     }
     if (paramPackType != INVALID_TYPE_ID) {
-        children.push_back(getUnqualifiedType(paramPackType));
+        children.push_back(TypeKeyChild{getUnqualifiedType(paramPackType)});
     }
 
     // The flat children list cannot distinguish "last fixed parameter" from "variadic slot"
@@ -195,7 +194,7 @@ TypeKey FunctionIdentity::internKey(TypeId returnType, std::span<const TypeId> p
     if (hasTrust) {
         kind = setTrustFlag(kind);
     }
-    return TypeKey{kind, std::move(children), {}, StructuralTag{layout}};
+    return TypeKey{kind, std::move(children), StructuralTag{layout}};
 }
 
 } // namespace trust

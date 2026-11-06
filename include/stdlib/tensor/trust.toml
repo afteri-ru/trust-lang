@@ -4,11 +4,17 @@
 # programs link only the plugin, never libtorch itself. Raw libtorch access, if ever
 # needed, belongs to a separate opt-in `torch` provider package.
 name = "tensor"
-description = "Tensor provider: stable trust/tensor.hpp handle over the tensor_cpu toolchain plugin"
+description = "Tensor provider: stable stdlib/tensor.hpp handle over the tensor_cpu toolchain plugin"
 
 # Trust-исходники пакета: tensor.src (source-dir/archive-dir по умолчанию ".")
 [[layout.layers]]
 patterns = ["*.src"]
+
+# Публичные C++-заголовки провайдера (tensor.hpp + tensor_backend.hpp): самодостаточный
+# value-тип без libtorch. В пакете — include/stdlib/tensor*.hpp; сборка добавляет -I<pkg>/include.
+[[layout.layers]]
+archive-dir = "include/stdlib"
+patterns = ["*.hpp"]
 
 # Link-контракт. `capabilities = ["with-torch"]` требует toolchain, собранный с
 # -DWITH_TORCH=ON; иначе использование пакета даёт диагностику до линковки.
@@ -18,8 +24,8 @@ kind = "toolchain"
 libs = ["tensor_cpu"]
 capabilities = ["with-torch"]
 
-# Потребность по заголовку: прямое включение `@trust/tensor.hpp` тоже обязано линковать
+# Потребность по заголовку: прямое включение `@stdlib/tensor.hpp` тоже обязано линковать
 # провайдер (страховка для ручного include; штатный путь - @[link] на определении Tensor).
 [[link.headers]]
-header = "trust/tensor.hpp"
+header = "stdlib/tensor.hpp"
 libs = ["tensor"]

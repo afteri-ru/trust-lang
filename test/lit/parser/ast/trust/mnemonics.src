@@ -7,11 +7,11 @@
 # Сырой маркер `@{ kind --> expr @}` обрабатывается лексером; мнемоники - макросы-обёртки
 # над универсальным trust_contract(kind, expr).
 
-%add(x:Int):Int trust_pre( x > 0 ) trust_post( r >= 0 ) := { r := x + 1; };
+add(x:Int):Int trust_pre( x > 0 ) trust_post( r >= 0 ) := { r := x + 1; };
 y trust_assert( y > 0 ) := 42;
 trust_assert( data != null );
 
-# CHECK: FuncDecl '%add'
+# CHECK: ModuleDecl 'mnemonics'
 # CHECK: trust:{{.*}}TrustContract kind=pre
 # CHECK: trust:{{.*}}TrustContract kind=post
 # CHECK: VarDecl 'y'

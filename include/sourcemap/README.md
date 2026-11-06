@@ -29,5 +29,7 @@ Writer-сторона разложена по TU: `output_buffer.cpp`, `writer_f
 - **Source-маппинг:** конвертация offset <-> line:column (LRU-кеш поверх `SparseCache`),
   msgpack-сериализация, нормализация путей.
 - **`OutputBuffer`:** prepend-буфер выходного файла (группировка по namespace, подавление дублей).
-- **`protocol.hpp`:** header-only конверсии `severityToLsp`/`mapperRangeToProtocol`.
+- **`protocol.hpp`:** header-only конверсии `severityToLsp`/`mapperRangeToProtocol`. LSP
+  `publishDiagnostics` для range использует `diag::diagnosticLocation` (единый декодер); `protocol.hpp`
+  остаётся единой точкой severity/протокольных конверсий (LSP/DAP).
 - **Чтение:** `SourceMapReader::fromElf()` из embedded ELF-секции `.debug_trust_map`; внешние файлы не используются.

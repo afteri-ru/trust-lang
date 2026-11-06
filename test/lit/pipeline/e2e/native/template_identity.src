@@ -12,5 +12,5 @@
 f(p: Pair<Int32, Int32>):Int32 := { @return 0; };
 f(t: StdTuple<Int32, Int32>):Int32 := { @return 1; };
 
-# CHECK: std::pair<int32_t, int32_t>
-# CHECK: std::tuple<int32_t, int32_t>
+# CHECK: Pair<int32_t, int32_t>
+# CHECK: StdTuple<int32_t, int32_t>

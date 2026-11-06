@@ -1,6 +1,5 @@
 #pragma once
 
-// include/verify/model/diag.hpp
 // Флаги компонента verify (единый источник данных для них). Владелец `--verify` — `verify`:
 // гейт доказательств не является ни severity-диагностикой `solver`, ни режимом кодогена.
 // TRUST_FLAG_SET генерирует trust::verify::FlagKind + ADL-доступы flagName/flagHelp/flagCategory.

@@ -1,9 +1,7 @@
 #pragma once
 
-// include/ir/lowering.hpp
 // Lowering — ПРОХОД HIR над клоном AST: превращает «сахар» источника в структурную форму,
 // которую читает C++-бэкенд (SemicolonStmt, goto/метки, временные анализатора).
-//
 // AST остаётся деревом разбора и НЕ содержит lowering-логики: все операции живут в `hir`.
 // Понижение запускает `Pipeline` в HIR-фазе (`hir::buildHir` → `lowerBody`); семантика его
 // не выполняет.
@@ -19,6 +17,7 @@
 namespace trust {
 
 class Context;
+class TypeSystem;
 
 /// Префикс Locker-темпа `with`-захвата (`__cap_N`): тип trust::Locker не является языковым,
 /// поэтому транспилятор эмитит его через `auto`. Единый источник для lowering и эмиттера.
@@ -31,10 +30,12 @@ struct LowerCtx {
     /// Цели break/continue именованных блоков: единое правило с CFG-builder
     /// (pending continue потребляет первый цикл в теле блока).
     JumpTargetsT<std::string> jumpTargets;
-    /// Контекст анализа (AttrPool для пометки синтезированных временных readonly/const; TypeSystem
-    /// для типов bool-флагов). Устанавливает `Pipeline::lowerAndAnalyze` или `hir::buildHir`.
-    /// nullptr - нет контекста (синтез readonly/типов недоступен).
+    /// Контекст анализа (AttrPool для пометки синтезированных временных readonly/const).
+    /// Устанавливает `Pipeline::buildLoweredHir` (через `hir::buildHir`). nullptr - нет контекста.
     Context* ctx = nullptr;
+    /// WRITER-ссылка реестра типов (E1): lowering интернирует реф-типы временных. Передаётся явно
+    /// владельцем (`Pipeline`), а не берётся из `Context` (мутабельный реестр фасад не отдаёт).
+    TypeSystem* types = nullptr;
     /// Счётчики синтезируемых временных (уникальные имена): while-else / деструктуризация.
     /// Scrutinee-match создаёт СЕМАНТИКА (AnalysisState::matchTempCounter), а не lowering.
     int whileElseCounter = 0;

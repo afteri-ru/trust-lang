@@ -1,10 +1,10 @@
-// src/ast/convert/term_to_ast.cpp
 // Term->AST conversion driver: dispatch, attribute transfer, sequence flattening.
 
 #include "ast/term_to_ast.hpp"
 #include "ast/convert/term_to_ast_internal.hpp"
 #include "ast/ast_nodes.hpp"
 #include "attrs/attr_builtin.hpp"
+#include "attrs/attr_args.hpp"
 #include "ast/nodes/attr_parser.hpp"
 #include "syntax/check_area.hpp"
 #include "ast/ident_name.hpp"
@@ -12,6 +12,7 @@
 #include "ast/token_type.hpp"
 #include "syntax/term/term.h"
 #include "syntax/term/term_types.h"
+#include "ast/convert_services.hpp"
 #include "types/typekind.hpp"
 #include "utils/error.hpp"
 #include "utils/string_interner.hpp"
@@ -23,9 +24,7 @@
 
 namespace trust {
 
-// -- Диспетчер TermID-visitor (из TERMS) --
-
-AstNodePtr dispatchTerm(const trust::TermPtr& term, TermVisitor& visitor, Context& ctx) {
+AstNodePtr dispatchTerm(const trust::TermPtr& term, TermVisitor& visitor, ConvertServices& ctx) {
     switch (term->getTermID()) {
 #define TRUST_TD_NOCASE(name)
 #define TRUST_TD_GENCASE(name, kind) \
@@ -58,11 +57,9 @@ AstNodePtr dispatchTerm(const trust::TermPtr& term, TermVisitor& visitor, Contex
     }
 }
 
-// -- Вспомогательные функции (файловая область) --
-
 namespace detail {
 
-void convertAttrsToNode(const trust::TermPtr& term, AstNodePtr& node, Context& ctx) {
+void convertAttrsToNode(const trust::TermPtr& term, AstNodePtr& node, ConvertServices& ctx) {
     if (!node) {
         return;
     }
@@ -138,14 +135,114 @@ bool hasConvertibleChildren(const trust::TermPtr& term) {
     return false;
 }
 
+/// Экспорт нативного имени trust-сущности: `@[export("fib")]` / `@[export("ns::fib")]`.
+/// Единственный писатель целевого C++-имени для ЭКСПОРТА (`DeclCppFacts`, владелец реестра; R1);
+/// импорт пишут конструкторы объявлений из RHS-цели `:= %cpp ...`. Оба источника сразу — ошибка
+/// (один факт, один писатель).
+/// ABI — `cppLinkageOf(name)` в точке кодогена. Экспорт требует определения (тело / инициализатор).
+void applyExportBinding(const AstNodePtr& node, ConvertServices& ctx) {
+    if (!node) {
+        return;
+    }
+    AstNodeAttr* attrNode = node->as_attr();
+    if (attrNode == nullptr) {
+        return;
+    }
+    const AttrPool& pool = ctx.attrs();
+    const auto exportId = pool.lookup(attr::Export);
+    if (!exportId.has_value() || !attrNode->has_attr(*exportId)) {
+        return;
+    }
+    const ParserToken::Kind kind = node->kind();
+    const bool isFunction = kind == ParserToken::Kind::FuncDecl;
+    const bool isVariable = kind == ParserToken::Kind::VarDecl;
+    if (!isFunction && !isVariable) {
+        // Диагностика — только на самом объявлении. Вложенные узлы имени/типа могут нести тот же
+        // атрибут при разборе (`@[include]`/`@[export]` на терме-имени); они не являются
+        // объявлением и здесь пропускаются, иначе одна ошибка репортилась бы дважды.
+        if (kind == ParserToken::Kind::TypeDecl || kind == ParserToken::Kind::ClassDecl || kind == ParserToken::Kind::StructDecl ||
+            kind == ParserToken::Kind::DestructureDecl) {
+            ctx.diag().report(Severity::Error, node->range(),
+                              "native export is applicable only to a free function or variable; '{}' does not publish a C/C++ symbol",
+                              node->kind() == ParserToken::Kind::DestructureDecl ? "destructuring declaration" : "type declaration");
+        }
+        return;
+    }
+    const std::vector<std::string>* args = attrNode->attr_args(*exportId);
+    if (args == nullptr || args->empty() || args->at(0).empty()) {
+        // Пустой/отсутствующий аргумент не является маркером: экспорт обязан назвать C/C++-символ.
+        ctx.diag().report(Severity::Error, node->range(), "native export requires a non-empty C/C++ symbol name argument: '@[export(\"name\")]'");
+        return;
+    }
+    const std::string& name = args->at(0);
+    if (isFunction && static_cast<const FuncDecl&>(*node).isLambda()) {
+        ctx.diag().report(Severity::Error, node->range(), "native export is not applicable to a lambda: the exported C/C++ symbol must be a named free function");
+        return;
+    }
+    auto& decl = static_cast<Decl&>(*node);
+    if (decl.bindsNativeCpp()) {
+        ctx.diag().report(Severity::Error, node->range(),
+                          "native name is set twice: by the right-hand side ':= %name ...' and by '@[export(\"{}\")]'", name);
+        return;
+    }
+    const bool hasBody = isFunction ? static_cast<const FuncDecl&>(decl).hasBody()
+                                    : static_cast<const VarDecl&>(decl).initKind() == VarInitKind::Initialized;
+    if (!hasBody) {
+        ctx.diag().report(Severity::Error, node->range(),
+                          "native export '{}' requires a definition (function body / variable initializer)", name);
+        return;
+    }
+    if (isFunction && static_cast<const FuncDecl&>(decl).m_templateParams.has_value()) {
+        ctx.diag().report(Severity::Error, node->range(),
+                          "native export of a template declaration is not supported: the exported C/C++ symbol must be concrete");
+        return;
+    }
+    decl.m_pendingNativeCppName = name;
+    decl.m_bindsNativeCpp = true;
+}
+
+/// Объявления создают trust-идентификатор; `%` допустим только как маркер RHS-цели.
+void rejectNativeDeclaredName(const AstNodePtr& node, ConvertServices& ctx) {
+    if (!node) {
+        return;
+    }
+    // TypeDecl — Binary (не Decl): LHS-имя проверяется отдельно.
+    if (node->kind() == ParserToken::Kind::TypeDecl) {
+        const auto* binary = node->as<Binary>();
+        const AstNodeBase* left = binary != nullptr ? binary->m_left.get() : nullptr;
+        const HasText* leftText = left != nullptr ? left->as_text() : nullptr;
+        if (leftText != nullptr && !leftText->text().empty() && leftText->text().front() == '%') {
+            ctx.diag().report(Severity::Error, left->range(),
+                              "native name '{}' cannot be declared: a declaration creates a trust identifier only; declare the trust name on the left",
+                              leftText->text());
+        }
+        return;
+    }
+    const ParserToken::Kind k = node->kind();
+    if (k != ParserToken::Kind::FuncDecl && k != ParserToken::Kind::VarDecl && k != ParserToken::Kind::ClassDecl &&
+        k != ParserToken::Kind::StructDecl) {
+        return;
+    }
+    const auto& decl = static_cast<const Decl&>(*node);
+    const std::string name(decl.text());
+    if (name.empty() || name.front() != '%') {
+        return;
+    }
+    const char* hint = (k == ParserToken::Kind::ClassDecl || k == ParserToken::Kind::StructDecl)
+                           ? "declare the trust name on the left and the C++ name on the right: 'Name ::= %cpp { };'"
+                           : (k == ParserToken::Kind::VarDecl ? "write '<name>:Type := %cpp ...;' (native import)"
+                                                              : "write '<name>(...):T := %cpp ...;' (native import)");
+    ctx.diag().report(Severity::Error, node->range(),
+                      "native name '{}' cannot be declared: a declaration creates a trust identifier only; {}", name, hint);
+}
+
 } // namespace detail
 
-// -- TermVisitorDefault: генерируемые «типовые» visit-методы --
 // Каждый visit_<NAME> делегирует в convertForKind<Kind>: класс-селекция (Ident, control-flow)
 // либо generic по node_type_for_kind_t<Kind>. Раскладка детей - в терм-конструкторах узлов.
 
 template <ParserToken::Kind K>
-AstNodePtr TermVisitorDefault::convertForKind(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermVisitorDefault::convertForKind(const trust::TermPtr& term, ConvertServices& ctx) {
     if constexpr (K == ParserToken::Kind::NotApplicable) {
         // TermID с Kind=NotApplicable (например COMMA_LEXEME) НИКОГДА не должен доходить
         // до конвертации в AstNode. Если он сюда попал - это ошибка логики (в отличие от
@@ -164,6 +261,17 @@ AstNodePtr TermVisitorDefault::convertForKind(const trust::TermPtr& term, Contex
     } else if constexpr (K == ParserToken::Kind::Ident) {
         // Класс-селекция Ident→CallExpr vs IdentName: структурный предикат
         // «есть конвертируемые дети». Раскладка детей (callee/args) - в CallExpr-конструкторе.
+        // `%name` в ПОЗИЦИИ ВЫРАЖЕНИЯ - сырая нативная ссылка: запрещена. Нативное имя —
+        // свойство объявленной trust-сущности (RHS `:= %cpp ...` / `@[export("…")]`), ссылки идут
+        // по trust-именам. Объявление-источник имени проверяется отдельно
+        // (rejectNativeDeclaredName), сюда его терм не попадает.
+        if (!term->getText().empty() && term->getText().front() == '%') {
+            ctx.diag().report(Severity::Error, term->m_mapperRange,
+                              "native reference '{}' is not allowed: use the trust name of the declared entity "
+                              "(declare the native name on the entity: ':= %cpp ...' or '@[export(\"name\")]')",
+                              term->getText());
+            return nullptr;
+        }
         if (detail::hasConvertibleChildren(term)) {
             return std::make_shared<CallExpr>(ParserToken::Kind::CallExpr, term, &ctx);
         }
@@ -182,7 +290,7 @@ AstNodePtr TermVisitorDefault::convertForKind(const trust::TermPtr& term, Contex
         } else {
             // Охват операторного терма (Binary) вычисляется на лету в Binary::range() - Term не мутируется.
             auto node = std::make_shared<NT>(K, term, &ctx);
-            // Тип-ссылка `: \path::T`: индекс модуля переносится в узел-факт (маркер ссылки).
+            // moduleRef — внутренний факт (модуль-владелец имени), не синтаксис ссылки.
             if constexpr (std::is_base_of_v<IdentName, NT>) {
                 if (!term->m_moduleIndices.empty()) {
                     node->moduleRef = term->m_moduleIndices.front();
@@ -204,11 +312,11 @@ AstNodePtr TermVisitorDefault::convertForKind(const trust::TermPtr& term, Contex
 
 #define TRUST_TVD_DEF_NOCASE(name)
 #define TRUST_TVD_DEF_GENCASE(name, kind)                                                   \
-    AstNodePtr TermVisitorDefault::visit_##name(const trust::TermPtr& term, Context& ctx) { \
+    AstNodePtr TermVisitorDefault::visit_##name(const trust::TermPtr& term, ConvertServices& ctx) { \
         return this->convertForKind<ParserToken::Kind::kind>(term, ctx);                    \
     }
 #define TRUST_TVD_DEF_GENCASE3(name, kind, T)                                               \
-    AstNodePtr TermVisitorDefault::visit_##name(const trust::TermPtr& term, Context& ctx) { \
+    AstNodePtr TermVisitorDefault::visit_##name(const trust::TermPtr& term, ConvertServices& ctx) { \
         return this->convertForKind<ParserToken::Kind::kind>(term, ctx);                    \
     }
 #define TRUST_TVD_DEF_GET(_1, _2, _3, NAME, ...) NAME
@@ -221,8 +329,6 @@ TERMS(TRUST_TVD_DEF_CASE)
 #undef TRUST_TVD_DEF_GENCASE3
 #undef TRUST_TVD_DEF_GENCASE
 #undef TRUST_TVD_DEF_NOCASE
-
-// -- TermToAstConverter --
 
 AstNodePtr TermToAstConverter::convert(const trust::TermPtr& term) {
     if (!term || term->getTermID() == trust::TermID::END) {
@@ -367,6 +473,8 @@ AstNodePtr TermToAstConverter::convert(const trust::TermPtr& term) {
     }
 
     detail::convertAttrsToNode(term, node, m_ctx);
+    detail::applyExportBinding(node, m_ctx);
+    detail::rejectNativeDeclaredName(node, m_ctx);
     return node;
 }
 
@@ -375,7 +483,6 @@ void TermToAstConverter::convertSeq(const trust::TermPtr& term, std::vector<AstN
         return;
     }
 
-    // -- m_sequence (children stored in a vector, e.g. members of a block) --
     // SEQUENCE-терм - синтаксический контейнер операторов (`sequence` non-terminal) и doc-bundle,
     // НЕ пользовательский скоуп: рекурсивно разворачиваем, иначе вокруг тела блока/функции/дока
     // появляется лишний ScopeBlock-слой. Пользовательские скоупы - только BLOCK-термы.
@@ -385,7 +492,6 @@ void TermToAstConverter::convertSeq(const trust::TermPtr& term, std::vector<AstN
         }
     }
 
-    // -- m_args (named arguments, e.g. function call arguments) --
     if (term->m_args) {
         for (const auto& [name, argTerm] : *term->m_args) {
             (void)name; // Имя аргумента уже сохранено в ARGUMENT-обёртке (m_left)
@@ -399,7 +505,6 @@ void TermToAstConverter::convertSeq(const trust::TermPtr& term, std::vector<AstN
         }
     }
 
-    // -- m_left --
     // Для jump-термов (INT_PLUS/INT_MINUS/INT_BREAK/INT_CONTINUE) m_left всегда null: значение живёт
     // в m_right, label/namespace - в тексте терма (переносится в JumpStmt::m_label конструктором).
     // Поэтому спец-исключение не требуется - jump-терм обходится единообразно.
@@ -410,7 +515,6 @@ void TermToAstConverter::convertSeq(const trust::TermPtr& term, std::vector<AstN
         }
     }
 
-    // -- m_right (chained list) --
     if (term->m_right) {
         trust::TermPtr cur = term->m_right;
         while (cur && cur->getTermID() != trust::TermID::END) {
@@ -443,7 +547,7 @@ void TermToAstConverter::flattenInto(const trust::TermPtr& term, std::vector<Ast
     }
 }
 
-std::vector<AstNodePtr> TermToAstConverter::termToAst(const trust::TermPtr& term, Context& ctx) {
+std::vector<AstNodePtr> TermToAstConverter::termToAst(const trust::TermPtr& term, ConvertServices& ctx) {
     // Тексты AST интернируются в пул компиляции (Context), а не в процессный interner.
     StringInternerScope stringsScope(ctx.strings());
     std::vector<AstNodePtr> result;
@@ -457,11 +561,9 @@ std::vector<AstNodePtr> TermToAstConverter::termToAst(const trust::TermPtr& term
     return result;
 }
 
-// -- Спец-термы --
-
 // Элементы литерала словаря/кортежа из канонических пар (name, term) грамматики `args`:
 // нормализуются к ЕДИНОЙ форме Binary(AssignOp) (left=Ident-метка или пустой, right=значение).
-void appendDictElementsFromArgs(Context& ctx, const trust::TermPtr& term, DictLiteralNode& node) {
+void appendDictElementsFromArgs(ConvertServices& ctx, const trust::TermPtr& term, DictLiteralNode& node) {
     if (!term || !term->m_args) {
         return;
     }
@@ -534,7 +636,7 @@ bool isAllTupleTypeArgs(const trust::TermPtr& term) {
 // `"fmt"(args)` / `'fmt'(args)` - строка как формат-строка (правило `string: strtype call`,
 // parser.y): аргументы цепляются к строковому терму. Строим CallExpr(callee=Literal),
 // чтобы транспилятор мог эмитить `std::format(fmt, args...)`. Без аргументов обычный литерал.
-AstNodePtr buildStringFormatCall(ParserToken::Kind litKind, const trust::TermPtr& term, Context& ctx) {
+AstNodePtr buildStringFormatCall(ParserToken::Kind litKind, const trust::TermPtr& term, ConvertServices& ctx) {
     auto call = std::make_shared<CallExpr>(ParserToken::Kind::CallExpr, std::make_shared<Literal>(litKind, term));
     if (term->m_args && !term->m_args->empty()) {
         call->m_args.emplace();
@@ -548,20 +650,19 @@ AstNodePtr buildStringFormatCall(ParserToken::Kind litKind, const trust::TermPtr
     return call;
 }
 
-// -- Свободные хелперы конвертации (см. term_to_ast.hpp) --
 // Устраняют дублирование `TermToAstConverter conv{ctx}; ...` в терм-конструкторах узлов.
 
-AstNodePtr convertChild(Context& ctx, const trust::TermPtr& term) {
+AstNodePtr convertChild(ConvertServices& ctx, const trust::TermPtr& term) {
     TermToAstConverter conv{ctx};
     return conv.convert(term);
 }
 
-void convertChildren(Context& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out) {
+void convertChildren(ConvertServices& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out) {
     TermToAstConverter conv{ctx};
     conv.convertSeq(term, out);
 }
 
-void convertModuleBody(Context& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out) {
+void convertModuleBody(ConvertServices& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out) {
     if (!term) {
         return;
     }
@@ -580,15 +681,15 @@ void convertModuleBody(Context& ctx, const trust::TermPtr& term, std::vector<Ast
 // конвертируется как ScopeBlock; эти три вида - как try/catch-блок. Синтетических веток НЕ добавляем:
 // при отсутствии явных catch кодогенерация берёт тип по TryKind (Plus→IntPlus, Minus→IntMinus,
 // Any→IntAny) как пустой catch-перехват (swallow). {*} (try/catch/else из макросов) - visit_BLOCK_TRY.
-AstNodePtr TermToAstConverter::visit_BLOCK_PLUS(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_BLOCK_PLUS(const trust::TermPtr& term, ConvertServices& ctx) {
     return std::make_shared<TryCatchStmt>(ParserToken::Kind::TryCatchStmt, term, &ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_BLOCK_MINUS(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_BLOCK_MINUS(const trust::TermPtr& term, ConvertServices& ctx) {
     return std::make_shared<TryCatchStmt>(ParserToken::Kind::TryCatchStmt, term, &ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_BLOCK_TRY(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_BLOCK_TRY(const trust::TermPtr& term, ConvertServices& ctx) {
     return std::make_shared<TryCatchStmt>(ParserToken::Kind::TryCatchStmt, term, &ctx);
 }
 

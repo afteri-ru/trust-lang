@@ -3,11 +3,12 @@
 # Статический индекс после spread-merge: `d []= ... (a=100, b=200, c=300,)` увеличивает
 # размер с 3 до 6, поэтому `d.3` (первый элемент литерала) статически допустим.
 
+\std();
 @main() := {
     d := (1, two=2, name="3",);
     d []= ... (a=100, b=200, c=300,);
-    # CHECK: c_d.extend(trust::Dict
+    # CHECK: d.extend(trust::Dict
     print("idx3={}\n", d.3);
-    # CHECK: c_d.at(3).getAs<int8_t>()
+    # CHECK: d.at(3).getAs<int8_t>()
     @return 0;
 }

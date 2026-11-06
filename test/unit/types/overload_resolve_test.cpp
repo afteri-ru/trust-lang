@@ -30,7 +30,7 @@ class OverloadResolveFixture : public ::testing::Test {
 };
 
 TEST_F(OverloadResolveFixture, VariadicExactBeatsNonVariadicConversion) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId any = reg.read().getType(type_generic::Any);
@@ -43,7 +43,7 @@ TEST_F(OverloadResolveFixture, VariadicExactBeatsNonVariadicConversion) {
 }
 
 TEST_F(OverloadResolveFixture, NonVariadicWinsOnlyOnEqualRank) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId any = reg.read().getType(type_generic::Any);
     const TypeId variadic = reg.interner().getOrCreateFunctionType(i32, {i32}, any);
@@ -57,7 +57,7 @@ TEST_F(OverloadResolveFixture, NonVariadicWinsOnlyOnEqualRank) {
 TEST_F(OverloadResolveFixture, AnyParameterMatchesAnyArgumentExactly) {
     // `:Any` — КОНКРЕТНЫЙ тип: `Any -> Any` — exact, а `Any -> Int32` нежизнеспособен
     // (у std::any нет неявной конверсии в другой тип).
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId any = reg.read().getType(type_generic::Any);
     const TypeId sigAny = sig({any}, i32);
@@ -70,7 +70,7 @@ TEST_F(OverloadResolveFixture, AnyParameterMatchesAnyArgumentExactly) {
 }
 
 TEST_F(OverloadResolveFixture, AnyArgumentIsNotConvertibleToConcreteParameter) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId any = reg.read().getType(type_generic::Any);
     const TypeId signature = sig({i32}, i32);
@@ -84,7 +84,7 @@ TEST_F(OverloadResolveFixture, AnyArgumentIsNotConvertibleToConcreteParameter) {
 TEST_F(OverloadResolveFixture, InvalidArgumentStaysViable) {
     // Неизвестный тип аргумента (ошибка уже выдана выше) не должен давать каскад:
     // кандидат остаётся жизнеспособным с низшим рангом.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId signature = sig({i32}, i32);
     const std::vector<OverloadCandidate> candidates{candidate(signature, {INVALID_TYPE_ID})};
@@ -96,7 +96,7 @@ TEST_F(OverloadResolveFixture, InvalidArgumentStaysViable) {
 TEST_F(OverloadResolveFixture, AnyDoesNotMatchStructuredParameter) {
     // `:Any` — конкретный тип, а `Array<T>` — структурный: аргумент Any не подходит по форме
     // (NotMatch).
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId any = reg.read().getType(type_generic::Any);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
@@ -110,7 +110,7 @@ TEST_F(OverloadResolveFixture, AnyDoesNotMatchStructuredParameter) {
 
 TEST_F(OverloadResolveFixture, BareTemplateParamFromAnyIsDeduced) {
     // `:Any` — известный конкретный тип, поэтому `T := Any` допустим (C++-модель вывода).
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId any = reg.read().getType(type_generic::Any);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
@@ -132,14 +132,14 @@ TEST_F(OverloadResolveFixture, BareTemplateParamFromAnyIsDeduced) {
 TEST_F(OverloadResolveFixture, NonFunctionCandidateIsAnInternalError) {
     // Кандидат обязан быть функциональным типом: молчаливый пропуск маскировал бы
     // внутреннюю ошибку под пользовательское «no matching overload».
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const std::vector<OverloadCandidate> candidates{candidate(i32, {i32})};
     EXPECT_THROW(resolveCall({reg.read(), reg.interner()}, candidates), std::runtime_error);
 }
 
 TEST_F(OverloadResolveFixture, GenericDeductionProducesEffectiveSignature) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId generic = reg.interner().getOrCreateFunctionType(t, {t});
@@ -157,7 +157,7 @@ TEST_F(OverloadResolveFixture, GenericDeductionProducesEffectiveSignature) {
 }
 
 TEST_F(OverloadResolveFixture, NonGenericPreferredOverTemplate) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId generic = reg.interner().getOrCreateFunctionType(t, {t});
@@ -169,7 +169,7 @@ TEST_F(OverloadResolveFixture, NonGenericPreferredOverTemplate) {
 }
 
 TEST_F(OverloadResolveFixture, BoundDefaultsAllowTailOmission) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId two = sig({i32, i32}, i32);
     const std::vector<OverloadCandidate> candidates{candidate(two, {i32}, /*templateAware=*/false, /*allowDefaults=*/true, 1)};
@@ -180,7 +180,7 @@ TEST_F(OverloadResolveFixture, BoundDefaultsAllowTailOmission) {
 }
 
 TEST_F(OverloadResolveFixture, TypePackIsExpandedInEffectiveSignature) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId str = reg.read().getType(type::StrChar);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
@@ -196,7 +196,7 @@ TEST_F(OverloadResolveFixture, TypePackIsExpandedInEffectiveSignature) {
 }
 
 TEST_F(OverloadResolveFixture, NoMatchOnWrongArity) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId two = sig({i32, i32}, i32);
     const std::vector<OverloadCandidate> candidates{candidate(two, {i32})};
@@ -206,7 +206,7 @@ TEST_F(OverloadResolveFixture, NoMatchOnWrongArity) {
 }
 
 TEST_F(OverloadResolveFixture, UserAliasIsConversionNotExactRank) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId alias = reg.registrar().registerType("MyInt", i32);
     ASSERT_NE(alias, INVALID_TYPE_ID);
@@ -223,7 +223,7 @@ TEST_F(OverloadResolveFixture, UserAliasIsConversionNotExactRank) {
 }
 
 TEST_F(OverloadResolveFixture, PackCandidateRequiresTemplateAware) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId pack = reg.interner().getOrCreateFunctionType(i32, {}, INVALID_TYPE_ID, false, t, 1);
@@ -234,7 +234,7 @@ TEST_F(OverloadResolveFixture, PackCandidateRequiresTemplateAware) {
 }
 
 TEST_F(OverloadResolveFixture, PackInReturnPositionIsReturnPackFailure) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId str = reg.read().getType(type::StrChar);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
@@ -250,7 +250,7 @@ TEST_F(OverloadResolveFixture, PackInReturnPositionIsReturnPackFailure) {
 TEST_F(OverloadResolveFixture, IncomparableGenericAndNonGenericIsAmbiguous) {
     // C++ [over.match.best]: a non-template is preferred only when its conversion sequences are
     // not worse. Here the generic is exact on arg 0 and the concrete one on arg 1 -> ambiguous.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i8 = reg.read().getType(type::Int8);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
@@ -278,7 +278,7 @@ TEST_F(OverloadResolveFixture, RankVectorsOfDifferentLengthAreRejected) {
 TEST_F(OverloadResolveFixture, FixedArityBeatsPackAtEqualRank) {
     // C++ partial ordering: при равных последовательностях конверсий `f(T)` специфичнее
     // `f(T...)` (pack - не-фиксированный слот).
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId pack = reg.interner().getOrCreateFunctionType(i32, {}, INVALID_TYPE_ID, false, t, 1);
@@ -293,7 +293,7 @@ TEST_F(OverloadResolveFixture, FixedArityBeatsPackAtEqualRank) {
 TEST_F(OverloadResolveFixture, PackExactBeatsFixedWorseConversion) {
     // Штраф за не-фиксированный слот применяется ТОЛЬКО при полном равенстве рангов:
     // exact pack обязан выигрывать у fixed с худшей конверсией.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
@@ -309,7 +309,7 @@ TEST_F(OverloadResolveFixture, PackExactBeatsFixedWorseConversion) {
 TEST_F(OverloadResolveFixture, MixedPackAndMismatchedConcreteReportsNoMatch) {
     // A concrete candidate was actually considered and rejected (arity): the accurate diagnosis is
     // NoMatch, not PackWithoutTemplate.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId pack = reg.interner().getOrCreateFunctionType(i32, {}, INVALID_TYPE_ID, false, t, 1);
@@ -323,7 +323,7 @@ TEST_F(OverloadResolveFixture, MixedPackAndMismatchedConcreteReportsNoMatch) {
 TEST_F(OverloadResolveFixture, MemberCandidateRanksImplicitObjectArgument) {
     // member и free формы ранжируются в ОДНОМ наборе: неявный object-параметр (`objectOwner`)
     // даёт ведущий слот, объявленные параметры выровнены с `argTypes[1..]`.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId memberSig = sig({i64}, i32);    // member: (o: Int64)
@@ -338,7 +338,7 @@ TEST_F(OverloadResolveFixture, MemberCandidateRanksImplicitObjectArgument) {
 }
 
 TEST_F(OverloadResolveFixture, MemberCandidateArityIncludesImplicitObject) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId memberSig = sig({i32}, i32); // один объявленный параметр
     const std::vector<OverloadCandidate> withObject{OverloadCandidate{memberSig, {i32, i32}, 0, false, false, i32}};
@@ -352,7 +352,7 @@ TEST_F(OverloadResolveFixture, MemberCandidateArityIncludesImplicitObject) {
 
 TEST_F(OverloadResolveFixture, MemberCandidatesWithEqualRanksAreAmbiguous) {
     // Две несравнимые перегрузки одной (member) формы - амбигуа ранжирования.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId u64 = reg.read().getType(type::UInt64);
@@ -366,18 +366,18 @@ TEST_F(OverloadResolveFixture, MemberCandidatesWithEqualRanksAreAmbiguous) {
 TEST_F(OverloadResolveFixture, SelectCallCandidateIsReadOnly) {
     // DoD-тест: read-only селектор БЕЗ StructuralInterner и БЕЗ интернирования — число
     // пользовательских дескрипторов не растёт за время `selectCallCandidate`.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
-    const TypeId genericSig = sig({t}, i32);      // f(x: T) -> Int32
-    const TypeId concreteSig = sig({i32}, i32);   // f(x: Int32) -> Int32
+    const TypeId genericSig = sig({t}, i32);    // f(x: T) -> Int32
+    const TypeId concreteSig = sig({i32}, i32); // f(x: Int32) -> Int32
     const std::vector<OverloadCandidate> candidates{
         candidate(genericSig, {i32}, /*templateAware=*/true),
         candidate(concreteSig, {i32}),
     };
-    const std::size_t before = reg.read().store().userDescriptors().size();
+    const std::size_t before = reg.read().store().userTypeCount();
     const OverloadResolution sel = selectCallCandidate(reg.read(), candidates);
-    const std::size_t after = reg.read().store().userDescriptors().size();
+    const std::size_t after = reg.read().store().userTypeCount();
     EXPECT_EQ(after, before) << "selectCallCandidate must be read-only (no interning)";
     ASSERT_NE(sel.chosen, INVALID_TYPE_ID);
     // Выбор согласуется с полным конвейером resolveCall; инстанцирование effectiveSig —
@@ -391,18 +391,18 @@ TEST_F(OverloadResolveFixture, SelectCallCandidateIsReadOnly) {
 TEST_F(OverloadResolveFixture, SelectCompositeTemplateWithoutInterning) {
     // Составная шаблонная позиция (`Array<T>`): успешная унификация уже гарантирует точное
     // равенство подставленного типа аргументу -> ранг exact, интернирования на этапе выбора нет.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId arrT = reg.interner().getOrCreateArrayType(t);
     const TypeId arrI32 = reg.interner().getOrCreateArrayType(i32);
-    const TypeId genericSig = sig({arrT}, i32);   // f(xs: Array<T>) -> Int32
+    const TypeId genericSig = sig({arrT}, i32); // f(xs: Array<T>) -> Int32
     const std::vector<OverloadCandidate> candidates{
         candidate(genericSig, {arrI32}, /*templateAware=*/true),
     };
-    const std::size_t before = reg.read().store().userDescriptors().size();
+    const std::size_t before = reg.read().store().userTypeCount();
     const OverloadResolution sel = selectCallCandidate(reg.read(), candidates);
-    EXPECT_EQ(reg.read().store().userDescriptors().size(), before);
+    EXPECT_EQ(reg.read().store().userTypeCount(), before);
     ASSERT_NE(sel.chosen, INVALID_TYPE_ID);
     EXPECT_EQ(sel.chosen, genericSig);
     // Эффективная сигнатура строится отдельным шагом (resolveCall).

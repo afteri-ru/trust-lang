@@ -9,7 +9,7 @@
 # G4: зависимости ТРАНЗИТИВНЫ (заголовок модуля подключает заголовки своих импортов):
 # правило для `lib` (прямой импорт `deep`) содержит и `deep.src`, и заголовки модулей,
 # иначе изменение интерфейса глубокого модуля даёт stale build.
-# CHECK: {{.*}}lib.hpp:{{.*}}deep.hpp{{.*}}deep.src{{.*}}lib.src
+# CHECK: {{.*}}lib.hppt:{{.*}}deep.hppt{{.*}}deep.src{{.*}}lib.src
 # CHECK: {{.*}}lib-{{[0-9a-f]+}}.cppt:{{.*}}deep.src{{.*}}lib.src
 # CHECK: {{.*}}main.cppt:{{.*}}deep.src{{.*}}lib.src{{.*}}main.src
 

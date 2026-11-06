@@ -184,9 +184,10 @@ TEST(TextModelTest, EmptyTextIsNotInterned) {
     EXPECT_FALSE(pool.owns(""));
 }
 
-// (S5) Вне компиляции (нет активного scope) ручные узлы интернируются в процессный пул.
-TEST(TextModelTest, ManualNodesUseProcessInternerWithoutScope) {
+// (S5) Вне компиляции ручные узлы интернируются в процессный пул по явному ManualInternerScope.
+TEST(TextModelTest, ManualNodesUseProcessInternerUnderManualScope) {
     ASSERT_EQ(detail::activeInternerSlot(), nullptr) << "test must run without an active compilation pool";
+    ManualInternerScope manualScope;
     const std::string_view text = "manual_fallback_unique_name";
     Literal node(ParserToken::Kind::StrChar, std::string(text));
 

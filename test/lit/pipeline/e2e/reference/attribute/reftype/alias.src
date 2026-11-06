@@ -7,10 +7,11 @@
 # CHECK: u=7
 # CHECK: i=3
 
-# Вид ссылки над АЛИАСОМ: C++-имя pointee - «как написан» (MyInt → c_MyInt, Integer → int64_t),
+# Вид ссылки над АЛИАСОМ: C++-имя pointee - «как написан» (MyInt → MyInt, Integer → int64_t),
 # а НЕ канонический тип; обёртка trust::Shared/Weak/Unique сохраняется (иначе терялся ref).
-# До исправления: `shared<MyInt>` давал невалидный C++ (`c_s c_s(...)`, `.lock()` на не-обёртке).
+# До исправления: `shared<MyInt>` давал невалидный C++ (`s s(...)`, `.lock()` на не-обёртке).
 
+\std();
 MyInt ::= :Int32;
 
 @main():Int32 := {

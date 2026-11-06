@@ -2,15 +2,16 @@
 
 # Правила вывода сигилов имён + возврат кортежа + линковка:
 #  - bare `fib` в вызове резолвится в нативную функцию `%fib` → C++-имя `fib`;
-#  - `$n` резолвится в параметр `n` → C++ `c_n`;
+#  - `$n` резолвится в параметр `n` → C++ `n`;
 #  - определение функции (с телом) НЕ получает `extern "C"` (C-линковка - только forward).
 
-%fib(n:Rational):Tuple(sum:Rational, fib:Rational) := {
+\std();
+fib(n:Rational):Tuple(sum:Rational, fib:Rational) := {
     p := fib(n-1);
     @return (p.0 + p.1, p.sum,):Tuple;
 };
 
-%calc(n:Rational):Void := {
+calc(n:Rational):Void := {
     result := fib($n);
     x := result.0;
 };
@@ -18,9 +19,8 @@
 @main() := {
     calc(100);
 };
-# CHECK: std::tuple<trust::Rational, trust::Rational> fib(trust::Rational c_n) {
-# CHECK-NEXT:     std::tuple<trust::Rational, trust::Rational> c_p = fib((c_n - 1));
-# CHECK: void calc(trust::Rational c_n) {
-# CHECK-NEXT:     std::tuple<trust::Rational, trust::Rational> c_result = fib(c_n);
-# CHECK:     calc(100);
+# CHECK: std::tuple<trust::Rational, trust::Rational> fib_P13N8_3ARational_(trust::Rational n) {
+# CHECK: void calc_P13N8_3ARational_(trust::Rational n) {
+# CHECK-NEXT:     std::tuple<trust::Rational, trust::Rational> result = fib_P13N8_3ARational_(n);
+# CHECK:     calc_P13N8_3ARational_(100);
 # CHECK-NOT: extern "C"

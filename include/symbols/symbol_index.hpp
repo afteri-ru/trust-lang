@@ -1,10 +1,8 @@
 #pragma once
 
-// include/symbols/symbol_index.hpp
 // Результат сбора объявлений семантики для LSP-сервера: имя, разрешённый тип (TypeId),
 // имя типа, диапазоны имени и скоупа объявления. Собирается SymbolCollectorHook
 // (см. symbol_collector.hpp) в обходе NameResolutionPass.
-//
 // SymbolIndex — ПРОЕКЦИЯ объявлений для LSP. Владелец объявлений на время анализа —
 // SymbolTable; факты для бэкендов материализуются в полях узлов AST.
 
@@ -28,7 +26,7 @@ struct SymbolInfo {
     /// завершения квалифицированных имён (`ns::<TAB>`); view в пул строк компиляции.
     std::string_view namespacePath;
     TypeId type;            ///< Разрешённый тип (валиден: реестр живёт в CachedSource)
-    std::string typeName;   ///< Каноническое имя типа (TypeSystem::getTypeName)
+    std::string typeName;   ///< Каноническое имя типа (TypeSystem::typeNameOf)
     MapperRange nameRange;  ///< Диапазон ИМЕНИ в исходнике (go-to-definition / фильтр по позиции)
     MapperRange scopeRange; ///< Диапазон скоупа объявления (видимость локальных по позиции курсора)
     bool isMacro = false;   ///< true - имя макроса (добавляется отдельно, не из семантики)
@@ -37,7 +35,7 @@ struct SymbolInfo {
     std::vector<std::string> dictFields;
     /// Документирующий комментарий (`///`, `/** */`, `##`) перед объявлением (для hover/док).
     std::string_view documentation;
-    /// Модуль объявления (`nullopt` — вне модуля: прелюдия/stdlib DSL). Видимость в LSP
+    /// Модуль объявления (`nullopt` — вне модуля: stdlib DSL). Видимость в LSP
     /// оценивается per-site для объявлений и per-module для макросов (см. `isSymbolVisible`/
     /// `isMacroVisible`); один и тот же optional обслуживает оба правила — отдельного признака
     /// «глобальный макрос» не нужно.
@@ -74,16 +72,15 @@ struct ReExportedNameInfo {
 };
 
 /// Область поиска `... = X` (using), зарегистрированная в скоупе `scopeRange`
-/// (невалидный диапазон = уровень файла). `targetModule` задан для `... = \lib::ns`.
+/// (невалидный диапазон = уровень файла).
 struct UsingScopeInfo {
     ModuleIndex importer{};
-    std::optional<ModuleIndex> targetModule;
     std::string path;
     MapperRange scopeRange;
 };
 
-/// Namespace-алиас (`ns:: :- \lib::ns::;`): привязка префикса `alias` к области
-/// (`targetModule`, `path`), действующая в скоупе `scopeRange`.
+/// Namespace-алиас (`a :- ns::;`): привязка префикса `alias` к области (`targetModule`, `path`),
+/// действующая в скоупе `scopeRange`.
 struct NamespaceAliasInfo {
     ModuleIndex importer{};
     std::string alias;
@@ -93,7 +90,7 @@ struct NamespaceAliasInfo {
 };
 
 /// Видимость МАКРОСА в файле главного модуля: макросы не экспортируются, маски к ним не
-/// применяются. Определение вне модуля (прелюдия/stdlib DSL) видно везде, определение в модуле —
+/// применяются. Определение вне модуля (stdlib DSL) видно везде, определение в модуле —
 /// только этому модулю (макросы импортируемого модуля не наследуются).
 [[nodiscard]] inline bool isMacroVisible(const SymbolInfo& info, ModuleIndex mainModule) {
     return !info.module.has_value() || *info.module == mainModule;

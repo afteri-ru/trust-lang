@@ -2,14 +2,13 @@
 
 > scope: include/symbols/import
 > role: persistent-memory
-> last_reviewed: 2026-11-04
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 5000
 
 ## Architecture
 
 `ImportSiteRegistry` (сайты импорта: активный стек + журнал для LSP), `AliasRegistry`
-(namespace/module-алиасы).
+(namespace-алиасы и using-области).
 
 ## Facts and invariants
 
@@ -30,8 +29,8 @@
   по namespacePath выбранного объявления.
 - **⚠ Namespace-алиас — привязка ПРЕФИКСА:** цепей нет, чужая привязка того же `(owner,alias)` отвергается;
   резолв — САМЫЙ ДЛИННЫЙ префикс (`matchesAliasPrefix`), только для алиасов своего модуля; при выходе из
-  exported namespace переносится в корень квалифицированным. Экспортируемые алиасы фасада — факт
-  ЗАГРУЗЧИКА; `viaAlias` — доступ без прямого сайта.
+  exported namespace переносится в корень квалифицированным. `viaAlias` — доступ через явную привязку
+  (`using`) без прямого сайта импорта.
 
 ## Relations
 

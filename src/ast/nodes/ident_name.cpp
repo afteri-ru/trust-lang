@@ -1,4 +1,3 @@
-// src/ast/ident_name.cpp
 // Реализация IdentName - методы проверки, нормализации, манглинга идентификаторов.
 // Работа через text() (mixin HasText).
 
@@ -13,10 +12,6 @@
 #include <filesystem>
 
 namespace trust {
-
-// ----------------------------------------------
-// Правило имени: ЕДИНСТВЕННАЯ точка нормализации (создание name-node)
-// ----------------------------------------------
 
 namespace {
 
@@ -49,10 +44,6 @@ void assignNameFromRaw(AstNodeAttr& node, HasText& text, ParserToken::Kind kind,
     applyReadonlyFromCaret(node, raw, pool);
 }
 
-// ----------------------------------------------
-// Конструкторы: текст интернируется, range из Term (если он есть)
-// ----------------------------------------------
-
 IdentName::IdentName(std::string name, AttrPool* pool)
 : IdentName(ParserToken::Kind::Ident, std::string_view(name), pool) {
 }
@@ -78,10 +69,6 @@ IdentName::IdentName(ParserToken::Kind k, TermPtr term, std::string_view rawName
     EXPECT(term && "IdentName term-constructor requires a source Term");
     assignNameFromRaw(*this, *this, k, rawName, pool);
 }
-
-// ----------------------------------------------
-// Вспомогательные утилиты
-// ----------------------------------------------
 
 static bool isUnicodeLetter(char32_t c) {
     return (c >= 0x0041 && c <= 0x005A) || // A-Z
@@ -175,17 +162,9 @@ static bool isLowerLetter(char c) {
     return (c >= 'a' && c <= 'z');
 }
 
-// ----------------------------------------------
-// IdentName::dump
-// ----------------------------------------------
-
 std::string IdentName::dump(size_t indent) const {
     return detail::dumpQuotedName(kind(), text(), indent);
 }
-
-// ----------------------------------------------
-// Тип имени
-// ----------------------------------------------
 
 bool IdentName::is_simple() const noexcept {
     return !text().empty() && !is_qualified() && !is_special() && !is_internal();
@@ -195,7 +174,7 @@ bool IdentName::is_qualified() const noexcept {
     if (text().empty() || is_special()) {
         return false;
     }
-    return is_macro() || is_local() || is_static() || is_field() || is_module() || is_type() || is_native();
+    return is_macro() || is_local() || is_static() || is_field() || is_module() || is_type();
 }
 
 bool IdentName::is_special() const noexcept {
@@ -208,12 +187,8 @@ bool IdentName::is_internal() const noexcept {
     }
     std::string_view s = text();
     char last = s.back();
-    return last == '$' || last == ':' || last == '%';
+    return last == '$' || last == ':';
 }
-
-// ----------------------------------------------
-// Квалификаторные признаки
-// ----------------------------------------------
 
 bool IdentName::is_macro() const noexcept {
     return utils::isMacroName(text());
@@ -259,10 +234,6 @@ bool IdentName::is_type() const noexcept {
     return true;
 }
 
-bool IdentName::is_native() const noexcept {
-    return utils::isNativeName(text());
-}
-
 bool IdentName::is_absolute_module() const noexcept {
     std::string_view s = text();
     return s.size() >= 2 && s[0] == '\\' && s[1] == '\\';
@@ -271,10 +242,6 @@ bool IdentName::is_absolute_module() const noexcept {
 bool IdentName::is_relative_module() const noexcept {
     return is_module() && !is_absolute_module();
 }
-
-// ----------------------------------------------
-// Специальные имена
-// ----------------------------------------------
 
 bool IdentName::is_self() const noexcept {
     return text() == "$0";
@@ -308,10 +275,6 @@ bool IdentName::is_arg_ref() const noexcept {
     return true;
 }
 
-// ----------------------------------------------
-// Имя без квалификатора
-// ----------------------------------------------
-
 std::string_view IdentName::bareName() const noexcept {
     std::string_view s = text();
     if (s.empty()) {
@@ -341,10 +304,6 @@ std::string_view IdentName::bareName() const noexcept {
 
     return s.substr(start, end - start);
 }
-
-// ----------------------------------------------
-// Валидация
-// ----------------------------------------------
 
 bool IdentName::is_valid_simple_name(std::string_view s) noexcept {
     if (s.empty()) {
@@ -405,10 +364,6 @@ bool IdentName::is_valid_module_name(std::string_view s) noexcept {
     return true;
 }
 
-// ----------------------------------------------
-// Разбивка по ::
-// ----------------------------------------------
-
 std::vector<std::string_view> IdentName::parts() const {
     std::vector<std::string_view> result;
     std::string_view s = text();
@@ -443,101 +398,6 @@ std::vector<std::string_view> IdentName::parts() const {
 
     return result;
 }
-
-// ----------------------------------------------
-// Манглинг
-// ----------------------------------------------
-
-IdentName IdentName::mangle(std::string_view module_name) const {
-    std::string_view s = text();
-    std::string result;
-
-    if (module_name.empty()) {
-        result = "_$$_";
-    } else {
-        std::string_view mod = module_name;
-        if (!mod.empty() && mod.front() == '\\') {
-            mod.remove_prefix(1);
-        }
-        result.reserve(mod.size() + 5);
-        result.push_back('_');
-        result.push_back('$');
-        for (char c : mod) {
-            if (c == '\\') {
-                result.push_back('$');
-            } else {
-                result.push_back(c);
-            }
-        }
-        result.push_back('$');
-        result.push_back('_');
-    }
-
-    size_t i = 0;
-    while (i < s.size()) {
-        if (i + 2 < s.size() && s[i] == ':' && s[i + 1] == ':' && s[i + 2] == ':') {
-            result.append("$$$");
-            i += 3;
-        } else if (s[i] == ':') {
-            result.push_back('$');
-            i += 1;
-        } else if (s[i] == '\\') {
-            result.push_back('$');
-            i += 1;
-        } else {
-            result.push_back(s[i]);
-            i += 1;
-        }
-    }
-
-    return IdentName(std::move(result));
-}
-
-IdentName IdentName::demangle(std::string_view mangled) {
-    std::string_view src = mangled;
-
-    if (src.size() < 4 || src[0] != '_' || src[1] != '$') {
-        return IdentName(std::string(src));
-    }
-
-    size_t prefix_end = std::string_view::npos;
-    if (src.size() >= 4 && src[2] == '$' && src[3] == '_') {
-        prefix_end = 4;
-    } else {
-        size_t pos = src.rfind("$_");
-        if (pos != std::string_view::npos && pos >= 2 && pos + 2 <= src.size()) {
-            prefix_end = pos + 2;
-        }
-    }
-
-    if (prefix_end == std::string_view::npos) {
-        return IdentName(std::string(src));
-    }
-
-    std::string_view body = src.substr(prefix_end);
-
-    std::string result;
-    result.reserve(body.size());
-    size_t i = 0;
-    while (i < body.size()) {
-        if (i + 2 < body.size() && body[i] == '$' && body[i + 1] == '$' && body[i + 2] == '$') {
-            result.append(":::");
-            i += 3;
-        } else if (body[i] == '$') {
-            result.push_back(':');
-            i += 1;
-        } else {
-            result.push_back(body[i]);
-            i += 1;
-        }
-    }
-
-    return IdentName(std::move(result));
-}
-
-// ----------------------------------------------
-// Преобразование имени модуля в файловый путь
-// ----------------------------------------------
 
 std::filesystem::path IdentName::module_name_to_path(std::string_view module_name, const std::filesystem::path& base_dir,
                                                      const std::filesystem::path& sys_dir) {

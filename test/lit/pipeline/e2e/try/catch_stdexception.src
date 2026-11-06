@@ -7,16 +7,18 @@
 # Обобщённый catch(:StdException) ловит C++-исключение конверсии (std::stoll бросает
 # std::invalid_argument/out_of_range - НЕ прерывания trust), а не только IntAny/IntPlus/IntMinus.
 
+\std();
 @func parse_i64(s:StrChar):Int64 {
     try {
-        {% return (int64_t)std::stoll(c_s); %};
+        {% return (int64_t)std::stoll($s); %};
     } catch(:StdException) {
         return -1;
     };
     return -1;
 };
 
-%chk():Void := {
+@[export("chk")@]
+chk():Void := {
     $bad := parse_i64("not a number");
     $ok := parse_i64("123");
     print("bad={} ok={}", $bad, $ok);

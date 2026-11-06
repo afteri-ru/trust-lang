@@ -2,7 +2,7 @@
 // builtin/rational_openssl.hpp - example ALTERNATIVE implementation for built-in
 // Rational/BigInteger, implemented with OpenSSL BIGNUM (libcrypto). Delivered as
 // @stdlib/builtin/rational_openssl.hpp; the corresponding .src defines the built-in types
-// via `=` and links -lcrypto. The default implementation remains trust/rational.hpp.
+// via `=` and links -lcrypto. The default implementation remains stdlib/builtin/rational.hpp.
 
 #include <openssl/bn.h>
 #include <openssl/crypto.h>

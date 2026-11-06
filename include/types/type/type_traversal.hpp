@@ -1,18 +1,16 @@
 #pragma once
 
-// include/types/type/type_traversal.hpp
 // ЕДИНСТВЕННЫЙ исчерпывающий обход type-полей `TypeData` (std::visit).
-//
 // Единственный источник списка type-полей `TypeData`. `std::visit` делает обход исчерпывающим:
 // новый вариант `TypeData` НЕ КОМПИЛИРУЕТСЯ, пока для него не описаны type-поля (compile-time
 // exhaustiveness, без silent fallback). Потребитель — `collectTemplateParams`.
-//
 // Обходятся ТОЛЬКО поля, значение которых имеет тип TypeId (типы-дети). Не-типовые поля
 // (имена, размерности, shape, cppTemplate, флаги) в обход не входят - их сравнивают
 // потребители (structuralKeyTag/typeCode) по месту.
 
 #include "types/type_system.hpp"
 #include "types/type_id.hpp"
+#include "types/type/data_record_access.hpp"
 
 #include <type_traits>
 #include <variant>
@@ -113,16 +111,16 @@ void forEachTypeChild(const TypeData& data, F&& fn) {
             } else if constexpr (std::is_same_v<D, NativeClassTypeData>) {
                 // нет type-полей (C++-имя строкой)
             } else if constexpr (std::is_same_v<D, RecordTypeData>) {
-                if (d.templateOf != INVALID_TYPE_ID) {
+                if (RecordTypeAccess::templateOf(d) != INVALID_TYPE_ID) {
                     // Инстанциация: типовые аргументы (поля уже подставлены).
-                    for (const TypeId a : d.templateArgs) {
+                    for (const TypeId a : RecordTypeAccess::templateArgsOf(d)) {
                         if (a != INVALID_TYPE_ID) {
                             fn(a);
                         }
                     }
                 } else {
                     // Абстрактный/обычной record: поля могут содержать TemplateParam.
-                    for (const auto& f : d.fields) {
+                    for (const auto& f : RecordTypeAccess::fieldsOf(d)) {
                         if (f.type.getTypeId() != INVALID_TYPE_ID) {
                             fn(f.type.getTypeId());
                         }

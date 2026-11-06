@@ -1,4 +1,3 @@
-// src/types/registry/method_table.cpp
 // Зона методов типа: наборы сигнатур, алиасы имён, статические члены.
 #include "types/registry/method_table.hpp"
 
@@ -17,12 +16,11 @@ namespace trust {
 
 namespace {
 
-/// A member of an EXTERNAL C++ symbol: a native key (`%name`), a static member key
-/// (`ns::Class::name`) or a member of a native class/template. External C++ does not distinguish
-/// `using`, so such duplicates must be rejected by FFI identity (aliases expanded), not only by
-/// the nominal Trust identity.
-bool isNativeMember(const TypeDescriptor& desc, std::string_view key) {
-    if (utils::isNativeName(key) || utils::isStaticName(key)) {
+/// A member of an EXTERNAL C++ symbol: a static member key (`ns::Class::name`) or a member of a
+/// native class/template. External C++ does not distinguish `using`, so such duplicates must be
+/// rejected by FFI identity (aliases expanded), not only by the nominal Trust identity.
+bool isNativeMember(const TypeDescriptor& desc, const MethodKey& key, const MethodInfo& info) {
+    if (key.isStatic || info.isNative) {
         return true;
     }
     if (!desc.data.has_value()) {
@@ -33,74 +31,117 @@ bool isNativeMember(const TypeDescriptor& desc, std::string_view key) {
 
 } // namespace
 
-void MethodTable::addMethod(TypeId type, std::string_view name, TypeId funcType, std::vector<std::string_view> aliases, CallableParamInfo params,
-                            TemplateBinders binders) {
+void MethodTable::addMethod(TypeId type, std::string_view trustSpelling, TypeId funcType, std::vector<std::string_view> aliases, CallableParamInfo params,
+                            TemplateBinders binders, Visibility access, DeclId decl) {
+    EXPECT(trustSpelling.find('%') == std::string_view::npos && "addMethod: method name is trust-only ('%' is a binding, not a name)");
+    std::vector<MethodKey> aliasKeys;
+    aliasKeys.reserve(aliases.size());
+    for (std::string_view alias : aliases) {
+        EXPECT(alias.find('%') == std::string_view::npos && "addMethod: method alias is trust-only ('%' is a binding, not a name)");
+        aliasKeys.push_back(methodKeyFromSpelling(alias));
+    }
+    addMethodImpl(type, methodKeyFromSpelling(trustSpelling), false, funcType, std::move(aliasKeys), std::move(params), binders, access, decl);
+}
+
+void MethodTable::addMethod(TypeId type, MethodKey key, TypeId funcType, std::vector<MethodKey> aliases, CallableParamInfo params, TemplateBinders binders,
+                            Visibility access, DeclId decl) {
+    const TypeDescriptor* desc = m_store.descriptorOf(m_store.desugaredTypeId(type));
+    const bool isNative =
+        key.isStatic || (desc != nullptr && desc->data.has_value() &&
+                         (std::holds_alternative<NativeClassTypeData>(*desc->data) || std::holds_alternative<NativeTemplateTypeData>(*desc->data)));
+    addMethodImpl(type, std::move(key), isNative, funcType, std::move(aliases), std::move(params), binders, access, decl);
+}
+
+namespace {
+
+/// Тело регистрации метода в ДЕСКРИПТОРЕ (собственном дескрипторе пользовательского типа или в
+/// overlay встроенного): проверки формы ключа, добавление перегрузки и алиасов. ЕДИНАЯ точка для
+/// addMethodImpl и addBuiltinExtraMethod (без дублирования правил).
+void registerMethodIntoDescriptor(TypeDescriptor& desc, MethodKey key, bool isNative, TypeId funcType, std::vector<MethodKey> aliases, CallableParamInfo params,
+                                  TemplateBinders binders, const FunctionIdentity& identity, Visibility access, DeclId decl) {
     EXPECT(isUnqualifiedType(funcType) && "addMethod: function type id must not carry type-state flags");
-    const TypeId canonical = m_store.desugaredTypeId(type);
-    TypeDescriptor* desc = m_store.writableDescriptor(canonical);
-    EXPECT(desc != nullptr && "addMethod: unknown type (methods can only be added to user-defined types)");
-    // Полный ключ - как передан (нативность '%' и константность '^' кодируются в имени).
-    const std::string key(name);
-    EXPECT(!utils::bareName(key).empty() && "addMethod: empty method name");
-    const bool isConst = utils::isConstName(key);
-    // Инвариант «одна форма имени»: другой КЛЮЧ с тем же bare-именем и константностью
-    // недопустим (нативное '%c_str' и обычное 'c_str' - один метод, регистрируется ОДНОЙ формой).
-    // Перегрузки - в НАБОРЕ ТОГО ЖЕ ключа (см. ниже).
-    for (const auto& [k, sigs] : desc->methods) {
-        (void)sigs;
-        EXPECT((k == key || utils::bareName(k) != utils::bareName(key) || utils::isConstName(k) != isConst) &&
+    EXPECT(!key.name.empty() && "addMethod: empty method name");
+    EXPECT(key.name.find('%') == std::string::npos && "addMethod: method name is trust-only ('%' is a binding, not a name)");
+    EXPECT(key.isStatic == (key.name.find("::") != std::string::npos) && "addMethod: isStatic must match the qualified method name");
+    // Инвариант «одна форма имени»: другой КЛЮЧ с тем же именем и константностью недопустим
+    // (нативный и обычный член с одним именем — один метод, регистрируется ОДНОЙ формой).
+    for (const auto& [k, info] : desc.methods) {
+        (void)info;
+        EXPECT((k == key || k.name != key.name || k.isConst != key.isConst) &&
                "addMethod: method already registered on type (other name form, same name+constness)");
     }
-    // Набор сигнатур ключа: ПЕРЕГРУЗКИ добавляются; C++-идентичный дубль сигнатуры - EXPECT.
-    std::vector<CallableSignature>& overloads = desc->methods[key];
+    // Запись ключа: ПЕРЕГРУЗКИ добавляются; C++-идентичный дубль сигнатуры - EXPECT.
+    MethodInfo& info = desc.methods[key];
+    EXPECT((!info.overloads.empty() || !info.isNative) && "addMethod: native form set before registration");
+    EXPECT(info.overloads.empty() || info.isNative == isNative && "addMethod: native form differs from the registered entry");
+    info.isNative = isNative;
+    std::vector<CallableSignature>& overloads = info.overloads;
     const TypeId sig = getUnqualifiedType(funcType);
-    const FunctionIdentity& identity = m_identity;
     for (const CallableSignature& existing : overloads) {
         EXPECT(identity.compare(existing.signature, binders, sig, binders, IdentityScope::kOverload) != SignatureRelation::kEquivalent &&
                "addMethod: method already registered on type (duplicate C++ signature)");
         // Нативный метод: внешний C++ не различает `using`-алиасы -> нужна FFI-идентичность.
-        if (isNativeMember(*desc, key)) {
+        if (isNativeMember(desc, key, info)) {
             EXPECT(identity.compare(existing.signature, binders, sig, binders, IdentityScope::kInterop) != SignatureRelation::kEquivalent &&
                    "addMethod: native method signatures are indistinguishable in C++ (aliases)");
         }
     }
-    // C++-имя метода - identity-суффикс его объявления (та же формула, что у свободных функций).
-    overloads.push_back(CallableSignature{sig, std::move(params), identity.cppSuffix(sig, binders)});
-    // Алиасы: новые доверенные имена этого метода. Обязаны полностью повторять семантику цели
-    // (нативность и константность совпадают) и не конфликтовать с существующими именами.
-    for (const auto& aliasName : aliases) {
-        EXPECT(utils::isNativeName(aliasName) == utils::isNativeName(key) && "addMethod: alias and target must be both native or both non-native");
-        EXPECT(utils::isConstName(aliasName) == isConst && "addMethod: alias and target must be both const or both non-const");
-        const std::string bare = utils::bareName(aliasName);
-        for (const auto& [k, ft] : desc->methods) {
-            (void)ft;
-            EXPECT(utils::bareName(k) != bare && "addMethod: alias conflicts with an existing method");
+    // Целевой C++-суффикс метода НЕ хранится здесь: его владелец — контракт `target`
+    // (`DeclCppFacts` по `DeclId`), сюда пишется только ключ-идентичность объявления (R1).
+    overloads.push_back(CallableSignature{sig, std::move(params), decl, access});
+    // Алиасы: новые доверенные имена этого метода. Обязаны повторять семантику цели
+    // (static/const совпадают; нативность — свойство записи, не ключа) и не конфликтовать.
+    for (const MethodKey& aliasKey : aliases) {
+        EXPECT(aliasKey.isStatic == key.isStatic && "addMethod: alias and target must be both static or both non-static");
+        EXPECT(aliasKey.isConst == key.isConst && "addMethod: alias and target must be both const or both non-const");
+        EXPECT(!aliasKey.name.empty() && "addMethod: empty method alias");
+        for (const auto& [k, entry] : desc.methods) {
+            (void)entry;
+            EXPECT(k.name != aliasKey.name && "addMethod: alias conflicts with an existing method");
         }
-        EXPECT(!desc->methodAliases.count(bare) && "addMethod: alias already registered");
-        desc->methodAliases[bare] = key;
+        EXPECT(!desc.methodAliases.count(aliasKey.name) && "addMethod: alias already registered");
+        desc.methodAliases[aliasKey.name] = key;
     }
 }
 
-bool MethodTable::hasOwnMethodSignature(TypeId type, std::string_view name, TypeId signature, TemplateBinders binders) const {
+} // namespace
+
+void MethodTable::addMethodImpl(TypeId type, MethodKey key, bool isNative, TypeId funcType, std::vector<MethodKey> aliases, CallableParamInfo params,
+                                TemplateBinders binders, Visibility access, DeclId decl) {
     const TypeId canonical = m_store.desugaredTypeId(type);
-    const TypeDescriptor* desc = m_store.descriptorOf(canonical);
-    if (!desc) {
-        return false;
-    }
-    const std::string bare = utils::bareName(name);
-    const bool wantConst = utils::isConstName(name);
-    const TypeId sig = getUnqualifiedType(signature);
-    const FunctionIdentity& identity = m_identity;
-    for (const auto& [key, sigs] : desc->methods) {
-        if (utils::bareName(key) != bare || utils::isConstName(key) != wantConst) {
+    TypeDescriptor* desc = m_store.writableDescriptor(canonical);
+    EXPECT(desc != nullptr && "addMethod: unknown type (methods can only be added to user-defined types)");
+    registerMethodIntoDescriptor(*desc, std::move(key), isNative, funcType, std::move(aliases), std::move(params), binders, m_identity, access, decl);
+}
+
+void MethodTable::addBuiltinExtraMethod(TypeId type, MethodKey key, TypeId funcType, CallableParamInfo params) {
+    // Дескрипторы встроенных типов живут в ИММУТАБЕЛЬНОМ ядре (BuiltinTypeCore): методы ШИРЕ
+    // ядрового интерфейса (объявленные в `=`-реализации модуля) складываются в per-instance overlay.
+    const TypeId canonical = m_store.desugaredTypeId(type);
+    EXPECT(m_store.isBuiltinType(canonical) && "addBuiltinExtraMethod: methods beyond the core interface are only allowed on built-in types");
+    TypeDescriptor& desc = m_builtinExtras[canonical];
+    registerMethodIntoDescriptor(desc, std::move(key), /*isNative=*/false, funcType, /*aliases=*/{}, std::move(params), /*binders=*/{}, m_identity,
+                                 /*access=*/Visibility::Public, /*decl=*/{});
+}
+
+void MethodTable::clearBuiltinExtraMethods() noexcept {
+    m_builtinExtras.clear();
+}
+
+namespace {
+
+bool descriptorHasMethodSignature(const TypeDescriptor& desc, const MethodKey& key, TypeId sig, TemplateBinders binders, const FunctionIdentity& identity) {
+    for (const auto& [storedKey, info] : desc.methods) {
+        if (storedKey.name != key.name || storedKey.isConst != key.isConst) {
             continue;
         }
-        for (const CallableSignature& s : sigs) {
+        for (const CallableSignature& s : info.overloads) {
             if (identity.compare(s.signature, binders, sig, binders, IdentityScope::kOverload) == SignatureRelation::kEquivalent) {
                 return true;
             }
             // Native member: also indistinguishable in C++ through alias-expanded signatures.
-            if (isNativeMember(*desc, key) && identity.compare(s.signature, binders, sig, binders, IdentityScope::kInterop) == SignatureRelation::kEquivalent) {
+            if (isNativeMember(desc, storedKey, info) &&
+                identity.compare(s.signature, binders, sig, binders, IdentityScope::kInterop) == SignatureRelation::kEquivalent) {
                 return true;
             }
         }
@@ -108,19 +149,54 @@ bool MethodTable::hasOwnMethodSignature(TypeId type, std::string_view name, Type
     return false;
 }
 
-bool MethodTable::hasOwnMemberName(TypeId type, std::string_view name) const {
-    const TypeId canonical = m_store.desugaredTypeId(type);
-    const TypeDescriptor* desc = m_store.descriptorOf(canonical);
-    if (!desc) {
-        return false;
-    }
-    const std::string bare = utils::bareName(name);
-    const bool wantConst = utils::isConstName(name);
-    for (const auto& [key, sigs] : desc->methods) {
-        (void)sigs;
-        if (utils::bareName(key) == bare && utils::isConstName(key) == wantConst) {
+bool descriptorHasMemberName(const TypeDescriptor& desc, const MethodKey& key) {
+    for (const auto& [storedKey, info] : desc.methods) {
+        (void)info;
+        if (storedKey.name == key.name && storedKey.isConst == key.isConst) {
             return true;
         }
+    }
+    return false;
+}
+
+} // namespace
+
+bool MethodTable::hasOwnMethodSignature(TypeId type, std::string_view trustSpelling, TypeId signature, TemplateBinders binders) const {
+    return hasOwnMethodSignature(type, methodKeyFromSpelling(trustSpelling), signature, binders);
+}
+
+bool MethodTable::hasOwnMethodSignature(TypeId type, MethodKey key, TypeId signature, TemplateBinders binders) const {
+    const TypeId canonical = m_store.desugaredTypeId(type);
+    const TypeDescriptor* desc = m_store.descriptorOf(canonical);
+    if (desc == nullptr) {
+        return false;
+    }
+    const TypeId sig = getUnqualifiedType(signature);
+    if (descriptorHasMethodSignature(*desc, key, sig, binders, m_identity)) {
+        return true;
+    }
+    // Методы ШИРЕ ядрового интерфейса встроенного типа живут в per-instance overlay.
+    if (const auto it = m_builtinExtras.find(canonical); it != m_builtinExtras.end()) {
+        return descriptorHasMethodSignature(it->second, key, sig, binders, m_identity);
+    }
+    return false;
+}
+
+bool MethodTable::hasOwnMemberName(TypeId type, std::string_view trustSpelling) const {
+    return hasOwnMemberName(type, methodKeyFromSpelling(trustSpelling));
+}
+
+bool MethodTable::hasOwnMemberName(TypeId type, MethodKey key) const {
+    const TypeId canonical = m_store.desugaredTypeId(type);
+    const TypeDescriptor* desc = m_store.descriptorOf(canonical);
+    if (desc == nullptr) {
+        return false;
+    }
+    if (descriptorHasMemberName(*desc, key)) {
+        return true;
+    }
+    if (const auto it = m_builtinExtras.find(canonical); it != m_builtinExtras.end()) {
+        return descriptorHasMemberName(it->second, key);
     }
     return false;
 }
@@ -131,16 +207,16 @@ std::vector<TypeId> MethodTable::findStaticMethod(TypeId type, std::string_view 
     if (!desc) {
         return {};
     }
-    // Статический член: ключ содержит '::' (вид `ns::Class::name`), имя члена - последний сегмент.
-    for (const auto& [k, sigs] : desc->methods) {
-        if (!utils::isStaticName(k)) {
+    // Статический член: ключ несёт полное `ns::Class::name`, имя члена - последний сегмент.
+    for (const auto& [k, info] : desc->methods) {
+        if (!k.isStatic) {
             continue;
         }
-        const std::string_view last = utils::shortNameOf(k);
+        const std::string_view last = utils::shortNameOf(k.name);
         if (last == name) {
             std::vector<TypeId> out;
-            out.reserve(sigs.size());
-            for (const CallableSignature& entry : sigs) {
+            out.reserve(info.overloads.size());
+            for (const CallableSignature& entry : info.overloads) {
                 out.push_back(entry.signature);
             }
             return out;

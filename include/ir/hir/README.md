@@ -4,7 +4,8 @@
 
 Один структурный вход для бэкендов и flow-анализов: `HirModule` (`ir/hir_module.hpp`) владеет
 деревом узлов, построенным клоном AST + lowering (`buildHir(astNodes, ctx)`). Строится в
-`Pipeline` (`lowerAndAnalyze`: buildHir → `verifyHir` → DA/borrow) после семантики; `SemanticPassRunner`
+`Pipeline` (LowerHir-фаза `buildLoweredHir`: buildHir → `verifyHir`; flow-анализы — по MIR) после
+семантики; `SemanticPassRunner`
 выполняет только семантику. Internal-подкаталог расположен НИЖЕ `semantic`/`transpiler` и зависит от `ast`
 (узлы, `cloneTree`) и `session` (`Context`); lowering (`LowerCtx`, `lowerBody`) принадлежит
 этому internal-подкаталогу (`ir/lowering.hpp`, `src/ir/hir/lowering.cpp`), а не AST.

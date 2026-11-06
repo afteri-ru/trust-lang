@@ -1,0 +1,25 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Нарушение C++-доступа: private/protected член недоступен извне владельца; private — и из
+# наследника (protected из наследника допустим, см. codegen/type/record/member_access_derived.src).
+
+\std();
+:T ::= :Class{ __::;
+    v:Int32 := 1;
+};
+:U ::= :Class{ _::;
+    w:Int32 := _;
+};
+:Base ::= :Class{ __::;
+    priv():Int32 := { @return 1; };
+};
+:Der ::= :Base{ call(o:Der):Int32 := { return o.priv(); }; };
+@main():Int32 := {
+    t:T := T();
+    u:U := U();
+    d:Der := Der();
+    @return t.v + u.w + d.call(d);
+};
+# CHECK: error: member 'priv' of 'Base' is private
+# CHECK: error: member 'v' of 'T' is private
+# CHECK: error: member 'w' of 'U' is protected

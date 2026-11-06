@@ -136,7 +136,7 @@ TEST_F(ModuleLoaderTest, SiteProjectionIsSharedPerMasks) {
 
     const auto first = loader.siteProjection(*dep, utils::ImportMasks::parse("f,g"));
     const auto second = loader.siteProjection(*dep, utils::ImportMasks::parse("f,g"));
-    ASSERT_TRUE(first && first->exports && first->namespaceAliases);
+    ASSERT_TRUE(first && first->exports);
     // Один и тот же объект проекции на (модуль, маски): копий нет.
     EXPECT_EQ(first.get(), second.get());
     EXPECT_EQ(first->exports->size(), 2u);
@@ -347,7 +347,7 @@ TEST_F(ModuleLoaderTest, EnsureLoadedFromTrustPackage) {
     }
     {
         std::ofstream ofs(pkg_dir / "mod.src");
-        ofs << "\\\\\\mod\\mod;\nfunc() := {};\n";
+        ofs << "\\mod;\nfunc() := {};\n";
     }
     ASSERT_EQ(createTrustPackage(pkg_dir, m_dir / "mod.trust"), 0);
 
@@ -643,15 +643,15 @@ TEST_F(ModuleLoaderTest, PackageRelativeImportPreservesPackageName) {
     }
     {
         std::ofstream ofs(pkg_dir / "a.src");
-        ofs << "\\\\\\pkg\\a;\n\\b(fa);\n\\\\grp\\c(fc);\na():Int32 := { fa() };\n";
+        ofs << "\\a;\n\\b(fa);\n\\\\grp\\c(fc);\na():Int32 := { fa() };\n";
     }
     {
         std::ofstream ofs(pkg_dir / "b.src");
-        ofs << "\\\\\\pkg\\b;\nfa():Int32 := { 1 };\n";
+        ofs << "\\b;\nfa():Int32 := { 1 };\n";
     }
     {
         std::ofstream ofs(pkg_dir / "grp" / "c.src");
-        ofs << "\\\\\\pkg\\grp\\c;\nfc():Int32 := { 2 };\n";
+        ofs << "\\\\grp\\c;\nfc():Int32 := { 2 };\n";
     }
     ASSERT_EQ(createTrustPackage(pkg_dir, m_dir / "pkg.trust"), 0);
 
@@ -670,24 +670,6 @@ TEST_F(ModuleLoaderTest, PackageRelativeImportPreservesPackageName) {
     ASSERT_TRUE(groupDep.has_value());
     EXPECT_TRUE(loader.isLoaded(*groupDep));
     EXPECT_EQ(loader.moduleLogicalName(*groupDep), "\\\\\\pkg\\grp\\c");
-}
-
-TEST_F(ModuleLoaderTest, ModuleAliasIsScopedToOwnerModule) {
-    Context ctx;
-    ModuleLoader loader(ctx);
-    ctx.setModuleResolver(&loader);
-
-    MapperFile libSrc = ctx.source().add_source("\\lib", "\\lib;");
-    MapperFile depSrc = ctx.source().add_source("\\dep", "\\dep;");
-    MapperFile dep2Src = ctx.source().add_source("\\dep2", "\\dep2;");
-    const ModuleIndex lib = loader.parseSourceModule("\\lib", libSrc);
-    const ModuleIndex dep = loader.parseSourceModule("\\dep", depSrc);
-    const ModuleIndex dep2 = loader.parseSourceModule("\\dep2", dep2Src);
-
-    EXPECT_TRUE(loader.registerModuleAlias("\\m", dep, lib));
-    EXPECT_TRUE(loader.registerModuleAlias("\\m", dep, lib));   // идемпотентно
-    EXPECT_FALSE(loader.registerModuleAlias("\\m", dep2, lib)); // другой target у того же владельца
-    EXPECT_TRUE(loader.registerModuleAlias("\\m", dep2, dep));  // тот же spelling у другого владельца
 }
 
 } // namespace

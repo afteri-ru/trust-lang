@@ -1,9 +1,10 @@
-// include/package/manifest.hpp
 // Модель и I/O манифеста пакета trust (`trust.toml`): разбор, валидация
 // обязательных полей (name/version) и запись. Формат - TOML (библиотека toml++).
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -65,6 +66,9 @@ struct PackageManifest {
     std::string_view version() const;
     /// Корень для заголовков/путей пакетных файлов (`module-root`, по умолчанию ".").
     std::string_view moduleRoot() const;
+    /// Версия ABI-контракта рантайма, под которую собран пакет (`[build].runtime-abi`);
+    /// отсутствует у пакета-каталога без таблицы `[build]`.
+    std::optional<std::uint32_t> runtimeAbiVersion() const;
     /// Раскладка пакета из таблицы `[[layout.layers]]` (пусто — пакет = всё дерево каталога).
     std::vector<PackageLayer> layers() const;
     /// Нативные артефакты пакета из массива `[[artifact]]`.

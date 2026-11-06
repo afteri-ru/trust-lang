@@ -1,9 +1,8 @@
-// tensor.cpp - implementation of the tensor_cpu backend (C ABI over libtorch).
-//
+// Implementation of the tensor_cpu backend (C ABI over libtorch).
 // Compiled only when WITH_TORCH is enabled (target `tensor_cpu`). Generated programs link
-// `libtensor_cpu` and call the C ABI declared in trust/tensor_backend.hpp; libtorch stays
+// `libtensor_cpu` and call the C ABI declared in stdlib/tensor_backend.hpp; libtorch stays
 // an implementation detail of this plugin.
-#include "runtime/trust/tensor.hpp"
+#include "stdlib/tensor/tensor.hpp"
 
 #include <torch/torch.h>
 

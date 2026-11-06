@@ -1,4 +1,3 @@
-// src/semantic/typer/ref_typer.cpp
 // Типизация ссылочных выражений (`ExprTyper` делегирует этот класс семейств).
 #include "semantic/typer/ref_typer.hpp"
 #include "semantic/core/name_resolution.hpp"
@@ -23,13 +22,13 @@ void RefTyper::typeRefExpr(AstNodeBase* node) {
             return;
         }
         const AstNodeBase* operand = ref.m_body[0].get();
-        TypeSystem& treg = m_actx.ctx().types();
+        TypeSystem& treg = m_actx.registry();
         const QualType opState = m_actx.facts().exprState(*operand);
         const TypeId opType = opState.getTypeId();
         if (opType == INVALID_TYPE_ID) {
             return;
         }
-        const RefType rt = getRefType(getTypeKind(opType));
+        const RefType rt = typeRefOf(opType);
         if (rt == RefType::kShared) {
             const QualType pointee = treg.read().store().getPointeeType(opState);
             if (pointee.isValid()) {
@@ -44,7 +43,7 @@ void RefTyper::typeRefExpr(AstNodeBase* node) {
                                        "cannot take a reference to a monopolistic 'unique' owner; use move/swap (':=:' / '@move') instead");
         } else {
             m_actx.ctx().diag().report(Severity::Error, node->range(), "operator '&' (address-of/borrow) requires a reference variable (shared), got '{}'",
-                                       treg.read().printer().getTypeName(opType));
+                                       treg.read().printer().typeNameOf(opType));
         }
         return;
     }
@@ -59,7 +58,7 @@ void RefTyper::typeRefExpr(AstNodeBase* node) {
             return;
         }
         const AstNodeBase* operand = ref.m_body[0].get();
-        TypeSystem& treg = m_actx.ctx().types();
+        TypeSystem& treg = m_actx.registry();
         const QualType opState = m_actx.facts().exprState(*operand);
         const TypeId opType = opState.getTypeId();
         if (opType == INVALID_TYPE_ID) {
@@ -83,12 +82,12 @@ void RefTyper::typeRefExpr(AstNodeBase* node) {
                 ref.resolvedOperatorSignature = resolved->signature;
                 ref.resolvedOperatorIsMember = resolved->member;
             }
-            ref.resolvedOperatorModule = resolved->module;
+            ref.resolvedOperatorIsFree = resolved->module.isValid();
             ref.resolvedOperatorNamespace = resolved->namespacePath;
             m_actx.facts().setExprState(node, QualType::fromTypeId(resolved->returnType).withoutInferred());
             return;
         }
-        const RefType rt = getRefType(getTypeKind(opType));
+        const RefType rt = typeRefOf(opType);
         if (rt == RefType::kShared || rt == RefType::kWeak || rt == RefType::kUnique || rt == RefType::kPtr) {
             ref.m_opRefKind = rt; // для прочих потребителей (borrow-checker)
             // Lowering доступа решает АНАЛИЗАТОР (кодоген — буквальный перевод по m_lowering).
@@ -107,7 +106,7 @@ void RefTyper::typeRefExpr(AstNodeBase* node) {
             }
         } else {
             m_actx.ctx().diag().report(Severity::Error, node->range(), "operator '*' (dereference) requires a reference (shared/weak/unique/ptr), got '{}'",
-                                       treg.read().printer().getTypeName(opType));
+                                       treg.read().printer().typeNameOf(opType));
         }
         // -Wnative-ref: разименование нативной (сырой) ссылки/указателя (`*` - общий оператор
         // для всех видов, но для нативных выводится диагностика о его использовании).

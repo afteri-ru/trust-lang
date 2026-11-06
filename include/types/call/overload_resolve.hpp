@@ -1,18 +1,15 @@
 #pragma once
 
-// include/types/call/overload_resolve.hpp
 // Разрешение ПЕРЕГРУЗКИ: выбор сигнатуры из НАБОРА по типам аргументов.
 // ЕДИНЫЙ путь для всех вызовов (функции/методы/операторы): OverloadCandidate + resolveCall.
 // Имя с одной сигнатурой - вырожденный случай того же алгоритма (набор из 1), а НЕ отдельный
 // fallback-API.
-//
 // Ранжирование (C++-модель):
 //   exact (каноническое C++-равенство) > numeric promotion > numeric conversion > int->float >
 //   Any-подобный параметр/аргумент (низший приоритет). Нежизнеспособные кандидаты (нечисловое
 //   несовпадение, AP -> машинный) отбрасываются. Лучший - покомпонентно не хуже остальных и хотя
 //   бы по одному аргументу строго лучше; при равенстве конверсий не-вариадик предпочтительнее
 //   вариадика (C++), несколько несравнимых лучших - ambiguous.
-//
 // C++-ИДЕНТИЧНОСТЬ сигнатуры (дубли/суффикс/exact) - ЕДИНСТВЕННАЯ реализация:
 // types/fn_identity.hpp (FunctionIdentity). Локальных канонизаторов здесь нет.
 
@@ -76,7 +73,7 @@ inline int overloadConversionRank(const TypeReadModel& reg, TypeId from, TypeId 
     // Неизвестный тип аргумента (ошибка уже диагностирована выше) не должен превращаться в
     // каскад: он остаётся жизнеспособным с низшим рангом. Нетипизированный параметр (`INVALID`
     // в сигнатуре) кодоген трактует как `:Any`, поэтому он также принимает всё.
-    if (from == INVALID_TYPE_ID || to == INVALID_TYPE_ID) {
+    if (from == INVALID_TYPE_ID || to == INVALID_TYPE_ID || isAutoType(from, reg) || isAutoType(to, reg)) {
         return conversion_rank::rank(conversion_rank::Tier::kAnyLike);
     }
     const TypeId fc = reg.store().identityOf(from, TypeIdentityScope::kCanonical);
@@ -98,10 +95,10 @@ inline int overloadConversionRank(const TypeReadModel& reg, TypeId from, TypeId 
     if (isAnyType(from, reg)) {
         return conversion_rank::kNotViable;
     }
-    const Group fg = getGroup(getTypeKind(fc));
-    const Group tg = getGroup(getTypeKind(tc));
-    const uint8_t fw = getData(getTypeKind(fc));
-    const uint8_t tw = getData(getTypeKind(tc));
+    const Group fg = typeGroupOf(fc);
+    const Group tg = typeGroupOf(tc);
+    const uint8_t fw = typeDataOf(fc);
+    const uint8_t tw = typeDataOf(tc);
     const bool fInt = (fg == Group::kIntegers || fg == Group::kUnsigned);
     const bool tInt = (tg == Group::kIntegers || tg == Group::kUnsigned);
     // Произвольная точность (BigInteger/Rational): машинное число → AP (конструктор, C++-неявно);
@@ -153,7 +150,10 @@ inline int overloadConversionRank(const TypeReadModel& reg, TypeId from, TypeId 
     }
     // Производный Record-класс → базовый (C++-совместимое неявное преобразование).
     if (reg.store().isRecordType(fc)) {
-        std::vector<TypeId> pending = reg.store().baseClasses(fc);
+        std::vector<TypeId> pending;
+        for (const BaseClass& base : reg.store().basesOf(fc)) {
+            pending.push_back(base.type);
+        }
         // visited: наследование может быть ромбовидным (и в пределе циклическим) - без защиты
         // обход повторяет базовые классы экспоненциально/зацикливается.
         std::vector<TypeId> visited;
@@ -174,8 +174,8 @@ inline int overloadConversionRank(const TypeReadModel& reg, TypeId from, TypeId 
             if (b == tc) {
                 return conversion_rank::rank(conversion_rank::Tier::kWidening); // derived -> base
             }
-            for (const TypeId bb : reg.store().baseClasses(b)) {
-                pending.push_back(bb);
+            for (const BaseClass& base : reg.store().basesOf(b)) {
+                pending.push_back(base.type);
             }
         }
     }
@@ -341,7 +341,6 @@ inline OverloadResolution chooseBestOverload(std::vector<OverloadRankedCandidate
 /// ЕДИНЫЙ путь РАНЖИРОВАНИЯ/ВЫБОРА кандидата для всех форм вызова (free/method/operator/[]/()).
 /// Кандидаты отличаются только заполнением `argTypes` (позиционно/после binding), флагом
 /// `templateAware` и неявным object-параметром member-формы (`objectOwner`); алгоритм один.
-///
 /// ⚠ READ-ONLY: унификация и ранги БЕЗ подстановки и БЕЗ интернирования (StructuralInterner сюда
 /// не передаётся — DoD). Шаблонная позиция после успешной унификации ранжируется `kExact`;
 /// конкретная (без TemplateParam) — напрямую через `overloadConversionRank`. `effectiveSig` здесь

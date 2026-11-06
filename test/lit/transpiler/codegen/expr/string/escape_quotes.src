@@ -2,11 +2,12 @@
 
 # Кавычки в теле литерала: StrChar (двойные) допускает апостроф, StrWide (одинарные) -
 # сырую двойную кавычку. В C++-литералах двойная кавычка экранируется, апостроф - нет.
+\std();
 a := "it's";
-# CHECK: std::string c_a = "it's";
+# CHECK: trust::StrChar a = "it's";
 
 b := 'say "hi" raw';
-# CHECK-NEXT: std::wstring c_b = L"say \"hi\" raw";
+# CHECK-NEXT: trust::StrWide b = L"say \"hi\" raw";
 
 c := 'it\'s';
-# CHECK-NEXT: std::wstring c_c = L"it\'s";
+# CHECK-NEXT: trust::StrWide c = L"it\'s";

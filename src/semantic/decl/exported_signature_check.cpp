@@ -1,4 +1,3 @@
-// src/semantic/decl/exported_signature_check.cpp
 // Видимость типов в экспортируемых объявлениях (см. exported_signature_check.hpp).
 #include "types/type_read.hpp"
 #include "semantic/decl/exported_signature_check.hpp"
@@ -17,10 +16,10 @@
 namespace trust::semantic {
 
 // Модульный корневой скоуп = [global(0), moduleRoot(1)]: только здесь объявление экспортируемое.
-// Глубже (блок/функция/тело типа) — не экспорт; prelude анализируется в том же корневом скоупе.
+// Глубже (блок/функция/тело типа) — не экспорт; stdlib DSL анализируется в том же корневом скоупе.
 bool isExportedTopLevel(const AnalysisContext& actx) {
     const SymbolTable& symbols = actx.symbols();
-    // Модульный уровень — ScopeKind::ModuleRoot (прелюдия/без ModuleNode: первый вложенный скоуп).
+    // Модульный уровень — ScopeKind::ModuleRoot (stdlib DSL/без ModuleNode: первый вложенный скоуп).
     return symbols.atModuleLevel() && !symbols.inFilePrivateScope() && actx.namespaces().currentFunc() == nullptr && !actx.namespaces().insideTypeBody();
 }
 
@@ -28,7 +27,7 @@ void checkExportedTypeVisibility(AnalysisContext& actx, TypeId root, MapperRange
     if (root == INVALID_TYPE_ID) {
         return;
     }
-    const TypeReadModel& reg = actx.ctx().types();
+    const TypeReadModel& reg = actx.registry();
     std::vector<TypeId> work{getUnqualifiedType(root)};
     std::set<TypeId> visited;
     while (!work.empty()) {
@@ -39,7 +38,7 @@ void checkExportedTypeVisibility(AnalysisContext& actx, TypeId root, MapperRange
         }
         // Типовой параметр шаблона - не file-private сущность (легален в сигнатуре).
         if (reg.store().isFilePrivate(id)) {
-            actx.ctx().diag().report(Severity::Error, range, "exported {} uses file-private type '{}'", entity, reg.printer().getTypeName(id));
+            actx.ctx().diag().report(Severity::Error, range, "exported {} uses file-private type '{}'", entity, reg.printer().typeNameOf(id));
             return;
         }
         // Алиас-цепочка отдельно не обходится: каждый exported-алиас проверяется в точке своего
@@ -49,8 +48,8 @@ void checkExportedTypeVisibility(AnalysisContext& actx, TypeId root, MapperRange
             forEachTypeChild(*data, [&](TypeId child) { work.push_back(getUnqualifiedType(child)); });
         }
         // Базовые классы record-типа живут в дескрипторе (не в TypeData).
-        for (const TypeId base : reg.store().baseClasses(id)) {
-            work.push_back(getUnqualifiedType(base));
+        for (const BaseClass& base : reg.store().basesOf(id)) {
+            work.push_back(getUnqualifiedType(base.type));
         }
     }
 }

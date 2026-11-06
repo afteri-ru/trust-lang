@@ -10,7 +10,9 @@
 #   * 9223372036854775808 :BigInteger → BigInteger (сверхразрядный, без ошибки переполнения);
 #   * 256 :Int16 → Int16.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     b := 1 :Bool;
     r := 5 :Rational;
     bi := 9223372036854775808 :BigInteger;

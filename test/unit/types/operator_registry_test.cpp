@@ -6,8 +6,11 @@
 #include "types/type_system.hpp"
 #include "types/names.hpp"
 #include "session/context.hpp"
+#include "ast/binary_op.hpp"
+#include "utils/operator_spelling.hpp"
 #include "gtest/gtest.h"
 
+#include <optional>
 #include <string_view>
 
 namespace trust::op {
@@ -18,7 +21,7 @@ TEST(OperatorRegistryTest, ImplementedComparisons) {
     for (const std::string_view s : symbols) {
         const OperatorInfo* op = findOperator(s);
         ASSERT_NE(op, nullptr) << s;
-        EXPECT_EQ(op->cppSpelling, s);
+        EXPECT_EQ(op->symbol, s);
         EXPECT_EQ(op->arity, Arity::kBinary);
         // Сравнения допустимы и как член, и как свободная функция.
         EXPECT_TRUE(op->allowMember) << s;
@@ -30,14 +33,14 @@ TEST(OperatorRegistryTest, ImplementedComparisons) {
 TEST(OperatorRegistryTest, ImplementedCallAndIndexAreMemberOnly) {
     const OperatorInfo* call = findOperator("()");
     ASSERT_NE(call, nullptr);
-    EXPECT_EQ(call->cppSpelling, "()");
+    EXPECT_EQ(call->symbol, "()");
     EXPECT_EQ(call->arity, Arity::kCall);
     EXPECT_TRUE(call->allowMember);
     EXPECT_FALSE(call->allowFree); // C++: operator() не бывает свободным
 
     const OperatorInfo* index = findOperator("[]");
     ASSERT_NE(index, nullptr);
-    EXPECT_EQ(index->cppSpelling, "[]");
+    EXPECT_EQ(index->symbol, "[]");
     EXPECT_EQ(index->arity, Arity::kIndex);
     EXPECT_TRUE(index->allowMember);
     EXPECT_FALSE(index->allowFree); // C++: operator[] не бывает свободным
@@ -46,7 +49,7 @@ TEST(OperatorRegistryTest, ImplementedCallAndIndexAreMemberOnly) {
 TEST(OperatorRegistryTest, UnaryAndIncDec) {
     const OperatorInfo* deref = findOperator("*");
     ASSERT_NE(deref, nullptr);
-    EXPECT_EQ(deref->cppSpelling, "*");
+    EXPECT_EQ(deref->symbol, "*");
     EXPECT_EQ(deref->arity, Arity::kUnary);
     EXPECT_TRUE(deref->allowMember);
     EXPECT_TRUE(deref->allowFree);
@@ -54,7 +57,7 @@ TEST(OperatorRegistryTest, UnaryAndIncDec) {
     for (const std::string_view s : {std::string_view("++"), std::string_view("--")}) {
         const OperatorInfo* op = findOperator(s);
         ASSERT_NE(op, nullptr) << s;
-        EXPECT_EQ(op->cppSpelling, s);
+        EXPECT_EQ(op->symbol, s);
         EXPECT_EQ(op->arity, Arity::kIncDec);
         EXPECT_TRUE(op->allowMember);
         EXPECT_FALSE(op->allowFree);
@@ -152,6 +155,44 @@ TEST(OperatorRegistryTest, SuffixContainsTemplateParamPosition) {
 
 TEST(OperatorRegistryTest, Count) {
     EXPECT_EQ(kImplementedOperatorCount, 11u);
+}
+
+
+TEST(OperatorRegistryTest, CppNameByFunctionEmptyForNonOperator) {
+    EXPECT_EQ(operatorCppNameByFunction("__frob__"), std::string{});
+    EXPECT_EQ(operatorCppNameByFunction("plain"), std::string{});
+    EXPECT_EQ(operatorCppNameByFunction(""), std::string{});
+}
+
+TEST(OperatorRegistryTest, FunctionNameHelpers) {
+    EXPECT_EQ(indexFunctionName(), "__getitem__");
+    EXPECT_EQ(callFunctionName(), "__call__");
+}
+
+TEST(OperatorRegistryTest, ParamCountByArityAndForm) {
+    EXPECT_EQ(operatorParamCount(Arity::kUnary, true), std::optional<size_t>{0u});
+    EXPECT_EQ(operatorParamCount(Arity::kUnary, false), std::optional<size_t>{1u});
+    EXPECT_EQ(operatorParamCount(Arity::kBinary, true), std::optional<size_t>{1u});
+    EXPECT_EQ(operatorParamCount(Arity::kBinary, false), std::optional<size_t>{2u});
+    EXPECT_EQ(operatorParamCount(Arity::kIndex, true), std::optional<size_t>{1u});
+    EXPECT_FALSE(operatorParamCount(Arity::kCall, true).has_value());
+    EXPECT_FALSE(operatorParamCount(Arity::kIncDec, false).has_value());
+}
+
+// Согласованность единого листа глифов: AST-написание == символ реестра (пересечение множеств).
+TEST(OperatorRegistryTest, GlyphsMatchAstSpellings) {
+    const struct {
+        BinaryOp op;
+        std::string_view symbol;
+    } pairs[] = {
+        {BinaryOp::Eq, spell::kEq}, {BinaryOp::Ne, spell::kNe}, {BinaryOp::Lt, spell::kLt}, {BinaryOp::Gt, spell::kGt},
+        {BinaryOp::Le, spell::kLe}, {BinaryOp::Ge, spell::kGe}, {BinaryOp::Mul, spell::kMul},
+    };
+    for (const auto& p : pairs) {
+        const OperatorInfo* op = findOperator(p.symbol);
+        ASSERT_NE(op, nullptr) << p.symbol;
+        EXPECT_EQ(binaryOpSpelling(p.op), op->symbol) << p.symbol;
+    }
 }
 
 } // namespace

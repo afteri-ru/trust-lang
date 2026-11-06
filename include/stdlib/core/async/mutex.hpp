@@ -1,8 +1,6 @@
 // stdlib/async/mutex.hpp - async mutual exclusion for the Trust standard library.
-//
 // Self-contained header of a library type ("stdlib/async/mutex.hpp").
 // Uses ONLY standard C++ (<mutex>, <coroutine>, <deque>).
-//
 // Design:
 //   - `co_await mutex.lock()` suspends the coroutine while the mutex is held by another
 //     coroutine; waiters are resumed in FIFO order.

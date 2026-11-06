@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/overload_call.hpp
 // Единые хелперы РАЗРЕШЕНИЯ ПЕРЕГРУЗКИ ВЫЗОВА: сбор типов аргументов и разрешение с
 // диагностикой для свободных функций, методов и operator().
 
@@ -46,7 +45,7 @@ inline std::vector<TypeId> callArgTypes(AnalysisContext& actx, const CallExpr& c
 /// `what` - по значению: вызывающий обычно передаёт `std::format(...)` (временный объект).
 inline OverloadResolution resolveCallOverload(AnalysisContext& actx, std::span<const TypeId> sigs, std::span<const TypeId> argTypes, MapperRange range,
                                               std::string what) {
-    TypeSystem& reg = actx.ctx().types();
+    TypeSystem& reg = actx.registry();
     std::vector<OverloadCandidate> candidates;
     candidates.reserve(sigs.size());
     for (const TypeId sig : sigs) {
@@ -70,7 +69,7 @@ inline OverloadResolution resolveCallOverload(AnalysisContext& actx, std::span<c
 /// Возвращает объявленную сигнатуру, инстанцированный return и привязки (для кодогена).
 inline OverloadResolution resolveCallOverloadWithTemplates(AnalysisContext& actx, std::span<const TypeId> sigs, std::span<const TypeId> argTypes,
                                                            MapperRange range, std::string what) {
-    TypeSystem& reg = actx.ctx().types();
+    TypeSystem& reg = actx.registry();
     std::vector<OverloadCandidate> candidates;
     candidates.reserve(sigs.size());
     for (const TypeId sig : sigs) {
@@ -119,7 +118,7 @@ struct CallFailureText {
 /// nullopt - выбора нет (диагностика уже выдана).
 [[nodiscard]] inline std::optional<TypeId> resolveCallablePositional(AnalysisContext& actx, std::span<const TypeId> sigs, std::span<const TypeId> argTypes,
                                                                      MapperRange range, const CallFailureText& text) {
-    TypeSystem& reg = actx.ctx().types();
+    TypeSystem& reg = actx.registry();
     if (std::find(sigs.begin(), sigs.end(), INVALID_TYPE_ID) != sigs.end()) {
         actx.ctx().diag().report(Severity::Error, range, "{}", text.uninstantiable);
         return std::nullopt;

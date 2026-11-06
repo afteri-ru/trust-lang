@@ -1,10 +1,8 @@
-// module_export.hpp - сбор экспорт-интерфейса модуля из его AST-тела.
-//
+// Сбор экспорт-интерфейса модуля из его AST-тела.
 // Экспорт-набор файла: ЕСЛИ в заголовке задан блок интерфейса (`\path { ... };`), экспортируются
 // только объявления этого блока; иначе - ВСЕ top-level объявления/определения в не-анонимных
 // областях имён (глобальная `::`, именованные `ns::`). Из анонимной области `_`
 // и из локальных (внутри функций/блоков) - НЕ экспортируются.
-//
 // Фильтр интерфейса при импорте: аргументы оператора `\module(mod, masks)` - список
 // glob-масок (`*` - любая последовательность, `?` - один символ, через запятую = OR).
 // Маска с `::` матчится с полным trust-именем (`ns::f`), без `::` - с коротким (`f`, `*`).
@@ -14,7 +12,6 @@
 #pragma once
 
 #include "ast/ast_nodes.hpp"
-#include "location/namespace_alias.hpp"
 #include "syntax/term/term_types.h"
 #include "utils/import_masks.hpp"
 #include <cstddef>
@@ -46,11 +43,13 @@ struct ExportEntry {
 /// `ModuleNode` разворачивается (модуль - не namespace-сегмент).
 
 /// Результат ОДНОГО обхода тела модуля: записи экспорт-набора с происхождением
-/// (`ExportEntry::container`), экспортируемые namespace-алиасы, блок интерфейса и признак
+/// (`ExportEntry::container`), namespace-алиасы блока интерфейса, блок интерфейса и признак
 /// out-of-line определений.
 struct ModuleBodyScan {
     std::vector<ExportEntry> entries;
-    std::vector<ModuleNamespaceAlias> namespaceAliases; ///< только из блока интерфейса (экспортируемые)
+    /// Namespace-алиасы из блока интерфейса (цель — область имён, без модуля): НЕ экспортируемы —
+    /// диагностика в `interface_install`. Узлы нужны только для диапазона/текста.
+    std::vector<const AstNodeBase*> nonExportableNamespaceAliases;
     /// Блок интерфейса файла (`\path { ... };`), если он есть в корне тела.
     const AstNodeBase* interfaceBlock = nullptr;
     /// Нужен ли модулю собственный `.cppt`: тела top-level функций (в т.ч. в областях имён),
@@ -81,20 +80,25 @@ struct ExportedFunctionKeyHash {
     }
 };
 
+/// Извлечь C++-суффикс объявления функции. Целевой факт живёт в реестре типов (`DeclCppFacts`, R1),
+/// недоступном `module_loader`, поэтому провайдер задаёт вызывающий (конвейер/кодоген).
+using FuncCppSuffixProvider = std::function<std::string_view(const FuncDecl&)>;
+
 /// Полные факты интерфейса модуля, вычисляемые ОДИН раз и переиспользуемые сайтами импорта,
 /// заголовком и графом зависимостей.
 struct ModuleInterfaceFacts {
-    std::vector<ExportEntry> entries;                   ///< Публичный экспорт-набор (для интерфейса — блок + реэкспорт).
-    std::vector<ExportEntry> protectedEntries;          ///< `_::`: видимо файлам той же группы/пакета.
-    std::vector<ModuleNamespaceAlias> namespaceAliases; ///< Экспортированные привязки префиксов.
+    std::vector<ExportEntry> entries;          ///< Публичный экспорт-набор (для интерфейса — блок + реэкспорт).
+    std::vector<ExportEntry> protectedEntries; ///< `_::`: видимо файлам той же группы/пакета.
     /// qualified-имя → определения функций. Ключ БЕЗ C++-суффикса: суффикс назначается семантикой
     /// позже, поэтому по нему нельзя индексировать на этапе загрузки; сравнение — при запросе.
     std::unordered_map<std::string, std::vector<AstNodePtr>> functionDefinitions;
     bool hasOutOfLineDefinitions = false; ///< Нужен ли модулю собственный `.cppt`.
 
-    /// Определение функции для экспортной записи: qualified-имя + C++-суффикс перегрузки
-    /// (суффикс назначается семантикой, поэтому поиск идёт при запросе). `nullptr` — определения нет.
-    [[nodiscard]] AstNodePtr findFunctionDefinition(std::string_view qualifiedName, std::string_view cppSuffix) const;
+    /// Определение функции для экспортной записи: qualified-имя + C++-суффикс перегрузки.
+    /// Суффикс — целевой факт реестра (`DeclCppFacts`), поэтому его извлекает `suffixOf`
+    /// (провайдер вызывающего). `nullptr` — определения нет.
+    [[nodiscard]] AstNodePtr findFunctionDefinition(std::string_view qualifiedName, std::string_view cppSuffix,
+                                                    const FuncCppSuffixProvider& suffixOf) const;
 };
 
 /// Собрать факты интерфейса из тела модуля. `scan` — результат ОДНОГО обхода тела
@@ -115,10 +119,8 @@ struct ModuleInterfaceFacts {
 
 /// Проекция полного списка экспортов по маскам сайта импорта (единственное правило матчинга —
 /// `utils::ImportMasks`). Вызывается на каждый сайт, но обход тела и qualified-имена уже
-/// посчитаны один раз (`ModuleInterfaceFacts::entries`). `namespaceAliases` участвуют в проверке
-/// несовпавших масок: имя namespace-алиаса — тоже публичная привязка файла (маска может
-/// выбирать только её, не выбирая ни одного объявления).
-[[nodiscard]] std::vector<AstNodePtr> filterExportEntries(const std::vector<ExportEntry>& entries, const std::vector<ModuleNamespaceAlias>& namespaceAliases,
-                                                          const utils::ImportMasks& masks, std::vector<std::string>* unmatchedMasks = nullptr);
+/// посчитаны один раз (`ModuleInterfaceFacts::entries`).
+[[nodiscard]] std::vector<AstNodePtr> filterExportEntries(const std::vector<ExportEntry>& entries, const utils::ImportMasks& masks,
+                                                          std::vector<std::string>* unmatchedMasks = nullptr);
 
 } // namespace trust

@@ -1,13 +1,10 @@
 #pragma once
-// include/ast/slots/slot_engine.hpp
 // Исполнитель класс-таблицы слотов (`ast/slots/node_slots_x.hpp`): классификация слота, visitor-интерфейс
 // и генерация метода `forEachSlot` класса. Данные — таблица; здесь ТОЛЬКО механика.
-//
 // Три потребителя (по одному visitor на задачу):
 //   - обход        -> собирает `Traversed`-слоты (children()/collectChildren);
 //   - клон         -> копирует ВСЕ владеемые слоты (`Traversed` + `Internal`);
 //   - ремап ссылок -> переписывает невладеющие ссылки (`NonOwn*`).
-//
 // Порядок вызовов visitor'а = порядок строк таблицы (контракт).
 
 #include "ast/token.hpp"
@@ -56,7 +53,6 @@ class AstSlotVisitor {
     virtual void nonOwningFunc(const FuncDecl*& slot) = 0;
 };
 
-// -- Эмиссия строк таблицы: shape выбирает макрос AST_ROW_<shape> -------------------------
 
 #define AST_SLOT_FILTER_None \
     SlotFilter {             \
@@ -96,6 +92,19 @@ class AstSlotVisitor {
         }                                      \
     }
 
+/// `std::optional<std::vector<TemplateArg>>`: владеемый узел `record_.node` внутри struct-элемента
+/// (признак `isPack` — данные аргумента, ребёнком не является).
+#define AST_ROW_OptRecordList(field, walk, filter) \
+    AST_SLOT_IF_KIND(filter) {                     \
+        if (field) {                               \
+            for (auto& record_ : *field) {         \
+                if (record_.node) {                \
+                    v.owned(record_.node, walk);   \
+                }                                  \
+            }                                      \
+        }                                          \
+    }
+
 #define AST_ROW_PairList(field, walk, filter) \
     AST_SLOT_IF_KIND(filter) {                \
         for (auto& pair_ : field) {           \
@@ -120,6 +129,29 @@ class AstSlotVisitor {
                 v.owned(case_.body, walk);             \
             }                                          \
         }                                              \
+    }
+
+/// `std::vector<DestructureDecl::Target>`: владеемые узлы внутри struct-элемента (name/typeNode).
+#define AST_ROW_TargetList(field, walk, filter)    \
+    AST_SLOT_IF_KIND(filter) {                     \
+        for (auto& target_ : field) {              \
+            if (target_.name) {                    \
+                v.owned(target_.name, walk);       \
+            }                                      \
+            if (target_.typeNode) {                \
+                v.owned(target_.typeNode, walk);   \
+            }                                      \
+        }                                          \
+    }
+
+/// `std::vector<TypeBase>`: владеемый узел `type` внутри struct-элемента (вариант наследования — данные).
+#define AST_ROW_BaseList(field, walk, filter) \
+    AST_SLOT_IF_KIND(filter) {                \
+        for (auto& base_ : field) {           \
+            if (base_.type) {                 \
+                v.owned(base_.type, walk);    \
+            }                                 \
+        }                                     \
     }
 
 /// `other` — другое поле этого узла: элемент, совпадающий с ним по УЗЛУ, не визитируется
@@ -157,6 +189,17 @@ class AstSlotVisitor {
                 v.nonOwning(slot_);                    \
             }                                          \
         }                                              \
+    }
+
+/// Тело из `Definition m_definition` (`field.body()`, optional-вектор): обходим только когда
+/// определение — тело; переадресация (строка) детьми не является. Совместимо с клоном.
+#define AST_ROW_DefBody(field, walk, filter)                \
+    AST_SLOT_IF_KIND(filter) {                              \
+        if (auto* slot_body_ = field.body()) {              \
+            for (AstNodePtr& slot_ : *slot_body_) {         \
+                v.owned(slot_, walk);                       \
+            }                                               \
+        }                                                   \
     }
 
 #define AST_SLOT_ROW(shape, field, walk, filter) AST_ROW_##shape(field, AST_WALK_##walk, filter)

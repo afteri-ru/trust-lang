@@ -1,4 +1,3 @@
-// src/types/registry/builtin_core_builder.cpp
 // Seed-строитель общего иммутабельного ядра встроенных типов (см. builtin_core_builder.hpp).
 // Регистрация идёт над локальным набором зон; TypeSystem получает уже готовое ядро.
 #include "types/registry/builtin_core_builder.hpp"
@@ -19,7 +18,6 @@
 #include "types/registry/type_name_index.hpp"
 #include "types/registry/type_printer.hpp"
 #include "types/registry/type_store.hpp"
-#include "types/runtime_symbols.hpp"
 #include "types/type_read.hpp"
 #include "utils/error.hpp"
 
@@ -58,9 +56,8 @@ constexpr bool isAbstractGroup(Group group) noexcept {
 
 } // namespace
 
-// -- Register builtin type --------------------------------
 TypeId BuiltinCoreBuilder::registerBuiltinType(BuiltinSeedZones& z, std::string_view name, Group group, uint8_t data, std::string_view cpp_name,
-                                               std::vector<std::string> preprocIncludes, bool markAttrs) {
+                                               bool markAttrs) {
     if (isAbstractGroup(group)) {
         EXPECT(data == 0 && "abstract group must have data=0");
     } else if (data == 0) {
@@ -78,19 +75,19 @@ TypeId BuiltinCoreBuilder::registerBuiltinType(BuiltinSeedZones& z, std::string_
         kind = setAttrsFlag(kind); // признак «тип несёт атрибуты» (напр. политики sync)
     }
     TypeDescriptor desc{
-        std::string(name),          // name - владеющая копия (не висячий string_view)
-        {},                         // attrs (builtin have no attrs)
-        {},                         // sourceRange (builtin have no source)
-        std::string(cpp_name),      // cppName
-        std::move(preprocIncludes), // preprocIncludes - список директив (первый - основной)
-        INVALID_TYPE_ID,            // baseType - builtin types are not aliases
-        SimpleTypeData{}            // data - builtin types are simple
+        std::string(name), // name - владеющая копия (не висячий string_view)
+        {},                // attrs (builtin have no attrs)
+        {},                // sourceRange (builtin have no source)
+        INVALID_TYPE_ID,   // baseType - builtin types are not aliases
+        SimpleTypeData{}   // data - builtin types are simple
     };
     const TypeId id = z.store.push(kind, std::move(desc), exportedKeyOf(name));
     z.names.bind(exportedKeyOf(name), id, TypeNameIndex::KeyPool::kProcess);
     if (!cpp_name.empty()) {
         z.names.bind(exportedKeyOf(cpp_name), id, TypeNameIndex::KeyPool::kProcess);
     }
+    // Целевые C++-факты встроенных интринсиков (C++-имя/include) — в компоненте `target`
+    // (сид-таблица `target::builtinCppSeed()`, засевает `Pipeline`); дескриптор их не несёт.
     return id;
 }
 
@@ -114,7 +111,6 @@ BuiltinTypeCore BuiltinCoreBuilder::build() {
     BuiltinTypeCore core;
     core.descriptors = store.takeDescriptors();
     core.name_to_id = names.takeUserMap();
-    core.runtimeSymbols = builtins.takeRuntimeSymbols();
     core.builtinCount = core.descriptors.size();
     // Таблица интернирования seed-структурных типов: инстансы продолжают её (иначе та же
     // структура получила бы второй TypeId, нарушая инвариант «один экземпляр на структуру»).

@@ -1,4 +1,3 @@
-// include/utils/strings/strings_text.hpp
 #pragma once
 
 #include "utils/error.hpp"
@@ -14,10 +13,6 @@
 #include <vector>
 
 namespace trust::utils {
-
-// -----------------------------------------------------------------------
-//  Вспомогательные утилиты для работы с UTF8
-// -----------------------------------------------------------------------
 
 /// Имя файла без каталогов (после последнего '/' или '\\'); пустая строка - если путь пуст.
 inline std::string_view fileNameOf(std::string_view path) noexcept {
@@ -51,9 +46,6 @@ constexpr bool globMatch(std::string_view pattern, std::string_view name) noexce
     }
     return p == pattern.size();
 }
-
-/// Список glob-масок через запятую = OR; пробелы вокруг маски игнорируются. Пустая
-/// строка/пустая маска между запятыми - «без фильтра» (подходит всё). Единый примитив
 
 /// Имя содержит namespace-квалификацию (`ns::name` / `ns::sub::name`).
 /// Единый предикат: не заменять на локальный `find("::")` в потребителях.
@@ -132,10 +124,6 @@ inline std::string prefixEachLine(std::string_view text, std::string_view prefix
     }
     return out;
 }
-
-// -----------------------------------------------------------------------
-//  Базовые строковые операции
-// -----------------------------------------------------------------------
 
 inline std::string_view trim(std::string_view s) {
     while (!s.empty() && (s.front() == ' ' || s.front() == '\t' || s.front() == '\r')) {

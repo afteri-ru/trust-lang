@@ -6,13 +6,13 @@
 #include "ast/ident_name.hpp"
 #include "ast/kind_dispatch.hpp"
 #include "ast/token_type.hpp"
-#include "session/context.hpp"
+#include "target/target.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
 #include "syntax/term/term.h"
 #include "types/type_system.hpp"
 #include "types/call.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/group.hpp"
 #include "types/type_id.hpp"
@@ -33,7 +33,7 @@ bool ExprEmitter::emitDictElementAccess(const Binary& n) {
     // Заголовки Dict-типа записаны при объявлении/создании объекта (emitTypeName/resolveCppTypeId);
     // здесь - только тип поля через emitTypeName (единая точка сбора).
     const TypeId rt = n.resultType.getTypeId();
-    const bool concrete = (rt != INVALID_TYPE_ID && !isAnyType(rt, m_ectx.m_ctx.readTypes()));
+    const bool concrete = (rt != INVALID_TYPE_ID && !isAnyType(rt, m_ectx.m_services.readTypes()));
     std::string concreteCpp;
     if (concrete) {
         if (auto cpp = m_driver.m_type.emitTypeName(rt)) {
@@ -44,24 +44,24 @@ bool ExprEmitter::emitDictElementAccess(const Binary& n) {
     if (n.m_left) {
         m_driver.emitExpr(n.m_left.get());
     } else {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "{}");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "{}");
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ".at(");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ".at(");
     // ключ
     if (n.kind() == ParserToken::Kind::MemberAccess && n.m_right && n.m_right->kind() == ParserToken::Kind::IntLiteral) {
         m_driver.emitExpr(n.m_right.get()); // статический индекс: d.1 → at(1)
     } else if (n.kind() == ParserToken::Kind::MemberAccess && n.m_right) {
         // Имя поля: d.two → at("two").
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "\"" + utils::escapeCppString(requiredText(*n.m_right)) + "\"");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "\"" + utils::escapeCppString(requiredText(*n.m_right)) + "\"");
     } else if (n.m_right) {
         m_driver.emitExpr(n.m_right.get()); // динамический индекс: d[expr] → at(expr)
     } else {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "0");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "0");
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
     if (concrete && !concreteCpp.empty()) {
         // Типизированный доступ к значению по C++-типу (fast-path variant / std::any).
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ".getAs<" + concreteCpp + ">()");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ".getAs<" + concreteCpp + ">()");
     }
     return concrete;
 }
@@ -69,11 +69,11 @@ bool ExprEmitter::emitDictElementAccess(const Binary& n) {
 // `<typeCpp>::<memberCpp>` (+ `(args)` при вызове). Единая точка эмиссии тип-уровневого доступа
 // к члену; ветки различаются только способом получить C++-имя типа и C++-имя члена.
 void ExprEmitter::emitTypeQualifiedMember(const std::string& typeCpp, std::string memberCpp, const CallExpr* call) {
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, typeCpp);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "::");
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, memberCpp);
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, typeCpp);
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "::");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, memberCpp);
     if (call != nullptr) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
         emitCallArgs(*call);
     }
 }
@@ -99,7 +99,7 @@ void ExprEmitter::visit_MemberAccess(const Binary& n) {
     // c_Color::count()/... (тип-уровневые методы; члены и методы - статические члены структуры).
     if (n.m_left && n.m_left->kind() == ParserToken::Kind::Ident) {
         if (typeNameId != INVALID_TYPE_ID) {
-            if (isEnumType(typeNameId, m_ectx.m_ctx.readTypes())) {
+            if (isEnumType(typeNameId, m_ectx.m_services.readTypes())) {
                 auto enumCpp = m_driver.m_type.emitTypeName(typeNameId);
                 if (!enumCpp) {
                     return; // диагностика уже выдана единым принтером типа
@@ -107,9 +107,6 @@ void ExprEmitter::visit_MemberAccess(const Binary& n) {
                 if (n.m_right && n.m_right->kind() == ParserToken::Kind::CallExpr) {
                     const auto& call = static_cast<const CallExpr&>(*n.m_right);
                     std::string mname = call.m_callee ? std::string(requiredText(*call.m_callee)) : std::string();
-                    if (!mname.empty() && mname.front() == '%') {
-                        mname.erase(0, 1);
-                    }
                     emitTypeQualifiedMember(*enumCpp, std::move(mname), &call);
                     return;
                 }
@@ -117,7 +114,7 @@ void ExprEmitter::visit_MemberAccess(const Binary& n) {
                 emitTypeQualifiedMember(*enumCpp, utils::cppIdent(requiredText(*n.m_right)), nullptr);
                 return;
             }
-            if (isVariantType(typeNameId, m_ectx.m_ctx.readTypes())) {
+            if (isVariantType(typeNameId, m_ectx.m_services.readTypes())) {
                 auto varCpp = m_driver.m_type.emitTypeName(typeNameId);
                 if (!varCpp) {
                     return;
@@ -125,9 +122,6 @@ void ExprEmitter::visit_MemberAccess(const Binary& n) {
                 if (n.m_right && n.m_right->kind() == ParserToken::Kind::CallExpr) {
                     const auto& call = static_cast<const CallExpr&>(*n.m_right);
                     std::string mname = call.m_callee ? std::string(requiredText(*call.m_callee)) : std::string();
-                    if (!mname.empty() && mname.front() == '%') {
-                        mname.erase(0, 1);
-                    }
                     emitTypeQualifiedMember(*varCpp, std::move(mname), &call);
                     return;
                 }
@@ -140,7 +134,7 @@ void ExprEmitter::visit_MemberAccess(const Binary& n) {
         // ИМЯ ТИПА (нативный класс) → эмитим `<C++-имя типа>::<name>` (инклуд on-use) тем же
         // принтером типа, что и остальные тип-уровневые доступы.
         // Инстанс-член через имя типа семантика отклоняет до кодогена, поэтому здесь только статика.
-        if (typeNameId != INVALID_TYPE_ID && m_ectx.m_ctx.readTypes().store().isNativeClassType(typeNameId)) {
+        if (typeNameId != INVALID_TYPE_ID && m_ectx.m_services.readTypes().store().isNativeClassType(typeNameId)) {
             std::string mname = n.m_right ? std::string(requiredText(*n.m_right)) : std::string();
             const CallExpr* call = nullptr;
             if (n.m_right && n.m_right->kind() == ParserToken::Kind::CallExpr) {
@@ -167,28 +161,42 @@ void ExprEmitter::visit_MemberAccess(const Binary& n) {
             // Became-const (flow-факт DA) здесь не участвует: const_cast выбирает const-перегрузку
             // явного `obj.method^()`, а не эмулирует константность переменной.
             TypeId objType =
-                (n.lhsType.getTypeId() != INVALID_TYPE_ID) ? m_ectx.m_ctx.readTypes().store().desugaredTypeId(n.lhsType.getTypeId()) : INVALID_TYPE_ID;
-            // Нативное имя: из полного ключа совпавшего метода (алиас → ключ цели); иначе - как есть.
+                (n.lhsType.getTypeId() != INVALID_TYPE_ID) ? m_ectx.m_services.readTypes().store().desugaredTypeId(n.lhsType.getTypeId()) : INVALID_TYPE_ID;
+            // Нативное имя: делегат реализации builtin ищется по КАНОНИЧЕСКОМУ имени метода
+            // (алиас `length` → `count` наследует реализацию цели), иначе - имя записи.
             std::string mname(requiredText(*call.m_callee));
             std::string native;
             if (objType != INVALID_TYPE_ID) {
-                if (auto mi = m_ectx.m_ctx.readTypes().methods().findMethodInfo(objType, mname)) {
-                    native = utils::bareName(mi->key); // срез '%'/'^' → нативное имя (count/size/...)
+                const auto mi = m_ectx.m_services.readTypes().methods().findMethodInfo(objType, mname);
+                // Делегат реализации builtin: сам тип, иначе — абстрактный builtin структурного
+                // контейнера (`Array<T>`→`:Array` и т.п.). Целевые привязки живут в `target` (R37).
+                const std::string* del = nullptr;
+                if (mi) {
+                    const MethodDelegates& delegates = m_ectx.m_services.target().methodDelegates();
+                    del = delegates.findByOwner(objType, mi->key.name);
+                    if (del == nullptr) {
+                        const TypeId abstractId = m_ectx.m_services.readTypes().builtins().abstractBuiltinOf(objType);
+                        if (abstractId != INVALID_TYPE_ID) {
+                            del = delegates.findByOwner(abstractId, mi->key.name);
+                        }
+                    }
+                }
+                if (del != nullptr) {
+                    native = *del;
+                } else if (mi) {
+                    native = mi->key.name; // структурный ключ → C++-имя члена (size/front/...)
                 }
             }
             if (native.empty()) {
                 native = mname;
-                if (!native.empty() && native.front() == '%') {
-                    native.erase(0, 1);
-                }
             }
             // Пользовательский Record-тип (Struct/Class): метод эмитится как обычный член struct
-            // с манглингом `c_` (единый манлинг с эмиссией метода в emitRecordDecl). Системные
+            // с единым C++-кодеком имени (как при эмиссии метода в emitRecordDecl). Системные
             // имена операторов (`__eq__`, `__getitem__`, ...) эмитятся как `operator<sym>` и
             // НИКОГДА не манглируются (C++-идентификаторы с `__` зарезервированы).
             if (op::isOperatorFunctionName(native)) {
-                native = op::operatorCppNameByFunction(native);
-            } else if (objType != INVALID_TYPE_ID && m_ectx.m_ctx.readTypes().store().isRecordType(objType) && !native.empty()) {
+                native = m_ectx.cppName(native, CppEntityKind::kOperator);
+            } else if (objType != INVALID_TYPE_ID && m_ectx.m_services.readTypes().store().isRecordType(objType) && !native.empty()) {
                 native = utils::nameToCpp(native);
             }
             // Перегруженный пользовательский метод: уникальный суффикс (выбор сделан СЕМАНТИКОЙ;
@@ -197,25 +205,25 @@ void ExprEmitter::visit_MemberAccess(const Binary& n) {
                 native += n.resolvedMethodSuffix;
             }
             // const-вызов `obj.method^()` - attr::ReadOnly на вызове.
-            const bool constCall = call.as_attr() && call.as_attr()->has_attr(m_ectx.m_ctx.attrs(), attr::ReadOnly);
+            const bool constCall = call.as_attr() && call.as_attr()->has_attr(m_ectx.m_services.attrs(), attr::ReadOnly);
             if (constCall) {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "const_cast<const ");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, "const_cast<const ");
                 if (auto ct = m_driver.m_type.resolveCppTypeId(objType)) {
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ct->first);
+                    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ct->first);
                 } else {
-                    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "std::any");
+                    m_ectx.m_services.source().output_append(m_ectx.m_output.out, m_driver.m_type.anyTypeName());
                 }
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "&>(");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, "&>(");
                 m_driver.emitExpr(n.m_left.get());
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
             } else {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
                 m_driver.emitExpr(n.m_left.get());
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
             }
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ".");
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, native);
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ".");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, native);
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
             emitCallArgs(call);
             return;
         }
@@ -224,30 +232,27 @@ void ExprEmitter::visit_MemberAccess(const Binary& n) {
         emitTupleElementAccess(n);
         return;
     }
-    // Поле НАТИВНОГО класса: `obj.%field` - правый операнд Ident (не вызов), объект - нативный
-    // класс (Group::kNativeClass). Эмитим `(obj).field` (нативное имя без '%'), а не словарный
+    // Поле НАТИВНОГО класса: `obj.field` - правый операнд Ident (не вызов), объект - нативный
+    // класс (Group::kNativeClass). Эмитим `(obj).field` (проекция владельца), а не словарный
     // `.at("...")`. Тип объекта (lhsType) ставит семантика; имя типа в кодогене не резолвится.
     if (n.m_right && n.m_right->kind() == ParserToken::Kind::Ident) {
-        TypeId objType = (n.lhsType.getTypeId() != INVALID_TYPE_ID) ? m_ectx.m_ctx.readTypes().store().desugaredTypeId(n.lhsType.getTypeId()) : INVALID_TYPE_ID;
-        if (objType != INVALID_TYPE_ID && m_ectx.m_ctx.readTypes().store().isNativeClassType(objType)) {
+        TypeId objType = (n.lhsType.getTypeId() != INVALID_TYPE_ID) ? m_ectx.m_services.readTypes().store().desugaredTypeId(n.lhsType.getTypeId()) : INVALID_TYPE_ID;
+        if (objType != INVALID_TYPE_ID && m_ectx.m_services.readTypes().store().isNativeClassType(objType)) {
             std::string fname(requiredText(*n.m_right));
-            if (!fname.empty() && fname.front() == '%') {
-                fname.erase(0, 1); // нативное имя поля (без '%')
-            }
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
             m_driver.emitExpr(n.m_left.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ").");
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, fname);
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ").");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, fname);
             return;
         }
         // Поле пользовательского Record-типа (Struct/Class): `obj.field` → `(obj).c_field`
-        // (манглинг `c_`, как у полей при эмиссии struct; семантика проверила наличие поля).
-        if (objType != INVALID_TYPE_ID && m_ectx.m_ctx.readTypes().store().isRecordType(objType)) {
+        // (единый C++-кодек имени, как у полей при эмиссии struct; семантика проверила наличие поля).
+        if (objType != INVALID_TYPE_ID && m_ectx.m_services.readTypes().store().isRecordType(objType)) {
             std::string fname = cppName(requiredText(*n.m_right), CppEntityKind::kField);
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
             m_driver.emitExpr(n.m_left.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ").");
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, fname);
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ").");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, fname);
             return;
         }
     }

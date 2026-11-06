@@ -8,10 +8,6 @@
 
 namespace trust {
 
-// ══════════════════════════════════════════════════════════════
-//           Константы формата msgpack-массива верхнего уровня
-// ══════════════════════════════════════════════════════════════
-
 enum : uint8_t {
     kFieldMajor = 0,        // uint8 - TRUST_VERSION_MAJOR
     kFieldMinor = 1,        // uint8 - TRUST_VERSION_MINOR
@@ -25,17 +21,11 @@ enum : uint8_t {
     kFieldCount = 9,        // общее количество полей
 };
 
-// ══════════════════════════════════════════════════════════════
-//           Константы для grouped range entry
-// ══════════════════════════════════════════════════════════════
-//
 // Формат: [[[beginOff, delta, cppBeginOff, cppDelta], ...], ...]
-//
 // Группировка: двухуровневая (input → output).
 // trustFileIdx и cppFileIdx не хранятся - вычисляются из позиции:
 //   trustFileIdx = inputIdx + 1
 //   cppFileIdx   = outputIdx + 1 с флагом FILE_BITS
-//
 // delta = endOffset - beginOffset (0 для точечной позиции)
 
 enum : uint8_t {
@@ -46,13 +36,8 @@ enum : uint8_t {
     kRangeGroupFieldCount = 4,
 };
 
-// ══════════════════════════════════════════════════════════════
-//           Константы для grouped name entry
-// ══════════════════════════════════════════════════════════════
-//
 // Формат: [[[beginOff, delta, cppBeginOff, cppDelta,
-//            trustName, cppName], ...], ...]
-//
+//            trustName, outName], ...], ...]
 // Группировка: двухуровневая (input → output), как и для range.
 // trustFileIdx и cppFileIdx не хранятся.
 
@@ -66,15 +51,9 @@ enum : uint8_t {
     kNameGroupFieldCount = 6,
 };
 
-// ══════════════════════════════════════════════════════════════
-//           Константы для grouped macro entry (input→input)
-// ══════════════════════════════════════════════════════════════
-//
 // Формат: [[[bodyBeginOff, bodyDelta, defBeginOff, defDelta], ...], ...]
-//
 // Группировка: двухуровневая (input → input).
 // Оба FileIdx вычисляются как input (без флага OUTPUT_BIT).
-//
 // body - диапазон тела макроса (куда сработал макрос),
 // def  - диапазон определения макроса.
 
@@ -86,13 +65,8 @@ enum : uint8_t {
     kMacroGroupFieldCount = 4,
 };
 
-// ══════════════════════════════════════════════════════════════
-//                        MsgpackWriter
-// ══════════════════════════════════════════════════════════════
-//
 // RAII-обёртка над msgpack_sbuffer + msgpack_packer.
 // Не копируется, перемещается.
-//
 class MsgpackWriter {
   public:
     MsgpackWriter()
@@ -108,7 +82,6 @@ class MsgpackWriter {
         msgpack_sbuffer_destroy(&m_sbuf);
     }
 
-    // Non-copyable
     MsgpackWriter(const MsgpackWriter&) = delete;
     MsgpackWriter& operator=(const MsgpackWriter&) = delete;
 
@@ -134,8 +107,6 @@ class MsgpackWriter {
         return *this;
     }
 
-    // -- Методы упаковки --
-
     void packArray(uint32_t n) { msgpack_pack_array(m_packer, n); }
     void packUint8(uint8_t v) { msgpack_pack_uint8(m_packer, v); }
     void packUint32(uint32_t v) { msgpack_pack_uint32(m_packer, v); }
@@ -145,7 +116,6 @@ class MsgpackWriter {
         msgpack_pack_str_body(m_packer, sv.data(), sv.size());
     }
 
-    // -- Доступ к данным msgpack_sbuffer (rvalue-квалифицированный) --
     // После вызова writer переходит в moved-from состояние.
     msgpack_sbuffer take_sbuf() && {
         msgpack_sbuffer result = m_sbuf;
@@ -162,13 +132,8 @@ class MsgpackWriter {
     msgpack_packer* m_packer;
 };
 
-// ══════════════════════════════════════════════════════════════
-//                        MsgpackReader
-// ══════════════════════════════════════════════════════════════
-//
 // RAII-обёртка над msgpack_unpacked.
 // Конструктор принимает сырые данные и парсит первый объект.
-//
 class MsgpackReader {
   public:
     MsgpackReader() { msgpack_unpacked_init(&m_msg); }
@@ -182,7 +147,6 @@ class MsgpackReader {
 
     ~MsgpackReader() { msgpack_unpacked_destroy(&m_msg); }
 
-    // Non-copyable
     MsgpackReader(const MsgpackReader&) = delete;
     MsgpackReader& operator=(const MsgpackReader&) = delete;
 

@@ -30,7 +30,7 @@
         # Дамп всех уровней: параметр+локальная в скоупе метода, поле+метод в класс-скоупе
         # CHECK: .../class_debug.src:{{[0-9]+}}: scope: depth=4 names=
         # CHECK: .../class_debug.src:{{[0-9]+}}:   [3] FuncDecl `add`: $tmp, delta
-        # CHECK: .../class_debug.src:{{[0-9]+}}:   [2] StructDecl `Counter`: add, value
+        # CHECK: .../class_debug.src:{{[0-9]+}}:   [2] StructDecl `Counter`: $0, add, value
         # CHECK: .../class_debug.src:{{[0-9]+}}:   [1] ModuleDecl
         # CHECK: .../class_debug.src:{{[0-9]+}}:   [0] global
         @__DEBUG_SCOPE__(level=all);

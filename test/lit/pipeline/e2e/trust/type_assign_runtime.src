@@ -8,7 +8,8 @@
 # CHECK: type_assign_runtime.src:[[#]]: MyInt > 0
 
 MyInt trust_assert( MyInt > 0 ) ::= :Int32;
-%chk():Void := {
+@[export("chk")@]
+chk():Void := {
     x :MyInt := 5;
     x = -3;
 };

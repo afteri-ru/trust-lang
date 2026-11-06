@@ -1,0 +1,28 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# R21/R40: одна и та же инстанциация шаблона (`Box<Int32>`), использованная в ДВУХ единицах
+# трансляции (main и lib), линкуется без дублей определений. Модель — C++-подобная неявная
+# инстанциация: определение шаблона эмитится в ЗАГОЛОВОК модуля, поэтому C++ ODR-сливает
+# специализацию при сборке нескольких TU; `.cppt` держит только non-template out-of-line тела.
+# Возвращает: a.get()+b.get()-6 = 5+1-6 = 0.
+
+//--- main.src
+\lib(Box, mk);
+@main():Int32 := {
+    a : Box<Int32> := Box();
+    a.set(5);
+    b : Box<Int32> := mk();
+    @return a.get() + b.get() - 6;
+};
+//--- lib.src
+\lib;
+<T> :Box ::= :Class{
+    value: T := _;
+    set(v: T) := { value = v; };
+    get(): T := { return value; };
+};
+mk():Box<Int32> := { b : Box<Int32> := Box(); b.set(1); @return b; };

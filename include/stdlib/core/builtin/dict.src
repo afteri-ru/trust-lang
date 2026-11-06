@@ -1,0 +1,12 @@
+\\builtin\dict;
+# builtin/dict.src - default implementation of the built-in Dict type (trust::Dict).
+#
+# The definition uses `=` (implementation of a PRE-DECLARED type). dict.hpp includes
+# stdlib/builtin/rational.hpp itself (TypedValue stores trust::Rational by value): that is a
+# property of the C++ header, not a compiler-known dependency. A program that uses Rational as a
+# value still needs Rational's own implementation (checked by the uniform provider-gate).
+
+@[include("@stdlib/builtin/dict.hpp")@]
+Dict = %trust::Dict {
+    size^(): Int64 := %size ...;
+};

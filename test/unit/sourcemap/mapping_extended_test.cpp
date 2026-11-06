@@ -207,14 +207,14 @@ TEST(MappingExtTest, StressTest_500Mappings) {
         }
     }
 
-    // Сравнение getCppName на случайных позициях
+    // Сравнение outNameOf на случайных позициях
     for (int i = 0; i < 20; ++i) {
         uint32_t trustNameIdx = rng() % NUM_NAMES;
         uint32_t col = rng() % 4000 + 100;
         std::string trustName = "func_" + std::to_string(trustNameIdx);
 
-        auto before = readerBefore->getCppName(readerBefore->makeLoc(ReaderFile::from(src), col), trustName);
-        auto after = readerAfter->getCppName(readerAfter->makeLoc(ReaderFile::from(src), col), trustName);
+        auto before = readerBefore->outNameOf(readerBefore->makeLoc(ReaderFile::from(src), col), trustName);
+        auto after = readerAfter->outNameOf(readerAfter->makeLoc(ReaderFile::from(src), col), trustName);
 
         EXPECT_EQ(before.has_value(), after.has_value());
         if (before.has_value()) {
@@ -224,9 +224,9 @@ TEST(MappingExtTest, StressTest_500Mappings) {
         }
     }
 
-    // Сравнение getTrustFileMappings
-    auto fileBefore = readerBefore->getTrustFileMappings(ReaderFile::from(src));
-    auto fileAfter = readerAfter->getTrustFileMappings(ReaderFile::from(src));
+    // Сравнение trustFileMappings
+    auto fileBefore = readerBefore->trustFileMappings(ReaderFile::from(src));
+    auto fileAfter = readerAfter->trustFileMappings(ReaderFile::from(src));
     EXPECT_EQ(fileBefore.size(), fileAfter.size());
     for (size_t i = 0; i < std::min(fileBefore.size(), fileAfter.size()); ++i) {
         EXPECT_EQ(fileBefore[i].from.begin, fileAfter[i].from.begin);
@@ -317,9 +317,9 @@ TEST(MappingExtTest, StressTest_1000RangeMappings) {
         }
     }
 
-    // Сравнение getTrustFileMappings
-    auto fileBefore = readerBefore->getTrustFileMappings(ReaderFile::from(src));
-    auto fileAfter = readerAfter->getTrustFileMappings(ReaderFile::from(src));
+    // Сравнение trustFileMappings
+    auto fileBefore = readerBefore->trustFileMappings(ReaderFile::from(src));
+    auto fileAfter = readerAfter->trustFileMappings(ReaderFile::from(src));
     EXPECT_EQ(fileBefore.size(), fileAfter.size());
     for (size_t i = 0; i < std::min(fileBefore.size(), fileAfter.size()); ++i) {
         EXPECT_EQ(fileBefore[i].from.begin, fileAfter[i].from.begin);

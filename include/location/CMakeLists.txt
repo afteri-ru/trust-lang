@@ -6,6 +6,6 @@
 trust_component(location
     INTERFACE
     PUBLIC_HEADERS
-        location.hpp module_index.hpp module_name.hpp module_path.hpp namespace_alias.hpp
+        location.hpp module_index.hpp module_name.hpp module_path.hpp namespace_alias.hpp decl_id.hpp
     LINK_PUBLIC utils_lib trust_include_dirs
 )

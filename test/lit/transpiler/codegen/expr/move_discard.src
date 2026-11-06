@@ -1,3 +1,4 @@
+\mem();
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # `x :=: _` - перемещение значения в discard: МАТЕРИАЛИЗУЕТСЯ временное (move-ctor вызывается
@@ -11,5 +12,5 @@
     b :=: _;
     return m;
 };
-# CHECK: { auto __trust_discard_0 = std::move(c_m); (void)__trust_discard_0; }
-# CHECK: { auto __trust_discard_1 = std::move(c_b); (void)__trust_discard_1; }
+# CHECK: { auto __trust_discard_0 = std::move(m); (void)__trust_discard_0; }
+# CHECK: { auto __trust_discard_1 = std::move(b); (void)__trust_discard_1; }

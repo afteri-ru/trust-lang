@@ -2,6 +2,7 @@
 
 # РЕАЛЬНОЕ использование операторов в TrustLang-выражениях (не только объявление):
 # `a(42)` → вызов C++ operator(), `a[7]` → (obj)[idx] (operator[]), `a == b` → operator==.
+\std();
 :Point ::= :Class{
     x: Int32 := _;
     __eq__(o: Point): Bool := { return true; };
@@ -14,6 +15,6 @@
     @print("{} {} {}\n", a == b, a(42), a[7]);
     @return 0;
 }
-# CHECK: (c_a == c_b)
-# CHECK: c_a(42)
-# CHECK: (c_a)[7]
+# CHECK: (a == b)
+# CHECK: a(42)
+# CHECK: (a)[7]

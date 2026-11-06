@@ -1,4 +1,3 @@
-// include/module_loader/import_exports.hpp
 // Связывание сайтов импорта с загруженными модулями: индекс модуля и экспорт-интерфейс.
 #pragma once
 

@@ -1,0 +1,42 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --no-stdlib --temp-dir $TD -o $TD/impl_openssl -Wbuiltin-override=ignore %s
+# RUN: $TD/impl_openssl && echo "PASS"
+# CHECK: PASS
+
+# Альтернативная реализация Rational/BigInteger (OpenSSL BIGNUM, libcrypto).
+# `--no-stdlib` отключает дефолтные модули; нужные реализации подключаются явно.
+# ОДНА реализация на builtin-TypeId: здесь она одна (openssl).
+@[include("string")@]
+StrChar = %std::string {
+    c_str(): CString := %c_str ...;
+    data(): CString := %data ...;
+    size(): UInt64 := %size ...;
+    length(): UInt64 := size ...;
+    empty(): Bool := %empty ...;
+};
+
+@[include("@stdlib/builtin/rational_openssl.hpp")@]
+@[link("crypto")@]
+Rational = %openssl::Rational {
+    display^(len: Int64): StrChar := %display ...;
+};
+
+@[include("@stdlib/builtin/rational_openssl.hpp")@]
+@[link("crypto")@]
+BigInteger = %openssl::BigInteger {
+    display^(len: Int64): StrChar := %display ...;
+};
+
+@main():Int32 := {
+    a :Rational := 1\3;
+    b :Rational := 1\6;
+    c := a + b;
+    if (c != 1\2) { return 1; };
+
+    d :BigInteger := 123456789012345678901234567890;
+    if (d != 123456789012345678901234567890) { return 2; };
+
+    shown := c.display(8);
+    if (shown.size() != 3) { return 3; }; # "1\\2"
+    return 0;
+};

@@ -1,5 +1,4 @@
 #pragma once
-// include/playground/server/server.h
 // trust-playground: балансировщик (режим --playground). Принимает запросы
 // статического сайта (POST /run), ведёт реестр воркеров и диспетчеризует задачи
 // на них через reverse long-poll (/poll, /result). Вычислений не выполняет.
@@ -93,7 +92,6 @@ class PlaygroundServer {
     // Освобождает слот воркера под задачей (уменьшает inFlight) - не более одного раза.
     void releaseJobSlot(const std::shared_ptr<Job>& job);
 
-    // -- Доступ только с конкретной песочницы --
     // Проверяет Origin (и Host) публичных браузерных эндпоинтов против allowlist.
     // Возвращает false, если запрос нужно отклонить (403). Если allowlist пуст - true.
     bool browserOriginAllowed(const HttpRequest& req) const;
@@ -107,7 +105,6 @@ class PlaygroundServer {
     // Сама выдача/проверка челленджей - в компоненте PowGuard (powGuard_).
     int currentPowDifficulty();
 
-    // -- Админ-сессии /stats --
     // Сессии хранятся в компоненте StatsSessionStore (statsSessions_).
     // Извлекает session_id из Cookie-заголовка (tpg_stats=<id>; ...).
     static std::string cookieSessionId(const HttpRequest& req);
@@ -116,7 +113,6 @@ class PlaygroundServer {
     // Санитизация имени скачиваемого файла (только [A-Za-z0-9._-]).
     static std::string sanitizeFilename(const std::string& s);
 
-    // -- Статистика / алерты --
     // Строит JSON/текст/HTML статистики (требует удержания mu_). Единая точка - исключает
     // дублирование кода.
     nlohmann::json statsJsonLocked();
@@ -140,13 +136,11 @@ class PlaygroundServer {
     // Счётчик запрошенных build-архивов (POST /download - ленивая сборка по коду).
     std::atomic<uint64_t> archivesRequested_{0};
     std::atomic<bool> stop_{false};
-    // -- Сервисы (вынесенные зоны ответственности, каждая с собственным мьютексом) --
     RateLimiter rateLimiter_;         // rate-limit по IP (ipHits_/rateLimitResets_)
     ResultCache resultCache_;         // LRU-кеш результатов /run (cache_)
     StatsSessionStore statsSessions_; // админ-сессии /stats (statsSessions_)
     PowGuard powGuard_;               // PoW-челленджи /run и /download (powChallenges_)
     AlertNotifier alertNotifier_;     // почтовые алерты (alertMutex_/lastAlertAt_/connectedWorkersLast_)
-    // -- Пределы одновременных соединений (раздельные пулы, см. run()) --
     // Инициализируются из конфига в конструкторе.
     // Глобальный ЖЁСТКИЙ кап на ВСЕ соединения (потоки/файловые дескрипторы) - защита от
     // DoS «тысячи открытых медленных соединений» (каждое соединение обрабатывает поток).

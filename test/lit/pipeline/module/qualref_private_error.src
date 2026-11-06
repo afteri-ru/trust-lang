@@ -2,14 +2,13 @@
 # RUN: %split-file %s $TD
 # RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
 #
-# private-цель (`__::`) не входит в экспорт-набор модуля: ссылка `\lib::g` обязана быть ошибкой
-# (private не протекает к импортёру даже при квалифицированной ссылке).
-
-# CHECK: error: module '\lib' has no exported name 'g'
+# private-цель (`__::`) не входит в экспорт-набор модуля: имя не видно импортёру даже при
+# обращении из другого файла.
+# CHECK: error: undefined name 'g'
 
 //--- main.src
 \lib();
-@main():Int32 := { @return \lib::g(); };
+@main():Int32 := { @return g(); };
 
 //--- lib.src
 \lib;

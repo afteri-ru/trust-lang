@@ -1,6 +1,5 @@
 #pragma once
 
-// include/solver/impl/diag.hpp
 // Диагностики компонента solver (единый источник данных для них).
 // TRUST_DIAG_SET генерирует trust::solver::DiagId + ADL-доступы diagName/diagHelp/diagCategory.
 

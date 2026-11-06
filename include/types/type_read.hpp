@@ -1,4 +1,3 @@
-// include/types/type_read.hpp
 // READ-ONLY view зон типовой системы: запрос одной зоны идёт через её accessor; на модели —
 // именной фасад (`getType` с FAULT-политикой, `findType`, `forEachType`) и `identity()`.
 // Состояния не имеет; запись — у зон-владельцев.

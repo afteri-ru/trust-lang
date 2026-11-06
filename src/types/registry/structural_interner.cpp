@@ -1,4 +1,3 @@
-// src/types/registry/structural_interner.cpp
 #include "types/registry/structural_interner.hpp"
 
 #include "types/func/fn_identity.hpp"
@@ -24,7 +23,7 @@ template <typename>
 inline constexpr bool kUnhandledTypeData = false;
 
 /// Identity discriminator DERIVED from TypeData: the fields that define identity but are not
-/// TypeIds and therefore cannot be encoded in TypeKey::children/names. Keeping the derivation
+/// TypeIds and therefore cannot be encoded in the TypeKey children list. Keeping the derivation
 /// here makes it impossible for a caller to forget a data field that participates in identity.
 /// Исчерпывающий `std::visit`: новый вариант TypeData не компилируется, пока его не-типовые
 /// поля идентичности не описаны здесь (compile-time exhaustiveness).
@@ -36,11 +35,11 @@ struct StructuralTagVisitor {
             // SINGLE source: FunctionIdentity::slotLayout (shared with internKey).
             return FunctionIdentity::slotLayout(d.paramTypes.size(), d.variadicType != INVALID_TYPE_ID, d.paramPackPosition);
         } else if constexpr (std::is_same_v<D, NativeTemplateTypeData>) {
-            // Native template instantiation: the C++ template name is part of the type identity.
-            // This also covers zero-argument instantiations (`std::tuple<>`), which are structurally
-            // indistinguishable from each other by children alone. Abstract templates are registered
-            // by name (not through this path), so they never reach this branch.
-            return NativeTemplateTag{d.cppTemplate};
+            // Native template instantiation: the LANGUAGE key (abstract template) is part of the
+            // type identity — NOT its C++ name (R37). `std::pair<T>` != `std::tuple<T>` by their
+            // abstract template. Abstract templates are registered by name (not through this
+            // path), so they never reach this branch.
+            return NativeTemplateTag{d.templateOf};
         } else if constexpr (std::is_same_v<D, ArrayTypeData>) {
             // Размерности и признак открытого массива (срез) - не TypeId, поэтому живут в
             // типизированном tag: `Array<T>`, `Array<T,[4]>` и открытый `Array<T,[]>` различны.
@@ -59,7 +58,7 @@ struct StructuralTagVisitor {
         } else if constexpr (std::is_same_v<D, SimpleTypeData> || std::is_same_v<D, MemberPointerTypeData> || std::is_same_v<D, RefTypeData> ||
                              std::is_same_v<D, PackExpansionTypeData> || std::is_same_v<D, TupleTypeData> || std::is_same_v<D, EnumTypeData> ||
                              std::is_same_v<D, VariantTypeData> || std::is_same_v<D, NativeClassTypeData> || std::is_same_v<D, RecordTypeData>) {
-            // Идентичность полностью выражена kind/children/names.
+            // Идентичность полностью выражена kind/children.
             return std::monostate{};
         } else {
             static_assert(kUnhandledTypeData<D>, "structuralKeyTag: unhandled TypeData variant - describe its non-type identity fields");
@@ -87,6 +86,7 @@ StructuralInterner::StructuralInterner(const TypeReadModel& read, TypeStore& sto
 
 void StructuralInterner::reset(const std::unordered_map<TypeKey, TypeId, TypeKeyHash>& seed) {
     m_structural = seed;
+    m_failedInstantiationCycles.clear();
 }
 
 std::unordered_map<TypeKey, TypeId, TypeKeyHash> StructuralInterner::takeStructuralTable() {
@@ -95,21 +95,19 @@ std::unordered_map<TypeKey, TypeId, TypeKeyHash> StructuralInterner::takeStructu
     return out;
 }
 
-TypeId StructuralInterner::getOrCreateStructuralType(std::string_view name, TypeKind kind, std::vector<TypeId> children, std::optional<TypeData> data,
-                                                     std::string_view preprocInclude, std::vector<std::string> names) {
-    TypeKey key{kind, children, std::move(names), structuralKeyTag(data)};
-    return internStructural(std::move(key), std::move(data), name, preprocInclude);
+TypeId StructuralInterner::getOrCreateStructuralType(std::string_view name, TypeKind kind, std::vector<TypeKeyChild> children, std::optional<TypeData> data) {
+    TypeKey key{kind, std::move(children), structuralKeyTag(data)};
+    return internStructural(std::move(key), std::move(data), name);
 }
-TypeId StructuralInterner::internStructural(TypeKey key, std::optional<TypeData> data, std::string_view name, std::string_view preprocInclude) {
+TypeId StructuralInterner::internStructural(TypeKey key, std::optional<TypeData> data, std::string_view name) {
     // Структурная идентичность интернируется на 63 битах; поведенческие флаги (inferred/const/
     // uninit) не должны попадать в TypeKey/дескриптор (иначе дубликаты и утечка признака в
     // идентичность типа). Для ФУНКЦИЙ children снимаются в `FunctionIdentity::internKey`, а
     // `getOrCreateFunctionType` нормализует и поля `FunctionTypeData` (identity data, без state);
     // проверка ниже страхует остальные пути (Array/Tuple/Ref/...).
-    for (const TypeId c : key.children) {
-        EXPECT(isUnqualifiedType(c) && "structural type child must not carry type-state flags");
+    for (const TypeKeyChild& c : key.children) {
+        EXPECT(isUnqualifiedType(c.type) && "structural type child must not carry type-state flags");
     }
-    EXPECT(key.names.empty() || key.names.size() == key.children.size() && "structural type names must match children count");
 
     // Check if already exists via structural uniquing
     auto it = m_structural.find(key);
@@ -149,10 +147,8 @@ TypeId StructuralInterner::internStructural(TypeKey key, std::optional<TypeData>
         std::string(name), // name - владеющая копия
         {},                // attrs (empty, caller should set after creation)
         {},                // sourceRange
-        {},                // cppName
-        preprocInclude.empty() ? std::vector<std::string>{} : std::vector<std::string>{std::string(preprocInclude)}, // preprocIncludes
-        INVALID_TYPE_ID, // baseType - structural types are not aliases
-        std::move(data)  // data
+        INVALID_TYPE_ID,   // baseType - structural types are not aliases
+        std::move(data)    // data
     };
     const TypeId id = nameKey.has_value() ? m_store.push(key.kind, std::move(desc), *nameKey) : m_store.push(key.kind, std::move(desc));
     if (nameKey.has_value()) {
@@ -179,27 +175,24 @@ TypeId StructuralInterner::getOrCreateFunctionType(TypeId returnType, std::vecto
     TypeKey key = identity.internKey(returnType, paramTypes, variadicType, paramPackType, paramPackPosition, hasTrust);
     FunctionTypeData funcData{returnType, paramTypes, variadicType, paramPackType, paramPackPosition};
     // Use empty name - structural function types don't need a name.
-    return internStructural(std::move(key), std::move(funcData), "", "");
+    return internStructural(std::move(key), std::move(funcData), "");
 }
 TypeId StructuralInterner::getOrCreateTupleType(std::vector<std::pair<std::string, QualType>> elements) {
-    std::vector<TypeId> children;
-    std::vector<std::string> names;
+    std::vector<TypeKeyChild> children;
     children.reserve(elements.size());
-    names.reserve(elements.size());
     std::vector<TupleElementData> elems;
     elems.reserve(elements.size());
     for (auto& [name, type] : elements) {
         // Идентичность элемента - TypeId; квалификаторы (const/inferred) не входят в TypeKey.
         // Tuple-элементы - occurrence-позиции (не объявленные поля), поэтому в данных они
         // нормализуются к identity; const/inferred носят типы выражений, а не кортеж.
-        children.push_back(type.getTypeId());
-        names.push_back(name);
+        children.push_back(TypeKeyChild{type.getTypeId(), name});
         elems.push_back(TupleElementData{name, QualType::fromTypeId(type.getTypeId())});
     }
     // data=1 в Group::kStructured - конкретный структурный кортеж (свободно: функция = kCallable/1).
     TypeKind tupleKind = makeTypeKind(Group::kStructured, 1);
     TupleTypeData data{std::move(elems)};
-    return getOrCreateStructuralType("", tupleKind, std::move(children), std::move(data), "", std::move(names));
+    return getOrCreateStructuralType("", tupleKind, std::move(children), std::move(data));
 }
 
 } // namespace trust

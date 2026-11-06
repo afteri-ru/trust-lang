@@ -8,17 +8,17 @@
 #include "ast/kind_dispatch.hpp"
 #include "ast/token_type.hpp"
 #include "ir/lowering.hpp"
-#include "session/context.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
 #include "syntax/term/term.h"
 #include "types/type_system.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/type_id.hpp"
 #include "types/names.hpp"
 #include "transpiler/emit/diag.hpp"
 #include "utils/strings.hpp"
+#include "utils/error.hpp"
 #include <format>
 #include <memory>
 #include <string_view>
@@ -35,23 +35,23 @@ void StmtEmitter::emitBlockBodyToFile(const std::vector<AstNodePtr>& body, Mappe
     // Тело маппится отдельно из диапазона блока, чтобы скобки { } отображались в C++.
     std::optional<MapperScope> scope;
     if (hasBlockRange) {
-        scope.emplace(m_ectx.m_ctx.source(), blockRange, output_idx);
+        scope.emplace(m_ectx.m_services.source(), blockRange, output_idx);
     }
 
     // Нормальное многострочное форматирование: '{' в конце строки, операторы - с отступом.
     // Входим во вложенный скоуп: отступ +1 (функция/блок - только уровень отступа).
-    m_ectx.m_ctx.source().output_append(output_idx, " {");
+    m_ectx.m_services.source().output_append(output_idx, " {");
     m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel() + 1});
-    m_ectx.m_ctx.source().output_append(output_idx, "\n");
+    m_ectx.m_services.source().output_append(output_idx, "\n");
     // Внутри C++ compound statement: пользовательские блоки эмитятся как `{ }`, не как
     // `namespace { }` (namespace внутри compound statement в C++ недопустим).
     const bool savedCppBlock = m_ectx.m_mode.inCppBlock;
     m_ectx.m_mode.inCppBlock = true;
     // afterOpen - текст сразу после '{' (например, установка флага while-else).
     if (!afterOpen.empty()) {
-        m_ectx.m_ctx.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
-        m_ectx.m_ctx.source().output_append(output_idx, afterOpen);
-        m_ectx.m_ctx.source().output_append(output_idx, "\n");
+        m_ectx.m_services.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
+        m_ectx.m_services.source().output_append(output_idx, afterOpen);
+        m_ectx.m_services.source().output_append(output_idx, "\n");
     }
     // Пред-условия функции (--solver-mode=assert): проверка сразу после '{' (параметры в скоупе).
     if (preTrust) {
@@ -65,27 +65,27 @@ void StmtEmitter::emitBlockBodyToFile(const std::vector<AstNodePtr>& body, Mappe
         if (m_driver.isSuppressedDoc(child->kind())) {
             continue;
         }
-        const size_t before = m_ectx.m_ctx.source().output_body(output_idx).size();
+        const size_t before = m_ectx.m_services.source().output_body(output_idx).size();
         // Для блочных детей (ScopeBlock/sequence/ModuleDecl) отступ выставляет их собственный обход;
         // для остальных операторов - отступ текущего блока.
         if (!is_block_kind(child->kind())) {
-            m_ectx.m_ctx.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
+            m_ectx.m_services.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
         }
         m_driver.generateNodeToFile(*child, output_idx);
         // Не оставлять пустую строку, если узел ничего не эмитил (напр. подавленный doc-bundle),
         // и не дублировать перевод строки, если блок уже закончился '\n' (emitSequenceBody).
-        if (m_ectx.m_ctx.source().output_body(output_idx).size() != before) {
-            const std::string_view body = m_ectx.m_ctx.source().output_body(output_idx);
+        if (m_ectx.m_services.source().output_body(output_idx).size() != before) {
+            const std::string_view body = m_ectx.m_services.source().output_body(output_idx);
             if (body.empty() || body.back() != '\n') {
-                m_ectx.m_ctx.source().output_append(output_idx, "\n");
+                m_ectx.m_services.source().output_append(output_idx, "\n");
             }
         }
     }
     // continue-метка do-while / именованного блока вставляется перед закрывающей '}'.
     if (!beforeCloseLabel.empty()) {
-        m_ectx.m_ctx.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
-        m_ectx.m_ctx.source().output_append(output_idx, beforeCloseLabel);
-        m_ectx.m_ctx.source().output_append(output_idx, "\n");
+        m_ectx.m_services.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
+        m_ectx.m_services.source().output_append(output_idx, beforeCloseLabel);
+        m_ectx.m_services.source().output_append(output_idx, "\n");
     }
     // Пост-условия функции (--solver-mode=assert): проверка перед '}' (возвращаемое значение в скоупе).
     if (postTrust) {
@@ -93,25 +93,21 @@ void StmtEmitter::emitBlockBodyToFile(const std::vector<AstNodePtr>& body, Mappe
     }
     m_ectx.m_mode.inCppBlock = savedCppBlock;
     m_ectx.m_output.scopeStack.pop_back();
-    m_ectx.m_ctx.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
-    m_ectx.m_ctx.source().output_append(output_idx, "}");
+    m_ectx.m_services.source().output_append(output_idx, m_ectx.m_output.indentPrefix());
+    m_ectx.m_services.source().output_append(output_idx, "}");
 }
 
 std::string StmtEmitter::emitSyntheticVar(const VarDecl& vd, MapperFile output_idx) {
     const std::string name = utils::cppDeclName(vd.text());
-    if (name.empty()) {
-        return {};
-    }
+    EXPECT(!name.empty() && "synthetic temporary must have a C++ name");
     const TypeId vt = vd.inferredType.getTypeId();
     std::string typePart;
     if (vt != INVALID_TYPE_ID) {
         // C++-имя типа строит единый принтер из реестра (display-имя типа, не переменной).
         auto cppType = m_driver.m_type.emitTypeName(vt);
-        if (!cppType || cppType->empty()) {
-            return {};
-        }
-        if (vd.has_attr(m_ectx.m_ctx.attrs(), attr::ReadOnly)) {
-            m_ectx.m_ctx.source().output_append(output_idx, "const ");
+        EXPECT(cppType.has_value() && !cppType->empty() && "synthetic temporary type must render to a C++ name");
+        if (vd.has_attr(m_ectx.m_services.attrs(), attr::ReadOnly)) {
+            m_ectx.m_services.source().output_append(output_idx, "const ");
         }
         typePart = *cppType + " ";
     } else {
@@ -120,45 +116,43 @@ std::string StmtEmitter::emitSyntheticVar(const VarDecl& vd, MapperFile output_i
         // языковой тип (ir/hir/lowering), конкретного C++-имени в реестре нет -> `auto`. Любой другой
         // неинферированный тип - внутренняя ошибка, а НЕ тихий auto-fallback.
         if (std::string_view(vd.text()).rfind(kLockerTempPrefix, 0) != 0) {
-            m_ectx.m_ctx.report(MapperRange{}, diag::DiagId::ParseError,
-                                "internal: synthetic temporary '{}' has no inferred type; the analyzer must resolve it before transpilation", vd.text());
-            return {};
+            FAULT("internal: synthetic temporary '{}' has no inferred type; the analyzer must resolve it before transpilation", vd.text());
         }
         typePart = "auto ";
     }
-    m_ectx.m_ctx.source().output_append(output_idx, typePart + name + " = ");
+    m_ectx.m_services.source().output_append(output_idx, typePart + name + " = ");
     m_driver.emitExpr(vd.m_initializer.get());
-    m_ectx.m_ctx.source().output_append(output_idx, ";");
-    m_ectx.m_ctx.source().output_append(output_idx, "\n");
+    m_ectx.m_services.source().output_append(output_idx, ";");
+    m_ectx.m_services.source().output_append(output_idx, "\n");
     // Хвостовой отступ НЕ добавляем: вызывающий позиционирует следующую строку (match/while-else
     // добавляют indentPrefix; деструктуризация использует собственный `ind` для каждой строки).
     return name;
 }
 
 void StmtEmitter::emitCompoundScope(const ScopeBlock& n) {
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "{");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "{");
     m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel() + 1});
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "\n");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "\n");
     m_driver.emitSequenceBody(n, m_ectx.m_output.out);
     m_ectx.m_output.scopeStack.pop_back();
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "}");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "}");
 }
 
 void StmtEmitter::emitNamespaceScope(const ScopeBlock& n, const std::string& name) {
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "namespace");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "namespace");
     if (!name.empty()) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, " " + name);
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, " " + name);
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, " {");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, " {");
     m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel() + 1});
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "\n");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "\n");
     m_driver.emitSequenceBody(n, m_ectx.m_output.out);
     m_ectx.m_output.scopeStack.pop_back();
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "}");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "}");
 }
 
 void StmtEmitter::visit_ScopeBlock(const ScopeBlock& n) {
@@ -180,9 +174,9 @@ void StmtEmitter::visit_ScopeBlock(const ScopeBlock& n) {
     if (isCodeBlock || isLabel) {
         if (!m_ectx.m_mode.inCppBlock) {
             if (isLabel) {
-                m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "named block '{}' is only allowed inside a function", std::string(n.name()));
+                m_ectx.m_services.report(n.range(), diag::DiagId::ParseError, "named block '{}' is only allowed inside a function", std::string(n.name()));
             } else {
-                m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "unnamed code block is only allowed inside a function");
+                m_ectx.m_services.report(n.range(), diag::DiagId::ParseError, "unnamed code block is only allowed inside a function");
             }
             return;
         }
@@ -192,7 +186,7 @@ void StmtEmitter::visit_ScopeBlock(const ScopeBlock& n) {
 
     // Область имён (`ns::`, `_`) разрешена только на верхнем уровне модуля.
     if (!isGlobalNs && m_ectx.m_mode.inCppBlock) {
-        m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "namespace block is not allowed inside a function");
+        m_ectx.m_services.report(n.range(), diag::DiagId::ParseError, "namespace block is not allowed inside a function");
         return;
     }
 
@@ -228,15 +222,15 @@ void StmtEmitter::visit_ReturnStmt(const JumpStmt& n) {
     // вызовы функций), НЕ зависит от наличия/глубины обработчиков перехвата: throw trust::IntPlus.
     // ИМЕНОВАННОЕ `func ++ value ++` - обычный return из функции.
     if (!n.m_label) {
-        m_driver.m_type.recordRequiredInclude("@trust/interrupt.hpp");
-        MapperScope scope(m_ectx.m_ctx.source(), n.range(), m_ectx.m_output.out);
+        m_driver.m_type.recordRequiredInclude("@stdlib/interrupts.hpp");
+        MapperScope scope(m_ectx.m_services.source(), n.range(), m_ectx.m_output.out);
         if (n.m_value) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "throw trust::IntPlus(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "throw trust::IntPlus(");
             m_driver.emitExpr(n.m_value.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ");");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ");");
         } else {
             // `++ _ ++` - void-прерывание (`_` - пустое значение).
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "throw trust::IntPlus();");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "throw trust::IntPlus();");
         }
         return;
     }
@@ -255,7 +249,7 @@ void StmtEmitter::visit_ReturnStmt(const JumpStmt& n) {
             // Маппим сгенерированный код на диапазон оператора return (иначе он наследует
             // маппинг тела функции → неправильный диапазон: клик по `return ...;` не ведёт
             // в C++ и обратно). Как в visit_BreakStmt/visit_SemicolonStmt.
-            MapperScope scope(m_ectx.m_ctx.source(), n.range(), m_ectx.m_output.out);
+            MapperScope scope(m_ectx.m_services.source(), n.range(), m_ectx.m_output.out);
             // Hoist-временная возврата создана СЕМАНТИКОЙ (m_tempDecl, инвариант «временные создаёт
             // анализатор»): эмитим её объявление через emitSyntheticVar (const <Ret> c___trust_res_N
             // = <value>;) и читаем её C++-имя для пост-проверок и return.
@@ -264,20 +258,20 @@ void StmtEmitter::visit_ReturnStmt(const JumpStmt& n) {
                 temp = static_cast<const VarDecl*>(n.m_tempDecl.get());
             }
             if (!temp) {
-                m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "return value temporary is missing (analyzer did not synthesize it)");
+                m_ectx.m_services.report(n.range(), diag::DiagId::ParseError, "return value temporary is missing (analyzer did not synthesize it)");
                 return;
             }
             const std::string tmp = emitSyntheticVar(*temp, m_ectx.m_output.out);
             if (tmp.empty()) {
-                m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "unable to generate C++ type for return temporary '{}'", requiredText(*temp));
+                m_ectx.m_services.report(n.range(), diag::DiagId::ParseError, "unable to generate C++ type for return temporary '{}'", requiredText(*temp));
                 return;
             }
             { // RAII: имя функции → temp возврата (восстанавливается в деструкторе).
                 ResultGuard guard(m_ectx, std::string(requiredText(*n.m_funcDecl)), tmp);
                 m_driver.m_contract.emitTrustChecks(post);
             }
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "return " + tmp + ";\n");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "return " + tmp + ";\n");
             return;
         }
     }
@@ -287,14 +281,14 @@ void StmtEmitter::visit_ReturnStmt(const JumpStmt& n) {
 void StmtEmitter::visit_ThrowStmt(const JumpStmt& n) {
     // Отрицательное прерывание (-- err -- / -- --) - ошибка: бросаем trust::IntMinus
     // (переносимое значение - в value(); классификация по классу прерывания, см. errors.md).
-    m_driver.m_type.recordRequiredInclude("@trust/interrupt.hpp");
-    MapperScope scope(m_ectx.m_ctx.source(), n.range(), m_ectx.m_output.out);
+    m_driver.m_type.recordRequiredInclude("@stdlib/interrupts.hpp");
+    MapperScope scope(m_ectx.m_services.source(), n.range(), m_ectx.m_output.out);
     if (n.m_value) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "throw trust::IntMinus(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "throw trust::IntMinus(");
         m_driver.emitExpr(n.m_value.get());
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ");");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ");");
     } else {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "throw trust::IntMinus();");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "throw trust::IntMinus();");
     }
 }
 
@@ -302,26 +296,26 @@ void StmtEmitter::visit_BreakStmt(const JumpStmt& n) {
     // Безымянный break - обычный C++ break;. Именованный break анализатор переписывает
     // в GotoStmt (или void-ReturnStmt при break по имени функции), поэтому сюда доходит
     // только безымянный.
-    MapperScope scope(m_ectx.m_ctx.source(), n.range(), m_ectx.m_output.out);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "break;");
+    MapperScope scope(m_ectx.m_services.source(), n.range(), m_ectx.m_output.out);
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "break;");
 }
 
 void StmtEmitter::visit_ContinueStmt(const JumpStmt& n) {
     // Безымянный continue - обычный C++ continue;. Именованный continue анализатор
     // переписывает в GotoStmt, поэтому сюда доходит только безымянный.
-    MapperScope scope(m_ectx.m_ctx.source(), n.range(), m_ectx.m_output.out);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "continue;");
+    MapperScope scope(m_ectx.m_services.source(), n.range(), m_ectx.m_output.out);
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "continue;");
 }
 
 // Goto/Label - синтетические узлы lowering: goto по метке / определение метки.
 // Маппинг НЕ строится: у синтетических узлов нет исходного trust-текста, а их range
 // (блок/цикл) уже смапплен реальными узлами (иначе коллизия trustKey в mapStop).
 void StmtEmitter::visit_GotoStmt(const LabelRef& n) {
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "goto " + std::string(n.text()) + ";");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "goto " + std::string(n.text()) + ";");
 }
 
 void StmtEmitter::visit_LabelStmt(const LabelRef& n) {
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, std::string(n.text()) + ":;");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, std::string(n.text()) + ":;");
 }
 
 // SemicolonStmt - выражение в позиции оператора: выражение в statement-root (без скобок) +
@@ -336,11 +330,11 @@ void StmtEmitter::visit_SemicolonStmt(const SemicolonStmt& n) {
             return; // reset `x = _;`: без записи значения (и без ';')
         }
     }
-    MapperScope scope(m_ectx.m_ctx.source(), n.range(), m_ectx.m_output.out);
+    MapperScope scope(m_ectx.m_services.source(), n.range(), m_ectx.m_output.out);
     if (n.m_expr) {
         m_driver.generateNodeToFile(*n.m_expr, m_ectx.m_output.out);
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ";");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ";");
     // После присваивания в переменную типа с trust-условиями проверяем значение заново
     // (тип-утверждение; при создании/объявлении проверка уже была).
     m_driver.m_contract.emitTypeChecksAfterAssignment(n.m_expr.get());
@@ -403,22 +397,22 @@ void StmtEmitter::generateWithToFile(const WithStmt& node, MapperFile output_idx
             f = static_cast<const VarDecl*>(node.m_failFlag.get());
         }
         if (!f) {
-            m_ectx.m_ctx.report(node.range(), diag::DiagId::ParseError, "with-else flag temporary is missing (lowering did not synthesize it)");
+            m_ectx.m_services.report(node.range(), diag::DiagId::ParseError, "with-else flag temporary is missing (lowering did not synthesize it)");
             return;
         }
         flag = emitSyntheticVar(*f, output_idx);
         if (flag.empty()) {
-            m_ectx.m_ctx.report(node.range(), diag::DiagId::ParseError, "unable to generate C++ type for with-else flag '{}'", requiredText(*f));
+            m_ectx.m_services.report(node.range(), diag::DiagId::ParseError, "unable to generate C++ type for with-else flag '{}'", requiredText(*f));
             return;
         }
         // emitSyntheticVar закончил строкой перевода; позиционируем `try {` на отступ statement'а.
-        m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
-        m_ectx.m_ctx.source().output_append(out, "try {");
+        m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
+        m_ectx.m_services.source().output_append(out, "try {");
     } else {
-        m_ectx.m_ctx.source().output_append(out, "{");
+        m_ectx.m_services.source().output_append(out, "{");
     }
     m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel() + 1});
-    m_ectx.m_ctx.source().output_append(out, "\n");
+    m_ectx.m_services.source().output_append(out, "\n");
 
     // Захваты (m_locks - пары (lock, binding)): объявлены ВНУТРИ try (скоуп RAII; при исключении
     // в последующем инициализаторе уже созданные объекты уничтожаются автоматически).
@@ -430,50 +424,50 @@ void StmtEmitter::generateWithToFile(const WithStmt& node, MapperFile output_idx
     //   (nullptr, binding VarDecl)              → обычный value-биндинг.
     for (const auto& [lock, binding] : node.m_locks) {
         if (lock) {
-            m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
+            m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
             if (lock->kind() == ParserToken::Kind::VarDecl) {
                 // Locker-темп: auto __cap_N = ref.lock(); (держится; emitSyntheticVar завершает переводом).
                 emitSyntheticVar(static_cast<const VarDecl&>(*lock), out);
             } else {
                 // Голый лок `with(*ref)`: временный Locker, снимается сразу после выражения.
                 m_driver.emitExpr(lock.get());
-                m_ectx.m_ctx.source().output_append(out, ";");
-                m_ectx.m_ctx.source().output_append(out, "\n");
+                m_ectx.m_services.source().output_append(out, ";");
+                m_ectx.m_services.source().output_append(out, "\n");
             }
         }
         if (binding) {
-            m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
+            m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
             m_driver.m_decl.generateVarDeclToFile(static_cast<const VarDecl&>(*binding), out);
-            m_ectx.m_ctx.source().output_append(out, "\n");
+            m_ectx.m_services.source().output_append(out, "\n");
         }
     }
     // Флаг «все биндинги захвачены» - только ПОСЛЕ всех инициализаторов (исключение в теле → throw).
     if (!flag.empty()) {
-        m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
-        m_ectx.m_ctx.source().output_append(out, flag + " = true;\n");
+        m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
+        m_ectx.m_services.source().output_append(out, flag + " = true;\n");
     }
     if (node.m_body) {
         m_driver.emitBodyNode(node.m_body, out, /*mapBlock=*/false);
     }
 
     m_ectx.m_output.scopeStack.pop_back();
-    m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
-    m_ectx.m_ctx.source().output_append(out, "}");
+    m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
+    m_ectx.m_services.source().output_append(out, "}");
     if (!flag.empty()) {
         // catch(...): если исключение из инициализатора (флаг не установлен) → else (объекты уже
         // уничтожены размоткой стека); если из тела (флаг установлен) → пробрасываем дальше.
-        m_ectx.m_ctx.source().output_append(out, " catch (...) {");
+        m_ectx.m_services.source().output_append(out, " catch (...) {");
         m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel() + 1});
-        m_ectx.m_ctx.source().output_append(out, "\n");
-        m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
-        m_ectx.m_ctx.source().output_append(out, "if (" + flag + ") throw;");
-        m_ectx.m_ctx.source().output_append(out, "\n");
+        m_ectx.m_services.source().output_append(out, "\n");
+        m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
+        m_ectx.m_services.source().output_append(out, "if (" + flag + ") throw;");
+        m_ectx.m_services.source().output_append(out, "\n");
         if (node.m_else) {
             m_driver.emitBodyNode(node.m_else, out, /*mapBlock=*/false);
         }
         m_ectx.m_output.scopeStack.pop_back();
-        m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
-        m_ectx.m_ctx.source().output_append(out, "}");
+        m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
+        m_ectx.m_services.source().output_append(out, "}");
     }
 }
 
@@ -511,21 +505,21 @@ void StmtEmitter::visit_TryCatchStmt(const TryCatchStmt& n) {
     // Диспетчеризация - самим C++ по типу исключения (учёт подтипов); else сворачивается последним
     // оператором try (Python-семантика: выполняется, если прерываний НЕ было).
     // catch(...) (m_type==nullptr) → catch(trust::IntAny&) - любые не перечисленные, должен быть последним.
-    m_driver.m_type.recordRequiredInclude("@trust/interrupt.hpp");
-    MapperScope scope(m_ectx.m_ctx.source(), n.range(), m_ectx.m_output.out);
+    m_driver.m_type.recordRequiredInclude("@stdlib/interrupts.hpp");
+    MapperScope scope(m_ectx.m_services.source(), n.range(), m_ectx.m_output.out);
     auto& out = m_ectx.m_output.out;
     // Отступ перед 'try {' выставляет родитель (TryCatchStmt не блочный kind - см. is_block_kind).
-    m_ectx.m_ctx.source().output_append(out, "try {");
+    m_ectx.m_services.source().output_append(out, "try {");
     m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel() + 1});
-    m_ectx.m_ctx.source().output_append(out, "\n");
+    m_ectx.m_services.source().output_append(out, "\n");
     m_driver.emitSequenceBody(n, out);
     if (n.m_else) {
         // else - последним оператором try (Python-семантика: выполняется, если прерываний НЕ было).
         // Документирующий маркер else-ветки (подавляется -fno-comments). Маппинг для него НЕ создаётся:
         // маппинг тела else автоматический (MapperScope на уровне statements ниже).
-        if (m_ectx.m_ctx.opts().is_enabled(transpiler::FlagKind::Comments)) {
-            m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
-            m_ectx.m_ctx.source().output_append(out, "// else\n");
+        if (m_ectx.m_behavioral.comments) {
+            m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
+            m_ectx.m_services.source().output_append(out, "// else\n");
         }
         if (const auto* eseq = n.m_else->as_sequence()) {
             m_driver.emitSequenceBody(*eseq, out); // расплющиваем блок else в try
@@ -534,8 +528,8 @@ void StmtEmitter::visit_TryCatchStmt(const TryCatchStmt& n) {
         }
     }
     m_ectx.m_output.scopeStack.pop_back();
-    m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
-    m_ectx.m_ctx.source().output_append(out, "}");
+    m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
+    m_ectx.m_services.source().output_append(out, "}");
     if (n.m_catches.empty()) {
         // Без веток (напр. `try { A };` = {* A *}, `{- A -}`, `{+ A +}`) - дефолтный catch по классу
         // блока (TermID): BLOCK_PLUS→IntPlus, BLOCK_MINUS→IntMinus, иначе IntAny. Имя типа - из реестра
@@ -543,27 +537,27 @@ void StmtEmitter::visit_TryCatchStmt(const TryCatchStmt& n) {
         TypeId tid;
         switch (n.m_tryKind) {
         case TryKind::Plus:
-            tid = m_ectx.m_ctx.readTypes().getType(type::IntPlus);
+            tid = m_ectx.m_services.readTypes().getType(type::IntPlus);
             break;
         case TryKind::Minus:
-            tid = m_ectx.m_ctx.readTypes().getType(type::IntMinus);
+            tid = m_ectx.m_services.readTypes().getType(type::IntMinus);
             break;
         case TryKind::Any:
-            tid = m_ectx.m_ctx.readTypes().getType(type::IntAny);
+            tid = m_ectx.m_services.readTypes().getType(type::IntAny);
             break;
         }
         std::string defaultCatch;
         if (auto cpp = m_driver.m_type.emitTypeName(tid); cpp) {
             defaultCatch = *cpp;
         }
-        m_ectx.m_ctx.source().output_append(out, " catch (" + defaultCatch + "&) {}");
+        m_ectx.m_services.source().output_append(out, " catch (" + defaultCatch + "&) {}");
         return;
     }
     for (const auto& cbPtr : n.m_catches) {
         const auto& cb = static_cast<const CatchBlock&>(*cbPtr);
-        m_ectx.m_ctx.source().output_append(out, "\n");
-        m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
-        m_ectx.m_ctx.source().output_append(out, "catch (");
+        m_ectx.m_services.source().output_append(out, "\n");
+        m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
+        m_ectx.m_services.source().output_append(out, "catch (");
         std::string ctype;
         std::string varName;
         if (cb.m_binding) {
@@ -576,32 +570,31 @@ void StmtEmitter::visit_TryCatchStmt(const TryCatchStmt& n) {
             }
             if (typeNode) {
                 // Явная ветка catch(:T) - C++-имя из реестра (IntMinus/IntPlus/IntAny и пользовательские
-                // типы зарегистрированы). При неизвестном типе emitTypeNameForNode выдаёт диагностику.
+                // типы зарегистрированы). Пустой результат — нарушение контракта анализа, не fallback.
                 ctype = m_driver.m_type.emitTypeNameForNode(typeNode.get());
-                if (ctype.empty()) {
-                    ctype = std::string(requiredText(*typeNode));
-                }
+                EXPECT(!ctype.empty() && "catch type must render to a C++ name; semantic analysis must resolve it");
             } else {
-                // VarDecl без типа (не должно возникать) → IntAny.
-                ctype = m_driver.m_type.emitTypeName(m_ectx.m_ctx.readTypes().getType(type::IntAny)).value_or("trust::IntAny");
+                FAULT("catch binding VarDecl must carry a type annotation");
             }
         } else {
             // catch-any (_ / none / ...) → IntAny (имя из реестра).
-            ctype = m_driver.m_type.emitTypeName(m_ectx.m_ctx.readTypes().getType(type::IntAny)).value_or("trust::IntAny");
+            auto intAnyName = m_driver.m_type.emitTypeName(m_ectx.m_services.readTypes().getType(type::IntAny));
+            EXPECT(intAnyName.has_value() && !intAnyName->empty() && "IntAny must have a registered C++ name before codegen");
+            ctype = *intAnyName;
         }
-        m_ectx.m_ctx.source().output_append(out, ctype + "&");
+        m_ectx.m_services.source().output_append(out, ctype + "&");
         if (!varName.empty()) {
             // Имя связанной переменной catch манглится как обычная локальная (e → c_e),
             // чтобы ссылки из тела catch (visit_Ident → cppName) совпадали с C++-параметром.
-            m_ectx.m_ctx.source().output_append(out, " " + utils::cppDeclName(varName));
+            m_ectx.m_services.source().output_append(out, " " + utils::cppDeclName(varName));
         }
-        m_ectx.m_ctx.source().output_append(out, ") {");
+        m_ectx.m_services.source().output_append(out, ") {");
         m_ectx.m_output.scopeStack.push_back({m_ectx.m_output.indentLevel() + 1});
-        m_ectx.m_ctx.source().output_append(out, "\n");
+        m_ectx.m_services.source().output_append(out, "\n");
         m_driver.emitSequenceBody(cb, out);
         m_ectx.m_output.scopeStack.pop_back();
-        m_ectx.m_ctx.source().output_append(out, m_ectx.m_output.indentPrefix());
-        m_ectx.m_ctx.source().output_append(out, "}");
+        m_ectx.m_services.source().output_append(out, m_ectx.m_output.indentPrefix());
+        m_ectx.m_services.source().output_append(out, "}");
     }
 }
 

@@ -1,4 +1,3 @@
-// module_registry.cpp - реализация ModuleRegistry
 #include "module_loader/registry/module_registry.hpp"
 
 namespace trust {

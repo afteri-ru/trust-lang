@@ -1,7 +1,5 @@
 #pragma once
-// include/playground/http/config.h
 // trust-playground: единый конфиг для обоих режимов (playground/worker).
-//
 // Формат: строки key=value; комментарии '#' (полнострочные и строчные - всё от первого
 // '#' вне кавычек); пустые строки игнорируются.
 // Префиксы ключей: "playground." - настройки балансировщика, "worker." -
@@ -24,7 +22,6 @@ struct WorkerRegistryEntry {
 };
 
 struct PlaygroundConfig {
-    // -- playground (балансировщик) --
     std::string listen = "127.0.0.1";
     int port = 8080;
     int maxQueue = 256;
@@ -53,7 +50,6 @@ struct PlaygroundConfig {
     int maxWorkerMetricsKb = 8; // макс. размер метрик воркера в /poll (КБ)
     int maxRateLimitIps = 8192; // макс. уникальных IP в rate-limit
 
-    // -- Доступ к публичным эндпоинтам (только с конкретной песочницы) --
     // Разрешённые Origin (разделитель ','). Пусто - fail-closed: CORS только для
     // loopback-origin (dev), посторонние браузерные Origin -> 403. Заполнение ->
     // /run и /download принимаются только с этих доменов, CORS-ответ отдаётся конкретным origin.
@@ -62,28 +58,23 @@ struct PlaygroundConfig {
     // запросы с других Host отклоняются (403) на браузерных эндпоинтах.
     std::vector<std::string> allowedHosts;
 
-    // -- PoW (proof-of-work) на /run и /download: по умолчанию ВЫКЛЮЧЕН (powMinDifficulty==0) --
     int powMinDifficulty = 0;   // минимальная сложность (ведущих нулевых бит); 0 = PoW выключен
     int powMaxDifficulty = 24;  // потолок сложности (режим защиты при флуде)
     int powNonceTtlSec = 60;    // время жизни nonce-челленджа (сек)
     int powMaxUsesPerNonce = 8; // макс. использований одного решённого челленджа (кеш на TTL)
 
-    // -- Кеш транспилированных файлов (/run по SHA-256 кода) --
     int cacheMaxEntries = 256; // макс. записей в кеше
     int cacheMaxMb = 64;       // макс. суммарный размер кеша (МБ)
     int cacheTtlSec = 3600;    // TTL записей кеша (сек)
 
-    // -- Админ-сессия /stats (cookie) --
     int statsSessionTtlSec = 600; // таймаут бездействия админ-сессии (сек); sliding refresh
     int statsSessionMaxSec = 0;   // абсолютный потолок жизни сессии (сек); 0 = выкл
 
-    // -- Алерты (электронная почта при проблемах/изменениях + периодическая статистика) --
     std::string alertEmail;                               // получатель; пусто - алерты отключены
     int alertIntervalSec = 86400;                         // период отправки периодической статистики (сек); default 1 сутки
     std::string alertFrom = "trust-playground@localhost"; // From в письме
     std::string alertCmd = "sendmail -t";                 // команда отправки (читает письмо из stdin)
 
-    // -- worker (исполнитель) --
     // URL балансировщика по умолчанию - публичный playground (переопределяется
     // worker.playground_url в конфиге / --playground-url).
     std::string playgroundUrl = "https://playground.trust-lang.net";
@@ -100,19 +91,16 @@ struct PlaygroundConfig {
     int statsIntervalMs = 10000;      // период вывода статистики в консоль
     std::vector<std::string> lspOpts; // доп. опции, всегда передаваемые в trust-lsp (--json)
 
-    // -- Защита от переполнения диска (воркер) --
     std::string tmpDir;      // worker.tmp_dir; пусто = /tmp. Свой каталог воркера (chmod 0700),
                              // чтобы чистить только своё и не оставлять архивы в общем /tmp.
     int tmpTtlSec = 3600;    // worker.tmp_ttl_sec: TTL осиротевших tmp (старше - чистим)
     int diskFreeMinMb = 512; // worker.disk_free_min_mb: порог свободного места в tmp;
                              // ниже - не принимаем новую задачу (защита от переполнения)
 
-    // -- общее --
     std::string projectDir;
     std::string logLevel = "info";
     std::string statsToken; // токен доступа к GET /stats балансировщика (playground.stats_token)
 
-    // -- реестр воркеров (label -> token), заполняется из строк без префикса --
     std::vector<WorkerRegistryEntry> workers;
 };
 

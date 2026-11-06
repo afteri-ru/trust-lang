@@ -12,7 +12,7 @@
   (`unique_ptr`/`shared_ptr`). `TypeSystem` и загрузчик модулей — НЕ owned: создаются и владеются
   `Pipeline`; в `Context` внедряются `setTypes` и `setModuleResolver` (невладеющие указатели;
   избегает циклов `diag↔types`/`diag↔module_loader`).
-- **Счётчики и реестры:** счётчики макросов/гигиены/блоков, реестр макроопределений, глобальное
-  хранилище доков макросов (`macroDocs`).
+- **Счётчики и реестры:** счётчики макросов/гигиены/блоков, реестр макроопределений и доки
+  макросов прогона (`macroDocs`); значения доков принадлежат пулу строк этого же `Context`.
 - **`report<T>`:** convenience-обёртка над `DiagnosticEngine::report` с severity из `Options`.
 - `Context` non-copyable.

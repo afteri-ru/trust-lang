@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/var_typer.hpp
 // Типизатор объявлений переменных и лямбд: inferred/explicit/forward формы, with-биндинги,
 // коэрция инициализатора к целевой аннотации. Выделен из ExprTyper как отдельная зона
 // ответственности.

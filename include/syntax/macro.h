@@ -1,13 +1,14 @@
 #ifndef TRUST_SYNTAX_MACRO_H_
 #define TRUST_SYNTAX_MACRO_H_
 
-#include "session/context.hpp"
+#include "syntax/parser_services.hpp"
 
 #include "syntax/term/term.h"
 #include "utils/strings.hpp"
 
 #include <functional>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
 
 #include "syntax/util/warning_push.h"
@@ -78,13 +79,19 @@ class Macro : public std::enable_shared_from_this<Macro> {
      * аргументов не выполняется (в языке нет перегрузки по типам).
      */
 
-    explicit Macro(trust::Context& ctx);
+    /// Порт по значению: Macro живёт дольше одного разбора (хранится в Context), поэтому
+    /// порт-снимок (ссылки на владельцев + sink'и) не должен зависеть от времени жизни точки сборки.
+    explicit Macro(trust::ParserServices ctx);
+
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, trust::ParserServices>)
+    explicit Macro(Ctx& ctx)
+    : Macro(trust::makeParserServices(ctx)) {}
 
     virtual ~Macro() {}
 
-    trust::Context& m_ctx;
+    trust::ParserServices m_ctx;
 
-    // -- Управление стеком скоупов --
     // Нижний элемент = базовый скоуп (dsl), верхний = текущий модуль.
     /// Добавить пустой скоуп перед загрузкой нового модуля.
     void PushScope();
@@ -163,8 +170,6 @@ class Macro : public std::enable_shared_from_this<Macro> {
 
     bool TestName(std::string_view name);
     std::string CreateFullName(std::string_view name);
-
-    // -- Классификация макросов для форматтера (см. MacroKind) --
 
     /// Класс макроса по имени (с ведущим '@' или без). Изменяется при регистрации/удалении.
     MacroKind macroKind(std::string_view name) const;

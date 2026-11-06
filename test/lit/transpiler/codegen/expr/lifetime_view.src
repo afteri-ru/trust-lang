@@ -4,12 +4,13 @@
 # area/name валидируется семантикой, а инференс регионов - отдельный трек. На кодоген атрибут
 # не влияет (регион стирается) - сигнатура и вызов остаются как без lifetime.
 #   program - программная длительность;  _ - «выведи здесь» (элизия позиции).
-%puts(s: @[reftype(ptr)@] @[lifetime("program")@] StrChar^):Int32 := ...;
-%puts2(s: @[reftype(ptr)@] @[lifetime("_")@] StrChar^):Int32 := ...;
+\std();
+puts(s: @[reftype(ptr)@] @[lifetime("program")@] StrChar^):Int32 := %puts...;
+puts2(s: @[reftype(ptr)@] @[lifetime("_")@] StrChar^):Int32 := %puts2...;
 
 @main() := {
     s: StrChar := "abc";
-    %puts(s.c_str());
+    puts(s.c_str());
 }
-# CHECK: extern "C" int32_t puts(const char* c_s);
-# CHECK: puts((c_s).c_str());
+# CHECK: // This file was generated automatically by TrustLang {{.*}}
+# CHECK: puts((s).c_str());

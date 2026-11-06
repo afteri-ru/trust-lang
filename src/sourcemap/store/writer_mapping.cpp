@@ -1,15 +1,17 @@
 #include "sourcemap/writer.hpp"
 
 #include "sourcemap/serialize/reader.hpp"
+#include "sourcemap/store/macro_lookup.hpp"
+#include "sourcemap/store/word_at.hpp"
 #include "utils/error.hpp"
 
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <unordered_set>
+#include <vector>
 
 namespace trust {
-
-// -- Создание и валидация Location / Range --
 
 MapperRange SourceMapWriter::makeRange(MapperLocation begin, MapperLocation end) const {
     if (begin.isInvalid() || end.isInvalid()) {
@@ -46,21 +48,17 @@ std::string_view SourceMapWriter::source(MapperLocation loc) const {
     return SourceMap::source(loc.fileIdx());
 }
 
-// ══════════════════════════════════════════════════════════════
-//              SourceMapWriter маппинг-методы
-// ══════════════════════════════════════════════════════════════
-
-bool SourceMapWriter::addRangeMapping(MapperRange trustRange, MapperRange cppRange) {
+bool SourceMapWriter::addRangeMapping(MapperRange trustRange, MapperRange outRange) {
     if (mappingSuppressed()) {
         return true; // подавлено: синтетические узлы (forward-decl на сайте импорта)
     }
     EXPECT(!trustRange.begin.isInvalid());
     EXPECT(!trustRange.end.isInvalid());
-    EXPECT(!cppRange.begin.isInvalid());
-    EXPECT(!cppRange.end.isInvalid());
+    EXPECT(!outRange.begin.isInvalid());
+    EXPECT(!outRange.end.isInvalid());
 
     uint32_t trustKey = trustRange.begin.packed;
-    uint32_t cppKey = cppRange.begin.packed;
+    uint32_t outKey = outRange.begin.packed;
 
     auto trustIt = m_forward.find(trustKey);
     if (trustIt != m_forward.end()) {
@@ -68,90 +66,95 @@ bool SourceMapWriter::addRangeMapping(MapperRange trustRange, MapperRange cppRan
               "key={:#x} new=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}] "
               "existing=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}]",
               trustKey, trustRange.begin.fileIdx().as_index(), trustRange.begin.offset(), trustRange.end.fileIdx().as_index(), trustRange.end.offset(),
-              cppRange.begin.fileIdx().as_index(), cppRange.begin.offset(), cppRange.end.fileIdx().as_index(), cppRange.end.offset(),
+              outRange.begin.fileIdx().as_index(), outRange.begin.offset(), outRange.end.fileIdx().as_index(), outRange.end.offset(),
               trustIt->second.from.begin.fileIdx().as_index(), trustIt->second.from.begin.offset(), trustIt->second.from.end.fileIdx().as_index(),
               trustIt->second.from.end.offset(), trustIt->second.to.begin.fileIdx().as_index(), trustIt->second.to.begin.offset(),
               trustIt->second.to.end.fileIdx().as_index(), trustIt->second.to.end.offset());
     }
-    auto cppIt = m_backward.find(cppKey);
+    auto cppIt = m_backward.find(outKey);
     if (cppIt != m_backward.end()) {
-        FAULT("addRangeMapping: cppKey already mapped: "
+        FAULT("addRangeMapping: outKey already mapped: "
               "key={:#x} new=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}] "
               "existing=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}]",
-              cppKey, trustRange.begin.fileIdx().as_index(), trustRange.begin.offset(), trustRange.end.fileIdx().as_index(), trustRange.end.offset(),
-              cppRange.begin.fileIdx().as_index(), cppRange.begin.offset(), cppRange.end.fileIdx().as_index(), cppRange.end.offset(),
+              outKey, trustRange.begin.fileIdx().as_index(), trustRange.begin.offset(), trustRange.end.fileIdx().as_index(), trustRange.end.offset(),
+              outRange.begin.fileIdx().as_index(), outRange.begin.offset(), outRange.end.fileIdx().as_index(), outRange.end.offset(),
               cppIt->second.from.begin.fileIdx().as_index(), cppIt->second.from.begin.offset(), cppIt->second.from.end.fileIdx().as_index(),
               cppIt->second.from.end.offset(), cppIt->second.to.begin.fileIdx().as_index(), cppIt->second.to.begin.offset(),
               cppIt->second.to.end.fileIdx().as_index(), cppIt->second.to.end.offset());
     }
 
-    m_forward[trustKey] = RangeMap{trustRange, cppRange};
-    m_backward[cppKey] = RangeMap{cppRange, trustRange};
+    m_forward[trustKey] = RangeMap{trustRange, outRange};
+    m_backward[outKey] = RangeMap{outRange, trustRange};
     m_reader.reset();
     return true;
 }
 
-bool SourceMapWriter::addNameMapping(MapperRange trustRange, MapperRange cppRange, std::string_view trustName, std::string_view cppName) {
+bool SourceMapWriter::addNameMapping(MapperRange trustRange, MapperRange outRange, std::string_view trustName, std::string_view outName) {
     if (mappingSuppressed()) {
         return true;
     }
     EXPECT(!trustRange.begin.isInvalid());
     EXPECT(!trustRange.end.isInvalid());
-    EXPECT(!cppRange.begin.isInvalid());
-    EXPECT(!cppRange.end.isInvalid());
+    EXPECT(!outRange.begin.isInvalid());
+    EXPECT(!outRange.end.isInvalid());
 
     NameMap info;
-    info.rangeMap = RangeMap{trustRange, cppRange};
+    info.rangeMap = RangeMap{trustRange, outRange};
     info.fromName = trustName;
-    info.toName = cppName;
+    info.toName = outName;
     m_nameMappings.push_back(info);
     m_reader.reset();
     return true;
 }
 
-bool SourceMapWriter::addMacroMapping(MapperRange bodyRange, MapperRange defRange) {
+bool SourceMapWriter::addMacroMapping(MapperRange useRange, MapperRange definitionRange) {
     if (mappingSuppressed()) {
         return true;
     }
-    EXPECT(!bodyRange.begin.isInvalid());
-    EXPECT(!bodyRange.end.isInvalid());
-    EXPECT(!defRange.begin.isInvalid());
-    EXPECT(!defRange.end.isInvalid());
-    if (bodyRange.begin.isOutput()) {
-        FAULT("bodyRange must be an input file");
+    EXPECT(!useRange.begin.isInvalid());
+    EXPECT(!useRange.end.isInvalid());
+    EXPECT(!definitionRange.begin.isInvalid());
+    EXPECT(!definitionRange.end.isInvalid());
+    if (useRange.begin.isOutput()) {
+        FAULT("useRange must be an input file");
     }
-    if (defRange.begin.isOutput()) {
-        FAULT("defRange must be an input file");
+    if (definitionRange.begin.isOutput()) {
+        FAULT("definitionRange must be an input file");
     }
 
-    uint32_t key = bodyRange.begin.packed;
+    uint32_t key = useRange.begin.packed;
     if (m_macroForward.find(key) != m_macroForward.end()) {
+        // Вложенный вызов переиспользует диапазон внешнего — существующая пара уже описывает раскрытие.
         return true;
     }
 
-    m_macroForward[key] = RangeMap{bodyRange, defRange};
+    m_macroForward[key] = RangeMap{useRange, definitionRange};
     m_reader.reset();
     return true;
 }
 
-// ══════════════════════════════════════════════════════════════
-//              SourceMapWriter::mapStart / mapStop
-// ══════════════════════════════════════════════════════════════
-
-MapperRange SourceMapWriter::mapStart(MapperFile from, uint32_t from_begin, uint32_t from_end, MapperFile to) {
-    if (from.isInvalid()) {
-        FAULT("mapStart: 'from' FileIdx is invalid");
+// Кадры — от внутреннего к внешнему; visited/самоссылка останавливают обход. Имя — по НАЧАЛУ точки
+// использования: диагностика внутри вызова может указывать на его середину, где слова-имени нет.
+std::vector<ExpansionFrame> SourceMapWriter::macroExpansionChain(MapperRange useRange) const {
+    std::vector<ExpansionFrame> frames;
+    if (useRange.begin.isInvalid()) {
+        return frames;
     }
-    if (from_begin > from_end) {
-        FAULT("mapStart: from_begin ({}) > from_end ({})", from_begin, from_end);
+    std::unordered_set<uint32_t> visited;
+    MapperLocation current = useRange.begin;
+    while (visited.insert(current.packed).second) {
+        const RangeMap* entry = findEnclosingExpansion(m_macroForward, current);
+        if (entry == nullptr || entry->to.begin == current) {
+            break;
+        }
+        const std::string_view name = wordAt(source(entry->from.begin), entry->from.begin.offset());
+        frames.push_back(ExpansionFrame{entry->to, std::string(name)});
+        current = entry->to.begin;
     }
-
-    MapperLocation begin = makeLoc(from, from_begin);
-    MapperLocation end = makeLoc(from, from_end);
-    return mapStart(MapperRange{begin, end}, to);
+    return frames;
 }
 
-MapperRange SourceMapWriter::mapStart(MapperRange from, MapperFile to) {
+MapperRange SourceMapWriter::mapStart(MapperRange from, MapperFile to, bool recordRange) {
     if (from.begin.isInvalid() || from.end.isInvalid()) {
         FAULT("mapStart(Range): 'from' Range is invalid");
     }
@@ -164,7 +167,7 @@ MapperRange SourceMapWriter::mapStart(MapperRange from, MapperFile to) {
 
     Location outputBegin = makeLoc(to, get_file(to).size() + 1);
 
-    m_mapStack.push_back({from, outputBegin});
+    m_mapStack.push_back({from, outputBegin, recordRange});
     return from;
 }
 
@@ -186,19 +189,24 @@ MapperRange SourceMapWriter::mapStop(MapperRange from) {
 
     EXPECT(entry.inputRange == from && "top of map stack does not match 'from'");
 
+    // Запись создана только для позиции имени: range-mapping принадлежит другому артефакту (R40).
+    if (!entry.recordRange) {
+        return from;
+    }
+
     MapperFile to = entry.outputBegin.fileIdx();
     uint32_t currentOffset = get_file(to).size() + 1;
     Location outputEnd = makeLoc(to, currentOffset);
 
-    MapperRange cppRange{entry.outputBegin, outputEnd};
+    MapperRange outRange{entry.outputBegin, outputEnd};
 
     EXPECT(!entry.inputRange.begin.isInvalid());
     EXPECT(!entry.inputRange.end.isInvalid());
-    EXPECT(!cppRange.begin.isInvalid());
-    EXPECT(!cppRange.end.isInvalid());
+    EXPECT(!outRange.begin.isInvalid());
+    EXPECT(!outRange.end.isInvalid());
 
     uint32_t trustKey = entry.inputRange.begin.packed;
-    uint32_t cppKey = cppRange.begin.packed;
+    uint32_t outKey = outRange.begin.packed;
 
     auto trustIt = m_forward.find(trustKey);
     if (trustIt != m_forward.end()) {
@@ -206,27 +214,27 @@ MapperRange SourceMapWriter::mapStop(MapperRange from) {
               "key={:#x} new=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}] "
               "existing=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}]",
               trustKey, entry.inputRange.begin.fileIdx().as_index(), entry.inputRange.begin.offset(), entry.inputRange.end.fileIdx().as_index(),
-              entry.inputRange.end.offset(), cppRange.begin.fileIdx().as_index(), cppRange.begin.offset(), cppRange.end.fileIdx().as_index(),
-              cppRange.end.offset(), trustIt->second.from.begin.fileIdx().as_index(), trustIt->second.from.begin.offset(),
+              entry.inputRange.end.offset(), outRange.begin.fileIdx().as_index(), outRange.begin.offset(), outRange.end.fileIdx().as_index(),
+              outRange.end.offset(), trustIt->second.from.begin.fileIdx().as_index(), trustIt->second.from.begin.offset(),
               trustIt->second.from.end.fileIdx().as_index(), trustIt->second.from.end.offset(), trustIt->second.to.begin.fileIdx().as_index(),
               trustIt->second.to.begin.offset(), trustIt->second.to.end.fileIdx().as_index(), trustIt->second.to.end.offset());
     }
-    auto cppIt = m_backward.find(cppKey);
+    auto cppIt = m_backward.find(outKey);
     if (cppIt != m_backward.end()) {
-        FAULT("mapStop: cppKey already mapped: "
+        FAULT("mapStop: outKey already mapped: "
               "key={:#x} new=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}] "
               "existing=[f{}:{}-f{}:{}] -> [f{}:{}-f{}:{}]",
-              cppKey, entry.inputRange.begin.fileIdx().as_index(), entry.inputRange.begin.offset(), entry.inputRange.end.fileIdx().as_index(),
-              entry.inputRange.end.offset(), cppRange.begin.fileIdx().as_index(), cppRange.begin.offset(), cppRange.end.fileIdx().as_index(),
-              cppRange.end.offset(), cppIt->second.from.begin.fileIdx().as_index(), cppIt->second.from.begin.offset(),
+              outKey, entry.inputRange.begin.fileIdx().as_index(), entry.inputRange.begin.offset(), entry.inputRange.end.fileIdx().as_index(),
+              entry.inputRange.end.offset(), outRange.begin.fileIdx().as_index(), outRange.begin.offset(), outRange.end.fileIdx().as_index(),
+              outRange.end.offset(), cppIt->second.from.begin.fileIdx().as_index(), cppIt->second.from.begin.offset(),
               cppIt->second.from.end.fileIdx().as_index(), cppIt->second.from.end.offset(), cppIt->second.to.begin.fileIdx().as_index(),
               cppIt->second.to.begin.offset(), cppIt->second.to.end.fileIdx().as_index(), cppIt->second.to.end.offset());
     }
 
-    m_forward[trustKey] = RangeMap{entry.inputRange, cppRange};
-    m_backward[cppKey] = RangeMap{cppRange, entry.inputRange};
+    m_forward[trustKey] = RangeMap{entry.inputRange, outRange};
+    m_backward[outKey] = RangeMap{outRange, entry.inputRange};
     m_reader.reset();
-    return cppRange;
+    return outRange;
 }
 
 } // namespace trust

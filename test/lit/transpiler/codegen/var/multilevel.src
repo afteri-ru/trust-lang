@@ -4,7 +4,7 @@
 # Переменные на нескольких уровнях вложенности:
 #   глобальный уровень, вложенные области имён, типизированные (Int32) и без типа.
 g:Int32 := 1;
-# CHECK: int32_t c_g = 1;
+# CHECK: int32_t g = 1;
 
 ns:: {
     a:Int32 := 2;
@@ -12,16 +12,16 @@ ns:: {
         c:Int32 := 3;
     };
 };
-# CHECK: namespace c_ns {
-# CHECK-NEXT:     int32_t c_a = 2;
-# CHECK-NEXT:     namespace c_sub {
-# CHECK-NEXT:         int32_t c_c = 3;
+# CHECK: namespace ns {
+# CHECK-NEXT:     int32_t a = 2;
+# CHECK-NEXT:     namespace sub {
+# CHECK-NEXT:         int32_t c = 3;
 # CHECK-NEXT:     }
 # CHECK-NEXT: }
 
 b:Int32 := 4;
-# CHECK: int32_t c_b = 4;
+# CHECK: int32_t b = 4;
 
 x := 100;
-# CHECK: int8_t c_x = 100;
+# CHECK: int8_t x = 100;
 

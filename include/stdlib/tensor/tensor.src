@@ -1,4 +1,4 @@
-\\\tensor\tensor;
+\tensor;
 # tensor.src - implementation provider for the Core type `Tensor`.
 #
 # Loaded only by an explicit import:
@@ -11,6 +11,11 @@
 # [[artifact]] in trust.toml. The logical link requirement `tensor` resolves to
 # the plugin library (-ltensor_cpu).
 
-@[include("@trust/tensor.hpp")@]
+@[include("@stdlib/tensor.hpp")@]
 @[link("tensor")@]
-Tensor = %trust::Tensor { };
+Tensor = %trust::Tensor {
+    rank^(): Int64 := %rank ...;
+    size^(): Int64 := %size ...;
+    shape^() := %shape ...;
+    at^(i: Int64): TemplateParam := %at ...;
+};

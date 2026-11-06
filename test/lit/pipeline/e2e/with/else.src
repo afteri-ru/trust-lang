@@ -11,12 +11,14 @@
 #   * при исключении в ЛЮБОМ инициализаторе выполняется else (объекты уже уничтожены);
 #   * исключение в ТЕЛЕ пробрасывается наружу (else НЕ выполняется) - его ловит внешний блок.
 
-%MaybeThrow():Int32 := {
+\std();
+MaybeThrow():Int32 := {
     |- 1 -|;      # бросает «отрицательное» прерывание (IntMinus)
     return 0;
 };
 
-%test_success():Void := {
+@[export("test_success")@]
+test_success():Void := {
     with(a = 1) {
         print("body=1");
     } else {
@@ -24,7 +26,8 @@
     };
 };
 
-%test_capture_fail():Void := {
+@[export("test_capture_fail")@]
+test_capture_fail():Void := {
     with(a = 1, b = MaybeThrow()) {
         print("body=BAD");
     } else {
@@ -32,7 +35,8 @@
     };
 };
 
-%test_body_throw():Void := {
+@[export("test_body_throw")@]
+test_body_throw():Void := {
     {-
         with(a = 1) {
             |- 1 -|;      # исключение в теле -> else НЕ выполняется, проброс наружу

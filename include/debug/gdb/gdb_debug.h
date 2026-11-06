@@ -6,10 +6,8 @@
 #include <string>
 #include <vector>
 
-// ---------------------------------------------------------------------------
 // GdbDebug - lightweight wrapper around GDB/MI subprocess
 // Does NOT depend on LLDB, communicates with GDB via pipes (GDB/MI2 protocol)
-// ---------------------------------------------------------------------------
 class GdbDebug {
   public:
     struct Config {

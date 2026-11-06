@@ -37,7 +37,7 @@ inline int value() { return 42; }
 } // namespace pkg_demo
 
 //--- pkg/artifact_demo.src
-\\\artifact_demo\artifact_demo;
+\artifact_demo;
 @[include("<demo.hpp>")@]
 @[link("demo")@]
 demo_value:Int32 := {% pkg_demo::value() %};

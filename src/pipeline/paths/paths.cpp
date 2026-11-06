@@ -1,4 +1,3 @@
-// src/pipeline/paths.cpp
 // Расчёт путей build-каталога и генерируемого .cppt.
 #include "pipeline/paths/paths.hpp"
 
@@ -62,11 +61,11 @@ std::filesystem::path moduleCppPath(const std::filesystem::path& buildDir, std::
 
 std::filesystem::path moduleHeaderPath(const std::filesystem::path& buildDir, std::string_view modulePath) {
     namespace fs = std::filesystem;
-    // Имя заголовка — ТО ЖЕ кодированное имя, что namespace модуля: клиент включает ровно тот
-    // заголовок, чей namespace он использует в сгенерированном C++ (одна формула на всё).
-    const std::string encoded = moduleCppNamespace(modulePath);
+    // Имя заголовка — кодированное имя модуля (не namespace; модуль вне ABI): структурная
+    // согласованность артефактов сборки (одна формула на всё).
+    const std::string encoded = moduleEncodedName(modulePath);
     EXPECT(!encoded.empty() && "moduleHeaderPath requires an importable module path (with '\\' prefix)");
-    return buildDir / (encoded + ".hpp");
+    return buildDir / moduleHeaderFileName(encoded);
 }
 
 } // namespace trust

@@ -92,7 +92,7 @@ TEST(AstSlots, FuncDeclTraversesTypeAliasParamsBody) {
     node->m_type = typeName("Int32");
     node->setAlias(AliasKind::Name, ident("g"), MapperRange{});
     node->m_params = std::vector<AstNodePtr>{std::make_shared<ArgNode>("a", typeName("Int32"), nullptr)};
-    node->m_body = std::vector<AstNodePtr>{lit()};
+    node->m_definition = Definition::fromBody({lit()});
     // Порядок контракта: тип -> цель алиаса -> параметры -> тело.
     EXPECT_EQ(childKinds(*node), "TypeName,Ident,ArgNode,IntLiteral");
 }
@@ -114,7 +114,7 @@ TEST(AstSlots, IdentTypeTraversesDimsThenParams) {
 
 TEST(AstSlots, IdentTypeTemplateArgsAreNotTraversed) {
     auto node = std::make_shared<IdentType>("vector");
-    node->setTemplateArgs({typeName("Int32")});
+    node->setTemplateArgs({TemplateArg{typeName("Int32"), false}});
     EXPECT_EQ(childKinds(*node), "");
 }
 
@@ -258,7 +258,7 @@ TEST(AstSlots, CloneCopiesSlotsHiddenFromTraversal) {
     func->m_captures = std::vector<AstNodePtr>{ident("x")};
 
     auto typed = std::make_shared<IdentType>("vector");
-    typed->setTemplateArgs({typeName("Int32")});
+    typed->setTemplateArgs({TemplateArg{typeName("Int32"), false}});
 
     auto dict = std::make_shared<DictLiteralNode>(K::DictLiteral);
     dict->m_type = typeName("Int32");
@@ -276,7 +276,7 @@ TEST(AstSlots, CloneCopiesSlotsHiddenFromTraversal) {
 
     auto body = std::make_shared<Sequence>(K::sequence);
     body->m_body = {typed, dict, range, literal, elem, error, contract};
-    func->m_body = std::vector<AstNodePtr>{body};
+    func->m_definition = Definition::fromBody({body});
 
     const std::vector<AstNodePtr> clones = cloneTrees({func});
     ASSERT_EQ(clones.size(), 1u);
@@ -286,13 +286,13 @@ TEST(AstSlots, CloneCopiesSlotsHiddenFromTraversal) {
     ASSERT_TRUE(func_clone.m_captures.has_value());
     EXPECT_NE((*func_clone.m_captures)[0].get(), (*func->m_captures)[0].get());
 
-    ASSERT_TRUE(func_clone.m_body.has_value());
-    const auto& seq_clone = static_cast<const Sequence&>(*(*func_clone.m_body)[0]);
+    ASSERT_TRUE(func_clone.hasBody());
+    const auto& seq_clone = static_cast<const Sequence&>(*(*func_clone.body())[0]);
     ASSERT_EQ(seq_clone.m_body.size(), 7u);
 
     const auto& typed_clone = static_cast<const IdentType&>(*seq_clone.m_body[0]);
     ASSERT_TRUE(typed_clone.templateArgs().has_value());
-    EXPECT_NE((*typed_clone.templateArgs())[0].get(), (*typed->templateArgs())[0].get());
+    EXPECT_NE((*typed_clone.templateArgs())[0].node.get(), (*typed->templateArgs())[0].node.get());
 
     const auto& dict_clone = static_cast<const DictLiteralNode&>(*seq_clone.m_body[1]);
     EXPECT_NE(dict_clone.m_type.get(), dict->m_type.get());
@@ -423,7 +423,7 @@ std::vector<AstNodePtr> nodeSamples() {
     func->m_type = typeName("Int32");
     func->setAlias(AliasKind::Name, ident("g"), MapperRange{});
     func->m_params = std::vector<AstNodePtr>{std::make_shared<ArgNode>("a", typeName("Int32"), nullptr)};
-    func->m_body = std::vector<AstNodePtr>{seq};
+    func->m_definition = Definition::fromBody({seq});
     out.push_back(func);
 
     auto dict = std::make_shared<DictLiteralNode>(K::DictLiteral);

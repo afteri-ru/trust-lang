@@ -4,6 +4,7 @@
 
 # Member и свободная форма сравниваются ОДНОЙ шкалой конверсий (C++ [over.match.best]):
 # member-параметр Base требует derived→base (widening), свободная форма точна - побеждает free.
+\std();
 :P ::= :Class{
     v: Int32 := 0;
 };

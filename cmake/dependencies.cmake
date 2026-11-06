@@ -5,9 +5,11 @@
 find_package(GTest REQUIRED)
 find_program(FLEX_EXECUTABLE flex REQUIRED)
 find_program(BISON_EXECUTABLE NAMES bison REQUIRED)
-# `lit` в дистрибутивах LLVM ставится как `lit-<version>` (например /usr/bin/lit-22),
-# безымянный `lit` есть не всегда — принимаем оба варианта.
-find_program(LIT_EXECUTABLE NAMES lit lit-${CLANG_VERSION} REQUIRED)
+# `lit` в дистрибутивах LLVM ставится как `lit-<version>` или как `lit` в каталоге LLVM
+# (`<prefix>/lib/llvm-<version>/bin`); берём любой из них, ищем и рядом с LLVM версии сборки,
+# безымянный `lit` есть не всегда.
+find_program(LIT_EXECUTABLE NAMES lit lit-${CLANG_VERSION} REQUIRED
+    HINTS "/usr/lib/llvm-${CLANG_VERSION}/bin" "/usr/local/lib/llvm-${CLANG_VERSION}/bin")
 
 # -- Required libraries --
 find_package(PkgConfig REQUIRED)

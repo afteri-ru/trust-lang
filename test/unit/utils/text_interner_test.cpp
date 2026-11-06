@@ -1,7 +1,7 @@
 // test/unit/utils/text_interner_test.cpp
 // Пул строк (`utils/string_interner.hpp`): дедупликация и стабильность view, вложенность/восстановление
-// активного пула (`StringInternerScope`), fallback на процессный `manualStringInterner()` вне
-// компиляции, а также имена символов анализатора (view в тот же пул).
+// активного пула (`StringInternerScope`), явный процессный пул вне компиляции (`ManualInternerScope`),
+// а также имена символов анализатора (view в тот же пул).
 #include "symbols/symbol_table.hpp"
 #include "utils/string_interner.hpp"
 
@@ -53,11 +53,22 @@ TEST(StringInternerTest, ScopeNestingRestoresPreviousPool) {
     EXPECT_EQ(detail::activeInternerSlot(), nullptr);
 }
 
-// Вне компиляции интернирование уходит в процессный пул (ручные/тестовые узлы).
-TEST(StringInternerTest, ManualFallbackOutsideCompilationScope) {
+// Вне компиляции процессный пул доступен только по явному ManualInternerScope.
+TEST(StringInternerTest, ManualScopeOutsideCompilation) {
     ASSERT_EQ(detail::activeInternerSlot(), nullptr);
+    ManualInternerScope manualScope;
     const std::string_view text = internText("manual_fallback_text");
     EXPECT_TRUE(manualStringInterner().owns(text));
+}
+
+// Явный процессный scope вложен в компиляционный: активный пул компиляции побеждает.
+TEST(StringInternerTest, CompilationPoolWinsOverManualScope) {
+    ManualInternerScope manualScope;
+    StringInterner pool;
+    StringInternerScope scope(pool);
+    const std::string_view text = internText("compilation_pool_text");
+    EXPECT_TRUE(pool.owns(text));
+    EXPECT_FALSE(manualStringInterner().owns(text));
 }
 
 // Имена символов анализатора - view в тот же пул: одинаковое имя хранится один раз.
@@ -68,7 +79,7 @@ TEST(SymbolNameInterningTest, EqualNamesShareStorage) {
     EXPECT_EQ(a, "same_name");
 }
 
-// (S4) Процессный пул доступен из разных потоков: одинаковый текст интернируется один раз.
+// Процессный пул доступен из разных потоков: одинаковый текст интернируется один раз.
 TEST(StringInternerTest, SharedPoolIsThreadSafe) {
     SharedStringInterner pool;
     constexpr int kThreads = 4;

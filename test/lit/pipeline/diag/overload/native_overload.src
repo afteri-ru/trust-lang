@@ -2,10 +2,10 @@
 
 # C-символ (`%foo`, extern "C") нельзя перегрузить: у всех сигнатур одно C++-имя. Явная
 # диагностика вместо генерации невалидного C++ с манглированными объявлениями.
-%foo(arg:Int8):None := ...;
-%foo(arg:Byte):None := ...;
+foo(arg:Int8):None := %foo...;
+foo(arg:Byte):None := %foo...;
 @main() := {
-    %foo(3:Int8);
+    foo(3:Int8);
     @return 0;
 }
-# CHECK: error: overloaded native function '%foo' is not supported
+# CHECK: pipeline/diag/overload/native_overload.src:8:5: error: overloaded native function 'foo' is not supported: a C-linkage symbol cannot be overloaded (declare distinct names)

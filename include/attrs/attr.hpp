@@ -1,34 +1,3 @@
-// attr.hpp - AST attribute system (base types, separate from pool and parser)
-//
-// Key Entities:
-//   AttrId (uint32_t)    - attribute identifier with a bitmask:
-//                           bits 0-23  = index in AttrPool.
-//                           bit  24    = built-in (1) or user-defined (0).
-//                           bit  25    = supported by the analyzer (semantic).
-//                           bit  26    = supported by the C++ code generator (transpiler).
-//                           bits 27-30 = reserved for future use.
-//                           bit  31    = set manually (1) or automatically (0).
-//   Attr                 - registered attribute descriptor with name and default params.
-//
-// Registration (AttrPool) is in attr_pool.hpp.
-// Built-in attribute names (attr::ReadOnly etc.) are in attr_builtin.hpp.
-// Parser for @[...] syntax is in attr_parser.hpp.
-// AstNodeBase stores std::vector<AttrId> (see include/ast/ast_nodes.hpp).
-//
-// Design Principles:
-// 1. There is no AttrType enum - all attributes, built-in or user-defined,
-//    are stored uniformly and identified by their name string.
-// 2. Attributes are unique by name. The same name always returns the same AttrId.
-// 3. Each attribute stores its default parameter values in m_default_params.
-//    Parameters are always stored as string_view (raw text from source).
-// 4. AttrId is a compact reference stored in AstNodeBase.
-// 5. The built-in flag is set at registration time; the manual flag is set
-//    automatically when an attribute is attached to a node (add_attr with manual=true).
-// 6. Two "processing" flags (analyzer / codegen support) declare which stage handles
-//    the attribute. An attribute with NEITHER set is "unhandled" - a diagnostic
-//    (-Wunhandled-attr) flags its use anywhere in the AST (see is_handled below).
-
-
 #pragma once
 
 #include <cstdint>
@@ -48,21 +17,10 @@ inline bool attrParamIsWildcard(std::string_view d) noexcept {
     return d.empty();
 }
 
-// ----------------------------------------------------------------------------
-// AttrId - attribute identifier
-// ----------------------------------------------------------------------------
-
 using AttrId = uint32_t;
 
-// Layout:
-//   bit  24:   1 = built-in, 0 = user-defined
-//   bit  25:   1 = supported by the analyzer (semantic)
-//   bit  26:   1 = supported by the C++ code generator (transpiler)
-//   bits 27-30: reserved for future use
-//   bit  31:   1 = set manually, 0 = set automatically
-//   bits 0-23 : index in AttrPool
 namespace detail {
-static constexpr AttrId kAttrIndexMask = (1u << 24) - 1; // 24-bit index (3 bytes)
+static constexpr AttrId kAttrIndexMask = (1u << 24) - 1;
 static constexpr AttrId kAttrBuiltinFlag = 1u << 24;
 static constexpr AttrId kAttrAnalyzerFlag = 1u << 25;
 static constexpr AttrId kAttrCodegenFlag = 1u << 26;
@@ -81,54 +39,40 @@ static constexpr AttrId kAttrManualFlag = 1u << 31;
     return (id & kAttrCodegenFlag) != 0;
 }
 
-/// Whether the attribute is processed by at least one stage (analyzer or codegen).
-/// An attribute with neither flag set is "unhandled" -> -Wunhandled-attr diagnostic.
+/// Оба флага (analyzer/codegen) сняты -> "unhandled" -> -Wunhandled-attr.
 [[nodiscard]] constexpr bool is_handled(AttrId id) noexcept {
     return (id & (kAttrAnalyzerFlag | kAttrCodegenFlag)) != 0;
 }
 
-/// Return id with the built-in flag set (or cleared).
 [[nodiscard]] constexpr AttrId with_builtin(AttrId id, bool builtin = true) noexcept {
     return builtin ? (id | kAttrBuiltinFlag) : (id & ~kAttrBuiltinFlag);
 }
 
-/// Return id with the manual flag set (or cleared).
 [[nodiscard]] constexpr AttrId with_manual(AttrId id, bool manual = true) noexcept {
     return manual ? (id | kAttrManualFlag) : (id & ~kAttrManualFlag);
 }
 
-/// Return id with the analyzer-support flag set (or cleared).
 [[nodiscard]] constexpr AttrId with_analyzer(AttrId id, bool analyzer = true) noexcept {
     return analyzer ? (id | kAttrAnalyzerFlag) : (id & ~kAttrAnalyzerFlag);
 }
 
-/// Return id with the codegen-support flag set (or cleared).
 [[nodiscard]] constexpr AttrId with_codegen(AttrId id, bool codegen = true) noexcept {
     return codegen ? (id | kAttrCodegenFlag) : (id & ~kAttrCodegenFlag);
 }
 } // namespace detail
 
-// ----------------------------------------------------------------------------
-// Attr - registered attribute (name + optional default parameter values)
-// ----------------------------------------------------------------------------
-
 struct Attr {
     AttrId m_id{0};
-    std::string_view m_name;                        // pointer into string pool
-    std::vector<std::string_view> m_default_params; // default parameter values (empty = no params)
-    MapperRange m_def_range{};                      // valid for user-defined, invalid for built-in
+    std::string_view m_name; // pointer into string pool
+    std::vector<std::string_view> m_default_params;
+    MapperRange m_def_range{}; // valid for user-defined, invalid for built-in
 
-    /// Number of default parameters.
     [[nodiscard]] std::size_t param_count() const noexcept { return m_default_params.size(); }
 
-    /// Whether this attribute has any default parameters defined.
     [[nodiscard]] bool has_params() const noexcept { return !m_default_params.empty(); }
 
-    /// Check if the given parameter values match the default values.
-    /// Пустой (wildcard) дефолт-параметр совпадает с ЛЮБЫМ предоставленным строковым
-    /// значением того же количества параметров - так строковые атрибуты (напр. `link`)
-    /// принимают произвольные значения (`@[link("m")]`), а не только фиксированные.
-    /// Число параметров при этом должно совпадать.
+    /// Пустой (wildcard) дефолт-параметр совпадает с ЛЮБЫМ строковым значением того же
+    /// количества параметров (строковые атрибуты, напр. `link`, принимают произвольные значения).
     [[nodiscard]] bool matches_params(const std::vector<std::string_view>& params) const noexcept {
         const bool all_wildcard = std::all_of(m_default_params.begin(), m_default_params.end(), attrParamIsWildcard);
         if (all_wildcard) {

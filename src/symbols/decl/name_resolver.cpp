@@ -1,5 +1,6 @@
 #include "symbols/decl/name_resolver.hpp"
 
+#include "location/namespace_alias.hpp"
 #include "symbols/decl/decl_registry.hpp"
 #include "ast/ast_nodes.hpp"
 #include "types/names.hpp"
@@ -124,40 +125,11 @@ Symbol* NameResolver::findExportedMutable(ModuleIndex module, std::string_view q
     if (qualifiedName.empty()) {
         return nullptr;
     }
-    const bool hasExportedAliases = m_aliases->hasExportedFacts(module);
-    if (!m_surface->hasModule(module) && !hasExportedAliases) {
+    if (!m_surface->hasModule(module)) {
         return nullptr;
     }
     const std::string_view nsPath = utils::namespacePathOf(qualifiedName);
     const std::string_view name = utils::shortNameOf(qualifiedName);
-    // Экспортированный namespace-алиас фасада: `\facade::outer::ns::name` разворачивается в
-    // область владельца по САМОМУ ДЛИННОМУ совпавшему префиксу. Требуется активная привязка
-    // префикса (импорт с подходящей маской) и прямой сайт.
-    if (hasExportedAliases && !nsPath.empty()) {
-        std::string_view rest;
-        const NamespaceAliasRecord* best = m_aliases->longestExportedAlias(module, nsPath, &rest);
-        if (best != nullptr) {
-            bool bound = false;
-            for (std::size_t i = m_scopes->depth(); i-- > 0 && !bound;) {
-                for (const std::size_t ref : m_scopes->at(i).aliasRefs) {
-                    const NamespaceAliasRecord& active = m_aliases->aliasAt(ref);
-                    if (active.owner == m_module->currentModule() && active.alias == best->alias && active.targetModule == best->targetModule &&
-                        active.path == best->path) {
-                        bound = true;
-                        break;
-                    }
-                }
-            }
-            const bool directSite = bound && hasVisibleDirectSite(module, best->alias, SiteDeclVisibility::Public, /*requireActiveScope=*/false);
-            if (directSite) {
-                const std::string targetName = rest.empty() ? std::string(name) : utils::qualifyTrustName(rest, name);
-                if (Symbol* found = findExportedMutable(best->targetModule, utils::qualifyTrustName(best->path, targetName),
-                                                        ResolveOptions{.maskBypass = false, .viaAlias = true})) {
-                    return found;
-                }
-            }
-        }
-    }
     // Идентичность модуля: ключ уникален, локальное имя ссылку не затеняет.
     const StorageKey identity = moduleExportKey(module, nsPath, name);
     Symbol* sym = nullptr;
@@ -268,17 +240,25 @@ Symbol* NameResolver::resolveImpl(std::string_view name, bool materialize) const
         if (best == nullptr) {
             continue;
         }
-        // Инвариант `NamespaceAliasRecord`: цель всегда модульная (recordAlias отвергает
-        // невалидный targetModule), поэтому проверка optional не нужна.
+        // Цель алиаса. Модульная — точный резолв в модуле-владельце. Без модуля (отложенный резолв:
+        // область неоднозначна по модулям) — раскрываем префикс и решаем ОБЫЧНЫМ поиском.
         const std::string qualified = utils::qualifyTrustName(best->path, bestRest);
-        if (Symbol* found = findExportedMutable(best->targetModule, qualified, ResolveOptions{.viaAlias = true})) {
-            if (materialize) {
-                ensureOverloadView(*found, utils::namespacePathOf(qualified));
+        if (best->targetModule.isValid()) {
+            if (Symbol* found = findExportedMutable(best->targetModule, qualified, ResolveOptions{.viaAlias = true})) {
+                if (materialize) {
+                    ensureOverloadView(*found, utils::namespacePathOf(qualified));
+                }
+                return found;
             }
+        } else if (Symbol* found = resolveImplNoAlias(qualified, materialize)) {
             return found;
         }
         break; // внутренний скоуп привязал префикс: внешние алиасы затенены
     }
+    return resolveImplNoAlias(name, materialize);
+}
+
+Symbol* NameResolver::resolveImplNoAlias(std::string_view name, bool materialize) const {
     // Плоский ключ (exported, без namespace-пути) — ключ локальных объявлений и flat-экспорта.
     const StorageKey flat = exportedKeyOf(name);
     for (std::size_t i = m_scopes->depth(); i-- > 0;) {
@@ -344,24 +324,9 @@ UsingResolveResult NameResolver::resolveUsing(std::string_view name) const {
         }
         std::vector<Symbol*> hits;
         std::string hitText;
-        std::optional<ModuleIndex> hitModule;
         for (const std::size_t ref : scope.usingRefs) {
             const UsingScopeRecord& search = m_aliases->usingAt(ref);
             const std::string q = utils::qualifyTrustName(search.path, name);
-            if (search.targetModule.has_value()) {
-                // Цель `... = \lib::ns;`: поиск в экспорт-наборе указанного модуля (маски сайта и
-                // реэкспорт учитывает findExported).
-                Symbol* found = findExportedMutable(*search.targetModule, q, ResolveOptions{.viaAlias = true});
-                if (found != nullptr) {
-                    // `using`-область задаёт namespace-путь явно: снимок экспорт-поверхности мог
-                    // не нести его (объявление зарегистрировано в снятом namespace-блоке).
-                    ensureOverloadView(*found, search.path);
-                    hits.push_back(found);
-                    hitText = q;
-                    hitModule = search.targetModule;
-                }
-                continue;
-            }
             if (Symbol* found = resolveImpl(q, /*materialize=*/true)) {
                 if (std::find(hits.begin(), hits.end(), found) == hits.end()) {
                     hits.push_back(found);
@@ -375,7 +340,6 @@ UsingResolveResult NameResolver::resolveUsing(std::string_view name) const {
         if (hits.size() == 1) {
             result.symbol = hits.front();
             result.qualifiedText = hitText;
-            result.module = hitModule;
             return result;
         }
         // Несколько целей в ОДНОМ скоупе: callable-наборы сливаются, выбор — по аргументам.

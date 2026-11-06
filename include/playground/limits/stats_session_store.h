@@ -1,5 +1,4 @@
 #pragma once
-// include/playground/limits/stats_session_store.h
 // trust-playground: админ-сессии для /stats (cookie tpg_stats). Самостоятельная зона:
 // данные сессий изолированы от остального состояния балансировщика, собственный мьютекс.
 

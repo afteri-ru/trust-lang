@@ -5,45 +5,45 @@
 # теперь пустой оператор разрешён, как на верхнем уровне.
 
 # Без пустых операторов (baseline).
-%f(a:Int32):Int32 := {
+f(a:Int32):Int32 := {
     f |+ a +|;
 };
-# CHECK: int32_t f(int32_t c_a) {
-# CHECK-NEXT:     return c_a;
+# CHECK: int32_t f_P10N5_3AInt32_(int32_t a) {
+# CHECK-NEXT:     return a;
 # CHECK-NEXT: }
 
 # Ведущий пустой оператор.
-%g(a:Int32):Int32 := {
+g(a:Int32):Int32 := {
     ;
     g |+ a +|;
 };
-# CHECK: int32_t g(int32_t c_a) {
-# CHECK-NEXT:     return c_a;
+# CHECK: int32_t g_P10N5_3AInt32_(int32_t a) {
+# CHECK-NEXT:     return a;
 # CHECK-NEXT: }
 
 # Хвостовой пустой оператор.
-%h(a:Int32):Int32 := {
+h(a:Int32):Int32 := {
     h |+ a +|;
     ;
 };
-# CHECK: int32_t h(int32_t c_a) {
-# CHECK-NEXT:     return c_a;
+# CHECK: int32_t h_P10N5_3AInt32_(int32_t a) {
+# CHECK-NEXT:     return a;
 # CHECK-NEXT: }
 
 # Несколько пустых операторов подряд.
-%j(a:Int32):Int32 := {
+j(a:Int32):Int32 := {
     ;
     ;
     j |+ a +|;
     ;
 };
-# CHECK: int32_t j(int32_t c_a) {
-# CHECK-NEXT:     return c_a;
+# CHECK: int32_t j_P10N5_3AInt32_(int32_t a) {
+# CHECK-NEXT:     return a;
 # CHECK-NEXT: }
 
 # Только пустые операторы - тело функции пусто.
-%i():Void := {
+i():Void := {
     ;
 };
-# CHECK: void i() {
+# CHECK: void i_P0_() {
 # CHECK-NEXT: }

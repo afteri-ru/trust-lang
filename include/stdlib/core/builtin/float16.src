@@ -1,0 +1,6 @@
+\\builtin\float16;
+# builtin/float16.src - implementation of the built-in Float16 type (float16_t, <stdfloat>).
+# Loaded explicitly by the umbrella `\std();` (or `\\builtin\float16();`).
+
+@[include("stdfloat")@]
+Float16 = %float16_t { };

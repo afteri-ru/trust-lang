@@ -1,4 +1,3 @@
-// src/semantic/core/local_name.cpp
 #include "semantic/core/local_name.hpp"
 
 #include "semantic/core/pass.hpp"

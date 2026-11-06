@@ -1,18 +1,20 @@
 #pragma once
-// include/ast/slots/node_slots_x.hpp
 // ЕДИНСТВЕННЫЙ источник истины «состав узла AST» (ключ — КЛАСС узла).
-//
 // Две таблицы AST (ключи не совпадают, поэтому их две):
 //   - `PARSER_TOKEN_KINDS` (token.hpp)   — ключ `kind`:  kind -> класс + категория кодогена;
 //   - `AST_SLOT_CLASSES` (этот файл)     — ключ `class`: class -> слоты (состав/владение/обход).
 // Перечень классов ПРОИЗВОДИТСЯ из `AST_SLOT_CLASSES` (отдельного списка нет).
-//
 // Строка: X(shape, field, walk, filter)
 //   shape : Ptr        AstNodePtr
 //           List       std::vector<AstNodePtr>
 //           OptList    std::optional<std::vector<AstNodePtr>>
+//           OptRecordList std::optional<std::vector<TemplateArg>> (владеемый узел `rec.node`)
+//           DefBody    поле `Definition m_definition`: обходим `field.body` (optional-вектор),
+//                      если определение — тело.
 //           PairList   std::vector<std::pair<AstNodePtr, AstNodePtr>>
 //           CaseList   std::vector<MatchStmt::MatchCase>
+//           TargetList std::vector<DestructureDecl::Target> (name/typeNode — владеемые узлы)
+//           BaseList   std::vector<TypeBase> (type — владеемый узел; access — данные варианта наследования)
 //           ListDeduped std::vector<AstNodePtr>; 4-я колонка = ДРУГОЕ поле этого узла
 //                      (элемент, совпадающий с ним по УЗЛУ, не обходится)
 //           NonOwnPtr      const AstNodeBase*
@@ -23,12 +25,10 @@
 //           Internal   владеемый/невладеющий слот, СКРЫТЫЙ от обхода (нужен клону/ремапу).
 //   filter: None | SkipKinds(<qualified kinds>) — слот не обходится у перечисленных kinds
 //           (политика зависит от KIND, а таблица — по классу, поэтому это ДАННЫЕ строки).
-//
 // Порядок строк = порядок обхода (контракт; фиксирован test/unit/ast/slots_test.cpp).
 // Слот `AstNodeBase::m_trust` принадлежит ЛЮБОМУ узлу и эмитится базовой реализацией
 // `AstNodeBase::forEachSlot` (в таблицу классов не входит).
 
-// -- Классы, имеющие kind: этот список И ЕСТЬ канонический перечень классов AST -----------
 #define AST_SLOT_CLASSES(C)                       \
     C(Sequence, SLOTS_Sequence)                   \
     C(ScopeBlock, AST_NO_SLOTS)                   \
@@ -68,11 +68,9 @@
     C(RecordDecl, SLOTS_RecordDecl)               \
     C(DestructureDecl, SLOTS_DestructureDecl)
 
-// -- Абстрактные базовые классы (kind не имеют): только генерация метода слотов ------------
 #define AST_SLOT_BASE_CLASSES(C) \
     C(Decl, SLOTS_Decl)          \
     C(ControlFlowStmt, SLOTS_ControlFlowStmt)
-// -- Строки слотов по классам -------------------------------------------------------------
 
 // Общая строка для классов без собственных слотов.
 #define AST_NO_SLOTS(X)
@@ -90,7 +88,7 @@
 #define SLOTS_IdentType(X)                \
     X(OptList, m_dims, Traversed, None)   \
     X(OptList, m_params, Traversed, None) \
-    X(OptList, m_templateArgs, Internal, None)
+    X(OptRecordList, m_templateArgs, Internal, None)
 
 #define SLOTS_Literal(X) X(Ptr, typeAnnotation, Internal, None)
 
@@ -124,11 +122,12 @@
 
 #define SLOTS_DoWhileStmt(X) X(NonOwnList, m_invariants, Internal, None)
 
-#define SLOTS_MatchStmt(X)                \
-    X(Ptr, m_tempDecl, Traversed, None)   \
-    X(Ptr, m_value, Traversed, None)      \
-    X(CaseList, m_cases, Traversed, None) \
-    X(Ptr, m_default, Traversed, None)
+#define SLOTS_MatchStmt(X)                    \
+    X(Ptr, m_tempDecl, Traversed, None)       \
+    X(Ptr, m_value, Traversed, None)          \
+    X(CaseList, m_cases, Traversed, None)     \
+    X(Ptr, m_default, Traversed, None)        \
+    X(NonOwnPtr, m_matcherDecl, Internal, None)
 
 #define SLOTS_WithStmt(X)                 \
     X(PairList, m_locks, Traversed, None) \
@@ -158,7 +157,7 @@
 #define SLOTS_FuncDecl(X)                        \
     X(Ptr, m_aliasTarget, Traversed, None)       \
     X(OptList, m_params, Traversed, None)        \
-    X(OptList, m_body, Traversed, None)          \
+    X(DefBody, m_definition, Traversed, None)          \
     X(OptList, m_templateParams, Internal, None) \
     X(OptList, m_captures, Internal, None)
 
@@ -171,14 +170,13 @@
     X(List, m_body, Traversed, None)
 
 #define SLOTS_RecordDecl(X)                      \
-    X(List, m_baseTypes, Internal, None)         \
+    X(BaseList, m_baseTypes, Internal, None)     \
     X(OptList, m_templateParams, Internal, None) \
-    X(OptList, m_body, Traversed, None)
+    X(DefBody, m_definition, Traversed, None)
 
-#define SLOTS_DestructureDecl(X)               \
-    X(Ptr, m_source, Traversed, None)          \
-    X(List, m_targets, Internal, None)         \
-    X(List, m_targetTypeNodes, Internal, None) \
+#define SLOTS_DestructureDecl(X)                          \
+    X(Ptr, m_source, Traversed, None)                     \
+    X(TargetList, m_targets, Internal, None)              \
     X(Ptr, m_sourceTemp, Internal, None)
 
 #define SLOTS_Decl(X) X(Ptr, m_type, Traversed, None)

@@ -7,12 +7,12 @@
 
 /// Документация переменной
 x := 42;
-# CHECK: int8_t c_x = 42;
+# CHECK: int8_t x = 42;
 
 /// док перед функцией
-%foo():Void := {
+foo():Void := {
     foo |+ 7 +|;
 };
-# CHECK: void foo() {
+# CHECK: void foo_P0_() {
 # CHECK:     return 7;
 # CHECK: }

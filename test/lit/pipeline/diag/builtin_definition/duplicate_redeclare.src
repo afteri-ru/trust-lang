@@ -1,0 +1,12 @@
+# RUN: %trust --no-stdlib --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# ОДНА реализация на builtin-TypeId: повторное `=`-определение Complex32 — переопределение
+# встроенного ТИПА (-Wbuiltin-override, дефолт warning). Первая реализация сохраняется,
+# повторная игнорируется. Complex32 без интерфейсных методов — покрытие тривиально.
+@[include("complex")@]
+Complex32 = %std::complex<float> { };
+@[include("complex")@]
+Complex32 = %std::complex<float> { };
+
+@main(): Int32 := { @return 0; };
+# CHECK: warning: built-in type 'Complex32' already has an implementation; redefinition is ignored

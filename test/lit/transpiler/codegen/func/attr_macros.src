@@ -8,19 +8,19 @@
 #   func_sync      -> @[sync@],  func_thread -> @[thread@]  (кодгеном не преобразуются).
 
 @func_const g(x:Int32):Int32 { 42 };
-# CHECK: __attribute__((const)) int32_t c_g{{_[A-Za-z0-9_]+}}(int32_t c_x) {
+# CHECK: __attribute__((const)) int32_t g{{_[A-Za-z0-9_]+}}(int32_t x) {
 
 @func_pure h(x:Int32):Int32 { x };
-# CHECK: __attribute__((pure)) int32_t c_h{{_[A-Za-z0-9_]+}}(int32_t c_x) {
+# CHECK: __attribute__((pure)) int32_t h{{_[A-Za-z0-9_]+}}(int32_t x) {
 
 @func_constexpr k(x:Int32):Int32 { 7 };
-# CHECK: constexpr int32_t c_k{{_[A-Za-z0-9_]+}}(int32_t c_x) {
+# CHECK: constexpr int32_t k{{_[A-Za-z0-9_]+}}(int32_t x) {
 
 # Атрибуты sync/thread задаются, но кодгеном игнорируются (обычная функция).
 @func_sync s(x:Int32):Int32 { x };
-# CHECK: int32_t c_s{{_[A-Za-z0-9_]+}}(int32_t c_x) {
+# CHECK: int32_t s{{_[A-Za-z0-9_]+}}(int32_t x) {
 
 @func_thread t(x:Int32):Int32 { x };
-# CHECK: int32_t c_t{{_[A-Za-z0-9_]+}}(int32_t c_x) {
+# CHECK: int32_t t{{_[A-Za-z0-9_]+}}(int32_t x) {
 
 @main() := { 0 }

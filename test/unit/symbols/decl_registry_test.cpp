@@ -29,7 +29,7 @@ TEST(DeclRegistry, ForwardDeclarationClassification) {
     auto funcTerm = Term::Create(TermID::NAME, "f", {}, parser::token_type::NAME);
     FuncDecl funcForward(std::move(funcTerm));
     EXPECT_TRUE(isForwardDeclaration(funcForward));
-    funcForward.m_body = std::vector<AstNodePtr>{};
+    funcForward.m_definition = Definition::fromBody({});
     EXPECT_FALSE(isForwardDeclaration(funcForward));
 }
 
@@ -52,7 +52,7 @@ class DeclRegistryTest : public ::testing::Test {
         auto term = Term::Create(TermID::NAME, std::string(name), {}, parser::token_type::NAME);
         auto f = std::make_shared<FuncDecl>(std::move(term));
         if (definition) {
-            f->m_body = std::vector<AstNodePtr>{};
+            f->m_definition = Definition::fromBody({});
         }
         return f;
     }

@@ -1,0 +1,19 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# API std::string, объявленный в string.src ШИРЕ ядрового интерфейса, и итератор/конверсии строк.
+\std();
+@main():Int32 := {
+    s: StrChar := "hello";
+    sub := s.substr(0, 2);
+    f := s.find("ll");
+    s.chars();
+    w: StrWide := s.toWide();
+    w.toNarrow();
+    @return 0;
+}
+# CHECK: #include "m_builtin_string.hppt"
+# CHECK: trust::StrChar sub = (s).substr(0, 2);
+# CHECK: int64_t f = (s).find("ll");
+# CHECK: (s).chars();
+# CHECK: trust::StrWide w = (s).toWide();
+# CHECK: (w).toNarrow();

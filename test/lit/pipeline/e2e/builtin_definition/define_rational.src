@@ -1,11 +1,22 @@
-# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %trust -q --no-stdlib --temp-dir %t.dir --emit-cpp -Wbuiltin-override=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # `=` — ОПРЕДЕЛЕНИЕ ранее объявленного встроенного типа (не создание нового).
 # Реализация привязывается к предобъявлению Rational; кодогенерация использует её.
-@[include("@trust/rational.hpp")@]
-Rational = %trust::Rational { };
+# display возвращает StrChar, поэтому его реализация тоже обязательна (строгое покрытие).
+@[include("string")@]
+StrChar = %std::string {
+    c_str(): CString := %c_str ...;
+    data(): CString := %data ...;
+    size(): UInt64 := %size ...;
+    length(): UInt64 := size ...;
+    empty(): Bool := %empty ...;
+};
+@[include("@stdlib/builtin/rational.hpp")@]
+Rational = %trust::Rational {
+    display^(len: Int64): StrChar := %display ...;
+};
 
 r :Rational := 1\2;
 @main() := { @return 0; }
-# CHECK: #include "trust/rational.hpp"
-# CHECK: trust::Rational c_r
+# CHECK: #include "stdlib/builtin/rational.hpp"
+# CHECK: trust::Rational r

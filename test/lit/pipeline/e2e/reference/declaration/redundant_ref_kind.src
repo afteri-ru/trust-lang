@@ -1,3 +1,4 @@
+\mem();
 # RUN: %trust -Wsigil=ignore --emit-cpp %s > %t.warn 2>&1
 # RUN: %FileCheck --check-prefix=WARN %s <%t.warn
 # RUN: %trust -q -Wsigil=ignore -Wref-kind-dup=ignore --emit-cpp %s > %t.silent 2>&1

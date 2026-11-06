@@ -1,0 +1,14 @@
+# RUN: %trust -q --emit-cpp %s > %t.out
+
+# Const-метод объявляется хвостовым '^' в ИМЕНИ; AST нормализует его в attr::ReadOnly.
+# Регистрация члена обязана перенести константность в MethodKey::isConst.
+\std();
+:Point ::= :Struct{
+    get^():Int32 := { return 1; };
+};
+
+@main() := {
+    p:Point := Point();
+    @print("{}\n", p.get^());
+}
+# CHECK: get() const

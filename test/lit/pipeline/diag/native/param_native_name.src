@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Параметр — объявление: слева допускается только trust-идентификатор.
+f(%x:Int32):Int32 := { @return 0; };
+@main():Int32 := { @return 0; };
+# CHECK: error: parameter '%x' cannot declare a native name

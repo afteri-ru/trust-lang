@@ -6,6 +6,7 @@
 #include "location/location.hpp"
 #include "location/module_index.hpp"
 #include "syntax/term/term_types.h"
+#include "types/visibility.hpp"
 #include "utils/error.hpp"
 #include "utils/string_interner.hpp"
 #include "utils/partial_switch.hpp"
@@ -18,9 +19,9 @@
 
 namespace trust {
 
-// Forward declaration (full definition in session/context.hpp). Нужен для uniform
-// терм-конструктора (kind, term, Context* ctx) генерируемой фабрики.
-class Context;
+// Forward declaration (full definition in ast/convert_services.hpp). Нужен для uniform
+// терм-конструктора (kind, term, ConvertServices* ctx) генерируемой фабрики.
+struct ConvertServices;
 
 // Forward declarations
 class AttrPool;
@@ -192,11 +193,15 @@ class AstNodeBase {
     /// живёт дольше HIR (как и ссылки на узлы вне клонируемого дерева).
     const AstNodeBase* origin = nullptr;
 
-    /// Видимость объявления в модели модулей (target-neutral): Public — экспорт файла,
-    /// Protected — доступно файлам той же группы/пакета (`_::`), Private — только текущему
-    /// файлу (`__::` и объявления вне блока интерфейса). Ставит загрузчик; читают семантика
-    /// (ключ регистрации) и кодоген (C++-изоляция — дело конкретного бэкенда).
-    enum class Visibility : uint8_t { Public, Protected, Private };
+    /// Видимость объявления (`trust::Visibility` — тот же тип, что у варианта наследования базы и
+    /// у областей имён; маркеры `::`/`_::`/`__::`). Смысл зависит от контекста объявления:
+    ///  - module-level объявление: Public — экспорт файла, Protected — доступно файлам той же
+    ///    группы/пакета (`_::`), Private — только текущему файлу (`__::` и вне блока интерфейса);
+    ///    единственный писатель — загрузчик модулей;
+    ///  - член тела класса (VarDecl/FuncDecl): C++-доступ public/protected/private; ставит конвертер
+    ///    Term→AST из standalone-маркера тела, читает кодоген (секции доступа). Класс-скоупы
+    ///    регистрируются под `localKey`, поэтому на ключи/экспорт-поверхность это не влияет.
+    using Visibility = trust::Visibility;
     Visibility visibility = Visibility::Public;
 
     [[nodiscard]] bool isFilePrivate() const noexcept { return visibility == Visibility::Private; }
@@ -209,7 +214,7 @@ class AstNodeBase {
 
     /// Модуль, которому принадлежит узел (идентичность объявления в модели модулей).
     /// ЕДИНСТВЕННЫЙ писатель — загрузчик (штамп тела модуля сразу после конвертации Term→AST);
-    /// семантика/кодоген только читают. `kInvalid` — узел вне модуля (прелюдия/DSL, синтетика).
+    /// семантика/кодоген только читают. `kInvalid` — узел вне модуля (stdlib DSL, синтетика).
     /// Факт НЕ выводится обратным сканом таблицы символов: ссылки несут узел объявления
     /// (`IdentName::resolvedDecl`), поэтому C++-имя получает модуль объявления, а не справочника.
     ModuleIndex module = ModuleIndex::invalid();
@@ -264,7 +269,7 @@ class AstNodeAttr : public AstNodeBase {
   public:
     /// Uniform term-constructor for the generated factory (kind + source Term).
     /// AstNodeAttr хранит только attrs/docs - детей не строит (ctx игнорируется).
-    AstNodeAttr(ParserToken::Kind k, TermPtr term, Context* /*ctx*/)
+    AstNodeAttr(ParserToken::Kind k, TermPtr term, ConvertServices* /*ctx*/)
     : AstNodeBase(k, term) {}
 
     /// Construct with kind only (no source Term).
@@ -310,7 +315,6 @@ class AstNodeAttr : public AstNodeBase {
 /// HasText - хранилище собственного текста узла (mixin, НЕ узел AST). Текст сохраняется КАК
 /// ЕСТЬ (spelling термина): нормализации здесь нет; правило имени применяет только name-node
 /// (assignNameFromRaw в ident_name.hpp). Владелец текста - StringInterner; поле - невладеющий view.
-///
 /// Узел получает текст ТОЛЬКО через `WithText<Base>`; у не-текстовых классов метода text() нет
 /// вовсе (compile-time). `RawText` (комментарий/embed C++) — маркер назначения без своего кода.
 class HasText {
@@ -360,7 +364,7 @@ class WithText : public Base, public HasText {
     , HasText(term) {}
 
     /// Uniform-терм-конструктор генерируемой фабрики (Base решает, что делать с ctx).
-    WithText(ParserToken::Kind k, TermPtr term, Context* ctx)
+    WithText(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
     : Base(k, term, ctx)
     , HasText(term) {}
 

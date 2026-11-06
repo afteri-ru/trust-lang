@@ -3,6 +3,7 @@
 # C++-tuple — ПОЛЬЗОВАТЕЛЬСКИЙ native class template (не встроенный FFI-синоним).
 # Declaration-режим: `StdTuple<T...>` → `std::tuple<T...>`;
 # instantiation-режим: splice → `std::tuple<int32_t, std::string>`.
+\std();
 @include("tuple")
 <T...> StdTuple ::= %std::tuple<T...> { };
 
@@ -14,8 +15,8 @@ t1 := makeStdTuple(1:Int32);
 t2 := makeStdTuple(1:Int32, "x");
 
 # CHECK: #include <tuple>
-# CHECK-NOT: c_makeStdTuple_
-# CHECK: template <typename... T> std::tuple<T...> c_pack_tuple{{_[A-Za-z0-9_]+}}(T... c_xs);
-# CHECK: std::tuple<> c_t0 = std::make_tuple();
-# CHECK: std::tuple<int32_t> c_t1 = std::make_tuple(1);
-# CHECK: std::tuple<int32_t, std::string> c_t2 = std::make_tuple(1, "x");
+# CHECK-NOT: makeStdTuple_
+# CHECK: template <typename... T> StdTuple<T...> pack_tuple{{_[A-Za-z0-9_]+}}(T... xs);
+# CHECK: StdTuple<> t0 = std::make_tuple();
+# CHECK: StdTuple<int32_t> t1 = std::make_tuple(1);
+# CHECK: StdTuple<int32_t, trust::StrChar> t2 = std::make_tuple(1, "x");

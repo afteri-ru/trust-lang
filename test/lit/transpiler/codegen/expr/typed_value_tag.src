@@ -3,8 +3,9 @@
 # Элемент словаря несёт QualType целиком: identity встроенного типа нормализуется к kind-only
 # (registry_index = 0, т.к. слот реестра компилятора не воспроизводим в рантайме), а квалификатор
 # `inferred` (bit 31) сохраняется в state-байте.
-# CHECK: trust::Dict c_d = trust::Dict
+# CHECK: trust::Dict d = trust::Dict
 # CHECK-SAME: trust::TypedValue{trust::QualType::fromRaw(0x80080380000000), int8_t(7)}
+\std();
 @main(): Int32 := {
     d := (a = 7,);
     return 0;

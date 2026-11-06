@@ -7,8 +7,9 @@
 
 ## Состав
 
-- **`driver/options.hpp`** - модель опций: `EmitFlags` (что выводить), `FrontendSteps` (шаги
-  фронтенда конвейера), `RunMode` (аналитический/программный прогон), `CompileMode`, `RuntimeLink`,
+- **`driver/options.hpp`** - модель опций: `EmitFlags` (что выводить), `FrontendSteps` (публичный ЗАПРОС
+  шагов фронтенда: биты `ParseAST`/`Semantic`; порядок фаз — в `pipeline/run/phases.hpp`),
+  `RunMode` (аналитический/программный прогон), `CompileMode`, `RuntimeLink`,
   `PipelineOpts` (все разобранные опции) и `ParseResult`
   (опции + позиционные + собранные `-W`-аргументы + код возврата).
 - **`driver/cli.hpp`** - arity-aware CLI: `CliCategory`/`CliOpt`/`DriverOption`, общий

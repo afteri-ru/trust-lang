@@ -13,4 +13,4 @@ x:Int32 := 5;
         y := 0;
     };
 };
-# CHECK: switch (c__match1) {
+# CHECK: switch (_match1) {

@@ -1,6 +1,5 @@
 #pragma once
 
-// include/transpiler/type/type_name_resolver.hpp
 // Рендеринг C++-имени типа: разбор AST-аннотации, активные template-параметры, выбор C++-формы
 // по TypeId. Побочные эффекты включений делегируются TypeIncludeCollector.
 
@@ -36,6 +35,10 @@ class TypeNameResolver {
     /// реестра компилятора в рантайме не воспроизводим; у пользовательских (номинальных) типов
     /// index входит в identity и сохраняется. Квалификаторы (const/inferred) сохраняются всегда.
     QualType toRuntimeType(QualType state) const;
+
+    /// C++-имя материализуемого `Any` — ЕДИНЫЙ источник (реализация из `builtin/any.src` через
+    /// declaredCppName); без реализации — FAULT (провайдер-гейт обязан отработать до кодогена).
+    std::string anyTypeName();
 
   private:
     using CppTypeName = std::pair<std::string, std::string_view>;

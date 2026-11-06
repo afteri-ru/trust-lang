@@ -1,3 +1,5 @@
+\std();
+
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # DSL-макросы: if / elif / else
@@ -9,12 +11,12 @@ x:Int32 := 5;
 } @else {
     c := 0;
 };
-# CHECK: if ((c_x > 0)) {
-# CHECK-NEXT:     int8_t c_a = 1;
-# CHECK-NEXT: } else if ((c_x < 0)) {
-# CHECK-NEXT:     int8_t c_b = -1;
+# CHECK: if ((x > 0)) {
+# CHECK-NEXT:     int8_t a = 1;
+# CHECK-NEXT: } else if ((x < 0)) {
+# CHECK-NEXT:     int8_t b = -1;
 # CHECK-NEXT: } else {
-# CHECK-NEXT:     int8_t c_c = 0;
+# CHECK-NEXT:     int8_t c = 0;
 # CHECK-NEXT: }
 
 # DSL while
@@ -22,8 +24,8 @@ z:Int32 := 0;
 @while(z < 5) {
     z := z + 1;
 };
-# CHECK: while ((c_z < 5)) {
-# CHECK-NEXT:     std::any c_z = (c_z + 1);
+# CHECK: while ((z < 5)) {
+# CHECK-NEXT:     std::any z = (z + 1);
 # CHECK-NEXT: }
 
 # DSL while-else (@while ... @else) - в C++ нет while...else; else эмулируется флагом,
@@ -34,20 +36,20 @@ w:Int32 := 0;
 } @else {
     w := -1;
 };
-# CHECK: bool c__we1 = 0;
-# CHECK-NEXT: while ((c_w < 3)) {
-# CHECK-NEXT:     c__we1 = true;
-# CHECK-NEXT:     std::any c_w = (c_w + 1);
+# CHECK: bool _we1 = 0;
+# CHECK-NEXT: while ((w < 3)) {
+# CHECK-NEXT:     _we1 = true;
+# CHECK-NEXT:     std::any w = (w + 1);
 # CHECK-NEXT: }
-# CHECK-NEXT: if (!c__we1) {
-# CHECK-NEXT:     int8_t c_w = -1;
+# CHECK-NEXT: if (!_we1) {
+# CHECK-NEXT:     int8_t w = -1;
 # CHECK-NEXT: }
 
 # DSL dowhile (тело перед макросом)
 { z := z + 1; } @dowhile(z < 8);
 # CHECK: do {
-# CHECK-NEXT:     std::any c_z = (c_z + 1);
-# CHECK-NEXT: } while ((c_z < 8));
+# CHECK-NEXT:     std::any z = (z + 1);
+# CHECK-NEXT: } while ((z < 8));
 
 # DSL loop (бесконечный цикл)
 @loop {
@@ -63,19 +65,19 @@ w:Int32 := 0;
     @case(2, 3) { y := 2; };
     @default { y := 0; };
 };
-# CHECK: const int32_t c__match1 = c_x;
-# CHECK-NEXT: switch (c__match1) {
+# CHECK: const int32_t _match1 = x;
+# CHECK-NEXT: switch (_match1) {
 # CHECK-NEXT:     case 1: {
-# CHECK-NEXT:         int8_t c_y = 1;
+# CHECK-NEXT:         int8_t y = 1;
 # CHECK-NEXT:     }
 # CHECK-NEXT:     break;
 # CHECK-NEXT:     case 2:
 # CHECK-NEXT:     case 3: {
-# CHECK-NEXT:         int8_t c_y = 2;
+# CHECK-NEXT:         int8_t y = 2;
 # CHECK-NEXT:     }
 # CHECK-NEXT:     break;
 # CHECK-NEXT:     default: {
-# CHECK-NEXT:         int8_t c_y = 0;
+# CHECK-NEXT:         int8_t y = 0;
 # CHECK-NEXT:     }
 # CHECK-NEXT:     break;
 # CHECK-NEXT: }

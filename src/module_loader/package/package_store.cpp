@@ -1,9 +1,9 @@
-// src/module_loader/package/package_store.cpp
 #include "module_loader/package/package_store.hpp"
 
 #include "module_loader/path/module_path_policy.hpp"
 #include "package/manifest.hpp"
 #include "package/package.hpp"
+#include "runtime/trust/type_state.hpp"
 #include "utils/hash.hpp"
 
 #include <fstream>
@@ -134,6 +134,11 @@ bool PackageStore::resolveRoot(const ModulePath& path, const std::vector<std::fi
         outError = "package manifest name '" + std::string(manifest.name()) + "' does not match '" + package_name + "'";
         return false;
     }
+    if (const std::optional<std::uint32_t> package_abi = manifest.runtimeAbiVersion(); package_abi && *package_abi != trust::kRuntimeAbiVersion) {
+        outError = "package '" + package_name + "' targets runtime ABI " + std::to_string(*package_abi) + ", but this compiler provides runtime ABI " +
+                   std::to_string(trust::kRuntimeAbiVersion);
+        return false;
+    }
     fs::path module_root(manifest.moduleRoot());
     if (module_root.is_absolute()) {
         outError = "package module-root must be relative: '" + module_root.string() + "'";
@@ -155,4 +160,3 @@ bool PackageStore::resolveRoot(const ModulePath& path, const std::vector<std::fi
 }
 
 } // namespace trust
-

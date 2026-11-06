@@ -1,6 +1,6 @@
 #pragma once
 
-#include "runtime/trust/tensor.hpp"
+#include "stdlib/tensor/tensor.hpp"
 
 #ifdef TRUST_HAS_TORCH
 

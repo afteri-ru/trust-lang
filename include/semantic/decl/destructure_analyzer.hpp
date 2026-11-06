@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/decl/destructure_analyzer.hpp
 // Анализатор деструктуризации: разбор целей (dict/tuple/rest), их типы и регистрация.
 // Выделен из DeclAnalyzer.
 
@@ -29,8 +28,8 @@ class DestructureAnalyzer {
     void analyzeDestructureTuple(DestructureDecl& node, TypeId tupleType);
     bool restTargetNameAllowed(IdentName& t, bool isSpreadDict, const AstNodeBase* source);
     void declareDestructureTarget(IdentName& t, bool isRest, TypeId type);
-    TypeId explicitTargetType(const DestructureDecl& node, size_t i, TypeId fallback);
-    void assignDestructureTarget(DestructureDecl& node, size_t i, IdentName& t, bool isRest);
+    TypeId explicitTargetType(const DestructureDecl::Target& target, TypeId fallback);
+    void assignDestructureTarget(IdentName& t, bool isRest);
 };
 
 } // namespace trust

@@ -5,10 +5,6 @@
 
 namespace trust {
 
-// ══════════════════════════════════════════════════════════════
-//                      OutputBuffer
-// ══════════════════════════════════════════════════════════════
-
 void OutputBuffer::prepend(std::string_view text, std::string_view ns) {
     std::string key(ns);
     m_prefixes[key].emplace(text);

@@ -1,6 +1,5 @@
 #pragma once
 
-// include/diag/report.hpp
 // ЕДИНАЯ точка отчёта диагностики, severity которой задана опцией Options.
 // Используется Context::report и компонентами, у которых нет доступа к session/context
 // (например types), чтобы не дублировать разбор severity/Ignore.

@@ -1,9 +1,8 @@
-// src/solver/vc/sort_mapper.cpp
 // trust-solver: реализация SortMapper (см. include/solver/vc/sort_mapper.hpp).
 
 #include "solver/vc/sort_mapper.hpp"
 
-#include "session/context.hpp"
+#include "session/run_services.hpp"
 #include "types/type_system.hpp"
 #include "types/typekind.hpp"
 #include "types/group.hpp"
@@ -15,10 +14,10 @@ std::optional<SmtSort> SortMapper::sortOf(TypeId id) const {
     if (id == INVALID_TYPE_ID) {
         return std::nullopt;
     }
-    const TypeReadModel& reg = m_ctx.readTypes();
+    const TypeReadModel& reg = m_services.readTypes();
     const TypeId canon = reg.store().desugaredTypeId(id);
     const TypeKind kind = getTypeKind(canon);
-    const Group g = getGroup(kind);
+    const Group g = typeGroupOf(kind);
     SmtSort s;
     switch (g) {
     case Group::kLogical:
@@ -50,10 +49,10 @@ std::optional<SmtSort> SortMapper::sortOf(TypeId id) const {
                 return s;
             }
         }
-        const TypeDescriptor* d = reg.store().descriptorOf(canon);
-        if (d) {
+        const std::string_view typeName = reg.store().nameOf(canon);
+        if (!typeName.empty()) {
             s.kind = SmtSortKind::kUninterpreted;
-            s.name = d->name;
+            s.name = std::string(typeName);
             return s;
         }
         return std::nullopt;
@@ -65,8 +64,8 @@ bool SortMapper::isSignedType(TypeId id) const {
     if (id == INVALID_TYPE_ID) {
         return false; // неизвестен - zero-extend (безопаснее для беззнаковых)
     }
-    const TypeReadModel& reg = m_ctx.readTypes();
-    const Group g = getGroup(getTypeKind(reg.store().desugaredTypeId(id)));
+    const TypeReadModel& reg = m_services.readTypes();
+    const Group g = typeGroupOf(reg.store().desugaredTypeId(id));
     return g == Group::kIntegers;
 }
 
@@ -74,8 +73,8 @@ std::optional<bool> SortMapper::integerSignOf(TypeId id) const {
     if (id == INVALID_TYPE_ID) {
         return std::nullopt;
     }
-    const TypeReadModel& reg = m_ctx.readTypes();
-    switch (getGroup(getTypeKind(reg.store().desugaredTypeId(id)))) {
+    const TypeReadModel& reg = m_services.readTypes();
+    switch (typeGroupOf(reg.store().desugaredTypeId(id))) {
     case Group::kIntegers:
         return true;
     case Group::kUnsigned:

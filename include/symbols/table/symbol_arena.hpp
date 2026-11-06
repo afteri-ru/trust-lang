@@ -1,6 +1,5 @@
 #pragma once
 
-// include/symbols/table/symbol_arena.hpp
 // Владелец СИНТЕТИЧЕСКИХ Symbol: слитые наборы перегрузок (`mergeCallableCandidates`) и символы
 // без скоупа. Объявления скоупов живут в persistent-дереве (ScopeStack) и в арене не нуждаются;
 // `std::deque` даёт стабильные адреса при росте, элементы не удаляются до разрушения арены.

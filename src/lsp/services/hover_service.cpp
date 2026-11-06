@@ -2,11 +2,12 @@
 
 #include "lsp/catalog/lsp_utils.hpp"
 #include "lsp/lsp_protocol.h"
-#include "lsp/catalog/builtin_catalog.h"
 #include "lsp/services/completion.h"
 #include "symbols/symbol_index.hpp"
 #include "utils/strings.hpp"
 #include "utils/utils.hpp"
+
+#include "session/context.hpp"
 
 #include <filesystem>
 #include <optional>
@@ -19,6 +20,21 @@ using trust::utils::uriToFilePath;
 namespace trust {
 namespace lsp {
 namespace hover {
+
+namespace {
+
+/// Док макроса для конкретного файла — из хранилища прогона (Context файла): predef/DSL-сидинг,
+/// `##`-доки и прагма-переопределения.
+std::string_view fileMacroDoc(const DocumentManager& documents, const std::string& trustFilePath, std::string_view key) {
+    const auto cacheIt = documents.sourceCache().find(trustFilePath);
+    if (cacheIt == documents.sourceCache().end() || !cacheIt->second.sourceMap) {
+        return {};
+    }
+    const std::string_view* doc = cacheIt->second.sourceMap->macroDoc(key);
+    return doc != nullptr ? *doc : std::string_view{};
+}
+
+} // namespace
 
 nlohmann::json buildHoverContents(const trust::SourceMapReader& reader, bool isCppRequest, const trust::SourceMapReader::Location& cursorLoc,
                                   const std::string& hoverText, const std::string& hoverLang, const std::string& trustFilePath, const std::string& cppFilePath,
@@ -39,15 +55,14 @@ nlohmann::json buildHoverContents(const trust::SourceMapReader& reader, bool isC
     }
 
     // Пытаемся выделить слово под курсором
-    auto maybeWord = reader.getWordAt(cursorLoc);
+    auto maybeWord = reader.wordAt(cursorLoc);
     if (!maybeWord.has_value()) {
         return hoverContents; // курсор не на идентификаторе - базовый ховер достаточен
     }
     const std::string& word = *maybeWord;
 
     if (!isCppRequest) {
-        // -- Запрос из src (trust) файла: ссылка «→ C++» на сгенерированный код. --
-        auto maybeName = reader.getCppName(cursorLoc, word);
+        auto maybeName = reader.outNameOf(cursorLoc, word);
         if (maybeName.has_value() && !maybeName->macroDefRange.has_value()) {
             const auto& targetRange = maybeName->rangeMap.to;
             std::string targetUri = makeFragmentUri(reader, cppFilePath, targetRange);
@@ -69,8 +84,7 @@ nlohmann::json buildHoverContents(const trust::SourceMapReader& reader, bool isC
             }
         }
     } else {
-        // -- Запрос из C++ файла --
-        auto maybeName = reader.getTrustName(cursorLoc, word);
+        auto maybeName = reader.trustNameOf(cursorLoc, word);
         if (maybeName.has_value()) {
             const auto& targetRange = maybeName->rangeMap.from;
             std::string targetUri = makeFragmentUri(reader, trustFilePath, targetRange);
@@ -98,7 +112,7 @@ bool appendDeclarationDocumentation(DocumentManager& documents, const trust::Sou
         return false;
     }
     const trust::SemanticModel& model = *cacheIt->second.model;
-    auto word = reader.getWordAt(loc);
+    auto word = reader.wordAt(loc);
     if (!word.has_value()) {
         return false;
     }
@@ -145,11 +159,11 @@ bool appendDeclarationDocumentation(DocumentManager& documents, const trust::Sou
         hoverContents.insert(hoverContents.begin(), "⚠ name `" + std::string(*word) + "` has " + std::to_string(documented.size()) +
                                                         " visible declarations; qualify the reference to pick one");
     }
-    // Каталоговые макросы (напр. @func, @__...__) - док в едином хранилище macroDoc().
+    // Макросы без source map (напр. @func, @__...__) - док у владельца прогона (Context файла).
     if (!refTarget.has_value() && !docFound) {
-        const std::string_view* doc = trust::BuiltinCatalog::instance().macroDoc(key);
-        if (doc && !doc->empty()) {
-            hoverContents.insert(hoverContents.begin(), "**" + *word + "**\n\n```trust\n" + std::string(*doc) + "\n```");
+        const std::string_view doc = fileMacroDoc(documents, trustFilePath, key);
+        if (!doc.empty()) {
+            hoverContents.insert(hoverContents.begin(), "**" + *word + "**\n\n```trust\n" + std::string(doc) + "\n```");
             return true;
         }
     }
@@ -199,8 +213,8 @@ void handleHover(trust::transport::Transport& transport, DocumentManager& docume
                 return;
             }
         }
-        // Каталоговый макрос (напр. `@func`) или предопределённый @__...__ не имеет source map,
-        // но его док есть в едином хранилище BuiltinCatalog::macroDoc() (ключ с '@' и без).
+        // Макрос (напр. `@func`) или предопределённый @__...__ не имеет source map, но его док есть
+        // у владельца прогона (Context файла).
         // Для позиции ССЫЛКИ док берётся только из объявления (макрос с тем же именем не подменяет).
         bool referenceUnderCursor = false;
         if (!cr.isCppRequest) {
@@ -209,13 +223,13 @@ void handleHover(trust::transport::Transport& transport, DocumentManager& docume
                                    findReferenceTarget(cacheIt->second.model->references(), loc).has_value();
         }
         if (!cr.isCppRequest && !referenceUnderCursor) {
-            auto word = reader.getWordAt(loc);
+            auto word = reader.wordAt(loc);
             if (word.has_value()) {
                 const std::string key = std::string(trust::lsp::completion::stripSigil(*word));
-                const std::string_view* doc = trust::BuiltinCatalog::instance().macroDoc(key);
-                if (doc && !doc->empty()) {
+                const std::string_view doc = fileMacroDoc(documents, filePath, key);
+                if (!doc.empty()) {
                     json hoverContents = json::array();
-                    hoverContents.push_back("**" + *word + "**\n\n```trust\n" + std::string(*doc) + "\n```");
+                    hoverContents.push_back("**" + *word + "**\n\n```trust\n" + std::string(doc) + "\n```");
                     sendLspResponse(transport, id, json{{"contents", hoverContents}});
                     return;
                 }

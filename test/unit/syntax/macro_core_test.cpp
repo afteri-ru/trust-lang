@@ -1,5 +1,9 @@
 #include "syntax/macro_test_fixture.hpp"
 
+#include <cstdlib>
+#include <ctime>
+#include <optional>
+
 using namespace trust;
 TEST_F(MacroTest, ParseTerm) {
 
@@ -1679,6 +1683,38 @@ TEST_F(MacroTest, PredefDate) {
 
     ASSERT_NO_THROW(Parse("@__TIMESTAMP_ISO__", macro));
     ASSERT_FALSE(LexOut().empty());
+}
+
+TEST_F(MacroTest, PredefDateValuesAtFixedTimestamp) {
+    const char* previous_tz = std::getenv("TZ");
+    const char* previous_epoch = std::getenv("SOURCE_DATE_EPOCH");
+    const std::optional<std::string> saved_tz = previous_tz ? std::optional<std::string>(previous_tz) : std::nullopt;
+    const std::optional<std::string> saved_epoch = previous_epoch ? std::optional<std::string>(previous_epoch) : std::nullopt;
+    setenv("TZ", "UTC", 1);
+    setenv("SOURCE_DATE_EPOCH", "0", 1);
+    tzset();
+
+    MacroPtr macro = std::make_shared<Macro>(m_ctx);
+    ASSERT_NO_THROW(Parse("@__DATE__", macro));
+    EXPECT_EQ(LexOut(), "Jan  1 1970");
+    ASSERT_NO_THROW(Parse("@__TIME__", macro));
+    EXPECT_EQ(LexOut(), "00:00:00");
+    ASSERT_NO_THROW(Parse("@__TIMESTAMP__", macro));
+    EXPECT_EQ(LexOut(), "Thu Jan  1 00:00:00 1970");
+    ASSERT_NO_THROW(Parse("@__TIMESTAMP_ISO__", macro));
+    EXPECT_EQ(LexOut(), "1970-01-01T00:00:00Z");
+
+    if (saved_tz.has_value()) {
+        setenv("TZ", saved_tz->c_str(), 1);
+    } else {
+        unsetenv("TZ");
+    }
+    if (saved_epoch.has_value()) {
+        setenv("SOURCE_DATE_EPOCH", saved_epoch->c_str(), 1);
+    } else {
+        unsetenv("SOURCE_DATE_EPOCH");
+    }
+    tzset();
 }
 
 TEST_F(MacroTest, Hygienic) {

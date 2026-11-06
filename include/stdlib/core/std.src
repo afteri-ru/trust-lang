@@ -1,0 +1,19 @@
+\std {
+    # Umbrella block of the standard library: re-exports library class names (`::=` types) so they
+    # are visible to the importer. Built-in implementations register globally and need no re-export.
+    \iterator();
+    \async();
+};
+
+# Built-in type implementations (one per type): loading a module registers its C++ type, headers and link.
+\\builtin\string();
+\\builtin\rational();
+\\builtin\dict();
+\\builtin\array();
+\\builtin\range();
+\\builtin\float16();
+\\builtin\complex();
+
+\exceptions();
+\mem();
+\\builtin\any();

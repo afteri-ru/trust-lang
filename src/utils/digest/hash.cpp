@@ -1,4 +1,3 @@
-// src/utils/digest/hash.cpp
 #include "utils/hash.hpp"
 
 #include "utils/utils.hpp"

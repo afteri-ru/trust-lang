@@ -1,4 +1,3 @@
-// src/syntax/term/term.cpp
 // Term: API текста/структуры (создание, клонирование, toString/Append*), а также дамп дерева
 // Term для --emit-lexemes (syntax/term/term.h). Один TU: "Term + дамп".
 #include "syntax/term/term.h"

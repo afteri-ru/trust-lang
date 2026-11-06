@@ -11,6 +11,7 @@
 # CHECK: pt=3 4
 # CHECK: explicit=9
 
+\std();
 <T> :Box ::= :Class{
     value: T := _;
     set(v: T) := { value = v; };

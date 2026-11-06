@@ -7,7 +7,6 @@
 
 namespace trust::playground {
 
-// -- HTTP-модели (ядро без сокетов - юнит-тестируемо) --
 // Core does not own the network: accept/sockets live in playground/server.
 
 struct HttpRequest {
@@ -52,8 +51,6 @@ HttpResponse handleHttpRequest(const HttpRequest& req, const LspOptions& opts);
 
 // Сериализует HttpResponse в raw HTTP/1.1-ответ (для записи в сокет и тестов).
 std::string serializeHttpResponse(const HttpResponse& r);
-
-// -- HTTP-клиент (используется воркером и интеграционными тестами) --
 
 struct HttpResult {
     int status = 0; // 0 - сетевая ошибка / невозможность установить соединение

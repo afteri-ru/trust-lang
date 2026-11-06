@@ -1,4 +1,3 @@
-// src/ir/hir/lowering.cpp
 // Lowering как проход HIR: AST остаётся деревом разбора, все трансформации «сахара»
 // (SemicolonStmt, goto/метки, временные анализатора) выполняются здесь.
 
@@ -87,7 +86,6 @@ void lowerSequenceBody(Sequence& seq, LowerCtx& ctx) {
     lowerBody(seq.m_body, ctx);
 }
 
-// -- Привязка инвариантов цикла к узлу цикла (HIR-факт) ---------------------------------------
 // Инвариант задаётся оператором-контрактом `@{ invariant --> ... @};` и по синтаксису стоит
 // ПЕРЕД циклом. Оператор остаётся в последовательности (кодоген эмитит его как рантайм-проверку),
 // а ассоциация «инвариант → цикл» фиксируется в поле узла цикла: позиционная эвристика в
@@ -223,7 +221,7 @@ void lowerNode(AstNodePtr& node, LowerCtx& ctx) {
         return;
     }
     // Прочие Sequence-формы (ModuleDecl/CatchBlock/RefMake/RefTake/RefLock/ArrayInit/...):
-    // сохраняем прежнюю семантику Sequence::lower (operand-list special-cased выше).
+    // operand-list обработан выше, здесь понижается только тело.
     if (auto* seq = node->as_sequence()) {
         lowerSequenceBody(*seq, ctx);
     }
@@ -298,23 +296,24 @@ void lowerScopeBlock(ScopeBlock& block, LowerCtx& ctx) {
 void lowerRecord(RecordDecl& record, LowerCtx& ctx) {
     // Члены тела (поля/методы): тела методов - список операторов, требует lowering.
     // Базы (m_baseTypes) - тип-ссылки, не операторы.
-    if (!record.m_body.has_value()) {
+    if (!record.hasBody()) {
         return;
     }
-    for (auto& member : *record.m_body) {
+    for (auto& member : *record.body()) {
         lowerNode(member, ctx);
     }
 }
 
 void lowerFunc(FuncDecl& func, LowerCtx& ctx) {
-    if (!func.m_body) {
+    auto* fb = func.body();
+    if (!fb) {
         return;
     }
     const bool savedInFn = ctx.inFunction;
     const std::string savedFunc = ctx.funcName;
     ctx.inFunction = true;
     ctx.funcName = funcNameOf(&func);
-    lowerBody(*func.m_body, ctx);
+    lowerBody(*fb, ctx);
     ctx.inFunction = savedInFn;
     ctx.funcName = savedFunc;
 }
@@ -334,8 +333,8 @@ void lowerWhile(WhileStmt& stmt, LowerCtx& ctx) {
     if (stmt.m_else) {
         const std::string flagName = "_we" + std::to_string(++ctx.whileElseCounter);
         auto flag = std::make_shared<VarDecl>(flagName, nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, std::string("0")));
-        if (ctx.ctx) {
-            flag->inferredType = QualType::fromTypeId(ctx.ctx->types().read().getType(type::Bool)); // bool-флаг
+        if (ctx.types) {
+            flag->inferredType = QualType::fromTypeId(ctx.types->read().getType(type::Bool)); // bool-флаг
         }
         stmt.m_elseFlag = flag;
     }
@@ -382,8 +381,8 @@ void lowerWith(WithStmt& stmt, LowerCtx& ctx) {
     if (stmt.m_else) {
         const std::string flagName = "_w" + std::to_string(++ctx.withFailCounter);
         auto flag = std::make_shared<VarDecl>(flagName, nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, std::string("0")));
-        if (ctx.ctx) {
-            flag->inferredType = QualType::fromTypeId(ctx.ctx->types().read().getType(type::Bool)); // bool-флаг
+        if (ctx.types) {
+            flag->inferredType = QualType::fromTypeId(ctx.types->read().getType(type::Bool)); // bool-флаг
         }
         stmt.m_failFlag = flag;
     }
@@ -428,8 +427,8 @@ void lowerWith(WithStmt& stmt, LowerCtx& ctx) {
         auto deref = std::make_shared<Sequence>(ParserToken::Kind::RefLockDeref);
         deref->m_body.push_back(std::make_shared<IdentName>(cap_name));
         vd.m_initializer = std::move(deref);
-        if (ctx.ctx && vd.inferredType.getTypeId() != INVALID_TYPE_ID) {
-            vd.inferredType = QualType::fromTypeId(ctx.ctx->types().interner().applyRefType(vd.inferredType.getTypeId(), RefType::kRef));
+        if (ctx.types && vd.inferredType.getTypeId() != INVALID_TYPE_ID) {
+            vd.inferredType = QualType::fromTypeId(ctx.types->interner().applyRefType(vd.inferredType.getTypeId(), RefType::kRef));
         }
         lock = std::move(cap);
     }
@@ -446,9 +445,9 @@ void lowerDestructure(DestructureDecl& decl, LowerCtx& ctx) {
             srcCpp = utils::nameToCpp(requiredText(*decl.m_source));
         }
         std::string restCpp;
-        for (size_t i = 0; i < decl.m_targets.size(); ++i) {
-            auto* t = decl.m_targets[i].get();
-            if (i < decl.m_targetIsRest.size() && decl.m_targetIsRest[i] && t && t->kind() == ParserToken::Kind::Ident && requiredText(*t) != "_") {
+        for (const DestructureDecl::Target& target : decl.m_targets) {
+            auto* t = target.name.get();
+            if (target.isRest && t && t->kind() == ParserToken::Kind::Ident && requiredText(*t) != "_") {
                 restCpp = utils::nameToCpp(requiredText(*t));
             }
         }

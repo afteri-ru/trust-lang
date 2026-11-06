@@ -4,22 +4,28 @@
 # RUN: %FileCheck %s <%t.out
 #
 # F2: вид защиты стека привязан к ОБЪЯВЛЕНИЮ callee, а не к тексту trust-имени.
-# Два модуля объявляют одноимённую защищаемую функцию с РАЗНЫМИ лимитами; клиент вызывает
-# обе квалифицированно — каждая получает СВОЮ проверку (раньше обе брали одну запись).
+# Два модуля объявляют одноимённую (`guard`) защищаемую функцию в РАЗНЫХ областях имён (модуль в
+# C++-имя не входит — изоляция через namespace); лимиты разные, клиент вызывает обе
+# квалифицированно — каждая получает СВОЮ проверку.
 # CHECK: check_overflow(4096)
 # CHECK: check_overflow(8192)
 
 //--- main.src
-\sa(guard);
-\sb(guard);
-@main():Int32 := { @print("{} {}\n", \sa::guard(1), \sb::guard(2)); @return 0; };
+\std();
+\sa();
+\sb();
+@main():Int32 := { @print("{} {}\n", a::guard(1), b::guard(2)); @return 0; };
 
 //--- sa.src
 \sa;
-@[stack_check(4096)@]
-guard(x:Int32):Int32 := { @return x; };
+a:: {
+    @[stack_check(4096)@]
+    guard(x:Int32):Int32 := { @return x; };
+};
 
 //--- sb.src
 \sb;
-@[stack_check(8192)@]
-guard(x:Int32):Int32 := { @return x; };
+b:: {
+    @[stack_check(8192)@]
+    guard(x:Int32):Int32 := { @return x; };
+};

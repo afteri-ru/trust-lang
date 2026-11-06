@@ -48,7 +48,7 @@ TEST_F(SymbolCollectorTest, CollectsTypedAndInferred) {
     seq.push_back(std::move(x));
     seq.push_back(std::move(y));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     runner.run(seq);
 
     EXPECT_EQ(runner.analysis().symbols().globalSize(), 2u); // семантика обработала обе переменные
@@ -73,7 +73,7 @@ TEST_F(SymbolCollectorTest, CollectsWithoutOptions) {
                                        std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "42"));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(x));
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     runner.run(seq);
     ASSERT_EQ(runner.analysis().state().symbolIndex().size(), 1u);
 }

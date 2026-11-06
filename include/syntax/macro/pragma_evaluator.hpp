@@ -1,6 +1,5 @@
 #pragma once
 
-// include/syntax/macro/pragma_evaluator.hpp
 // Обработка прагм и опций компилятора (@__PRAGMA_*, @__OPTION_*, @__HYGIENIC__).
 // Вынесен из монолита Parser (src/syntax/parser/parser.cpp) в отдельный класс - одна
 // ответственность. Владеет связанным состоянием: гигиенические имена (общие с
@@ -8,16 +7,17 @@
 
 #include "syntax/term/term_types.h"
 #include "syntax/pragma_macro_x.hpp"
+#include "syntax/parser_services.hpp"
 #include "parser.yy.h"   // parser::token_type (TRY_ALL_END/TRY_MINUS_END/TRY_PLUS_END)
 
 #include <map>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace trust {
-class Context;
 
 namespace syntax {
 class PredefMacroResolver;
@@ -63,7 +63,12 @@ inline std::optional<PragmaMacroId> pragmaMacroId(std::string_view name) {
 /// вместе с гигиеническим состоянием (m_hygienic_*) и m_expected.
 class PragmaEvaluator {
   public:
-    PragmaEvaluator(trust::Context& ctx, const syntax::PredefMacroResolver& predef);
+    PragmaEvaluator(trust::ParserServices ctx, const syntax::PredefMacroResolver& predef);
+
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, trust::ParserServices>)
+    PragmaEvaluator(Ctx& ctx, const syntax::PredefMacroResolver& predef)
+    : PragmaEvaluator(trust::makeParserServices(ctx), predef) {}
 
     /// Проверяет, является ли терм прагмой (препроцессорной командой) с учётом того,
     /// что контекст-макросы (@__NAMESPACE__, @__FUNCTION__) прагмами не являются.
@@ -113,7 +118,7 @@ class PragmaEvaluator {
     void clearTryClose() { m_tryClose = parser::token_type::END; }
 
   private:
-    trust::Context& m_ctx;
+    trust::ParserServices m_ctx;
     const syntax::PredefMacroResolver& m_predef;
     std::map<std::string, std::string> m_hygienic_names;
     int m_hygienic_counter = 0;

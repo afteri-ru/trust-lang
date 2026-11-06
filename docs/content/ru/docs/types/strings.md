@@ -29,6 +29,29 @@ tags: [types]
 Ширина строкового литерала задаётся кавычками: `"…"` — `:StrChar`, `'…'` — `:StrWide`.
 Raw-строки следуют тому же правилу по ограничителю: `R"(…)"` — `:StrChar`, `R'(…)'` — `:StrWide`.
 
+## Методы строк {#methods}
+
+Строки предоставляют методы базового класса C++ (`std::string`/`std::wstring`): доступ к элементам
+(`at`, `front`, `back`), размер и ёмкость (`size`, `length`, `empty`, `capacity`, `reserve`,
+`shrink_to_fit`, `resize`), изменение (`clear`, `append`, `push_back`, `pop_back`, `insert`, `erase`,
+`replace`, `assign`) и операции (`find`, `rfind`, `substr`, `compare`, `starts_with`, `ends_with`,
+`contains`). У `StrChar` дополнительно — `c_str()` и `data()` (результат — `const char*`).
+
+## Перебор строки и конверсия {#iterate}
+
+Курсор по строке — единый тип-итератор `Iterator<T>` стандартной библиотеки, помеченный `@[borrowed]`
+(см. [Перебор коллекций](containers/)). Метод `chars()` возвращает курсор по элементам (`:Int8` для
+`StrChar`, `:Int32` для `StrWide`), построенный из `begin/end` строки; пока курсор жив, строку менять
+нельзя. Конверсия между типами строк — методы `toWide()`/`toNarrow()` (UTF-8 ↔ широкие символы).
+
+```python
+s : StrChar := "hello";
+it : Iterator<Int8> := s.chars();
+@while( it.hasNext() ) { ch := *it; ++it; };
+w : StrWide := s.toWide();
+back : StrChar := w.toNarrow();
+```
+
 ## Форматирование строк {#format}
 
 К любой переменной можно обратиться как к функции (указав после имени круглые скобки), создав тем самым

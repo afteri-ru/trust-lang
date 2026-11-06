@@ -1,8 +1,6 @@
 #pragma once
 
-// include/types/registry/builtin_core_builder.hpp
 // Seed-строитель ОБЩЕГО иммутабельного ядра встроенных типов.
-//
 // Строит ядро над собственным локальным набором зон (не над TypeSystem): корень лишь разделяет
 // готовый результат через TypeSystem::builtinCore(). Иначе получился бы цикл «builder -> корень».
 // Порядок seed-регистрации — часть контракта: он задаёт registry_index встроенных типов.
@@ -27,7 +25,7 @@ class BuiltinCoreBuilder {
 
   private:
     static TypeId registerBuiltinType(BuiltinSeedZones& z, std::string_view name, Group group, uint8_t data = 0, std::string_view cppName = {},
-                                      std::vector<std::string> preprocIncludes = {}, bool markAttrs = false);
+                                      bool markAttrs = false);
     static void registerBuiltinTypes(BuiltinSeedZones& z);
     static void registerBuiltinContainerMethods(BuiltinSeedZones& z);
 };

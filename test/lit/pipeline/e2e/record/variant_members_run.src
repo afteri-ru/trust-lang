@@ -1,0 +1,18 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Variant: каждый член — типизированная константа СВОЕГО типа (`Data.i` : Int8, `Data.s` :
+# StrChar), плюс `count()` и alias `Variant = std::variant<...>`. Программа собирается и
+# запускается: значения констант реально доступны и печатаются.
+
+# CHECK: count=2
+# CHECK: i=42
+# CHECK: s=text
+
+\std();
+Data ::= (i=42, s="text",):Variant;
+
+@print("count={}\n", Data.count());
+@print("i={}\n", Data.i);
+@print("s={}\n", Data.s);

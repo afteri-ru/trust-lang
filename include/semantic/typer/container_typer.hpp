@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/container_typer.hpp
 // Типизатор контейнерных литералов: Dict/Array/Tensor/Range, вывод элементного типа,
 // формы/размерности и доступ к элементам. Выделен из ExprTyper как отдельная зона
 // ответственности.

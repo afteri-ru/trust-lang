@@ -67,12 +67,12 @@ destructuring of the current element (a ready example — in the
 [playground](/en/playground/?file=foreach); more — [Loops](../operators/flow/)).
 
 The standard library provides the single iterator type `Iterator<T>` — a class marked with
-`@[borrowed]`. It maps onto C++ `trust::Iterator<T>` — a single type-erased cursor available without
-an explicit import (loaded by the prelude; disabled by `--no-stdlib`). The cursor is created from a
+`@[borrowed]`. It maps onto C++ `trust::Iterator<T>` — a single type-erased cursor available through
+the umbrella module `\std();` (which re-exports `iterator`). The cursor is created from a
 Trust object `Iterator(obj)` (through `begin()/end()`) or from a pair of standard C++ iterators
 `trust::Iterator<T>(first, last)` (used by code generation, including reverse via `rbegin()/rend()`).
 The interface is C++-unified: `*it`, `++it`, `it++`, `--it`, `it--`; completion is checked with
-`it.%hasNext()` (C++ `explicit operator bool`). Any variable of the type `Iterator<T>` is
+`it.hasNext()` (C++ `explicit operator bool`). Any variable of the type `Iterator<T>` is
 automatically dependent on the source object: mutation of the source while the cursor is alive is
 the diagnostic `-Wborrowed` at the mutation point (see [Control of derived-view invalidation](../safety/borrowing/)).
 The dependency is released by `it = _;` or by binding it to another source. The attribute is

@@ -8,13 +8,10 @@
 #include "ast/ident_name.hpp"
 #include "ast/kind_dispatch.hpp"
 #include "ast/token_type.hpp"
-#include "session/context.hpp"
-#include "diag/registry.hpp"
-#include "diag/base_diags.hpp"
 #include "syntax/term/term.h"
 #include "types/type_system.hpp"
 #include "types/types.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/type_id.hpp"
 #include "types/names.hpp"
@@ -51,13 +48,8 @@ void DeclEmitter::visit_FuncDecl(const FuncDecl& n) {
         return;
     }
     // В заголовке тело generic/constexpr free-функции обязательно; прочие тела выносит `.cppt`.
-    if (m_ectx.m_mode.forwardDeclOnly && bodyMustBeInModuleHeader(n, m_ectx.m_ctx.attrs())) {
-        if (bodyUsesNonPublishedEntity(n, m_ectx.m_declFacts.headerPublishedDecls, m_ectx.m_output.currentModule)) {
-            m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError,
-                                "function '{}' references a module-level entity that the module header does not publish "
-                                "(e.g. a '__::' helper): a template or constexpr function must be defined in the header; "
-                                "move the helper out of '__::' or drop the template",
-                                n.text());
+    if (m_ectx.m_mode.forwardDeclOnly && bodyMustBeInModuleHeader(n, m_ectx.m_services.attrs())) {
+        if (headerBodyUnpublishable(m_ectx, n)) {
             return;
         }
         BodyEmitInHeaderGuard guard(m_ectx);

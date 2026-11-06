@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Enum: кодогенерация `struct Color : trust::Enum<...>` + out-of-class члены + runtime-таблица
+# kMembers. Программа собирается и запускается: count(), сравнение по значению,
+# fromName()/fromValue().
+
+# CHECK: count=3
+# CHECK: eq=true gt=true
+# CHECK: byname=true
+# CHECK: byvalue=true
+
+\std();
+Color ::= (RED=1, GREEN=2, BLUE=3,):Enum;
+
+c:Color := Color.GREEN;
+@print("count={}\n", Color.count());
+@print("eq={} gt={}\n", c == Color.GREEN, Color.BLUE > Color.RED);
+@print("byname={}\n", Color.fromName("BLUE") == Color.BLUE);
+@print("byvalue={}\n", Color.fromValue(1) == Color.RED);

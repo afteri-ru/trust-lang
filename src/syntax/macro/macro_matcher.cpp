@@ -36,7 +36,7 @@ bool compareMacroName(std::string_view term_name, std::string_view macro_name) {
     return term_name == macro_name;
 }
 
-size_t matchMacro(trust::Context& ctx, const SequenceType& buffer, TermPtr& macro, MacroMismatch* mismatch) {
+size_t matchMacro(trust::ParserServices& ctx, const SequenceType& buffer, TermPtr& macro, MacroMismatch* mismatch) {
 
     if (!macro || !macro->isMacro()) {
         if (mismatch) {
@@ -142,11 +142,11 @@ size_t matchMacro(trust::Context& ctx, const SequenceType& buffer, TermPtr& macr
     return 0;
 }
 
-bool identityMacro(trust::Context& ctx, const SequenceType& buffer, TermPtr& macro) {
+bool identityMacro(trust::ParserServices& ctx, const SequenceType& buffer, TermPtr& macro) {
     return matchMacro(ctx, buffer, macro, nullptr) != 0;
 }
 
-std::string toMacroHash(trust::Context& ctx, TermPtr& term) {
+std::string toMacroHash(trust::ParserServices& ctx, TermPtr& term) {
     if (term->isMacro()) {
         ASSERT(!getMacroId(ctx, term).empty());
         return toMacroHashName(getMacroId(ctx, term)[0]->getText());

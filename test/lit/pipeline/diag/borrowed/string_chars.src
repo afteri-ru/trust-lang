@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --emit-cpp -Wborrowed=error %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Итератор строки (s.chars()) — borrowed: мутация строки при живом курсоре инвалидирует его.
+\std();
+@main():Int32 := {
+    s: StrChar := "abc";
+    it : Iterator<Int8> := s.chars();
+    s = "xyz";
+    @return 0;
+}
+# CHECK: error: cannot change the owner 's' while dependent variable(s) 'it' are alive

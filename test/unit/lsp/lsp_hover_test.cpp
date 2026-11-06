@@ -47,9 +47,9 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForCompoundAssignment) {
     std::string cppUri = "file://" + cppPath;
 
     // Hover over the emitted compound-assignment expression (default -foverflow-check:
-    // `__builtin_add_overflow(c_x, 5, &c_x) ...`). Номер строки зависит от prepended-инклудов
+    // `__builtin_add_overflow(x, 5, &x) ...`). Номер строки зависит от prepended-инклудов
     // рантайма (напр. `#include <cstdint>`), поэтому ищем её динамически; колонку берём по
-    // первому вхождению `c_x` (курсор должен стоять на идентификаторе, а не на `(`).
+    // первому вхождению `x` (курсор должен стоять на идентификаторе, а не на `(`).
     std::ifstream ifs(cppPath);
     std::string cppText((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
     int x5Line = -1;
@@ -60,10 +60,10 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForCompoundAssignment) {
         while (p <= cppText.size()) {
             auto nl = cppText.find('\n', p);
             std::string line = (nl == std::string::npos) ? cppText.substr(p) : cppText.substr(p, nl - p);
-            auto callPos = line.find("__builtin_add_overflow(c_x, 5, &c_x)");
+            auto callPos = line.find("__builtin_add_overflow(x, 5, &x)");
             if (callPos != std::string::npos) {
                 x5Line = n;
-                x5Char = static_cast<int>(line.find("c_x", callPos));
+                x5Char = static_cast<int>(line.find("x", callPos));
             }
             if (nl == std::string::npos) {
                 break;
@@ -100,8 +100,8 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForCompoundAssignment) {
 
 // ═══════════════════════════════════════════════════════════════
 // handleHover (C++ file) - reverse navigation via a name mapping,
-// based on examples/rational.src. Hover over `c_fact` in the cppt
-// must produce a "← Trust: c_fact" link whose #L fragment points at
+// based on examples/rational.src. Hover over `fact` in the cppt
+// must produce a "← Trust: fact" link whose #L fragment points at
 // the `fact` declaration in the trust source, and the base code block
 // must show that same declaration (regression: with prepended runtime
 // includes the reverse statement lookup used body-aligned offsets, so
@@ -110,7 +110,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForCompoundAssignment) {
 TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
     // Представительный вариант examples/rational.src (без гигантского @assert-литерала,
     // но с самим макросом @assert) - структура маппинга: @main, рац. литерал, @while, @assert, :StrChar.
-    std::ofstream(testSrcFile) << "@main():={\n"
+    std::ofstream(testSrcFile) << "\\std(); @main():={\n"
                                   "    fact :Rational := 1\\1;\n"
                                   "    mult := 1;\n"
                                   "    @while( mult <= 1000 ) {\n"
@@ -140,7 +140,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
         return r;
     };
 
-    // -- 1. Обратный ховер (cpp → trust) над объявлением `c_fact = trust::Rational` --
+    // -- 1. Обратный ховер (cpp → trust) над объявлением `fact = trust::Rational` --
     int cfactLine = -1;
     {
         int n = 0;
@@ -148,7 +148,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
         while (p <= cppText.size()) {
             auto nl = cppText.find('\n', p);
             std::string line = (nl == std::string::npos) ? cppText.substr(p) : cppText.substr(p, nl - p);
-            if (line.find("c_fact = trust::Rational") != std::string::npos) {
+            if (line.find("fact = trust::Rational") != std::string::npos) {
                 cfactLine = n;
             }
             if (nl == std::string::npos) {
@@ -158,7 +158,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
             ++n;
         }
     }
-    ASSERT_GE(cfactLine, 0) << "c_fact declaration line not found in cppt:\n" << cppText;
+    ASSERT_GE(cfactLine, 0) << "fact declaration line not found in cppt:\n" << cppText;
     {
         json resp = hoverAt(cppUri, cfactLine, 20);
         ASSERT_TRUE(resp.contains("result")) << resp.dump();
@@ -171,7 +171,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
                 continue;
             }
             std::string s = item;
-            if (s.find("← Trust: c_fact") != std::string::npos) {
+            if (s.find("← Trust: fact") != std::string::npos) {
                 foundReverseLink = true;
                 EXPECT_NE(s.find("#L2,5-2,9"), std::string::npos) << "bad fragment: " << s;
             }
@@ -184,7 +184,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
     }
 
     // -- 2. Обратный ховер (cpp → trust) над сгенерированным кодом макроса @assert --
-    // Ровно одна ссылка на сам statement @assert; не падать (регрессия: getMacroDefRange
+    // Ровно одна ссылка на сам statement @assert; не падать (регрессия: macroDefinitionAt
     // возвращал range за пределами source для макросов в конце DSL-файла).
     {
         int assertLine = -1;
@@ -246,7 +246,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
             while (p <= cppText.size()) {
                 auto nl = cppText.find('\n', p);
                 std::string line = (nl == std::string::npos) ? cppText.substr(p) : cppText.substr(p, nl - p);
-                if (line.find("c_mult += 1") != std::string::npos || line.find("c_fact *= c_mult") != std::string::npos) {
+                if (line.find("mult += 1") != std::string::npos || line.find("fact *= mult") != std::string::npos) {
                     targets.emplace_back(n, line);
                 }
                 if (nl == std::string::npos) {
@@ -276,7 +276,7 @@ TEST_F(TrustLspTest, HandleHover_CppReverseLinkForRationalExample) {
                 }
                 EXPECT_LE(links, 1) << "line " << tl << " ch" << ch << ": multiple reverse links\n" << resp.dump();
                 if (links == 1) {
-                    const std::string expected = (lineText.find("c_mult += 1") != std::string::npos) ? "mult += 1" : "fact *= mult";
+                    const std::string expected = (lineText.find("mult += 1") != std::string::npos) ? "mult += 1" : "fact *= mult";
                     EXPECT_NE(linkText.find(expected), std::string::npos) << "line " << tl << " ch" << ch << "\n" << resp.dump();
                 }
             }
@@ -380,7 +380,7 @@ TEST_F(TrustLspTest, HandleHover_FacadeReExportShowsDocumentation) {
 }
 
 // Hover по каталоговому DSL-макросу (@func): макрос не транслируется в source map,
-// но док берётся из единого хранилища BuiltinCatalog::macroDocs() (см. ранний return
+// но док берётся из хранилища прогона (Context файла; см. ранний return
 // в hover-обработчике).
 TEST_F(TrustLspTest, HandleHover_ShowsDslMacroDoc) {
     std::ofstream(testSrcFile) << "@func foo ( x ) { }\n";
@@ -404,7 +404,7 @@ TEST_F(TrustLspTest, HandleHover_ShowsDslMacroDoc) {
 }
 
 // Hover по прагма-макросу (@__OPTION_PUSH__ и др.): прагма не транслируется в source map,
-// но её док должен показываться из единого хранилища BuiltinCatalog::macroDocs().
+// но её док должен показываться из хранилища прогона (Context файла).
 TEST_F(TrustLspTest, HandleHover_ShowsPragmaMacroDoc) {
     std::ofstream(testSrcFile) << "@__OPTION_PUSH__;\n";
     openTrustFile();

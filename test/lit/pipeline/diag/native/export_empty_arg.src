@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Экспорт обязан назвать C/C++-символ: пустой аргумент не является маркером и не может
+# молча отключать экспорт.
+@[export("")@]
+f(x:Int32):Int32 := { @return x; };
+@main():Int32 := { @return 0; };
+# CHECK: error: native export requires a non-empty C/C++ symbol name argument

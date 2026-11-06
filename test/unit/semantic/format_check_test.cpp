@@ -71,7 +71,7 @@ class FormatCheckTypeFixture : public ::testing::Test {
 };
 
 TEST_F(FormatCheckTypeFixture, ArgMatchesExpect) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId int32 = reg.read().getType("Int32");
     const TypeId str = reg.read().getType("StrChar");
     const TypeId cstr = reg.read().getType("CString");

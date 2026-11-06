@@ -1,4 +1,3 @@
-// src/sourcemap/serialize/reader_codec.cpp
 // SourceMapReader/FileEntry: msgpack encode/decode
 
 #include "sourcemap/mapper.hpp"
@@ -223,13 +222,11 @@ bool createMacroEntry(const msgpack_object* entryArr, uint32_t bodyInIdx, uint32
 std::unique_ptr<SourceMapReader> SourceMapReader::fromMsgpack(const unsigned char* data, size_t size) {
     auto reader = std::make_unique<SourceMapReader>();
 
-    // -- Распаковываем через zstd (checksum проверяется внутри) --
     auto decompressed = detail::zstd_decompress(data, size);
     if (decompressed.empty()) {
         return nullptr;
     }
 
-    // -- Парсим msgpack из распакованных данных --
     MsgpackReader reader_(decompressed.data(), decompressed.size());
     if (!reader_.is_valid()) {
         return nullptr;
@@ -251,9 +248,15 @@ std::unique_ptr<SourceMapReader> SourceMapReader::fromMsgpack(const unsigned cha
     if (fields[kFieldMajor].type != MSGPACK_OBJECT_POSITIVE_INTEGER) {
         return nullptr;
     }
+    const uint32_t major = static_cast<uint32_t>(fields[kFieldMajor].via.u64);
 
     // [kFieldMinor] minor version
     if (fields[kFieldMinor].type != MSGPACK_OBJECT_POSITIVE_INTEGER) {
+        return nullptr;
+    }
+    const uint32_t minor = static_cast<uint32_t>(fields[kFieldMinor].via.u64);
+
+    if (!sourceMapFormatCompatible(major, minor)) {
         return nullptr;
     }
 
@@ -303,7 +306,6 @@ void SourceMapReader::packNames(MsgpackWriter& wr, const std::vector<NameMap>& n
     packGroups(wr, m_inputs.size(), m_outputs.size(), nameMappings.begin(), nameMappings.end(), nameEntryGroupFn, writeNameEntry);
 }
 
-// -- packMacros: упаковка macro map (input→input) --
 void SourceMapReader::packMacros(MsgpackWriter& wr) const {
     size_t inputCount = m_inputs.size();
     // Группируем по (bodyInIdx, defInIdx)
@@ -383,7 +385,6 @@ std::vector<unsigned char> SourceMapReader::packToMsgpack() const {
     // macros
     packMacros(wr);
 
-    // -- Сжимаем через zstd --
     msgpack_sbuffer sbuf = std::move(wr).take_sbuf();
     auto compressed = detail::zstd_compress(reinterpret_cast<const unsigned char*>(sbuf.data), sbuf.size);
     msgpack_sbuffer_destroy(&sbuf);

@@ -36,7 +36,7 @@ class SymbolTableOverloadTest : public ::testing::Test {
             f->m_templateParams = std::vector<AstNodePtr>{std::make_shared<ArgNode>(std::string(binder))};
         }
         if (definition) {
-            f->m_body = std::vector<AstNodePtr>{};
+            f->m_definition = Definition::fromBody({});
         }
         return f;
     }
@@ -50,7 +50,7 @@ class SymbolTableOverloadTest : public ::testing::Test {
             params.push_back(std::make_shared<ArgNode>(std::move(b)));
         }
         f->m_templateParams = std::move(params);
-        f->m_body = std::vector<AstNodePtr>{};
+        f->m_definition = Definition::fromBody({});
         return f;
     }
 
@@ -144,11 +144,14 @@ TEST_F(SymbolTableOverloadTest, NativeAliasCollisionIsDuplicate) {
     ASSERT_NE(alias, INVALID_TYPE_ID);
     const TypeId sigAlias = m_types->interner().getOrCreateFunctionType(m_i32, {alias});
     const TypeId sigCanon = m_types->interner().getOrCreateFunctionType(m_i32, {m_i32});
-    auto first = makeFunc("%lib::f", false);
-    auto second = makeFunc("%lib::f", false);
+    auto first = makeFunc("f", false);
+    auto second = makeFunc("f", false);
+    // Нативная привязка — отдельный языковой предикат объявления (не `%`-префикс имени).
+    first->m_bindsNativeCpp = true;
+    second->m_bindsNativeCpp = true;
 
-    EXPECT_EQ(m_symbols.declareOrComplete(symbol("%lib::f", sigAlias, first.get())), DeclResult::Inserted);
-    EXPECT_EQ(m_symbols.declareOrComplete(symbol("%lib::f", sigCanon, second.get())), DeclResult::Duplicate);
+    EXPECT_EQ(m_symbols.declareOrComplete(symbol("f", sigAlias, first.get())), DeclResult::Inserted);
+    EXPECT_EQ(m_symbols.declareOrComplete(symbol("f", sigCanon, second.get())), DeclResult::Duplicate);
 }
 
 TEST_F(SymbolTableOverloadTest, BinderPermutationIsADistinctOverload) {

@@ -1,12 +1,13 @@
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
-# Spread-merge `d []= ... d2` (словарь-переменная) → `d.extend(c_d2)`.
+# Spread-merge `d []= ... d2` (словарь-переменная) → `d.extend(d2)`.
 
+\std();
 @main() := {
     d := (1, two=2,);
     d2 := (three=3, 4,);
     d []= ... d2;
-    # CHECK: c_d.extend(c_d2);
+    # CHECK: d.extend(d2);
     print("size={}\n", {% $d.size() %});
     @return 0;
 }

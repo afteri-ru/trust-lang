@@ -101,6 +101,24 @@ TEST_F(ModuleRegistryTest, InterfaceFactsSetGetHas) {
     EXPECT_TRUE(reg.interfaceFacts(idx).hasOutOfLineDefinitions);
 }
 
+// Аксессоры выдают ссылки внутрь записей: загрузка следующих модулей не должна их
+// инвалидировать (R1: невладеющая ссылка действительна в объявленном scope).
+TEST_F(ModuleRegistryTest, InterfaceFactsReferenceSurvivesModuleGrowth) {
+    const auto first = reg.getOrLoad("first");
+    ModuleInterfaceFacts facts;
+    facts.entries = {ExportEntry{std::make_shared<IdentName>("f"), "f"}};
+    reg.setInterfaceFacts(first, facts);
+
+    const ModuleInterfaceFacts& saved = reg.interfaceFacts(first);
+    const ModuleInterfaceFacts* savedAddress = &saved;
+    for (int i = 0; i < 64; ++i) {
+        (void)reg.getOrLoad("grown_" + std::to_string(i));
+    }
+
+    EXPECT_EQ(&reg.interfaceFacts(first), savedAddress);
+    EXPECT_EQ(saved.entries.size(), 1u);
+}
+
 TEST_F(ModuleRegistryTest, InterfaceFactsFaultForOutOfRange) {
     EXPECT_THROW((void)reg.interfaceFacts(ModuleIndex{100}), std::runtime_error);
     EXPECT_THROW((void)reg.hasInterfaceFacts(ModuleIndex{100}), std::runtime_error);

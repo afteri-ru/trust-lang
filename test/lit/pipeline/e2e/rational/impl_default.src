@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/impl_default %s
+# RUN: $TD/impl_default && echo "PASS"
+# CHECK: PASS
+
+# Дефолтная реализация Rational/BigInteger (GMP) загружается stdlib prelude
+# (`stdlib/builtin/rational.src`). Проверяются арифметика, сравнение, литералы и display.
+\std();
+@main():Int32 := {
+    a :Rational := 1\3;
+    b :Rational := 1\6;
+    c := a + b;
+    if (c != 1\2) { return 1; };
+
+    d :BigInteger := 123456789012345678901234567890;
+    if (d != 123456789012345678901234567890) { return 2; };
+
+    shown := c.display(8);
+    if (shown.size() != 3) { return 3; }; # "1\\2"
+    return 0;
+};

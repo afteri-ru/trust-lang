@@ -2,17 +2,22 @@
 
 # Методы массива (зарегистрированы на `:Array`, подстановка элементного типа T→Elem).
 
+\std();
 a := [10,20,30,];
-# CHECK: std::vector<int8_t> c_a = std::vector<int8_t>{10, 20, 30};
+# CHECK: std::vector<int8_t> a = std::vector<int8_t>{10, 20, 30};
 
 n := a.count();
-# CHECK: int64_t c_n = (c_a).count();
+# CHECK: int64_t n = (a).size();
 
 e := a.empty();
-# CHECK-NEXT: bool c_e = (c_a).empty();
+# CHECK-NEXT: bool e = (a).empty();
 
 f := a.first();
-# CHECK-NEXT: int8_t c_f = (c_a).first();
+# CHECK-NEXT: int8_t f = (a).front();
 
 v := a.at(2);
-# CHECK-NEXT: int8_t c_v = (c_a).at(2);
+# CHECK-NEXT: int8_t v = (a).at(2);
+
+# Алиас `length` наследует реализацию цели (`count` → `%size`).
+l := a.length();
+# CHECK-NEXT: int64_t l = (a).size();

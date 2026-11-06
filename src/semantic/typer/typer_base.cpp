@@ -1,4 +1,3 @@
-// src/semantic/typer/typer_base.cpp
 // Общая база типизаторов выражений: сервисы драйвера и проверки присваивания.
 #include "types/type_read.hpp"
 #include "semantic/typer/literal_annotation.hpp"
@@ -39,14 +38,14 @@ void TyperBase::widenInferredTarget(const AstNodeBase* lhs, TypeId result) {
     // Совместимые категории (числовые промоции / одинаковый тип) ведут тип как у обычного inferred.
     if (s->decl && s->decl->kind() == ParserToken::Kind::VarDecl) {
         const auto* vd = static_cast<const VarDecl*>(s->decl);
-        if (!vd->m_type && vd->m_initializer && isNoneMarker(vd->m_initializer.get())) {
+        if (vd->initKind() == VarInitKind::DeferredInit) {
             const TypeId cur = s->type.getTypeId();
             const TypeId nw = getUnqualifiedType(result);
             if (cur != INVALID_TYPE_ID && nw != INVALID_TYPE_ID && cur != nw) {
-                const TypeReadModel& reg = m_actx.ctx().types();
+                const TypeReadModel& reg = m_actx.registry();
                 const TypeId cc = reg.store().desugaredTypeId(cur);
                 const TypeId nc = reg.store().desugaredTypeId(nw);
-                const bool compatible = (cc == nc) || (isArithmeticGroup(getGroup(getTypeKind(cc))) && isArithmeticGroup(getGroup(getTypeKind(nc))));
+                const bool compatible = (cc == nc) || (isArithmeticGroup(typeGroupOf(cc)) && isArithmeticGroup(typeGroupOf(nc)));
                 if (!compatible) {
                     std::string disp{requiredText(*lhs)};
                     if (!disp.empty() && disp.front() == '$') {
@@ -55,7 +54,7 @@ void TyperBase::widenInferredTarget(const AstNodeBase* lhs, TypeId result) {
                     m_actx.ctx().diag().report(Severity::Error, lhs->range(),
                                                "cannot assign type '{}' to '{}' whose type was inferred as '{}' from an earlier assignment to the untyped "
                                                "'{} := _' declaration; use explicit '{} :Any := _' to allow values of different types",
-                                               reg.printer().getTypeName(nc), disp, reg.printer().getTypeName(cc), disp, disp);
+                                               reg.printer().typeNameOf(nc), disp, reg.printer().typeNameOf(cc), disp, disp);
                     return; // тип категории не перетираем; ошибка останавливает конвейер
                 }
             }
@@ -79,13 +78,13 @@ void TyperBase::checkAssignmentNarrowing(const AstNodeBase* valueNode, TypeId so
     if (valueNode == nullptr || sourceType == INVALID_TYPE_ID || targetType == INVALID_TYPE_ID) {
         return;
     }
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     const TypeId sc = reg.store().desugaredTypeId(sourceType);
     const TypeId dc = reg.store().desugaredTypeId(targetType);
     const TypeKind sKind = getTypeKind(sc);
     const TypeKind dKind = getTypeKind(dc);
-    const Group sg = getGroup(sKind);
-    const Group dg = getGroup(dKind);
+    const Group sg = typeGroupOf(sKind);
+    const Group dg = typeGroupOf(dKind);
     // Контракт value-vs-reference (см. types/type/REFType.md «двухосевая модель»): источник или цель -
     // ссылочный тип. Правила:
     //   * цель-ссылка + источник-значение: создание владеющей обёртки (Shared/Unique) - ВАЛИДНО
@@ -93,13 +92,13 @@ void TyperBase::checkAssignmentNarrowing(const AstNodeBase* valueNode, TypeId so
     //   * источник-ссылка + цель-значение: копирование ссылки в значение - нарушение контракта
     //     (диагностика + fixit `*<name>` - локер);
     //   * обе ссылки: оси владения (shared/weak vs unique) и pointee-типы обязаны совпадать.
-    const RefType srt = getRefType(sKind);
-    const RefType drt = getRefType(dKind);
+    const RefType srt = typeRefOf(sKind);
+    const RefType drt = typeRefOf(dKind);
     const bool sRef = srt != RefType::kValue;
     const bool dRef = drt != RefType::kValue;
     if (sRef || dRef) {
-        std::string srcName(reg.printer().getTypeName(sc));
-        std::string dstName(reg.printer().getTypeName(dc));
+        std::string srcName(reg.printer().typeNameOf(sc));
+        std::string dstName(reg.printer().typeNameOf(dc));
         if (dRef && !sRef) {
             if (drt == RefType::kWeak) {
                 m_actx.ctx().diag().report(
@@ -171,7 +170,7 @@ void TyperBase::checkAssignmentNarrowing(const AstNodeBase* valueNode, TypeId so
     // Строки: сужение StrWide (широкая) → StrChar (узкая) - всегда ошибка (значение литерала
     // не влияет: любой '…' уже широкий; безопасного сужения и строкового cast нет).
     if (sg == Group::kStrWide && dg == Group::kStrChar) {
-        std::string srcName(reg.printer().getTypeName(sc));
+        std::string srcName(reg.printer().typeNameOf(sc));
         m_actx.ctx().diag().report(Severity::Error, valueNode->range(),
                                    "value of type '{}' cannot be narrowed to 'StrChar' (wide string into narrow); use double-quoted \"…\" for a narrow string",
                                    srcName);
@@ -183,8 +182,8 @@ void TyperBase::checkAssignmentNarrowing(const AstNodeBase* valueNode, TypeId so
     if (!sNum || !dNum || sg != dg) {
         return;
     }
-    const uint8_t sw = getData(sKind);
-    const uint8_t dw = getData(dKind);
+    const uint8_t sw = typeDataOf(sKind);
+    const uint8_t dw = typeDataOf(dKind);
     if (sw <= dw) {
         return; // не сужение (шире или тот же размер)
     }
@@ -193,8 +192,8 @@ void TyperBase::checkAssignmentNarrowing(const AstNodeBase* valueNode, TypeId so
         return;
     }
     // Сужение (переменная/неизвестное шире цели) → ошибка + fixit «use cast :Type(expr)».
-    std::string dstName(reg.printer().getTypeName(dc));
-    std::string srcName(reg.printer().getTypeName(sc));
+    std::string dstName(reg.printer().typeNameOf(dc));
+    std::string srcName(reg.printer().typeNameOf(sc));
     auto* entry = m_actx.ctx().diag().report(Severity::Error, valueNode->range(), "value of type '{}' cannot be narrowed to '{}' (use cast :{}(expr))", srcName,
                                              dstName, dstName);
     if (entry != nullptr && !valueNode->range().isInvalid()) {

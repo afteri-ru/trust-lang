@@ -1,4 +1,3 @@
-// src/semantic/typer/type_set.cpp
 // Проверка комбинаций наборов допустимых типов: см. include/semantic/typer/type_set.hpp.
 #include "types/type_read.hpp"
 #include "semantic/typer/type_set.hpp"
@@ -24,28 +23,31 @@ bool isTypeSetSubtype(const TypeReadModel& reg, TypeId sub, TypeId root) {
     }
     // Record-классы: root в транзитивных базовых классах sub.
     if (reg.store().isRecordType(rc) && reg.store().isRecordType(sc)) {
-        std::vector<TypeId> pending = reg.store().baseClasses(sc);
+        std::vector<TypeId> pending;
+        for (const BaseClass& base : reg.store().basesOf(sc)) {
+            pending.push_back(base.type);
+        }
         while (!pending.empty()) {
             const TypeId b = reg.store().desugaredTypeId(pending.back());
             pending.pop_back();
             if (b == rc) {
                 return true;
             }
-            for (const TypeId bb : reg.store().baseClasses(b)) {
-                pending.push_back(bb);
+            for (const BaseClass& bb : reg.store().basesOf(b)) {
+                pending.push_back(bb.type);
             }
         }
         return false;
     }
     const TypeKind sk = getTypeKind(sc);
     const TypeKind rk = getTypeKind(rc);
-    if (getGroup(sk) != getGroup(rk)) {
+    if (typeGroupOf(sk) != typeGroupOf(rk)) {
         return false;
     }
     // Одна арифметическая группа: порядок задаёт ШИРИНА (Data, биты) - `:Int8` уже `:Int32`.
-    if (isArithmeticGroup(getGroup(sk))) {
-        const uint8_t sd = getData(sk);
-        const uint8_t rd = getData(rk);
+    if (isArithmeticGroup(typeGroupOf(sk))) {
+        const uint8_t sd = typeDataOf(sk);
+        const uint8_t rd = typeDataOf(rk);
         if (rd == 0) {
             return true; // абстрактный корень группы (Data=0) - широчайший
         }
@@ -59,7 +61,7 @@ bool isTypeSetSubtype(const TypeReadModel& reg, TypeId sub, TypeId root) {
 }
 
 std::optional<TypeSetModel> validateTypeSet(const Sequence& node, AnalysisContext& actx) {
-    TypeSystem& reg = actx.ctx().types();
+    TypeSystem& reg = actx.registry();
     DiagnosticEngine& diag = actx.ctx().diag();
     TypeSetModel model;
     bool ok = true;

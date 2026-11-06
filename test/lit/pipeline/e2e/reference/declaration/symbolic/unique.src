@@ -8,6 +8,7 @@
 # доступ к ДАННЫМ в unique (безопасный trust::checked_deref, без UB на nullptr). Владелец
 # создаётся из значения (trust::make_unique), swap unique - через `:=:` (std::swap).
 
+\std();
 @main():Int32 := {
     && a := 1:Int32;
     && b := 2:Int32;

@@ -2,15 +2,15 @@
 
 # Функция - top-level именованный блок: именованный break на её имя (func:: |+|) = return (void);
 # именованный return (func:: |+ value +|) = return value.
-%f():Int32 := {
+f():Int32 := {
     f:: |+ 42 +|;
 };
-# CHECK: int32_t f() {
+# CHECK: int32_t f_P0_() {
 # CHECK-NEXT:     return 42;
 # CHECK-NEXT: }
-%g():Void := {
+g():Void := {
     g:: |+|;
 };
-# CHECK: void g() {
+# CHECK: void g_P0_() {
 # CHECK-NEXT:     return;
 # CHECK-NEXT: }

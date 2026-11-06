@@ -88,7 +88,7 @@ class TrustLspTest : public ::testing::Test {
         fs::create_directories(testCppDir);
 
         testSrcFile = tmpDir + "/test.src";
-        std::ofstream(testSrcFile) << "msg := \"hello world\";\n{% printf(\"msg: %s\\n\", $msg); %}\n";
+        std::ofstream(testSrcFile) << "\\std(); msg := \"hello world\";\n{% printf(\"msg: %s\\n\", $msg); %}\n";
 
         opts.projectDir = tmpDir;
         opts.tempDir = testCppDir;

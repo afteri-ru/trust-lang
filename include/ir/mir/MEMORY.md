@@ -2,13 +2,13 @@
 
 > scope: include/ir/mir
 > role: persistent-memory
-> last_reviewed: 2026-11-04
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 5000
 
 ## Architecture
 
-MIR — структура тела функции в семантическом порядке: `mir.hpp` (`MirOp`/`MirInstruction`:
+MIR — analysis/verification IR (CFG-over-places): структура тела функции в семантическом порядке; не
+вход кодогенерации (C++-бэкенд читает HIR), её потребители — flow-анализы и верификатор. `mir.hpp` (`MirOp`/`MirInstruction`:
 `Declare`/`Read`/`Write`/`Move`/`Call`/`ScopeExit`/`Assert`/`Invariant`; `place` — ключ `PlaceTable`,
 `site` — источник, `scope` — скоуп объявления/выхода, `projection` — lvalue поля/элемента).
 `cfg.hpp` — CFG над MIR (`BasicBlockT`/`CfgT`, `buildCfg(FuncDecl, AttrPool)`, `buildMir(roots, AttrPool)`);

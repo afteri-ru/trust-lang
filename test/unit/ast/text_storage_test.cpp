@@ -84,7 +84,14 @@ void expectAstTextInterned(const AstNodeBase& node, const StringInterner& pool, 
         expectAstTextList(func.m_captures, pool, source);
     }
     if (kind == ParserToken::Kind::TypeName) {
-        expectAstTextList(static_cast<const IdentType&>(node).templateArgs(), pool, source);
+        const auto& targs = static_cast<const IdentType&>(node).templateArgs();
+        if (targs) {
+            for (const TemplateArg& arg : *targs) {
+                if (arg.node) {
+                    expectAstTextInterned(*arg.node, pool, source);
+                }
+            }
+        }
     }
     if (kind == ParserToken::Kind::DestructureDecl) {
         const auto& destructure = static_cast<const DestructureDecl&>(node);
@@ -253,6 +260,24 @@ TEST(TextStorageTest, OwnedDocumentationSurvivesTermRelease) {
     op.reset(); // дерево Term уничтожено, owned-текст дока освобождён
     EXPECT_EQ(decl->documentation, "/// owned doc");
     EXPECT_EQ(decl->documentation, "/// owned doc");
+}
+
+// Прогон НЕ уходит в процессный пул: тексты компиляции принадлежат пулу прогона (E9/R1).
+TEST(StringInternerTest, PipelineRunDoesNotInternIntoProcessPool) {
+    const std::string_view probeName = "run_pool_probe_name_zz";
+    ASSERT_FALSE(manualStringInterner().owns(probeName)) << "probe name must be unique to this test";
+
+    Context ctx;
+    TypeSystem reg(ctx.diag(), ctx.opts());
+    ctx.setTypes(&reg);
+    PipelineOpts opts;
+    Pipeline pipeline(ctx, opts);
+    const MapperFile src = ctx.source().add_source("test.src", "run_pool_probe_name_zz := 1;");
+    const PipelineResult result = pipeline.run(RunRequest::analysis(), src);
+
+    ASSERT_TRUE(result.strings);
+    EXPECT_TRUE(result.strings->owns(probeName)) << "run text must be interned into the run pool";
+    EXPECT_FALSE(manualStringInterner().owns(probeName)) << "run text must not leak into the process pool";
 }
 
 // Пул строк принадлежит компиляции: освобождается вместе с последним владельцем.

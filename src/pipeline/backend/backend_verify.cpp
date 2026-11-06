@@ -1,9 +1,8 @@
-// src/pipeline/backend/backend_verify.cpp
 // Стадия `Verify`: собирает обязательства из плана SMT-бэкенда, исполняет решатель и пишет
 // сертификат `*.trustcert`. Гейт `--verify=all`: непроверенное обязательство — ошибка.
 #include "pipeline/backend/stages.hpp"
 
-#include "session/context.hpp"
+#include "session/run_services.hpp"
 #include "solver/solver.hpp"
 #include "solver/trust_to_smt.hpp"
 #include "utils/error.hpp"
@@ -84,7 +83,7 @@ StageOutcome runVerifyStage(BackendServices& services, const BackendRequest& req
     }
 
     // План целей строит SMT-бэкенд; модель обязательств и отчёт — `verify`.
-    solver::TrustToSmt bridge(services.ctx, req.modes);
+    solver::TrustToSmt bridge(services.services, req.modes);
     auto script = bridge.generate(*req.hir, *req.mir);
     if (!script) {
         return StageOutcome::Error;
@@ -159,7 +158,7 @@ StageOutcome runVerifyStage(BackendServices& services, const BackendRequest& req
             }
             ++unproven;
             const std::string reason = obligations[i].envelope.value_or(std::string(verify::proofStatusId(status)));
-            services.ctx.diag().report(Severity::Error, obligations[i].site, "--verify=all: obligation not proved ({})", reason);
+            services.services.diag().report(Severity::Error, obligations[i].site, "--verify=all: obligation not proved ({})", reason);
         }
         trust::errs() << "error: --verify=all: " << unproven << " obligation(s) not proved (" << solver_result_note << ")\n";
         return StageOutcome::Error;

@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/literal_annotation.hpp
 // ЕДИНСТВЕННЫЙ решатель типа литерала с постфиксной аннотацией `literal :Type`:
 // чистый (без диагностики), возвращает тип ИЛИ INVALID + причину для репорта.
 // Невалидная аннотация НЕ даёт fallback на «сырой» номинал — ошибку репортит typeExpr.
@@ -42,7 +41,7 @@ inline LiteralAnnotResult annotatedLiteralType(const Literal& lit, std::optional
         return (ac == rat) ? LiteralAnnotResult{*ann, LiteralAnnotProblem::None} : LiteralAnnotResult{INVALID_TYPE_ID, LiteralAnnotProblem::RationalExpected};
     }
     const TypeKind ak = getTypeKind(ac);
-    const Group ag = getGroup(ak);
+    const Group ag = typeGroupOf(ak);
     const TypeId bi = reg.store().desugaredTypeId(reg.getType(type::BigInteger));
     if (ac == bi || ac == rat) {
         return {*ann, LiteralAnnotProblem::None};
@@ -65,11 +64,11 @@ inline LiteralAnnotResult annotatedLiteralType(const Literal& lit, std::optional
 
 // Знак-учитывающая проверка влезания целого литерала в целевой тип (разбор — int_literal.hpp).
 inline bool intFitsTarget(std::string_view text, TypeKind targetKind) noexcept {
-    const Group g = getGroup(targetKind);
+    const Group g = typeGroupOf(targetKind);
     if (g != Group::kIntegers && g != Group::kUnsigned) {
         return true; // не-целая цель (float) — целочисленный литерал считается безопасным
     }
-    const uint8_t width = getData(targetKind);
+    const uint8_t width = typeDataOf(targetKind);
     ParsedIntLiteral v;
     if (!parseIntegerLiteral(text, v)) {
         return false; // не-цифра/пустой

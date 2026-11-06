@@ -5,6 +5,7 @@
 # CHECK: 7
 
 # Forward и определение с ОДНИМ И ТЕМ ЖЕ пользовательским алиасом — одна функция.
+\std();
 MyInt ::= :Int32;
 f(a:MyInt):Int32 := ...;
 f(a:MyInt):Int32 := { @return a + 5; };

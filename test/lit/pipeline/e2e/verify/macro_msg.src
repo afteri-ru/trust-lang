@@ -6,7 +6,9 @@
 # verify(cond, 'fmt', args...): при провале печатается отформатированное сообщение (std::format).
 # Форматная строка без значений тоже допустима.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     verify( 1 == 0, "verify failed: {}", 7 );
 };
 {% int macro_msg__main__() {

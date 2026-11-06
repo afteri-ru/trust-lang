@@ -80,7 +80,7 @@ TEST(ScopeLiveness, ModuleLevelNamesResolveDuringTraversal) {
     Context ctx;
     TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
-    AnalysisContext actx(ctx);
+    AnalysisContext actx(ctx, types);
     NameResolutionPass core(actx);
     auto probe = std::make_unique<NameProbeHook>(actx);
     NameProbeHook* probe_ptr = probe.get();
@@ -123,7 +123,7 @@ TEST(ScopeLiveness, AliasOnVariableIsError) {
     Context ctx;
     TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
-    AnalysisContext actx(ctx);
+    AnalysisContext actx(ctx, types);
     NameResolutionPass core(actx);
 
     // x:Int32 := 5;  y ::= x; - правая часть - переменная (Ident) → ошибка.

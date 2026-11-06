@@ -1,4 +1,3 @@
-// include/pipeline/modules/symbols.hpp
 // Досборка макросов в SymbolIndex: единая точка для Pipeline::run и LSP-сервера.
 #pragma once
 
@@ -12,7 +11,7 @@ namespace trust {
 // Дособирает макросы из Context::macroDefs() в SymbolIndex (isMacro=true). Имена макросов,
 // записанные во время парсинга, не должны теряться даже если семантический шаг не выполнился
 // (Fatal/исключение). Видимость макроса задаётся полями: `module` — модуль определения
-// (`nullopt` → прелюдия), `visibility` — Exported для прелюдии (виден везде) и FilePrivate
+// (`nullopt` → stdlib DSL), `visibility` — Exported для stdlib DSL (виден везде) и FilePrivate
 // для определений в модуле (см. analysis::isMacroVisible).
 inline void appendMacroSymbols(const Context& ctx, SymbolIndex& out) {
     for (const auto& md : ctx.macroDefs()) {
@@ -23,7 +22,7 @@ inline void appendMacroSymbols(const Context& ctx, SymbolIndex& out) {
         si.scopeRange = md.range;
         si.isMacro = true;
         si.documentation = md.documentation;
-        si.module = md.module; // nullopt = прелюдия/stdlib DSL (виден везде)
+        si.module = md.module; // nullopt = stdlib DSL (виден везде)
         out.push_back(std::move(si));
     }
 }

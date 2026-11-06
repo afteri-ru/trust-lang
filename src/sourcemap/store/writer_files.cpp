@@ -13,12 +13,6 @@
 namespace trust {
 namespace fs = std::filesystem;
 
-// ══════════════════════════════════════════════════════════════
-//                      SourceMapWriter
-// ══════════════════════════════════════════════════════════════
-
-// -- Конструкторы --
-
 SourceMapWriter::SourceMapWriter()
 : SourceMap() {
     std::error_code ec;
@@ -35,8 +29,6 @@ SourceMapWriter::SourceMapWriter(std::string_view basePath, std::string_view tem
         m_baseDirectory = fs::absolute(fs::path(basePath)).generic_string();
     }
 }
-
-// -- Главный (корневой) файл модуля --
 
 void SourceMapWriter::setMainModuleFile(MapperFile mainFile) {
     m_mainModuleFile = mainFile;
@@ -85,8 +77,6 @@ std::string SourceMapWriter::moduleName(MapperFile idx) const {
     return name;
 }
 
-// -- Утилиты --
-
 bool SourceMapWriter::validateSimpleName(std::string_view name) {
     if (name.empty()) {
         return false;
@@ -115,8 +105,6 @@ std::string SourceMapWriter::normalizePath(std::string_view path) const {
     return rel.generic_string();
 }
 
-// -- findFileIdx --
-
 MapperFile SourceMapWriter::findFileIdx(std::string_view filePath) const {
     if (filePath.empty()) {
         return MapperFile{0};
@@ -126,8 +114,6 @@ MapperFile SourceMapWriter::findFileIdx(std::string_view filePath) const {
 
     return SourceMap::findFileIdx(norm);
 }
-
-// -- get_prepend --
 
 std::string SourceMapWriter::get_prepend(MapperFile idx, unsigned indentSize) const {
     if (idx.isInvalid()) {
@@ -147,8 +133,6 @@ uint32_t SourceMapWriter::get_output_size(MapperFile idx) const {
     const auto& out = get_file(idx);
     return out.size();
 }
-
-// -- Входные файлы --
 
 MapperFile SourceMapWriter::add_source(std::string filename, std::string content, bool normalize) {
     if (normalize) {
@@ -202,8 +186,6 @@ MapperFile SourceMapWriter::load_file(std::string path) {
     m_reader.reset();
     return MapperFile::make_input(static_cast<uint32_t>(m_inputs.size()) - 1u);
 }
-
-// -- Выходные файлы --
 
 MapperFile SourceMapWriter::add_output(std::string filename, bool normalize) {
     if (normalize) {
@@ -292,6 +274,8 @@ bool SourceMapWriter::save_output(std::string_view outputDir) {
         FAULT("save_output: outputDir must not be empty");
         return false;
     }
+    // R40: артефакт без карты запрещён; no-op-режим допустим только для scratch-буфера.
+    EXPECT(!mappingSuppressed() && "save_output: saving an output while source mapping is suppressed");
 
     if (m_outputs.empty()) {
         return true;

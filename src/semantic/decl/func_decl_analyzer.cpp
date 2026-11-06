@@ -1,7 +1,5 @@
-// src/semantic/decl/func_decl_analyzer.cpp
 // Анализ объявлений функций: сигнатура (проверки - semantic/func_signature_check.*), параметры,
 // defaults, лямбда-захваты и шаблонные native-импорты (функции-алиасы).
-//
 // Зоны `analyzeFuncDecl` (порядок вызовов = порядок проверок). `fatal` - при ошибке объявление не
 // регистрируется и дальнейшие зоны НЕ выполняются; `report-only` - объявление продолжается;
 // `control` - не проверка. Реализация проверок сигнатуры - src/semantic/decl/func_signature_check.cpp.
@@ -30,7 +28,7 @@
 #include "semantic/decl/type_completeness.hpp"
 #include "semantic/typer/call_binding.hpp"
 #include "symbols/symbol_table.hpp"
-#include "session/module_resolver.hpp"
+#include "module_api/module_resolver.hpp"
 #include "types/call.hpp"
 #include "attrs/attr_args.hpp"
 #include "attrs/attr_builtin.hpp"
@@ -69,63 +67,52 @@ bool referencesParameter(const AstNodeBase* node, const std::vector<std::string>
 
 } // namespace
 
-// АЛИАС функции: `f = \path::g;`. Имя `f` адресует НАБОР перегрузок цели; объявление-цель
+// АЛИАС имени: `f :- g;` / `f :- ns::g;`. Имя `f` адресует НАБОР перегрузок цели; объявление-цель
 // остаётся единственной идентичностью (вызовы нормализуются на него, C++-функция не эмитится).
 void FuncDeclAnalyzer::analyzeNamespaceAlias(FuncDecl& func_node) {
     EXPECT(func_node.aliasKind() == AliasKind::Namespace && "analyzeNamespaceAlias requires a namespace alias");
-    // Имя-алиас приходит с завершающим `::` (`ns::`, `::ns::`) - это namespace-алиас.
+    // LHS — обычное имя (`a :- ns::;`): префикс алиаса без `::`, цель-область — с `::`.
     const std::string_view alias = utils::namespaceAliasName(func_node.text());
     const AstNodeBase* target_node = func_node.aliasTarget().get();
     const auto* target = target_node != nullptr && target_node->is<IdentName>() ? target_node->as<IdentName>() : nullptr;
-    if (target == nullptr || !target->moduleRef.has_value()) {
-        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "namespace alias target must name its module: write '{}:: :- \\path::ns::;'", alias);
+    if (target == nullptr) {
+        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "namespace alias requires a namespace area target: write '{}:: :- ns::;'", alias);
         return;
     }
-    const ModuleIndex module = *target->moduleRef;
-    const std::string_view path = target->text();
+    const std::string_view path = utils::namespaceAliasName(target->text());
     if (alias.empty() || path.empty()) {
-        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "namespace alias requires both an alias and a target path");
+        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "namespace alias requires both an alias and a target area");
         return;
     }
-    if (!m_actx.symbols().hasNamespaceInModule(module, path)) {
-        m_actx.ctx().diag().report(Severity::Error, target->range(), "namespace '{}' not found in the target module", path);
+    // Область резолвится по ВИДИМЫМ модулям: цель обязана быть ОДНОЗНАЧНОЙ (иначе неизвестно, чью
+    // область подставлять). Модульная квалификация в синтаксисе не требуется.
+    ModuleResolver* resolver = m_actx.ctx().moduleResolver();
+    EXPECT(resolver != nullptr && "namespace alias requires a module resolver");
+    ModuleIndex module = ModuleIndex::invalid();
+    std::size_t matches = 0;
+    for (std::size_t i = 0; i < resolver->moduleCount(); ++i) {
+        if (m_actx.symbols().hasNamespaceInModule(ModuleIndex{i}, path)) {
+            module = ModuleIndex{i};
+            ++matches;
+        }
+    }
+    if (matches == 0) {
+        m_actx.ctx().diag().report(Severity::Error, target->range(), "namespace '{}' not found", path);
         return;
     }
-    if (module == m_actx.symbols().currentModule() && alias == path) {
+    // matches > 1: область есть в нескольких модулях — ОТЛОЖЕННЫЙ резолв (targetModule невалиден):
+    // префикс раскрывается, и имя решается обычным поиском (неоднозначность ловится им же).
+    const ModuleIndex deferred = ModuleIndex::invalid();
+    const ModuleIndex recordModule = matches == 1 ? module : deferred;
+    if (recordModule.isValid() && recordModule == m_actx.symbols().currentModule() && alias == path) {
         m_actx.ctx().diag().report(Severity::Error, func_node.range(), "namespace alias '{}::' aliases itself", alias);
         return;
     }
-    const NamespaceAliasRecord record{m_actx.symbols().currentModule(),     internText(alias), module, internText(path),
+    const NamespaceAliasRecord record{m_actx.symbols().currentModule(),     internText(alias), recordModule, internText(path),
                                       m_actx.symbols().currentScopeRange(), AliasOrigin::Local};
     if (!m_actx.symbols().aliases().recordAlias(m_actx.symbols().current(), record)) {
         m_actx.ctx().diag().report(Severity::Error, func_node.range(), "namespace alias '{}::' is already bound in this scope", alias);
         return;
-    }
-}
-
-void FuncDeclAnalyzer::analyzeModuleAlias(FuncDecl& func_node) {
-    EXPECT(func_node.aliasKind() == AliasKind::Module && "analyzeModuleAlias requires a module alias");
-    if (m_actx.namespaces().currentFunc() != nullptr || m_actx.symbols().depth() != 2) {
-        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "module alias is allowed only at module level");
-        return;
-    }
-    const AstNodeBase* target_node = func_node.aliasTarget().get();
-    const auto* target = target_node != nullptr && target_node->is<IdentName>() ? target_node->as<IdentName>() : nullptr;
-    if (target == nullptr) {
-        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "module alias target must name an already loaded module");
-        return;
-    }
-    ModuleResolver* resolver = m_actx.ctx().moduleResolver();
-    EXPECT(resolver != nullptr && "module alias requires a module resolver");
-    if (!target->moduleRef.has_value()) {
-        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "module alias target must name an already loaded module");
-        return;
-    }
-    const ModuleIndex owner = m_actx.symbols().currentModule();
-    // Единственный ПИСАТЕЛЬ привязки — парсер (ссылки `\m::name` резолвятся до семантики);
-    // здесь только валидация: привязка обязана уже указывать на эту цель.
-    if (!resolver->hasModuleAlias(owner, func_node.text(), *target->moduleRef)) {
-        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "module alias '{}' is already bound in this module", func_node.text());
     }
 }
 
@@ -134,26 +121,22 @@ void FuncDeclAnalyzer::analyzeNameAlias(FuncDecl& func_node) {
     const AstNodeBase* target_node = func_node.aliasTarget().get();
     EXPECT(target_node != nullptr && "function alias must carry its target");
     if (!target_node->is<IdentName>()) {
-        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "function alias requires a qualified target name '\\path::name'");
+        m_actx.ctx().diag().report(Severity::Error, func_node.range(), "function alias requires a target name ('g' or 'ns::g')");
         return;
     }
     const auto& target = *target_node->as<IdentName>();
-    const Symbol* target_sym = nullptr;
-    if (target.moduleRef.has_value()) {
-        target_sym = m_actx.types().resolveModuleRef(target);
-        if (target_sym == nullptr) {
-            m_actx.types().reportModuleRefError(target);
-            return;
-        }
-    } else {
-        // Цель в ТЕКУЩЕМ модуле: qualified-имя области (`ns::h`) либо простое имя. C++-имя вызова
-        // берётся из выбранной перегрузки (`SymbolOverload::namespacePath`), поэтому путь области
-        // не требуется в узле.
-        target_sym = m_actx.symbols().resolve(requiredText(target));
-        if (target_sym == nullptr) {
-            m_actx.ctx().diag().report(Severity::Error, target.range(), "undefined name '{}' in alias target", requiredText(target));
-            return;
-        }
+    // Цель — в ТЕКУЩЕМ модуле: qualified-имя области (`ns::h`) либо простое имя. C++-имя вызова
+    // берётся из выбранной перегрузки (`SymbolOverload::namespacePath`), поэтому путь области
+    // не требуется в узле.
+    const Symbol* target_sym = m_actx.symbols().resolve(requiredText(target));
+    if (target_sym == nullptr) {
+        m_actx.ctx().diag().report(Severity::Error, target.range(), "undefined name '{}' in alias target", requiredText(target));
+        return;
+    }
+    // Цель импортирована из другого модуля: фиксируем модуль-владельца на узле цели, чтобы кодоген
+    // подтянул заголовок владельца (identity-суффикс и объявление C++-функции — у цели).
+    if (target_sym->decl != nullptr && target_sym->decl->module.isValid()) {
+        const_cast<IdentName&>(target).moduleRef = target_sym->decl->module;
     }
     // Алиас имени — второе имя ФУНКЦИИ или ЗНАЧЕНИЯ/КОНСТАНТЫ. Для типов используется `::-`.
     const bool valueTarget = target_sym->decl != nullptr && target_sym->decl->is<VarDecl>();
@@ -196,9 +179,11 @@ void FuncDeclAnalyzer::analyzeFuncDecl(FuncDecl& func_node) {
     case AliasKind::Namespace:
         analyzeNamespaceAlias(func_node);
         return;
-    case AliasKind::Module:
-        analyzeModuleAlias(func_node);
-        return;
+    }
+    // `@[borrowed]` на функции-методе помечает метод (см. borrow_flow). Метка регистрируется в
+    // TypeSystem, чтобы borrow-анализ видел методы, пришедшие ИМПОРТОМ.
+    if (func_node.has_attr(m_actx.ctx().attrs(), attr::Borrowed)) {
+        m_actx.registry().markBorrowedMethod(std::string(func_node.text()));
     }
     // Драйверное состояние вычисляется ОДИН раз и передаётся проверкам значением.
     const bool in_type_body = m_actx.namespaces().insideTypeBody();
@@ -222,6 +207,9 @@ void FuncDeclAnalyzer::analyzeFuncDecl(FuncDecl& func_node) {
     if (!semantic::validateNativeForwardDecl(m_actx.ctx(), func_node)) {
         return;
     }
+    if (!semantic::validateDelegationTarget(m_actx.ctx(), func_node)) {
+        return;
+    }
 
     semantic::checkStackCheckAttr(m_actx.ctx(), func_node);
     semantic::checkReturnTypeQualifiers(m_actx.ctx(), func_node);
@@ -235,7 +223,6 @@ void FuncDeclAnalyzer::analyzeFuncDecl(FuncDecl& func_node) {
         return;
     }
 
-    // -- Type parameter packs (function templates) ------------------------------------------
     const semantic::PackParamInfo pack_info = semantic::collectPackParams(func_node);
     if (!semantic::validatePackDeclCount(m_actx.ctx(), func_node, pack_info)) {
         return;
@@ -245,7 +232,7 @@ void FuncDeclAnalyzer::analyzeFuncDecl(FuncDecl& func_node) {
     }
     const TypeId func_type = m_actx.types().buildFuncType(func_node);
     EXPECT(func_type != INVALID_TYPE_ID && "buildFuncType must always produce a function type");
-    if (!semantic::validateTemplateParamsUsed(m_actx.ctx(), func_node, func_type)) {
+    if (!semantic::validateTemplateParamsUsed(m_actx.registry(), m_actx.ctx(), func_node, func_type)) {
         return;
     }
     if (!semantic::validateFreeOperatorOperand(m_actx.ctx(), func_node, func_type)) {
@@ -261,7 +248,7 @@ void FuncDeclAnalyzer::analyzeFuncDecl(FuncDecl& func_node) {
     }
     // Неполный (forward) тип возврата: значение передаётся как объявлено, поэтому полнота
     // обязательна в ОПРЕДЕЛЕНИИ (объявление-прототип легально; параметры - в declareFuncParams).
-    if (func_node.m_body.has_value()) {
+    if (func_node.hasBody()) {
         if (const auto* signature = m_actx.ctx().readTypes().store().getTypeDataAs<FunctionTypeData>(func_type)) {
             semantic::requireCompleteValueType(m_actx, func_node.m_type.get(), QualType::fromTypeId(signature->returnType), func_node.range(),
                                                "return type of function '" + std::string(func_node.text()) + "'");
@@ -285,8 +272,12 @@ void FuncDeclAnalyzer::registerFuncSymbol(FuncDecl& func_node, TypeId func_type)
     // раскрыты). Ставим всегда: C++-имя функции - чистая функция от её identity и не зависит
     // от того, перегружено ли имя в текущем скоупе (иначе имена рассинхронизируются между
     // раздельно компилируемыми модулями).
-    const FunctionIdentity& identity = m_actx.ctx().types().identity();
-    func_node.m_cppSuffix = identity.cppSuffix(sym.type.getTypeId(), bindersOf(func_node));
+    const FunctionIdentity& identity = m_actx.registry().identity();
+    if (func_node.declId().isValid()) {
+        // C++-суффикс — целевой факт объявления (вне языковой модели, R1): хранится в `DeclCppFacts`
+        // по `declId()`. Синтетические узлы без id суффикса не несут (не эмитятся как C++-функции).
+        m_actx.ctx().declCppFacts().setCppSuffix(func_node.declId(), identity.cppSuffix(sym.type.getTypeId(), bindersOf(func_node)));
+    }
 
     // Forward-объявление (без тела) может быть завершено последующим определением.
     switch (m_actx.symbols().declareOrComplete(sym)) {
@@ -353,10 +344,10 @@ void FuncDeclAnalyzer::validateFuncDefaults(const FuncDecl& func_node) {
             m_actx.ctx().diag().report(Severity::Error, pd.m_value->range(), "cannot determine the type of the default value for parameter '{}'", pd.text());
             return;
         }
-        if (overloadConversionRank(m_actx.ctx().types(), defaultType, param->type.getTypeId()) < 0) {
+        if (overloadConversionRank(m_actx.registry(), defaultType, param->type.getTypeId()) < 0) {
             m_actx.ctx().diag().report(Severity::Error, pd.m_value->range(), "default value type '{}' is not convertible to parameter '{}' of type '{}'",
-                                       m_actx.ctx().readTypes().printer().getTypeName(defaultType), pd.text(),
-                                       m_actx.ctx().readTypes().printer().getTypeName(param->type.getTypeId()));
+                                       m_actx.ctx().readTypes().printer().typeNameOf(defaultType), pd.text(),
+                                       m_actx.ctx().readTypes().printer().typeNameOf(param->type.getTypeId()));
         }
     });
 }
@@ -372,6 +363,11 @@ void FuncDeclAnalyzer::declareFuncParams(FuncDecl& func_node) {
             continue;
         }
         auto& pd = static_cast<ArgNode&>(*p);
+        if (!pd.text().empty() && pd.text().front() == '%') {
+            m_actx.ctx().diag().report(Severity::Error, p->range(),
+                                       "parameter '{}' cannot declare a native name: use a trust identifier", pd.text());
+            continue;
+        }
         if (op::isSystemName(pd.text())) {
             m_actx.ctx().diag().report(Severity::Error, p->range(), "system name '{}' is reserved for compiler-generated entities", pd.text());
             // Продолжаем объявление, чтобы не давать каскад «undefined name» в теле функции.
@@ -404,7 +400,7 @@ void FuncDeclAnalyzer::declareFuncParams(FuncDecl& func_node) {
         // Параметр-пакет: тип символа - маркер PackExpansion(T). Как значение он недопустим
         // (диагностика в lookupOrError); раскрытие в `T... xs` делает кодоген.
         if (pd.isTypePack && pstate.isValid()) {
-            ptype = m_actx.ctx().types().interner().getOrCreatePackExpansionType(pstate.getTypeId());
+            ptype = m_actx.registry().interner().getOrCreatePackExpansionType(pstate.getTypeId());
             pstate = pstate.withIdentity(ptype);
         }
         ps.type = pstate;
@@ -414,7 +410,7 @@ void FuncDeclAnalyzer::declareFuncParams(FuncDecl& func_node) {
         // Неполный (forward) тип параметра допустим только за невладеющей ссылкой
         // (вид ссылки уже применён в `pstate`). Проверяется только ОПРЕДЕЛЕНИЕ: объявление
         // (C++ prototype) с неполным параметром легально, ошибка возникает при определении.
-        if (!pd.isTypePack && func_node.m_body.has_value()) {
+        if (!pd.isTypePack && func_node.hasBody()) {
             semantic::requireCompleteValueType(m_actx, pd.m_type.get(), pstate, pd.range(),
                                                "parameter '" + std::string(pd.text()) + "' of '" + std::string(func_node.text()) + "'");
         }
@@ -455,7 +451,7 @@ void FuncDeclAnalyzer::analyzeLambdaCaptures(FuncDecl& func_node) {
             continue;
         }
         // Эксклюзивное владение (unique/move-only) нельзя захватить по значению.
-        if (s->type.getTypeId() != INVALID_TYPE_ID && refAxisOf(getRefType(getTypeKind(s->type.getTypeId()))) == RefAxis::Unique) {
+        if (s->type.getTypeId() != INVALID_TYPE_ID && refAxisOf(s->type.getTypeId()) == RefAxis::Unique) {
             m_actx.ctx().diag().report(Severity::Error, c.range(),
                                        "cannot capture exclusive-ownership value '{}' by value; "
                                        "lambda capture-by-value requires a copyable value",

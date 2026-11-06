@@ -2,9 +2,8 @@
 
 > scope: include/sourcemap/serialize
 > role: persistent-memory
-> last_reviewed: 2026-11-04
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 4000
 
 ## Architecture
 
@@ -15,6 +14,9 @@
 
 - **`SourceMapReader` загружается из embedded ELF-секции `.debug_trust_map` (`fromElf()`);** внешние
   `.map`/`.trust` не используются.
+- **⚠ Формат несёт версию (поля `kFieldMajor`/`kFieldMinor` = `TRUST_VERSION_MAJOR/MINOR`);** читатель
+  отвергает несовместимый формат (`sourceMapFormatCompatible`: major равен, minor не выше) —
+  несовместимая карта не даёт тихо неверной навигации.
 - **msgpack-типы нужны только reader-стороне:** writer объявляет reader вперёд и не включает msgpack.
 - **⚠ Tagged-пространства позиций:** `Context` (builder, offset от body) и `SourceMapReader` (reader,
   offset от полного содержимого = prepend+body); `packed`-представление идентично, типы параметризованы

@@ -1,0 +1,24 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Видимость члена опубликованного типа: непубличный метод получает секцию `private:` в заголовке
+# модуля, а его тело выносится out-of-line в `.cppt` (без секции доступа — она в объявлении).
+# Вызов private-метода из публичного метода СВОЕГО класса разрешён.
+
+//--- main.src
+\lib(T, mk);
+@main():Int32 := { t:T := mk(); @return t.pub() - 3; };
+
+//--- lib.src
+\lib;
+:T ::= :Class{
+    v:Int32 := 1;
+    __::;
+    priv():Int32 := { return v; };
+    ::;
+    pub():Int32 := { return priv() + 2; };
+};
+mk():T := { return T(); };

@@ -2,9 +2,8 @@
 
 > scope: include/ast/slots
 > role: persistent-memory
-> last_reviewed: 2026-11-04
+> last_reviewed: 2026-11-13
 > review_period: 30
-> max_size: 5000
 
 ## Architecture
 
@@ -19,13 +18,15 @@
   `X(shape, field, walk, filter)`): `forEachSlot` генерируется `AST_SLOT_METHOD(BASE, ROWS)` (слоты базы
   первыми, `m_trust` — в конце через `AstNodeBase`). Политика, зависящая от KIND (`TypeSet` — лист,
   `TypeDecl/NameDecl` — без LHS, дедуп `m_indices` с `m_right`), — ДАННЫЕ строки (`SkipKinds`/
-  `ListDeduped`), а не `if` в обходе; пропущенный слот ловит CTest `ast_slots_guard` (негативная фикстура
-  `test/guards/fixture_ast_slots`).
+  `ListDeduped`), а не `if` в обходе; пропущенный слот проверяет тест `test/unit/ast/slots_test.cpp`.
 - **⚠ Невладеющие ссылки ремапятся только visitor'ом** (`NonOwningRemapper`, `ast/clone.cpp`): состав —
   строки `NonOwn*` класс-таблицы.
+- **Агрегаты-структуры в строке — по образцу `CaseList`/`TargetList`:** владеемые узлы внутри
+  `vector<Struct>` обходятся `AST_ROW_<shape>` (шаблон `CaseList` — `MatchStmt::MatchCase`,
+  `TargetList` — `DestructureDecl::Target`, `OptRecordList` — `TemplateArg`); поля агрегата — часть строки-таблицы (они не слоты сами по себе).
 - **Перечень классов ПРОИЗВОДИТСЯ из `AST_SLOT_CLASSES`;** `static_assert` в `token.hpp` проверяет
   отсутствие мёртвых классов и полноту kind→класс.
 
 ## Relations
 
-- `ast` (kind-таблица `PARSER_TOKEN_KINDS`), `ast/nodes`, `ast/clone.cpp`, `cmake/check_ast_slots.cmake`.
+- `ast` (kind-таблица `PARSER_TOKEN_KINDS`), `ast/nodes`, `ast/clone.cpp`.

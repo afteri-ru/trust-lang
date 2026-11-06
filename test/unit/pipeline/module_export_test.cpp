@@ -136,55 +136,35 @@ TEST(ModuleExportTest, ScanSeparatesInterfaceEntriesByOrigin) {
     EXPECT_EQ(scan.entries[0].container, block.get());
     EXPECT_EQ(scan.entries[1].container, body_fn.get());
     EXPECT_EQ(scan.interfaceBlock, block.get());
-    EXPECT_TRUE(scan.namespaceAliases.empty());
+    EXPECT_TRUE(scan.nonExportableNamespaceAliases.empty());
 }
 
 TEST(ModuleExportTest, NamespaceAliasOutsideInterfaceIsNotExported) {
-    // Namespace-алиас экспортируется ТОЛЬКО из блока интерфейса: алиас в теле не попадает в
-    // namespaceAliases единого обхода.
-    auto target = std::make_shared<IdentName>(std::string("\\lib::sub"));
-    target->moduleRef = ModuleIndex{1};
-    auto alias = std::make_shared<FuncDecl>(std::string("ns::"));
+    // Namespace-алиас — привязка префикса, а не экспорт-запись: в entries он не входит. Вне блока
+    // интерфейса он не попадает и в nonExportableNamespaceAliases (та диагностика — для интерфейса).
+    auto target = std::make_shared<IdentName>(std::string("sub"));
+    auto alias = std::make_shared<FuncDecl>(std::string("a"));
     alias->setAlias(AliasKind::Namespace, target, {});
 
     const ModuleBodyScan scan = scanModuleBody({alias});
     EXPECT_TRUE(scan.entries.empty());
-    EXPECT_TRUE(scan.namespaceAliases.empty());
+    EXPECT_TRUE(scan.nonExportableNamespaceAliases.empty());
 }
 
-TEST(ModuleExportTest, CollectsExportedNamespaceAlias) {
-    auto target = std::make_shared<IdentName>(std::string("\\lib::sub"));
-    target->moduleRef = ModuleIndex{1};
-    auto alias = std::make_shared<FuncDecl>(std::string("ns::"));
+TEST(ModuleExportTest, InterfaceNamespaceAliasIsNotExportable) {
+    // Namespace-алиас блока интерфейса с area-целью: реэкспорт невыразим — попадает в
+    // nonExportableNamespaceAliases (предупреждение в interface_install), а не в entries.
+    auto target = std::make_shared<IdentName>(std::string("sub"));
+    auto alias = std::make_shared<FuncDecl>(std::string("a"));
     alias->setAlias(AliasKind::Namespace, target, {});
 
     auto block = std::make_shared<ScopeBlock>(std::string("\\facade"));
     block->setModuleInterface();
     block->m_body.push_back(alias);
-    const ModuleInterfaceFacts facts = collectModuleInterface({block});
-    ASSERT_EQ(facts.namespaceAliases.size(), 1u);
-    EXPECT_EQ(facts.namespaceAliases.front().alias, "ns");
-    EXPECT_EQ(facts.namespaceAliases.front().targetModule, ModuleIndex{1});
-    EXPECT_EQ(facts.namespaceAliases.front().path, "\\lib::sub");
-}
-
-TEST(ModuleExportTest, CollectsNestedExportedNamespaceAlias) {
-    auto target = std::make_shared<IdentName>(std::string("\\lib::sub"));
-    target->moduleRef = ModuleIndex{1};
-    auto alias = std::make_shared<FuncDecl>(std::string("ns::"));
-    alias->setAlias(AliasKind::Namespace, target, {});
-
-    auto nested = std::make_shared<ScopeBlock>(std::string("outer::"));
-    nested->m_body.push_back(alias);
-
-    auto block = std::make_shared<ScopeBlock>(std::string("\\facade"));
-    block->setModuleInterface();
-    block->m_body.push_back(nested);
-    const ModuleInterfaceFacts facts = collectModuleInterface({block});
-    ASSERT_EQ(facts.namespaceAliases.size(), 1u);
-    EXPECT_EQ(facts.namespaceAliases.front().alias, "outer::ns");
-    EXPECT_EQ(facts.namespaceAliases.front().targetModule, ModuleIndex{1});
-    EXPECT_EQ(facts.namespaceAliases.front().path, "\\lib::sub");
+    const ModuleBodyScan scan = scanModuleBody({block});
+    EXPECT_TRUE(scan.entries.empty());
+    ASSERT_EQ(scan.nonExportableNamespaceAliases.size(), 1u);
+    EXPECT_EQ(scan.nonExportableNamespaceAliases.front(), alias.get());
 }
 
 // -- Интеграция: сбор экспортов из загруженного модуля --
@@ -200,7 +180,7 @@ class ModuleExportIntegrationTest : public ::testing::Test {
     std::vector<AstNodePtr> collect(const char* src, const char* masks) {
         MapperFile modSrc = m_ctx->source().add_source("\\mod", src);
         ModuleIndex idx = m_loader->parseSourceModule("\\mod", modSrc);
-        return filterExportEntries(scanModuleBody(m_loader->bodyAst(idx)).entries, {}, utils::ImportMasks::parse(masks));
+        return filterExportEntries(scanModuleBody(m_loader->bodyAst(idx)).entries, utils::ImportMasks::parse(masks));
     }
 
     std::unique_ptr<Context> m_ctx;
@@ -214,10 +194,9 @@ TEST_F(ModuleExportIntegrationTest, CollectsGlobalExportsExcludingAnonymous) {
 }
 
 TEST_F(ModuleExportIntegrationTest, FilterByMask) {
-    auto funcs = collect("x:Int32 := 42;\n%func():Int32 := { 42 };\n", "func");
+    auto funcs = collect("x:Int32 := 42;\nfunc():Int32 := { 42 };\n", "func");
     ASSERT_EQ(funcs.size(), 1u);
-    // Имя функции - без `%`-префикса в сопоставлении масок; терм-источник нативного func.
-    auto x = collect("x:Int32 := 42;\n%func():Int32 := { 42 };\n", "x");
+    auto x = collect("x:Int32 := 42;\nfunc():Int32 := { 42 };\n", "x");
     ASSERT_EQ(x.size(), 1u);
     auto none = collect("x:Int32 := 42;\n", "nope");
     EXPECT_TRUE(none.empty());
@@ -233,7 +212,7 @@ TEST_F(ModuleExportIntegrationTest, FilterEntriesWithParsedMasks) {
     const ModuleIndex idx = m_loader->parseSourceModule("\\mod", modSrc);
     const auto entries = scanModuleBody(m_loader->bodyAst(idx)).entries;
     std::vector<std::string> unmatched;
-    const auto filtered = filterExportEntries(entries, {}, utils::ImportMasks::parse("func, nope"), &unmatched);
+    const auto filtered = filterExportEntries(entries, utils::ImportMasks::parse("func, nope"), &unmatched);
     ASSERT_EQ(filtered.size(), 1u);
     ASSERT_EQ(unmatched.size(), 1u);
     EXPECT_EQ(unmatched.front(), "nope");

@@ -1,0 +1,13 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: grep -c "recursive instantiation of template 'Rec'" %t.out | %FileCheck %s --check-prefix=COUNT
+
+# R26: самоссылочное поле по значению (инстанциация шаблона внутри самого шаблона) — цикл
+# инстанциации. Компилятор обязан выдать Trust-диагностику, а не исчерпать стек (без fallback).
+
+<T> :Rec ::= :Class{ next: Rec<T> := _; };
+
+r : Rec<Int32> := Rec();
+# CHECK: error: recursive instantiation of template 'Rec'
+# R30/R50: диагностика несёт цепочку контекста — точка инстанциации (место запроса `Rec<Int32>`).
+# CHECK: note: in instantiation of template 'Rec'
+# COUNT: 1

@@ -1,6 +1,5 @@
 #pragma once
 
-// include/syntax/predef_macro.hpp
 // Реестры предопределённых макросов (@__...__ и др.) и их раскрытие/подстановка.
 // ДВЕ категории (см. predef_macro_x.hpp):
 //   - PredefMacroId  - «значение-макросы»: фиксированные значения, вычислимые на парсере;
@@ -13,6 +12,7 @@
 
 #include "syntax/term/term_types.h"
 #include "syntax/predef_macro_x.hpp"
+#include "syntax/parser_services.hpp"
 
 #include "syntax/util/warning_push.h"
 #include "parser.yy.h"
@@ -22,10 +22,10 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace trust {
-class Context;
 
 namespace syntax {
 
@@ -112,9 +112,12 @@ inline bool looksLikePredefMacro(std::string_view text) {
 /// Реестры предопределённых макросов (значение- и контекст-) + раскрытие и подстановка внутри {% %}.
 class PredefMacroResolver {
   public:
-    explicit PredefMacroResolver(trust::Context& ctx);
+    explicit PredefMacroResolver(trust::ParserServices ctx);
 
-    // -- Реестры (static: общие на процесс, не требуют инстанса) --
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, trust::ParserServices>)
+    explicit PredefMacroResolver(Ctx& ctx)
+    : PredefMacroResolver(trust::makeParserServices(ctx)) {}
 
     /// Имена всех предопределённых макросов (значение- + контекст- + прагма-) - для автодополнения.
     static std::vector<std::string> predefMacroNames();
@@ -127,8 +130,6 @@ class PredefMacroResolver {
     /// PragmaEvaluator, но НЕ входят в реестры предопределённых макросов (иначе сломался бы
     /// pragmaCheck). Список нужен для автодополнения и диагностики внутри {% %}.
     static const std::vector<std::string>& pragmaMacroNames();
-
-    // -- Раскрытие (нужен Context + timestamp) --
 
     /// Раскрывает предопределённый макрос @__NAME__ (или @::/$\\\\\\) в терм. Единая точка входа:
     /// значение-макросы подставляет (expandValueMacro), контекст-макросы штампует транзитными
@@ -147,7 +148,7 @@ class PredefMacroResolver {
     /// значение для статически вычислимых (@__MODULE_NAME__) подставляет на парсере.
     parser::token_type stampContextMacro(TermPtr& term);
 
-    trust::Context& m_ctx;
+    trust::ParserServices m_ctx;
     time_t m_timestamp;
 };
 

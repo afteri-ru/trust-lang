@@ -1,31 +1,32 @@
 #pragma once
 
-// include/utils/string_interner.hpp
 // Единственный владелец текстов AST/HIR/символов (spelling токенов, macro expansions,
 // predef values, semantic renames, joined docs). Исходный буфер остаётся в SourceMapWriter;
 // AST интернирует spelling при конвертации (узлы-носители WithText/HasText); исходный текст сюда не копируется целиком.
-//
 // Строки append-only: адреса стабильны на всё время жизни интернера, поэтому
 // std::string_view, выданный intern()/concat(), не инвалидируется. Это позволяет
 // хранить в AST/HIR только view без собственного владения текстом.
-//
 // Две формы одной реализации (разная потоковая модель):
 //   - `StringInterner`       - пул КОМПИЛЯЦИИ (per-Context), без блокировок: компиляция
 //                              однопоточная (один поток на Context);
 //   - `SharedStringInterner` - процессный `manualStringInterner()` (ручные/тестовые узлы вне
-//                              компиляции), доступен из разных потоков -> mutex.
-//
+//                              компиляции; доступ только по явному `ManualInternerScope`),
+//                              доступен из разных потоков -> mutex.
 // Хранение: `std::deque<std::string>` (стабильные адреса, без per-string node-аллокации) +
 // индекс `std::unordered_set<std::string_view>` по этим строкам.
 
 #include <cstddef>
 #include <deque>
+#include <functional>
 #include <initializer_list>
 #include <mutex>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <unordered_set>
+
+#include "utils/error.hpp"
+#include "utils/string_view_hash.hpp"
 
 namespace trust {
 
@@ -37,24 +38,10 @@ struct NullMutex {
     void unlock() noexcept {}
 };
 
-struct StringViewHash {
-    using is_transparent = void;
-    [[nodiscard]] std::size_t operator()(std::string_view s) const noexcept { return std::hash<std::string_view>{}(s); }
-    [[nodiscard]] std::size_t operator()(const std::string& s) const noexcept { return std::hash<std::string_view>{}(s); }
-};
-
-struct StringViewEqual {
-    using is_transparent = void;
-    [[nodiscard]] bool operator()(std::string_view a, std::string_view b) const noexcept { return a == b; }
-};
-
 /// Общая реализация пула строк; ThreadSafe выбирает наличие mutex.
 template <bool ThreadSafe>
 class StringInternerBase {
   public:
-    using Hash = StringViewHash;
-    using Equal = StringViewEqual;
-
     /// Стабильный view. При повторном вызове возвращает тот же data().
     [[nodiscard]] std::string_view intern(std::string_view text) {
         const std::lock_guard<Mutex> lock(m_mutex);
@@ -104,7 +91,7 @@ class StringInternerBase {
 
     mutable Mutex m_mutex;
     std::deque<std::string> m_storage;                         ///< Владелец байтов; адреса стабильны (deque end-insert).
-    std::unordered_set<std::string_view, Hash, Equal> m_index; ///< Индекс по строкам m_storage.
+    std::unordered_set<std::string_view, StringViewHash, std::equal_to<>> m_index; ///< Индекс по строкам m_storage.
 };
 
 } // namespace detail
@@ -115,9 +102,9 @@ using StringInterner = detail::StringInternerBase<false>;
 /// Потокобезопасный пул (процессный manualStringInterner): тесты/синтетика/playground.
 using SharedStringInterner = detail::StringInternerBase<true>;
 
-/// Процессный пул строк. Две роли: (1) ручные/тестовые узлы вне компиляции (нет Context);
-/// (2) тексты, обязанные жить весь процесс — доки макросов в статическом хранилище Context.
-/// Живёт всё время процесса, поэтому выданные им view никогда не висят.
+/// Процессный пул строк для интернирования ВНЕ компиляции (ручные/тестовые узлы без Context,
+/// builtin-ключи, живущие весь процесс). Использовать напрямую можно только там, где владелец
+/// факта — процесс; обычный путь — `internText()` под `ManualInternerScope`.
 inline SharedStringInterner& manualStringInterner() {
     static SharedStringInterner interner;
     return interner;
@@ -128,6 +115,12 @@ namespace detail {
 inline StringInterner*& activeInternerSlot() noexcept {
     thread_local StringInterner* slot = nullptr;
     return slot;
+}
+
+/// Явное разрешение интернировать в процессный пул вне компиляции (ManualInternerScope).
+inline bool& manualInternerSlot() noexcept {
+    thread_local bool allowed = false;
+    return allowed;
 }
 } // namespace detail
 
@@ -149,12 +142,33 @@ class StringInternerScope {
     StringInterner* m_previous;
 };
 
-/// Интернирование в активный пул компиляции (StringInternerScope), а вне компиляции — в
-/// manualStringInterner (ручные/тестовые узлы). Все тексты AST/символов проходят через эту точку.
+/// RAII-разрешение интернировать в процессный пул ВНЕ компиляции (ручные/тестовые узлы,
+/// синтетика без Context). Отсутствие любого scope — нарушение контракта: `internText()`
+/// не имеет молчаливого процессного fallback (E9/R1).
+class ManualInternerScope {
+  public:
+    ManualInternerScope() noexcept
+    : m_previous(detail::manualInternerSlot()) {
+        detail::manualInternerSlot() = true;
+    }
+
+    ~ManualInternerScope() { detail::manualInternerSlot() = m_previous; }
+
+    ManualInternerScope(const ManualInternerScope&) = delete;
+    ManualInternerScope& operator=(const ManualInternerScope&) = delete;
+
+  private:
+    bool m_previous;
+};
+
+/// Интернирование в активный пул компиляции (StringInternerScope). Вне компиляции процессный
+/// пул доступен только по явному ManualInternerScope; иначе — EXPECT (не silent fallback).
 [[nodiscard]] inline std::string_view internText(std::string_view text) {
     if (StringInterner* active = detail::activeInternerSlot()) {
         return active->intern(text);
     }
+    EXPECT(detail::manualInternerSlot() &&
+           "internText(): no active StringInternerScope; out-of-compilation interning requires an explicit ManualInternerScope");
     return manualStringInterner().intern(text);
 }
 

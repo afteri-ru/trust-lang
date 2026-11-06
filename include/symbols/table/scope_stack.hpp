@@ -1,6 +1,5 @@
 #pragma once
 
-// include/symbols/table/scope_stack.hpp
 // Стек лексических скоупов таблицы символов: единственный контейнер объявлений имени и
 // связанных с ними локальных фактов скоупа (using-области, namespace-алиасы, неоднозначности).
 // Порядок обхода имён — по StorageKey (std::map), он наблюдаем: от него зависит порядок
@@ -31,7 +30,7 @@ struct AmbiguousBinding {
 };
 
 /// Роль скоупа в дереве. `ModuleRoot` — уровень идентичности модуля (объявления
-/// регистрируются под module-qualified ключом). Без `ModuleNode` (прелюдия/тесты) им
+/// регистрируются под module-qualified ключом). Без `ModuleNode` (stdlib DSL/тесты) им
 /// становится первый вложенный скоуп.
 enum class ScopeKind : std::uint8_t { Global, ModuleRoot, Block };
 
@@ -62,7 +61,6 @@ struct Scope {
 
 /// Persistent-дерево лексических скоупов с курсором активного пути. Глобальный скоуп
 /// (индекс 0) присутствует всегда.
-///
 /// `pop()` НЕ удаляет узел: помечает его `closed` и снимает с активного пути. Объявления
 /// остаются живыми (адреса `Symbol` стабильны: `deque` для узлов + `std::map` для элементов),
 /// поэтому таблица локальных символов доступна после прогона. Индексы `0..depth()-1` —
@@ -86,7 +84,6 @@ class ScopeStack {
     /// Узел, открывший текущий скоуп (nullptr - глобальный).
     [[nodiscard]] const AstNodeBase* currentCreator() const noexcept { return current().creator; }
 
-    // -- Persistent-доступ: все узлы дерева (включая закрытые) ------------------------------
     /// Число узлов дерева (закрытые входят).
     [[nodiscard]] std::size_t size() const noexcept { return m_allScopes.size(); }
     [[nodiscard]] Scope& node(std::size_t index) noexcept { return m_allScopes[index]; }

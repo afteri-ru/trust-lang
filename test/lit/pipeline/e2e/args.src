@@ -16,6 +16,7 @@
 # эмитится `const trust::Dict` (мутация невозможна). Разделитель __dec__: всё после него -
 # позиционные аргументы.
 
+\std();
 @main(argv^: Dict, args^: Dict) := {
     @print("argv.size()={}\n", :Int32( {% $argv.size() %} ));
     @print("argv[0]={}\n", argv[0]);

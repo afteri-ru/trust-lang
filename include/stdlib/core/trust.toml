@@ -12,12 +12,12 @@
 #   patterns    — glob-маски ИМЁН файлов (*, ?); не совпавшие файлы в пакет не входят.
 # Без [[layout.layers]] пакетом становится всё дерево каталога манифеста.
 name = "stdlib"
-description = "TrustLang standard library: prelude sources, built-in type implementations and C++ headers"
+description = "TrustLang standard library: sources, built-in type implementations and C++ headers"
 
-# trust-исходники: dsl.src, iterator.src, math.src, builtin/*.src
-# source-dir/archive-dir по умолчанию "." (каталог манифеста / корень архива).
+# trust-исходники: dsl.src, iterator.src, async.src, std.src, builtin/*.src
+# Раскладка — корень архива (по умолчанию source-dir/archive-dir "."): модуль пакета
+# адресуется как `\\\stdlib\builtin\rational();` (пакет + путь БЕЗ повторения его имени).
 [[layout.layers]]
-archive-dir = "stdlib"
 patterns = ["*.src"]
 
 # C++-заголовки библиотечных типов: *.hpp, builtin/*.hpp
@@ -25,7 +25,9 @@ patterns = ["*.src"]
 archive-dir = "include/stdlib"
 patterns = ["*.hpp"]
 
-# C++-заголовки встроенных типов лежат вне каталога пакета
+# C++-заголовки встроенных типов лежат рядом со своими .src (builtin/*.hpp) и попадают в пакет
+# слоем выше. Здесь доставляются РАНТАЙМ-МЕХАНИЗМЫ (assert/checked_cast/stack_check/type_state/
+# args/io/enum/any_convert), физически лежащие в include/runtime/trust, как include/trust/*.hpp.
 [[layout.layers]]
 source-dir = "../../runtime/trust"
 archive-dir = "include/trust"
@@ -56,23 +58,22 @@ libs = ["pthread"]
 link-options = ["-pthread"]
 
 # Потребность: используемый заголовок -> логические библиотеки.
-# Header-only заголовки (interrupt, trusted-cpp, trusted-cpp-sync, resource, enum,
-# stack_check) правил не имеют и runtime не тянут.
+# Header-only заголовки (enum, stack_check) правил не имеют и runtime не тянут.
 # gmp в правилах НЕ дублируется: он приходит транзитивно через requires у trust-runtime.
 [[link.headers]]
-header = "trust/rational.hpp"
+header = "stdlib/builtin/rational.hpp"
 libs = ["trust-runtime"]
 
 [[link.headers]]
-header = "trust/big_integer.hpp"
+header = "stdlib/builtin/big_integer.hpp"
 libs = ["trust-runtime"]
 
 [[link.headers]]
-header = "trust/dict.hpp"
+header = "stdlib/builtin/dict.hpp"
 libs = ["trust-runtime"]
 
 [[link.headers]]
-header = "trust/range.hpp"
+header = "stdlib/builtin/range.hpp"
 libs = ["trust-runtime"]
 
 [[link.headers]]

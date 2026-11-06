@@ -1,14 +1,18 @@
-\\\stdlib\stdlib\builtin\rational;
-# builtin/rational.src - external implementation of arbitrary-precision built-in types
-# (Rational and BigInteger).
+\\builtin\rational;
+# builtin/rational.src - default implementation of arbitrary-precision built-in types
+# (Rational and BigInteger). Loaded explicitly by the umbrella `\std();` (or `\\builtin\rational();`).
 #
 # The definition uses `=` (implementation of a PRE-DECLARED type), not `::=`
-# (new type). This file is loaded on demand (by import/package).
+# (new type).
 
-@[include("@trust/rational.hpp")@]
+@[include("@stdlib/builtin/rational.hpp")@]
 @[link("gmp")@]
-Rational = %trust::Rational { };
+Rational = %trust::Rational {
+    display^(len: Int64): StrChar := %display ...;
+};
 
-@[include("@trust/big_integer.hpp")@]
+@[include("@stdlib/builtin/big_integer.hpp")@]
 @[link("gmp")@]
-BigInteger = %trust::BigInteger { };
+BigInteger = %trust::BigInteger {
+    display^(len: Int64): StrChar := %display ...;
+};

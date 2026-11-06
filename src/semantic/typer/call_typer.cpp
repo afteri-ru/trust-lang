@@ -1,4 +1,3 @@
-// src/semantic/typer/call_typer.cpp
 // Типизация вызовов: формат-строки, выбор перегруженной/шаблонной сигнатуры,
 // привязка аргументов и материализация многоточия. Выделено из ExprTyper как
 // отдельная зона ответственности.
@@ -71,9 +70,8 @@ void CallTyper::typeCallNode(CallExpr& call) {
             // имя символа фиксировано внешней библиотекой (не манглируется).
             // ВАЖНО: шаблонный native-import (`<T> run(...) := %...`) сюда НЕ входит - его
             // типовые параметры обязана вывести семантика (иначе результат останется `T`).
-            const bool genericImport = fdecl != nullptr && fdecl->m_isNativeTemplateImport;
-            const bool nativeFunc = fdecl != nullptr && !genericImport &&
-                                    (fdecl->m_isNativeImport || fdecl->m_isNativeTemplateCtor || (!s->name.empty() && s->name.front() == '%'));
+            const bool genericImport = fdecl != nullptr && fdecl->isNativeImport() && fdecl->m_templateParams.has_value();
+            const bool nativeFunc = fdecl != nullptr && !genericImport && fdecl->isNativeImport();
             // Статический член нативного класса: имя фиксировано внешней библиотекой (не
             // манглируется), но арность/типы/выбор overload'а проверяет анализатор.
             if (isStaticMemberSymbol(*s)) {
@@ -93,6 +91,22 @@ void CallTyper::typeCallNode(CallExpr& call) {
                 // Нативная функция ИЛИ вызов ЗНАЧЕНИЯ функционального типа (переменная-лямбда):
                 // результат - returnType (перегрузку/конверсии нативного - C++).
                 m_actx.facts().setExprType(&call, fd->returnType);
+            }
+            // Конструктор по ИМЕНИ ТИПА (`Point(...)`, `MyStr(...)`): результат конструкции - сам тип.
+            // Кодогенерация читает тип левого операнда доступа (`Point().field`) из
+            // `CallExpr::resultState`; без материализации тип неизвестен, и доступ к полю уходил бы
+            // в словарный путь (`.at()`). Шаблонные типы исключены: их тип-цель выводится контекстом
+            // (`coerceTemplateCtor`) либо остаётся CTAD (`Box(...)`).
+            TypeId denoted = call.m_callee->as<IdentName>()->resolvedTypeId;
+            if (denoted == INVALID_TYPE_ID) {
+                denoted = m_actx.types().typeNameOfSymbol(*s);
+            }
+            if (denoted != INVALID_TYPE_ID) {
+                const TypeReadModel& reg = m_actx.ctx().readTypes();
+                const TypeId d = reg.store().desugaredTypeId(denoted);
+                if ((reg.store().isRecordType(d) && !reg.store().isRecordTemplate(d)) || reg.store().isNativeClassType(d)) {
+                    m_actx.facts().setExprType(&call, d);
+                }
             }
         }
     }
@@ -179,7 +193,7 @@ bool CallTyper::typeTrustFunctionCall(CallExpr& call, const Symbol& s, const Fun
             failCall(call);
             return true;
         }
-        const OverloadResolution r = resolveCall({m_actx.ctx().types().read(), m_actx.ctx().types().interner()}, candidates);
+        const OverloadResolution r = resolveCall({m_actx.registry().read(), m_actx.registry().interner()}, candidates);
         if (r.chosen == INVALID_TYPE_ID) {
             reportBoundResolutionFailure(m_actx, call.range(), r, what);
             failCall(call);
@@ -189,9 +203,9 @@ bool CallTyper::typeTrustFunctionCall(CallExpr& call, const Symbol& s, const Fun
         // bound-аргументы выбираются ПО ИНДЕКСУ: два объявления могут делить один
         // TypeId (позиционная identity), поэтому сравнение сигнатур неоднозначно.
         EXPECT(r.chosenIndex < boundArgs.size() && "call: chosen candidate index is out of range");
-        call.boundArgs = std::move(boundArgs[r.chosenIndex].values);
+        call.boundArgs = boundArgumentNodes(boundArgs[r.chosenIndex]);
         call.resolvedSignature = chosen;
-        call.resolvedCalleeSuffix = declCppSuffix(s, r.chosenIndex);
+        call.resolvedCalleeSuffix = declCppSuffix(s, r.chosenIndex, m_actx.ctx().declCppFacts());
         materializeQualifiedCallee(call, s, r.chosenIndex);
         const auto* chosenFd = m_actx.ctx().readTypes().store().getTypeDataAs<FunctionTypeData>(chosen);
         m_actx.facts().setExprType(&call, chosenFd != nullptr ? chosenFd->returnType : INVALID_TYPE_ID);
@@ -208,7 +222,7 @@ bool CallTyper::typeTrustFunctionCall(CallExpr& call, const Symbol& s, const Fun
             failCall(call);
         } else if (sigs.size() == 1) {
             call.resolvedSignature = sigs.front();
-            call.resolvedCalleeSuffix = declCppSuffix(s, 0);
+            call.resolvedCalleeSuffix = declCppSuffix(s, 0, m_actx.ctx().declCppFacts());
             materializeQualifiedCallee(call, s, 0);
             if (const auto* fd = m_actx.ctx().readTypes().store().getTypeDataAs<FunctionTypeData>(sigs.front())) {
                 m_actx.facts().setExprType(&call, fd->returnType);
@@ -236,7 +250,7 @@ bool CallTyper::typeTrustFunctionCall(CallExpr& call, const Symbol& s, const Fun
             call.resolvedSignature = r.effectiveSig;
             // C++-имя функции - ПОРОЖДЁННОЕ ИДЕНТИЧНОСТЬЮ объявления (не зависит от
             // перегруженности имени в скоупе): суффикс берётся у выбранного кандидата.
-            call.resolvedCalleeSuffix = declCppSuffix(s, r.chosenIndex);
+            call.resolvedCalleeSuffix = declCppSuffix(s, r.chosenIndex, m_actx.ctx().declCppFacts());
             materializeQualifiedCallee(call, s, r.chosenIndex);
             // Типовые аргументы в порядке объявления (для явного `c_f<T...>(...)`).
             if (fdecl->m_templateParams.has_value()) {
@@ -244,7 +258,7 @@ bool CallTyper::typeTrustFunctionCall(CallExpr& call, const Symbol& s, const Fun
                     if (!tp) {
                         continue;
                     }
-                    const TypeId pid = m_actx.ctx().types().interner().getOrCreateTemplateParamType(requiredText(*tp));
+                    const TypeId pid = m_actx.registry().interner().getOrCreateTemplateParamType(requiredText(*tp));
                     for (const auto& b : r.bindings) {
                         if (b.param == pid) {
                             if (b.isPack) {
@@ -277,7 +291,7 @@ bool CallTyper::typeCallOperator(CallExpr& call) {
     // (не откладываем на C++). Не перехватываем: (1) именованные функции/значения
     // функционального типа (обработаны выше), (2) вызов-КОНСТРУКТОР по имени типа (`MyStr(...)`).
     if (call.m_callee && call.m_callee->kind() == ParserToken::Kind::Ident) {
-        TypeSystem& reg = m_actx.ctx().types();
+        TypeSystem& reg = m_actx.registry();
         const Symbol* calleeSym = m_core.resolveSimple(call.m_callee.get(), requiredText(*call.m_callee));
         // Callee обозначает тип — материализованный факт (`IdentName::resolvedTypeId`); если обход
         // ещё не записал его, используем уже разрешённый символ (shadowing учитывается).
@@ -296,9 +310,9 @@ bool CallTyper::typeCallOperator(CallExpr& call) {
         const bool userLike = ctc != INVALID_TYPE_ID && (reg.read().store().isRecordType(ctc) || reg.read().store().isNativeClassType(ctc) ||
                                                          reg.read().store().isNativeTemplateType(ctc));
         if (userLike && !isNamedCallable && !isTypeName) {
-            const auto opInfo = reg.read().methods().findMethodInfo(ctc, op::functionNameOfSymbol("()"));
+            const auto opInfo = reg.read().methods().findMethodInfo(ctc, op::callFunctionName());
             if (!opInfo) {
-                m_actx.ctx().diag().report(Severity::Error, call.range(), "type '{}' has no operator '()'", reg.read().printer().getTypeName(ctc));
+                m_actx.ctx().diag().report(Severity::Error, call.range(), "type '{}' has no operator '()'", reg.read().printer().typeNameOf(ctc));
                 failCall(call);
                 return true;
             }
@@ -317,7 +331,7 @@ bool CallTyper::typeCallOperator(CallExpr& call) {
             }
             const bool opNamed = hasNamedArguments(call);
             if ((opNamed || opAnyDefaults) && !hasEllipsisOp) {
-                const std::string what = std::format("operator '()' of type '{}'", reg.read().printer().getTypeName(ctc));
+                const std::string what = std::format("operator '()' of type '{}'", reg.read().printer().typeNameOf(ctc));
                 const std::vector<AstNodePtr> emptyArgs;
                 const auto& rawArgs = call.m_args ? *call.m_args : emptyArgs;
                 BoundCandidateSet gathered =
@@ -339,7 +353,7 @@ bool CallTyper::typeCallOperator(CallExpr& call) {
                 // bound-аргументы выбираются ПО ИНДЕКСУ: два объявления могут делить один TypeId
                 // (позиционная identity), поэтому сравнение сигнатур неоднозначно.
                 EXPECT(r.chosenIndex < boundArgs.size() && "call-operator: chosen candidate index is out of range");
-                call.boundArgs = std::move(boundArgs[r.chosenIndex].values);
+                call.boundArgs = boundArgumentNodes(boundArgs[r.chosenIndex]);
                 opBindingDone = true;
             }
             if (!opBindingDone) {
@@ -356,16 +370,16 @@ bool CallTyper::typeCallOperator(CallExpr& call) {
                             only != nullptr && (variadicOnly ? argTypes.size() < only->paramTypes.size() : argTypes.size() != only->paramTypes.size());
                         if (arityMismatch) {
                             m_actx.ctx().diag().report(Severity::Error, call.range(), "operator '()' of type '{}' expects {} argument(s), got {}",
-                                                       reg.read().printer().getTypeName(ctc), only->paramTypes.size(), argTypes.size());
+                                                       reg.read().printer().typeNameOf(ctc), only->paramTypes.size(), argTypes.size());
                             failCall(call);
                             return true;
                         }
                     }
                     const CallFailureText failure{
-                        std::format("call to overloaded operator '()' of type '{}' is ambiguous", reg.read().printer().getTypeName(ctc)),
-                        std::format("no matching overload for operator '()' of type '{}'", reg.read().printer().getTypeName(ctc)),
+                        std::format("call to overloaded operator '()' of type '{}' is ambiguous", reg.read().printer().typeNameOf(ctc)),
+                        std::format("no matching overload for operator '()' of type '{}'", reg.read().printer().typeNameOf(ctc)),
                         std::format("operator '()' of native template '{}' cannot be instantiated: multiple type parameters are not supported",
-                                    reg.read().printer().getTypeName(ctc)),
+                                    reg.read().printer().typeNameOf(ctc)),
                     };
                     const auto resolvedOp = resolveCallablePositional(m_actx, opSigs, argTypes, call.range(), failure);
                     if (!resolvedOp.has_value()) {
@@ -391,7 +405,7 @@ bool CallTyper::typeCallOperator(CallExpr& call) {
                 }
             } else if (!opBindingDone && opInfo->entries.size() == 1 && nargs != fd->paramTypes.size()) {
                 m_actx.ctx().diag().report(Severity::Error, call.range(), "operator '()' of type '{}' expects {} argument(s), got {}",
-                                           reg.read().printer().getTypeName(ctc), fd->paramTypes.size(), nargs);
+                                           reg.read().printer().typeNameOf(ctc), fd->paramTypes.size(), nargs);
                 failCall(call);
                 return true;
             }
@@ -437,7 +451,7 @@ void CallTyper::typeStaticMemberCall(CallExpr& call, const Symbol& s) {
         failCall(call);
         return;
     }
-    TypeSystem& sreg = m_actx.ctx().types();
+    TypeSystem& sreg = m_actx.registry();
     const std::vector<TypeId> argTypes = callArgTypes(m_actx, call);
     const std::vector<TypeId> sigs = overloadSignatures(s);
     const CallFailureText failure{std::format("call to overloaded static member '{}' is ambiguous", requiredText(*call.m_callee)),
@@ -470,7 +484,7 @@ bool CallTyper::typeNativeCall(CallExpr& call, const Symbol& s, const FuncDecl* 
     }
     if (const CallableParamInfo* info = overloadParamInfoAt(s, 0); info != nullptr && info->hasAnyDefault()) {
         const std::size_t nargs = call.m_args ? call.m_args->size() : 0;
-        if (nargs < info->names.size()) {
+        if (nargs < info->slots.size()) {
             m_actx.ctx().diag().report(Severity::Error, call.range(), "default arguments are not supported for native function '{}'",
                                        requiredText(*call.m_callee));
             failCall(call);
@@ -482,9 +496,15 @@ bool CallTyper::typeNativeCall(CallExpr& call, const Symbol& s, const FuncDecl* 
     // перегружается естественно: резолвим ради ТИПА РЕЗУЛЬТАТА и проверки аргументов,
     // имя символа при этом не манглируется.
     if (s.overloads.size() > 1) {
-        // C++-имя символа: m_nativeName у импорт-алиаса (`name := %lib::f`), иначе
-        // собственное имя объявления (`%lib::f`).
-        const std::string_view nativeSymbol = !fdecl->m_nativeName.empty() ? std::string_view(fdecl->m_nativeName) : utils::stripNativePrefix(s.name);
+        // C++-имя символа: целевой факт объявления (импорт `name := %lib::f`; `DeclCppFacts`, R1).
+        std::string nativeSymbolStorage;
+        if (fdecl != nullptr) {
+            nativeSymbolStorage = std::string(m_actx.ctx().declCppFacts().cppNameOf(fdecl->declId()));
+        }
+        if (nativeSymbolStorage.empty()) {
+            nativeSymbolStorage = s.name;
+        }
+        const std::string_view nativeSymbol = nativeSymbolStorage;
         if (!utils::isQualifiedName(nativeSymbol)) {
             m_actx.ctx().diag().report(Severity::Error, call.range(),
                                        "overloaded native function '{}' is not supported: a C-linkage symbol cannot be overloaded (declare distinct names)",
@@ -559,7 +579,7 @@ void CallTyper::checkFormatArgs(CallExpr& call) {
         m_actx.ctx().report(fmtArg->range(), semantic::DiagId::Format, "invalid printf format string '{}'", fmt);
         return;
     }
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     for (std::size_t j = 0; j < convs.size(); ++j) {
         const int argPos = firstToCheck - 1 + static_cast<int>(j);
         if (argPos >= static_cast<int>(call.m_args->size())) {
@@ -584,14 +604,13 @@ void CallTyper::checkFormatArgs(CallExpr& call) {
         }
         if (!ok) {
             const TypeId c = reg.store().desugaredTypeId(argType);
-            std::string typeName = (c != INVALID_TYPE_ID) ? std::string(reg.printer().getTypeName(c)) : "?";
+            std::string typeName = (c != INVALID_TYPE_ID) ? std::string(reg.printer().typeNameOf(c)) : "?";
             m_actx.ctx().report(arg->range(), semantic::DiagId::Format, "format argument {} expects {} (conversion '{}') but argument has type '{}'",
                                 argPos + 1, format_expect_name(convs[j].expect), std::string(1, convs[j].conv), typeName);
         }
     }
 }
 
-// -- Компиляйт-тайм проверка строки-формата `"{}"(args)` / `'{}'(args)` --
 // callee - строковый литерал (StrWide/StrChar). Сверяем число плейсхолдеров `{}` с числом
 // аргументов ({{ / }} - литеральные скобки, аргумент не потребляют) и баланс фигурных скобок.
 void CallTyper::checkFormatStringArgs(CallExpr& call) {

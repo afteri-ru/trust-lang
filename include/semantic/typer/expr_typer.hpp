@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/expr_typer.hpp
 // Компонент семантики: ExprTyper — фасад над профильными типизаторами выражений
 // (Var/Call/MethodCall/Container/Binary/Ref). Каждый коллаборатор получает AnalysisContext
 // и драйвер NameResolutionPass через TyperBase; фасад сохраняет публичный API драйвера.

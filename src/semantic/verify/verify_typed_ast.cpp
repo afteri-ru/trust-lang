@@ -43,12 +43,11 @@ std::optional<std::string> verifyTypedAst(const TypeReadModel& types, const std:
         }
 
         // 1) VarDecl: кодоген читает inferredType для нетипизированных переменных с
-        //    инициализатором. Исключения: `_` (тип выводится по истории записей в DA,
-        //    который идёт ПОСЛЕ семантики) и типизированные forward-объявления (`m_type`).
+        //    инициализатором. Исключение: отложенный `x := _` (тип выводится по истории
+        //    записей в DA, который идёт ПОСЛЕ семантики).
         if (node.is<VarDecl>()) {
             const auto& v = *node.as<VarDecl>();
-            const bool deferredToDa = isNoneMarker(v.m_initializer.get());
-            if (v.m_type == nullptr && v.m_initializer != nullptr && !deferredToDa && !v.inferredType.isValid()) {
+            if (v.m_type == nullptr && v.initKind() == VarInitKind::Initialized && !v.inferredType.isValid()) {
                 fail(kindFieldMessage(node, "inferredType") + " is not materialized");
                 return;
             }

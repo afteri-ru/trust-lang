@@ -155,7 +155,6 @@ void NameResolutionPass::analyzeCheckAreaStmt(AstNodePtr& self) {
     }
 }
 
-// -- Встроенные системные маркеры отладочного вывода (УРОВЕНЬ 1) ----------------
 // `@__DEBUG__(<masks>)` / `@__DEBUG__()` - устанавливает (пустой => сбрасывает) фильтр сообщений
 // TRUST_DEBUG и ЭХОМ печатает применённый фильтр (подтверждение, что параметры применились/
 // изменились/выключены). `@__DEBUG_SCOPE__(...)` - печатает ТЕКУЩЕЕ СОСТОЯНИЕ анализатора в точке
@@ -217,7 +216,6 @@ void NameResolutionPass::analyzeDebugStmt(AstNodePtr& self) {
     self = nullptr; // маркер всегда удаляется (кода не даёт)
 }
 
-// -- Атрибут @[matcher("fn")] на операторе match -------------------------------
 // Переопределяет сравнение по значению (==/===>): вместо (tmp == pattern) в каждой ветке
 // кодогенерация эмитит вызов fn(tmp, pattern). Семантика резолвит имя функции и проверяет,
 // что это объявленная функция-предикат с сигнатурой `bool fn(T_value, T_pattern)`.
@@ -244,16 +242,16 @@ void NameResolutionPass::analyzeMatchMatcher(MatchStmt& match) {
                                    matchOpSpelling(match.m_op));
         return;
     }
-    // Нативный C++-символ (%...) - резолвить нельзя, сигнатуру не проверяем (кодоген эмитит как есть).
-    if (!name.empty() && name.front() == '%') {
-        return;
-    }
+    // matcher-предикат резолвится по trust-имени; нативных имён в выражениях нет.
     Symbol* s = resolveSimple(nullptr, name);
     if (!s || !s->decl || s->decl->kind() != ParserToken::Kind::FuncDecl) {
         m_actx.ctx().diag().report(Severity::Error, rng,
                                    "@[matcher(\"{}\")]: '{}' is not a declared function; a matcher predicate must be declared before this match", name, name);
         return;
     }
+    // Результат резолва сохраняется на узле: кодоген читает объявление, а не повторно резолвит
+    // имя по тексту (R53 — без identity-by-text в бэкенде).
+    match.m_matcherDecl = s->decl;
     const TypeReadModel reg = m_actx.ctx().readTypes();
     const auto* fd = reg.store().getTypeDataAs<FunctionTypeData>(s->type.getTypeId());
     if (!fd) {
@@ -265,17 +263,16 @@ void NameResolutionPass::analyzeMatchMatcher(MatchStmt& match) {
         return;
     }
     const TypeId rt = fd->returnType == INVALID_TYPE_ID ? INVALID_TYPE_ID : reg.store().desugaredTypeId(fd->returnType);
-    const bool returnsBool = rt != INVALID_TYPE_ID && getGroup(getTypeKind(rt)) == Group::kLogical;
+    const bool returnsBool = rt != INVALID_TYPE_ID && typeGroupOf(rt) == Group::kLogical;
     if (!returnsBool) {
         m_actx.ctx().diag().report(Severity::Error, rng, "@[matcher(\"{}\")]: predicate must return bool (got '{}')", name,
-                                   fd->returnType == INVALID_TYPE_ID ? "void" : std::string(reg.printer().getTypeName(fd->returnType)));
+                                   fd->returnType == INVALID_TYPE_ID ? "void" : std::string(reg.printer().typeNameOf(fd->returnType)));
     }
 }
 
-// -- Применение ортогональных квалификаторов типа (const + вид ссылки) --
 // Единый источник для переменных (analyzeVarDecl) и параметров (declareFuncParams).
-QualType NameResolutionPass::applyRefAttrs(QualType base, const AstNodeAttr& node, MapperRange range) {
-    return applyDeclarationQualifiers(m_actx.ctx(), m_actx.types(), base, node, range);
+QualType NameResolutionPass::applyRefAttrs(QualType base, const AstNodeAttr& node, MapperRange range, TypeId* deleterOutsideType) {
+    return applyDeclarationQualifiers(m_actx.ctx(), m_actx.types(), base, node, range, deleterOutsideType);
 }
 
 } // namespace trust

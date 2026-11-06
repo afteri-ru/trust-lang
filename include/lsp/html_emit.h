@@ -8,7 +8,6 @@
 
 namespace trust::lsp {
 
-// -- Результат in-process транспиляции Trust → C++ + построчный source-map --
 // Это «live-контракт» двухоконного playground (godbolt-стиль): страница
 // запрашивает его у отдельного сервера при каждом изменении исходника.
 struct HtmlResult {

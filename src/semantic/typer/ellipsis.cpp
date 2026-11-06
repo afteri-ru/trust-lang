@@ -1,4 +1,3 @@
-// src/semantic/typer/ellipsis.cpp
 // ЕДИНЫЙ примитив семейства «замыкающего» многоточия в списках (аргументы вызова/элементы массива):
 // разбор, структурные правила, тип-совместимость и МАТЕРИАЛИЗАЦИЯ (разворот в конкретные элементы).
 // Кодогенерация о многоточии не знает: в AST она получает готовый список.
@@ -113,13 +112,13 @@ bool expandImpl(std::vector<AstNodePtr>& els, AnalysisContext& actx, const Ellip
         discardEllipsisElements(els, acc.arrayElements);
         return false;
     }
-    const TypeReadModel& reg = actx.ctx().types();
+    const TypeReadModel& reg = actx.registry();
     const TypeId opType = info.operand ? actx.facts().exprType(*info.operand) : INVALID_TYPE_ID;
     if (info.form == EllipsisForm::Fill) {
         for (size_t p = info.explicitCount; p < capacity && p < targetTypes.size(); ++p) {
             if (!fillingTypeCompatible(reg, opType, targetTypes[p])) {
                 actx.ctx().diag().report(Severity::Error, node.range(), "{}: тип операнда '{}' несовместим с типом позиции '{}'", what,
-                                         reg.printer().getTypeName(opType), reg.printer().getTypeName(targetTypes[p]));
+                                         reg.printer().typeNameOf(opType), reg.printer().typeNameOf(targetTypes[p]));
                 discardEllipsisElements(els, acc.arrayElements);
                 return false;
             }
@@ -163,11 +162,11 @@ bool fillingTypeCompatible(const TypeReadModel& reg, TypeId operand, TypeId targ
     if (anyId != INVALID_TYPE_ID && tc == reg.store().desugaredTypeId(anyId)) {
         return true;
     }
-    const Group og = getGroup(getTypeKind(oc));
-    const Group tg = getGroup(getTypeKind(tc));
+    const Group og = typeGroupOf(oc);
+    const Group tg = typeGroupOf(tc);
     const bool oNum = (og == Group::kIntegers || og == Group::kUnsigned);
     const bool tNum = (tg == Group::kIntegers || tg == Group::kUnsigned);
-    return oNum && tNum && og == tg && getData(getTypeKind(oc)) <= getData(getTypeKind(tc));
+    return oNum && tNum && og == tg && typeDataOf(oc) <= typeDataOf(tc);
 }
 
 EllipsisInfo scanCallEllipsis(const CallExpr& call) {

@@ -5,6 +5,6 @@
 
 trust_component(analysis
     INTERFACE
-    PUBLIC_HEADERS modes.hpp runtime_checks.hpp
+    PUBLIC_HEADERS modes.hpp runtime_checks.hpp builtin_class.hpp
     LINK_PUBLIC ast_lib trust_include_dirs
 )

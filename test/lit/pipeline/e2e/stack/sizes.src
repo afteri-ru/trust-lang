@@ -10,12 +10,13 @@
 # RUN: awk 'NR==FNR{a=$0; next} { exit !(a > $0) }' %t.o0v %t.o3v
 
 # Секция .stack_sizes читается корректно на РАЗНЫХ уровнях оптимизации C++.
-# %trust_stack_check_get_limit() возвращает максимум размера стека функций из .stack_sizes
+# trust_stack_check_get_limit() возвращает максимум размера стека функций из .stack_sizes
 # (генерация секции включается автоматически через -fstack-size-section, см. pipeline/build.cpp).
 # big_frame() имеет кадр ~1024 байта (буфер в {% %}-вставке); на -O0 буфер сохраняется (limit
 # большой), на -O3 оптимизатор элидирует неиспользуемый буфер (limit меньше). Последняя RUN-строка
 # проверяет O0 limit > O3 limit (оптимизация уменьшает размер стека функции).
 
+\std();
 @func big_frame() : Int32 {
     {% char buf[1024] = {0}; (void)buf; %};
     return 0;
@@ -26,7 +27,7 @@
 @main() := {
     big_frame();
     small_frame();
-    @print("limit={}\n", %trust_stack_check_get_limit());
+    @print("limit={}\n", trust_stack_check_get_limit());
     return 0;
 }
 

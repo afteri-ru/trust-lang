@@ -1,11 +1,9 @@
 // stdlib/async/generator.hpp - lazy coroutine generator for the Trust runtime.
-//
 // Standard library header of a library type ("stdlib/async/generator.hpp"): self-contained.
 // Uses ONLY <coroutine> (NOT <generator>) because the
 // default compiler of generated programs (c++ = GCC 13) does not ship std::generator, while
 // the project's build compiler (clang++-22 over libstdc++ 14) does. Keeping to <coroutine>
 // makes the header usable by both.
-//
 // Design:
 //   - `Generator<T>` is a single-pass lazy sequence produced by `co_yield` (coroutines) for
 //     lazy iteration over long/streaming sequences (e.g. Range).

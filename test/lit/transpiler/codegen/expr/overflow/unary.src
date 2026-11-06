@@ -5,4 +5,4 @@
 
 x:Int32 := 5;
 y := -x;
-# CHECK: int32_t c_y = (([&]{ int32_t __a = c_x; int32_t __r; if (__builtin_sub_overflow(static_cast<int32_t>(0), __a, &__r)) throw trust::IntMinus(trust::formatMessage("{{[^\"]*}}", 7, "integer overflow in unary '-'")); return __r; }()));
+# CHECK: int32_t y = (([&]{ int32_t __a = x; int32_t __r; if (__builtin_sub_overflow(static_cast<int32_t>(0), __a, &__r)) throw trust::IntMinus(trust::formatMessage("{{[^\"]*}}", 7, "integer overflow in unary '-'")); return __r; }()));

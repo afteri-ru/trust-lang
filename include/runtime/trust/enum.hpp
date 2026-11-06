@@ -1,7 +1,5 @@
 // trust/enum.hpp - типобезопасное перечисление для рантайма Trust.
-//
 // Delivery: package file `include/trust/enum.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
-//
 // Дизайн:
 //   - Enum - типобезопасное перечисление: ЕДИНЫЙ тип значений (Value) для всех членов.
 //   - Шаблон `Enum<ValueT, N, Self>` предоставляет generic-логику: поле значения value, поле
@@ -9,7 +7,8 @@
 //     <,>,<=,>=,==,!=, count(), fromName()/fromValue() (поиск по таблице Self::kMembers).
 //     Self - производная структура (CRTP), объявленная кодогенератором; её члены - `static const`
 //     константы (`Color.RED`), определяемые out-of-class (`const c_Color c_Color::c_RED{...};`),
-//     а таблица имя↔значение `static constexpr Self::kMembers[N]` - для fromName/fromValue.
+//     а таблица имя↔значение `static inline const Self::kMembers[N]` (C++17 inline-переменная:
+//     допускает инициализацию в классе для не-литеральных типов значений) - для fromName/fromValue.
 //   - СРАВНЕНИЕ ИДЁТ ПО ЗНАЧЕНИЮ ЧЛЕНА (value), а НЕ по позиции (ordinal): позиция и значение -
 //     разные понятия, порядок по позиции и по значению могут разойтись при произвольных
 //     значениях (RED=10, GREEN=2 → по значению RED > GREEN). Это как IntEnum: алиасы с равными
@@ -38,9 +37,8 @@ struct EnumMember {
     const char* name;
 };
 
-// -- Enum<ValueT, N, Self> - generic-ядро типобезопасного перечисления ----------
 // ValueT - тип значений членов (Color.Value); N - число членов; Self - производная структура
-// (CRTP), предоставляющая `static constexpr EnumMember<ValueT> kMembers[N]` и `static const`
+// (CRTP), предоставляющая `static inline const EnumMember<ValueT> kMembers[N]` и `static const`
 // константы-члены.
 template <typename ValueT, std::size_t N, typename Self>
 struct Enum {

@@ -1,0 +1,22 @@
+\\builtin\range;
+# builtin/range.src - implementation module of the built-in Range<Elem>.
+# The concrete C++ type (trust::Range<Elem>) is built by codegen; this module owns the
+# header (range.hpp includes dict.hpp/rational.hpp for its own C++ needs) and the C++ member
+# bindings of the Range interface.
+
+@[include("@stdlib/builtin/range.hpp")@]
+Range = %trust::Range {
+    count^(): Int64 := %count ...;
+    size^(): Int64 := %size ...;
+    empty^(): Bool := %empty ...;
+    start^(): TemplateParam := %start ...;
+    stop^(): TemplateParam := %stop ...;
+    step^(): TemplateParam := %step ...;
+    at^(i: Int64): TemplateParam := %at ...;
+    contains^(v: TemplateParam): Bool := %contains ...;
+    toVector^(): TemplateParam := %toVector ...;
+    toArray^(): TemplateParam := %toArray ...;
+    toList^(): TemplateParam := %toList ...;
+    toDict^(): Dict := %toDict ...;
+    reversed^(): TemplateParam := %reversed ...;
+};

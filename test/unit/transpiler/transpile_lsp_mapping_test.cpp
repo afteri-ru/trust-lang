@@ -4,7 +4,7 @@ using namespace trust;
 // ============================================================================
 // 8. Reverse name mapping: hover target is the whole name, not a shifted sub-range
 // ============================================================================
-// `getTrustName`/`getCppName` возвращают полный NameMap: цель hover-ссылки - весь
+// `trustNameOf`/`outNameOf` возвращают полный NameMap: цель hover-ссылки - весь
 // диапазон имени на противоположной стороне, без сдвига по позиции курсора внутри
 // имени (иначе наведение на середину многосимвольного имени даёт сдвинутый target).
 TEST(TranspileLspTest, ReverseNameMappingWholeNameNotShifted) {
@@ -28,7 +28,7 @@ TEST(TranspileLspTest, ReverseNameMappingWholeNameNotShifted) {
     // cpp `msg` in `int8_t msg = 10;` at 1-based line 2, col 9..11 (0-based char 9..11).
     // Hover on the middle char 's' (0-based char 10) must still resolve to the whole `msg`.
     auto cloc = reader->lspToLocation(rCpp, 1, 10);
-    auto nm = reader->getTrustName(cloc, "c_msg");
+    auto nm = reader->trustNameOf(cloc, "msg");
     ASSERT_TRUE(nm.has_value());
     EXPECT_EQ(std::string(reader->getText(nm->rangeMap.from)), "msg");
 }
@@ -58,7 +58,7 @@ TEST(TranspileLspTest, EmbedBlockRangeCoversOnlyBody) {
     ASSERT_TRUE(findInputBySource(reader, code, uIdx));
     ReaderFile rTrust = ReaderFile::make_input(uIdx);
 
-    auto mappings = reader->getTrustFileMappings(rTrust);
+    auto mappings = reader->trustFileMappings(rTrust);
     ASSERT_GE(mappings.size(), 1u);
     // trust-range должен быть [1:3, 1:16] = содержимое " int x = 42; " без разделителей.
     EXPECT_EQ(std::string(reader->getText(mappings[0].from)), " int x = 42; ");
@@ -111,8 +111,8 @@ TEST(TranspileLspTest, SameLineStatementsJoinOnOneLine) {
 
     std::string cpp(ctx.source().output_body(cppIdx));
     // Оба оператора в исходнике на одной строке → в C++ на одной строке, с пробелом между.
-    EXPECT_NE(cpp.find("int8_t c_a = 1; int8_t c_b = 2;"), std::string::npos) << cpp;
-    EXPECT_EQ(cpp.find("int8_t c_a = 1;\nint8_t c_b = 2;"), std::string::npos) << cpp;
+    EXPECT_NE(cpp.find("int8_t a = 1; int8_t b = 2;"), std::string::npos) << cpp;
+    EXPECT_EQ(cpp.find("int8_t a = 1;\nint8_t b = 2;"), std::string::npos) << cpp;
 }
 
 // ============================================================================
@@ -126,7 +126,7 @@ TEST(TranspileLspTest, FunctionBodyProperFormatting) {
         Context ctx(".");
         TypeSystem types(ctx.diag(), ctx.opts());
         ctx.setTypes(&types);
-        const std::string code = "%foo():Void := { a := 1; b := 2; }\n";
+        const std::string code = "foo():Void := { a := 1; b := 2; }\n";
         MapperFile trustIdx = ctx.source().add_source("test.src", code);
         MapperFile cppIdx = ctx.source().add_output("test.cppt");
         trust::PipelineOpts popts;
@@ -136,14 +136,14 @@ TEST(TranspileLspTest, FunctionBodyProperFormatting) {
         ASSERT_EQ(ctx.diag().errorCount(), 0);
         std::string cpp(ctx.source().output_body(cppIdx));
         // Операторы тела функции - с отступом, каждый на своей строке.
-        EXPECT_NE(cpp.find("void foo() {\n    int8_t c_a = 1;\n    int8_t c_b = 2;\n}"), std::string::npos) << cpp;
+        EXPECT_NE(cpp.find("void foo_P0_() {\n    int8_t a = 1;\n    int8_t b = 2;\n}"), std::string::npos) << cpp;
     }
     // Много-строчный блок: то же нормальное форматирование с отступами.
     {
         Context ctx(".");
         TypeSystem types(ctx.diag(), ctx.opts());
         ctx.setTypes(&types);
-        const std::string code = "%foo():Void := {\n  a := 1;\n  b := 2;\n}\n";
+        const std::string code = "foo():Void := {\n  a := 1;\n  b := 2;\n}\n";
         MapperFile trustIdx = ctx.source().add_source("test.src", code);
         MapperFile cppIdx = ctx.source().add_output("test.cppt");
         trust::PipelineOpts popts;
@@ -152,7 +152,7 @@ TEST(TranspileLspTest, FunctionBodyProperFormatting) {
         pipeline.run(trust::RunRequest::withCpp(cppIdx), trustIdx);
         ASSERT_EQ(ctx.diag().errorCount(), 0);
         std::string cpp(ctx.source().output_body(cppIdx));
-        EXPECT_NE(cpp.find("void foo() {\n    int8_t c_a = 1;\n    int8_t c_b = 2;\n}"), std::string::npos) << cpp;
+        EXPECT_NE(cpp.find("void foo_P0_() {\n    int8_t a = 1;\n    int8_t b = 2;\n}"), std::string::npos) << cpp;
     }
 }
 
@@ -185,7 +185,7 @@ TEST(TranspileLspTest, MultipleEmbedBlocksSeparateLines) {
     ASSERT_TRUE(findInputBySource(reader, code, uIdx));
     ReaderFile rTrust = ReaderFile::make_input(uIdx);
 
-    auto mappings = reader->getTrustFileMappings(rTrust);
+    auto mappings = reader->trustFileMappings(rTrust);
     ASSERT_GE(mappings.size(), 2u);
     bool foundFirst = false, foundSecond = false;
     for (const auto& m : mappings) {
@@ -227,7 +227,7 @@ TEST(TranspileLspTest, CompoundAssignmentRangeCoversWholeStatement) {
     ReaderFile rTrust = ReaderFile::make_input(uIdx);
 
     bool foundFullStmt = false;
-    for (const auto& m : reader->getTrustFileMappings(rTrust)) {
+    for (const auto& m : reader->trustFileMappings(rTrust)) {
         std::string trustText(reader->getText(m.from));
         EXPECT_NE(trustText, "+=") << "operator-only mapping must not survive";
         if (trustText == "x += 5") {
@@ -251,7 +251,7 @@ TEST(TranspileLspTest, FuncDeclSignatureAndBodyMappedSeparately) {
     Context ctx(".");
     TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
-    const std::string code = "%foo():Void := { x := 1;\n}\n";
+    const std::string code = "foo():Void := { x := 1;\n}\n";
     MapperFile trustIdx = ctx.source().add_source("test.src", code);
     MapperFile cppIdx = ctx.source().add_output("test.cppt");
 
@@ -262,7 +262,7 @@ TEST(TranspileLspTest, FuncDeclSignatureAndBodyMappedSeparately) {
     ASSERT_EQ(ctx.diag().errorCount(), 0);
 
     std::string cpp(ctx.source().output_body(cppIdx));
-    EXPECT_NE(cpp.find("void foo()"), std::string::npos) << cpp;
+    EXPECT_NE(cpp.find("void foo_P0_()"), std::string::npos) << cpp;
 
     auto* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -274,31 +274,31 @@ TEST(TranspileLspTest, FuncDeclSignatureAndBodyMappedSeparately) {
     //    начинается с 'func', без '%'-префикса), to = "void func()".
     //    Оператор-only ":=" маппинга быть не должно.
     bool foundSig = false;
-    for (const auto& m : reader->getTrustFileMappings(rTrust)) {
+    for (const auto& m : reader->trustFileMappings(rTrust)) {
         std::string trustText(reader->getText(m.from));
         EXPECT_NE(trustText, ":=") << "operator-only mapping must not survive";
         if (trustText == "foo():Void :=") {
             foundSig = true;
             // Определение (с телом) - пользовательская C++-функция без extern "C";
             // C-линковка добавляется только forward-декларациям (нет тела).
-            EXPECT_EQ(reader->getText(m.to), "void foo()");
+            EXPECT_EQ(reader->getText(m.to), "void foo_P0_()");
         }
     }
     EXPECT_TRUE(foundSig) << "signature mapping '[имя, оператор]' not found";
 
     // 2) Имя функции: name-маппинг trust "foo" -> cpp "foo".
     bool foundName = false;
-    for (const auto& nm : reader->getNameMappings()) {
+    for (const auto& nm : reader->nameMappings()) {
         if (std::string(reader->getText(nm.rangeMap.from)) == "foo") {
             foundName = true;
-            EXPECT_EQ(reader->getText(nm.rangeMap.to), "foo");
+            EXPECT_EQ(reader->getText(nm.rangeMap.to), "foo_P0_");
         }
     }
     EXPECT_TRUE(foundName) << "function name mapping not found";
 
     // 3) Тело: отдельный маппинг из блока m_right (from начинается с '{').
     bool foundBody = false;
-    for (const auto& m : reader->getTrustFileMappings(rTrust)) {
+    for (const auto& m : reader->trustFileMappings(rTrust)) {
         std::string trustText(reader->getText(m.from));
         if (!trustText.empty() && trustText.front() == '{') {
             foundBody = true;
@@ -318,8 +318,10 @@ TEST(TranspileLspTest, DictionarySpreadMapping) {
     Context ctx(".");
     TypeSystem types(ctx.diag(), ctx.opts());
     ctx.setTypes(&types);
+    TargetContract target;
+    ctx.setTarget(&target);
     MapperFile cppIdx;
-    transpileForTest(ctx,
+    transpileForTest(types, ctx,
                 "@main() := {\n"
                 "    d := (1, 2, 3,);\n"
                 "    a, b, c := ... d;\n"
@@ -336,16 +338,16 @@ TEST(TranspileLspTest, DictionarySpreadMapping) {
     auto* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
     ReaderFile rTrustIdx = reader->findFileIdx("@input");
-    auto mappings = reader->getTrustFileMappings(rTrustIdx);
+    auto mappings = reader->trustFileMappings(rTrustIdx);
     // Каждый statement (d:=, destructure, e:=, append) - отдельный маппинг. До фикса
     // destructure маппинга НЕ имел (не был обёрнут SemicolonStmt) → маппингов было меньше.
     ASSERT_GE(mappings.size(), 4);
 
     // Для каждого маппинга (в т.ч. раскрытия словаря) trust→cpp и обратно резолвятся.
     for (const auto& m : mappings) {
-        auto toCpp = reader->getMapTrustToCpp(m.from.begin);
+        auto toCpp = reader->mappedOutRange(m.from.begin);
         ASSERT_TRUE(toCpp.has_value());
-        auto back = reader->getMapCppToTrust(m.to.begin);
+        auto back = reader->mappedTrustRange(m.to.begin);
         ASSERT_TRUE(back.has_value());
     }
 

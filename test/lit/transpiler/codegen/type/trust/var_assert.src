@@ -5,5 +5,5 @@
 
 y @{ check --> y < 0 @} := 5;
 
-# CHECK: int8_t c_y = 5;
-# CHECK: if (!((c_y < 0))) trust::trust__abort__("{{.*}}var_assert.src", {{[0-9]+}}, "y < 0", 1);
+# CHECK: int8_t y = 5;
+# CHECK: if (!((y < 0))) trust::trust__abort__("{{.*}}var_assert.src", {{[0-9]+}}, "y < 0", 1);

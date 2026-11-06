@@ -1,4 +1,3 @@
-// src/types/ref_type.cpp
 // Единый источник C++-имени ВИДА ССЫЛКИ (RefType) - см. include/types/ref_type.hpp.
 #include "types/type/ref_type.hpp"
 
@@ -32,7 +31,7 @@ std::string refTypeCppName(RefType kind, std::string_view pointeeCpp, std::strin
         return std::string(refTypeCppTemplateName(RefType::kShared)) + "<" + base + ">";
     case RefType::kWeak:
         // Слабая ссылка - trust::Weak поверх СИЛЬНОЙ (trust::Shared<pointee>); sync-вариант
-        // (Weak<AccessShared<T,Policy>>) композируется в getCppTypeName до вызова этой функции.
+        // (Weak<AccessShared<T,Policy>>) композируется в CppTypeRenderer до вызова этой функции.
         return std::string(refTypeCppTemplateName(RefType::kWeak)) + "<" + std::string(refTypeCppTemplateName(RefType::kShared)) + "<" + base + ">>";
     case RefType::kUnique:
         // Эксклюзивное владение; D (`@[deleter(D)]`) - ЧАСТЬ типа: trust::Unique<T[, D]>.
@@ -56,9 +55,9 @@ std::vector<std::string_view> refTypeRuntimeIncludes(RefType kind, bool sync) {
     if (kind != RefType::kShared && kind != RefType::kWeak && kind != RefType::kUnique) {
         return includes;
     }
-    includes.push_back("@trust/trusted-cpp.hpp");
+    includes.push_back("@stdlib/trusted-cpp.hpp");
     if (sync) {
-        includes.push_back("@trust/trusted-cpp-sync.hpp");
+        includes.push_back("@stdlib/trusted-cpp-sync.hpp");
     }
     return includes;
 }

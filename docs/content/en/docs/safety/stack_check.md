@@ -29,7 +29,7 @@ An example of recursion protected by the attribute (the overflow is caught rathe
 
 ```trust
 @[ stack_check @]
-%fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {
+fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {
     if (n < 3) {
         $one:BigInteger := 1;
         return :Tuple($one, $one);
@@ -64,8 +64,8 @@ Working examples — [playground fibonacci](/en/playground/?file=fibonacci); rea
 
 ## Runtime control functions
 
-For explicit control, the native functions `%trust_stack_check(N)`,
-`%trust_stack_check_set_reserve(...)`, `%trust_stack_check_get_reserve()`,
-`%trust_stack_check_get_limit()` and `%trust_stack_check_set_limit(...)` are available. Full signatures — in the
+For explicit control, the native functions `trust_stack_check(N)`,
+`trust_stack_check_set_reserve(...)`, `trust_stack_check_get_reserve()`,
+`trust_stack_check_get_limit()` and `trust_stack_check_set_limit(...)` are available. Full signatures — in the
 help `trust --help` / `-Whelp`.
 -->

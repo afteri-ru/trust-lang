@@ -1,6 +1,5 @@
 #pragma once
 
-// include/types/registry/builtin_seed_zones.hpp
 // Состояние seed-сборки ядра встроенных типов: зоны живут на стеке BuiltinCoreBuilder.
 // Отдельный заголовок нужен, чтобы регистрация и сборка ядра были разными TU.
 

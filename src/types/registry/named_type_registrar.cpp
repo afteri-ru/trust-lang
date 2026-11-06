@@ -1,4 +1,3 @@
-// src/types/registry/named_type_registrar.cpp
 // Зона создания именованных типов: транзакция reserve -> push -> bind.
 #include "types/registry/named_type_registrar.hpp"
 
@@ -21,8 +20,8 @@ constexpr std::string_view recordGroupName(Group g) noexcept {
 
 } // namespace
 
-TypeId NamedTypeRegistrar::registerType(std::string_view name, TypeId baseTypeId, std::vector<AttrId> attrs, MapperRange sourceRange,
-                                        std::string_view preprocInclude, bool hasTrust, std::optional<StorageKey> storageKey) {
+TypeId NamedTypeRegistrar::registerType(std::string_view name, TypeId baseTypeId, std::vector<AttrId> attrs, MapperRange sourceRange, bool hasTrust,
+                                        std::optional<StorageKey> storageKey) {
     EXPECT(isUnqualifiedType(baseTypeId) && "registerType: base type id must not carry type-state flags");
     TypeKind kind = getTypeKind(baseTypeId);
     const StorageKey key = m_names.registrationKey(storageKey, name);
@@ -40,7 +39,7 @@ TypeId NamedTypeRegistrar::registerType(std::string_view name, TypeId baseTypeId
         kind = setAttrsFlag(kind); // признак «тип несёт атрибуты» (kHasAttrsFlag) -> сравнение через реестр
     }
     // registry_index для пользовательского типа = после всех встроенных.
-    return registerAlias(kind, name, baseTypeId, std::move(attrs), sourceRange, preprocInclude, key, false);
+    return registerAlias(kind, name, baseTypeId, std::move(attrs), sourceRange, key, false);
 }
 
 TypeId NamedTypeRegistrar::registerBuiltinAlias(std::string_view name, TypeId target) {
@@ -51,19 +50,17 @@ TypeId NamedTypeRegistrar::registerBuiltinAlias(std::string_view name, TypeId ta
         return INVALID_TYPE_ID;
     }
     TypeKind kind = setBuiltinFlag(getTypeKind(target));
-    return registerAlias(kind, name, target, {}, {}, {}, key, true);
+    return registerAlias(kind, name, target, {}, {}, key, true);
 }
 
 TypeId NamedTypeRegistrar::registerAlias(TypeKind kind, std::string_view name, TypeId baseTypeId, std::vector<AttrId> attrs, MapperRange sourceRange,
-                                         std::string_view preprocInclude, const StorageKey& key, bool processPool) {
+                                         const StorageKey& key, bool processPool) {
     TypeDescriptor desc{
-        std::string(name),                                                                                           // name - владеющая копия
-        std::move(attrs),                                                                                            // attrs
-        sourceRange,                                                                                                 // sourceRange
-        {},                                                                                                          // cppName (empty for aliases)
-        preprocInclude.empty() ? std::vector<std::string>{} : std::vector<std::string>{std::string(preprocInclude)}, // preprocIncludes
-        baseTypeId,                                                                                                  // baseType - points to the aliased type
-        SimpleTypeData{}                                                                                             // data - aliases are simple types
+        std::string(name), // name - владеющая копия
+        std::move(attrs),  // attrs
+        sourceRange,       // sourceRange
+        baseTypeId,        // baseType - points to the aliased type
+        SimpleTypeData{}   // data - aliases are simple types
     };
     desc.canonicalType = m_store.desugaredTypeId(baseTypeId);
     const TypeId id = m_store.push(kind, std::move(desc), key);
@@ -89,8 +86,6 @@ TypeId NamedTypeRegistrar::registerEnumType(std::string_view name, TypeId valueT
         std::string(name), // name - владеющая копия
         {},                // attrs (пусто - атрибуты enum пока не используются)
         sourceRange,       // sourceRange - позиция объявления enum
-        {},                // cppName (пусто - манглинг в кодогенерации: nameToCpp)
-        {},                // preprocIncludes (enum-структура самодостаточна; инклуды тянут типы значений)
         INVALID_TYPE_ID,   // baseType - enum НЕ алиас (canonical = сам тип)
         std::move(data)    // data - EnumTypeData
     };
@@ -119,8 +114,6 @@ TypeId NamedTypeRegistrar::registerVariantType(std::string_view name, std::vecto
         std::string(name), // name - владеющая копия
         {},                // attrs
         sourceRange,       // sourceRange
-        {},                // cppName (манглинг в кодогенерации: nameToCpp)
-        {},                // preprocIncludes (заголовки тянут типы членов; <variant> - кодогенерация)
         INVALID_TYPE_ID,   // baseType - Variant НЕ алиас
         std::move(data)    // data - VariantTypeData
     };
@@ -167,8 +160,6 @@ TypeId NamedTypeRegistrar::declareRecord(std::string_view name, Group group, boo
         std::string(name), // name - владеющая копия
         {},                // attrs
         sourceRange,       // sourceRange - позиция объявления
-        {},                // cppName (манглинг в кодогенерации: nameToCpp)
-        {},                // preprocIncludes (struct самодостаточен; инклуды тянут типы полей/баз)
         INVALID_TYPE_ID,   // baseType - record НЕ алиас
         std::nullopt,      // data - объявлен, но НЕ определён (заполнит defineRecord)
         {},                // methods
@@ -188,14 +179,14 @@ void NamedTypeRegistrar::setRecordTemplateParams(TypeId id, std::vector<TypeId> 
     m_store.setDeclaredRecord(id, std::move(params));
 }
 
-TypeId NamedTypeRegistrar::defineRecord(std::string_view name, Group group, std::vector<TupleElementData> fields, std::vector<TypeId> baseClasses,
+TypeId NamedTypeRegistrar::defineRecord(std::string_view name, Group group, std::vector<TupleElementData> fields, std::vector<BaseClass> baseClasses,
                                         MapperRange sourceRange, bool hasTrust, std::optional<StorageKey> storageKey) {
     EXPECT((group == Group::kStructs || group == Group::kClassDefs) && "defineRecord: group must be kStructs or kClassDefs");
     for (const auto& field : fields) {
         EXPECT(isUnqualifiedType(field.type.getTypeId()) && "defineRecord: field type identity must not carry type-state flags");
     }
-    for (const TypeId base : baseClasses) {
-        EXPECT(isUnqualifiedType(base) && "defineRecord: base class id must not carry type-state flags");
+    for (const BaseClass& base : baseClasses) {
+        EXPECT(isUnqualifiedType(base.type) && "defineRecord: base class id must not carry type-state flags");
     }
     const StorageKey key = m_names.registrationKey(storageKey, name);
     if (!m_names.contains(key)) {
@@ -208,21 +199,19 @@ TypeId NamedTypeRegistrar::defineRecord(std::string_view name, Group group, std:
             kind = setTrustFlag(kind);
         }
         RecordTypeData data{std::move(fields)};
-        TypeDescriptor desc{std::string(name), {}, sourceRange, {}, {}, INVALID_TYPE_ID, std::move(data), {}, {}, std::move(baseClasses)};
+        TypeDescriptor desc{std::string(name), {}, sourceRange, INVALID_TYPE_ID, std::move(data), {}, {}, std::move(baseClasses)};
         const TypeId newId = m_store.push(kind, std::move(desc), key);
         m_names.bind(key, newId);
         return newId;
     }
     const TypeId id = *m_names.find(key);
     if (!m_store.isRecordType(id)) {
-        diag::reportWithOptions(m_diag, m_opts, diag::DiagId::ParseError, sourceRange, "type name '{}' is already used by a non-record type",
-                                name);
+        diag::reportWithOptions(m_diag, m_opts, diag::DiagId::ParseError, sourceRange, "type name '{}' is already used by a non-record type", name);
         return INVALID_TYPE_ID;
     }
-    if (getGroup(getTypeKind(id)) != group) {
-        diag::reportWithOptions(m_diag, m_opts, diag::DiagId::ParseError, sourceRange,
-                                "record '{}' was declared as {} and cannot be defined as {}", name, recordGroupName(getGroup(getTypeKind(id))),
-                                recordGroupName(group));
+    if (typeGroupOf(id) != group) {
+        diag::reportWithOptions(m_diag, m_opts, diag::DiagId::ParseError, sourceRange, "record '{}' was declared as {} and cannot be defined as {}", name,
+                                recordGroupName(typeGroupOf(id)), recordGroupName(group));
         return INVALID_TYPE_ID;
     }
     // Маркер объявления читается копией ДО записи: снимается ТОЛЬКО после успешного заполнения
@@ -240,8 +229,7 @@ TypeId NamedTypeRegistrar::defineRecord(std::string_view name, Group group, std:
     std::vector<TypeId> templateParams = *declaredParams;
     TypeDescriptor* desc = m_store.writableDescriptor(id);
     EXPECT(desc != nullptr && "defineRecord: declared record must be a user type");
-    RecordTypeData data{std::move(fields)};
-    data.templateParams = std::move(templateParams);
+    RecordTypeData data{std::move(fields), std::move(templateParams)};
     desc->data = TypeData{std::move(data)};
     desc->baseClasses = std::move(baseClasses);
     const std::optional<std::vector<TypeId>> takenMarker = m_store.takeDeclaredRecord(id);
@@ -249,56 +237,48 @@ TypeId NamedTypeRegistrar::defineRecord(std::string_view name, Group group, std:
     return id;
 }
 
-TypeId NamedTypeRegistrar::registerNativeTemplate(std::string_view name, std::string_view cppTemplate, MapperRange sourceRange, std::string_view preprocInclude,
-                                                  std::vector<std::string> libs, std::optional<StorageKey> storageKey) {
+TypeId NamedTypeRegistrar::registerNativeTemplate(std::string_view name, MapperRange sourceRange, std::optional<StorageKey> storageKey) {
     const StorageKey key = m_names.registrationKey(storageKey, name);
     if (!m_names.reserve(key, name, sourceRange)) {
         return INVALID_TYPE_ID;
     }
     // Абстрактный шаблон: Group::kNativeTemplate, Data=0, name = trust-имя. NativeTemplateTypeData
-    // с пустым args - маркер шаблона (cppTemplate хранит C++-имя). children пуст.
+    // с пустым args - маркер шаблона (C++-имя шаблона — целевой факт компонента `target`). children пуст.
     TypeKind kind = makeTypeKind(Group::kNativeTemplate, 0);
-    NativeTemplateTypeData data{std::string(cppTemplate), {}};
+    NativeTemplateTypeData data{INVALID_TYPE_ID, {}};
     TypeDescriptor desc{
         std::string(name), // name - владеющая копия
         {},                // attrs
         sourceRange,       // sourceRange
-        {},                // cppName (манглинг в кодогенерации; C++-имя - в NativeTemplateTypeData)
-        preprocInclude.empty() ? std::vector<std::string>{} : std::vector<std::string>{std::string(preprocInclude)},
-        INVALID_TYPE_ID, // baseType - не алиас
-        std::move(data), // data - NativeTemplateTypeData
-        {},              // methods
-        {},              // methodAliases
-        {},              // baseClasses
-        std::move(libs)  // libs - @[link(...)] on-use
+        INVALID_TYPE_ID,   // baseType - не алиас
+        std::move(data),   // data - NativeTemplateTypeData
+        {},                // methods
+        {},                // methodAliases
+        {}                 // baseClasses
     };
     const TypeId id = m_store.push(kind, std::move(desc), key);
     m_names.bind(key, id);
     return id;
 }
 
-TypeId NamedTypeRegistrar::registerNativeClass(std::string_view name, std::string_view cppName, MapperRange sourceRange, std::string_view preprocInclude,
-                                               std::vector<std::string> libs, std::optional<StorageKey> storageKey) {
+TypeId NamedTypeRegistrar::registerNativeClass(std::string_view name, MapperRange sourceRange, std::optional<StorageKey> storageKey) {
     const StorageKey key = m_names.registrationKey(storageKey, name);
     if (!m_names.reserve(key, name, sourceRange)) {
         return INVALID_TYPE_ID;
     }
-    // Нативный класс: Group::kNativeClass, Data=0, name = trust-имя, C++-имя - в
-    // NativeClassTypeData{cppName}. C++-struct НЕ генерируется (класс определён в заголовке).
+    // Нативный класс: Group::kNativeClass, Data=0, name = trust-имя; C++-имя — целевой факт
+    // (компонент `target`). C++-struct НЕ генерируется (класс определён в заголовке).
     TypeKind kind = makeTypeKind(Group::kNativeClass, 0);
-    NativeClassTypeData data{std::string(cppName)};
+    NativeClassTypeData data{};
     TypeDescriptor desc{
         std::string(name), // name - владеющая копия
         {},                // attrs
         sourceRange,       // sourceRange
-        {},                // cppName (манглинг НЕ используется; C++-имя - в NativeClassTypeData)
-        preprocInclude.empty() ? std::vector<std::string>{} : std::vector<std::string>{std::string(preprocInclude)},
-        INVALID_TYPE_ID, // baseType - не алиас
-        std::move(data), // data - NativeClassTypeData
-        {},              // methods
-        {},              // methodAliases
-        {},              // baseClasses
-        std::move(libs)  // libs - @[link(...)] on-use
+        INVALID_TYPE_ID,   // baseType - не алиас
+        std::move(data),   // data - NativeClassTypeData
+        {},                // methods
+        {},                // methodAliases
+        {}                 // baseClasses
     };
     const TypeId id = m_store.push(kind, std::move(desc), key);
     m_names.bind(key, id);

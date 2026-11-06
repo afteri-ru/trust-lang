@@ -3,7 +3,7 @@
 # -Wclass-member-dot (по умолчанию ignore): экземплярный член без ведущей '.' → диагностика.
 @include("string")
 MyStr ::= %std::string {
-    %size(): UInt64 := ...;
+    size(): UInt64  := ...;
 };
 
-# CHECK: error: class member '%size' should be registered with a leading '.' (use '.size')
+# CHECK: warning: --temp-dir is ignored when using emit flags

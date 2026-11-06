@@ -1,5 +1,11 @@
 #include "semantic/decl/decl_analyzer.hpp"
+#include "analysis/builtin_class.hpp"
+#include "location/module_name.hpp"
+#include "module_api/module_resolver.hpp"
+#include "types/type_data.hpp"
+#include "types/types.hpp"
 #include "semantic/core/ast_view.hpp"
+#include "semantic/decl/func_signature_check.hpp"
 #include "semantic/decl/exported_signature_check.hpp"
 #include "semantic/core/name_resolution.hpp"
 #include "semantic/typer/type_set.hpp"
@@ -7,6 +13,7 @@
 #include "semantic/solver.hpp"
 #include "symbols/symbol_table.hpp"
 #include "semantic/typer/type_inference.hpp"
+#include "semantic/typer/call_binding.hpp"
 #include "attrs/attr_args.hpp"
 #include "attrs/attr_builtin.hpp"
 #include "ast/ref_syntax.hpp"
@@ -19,15 +26,26 @@
 #include "types/type_system.hpp"
 #include "types/type_id.hpp"
 #include "types/names.hpp"
+#include "target/target.hpp"
 #include "utils/strings.hpp"
 #include "utils/utils.hpp"
 #include <algorithm>
 #include <format>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace trust {
 
-// -- RHS-имя типа: общая точка `::=` (новый тип) и `=` (второе имя существующего) --------
+namespace {
+
+bool carriesAttr(const AstNodeBase* node, AttrId id) {
+    const auto* attr = node != nullptr ? node->as_attr() : nullptr;
+    return attr != nullptr && attr->has_attr(id);
+}
+
+} // namespace
+
 // TypeName резолвится через resolveTypeRef (материализует факт в узле, включая шаблонные
 // инстанциации); Ident - имя типа из таблицы символов (ссылка на переменную справа - ошибка).
 TypeId DeclAnalyzer::resolveAliasTargetType(const AstNodeBase& right, std::string_view opSpelling) {
@@ -71,6 +89,15 @@ TypeId DeclAnalyzer::resolveAliasTargetType(const AstNodeBase& right, std::strin
 }
 
 void DeclAnalyzer::analyzeTypeDecl(Binary& binary_node) {
+    // Экспорт публикует C/C++-символ свободной функции/переменной; у типа такого символа нет.
+    // Атрибут может быть привязан к Binary/имени слева/RHS — проверяются все носители.
+    if (const auto exportId = m_actx.ctx().attrs().lookup(attr::Export); exportId.has_value()) {
+        if (carriesAttr(&binary_node, *exportId) || carriesAttr(binary_node.m_left.get(), *exportId) || carriesAttr(binary_node.m_right.get(), *exportId)) {
+            m_actx.ctx().diag().report(Severity::Error, binary_node.range(),
+                                       "native export is applicable only to a free function or variable; a type declaration does not publish a C/C++ symbol");
+            return;
+        }
+    }
     // `=` (TYPE_DEFINE) - две формы: реализация/доопределение УЖЕ объявленного типа и ВТОРОЕ имя
     // существующего типа. `::-` (ALIAS_TYPE) - только второе имя. `::=` создаёт новый тип.
     if (binary_node.isTypeDefine() || binary_node.isTypeAlias()) {
@@ -119,7 +146,7 @@ void DeclAnalyzer::analyzeTypeDecl(Binary& binary_node) {
     // Forward-объявление (нативного) класса `Pair ::= %std::pair<T1,T2>{...};`:
     // RHS - ClassDecl (trust-имя слева, нативное C++-имя из RHS, члены-интерфейс).
     if (right->kind() == ParserToken::Kind::ClassDecl) {
-        analyzeClassDecl(static_cast<ClassDecl&>(*right));
+        analyzeClassDecl(static_cast<ClassDecl&>(*right), binary_node.module);
         recordRegisteredName();
         return;
     }
@@ -158,7 +185,7 @@ void DeclAnalyzer::analyzeTypeDecl(Binary& binary_node) {
         }
     } else if (right->kind() == ParserToken::Kind::TypeSet) {
         // Набор допустимых типов `Name ::= :A + :B;`: проверка комбинации (ветки/подтипы/составные
-        // типы) - здесь, в анализаторе. Регистрация и разворот в N определений - отложены.
+        // типы) - здесь, в анализаторе.
         if (!semantic::validateTypeSet(static_cast<const Sequence&>(*right), m_actx)) {
             return; // ошибки комбинации уже выданы
         }
@@ -173,8 +200,7 @@ void DeclAnalyzer::analyzeTypeDecl(Binary& binary_node) {
     // (непустой m_trust после имени) помечается битом trust в TypeKind - семантический
     // дифференциатор идентичности (и защита от авто-вывода типа, см. typeExpr).
     const auto alias_keys = m_actx.types().typeStorageKeys(binary_node, type_name);
-    TypeId alias_id =
-        m_actx.ctx().types().registrar().registerType(type_name, base_id, {}, right->range(), {}, !binary_node.m_trust.empty(), alias_keys.front());
+    TypeId alias_id = m_actx.registry().registrar().registerType(type_name, base_id, {}, right->range(), !binary_node.m_trust.empty(), alias_keys.front());
     if (alias_id == INVALID_TYPE_ID) {
         return; // дубликат - диагностику сформировал реестр
     }
@@ -209,7 +235,6 @@ void DeclAnalyzer::analyzeTypeDecl(Binary& binary_node) {
     m_core.trust().processTrustConditions(binary_node.m_trust, binary_node);
 }
 
-// -- Формы `=`: реализация типа и ВТОРОЕ имя существующего типа -----------------
 void DeclAnalyzer::analyzeTypeDefine(Binary& binary_node) {
     auto* left = binary_node.m_left.get();
     if (!left || (left->kind() != ParserToken::Kind::Ident && left->kind() != ParserToken::Kind::TypeName)) {
@@ -225,7 +250,7 @@ void DeclAnalyzer::analyzeTypeDefine(Binary& binary_node) {
     }
 
     // `:A ::- T;` / `:A ::- :T;` - ВТОРОЕ ИМЯ существующего типа (семантический алиас): новый TypeId
-    // НЕ создаётся, `A` вводится как имя цели. Признак формы - RHS-имя типа; `::=` по-прежнему
+    // НЕ создаётся, `A` вводится как имя цели. Признак формы - RHS-имя типа; `::=` создаёт
     // создаёт НОВЫЙ номинальный тип. Поэтому LHS здесь обязан быть СВОБОДЕН (в отличие от
     // реализации/доопределения ниже, где LHS уже объявлен).
     if (right->kind() == ParserToken::Kind::TypeName || right->kind() == ParserToken::Kind::Ident) {
@@ -240,7 +265,7 @@ void DeclAnalyzer::analyzeTypeDefine(Binary& binary_node) {
             return;
         }
         const auto alias_keys = m_actx.types().typeStorageKeys(binary_node, type_name);
-        if (m_actx.ctx().types().names().aliasTypeName(target, alias_keys.front(), type_name, left->range()) == INVALID_TYPE_ID) {
+        if (m_actx.registry().names().aliasTypeName(target, alias_keys.front(), type_name, left->range()) == INVALID_TYPE_ID) {
             return; // имя занято - диагностику сформировал reserveTypeName
         }
         if (semantic::isExportedTopLevel(m_actx)) {
@@ -301,11 +326,145 @@ void DeclAnalyzer::analyzeTypeDefine(Binary& binary_node) {
                                    type_name);
         return;
     }
-    if (!ncd.m_body.empty()) {
-        m_actx.ctx().diag().report(Severity::Error, ncd.range(), "implementation members of built-in type '{}' are not supported yet", type_name);
+    // ОДНА реализация на builtin-TypeId: повторное `=`-определение (напр. GMP + OpenSSL одного
+    // типа) — переопределение встроенного ТИПА (не модуля). Настраивается `-Wbuiltin-override`
+    // (дефолт warning): первая реализация сохраняется, повторная игнорируется.
+    if (m_actx.ctx().target().typeCppFacts().hasUser(
+            m_actx.ctx().readTypes().store().cppFactsKeyOf(m_actx.ctx().readTypes().store().desugaredTypeId(*type_id)))) {
+        if (const Severity sever = m_actx.ctx().opts().get(semantic::DiagId::BuiltinOverride); sever != Severity::Ignore) {
+            m_actx.ctx().diag().report(sever, left->range(),
+                                       "built-in type '{}' already has an implementation; redefinition is ignored (silence with -Wbuiltin-override=ignore)",
+                                       type_name);
+        }
         return;
     }
-    if (ncd.m_nativeName.empty()) {
+    validateClassBases(ncd, type_name);
+
+    // Тело `=`-реализации builtin — РЕАЛИЗАЦИИ интерфейсных методов (нативная довязка `%x` или
+    // делегирование). Интерфейс — методы на дескрипторе предобъявленного типа. buildFuncType
+    // материализует return-тип (нужно для HIR-verify).
+    const auto* ifaceMethods = m_actx.ctx().readTypes().store().methodsOf(*type_id);
+    std::unordered_map<std::string, MethodKey> ifaceByName;
+    if (ifaceMethods != nullptr) {
+        for (const auto& [ifaceKey, ifaceInfo] : *ifaceMethods) {
+            (void)ifaceInfo;
+            ifaceByName.emplace(ifaceKey.name, ifaceKey);
+        }
+    }
+    std::unordered_set<std::string> seenBareNames;
+    for (auto& member : ncd.m_body) {
+        if (!member) {
+            continue;
+        }
+        if (member->kind() != ParserToken::Kind::FuncDecl) {
+            m_actx.ctx().diag().report(Severity::Error, member->range(), "implementation member of built-in type '{}' must be a method", type_name);
+            continue;
+        }
+        auto& f = static_cast<FuncDecl&>(*member);
+        MethodKey methodKey = methodKeyFromSpelling(requiredText(*member));
+        methodKey.isConst = f.has_attr(m_actx.ctx().attrs(), attr::ReadOnly);
+        const std::string bare = methodKey.name;
+        const auto ifaceIt = ifaceByName.find(bare);
+        if (ifaceIt == ifaceByName.end()) {
+            // Имя не из интерфейса ЯДРА: реализация builtin вправе объявлять методы ШИРЕ — они
+            // регистрируются на типе как обычные методы (интерфейс ядра остаётся минимальным).
+            // `@[override]` без цели — ошибка.
+            if (auto oid = m_actx.ctx().attrs().lookup(attr::Override); oid.has_value() && f.has_attr(*oid)) {
+                m_actx.ctx().diag().report(
+                    Severity::Error, member->range(),
+                    "method '{}' does not exist in the base class / interface to be overridden by '@[override]' in '='-definition of built-in type '{}'", bare,
+                    type_name);
+                continue;
+            }
+            // Доп. метод обязан нести реализацию (тело, делегат `:= y ...` или нативную `%x ...`).
+            if (!f.hasImplementation()) {
+                m_actx.ctx().diag().report(Severity::Error, member->range(),
+                                           "member '{}' in '='-definition of built-in type '{}' is a forward declaration without implementation", bare,
+                                           type_name);
+                continue;
+            }
+            const TypeId extraFt = m_actx.types().buildFuncType(f);
+            if (extraFt == INVALID_TYPE_ID) {
+                continue;
+            }
+            if (m_actx.ctx().readTypes().methods().hasOwnMethodSignature(*type_id, methodKey, extraFt)) {
+                m_actx.ctx().diag().report(Severity::Error, member->range(),
+                                           "duplicate implementation of method '{}' with the same parameter types in '='-definition of built-in type '{}'",
+                                           bare, type_name);
+                continue;
+            }
+            m_actx.registry().methods().addBuiltinExtraMethod(*type_id, methodKey, extraFt, callableParamInfo(f));
+            const std::string_view native = m_actx.ctx().declCppFacts().cppNameOf(f.declId());
+            if (!native.empty()) {
+                std::string delegate = utils::bareName(native);
+                if (!delegate.empty()) {
+                    m_actx.ctx().target().methodDelegates().set(m_actx.ctx().readTypes().store().desugaredTypeId(*type_id), bare, std::move(delegate));
+                }
+            } else if (const std::string* d = f.forwardingTarget(); d != nullptr && semantic::validateDelegationTarget(m_actx.ctx(), f)) {
+                std::string delegate = utils::bareName(*d);
+                if (!delegate.empty()) {
+                    m_actx.ctx().target().methodDelegates().set(m_actx.ctx().readTypes().store().desugaredTypeId(*type_id), bare, std::move(delegate));
+                }
+            }
+            continue;
+        }
+        // Дубль ПО ИМЕНИ в одном `=`-теле: один интерфейсный метод реализуется ровно один раз.
+        if (!seenBareNames.insert(bare).second) {
+            m_actx.ctx().diag().report(Severity::Error, member->range(), "duplicate implementation of method '{}' in '='-definition of built-in type '{}'",
+                                       bare, type_name);
+            continue;
+        }
+        // Имя из интерфейса: константность обязана совпасть (иначе это другая запись, не покрытие).
+        if (methodKey.isConst != ifaceIt->second.isConst) {
+            m_actx.ctx().diag().report(Severity::Error, member->range(),
+                                       "implementation of method '{}' has wrong constness vs the interface in built-in type '{}'", bare, type_name);
+            continue;
+        }
+        // Резолвим сигнатуру (в т.ч. return-тип, напр. CString) и сверяем с сигнатурой интерфейсного метода.
+        const TypeId ft = m_actx.types().buildFuncType(f);
+        if (ft != INVALID_TYPE_ID && !m_actx.ctx().readTypes().methods().hasOwnMethodSignature(*type_id, methodKey, ft)) {
+            m_actx.ctx().diag().report(Severity::Error, member->range(),
+                                       "implementation of method '{}' does not match its interface signature in built-in type '{}'", bare, type_name);
+        }
+        // Член `=`-тела builtin обязан нести РЕАЛИЗАЦИЮ (тело, делегат `:= y ...` или нативную `%x ...`
+        // привязку); голое предварительное объявление (forward) в реализации — ошибка. Структурный
+        // признак — FuncDecl::hasImplementation() (вид: тело | делегат | native-import).
+        if (!f.hasImplementation()) {
+            m_actx.ctx().diag().report(Severity::Error, member->range(),
+                                       "member '{}' in '='-definition of built-in type '{}' is a forward declaration without implementation; provide a "
+                                       "delegate ':= %name ...;' or ':= name ...;'",
+                                       bare, type_name);
+            continue;
+        }
+        // Привязка реализации: нативный `%x ...` даёт C++-имя члена (`DeclCppFacts` хранилища, R1), а
+        // делегирование к функции `:= y ...` — trust-цель (Definition::forwardedTo). Оба вида
+        // записываются в таблицу делегатов: иначе C++-имя, отличное от trust-имени интерфейса,
+        // было бы недоступно кодогену (предобъявление интерфейса его не несёт).
+        // Самоделегирование (`:= x ...` для самого x) неотличимо от нативной привязки того же
+        // имени — общая проверка Z6a (validateDelegationTarget).
+        const std::string_view native = m_actx.ctx().declCppFacts().cppNameOf(f.declId());
+        if (!native.empty()) {
+            std::string delegate = utils::bareName(native);
+            if (!delegate.empty()) {
+                m_actx.ctx().target().methodDelegates().set(m_actx.ctx().readTypes().store().desugaredTypeId(*type_id), bare, std::move(delegate));
+            }
+        } else if (const std::string* d = f.forwardingTarget(); d != nullptr && semantic::validateDelegationTarget(m_actx.ctx(), f)) {
+            std::string delegate = utils::bareName(*d);
+            if (!delegate.empty()) {
+                m_actx.ctx().target().methodDelegates().set(m_actx.ctx().readTypes().store().desugaredTypeId(*type_id), bare, std::move(delegate));
+            }
+        }
+    }
+    // Строгое покрытие: каждый интерфейсный метод обязан быть реализован (`%name`/`name`).
+    for (const auto& [ifaceName, ifaceKey] : ifaceByName) {
+        (void)ifaceKey;
+        if (seenBareNames.find(ifaceName) == seenBareNames.end()) {
+            m_actx.ctx().diag().report(Severity::Error, left->range(), "interface method '{}' of built-in type '{}' has no implementation in '='-definition",
+                                       ifaceName, type_name);
+        }
+    }
+    const std::string_view ncdCppName = m_actx.ctx().declCppFacts().cppNameOf(ncd.declId());
+    if (ncdCppName.empty()) {
         m_actx.ctx().diag().report(Severity::Error, ncd.range(), "implementation of built-in type '{}' must have a native C++ name", type_name);
         return;
     }
@@ -313,6 +472,18 @@ void DeclAnalyzer::analyzeTypeDefine(Binary& binary_node) {
     std::vector<std::string> includes;
     std::vector<std::string> libs;
     {
+        // Тип, чей C++-класс ГЕНЕРИРУЕТСЯ (реализация описывает собственный класс), публикуется
+        // заголовком модуля-владельца: заголовок модуля = его интерфейс, поэтому include типа —
+        // именно этот заголовок, а не внешний `@[include]` из `.src`.
+        if (analysis::builtinImplGeneratesCppClass(ncd, m_actx.ctx().attrs())) {
+            // Модуль-владелец берётся с узла TypeDecl: RHS ClassDecl модулем не штампуется.
+            if (ModuleResolver* resolver = m_actx.ctx().moduleResolver(); resolver != nullptr && binary_node.module.isValid()) {
+                const std::string encoded = moduleEncodedName(resolver->moduleLogicalName(binary_node.module));
+                if (!encoded.empty()) {
+                    includes.push_back("#include \"" + moduleHeaderFileName(encoded) + "\"");
+                }
+            }
+        }
         const AttrPool& attrs = m_actx.ctx().attrs();
         if (const std::string* header = firstAttrArg(attrs, ncd, attr::Include)) {
             includes.push_back(includeDirective(*header));
@@ -322,33 +493,37 @@ void DeclAnalyzer::analyzeTypeDefine(Binary& binary_node) {
         }
     }
 
-    if (m_actx.ctx().types().builtins().define(m_actx.ctx().readTypes(), type_name, ncd.m_nativeName, std::move(includes), std::move(libs)) ==
-        INVALID_TYPE_ID) {
-        m_actx.ctx().diag().report(Severity::Error, left->range(), "failed to define implementation of built-in type '{}'", type_name);
+    // Целевые C++-факты реализации builtin (C++-имя/include/libs) — в контракт цели (`target`), НЕ в
+    // языковую модель (R1/R37); хранится на КАНОНИЧЕСКОМ типе (алиас `String` и цель `StrChar` — одна
+    // реализация). Инварианты «builtin» и «одна реализация» уже проверены выше.
+    {
+        CppTypeFacts implFacts;
+        implFacts.cppName = std::string(ncdCppName);
+        implFacts.preprocIncludes = std::move(includes);
+        implFacts.libs = std::move(libs);
+        const TypeId implKey = m_actx.ctx().readTypes().store().cppFactsKeyOf(m_actx.ctx().readTypes().store().desugaredTypeId(*type_id));
+        m_actx.ctx().target().typeCppFacts().set(implKey, std::move(implFacts));
     }
 }
 
-// -- Единый сбор членов `(name=value / name:Type=value / bare name)` из DictLiteral RHS --
 // Контракт: элементы m_body - ArgNode (имя в text(), явный тип в m_type, значение в m_value),
 // строятся term_to_ast::appendDictElementsFromArgs. Чтение (имя/тип/значение) - НАПРЯМУЮ из
 // ArgNode, без обёрток и без разворачивания. Значение члена Variant - AST-выражение (источник -
 // ArgNode.m_value); в реестре - только разрешённый тип члена.
 
-// -- Объявление enum-типа (`Color ::= :Enum(RED=1, GREEN=2,)` / `(RED=1, GREEN=2,):Enum`) --
 // TypeDecl(Binary): left = имя типа, right = DictLiteral с аннотацией m_type «Enum»; элементы
 // m_body - ArgNode (имя, явный тип, значение). Регистрирует enum-тип, вычисляет единый тип
 // значений (по общим правилам, предупреждение WidenAny при повышении до Any), биндит имя и
 // регистрирует классические методы.
 void DeclAnalyzer::analyzeEnumDecl(Binary& binary_node) {
     const std::string enum_name = std::string(requiredText(*binary_node.m_left));
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     const MapperRange decl_range = binary_node.range();
 
     auto* right = binary_node.m_right.get();
     EXPECT(right && right->kind() == ParserToken::Kind::DictLiteral && "analyzeEnumDecl: RHS must be Enum-annotated DictLiteral");
     auto& dict = static_cast<DictLiteralNode&>(*right);
 
-    // -- Члены: (имя, значение|null, явный тип|null) - напрямую из элементов m_body (ArgNode).
     const auto& body = dict.m_body;
     const auto isMember = [](const AstNodePtr& el) { return el && el->kind() == ParserToken::Kind::ArgNode; };
 
@@ -367,7 +542,6 @@ void DeclAnalyzer::analyzeEnumDecl(Binary& binary_node) {
     md.reserve(memberCount);
     TypeId valueType = INVALID_TYPE_ID;
 
-    // -- Проход 1: тип - из ЯВНЫХ аннотаций члена (`A:Rational`); иначе из значений --
     bool haveExplicitType = false;
     for (const auto& el : body) {
         if (isMember(el) && static_cast<const ArgNode&>(*el).m_type) {
@@ -395,7 +569,7 @@ void DeclAnalyzer::analyzeEnumDecl(Binary& binary_node) {
                 valueType = c;
             } else if (valueType != c) {
                 m_actx.ctx().diag().report(Severity::Error, ta->range(), "enum '{}' member types differ ('{}' vs '{}')", enum_name,
-                                           reg.read().printer().getTypeName(valueType), reg.read().printer().getTypeName(c));
+                                           reg.read().printer().typeNameOf(valueType), reg.read().printer().typeNameOf(c));
                 return;
             }
         }
@@ -448,8 +622,7 @@ void DeclAnalyzer::analyzeEnumDecl(Binary& binary_node) {
     // WidenAny). Ветка INVALID здесь невозможна - молча не подменяем, а ловим инвариантом.
     EXPECT(valueType != INVALID_TYPE_ID && "analyzeEnumDecl: value type must be resolved");
 
-    // -- Проход 2: значения членов (автоинкремент для целого типа, иначе ординал) --
-    const bool integerVT = getGroup(getTypeKind(reg.read().store().desugaredTypeId(valueType))) == Group::kIntegers;
+    const bool integerVT = typeGroupOf(reg.read().store().desugaredTypeId(valueType)) == Group::kIntegers;
     unsigned long long cur = 0;
     bool haveValue = false;
     size_t ordinal = 0;
@@ -486,7 +659,6 @@ void DeclAnalyzer::analyzeEnumDecl(Binary& binary_node) {
         ++ordinal;
     }
 
-    // -- Регистрация enum-типа в реестре (EnumTypeData; дубликат → диагностика реестра).
     const auto enum_keys = m_actx.types().typeStorageKeys(binary_node, enum_name);
     const TypeId enum_id = reg.registrar().registerEnumType(enum_name, valueType, std::move(md), decl_range, !binary_node.m_trust.empty(), enum_keys.front());
 
@@ -498,7 +670,6 @@ void DeclAnalyzer::analyzeEnumDecl(Binary& binary_node) {
     }
     m_actx.types().aliasTypeKeys(enum_id, enum_keys);
 
-    // -- Биндинг имени enum-типа в текущем скоупе (shadowing через скоуп-стек).
     Symbol es;
     es.name = stableSymbolName(enum_name);
     es.type = QualType::fromTypeId(enum_id);
@@ -516,7 +687,6 @@ void DeclAnalyzer::analyzeEnumDecl(Binary& binary_node) {
         hook->onDeclare(es);
     }
 
-    // -- Классические тип-уровневые методы (осознанное решение: работа ТОЛЬКО через тип).
     // count() -> Int64; fromName(name: StrChar) -> Enum; fromValue(value: Value) -> Enum.
     const TypeId int64Id = reg.read().getType(type::Int64);
     const TypeId strCharId = reg.read().getType(type::StrChar);
@@ -526,14 +696,13 @@ void DeclAnalyzer::analyzeEnumDecl(Binary& binary_node) {
     reg.methods().addMethod(enum_id, "fromValue", ftype(enum_id, {valueType}));
 }
 
-// -- Объявление Variant-типа (`Value ::= :Variant(RED:Int64=0, GREEN='g',)`) --
 // TypeDecl(Binary): left = имя типа, right = DictLiteral с аннотацией m_type «Variant»; элементы
 // m_body - Binary(AssignOp) (left=имя или пусто для бесзначённого, right=значение). Тип каждого
 // члена - СВОЙ (гетерогенный): выводится из значения (exprType), ординальный член без значения
 // → минимальный знаковый Int по позиции. Регистрирует Variant-тип, биндит имя, методы (count).
 void DeclAnalyzer::analyzeVariantDecl(Binary& binary_node) {
     const std::string variant_name = std::string(requiredText(*binary_node.m_left));
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     const MapperRange decl_range = binary_node.range();
 
     auto* right = binary_node.m_right.get();

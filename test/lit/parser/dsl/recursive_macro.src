@@ -6,3 +6,6 @@
 @recurse;
 # CHECK: error: recursive macro
 # CHECK: possible self-recursion
+# R50: пара `use → definition` записана до рекурсивного вызова, поэтому диагностика несёт
+# точку раскрытия (определение макроса); это не ложная цепочка — раскрытие действительно началось.
+# CHECK: note: in expansion of macro '@recurse'

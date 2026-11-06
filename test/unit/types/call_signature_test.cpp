@@ -4,6 +4,7 @@
 // шаблон-класса.
 
 #include "types/type_system.hpp"
+#include "types/registry/structural_interner.hpp"
 #include "types/subst/template_subst.hpp"
 #include "types/names.hpp"
 #include "types/call.hpp"
@@ -28,7 +29,7 @@ class CallSignatureFixture : public ::testing::Test {
 };
 
 TEST_F(CallSignatureFixture, NonGenericIsIdentity) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId sig = reg.interner().getOrCreateFunctionType(i32, {i32});
     const TemplateBindings none;
@@ -38,7 +39,7 @@ TEST_F(CallSignatureFixture, NonGenericIsIdentity) {
 }
 
 TEST_F(CallSignatureFixture, GenericSubstitutesParamsAndReturn) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId sig = reg.interner().getOrCreateFunctionType(t, {t});
@@ -56,7 +57,7 @@ TEST_F(CallSignatureFixture, GenericSubstitutesParamsAndReturn) {
 }
 
 TEST_F(CallSignatureFixture, PackIsExpandedToFlatParams) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId str = reg.read().getType(type::StrChar);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
@@ -80,7 +81,7 @@ TEST_F(CallSignatureFixture, PackIsExpandedToFlatParams) {
 }
 
 TEST_F(CallSignatureFixture, DefaultsDoNotChangeArity) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     // Сигнатура объявляет два параметра; вызов передал один (второй - default в объявлении).
     const TypeId sig = reg.interner().getOrCreateFunctionType(i32, {i32, i32});
@@ -93,7 +94,7 @@ TEST_F(CallSignatureFixture, DefaultsDoNotChangeArity) {
 }
 
 TEST_F(CallSignatureFixture, TrustFlagPreserved) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId trusted = reg.interner().getOrCreateFunctionType(t, {t}, INVALID_TYPE_ID, /*hasTrust=*/true);
@@ -106,7 +107,7 @@ TEST_F(CallSignatureFixture, TrustFlagPreserved) {
 }
 
 TEST_F(CallSignatureFixture, ElementParamSubstitutesNestedTypes) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId tp = reg.read().getType(type_category::TemplateParam); // встроенный параметр контейнера
     const TypeId arrT = reg.interner().getOrCreateArrayType(tp);
@@ -122,7 +123,7 @@ TEST_F(CallSignatureFixture, ElementParamSubstitutesNestedTypes) {
 }
 
 TEST_F(CallSignatureFixture, TemplateInstanceKeepsMethodParams) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId tmpl = reg.registrar().declareRecord("Box", Group::kClassDefs, /*isTemplate=*/true);
@@ -131,8 +132,7 @@ TEST_F(CallSignatureFixture, TemplateInstanceKeepsMethodParams) {
     ASSERT_NE(reg.registrar().defineRecord("Box", Group::kClassDefs, {{"v", QualType::fromTypeId(t)}}), INVALID_TYPE_ID);
 
     CallableParamInfo info;
-    info.names = {"a", "b"};
-    info.hasDefault = {false, true};
+    info.slots = {{"a", false}, {"b", true}};
     reg.methods().addMethod(tmpl, "f", reg.interner().getOrCreateFunctionType(i32, {i32, i32}), {}, info);
 
     const TypeId inst = reg.interner().getOrCreateRecordTemplateInstance(tmpl, {i32});
@@ -141,13 +141,16 @@ TEST_F(CallSignatureFixture, TemplateInstanceKeepsMethodParams) {
     ASSERT_TRUE(method.has_value());
     // Инвариант CallableParamInfo: metadata в том же элементе набора и у инстанса шаблона.
     ASSERT_EQ(method->entries.size(), 1u);
-    EXPECT_EQ(method->entries[0].params.names, (std::vector<std::string>{"a", "b"}));
-    EXPECT_EQ(method->entries[0].params.hasDefault, (std::vector<bool>{false, true}));
+    ASSERT_EQ(method->entries[0].params.slots.size(), 2u);
+    EXPECT_EQ(method->entries[0].params.slots[0].name, "a");
+    EXPECT_FALSE(method->entries[0].params.slots[0].hasDefault);
+    EXPECT_EQ(method->entries[0].params.slots[1].name, "b");
+    EXPECT_TRUE(method->entries[0].params.slots[1].hasDefault);
 }
 TEST_F(CallSignatureFixture, TemplateParamOwnerScopingDistinguishesSiblingTemplates) {
     // Owner-scoping (C++-модель TemplateTypeParmDecl): одинаковое имя параметра в РАЗНЫХ шаблонах
     // даёт разные TypeId (принадлежность параметра своему шаблону), а не общий «глобальный T».
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId a = reg.registrar().declareRecord("A", Group::kClassDefs, /*isTemplate=*/true);
     const TypeId b = reg.registrar().declareRecord("B", Group::kClassDefs, /*isTemplate=*/true);
     const TypeId ta = reg.interner().getOrCreateTemplateParamType("T", a, /*depth=*/0, /*index=*/0);
@@ -167,14 +170,14 @@ TEST_F(CallSignatureFixture, TemplateParamOwnerScopingDistinguishesSiblingTempla
 TEST_F(CallSignatureFixture, RecordTemplateInstanceMemoizesMethods) {
     // Специализация (templateId, args) — канонический TypeId через структурное интернирование;
     // повторный запрос того же инстанса ВОЗВРАЩАЕТ тот же TypeId и НЕ дублирует методы.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId tmpl = reg.registrar().declareRecord("MemoBox", Group::kClassDefs, /*isTemplate=*/true);
     reg.registrar().setRecordTemplateParams(tmpl, {t});
     ASSERT_NE(reg.registrar().defineRecord("MemoBox", Group::kClassDefs, {{"v", QualType::fromTypeId(t)}}), INVALID_TYPE_ID);
     CallableParamInfo info;
-    info.names = {"x"};
+    info.slots = {{"x", false}};
     reg.methods().addMethod(tmpl, "get", reg.interner().getOrCreateFunctionType(i32, {i32}), {}, info);
     const TypeId inst1 = reg.interner().getOrCreateRecordTemplateInstance(tmpl, {i32});
     ASSERT_NE(inst1, INVALID_TYPE_ID);
@@ -190,7 +193,7 @@ TEST_F(CallSignatureFixture, RecordTemplateInstanceMemoizesMethods) {
 TEST_F(CallSignatureFixture, RecordTemplateInstanceClassifiedAsImplicitSpecialization) {
     // S1: record-инстанциация (templateId, args) — имплицитная специализация; primary-шаблон,
     // обычный record — kNone (не специализация).
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId tmpl = reg.registrar().declareRecord("KindBox", Group::kClassDefs, /*isTemplate=*/true);
@@ -210,6 +213,55 @@ TEST_F(CallSignatureFixture, RecordTemplateInstanceClassifiedAsImplicitSpecializ
     // Обычный (не-шаблонный) record — kNone.
     const TypeId plain = reg.registrar().defineRecord("PlainKind", Group::kStructs, {{"x", QualType::fromTypeId(i32)}});
     EXPECT_EQ(reg.read().store().recordSpecializationKind(plain), TemplateSpecializationKind::kNone);
+}
+
+TEST_F(CallSignatureFixture, RecursiveRecordTemplateInstanceDiagnosed) {
+    // R26: самоссылочное поле по значению — цикл инстанциации. Повторный вход с тем же ключом
+    // (template, args) до регистрации не должен рекурсировать (иначе — переполнение стека):
+    // выдаётся Trust-диагностика, недостоверный тип не публикуется (R9/R16).
+    TypeSystem& reg = *m_types;
+    const TypeId i32 = reg.read().getType(type::Int32);
+    const TypeId tmpl = reg.registrar().declareRecord("RecSelf", Group::kClassDefs, /*isTemplate=*/true);
+    const TypeId t = reg.interner().getOrCreateTemplateParamType("T", tmpl, 0, 0);
+    reg.registrar().setRecordTemplateParams(tmpl, {t});
+    // Поле-форма объявляется типом-инстанциацией шаблона в нём самом (до определения полей).
+    const TypeId selfField = reg.interner().getOrCreateRecordTemplateInstance(tmpl, {t});
+    ASSERT_NE(selfField, INVALID_TYPE_ID);
+    ASSERT_NE(reg.registrar().defineRecord("RecSelf", Group::kClassDefs, {{"next", QualType::fromTypeId(selfField)}}), INVALID_TYPE_ID);
+    const int before = m_ctx.diag().errorCount();
+    const TypeId inst = reg.interner().getOrCreateRecordTemplateInstance(tmpl, {i32});
+    EXPECT_EQ(inst, INVALID_TYPE_ID) << "циклическая инстанциация не создаётся (R26)";
+    EXPECT_GT(m_ctx.diag().errorCount(), before) << "цикл — Trust-диагностика, не silent fallback (R9)";
+}
+
+TEST_F(CallSignatureFixture, RecordTemplateInstantiationDepthIsLimited) {
+    // R26: не-циклическая, но чрезмерно глубокая вложенность инстанциаций ограничена
+    // Trust-диагностикой (защита от переполнения стека компилятора).
+    TypeSystem& reg = *m_types;
+    const TypeId i32 = reg.read().getType(type::Int32);
+    // Цепочка Chain_0..Chain_N: поле Chain_i по значению имеет тип Chain_{i-1}<T_i>; сборка
+    // формы Chain_i разворачивает цепочку инстанциаций глубиной i.
+    TypeId prev = INVALID_TYPE_ID;
+    bool limited = false;
+    const int before = m_ctx.diag().errorCount();
+    for (std::size_t i = 0; i <= StructuralInterner::kMaxRecordInstanceDepth + 2; ++i) {
+        const std::string name = "Chain" + std::to_string(i);
+        const TypeId tmpl = reg.registrar().declareRecord(name, Group::kClassDefs, /*isTemplate=*/true);
+        const TypeId t = reg.interner().getOrCreateTemplateParamType("T", tmpl, 0, 0);
+        reg.registrar().setRecordTemplateParams(tmpl, {t});
+        TypeId fieldType = t; // Chain_0: поле — сам параметр (лист)
+        if (prev != INVALID_TYPE_ID) {
+            fieldType = reg.interner().getOrCreateRecordTemplateInstance(prev, {t});
+            if (fieldType == INVALID_TYPE_ID) {
+                limited = true; // лимит сработал на сборке формы Chain_i
+                break;
+            }
+        }
+        ASSERT_NE(reg.registrar().defineRecord(name, Group::kClassDefs, {{"v", QualType::fromTypeId(fieldType)}}), INVALID_TYPE_ID);
+        prev = tmpl;
+    }
+    EXPECT_TRUE(limited) << "лимит глубины инстанциаций должен сработать (R26)";
+    EXPECT_GT(m_ctx.diag().errorCount(), before) << "лимит глубины — Trust-диагностика (R26)";
 }
 
 } // namespace

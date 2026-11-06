@@ -5,6 +5,7 @@
 # диагностику -Wstack-check-infer (warning) — пользователь должен сам пометить @[stack_check@]
 # либо включить --stack-check=auto.
 
+\std();
 @func recurse(n:Int32):Int32 {
     @if(n <= 0) {
         @return 0;

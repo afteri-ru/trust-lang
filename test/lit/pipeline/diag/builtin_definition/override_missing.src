@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp -Wbuiltin-override=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# @[override] без соответствующего метода в базе/интерфейсе → ошибка (классическая OOP-проверка).
+StrChar = %std::string {
+    @[override@]
+    noexcept_size(): UInt64 := %size ...;
+};
+@main(): Int32 := { return 0; };
+# CHECK: error: method 'noexcept_size' does not exist in the base class / interface to be overridden by '@[override]'

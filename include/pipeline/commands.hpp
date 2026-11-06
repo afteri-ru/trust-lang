@@ -1,4 +1,3 @@
-// include/pipeline/commands.hpp
 // CLI/use-case команды поверх конвейера: лексемы, solver, emit и компиляция.
 // Не являются методами Pipeline (CLI-политика отделена от ядра компиляции).
 #pragma once

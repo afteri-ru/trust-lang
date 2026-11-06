@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/verify/trust_analyzer.hpp
 // Компонент семантики: TrustAnalyzer. Разделяет AnalysisContext с драйвером NameResolutionPass;
 // рекурсия/вызовы других компонентов и драйвера идут через NameResolutionPass (friend).
 

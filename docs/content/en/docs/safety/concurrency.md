@@ -29,7 +29,7 @@ a reference synchronizes access to the object.
 
 ## Library async layer {#async-layer}
 
-The types are declared in the stdlib prelude (`async.src`) and are available without an import:
+The types are declared by the `async.src` module and are available through the umbrella `\std();`:
 
 | TrustLang | C++ | Purpose |
 |---|---|---|

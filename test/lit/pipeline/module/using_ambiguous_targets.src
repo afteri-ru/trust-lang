@@ -3,25 +3,16 @@
 # RUN: %not %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
 #
 # Две `using`-цели ОДНОГО скоупа с ОДИНАКОВОЙ сигнатурой: слияние наборов даёт два равных
-# кандидата → явная неоднозначность вызова (диагностика резолвера перегрузок). Различающиеся
-# сигнатуры разрешаются молча (см. using_overload_merge.src).
+# кандидата → явная неоднозначность вызова.
 # CHECK: error: call to overloaded function 'f' is ambiguous
 
 //--- main.src
-\lib1(ns::f);
-\lib2(ns2::f);
-... = \lib1::ns;
-... = \lib2::ns2;
+nsA:: {
+    f(x:Int32):Int32 := { @return 1; };
+};
+nsB:: {
+    f(x:Int32):Int32 := { @return 2; };
+};
+... = nsA;
+... = nsB;
 @main():Int32 := { @return f(1); };
-
-//--- lib1.src
-\lib1;
-ns:: {
-    f(x:Int32):Int32 := { @return x + 1; };
-};
-
-//--- lib2.src
-\lib2;
-ns2:: {
-    f(x:Int32):Int32 := { @return x + 2; };
-};

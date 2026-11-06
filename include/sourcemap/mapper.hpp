@@ -1,6 +1,5 @@
 #pragma once
 
-// include/sourcemap/mapper.hpp
 // Зонтик source map: FileEntry, SourceMap<FileIdx>, OutputBuffer, SourceMapWriter,
 // SourceMapReader и общий помощник SourceLocation. Узкие зоны - в отдельных заголовках.
 
@@ -13,10 +12,6 @@
 #include <string>
 
 namespace trust {
-
-// ══════════════════════════════════════════════════════════════
-//  Общий помощник «файл:строка» из диапазона
-// ══════════════════════════════════════════════════════════════
 
 /// Имя файла и номер строки исходного .src для диапазона (через SourceMap).
 /// ЕДИНЫЙ источник «файл:строка» для парсера (контекст-макросы `@__FILE_NAME__`/`@__FILE_LINE__`)

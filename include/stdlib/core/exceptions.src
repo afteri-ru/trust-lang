@@ -1,0 +1,18 @@
+\exceptions;
+# exceptions.src - implementations of the built-in exception/interruption types
+# (one functional area, Group::kExceptions):
+#   StdException            - std::exception (classic C++ exception base);
+#   IntAny/IntPlus/IntMinus - control-flow interruptions (IntMinus also std::runtime_error).
+# Loaded explicitly via `\exceptions();` (or the umbrella `\std();`).
+
+@[include("stdexcept")@]
+StdException = %std::exception { };
+
+@[include("@stdlib/interrupts.hpp")@]
+IntAny = %trust::IntAny { };
+
+@[include("@stdlib/interrupts.hpp")@]
+IntPlus = %trust::IntPlus { };
+
+@[include("@stdlib/interrupts.hpp")@]
+IntMinus = %trust::IntMinus { };

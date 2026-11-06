@@ -1,4 +1,3 @@
-// src/semantic/typer/operator_check.cpp
 // Валидация объявления перегружаемого оператора (см. semantic/typer/operator_check.hpp).
 // Идентичность оператора — системное dunder-имя (`__eq__`, ...); допустимый набор и правила
 // member/free/арности — ЕДИНЫЙ источник types/operator_registry.hpp.
@@ -17,24 +16,6 @@
 namespace trust::semantic {
 
 namespace {
-
-// Ожидаемое число ПАРАМЕТРОВ объявления. op::Arity считает ОПЕРАНДЫ: member-форма имеет
-// неявный *this (на один параметр меньше), free-форма - все операнды. nullopt - не фиксировано.
-std::optional<size_t> expectedParamCount(op::Arity arity, bool isMember) {
-    switch (arity) {
-    case op::Arity::kUnary:
-        return isMember ? 0u : 1u;
-    case op::Arity::kBinary:
-        return isMember ? 1u : 2u;
-    case op::Arity::kIndex:
-        return 1u; // всегда member, ровно один индекс
-    case op::Arity::kCall:
-        return std::nullopt; // operator() - произвольное число аргументов
-    case op::Arity::kIncDec:
-        return std::nullopt; // prefix/postfix - разное число параметров (см. ниже)
-    }
-    return std::nullopt;
-}
 
 // Postfix `++`/`--` в C++ имеет ровно один dummy-параметр типа int. В Trust он объявляется
 // ровно как `Int32` (эмитится как C++ `int`): любой другой целый тип сделал бы два postfix-
@@ -113,7 +94,7 @@ bool validateOperatorDecl(Context& ctx, const FuncDecl& f, bool isMember) {
         }
         return true;
     }
-    if (const std::optional<size_t> expected = expectedParamCount(info->arity, isMember); expected.has_value() && params != *expected) {
+    if (const std::optional<size_t> expected = op::operatorParamCount(info->arity, isMember); expected.has_value() && params != *expected) {
         ctx.diag().report(Severity::Error, f.range(), "operator '{}' in this form expects {} parameter(s), got {}", sym, *expected, params);
         return false;
     }

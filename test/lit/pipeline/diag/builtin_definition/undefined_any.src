@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Явный `:Any` материализуется как std::any -> provider-gate требует модуль builtin/any.
+# (Внутренний sentinel вывода `Auto` гейт НЕ требует - см. variadic/tensor.)
+a :Any := 5;
+# CHECK: error: implementation of built-in type 'Any' is not defined

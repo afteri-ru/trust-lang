@@ -1,3 +1,4 @@
+\mem();
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # @[deleter(D)] на владеющем виде: создание ресурса через <Wrapper>::adopt(handle, D{}).
@@ -12,7 +13,7 @@ get_handle():@[reftype(ptr)@] Int32 := %test_raw...;
     s : @[reftype("shared")@] @[deleter(FreeDeleter)@] Int32 := get_handle();
     return *h;
 };
-# CHECK: #include "trust/resource.hpp"
-# CHECK: #include "trust/trusted-cpp.hpp"
-# CHECK: trust::Unique<int32_t, trust::FreeDeleter> c_h = trust::Unique<int32_t, trust::FreeDeleter>::adopt(test_raw(), trust::FreeDeleter{});
-# CHECK: trust::Shared<int32_t> c_s = trust::Shared<int32_t>::adopt(test_raw(), trust::FreeDeleter{});
+# CHECK: #include "stdlib/resource.hpp"
+# CHECK: #include "stdlib/trusted-cpp.hpp"
+# CHECK: trust::Unique<int32_t, trust::FreeDeleter> h = trust::Unique<int32_t, trust::FreeDeleter>::adopt(test_raw(), trust::FreeDeleter{});
+# CHECK: trust::Shared<int32_t> s = trust::Shared<int32_t>::adopt(test_raw(), trust::FreeDeleter{});

@@ -2,6 +2,7 @@
 // Юнит-тесты общих хелперов типизации: isArithmeticGroup,
 // intTypeForWidth, literalType, isAnyType и is_binary_expr_kind.
 
+#include "support/cpp_facts_test_util.hpp"
 #include "types/group.hpp"
 #include "type_flag_test_utils.hpp"
 #include "types/call.hpp"
@@ -9,6 +10,7 @@
 #include "types/type_id.hpp"
 #include "semantic/typer/type_inference.hpp"
 #include "semantic/typer/literal_annotation.hpp"
+#include "transpiler/type/cpp_type_renderer.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/token.hpp"
 #include "session/context.hpp"
@@ -34,14 +36,16 @@ class TypeHelpersFixture : public ::testing::Test {
   protected:
     Context m_ctx;
     std::unique_ptr<TypeSystem> m_types;
+    TargetContract m_target;
     void SetUp() override {
         m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
+        test::installTargetFacts(m_ctx, m_target);
     }
 };
 
 TEST_F(TypeHelpersFixture, IntTypeForWidth) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     EXPECT_EQ(intTypeForWidth(reg, 8), reg.read().getType("Int8"));
     EXPECT_EQ(intTypeForWidth(reg, 16), reg.read().getType("Int16"));
     EXPECT_EQ(intTypeForWidth(reg, 32), reg.read().getType("Int32"));
@@ -50,7 +54,7 @@ TEST_F(TypeHelpersFixture, IntTypeForWidth) {
 }
 
 TEST_F(TypeHelpersFixture, LiteralType) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "1"), reg), reg.read().getType("Int8"));
     EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "0"), reg), reg.read().getType("Int8"));
     EXPECT_EQ(literalType(Literal(ParserToken::Kind::IntLiteral, "42"), reg), reg.read().getType("Int8"));
@@ -74,7 +78,7 @@ TEST_F(TypeHelpersFixture, LiteralType) {
 }
 
 TEST_F(TypeHelpersFixture, IsAnyType) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     EXPECT_TRUE(isAnyType(reg.read().getType("Any"), reg));
     EXPECT_FALSE(isAnyType(reg.read().getType("Int32"), reg));
     EXPECT_FALSE(isAnyType(INVALID_TYPE_ID, reg));
@@ -87,7 +91,7 @@ TEST_F(TypeHelpersFixture, IsAnyType) {
 
 // -- Константность (kConstFlag) - ортогональный квалификатор --
 TEST_F(TypeHelpersFixture, ConstFlagMechanics) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i8 = reg.read().getType("Int8");
     const TypeId c = setFlag(i8, TypeFlag::Const);
 
@@ -105,18 +109,18 @@ TEST_F(TypeHelpersFixture, ConstFlagMechanics) {
     // Каноника снимает const-бит - const T и T разделяют канонический тип.
     EXPECT_EQ(reg.read().store().desugaredTypeId(c), reg.read().store().desugaredTypeId(i8));
 
-    // getCppTypeName(QualType) даёт лидирующий `const `; TypeId-версия — identity-only.
-    auto base = reg.read().printer().getCppTypeName(i8);
-    auto ccpp = reg.read().printer().getCppTypeName(QualType::fromTypeId(i8).withConst());
+    // CppTypeRenderer::render(QualType) даёт лидирующий `const `; TypeId-версия — identity-only.
+    auto base = CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(i8);
+    auto ccpp = CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(QualType::fromTypeId(i8).withConst());
     ASSERT_TRUE(base.has_value());
     ASSERT_TRUE(ccpp.has_value());
     EXPECT_EQ(*ccpp, "const " + *base);
     EXPECT_NE(*ccpp, *base);
     // TypeId-перегрузка — identity-only: raw state не влияет на C++-имя.
-    EXPECT_EQ(reg.read().printer().getCppTypeName(c).value(), *base);
+    EXPECT_EQ(CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(c).value(), *base);
 
     // Полное trust-имя и lookup по структурному имени от const не зависят.
-    EXPECT_EQ(reg.read().printer().getTypeName(c), reg.read().printer().getTypeName(i8));
+    EXPECT_EQ(reg.read().printer().typeNameOf(c), reg.read().printer().typeNameOf(i8));
 }
 
 TEST_F(TypeHelpersFixture, ConstAndInferredAreIndependent) {
@@ -132,21 +136,23 @@ TEST_F(TypeHelpersFixture, ConstAndInferredAreIndependent) {
 
 // -- Dict / Dictionary - регистрация универсального словаря --
 TEST_F(TypeHelpersFixture, DictTypeRegistered) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     // Оба имени резолвятся; Dictionary - алиас на Dict.
     TypeId dict = reg.read().getType("Dict");
     TypeId dictionary = reg.read().getType("Dictionary");
     EXPECT_NE(dict, INVALID_TYPE_ID);
     EXPECT_EQ(reg.read().store().desugaredTypeId(dictionary), dict);
-    // C++-имя и заголовок (маркер '@' = нужен trust-runtime).
-    auto cpp = reg.read().printer().getCppTypeName(dict);
+    // C++-имя и заголовок появляются только ПОСЛЕ реализации (stdlib/builtin/dict.src).
+    EXPECT_FALSE(CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(dict).has_value());
+    ASSERT_EQ(test::defineBuiltinImplChecked(reg.read(), m_target, "Dict", "trust::Dict", {"@stdlib/builtin/dict.hpp"}, {}), dict);
+    auto cpp = CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(dict);
     ASSERT_TRUE(cpp.has_value());
     EXPECT_EQ(*cpp, "trust::Dict");
-    EXPECT_EQ(reg.read().builtins().preprocIncludeOf(dict), "@trust/dict.hpp");
+    EXPECT_EQ(test::cppFactsViewOf(m_ctx).preprocIncludeOf(dict), "@stdlib/builtin/dict.hpp");
     // Группа kDicts - конкретная (Data≠0), категория Containers.
-    EXPECT_EQ(getGroup(getTypeKind(dict)), Group::kDicts);
-    EXPECT_TRUE(getData(getTypeKind(dict)) != 0);
-    EXPECT_TRUE(belongsToCategory(getGroup(getTypeKind(dict)), Category::kContainers));
+    EXPECT_EQ(typeGroupOf(dict), Group::kDicts);
+    EXPECT_TRUE(typeDataOf(dict) != 0);
+    EXPECT_TRUE(belongsToCategory(typeGroupOf(dict), Category::kContainers));
 }
 
 TEST(TypeHelperTest, ParseIntegerLiteralUnified) {
@@ -215,7 +221,7 @@ TEST(TypeHelperTest, IntFitsTargetSignAware) {
 
 TEST_F(TypeHelpersFixture, IntLiteralTypeConverter) {
     // Единый конвертер типа целочисленного литерала (int_literal.hpp).
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     // 0/1 → минимальный знаковый Int (Int8); НЕ Bool (Bool - только явная аннотация).
     EXPECT_EQ(intLiteralType(reg, "0"), reg.read().getType("Int8"));
     EXPECT_EQ(intLiteralType(reg, "1"), reg.read().getType("Int8"));
@@ -262,27 +268,30 @@ TEST(TypeHelperTest, StripDigitSeparatorsAndParse) {
 
 // -- BigInteger - регистрация в той же группе kArbitraryPrecision, что и Rational --
 TEST_F(TypeHelpersFixture, BigIntegerTypeRegistered) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     TypeId bi = reg.read().getType("BigInteger");
     TypeId rat = reg.read().getType("Rational");
     EXPECT_NE(bi, INVALID_TYPE_ID);
     EXPECT_NE(rat, INVALID_TYPE_ID);
     // Та же группа kArbitraryPrecision (BigInteger - составная часть Rational); Data различаются.
-    EXPECT_EQ(getGroup(getTypeKind(bi)), Group::kArbitraryPrecision);
-    EXPECT_EQ(getGroup(getTypeKind(rat)), Group::kArbitraryPrecision);
+    EXPECT_EQ(typeGroupOf(bi), Group::kArbitraryPrecision);
+    EXPECT_EQ(typeGroupOf(rat), Group::kArbitraryPrecision);
     EXPECT_NE(bi, rat);
-    // C++-имя и заголовок (маркер '@' = нужен trust-runtime).
-    auto cpp = reg.read().printer().getCppTypeName(bi);
+    // C++-имя и заголовок появляются только ПОСЛЕ реализации (stdlib/builtin/rational.src):
+    // сам тип — лишь предобъявление.
+    EXPECT_FALSE(CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(bi).has_value());
+    ASSERT_EQ(test::defineBuiltinImplChecked(reg.read(), m_target, "BigInteger", "trust::BigInteger", {"@stdlib/builtin/big_integer.hpp"}), bi);
+    auto cpp = CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(bi);
     ASSERT_TRUE(cpp.has_value());
     EXPECT_EQ(*cpp, "trust::BigInteger");
-    EXPECT_EQ(reg.read().builtins().preprocIncludeOf(bi), "@trust/big_integer.hpp");
+    EXPECT_EQ(test::cppFactsViewOf(m_ctx).preprocIncludeOf(bi), "@stdlib/builtin/big_integer.hpp");
     // Категория Arithmetics (как у Rational).
-    EXPECT_TRUE(belongsToCategory(getGroup(getTypeKind(bi)), Category::kArithmetics));
+    EXPECT_TRUE(belongsToCategory(typeGroupOf(bi), Category::kArithmetics));
 }
 
 // -- Строгая типизация арифметики BigInteger/Rational (не std::any) --
 TEST_F(TypeHelpersFixture, ArbitraryPrecisionArithmetic) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId bi = reg.read().getType("BigInteger");
     const TypeId rat = reg.read().getType("Rational");
     const TypeId i64 = reg.read().getType("Int64");
@@ -305,7 +314,7 @@ TEST_F(TypeHelpersFixture, ArbitraryPrecisionArithmetic) {
 }
 
 TEST_F(TypeHelpersFixture, ResultTypeBinaryBigRational) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId bi = reg.read().getType("BigInteger");
     const TypeId rat = reg.read().getType("Rational");
     const TypeId biC = reg.read().store().desugaredTypeId(bi);

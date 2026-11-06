@@ -89,13 +89,13 @@ void SymbolTable::declareGlobal(const Symbol& sym) {
 }
 
 DeclResult SymbolTable::declareInRoot(const Symbol& sym) {
-    // КОРНЕВОЙ для модуля скоуп - scope с creator=ModuleNode; prelude/без ModuleNode - global.
+    // КОРНЕВОЙ для модуля скоуп - scope с creator=ModuleNode; stdlib DSL/без ModuleNode - global.
     // Перенос namespace-контейнера: имя уже квалифицировано; видимость (маски/транзитивность)
     // применяется к переносимому объявлению так же, как к top-level.
     const auto keys = declarationStorageKeys(sym.name, /*moduleRoot=*/true, declVisibilityOf(sym));
     const bool aliasOfThisFile = sym.decl != nullptr && sym.decl->is<FuncDecl>() && sym.decl->as<FuncDecl>()->aliasKind() != AliasKind::None;
     // Экспорт-поверхность обязана существовать и для УЖЕ зарегистрированного символа (иначе
-    // `\path::name` из импортёра не находит имя) — публикацию решает SurfacePolicy::RootDeclaration.
+    // имя не находится у импортёра) — публикацию решает SurfacePolicy::RootDeclaration.
     const StorePolicy policy{.surface = SurfacePolicy::RootDeclaration, .aliasOfThisFile = aliasOfThisFile, .completeForward = true, .moduleRoot = true};
     return m_registry.store(m_scopes.node(moduleRootScopeNode()), sym, keys, policy);
 }

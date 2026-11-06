@@ -1,4 +1,3 @@
-// src/ast/convert/term_to_ast_expr.cpp
 // Term->AST conversion (expression conversions).
 
 #include "ast/term_to_ast.hpp"
@@ -15,6 +14,7 @@
 #include "syntax/term/term_types.h"
 #include "types/typekind.hpp"
 #include "utils/error.hpp"
+#include "utils/strings.hpp"
 
 #include <memory>
 #include <optional>
@@ -23,14 +23,14 @@
 
 namespace trust {
 
-AstNodePtr TermToAstConverter::visit_SWAP(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_SWAP(const trust::TermPtr& term, ConvertServices& ctx) {
     // `x :=: y` - swap двух ссылок/переменных. Единый узел Binary(AssignOp) с оператором ":=":;
     // m_left/m_right строит терм-конструктор Binary из term->m_left/m_right (AppendLeft/Right в
     // грамматике assign_seq SWAP). text() узла = ":=:" (BinaryOp::Swap - m_op, используется семантикой/транспилятором).
     return std::make_shared<Binary>(ParserToken::Kind::AssignOp, term, &ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_ALIAS_NAME(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_ALIAS_NAME(const trust::TermPtr& term, ConvertServices& ctx) {
     // `f :- <target>;` - АЛИАС ИМЕНИ: новое имя существующей сущности (набор перегрузок цели).
     // Новая сущность не создаётся: узел FuncDecl несёт только привязку (`aliasTarget()`),
     // C++-функция не эмитится. Сигил типа на LHS - это алиас ТИПА (`::-`), другой оператор.
@@ -48,21 +48,29 @@ AstNodePtr TermToAstConverter::visit_ALIAS_NAME(const trust::TermPtr& term, Cont
                           "name alias must not repeat the signature; write 'name :- target;' (the target overload set is used)");
         return nullptr;
     }
-    // Namespace-форма (`ns:: :- \lib::ns::;`) и module-форма (`\m :- \lib;`) различаются по LHS;
-    // признак материализуется на узле: семантика/экспорт не разбирают текст.
+    // Алиас (`f :- g;`, `f :- ns::g;`, `a :- ns::;`, `:A ::- T;`): LHS — NAME.
+    // Вид различается ЦЕЛЬЮ: завершающий `::` в цели — алиас ОБЛАСТИ имён (`a :- ns::;` -> `a::X`),
+    // иначе — алиас имени/значения.
+    const bool areaTarget = term->m_right->getTermID() == trust::TermID::NAMESPACE;
+    AstNodePtr target;
+    if (areaTarget) {
+        const std::string_view area = utils::namespaceAliasName(term->m_right->getText());
+        auto ident = std::make_shared<IdentName>(ParserToken::Kind::Ident, term->m_right, &ctx);
+        ident->set_text_interned(area);
+        target = std::move(ident);
+    } else {
+        target = convert(term->m_right);
+    }
     auto alias = std::make_shared<FuncDecl>(std::string(term->m_left->toString()));
-    const AliasKind kind = term->m_left->getTermID() == trust::TermID::NAMESPACE ? AliasKind::Namespace
-                         : term->m_left->getTermID() == trust::TermID::MODULE    ? AliasKind::Module
-                                                                                 : AliasKind::Name;
-    alias->setAlias(kind, convert(term->m_right), term->m_mapperRange);
+    alias->setAlias(areaTarget ? AliasKind::Namespace : AliasKind::Name, std::move(target), term->m_mapperRange);
     return alias;
 }
 
-AstNodePtr TermToAstConverter::visit_ASSIGN(const trust::TermPtr& term, Context& ctx) {
-    // `=` - ТОЛЬКО присваивание и реализация/доопределение объявленного типа. Объявление имён
-    // переехало на `:-` (алиас имени) и `::-` (алиас типа): прежние формы дают ЯВНУЮ
-    // миграционную ошибку, а не тихое переосмысление (no silent fallback).
-    // `... = \lib::ns;` (using) - это НЕ присваивание и не алиас: LHS-многоточие оставляем общему
+AstNodePtr TermToAstConverter::visit_ASSIGN(const trust::TermPtr& term, ConvertServices& ctx) {
+    // `=` - ТОЛЬКО присваивание и реализация/доопределение объявленного типа. Объявление имён —
+    // `:-` (алиас имени) и `::-` (алиас типа); прочие формы дают ЯВНУЮ диагностику, а не тихое
+    // переосмысление (no silent fallback).
+    // `... = ns::;` (using) - это НЕ присваивание и не алиас: LHS-многоточие оставляем общему
     // пути AssignOp (оператор разбирает семантика, `handleUsingImport`).
     const bool usingForm = term->m_left && term->m_left->getTermID() == trust::TermID::ELLIPSIS;
     if (!usingForm && term->m_right && !term->m_right->m_moduleIndices.empty() && !term->m_right->isCall()) {
@@ -98,7 +106,7 @@ AstNodePtr TermToAstConverter::visit_ASSIGN(const trust::TermPtr& term, Context&
     return convertForKind<ParserToken::Kind::AssignOp>(term, ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_DICT(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_DICT(const trust::TermPtr& term, ConvertServices& ctx) {
     // Литерал словаря `(1, two=2, name=3,)` (возможно типизированный `(...):Type`) →
     // DictLiteralNode. Элементы нормализуются к ЕДИНОЙ форме Binary(AssignOp). Имя берём
     // из канонической пары (name, term) грамматики `args` (argName вычислен в parser.y).
@@ -110,7 +118,7 @@ AstNodePtr TermToAstConverter::visit_DICT(const trust::TermPtr& term, Context& c
     return node;
 }
 
-AstNodePtr TermToAstConverter::visit_INDEX(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_INDEX(const trust::TermPtr& term, ConvertServices& ctx) {
     // Индексация `a[i]` / `a[i,j]`: все индексы лежат в m_args (TermID::INDEX). Binary несёт
     // base (m_left) и первый индекс (m_right, для совместимости), полный список - m_indices.
     auto node = std::make_shared<Binary>(ParserToken::Kind::ArrayAccess, term, &ctx);
@@ -132,7 +140,7 @@ AstNodePtr TermToAstConverter::visit_INDEX(const trust::TermPtr& term, Context& 
     return node;
 }
 
-AstNodePtr TermToAstConverter::visit_TENSOR(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_TENSOR(const trust::TermPtr& term, ConvertServices& ctx) {
     // Литерал массива `[1,2:Int8,3,]` (возможно типизированный `[...]:Int32`) → DictLiteralNode
     // с kind=ArrayInit (позиционные элементы; имя-метка у элемента - ""). Аннотация `]:Type`
     // сохраняется механически в m_type - интерпретирует анализатор (тип элемента массива).
@@ -142,7 +150,7 @@ AstNodePtr TermToAstConverter::visit_TENSOR(const trust::TermPtr& term, Context&
     return node;
 }
 
-AstNodePtr TermToAstConverter::visit_OPERATOR_PTR(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_OPERATOR_PTR(const trust::TermPtr& term, ConvertServices& ctx) {
     // `&` в позиции типа: RefMakeExpr; вид smart-ссылки (`&&`/`&*`/`&?`) переносим в поле
     // m_sigilKind. Для простого `&` - RefType::kValue.
     auto node = std::make_shared<RefMakeExpr>(ParserToken::Kind::RefMakeExpr, term, &ctx);
@@ -150,7 +158,7 @@ AstNodePtr TermToAstConverter::visit_OPERATOR_PTR(const trust::TermPtr& term, Co
     return node;
 }
 
-AstNodePtr TermToAstConverter::visit_RANGE(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_RANGE(const trust::TermPtr& term, ConvertServices& ctx) {
     // Литерал диапазона `start..stop[..step]` → RangeExpr. Generic-путь (Sequence-конструктор)
     // строит m_body из детей в m_args (порядок start/stop/step). Дополнительно переносим явные
     // аннотации типа операндов (`start:Type`/`stop:Type`, грамматика `digits_literal type_item`
@@ -168,7 +176,7 @@ AstNodePtr TermToAstConverter::visit_RANGE(const trust::TermPtr& term, Context& 
 
 // Немедленный вызов лямбды `( lambda )(args)` (LAMBDA_CALL): callee - сама лямбда (m_left),
 // аргументы вызова - в m_args. Generic-путь CallExpr строит callee=IdentName(term) - не годится.
-AstNodePtr TermToAstConverter::visit_LAMBDA_CALL(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_LAMBDA_CALL(const trust::TermPtr& term, ConvertServices& ctx) {
     auto call = std::make_shared<CallExpr>(ParserToken::Kind::CallExpr, term);
     if (term && term->m_left) {
         call->m_callee = convertChild(ctx, term->m_left);
@@ -191,33 +199,30 @@ AstNodePtr TermToAstConverter::visit_LAMBDA_CALL(const trust::TermPtr& term, Con
     return call;
 }
 
-AstNodePtr TermToAstConverter::visit_ARGUMENT(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_ARGUMENT(const trust::TermPtr& term, ConvertServices& ctx) {
     // ЕДИНЫЙ узел аргумента (name в m_left, тип в m_type, значение в m_right) → ArgNode.
     // Раскладка слотов - в ArgNode-конструкторе (ast_base.cpp).
     return std::make_shared<ArgNode>(ParserToken::Kind::ArgNode, term, &ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_TYPE(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_TYPE(const trust::TermPtr& term, ConvertServices& ctx) {
     // Нативный шаблон-тип `vector<Int32>` (грамматика `type_class LT template_args GT`): признак и
     // типовые аргументы - в m_template. Строим IdentType с типовыми аргументами (каждый - узел типа:
     // голое `Int32` → IdentName, `:Int32`/`:MyClass<:Int8>` → IdentType). Отличие от кортежных
     // параметров `:Type(...)` (m_args, ветка ниже) - изолированный механизм (см. MEMORY.md).
     if (term->m_template.has_value()) {
         auto tpl = std::make_shared<IdentType>(term, std::nullopt, std::nullopt, &ctx.attrs());
-        std::vector<AstNodePtr> args;
-        std::vector<bool> argPacks;
+        std::vector<TemplateArg> args;
         args.reserve(term->m_template->size());
         for (const auto& [aname, argTerm] : *term->m_template) {
             (void)aname;
             if (argTerm) {
                 if (AstNodePtr a = convertChild(ctx, argTerm)) {
-                    args.push_back(std::move(a));
-                    argPacks.push_back(argTerm->m_isPack);
+                    args.push_back(TemplateArg{std::move(a), argTerm->m_isPack});
                 }
             }
         }
         tpl->setTemplateArgs(std::move(args));
-        tpl->setTemplateArgPacks(std::move(argPacks));
         // `:vector<Int32>(1, 2, 3)` - КОНСТРУКЦИЯ значения (type_call): есть call-аргументы в m_args.
         // Строим DictLiteralNode с шаблонным типом как контейнером (как `:Array(...)`).
         if (term->m_args.has_value()) {
@@ -250,7 +255,7 @@ AstNodePtr TermToAstConverter::visit_TYPE(const trust::TermPtr& term, Context& c
                 }
             }
         }
-        // Аннотация с размерностями `Type[dims](args)` исторически трактует голые имена в args
+        // Аннотация с размерностями `Type[dims](args)` трактует голые имена в args
         // как типовые параметры (`Matrix[2,3](Float)`); без dims голые имена - value-форма.
         bool dimsArgsAreTypes = dims.has_value() && !dims->empty();
         if (dimsArgsAreTypes) {
@@ -324,14 +329,14 @@ AstNodePtr TermToAstConverter::visit_TYPE(const trust::TermPtr& term, Context& c
     return TermVisitorDefault::visit_TYPE(term, ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_STRWIDE(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_STRWIDE(const trust::TermPtr& term, ConvertServices& ctx) {
     if (term->m_args) {
         return buildStringFormatCall(ParserToken::Kind::StrWide, term, ctx);
     }
     return TermVisitorDefault::visit_STRWIDE(term, ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_STRCHAR(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_STRCHAR(const trust::TermPtr& term, ConvertServices& ctx) {
     if (term->m_args) {
         return buildStringFormatCall(ParserToken::Kind::StrChar, term, ctx);
     }

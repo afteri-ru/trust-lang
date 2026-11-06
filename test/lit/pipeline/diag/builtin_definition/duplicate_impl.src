@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp -Wbuiltin-override=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Дубль реализации интерфейсного метода ПО ИМЕНИ в одном `=`-теле builtin → ошибка.
+StrChar = %std::string {
+    size(): UInt64 := %size ...;
+    size(): UInt64 := %size ...;
+};
+@main(): Int32 := { return 0; };
+# CHECK: error: duplicate implementation of method 'size' in '='-definition of built-in type 'StrChar'

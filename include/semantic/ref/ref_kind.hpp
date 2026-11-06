@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/ref/ref_kind.hpp
 // Единая точка применения/проверки ЗАЯВЛЕННОГО вида ссылки (атрибут `@[reftype]` или маркер) к
 // базовому (pointee) типу. Диагностические тексты параметризованы (subjectName/actualLabel/
 // RefNameStyle); общий обход квалификаторов объявления/аннотации — semantic/ref/ref_qualifiers.hpp.
@@ -86,7 +85,7 @@ enum class RefNameStyle {
 /// @param style       формат отображения фактического вида.
 /// @param accessPolicy  РЕАЛЬНЫЙ тип политики доступа (shared/weak/unique): входит в тип.
 /// @param impl          класс реализации механизма доступа (3-й аргумент reftype): входит в тип.
-[[nodiscard]] inline QualType applyDeclaredRefKind(Context& ctx, QualType base, RefType declared, MapperRange range, std::string_view subjectName,
+[[nodiscard]] inline QualType applyDeclaredRefKind(TypeSystem& reg, Context& ctx, QualType base, RefType declared, MapperRange range, std::string_view subjectName,
                                                    std::string_view actualLabel, RefNameStyle style, TypeId accessPolicy = INVALID_TYPE_ID,
                                                    TypeId impl = INVALID_TYPE_ID) {
     // Зарезервированные, но нереализованные виды (`rref`/`ptrptr`) достижимы через
@@ -95,9 +94,8 @@ enum class RefNameStyle {
         ctx.diag().report(Severity::Error, range, "reference kind '{}' is not implemented; use value/shared/weak/unique/ptr/ref/locker", refTypeName(declared));
         return base;
     }
-    const RefType actual = getRefType(getTypeKind(base.getTypeId()));
+    const RefType actual = typeRefOf(base.getTypeId());
     if (refKindCompatible(declared, actual)) {
-        TypeSystem& reg = ctx.types();
         if (actual == RefType::kValue) {
             return reg.interner().applyRefType(base, declared, INVALID_TYPE_ID, accessPolicy, impl);
         }
@@ -112,7 +110,7 @@ enum class RefNameStyle {
         return base;
     }
     const std::string namePart = subjectName.empty() ? std::string{} : " '" + std::string(subjectName) + "'";
-    const std::string actualName = (style == RefNameStyle::Full) ? ctx.readTypes().printer().getTypeName(base.getTypeId()) : std::string(refTypeName(actual));
+    const std::string actualName = (style == RefNameStyle::Full) ? ctx.readTypes().printer().typeNameOf(base.getTypeId()) : std::string(refTypeName(actual));
     ctx.diag().report(Severity::Error, range, "reference kind mismatch: variable{} is '{}' but its {} is '{}'", namePart, refTypeName(declared), actualLabel,
                       actualName);
     return base;

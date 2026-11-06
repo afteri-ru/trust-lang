@@ -1,11 +1,9 @@
 #pragma once
 
-// include/semantic/verify/format_check.hpp
 // Компиляйт-тайм проверка типов аргументов нативных функций на соответствие форматной
 // строке printf (атрибут @[format("printf", string_index, first_to_check)] - GCC-аналог
 // `__attribute__((format(...)))`). Содержит парсер printf-спецификаторов и сверку
 // ожидаемой категории аргумента с фактическим типом.
-//
 // Использование (см. NameResolutionPass::typeExpr, case CallExpr):
 //   vector<format_check::Conversion> convs;
 //   if (format_check::parse_printf_format(fmt, convs)) {

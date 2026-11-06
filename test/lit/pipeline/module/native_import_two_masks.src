@@ -10,6 +10,7 @@
 # CHECK: PASS
 
 //--- main.src
+\std();
 \lib(helper);
 \lib(f);
 @main():Int32 := { @print("{}\n", f(4.0)); @return 0; };

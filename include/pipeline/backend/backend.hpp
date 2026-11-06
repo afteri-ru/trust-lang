@@ -1,8 +1,6 @@
 #pragma once
 
-// include/pipeline/backend/backend.hpp
 // Контракт бэкенда: value-типы стадий (запрос, цели, артефакты, окружение).
-//
 // Инварианты:
 //   * контракт не знает про оркестратор (`Pipeline`) и агрегат прогона (`PipelineResult`);
 //     стадия получает `BackendRequest` и пишет результат в `StageOutputs`;
@@ -16,16 +14,18 @@
 #include "ir/cfg.hpp"
 #include "ir/hir_module.hpp"
 #include "location/location.hpp"
+#include "session/run_services.hpp"
 
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace trust {
 
-class Context;
 class ModuleLoader;
+class TargetContract;
 
 namespace backend {
 
@@ -64,11 +64,6 @@ struct SmtTarget {
     std::filesystem::path path; ///< путь назначения (`.smt2`); пусто - только в памяти
 };
 
-/// Информация о целевом платформенном контракте (C++ standard, ABI/имя target — по мере LLVM).
-struct TargetInfo {
-    std::string cpp_standard = "c++23";
-};
-
 enum class StageOutcome {
     Done,   ///< стадия выполнила работу (артефакт произведён/записан)
     NoWork, ///< стадии нечего делать (например, контрактов нет); другие стадии продолжаются
@@ -76,8 +71,9 @@ enum class StageOutcome {
 };
 
 /// Окружение стадии, предоставляемое оркестратором (сама стадия владельцем окружения не является).
+/// Стадия получает read-model порт (`RunServices`, R12/E4) — НЕ мутабельный `Context` (R39).
 struct BackendServices {
-    Context& ctx;
+    RunServices services;
     const PipelineOpts& opts;
     ModuleLoader& loader;
 };
@@ -100,6 +96,12 @@ struct BackendRequest {
     std::optional<std::filesystem::path> certificatePath;
     /// Хеш входа для сертификата (md5 главного файла; пусто — хеш неизвестен).
     std::string inputHash;
+    /// Целевой контракт стадии (R37/E20): невладеющая ссылка на per-run владельца значений
+    /// (`TargetContract`). Стадия читает контракт, а не `PipelineOpts`; `nullptr` — контракт не
+    /// передан (стадия, которой он нужен, сообщает внутреннюю ошибку, а не подставляет значение).
+    const TargetContract* target = nullptr;
+    /// Триггер стаб-стадии бэкенда (`--noop-backend`, R37): доказательство подключаемости.
+    bool noop = false;
 };
 
 /// Результаты стадий, которые описывает сам контракт. Оркестратор НАСЛЕДУЕТ этот тип и добавляет
@@ -124,6 +126,8 @@ struct CodegenRequest {
     std::optional<std::string> entryFunctionName;
     std::string programRecord;
     const HeaderArtifact* moduleHeader = nullptr;
+    /// Поведенческие режимы кодогена — данные стадии (R39), разрешены один раз за прогон.
+    const analysis::BehavioralModes& modes;
 };
 
 } // namespace backend

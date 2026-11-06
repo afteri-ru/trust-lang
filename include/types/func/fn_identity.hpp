@@ -1,8 +1,6 @@
 #pragma once
 
-// include/types/func/fn_identity.hpp
 // SINGLE source of FUNCTION SIGNATURE IDENTITY (C++ model).
-//
 // Responsibilities:
 //   - canonical code of a type under an explicit `TypeIdentityScope` (kSemantic | kCanonical):
 //     `kCanonical` resolves aliases at EVERY nesting level; `kSemantic` keeps a user alias nominal
@@ -17,7 +15,6 @@
 //   - deterministic, injective C++ name suffix derived from the SAME overload identity that
 //     the duplicate/exact checks use (one projection: name == identity);
 //   - interning key of FunctionTypeData (the trust flag is carried by TypeKind, not by the tag).
-//
 // Relation to TypeSystem (see the comment at TypeSystem::getOrCreateFunctionType):
 //   FunctionIdentity BUILDS the identity/key only; StructuralInterner OWNS the interning table
 //   and is the only place that mutates it. FunctionIdentity reads the

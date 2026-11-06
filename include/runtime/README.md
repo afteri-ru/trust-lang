@@ -2,139 +2,38 @@
 
 ## Назначение
 
-Runtime - это аналог стандартной библиотеки C++ для TrustLang: минимальный набор
-средств, необходимый сгенерированному C++ коду. Включает только то, что реально
-используется (арифметика произвольной точности, синхронизируемые переменные,
-именованные аргументы, опциональная интеграция с тензорами). Лишние механизмы в
-runtime не добавляются.
+Аналог стандартной библиотеки C++ для TrustLang: минимальный набор средств, необходимый сгенерированному
+C++ коду (арифметика произвольной точности, синхронизируемые переменные, форматный вывод, опциональные
+тензоры). Лишние механизмы не добавляются.
 
-## Библиотеки runtime: `trust-runtime.so` и `trust-runtime.a`
+## Библиотеки
 
-Runtime собирается двумя способами из одних и тех же исходников
-(`src/runtime/rational.cpp`, `src/runtime/big_integer.cpp`,
-`src/utils/io/io.cpp`, `src/utils/proc/backtrace.cpp`):
+Runtime собирается из одних и тех же исходников в двух формах:
 
-- **`trust-runtime.so`** - динамическая библиотека (цель CMake `trust_runtime`);
-- **`trust-runtime.a`** - статическая библиотека (цель CMake `trust_runtime_static`).
+- **`trust-runtime.so`** — динамическая (цель `trust_runtime`);
+- **`trust-runtime.a`** — статическая (цель `trust_runtime_static`).
 
-Сейчас в них входит:
+Состав: ошибки/завершение (`trust::formatMessage`, `trust::trust__abort__`), глобальные потоки
+`trust::outs()`/`trust::errs()` и `trust::utils::backtrace_string()`, форматный вывод
+`trust::trust__print__`. Арифметика произвольной точности (`Rational`/`BigInteger` на GMP) — header-only
+(`stdlib/core/builtin/{rational,big_integer}.hpp`), в саму библиотеку не входит.
 
-- `Rational` - произвольная точность на основе GMP (`src/runtime/rational.cpp`,
-  публичный заголовок `include/runtime/trust/rational.hpp`).
-- ошибки/завершение: `trust::formatMessage` и `trust::trust__abort__`
-  (публичный заголовок `include/runtime/trust/assert.hpp`), а также глобальные потоки
-  `trust::outs()`/`trust::errs()` и `trust::utils::backtrace_string()`
-  (`src/utils/io/io.cpp`, `src/utils/proc/backtrace.cpp`) - они доступны автономным
-  сгенерированным программам.
-- форматный вывод: `trust::trust__print__` (публичный заголовок
-  `include/runtime/trust/io.hpp`) - `fmt`-подобная функция (стиль `std::format`),
-  пишущая результат в `trust::outs()`; бэкенд DSL-макроса `print(fmt, args...)`.
-  `trust::Rational` форматируется как символьная строка `num\den`
-  (специализация `std::formatter<trust::Rational>` в `trust/rational.hpp`).
+## Доставка заголовков
 
-### Доставка публичных заголовков (пакет стандартной библиотеки)
+Рантайм-заголовки доставляются пакетом стандартной библиотеки `share/trust/stdlib.trust`: примитивы —
+как `include/trust/*.hpp`, заголовки встроенных типов (`rational.hpp`, `big_integer.hpp`, `dict.hpp`,
+`range.hpp`) — как `include/stdlib/builtin/*.hpp`. Тензорные заголовки доставляет провайдер-пакет
+`tensor.trust`. При сборке сгенерированной программы pipeline распаковывает `stdlib.trust` в `<build>/stdlib`
+и добавляет `-Istdlib -Istdlib/include` в `build.conf`.
 
-Публичные рантайм-заголовки (например `trust/rational.hpp`, `trust/assert.hpp`) входят в пакет
-стандартной библиотеки `share/trust/stdlib.trust` как `include/trust/*.hpp`
-(staging/сборка пакета: `include/stdlib/core/CMakeLists.txt`).
-Когда сгенерированная программа собирается, pipeline:
+## Поиск и режимы линковки
 
-1. распаковывает `stdlib.trust` в `<build>/stdlib` и добавляет в `build.conf`
-   `-Istdlib -Istdlib/include` (заголовки доступны без поштучного копирования);
-2. добавляет в `build.conf` линковку рантайм-библиотеки + GMP, если использованы
-   runtime-backed типы.
-
-Саму рантайм-библиотеку (`trust-runtime.so`/`.a`) для линковки находит `locateRuntimeLibrary`
-в соответствии с режимом `--link-runtime`.
-
-Это позволяет распространять рантайм-библиотеку без дерева исходников компилятора.
-
-## Поиск рантайм-библиотеки
-
-Путь к библиотеке **не зашивается в компилятор** (нет жёсткой привязки к каталогу
-сборки). Библиотека ищется динамически при каждом запуске в порядке приоритета
-(имя файла зависит от режима линковки: `trust-runtime.so` либо `trust-runtime.a`):
-
-1. рядом с исполняемым файлом `trust` (каталог бинарё, включая разворачивание
-   симлинков через `/proc/self/exe`), а также в `lib/` и `../lib/` относительно него;
-2. в каталогах из переменной окружения `LD_LIBRARY_PATH`;
-3. в текущем рабочем каталоге.
-
-## Режимы линковки сгенерированной программы
-
-Режим задаётся опцией `--link-runtime static|shared` (по умолчанию **`static`**).
-В `build.conf` рантайм-зависимости кладутся в переменную `LIBS`, подставляемую в
-Makefile после объектных файлов.
-
-- **`static`** (по умолчанию): в `LIBS` передаётся путь к `trust-runtime.a` и `-lgmp`.
-  Код рантайма встраивается в исполняемый файл на этапе линковки, поэтому готовая
-  программа **самодостаточна** и не требует `trust-runtime.so` во время выполнения
-  (нет `DT_NEEDED` на `.so`, нет `DT_RUNPATH`).
-- **`shared`**: в `LDFLAGS` добавляется `-Wl,-rpath,.`, в `LIBS` -
-  `-Wl,--no-as-needed <path>/trust-runtime.so -lgmp`. Путь к `.so` используется для
-  резолва символов и записи `DT_NEEDED`, но каталог сборки **не запекается** в
-  бинарник (без абсолютного `-Wl,-rpath`). Во время выполнения готовой программы
-  динамический загрузчик ищет `trust-runtime.so` в порядке приоритета:
-
-  1. каталоги из `LD_LIBRARY_PATH` (приоритет выше `DT_RUNPATH`);
-  2. каталог запуска - в бинарник записан `DT_RUNPATH = .`;
-  3. кэш `ld.so` и системные каталоги по умолчанию.
-
-## Компоненты (header-only)
-
-- `trust/trusted-cpp.hpp` - базовые ссылочные типы рантайма БЕЗ межпотоковой синхронизации (plain,
-  всегда при ссылке): сильная ссылка `Shared<V>` (лёгкий, `shared_ptr<V>`, прямой доступ),
-  слабая `Weak<T>`, RAII-охранник `Locker<V,ReadOnly>` (результат `lock()/lock_const()`, shared-захват,
-  compile-time read-only режим). Самодостаточен (только std-заголовки, без threading); встраивается в
-  trust-runtime (секция `trust/trusted-cpp.hpp`) и извлекается pipeline при использовании ссылочных
-  типов/TAKE. МЕЖПОТОКОВАЯ синхронизация - отдельный заголовок `trust/trusted-cpp-sync.hpp`
-  (`AccessShared<V,Mutex>`, секция `trust/trusted-cpp-sync.hpp`), подключается только когда нужна.
-- `trust/resource.hpp` - встроенные deleter-типы внешних (не-память) ресурсов: `trust::FreeDeleter`
-  (`void operator()(void*)` → `std::free`) и `trust::FileDeleter` (`void operator()(std::FILE*)` →
-  `std::fclose`). Используются языковым атрибутом `@[deleter(D)]` на
-  владеющем виде (`@[reftype("unique"|"shared")]`): `D` входит в тип (`trust::Unique<T,D>`) или
-  стирается (`trust::Shared<T>` + `adopt`). Секция `trust/resource.hpp`; самодостаточен.
-- `trust/dict.hpp` - универсальный гетерогенный словарь `trust::Dict` (элементы
-  `(имя, TypedValue{QualType, значение})` - тип элемента закодирован в `QualType`: identity
-  (TypeKind: группа+размерность) + квалификаторы const/inferred, декодируется методами `TypedValue`
-  (`group()`/`data()`/предикаты `isNumeric()`/`isString()`/…) **автономно, без TypeSystem**;
-  значение хранится точным C++-типом; доступ по имени/индексу, конвертеры). `TypeId`/`QualType`
-  берутся из общего ABI-заголовка `trust/type_state.hpp`. Встраивается в trust-runtime (секция
-  `trust/dict.hpp`) и извлекается pipeline при использовании типа `:Dict`.
-- `trust/range.hpp` - универсальный арифметический диапазон `trust::Range<T>` - шаблон по
-  элементному типу `T` (интегральные, float, `trust::Rational`, универсальный `std::any` для
-  `Any`), инклюзивная семантика `start..stop[..step]` (Kotlin-модель `a..b`). Ленивый: свойства
-  `start()/stop()/step()`, `count()/size()`, `empty()`, `contains()`, `at(i)/operator[]`
-  (формула `start+i*step`, без материализации), forward-итератор `begin()/end()`, `reversed()`,
-  `==`; материализация - `toVector()/toArray()/toList()/toDict()` (в `trust::Dict`),
-  `std::formatter`. Ошибки - стандартные исключения (`std::out_of_range`,
-  `std::invalid_argument` при `step==0`). Компилятор строит параметризованный тип `Range<Elem>`
-  (elementType - join типов операндов) и эмитит `trust::Range<Elem>`. Методы доступны в
-  доверенном коде как `r.count()/r.size()/r.length()(алиас→count)/r.empty()/r.at(i)/r.toVector()/
-  r.toDict()/...`; сигнатуры элемент-зависимых методов (`at/start/stop/step/contains`) объявлены
-  с типовым параметром `T` и подставляются (T→Elem) при резолве - точные типы, а не Any
-  (регистрация на `:Range` через `MethodTable::addMethod` полным ключом с нативностью `%` и
-  константностью `^`, напр. `"%count^"`; алиас `length` → нативное `count` - опциональный
-  параметр `aliases` у `addMethod`, с проверкой консистентности). Формы вызова: `r.size()`/`r.%size()`/`r.size^()` - обычный,
-  нативный (`%`) и const-вызов (`^` → `const_cast<const T&>(r).method(...)` - гарантированно
-  константная перегрузка).
-  Встраивается в trust-runtime (секция
-  `trust/range.hpp`) и извлекается pipeline при использовании литерала диапазона `..`.
-- `trust/any_convert.hpp` - типизированная конверсия из элемента словаря
-  `trust::any_to<T>(TypedValue)`: диспетчеризация по `kind` (TypeKind: числовое/строковое,
-  декодируется `TypedValue`), конверсия с контролем диапазона (`checked_cast`) и диагностикой.
-- `trust/tensor.hpp` - стабильный self-contained тип значения (`trust::Tensor<Elem>`,
-  `trust::TensorHandle`) БЕЗ torch-заголовков; C ABI бэкенда - `trust/tensor_backend.hpp`
-  (`trust_tensor_*`); оба доставляются пакетом `stdlib.trust`. Реализация бэкенда - отдельный
-  плагин `tensor_cpu` (provider-пакет `tensor.trust`, `kind="toolchain"`), собирается только при
-  `WITH_TORCH`; compiler-side `TorchTensor` - `include/runtime/torch/tensor.hpp` (в пакет не входит).
+Путь к библиотеке не зашит в компилятор: она ищется динамически (рядом с бинарём `trust` и в `lib/`/`../lib/`,
+затем `LD_LIBRARY_PATH`, затем CWD). Режим линковки — `--link-runtime static|shared` (по умолчанию
+`static`). Runtime-backed типы (`Dict`, `Range`, тензоры, ссылочные обёртки) описаны в своих заголовках;
+модель типов — `runtime/trust/type_state.hpp` (общий ABI-заголовок).
 
 ## Зависимости
 
-- `trust-runtime.so` - GMP.
-- `trust/trusted-cpp.hpp` - самодостаточен (только std-заголовки, без threading), ошибки сообщает
-  стандартными исключениями (`std::runtime_error`). `trust/trusted-cpp-sync.hpp` - самодостаточен,
-  но подключает threading-заголовки (`<mutex>`/`<shared_mutex>`/`<thread>`/`<chrono>`); ошибки -
-  `std::runtime_error`. `trust/dict.hpp` - самодостаточен (только
-  std-заголовки) и сообщает об ошибках стандартными исключениями
-  (`std::out_of_range`/`std::bad_any_cast`).
+`trust-runtime.so` — GMP. `stdlib/trusted-cpp.hpp` — самодостаточен (только std);
+`stdlib/trusted-cpp-sync.hpp` подключает threading-заголовки; ошибки — стандартные C++-исключения.

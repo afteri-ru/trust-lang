@@ -48,7 +48,7 @@ A native C++ template type is declared with a prefix of type parameters and a na
 
 ```trust
 @include("vector")
-<T> %std::vector() := ...;    # declares the type vector<T> with the C++ name std::vector
+<T> vector ::= %std::vector { };    # declares the type vector<T> with the C++ name std::vector
 
 v: vector<Int32> := [1, 2, 3,];
 # → #include <vector>
@@ -81,18 +81,16 @@ and an **explicit implementation** `%std::pair<T1,T2>` on the right:
 ```trust
 @include("utility")
 <T1,T2> Pair ::= %std::pair<T1,T2> {   # trust-template Pair ↔ std::pair
-    %first(): T1 := ...;               # Pair<A,B>.first
-    %second(): T2 := ...;              # Pair<A,B>.second
+    first(): T1 := ...;                # Pair<A,B>.first
+    second(): T2 := ...;               # Pair<A,B>.second
 };
 
 p: Pair<Int32, StrChar> := ...;
 # → std::pair<int32_t, std::string> + #include <utility>
 ```
 
-The generalized form `<T1,T2> Pair ::= <T1,T2> %std::pair { ... }` (the template is bound without an explicit list
-of arguments in the RHS) — sugar, the implementation is **deferred** (a "not implemented" diagnostic); use the explicit
-`%std::pair<T1,T2>`. The notation format is the same for a native and a non-native name (only the `%` differs).
-More — [Native types](../types/native/).
+Both the explicit form (`Pair ::= %std::pair<T1,T2> { ... };`) and the generalized one
+(`<T1,T2> Pair ::= <T1,T2> %std::pair { ... };`) are supported. More — [Native types](../types/native/).
 
 ## User template classes {#class-template}
 
@@ -111,20 +109,20 @@ b : Box<Int32> := Box();     # → template <typename T> struct c_Box { T c_valu
 b.set(42);                   # → c_Box<int32_t> c_b = c_Box<int32_t>();
 ```
 
-A template class can be inherited: `<T> :Derived ::= :Base<:T>{ ... }` → `struct c_Derived : public c_Base<T>`.
+A template class can be inherited: `<T> :Derived ::= :Base<:T>{ ... }` → `struct Derived : public Base<T>`.
 Type arguments are mandatory (`:Box` without `<...>` is an error). Only type parameters are supported;
 value parameters and constraints — no.
 
 ### Struct templates (POD)
 
 `:Struct` can also be templated (`<T> :Point ::= :Struct{ x: T := _; y: T := _; }`). The definition
-is emitted as `template <typename T> struct c_Point` **without** `static_assert`: a POD check over a template
+is emitted as `template <typename T> struct Point` **without** `static_assert`: a POD check over a template
 is inexpressible and depends on `T`. The check is emitted for a **concrete instantiation**:
 
 ```cpp
-template <typename T> struct c_Point { T c_x; T c_y; };
-c_Point<int32_t> c_p = c_Point<int32_t>(1, 2);
-static_assert(std::is_trivial_v<c_Point<int32_t>> && std::is_standard_layout_v<c_Point<int32_t>>,
+template <typename T> struct Point { T x; T y; };
+Point<int32_t> p = Point<int32_t>(1, 2);
+static_assert(std::is_trivial_v<Point<int32_t>> && std::is_standard_layout_v<Point<int32_t>>,
               "trust: Struct 'Point' must be POD");
 ```
 

@@ -7,7 +7,8 @@
 
 # CHECK: var_assert_runtime.src:[[#]]: y < 0
 
-%chk():Void := {
+@[export("chk")@]
+chk():Void := {
     y @{ check --> y < 0 @} := 5;
 };
 {% int var_assert_runtime__main__() {

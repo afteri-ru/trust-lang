@@ -65,25 +65,6 @@ cmake --build _build --target trust-playground trust-lsp
   через форму `/stats/login` (cookie-сессия), скрипты - через заголовок `X-Stats-Token`;
   URL логина печатается при старте (`stats: http://…/stats/login`) и в `site_playground_run.sh`.
 
-## Реализация
-
-- `http.h/.cpp` - HTTP-ядро (`parseHttpRequest`/`serializeHttpResponse`), HTTP-клиент,
-  base64.
-- `config.h/.cpp` - парсер единого конфига с префиксами и валидацией токенов
-  (в т.ч. `worker.lsp_opts` - доп. опции, всегда передаваемые в `trust-lsp`).
-- `server.h/.cpp` - балансировщик: реестр, очередь, диспетчеризация, rate-limit,
-  endpoint `/download`.
-- `worker.h/.cpp` - исполнитель: слоты, HTTP-клиент (http/https), субпроцесс
-  `trust-lsp --json` с лимитами (`setrlimit` + таймаут), захват stderr в `log`;
-  для задач «собрать архив» (`/download`) вызывает `trust-lsp --emit-build-dir`.
-  При запуске (до подключения к балансировщику) воркер прогоняет **самопроверку**:
-  транспилирует простейшую программу и собирает из неё build-архив теми же путями,
-  что и реальные задачи; при провале - не регистрируется, а выдаёт диагностику и
-  завершается (fail-fast, напр. если нет `tar` или не находится `trust-runtime`).
-- `lsp/html_emit.cpp` - glue-JS (комбобокс, лог, кнопка скачивания) и `trust-lsp`
-  принимает `-W...` и пробрасывает их в pipeline через единую точку `applyDiagnostics`
-  (`applyDiagnostics` → `Options::parse_argv`).
-
 ## Развёртывание
 
 В `src/playground/deploy/` - идемпотентные установщики:
@@ -234,10 +215,7 @@ pkill -f 'hugo server --source docs'   # hugo (если запущен)
    (проходной ответ, без кеша).
 
 Остальные эндпоинты: `GET /health` (мониторинг), `GET /stats` (оператор, по токену),
-`OPTIONS /run` (CORS-preflight). Развёрнутое описание эндпоинтов - в коде
-`src/playground/`: `server.cpp` (`handle`/роутинг), `server_endpoints.cpp`
-(`handleRun`/`handlePoll`/`handleResult`/`handleDownload`), `server_stats.cpp`
-(`/stats`, логин/выход, PoW-челлендж), `server_http.cpp` (origin/CORS/IP/cookie/escaping).
+`OPTIONS /run` (CORS-preflight).
 
 ## 6. Build-архив
 

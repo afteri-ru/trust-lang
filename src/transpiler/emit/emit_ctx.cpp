@@ -1,20 +1,47 @@
 #include "transpiler/emit/emit_ctx.hpp"
 
+#include "ast/declaration_ids.hpp"
 #include "attrs/attr_builtin.hpp"
 #include "diag/base_diags.hpp"
-#include "session/context.hpp"
 
 #include "diag/diag.hpp"
 #include "types/type_system.hpp"
 #include "types/names.hpp"
 #include "types/type_id.hpp"
+#include "target/target.hpp"
 
-#include <exception>
+#include <limits>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace trust {
+
+TypeCppFactsView CppEmitContext::cppFactsView() const {
+    return TypeCppFactsView(m_services.readTypes(), m_services.target().typeCppFacts());
+}
+
+namespace {
+
+/// `DeclId` объявления-носителя нативной C++-привязки (`nullptr`/не-объявление → INVALID):
+/// привязка есть только у функций и переменных (как в `DeclCppFacts`); иначе — пусто.
+[[nodiscard]] DeclId nativeBindingDeclIdOf(const AstNodeBase* node) noexcept {
+    if (node != nullptr) {
+        if (node->is<FuncDecl>()) {
+            return node->as<FuncDecl>()->declId();
+        }
+        if (node->is<VarDecl>()) {
+            return node->as<VarDecl>()->declId();
+        }
+    }
+    return DeclId{};
+}
+
+} // namespace
+
+std::string_view CppEmitContext::nativeCppNameOf(const AstNodeBase* decl) const noexcept {
+    return m_services.declCppFacts().cppNameOf(nativeBindingDeclIdOf(decl));
+}
 
 ResultGuard::ResultGuard(CppEmitContext& ectx, std::string name, std::string cpp)
 : m_ectx(ectx)
@@ -39,59 +66,27 @@ ActiveTemplateParamsGuard::~ActiveTemplateParamsGuard() {
     m_ectx.m_activeTemplateParams = std::move(m_saved);
 }
 
-CppEmitContext::CppEmitContext(Context& ctx, analysis::BehavioralModes behavioral)
-: m_ctx(ctx)
+CppEmitContext::CppEmitContext(CodegenServices services, analysis::BehavioralModes behavioral)
+: m_services(std::move(services))
 , m_behavioral(std::move(behavioral)) {
 }
 
-std::string CppEmitContext::moduleNamespace(ModuleIndex owner) const {
-    if (!owner.isValid()) {
-        return {};
-    }
-    // Провайдер имени модуля — у реестра типов (единый источник для типов и кодогена;
-    // FAULT без него, чтобы изоляция не потерялась молча).
-    return m_ctx.readTypes().printer().moduleCppNamespace(owner);
-}
-
-std::string CppEmitContext::cppName(std::string_view trustName, CppEntityKind kind, ModuleIndex owner) const {
-    return trust::cppName(trustName, kind, moduleNamespace(owner));
-}
-
-std::string CppEmitContext::cppFuncName(std::string_view trustName, bool isOperator, bool isEntry, ModuleIndex owner) const {
-    return trust::cppFuncName(trustName, isOperator, isEntry, moduleNamespace(owner));
-}
-
-ModuleNamespaceGuard::ModuleNamespaceGuard(CppEmitContext& ectx, MapperFile out, std::string_view ns) noexcept
-: m_ectx(ectx)
-, m_out(out) {
-    if (!ns.empty()) {
-        ectx.m_ctx.source().output_append(out, "namespace " + std::string(ns) + " {\n");
-        m_open = true;
-    }
-}
-
-ModuleNamespaceGuard::~ModuleNamespaceGuard() {
-    if (m_open) {
-        // Форвард-decl заканчивается ';' без перевода строки — закрываем с новой строки.
-        const std::string_view body = m_ectx.m_ctx.source().output_body(m_out);
-        if (!body.empty() && body.back() != '\n') {
-            m_ectx.m_ctx.source().output_append(m_out, "\n");
-        }
-        m_ectx.m_ctx.source().output_append(m_out, "}\n");
-    }
+std::string CppEmitContext::cppName(std::string_view trustName, CppEntityKind kind) const {
+    return trust::cppName(trustName, kind);
 }
 
 bool DeclFacts::isPublishedByHeader(const AstNodeBase* node) const {
     if (node == nullptr || publishedByHeader.empty()) {
         return false;
     }
-    const AstNodeBase* key = node->origin != nullptr ? node->origin : node;
-    return publishedByHeader.count(key) != 0;
+    const DeclId id = declarationIdOf(*node);
+    EXPECT(id.isValid() && "published-header check requires declaration identity (R23)");
+    return publishedByHeader.count(id) != 0;
 }
 
 namespace {
 
-/// Единое правило текстового поиска: индекс по тексту → идентичность → значение таблицы.
+/// Единое правило текстового поиска: индекс по тексту → `DeclId` → значение таблицы.
 /// Отсутствие и неоднозначность различаются (диагностику формирует вызывающий: у него свой
 /// текст сообщения и своя позиция).
 template <typename Table>
@@ -114,50 +109,40 @@ TextLookup lookupByText(const std::unordered_map<std::string, TextDeclarationInd
 
 } // namespace
 
-void DeclFacts::registerNativeImport(const AstNodeBase* decl, std::string nativeName, std::string_view trustText) {
-    const AstNodeBase* identity = declIdentity(decl);
-    nativeImports[identity] = std::move(nativeName);
-    nativeImportsByText[std::string(trustText)].add(identity);
+void DeclFacts::registerStackCheck(const AstNodeBase& decl, StackCheckGuard guard) {
+    const DeclId id = declarationIdOf(decl);
+    if (!id.isValid()) {
+        // Синтетический узел (lowering/анализатор/тест) id не несёт — факт неадресуем и не хранится.
+        // Для объявления РЕАЛЬНОГО модуля отсутствие id — дефект назначения идентичности (R23).
+        EXPECT(!decl.module.isValid() && "module declaration must carry DeclId (R23)");
+        return;
+    }
+    stackCheck[id] = guard;
 }
 
-void DeclFacts::registerStackCheck(const AstNodeBase* decl, StackCheckGuard guard) {
-    stackCheck[declIdentity(decl)] = guard;
+void DeclFacts::registerFunctionName(const AstNodeBase& decl, std::string cppName, std::string_view trustText) {
+    const DeclId id = declarationIdOf(decl);
+    if (!id.isValid()) {
+        EXPECT(!decl.module.isValid() && "module declaration must carry DeclId (R23)");
+        return;
+    }
+    functionNames[id] = std::move(cppName);
+    userNamesByText[std::string(trustText)].add(id);
 }
 
-void DeclFacts::registerFunctionName(const AstNodeBase* decl, std::string cppName, std::string_view trustText) {
-    const AstNodeBase* identity = declIdentity(decl);
-    functionNames[identity] = std::move(cppName);
-    functionNamesByText[std::string(trustText)].add(identity);
-}
-
-const std::string* DeclFacts::findNativeImport(const AstNodeBase* decl) const noexcept {
-    const auto it = nativeImports.find(declIdentity(decl));
-    return it == nativeImports.end() ? nullptr : &it->second;
-}
-
-const StackCheckGuard* DeclFacts::findStackCheck(const AstNodeBase* decl) const noexcept {
-    const auto it = stackCheck.find(declIdentity(decl));
+const StackCheckGuard* DeclFacts::findStackCheck(DeclId decl) const noexcept {
+    const auto it = stackCheck.find(decl);
     return it == stackCheck.end() ? nullptr : &it->second;
 }
 
-TextLookup DeclFacts::lookupNativeImportByText(std::string_view text) const {
-    return lookupByText(nativeImportsByText, nativeImports, text);
-}
-
 TextLookup DeclFacts::lookupFunctionCppNameByText(std::string_view text) const {
-    return lookupByText(functionNamesByText, functionNames, text);
+    return lookupByText(userNamesByText, functionNames, text);
 }
 
-std::string CppEmitContext::operatorCppName(std::string_view symbol, std::string_view trustNamespacePath, ModuleIndex owner) const {
+std::string CppEmitContext::operatorCppName(std::string_view symbol, std::string_view trustNamespacePath) const {
     std::string cppOp = op::operatorCppName(symbol);
     EXPECT(!cppOp.empty() && "operatorCppName: unknown operator symbol");
-    // Модуль — ПЕРВЫЙ сегмент; неимпортируемый юнит (root без заголовка) не изолируется.
-    const std::string moduleNamespace = owner.isValid() ? m_ctx.readTypes().printer().moduleCppNamespace(owner) : std::string{};
     std::string out;
-    if (!moduleNamespace.empty()) {
-        out += moduleNamespace;
-        out += "::";
-    }
     if (!trustNamespacePath.empty()) {
         out += utils::cppNamespacePath(trustNamespacePath);
         out += "::";
@@ -193,19 +178,23 @@ std::string OutputState::namespaceCppName(std::string_view text) {
 std::vector<std::string> CppEmitContext::resolveStackCheckAddresses(const std::vector<std::string>& names) {
     std::vector<std::string> out;
     for (const auto& nm : names) {
-        // Текстовый домен (`--stack-check-functions`): одноимённые функции разных модулей/
-        // namespace не разрешаются «первым победителем» — это ошибка конфигурации.
+        // Имя функции — ДАННЫЕ ДЛЯ ЛИНКЕРА: при локальном резолве печатаем C++-имя объявления,
+        // иначе — строку дословно (символ разрешит линкер). Резолв здесь — только ранняя диагностика
+        // (не найдено/неоднозначно => warning), эмиссия от него не зависит.
         const TextLookup found = m_declFacts.lookupFunctionCppNameByText(nm);
         switch (found.status) {
         case TextLookup::Status::Found:
             out.push_back("reinterpret_cast<void*>(&" + *found.value + ")");
             break;
         case TextLookup::Status::Ambiguous:
-            m_ctx.report(MapperRange(), diag::DiagId::ParseError,
-                         "ambiguous function '{}' in stack-check functions list: it names same-named declarations of different modules or namespaces", nm);
+            m_services.report(MapperRange(), diag::DiagId::StackCheckFnSymbol,
+                              "ambiguous function '{}' in stack-check functions list; assuming an external linker symbol", nm);
+            out.push_back("reinterpret_cast<void*>(&" + nm + ")");
             break;
         case TextLookup::Status::NotFound:
-            m_ctx.report(MapperRange(), diag::DiagId::ParseError, "unknown function '{}' in stack-check functions list", nm);
+            m_services.report(MapperRange(), diag::DiagId::StackCheckFnSymbol,
+                              "function '{}' in stack-check functions list is not declared in this translation unit; assuming an external linker symbol", nm);
+            out.push_back("reinterpret_cast<void*>(&" + nm + ")");
             break;
         }
     }
@@ -218,14 +207,22 @@ std::optional<StackCheckGuard> stackCheckGuardOf(const FuncDecl& func, const Att
         return std::nullopt;
     }
     StackCheckGuard g;
-    if (const auto* args = func.attr_args(*sc); args && !args->empty()) {
-        try {
-            const long v = std::stol(args->at(0));
-            g.size = (v < 0) ? 0 : v;
-        } catch (const std::exception&) {
-            g.size = 1000000000L; // ~1 ГБ свободного стека — на реальном стеке всегда бросок
+    const auto* args = func.attr_args(*sc);
+    if (args == nullptr || args->empty()) {
+        return g; // `@[stack_check@]` без аргумента: size==0 → check_stack_limit()
+    }
+    // Семантика гарантирует РОВНО один аргумент из одних цифр (semantic/decl/func_signature_check.cpp),
+    // но НЕ ограничивает величину: число, не помещающееся в long, НАСЫЩАЕТСЯ явно (check_overflow(N)
+    // на реальном стеке всё равно бросает). «Магического» размера по умолчанию нет.
+    unsigned long long value = 0;
+    for (const char c : args->at(0)) {
+        value = value * 10ULL + static_cast<unsigned long long>(c - '0');
+        if (value > static_cast<unsigned long long>(std::numeric_limits<long>::max())) {
+            value = static_cast<unsigned long long>(std::numeric_limits<long>::max());
+            break;
         }
     }
+    g.size = static_cast<long>(value);
     return g;
 }
 

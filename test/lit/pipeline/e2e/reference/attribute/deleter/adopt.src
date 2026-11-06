@@ -10,6 +10,7 @@
 # deleter-типом CountDel (нативный класс). При выходе из do_work владелец trust::Unique<T,D>
 # разрушается и deleter вызывается РОВНО один раз (g_freed == 1). Инициализатор - результат
 # нативной функции alloc_handle() (сырой указатель), а не значение; вид/D заданы атрибутами.
+\std();
 @include("countdel.hpp")
 CountDel ::= %CountDel { };
 alloc_handle():@[reftype(ptr)@] Int32 := %test_alloc...;

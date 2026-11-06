@@ -1,6 +1,5 @@
 #pragma once
 
-// include/symbols/table/symbol_key_factory.hpp
 // Единственная точка ПОСТРОЕНИЯ StorageKey для таблицы символов: модульные/плоские/скрытые
 // варианты одного spelling. Само правило видимости остаётся за `types/site_visibility.hpp`
 // (фабрика получает готовый SiteVisibilityInput); интернирование ключей — `internStorageKey`.

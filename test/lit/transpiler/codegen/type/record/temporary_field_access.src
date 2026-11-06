@@ -1,0 +1,15 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/temporary_field_access.o %s && test -f $TD/temporary_field_access.o
+
+# Доступ к полю значения record-типа, полученного ВЫРАЖЕНИЕМ (конструктор/вызов функции):
+# `Holder().field` → `(Holder()).c_field`. Тип результата конструктора по имени типа
+# материализует семантика (`CallExpr::resultState`), поэтому кодоген не уходит в словарный
+# путь `.at("field")`.
+
+\std();
+:Holder ::= :Class{ s:String := "a"; n:Int32 := 1; };
+mk():Holder := { return Holder(); };
+
+# CHECK: (Holder()).s
+# CHECK: (mk{{_[A-Za-z0-9_]+}}()).n
+@print("{} {}", Holder().s, mk().n);

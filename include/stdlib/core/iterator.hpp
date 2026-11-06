@@ -1,10 +1,8 @@
 // stdlib/iterator.hpp - the single universal Trust iterator implementation.
-//
 // Standard library header of the `Iterator<T>` library type: self-contained (standard headers
 // only) so generated C++ programs can include it without the compiler's include tree.
 // Delivered inside the toolchain package (include/stdlib/iterator.hpp inside share/trust/stdlib.trust)
 // and available via -Istdlib/include when a generated program uses Iterator<T>.
-//
 // Design:
 //   - `trust::Iterator<T>` is ONE type-erased cursor over ANY source sequence. It is the only
 //     C++ implementation behind the Trust-level `Iterator<T>` type.

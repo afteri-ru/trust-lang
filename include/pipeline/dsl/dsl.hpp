@@ -1,5 +1,4 @@
-// include/pipeline/dsl/dsl.hpp
-// Bootstrap фронтенда: загрузка DSL-макросов, stdlib prelude и эффективные keywords.
+// Bootstrap фронтенда: загрузка DSL-макросов и эффективные keywords.
 #pragma once
 
 #include "ast/ast_nodes.hpp"
@@ -18,8 +17,5 @@ void loadDslMacros(Context& ctx, const PipelineOpts& opts);
 
 /// Возвращает эффективный список keywords (CLI --keywords > .trust-format > дефолт dsl.src).
 std::vector<std::string> effectiveKeywords(Context& ctx, const PipelineOpts& opts);
-
-/// Добавляет объявления stdlib prelude (iterator/async/builtin string) в out.
-void appendStdlibPrelude(Context& ctx, bool enabled, std::vector<AstNodePtr>& out);
 
 } // namespace trust

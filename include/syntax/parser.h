@@ -5,16 +5,17 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 namespace trust {
 class AstNodeBase;
 using AstNodePtr = std::shared_ptr<AstNodeBase>;
-class Context;
 } // namespace trust
 
 #include "syntax/parser/parser_error.hpp"
 #include "syntax/term/term_types.h"
+#include "syntax/parser_services.hpp"
 
 #include "syntax/predef_macro.hpp"
 #include "syntax/macro/pragma_evaluator.hpp"
@@ -59,7 +60,7 @@ struct RecentTokens {
     }
 
     /** Диапазон синтаксической ошибки (реализация - в src/syntax/parser/parser.cpp). */
-    trust::MapperRange syntaxErrorRange(const trust::Context& ctx) const;
+    trust::MapperRange syntaxErrorRange(const trust::ParserServices& ctx) const;
 };
 
 /** The Driver class brings together all components. It creates an instance of
@@ -70,7 +71,12 @@ struct RecentTokens {
  * structure into which the parsed data is saved. */
 class Parser {
   public:
-    Parser(trust::Context& ctx, PostLexerType* postlex = nullptr, bool pragma_enable = true, bool macro_expand = true);
+    Parser(trust::ParserServices ctx, PostLexerType* postlex = nullptr, bool pragma_enable = true, bool macro_expand = true);
+
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, trust::ParserServices>)
+    Parser(Ctx& ctx, PostLexerType* postlex = nullptr, bool pragma_enable = true, bool macro_expand = true)
+    : Parser(trust::makeParserServices(ctx), postlex, pragma_enable, macro_expand) {}
 
     virtual ~Parser() {}
 
@@ -103,7 +109,7 @@ class Parser {
     void AstAddTerm(TermPtr val);
 
     /// Контекст, с которым работает парсер (макросы, source, опции).
-    trust::Context& context() const { return m_ctx; }
+    const trust::ParserServices& context() const { return m_ctx; }
 
     /// Коллбек: сырой терм, прочитанный из лексера (до раскрытия макроса), в порядке обработки.
     /// Вызывается в GetNextToken для КАЖДОГО raw-токена (включая токены макроопределений,
@@ -215,28 +221,35 @@ class Parser {
     // Собирает термин из последовательности лексем и удаляет их из входного буфера.
     // ctx задаёт контекст, из которого наследуется Macro; macro_expand=false
     // отключает раскрытие макросов (специальные случаи: тесты, идентификаторы определений).
-    static size_t ParseTerm(TermPtr& term, const SequenceType& buffer, trust::Context& ctx, const size_t skip = 0, bool pragma_enable = true,
+    static size_t ParseTerm(TermPtr& term, const SequenceType& buffer, trust::ParserServices ctx, const size_t skip = 0, bool pragma_enable = true,
                             bool macro_expand = true);
-    static TermPtr ParseTerm(const char* proto, trust::Context& ctx, bool pragma_enable = true, bool macro_expand = true);
+    static TermPtr ParseTerm(const char* proto, trust::ParserServices ctx, bool pragma_enable = true, bool macro_expand = true);
+
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, trust::ParserServices>)
+    static size_t ParseTerm(TermPtr& term, const SequenceType& buffer, Ctx& ctx, const size_t skip = 0, bool pragma_enable = true,
+                            bool macro_expand = true) {
+        return ParseTerm(term, buffer, trust::makeParserServices(ctx), skip, pragma_enable, macro_expand);
+    }
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, trust::ParserServices>)
+    static TermPtr ParseTerm(const char* proto, Ctx& ctx, bool pragma_enable = true, bool macro_expand = true) {
+        return ParseTerm(proto, trust::makeParserServices(ctx), pragma_enable, macro_expand);
+    }
 
     TermPtr CheckModuleTerm(const TermPtr& term);
 
-    /// Ссылочная форма `\path::name` (в т.ч. `\path::name(...)`): модуль обязан быть УЖЕ
-    /// загружен. Индекс загруженного модуля кладётся в `m_moduleIndices` терма; загрузки
-    /// (resolveModules) НЕТ - ссылка не является оператором импорта.
-    TermPtr ResolveModuleReference(const TermPtr& term);
-    /// Зарегистрировать алиас модуля во время разбора (ссылки `\m::name` разрешаются парсером
-    /// ДО семантики). Регистрация идемпотентна; семантика повторно проверяет дубли.
-    void RegisterModuleAlias(const TermPtr& alias, const TermPtr& target);
-
     static size_t SkipBrackets(const SequenceType& buffer, size_t offset);
 
-    trust::Context& m_ctx;
+    /// Активный пул строк прогона на время существования парсера: доки макросов/тексты разбора
+    /// интернируются у владельца прогона (E9), даже если Parser создан вне `Pipeline::run`.
+    trust::StringInternerScope m_stringsScope;
+    trust::ParserServices m_ctx;
 
     syntax::PredefMacroResolver m_predef;
     syntax::PragmaEvaluator m_pragma;
 
-    MacroPtr m_macro;
+    Macro* m_macro = nullptr;
     bool m_is_lexer_complete;
 
   private:

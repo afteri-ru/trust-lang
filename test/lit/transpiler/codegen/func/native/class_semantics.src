@@ -1,0 +1,24 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/class_semantics.o %s && test -f $TD/class_semantics.o
+
+# Класс-обёртка нативного класса — рабочий C++ (компилируется), а не только текст:
+#   * наследует базовый C++-тип и его конструкторы (`using Base::Base`),
+#   * неявно конструируется из БАЗОВОГО типа (конвертирующий ctor `U == Base`).
+# Проверяется компилятором: static_assert на `is_constructible`/`is_convertible` из embed-вставки.
+
+\std();
+@include("string")
+MyStr ::= %std::string {
+    size(): UInt64  := ...;
+};
+# CHECK: class MyStr : public std::string {
+# CHECK:     using std::string::string;
+
+{% static_assert(std::is_constructible_v<MyStr, const char*>, "MyStr: inherited ctor from const char*"); %};
+{% static_assert(std::is_constructible_v<MyStr, const std::string&>, "MyStr: converting ctor from base"); %};
+{% static_assert(std::is_convertible_v<const std::string&, MyStr>, "MyStr: implicit conversion from base"); %};
+
+s : MyStr := "hi";
+n : UInt64 := s.size();
+
+@main():Int32 := { @return 0; }

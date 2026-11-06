@@ -1,6 +1,5 @@
 #pragma once
 
-// include/symbols/decl_binders.hpp
 // Binder-контекст объявления (позиционная C++-идентичность FunctionIdentity). Единственный
 // экстрактор: используется и SymbolTable (per-overload forward/definition), и semantic
 // (addMethod/hasOwnMethodSignature). Не зависит от semantic/fn_identity-registry.

@@ -5,6 +5,7 @@
 #include <expected>
 #include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -18,7 +19,6 @@
 #include "types/group.hpp"
 #include "types/registry/named_type_registrar.hpp"
 #include "types/registry/method_table.hpp"
-#include "types/runtime_symbols.hpp"
 #include "types/names/storage_key.hpp"
 #include "types/registry/structural_interner.hpp"
 #include "types/type_id.hpp"
@@ -38,19 +38,20 @@ namespace trust {
 // Forward declarations
 class DiagnosticEngine;
 class FunctionIdentity;
-class ModuleNameLookup;
 class Options;
 
-// -- TypeSystem -----------------------------------------
 class TypeSystem {
   public:
     explicit TypeSystem(DiagnosticEngine& diag, const Options& opts);
 
     /// Сброс к builtin-состоянию (пользовательские/структурные типы очищаются); вызывается
-    /// на каждый запуск семантики.
+    /// на каждый запуск семантики. ЕДИНСТВЕННЫЙ вызывающий — прогон семантики; смешение
+    /// «reset() + новый экземпляр» запрещено (E1/R7). Инкрементирует поколение реестра.
     void reset();
 
-    // -- Зоны состояния: единственная точка доступа к ответственностям ----------------------
+    /// Поколение реестра: снимок (`SemanticModel`) действителен, пока поколение не изменилось.
+    [[nodiscard]] std::uint64_t generation() const noexcept { return m_generation; }
+
     // Корень владеет зонами и lifecycle; саму операцию выполняет зона-владелец.
     // Чтение потребителями — через TypeReadModel.
     [[nodiscard]] TypeStore& store() noexcept { return m_store; }
@@ -72,28 +73,25 @@ class TypeSystem {
     /// Read-модель над зонами (capability-narrowing для чтения).
     [[nodiscard]] const TypeReadModel& read() const noexcept { return m_read; }
 
-    // -- Основные операции --
+    // Собираются семантикой из ВСЕХ проанализированных объявлений, ВКЛЮЧАЯ модули, пришедшие
+    // импортом: их AST не входит в корневой AST программы, поэтому borrow-анализ берёт метки
+    // отсюда, а не только из обхода корня. Имена — «как написаны» (raw), нормализация методов —
+    // на стороне потребителя.
+    void markBorrowedClass(std::string name) { m_borrowedClasses.insert(std::move(name)); }
+    void markBorrowedMethod(std::string name) { m_borrowedMethods.insert(std::move(name)); }
+    [[nodiscard]] const std::set<std::string>& borrowedClasses() const noexcept { return m_borrowedClasses; }
+    [[nodiscard]] const std::set<std::string>& borrowedMethods() const noexcept { return m_borrowedMethods; }
 
-    /// Провайдер логического имени модуля (невладеющий; внедряется владельцем компиляции).
-    void setModuleNames(const ModuleNameLookup* names) noexcept { m_printer.setModuleNames(names); }
-
-    // -- Пользовательские шаблон-классы (`<T> :Box ::= :Class{...}`) --
-
-    // -- Типовые пакеты (`T...`) ---------------------------------------------
-    //
     // Пакет — ОТДЕЛЬНЫЙ структурный узел PackExpansion(pattern), а НЕ флаг в
     // TemplateParamTypeData: TypeKey не содержит TypeData, поэтому флаг в data не различал бы
     // `T` и `T...`. Group::kEllipsis занят runtime-вариадиками (`...` в вызовах/прототипах),
     // поэтому типовая pack-expansion имеет собственную группу Group::kPackExpansion.
 
-    // -- Привязки типовых параметров и структурное интернирование ---------------------------
     // Интернирование — зона StructuralInterner (`interner().getOrCreate*`); алгоритмы
     // подстановки — `types/subst` (принимают TypeWriteContext{read, interner}).
 
-    // -- Пользовательские нативные шаблоны-типы (`<T> %std::vector() := ...;`) --
     // Регистрация абстрактного шаблона — зона NamedTypeRegistrar (registerNativeTemplate).
 
-    // -- Forward-объявления нативных классов (`String ::= %std::string { ... };`) --
     // Регистрация — зона NamedTypeRegistrar (registerNativeClass); C++-struct НЕ генерируется
     // (cppName + include on-use), методы — MethodTable::addMethod.
   private:
@@ -130,7 +128,14 @@ class TypeSystem {
     /// Зона структурного интернирования (владеет TypeKey-таблицей); пишет через store/names.
     StructuralInterner m_interner;
 
-    // -- Structural uniquing (таблица — во владении StructuralInterner) --
+    /// @[borrowed]-метки объявлений (см. одноимённые методы выше); очищаются reset().
+    std::set<std::string> m_borrowedClasses;
+    std::set<std::string> m_borrowedMethods;
+
+    /// Поколение реестра: инкрементируется КАЖДЫМ `reset()` (единственная точка инвалидации
+    /// производных снимков). Читатели снимка (`SemanticModel`) сверяют поколение и падают
+    /// (`EXPECT`) при обращении к устаревшему — молчаливые данные запрещены (R7).
+    std::uint64_t m_generation = 0;
 };
 
 } // namespace trust

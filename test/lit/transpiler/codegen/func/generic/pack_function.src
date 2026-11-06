@@ -8,7 +8,7 @@ r0 : Int32 := count();
 r1 : Int32 := count(1:Int32);
 r2 : Int32 := count(1:Int32, 2:Int32);
 
-# CHECK: template <typename... T> int32_t c_count{{_[A-Za-z0-9_]+}}(T... c_xs)
-# CHECK: c_count{{_[A-Za-z0-9_]+}}()
-# CHECK: c_count{{_[A-Za-z0-9_]+}}<int32_t>(1)
-# CHECK: c_count{{_[A-Za-z0-9_]+}}<int32_t, int32_t>(1, 2)
+# CHECK: template <typename... T> int32_t count{{_[A-Za-z0-9_]+}}(T... xs)
+# CHECK: count{{_[A-Za-z0-9_]+}}()
+# CHECK: count{{_[A-Za-z0-9_]+}}<int32_t>(1)
+# CHECK: count{{_[A-Za-z0-9_]+}}<int32_t, int32_t>(1, 2)

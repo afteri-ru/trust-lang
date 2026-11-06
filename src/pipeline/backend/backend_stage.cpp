@@ -18,11 +18,11 @@ bool runBackendStages(std::span<const BackendStage> stages, BackendServices& ser
         const std::string_view stage_name =
             index < static_cast<std::size_t>(BackendKind::kCount) ? backendStageName(static_cast<BackendKind>(index)) : std::string_view{"backend"};
         if (stage.needsHir && req.hir == nullptr) {
-            reportInternalError(services.ctx, services.opts.allow_semantic_on_errors, std::format("backend stage '{}' requires HIR", stage_name));
+            reportInternalError(services.services.diag(), services.opts.allow_semantic_on_errors, std::format("backend stage '{}' requires HIR", stage_name));
             return false;
         }
         if (stage.needsMir && req.mir == nullptr) {
-            reportInternalError(services.ctx, services.opts.allow_semantic_on_errors, std::format("backend stage '{}' requires MIR", stage_name));
+            reportInternalError(services.services.diag(), services.opts.allow_semantic_on_errors, std::format("backend stage '{}' requires MIR", stage_name));
             return false;
         }
         const StageOutcome outcome = stage.run(services, req, out);

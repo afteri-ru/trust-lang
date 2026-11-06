@@ -1,8 +1,6 @@
 #pragma once
 
-// include/semantic/ref/nativeref.hpp
 // NativeRefHook: диагностики нативных (сырых) C++-ссылок D3–D7.
-//
 // Инвалидация производных представлений (`@[borrowed]`, `&?`-weak) выполняется отдельным
 // flow-анализом (`BorrowFlowPass`, `semantic/ref/borrow_flow.hpp`); здесь — только контракт
 // нативных ссылок:
@@ -10,7 +8,6 @@
 //   D4   — нативная ссылка в static/global/TLS-переменной;
 //   D5   — сохранение нативной ссылки в переменную внешнего скоупа;
 //   D6   — swap нативных ссылок разных уровней скоупа.
-//
 // Реализация - InlineAnalysisHook: onDeclare (D4 + регистрация), onNode (D3/D5/D6/D7).
 
 #include "semantic/core/inline_hook.hpp"
@@ -50,7 +47,6 @@ class NativeRefHook : public InlineAnalysisHook {
 
     AnalysisContext& m_actx;
 
-    // -- Диагностики нативных (сырых) ссылок (D3..D7) --
     /// Вид нативной ссылки из аннотации типа (`@[reftype("ptr"|"ref")]`). kValue - не нативная.
     static RefType nativeKindOfTypeNode(const AstNodeBase* typeNode);
     /// Регистрирует нативную переменную в текущем фрейме + D4 (static/global native -> error).

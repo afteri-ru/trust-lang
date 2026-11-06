@@ -7,12 +7,10 @@
 
 namespace trust {
 
-// -- Константы формата упаковки TaggedFile и TaggedLocation --
-// -- TaggedFile.raw --
+// Кодирование Location в raw (uint32):
 //   raw = 0                         - невалидный
 //   bit 31 = 0: входной файл:       raw = index + 1 (1..511)
 //   bit 31 = 1: выходной файл:      raw = (index + 1) | OUTPUT_FILE_BIT (1..31)
-// -- TaggedLocation.packed --
 //   bit 31 = 0: входной файл:       bits 30-22 = index+1 (9 бит, 511)
 //                                   bits 21-0  = offset (22 бита, ~4MB)
 //   bit 31 = 1: выходной файл:      bits 30-26 = index+1 (5 бит, 31)
@@ -20,7 +18,6 @@ namespace trust {
 struct LocationPack {
     using RawType = uint32_t;
 
-    // -- Для TaggedFile --
     static constexpr int FILE_BITS_INPUT = 9;
     static constexpr int MAX_FILES_INPUT = (1 << FILE_BITS_INPUT) - 1; // 511
 
@@ -29,11 +26,9 @@ struct LocationPack {
 
     static constexpr RawType OUTPUT_FILE_BIT = 1u << 31; // флаг выходного файла (в TaggedFile и TaggedLocation)
 
-    // -- Для TaggedLocation: входные файлы --
     static constexpr int OFFSET_BITS_INPUT = 22;
     static constexpr int MAX_OFFSET_INPUT = (1 << OFFSET_BITS_INPUT) - 1; // 4'194'303 (~4MB)
 
-    // -- Для TaggedLocation: выходные файлы --
     static constexpr int OFFSET_BITS_OUTPUT = 26;
     static constexpr int MAX_OFFSET_OUTPUT = (1 << OFFSET_BITS_OUTPUT) - 1; // 67'108'863 (~64MB)
 };
@@ -114,7 +109,6 @@ struct TaggedFile {
     LocationPack::RawType raw = 0;
 };
 
-// -- Теги для tagged-типов --
 struct MapperFileTag {};
 struct ReaderFileTag {};
 
@@ -181,13 +175,11 @@ struct TaggedLocation {
         }
     }
 
-    // -- Операторы сравнения (C++20 spaceship) - сравниваем (fileIdx, offset)
     friend constexpr bool operator==(const Location& a, size_t b) { return a.offset() == b; }
     friend constexpr bool operator==(size_t a, const Location& b) { return a == b.offset(); }
     friend constexpr auto operator<=>(const Location& a, size_t b) { return a.offset() <=> b; }
     friend constexpr auto operator<=>(size_t a, const Location& b) { return a <=> b.offset(); }
 
-    // -- Арифметические операторы (offset + смещение)
     friend constexpr LocationPack::RawType operator+(const Location& loc, size_t val) { return loc.offset() + val; }
     friend constexpr LocationPack::RawType operator+(size_t val, const Location& loc) { return val + loc.offset(); }
     friend constexpr LocationPack::RawType operator-(const Location& loc, size_t val) {
@@ -229,7 +221,13 @@ struct TaggedLocation {
         [[nodiscard]] bool isInvalid() const { return begin.isInvalid() || end.isInvalid() || begin.fileIdx() != end.fileIdx() || begin > end; }
 
         friend constexpr bool operator==(const RangeType& a, const RangeType& b) { return a.begin == b.begin && a.end == b.end; }
-        friend constexpr auto operator<=>(const RangeType& a, const RangeType& b) { return a.begin <=> b.begin; }
+        /// Порядок: begin, затем end. Обязан согласовываться с operator==: `(a <=> b) == 0` ⇔ `a == b`.
+        friend constexpr auto operator<=>(const RangeType& a, const RangeType& b) {
+            if (auto cmp = a.begin <=> b.begin; cmp != 0) {
+                return cmp;
+            }
+            return a.end <=> b.end;
+        }
 
         RangeType() = default;
         Location begin{}, end{};
@@ -278,7 +276,6 @@ struct TaggedLocation {
     }
 };
 
-// -- Псевдонимы для двух пространств --
 using MapperLocation = TaggedLocation<MapperFile>::Location;
 using MapperRange = TaggedLocation<MapperFile>::RangeType;
 

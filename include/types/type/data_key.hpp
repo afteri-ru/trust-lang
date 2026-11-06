@@ -1,5 +1,4 @@
 #pragma once
-// include/types/type/data_key.hpp
 // TypeKey и TypeKeyHash — ключ структурного интернирования типов.
 // Часть модели данных типов: самостоятельным контрактом НЕ является (umbrella —
 // types/type_data.hpp). Набор include повторяет umbrella, чтобы часть компилировалась
@@ -23,14 +22,20 @@
 
 namespace trust {
 
-// -- TypeKey для структурного интернирования --------------
+/// Дочерний элемент структурного ключа: TypeId + имя ("" для безымянных). Один контейнер записей (R14).
+struct TypeKeyChild {
+    TypeId type;
+    std::string name;
+
+    friend bool operator==(const TypeKeyChild&, const TypeKeyChild&) = default;
+};
+
 struct TypeKey {
-    TypeKind kind;                  // TypeKind без registry_index
-    std::vector<TypeId> children;   // все дочерние TypeId для сравнения
-    std::vector<std::string> names; // имена полей (ТОЛЬКО для Tuple; у прочих пусто)
+    TypeKind kind;                      // TypeKind без registry_index
+    std::vector<TypeKeyChild> children; // дочерние элементы: TypeId + имя ("" для безымянных)
     // Непрозрачный для потребителей дискриминатор идентичности, не являющийся типом (не входит
-    // в TypeData-поля, которые читают потребители): C++-имя нативного шаблона для инстанциации
-    // (NativeTemplateTypeData::cppTemplate), layout слотов функциональной сигнатуры
+    // в TypeData-поля, которые читают потребители): языковой ключ нативного шаблона для инстанциации
+    // (NativeTemplateTypeData::templateOf), layout слотов функциональной сигнатуры
     // (число параметров/variadic/pack-позиция), размерности Array и shape Tensor.
     // Без него плоский список children допускает коллизии: `pair<T>` vs `tuple<T>`,
     // `f(a,b:Any)` vs `f(a,...)`, `Array<T>` vs `Array<T,[4]>`.
@@ -39,18 +44,18 @@ struct TypeKey {
     StructuralTag tag;
 
     bool operator==(const TypeKey& other) const noexcept {
-        return kind == other.kind && children == other.children && names == other.names && tag == other.tag;
+        return kind == other.kind && children == other.children && tag == other.tag;
     }
 };
 
 struct TypeKeyHash {
     size_t operator()(const TypeKey& key) const noexcept {
         size_t h = std::hash<uint32_t>{}(static_cast<uint32_t>(key.kind));
-        for (auto child : key.children) {
-            h ^= std::hash<TypeId>{}(child) + 0x9e3779b9 + (h << 6) + (h >> 2);
-        }
-        for (const auto& n : key.names) {
-            h ^= std::hash<std::string>{}(n) + 0x9e3779b9 + (h << 6) + (h >> 2);
+        for (const TypeKeyChild& child : key.children) {
+            h ^= std::hash<TypeId>{}(child.type) + 0x9e3779b9 + (h << 6) + (h >> 2);
+            if (!child.name.empty()) {
+                h ^= std::hash<std::string>{}(child.name) + 0x9e3779b9 + (h << 6) + (h >> 2);
+            }
         }
         const size_t tagHash = std::visit(
             [](const auto& t) -> size_t {
@@ -61,7 +66,7 @@ struct TypeKeyHash {
                     const uint64_t packed = (static_cast<uint64_t>(t.paramCount) << 9) | (static_cast<uint64_t>(t.hasVariadic) << 8) | t.paramPackPosition;
                     return std::hash<uint64_t>{}(packed);
                 } else if constexpr (std::is_same_v<T, NativeTemplateTag>) {
-                    return std::hash<std::string>{}(t.cppTemplate);
+                    return std::hash<TypeId>{}(t.templateOf);
                 } else if constexpr (std::is_same_v<T, ArrayShapeTag>) {
                     size_t shapeHash = std::hash<bool>{}(t.isVariadic);
                     for (uint64_t d : t.dimensions) {

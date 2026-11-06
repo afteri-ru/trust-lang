@@ -13,6 +13,7 @@
 # `with(l1 = *r1, l2 = *r2) { ... }` - simultaneous acquisition (locking) of multiple
 # references for the duration of the block.
 
+\std();
 @main():Int32 := {
     &* s := 5:Int32;              # shared
     &? w := & s;                  # weak (из shared через address-of `& s`)

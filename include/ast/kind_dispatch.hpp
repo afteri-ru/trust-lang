@@ -1,20 +1,15 @@
-// include/ast/kind_dispatch.hpp
 // ЕДИНЫЙ источник kind-диспетчеризации: перечень kinds (`PARSER_TOKEN_KINDS`), индекс-слот,
 // контекстная категория, полнота обработчиков и диспетчер exhaustive-потребителя.
-//
 // Индустриальный аналог: Clang `RecursiveASTVisitor` (типизированные обработчики + сгенерированный
 // диспетчер) и `StmtDumper` (исчерпывающий switch + `llvm_unreachable`); Roslyn сгенерированный
 // `Accept()`/`DefaultVisit`; Rust `visit_*`/`walk_*`. Добавление kind в `PARSER_TOKEN_KINDS` меняет
 // перечень и требует категории; компилятор требует решения там, где полнота обязательна.
-//
 // ДВА вида потребителей (смешивать их - ошибка):
-//
 // 1. Exhaustive consumer (кодоген): обработчик на КАЖДЫЙ kind, полнота доказывается компилятором
 //        static_assert(hasAllKindHandlers<CppTranspiler>());
 //    Обработчики типизированы (`const <node_type>&`), приведение делает диспетчер `dispatchEmit`.
 //    `dispatchEmit(..., expected)` проверяет `kindCategory` (statement/expression-контекст).
 //    «Недостижимо здесь» - явный `faultUnexpectedKind`, «осознанно пропустить» - `skipNode`.
-//
 // 2. Partial pass (семантика, линты): фаза реагирует на часть kinds, остальные обходит.
 //    Решение - ДАННЫЕ: ОДНА таблица обработчиков размером `kParserKindSlotCount`, заполненная
 //    default'ом обхода и переопределённая только реальными действиями (эталон -

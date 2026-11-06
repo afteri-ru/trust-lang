@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp -Wbuiltin-override=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Член `=`-тела builtin обязан нести реализацию (делегат `:= %name ...;`/`:= name ...;` или тело).
+# Голое предварительное объявление (forward) — ошибка.
+StrChar = %std::string {
+    size(): UInt64 := ...;
+};
+@main(): Int32 := { return 0; };
+# CHECK: error: member 'size' in '='-definition of built-in type 'StrChar' is a forward declaration without implementation

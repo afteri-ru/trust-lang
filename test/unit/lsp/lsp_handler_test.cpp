@@ -87,7 +87,7 @@ TEST_F(TrustLspTest, HandleDidChange_UsesBufferContent) {
     std::ofstream(testSrcFile) << "msg := \"old\";\n";
 
     std::string fileUri = "file://" + testSrcFile;
-    std::string openContent = "msg := \"hello\";\n{% printf(\"%s\", $msg); %}\n";
+    std::string openContent = "\\std(); msg := \"hello\";\n{% printf(\"%s\", $msg); %}\n";
     json openReq = {{"jsonrpc", "2.0"},
                     {"method", "textDocument/didOpen"},
                     {"params", {{"textDocument", {{"uri", fileUri}, {"languageId", "trust"}, {"version", 1}, {"text", openContent}}}}}};
@@ -95,7 +95,7 @@ TEST_F(TrustLspTest, HandleDidChange_UsesBufferContent) {
     transport.capturedOutput.clear();
 
     // didChange: добавляем новую строку в буфер (на диск НЕ пишем).
-    std::string changedContent = "msg := \"hello\";\nmsg += \" world\";\n{% printf(\"%s\", $msg); %}\n";
+    std::string changedContent = "\\std(); msg := \"hello\";\nmsg += \" world\";\n{% printf(\"%s\", $msg); %}\n";
     json changeReq = {{"jsonrpc", "2.0"},
                       {"method", "textDocument/didChange"},
                       {"params", {{"textDocument", {{"uri", fileUri}, {"version", 2}}}, {"contentChanges", {{{"text", changedContent}}}}}}};
@@ -130,7 +130,7 @@ TEST_F(TrustLspTest, HandleDidChange_IncrementalEdit) {
     std::ofstream(testSrcFile) << "msg := \"old\";\n";
 
     std::string fileUri = "file://" + testSrcFile;
-    std::string openContent = "msg := \"hello\";\n{% printf(\"%s\", $msg); %}\n";
+    std::string openContent = "\\std(); msg := \"hello\";\n{% printf(\"%s\", $msg); %}\n";
     json openReq = {{"jsonrpc", "2.0"},
                     {"method", "textDocument/didOpen"},
                     {"params", {{"textDocument", {{"uri", fileUri}, {"languageId", "trust"}, {"version", 1}, {"text", openContent}}}}}};
@@ -219,7 +219,7 @@ TEST_F(TrustLspTest, HandleShutdown_ClearsCache) {
 //   (регрессия: маппинг всей функции перекрывал точечный и уводил к началу).
 // ═══════════════════════════════════════════════════════════════
 TEST_F(TrustLspTest, HandleDocumentLink_ForwardReverseTargets) {
-    std::ofstream(testSrcFile) << "@main():={\n"
+    std::ofstream(testSrcFile) << "\\std(); @main():={\n"
                                   "    fact :Rational := 1\\1;\n"
                                   "    mult := 1;\n"
                                   "    @while( mult <= 1000 ) {\n"
@@ -310,7 +310,7 @@ TEST_F(TrustLspTest, HandleDocumentLink_ForwardReverseTargets) {
 // с имени макроса, а не с тела).
 // ═══════════════════════════════════════════════════════════════
 TEST_F(TrustLspTest, DISABLED_HandleHover_MacroDefLinkFirst_WholeRange) {
-    std::ofstream(testSrcFile) << "@main():={\n"
+    std::ofstream(testSrcFile) << "\\std(); @main():={\n"
                                   "    fact :Rational := 1\\1;\n"
                                   "    mult := 1;\n"
                                   "    @while( mult <= 1000 ) {\n"
@@ -502,7 +502,7 @@ TEST_F(TrustLspTest, HandleNoSigilLocalVariable_HasFixit_AndCodeAction) {
     std::string uri = "file://" + testSrcFile;
     // `extra := 5` внутри функции - bare-имя в локальном скоупе → NoSigil warning.
     // didOpen публикует диагностики ВСЕГДА (в т.ч. warning'и) - сразу на открытии.
-    std::string src = "%foo():Int32 := {\n    extra := 5;\n    extra\n};\n";
+    std::string src = "foo():Int32 := {\n    extra := 5;\n    extra\n};\n";
     json openReq = {{"jsonrpc", "2.0"},
                     {"method", "textDocument/didOpen"},
                     {"params", {{"textDocument", {{"uri", uri}, {"languageId", "trust"}, {"version", 1}, {"text", src}}}}}};
@@ -586,14 +586,14 @@ TEST_F(TrustLspTest, HandleDefinition_ReferenceToLocalVariable) {
 // S6: переход по ссылке в ЧУЖОЙ модуль — цель в другом входном файле компиляции.
 TEST_F(TrustLspTest, HandleDefinition_ReferenceToImportedFunction) {
     std::ofstream(tmpDir + "/lib.src") << "\\lib;\n/// doc lib\nlf():Int32 := { @return 1; };\n";
-    std::ofstream(testSrcFile) << "\\lib(lf);\ny := \\lib::lf();\n";
+    std::ofstream(testSrcFile) << "\\lib(lf);\ny := lf();\n";
     openTrustFile();
 
     std::string fileUri = "file://" + testSrcFile;
     json req = {{"jsonrpc", "2.0"},
                 {"id", 202},
                 {"method", "textDocument/definition"},
-                {"params", {{"textDocument", {{"uri", fileUri}}}, {"position", {{"line", 1}, {"character", 12}}}}}};
+                {"params", {{"textDocument", {{"uri", fileUri}}}, {"position", {{"line", 1}, {"character", 5}}}}}};
     lsp->handleRequest(req);
 
     json resp = transport.lastResponse();
@@ -601,4 +601,84 @@ TEST_F(TrustLspTest, HandleDefinition_ReferenceToImportedFunction) {
     ASSERT_TRUE(resp.contains("result") && resp["result"].contains("uri")) << resp.dump();
     EXPECT_NE(resp["result"]["uri"].get<std::string>().find("lib.src"), std::string::npos) << resp.dump();
     EXPECT_EQ(resp["result"]["range"]["start"]["line"].get<int>(), 2) << resp.dump();
+}
+// R50/LSP: публикация — единый механизм по URI файла записи. Диагностика, выданная в ДРУГОМ
+// файле прогона (модуль), уходит в URI своего файла, а не отбрасывается фильтром «текущий файл».
+TEST_F(TrustLspTest, HandleDidOpen_PublishesDiagnosticsForOtherFiles) {
+    std::ofstream(tmpDir + "/lib.src") << "\\lib;\nbad : UnknownType := _;\n";
+    std::string uri = "file://" + testSrcFile;
+    json req = {{"jsonrpc", "2.0"},
+                {"method", "textDocument/didOpen"},
+                {"params", {{"textDocument", {{"uri", uri}, {"languageId", "trust"}, {"version", 1}, {"text", "\\lib(bad);\nx := 1;\n"}}}}}};
+    lsp->handleNotification(req);
+
+    const std::string libUri = "file://" + tmpDir + "/lib.src";
+    const std::string& out = transport.capturedOutput;
+    EXPECT_NE(out.find("textDocument/publishDiagnostics"), std::string::npos) << out;
+    EXPECT_NE(out.find(libUri), std::string::npos) << "cross-file diagnostics must be published for their own file\n" << out;
+    EXPECT_NE(out.find("unknown type"), std::string::npos) << "diagnostic message from the module file must be published\n" << out;
+}
+// Повторный анализ гасит устаревшие кросс-файловые диагностики (файл больше не имеет ошибок).
+TEST_F(TrustLspTest, HandleDidOpen_ClearsStaleDiagnosticsOfOtherFiles) {
+    const std::string libPath = tmpDir + "/lib.src";
+    std::ofstream(libPath) << "\\lib;\nbad : UnknownType := _;\n";
+    const std::string uri = "file://" + testSrcFile;
+    const std::string mainText = "\\lib(bad);\nx := 1;\n";
+    json first = {{"jsonrpc", "2.0"},
+                  {"method", "textDocument/didOpen"},
+                  {"params", {{"textDocument", {{"uri", uri}, {"languageId", "trust"}, {"version", 1}, {"text", mainText}}}}}};
+    lsp->handleNotification(first);
+    ASSERT_NE(transport.capturedOutput.find(tmpDir + "/lib.src"), std::string::npos) << transport.capturedOutput;
+
+    transport.capturedOutput.clear();
+    std::ofstream(libPath) << "\\lib;\n";
+    json second = {{"jsonrpc", "2.0"},
+                   {"method", "textDocument/didOpen"},
+                   {"params", {{"textDocument", {{"uri", uri}, {"languageId", "trust"}, {"version", 2}, {"text", mainText}}}}}};
+    lsp->handleNotification(second);
+
+    const std::string& out = transport.capturedOutput;
+    EXPECT_NE(out.find("file://" + libPath), std::string::npos) << "stale cross-file diagnostics must be cleared\n" << out;
+    EXPECT_NE(out.find("\"diagnostics\":[]"), std::string::npos) << out;
+}
+// Кросс-файловые диагностики, опубликованные другим открытым документом, чужой документ не гасит.
+TEST_F(TrustLspTest, HandleDidOpen_DoesNotClearDiagnosticsOwnedByAnotherDocument) {
+    const std::string libPath = tmpDir + "/lib.src";
+    const std::string secondPath = tmpDir + "/second.src";
+    std::ofstream(libPath) << "\\lib;\nbad : UnknownType := _;\n";
+    std::ofstream(secondPath) << "\\lib(bad);\ny := 2;\n";
+    const std::string docA = "file://" + testSrcFile;
+    const std::string docB = "file://" + secondPath;
+    const std::string importLib = "\\lib(bad);\nx := 1;\n";
+
+    json openA = {{"jsonrpc", "2.0"},
+                  {"method", "textDocument/didOpen"},
+                  {"params", {{"textDocument", {{"uri", docA}, {"languageId", "trust"}, {"version", 1}, {"text", importLib}}}}}};
+    lsp->handleNotification(openA);
+    ASSERT_NE(transport.capturedOutput.find("file://" + libPath), std::string::npos) << transport.capturedOutput;
+
+    json openB = {{"jsonrpc", "2.0"},
+                  {"method", "textDocument/didOpen"},
+                  {"params", {{"textDocument", {{"uri", docB}, {"languageId", "trust"}, {"version", 1}, {"text", importLib}}}}}};
+    lsp->handleNotification(openB);
+    ASSERT_NE(transport.capturedOutput.find("file://" + libPath), std::string::npos) << transport.capturedOutput;
+
+    std::ofstream(libPath) << "\\lib;\n";
+    transport.capturedOutput.clear();
+    json reopenA = {{"jsonrpc", "2.0"},
+                    {"method", "textDocument/didOpen"},
+                    {"params", {{"textDocument", {{"uri", docA}, {"languageId", "trust"}, {"version", 2}, {"text", "x := 1;\n"}}}}}};
+    lsp->handleNotification(reopenA);
+    EXPECT_EQ(transport.capturedOutput.find("file://" + libPath), std::string::npos)
+        << "another document owns the module diagnostics; they must not be cleared\n"
+        << transport.capturedOutput;
+
+    transport.capturedOutput.clear();
+    json reopenB = {{"jsonrpc", "2.0"},
+                    {"method", "textDocument/didOpen"},
+                    {"params", {{"textDocument", {{"uri", docB}, {"languageId", "trust"}, {"version", 2}, {"text", "y := 2;\n"}}}}}};
+    lsp->handleNotification(reopenB);
+    const std::string& out = transport.capturedOutput;
+    EXPECT_NE(out.find("file://" + libPath), std::string::npos) << "owner must clear its stale module diagnostics\n" << out;
+    EXPECT_NE(out.find("\"diagnostics\":[]"), std::string::npos) << out;
 }

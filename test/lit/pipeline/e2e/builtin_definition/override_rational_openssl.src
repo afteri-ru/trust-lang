@@ -1,20 +1,33 @@
-# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %trust -q --no-stdlib --temp-dir %t.dir --emit-cpp -Wbuiltin-override=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
 # OpenSSL provider: Rational/BigInteger implemented by OpenSSL BIGNUM.
 # The provider header lives next to the provider .src and is published as @stdlib/...
+# display returns StrChar, so its implementation is required too (strict coverage).
+@[include("string")@]
+StrChar = %std::string {
+    c_str(): CString := %c_str ...;
+    data(): CString := %data ...;
+    size(): UInt64 := %size ...;
+    length(): UInt64 := size ...;
+    empty(): Bool := %empty ...;
+};
 @[include("@stdlib/builtin/rational_openssl.hpp")@]
 @[link("crypto")@]
-Rational = %openssl::Rational { };
+Rational = %openssl::Rational {
+    display^(len: Int64): StrChar := %display ...;
+};
 
 @[include("@stdlib/builtin/rational_openssl.hpp")@]
 @[link("crypto")@]
-BigInteger = %openssl::BigInteger { };
+BigInteger = %openssl::BigInteger {
+    display^(len: Int64): StrChar := %display ...;
+};
 
 r :Rational := 1\2;
 b :BigInteger := 100;
 e :Rational := 100 :Rational;
 @main() := { @return 0; }
 # CHECK: #include "stdlib/builtin/rational_openssl.hpp"
-# CHECK: openssl::Rational c_r = openssl::Rational(
-# CHECK: openssl::BigInteger c_b = 100;
-# CHECK: openssl::Rational c_e = openssl::Rational("100", "1");
+# CHECK: openssl::Rational r = openssl::Rational(
+# CHECK: openssl::BigInteger b = 100;
+# CHECK: openssl::Rational e = openssl::Rational("100", "1");

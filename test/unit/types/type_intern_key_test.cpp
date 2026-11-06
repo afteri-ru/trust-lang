@@ -22,15 +22,15 @@ TEST_F(TypeInternKeyTest, NonTypeIdentityFieldsArePartOfKey) {
 
     // Флаг вариадичности массива — поле идентичности, а не type-ребёнок.
     const TypeKind arrayKind = makeTypeKind(Group::kContainers, 1);
-    const TypeId fixed = reg.interner().getOrCreateStructuralType("", arrayKind, {i32}, ArrayTypeData{i32, {}, false});
-    const TypeId variadic = reg.interner().getOrCreateStructuralType("", arrayKind, {i32}, ArrayTypeData{i32, {}, true});
+    const TypeId fixed = reg.interner().getOrCreateStructuralType("", arrayKind, {TypeKeyChild{i32}}, ArrayTypeData{i32, {}, false});
+    const TypeId variadic = reg.interner().getOrCreateStructuralType("", arrayKind, {TypeKeyChild{i32}}, ArrayTypeData{i32, {}, true});
     EXPECT_NE(fixed, variadic);
-    EXPECT_EQ(fixed, reg.interner().getOrCreateStructuralType("", arrayKind, {i32}, ArrayTypeData{i32, {}, false}));
+    EXPECT_EQ(fixed, reg.interner().getOrCreateStructuralType("", arrayKind, {TypeKeyChild{i32}}, ArrayTypeData{i32, {}, false}));
 
     // Маркер шаблона (templateTypeId) — тоже поле идентичности.
     const TypeKind templateKind = makeTypeKind(Group::kRanges, 1);
-    const TypeId range = reg.interner().getOrCreateStructuralType("", templateKind, {i32}, TemplateTypeData{reg.read().getType(type_category::Range), {i32}});
-    const TypeId other = reg.interner().getOrCreateStructuralType("", templateKind, {i32}, TemplateTypeData{reg.read().getType(type::Array), {i32}});
+    const TypeId range = reg.interner().getOrCreateStructuralType("", templateKind, {TypeKeyChild{i32}}, TemplateTypeData{reg.read().getType(type_category::Range), {i32}});
+    const TypeId other = reg.interner().getOrCreateStructuralType("", templateKind, {TypeKeyChild{i32}}, TemplateTypeData{reg.read().getType(type::Array), {i32}});
     EXPECT_NE(range, other);
 }
 

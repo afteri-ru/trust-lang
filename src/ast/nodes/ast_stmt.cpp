@@ -1,4 +1,3 @@
-// src/ast/nodes/ast_stmt.cpp
 // Операторы AST: JumpStmt, ControlFlowStmt/IfStmt/WhileStmt/DoWhileStmt, MatchStmt,
 // WithStmt, try/catch, синтетические узлы lowering и ErrorExpr, LabelRef, SemicolonStmt.
 #include "ast/ast_nodes.hpp"
@@ -12,7 +11,7 @@
 #include <vector>
 namespace trust {
 
-JumpStmt::JumpStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
+JumpStmt::JumpStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : AstNodeAttr(k, term) {
     EXPECT(term && "JumpStmt term-constructor requires a source Term");
 
@@ -61,7 +60,7 @@ JumpStmt::JumpStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-IfStmt::IfStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
+IfStmt::IfStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : ControlFlowStmt(k, term) {
     EXPECT(term && "IfStmt term-constructor requires a source Term");
     if (!ctx) {
@@ -98,7 +97,7 @@ IfStmt::IfStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-WhileStmt::WhileStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
+WhileStmt::WhileStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : ControlFlowStmt(k, term) {
     EXPECT(term && "WhileStmt term-constructor requires a source Term");
     if (!ctx) {
@@ -119,7 +118,7 @@ WhileStmt::WhileStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-DoWhileStmt::DoWhileStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
+DoWhileStmt::DoWhileStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : ControlFlowStmt(k, term) {
     EXPECT(term && "DoWhileStmt term-constructor requires a source Term");
     if (!ctx) {
@@ -137,7 +136,7 @@ DoWhileStmt::DoWhileStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-WithStmt::WithStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
+WithStmt::WithStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : AstNodeAttr(k, term) {
     EXPECT(term && "WithStmt term-constructor requires a source Term");
     if (!ctx) {
@@ -202,7 +201,12 @@ WithStmt::WithStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
                     binding = std::make_shared<VarDecl>(argTerm, std::move(type), std::move(value));
                 }
                 if (binding) {
-                    static_cast<VarDecl&>(*binding).m_inWith = true;
+                    auto& bindingDecl = static_cast<VarDecl&>(*binding);
+                    bindingDecl.m_inWith = true;
+                    if (!bindingDecl.text().empty() && bindingDecl.text().front() == '%') {
+                        ctx->diag().report(Severity::Error, bindingDecl.range(),
+                                           "'with' binding '{}' cannot declare a native name: use a trust identifier", bindingDecl.text());
+                    }
                 }
             }
             m_locks.push_back({std::move(lock), std::move(binding)});
@@ -231,7 +235,7 @@ MatchStmt::MatchStmt(ParserToken::Kind k, TermPtr term)
     m_op = matchOpFromSpelling(term->getText());
 }
 
-MatchStmt::MatchStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
+MatchStmt::MatchStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : MatchStmt(k, term) {
     if (!ctx) {
         return;
@@ -291,7 +295,7 @@ TryCatchStmt::TryCatchStmt(ParserToken::Kind k, TermPtr term)
     }
 }
 
-TryCatchStmt::TryCatchStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
+TryCatchStmt::TryCatchStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : TryCatchStmt(k, term) {
     if (!ctx) {
         return;
@@ -323,7 +327,14 @@ TryCatchStmt::TryCatchStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
                 cb->m_binding = nullptr; // catch(_) / catch(none) → catch-any (IntAny); «_» — лексема NONE, распознана парсером
             } else if (arg->m_type) {
                 // catch(e:Type) → единый узел VarDecl(e, Type): имя+тип «в одном блоке».
-                cb->m_binding = std::make_shared<VarDecl>(std::string(arg->getText()), convertChild(*ctx, arg->m_type));
+                // Значение задаёт конструкция, поэтому это Bound, а не Forward (см. initKind).
+                auto binding = std::make_shared<VarDecl>(std::string(arg->getText()), convertChild(*ctx, arg->m_type));
+                if (!binding->text().empty() && binding->text().front() == '%') {
+                    ctx->diag().report(Severity::Error, binding->range(),
+                                       "catch binding '{}' cannot declare a native name: use a trust identifier", binding->text());
+                }
+                binding->m_isCatchBinding = true;
+                cb->m_binding = std::move(binding);
             } else {
                 cb->m_binding = convertChild(*ctx, arg); // catch(:Type) → IdentType(T)
             }
@@ -342,8 +353,6 @@ TryCatchStmt::TryCatchStmt(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-// -- JumpStmt::dump --
-
 std::string JumpStmt::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
     if (m_label) {
@@ -361,7 +370,6 @@ std::string JumpStmt::dump(size_t indent) const {
     return result;
 }
 
-// -- ControlFlowStmt::dumpControlFlow --
 std::string ControlFlowStmt::dumpControlFlow(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
     dumpLabeled(result, indent, "cond", m_cond);
@@ -369,8 +377,6 @@ std::string ControlFlowStmt::dumpControlFlow(size_t indent) const {
     dumpLabeled(result, indent, "else", m_else);
     return result;
 }
-
-// -- IfStmt::dump --
 
 std::string IfStmt::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -389,21 +395,16 @@ std::string IfStmt::dump(size_t indent) const {
     return result;
 }
 
-// -- WhileStmt::dump --
-
 std::string WhileStmt::dump(size_t indent) const {
     return dumpControlFlow(indent);
 }
 
-// -- DoWhileStmt::dump --
 std::string DoWhileStmt::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
     dumpLabeled(result, indent, "body", m_body);
     dumpLabeled(result, indent, "cond", m_cond);
     return result;
 }
-
-// -- MatchStmt::dump --
 
 std::string MatchStmt::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -421,8 +422,6 @@ std::string MatchStmt::dump(size_t indent) const {
     return result;
 }
 
-// -- WithStmt::dump --
-
 std::string WithStmt::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
     for (size_t i = 0; i < m_locks.size(); ++i) {
@@ -439,7 +438,6 @@ std::string WithStmt::dump(size_t indent) const {
     return result;
 }
 
-// -- LabelRef (kind=GotoStmt|LabelStmt) / SemicolonStmt: dump --
 std::string LabelRef::dump(size_t indent) const {
     return detail::dumpQuotedName(kind(), text(), indent);
 }

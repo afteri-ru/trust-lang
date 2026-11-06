@@ -33,7 +33,7 @@ characters — qualifiers (or [sigils](https://en.wikipedia.org/wiki/Sigil_(comp
         `\file` — a file in the project root, `\\group\...` — a group directory, `\\\pkg\...` — a package;
         subsequent separators are a single `\`. See [files, groups and packages](/en/docs/syntax/hierarchy/).
 - '**:**' — the colon at the beginning of a term denotes the name of a data [type](/en/docs/types/) or a constructor of a [class](/en/docs/types/class/), which is always *static*
-- '**%**' — the *percent sign* prefix is specified for [native names of variables and functions](/en/docs/types/native/)
+- '**%**' — the *percent sign* marks the **RHS target** of a native binding in a declaration (`name := %cpp...;`); the left-hand name is always a trust identifier (see [Native types](/en/docs/types/native/))
 
 ### Name lookup {#name-lookup}
 If an object name contains no [qualifier](/en/docs/syntax/naming/#sigil), it is *simple*.
@@ -52,7 +52,7 @@ Such a name resolution order always provides the ability to redefine
 global/local objects or function argument names for already existing code without serious changes to it.
 
 For example, for the name `name` in the namespace **`ns`**, the search occurs in the following order:
-`@name` → `%name` → `$name` → `ns::name` → `::ns::name` → `::name`,
+`@name` → `$name` → `ns::name` → `::ns::name` → `::name`,
 and for the argument name `arg` only `@arg` is checked:
 ```python
     ns:: {
@@ -92,6 +92,10 @@ genuinely ambiguous (identical or equally convertible signatures) or the name is
 explicit qualification (`\lib::ns::f(1)`) is always available.
 
 ### Forward declaration {#forward-declaration}
+
+A forward declaration is a declaration **without a definition** (the name and type are
+registered; there is no storage location or body). It is **not** an alias: all forms are
+summarized in the table [Declaration, definition and alias](../operators/create/#declaration-vs-alias).
 In the program text you can refer only to really existing (created) objects.
 But for those cases when you need to refer to an object that is created in another file or will be created later,
 you can make a forward declaration, in which the compiler registers the name and type of the object without actually creating it.

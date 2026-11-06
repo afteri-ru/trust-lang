@@ -16,7 +16,6 @@
 #include <memory>
 #include <string>
 
-// -- Trust LSP Server --
 // TrustLsp - чистый диспетчер LSP-методов (маршрутизация handleRequest/handleNotification);
 // вся логика обработчиков вынесена в stateless-сервисы:
 //   - жизненный цикл документов/кэши            - DocumentManager (lsp/services/document_manager.hpp);

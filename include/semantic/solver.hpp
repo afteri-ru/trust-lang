@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/solver.hpp
 // Режимы trust-конструкций разделены на два ортогональных механизма (конвенция GCC/Clang):
 //   - `-Wsolver=ignore|warning|error` (DiagId::Solver) - severity-диагностика «присутствуют
 //     trust-условия» (default warning; глушится -Wsolver=ignore). Применяется в
@@ -10,7 +9,6 @@
 //     assert - рантайм-проверки (trust__abort__), export - генерация SMT-LIB 2 файла,
 //     calculate - генерация + запуск Z3. Значение хранится в diag::Options как
 //     feature-flag со строковым значением. По умолчанию НЕ задан (никакое поведение).
-//
 // Владелец ФЛАГА — semantic; VALUE-типы режимов и чистые хелперы живут в `analysis/modes.hpp`
 // (разделяются анализом и кодогеном как данные).
 
@@ -41,7 +39,6 @@ namespace semantic {
     return solverModeFromOptions(opts) == analysis::SolverMode::kAssert;
 }
 
-// -- Режим диагностики циклов без инварианта (`-Wsolver-loop`) --------------------------------
 // Value-типы и имена — из `analysis/modes.hpp` (единый источник, разделяемый с верификатором,
 // который получает режим ДАННЫМИ через `BehavioralModes`, а не из `diag::Options`).
 

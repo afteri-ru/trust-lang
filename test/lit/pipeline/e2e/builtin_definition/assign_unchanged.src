@@ -4,5 +4,5 @@
 x :Int32 := 1;
 x = 2;
 @main() := { @return 0; }
-# CHECK: int32_t c_x = 1;
-# CHECK: c_x = 2;
+# CHECK: int32_t x = 1;
+# CHECK: x = 2;

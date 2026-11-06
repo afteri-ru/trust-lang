@@ -1,5 +1,4 @@
 #pragma once
-// include/ast/nodes/contract_nodes.hpp
 // Trust-contract AST nodes: TrustContract and TrustElem (solver terms).
 
 #include "ast/token_base.hpp"
@@ -23,7 +22,7 @@
 
 namespace trust {
 
-class Context;
+struct ConvertServices;
 
 /// TrustContract - единый узел trust-контракта (pre/post/assert/invariant/type).
 /// Хранит СТРОГО ОДНО логическое выражение (m_expr), разобранное парсером как полноценное
@@ -36,14 +35,13 @@ class Context;
 /// не входит, поэтому анализатор и транспилятор игнорируют узел и его содержимое.
 class TrustContract : public AstNodeBase {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeBase, SLOTS_TrustContract)
     TrustContract() { m_kind = ParserToken::Kind::TrustContract; }
 
     /// Терм-конструктор: выражение строится из term->m_right (грамматика
     /// `trust_contract: BEGIN [kind COLON] logical END`); kind резолвится из префикса
     /// `IDENT COLON` (см. ast_base.cpp). Объявлен здесь, определён в ast_base.cpp.
-    TrustContract(ParserToken::Kind k, TermPtr term, Context* ctx = nullptr);
+    TrustContract(ParserToken::Kind k, TermPtr term, ConvertServices* ctx = nullptr);
 
     /// Manual-конструктор: выражение задано явно, без TermPtr (test-only/синтетический).
     TrustContract(ParserToken::Kind k, AstNodePtr expr, PropertyKind kind = PropertyKind::kUnknown)
@@ -63,13 +61,12 @@ class TrustContract : public AstNodeBase {
 /// первый аргумент m_args - переменная-связка, последний - тело. НЕ входит в children().
 class TrustElem : public AstNodeBase {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeBase, SLOTS_TrustElem)
     TrustElem() { m_kind = ParserToken::Kind::TrustElem; }
 
     /// Терм-конструктор: kind резолвится из первого аргумента (маркера), остальные аргументы -
     /// в m_args. Объявлен здесь, определён в ast_base.cpp.
-    TrustElem(ParserToken::Kind k, TermPtr term, Context* ctx = nullptr);
+    TrustElem(ParserToken::Kind k, TermPtr term, ConvertServices* ctx = nullptr);
 
     /// Manual-конструктор (test-only/синтетический).
     TrustElem(ParserToken::Kind k, Z3TermKind term, std::vector<AstNodePtr> args)

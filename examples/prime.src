@@ -10,12 +10,14 @@
 # a standard software exception is thrown and caught via a try { ... } catch(_){ ... } block.
 
 # Native function for measuring execution speed
-@forward %clock():Int64;
+\std();
+@[include("time.h")@]
+clock():Int64 := %clock ...;
 
 # Helper functions
 @func parse_i64(s:StrChar):Int64 {
     try {
-        {% return (int64_t)std::stoll(c_s); %};
+        {% return (int64_t)std::stoll($s); %};
     } catch(:StdException) {
         return -1;
     };
@@ -24,7 +26,7 @@
 
 @func parse_bigint(s:StrChar):BigInteger {
     try {
-        {% return trust::BigInteger(c_s); %};
+        {% return trust::BigInteger($s); %};
     } catch(:StdException) {
         return :BigInteger(-1);
     };
@@ -94,7 +96,7 @@ callCount:Int64 := 0;
     callCount = 0;
     maxDepth = 0;
     currentDepth = 0;
-    $t0 := %clock();
+    $t0 := clock();
     try_error {
         
         $n := $start;
@@ -108,14 +110,14 @@ callCount:Int64 := 0;
         };
 
         # Copy the statistics of the protected version into local variables.
-        $t1 := %clock();
+        $t1 := clock();
         $safeMax := maxDepth;
         $safeCalls := callCount;
     } catch(_) {
 
         # Handling any exception (in this case, a stack overflow)
         @print("safe: STACK OVERFLOW caught at max depth={}, calls={}\n", maxDepth, callCount);
-        @print("safe: time until overflow = {} ticks\n", %clock() - $t0);
+        @print("safe: time until overflow = {} ticks\n", clock() - $t0);
         @return 0;
 
     } else {
@@ -126,7 +128,7 @@ callCount:Int64 := 0;
         callCount = 0;
         maxDepth = 0;
         currentDepth = 0;
-        $t2 := %clock();
+        $t2 := clock();
         $n2 := $start;
         $found2 := 0;
         while ($found2 < $count) {
@@ -136,7 +138,7 @@ callCount:Int64 := 0;
             };
             $n2++;
         };
-        $t3 := %clock();
+        $t3 := clock();
         $unprotMax := maxDepth;
         $unprotCalls := callCount;
         @print("unprotected: completed, max depth={}, calls={}, time={} ticks\n", $unprotMax, $unprotCalls, $t3 - $t2);

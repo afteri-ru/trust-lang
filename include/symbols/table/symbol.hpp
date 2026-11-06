@@ -1,6 +1,5 @@
 #pragma once
 
-// include/symbols/table/symbol.hpp
 // Значения таблицы символов: результат регистрации, символ и его перегрузки.
 // Без поведения таблицы: подсистемы (скоупы/реестр/поверхность/сайты/алиасы) включают этот
 // заголовок, не завися от фасада SymbolTable.
@@ -11,6 +10,7 @@
 #include "utils/string_interner.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -76,18 +76,22 @@ struct SymbolOverload {
 /// QualType type - type-state места: identity + const/inferred.
 /// Identity-часть — `type.getTypeId()`; состояние — методы `isConst()/isInferred()`.
 /// Flow-факты (definite assignment) вычисляет CFG/dataflow-проход (semantic/definite_assignment).
+/// Элемент словаря, известный из литерала-инициализатора/append: ОДИН контейнер записей (R14).
+struct DictSlot {
+    std::string name; ///< ключ; пусто — позиционный/неизвестный
+    QualType type;    ///< тип значения элемента
+};
+
 struct Symbol {
-    std::string_view name;                                        ///< Canonical name (view: AST/StringInterner)
-    QualType type;                                                ///< Type-state (identity + состояние).
-    AstNodeBase* decl = nullptr;                                  ///< Узел объявления (VarDecl/FuncDecl/TypeDecl/ArgNode); невладеющая ссылка.
-                                                                  ///< Не-const: анализатор пишет финальный тип в узел (VarDecl::inferredType);
-                                                                  ///< хук-анализаторы и диагностика читают узел как const.
-    Storage storage = Storage::Global;                            ///< Месторасположение переменной (физическая память).
-    int64_t dims = -1;                                            ///< Размерность (для словаря - число элементов) как компиляционное
-                                                                  ///< свойство переменной. -1 = неизвестно (absent); >= 0 = static.
-                                                                  ///< Копируется из типа/инициализатора; используется для статической
-                                                                  ///< проверки индекса `d.1`.
-    std::vector<std::pair<std::string, QualType>> dictFieldTypes; ///< Типы полей словаря из литерала-инициализатора.
+    std::string_view name;             ///< Canonical name (view: AST/StringInterner)
+    QualType type;                     ///< Type-state (identity + состояние).
+    AstNodeBase* decl = nullptr;       ///< Узел объявления (VarDecl/FuncDecl/TypeDecl/ArgNode); невладеющая ссылка.
+                                       ///< Не-const: анализатор пишет финальный тип в узел (VarDecl::inferredType);
+                                       ///< хук-анализаторы и диагностика читают узел как const.
+    Storage storage = Storage::Global; ///< Месторасположение переменной (физическая память).
+    /// Элементы словаря (порядок = порядок литерала/append). `nullopt` — статический размер и
+    /// состав неизвестны. Единственное представление этого факта (R14).
+    std::optional<std::vector<DictSlot>> dictElements;
 
     /// Набор перегрузок функционального имени: НЕПУСТ для функций (>= 1 элемент; при нескольких
     /// элементах имя перегружено) и ПУСТ для не-функций. `type`/`decl` — представитель (первый

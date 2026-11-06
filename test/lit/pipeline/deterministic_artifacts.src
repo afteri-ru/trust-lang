@@ -1,0 +1,14 @@
+# RUN: TD=%t.d && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -c -o %t.a.o %s
+# RUN: find $TD -type f ! -name '*.o' -exec md5sum {} + | sort -k2 > %t.s1
+# RUN: %trust -q --temp-dir $TD -c -o %t.b.o %s
+# RUN: find $TD -type f ! -name '*.o' -exec md5sum {} + | sort -k2 > %t.s2
+# RUN: diff %t.s1 %t.s2 && echo DETERMINISTIC
+#
+# R41/R42: повторный прогон того же входа даёт байт-идентичные производные артефакты
+# (сгенерированный C++, карта исходников, Makefile/конфиг). Объектные файлы исключены: они
+# содержат build-id целевого компилятора, а не производные компилятора TrustLang.
+# CHECK: DETERMINISTIC
+
+x := 42;
+add(a:Int32, b:Int32) := a + b;

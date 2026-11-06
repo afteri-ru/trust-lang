@@ -2,15 +2,15 @@
 
 # Тип-утверждение (`MyInt trust_assert( MyInt > 0 )`): проверяется при создании значения типа
 # (объявление `x :MyInt := ...`) и ПОСЛЕ присваивания (значение изменилось). Имя типа в условии -
-# плейсхолдер значения, подставляется как переменная (c_x).
+# плейсхолдер значения, подставляется как переменная (x).
 
 MyInt trust_assert( MyInt > 0 ) ::= :Int32;
-%f():Void := {
+f():Void := {
     x :MyInt := 5;
     x = 10;
 };
 
-# CHECK: c_MyInt c_x = 5;
-# CHECK: if (!((c_x > 0))) trust::trust__abort__("{{.*}}type_assign.src", {{[0-9]+}}, "MyInt > 0", 1);
-# CHECK: c_x = 10;
-# CHECK: if (!((c_x > 0))) trust::trust__abort__("{{.*}}type_assign.src", {{[0-9]+}}, "MyInt > 0", 1);
+# CHECK: MyInt x = 5;
+# CHECK: if (!((x > 0))) trust::trust__abort__("{{.*}}type_assign.src", {{[0-9]+}}, "MyInt > 0", 1);
+# CHECK: x = 10;
+# CHECK: if (!((x > 0))) trust::trust__abort__("{{.*}}type_assign.src", {{[0-9]+}}, "MyInt > 0", 1);

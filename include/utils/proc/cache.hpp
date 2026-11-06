@@ -9,9 +9,6 @@
 
 namespace trust {
 
-// ══════════════════════════════════════════════════════════════
-//  LruCache - LRU-кеш с O(1) операциями
-// ══════════════════════════════════════════════════════════════
 template <typename TKey, typename TValue>
 class LruCache {
     struct Node {

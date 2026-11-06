@@ -1,4 +1,3 @@
-// src/transpiler/type/type_emit.cpp
 // Фасад эмиссии типов: делегирование TypeNameResolver (имена) и TypeIncludeCollector (include).
 #include "transpiler/type/type_emit.hpp"
 
@@ -19,9 +18,6 @@ void TypeEmitter::recordUsedType(TypeId type_id) const {
 void TypeEmitter::collectTypeIncludes() const {
     m_includes.collectTypeIncludes();
 }
-void TypeEmitter::collectStructPodAsserts() const {
-    m_includes.collectStructPodAsserts();
-}
 void TypeEmitter::emitStructPodAsserts(MapperFile output_idx) const {
     m_includes.emitStructPodAsserts(output_idx);
 }
@@ -30,6 +26,9 @@ std::optional<std::string> TypeEmitter::emitTypeName(TypeId type_id) {
 }
 std::optional<std::string> TypeEmitter::emitTypeName(QualType state) {
     return m_names.emitTypeName(state);
+}
+std::string TypeEmitter::anyTypeName() {
+    return m_names.anyTypeName();
 }
 QualType TypeEmitter::toRuntimeType(QualType state) const {
     return m_names.toRuntimeType(state);
@@ -48,9 +47,6 @@ void TypeEmitter::recordRuntimeSymbolsInText(std::string_view text) const {
 }
 void TypeEmitter::emitCollectedIncludes(MapperFile output_idx) {
     m_includes.emitCollectedIncludes(output_idx);
-}
-std::optional<TypeId> TypeEmitter::findRegisteredType(std::string_view trustName) const {
-    return m_includes.findRegisteredType(trustName);
 }
 std::optional<std::pair<std::string, std::string_view>> TypeEmitter::resolveCppTypeId(TypeId type_id) const {
     return m_names.resolveCppTypeId(type_id);

@@ -1,6 +1,5 @@
 #pragma once
 
-// include/transpiler/emit/expr_emit.hpp
 // Компонент кодогенерации: ExprEmitter. Разделяет CppEmitContext с драйвером CppTranspiler;
 // рекурсия/вызовы других компонентов идут через драйвер (friend).
 
@@ -8,7 +7,7 @@
 #include "ast/ast_nodes.hpp"
 #include "location/location.hpp"
 #include "types/type_id.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include <cstdint>
 #include <optional>
@@ -132,7 +131,7 @@ class ExprEmitter {
     /// автоматически перед каждым вызовом помеченной функции). Возвращает true, если вызов обработан.
     bool handleStackCheckNative(const CallExpr& n);
 
-    /// %trust_stack_check_set_limit(f1, f2, ...) -> set_limit({адреса}) для m_stack_limit.
+    /// trust_stack_check_set_limit(f1, f2, ...) -> set_limit({адреса}) для m_stack_limit.
     void emitSetLimitFunctions(const CallExpr& n);
 
     CppEmitContext& m_ectx;

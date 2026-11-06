@@ -6,7 +6,9 @@
 
 # Целочисленное деление на ноль (UB) -> trust::IntMinus, ловится {- ... -}.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     a:Int32 := 10;
     b:Int32 := 0;
     {-

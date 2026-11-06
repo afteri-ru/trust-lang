@@ -11,7 +11,9 @@
 # The program formats args (std::format) into trust::outs(). Rational values print
 # as their symbolic string "num\den".
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     print("val={} s={}", 42, "x");
     r :Rational := 0;
     {% $r = trust::Rational("3", "4"); %};

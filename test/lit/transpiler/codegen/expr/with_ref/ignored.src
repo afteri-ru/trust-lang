@@ -1,3 +1,4 @@
+\mem();
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # with(_ = *ref){...} - игнорируемый биндинг: только Locker-темп `auto __cap_N = ref.lock();`
@@ -10,5 +11,5 @@
     };
     return *x;
 }
-# CHECK: auto c___cap_1 = c_x.lock();
-# CHECK-NOT: int32_t& c__ =
+# CHECK: auto __cap_1 = x.lock();
+# CHECK-NOT: int32_t& _ =

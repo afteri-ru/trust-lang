@@ -1,8 +1,11 @@
 #pragma once
 
+#include "analysis/modes.hpp"
 #include "ast/ast_nodes.hpp"
 #include "ast/kind_dispatch.hpp"
+#include "diag/options.hpp"
 #include "ir/hir_module.hpp"
+#include "location/decl_id.hpp"
 #include "location/location.hpp"
 #include "transpiler/emit/emit_ctx.hpp"
 #include "transpiler/type/type_emit.hpp"
@@ -10,7 +13,7 @@
 #include "transpiler/emit/stmt_emit.hpp"
 #include "transpiler/emit/expr_emit.hpp"
 #include "transpiler/emit/contract_emit.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/type_id.hpp"
 #include <cstdint>
 #include <set>
@@ -21,7 +24,10 @@
 
 namespace trust {
 
-class Context;
+/// Поведенческие режимы кодогена (владелец флагов — `transpiler`). ЕДИНСТВЕННАЯ точка разрешения
+/// `-foverflow-check`/`-fcomments`/`-Wbacktrace` из `Options`: потребители (кодоген, стадии
+/// бэкенда) получают значения ДАННЫМИ (R39), а не читают `diag::Options` сами.
+[[nodiscard]] analysis::BehavioralModes codegenModes(analysis::BehavioralModes modes, const Options& opts);
 
 /// CppTranspiler - генератор C++ кода из AST (exhaustive consumer, см. ast/kind_dispatch.hpp).
 /// Вся тяжёлая кодогенерация вынесена в компоненты-эмиттеры (TypeEmitter/DeclEmitter/
@@ -36,7 +42,7 @@ class Context;
 /// приватной рекурсии (emitExpr) и друг к другу (через ссылки на эмиттеры m_type/...).
 class CppTranspiler {
   public:
-    explicit CppTranspiler(Context& ctx, analysis::BehavioralModes behavioral = {});
+    explicit CppTranspiler(CodegenServices services, analysis::BehavioralModes behavioral = {});
 
     /// Генерация C++ кода непосредственно в выходной файл с построением source map.
     /// Вход — HIR (понижённая форма): AST напрямую в кодоген не передаётся.
@@ -44,20 +50,20 @@ class CppTranspiler {
     void generateToFile(const HirModule& hir, MapperFile output_idx);
 
     /// Генерация заголовка модуля (`<enc>.hpp`): `#pragma once`, `#include` заголовков
-    /// РЕЭКСПОРТИРУЕМЫХ модулей (umbrella), `namespace <enc> { … }` с экспорт-набором
+    /// РЕЭКСПОРТИРУЕМЫХ модулей (umbrella) и экспорт-набор БЕЗ автоматического namespace модуля
     /// (прототипы функций, extern-переменные, определения экспортных типов).
-    /// `exports` — AST-узлы экспорт-набора, публикуемые в заголовке (сопоставление с HIR-клоном
-    /// по `origin`); `moduleIncludes` — имена `.hpp` реэкспортируемых модулей.
+    /// `exports` — объявления экспорт-набора; сопоставление с HIR по `DeclId` (R23, клон сохраняет id);
+    /// `moduleIncludes` — имена `.hpp` реэкспортируемых модулей.
     /// Source-map не ведётся: канонические позиции объявлений принадлежат `.cppt` модуля.
     void generateHeaderToFile(const HirModule& hir, MapperFile output_idx, ModuleIndex module, const std::vector<AstNodePtr>& exports,
-                              const std::vector<std::string>& moduleIncludes, const std::set<const AstNodeBase*>& publishedDecls);
+                              const std::vector<std::string>& moduleIncludes, const std::set<DeclId>& publishedDecls, std::string ownHeaderName);
 
     /// Настройка кодогенерации единицы трансляции модуля: `#include "<enc>.hpp"` первой директивой
     /// и набор узлов (AST), которые заголовок уже опубликовал (их не эмитим повторно — иначе
     /// redefinition в том же TU). Вызывается из Pipeline перед `generateToFile`.
     void configureModuleUnit(std::string include, const std::vector<const AstNodeBase*>& published);
 
-    /// Пути рантайм-заголовков (например "trust/rational.hpp"), которые реально
+    /// Пути рантайм-заголовков (например "stdlib/builtin/rational.hpp"), которые реально
     /// понадобились сгенерированному коду (маркер '@' в preprocInclude типа).
     const std::set<std::string>& packageHeaders() const noexcept { return m_ectx.m_accumulators.packageHeaders; }
 
@@ -133,8 +139,8 @@ class CppTranspiler {
     /// Эмитит документирующий комментарий, привязанный к узлу объявления.
     void emitDocumentation(const AstNodeBase& node, MapperFile output_idx);
 
-    // -- Контракт exhaustive consumer (ast/kind_dispatch.hpp): visit_<Kind> - делегируют эмиттерам.
-    //    Полнота набора проверяется static_assert(hasAllKindHandlers<CppTranspiler>()). --
+    // Kind-dispatch: каждый kind имеет visit_<Kind>; полнота набора проверяется
+    // static_assert(hasAllKindHandlers<CppTranspiler>()).
     void visit_sequence(const Sequence& node);
     void visit_Attr(const Sequence& node);
     void visit_ScopeBlock(const ScopeBlock& node);

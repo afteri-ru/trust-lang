@@ -1,6 +1,5 @@
 #pragma once
 
-// include/transpiler/emit/diag.hpp
 // Feature-флаги компонента transpiler (единый источник данных для них). Своих severity-диагностик
 // у transpiler нет (ParseError - общая базовая, см. diag/base_diags.hpp).
 // TRUST_FLAG_SET генерирует trust::transpiler::FlagKind + ADL-доступы flagName/flagHelp/flagCategory.

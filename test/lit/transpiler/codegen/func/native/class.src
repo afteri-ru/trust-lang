@@ -1,11 +1,13 @@
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
-# Forward-объявление НАТИВНОГО класса `MyStr ::= %std::string { ... };`: trust-имя MyStr
-# отображается на C++ `std::string`, C++-struct НЕ генерируется, инклуд - on-use из @[include].
+# Нативный класс `MyStr ::= %std::string { ... };` под (B) генерируется как КЛАСС-ОБЁРТКА
+# с именем trust-класса, наследующий C++-тип RHS (`class MyStr : public std::string`).
 @include("string")
 MyStr ::= %std::string { };
 
 s: MyStr := 0;
 
 # CHECK: #include <string>
-# CHECK: std::string c_s = 0;
+# CHECK: class MyStr : public std::string {
+# CHECK:   public:
+# CHECK: MyStr s = 0;

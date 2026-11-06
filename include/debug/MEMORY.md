@@ -2,9 +2,8 @@
 
 > scope: include/debug
 > role: persistent-memory
-> last_reviewed: 2026-11-05
+> last_reviewed: 2026-11-13
 > review_period: 30
-> max_size: 4100
 
 ## Architecture
 
@@ -26,7 +25,7 @@
 - **Source-aware обработка (setBreakpoints/stackTrace):** тип файла — по расширению. `.src`-брейкпоинты
   транслируются через `SourceMapReader`, `.cppt` — напрямую в GDB. `sourceKind: "src"` (default) — стек
   показывает trust-файлы с трансляцией; `"cpp"` — C++ `.cppt` с оригинальными номерами. Имена переменных
-  от GDB (C++) транслируются в trust через `getTrustName`.
+  от GDB (C++) транслируются в trust через `trustNameOf`.
 - **DAP-совместимая трансляция stop reason:** `breakpoint-hit`→`"breakpoint"`,
   `end-stepping-range`→`"step"`, `signal-received`→`"exception"`.
 - **VSCode extension (Build pipeline):** сборка при F5 — в `resolveDebugConfiguration`

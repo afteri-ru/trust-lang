@@ -7,7 +7,7 @@
 # упомянутое в интерфейсе, не совпадает ни с одной маской (предупреждение) и не попадает в
 # forward-declarations импортёра.
 # CHECK: import mask 'g' does not match any exported declaration of module '\lib'
-# CHECK-NOT: c_g(
+# CHECK-NOT: g(
 
 //--- main.src
 \lib(f, g);

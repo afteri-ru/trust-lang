@@ -1,4 +1,3 @@
-// src/semantic/typer/container_typer.cpp
 // Типизация контейнерных литералов и выражений: Dict/Array/Tensor/Range (фасад - `ExprTyper`).
 #include "types/type_read.hpp"
 #include "semantic/core/ast_view.hpp"
@@ -113,7 +112,7 @@ void ContainerTyper::analyzeDictLiteral(Sequence& dict_node) {
     //   - иначе (аннотация-каст/конструктор или её нет) - тип литерала = резолвленной аннотации
     //     (скаляр/класс) или универсального словаря Dict.
     auto& dl = static_cast<DictLiteralNode&>(dict_node);
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     // Тип операнда одиночной конструкции/каста (`:T(x)`): нужен кодогенерации, чтобы отличить
     // явную конверсию Any (any_to) от проверяемого numeric-каста (checked_cast).
     dl.castSourceType = QualType{};
@@ -136,7 +135,7 @@ void ContainerTyper::analyzeDictLiteral(Sequence& dict_node) {
         for (const auto& el : dl.m_body) {
             if (el && el->kind() == ParserToken::Kind::ArgNode && !static_cast<const ArgNode&>(*el).text().empty()) {
                 m_actx.ctx().diag().report(Severity::Error, el->range(), "named constructor arguments are not implemented for type '{}'",
-                                           reg.read().printer().getTypeName(target));
+                                           reg.read().printer().typeNameOf(target));
                 m_actx.facts().setExprType(&dl, INVALID_TYPE_ID);
                 return;
             }
@@ -285,7 +284,7 @@ void ContainerTyper::analyzeDictLiteral(Sequence& dict_node) {
 // «не реализовано» - только на кодогенерации тензора).
 void ContainerTyper::analyzeArrayInit(DictLiteralNode& node) {
     {
-        TypeSystem& reg0 = m_actx.ctx().types();
+        TypeSystem& reg0 = m_actx.registry();
         if (node.m_type) {
             const auto ann = m_actx.types().resolveTypeRef(*node.m_type);
             if (ann.has_value() && isTensorTypeId(reg0, *ann)) {
@@ -294,7 +293,7 @@ void ContainerTyper::analyzeArrayInit(DictLiteralNode& node) {
             }
         }
     }
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     // Семейство «замыкающего» многоточия (`... expr ...` / `...`): структурные правила проверяются
     // здесь (не зависят от типа-цели); capacity/типы и МАТЕРИАЛИЗАЦИЯ - в coerceArrayInitToTarget.
     const EllipsisInfo ell = scanArrayEllipsis(node);
@@ -387,7 +386,7 @@ void ContainerTyper::analyzeArrayInit(DictLiteralNode& node) {
 // цели, `:Tensor[2,2](:Float32)(1,2,3,4)` и `:Tensor[3](1,2,3)`. Тип элемента: цель →
 // хвостовая аннотация → join типов листьев. Форма: цель → вывод из вложенности → [count].
 void ContainerTyper::analyzeTensorInit(DictLiteralNode& node, TypeId target) {
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     const bool sparse = reg.read().store().isSparseTensorType(target) || reg.read().store().desugaredTypeId(target) == reg.read().getType(type::SparseTensor);
 
     // Анализ значений (вложенные литералы анализируются рекурсивно своими путями).
@@ -409,7 +408,7 @@ void ContainerTyper::analyzeTensorInit(DictLiteralNode& node, TypeId target) {
 
     // Элементный тип: цель → хвостовая аннотация `:Tensor(...):Elem` → join листьев.
     TypeId elem = reg.read().store().tensorElementType(target);
-    if (elem == reg.read().getType(type_generic::Any)) {
+    if (elem == reg.read().getType(type_generic::Auto)) {
         elem = INVALID_TYPE_ID; // dtype выводится из инициализатора
     }
     if (elem == INVALID_TYPE_ID && node.arrayElementAnnotation) {
@@ -529,7 +528,7 @@ void ContainerTyper::analyzeTensorInit(DictLiteralNode& node, TypeId target) {
 // `vector<Int32>` дало бы `std::vector<int8_t>{...}` и несобираемый C++. Переинтернируем литерал
 // с типом элемента цели (только расширение/равенство - сужение оставляет checkAssignmentNarrowing).
 void ContainerTyper::coerceArrayInitToTarget(DictLiteralNode& node, TypeId targetType) {
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     if (isTensorTypeId(reg, targetType)) {
         analyzeTensorInit(node, targetType);
         return;
@@ -565,11 +564,11 @@ void ContainerTyper::coerceArrayInitToTarget(DictLiteralNode& node, TypeId targe
     const TypeId srcElem = (node.arrayType.getTypeId() != INVALID_TYPE_ID) ? reg.read().store().arrayElementType(node.arrayType.getTypeId()) : INVALID_TYPE_ID;
     // Коэрция только при расширении/равенстве элемента; сужение - на совести checkAssignmentNarrowing.
     if (srcElem != INVALID_TYPE_ID && reg.read().store().desugaredTypeId(srcElem) != reg.read().store().desugaredTypeId(targetElem)) {
-        const Group sg = getGroup(getTypeKind(srcElem));
-        const Group dg = getGroup(getTypeKind(targetElem));
+        const Group sg = typeGroupOf(srcElem);
+        const Group dg = typeGroupOf(targetElem);
         const bool sNum = (sg == Group::kIntegers || sg == Group::kUnsigned);
         const bool dNum = (dg == Group::kIntegers || dg == Group::kUnsigned);
-        if (!sNum || !dNum || sg != dg || getData(getTypeKind(srcElem)) > getData(getTypeKind(targetElem))) {
+        if (!sNum || !dNum || sg != dg || typeDataOf(srcElem) > typeDataOf(targetElem)) {
             return; // не-числовое или сужение - не коэрцируем
         }
     }
@@ -585,7 +584,7 @@ void ContainerTyper::coerceArrayInitToTarget(DictLiteralNode& node, TypeId targe
 // `[1,2,3,]` → Int8, `[100,300,]` → Int16, `[1.5,2.5,]` → Float64. Если все элементы одного
 // канонического типа - берём его; строки не смешиваются с числами; несовместимое → INVALID (Any).
 TypeId ContainerTyper::arrayElementJoin(const std::vector<TypeId>& elementTypes) const {
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     if (elementTypes.empty()) {
         return INVALID_TYPE_ID;
     }
@@ -607,7 +606,7 @@ TypeId ContainerTyper::arrayElementJoin(const std::vector<TypeId>& elementTypes)
     TypeId widestNumeric = INVALID_TYPE_ID;
     for (const TypeId t : elementTypes) {
         const TypeId c = reg.store().desugaredTypeId(t);
-        const Group g = getGroup(getTypeKind(c));
+        const Group g = typeGroupOf(c);
         switch (g) {
         case Group::kLogical:
             hasInt = true; // Bool - вырожденное целое
@@ -615,15 +614,15 @@ TypeId ContainerTyper::arrayElementJoin(const std::vector<TypeId>& elementTypes)
         case Group::kIntegers:
         case Group::kUnsigned:
             hasInt = true;
-            if (getData(getTypeKind(c)) > maxWidth) {
-                maxWidth = getData(getTypeKind(c));
+            if (typeDataOf(c) > maxWidth) {
+                maxWidth = typeDataOf(c);
                 widestNumeric = c;
             }
             break;
         case Group::kNumbers:
             hasFloat = true;
-            if (getData(getTypeKind(c)) > maxWidth) {
-                maxWidth = getData(getTypeKind(c));
+            if (typeDataOf(c) > maxWidth) {
+                maxWidth = typeDataOf(c);
                 widestNumeric = c;
             }
             break;
@@ -651,9 +650,8 @@ TypeId ContainerTyper::arrayElementJoin(const std::vector<TypeId>& elementTypes)
     }
     if (hasFloat) {
         // Наибольший float (Float64 при наличии); иначе Double.
-        return (widestNumeric != INVALID_TYPE_ID && getGroup(getTypeKind(widestNumeric)) == Group::kNumbers)
-                   ? widestNumeric
-                   : reg.store().desugaredTypeId(reg.getType(type::Double));
+        return (widestNumeric != INVALID_TYPE_ID && typeGroupOf(widestNumeric) == Group::kNumbers) ? widestNumeric
+                                                                                                   : reg.store().desugaredTypeId(reg.getType(type::Double));
     }
     if (hasInt) {
         // Наибольшая целая разрядность (Int8/16/32/64, UInt); только Bool → Int8.
@@ -669,7 +667,7 @@ TypeId ContainerTyper::arrayElementJoin(const std::vector<TypeId>& elementTypes)
 // - диагностика. Элементный тип: Rational при любом рациональном операнде, иначе Double при
 // любом float, иначе Int64/UInt64/Bool; несовместимое/неизвестное → INVALID (Any).
 void ContainerTyper::analyzeRangeExpr(RangeExpr& range_node) {
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     std::vector<TypeId> types;
     types.reserve(range_node.m_body.size());
     for (std::size_t i = 0; i < range_node.m_body.size(); ++i) {
@@ -694,7 +692,7 @@ void ContainerTyper::analyzeRangeExpr(RangeExpr& range_node) {
     bool bad = false;
     for (const TypeId t : types) {
         const TypeId ct = reg.read().store().desugaredTypeId(t);
-        const Group g = getGroup(getTypeKind(ct));
+        const Group g = typeGroupOf(ct);
         switch (g) {
         case Group::kArbitraryPrecision:
             hasRational = true;
@@ -711,9 +709,10 @@ void ContainerTyper::analyzeRangeExpr(RangeExpr& range_node) {
         case Group::kLogical:
             hasBool = true;
             break;
+        case Group::kAuto:
         case Group::kAny:
         case Group::kTemplateParam:
-            break; // универсальный диапазон (Any)
+            break; // универсальный диапазон (Any/Auto)
         default:
             bad = true;
             break;
@@ -748,7 +747,7 @@ void ContainerTyper::analyzeRangeExpr(RangeExpr& range_node) {
 }
 
 // Статическая размерность объекта: для литерала словаря - число элементов; для переменной -
-// свойство dims символа (из инициализатора-литерала). -1 = неизвестна.
+// известный состав символа (`dictElements`). -1 = неизвестна.
 int64_t ContainerTyper::dictSizeOf(const AstNodeBase* obj) const {
     if (!obj) {
         return -1;
@@ -758,7 +757,9 @@ int64_t ContainerTyper::dictSizeOf(const AstNodeBase* obj) const {
     }
     if (obj->kind() == ParserToken::Kind::Ident) {
         if (const Symbol* s = m_actx.symbols().resolve(requiredText(*obj))) {
-            return s->dims;
+            if (s->dictElements.has_value()) {
+                return static_cast<int64_t>(s->dictElements->size());
+            }
         }
     }
     return -1;
@@ -776,17 +777,17 @@ QualType ContainerTyper::dictElementType(const AstNodeBase* valueNode) const {
         // решатель annotatedLiteralType (без репорта, без fallback на «сырой» номинал аннотации:
         // невалидная аннотация → INVALID, а не Bool/Int8 по имени типа).
         if (lit.typeAnnotation) {
-            const LiteralAnnotResult r = annotatedLiteralType(lit, m_actx.types().resolveTypeRef(*lit.typeAnnotation), m_actx.ctx().types());
+            const LiteralAnnotResult r = annotatedLiteralType(lit, m_actx.types().resolveTypeRef(*lit.typeAnnotation), m_actx.registry());
             return (r.type != INVALID_TYPE_ID) ? QualType::fromTypeId(r.type).withInferred() : QualType{};
         }
         // Тип значения литерала - по его тексту (минимальный знаковый Int / Float / ...).
-        return QualType::fromTypeId(literalType(lit, m_actx.ctx().types())).withInferred();
+        return QualType::fromTypeId(literalType(lit, m_actx.registry())).withInferred();
     }
     return m_actx.facts().exprState(*valueNode);
 }
 
 // Типы элементов словаря-источника ПО ИНДЕКСУ (для вывода типов целей деструктуризации,
-// аналогично кортежу): литерал → тип каждого элемента m_body; переменная → dictFieldTypes.
+// аналогично кортежу): литерал → тип каждого элемента m_body; переменная → dictElements.
 // Возвращаются СЫРЫЕ типы (с битом inferred у литералов) - по нему определяется нетипизированный
 // словарь. Неизвестный/неприменимый элемент → INVALID_TYPE_ID. Пустой вектор - типы недоступны.
 std::vector<QualType> ContainerTyper::dictElementTypes(const AstNodeBase* src) const {
@@ -807,9 +808,10 @@ std::vector<QualType> ContainerTyper::dictElementTypes(const AstNodeBase* src) c
     }
     if (src->kind() == ParserToken::Kind::Ident) {
         if (const Symbol* s = m_actx.symbols().resolve(requiredText(*src))) {
-            for (const auto& [name, ft] : s->dictFieldTypes) {
-                (void)name;
-                result.push_back(ft);
+            if (s->dictElements.has_value()) {
+                for (const DictSlot& slot : *s->dictElements) {
+                    result.push_back(slot.type);
+                }
             }
         }
     }
@@ -819,13 +821,13 @@ std::vector<QualType> ContainerTyper::dictElementTypes(const AstNodeBase* src) c
 // «Естественный» runtime-тип элемента словаря (как хранит Dict): integers → Int64,
 // unsigned → UInt64, numbers(float) → Double, logical → Bool, StrChar/StrWide → соответствующий.
 // Нечисловой/неизвестный → INVALID_TYPE_ID (→ Any). Классификация - по битовой структуре TypeKind
-// (getTypeKind/getGroup), а НЕ по строковым именам типов.
+// (getTypeKind/typeGroupOf), а НЕ по строковым именам типов.
 TypeId ContainerTyper::naturalRuntimeType(TypeId nominal) const {
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     if (nominal == INVALID_TYPE_ID) {
         return INVALID_TYPE_ID;
     }
-    const Group g = getGroup(getTypeKind(reg.store().desugaredTypeId(nominal)));
+    const Group g = typeGroupOf(reg.store().desugaredTypeId(nominal));
     switch (g) {
     case Group::kIntegers:
         return reg.store().desugaredTypeId(reg.getType(type::Int64));
@@ -848,10 +850,10 @@ TypeId ContainerTyper::naturalRuntimeType(TypeId nominal) const {
 // любой float → Double, однородные строки → Str; несовместимое/неизвестное → INVALID (Any).
 // Классификация - по Group (TypeKind), без строковых имён типов.
 TypeId ContainerTyper::joinElementTypes(const std::vector<TypeId>& naturalized) const {
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     bool hasDouble = false, hasInt = false, hasBool = false, hasUInt = false, hasStrChar = false, hasStrWide = false;
     for (const TypeId et : naturalized) {
-        const Group g = getGroup(getTypeKind(reg.store().desugaredTypeId(et)));
+        const Group g = typeGroupOf(reg.store().desugaredTypeId(et));
         switch (g) {
         case Group::kIntegers:
             hasInt = true;
@@ -916,9 +918,11 @@ TypeId ContainerTyper::dictFieldTypeOf(const Binary& access) const {
         }
     } else if (obj->kind() == ParserToken::Kind::Ident) {
         if (const Symbol* s = m_actx.symbols().resolve(requiredText(*obj))) {
-            fields.reserve(s->dictFieldTypes.size());
-            for (const auto& [n, st] : s->dictFieldTypes) {
-                fields.emplace_back(n, st.getTypeId());
+            if (s->dictElements.has_value()) {
+                fields.reserve(s->dictElements->size());
+                for (const DictSlot& slot : *s->dictElements) {
+                    fields.emplace_back(slot.name, slot.type.getTypeId());
+                }
             }
         }
     }

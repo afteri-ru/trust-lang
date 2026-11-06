@@ -1,12 +1,9 @@
 #pragma once
 
-// include/types/registry/type_name_index.hpp
 // Зона «имена типов»: единственное хранилище привязки «storage-ключ → TypeId», домен встроенных
 // имён и дубликат-диагностика.
-//
 // Владение: TypeNameIndex — единственный владелец привязок имён. Запись — ТОЛЬКО через приватные
 // примитивы-друзья (TypeSystem/NamedTypeRegistrar/StructuralInterner). Публично доступно только чтение.
-//
 // Ключи ПОЛЬЗОВАТЕЛЬСКИХ имён интернируются в пул компиляции (internStorageKey), ключи
 // ВСТРОЕННЫХ — в процессный пул (internProcessStorageKey): builtin-ядро живёт весь процесс.
 
@@ -45,7 +42,6 @@ class TypeNameIndex {
     /// Тип с несколькими ключами даёт вызов на КАЖДЫЙ ключ (дедупликация — на потребителе).
     void forEachNamedType(const std::function<void(const StorageKey& key, std::string_view displayName, bool userDefined)>& cb) const;
 
-    // -- Примитивы записи имён: зона — единственный владелец привязок имён ------------------
     /// Плоская привязка сайта (`:A ::- T;`, алиас импорта): конфликт плоского ключа с другим
     /// типом снимает привязку (неоднозначность), module-qualified конфликт — нарушение
     /// инварианта (EXPECT).
@@ -55,7 +51,6 @@ class TypeNameIndex {
     TypeId aliasTypeName(TypeId target, const StorageKey& key, std::string_view name, MapperRange sourceRange);
 
   private:
-    // -- Примитивы записи: доступны только друзьям-оркестраторам -----------------------------
     /// Домен встроенных имён (невладеющий указатель; задаёт TypeSystem из BuiltinTypeCore).
     void setBuiltinCore(const BuiltinTypeCore* core) noexcept { m_builtin = core; }
 

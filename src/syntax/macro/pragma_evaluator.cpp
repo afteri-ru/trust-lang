@@ -5,7 +5,7 @@
 #include "syntax/term/term.h"
 
 #include "syntax/check_area.hpp"
-#include "session/context.hpp"
+#include "syntax/parser_services.hpp"
 #include "diag/severity.hpp"
 #include "utils/utils.hpp"
 
@@ -55,7 +55,7 @@ std::vector<std::string> splitRawArgs(const SequenceType& buf, size_t begin, siz
 
 } // namespace
 
-PragmaEvaluator::PragmaEvaluator(trust::Context& ctx, const syntax::PredefMacroResolver& predef)
+PragmaEvaluator::PragmaEvaluator(trust::ParserServices ctx, const syntax::PredefMacroResolver& predef)
 : m_ctx(ctx)
 , m_predef(predef) {
 }
@@ -68,8 +68,8 @@ bool PragmaEvaluator::evalOptionTrueFalseRaw(SequenceType& macroBuf) {
     }
     // Доки сидируются здесь (реальный обработчик TRUE/FALSE), а не только в fallback-ветке
     // pragmaEval - иначе при успешном «сыром» разборе ветка pragmaEval не достигается.
-    Context::addMacroDoc(pragmaMacroName(PragmaMacroId::OptionTrue), pragmaMacroDesc(PragmaMacroId::OptionTrue));
-    Context::addMacroDoc(pragmaMacroName(PragmaMacroId::OptionFalse), pragmaMacroDesc(PragmaMacroId::OptionFalse));
+    m_ctx.addMacroDoc(pragmaMacroName(PragmaMacroId::OptionTrue), pragmaMacroDesc(PragmaMacroId::OptionTrue));
+    m_ctx.addMacroDoc(pragmaMacroName(PragmaMacroId::OptionFalse), pragmaMacroDesc(PragmaMacroId::OptionFalse));
     if (buf.size() < 4 || buf[1]->getText() != "(") {
         return false; // не распознан «сырой» синтаксис - обработка через ParseTerm/pragmaEval
     }
@@ -136,7 +136,7 @@ bool PragmaEvaluator::evalCheckArea(SequenceType& buf) {
         return false;
     }
     // Док контекст-макроса сидируется из x-macro-реестра (единый источник описаний).
-    Context::addMacroDoc(contextMacroName(ContextMacroId::CheckArea), contextMacroDesc(ContextMacroId::CheckArea));
+    m_ctx.addMacroDoc(contextMacroName(ContextMacroId::CheckArea), contextMacroDesc(ContextMacroId::CheckArea));
 
     const MapperRange prange = buf[0]->m_mapperRange;
     // Аргумент обязан быть обрамлён скобками: @__CHECK_AREA__( <area> [, <behavior>] [, <attr>...] ).
@@ -207,8 +207,8 @@ bool PragmaEvaluator::evalDebug(SequenceType& buf) {
     }
     const bool isScope = (name == "@__DEBUG_SCOPE__");
 
-    Context::addMacroDoc(contextMacroName(ContextMacroId::Debug), contextMacroDesc(ContextMacroId::Debug));
-    Context::addMacroDoc(contextMacroName(ContextMacroId::DebugScope), contextMacroDesc(ContextMacroId::DebugScope));
+    m_ctx.addMacroDoc(contextMacroName(ContextMacroId::Debug), contextMacroDesc(ContextMacroId::Debug));
+    m_ctx.addMacroDoc(contextMacroName(ContextMacroId::DebugScope), contextMacroDesc(ContextMacroId::DebugScope));
 
     const trust::MapperRange prange = buf[0]->m_mapperRange;
     const char* expected = isScope ? "( [<name-mask>...] [, key=value...] )" : "( <masks> ) or ( )";

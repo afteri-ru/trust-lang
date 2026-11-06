@@ -1,6 +1,5 @@
 #pragma once
 
-// include/sourcemap/store/file_entry.hpp
 // FileEntry: запись о входном/выходном файле (имя, содержимое, хэш, кеш line/column).
 
 #include "location/location.hpp"
@@ -15,9 +14,6 @@
 
 namespace trust {
 
-// ══════════════════════════════════════════════════════════════
-//  FileEntry - запись о файле (входном или выходном)
-// ══════════════════════════════════════════════════════════════
 class FileEntry {
   public:
     struct LineColumn {
@@ -28,7 +24,6 @@ class FileEntry {
     FileEntry(std::string filename, std::string source = "");
     FileEntry() = default;
 
-    // -- Accessors --
     [[nodiscard]] const std::string& getFilename() const noexcept { return m_filename; }
     [[nodiscard]] const std::string& getSource() const noexcept { return m_source; }
     [[nodiscard]] LocationPack::RawType size() const {
@@ -37,7 +32,6 @@ class FileEntry {
     }
     [[nodiscard]] uint64_t getHash() const noexcept;
 
-    // -- Mutators --
     void setFilename(std::string f);
     void setSource(std::string s);
     void appendSource(std::string_view text);
@@ -53,13 +47,10 @@ class FileEntry {
     friend struct SourceMap;
     friend class SourceMapReader;
 
-    // -- Вычисление по offset (1-based) → (line, column) --
     [[nodiscard]] LineColumn calc_column(size_t offset) const;
 
-    // -- Вычисление по line (1-based) → offset (1-based) --
     [[nodiscard]] size_t calc_line_offset(size_t line) const;
 
-    // -- Количество строк в файле --
     [[nodiscard]] size_t calc_line_count() const { return std::count(m_source.begin(), m_source.end(), '\n') + 1; }
 
   private:

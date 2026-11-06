@@ -1,9 +1,10 @@
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
-# Проверка обобщённого типа String → std::string (несколько переменных)
+# Проверка обобщённого типа String → trust::StrChar (несколько переменных)
 # String (узкая строка) ← "…".
+\std();
 a:String := "hello";
-# CHECK: std::string c_a = "hello";
+# CHECK: trust::StrChar a = "hello";
 
 b:String := "world";
-# CHECK-NEXT: std::string c_b = "world";
+# CHECK-NEXT: trust::StrChar b = "world";

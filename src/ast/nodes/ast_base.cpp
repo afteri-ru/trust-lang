@@ -1,4 +1,3 @@
-// src/ast/nodes/ast_base.cpp
 // Out-of-line часть иерархии AstNodeBase: базовые классы узла (AstNodeBase/AstNodeAttr/HasText),
 // коллекционные узлы (Sequence/ArgNode/ScopeBlock/ModuleNode), trust-контракты
 // (TrustContract/TrustElem) и разбор атрибута @[...]. Один TU: "база + базовые узлы".
@@ -17,7 +16,7 @@
 #include <string>
 namespace trust {
 
-Sequence::Sequence(ParserToken::Kind k, TermPtr term, Context* ctx)
+Sequence::Sequence(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : AstNodeAttr(k, term) {
     EXPECT(term && "Sequence term-constructor requires a source Term");
     if (ctx) {
@@ -25,7 +24,7 @@ Sequence::Sequence(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-ScopeBlock::ScopeBlock(TermPtr term, Context* ctx, int blockCounter)
+ScopeBlock::ScopeBlock(TermPtr term, ConvertServices* ctx, int blockCounter)
 : WithText<Sequence>(ParserToken::Kind::ScopeBlock, term, ctx)
 , m_blockCounter(blockCounter) {
 }
@@ -39,12 +38,11 @@ ArgNode::ArgNode(TermPtr term, AstNodePtr type, AstNodePtr value, AttrPool* pool
     isTypePack = term->m_isPack;
 }
 
-// -- ArgNode: uniform терм-конструктор (kind = ArgNode). --
 // КАНОНИЧЕСКАЯ раскладка аргумента: имя в m_left, явный тип в m_type (страховка `name:Type`
 // без значения - m_right->m_type), значение в m_right. Единая для параметров функций, элементов
 // словаря/enum/variant и аргументов вызова (терм_to_ast::appendDictElementsFromArgs использует
 // manual-конструктор; здесь - uniform путь visit_ARGUMENT / параметры функции).
-ArgNode::ArgNode(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
+ArgNode::ArgNode(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* ctx)
 : ArgNode(term, nullptr, nullptr, ctx ? &ctx->attrs() : nullptr) {
     if (ctx && term) {
         // Тип: из m_type (канонический слот); страховка - m_right->m_type (`name:Type` без =value).
@@ -59,8 +57,6 @@ ArgNode::ArgNode(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
         }
     }
 }
-
-// -- Sequence::dumpBody - дамп содержимого std::vector<AstNodePtr> --
 
 void Sequence::dumpBody(std::string& result, const std::vector<AstNodePtr>& body, size_t indent, size_t child_indent) {
     if (body.empty()) {
@@ -78,8 +74,6 @@ void Sequence::dumpBody(std::string& result, const std::vector<AstNodePtr>& body
     }
 }
 
-// -- ArgNode::dump --
-
 std::string ArgNode::dump(size_t indent) const {
     std::string result = detail::dumpQuotedName(kind(), text(), indent);
     if (isTypePack) {
@@ -90,15 +84,12 @@ std::string ArgNode::dump(size_t indent) const {
     return result;
 }
 
-// -- Sequence::dump --
-
 std::string Sequence::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
     dumpBody(result, m_body, indent, indent + 2);
     return result;
 }
 
-// -- ScopeBlock::dump --
 std::string ScopeBlock::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
     if (!text().empty()) {
@@ -109,8 +100,6 @@ std::string ScopeBlock::dump(size_t indent) const {
     dumpBody(result, m_body, indent, indent + 2);
     return result;
 }
-
-// -- ModuleNode::dump --
 
 std::string ModuleNode::dump(size_t indent) const {
     // Паттерн ScopeBlock::dump: заголовок (kind) + имя, затем дети ОДИН раз.
@@ -134,10 +123,6 @@ HasText::HasText(TermPtr term) {
     set_text_interned(term->getText());
 }
 
-// ----------------------------------------------------------------------------
-// AstNodeBase::dump - default dump for base token
-// ----------------------------------------------------------------------------
-
 std::string AstNodeBase::dump(size_t indent) const {
     std::string result(indent, ' ');
     result += ParserToken::name(kind());
@@ -154,10 +139,6 @@ std::string AstNodeBase::dump(size_t indent) const {
     return result;
 }
 
-// ----------------------------------------------------------------------------
-// AstNodeAttr::has_attr (by name)
-// ----------------------------------------------------------------------------
-
 bool AstNodeAttr::has_attr(const AttrPool& pool, std::string_view name) const {
     auto id = pool.lookup(name);
     if (!id.has_value()) {
@@ -166,10 +147,8 @@ bool AstNodeAttr::has_attr(const AttrPool& pool, std::string_view name) const {
     return has_attr(id.value());
 }
 
-// ----------------------------------------------------------------------------
 // AstNodeAttr::set_attr_args / attr_args - аргументы атрибута (напр. @[link("m")] → ["m"]).
 // Хранятся по индексу атрибута в пуле (id & kAttrIndexMask).
-// ----------------------------------------------------------------------------
 
 void AstNodeAttr::set_attr_args(AttrId id, std::vector<std::string> args) {
     const AttrId key = id & detail::kAttrIndexMask;
@@ -185,18 +164,12 @@ const std::vector<std::string>* AstNodeAttr::attr_args(AttrId id) const noexcept
     return &it->second;
 }
 
-// ----------------------------------------------------------------------------
-// AstNodeAttr::dump - default dump for attribute-aware token
-// ----------------------------------------------------------------------------
-
 std::string AstNodeAttr::dump(size_t indent) const {
     return AstNodeBase::dump(indent);
 }
 
-// ----------------------------------------------------------------------------
 // AstNodeBase::trustContracts / hasTrustProperty - типизированный доступ к m_trust (R1).
 // Фильтрация только TrustContract-узлов (без RTTI) - единый источник для потребителей.
-// ----------------------------------------------------------------------------
 
 std::vector<const TrustContract*> AstNodeBase::trustContracts() const {
     std::vector<const TrustContract*> result;
@@ -231,11 +204,7 @@ bool AstNodeBase::hasTrustProperty(PropertyKind kind) const {
     return false;
 }
 
-// ----------------------------------------------------------------------------
-// parse_attr
-// ----------------------------------------------------------------------------
-
-std::optional<AttrId> parse_attr(Context& ctx, MapperRange range, std::string_view name, std::optional<std::vector<std::string_view>> params) {
+std::optional<AttrId> parse_attr(ConvertServices& ctx, MapperRange range, std::string_view name, std::optional<std::vector<std::string_view>> params) {
 
     if (name.empty()) {
         ctx.diag().report(Severity::Error, range, "expected attribute name");
@@ -267,8 +236,7 @@ std::optional<AttrId> parse_attr(Context& ctx, MapperRange range, std::string_vi
     return std::nullopt;
 }
 
-// -- TrustContract: единый узел trust-контракта (pre/post/assert/invariant/type). --
-TrustContract::TrustContract(ParserToken::Kind k, TermPtr term, Context* ctx)
+TrustContract::TrustContract(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : AstNodeBase(k, term) {
     if (term && term->m_left && !term->m_left->getText().empty()) {
         // `@{ kind --> expr @}`: m_left = идентификатор kind (резолв из фиксированного набора).
@@ -289,8 +257,7 @@ std::string TrustContract::dump(size_t indent) const {
     return result;
 }
 
-// -- TrustElem: термин решателя `@( term, args... @)` внутри выражения контракта. --
-TrustElem::TrustElem(ParserToken::Kind k, TermPtr term, Context* ctx)
+TrustElem::TrustElem(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : AstNodeBase(k, term) {
     if (term && term->m_left && !term->m_left->getText().empty()) {
         kind = parseZ3Term(term->m_left->getText()).value_or(Z3TermKind::kUnknown);

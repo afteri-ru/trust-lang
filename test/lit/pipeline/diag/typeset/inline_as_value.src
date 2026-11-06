@@ -1,3 +1,5 @@
+\std();
+
 # RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 # CHECK: error: type set is allowed only as a type, not as a value
 

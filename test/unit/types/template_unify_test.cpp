@@ -25,7 +25,7 @@ class TemplateUnifyFixture : public ::testing::Test {
 };
 
 TEST_F(TemplateUnifyFixture, TensorElementDeducesTemplateParam) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId tensorT = reg.interner().getOrCreateTensorType(t, {2, 3}, /*sparse=*/false);
@@ -38,7 +38,7 @@ TEST_F(TemplateUnifyFixture, TensorElementDeducesTemplateParam) {
 }
 
 TEST_F(TemplateUnifyFixture, TensorShapeOrStorageMismatchIsNotMatch) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId tensorT = reg.interner().getOrCreateTensorType(t, {2, 3}, false);
@@ -55,7 +55,7 @@ TEST_F(TemplateUnifyFixture, TensorShapeOrStorageMismatchIsNotMatch) {
 }
 
 TEST_F(TemplateUnifyFixture, RefDeleterDeducesTemplateParam) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
@@ -72,7 +72,7 @@ TEST_F(TemplateUnifyFixture, RefDeleterDeducesTemplateParam) {
 }
 
 TEST_F(TemplateUnifyFixture, RefFastPathAndStructuralNodeAreEquivalent) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     // Fast-path ref-бит (без RefTypeData) против структурного узла с INVALID aux-полями:
@@ -87,7 +87,7 @@ TEST_F(TemplateUnifyFixture, RefFastPathAndStructuralNodeAreEquivalent) {
 }
 
 TEST_F(TemplateUnifyFixture, CollectTraversesRefPointeeNotTheRefItself) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId sharedT = reg.interner().applyRefType(t, RefType::kShared);
     std::vector<TypeId> params;
@@ -97,7 +97,7 @@ TEST_F(TemplateUnifyFixture, CollectTraversesRefPointeeNotTheRefItself) {
 }
 
 TEST_F(TemplateUnifyFixture, CollectTraversesTensorInsideSignature) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId tensorT = reg.interner().getOrCreateTensorType(t, {4}, false);

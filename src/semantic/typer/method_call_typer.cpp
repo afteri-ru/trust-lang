@@ -1,7 +1,7 @@
-// src/semantic/typer/method_call_typer.cpp
 // Типизация вызова метода: поиск сигнатур, выбор перегрузки, привязка аргументов, многоточие и
 // тип результата. Доступ к объекту остаётся в `AccessResolver`.
 #include "semantic/typer/method_call_typer.hpp"
+#include "semantic/typer/member_access.hpp"
 #include "semantic/core/name_resolution.hpp"
 #include "semantic/typer/ellipsis.hpp"
 #include "semantic/typer/overload_call.hpp"
@@ -26,7 +26,6 @@
 
 namespace trust {
 
-// -- Вызов метода на объекте: obj.method(args) --
 // По типу объекта ищет метод в реестре типов (TypeSystem::findMethod), проверяет наличие и
 // количество аргументов по сигнатуре, типизирует результат возвращаемым типом. Метод - это
 // функциональный тип (метод и функция - одно и то же), поэтому проверка аргументов идёт по
@@ -49,7 +48,7 @@ void MethodCallTyper::typeMethodCall(Binary& n) {
     // (semantic/ellipsis), как у вызовов функций; арность проверяется с учётом числа позиций.
     const EllipsisInfo einfo = scanCallEllipsis(call);
     // Не-const: instantiateRangeMethod интернирует функциональный тип (мутирует реестр).
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     const TypeId objType = n.m_left ? reg.read().store().desugaredTypeId(m_actx.facts().exprType(*n.m_left)) : INVALID_TYPE_ID;
     if (objType == INVALID_TYPE_ID) {
         // Тип объекта неизвестен (напр. Any) - сигнатуру метода получить нельзя; многоточие не может
@@ -70,7 +69,7 @@ void MethodCallTyper::typeMethodCall(Binary& n) {
     n.lhsType = QualType::fromTypeId(objType);
     const auto methodInfo = reg.read().methods().findMethodInfo(objType, mname);
     if (!methodInfo) {
-        const std::string tname = std::string(reg.read().printer().getTypeName(objType));
+        const std::string tname = std::string(reg.read().printer().typeNameOf(objType));
         m_actx.ctx().diag().report(Severity::Error, n.range(), "type '{}' has no method '{}'", tname, mname);
         if (call.m_args) {
             discardEllipsisElements(*call.m_args, false);
@@ -78,14 +77,19 @@ void MethodCallTyper::typeMethodCall(Binary& n) {
         m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
         return;
     }
+    // C++-доступ: private/protected метод доступен только из тела владельца (protected — и его
+    // наследников). Перегрузки одного имени делят уровень объявления — берём первый слот.
+    if (!methodInfo->entries.empty()) {
+        checkMemberAccess(m_actx, n.range(), methodInfo->owner, objType, methodInfo->entries.front().access, mname);
+    }
     // МЕТОД - НАБОР сигнатур (перегрузки). Эффективные сигнатуры (подстановка T→Elem для
     // контейнеров и типовых аргументов native-template) строит ЕДИНЫЙ примитив слоя types.
     // C++-суффикс метода берётся из methodInfo->entries по индексу кандидата: у инстанса
     // record-шаблона suffixes скопированы с шаблона (методы - те же объявления), поэтому
     // совпадают с именем члена в C++.
     const TypeId canonicalObj = reg.read().store().desugaredTypeId(objType);
-    if (const RecordTypeData* rdata = reg.read().store().recordData(canonicalObj); rdata != nullptr && rdata->templateOf != INVALID_TYPE_ID) {
-        const auto tmplMethods = reg.read().methods().findMethodInfo(rdata->templateOf, mname);
+    if (const auto instance = reg.read().store().instanceOf(canonicalObj); instance.has_value()) {
+        const auto tmplMethods = reg.read().methods().findMethodInfo(instance->templateOf, mname);
         EXPECT(tmplMethods.has_value() && tmplMethods->entries.size() == methodInfo->entries.size() &&
                "method set of a record template instance must be declared on its template");
     }
@@ -93,7 +97,7 @@ void MethodCallTyper::typeMethodCall(Binary& n) {
     if (reg.read().store().isNativeTemplateType(objType) && std::find(sigs.begin(), sigs.end(), INVALID_TYPE_ID) != sigs.end()) {
         m_actx.ctx().diag().report(Severity::Error, n.range(),
                                    "method '{}' of native template '{}' cannot be instantiated: multiple type parameters are not supported", mname,
-                                   reg.read().printer().getTypeName(objType));
+                                   reg.read().printer().typeNameOf(objType));
         m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
         return;
     }
@@ -120,7 +124,7 @@ void MethodCallTyper::typeMethodCall(Binary& n) {
             m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
             return;
         }
-        const std::string what = std::format("method '{}' of type '{}'", mname, reg.read().printer().getTypeName(objType));
+        const std::string what = std::format("method '{}' of type '{}'", mname, reg.read().printer().typeNameOf(objType));
         const std::vector<AstNodePtr> emptyArgs;
         const auto& rawArgs = call.m_args ? *call.m_args : emptyArgs;
         BoundCandidateSet gathered =
@@ -141,11 +145,11 @@ void MethodCallTyper::typeMethodCall(Binary& n) {
         funcType = r.chosen;
         // bound-аргументы и суффикс - ПО ИНДЕКСУ кандидата (два объявления могут делить TypeId).
         EXPECT(r.chosenIndex < boundArgs.size() && "method call: chosen candidate index is out of range");
-        call.boundArgs = std::move(boundArgs[r.chosenIndex].values);
+        call.boundArgs = boundArgumentNodes(boundArgs[r.chosenIndex]);
         if (reg.read().store().isRecordType(reg.read().store().desugaredTypeId(objType)) && !op::isOperatorFunctionName(mname)) {
             // C++-имя метода - identity-суффикс ЕГО объявления (у инстанса шаблона suffixes
-            // скопированы с шаблона, поэтому совпадают с эмитированным именем члена).
-            n.resolvedMethodSuffix = methodCppSuffix(*methodInfo, r.chosenIndex);
+            // совпадают с шаблоном, поэтому совпадают с эмитированным именем члена).
+            n.resolvedMethodSuffix = methodCppSuffix(*methodInfo, r.chosenIndex, m_actx.ctx().declCppFacts());
         }
         bindingDone = true;
     }
@@ -155,19 +159,19 @@ void MethodCallTyper::typeMethodCall(Binary& n) {
             // по типам). Проверка типов выполняется после разворота списка (ниже).
             funcType = sigs.front();
             if (reg.read().store().isRecordType(reg.read().store().desugaredTypeId(objType)) && !op::isOperatorFunctionName(mname)) {
-                n.resolvedMethodSuffix = methodCppSuffix(*methodInfo, 0);
+                n.resolvedMethodSuffix = methodCppSuffix(*methodInfo, 0, m_actx.ctx().declCppFacts());
             }
         } else {
             if (hasEllipsis) {
                 m_actx.ctx().diag().report(Severity::Error, call.range(), "method '{}' of type '{}' is overloaded; ellipsis in arguments is not supported",
-                                           mname, reg.read().printer().getTypeName(objType));
+                                           mname, reg.read().printer().typeNameOf(objType));
                 discardEllipsisElements(*call.m_args, false);
                 m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
                 return;
             }
             const std::vector<TypeId> argTypes = callArgTypes(m_actx, call);
             const OverloadResolution r = resolveCallOverload(m_actx, sigs, argTypes, call.range(),
-                                                             std::format("method '{}' of type '{}'", mname, reg.read().printer().getTypeName(objType)));
+                                                             std::format("method '{}' of type '{}'", mname, reg.read().printer().typeNameOf(objType)));
             const TypeId chosen = r.chosen;
             if (chosen == INVALID_TYPE_ID) {
                 m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
@@ -178,7 +182,7 @@ void MethodCallTyper::typeMethodCall(Binary& n) {
             // (не зависит от перегруженности имени в скоупе). Нативные имена фиксированы внешней
             // библиотекой - суффикс не добавляется; операторы - `operator<sym>`.
             if (reg.read().store().isRecordType(reg.read().store().desugaredTypeId(objType)) && !op::isOperatorFunctionName(mname)) {
-                n.resolvedMethodSuffix = methodCppSuffix(*methodInfo, r.chosenIndex);
+                n.resolvedMethodSuffix = methodCppSuffix(*methodInfo, r.chosenIndex, m_actx.ctx().declCppFacts());
             }
         }
     }
@@ -206,7 +210,7 @@ void MethodCallTyper::typeMethodCall(Binary& n) {
         const bool arityOk = variadic ? nargs >= fd->paramTypes.size() : nargs == fd->paramTypes.size();
         if (!arityOk) {
             m_actx.ctx().diag().report(Severity::Error, call.range(), "method '{}' of type '{}' expects {} argument(s), got {}", mname,
-                                       reg.read().printer().getTypeName(objType), fd->paramTypes.size(), nargs);
+                                       reg.read().printer().typeNameOf(objType), fd->paramTypes.size(), nargs);
             m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
             return;
         }

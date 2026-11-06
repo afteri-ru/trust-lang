@@ -1,0 +1,21 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# `checkCrossModuleCollisions` не даёт ЛОЖНЫХ срабатываний на перегрузки: одноимённые функции
+# РАЗНЫХ модулей с разными C++-сигнатурами (identity-суффикс) — не коллизия.
+
+//--- main.src
+\lib_a(f);
+\lib_b(f);
+@main():Int32 := { @return f(1) + f(1, 2) - 4; };
+
+//--- lib_a.src
+\lib_a;
+f(a:Int32):Int32 := { @return a; };
+
+//--- lib_b.src
+\lib_b;
+f(a:Int32, b:Int32):Int32 := { @return a + b; };

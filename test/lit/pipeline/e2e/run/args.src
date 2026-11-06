@@ -8,6 +8,7 @@
 
 # CHECK: a0=2 a1=10
 
+\std();
 @main(argv^: Dict, args^: Dict) := {
     $a0 := :StrChar(argv[0]);
     $a1 := :StrChar(argv[1]);

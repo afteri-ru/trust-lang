@@ -19,9 +19,9 @@ namespace pkg_header {
 inline int value() { return 42; }
 } // namespace pkg_header
 //--- pkg/mod_header.src
-\\\mod_header\mod_header;
+\mod_header;
 @[include("header.hpp")@]
-%pkg_header::value():Int32 := ...;
+pkg_header::value():Int32 := %pkg_header...;
 
 marker:Int32 := 1;
 //--- main.src

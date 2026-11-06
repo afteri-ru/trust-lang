@@ -1,4 +1,3 @@
-// src/verify/report.cpp
 #include "verify/proof_backend.hpp"
 
 #include "utils/error.hpp"

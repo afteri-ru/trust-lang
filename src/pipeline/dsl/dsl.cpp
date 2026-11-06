@@ -1,8 +1,6 @@
-// src/pipeline/dsl.cpp
-// Загрузка DSL-макросов, stdlib prelude и эффективных keywords.
+// Загрузка DSL-макросов и эффективных keywords.
 #include "pipeline/dsl/dsl.hpp"
 
-#include "ast/term_to_ast.hpp"
 #include "formatter/format.hpp"
 #include "package/package.hpp"
 #include "session/context.hpp"
@@ -19,37 +17,6 @@
 #include <string>
 
 namespace trust {
-namespace {
-
-void appendPreludeSource(Context& ctx, std::string_view relPath, std::string_view label, std::vector<AstNodePtr>& out) {
-    const std::optional<std::string> source = readResourcePackageEntry("stdlib", relPath);
-    if (!source || source->empty()) {
-        FAULT("stdlib prelude '{}' is not available in the package resources", label);
-    }
-    std::string masked = *source;
-    maskModuleHeader(masked);
-    const auto errors_before = ctx.diag().errorCount();
-    Parser parser(ctx);
-    TermPtr term = parser.ParseText(masked, "@" + std::string(label));
-    if (!term || ctx.diag().errorCount() != errors_before) {
-        return;
-    }
-    convertModuleBody(ctx, term, out);
-}
-
-} // namespace
-
-void appendStdlibPrelude(Context& ctx, bool enabled, std::vector<AstNodePtr>& out) {
-    if (!enabled) {
-        return;
-    }
-    // iterator.src — объявления типов stdlib (Iterator<T>).
-    appendPreludeSource(ctx, "stdlib/iterator.src", "stdlib/iterator", out);
-    // async.src — корутинные/асинхронные типы stdlib (AsyncTask/AsyncGenerator/AsyncPool/AsyncMutex).
-    appendPreludeSource(ctx, "stdlib/async.src", "stdlib/async", out);
-    // builtin/string.src — АВТО-реализация строковых встроенных типов (C++ std).
-    appendPreludeSource(ctx, "stdlib/builtin/string.src", "stdlib/builtin/string", out);
-}
 
 void loadDslMacros(Context& ctx, const PipelineOpts& opts) {
     if (opts.no_dsl || ctx.macro()) {
@@ -75,16 +42,17 @@ void loadDslMacros(Context& ctx, const PipelineOpts& opts) {
     } else {
         // dsl.src — файл пакета ресурсов `share/trust/stdlib.trust`; отсутствие или
         // пустое содержимое — ошибка (без тихого fallback).
-        const std::optional<std::string> dsl = readResourcePackageEntry("stdlib", "stdlib/dsl.src");
+        const std::optional<std::string> dsl = readResourcePackageEntry("stdlib", "dsl.src");
         if (!dsl || dsl->empty()) {
-            FAULT("dsl source '{}' is not available in the standard library package", "stdlib/dsl.src");
+            FAULT("dsl source '{}' is not available in the standard library package", "dsl.src");
         }
         source = std::move(*dsl);
     }
 
-    auto macro = std::make_shared<Macro>(ctx);
+    auto macro = std::make_shared<Macro>(makeParserServices(ctx));
     ctx.setMacro(macro);
-    Parser parser(ctx);
+    ParserServices parseServices = makeParserServices(ctx);
+    Parser parser(parseServices);
     // Встроенный DSL - «фиктивный» in-memory источник под именем "@stdlib/dsl"
     // (префикс '@' = файла на диске нет, readFilesFromDisk его пропускает).
     // Содержимое "@stdlib/dsl" - это stdlib/dsl.src; LSP сохраняет его на диск как

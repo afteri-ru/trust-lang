@@ -9,7 +9,7 @@
     __call__(i: Int32): Int32 := { return i; };
     __getitem__(i: Int32): Int32 := { return i; };
 };
-# CHECK: struct c_Point {
-# CHECK: bool operator==(c_Point c_o) {
-# CHECK: int32_t operator()(int32_t c_i) {
-# CHECK: int32_t operator[](int32_t c_i) {
+# CHECK: struct Point {
+# CHECK: bool operator==(Point o) {
+# CHECK: int32_t operator()(int32_t i) {
+# CHECK: int32_t operator[](int32_t i) {

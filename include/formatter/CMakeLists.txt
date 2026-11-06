@@ -2,9 +2,9 @@
 # Formatter - pretty-printing исходного текста Trust (этап форматирования драйвера).
 
 trust_component(formatter
-    INTERNAL_DIRS impl
+    INTERNAL_DIRS command impl
     PUBLIC_HEADERS command.hpp format.hpp
-    SOURCES format.cpp token_gap.cpp emitter.cpp config.cpp command.cpp
+    SOURCES impl/format.cpp impl/token_gap.cpp impl/emitter.cpp impl/config.cpp command/command.cpp
     LINK_PUBLIC trust_include_dirs driver_lib syntax_lib
     LINK_PRIVATE session_lib utils_lib
     # build/include (для trust/version.h) приходит транзитивно через trust_include_dirs.

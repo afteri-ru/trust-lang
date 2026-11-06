@@ -14,11 +14,11 @@ f(a:Int32, b:Int32):Int32 := {
 };
 
 # CHECK: integer overflow in '+'
-# CHECK: c_a < c_b
-# CHECK: c_a == c_b
+# CHECK: a < b
+# CHECK: a == b
 # CHECK: &&
-# CHECK: c_a != c_b
+# CHECK: a != b
 # CHECK: ||
-# CHECK: c_a .&. c_b
-# CHECK: c_a .>>. c_b
+# CHECK: a .&. b
+# CHECK: a .>>. b
 # CHECK: integer overflow in '+='

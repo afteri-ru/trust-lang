@@ -3,6 +3,9 @@
 #include "package/manifest.hpp"
 #include "package/package.hpp"
 #include "trust/version.h"
+#include "location/module_path.hpp"
+#include "module_loader/package/package_store.hpp"
+#include "runtime/trust/type_state.hpp"
 
 #include <gtest/gtest.h>
 
@@ -195,7 +198,7 @@ TEST(PackageManifest, ParseArtifactsAndHeaderLinks) {
                                                    "kind = \"system\"\n"
                                                    "libs = [\"gmp\"]\n"
                                                    "[[link.headers]]\n"
-                                                   "header = \"trust/rational.hpp\"\n"
+                                                   "header = \"stdlib/builtin/rational.hpp\"\n"
                                                    "libs = [\"trust-runtime\", \"gmp\"]\n";
     ASSERT_TRUE(parseManifest(text, m, err)) << err;
     const auto artifacts = m.artifacts();
@@ -206,7 +209,7 @@ TEST(PackageManifest, ParseArtifactsAndHeaderLinks) {
     EXPECT_EQ(artifacts[1].kind, ArtifactKind::System);
     const auto rules = m.headerLinks();
     ASSERT_EQ(rules.size(), 1U);
-    EXPECT_EQ(rules[0].header, "trust/rational.hpp");
+    EXPECT_EQ(rules[0].header, "stdlib/builtin/rational.hpp");
     EXPECT_EQ(rules[0].libs, (std::vector<std::string>{"trust-runtime", "gmp"}));
 }
 
@@ -409,6 +412,7 @@ TEST(PackageCreate, ProducesArchiveWithBuildBlock) {
     EXPECT_NE(mf.find("[build]"), std::string::npos);
     EXPECT_NE(mf.find("formatVersion"), std::string::npos);
     EXPECT_NE(mf.find("toolchain"), std::string::npos);
+    EXPECT_NE(mf.find("runtime-abi"), std::string::npos);
     EXPECT_NE(mf.find("created"), std::string::npos);
     EXPECT_NE(mf.find("demo"), std::string::npos);
     EXPECT_NE(mf.find(TRUST_VERSION_SHORT), std::string::npos);
@@ -846,7 +850,7 @@ TEST(PackageLayout, DuplicateArchiveDirIsError) {
     EXPECT_EQ(createTrustPackage(dir, dir.parent_path() / "n.trust"), 1);
 }
 
-// Пакет без [[layout.layers]] — прежнее поведение (всё дерево).
+// Пакет без [[layout.layers]] — упаковывается всё дерево.
 TEST(PackageLayout, AbsentLayoutPacksWholeTree) {
     fs::path dir = makePackage(freshDir("pkg_layout_absent"), manifestText("nole"));
     fs::path out = dir.parent_path() / "nole.trust";
@@ -856,4 +860,51 @@ TEST(PackageLayout, AbsentLayoutPacksWholeTree) {
     EXPECT_NE(list.find("./mod_a.src"), std::string::npos) << list;
     EXPECT_NE(list.find("./sub/mod_b.src"), std::string::npos) << list;
     EXPECT_NE(list.find("./notes.txt"), std::string::npos) << list;
+}
+
+// R48/E14: упаковщик фиксирует версию ABI-контракта рантайма в [build].runtime-abi.
+TEST(PackageManifest, RuntimeAbiVersionFromBuildBlock) {
+    PackageManifest mf;
+    std::string err;
+    ASSERT_TRUE(parseManifest("name = 'p'\n[build]\nruntime-abi = 7\n", mf, err, ManifestVersion::Optional)) << err;
+    ASSERT_TRUE(mf.runtimeAbiVersion().has_value());
+    EXPECT_EQ(*mf.runtimeAbiVersion(), 7u);
+}
+
+TEST(PackageManifest, RuntimeAbiVersionAbsentWithoutBuildBlock) {
+    PackageManifest mf;
+    std::string err;
+    ASSERT_TRUE(parseManifest("name = 'p'\n", mf, err, ManifestVersion::Optional)) << err;
+    EXPECT_FALSE(mf.runtimeAbiVersion().has_value());
+}
+
+// R48: пакет-каталог, собранный под другую версию ABI-контракта рантайма, отвергается при резолве.
+TEST(PackageStoreResolve, RejectsRuntimeAbiMismatch) {
+    const fs::path root = freshDir("pkgstore_abi");
+    const fs::path pkg = root / "badabi";
+    writeFile(pkg / "trust.toml", "name = 'badabi'\n[build]\nruntime-abi = 999999\n");
+    writeFile(pkg / "badabi.src", "\\\\badabi;\n");
+
+    PackageStore store;
+    const ModulePath path = ModulePath::fromComponents("badabi", {});
+    fs::path out_root;
+    std::string out_error;
+    EXPECT_FALSE(store.resolveRoot(path, {root}, out_root, out_error));
+    EXPECT_NE(out_error.find("runtime ABI"), std::string::npos) << out_error;
+    EXPECT_NE(out_error.find("999999"), std::string::npos) << out_error;
+}
+
+// R48: совпадающая версия ABI резолвится без изменений поведения.
+TEST(PackageStoreResolve, AcceptsMatchingRuntimeAbi) {
+    const fs::path root = freshDir("pkgstore_abi_ok");
+    const fs::path pkg = root / "goodabi";
+    writeFile(pkg / "trust.toml", "name = 'goodabi'\n[build]\nruntime-abi = " + std::to_string(trust::kRuntimeAbiVersion) + "\n");
+    writeFile(pkg / "goodabi.src", "\\\\goodabi;\n");
+
+    PackageStore store;
+    const ModulePath path = ModulePath::fromComponents("goodabi", {});
+    fs::path out_root;
+    std::string out_error;
+    ASSERT_TRUE(store.resolveRoot(path, {root}, out_root, out_error)) << out_error;
+    EXPECT_EQ(fs::weakly_canonical(out_root), fs::weakly_canonical(pkg));
 }

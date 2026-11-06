@@ -1,8 +1,6 @@
 #pragma once
 
-// include/ast/convert/jump_targets.hpp
 // Единое правило целей break/continue для lowering и CFG-builder.
-//
 // Контракт:
 //   * Именованный блок делает своё имя pending-целью для continue; первый цикл
 //     (while/do-while) в его теле потребляет эту цель.

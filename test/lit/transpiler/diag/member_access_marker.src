@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Маркер видимости члена тела класса — только `::` (public), `_::` (protected), `__::`
+# (private). Иное имя-область (`foo::`) — явная ошибка (без молчаливой подмены маркера).
+
+\std();
+:A ::= :Class{ a:Int32 := _; };
+:D ::= :A{ foo::;
+    b:Int32 := _; };
+# CHECK: error: invalid member access marker 'foo::' (expected '::' (public), '_::' (protected), '__::' (private))

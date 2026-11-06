@@ -5,9 +5,10 @@
 # CHECK: a=20 b=10
 
 # Обмен ЗНАЧЕНИЙ между разными видами ссылок (unique и shared) через `*lhs :=: *rhs`:
-# разыменование unique - trust::checked_deref(c_u.get()) (с проверкой nullptr), shared -
-# *(c_x.lock()) (Locker); оба дают T&, std::swap обменивает данные.
+# разыменование unique - trust::checked_deref(u.get()) (с проверкой nullptr), shared -
+# *(x.lock()) (Locker); оба дают T&, std::swap обменивает данные.
 
+\std();
 @main():Int32 := {
     && a := 10:Int32;
     &* b := 20:Int32;

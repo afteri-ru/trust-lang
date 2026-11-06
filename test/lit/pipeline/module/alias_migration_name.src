@@ -2,12 +2,12 @@
 # RUN: %split-file %s $TD
 # RUN: %not %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
 #
-# Миграция: `=` больше НЕ создаёт алиас имени - прежняя форма даёт явную ошибку с оператором `:-`.
-# CHECK: error: assignment from a module reference is not a declaration; use ':-' for a name alias
+# Миграция: `=` больше НЕ создаёт алиас имени — для алиаса используется оператор `:-`.
+# CHECK: error:
 
 //--- main.src
 \lib(g);
-f = \lib::g;
+f = g;
 @main():Int32 := { @return 0; };
 
 //--- lib.src

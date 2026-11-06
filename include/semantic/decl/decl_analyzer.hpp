@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/decl/decl_analyzer.hpp
 // Компонент семантики: DeclAnalyzer — фасад анализа объявлений. Объявления переменных,
 // функций и деструктуризации делегируются профильным анализаторам; типы (typedef/enum/
 // variant/record/class) остаются зоной ответственности фасада и его type-файлов.
@@ -36,8 +35,15 @@ class DeclAnalyzer {
     void analyzeRecordDecl(Binary& binary_node);
     void analyzeFuncDecl(FuncDecl& func_node);
     void validateFuncDefaults(const FuncDecl& func_node);
-    void analyzeNativeTemplateDecl(FuncDecl& func_node);
-    void analyzeClassDecl(ClassDecl& ncd);
+    // Функции объявляются обычным путём; нативный шаблон-ТИП — оператор типа (`<T> Name ::= %cpp { };`).
+    /// `ownerModule` — модуль-владелец объявления: для ГЕНЕРИРУЕМОГО класса (`::=`-обёртка) он
+    /// публикует интерфейс, поэтому on-use include типа — заголовок этого модуля.
+    void analyzeClassDecl(ClassDecl& ncd, ModuleIndex ownerModule);
+    /// Проверка БАЗИСОВ генерируемого класса (`Name = %cpp, %std::string {...}` / `... , :Base {...}`):
+    /// нативное имя — готовый C++-базис, обычное — тип-класс (резолвится). ЕДИНАЯ точка для
+    /// `=`-реализаций builtin и `::=`-объявлений; ошибки НЕ прерывают анализ (материализация членов
+    /// нужна HIR verify).
+    void validateClassBases(ClassDecl& ncd, std::string_view typeName);
     void declareFuncParams(FuncDecl& func_node);
     void analyzeLambdaCaptures(FuncDecl& func_node);
     void analyzeDestructure(DestructureDecl& node);

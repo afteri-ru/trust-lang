@@ -1,4 +1,3 @@
-// include/toolchain/runtime/runtime_locator.hpp
 // Поиск trust-runtime библиотеки (.so/.a) для линковки сгенерированной программы.
 #pragma once
 

@@ -1,4 +1,3 @@
-// src/module_loader/path/module_path_policy.cpp
 #include "module_loader/path/module_path_policy.hpp"
 
 #include "location/module_name.hpp"

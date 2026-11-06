@@ -5,6 +5,7 @@
 // Узлы AST создаются программно (manual-конструкторы без TermPtr), поэтому
 // range()/text() из исходника недоступны, но для семантики это не требуется.
 
+#include "support/cpp_facts_test_util.hpp"
 #include "semantic/core/pass_runner.hpp"
 #include "symbols/symbol_table.hpp"
 #include "ast/ast_nodes.hpp"
@@ -14,6 +15,7 @@
 #include "session/context.hpp"
 #include "diag/diag.hpp"
 #include "types/type_system.hpp"
+#include "transpiler/type/cpp_type_renderer.hpp"
 #include "utils/utils.hpp"
 #include "gtest/gtest.h"
 
@@ -31,6 +33,7 @@ class VarTypeFixture : public ::testing::Test {
         m_prev_err = setErrs(&m_stream);
         m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
+        test::installTargetFacts(m_ctx, m_target);
     }
 
     void TearDown() override { setErrs(m_prev_err); }
@@ -39,6 +42,7 @@ class VarTypeFixture : public ::testing::Test {
     std::ostringstream m_stream;
     Context m_ctx;
     std::unique_ptr<TypeSystem> m_types;
+    TargetContract m_target;
 
     /// x:Type := lit  - типизированное объявление переменной.
     AstNodePtr typedVar(const std::string& name, const std::string& type, const std::string& lit) {
@@ -71,7 +75,7 @@ TEST_F(VarTypeFixture, GlobalAndNestedBlocks) {
     seq.push_back(typedVar("g", "Int32", "1"));
     seq.push_back(std::move(outer));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -100,7 +104,7 @@ TEST_F(VarTypeFixture, NestedScopeShadowing) {
     seq.push_back(typedVar("x", "Int32", "1"));
     seq.push_back(std::move(outer));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq)); // shadowing на разных уровнях - не ошибка
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -118,7 +122,7 @@ TEST_F(VarTypeFixture, DuplicateInSameNestedScope) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(block));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -131,7 +135,7 @@ TEST_F(VarTypeFixture, UndefinedNameInNestedScope) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(block));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -143,7 +147,7 @@ TEST_F(VarTypeFixture, TypeAliasIntSynonym) {
     std::vector<AstNodePtr> seq;
     seq.push_back(typeAlias("MyInt", "Int32"));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -160,7 +164,7 @@ TEST_F(VarTypeFixture, TypeAliasIntSynonym) {
     // У алиаса нет собственного C++-имени - оно берётся у канонического типа.
     EXPECT_EQ(m_ctx.readTypes().store().desugaredTypeId(alias), int32Id());
     EXPECT_TRUE(m_ctx.readTypes().findType("MyInt").has_value());
-    EXPECT_EQ(m_ctx.readTypes().printer().getCppTypeName(m_ctx.readTypes().store().desugaredTypeId(alias)).value_or(""), "int32_t");
+    EXPECT_EQ(CppTypeRenderer(m_ctx.readTypes(), test::cppFactsViewOf(m_ctx)).render(m_ctx.readTypes().store().desugaredTypeId(alias)).value_or(""), "int32_t");
 }
 
 TEST_F(VarTypeFixture, VarWithAliasType) {
@@ -169,7 +173,7 @@ TEST_F(VarTypeFixture, VarWithAliasType) {
     seq.push_back(typeAlias("MyInt", "Int32"));
     seq.push_back(typedVar("x", "MyInt", "5"));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -188,7 +192,7 @@ TEST_F(VarTypeFixture, AliasChain) {
     seq.push_back(typeAlias("MyInt", "Int32"));
     seq.push_back(typeAlias("Big", "MyInt"));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -196,7 +200,7 @@ TEST_F(VarTypeFixture, AliasChain) {
     ASSERT_NE(big, nullptr);
     // Цепочка алиасов разворачивается до базового Int32.
     EXPECT_EQ(m_ctx.readTypes().store().desugaredTypeId(big->type.getTypeId()), int32Id());
-    EXPECT_EQ(m_ctx.readTypes().printer().getCppTypeName(m_ctx.readTypes().store().desugaredTypeId(big->type.getTypeId())).value_or(""), "int32_t");
+    EXPECT_EQ(CppTypeRenderer(m_ctx.readTypes(), test::cppFactsViewOf(m_ctx)).render(m_ctx.readTypes().store().desugaredTypeId(big->type.getTypeId())).value_or(""), "int32_t");
 }
 
 } // namespace

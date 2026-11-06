@@ -1,20 +1,21 @@
 # MEMORY.md
 > scope: include/stdlib/tensor
 > role: persistent-memory
-> last_reviewed: 2026-10-20
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 4200
 
 ## Architecture
 
 Провайдер-пакет `tensor.trust` (toolchain resource, `share/trust/tensor.trust`): реализация
-предобъявленного Core-типа `Tensor` (`tensor.src`: `Tensor = %trust::Tensor { };`) + контракт
-линковки с toolchain-плагином `tensor_cpu`. Публичный заголовок `trust/tensor.hpp`
-(`trust::Tensor<Elem>`, `TensorHandle`) — self-contained, БЕЗ torch-заголовков; C ABI — 
-`trust/tensor_backend.hpp`; оба доставляются пакетом `stdlib.trust` как `include/trust/*.hpp`.
+предобъявленного Core-типа `Tensor` (`tensor.src`: `Tensor = %trust::Tensor { rank^/size^/at^ := %… };`,
+т.е. привязки методов к членам trust::Tensor) + контракт
+линковки с toolchain-плагином `tensor_cpu`. Публичный заголовок `stdlib/tensor.hpp`
+(`trust::Tensor<Elem>`, `TensorHandle`) — self-contained, БЕЗ torch-заголовков; C ABI —
+`stdlib/tensor_backend.hpp`; оба доставляются САМИМ пакетом `tensor.trust`
+(слой `archive-dir = "include/stdlib"`, `-I<pkg>/include`), не stdlib.trust.
 
 `trust.toml`: `[[artifact]] provides=["tensor"] kind="toolchain" libs=["tensor_cpu"]`
-`capabilities=["with-torch"]`; `[[link.headers]] trust/tensor.hpp -> tensor`.
+`capabilities=["with-torch"]`; `[[link.headers]] stdlib/tensor.hpp -> tensor`.
 
 ## Facts and invariants
 

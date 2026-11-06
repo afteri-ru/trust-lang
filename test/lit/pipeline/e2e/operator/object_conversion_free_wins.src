@@ -4,6 +4,7 @@
 
 # Унаследованный member-оператор участвует в том же ранжировании: его параметр требует
 # derived→base (widening), свободная форма точна - побеждает free.
+\std();
 :Base ::= :Class{
     v: Int32 := 0;
     __eq__(o: Base): Bool := { return false; };

@@ -20,8 +20,9 @@ trust_component(semantic
         typer/binary_typer.cpp typer/container_typer.cpp typer/var_typer.cpp typer/call_typer.cpp
         typer/method_call_typer.cpp typer/ellipsis.cpp typer/ref_typer.cpp typer/access_resolver.cpp
         typer/operator_check.cpp typer/operator_resolve.cpp
-        verify/verify_typed_ast.cpp verify/trust_analyzer.cpp verify/lint.cpp verify/format_check.cpp
-    LINK_PUBLIC ast_lib types_lib symbols_lib ir_lib analysis_lib session_lib trust_include_dirs
+        verify/verify_typed_ast.cpp verify/provider_check.cpp verify/trust_analyzer.cpp verify/lint.cpp verify/format_check.cpp
+    LINK_PUBLIC ast_lib types_lib symbols_lib ir_lib analysis_lib session_lib target_lib trust_include_dirs
+    LINK_PRIVATE module_api_lib
 )
 
 # Полнота switch по kind в драйвере обхода (см. ast/kind_dispatch.hpp).

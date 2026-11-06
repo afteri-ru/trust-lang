@@ -1,4 +1,3 @@
-// src/semantic/ref/borrow_flow.cpp
 // Flow-sensitive анализ инвалидации производных представлений (см.
 // include/semantic/ref/borrow_flow.hpp). CFG + forward may-анализ живости + backward liveness.
 
@@ -17,6 +16,7 @@
 #include "attrs/attr_pool.hpp"
 #include "semantic/diag.hpp"
 #include "session/context.hpp"
+#include "types/type_system.hpp"
 #include "types/typekind.hpp"
 #include "utils/error.hpp"
 #include "utils/utils.hpp"
@@ -391,8 +391,8 @@ void Analyzer::collectMarks(const AstNodeBase& node) {
 
 void Analyzer::scanFunction(const FuncDecl& fn) {
     FnScan fs;
-    if (fn.m_body) {
-        for (const AstNodePtr& stmt : *fn.m_body) {
+    if (fn.hasBody()) {
+        for (const AstNodePtr& stmt : *fn.body()) {
             scanNode(stmt, fs, nullptr);
         }
     }
@@ -738,6 +738,14 @@ void Analyzer::run() {
         if (root) {
             collectMarks(*root);
         }
+    }
+    // Метки из ИМПОРТИРУЕМЫХ модулей: их AST не входит в корневой AST, но `@[borrowed]` на
+    // классе/методе регистрируется семантикой в TypeSystem (см. analyzeClassDecl/analyzeFuncDecl).
+    for (const std::string& name : m_ctx.types().borrowedClasses()) {
+        m_markedClasses.insert(name);
+    }
+    for (const std::string& name : m_ctx.types().borrowedMethods()) {
+        m_markedMethods.insert(normalizeMethodName(name));
     }
     m_functions.reserve(m_mir.functions.size());
     for (const flow::MirFunction& function : m_mir.functions) {

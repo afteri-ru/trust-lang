@@ -1,11 +1,9 @@
-// src/types/registry/type_store.cpp
 // Зона хранения типов: дескрипторы, registry_index, проекции identity/поля/namespace.
 #include "types/registry/type_store.hpp"
 
 #include "types/names/storage_key.hpp"
 #include "types/registry/type_traits.hpp"
 #include "utils/error.hpp"
-
 
 namespace trust {
 
@@ -121,7 +119,7 @@ TypeId TypeStore::getPointeeType(TypeId id) const noexcept {
         return rd->pointeeType;
     }
     // Fast-path бит ссылки: pointee — тот же identity-тип со снятыми битами RefType.
-    if (getRefType(getTypeKind(structural)) != RefType::kValue) {
+    if (typeRefOf(structural) != RefType::kValue) {
         const TypeKind kind = withRefType(getTypeKind(structural), RefType::kValue);
         return QualType::fromTypeId(structural).withKind(kind).getTypeId();
     }

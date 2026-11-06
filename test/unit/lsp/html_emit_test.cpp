@@ -42,7 +42,7 @@ class HtmlEmitTest : public ::testing::Test {
     }
 };
 
-constexpr const char* kHelloSrc = "@main():={\n"
+constexpr const char* kHelloSrc = "\\std(); @main():={\n"
                                   "    msg := \"hello world\";\n"
                                   "    print(msg);\n"
                                   "}\n";
@@ -70,7 +70,7 @@ TEST_F(HtmlEmitTest, JsonResult_HasSourceCppAndLineMapping) {
 }
 
 TEST_F(HtmlEmitTest, JsonResult_IsValidJsonAndRoundTrips) {
-    const std::string kSrc = "@main():={\n    s := \"a<>&'\\\"q\";\n    print(s);\n}\n";
+    const std::string kSrc = "\\std(); @main():={\n    s := \"a<>&'\\\"q\";\n    print(s);\n}\n";
     auto r = trust::lsp::transpileToResult(kSrc, "esc.src", opts);
     std::string json_str = trust::lsp::resultToJson(r);
     json j = json::parse(json_str);

@@ -1,4 +1,3 @@
-// src/semantic/decl/type_completeness.cpp
 #include "types/type_read.hpp"
 #include "semantic/decl/type_completeness.hpp"
 
@@ -50,7 +49,7 @@ bool isForwardRecordDecl(const AstNodeBase& decl) {
     if (!binary.m_right || binary.m_right->kind() != ParserToken::Kind::StructDecl) {
         return false;
     }
-    return !static_cast<const RecordDecl&>(*binary.m_right).m_body.has_value();
+    return !static_cast<const RecordDecl&>(*binary.m_right).hasBody();
 }
 
 } // namespace
@@ -59,9 +58,9 @@ void requireCompleteValueType(AnalysisContext& actx, const AstNodeBase* typeNode
     if (!state.isValid()) {
         return; // тип не разрешился - диагностику выдал resolveTypeRef
     }
-    const TypeReadModel& reg = actx.ctx().types();
+    const TypeReadModel& reg = actx.registry();
     const TypeId id = getUnqualifiedType(state.getTypeId());
-    const RefType ref = getRefType(getTypeKind(id));
+    const RefType ref = typeRefOf(id);
     // Неполнота для КЛИЕНТА: видимое объявление — forward-record из ДРУГОГО файла. Определение
     // из тела за forward'ом интерфейса клиенту не публикуется (isExportImplementation), поэтому
     // видимый символ клиента остаётся forward. В файле владельца forward до определения допустим
@@ -82,13 +81,13 @@ void requireCompleteValueType(AnalysisContext& actx, const AstNodeBase* typeNode
         if (ref == RefType::kUnique && clientIncomplete) {
             const TypeId pointee = reg.store().desugaredTypeId(getUnqualifiedType(reg.store().getPointeeType(id)));
             actx.ctx().diag().report(Severity::Error, range, "{} holds an owning 'unique' reference to incomplete type '{}': the full definition is required",
-                                     entity, reg.printer().getTypeName(pointee));
+                                     entity, reg.printer().typeNameOf(pointee));
         }
         return; // прочие виды ссылок полноты не требуют
     }
     if (clientIncomplete) {
         actx.ctx().diag().report(Severity::Error, range, "{} uses incomplete type '{}' by value; use a pointer/reference or provide the definition", entity,
-                                 reg.printer().getTypeName(reg.store().desugaredTypeId(id)));
+                                 reg.printer().typeNameOf(reg.store().desugaredTypeId(id)));
     }
 }
 

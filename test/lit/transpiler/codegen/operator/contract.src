@@ -7,5 +7,5 @@
     __eq__(o: V): Bool trust_pre(true) := { return true; };
 };
 @main() := { @return 0; }
-# CHECK: bool operator==(c_V c_o) {
+# CHECK: bool operator==(V o) {
 # CHECK: trust::trust__abort__(

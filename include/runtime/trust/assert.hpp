@@ -1,7 +1,5 @@
 // trust/assert.hpp - runtime error helpers for the Trust runtime.
-//
 // Delivery: package file `include/trust/assert.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
-//
 // The backing symbols trust::errs() and trust::utils::backtrace_string() are
 // provided by the linked trust-runtime library (src/utils/io/io.cpp and
 // src/utils/proc/backtrace.cpp), which is why they are only forward-declared here.

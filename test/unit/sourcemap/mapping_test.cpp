@@ -35,7 +35,7 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
     // -- Forward: trust → cpp (query=12, delta=2 → проекция +2) --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 12));
-        auto r = reader->getMapTrustToCpp(loc);
+        auto r = reader->mappedOutRange(loc);
         ASSERT_TRUE(r.has_value());
         EXPECT_EQ(r->begin, 32u);
         EXPECT_EQ(r->end, 42u);
@@ -44,7 +44,7 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
     // -- Backward: cpp → trust (query=35, delta=5 → проекция +5) --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(cppSrc, 35));
-        auto r = reader->getMapCppToTrust(loc);
+        auto r = reader->mappedTrustRange(loc);
         ASSERT_TRUE(r.has_value());
         EXPECT_EQ(r->begin, 15u);
         EXPECT_EQ(r->end, 25u);
@@ -53,7 +53,7 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
     // -- Edge: точное совпадение начала (query=10, delta=0 → проекция 0) --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 10));
-        auto r = reader->getMapTrustToCpp(loc);
+        auto r = reader->mappedOutRange(loc);
         ASSERT_TRUE(r.has_value());
         EXPECT_EQ(r->begin, 30u);
     }
@@ -61,7 +61,7 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
     // -- Edge: точное совпадение конца (query=19, delta=9 → проекция +9) --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 19));
-        auto r = reader->getMapTrustToCpp(loc);
+        auto r = reader->mappedOutRange(loc);
         ASSERT_TRUE(r.has_value());
         EXPECT_EQ(r->end, 49u);
     }
@@ -69,20 +69,20 @@ TEST(MappingTest, AddRangeMapping_ForwardAndBackward) {
     // -- Out of range: до начала маппинга --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 5));
-        auto r = reader->getMapTrustToCpp(loc);
+        auto r = reader->mappedOutRange(loc);
         EXPECT_FALSE(r.has_value());
     }
 
     // -- Out of range: после конца маппинга --
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 25));
-        auto r = reader->getMapTrustToCpp(loc);
+        auto r = reader->mappedOutRange(loc);
         EXPECT_FALSE(r.has_value());
     }
 }
 
 // ══════════════════════════════════════════════════════════════
-//              Context: getCppName / getTrustName
+//              Context: outNameOf / trustNameOf
 // ══════════════════════════════════════════════════════════════
 
 TEST(MappingTest, AddNameMapping_GetCppName_GetTrustName) {
@@ -97,16 +97,16 @@ TEST(MappingTest, AddNameMapping_GetCppName_GetTrustName) {
 
     auto reader = ctx.source().toReader();
 
-    // -- getCppName (query=12, delta=2) - цель hover-ссылки - ВЕСЬ диапазон имени на
+    // -- outNameOf (query=12, delta=2) - цель hover-ссылки - ВЕСЬ диапазон имени на
     // противоположной стороне, без проекции/сдвига по позиции курсора внутри имени. --
-    auto cppName = reader->getCppName(static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 12)), "trustName");
+    auto cppName = reader->outNameOf(static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 12)), "trustName");
     ASSERT_TRUE(cppName.has_value());
     EXPECT_EQ(cppName->toName, "cppName");
     EXPECT_EQ(cppName->rangeMap.to.begin, 30u);
     EXPECT_EQ(cppName->rangeMap.to.end, 40u);
 
-    // -- getTrustName --
-    auto trustName = reader->getTrustName(static_cast<ReaderLocation>(ctx.source().makeLoc(cppSrc, 35)), "cppName");
+    // -- trustNameOf --
+    auto trustName = reader->trustNameOf(static_cast<ReaderLocation>(ctx.source().makeLoc(cppSrc, 35)), "cppName");
     ASSERT_TRUE(trustName.has_value());
     EXPECT_EQ(trustName->fromName, "trustName");
     // Цель - весь trust-диапазон имени [10,20], без сдвига по курсору.
@@ -114,14 +114,14 @@ TEST(MappingTest, AddNameMapping_GetCppName_GetTrustName) {
     EXPECT_EQ(trustName->rangeMap.from.end, 20u);
 
     // -- Поиск по несуществующему имени --
-    EXPECT_FALSE(reader->getCppName(static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 12)), "nonExistent").has_value());
+    EXPECT_FALSE(reader->outNameOf(static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 12)), "nonExistent").has_value());
 }
 
 TEST(MappingTest, GetCppName_NoMapping_ReturnsNullopt) {
     Context ctx;
     MapperFile src = ctx.source().add_source("trust", std::string(200, 'a'), false);
     auto reader = ctx.source().toReader();
-    auto name = reader->getCppName(static_cast<ReaderLocation>(ctx.source().makeLoc(src, 50)), "someName");
+    auto name = reader->outNameOf(static_cast<ReaderLocation>(ctx.source().makeLoc(src, 50)), "someName");
     EXPECT_FALSE(name.has_value());
 }
 
@@ -156,7 +156,7 @@ TEST(MappingTest, FindRangesByLine) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//                  Context: getTrustFileMappings
+//                  Context: trustFileMappings
 // ══════════════════════════════════════════════════════════════
 
 TEST(MappingTest, GetTrustFileMappings) {
@@ -174,7 +174,7 @@ TEST(MappingTest, GetTrustFileMappings) {
     ctx.source().addRangeMapping(trustR2, cppR2);
 
     auto reader = ctx.source().toReader();
-    auto mappings = reader->getTrustFileMappings(reader->findFileIdx(ctx.source().filename(trustSrc)));
+    auto mappings = reader->trustFileMappings(reader->findFileIdx(ctx.source().filename(trustSrc)));
     EXPECT_EQ(mappings.size(), 2);
 }
 
@@ -190,7 +190,7 @@ TEST(MappingTest, GetTrustFileMappings_Negative_NotFound) {
 
     // Поиск для несуществующего ReaderFileIdx через Reader
     auto reader = ctx.source().toReader();
-    auto mappings = reader->getTrustFileMappings(ReaderFile{});
+    auto mappings = reader->trustFileMappings(ReaderFile{});
     EXPECT_TRUE(mappings.empty());
 }
 
@@ -216,13 +216,13 @@ TEST(MappingTest, MsgpackRoundtrip) {
 
     // Проверяем, что маппинг сохранился в reader (query=12, delta=2 → +2)
     auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(trustSrc, 12));
-    auto r = reader->getMapTrustToCpp(loc);
+    auto r = reader->mappedOutRange(loc);
     ASSERT_TRUE(r.has_value());
     EXPECT_EQ(r->begin, 32u);
     EXPECT_EQ(r->end, 42u);
 
     // Проверяем unpacked reader
-    auto ru = unpacked->getMapTrustToCpp(loc);
+    auto ru = unpacked->mappedOutRange(loc);
     ASSERT_TRUE(ru.has_value());
     EXPECT_EQ(ru->begin, 32u);
     EXPECT_EQ(ru->end, 42u);

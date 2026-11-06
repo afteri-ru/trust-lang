@@ -90,21 +90,16 @@ TEST_F(TypeIdentityFixture, LookupAcceptsStringViewWithoutOwnership) {
     EXPECT_FALSE(reg.read().names().isBuiltinTypeName(std::string_view("MyInt")));
 }
 
-TEST_F(TypeIdentityFixture, AliasDescriptorKeepsImmediateBaseAndCanonicalRoot) {
+TEST_F(TypeIdentityFixture, AliasKeepsImmediateBaseAndCanonicalRoot) {
     TypeSystem& reg = *m_types;
     const TypeId int32 = reg.read().getType("Int32");
     const TypeId alias_a = reg.registrar().registerType("AliasA", int32);
     const TypeId alias_b = reg.registrar().registerType("AliasB", alias_a);
 
-    const TypeDescriptor* desc_b = reg.read().store().descriptorOf(alias_b);
-    ASSERT_NE(desc_b, nullptr);
-    EXPECT_EQ(desc_b->baseType, alias_a);      // immediate target is preserved
-    EXPECT_EQ(desc_b->canonicalType, int32);   // canonical root is precomputed
-
-    const TypeDescriptor* desc_a = reg.read().store().descriptorOf(alias_a);
-    ASSERT_NE(desc_a, nullptr);
-    EXPECT_EQ(desc_a->baseType, int32);
-    EXPECT_EQ(desc_a->canonicalType, int32);
+    EXPECT_EQ(reg.read().store().baseTypeOf(alias_b), alias_a);    // immediate target is preserved
+    EXPECT_EQ(reg.read().store().desugaredTypeId(alias_b), int32); // canonical root is precomputed
+    EXPECT_EQ(reg.read().store().baseTypeOf(alias_a), int32);
+    EXPECT_EQ(reg.read().store().desugaredTypeId(alias_a), int32);
 }
 
 TEST_F(TypeIdentityFixture, CanonicalAndLookupSurviveReset) {

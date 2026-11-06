@@ -1,8 +1,8 @@
 #include "syntax/parser.h"
 #include "syntax/lexer.h"
 #include "syntax/macro.h"
-#include "session/context.hpp"
-#include "session/module_resolver.hpp"
+#include "syntax/parser_services.hpp"
+#include "module_api/module_resolver.hpp"
 #include "location/module_name.hpp"
 #include "location/module_path.hpp"
 
@@ -22,7 +22,6 @@
 
 namespace trust {
 
-// -- Пер-компонентная регистрация диагностик синтаксиса (см. diag/registry.hpp) --
 // Регистрирует на static-init severity-диагностику, которой владеет компонент syntax.
 namespace {
 struct SyntaxDiagnosticsRegistrar {
@@ -39,7 +38,6 @@ const SyntaxDiagnosticsRegistrar kSyntaxDiagnostics;
 // @__PRAGMA_TRY_CLOSE__ уже резолвит закрывающий в parser::token_type (TRY_*_END) в pragmaEval;
 // здесь отдельного маппинга не нужно.
 
-// -- Хелперы грамматики для документирующих комментариев (doc_list / DOCUMENT_INLINE) --
 // Forward-объявлены в прологе parser.y; вызываются из действий грамматики
 // (правила doc_list/expression/sequence).
 
@@ -159,9 +157,10 @@ TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt) {
 
 namespace trust {
 
-Parser::Parser(trust::Context& ctx, PostLexerType* postlex, bool pragma_enable, bool macro_expand)
-: m_ctx(ctx)
-, m_predef(ctx)
+Parser::Parser(trust::ParserServices ctx, PostLexerType* postlex, bool pragma_enable, bool macro_expand)
+: m_stringsScope(ctx.strings())
+, m_ctx(ctx)
+, m_predef(m_ctx)
 , m_pragma(m_ctx, m_predef) {
     m_is_lexer_complete = false;
 
@@ -169,7 +168,6 @@ Parser::Parser(trust::Context& ctx, PostLexerType* postlex, bool pragma_enable, 
     m_postlex = postlex;
     m_no_macro = false;
     m_enable_pragma = pragma_enable;
-    //    m_name_module = "\\\\__main__";
 
     m_ast = nullptr;
 }
@@ -193,7 +191,6 @@ TermPtr Parser::ParseText(std::string_view text, std::string_view sourceName, bo
 TermPtr Parser::ParseWithSource(trust::MapperFile src, bool expand_module, std::size_t skipPrefix, bool fileInterface) {
     m_expand_module = expand_module;
     m_ast = Term::Create(TermID::END, "");
-    //    m_ast->SetSource(std::make_shared<std::string>(input));
 
     // Режим блока интерфейса: раскрытие макросов модуля запрещено до конца первого top-level
     // `block` (снимает грамматика, leaveFileInterfaceIfAt). `skipPrefix` 0-based, диапазоны
@@ -256,7 +253,7 @@ void Parser::reportPendingInterfaceMacro() {
     m_ctx.diag().report(Severity::Error, pending.range, "macro '{}' cannot be used in the file interface: it is defined in a module", pending.name);
 }
 
-trust::MapperRange RecentTokens::syntaxErrorRange(const trust::Context& ctx) const {
+trust::MapperRange RecentTokens::syntaxErrorRange(const trust::ParserServices& ctx) const {
     trust::MapperRange r;
     if (!prev.end.isInvalid() && !cur.begin.isInvalid() && cur.begin.offset() >= prev.end.offset()) {
         // Пропущенный разделитель (';', ',' и т.п.) - в промежутке [конец последнего
@@ -332,7 +329,7 @@ __attribute__((weak)) ExpandMacroResult ExpandTermMacro(Parser& parser) {
     return ExpandMacroResult::Break;
 }
 
-TermPtr Parser::ParseTerm(const char* proto, trust::Context& ctx, bool pragma_enable, bool macro_expand) {
+TermPtr Parser::ParseTerm(const char* proto, trust::ParserServices ctx, bool pragma_enable, bool macro_expand) {
     try {
         // Термин или термин + тип парсятся без ошибок
         Parser p(ctx, nullptr, pragma_enable, macro_expand);
@@ -380,7 +377,7 @@ size_t Parser::SkipBrackets(const SequenceType& buffer, const size_t offset) {
     throw ParserError("Closed bracket '%s' not found!", br_end.c_str());
 }
 
-size_t Parser::ParseTerm(TermPtr& result, const SequenceType& buffer, trust::Context& ctx, size_t offset, bool pragma_enable, bool macro_expand) {
+size_t Parser::ParseTerm(TermPtr& result, const SequenceType& buffer, trust::ParserServices ctx, size_t offset, bool pragma_enable, bool macro_expand) {
 
     if (offset >= buffer.size()) {
         throw ParserError("Fail skip count %d or buffer size %d!", static_cast<int>(offset), static_cast<int>(buffer.size()));
@@ -452,11 +449,8 @@ TermPtr Parser::CheckModuleTerm(const TermPtr& term) {
     if (!utils::isModuleName(term->getText())) {
         return term;
     }
-    // Ссылочная форма `\path::name` (модуль + `::`-часть) обрабатывается правилом `name`
-    // (ResolveModuleReference): она НЕ является оператором загрузки.
-    if (term->m_right) {
-        return term;
-    }
+    // MODULE-терм — только сайт импорта `\path(...)`; `m_right` на MODULE-терме не производится
+    // (модуль не является префиксом разрешения имён).
     const std::optional<ModulePath> parsedPath = ModulePath::parse(term->getText());
     if (!parsedPath.has_value() || (!parsedPath->isAnchored() && !isValidModuleLogicalName(term->getText()))) {
         m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Module name - backslash, underscore, lowercase English letters or number!");
@@ -482,49 +476,10 @@ TermPtr Parser::CheckModuleTerm(const TermPtr& term) {
         ModuleResolver* resolver = m_ctx.moduleResolver();
         EXPECT(resolver != nullptr && "parser: module resolver is not set (Pipeline must inject ModuleLoader)");
         if (!resolver->isModuleLoaded(term->getText())) {
-            reportModuleNotLoaded(m_ctx, term->m_mapperRange, term->getText());
+            reportModuleNotLoaded(m_ctx.diag(), term->m_mapperRange, term->getText());
         }
     }
     return term;
-}
-
-// Ссылочная форма `\path::name`: модуль НЕ загружается. Индекс загруженного модуля
-// материализуется в терме (m_moduleIndices), чтобы конвертер (loader-free) построил AST-факт.
-TermPtr Parser::ResolveModuleReference(const TermPtr& term) {
-    EXPECT(term && "ResolveModuleReference: null term");
-    const std::optional<ModulePath> parsedPath = ModulePath::parse(term->getText());
-    if (!parsedPath.has_value() || (!parsedPath->isAnchored() && !isValidModuleLogicalName(term->getText()))) {
-        m_ctx.diag().report(Severity::Error, term->m_mapperRange, "Module name - backslash, underscore, lowercase English letters or number!");
-        return term;
-    }
-    if (!m_expand_module) {
-        return term;
-    }
-    ModuleResolver* resolver = m_ctx.moduleResolver();
-    EXPECT(resolver != nullptr && "parser: module resolver is not set (Pipeline must inject ModuleLoader)");
-    if (const auto index = resolver->findLoaded(term->getText())) {
-        term->m_moduleIndices = {*index};
-        return term;
-    }
-    // Spelling загружен, но адресует НЕ ОДИН файл (групповой импорт `\\group`): ссылка обязана
-    // называть файл, иначе имя неоднозначно.
-    if (resolver->isModuleLoaded(term->getText())) {
-        m_ctx.diag().report(Severity::Error, term->m_mapperRange,
-                            "Module reference '{}' must name one file: a group import cannot be used in a qualified name",
-                            term->getText());
-        return term;
-    }
-    reportModuleNotLoaded(m_ctx, term->m_mapperRange, term->getText());
-    return term;
-}
-
-void Parser::RegisterModuleAlias(const TermPtr& alias, const TermPtr& target) {
-    if (!alias || !target || target->m_moduleIndices.empty()) {
-        return;
-    }
-    ModuleResolver* resolver = m_ctx.moduleResolver();
-    EXPECT(resolver != nullptr && "parser: module resolver is not set (Pipeline must inject ModuleLoader)");
-    (void)resolver->registerModuleAlias(alias->getText(), target->m_moduleIndices.front(), resolver->currentModuleIndex());
 }
 
 parser::token_type Parser::GetNextToken(TermPtr* yylval) {

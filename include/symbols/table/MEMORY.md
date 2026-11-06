@@ -2,9 +2,8 @@
 
 > scope: include/symbols/table
 > role: persistent-memory
-> last_reviewed: 2026-11-05
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 4000
 
 ## Architecture
 
@@ -29,6 +28,10 @@
 - **Скоуп-стек: вход/выход — только `enterScope`/`exitScope`;** прямой `push/pop` из анализаторов
   запрещён (рассинхронизирует хуки).
 - **Ключи интернируются;** `StorageKey` — структурный (visibility class, module, namespacePath, name).
+- **⚠ Два представления типа — НЕ сводить:** `Symbol::type` (QualType в таблице семантики) и
+  `VarDecl::inferredType`/`IdentName::resolvedTypeId` (AST-факты для КОДОГЕНА) — разные потребители
+  (кодоген `SymbolTable` не читает). `overloads[].signature` и представитель `Symbol::type` — ПРОЕКЦИЯ
+  набора, не дубль.
 
 ## Relations
 

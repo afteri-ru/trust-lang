@@ -10,6 +10,7 @@
 #include "syntax/lexer.h"
 #include "syntax/parser.h"
 #include "syntax/macro.h"
+#include "session/context.hpp"
 
 #include <string>
 #include <vector>

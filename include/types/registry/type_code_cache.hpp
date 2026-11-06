@@ -1,6 +1,5 @@
 #pragma once
 
-// include/types/registry/type_code_cache.hpp
 // Кеш канонических кодов типов: ключ — (unqualified structural TypeId, отношение identity).
 // Коды binder-free типов не зависят от контекста объявления, поэтому binders в ключ не входят.
 // Владелец — композиционный корень (per-instance, очищается reset()); читают FunctionIdentity.

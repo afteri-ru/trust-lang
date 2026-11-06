@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# BFloat16 - предобъявление без реализации: provider-gate сообщает об отсутствии реализации
+# (имя stdlib-модуля компилятору неизвестно, поэтому не называется).
+b :BFloat16 := _;
+
+@main(): Int32 := { @return 0; };
+# CHECK: error: implementation of built-in type 'BFloat16' is not defined

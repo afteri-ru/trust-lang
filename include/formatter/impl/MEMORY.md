@@ -2,9 +2,8 @@
 
 > scope: include/formatter/impl
 > role: persistent-memory
-> last_reviewed: 2026-11-06
+> last_reviewed: 2026-11-13
 > review_period: 30
-> max_size: 4000
 
 ## Architecture
 
@@ -16,9 +15,9 @@
   `isNameLike`/`isNumericLiteral`), `splitNegativeLiterals`, `parseGap`.
 - `emitter.hpp` — класс `Emitter` (объявление): один проход по токенам, правила перевода строки
   (`computeNewline`) и пробела (`computeSpace`), отступы, вывод зазоров/комментариев.
-- `src/formatter/token_gap.cpp` — определения классификации и разбора зазоров.
-- `src/formatter/emitter.cpp` — определения методов `Emitter`.
-- `src/formatter/format.cpp` — точка входа: прогон парсера для сбора токенов и макро-timeline,
+- `src/formatter/impl/token_gap.cpp` — определения классификации и разбора зазоров.
+- `src/formatter/impl/emitter.cpp` — определения методов `Emitter`.
+- `src/formatter/impl/format.cpp` — точка входа: прогон парсера для сбора токенов и макро-timeline,
   затем `Emitter::run()`; `formatFile` — чтение файла + standalone-контекст.
 
 ## Facts and invariants

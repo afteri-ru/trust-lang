@@ -1,0 +1,14 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Импорт переменной: trust-имя — алиас внешнего C++-символа; собственная C++-декларация
+# не эмитится (заголовок обязан дать @[include]). Ссылки идут по нативному имени.
+@[include("unistd.h")@]
+pid:Int32 := %getpid ...;
+
+@main() := {
+    x:Int32 := pid;
+}
+
+# CHECK: #include <unistd.h>
+# CHECK: int32_t x = getpid;
+# CHECK-NOT: pid

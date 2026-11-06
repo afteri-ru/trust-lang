@@ -5,25 +5,22 @@
 # RUN: %FileCheck %s <%t.out
 # RUN: %trust -q --temp-dir $TD/b --emit-cpp $TD/main.src > %t.cpp 2>&1
 # RUN: %FileCheck %s --check-prefix=CPP <%t.cpp
-# RUN: %FileCheck %s --check-prefix=HDR <$TD/ma.hpp
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/ma.hppt
 #
-# Свободный оператор изолируется NAMESPACE модуля (у operator-функции нет идентификатора для
-# префикса): объявление и прототип живут в `namespace <enc>` заголовка модуля, клиент включает
-# заголовок, вызов — квалифицированный.
+# Свободный оператор объявляется в модуле типа одного из операндов: прототип попадает в
+# заголовок модуля, клиент включает заголовок и получает кандидата по ADL. Модуль
+# автоматического namespace не создаёт (изоляцию задаёт код).
 # CHECK: eq=true
 # CHECK-NOT: error:
-# CPP: #include "ma.hpp"
-# HDR: namespace ma {
+# CPP: #include "ma.hppt"
 # HDR: operator==
-#
-# Правило: свободный оператор объявляется в модуле типа одного из операндов (иначе — ошибка
-# module isolation), поэтому у клиента ровно один кандидат по имени.
 
 //--- main.src
-\ma(P, mk, __eq__);
+\std();
+\ma();
 @main() := {
-    a : \ma::P := \ma::mk(5);
-    b : \ma::P := \ma::mk(5);
+    a : P := mk(5);
+    b : P := mk(5);
     @print("eq={}\n", a == b);
     @return 0;
 };
@@ -33,4 +30,3 @@
 :P ::= :Class{ x:Int32 := _; };
 mk(v:Int32):P := { @return :P(v); };
 __eq__(a: P, b: P): Bool := { @return a.x == b.x; };
-

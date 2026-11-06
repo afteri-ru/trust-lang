@@ -1,4 +1,3 @@
-// include/utils/strings/strings_escape.hpp
 #pragma once
 
 #include "utils/error.hpp"

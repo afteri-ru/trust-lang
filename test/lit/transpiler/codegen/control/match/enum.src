@@ -10,19 +10,19 @@ c:Color := Color.GREEN;
     @case(Color.GREEN, Color.BLUE) { y := 2; };
     @default { y := 0; };
 };
-# CHECK: const c_Color c__match1 = c_c;
-# CHECK-NEXT: switch (c__match1.value) {
+# CHECK: const Color _match1 = c;
+# CHECK-NEXT: switch (_match1.value) {
 # CHECK-NEXT:     case 1: {
-# CHECK-NEXT:         int8_t c_y = 1;
+# CHECK-NEXT:         int8_t y = 1;
 # CHECK-NEXT:     }
 # CHECK-NEXT:     break;
 # CHECK-NEXT:     case 2:
 # CHECK-NEXT:     case 3: {
-# CHECK-NEXT:         int8_t c_y = 2;
+# CHECK-NEXT:         int8_t y = 2;
 # CHECK-NEXT:     }
 # CHECK-NEXT:     break;
 # CHECK-NEXT:     default: {
-# CHECK-NEXT:         int8_t c_y = 0;
+# CHECK-NEXT:         int8_t y = 0;
 # CHECK-NEXT:     }
 # CHECK-NEXT:     break;
 # CHECK-NEXT: }

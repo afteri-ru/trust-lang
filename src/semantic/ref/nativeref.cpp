@@ -1,4 +1,3 @@
-// src/semantic/ref/nativeref.cpp
 // Реализация NativeRefHook — диагностики нативных (сырых) C++-ссылок D3–D7
 // (см. include/semantic/nativeref.hpp).
 
@@ -44,7 +43,7 @@ static RefType nativeKindOfTypeId(TypeId tid) {
     if (tid == INVALID_TYPE_ID) {
         return RefType::kValue;
     }
-    const RefType rt = getRefType(getTypeKind(tid));
+    const RefType rt = typeRefOf(tid);
     return isNativeRefKind(rt) ? rt : RefType::kValue;
 }
 
@@ -84,7 +83,7 @@ void NativeRefHook::checkFuncSignature(const FuncDecl& fn) {
     // D3+D7 применяются ТОЛЬКО к ОПРЕДЕЛЕНИЯМ функций (с телом). Forward-объявления ВНЕШНИХ
     // нативных C++-функций (`%foo() : %& Int32;`) могут иметь нативные возвраты/параметры - их
     // анализируемый код вправе вызывать (D5 контролирует сохранение результата).
-    if (!fn.m_body.has_value()) {
+    if (!fn.hasBody()) {
         return;
     }
     // D7a: нативные маркеры в параметрах запрещены (разрешены только атрибут-указатели).

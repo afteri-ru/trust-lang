@@ -16,7 +16,7 @@ TEST_F(FuncDeclTest, ForwardDeclNoReturn) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_TRUE(ok);
@@ -41,7 +41,7 @@ TEST_F(FuncDeclTest, ForwardDeclWithReturn) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_TRUE(ok);
@@ -66,7 +66,7 @@ TEST_F(FuncDeclTest, ForwardDeclMultipleParams) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_TRUE(ok);
@@ -86,7 +86,7 @@ TEST_F(FuncDeclTest, ForwardDeclNoParams) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_TRUE(ok);
@@ -116,7 +116,7 @@ TEST_F(FuncDeclTest, DuplicateFuncName) {
     seq.push_back(std::move(f1));
     seq.push_back(std::move(f2));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_FALSE(ok);
@@ -140,7 +140,7 @@ TEST_F(FuncDeclTest, FuncAndVarSameName) {
     seq.push_back(std::move(f1));
     seq.push_back(std::move(v1));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_FALSE(ok);
@@ -160,7 +160,7 @@ TEST_F(FuncDeclTest, BuildsFunctionType) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     auto* sym = runner.analysis().symbols().resolve("func");
@@ -178,36 +178,37 @@ TEST_F(FuncDeclTest, BuildsFunctionType) {
     EXPECT_EQ(ft->paramTypes[0], *int32);
 }
 
-// Forward-объявление функции `%f(a:Int32):Int32 := ...;` - нативная функция с типом возврата
-// регистрируется без ошибки (FunctionTypeId сигнатуры).
-TEST_F(FuncDeclTest, NativeForwardFuncWithReturnType) {
-    auto funcTerm = Term::Create(TermID::NAME, "%f", {}, parser::token_type::NAME);
+// Нативный импорт с return-типом регистрируется без ошибки (FunctionTypeId сигнатуры).
+TEST_F(FuncDeclTest, NativeImportFuncWithReturnType) {
+    auto funcTerm = Term::Create(TermID::NAME, "f", {}, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
     func->m_params = std::vector<AstNodePtr>{};
     func->m_params->push_back(std::make_shared<ArgNode>("a", std::make_shared<IdentType>("Int32")));
     func->m_type = std::make_shared<IdentType>("Int32");
+    func->m_bindsNativeCpp = true;
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
-    auto* sym = runner.analysis().symbols().resolve("%f");
+    auto* sym = runner.analysis().symbols().resolve("f");
     ASSERT_NE(sym, nullptr);
     EXPECT_NE(sym->type.getTypeId(), INVALID_TYPE_ID);
 }
 
 // Forward-объявление нативной функции `%f() := ...;` без типа возврата → ошибка (нативные имена
 // транслируются в C++ напрямую, поэтому тип обязателен).
-TEST_F(FuncDeclTest, NativeForwardFuncNoReturnTypeError) {
-    auto funcTerm = Term::Create(TermID::NAME, "%f", {}, parser::token_type::NAME);
+TEST_F(FuncDeclTest, NativeImportNoReturnTypeError) {
+    auto funcTerm = Term::Create(TermID::NAME, "f", {}, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
     func->m_params = std::vector<AstNodePtr>{}; // no return type (m_type = nullptr)
+    func->m_bindsNativeCpp = true;
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -216,7 +217,7 @@ TEST_F(FuncDeclTest, NativeForwardFuncNoReturnTypeError) {
 // (declareOrComplete → Completed): не ошибка, у символа появляется тело.
 TEST_F(FuncDeclTest, ForwardFuncCompletedByDefinition) {
     auto mk = [] {
-        auto t = Term::Create(TermID::NAME, "%f", {}, parser::token_type::NAME);
+        auto t = Term::Create(TermID::NAME, "f", {}, parser::token_type::NAME);
         auto f = std::make_shared<FuncDecl>(std::move(t));
         f->m_params = std::vector<AstNodePtr>{};
         f->m_params->push_back(std::make_shared<ArgNode>("a", std::make_shared<IdentType>("Int32")));
@@ -228,19 +229,19 @@ TEST_F(FuncDeclTest, ForwardFuncCompletedByDefinition) {
     auto retTerm = Term::Create(TermID::NAME, "++", {}, parser::token_type::END);
     auto ret = std::make_shared<JumpStmt>(ParserToken::Kind::ReturnStmt, std::move(retTerm));
     ret->m_value = std::make_shared<IdentName>("a");
-    def->m_body = std::vector<AstNodePtr>{std::move(ret)};
+    def->m_definition = Definition::fromBody({std::move(ret)});
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(fwd));
     seq.push_back(std::move(def));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
-    auto* sym = runner.analysis().symbols().resolve("%f");
+    auto* sym = runner.analysis().symbols().resolve("f");
     ASSERT_NE(sym, nullptr);
     ASSERT_NE(sym->decl, nullptr);
     EXPECT_EQ(sym->decl->kind(), ParserToken::Kind::FuncDecl);
-    EXPECT_TRUE(static_cast<const FuncDecl&>(*sym->decl).m_body.has_value()) << "определение должно заменить forward-объявление";
+    EXPECT_TRUE(static_cast<const FuncDecl&>(*sym->decl).hasBody()) << "определение должно заменить forward-объявление";
 }
 
 // Forward-объявление переменной `x:Int32 := ...;` (без инициализатора) - регистрируется в
@@ -248,7 +249,7 @@ TEST_F(FuncDeclTest, ForwardFuncCompletedByDefinition) {
 // Pack-проверки сигнатуры (semantic/func_signature_check): изолированно от обхода AST.
 TEST_F(FuncDeclTest, PackUsageRejectsSingleTypePosition) {
     // <T...> f(a: T, xs: T...): pack-параметр недопустим в ОДИНОЧНОЙ позиции типа параметра.
-    AnalysisContext actx(m_ctx);
+    AnalysisContext actx(m_ctx, *m_types);
     FuncDecl f("f");
     auto pack_decl = std::make_shared<ArgNode>("T");
     pack_decl->isTypePack = true;
@@ -258,7 +259,7 @@ TEST_F(FuncDeclTest, PackUsageRejectsSingleTypePosition) {
     pack_slot->isTypePack = true;
     f.m_params = std::vector<AstNodePtr>{single, pack_slot};
 
-    actx.types().pushTemplateParamScope({{"T", m_ctx.types().interner().getOrCreateTemplateParamType("T")}});
+    actx.types().pushTemplateParamScope({{"T", m_types->interner().getOrCreateTemplateParamType("T")}});
     const TypeId func_type = actx.types().buildFuncType(f);
     actx.types().popTemplateParamScope();
     ASSERT_NE(func_type, INVALID_TYPE_ID);

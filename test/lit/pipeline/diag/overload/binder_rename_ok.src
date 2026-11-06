@@ -6,4 +6,4 @@
 <T> f(x:T):Int32 := ...;
 <U> f(x:U):Int32 := { @return 1; };
 @main() := { @return 0; }
-# CHECK: template <typename T> int32_t c_f{{_[A-Za-z0-9_]+}}(T c_x);
+# CHECK: template <typename T> int32_t f{{_[A-Za-z0-9_]+}}(T x);

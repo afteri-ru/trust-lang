@@ -1,4 +1,3 @@
-// src/module_loader/interface/interface_install.cpp
 #include "module_loader/interface/interface_install.hpp"
 
 #include "diag/diag.hpp"
@@ -193,7 +192,7 @@ std::unordered_set<std::string> collectDefinedNames(const ModuleBodyScan& scan) 
         if (!entry.node) {
             continue;
         }
-        const bool defines = (entry.node->is<FuncDecl>() && entry.node->as<FuncDecl>()->m_body.has_value()) ||
+        const bool defines = (entry.node->is<FuncDecl>() && entry.node->as<FuncDecl>()->hasBody()) ||
                              (entry.node->is<VarDecl>() && entry.node->as<VarDecl>()->m_initializer != nullptr);
         if (defines) {
             definedNames.insert(entry.qualifiedName);
@@ -213,14 +212,14 @@ void validateDeclaredOnly(Context& ctx, const std::vector<ExportEntry>& exports,
         if (entry.node->is<FuncDecl>() && entry.node->as<FuncDecl>()->aliasKind() != AliasKind::None) {
             continue;
         }
-        const bool declaredOnly = entry.node->is<FuncDecl>() ? !entry.node->as<FuncDecl>()->m_body.has_value()
+        const bool declaredOnly = entry.node->is<FuncDecl>() ? !entry.node->as<FuncDecl>()->hasBody()
                                                              : entry.node->is<VarDecl>() && !entry.node->as<VarDecl>()->m_initializer;
         if (!declaredOnly || definedNames.contains(entry.qualifiedName)) {
             continue;
         }
         if (entry.node->is<FuncDecl>()) {
             const FuncDecl& fn = *entry.node->as<FuncDecl>();
-            if (fn.m_isNativeImport || fn.m_isNativeTemplateImport || fn.m_isNativeTemplateCtor) {
+            if (fn.isNativeImport()) {
                 continue;
             }
         }
@@ -244,6 +243,13 @@ void installFileInterface(Context& ctx, ModuleLoader& loader, ModuleIndex idx, c
     checkInterfaceBody(ctx, block->m_body, /*nested=*/false);
     // ОДИН обход тела на все производные факты: экспорт-набор, определения, алиасы, приватность.
     const ModuleBodyScan scan = scanModuleBody(body);
+    for (const AstNodeBase* aliasNode : scan.nonExportableNamespaceAliases) {
+        if (aliasNode != nullptr) {
+            const auto& aliasDecl = *static_cast<const FuncDecl*>(aliasNode);
+            ctx.diag().report(Severity::Warning, aliasDecl.range(),
+                              "namespace alias '{}' targets a namespace area and is not exported to importers", aliasDecl.text());
+        }
+    }
     std::vector<ExportEntry> reExportedEntries;
     std::unordered_set<const AstNodeBase*> reExportedNodes;
     markReExports(loader, *block, reExportedEntries, reExportedNodes);

@@ -1,4 +1,4 @@
-\\\stdlib\stdlib\iterator;
+\iterator;
 # iterator.src - trust-описание единственного универсального класса-итератора Iterator<T>.
 #
 # Класс отображён на C++-реализацию trust::Iterator<T> (type-erased cursor, см.
@@ -10,8 +10,7 @@
 # запрещает мутацию источника при живом курсоре (-Wborrowed в точке мутации). Отдельная пометка методов не
 # требуется.
 #
-# Загружается автоматически как prelude (файл пакета share/trust/stdlib.trust) при включённой
-# стандартной библиотеке; --no-stdlib отключает загрузку.
+# Загружается ЯВНО зонтичным `\std();` (реэкспорт интерфейса); --no-stdlib убирает корень поиска stdlib.
 
 @[include("@stdlib/iterator.hpp")@]
 @[borrowed@]
@@ -21,5 +20,5 @@
     __inc__(dummy: Int32): Iterator<T> := ...;
     __dec__(): Iterator<T> := ...;
     __dec__(dummy: Int32): Iterator<T> := ...;
-    %hasNext(): Bool := ...;
+    hasNext(): Bool := ...;
 };

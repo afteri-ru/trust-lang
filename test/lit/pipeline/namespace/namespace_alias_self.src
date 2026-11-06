@@ -1,0 +1,11 @@
+# RUN: %not %trust -q --temp-dir %t.dir -o %t.app %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: namespace alias 'x::' aliases itself
+#
+# Namespace-алиас на самого себя (`x :- x::;`) не имеет смысла: префикс совпадает с целью
+# в СВОЁМ модуле — явная диагностика (без тихого самоприсвоения).
+
+x:: {
+    g():Int32 := { @return 1; };
+};
+x :- x::;
+@main():Int32 := { @return 0; };

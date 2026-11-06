@@ -1,8 +1,8 @@
-// src/pipeline/backend/emit.cpp
 // Заголовки модулей и emit-вывод (tokens/ast/macros).
 #include "pipeline/pipeline.hpp"
 #include "pipeline/backend/emit.hpp"
 #include "pipeline/paths/paths.hpp"
+#include "ast/declaration_ids.hpp"
 #include "module_loader/module_export.hpp"
 #include "module_loader/module_loader.hpp"
 #include "semantic/analysis_api.hpp"
@@ -17,6 +17,17 @@
 #include <set>
 #include <unordered_set>
 namespace trust {
+
+namespace {
+
+/// Публикация объявления заголовком: ключ — `DeclId` (R23), не адрес узла.
+void publishDeclId(std::set<DeclId>& published, const AstNodeBase& node) {
+    const DeclId id = declarationIdOf(node);
+    EXPECT(id.isValid() && "published declaration must carry DeclId (R23)");
+    published.insert(id);
+}
+
+} // namespace
 // Заголовок модуля, объявления которого публикует umbrella-`#include` (реэкспорт, алиас цели).
 // Имя строит та же формула, что имя самого заголовка; дубликаты не добавляются.
 void addModuleInclude(std::vector<std::string>& includes, const std::filesystem::path& buildDir, const ModuleLoader& loader, ModuleIndex owner) {
@@ -25,8 +36,6 @@ void addModuleInclude(std::vector<std::string>& includes, const std::filesystem:
         includes.push_back(include);
     }
 }
-
-// -- emitModuleHeader: заголовок модуля (.hpp) --
 
 std::optional<backend::HeaderArtifact> Pipeline::emitModuleHeader(const HirModule& hir, ModuleIndex moduleIdx, const std::filesystem::path& path) {
     MapperFile output_idx = m_ctx.source().add_output(path.filename().string());
@@ -38,7 +47,7 @@ std::optional<backend::HeaderArtifact> Pipeline::emitModuleHeader(const HirModul
     const ModuleInterfaceFacts& interfaceFacts = loader().interfaceFacts(moduleIdx);
     std::vector<AstNodePtr> headerNodes;                   // узлы, эмитируемые в заголовок
     std::vector<const AstNodeBase*> publishedDeclarations; // определения, которые `.cppt` не повторяет
-    std::set<const AstNodeBase*> headerPublishedDecls;     // всё, что заголовок объявляет (для проверки тела)
+    std::set<DeclId> headerPublishedDecls;                 // всё, что заголовок объявляет (для проверки тела)
     std::unordered_set<ExportedFunctionKey, ExportedFunctionKeyHash> seenFunctions;
     std::vector<ExportEntry> headerEntries = interfaceFacts.entries;
     headerEntries.insert(headerEntries.end(), interfaceFacts.protectedEntries.begin(), interfaceFacts.protectedEntries.end());
@@ -73,15 +82,17 @@ std::optional<backend::HeaderArtifact> Pipeline::emitModuleHeader(const HirModul
         }
         if (entry.node->is<FuncDecl>()) {
             const FuncDecl& fn = *entry.node->as<FuncDecl>();
-            const ExportedFunctionKey key{entry.qualifiedName, fn.m_cppSuffix};
+            const std::string_view exportSuffix = m_ctx.declCppFacts().cppSuffixOf(fn.declId());
+            const ExportedFunctionKey key{entry.qualifiedName, std::string(exportSuffix)};
             if (!seenFunctions.insert(key).second) {
                 continue; // forward + definition одного объявления: в заголовке одна запись
             }
             AstNodePtr definition;
-            if (fn.m_body.has_value()) {
+            if (fn.hasBody()) {
                 definition = entry.node;
             } else {
-                definition = interfaceFacts.findFunctionDefinition(entry.qualifiedName, fn.m_cppSuffix);
+                definition = interfaceFacts.findFunctionDefinition(entry.qualifiedName, exportSuffix,
+                                                                   [this](const FuncDecl& f) { return m_ctx.declCppFacts().cppSuffixOf(f.declId()); });
             }
             const FuncDecl& definitionFn = definition ? *definition->as<FuncDecl>() : fn;
             const bool bodyInHeader = bodyMustBeInModuleHeader(fn, m_ctx.attrs()) || bodyMustBeInModuleHeader(definitionFn, m_ctx.attrs());
@@ -89,7 +100,7 @@ std::optional<backend::HeaderArtifact> Pipeline::emitModuleHeader(const HirModul
                 if (!definition) {
                     // generic без тела уже диагностирован checkExportedGenericDeclarations.
                     const bool generic = fn.m_templateParams.has_value() && !fn.m_templateParams->empty();
-                    const bool native = fn.m_isNativeImport || fn.m_isNativeTemplateImport || fn.m_isNativeTemplateCtor;
+                    const bool native = fn.isNativeImport();
                     if (!generic && !native) {
                         m_ctx.diag().report(Severity::Error, fn.range(),
                                             "exported constexpr function '{}' must have a body: the module header publishes its definition",
@@ -98,15 +109,15 @@ std::optional<backend::HeaderArtifact> Pipeline::emitModuleHeader(const HirModul
                     continue;
                 }
                 headerNodes.push_back(definition);
-                headerPublishedDecls.insert(entry.node.get());
-                headerPublishedDecls.insert(definition.get());
+                publishDeclId(headerPublishedDecls, *entry.node);
+                publishDeclId(headerPublishedDecls, *definition);
                 publishedDeclarations.push_back(definition.get());
                 continue;
             }
             headerNodes.push_back(entry.node);
-            headerPublishedDecls.insert(entry.node.get());
+            publishDeclId(headerPublishedDecls, *entry.node);
             if (definition) {
-                headerPublishedDecls.insert(definition.get());
+                publishDeclId(headerPublishedDecls, *definition);
             }
             continue;
         }
@@ -115,11 +126,12 @@ std::optional<backend::HeaderArtifact> Pipeline::emitModuleHeader(const HirModul
             publishedDeclarations.push_back(entry.node.get());
         }
         headerNodes.push_back(entry.node);
-        headerPublishedDecls.insert(entry.node.get());
+        publishDeclId(headerPublishedDecls, *entry.node);
     }
     // Umbrella уже собран (реэкспорт + владельцы алиасов).
-    CppTranspiler transpiler(m_ctx, semantic::behavioralModesFromOptions(m_ctx.opts()));
-    transpiler.generateHeaderToFile(hir, output_idx, moduleIdx, headerNodes, moduleIncludes, headerPublishedDecls);
+    CodegenServices codegen = m_ctx.runServices();
+    CppTranspiler transpiler(codegen, codegenModes(semantic::behavioralModesFromOptions(m_ctx.opts()), m_ctx.opts()));
+    transpiler.generateHeaderToFile(hir, output_idx, moduleIdx, headerNodes, moduleIncludes, headerPublishedDecls, path.filename().string());
     if (m_ctx.diag().errorCount() > 0) {
         return std::nullopt; // диагностика уже выдана
     }
@@ -141,8 +153,6 @@ std::optional<backend::HeaderArtifact> Pipeline::emitModuleHeader(const HirModul
     }
     return artifact;
 }
-
-// -- Вывод emit-режимов (tokens/ast/macros) --
 
 int printEmitOutput(const PipelineOpts& opts, Context& ctx, const PipelineResult& result) {
     auto flags = opts.emit_flags;

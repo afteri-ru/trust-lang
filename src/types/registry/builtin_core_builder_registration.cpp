@@ -1,4 +1,3 @@
-// src/types/registry/builtin_core_builder_registration.cpp
 // Seed-регистрация встроенных типов и методов абстрактных контейнеров.
 // Порядок регистрации — часть контракта: он задаёт registry_index встроенных типов.
 #include "types/registry/builtin_core_builder.hpp"
@@ -12,7 +11,6 @@
 #include "types/registry/named_type_registrar.hpp"
 #include "types/registry/structural_interner.hpp"
 #include "types/registry/type_store.hpp"
-#include "types/runtime_symbols.hpp"
 #include "types/type_read.hpp"
 #include "utils/error.hpp"
 
@@ -29,84 +27,79 @@ void BuiltinCoreBuilder::registerBuiltinTypes(BuiltinSeedZones& z) {
     registerBuiltinType(z, type::Void, Group::kVoid, 1);
     registerBuiltinType(z, type::None, Group::kVoid, 2);
     auto boolId = registerBuiltinType(z, type::Bool, Group::kLogical, 1, "bool");
-    auto int8Id = registerBuiltinType(z, type::Int8, Group::kIntegers, 8, "int8_t", {"#include <cstdint>"});
-    registerBuiltinType(z, type::Int16, Group::kIntegers, 16, "int16_t", {"#include <cstdint>"});
-    registerBuiltinType(z, type::Int32, Group::kIntegers, 32, "int32_t", {"#include <cstdint>"});
-    registerBuiltinType(z, type::Int64, Group::kIntegers, 64, "int64_t", {"#include <cstdint>"});
-    auto uint8Id = registerBuiltinType(z, type::UInt8, Group::kUnsigned, 8, "uint8_t", {"#include <cstdint>"});
-    auto uint16Id = registerBuiltinType(z, type::UInt16, Group::kUnsigned, 16, "uint16_t", {"#include <cstdint>"});
-    auto uint32Id = registerBuiltinType(z, type::UInt32, Group::kUnsigned, 32, "uint32_t", {"#include <cstdint>"});
-    auto uint64Id = registerBuiltinType(z, type::UInt64, Group::kUnsigned, 64, "uint64_t", {"#include <cstdint>"});
-    registerBuiltinType(z, type::Float16, Group::kNumbers, 16, "float16_t", {"#include <stdfloat>"});
+    auto int8Id = registerBuiltinType(z, type::Int8, Group::kIntegers, 8, "int8_t");
+    registerBuiltinType(z, type::Int16, Group::kIntegers, 16, "int16_t");
+    registerBuiltinType(z, type::Int32, Group::kIntegers, 32, "int32_t");
+    registerBuiltinType(z, type::Int64, Group::kIntegers, 64, "int64_t");
+    auto uint8Id = registerBuiltinType(z, type::UInt8, Group::kUnsigned, 8, "uint8_t");
+    auto uint16Id = registerBuiltinType(z, type::UInt16, Group::kUnsigned, 16, "uint16_t");
+    auto uint32Id = registerBuiltinType(z, type::UInt32, Group::kUnsigned, 32, "uint32_t");
+    auto uint64Id = registerBuiltinType(z, type::UInt64, Group::kUnsigned, 64, "uint64_t");
+    registerBuiltinType(z, type::Float16, Group::kNumbers, 16);
     auto float32Id = registerBuiltinType(z, type::Float32, Group::kNumbers, 32, "float");
     auto float64Id = registerBuiltinType(z, type::Float64, Group::kNumbers, 64, "double");
     registerBuiltinType(z, type::BFloat16, Group::kBFloat, 16);
-    registerBuiltinType(z, type::Complex32, Group::kComplex, 32, "std::complex<float>", {"#include <complex>"});
-    registerBuiltinType(z, type::Complex64, Group::kComplex, 64, "std::complex<double>", {"#include <complex>"});
-    // StrChar/StrWide: intrinsic-реализация по умолчанию (переживает reset). Auto-провайдер
-    // stdlib/builtin/string.src переопределяет её через `=`; другая реализация может заменить.
-    auto strCharId = registerBuiltinType(z, type::StrChar, Group::kStrChar, 1, "std::string", {"#include <string>"});
-    registerBuiltinType(z, type::StrWide, Group::kStrWide, 1, "std::wstring", {"#include <string>"});
+    // Complex32/64: ПРЕДОБЪЯВЛЕНИЕ (интерфейс) БЕЗ реализации и БЕЗ C++-имени. C++-имя и include
+    // приходят из stdlib/builtin/complex.src (`Complex32 = %std::complex<float> { };`).
+    registerBuiltinType(z, type::Complex32, Group::kComplex, 32);
+    registerBuiltinType(z, type::Complex64, Group::kComplex, 64);
+    // StrChar/StrWide: ПРЕДОБЪЯВЛЕНИЕ (интерфейс) БЕЗ реализации и БЕЗ C++-имени. C++-имя и КЛАСС —
+    // деталь РЕАЛИЗАЦИИ из stdlib/builtin/string.src (`StrChar = %trust::StrChar, %std::string { ... }` — базис в синтаксисе:
+    // класс ГЕНЕРИРУЕТСЯ из .src); довязка методов — там же (`%native` / `:= other`). Здесь — только
+    // чистый Trust-интерфейс.
+    auto strCharId = registerBuiltinType(z, type::StrChar, Group::kStrChar, 1);
+    registerBuiltinType(z, type::StrWide, Group::kStrWide, 1);
     // CString - невладеющий указатель на C-строку (const char*): результат метода
-    // StrChar.%c_str(), совместим с нативными C-функциями (printf %s).
-    auto cstringId = registerBuiltinType(z, type::CString, Group::kStrChar, 2, "const char*", {});
-    // Нативные методы StrChar (std::string) без параметров (в C++ вставляется идентификатор без '%').
-    // Сигнатура метода - функциональный тип (метод и функция - одно и то же).
-    z.methods.addMethod(strCharId, "%c_str", z.interner.getOrCreateFunctionType(cstringId, {}));
-    z.methods.addMethod(strCharId, "%data", z.interner.getOrCreateFunctionType(cstringId, {}));
-    z.methods.addMethod(strCharId, "%size", z.interner.getOrCreateFunctionType(uint64Id, {}));
-    z.methods.addMethod(strCharId, "%length", z.interner.getOrCreateFunctionType(uint64Id, {}));
-    z.methods.addMethod(strCharId, "%empty", z.interner.getOrCreateFunctionType(boolId, {}));
-    // Rational: runtime-backed type. The preproc include starts with '@' = "quoted include
-    // from the stdlib package"; the rest is the path inside stdlib.trust
-    // (include/trust/rational.hpp), available via -Istdlib/include.
-    auto rationalId = registerBuiltinType(z, type::Rational, Group::kArbitraryPrecision, 1, "trust::Rational", {"@trust/rational.hpp"});
-    // BigInteger: arbitrary-precision integer, runtime-backed. Он - составная часть
-    // Rational (числитель/знаменатель Rational - BigInteger). Живёт в той же группе
-    // kArbitraryPrecision (Data: Rational=1, BigInteger=2).
-    auto bigIntegerId = registerBuiltinType(z, type::BigInteger, Group::kArbitraryPrecision, 2, "trust::BigInteger", {"@trust/big_integer.hpp"});
+    // StrChar.c_str(), совместим с нативными C-функциями (printf %s). Интринсик (реализация в рантайме).
+    auto cstringId = registerBuiltinType(z, type::CString, Group::kStrChar, 2, "const char*");
+    // Интерфейсные методы StrChar (операции над C++ std::string): ЧИСТЫЙ Trust-интерфейс — БЕЗ '%' и
+    // БЕЗ нативного имени. Конкретные C++-имена (c_str/size/...) даёт реализация string.src. Сигнатура
+    // метода - функциональный тип (метод и функция - одно и то же).
+    z.methods.addMethod(strCharId, "c_str", z.interner.getOrCreateFunctionType(cstringId, {}));
+    z.methods.addMethod(strCharId, "data", z.interner.getOrCreateFunctionType(cstringId, {}));
+    z.methods.addMethod(strCharId, "size", z.interner.getOrCreateFunctionType(uint64Id, {}));
+    z.methods.addMethod(strCharId, "length", z.interner.getOrCreateFunctionType(uint64Id, {}));
+    z.methods.addMethod(strCharId, "empty", z.interner.getOrCreateFunctionType(boolId, {}));
+    // Rational/BigInteger: ПРЕДОБЪЯВЛЕНИЕ (интерфейс) БЕЗ реализации и БЕЗ C++-имени. C++-имя,
+    // include и реализация display приходят из stdlib/builtin/rational.src (как StrChar/string.src):
+    //   Rational = %trust::Rational { display^(len: Int64): StrChar := %display ...; };
+    auto rationalId = registerBuiltinType(z, type::Rational, Group::kArbitraryPrecision, 1);
+    // BigInteger: arbitrary-precision integer; Rational is built on it (numerator/denominator).
+    // Живёт в той же группе kArbitraryPrecision (Data: Rational=1, BigInteger=2).
+    auto bigIntegerId = registerBuiltinType(z, type::BigInteger, Group::kArbitraryPrecision, 2);
     // Метод показа BigInteger: `x.display(L)` → StrChar, голова = хвост = L цифр (только для
     // вывода, не round-trip). Const-метод (как Dict.%size^); параметр L - Int64.
-    z.methods.addMethod(bigIntegerId, "%display^", z.interner.getOrCreateFunctionType(strCharId, {z.read.getType(type::Int64)}));
+    // Чистый Trust-интерфейс: C++-имя члена и привязка приходят из rational.src.
+    z.methods.addMethod(bigIntegerId, "display^", z.interner.getOrCreateFunctionType(strCharId, {z.read.getType(type::Int64)}));
     // Метод показа Rational: `x.display(L)` → StrChar; каждый из num\den сокращается как BigInteger.
-    z.methods.addMethod(rationalId, "%display^", z.interner.getOrCreateFunctionType(strCharId, {z.read.getType(type::Int64)}));
-    // Dict: universal heterogeneous dictionary (runtime-backed type, header-only).
-    // The preproc include starts with '@' = "quoted include from the stdlib package";
-    // the rest is the path inside stdlib.trust (include/trust/dict.hpp), available via
-    // -Istdlib/include. `Dictionary` is the canonical base name.
-    auto dictId = registerBuiltinType(z, type::Dict, Group::kDicts, 1, "trust::Dict", {"@trust/dict.hpp", "@trust/rational.hpp"});
+    z.methods.addMethod(rationalId, "display^", z.interner.getOrCreateFunctionType(strCharId, {z.read.getType(type::Int64)}));
+    // Dict: ПРЕДОБЪЯВЛЕНИЕ (интерфейс) БЕЗ реализации и БЕЗ C++-имени. C++-имя/заголовок
+    // и реализация size приходят из stdlib/builtin/dict.src (как StrChar/string.src).
+    // Dictionary - каноническое базовое имя (алиас).
+    auto dictId = registerBuiltinType(z, type::Dict, Group::kDicts, 1);
     z.registrar.registerBuiltinAlias(type::Dictionary, dictId);
 
-    // Встроенные политики доступа (trust/trusted-cpp-sync.hpp). Регистрируются как
-    // встроенные типы группы Group::kAccessPolicy (Data=1..3), cppName = trust::Sync*Policy,
-    // инклуд @trust/trusted-cpp-sync.hpp. Признак HasAttrsFlag (markAttrs) - «тип несёт атрибуты»
-    // (политика помечена атрибутом `sync`). Имя типа в реестре = РЕАЛЬНОЕ имя класса (без алиасов):
+    // Политики доступа/владения: ПРЕДОБЪЯВЛЕНИЕ (интерфейс) БЕЗ реализации, cppName и include
+    // приходят из stdlib/core/mem.src (`AccessMutex = %trust::AccessMutex { };` и т.п.).
+    // Признак HasAttrsFlag (markAttrs) - «тип несёт атрибуты» (политика `sync`) - задаётся здесь,
+    // он ортогонален cppName/include. Имя в реестре = РЕАЛЬНОЕ имя класса (без алиасов):
     // 2-й аргумент reftype (`@[reftype("shared", AccessMutex)@]`) резолвится через findType.
-    registerBuiltinType(z, type::AccessMutex, Group::kAccessPolicy, 1, "trust::AccessMutex", {"@trust/trusted-cpp-sync.hpp"}, /*markAttrs=*/true);
-    registerBuiltinType(z, type::AccessRwMutex, Group::kAccessPolicy, 2, "trust::AccessRwMutex", {"@trust/trusted-cpp-sync.hpp"}, /*markAttrs=*/true);
-    registerBuiltinType(z, type::AccessSingleThread, Group::kAccessPolicy, 3, "trust::AccessSingleThread", {"@trust/trusted-cpp-sync.hpp"},
-                        /*markAttrs=*/true);
+    registerBuiltinType(z, type::AccessMutex, Group::kAccessPolicy, 1, {}, /*markAttrs=*/true);
+    registerBuiltinType(z, type::AccessRwMutex, Group::kAccessPolicy, 2, {}, /*markAttrs=*/true);
+    registerBuiltinType(z, type::AccessSingleThread, Group::kAccessPolicy, 3, {}, /*markAttrs=*/true);
     // Обёртка синхронизированной сильной ссылки (НЕ политика: Data=4 вне диапазона политик 1..3).
-    // cppName trust::AccessShared - из реестра (кодоген резолвит по имени, не хардкодит строкой).
-    registerBuiltinType(z, type::AccessShared, Group::kAccessPolicy, 4, "trust::AccessShared", {"@trust/trusted-cpp-sync.hpp"});
-    // Обёртка статического эксклюзивного владения `unique` (Data=7 - НЕ политика; cppName из
-    // реестра, чтобы кодоген резолвил имя по реестру, а не хардкодил строкой - как AccessShared выше).
-    registerBuiltinType(z, type::StaticUnique, Group::kAccessPolicy, 7, "trust::StaticUnique", {"@trust/trusted-cpp.hpp"});
+    registerBuiltinType(z, type::AccessShared, Group::kAccessPolicy, 4);
+    // Обёртка статического эксклюзивного владения `unique` (Data=7 - НЕ политика).
+    registerBuiltinType(z, type::StaticUnique, Group::kAccessPolicy, 7);
 
-    // Встроенные deleter-типы ресурсов (trust/resource.hpp): Group::kDeleterPolicy (Data=1..),
-    // cppName = trust::FreeDeleter. Обычный тип-функтор, используемый как аргумент
-    // `@[deleter(FreeDeleter)]` (резолвится через findType; распознавание - isDeleterPolicyType).
-    registerBuiltinType(z, type::FreeDeleter, Group::kDeleterPolicy, 1, "trust::FreeDeleter", {"@trust/resource.hpp"});
-    registerBuiltinType(z, type::FileDeleter, Group::kDeleterPolicy, 2, "trust::FileDeleter", {"@trust/resource.hpp"});
+    // Deleter-типы ресурсов: ПРЕДОБЪЯВЛЕНИЕ БЕЗ реализации, cppName/include - из mem.src.
+    // Обычный тип-функтор, используемый как аргумент `@[deleter(FreeDeleter)]` (резолвится через
+    // findType; распознавание - isDeleterPolicyType).
+    registerBuiltinType(z, type::FreeDeleter, Group::kDeleterPolicy, 1);
+    registerBuiltinType(z, type::FileDeleter, Group::kDeleterPolicy, 2);
 
-    // Runtime symbols: presence of these C++ symbols in generated code forces
-    // linking the trust-runtime library and including its public headers.
-    // Единый источник описания - types/runtime_symbols.hpp. Регистрируются ТОЛЬКО
-    // не-типовые функции: типы Dict/Rational покрываются registerBuiltinType по-типу
-    // (механизм №1 в транспиляторе) и не должны дублироваться как символы.
-    for (size_t i = 0; i < static_cast<size_t>(RuntimeSymbolId::kCount); ++i) {
-        z.builtins.registerRuntimeSymbol(static_cast<RuntimeSymbolId>(i));
-    }
+    // Runtime symbols (целевые факты: C++-символ + заголовки trust-runtime) вынесены в компонент
+    // `target` (`target/runtime_symbols.hpp`, единый X-macro источник); ядро типов их не хранит (R37).
 
     // Ellipsis types
     registerBuiltinType(z, type_category::EllipsisAny, Group::kEllipsis, 1);
@@ -129,7 +122,11 @@ void BuiltinCoreBuilder::registerBuiltinTypes(BuiltinSeedZones& z) {
     z.registrar.registerBuiltinAlias("Integer", int64Id);
 
     // Abstract group types (Data = 0 → TypeClass::kComplex)
-    registerBuiltinType(z, type_generic::Any, Group::kAny, 0, "std::any", {"#include <any>"});
+    // Auto: ВНУТРЕННИЙ sentinel «тип не выведен» (НЕ пользовательский тип; до кодогена не доходит).
+    registerBuiltinType(z, type_generic::Auto, Group::kAuto, 0);
+    // Any (`std::any`): ПРЕДОБЪЯВЛЕНИЕ БЕЗ реализации/имени — cppName/include из builtin/any.src.
+    // Верхний тип (принимает любой) и материализуемый RTTI-тип: грузится ЯВНО (`\std();`/`\any();`).
+    registerBuiltinType(z, type_generic::Any, Group::kAny, 0);
     registerBuiltinType(z, type_category::Struct, Group::kStructured);
     registerBuiltinType(z, type_category::Enum, Group::kStructured);
     registerBuiltinType(z, type_category::Variant, Group::kStructured);
@@ -159,15 +156,15 @@ void BuiltinCoreBuilder::registerBuiltinTypes(BuiltinSeedZones& z) {
     registerBuiltinType(z, type_category::Condition, Group::kSync);
     registerBuiltinType(z, type_category::Exception, Group::kExceptions);
     registerBuiltinType(z, type_category::Error, Group::kExceptions);
-    // Interruptions (runtime классы перехвата прерываний): IntAny - база, IntPlus - возврат,
-    // IntMinus - ошибка. Транслируются в trust::IntAny/IntPlus/IntMinus (заголовок interrupt.hpp).
-    registerBuiltinType(z, type::IntAny, Group::kExceptions, 0, "trust::IntAny", {"@trust/interrupt.hpp"});
-    registerBuiltinType(z, type::IntPlus, Group::kExceptions, 0, "trust::IntPlus", {"@trust/interrupt.hpp"});
-    registerBuiltinType(z, type::IntMinus, Group::kExceptions, 0, "trust::IntMinus", {"@trust/interrupt.hpp"});
+    // Interruptions: IntAny - база, IntPlus - возврат, IntMinus - ошибка. ПРЕДОБЪЯВЛЕНИЕ БЕЗ
+    // реализации: cppName/include приходят из stdlib/core/exceptions.src (заголовок interrupts.hpp).
+    registerBuiltinType(z, type::IntAny, Group::kExceptions, 0);
+    registerBuiltinType(z, type::IntPlus, Group::kExceptions, 0);
+    registerBuiltinType(z, type::IntMinus, Group::kExceptions, 0);
     // Базовый C++-класс исключений: catch(:StdException) → `catch (std::exception&)`.
     // Обобщённый catch - ловит любое std::exception-производное (ошибки конверсии и т.п.),
     // а не только прерывания trust. Инклуд <stdexcept> обязателен (std::exception).
-    registerBuiltinType(z, type::StdException, Group::kExceptions, 0, "std::exception", {"#include <stdexcept>"});
+    registerBuiltinType(z, type::StdException, Group::kExceptions, 0);
     registerBuiltinType(z, type_category::Arithmetics, Group::kArithmetics);
     registerBuiltinType(z, type_category::Native, Group::kNative);
 
@@ -188,11 +185,10 @@ void BuiltinCoreBuilder::registerBuiltinTypes(BuiltinSeedZones& z) {
     // Tensor: Core-тип с провайдером. Абстрактные `:Tensor`/`:SparseTensor` (Data=0) несут
     // методы; конкретные `Tensor<Elem, shape>` создаются getOrCreateTensorType
     // (Group::kTensors, Data=1 dense / 2 sparse). `DenseTensor` - алиас `:Tensor`.
-    // Реализация (`%trust::Tensor`, @trust/tensor.hpp, @[link("tensor")]) подключается
-    // провайдером tensor.trust через `=`; без провайдера кодогенерация даёт диагностику.
-    auto tensorId = registerBuiltinType(z, type::Tensor, Group::kTensors, 0, "trust::Tensor", {"@trust/tensor.hpp"});
+    // C++-имя/include/link приходят только из провайдера tensor.trust (`Tensor = %trust::Tensor`).
+    auto tensorId = registerBuiltinType(z, type::Tensor, Group::kTensors, 0);
     z.registrar.registerBuiltinAlias(type::DenseTensor, tensorId);
-    registerBuiltinType(z, type::SparseTensor, Group::kTensors, 0, "trust::SparseTensor", {"@trust/tensor.hpp"});
+    registerBuiltinType(z, type::SparseTensor, Group::kTensors, 0);
 
     registerBuiltinContainerMethods(z);
 }

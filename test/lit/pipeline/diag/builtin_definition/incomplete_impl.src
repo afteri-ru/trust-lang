@@ -1,0 +1,10 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Строгое покрытие: реализация builtin-типа обязана покрыть ВСЕ интерфейсные методы.
+# Здесь реализован только size; c_str/data/length/empty отсутствуют -> диагностика.
+StrChar = %std::string {
+    size(): UInt64 := %size ...;
+};
+@main(): Int32 := { @return 0; };
+# CHECK: interface method '
+# CHECK-SAME: ' of built-in type 'StrChar' has no implementation

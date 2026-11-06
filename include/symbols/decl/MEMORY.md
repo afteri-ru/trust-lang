@@ -2,9 +2,8 @@
 
 > scope: include/symbols/decl
 > role: persistent-memory
-> last_reviewed: 2026-11-05
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 5000
 
 ## Architecture
 
@@ -19,7 +18,11 @@
 - **⚠ forward→определение типа — отдельный путь:** `isForwardDeclaration` считает TypeDecl
   определением, поэтому `declareOrComplete` тип не завершает; `completeTypeDeclaration` обновляет
   записи скоупа с тем же TypeId и поверхность. `isExportImplementation` клиенту не публикуется.
-- **⚠ Резолв `\path::name` — только `NameResolver::findExported`:** идентичность → `m_reExported` →
+- **⚠ Полнота сущности — производный факт символа, НЕ узла:** вид определения (`body`/`forwardedTo`/
+  `Forward`/`_`) — свойство AST-узла; «у сущности есть определение» получается слиянием редеклараций
+  (`DeclResult::Completed` заменяет представителя). Цепочка редеклараций (`previous`/`canonical`)
+  намеренно НЕ вводится: авторитет решения — регистрация, а AST клонируется/пересоздаётся.
+- **⚠ Резолв экспорта ЧУЖОГО модуля — только `NameResolver::findExported`:** идентичность → `m_reExported` →
   `m_declarations`; видимость — плоская привязка либо конфликт (`Scope::ambiguous`); `maskBypass` — лишь
   диагностика; локальное имя ссылку НЕ затеняет.
 - **⚠ `ExportRecord::symbol` — невладеющий `Symbol*`** (владелец — `ScopeStack`: узел скоупа живёт

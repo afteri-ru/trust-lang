@@ -1,4 +1,3 @@
-// src/types/registry/structural_interner_ref.cpp
 // Зона интернирования: ССЫЛОЧНЫЕ виды — getOrCreateRefType и applyRefType (TypeId/QualType).
 #include "types/registry/structural_interner.hpp"
 
@@ -23,15 +22,15 @@ TypeId StructuralInterner::getOrCreateRefType(RefType kind, TypeId pointee, Type
     EXPECT(isUnqualifiedType(impl) && "getOrCreateRefType: impl id must not carry type-state flags");
     TypeKind refType = makeTypeKind(Group::kReftype, 1, TypeClass::kTrivial, kind);
     RefTypeData data{pointee, deleter, accessPolicy, impl};
-    std::vector<TypeId> children{pointee};
+    std::vector<TypeKeyChild> children{TypeKeyChild{pointee}};
     if (deleter != INVALID_TYPE_ID) {
-        children.push_back(deleter);
+        children.push_back(TypeKeyChild{deleter});
     }
     if (accessPolicy != INVALID_TYPE_ID) {
-        children.push_back(accessPolicy);
+        children.push_back(TypeKeyChild{accessPolicy});
     }
     if (impl != INVALID_TYPE_ID) {
-        children.push_back(impl);
+        children.push_back(TypeKeyChild{impl});
     }
     return getOrCreateStructuralType("", refType, std::move(children), std::move(data));
 }
@@ -43,7 +42,7 @@ TypeId StructuralInterner::applyRefType(TypeId base, RefType kind) {
     // разворачивает baseType и теряет вид ссылки, а C++-имя pointee обязано остаться «как написано»
     // (`shared<MyInt>` → trust::Shared<c_MyInt>, а не канонический int32_t). Алиас (baseType != INVALID)
     // и вложенность - составной узел RefTypeData с pointee = base как написан.
-    const bool alreadyRef = getRefType(getTypeKind(base)) != RefType::kValue;
+    const bool alreadyRef = typeRefOf(base) != RefType::kValue;
     const bool isAlias = m_read.store().getBaseType(base) != INVALID_TYPE_ID;
     if (!alreadyRef && !isAlias) {
         // withRefType работает с TypeKind (uint32), поэтому пересобираем identity-TypeId через

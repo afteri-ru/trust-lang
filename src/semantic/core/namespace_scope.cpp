@@ -1,4 +1,3 @@
-// src/semantic/core/namespace_scope.cpp
 // Текущая позиция в скоуп-стеке: namespace-путь (с кэшем), функция/класс, признаки скоупа.
 #include "semantic/core/namespace_scope.hpp"
 
@@ -16,8 +15,6 @@ NamespaceScope::NamespaceScope(Context& ctx, const SymbolTable& symbols)
 : m_ctx(ctx)
 , m_symbols(symbols) {
 }
-
-// -- Контекст области имён и текущей функции (из скоуп-стека SymbolTable) --
 
 std::string NamespaceScope::namespacePath() const {
     // Конфигурация стека однозначно задаётся (depth, creator): узел-создатель скоупа
@@ -115,13 +112,26 @@ bool NamespaceScope::insideTypeBody() const {
     return result;
 }
 
+TypeId NamespaceScope::currentTypeBodyId() const {
+    TypeId result = INVALID_TYPE_ID;
+    // forEachScope идёт от внутреннего скоупа к глобальному: первый творец-тип и есть текущий.
+    m_symbols.forEachScope([&](const Scope& s) {
+        if (result == INVALID_TYPE_ID && s.creator != nullptr &&
+            (s.creator->kind() == ParserToken::Kind::StructDecl || s.creator->kind() == ParserToken::Kind::ClassDecl)) {
+            // RecordDecl/ClassDecl - Decl (IdentName): идентичность типа материализована семантикой.
+            result = static_cast<const IdentName*>(s.creator)->resolvedTypeId;
+        }
+    });
+    return result;
+}
+
 std::string NamespaceScope::funcShortName() const {
     const FuncDecl* f = currentFunc();
     if (!f) {
         return {};
     }
-    // Нативный %-префикс срезается (единый источник - utils::stripNativePrefix).
-    return std::string(utils::stripNativePrefix(requiredText(*f)));
+    // Имя функции — trust-идентификатор объявления (нативное имя — отдельный факт).
+    return std::string(requiredText(*f));
 }
 
 std::string NamespaceScope::qualifiedFuncName() const {

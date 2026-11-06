@@ -5,6 +5,7 @@
 # CHECK: 2
 
 # Default в forward-объявлении принадлежит API и переживает последующее определение без default.
+\std();
 f(a:Int32 = 2):Int32 := ...;
 f(a:Int32):Int32 := { @return a; };
 @main() := {

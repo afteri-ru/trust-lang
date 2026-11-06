@@ -1,6 +1,6 @@
 #include "solver/smt_printer.hpp"
 
-#include "session/context.hpp"
+#include "session/run_services.hpp"
 #include "sourcemap/mapper.hpp"
 
 #include <cstdint>
@@ -61,15 +61,15 @@ std::pair<std::size_t, std::size_t> line_col_of(std::string_view text, std::size
 
 } // namespace
 
-std::string SmtPrinter::buildSmt2Map(const Context& ctx, const SmtScript& script, std::string_view smt2_text) {
+std::string SmtPrinter::buildSmt2Map(const RunServices& services, const SmtScript& script, std::string_view smt2_text) {
     // Диапазон trust-источника → "файл:строка:кол-строка:кол" (1-based).
     const auto format_trust = [&](MapperRange r) -> std::string {
         if (r.isInvalid()) {
             return "<unknown>";
         }
-        const auto b = ctx.source().line_column(r.begin);
-        const auto e = ctx.source().line_column(r.end);
-        std::string file(ctx.source().filename(r.begin.fileIdx()));
+        const auto b = services.source().line_column(r.begin);
+        const auto e = services.source().line_column(r.end);
+        std::string file(services.source().filename(r.begin.fileIdx()));
         return file + ":" + std::to_string(b.line) + ":" + std::to_string(b.column) + "-" + std::to_string(e.line) + ":" + std::to_string(e.column);
     };
 

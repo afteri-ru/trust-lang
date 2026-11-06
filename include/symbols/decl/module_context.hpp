@@ -1,6 +1,5 @@
 #pragma once
 
-// include/symbols/decl/module_context.hpp
 // Логический модульный контекст таблицы символов: модуль объявления, узел КОРНЕВОГО
 // (модульного) скоупа и глубина private-области. Единственная точка ответа на вопросы
 // «в каком модуле мы регистрируем имена» и «открыт ли корень модуля»: индексы/глубина
@@ -14,7 +13,7 @@ namespace trust {
 
 class ModuleContext {
   public:
-    /// Узел-корень модуля отсутствует (прелюдия/тестовые таблицы без ModuleNode).
+    /// Узел-корень модуля отсутствует (stdlib DSL/тестовые таблицы без ModuleNode).
     static constexpr std::size_t kNoModuleRoot = static_cast<std::size_t>(-1);
 
     void setCurrentModule(ModuleIndex module) noexcept { m_currentModule = module; }

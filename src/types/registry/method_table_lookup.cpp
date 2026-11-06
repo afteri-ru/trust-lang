@@ -1,4 +1,3 @@
-// src/types/registry/method_table_lookup.cpp
 // Зона методов: ПОИСК метода по имени (собственный дескриптор, базы, абстрактные контейнеры).
 #include "types/registry/method_table.hpp"
 
@@ -16,46 +15,50 @@
 
 namespace trust {
 
-// Метод по полному ключу дескриптора (nullptr-эквивалент — ключа нет/набор пуст).
-static std::optional<MethodRef> methodRefByKey(const TypeDescriptor& desc, std::string_view key) {
-    const auto it = desc.methods.find(std::string(key));
-    if (it == desc.methods.end() || it->second.empty()) {
+// Метод по структурному ключу дескриптора (nullptr-эквивалент — ключа нет/набор пуст).
+static std::optional<MethodRef> methodRefByKey(const TypeDescriptor& desc, const MethodKey& key) {
+    const auto it = desc.methods.find(key);
+    if (it == desc.methods.end() || it->second.overloads.empty()) {
         return std::nullopt;
     }
-    return MethodRef{std::string(key), INVALID_TYPE_ID, it->second};
+    return MethodRef{key, INVALID_TYPE_ID, it->second.overloads, it->second.isNative};
 }
 
-// Поиск метода в одном дескрипторе: алиас (bare → ключ цели) или метод с совпадающим bare-именем
+// Поиск метода в одном дескрипторе: алиас (имя → ключ цели) или метод с совпадающим именем
 // (предпочтительно с точным совпадением константности запроса, иначе первый).
-static std::optional<MethodRef> findMethodInDescriptor(const TypeDescriptor& desc, std::string_view bare, bool wantConst) {
-    if (auto it = desc.methodAliases.find(std::string(bare)); it != desc.methodAliases.end()) {
+static std::optional<MethodRef> findMethodInDescriptor(const TypeDescriptor& desc, const MethodKey& want) {
+    if (auto it = desc.methodAliases.find(want.name); it != desc.methodAliases.end()) {
         if (auto r = methodRefByKey(desc, it->second)) {
             return r;
         }
     }
     std::optional<MethodRef> pref;
-    for (const auto& [k, sigs] : desc.methods) {
-        (void)sigs;
-        if (utils::bareName(k) != bare) {
+    for (const auto& [key, entry] : desc.methods) {
+        (void)entry;
+        if (key.name != want.name) {
             continue;
         }
-        if (utils::isConstName(k) == wantConst) {
-            return methodRefByKey(desc, k);
+        if (key.isConst == want.isConst) {
+            return methodRefByKey(desc, key);
         }
         if (!pref) {
-            pref = methodRefByKey(desc, k);
+            pref = methodRefByKey(desc, key);
         }
     }
     return pref;
 }
 
-std::optional<MethodRef> MethodTable::findMethodInfo(TypeId type, std::string_view name) const {
+std::optional<MethodRef> MethodTable::findMethodInfo(TypeId type, std::string_view trustSpelling) const {
+    return findMethodInfo(type, methodKeyFromSpelling(trustSpelling));
+}
+
+std::optional<MethodRef> MethodTable::findMethodInfo(TypeId type, MethodKey want) const {
     const TypeId canonical = m_store.desugaredTypeId(type);
-    const std::string bare = utils::bareName(name);
-    if (bare.empty()) {
+    if (want.name.empty()) {
         return std::nullopt;
     }
-    const bool wantConst = utils::isConstName(name);
+    // Методы, объявленные ШИРЕ ядрового интерфейса встроенного типа (`=`-тело модуля), живут в
+    // per-instance overlay MethodTable (собственный дескриптор builtin иммутабелен).
     // Собственный дескриптор типа + базовые классы (наследование Record-типов): метод может быть
     // унаследован. Обход с защитой от циклов (производный не должен ссылаться на себя).
     std::vector<TypeId> pending{canonical};
@@ -73,34 +76,45 @@ std::optional<MethodRef> MethodTable::findMethodInfo(TypeId type, std::string_vi
             m_materializer->materializeRecordInstanceMembers(cur);
         }
         if (const TypeDescriptor* desc = m_store.descriptorOf(cur)) {
-            if (auto r = findMethodInDescriptor(*desc, bare, wantConst)) {
+            if (auto r = findMethodInDescriptor(*desc, want)) {
                 r->owner = cur; // объявивший тип: неявный object-параметр имеет этот тип
                 return r;
             }
-            for (const TypeId b : desc->baseClasses) {
-                const TypeId bc = m_store.desugaredTypeId(b);
+            for (const BaseClass& b : desc->baseClasses) {
+                const TypeId bc = m_store.desugaredTypeId(b.type);
                 if (bc != cur) {
                     pending.push_back(bc);
                 }
             }
         }
+        if (auto r = findInBuiltinExtras(cur, want)) {
+            return r;
+        }
     }
     // Параметризованный Range<Elem> сам методов не несёт: они объявлены ОДИН раз на абстрактном
-    // `:Range` (ключ с '%'/'^', типовой параметр T). Для структурного Range<Elem> ищем там
+    // `:Range` (структурный ключ, типовой параметр T). Для структурного Range<Elem> ищем там
     // (сигнатуру с T подставит handleMethodCall/instantiateRangeMethod).
     if (m_store.isRangeType(canonical)) {
-        if (const TypeDescriptor* rangeDesc = m_store.descriptorOf(m_store.builtinIdByName(type_category::Range))) {
-            if (auto r = findMethodInDescriptor(*rangeDesc, bare, wantConst)) {
+        const TypeId rangeId = m_store.builtinIdByName(type_category::Range);
+        if (const TypeDescriptor* rangeDesc = m_store.descriptorOf(rangeId)) {
+            if (auto r = findMethodInDescriptor(*rangeDesc, want)) {
                 return r;
             }
+        }
+        if (auto r = findInBuiltinExtras(rangeId, want)) {
+            return r;
         }
     }
     // Параметризованный Array<Elem> - аналогично: методы объявлены на абстрактном `:Array`.
     if (m_store.isArrayType(canonical)) {
-        if (const TypeDescriptor* arrDesc = m_store.descriptorOf(m_store.builtinIdByName(type::Array))) {
-            if (auto r = findMethodInDescriptor(*arrDesc, bare, wantConst)) {
+        const TypeId arrayId = m_store.builtinIdByName(type::Array);
+        if (const TypeDescriptor* arrDesc = m_store.descriptorOf(arrayId)) {
+            if (auto r = findMethodInDescriptor(*arrDesc, want)) {
                 return r;
             }
+        }
+        if (auto r = findInBuiltinExtras(arrayId, want)) {
+            return r;
         }
     }
     // Параметризованный Tensor<Elem, shape> - методы объявлены на абстрактном `:Tensor`
@@ -108,32 +122,39 @@ std::optional<MethodRef> MethodTable::findMethodInfo(TypeId type, std::string_vi
     if (m_store.isTensorType(canonical)) {
         const TypeId base = m_store.isSparseTensorType(canonical) ? m_store.builtinIdByName(type::SparseTensor) : m_store.builtinIdByName(type::Tensor);
         if (const TypeDescriptor* desc = m_store.descriptorOf(base)) {
-            if (auto r = findMethodInDescriptor(*desc, bare, wantConst)) {
+            if (auto r = findMethodInDescriptor(*desc, want)) {
                 return r;
             }
         }
+        if (auto r = findInBuiltinExtras(base, want)) {
+            return r;
+        }
     }
-    // Пользовательский native-шаблон-инстанс: методы объявлены на абстрактном шаблоне
-    // (NativeTemplateTypeData с пустыми args и тем же cppTemplate). Сигнатуры подставляет
-    // instantiateNativeTemplateMethod при резолве.
+    // Пользовательский native-шаблон-инстанс: методы объявлены на абстрактном шаблоне (языковой
+    // ключ `templateOf`). Сигнатуры подставляет instantiateNativeTemplateMethod при резолве.
     if (m_store.isNativeTemplateType(canonical)) {
         const auto* tpl = m_store.getTypeDataAs<NativeTemplateTypeData>(canonical);
-        if (tpl != nullptr && !tpl->args.empty()) {
-            for (const TypeDescriptor& candidate : m_store.userDescriptors()) {
-                if (!candidate.data.has_value() || !std::holds_alternative<NativeTemplateTypeData>(*candidate.data)) {
-                    continue;
-                }
-                const auto& data = std::get<NativeTemplateTypeData>(*candidate.data);
-                if (!data.args.empty() || data.cppTemplate != tpl->cppTemplate) {
-                    continue;
-                }
-                if (auto r = findMethodInDescriptor(candidate, bare, wantConst)) {
+        if (tpl != nullptr && tpl->templateOf != INVALID_TYPE_ID) {
+            if (const TypeDescriptor* tplDesc = m_store.descriptorOf(tpl->templateOf)) {
+                if (auto r = findMethodInDescriptor(*tplDesc, want)) {
                     return r;
                 }
             }
         }
     }
     return std::nullopt;
+}
+
+std::optional<MethodRef> MethodTable::findInBuiltinExtras(TypeId builtinId, const MethodKey& want) const {
+    const auto it = m_builtinExtras.find(builtinId);
+    if (it == m_builtinExtras.end()) {
+        return std::nullopt;
+    }
+    auto found = findMethodInDescriptor(it->second, want);
+    if (found) {
+        found->owner = builtinId;
+    }
+    return found;
 }
 
 } // namespace trust

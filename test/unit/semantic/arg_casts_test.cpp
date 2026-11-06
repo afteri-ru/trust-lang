@@ -31,7 +31,7 @@ class ArgCastsTest : public ::testing::Test {
 } // namespace
 
 TEST_F(ArgCastsTest, CallCastsFollowResolvedSignatureAndSkipAny) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId ret = reg.read().getType(type::Bool);
     const TypeId any = reg.read().getType(type_generic::Any);
     const TypeId sig = reg.interner().getOrCreateFunctionType(ret, {reg.read().getType(type::Int32), any});
@@ -49,7 +49,7 @@ TEST_F(ArgCastsTest, CallCastsFollowResolvedSignatureAndSkipAny) {
 }
 
 TEST_F(ArgCastsTest, FreeOperatorMaterializesBothOperands) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId ret = reg.read().getType(type::Bool);
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
@@ -68,7 +68,7 @@ TEST_F(ArgCastsTest, FreeOperatorMaterializesBothOperands) {
 }
 
 TEST_F(ArgCastsTest, MemberOperatorMaterializesRightOperandOnly) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId ret = reg.read().getType(type::Bool);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId sig = reg.interner().getOrCreateFunctionType(ret, {i64});
@@ -87,7 +87,7 @@ TEST_F(ArgCastsTest, MemberOperatorMaterializesRightOperandOnly) {
 TEST_F(ArgCastsTest, MemberIncDecIsNotMaterialized) {
     // Member `operator++()` не имеет явных параметров и эмитится emitIncDec, а не
     // emitOperatorDispatch: materializer не должен требовать форму binary-оператора.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId ret = reg.read().getType(type::Int32);
     const TypeId sig = reg.interner().getOrCreateFunctionType(ret, {});
 

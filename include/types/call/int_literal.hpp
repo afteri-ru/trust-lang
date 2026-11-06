@@ -1,6 +1,5 @@
 #pragma once
 
-// include/types/call/int_literal.hpp
 // Единый источник диапазонов целых литералов и соответствия ширина↔тип.
 // Вынесен в types из semantic/typer/type_inference.hpp, чтобы границы целых жили в одном месте
 // рядом с реестром типов (TypeSystem хранит ширину data для встроенных типов, но НЕ
@@ -22,7 +21,6 @@
 
 namespace trust {
 
-// -- Срезание разделителей разрядов '_' в числовом литерале ---------
 // По грамматике '_' допустимы только между цифрами (integer {digit}([_]?{digit}+)*),
 // поэтому удаление всех '_' безопасно. Единая точка: применяется ко ВСЕМ числам
 // (типизация литералов, сужение, индексные проверки, размерности массива, enum-значения).
@@ -32,7 +30,6 @@ inline std::string stripDigitSeparators(std::string_view text) {
     return s;
 }
 
-// -- Парсинг беззнакового целого литерала ----------------
 // Единый хелпер для intLiteralType и проверки сужения литерала в целевую цель
 // (intFitsTarget). base 0 - десятичные/шестнадцатеричные/восьмеричные литералы C++.
 // Текст с ведущим '-' или не являющийся целым числом → false (не типизируем).
@@ -51,7 +48,6 @@ inline bool parseDecimalUInt(std::string_view text, unsigned long long& out) noe
     }
 }
 
-// -- Единый разбор десятичного целочисленного литерала ---------
 // Структура результата: знак + магнитуд. Магнитуд хранится в unsigned long long (точный,
 // если !exceedsUInt64); при переполнении (> UINT64_MAX) exceedsUInt64=true и magnitude
 // насыщается (→ BigInteger). Этого достаточно для вывода типа (нужно лишь «влезает ли в
@@ -93,7 +89,6 @@ inline bool parseIntegerLiteral(std::string_view text, ParsedIntLiteral& out) no
     return true;
 }
 
-// -- Влезает ли магнитуд (с учётом знака) в знаковый Int ширины width (8/16/32/64) --
 // Положительный |v| <= 2^(w-1)-1 (INTxx_MAX), отрицательный |v| <= 2^(w-1) (=|INTxx_MIN|).
 // Границы из std::numeric_limits. Единый предикат для intTypeForSignedMagnitude / intFitsTarget.
 inline bool fitsSignedIntMagnitude(const ParsedIntLiteral& v, uint8_t width) noexcept {
@@ -106,7 +101,6 @@ inline bool fitsSignedIntMagnitude(const ParsedIntLiteral& v, uint8_t width) noe
     return v.magnitude <= bound;
 }
 
-// -- Знаковый целый тип (Int8/16/32/64) по ширине в битах ----
 inline TypeId intTypeForWidth(const TypeReadModel& reg, uint8_t width) {
     switch (width) {
     case 8:
@@ -120,7 +114,6 @@ inline TypeId intTypeForWidth(const TypeReadModel& reg, uint8_t width) {
     }
 }
 
-// -- Минимальный знаковый Int по знак-учтённому магнитуду (ЕДИНСТВЕННЫЙ выбор типа целого) --
 // Общий core для intLiteralType (текст) и intTypeForLiteral (значение). Не помещающийся в
 // знаковый Int64 (магнитуд > INT64_MAX либо |INT64_MIN| для отрицательного) → BigInteger.
 inline TypeId intTypeForSignedMagnitude(const TypeReadModel& reg, const ParsedIntLiteral& v) {
@@ -133,12 +126,10 @@ inline TypeId intTypeForSignedMagnitude(const TypeReadModel& reg, const ParsedIn
     return reg.getType(type::BigInteger);
 }
 
-// -- Минимальный знаковый Int, вмещающий беззнаковое значение (для enum: номер члена/порядок) --
 inline TypeId intTypeForLiteral(const TypeReadModel& reg, unsigned long long value) {
     return intTypeForSignedMagnitude(reg, ParsedIntLiteral{false, value, false});
 }
 
-// -- Конкретный тип целочисленного литерала по тексту ----
 // По тексту литерала (с '_' и возможным '-') возвращает конкретный тип из реестра.
 // Влезающий → минимальный знаковый Int (знак-учёт), сверхразрядный
 // (магнитуд > 2^63) → BigInteger. Отрицательные литералы типизируются

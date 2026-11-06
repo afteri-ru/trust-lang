@@ -15,6 +15,7 @@
 #include "syntax/term/term.h"
 #include "trust/version.h"
 #include "syntax/macro.h"
+#include "session/context.hpp"
 #include "module_loader/module_loader.hpp"
 #include "utils/strings.hpp"
 

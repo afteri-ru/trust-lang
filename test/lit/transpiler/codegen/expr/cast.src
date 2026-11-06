@@ -5,8 +5,8 @@ a:Int64 := 5;
 # CHECK: #include "trust/checked_cast.hpp"
 
 b:Int8 := :Int8(a);
-# CHECK: int8_t c_b = trust::checked_cast<int8_t>(c_a);
+# CHECK: int8_t b = trust::checked_cast<int8_t>(a);
 
 # Литерал-аргумент каста (без ';' внутри).
 c := :Int16(1000);
-# CHECK-NEXT: int16_t c_c = trust::checked_cast<int16_t>(1000);
+# CHECK-NEXT: int16_t c = trust::checked_cast<int16_t>(1000);

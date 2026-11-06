@@ -1,5 +1,7 @@
 #include "session/context.hpp"
 #include "sourcemap/mapper.hpp"
+#include "sourcemap/serialize/reader.hpp"
+#include "trust/version.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/MD5.h"
@@ -82,7 +84,7 @@ TEST(MappingTest, PrependWithMultipleMappings) {
     // → trust [50,60] (проекция 0)
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(cppSrc, 57));
-        auto r = reader->getMapCppToTrust(loc);
+        auto r = reader->mappedTrustRange(loc);
         ASSERT_TRUE(r.has_value());
         EXPECT_EQ(r->begin, 50u);
     }
@@ -90,7 +92,7 @@ TEST(MappingTest, PrependWithMultipleMappings) {
     // → trust [53,63] (50+3=53, 60+3=63)
     {
         auto loc = static_cast<ReaderLocation>(ctx.source().makeLoc(cppSrc, 60));
-        auto r = reader->getMapCppToTrust(loc);
+        auto r = reader->mappedTrustRange(loc);
         ASSERT_TRUE(r.has_value());
         EXPECT_EQ(r->begin, 53u);
         EXPECT_EQ(r->end, 63u);
@@ -320,4 +322,24 @@ TEST(MappingTest, LineColumnCacheDoesNotCollideAcrossFiles) {
     auto la2 = reader->line_column(reader->makeLoc(ra, 5));
     EXPECT_EQ(la2.line, 3u);
     EXPECT_EQ(la2.column, 1u);
+}
+
+// Карта исходников несёт версию формата; несовместимый major (или minor выше текущего)
+// отвергается читателем, а не даёт тихо неверную навигацию.
+TEST(SourceMapFormat, VersionCompatibility) {
+    EXPECT_TRUE(sourceMapFormatCompatible(TRUST_VERSION_MAJOR, TRUST_VERSION_MINOR));
+    EXPECT_TRUE(sourceMapFormatCompatible(TRUST_VERSION_MAJOR, 0));
+    EXPECT_FALSE(sourceMapFormatCompatible(TRUST_VERSION_MAJOR + 1, TRUST_VERSION_MINOR));
+    EXPECT_FALSE(sourceMapFormatCompatible(TRUST_VERSION_MAJOR, TRUST_VERSION_MINOR + 1));
+}
+
+// Формат текущей версии читается без изменений (запись→чтение).
+TEST(SourceMapFormat, CurrentVersionRoundTrips) {
+    Context ctx;
+    ctx.source().add_source("f", "abc\n", false);
+    const SourceMapReader* reader = ctx.source().toReader();
+    ASSERT_NE(reader, nullptr);
+    const std::vector<unsigned char> bytes = reader->packToMsgpack();
+    ASSERT_FALSE(bytes.empty());
+    EXPECT_NE(SourceMapReader::fromMsgpack(bytes.data(), bytes.size()), nullptr);
 }

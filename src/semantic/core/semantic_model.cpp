@@ -30,6 +30,7 @@ SemanticModel::SemanticModel(std::unique_ptr<AnalysisContext> analysis, std::sha
 , m_references(std::move(references)) {
     EXPECT(m_analysis != nullptr && "SemanticModel requires the analysis context of a finished semantic run");
     EXPECT(m_types != nullptr && "SemanticModel requires the type system owner");
+    m_generation = m_types->generation(); // снимок реестра: действителен до следующего reset() (R7)
     const SymbolTable& table = m_analysis->symbols();
     const ModuleIndex main = m_modules.mainModuleIndex;
     // Прямые сайты импорта ГЛАВНОГО файла: импорт не транзитивен.
@@ -53,11 +54,6 @@ SemanticModel::SemanticModel(std::unique_ptr<AnalysisContext> analysis, std::sha
             m_namespaceAliases.push_back(std::move(alias));
         }
     }
-    for (NamespaceAliasInfo alias : table.aliases().exportedProjection()) {
-        if (containsImportedModule(m_importSites, alias.importer)) {
-            m_exportedNamespaceAliases.push_back(std::move(alias));
-        }
-    }
 }
 
 SemanticModel::~SemanticModel() = default;
@@ -66,6 +62,11 @@ SemanticModel& SemanticModel::operator=(SemanticModel&&) noexcept = default;
 
 const SymbolTable& SemanticModel::table() const {
     return m_analysis->symbols();
+}
+
+const TypeSystem& SemanticModel::typeSystem() const {
+    EXPECT(m_types->generation() == m_generation && "SemanticModel: registry was reset after the snapshot (stale model; R7)");
+    return *m_types;
 }
 
 const SymbolIndex& SemanticModel::symbols() const {

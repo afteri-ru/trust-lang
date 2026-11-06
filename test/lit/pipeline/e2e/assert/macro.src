@@ -6,7 +6,9 @@
 # assert(cond) при -Wassert: провал печатает `file:line: <выражение>` и завершает процесс
 # через trust::trust__abort__.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     assert( 1 == 0 );
 };
 {% int macro__main__() {

@@ -10,7 +10,7 @@
 #include "ast/token_base.hpp"
 #include "diag/report.hpp"
 #include "ir/hir_module.hpp"
-#include "session/context.hpp"
+#include "session/run_services.hpp"
 #include "types/type_id.hpp"
 
 #include <format>
@@ -25,7 +25,7 @@
 
 namespace trust {
 
-class Context;
+struct RunServices;
 class AstNodeBase;
 class FuncDecl;
 
@@ -37,12 +37,10 @@ namespace solver {
 /// Затенение и одноимённые места разных ветвей не смешиваются (ключ — узел объявления).
 using VcValues = std::map<flow::PlaceId, SmtTerm>;
 /// Генерация SMT-LIB 2 скрипта (верификационных условий контрактов функций) из trust-конструкций.
-///
 /// Вход — `HirModule` (единственный источник ДАННЫХ: декларации, контракты, материализованные
 /// семантикой факты типов/имён/сигнатур) + `MirModule` (СТРУКТУРА тела: CFG/элементы/места).
 /// Тела исполняются символически по MIR (см. `smt_vcgen.cpp`), выражения кодирует общий `toTerm`;
 /// контракты формулируются на уровне источника. Резолва имён/типов по тексту здесь нет.
-///
 /// Модель: каждая функция - uninterpreted declare-fun; для функции с пред/пост-условиями
 /// формируется VC `(assert (and pre (not post)))`; check-sat: unsat ⇒ контракт выполняется,
 /// sat ⇒ контрпример. Код вне области проверки (verification envelope) VC не отменяет тихо:
@@ -51,7 +49,7 @@ class TrustToSmt {
   public:
     /// `modes` — разрешённые поведенческие режимы (данные от `Pipeline`): верификатор НЕ читает
     /// `diag::Options` и не зависит от `semantic`.
-    explicit TrustToSmt(Context& ctx, analysis::BehavioralModes modes = {});
+    explicit TrustToSmt(const RunServices& services, analysis::BehavioralModes modes = {});
 
     /// Собрать скрипт из HIR-модуля и MIR (CFG тел). nullopt - ВНУТРЕННЯЯ ошибка кодирования
     /// (диагностика Error уже выдана). Код вне области проверки НЕ прерывает экспорт: такая VC
@@ -63,12 +61,12 @@ class TrustToSmt {
     /// Диагностика "solver export: <msg>" (ВНУТРЕННЯЯ ошибка: Error, экспорт прерывается).
     template <typename... Args>
     void report(const AstNodeBase& node, std::format_string<Args...> fmt, Args&&... args) const {
-        m_ctx.diag().report(Severity::Error, node.range(), "solver export: {}", std::format(fmt, std::forward<Args>(args)...));
+        m_services.diag().report(Severity::Error, node.range(), "solver export: {}", std::format(fmt, std::forward<Args>(args)...));
     }
     /// Код вне области проверки: диагностика с severity из `-Wverify-envelope`, VC пропускается.
     template <typename... Args>
     void reportOutsideEnvelope(const AstNodeBase& node, std::format_string<Args...> fmt, Args&&... args) {
-        diag::reportWithOptions(m_ctx.diag(), m_ctx.opts(), solver::DiagId::VerifyEnvelope, node.range(), "outside verification envelope: {}",
+        diag::reportWithOptions(m_services.diag(), m_services.opts(), solver::DiagId::VerifyEnvelope, node.range(), "outside verification envelope: {}",
                                 std::format(fmt, std::forward<Args>(args)...));
     }
     void walk(const AstNodeBase* node, const std::map<const FuncDecl*, const flow::MirFunction*>& mirByFunc);
@@ -90,7 +88,6 @@ class TrustToSmt {
     /// state - значения МЕСТ тела (nullptr - нет: резолв параметров/глобалов/связок).
     std::optional<SmtTerm> toTerm(const AstNodeBase* node, const std::optional<SmtSort>& expected, const VcValues* state = nullptr);
 
-    // -- Кодирование выражений по категориям узлов (вынесено из toTerm; см. smt_expr_enc.cpp) --
     std::optional<SmtTerm> encodeIntLiteralTerm(const AstNodeBase* node, const std::optional<SmtSort>& expected);
     std::optional<SmtTerm> encodeFloatLiteralTerm(const AstNodeBase* node);
     std::optional<SmtTerm> encodeIdentTerm(const AstNodeBase* node, const std::optional<SmtSort>& expected, const VcValues* state);
@@ -100,7 +97,7 @@ class TrustToSmt {
     std::optional<SmtTerm> encodeArrayInitTerm(const AstNodeBase* node, const VcValues* state);
     std::optional<SmtTerm> encodeTrustElemTerm(const AstNodeBase* node, const std::optional<SmtSort>& expected, const VcValues* state);
 
-    Context& m_ctx;
+    const RunServices& m_services;
     /// Поведенческие режимы — ДАННЫЕ (владелец флагов — `semantic`, разрешает `Pipeline`).
     analysis::BehavioralModes m_modes;
     /// План проверки: декларации/аксиомы/цели. SMT-скрипт из него собирает `SmtAssembler`

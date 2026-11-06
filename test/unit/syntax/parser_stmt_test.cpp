@@ -19,8 +19,8 @@ TEST_F(ParserTest, CheckAreaSourceParsesToMarker) {
             continue;
         }
         if (auto* fn = dynamic_cast<FuncDecl*>(n.get())) {
-            if (fn->m_body) {
-                for (auto& b : *fn->m_body) {
+            if (const auto* fb = fn->body()) {
+                for (auto& b : *fb) {
                     if (b && b->kind() == ParserToken::Kind::CheckAreaStmt) {
                         found = dynamic_cast<CheckAreaStmt*>(b.get());
                     }
@@ -42,8 +42,8 @@ TEST_F(ParserTest, CheckAreaParsesDefaultBehaviorAsNullopt) {
     CheckAreaStmt* found = nullptr;
     for (auto& n : nodes) {
         if (auto* fn = dynamic_cast<FuncDecl*>(n.get())) {
-            if (fn->m_body) {
-                for (auto& b : *fn->m_body) {
+            if (const auto* fb = fn->body()) {
+                for (auto& b : *fb) {
                     if (b && b->kind() == ParserToken::Kind::CheckAreaStmt) {
                         found = dynamic_cast<CheckAreaStmt*>(b.get());
                     }
@@ -495,21 +495,21 @@ TEST_F(ParserTest, FuncDeclViaAssignToAst) {
         ASSERT_TRUE(pd);
         ASSERT_TRUE(pd->m_type) << "параметр должен нести тип (из m_right)";
     }
-    ASSERT_TRUE(fd->m_body && !fd->m_body->empty()) << "функция должна иметь тело";
+    ASSERT_TRUE(fd->hasBody() && !(*fd->body()).empty()) << "функция должна иметь тело";
 }
 
 // Native-функция - тоже обычная функция через `:=` (m_left - native-идентификатор с сигнатурой).
 // NATIVE отдельно не выделяется.
-TEST_F(ParserTest, NativeFuncDeclToAst) {
-    ASSERT_TRUE(Parse("%add(a:Int, b:Int):Int := { |+ a +|; };"));
+TEST_F(ParserTest, FuncDeclToAst) {
+    ASSERT_TRUE(Parse("add(a:Int, b:Int):Int := { |+ a +|; };"));
     std::vector<AstNodePtr> nodes = TermToAstConverter::termToAst(ast, m_ctx);
     ASSERT_EQ(1, nodes.size());
     auto* fd = dynamic_cast<FuncDecl*>(nodes[0].get());
     ASSERT_TRUE(fd);
-    ASSERT_EQ("%add", requiredText(*fd));
+    ASSERT_EQ("add", requiredText(*fd));
     ASSERT_TRUE(fd->m_type);
     ASSERT_TRUE(fd->m_params && fd->m_params->size() == 2);
-    ASSERT_TRUE(fd->m_body && !fd->m_body->empty()) << "native-функция должна иметь тело";
+    ASSERT_TRUE(fd->hasBody() && !(*fd->body()).empty()) << "функция должна иметь тело";
 }
 
 // CREATE_TYPE (`::=`) - синоним типа, а НЕ функция (даже с формой вызова в m_left).
@@ -547,15 +547,15 @@ TEST_F(ParserTest, ForwardVarDeclNoTypeToAst) {
     ASSERT_EQ(nullptr, vd->m_initializer) << "forward-объявление не должно иметь инициализатора";
 }
 
-// Forward-объявление функции `%add(a:Int32, b:Int32):Int32 := ...;` - чистое многоточие
+// Forward-объявление функции `add(a:Int32, b:Int32):Int32 := ...;` - чистое многоточие
 // вместо тела → m_body = nullopt (forward declaration).
 TEST_F(ParserTest, ForwardFuncDeclToAst) {
-    ASSERT_TRUE(Parse("%add(a:Int32, b:Int32):Int32 := ...;"));
+    ASSERT_TRUE(Parse("add(a:Int32, b:Int32):Int32 := ...;"));
     std::vector<AstNodePtr> nodes = TermToAstConverter::termToAst(ast, m_ctx);
     ASSERT_EQ(1, nodes.size());
     auto* fd = dynamic_cast<FuncDecl*>(nodes[0].get());
     ASSERT_TRUE(fd);
-    ASSERT_EQ("%add", requiredText(*fd));
+    ASSERT_EQ("add", requiredText(*fd));
     ASSERT_TRUE(fd->m_type);
     ASSERT_TRUE(fd->m_params && fd->m_params->size() == 2);
     for (const auto& p : *fd->m_params) {
@@ -563,7 +563,7 @@ TEST_F(ParserTest, ForwardFuncDeclToAst) {
         ASSERT_TRUE(pd);
         ASSERT_TRUE(pd->m_type) << "параметр forward-функции должен нести тип";
     }
-    ASSERT_FALSE(fd->m_body.has_value()) << "forward-объявление не должно иметь тела";
+    ASSERT_FALSE(fd->hasBody()) << "forward-объявление не должно иметь тела";
 }
 
 // Нереализованная конструкция (TermID без Kind, напр. await "|*|") при конвертации должна
@@ -705,18 +705,18 @@ TEST_F(ParserTest, AssignNamedArgs3) {
 }
 
 TEST_F(ParserTest, AssignNamedArgs4) {
-    ASSERT_TRUE(Parse("\t %term   :=   term2( arg, arg1 = \\arg2($arg3))  ;  \n"));
-    ASSERT_EQ("%term := term2(arg, arg1=\\arg2($arg3));", ast->toString());
+    ASSERT_TRUE(Parse("\t term   :=   term2( arg, arg1 = \\arg2($arg3))  ;  \n"));
+    ASSERT_EQ("term := term2(arg, arg1=\\arg2($arg3));", ast->toString());
 }
 
 TEST_F(ParserTest, AssignNamedArgs5) {
-    ASSERT_TRUE(Parse("\t %term   :=   term2( arg, arg1 = \\\\arg2($arg3))  ;  \n"));
-    ASSERT_EQ("%term := term2(arg, arg1=\\\\arg2($arg3));", ast->toString());
+    ASSERT_TRUE(Parse("\t term   :=   term2( arg, arg1 = \\\\arg2($arg3))  ;  \n"));
+    ASSERT_EQ("term := term2(arg, arg1=\\\\arg2($arg3));", ast->toString());
 }
 
 TEST_F(ParserTest, AssignNamedArgs6) {
-    ASSERT_TRUE(Parse("\t %term   :=   term2( arg, arg1 = @arg2($arg3))  ;  \n"));
-    ASSERT_EQ("%term := term2(arg, arg1=@arg2($arg3));", ast->toString());
+    ASSERT_TRUE(Parse("\t term   :=   term2( arg, arg1 = @arg2($arg3))  ;  \n"));
+    ASSERT_EQ("term := term2(arg, arg1=@arg2($arg3));", ast->toString());
 }
 
 TEST_F(ParserTest, AssignString) {

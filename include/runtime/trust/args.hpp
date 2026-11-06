@@ -1,7 +1,5 @@
 // trust/args.hpp - разбор аргументов командной строки скомпилированной trust-программы.
-//
 // Delivery: package file `include/trust/args.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
-//
 // Назначение: генерируемый `main(int argc, char* argv[])` отделяет аргументы среды по
 // единому префиксу (по умолчанию `--trust:` - зарезервировано для будущей настройки
 // рантайма через trust::runtime::configure) и из оставшихся строит ДВА словаря:
@@ -14,7 +12,7 @@
 
 #pragma once
 
-#include "trust/dict.hpp"
+#include "builtin/dict.hpp"
 
 #include <string>
 #include <string_view>

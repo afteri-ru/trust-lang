@@ -4,6 +4,7 @@
 # std::exception-производное (ошибки конверсии std::stoll/BigInteger и т.п.), а не только
 # прерывания trust (IntAny/IntPlus/IntMinus). Аргумент catch - это тип для перехвата, не хардкод.
 
+\std();
 try {
     a := 1;
 } catch(:StdException) {
@@ -11,13 +12,13 @@ try {
 } else {
     c := 3;
 };
-# CHECK: #include "trust/interrupt.hpp"
+# CHECK: #include "stdlib/interrupts.hpp"
 # CHECK: #include <stdexcept>
 # CHECK: try {
-# CHECK-NEXT:     int8_t c_a = 1;
+# CHECK-NEXT:     int8_t a = 1;
 # CHECK-NEXT:     // else
-# CHECK-NEXT:     int8_t c_c = 3;
+# CHECK-NEXT:     int8_t c = 3;
 # CHECK-NEXT: }
 # CHECK-NEXT: catch (std::exception&) {
-# CHECK-NEXT:     int8_t c_b = 2;
+# CHECK-NEXT:     int8_t b = 2;
 # CHECK-NEXT: }

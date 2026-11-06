@@ -5,7 +5,7 @@
 #include "syntax/term/term.h"
 
 #include "syntax/check_area.hpp"
-#include "session/context.hpp"
+#include "syntax/parser_services.hpp"
 #include "diag/severity.hpp"
 
 #include "syntax/util/warning_push.h"
@@ -54,7 +54,7 @@ bool PragmaEvaluator::pragmaEval(const TermPtr& term, SequenceType& buffer) {
     }
     const PragmaMacroId id = *idOpt;
     // Док прагмы - из x-macro (единственный источник описаний, без рассинхрона с кодом).
-    Context::addMacroDoc(pragmaMacroName(id), pragmaMacroDesc(id));
+    m_ctx.addMacroDoc(pragmaMacroName(id), pragmaMacroDesc(id));
 
     switch (id) {
     case PragmaMacroId::Hygienic:
@@ -126,8 +126,8 @@ bool PragmaEvaluator::pragmaEval(const TermPtr& term, SequenceType& buffer) {
     case PragmaMacroId::OptionTrue:
     case PragmaMacroId::OptionFalse: {
         // Доки обеих веток сидируются и здесь (fallback), и в evalOptionTrueFalseRaw (реальный путь).
-        Context::addMacroDoc(pragmaMacroName(PragmaMacroId::OptionTrue), pragmaMacroDesc(PragmaMacroId::OptionTrue));
-        Context::addMacroDoc(pragmaMacroName(PragmaMacroId::OptionFalse), pragmaMacroDesc(PragmaMacroId::OptionFalse));
+        m_ctx.addMacroDoc(pragmaMacroName(PragmaMacroId::OptionTrue), pragmaMacroDesc(PragmaMacroId::OptionTrue));
+        m_ctx.addMacroDoc(pragmaMacroName(PragmaMacroId::OptionFalse), pragmaMacroDesc(PragmaMacroId::OptionFalse));
 
         if (term->size() < 1) {
             m_ctx.diag().report(Severity::Error, term->m_mapperRange, "{} expects at least one argument (option flag name)!", term->getText());
@@ -240,7 +240,7 @@ bool PragmaEvaluator::pragmaEval(const TermPtr& term, SequenceType& buffer) {
         }
         {
             const std::string name(term->at(0).second->getText());
-            if (!Context::setMacroDoc(name, std::string(term->at(1).second->getText()))) {
+            if (!m_ctx.setMacroDoc(name, std::string(term->at(1).second->getText()))) {
                 m_ctx.diag().report(Severity::Error, term->m_mapperRange, "@__PRAGMA_DOC__: unknown macro '{}' (no doc to override)", name);
             }
         }

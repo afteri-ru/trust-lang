@@ -1,8 +1,9 @@
-// src/sourcemap/serialize/reader_lookup.cpp
 // SourceMapReader/FileEntry: location/range/name lookup queries
 
 #include "location/location.hpp"
 #include "sourcemap/mapper.hpp"
+#include "sourcemap/store/macro_lookup.hpp"
+#include "sourcemap/store/word_at.hpp"
 #include "utils/error.hpp"
 
 #include <algorithm>
@@ -42,7 +43,7 @@ std::optional<ReaderRange> SourceMapReader::findRange(const std::map<uint32_t, R
     return ReaderRange{ReaderLocation::fromPacked(it->second.to.begin.packed + delta), ReaderLocation::fromPacked(it->second.to.end.packed + delta)};
 }
 
-std::optional<SourceMapReader::Range> SourceMapReader::getMapTrustToCpp(Location trustLoc) const {
+std::optional<SourceMapReader::Range> SourceMapReader::mappedOutRange(Location trustLoc) const {
     if (trustLoc.isInvalid() || trustLoc.isOutput()) {
         return std::nullopt;
     }
@@ -50,15 +51,15 @@ std::optional<SourceMapReader::Range> SourceMapReader::getMapTrustToCpp(Location
     return findRange(m_forward, trustLoc);
 }
 
-std::optional<SourceMapReader::Range> SourceMapReader::getMapCppToTrust(Location cppLoc) const {
-    if (cppLoc.isInvalid() || !cppLoc.isOutput()) {
+std::optional<SourceMapReader::Range> SourceMapReader::mappedTrustRange(Location outLoc) const {
+    if (outLoc.isInvalid() || !outLoc.isOutput()) {
         return std::nullopt;
     }
 
-    return findRange(m_backward, cppLoc);
+    return findRange(m_backward, outLoc);
 }
 
-std::optional<SourceMapReader::NameMap> SourceMapReader::getCppName(Location trustLoc, std::string_view trustName) const {
+std::optional<SourceMapReader::NameMap> SourceMapReader::outNameOf(Location trustLoc, std::string_view trustName) const {
     // Возвращает полный NameMap (цель hover-ссылки - весь диапазон имени на
     // противоположной стороне, без сдвига по позиции курсора внутри имени).
     auto result = findNameInMappings(m_nameMappings, trustLoc.packed, [trustName](const NameMap& v) { return v.fromName == trustName; }, &RangeMap::from);
@@ -66,22 +67,22 @@ std::optional<SourceMapReader::NameMap> SourceMapReader::getCppName(Location tru
         return result;
     }
 
-    // Если не найден - проверяем макросы (input → input)
-    auto macroRange = findRange(m_macroForward, trustLoc);
+    // Если не найден - макрос (input → input): единственный путь к определению — macroDefinitionAt.
+    const std::optional<Range> macroRange = macroDefinitionAt(trustLoc);
     if (macroRange.has_value()) {
-        NameMap result;
-        result.rangeMap.from = Range{trustLoc, trustLoc};
-        result.rangeMap.to = Range{trustLoc, trustLoc};
-        result.fromName = std::string(trustName);
-        result.toName = std::string(trustName);
-        result.macroDefRange = *macroRange;
-        return result;
+        NameMap macroName;
+        macroName.rangeMap.from = Range{trustLoc, trustLoc};
+        macroName.rangeMap.to = Range{trustLoc, trustLoc};
+        macroName.fromName = std::string(trustName);
+        macroName.toName = std::string(trustName);
+        macroName.macroDefRange = *macroRange;
+        return macroName;
     }
 
     return std::nullopt;
 }
 
-std::vector<SourceMapReader::RangeMap> SourceMapReader::getTrustFileMappings(ReaderFile trustFileIdx) const {
+std::vector<SourceMapReader::RangeMap> SourceMapReader::trustFileMappings(ReaderFile trustFileIdx) const {
     std::vector<RangeMap> result;
     for (const auto& [key, entry] : m_forward) {
         (void)key;
@@ -96,51 +97,21 @@ std::vector<SourceMapReader::RangeMap> SourceMapReader::getTrustFileMappings(Rea
     return result;
 }
 
-std::optional<SourceMapReader::NameMap> SourceMapReader::getTrustName(Location cppLoc, std::string_view cppName) const {
+std::optional<SourceMapReader::NameMap> SourceMapReader::trustNameOf(Location outLoc, std::string_view outName) const {
     // Возвращает полный NameMap (цель hover-ссылки - весь диапазон имени на
     // противоположной стороне, без сдвига по позиции курсора внутри имени).
-    return findNameInMappings(m_nameMappings, cppLoc.packed, [cppName](const NameMap& v) { return v.toName == cppName; }, &RangeMap::to);
+    return findNameInMappings(m_nameMappings, outLoc.packed, [outName](const NameMap& v) { return v.toName == outName; }, &RangeMap::to);
 }
 
-std::optional<std::string> SourceMapReader::getWordAt(Location loc) const {
+std::optional<std::string> SourceMapReader::wordAt(Location loc) const {
     if (loc.isInvalid()) {
         return std::nullopt;
     }
-
-    std::string_view src = source(loc.fileIdx());
-    if (src.empty()) {
+    const std::string_view word = trust::wordAt(source(loc.fileIdx()), loc.offset());
+    if (word.empty()) {
         return std::nullopt;
     }
-
-    // offset - 1-based, переводим в 0-based
-    uint32_t off = loc.offset();
-    if (off < 1 || off > src.size()) {
-        return std::nullopt;
-    }
-    size_t pos = off - 1;
-
-    // Проверяем, что символ под курсором - буква, цифра, _ или '@'.
-    // '@' включаем, чтобы ховер над макросом (@assert/@while/print) выделял
-    // полное имя макроса с префиксом (иначе на позиции '@' слово пустое).
-    auto is_word_char = [](char c) -> bool { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '@'; };
-
-    if (!is_word_char(src[pos])) {
-        return std::nullopt;
-    }
-
-    // Идём влево до начала слова
-    size_t start = pos;
-    while (start > 0 && is_word_char(src[start - 1])) {
-        --start;
-    }
-
-    // Идём вправо до конца слова
-    size_t end = pos;
-    while (end < src.size() && is_word_char(src[end])) {
-        ++end;
-    }
-
-    return std::string(src.substr(start, end - start));
+    return std::string(word);
 }
 
 SourceMapReader::Location SourceMapReader::lspToLocation(ReaderFile idx, int line, int character) const {
@@ -193,7 +164,7 @@ std::optional<SourceMapReader::Range> SourceMapReader::findTrustToCpp(const std:
         return std::nullopt;
     }
     Location loc = loc_from_line(fidx, line);
-    return getMapTrustToCpp(loc);
+    return mappedOutRange(loc);
 }
 
 std::optional<SourceMapReader::Range> SourceMapReader::findCppToTrust(const std::string& cppPath, int line) const {
@@ -202,7 +173,7 @@ std::optional<SourceMapReader::Range> SourceMapReader::findCppToTrust(const std:
         return std::nullopt;
     }
     Location loc = loc_from_line(fidx, line);
-    return getMapCppToTrust(loc);
+    return mappedTrustRange(loc);
 }
 
 std::optional<std::pair<std::string, int>> SourceMapReader::calcCppToTrustLine(const std::string& cppPath, int cppLine) const {
@@ -306,30 +277,15 @@ std::vector<SourceMapReader::Range> SourceMapReader::findRangesByLine(ReaderFile
     return result;
 }
 
-// Возвращает диапазон определения макроса по позиции в теле/вызове макроса.
-// ВАЖНО: возвращаем ПОЛНЫЙ диапазон определения (m_macroForward[..].to), а не проекцию
-// по позиции курсора. findRange сдвигает `to` на delta (смещение курсора внутри вызова),
-// из-за чего для макросов в конце файла диапазон уходит за пределы source
-// (→ getText «range out of bounds»).
-std::optional<SourceMapReader::Range> SourceMapReader::getMacroDefRange(Location bodyLoc) const {
-    if (m_macroForward.empty() || bodyLoc.isInvalid()) {
+// Возвращает полный диапазон определения макроса по позиции точки использования.
+// Полный диапазон (а не проекция по позиции курсора): findRange сдвигает `to` на delta, из-за
+// чего для макросов в конце файла диапазон уходит за пределы source (→ «range out of bounds»).
+std::optional<SourceMapReader::Range> SourceMapReader::macroDefinitionAt(Location useLoc) const {
+    const RangeMap* entry = findEnclosingExpansion(m_macroForward, useLoc);
+    if (entry == nullptr) {
         return std::nullopt;
     }
-    auto it = m_macroForward.upper_bound(bodyLoc.packed);
-    if (it == m_macroForward.begin()) {
-        return std::nullopt;
-    }
-    --it;
-    if (it->second.from.begin.fileIdx() != bodyLoc.fileIdx()) {
-        return std::nullopt;
-    }
-    if (it->second.from.end.isInvalid() || it->second.to.end.isInvalid()) {
-        return std::nullopt;
-    }
-    if (bodyLoc.packed > it->second.from.end.packed) {
-        return std::nullopt;
-    }
-    return it->second.to;
+    return entry->to;
 }
 
 } // namespace trust

@@ -2,4 +2,4 @@
 
 # Проверка объявления типа-алиаса
 MyInt ::= :Int32;
-# CHECK: using c_MyInt = int32_t;
+# CHECK: using MyInt = int32_t;

@@ -3,8 +3,8 @@
 // Shared fixture for trusted-cpp runtime tests (trusted_cpp_test.cpp etc.).
 // Includes BOTH the plain reference header (Shared/Weak/Locker, always used) and the sync header
 // (AccessShared<V, Mutex>, used only when multi-threaded synchronization is required).
-#include "trust/trusted-cpp.hpp"
-#include "trust/trusted-cpp-sync.hpp"
+#include "trusted-cpp.hpp"
+#include "trusted-cpp-sync.hpp"
 
 #include <gtest/gtest.h>
 

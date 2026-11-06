@@ -1,0 +1,58 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/member_visibility.o %s && test -f $TD/member_visibility.o
+
+# Видимость членов ТЕЛА класса: standalone-маркеры `::` (public), `_::` (protected), `__::`
+# (private) задают уровень ВСЕХ последующих методов/полей до нового маркера; дефолт — public.
+# Члены эмитятся в ПОРЯДКЕ ОБЪЯВЛЕНИЯ (метод может стоять до поля), секция доступа печатается
+# при смене уровня. Маркер — обычный член, требует завершающего `;`.
+
+\std();
+:Animal ::= :Class{
+    name:Int32 := 1;
+    speak():Int32 := { return name; };
+    __::;
+    secret:Int32 := 2;
+    hidden():Int32 := { return secret; };
+    _::;
+    prot():Int32 := { return 3; };
+    ::;
+    open():Int32 := { return 4; };
+};
+# CHECK: struct Animal {
+# CHECK-NEXT:     int32_t name{1};
+# CHECK: int32_t speak{{_[A-Za-z0-9_]+}}() {
+# CHECK:   private:
+# CHECK-NEXT:     int32_t secret{2};
+# CHECK: int32_t hidden{{_[A-Za-z0-9_]+}}() {
+# CHECK:   protected:
+# CHECK: int32_t prot{{_[A-Za-z0-9_]+}}() {
+# CHECK:   public:
+# CHECK: int32_t open{{_[A-Za-z0-9_]+}}() {
+
+# Макросы public/protected/private раскрываются в те же маркеры и действуют одинаково.
+:Widget ::= :Class{
+    a:Int32 := _;
+    private;
+    b:Int32 := _;
+    protected;
+    c():Int32 := { return 0; };
+};
+# CHECK: struct Widget {
+# CHECK-NEXT:     int32_t a;
+# CHECK:   private:
+# CHECK-NEXT:     int32_t b;
+# CHECK:   protected:
+# CHECK: int32_t c{{_[A-Za-z0-9_]+}}() {
+
+# Поле может быть объявлено ПОСЛЕ метода — порядок объявления сохраняется.
+:Mixed ::= :Class{
+    first():Int32 := { return 1; };
+    __::;
+    data:Int32 := 5;
+};
+# CHECK: struct Mixed {
+# CHECK: int32_t first{{_[A-Za-z0-9_]+}}() {
+# CHECK:   private:
+# CHECK-NEXT:     int32_t data{5};
+
+@main():Int32 := { @return 0; };

@@ -1,0 +1,15 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+#
+# Базис генерируемого класса задаётся СИНТАКСИСОМ объявления: нативное имя (`%std::string`) или
+# тип-класс (`:Base`). Неизвестное обычное имя — явная Trust-диагностика семантики.
+# `--no-stdlib`: иначе `\std();` уже реализует StrChar (это было бы переопределением).
+
+StrChar = %trust::StrChar, :NoSuchBase {
+    c_str(): CString := %c_str ...;
+    data(): CString := %data ...;
+    size(): UInt64 := %size ...;
+    length(): UInt64 := size ...;
+    empty(): Bool := %empty ...;
+};
+@main():Int32 := { @return 0; };
+# CHECK: unknown base type 'NoSuchBase'

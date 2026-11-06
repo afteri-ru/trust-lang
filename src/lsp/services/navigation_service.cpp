@@ -107,24 +107,23 @@ void handleDocumentLink(trust::transport::Transport& transport, DocumentManager&
     json links = json::array();
 
     if (cr.isCppRequest) {
-        // -- C++ → Trust: link на trust-файл по cpp-диапазону --
-        auto backward = reader.getBackwardMappings();
+        auto backward = reader.backwardMappings();
         lspLog(opts,
                "  [cpp→trust] backward-mappings total=" + std::to_string(backward.size()) + " cppReaderIdx=" + std::to_string(cr.cppReaderIdx.as_index()));
         for (const auto& [key, entry] : backward) {
             (void)key;
-            const auto& cppRange = entry.from;
-            if (cppRange.begin.fileIdx() != cr.cppReaderIdx) {
+            const auto& outRange = entry.from;
+            if (outRange.begin.fileIdx() != cr.cppReaderIdx) {
                 continue;
             }
             const auto& trustRange = entry.to;
             std::string targetUri = makeFragmentUri(reader, trustFilePath, trustRange);
-            json link = {{"range", rangeToLspRange(reader, cppRange)}, {"target", targetUri}};
+            json link = {{"range", rangeToLspRange(reader, outRange)}, {"target", targetUri}};
             links.push_back(std::move(link));
-            lspLog(opts, "    cpp link: " + formatRange(reader, cppRange, filePath) + "  ->  " + formatRange(reader, trustRange, trustFilePath));
+            lspLog(opts, "    cpp link: " + formatRange(reader, outRange, filePath) + "  ->  " + formatRange(reader, trustRange, trustFilePath));
         }
 
-        for (const auto& nameMap : reader.getNameMappings()) {
+        for (const auto& nameMap : reader.nameMappings()) {
             const auto& toRange = nameMap.rangeMap.to;
             if (toRange.begin.fileIdx() != cr.cppReaderIdx) {
                 continue;
@@ -135,22 +134,21 @@ void handleDocumentLink(trust::transport::Transport& transport, DocumentManager&
             lspLog(opts, "    cpp name-link: " + formatRange(reader, toRange, filePath) + "  ->  " + formatRange(reader, nameMap.rangeMap.from, trustFilePath));
         }
     } else {
-        // -- Trust → C++: link на C++ файл --
-        auto mappings = reader.getTrustFileMappings(cr.trustReaderIdx);
+        auto mappings = reader.trustFileMappings(cr.trustReaderIdx);
         lspLog(opts,
                "  [trust→cpp] forward-mappings total=" + std::to_string(mappings.size()) + " trustReaderIdx=" + std::to_string(cr.trustReaderIdx.as_index()));
         for (const auto& mapping : mappings) {
             const auto& trustRange = mapping.from;
-            const auto& cppRange = mapping.to;
-            if (cppRange.begin.fileIdx().isOutput()) {
-                std::string targetUri = makeFragmentUri(reader, cs.cppFilePath, cppRange);
+            const auto& outRange = mapping.to;
+            if (outRange.begin.fileIdx().isOutput()) {
+                std::string targetUri = makeFragmentUri(reader, cs.cppFilePath, outRange);
                 json link = {{"range", rangeToLspRange(reader, trustRange)}, {"target", targetUri}};
                 links.push_back(std::move(link));
-                lspLog(opts, "    trust link: " + formatRange(reader, trustRange, filePath) + "  ->  " + formatRange(reader, cppRange, cs.cppFilePath));
+                lspLog(opts, "    trust link: " + formatRange(reader, trustRange, filePath) + "  ->  " + formatRange(reader, outRange, cs.cppFilePath));
             }
         }
 
-        for (const auto& nameMap : reader.getNameMappings()) {
+        for (const auto& nameMap : reader.nameMappings()) {
             const auto& fromRange = nameMap.rangeMap.from;
             if (fromRange.begin.fileIdx() != cr.trustReaderIdx) {
                 continue;

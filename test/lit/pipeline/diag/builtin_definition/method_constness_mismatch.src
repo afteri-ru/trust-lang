@@ -1,0 +1,18 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Член `=`-тела с именем интерфейсного метода, но другой константности — ошибка.
+# Интерфейс Array объявляет count^ (const); здесь count без '^'. Прочие методы покрыты.
+Array = %std::vector {
+    count(): Int64 := %size ...;
+    size^(): Int64 := %size ...;
+    empty^(): Bool := %empty ...;
+    at^(i: Int64): TemplateParam := %at ...;
+    first^(): TemplateParam := %front ...;
+    last^(): TemplateParam := %back ...;
+    push_back(v: TemplateParam) := %push_back ...;
+    pop_back() := %pop_back ...;
+    clear() := %clear ...;
+    resize(n: Int64) := %resize ...;
+};
+@main(): Int32 := { @return 0; };
+# CHECK: error: implementation of method 'count' has wrong constness vs the interface in built-in type 'Array'

@@ -1,13 +1,11 @@
-// intrinsics.hpp - единый источник описания интринсиков языка.
-//
+// Единый источник описания интринсиков языка.
 // Интринсик - распознаваемое компилятором имя вызова (область `trust`, имя с префиксом
 // `intrinsic_`, например `trust::intrinsic_assert`), которое НЕ является реальной C++-функцией:
 // в теле раскрытия DSL-макроса вставляется ИМЯ интринсика (а не готовый код), а сам интринсик
 // «разворачивается» на этапе генерации кода (CppTranspiler::emitIntrinsic) в конкретную
 // реализацию (как __builtin_* в GCC/clang). Это даёт единую точку для рантайм-проверок и
 // позволяет менять реализацию без правки макросов и без копипаста тела макроса в кодогенерации.
-//
-// Организован как X-macro (паттерн как в types/runtime_symbols.hpp): единый список
+// Организован как X-macro (паттерн как в target/runtime_symbols.hpp): единый список
 // TRUST_INTRINSICS порождает enum IntrinsicId, имя, заголовки и компайлтайм-проверки.
 // Интринсики НЕ являются рантайм-символами (нет реального C++-символа/линковки) - только
 // имя + требуемый заголовок рантайм-заголовков (если реализация использует рантайм-функции).
@@ -21,7 +19,6 @@
 
 namespace trust {
 
-// -- Таблица интринсиков (X-macro) --------------------------------------
 // ЕДИНСТВЕННОЕ место описания каждого интринсика: id, имя вызова (область trust, префикс
 // `intrinsic_` - отличимо от стандартных/рантайм-функций) и заголовки рантайм-заголовков.
 //   _(Id, "trust::intrinsic_<name>", "@заголовок", ...)
@@ -29,7 +26,13 @@ namespace trust {
     _(kTrustAssert, "trust::intrinsic_assert", "@trust/assert.hpp")                          \
     _(kTrustStackCheck, "trust::intrinsic_stack_check", "@trust/stack_check.hpp")            \
     _(kTrustStackCheckLimit, "trust::intrinsic_stack_check_limit", "@trust/stack_check.hpp") \
-    _(kTrustStackCheckReserve, "trust::intrinsic_stack_check_reserve", "@trust/stack_check.hpp")
+    _(kTrustStackCheckReserve, "trust::intrinsic_stack_check_reserve", "@trust/stack_check.hpp") \
+    /* Явные функции контроля стека (вызовы в коде): trust-имена без '%'. */                \
+    _(kStackCheckCall, "trust_stack_check", "@trust/stack_check.hpp")                        \
+    _(kStackCheckSetReserve, "trust_stack_check_set_reserve", "@trust/stack_check.hpp")       \
+    _(kStackCheckGetReserve, "trust_stack_check_get_reserve", "@trust/stack_check.hpp")       \
+    _(kStackCheckGetLimit, "trust_stack_check_get_limit", "@trust/stack_check.hpp")           \
+    _(kStackCheckSetLimit, "trust_stack_check_set_limit", "@trust/stack_check.hpp")
 
 /// Типизированные идентификаторы интринсиков (генерируются из списка).
 enum class IntrinsicId : uint8_t {

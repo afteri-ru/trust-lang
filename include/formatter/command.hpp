@@ -1,4 +1,3 @@
-// include/formatter/command.hpp
 // CLI-команда форматирования: --format / --format-check.
 #pragma once
 

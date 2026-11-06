@@ -1,0 +1,12 @@
+# RUN: %trust -q --temp-dir %t.dir -o %t.app %s
+# RUN: %t.app && echo "PASS"
+# CHECK: PASS
+#
+# Namespace-алиас области: LHS — только NAME, цель с завершающим `::` (`a :- b::;`, как
+# `namespace a = b;` в C++). `a::g()` разворачивается в `b::g()`; модуль в C++-имя не входит.
+
+b:: {
+    g():Int32 := { @return 7; };
+};
+a :- b::;
+@main():Int32 := { @return a::g() - 7; };

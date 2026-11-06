@@ -14,6 +14,6 @@
     @return b.get^();
 };
 
-# CHECK: struct c_Box {
-# CHECK: int32_t c_get{{_[A-Za-z0-9_]+}}() {
-# CHECK: return const_cast<const c_Box&>(c_b).c_get{{_[A-Za-z0-9_]+}}();
+# CHECK: struct Box {
+# CHECK: int32_t get{{_[A-Za-z0-9_]+}}() {
+# CHECK: return const_cast<const Box&>(b).get{{_[A-Za-z0-9_]+}}();

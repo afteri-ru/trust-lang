@@ -1,0 +1,13 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# `length` реализован делегированием к `size` (string.src: `length(): UInt64 := size ...;`):
+# вызов s.length() должен эмитить `(s).size()`, а НЕ `(s).length()`.
+
+\std();
+@main() := {
+    s: StrChar := "abc";
+    n := s.length();
+}
+# CHECK: trust::StrChar s = "abc";
+# CHECK: (s).size();
+# CHECK-NOT: (s).length();

@@ -28,7 +28,7 @@ class ArrayTypeFixture : public ::testing::Test {
 };
 
 TEST_F(ArrayTypeFixture, GetOrCreateArrayType_Interning) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId float64 = reg.read().getType(type::Float64);
     ASSERT_NE(int32, INVALID_TYPE_ID);
@@ -51,7 +51,7 @@ TEST_F(ArrayTypeFixture, GetOrCreateArrayType_Interning) {
 }
 
 TEST_F(ArrayTypeFixture, ArrayAccessors) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId arr = reg.interner().getOrCreateArrayType(int32, {3});
     ASSERT_NE(arr, INVALID_TYPE_ID);
@@ -74,7 +74,7 @@ TEST_F(ArrayTypeFixture, ArrayAccessors) {
 }
 
 TEST_F(ArrayTypeFixture, ArrayDynamicDims) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId int64 = reg.read().getType(type::Int64);
     // Пустые размерности = динамический (std::vector), без константности.
     const TypeId dyn = reg.interner().getOrCreateArrayType(int64, {});
@@ -85,7 +85,7 @@ TEST_F(ArrayTypeFixture, ArrayDynamicDims) {
 }
 
 TEST_F(ArrayTypeFixture, ArrayMethodsRegistered) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId arr = reg.interner().getOrCreateArrayType(int32, {3});
     // Методы объявлены на абстрактном `:Array` и находятся через fallback (findMethodInfo).
@@ -107,7 +107,7 @@ TEST_F(ArrayTypeFixture, ArrayMethodsRegistered) {
 }
 
 TEST_F(ArrayTypeFixture, MultiDimArrayDetection) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId int32 = reg.read().getType(type::Int32);
     // 1D: не многомерный.
     const TypeId one = reg.interner().getOrCreateArrayType(int32, {3});
@@ -126,7 +126,7 @@ TEST_F(ArrayTypeFixture, MultiDimArrayDetection) {
 // Identity массива включает размерности (ArrayShapeTag), а не строковое кодирование:
 // повтор -> тот же TypeId, другой порядок/набор/динамический -> другой TypeId.
 TEST_F(ArrayTypeFixture, DimensionsArePartOfIdentity) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId fixed = reg.interner().getOrCreateArrayType(int32, {3, 4});
     EXPECT_EQ(reg.interner().getOrCreateArrayType(int32, {3, 4}), fixed);

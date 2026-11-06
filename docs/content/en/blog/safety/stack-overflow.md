@@ -219,12 +219,12 @@ primitives `trust::stack_check` — the public runtime header `trust/stack_check
     (free ≥ `m_stack_limit` from the `.stack_sizes` section + reserve);
   - `@[stack_check(N)@]` — an integer `N`: `check_overflow(N)` (explicit size of free space).
 - **Individual functions** (real C++ functions of the runtime, explicit calls in the code, `%` prefix):
-  - `%trust_stack_check(N)` — `check_overflow(N)` (free ≥ N + reserve);
-  - `%trust_stack_check()` — `check_stack_limit()` (free ≥ m_stack_limit + reserve);
-  - `%trust_stack_check_set_reserve(N)` — `set_reserve(N)` (min. reserve for all functions);
-  - `%trust_stack_check_get_reserve()` — `get_reserve()`;
-  - `%trust_stack_check_get_limit()` — `get_limit()` (the current `m_stack_limit`);
-  - `%trust_stack_check_set_limit(f1, f2, ...)` — `set_limit({&c_f1, &c_f2})` (restrict `m_stack_limit`
+  - `trust_stack_check(N)` — `check_overflow(N)` (free ≥ N + reserve);
+  - `trust_stack_check()` — `check_stack_limit()` (free ≥ m_stack_limit + reserve);
+  - `trust_stack_check_set_reserve(N)` — `set_reserve(N)` (min. reserve for all functions);
+  - `trust_stack_check_get_reserve()` — `get_reserve()`;
+  - `trust_stack_check_get_limit()` — `get_limit()` (the current `m_stack_limit`);
+  - `trust_stack_check_set_limit(f1, f2, ...)` — `set_limit({&c_f1, &c_f2})` (restrict `m_stack_limit`
     to the listed functions; empty = all functions of `.stack_sizes`).
 - The **reserve `reserve`** (min. stack size for creating an exception, default 8192) is ALWAYS added
   to the checks: `stack_check` = `N + reserve`, `stack_check_limit` = `m_stack_limit + reserve`.

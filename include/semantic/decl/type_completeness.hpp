@@ -1,4 +1,3 @@
-// include/semantic/decl/type_completeness.hpp
 #pragma once
 
 // Проверка ПОЛНОТЫ типа в позициях «по значению» (переменная/поле/параметр/возврат).

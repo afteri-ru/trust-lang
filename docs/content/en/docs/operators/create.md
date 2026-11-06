@@ -31,7 +31,7 @@ TrustLang uses several operators to create objects:
                         values/functions is impossible — the compiler reports: *"cannot assign a type ... to a value variable; use '::=' to declare a type alias"*.
 
   Also, a **forward declaration of a native class** is declared via `::=`:
-  `String ::= %std::string { %size(): UInt64 := ...; };` — the RHS is the class name (native — with a leading `%`),
+  `String ::= %std::string { size(): UInt64 := ...; };` — the RHS is the class name (native — with a leading `%`),
   the body `{ ... }` — interface members (methods/fields/constructors), each `:= ...` (without a body). Constructing
   an object — calling the class name: `s: String := String("hello");` → `std::string("hello")`. More — in
   [Native types](../types/native/).
@@ -50,6 +50,45 @@ TrustLang uses several operators to create objects:
                         (`f :- \lib::g;`): no dedicated entity or C++ symbol is created, the target is
                         the target's OVERLOAD SET (selection happens at the call site). More — in
                         [Module hierarchy](../syntax/hierarchy/#func-alias).
+
+### Declaration, definition and alias {#declaration-vs-alias}
+
+The principal difference between the operators is **whether they create an entity**:
+
+- **Declaration** (`:=`, `::=`, `=`) creates an entity: a trust name and its identity (object,
+  function, type), plus a storage location and/or body when applicable. Analysis, typing and
+  code generation work with the trust identifier of the declaration.
+- **Alias** (`:-`, `alias … as …`, `::-`) creates **no** entity: it is a second name for an
+  existing entity. It has no own C++ entity and no second storage location; references are
+  normalized to the target (for a value, reads and writes go to the target); export rules
+  belong to the alias declaration.
+- **Forward declaration** (`… := ...;`) — a declaration **without a definition** (name and type
+  are registered; there is no storage location or body).
+- **Implementation forwarding** (`… := target ...;`) — the implementation is provided by another
+  trust entity; the declaration has its own identity and a foreign body.
+- **Native binding** — a trust entity additionally has a native name: import (the implementation
+  is an external C/C++ symbol, no own C++ code is emitted) or export (the trust implementation is
+  published to C++ under a given name). The native name is a **property of the entity**, not of
+  its trust name.
+
+| Form | Creates | Value / body | C++ entity | Trailing `...` |
+|---|---|---|---|---|
+| `x:Type := expr;` | object `x` of type `Type` | **initial value `expr`** | variable definition | — |
+| `x := expr;` | object with inferred type | initial value `expr` | variable definition | — |
+| `x:Type := ...;` | name + type | no value, no storage | `extern` declaration | forward declaration |
+| `f(...):T := { … };` | function | body | function definition | — |
+| `f(...):T := ...;` | function | no definition | prototype | forward declaration |
+| `f(...):T := target ...;` | function (own identity) | implementation is the trust target | body taken from the target | implementation forwarding |
+| `f(...):T := %cpp ...;` | trust name of a function | native binding (import) | external symbol, not emitted | native name import |
+| `f :- target;`, `alias … as f;` | **nothing** | second name of the target | **not emitted** | — (alias) |
+| `:A ::= …;` | new nominal type | — | new type/alias | type forward = incomplete type |
+| `:A ::- T;` | second name of a type (one `TypeId`) | — | not emitted | — (type alias) |
+| `field := ...;` | — | — | — | **forbidden**: a data member cannot be forward-declared |
+
+Rule: **the `:=` operator never creates an alias**; aliases are declared only by `:-`/`alias`
+(name) and `::-` (type). A forward declaration must be defined in the same file
+(see [File interface](../syntax/hierarchy/#file-interface)); a class field has no forward
+declaration (see [Classes and structures](../types/class/)).
 
 ### Assigning a new value {#assign}
 

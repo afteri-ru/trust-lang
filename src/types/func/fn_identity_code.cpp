@@ -1,4 +1,3 @@
-// src/types/func/fn_identity_code.cpp
 // Канонический КОД типа (identity): единственный источник сегментов сигнатуры и C++-суффикса.
 #include "types/func/fn_identity.hpp"
 
@@ -7,6 +6,7 @@
 #include "types/registry/type_code_cache.hpp"
 #include "types/registry/type_printer.hpp"
 #include "types/registry/type_store.hpp"
+#include "types/type/data_record_access.hpp"
 #include "types/typekind.hpp"
 #include "utils/error.hpp"
 
@@ -57,7 +57,7 @@ std::string FunctionIdentity::returnTypeCode(TypeId type, const TemplateBinders&
     // C++-идентичности это ОДИН тип. В позиции параметра правило НЕ применяется: `INVALID` там
     // означает нетипизированный `:Any` (`std::any`), а не `void`.
     const TypeId id = m_store.identityOf(type, scope);
-    if (getGroup(getTypeKind(id)) == Group::kVoid) {
+    if (typeGroupOf(id) == Group::kVoid) {
         return "void";
     }
     return typeCode(type, binders, depth, scope);
@@ -67,7 +67,7 @@ std::string FunctionIdentity::computeTypeCode(TypeId id, const TemplateBinders& 
     // Reference/member-pointer KIND is checked BEFORE the TypeData: a fast-path reference
     // (`applyRefType`) keeps the pointee's registry index, so `getTypeData(id)` returns the
     // POINTEE's data. Reading the data first would collapse `shared<T>` into `T`.
-    const RefType refKind = getRefType(getTypeKind(id));
+    const RefType refKind = typeRefOf(id);
     if (refKind == RefType::kMptr) {
         const auto* mp = m_store.getTypeDataAs<MemberPointerTypeData>(id);
         EXPECT(mp != nullptr && "FunctionIdentity: member pointer requires MemberPointerTypeData");
@@ -92,7 +92,7 @@ std::string FunctionIdentity::computeTypeCode(TypeId id, const TemplateBinders& 
     // Nominal identity: the trust full name (builtins, aliases to nominal types, records,
     // enums, variants, native classes, forward declarations without data).
     const auto nominal = [this](TypeId nominalId) -> std::string {
-        const std::string name = m_printer.getTypeName(nominalId);
+        const std::string name = m_printer.typeNameOf(nominalId);
         EXPECT(!name.empty() && "FunctionIdentity: type has no canonical name");
         return "N" + atom(name);
     };
@@ -126,7 +126,11 @@ std::string FunctionIdentity::computeTypeCode(TypeId id, const TemplateBinders& 
                 return text;
 
             } else if constexpr (std::is_same_v<D, NativeTemplateTypeData>) {
-                std::string text = "C" + atom(d.cppTemplate) + "(";
+                // Native template identity — LANGUAGE key: abstract template (nominal trust name) +
+                // type arguments. The C++ template name is a TARGET fact, NOT part of the language
+                // identity (R37, §4 ARCHITECTURE.md).
+                const TypeId tplKey = d.templateOf != INVALID_TYPE_ID ? d.templateOf : id;
+                std::string text = "C" + nominal(tplKey) + "(";
                 for (std::size_t i = 0; i < d.args.size(); ++i) {
                     if (i) {
                         text += ",";
@@ -144,7 +148,7 @@ std::string FunctionIdentity::computeTypeCode(TypeId id, const TemplateBinders& 
             } else if constexpr (std::is_same_v<D, TensorTypeData>) {
                 // Dense/sparse is encoded in TypeKind::Data (not in TypeData) - single source of truth.
                 std::string text =
-                    "S(" + typeCode(d.elementType, binders, depth + 1, scope) + ")K=" + std::to_string(static_cast<unsigned>(getData(getTypeKind(id)))) + ";D=";
+                    "S(" + typeCode(d.elementType, binders, depth + 1, scope) + ")K=" + std::to_string(static_cast<unsigned>(typeDataOf(id))) + ";D=";
                 for (const uint64_t dim : d.shape) {
                     text += std::to_string(dim) + ",";
                 }
@@ -152,7 +156,7 @@ std::string FunctionIdentity::computeTypeCode(TypeId id, const TemplateBinders& 
             } else if constexpr (std::is_same_v<D, TemplateTypeData>) {
                 // Parameterized abstract type (`Range<Elem>`): the template marker is part of the
                 // identity, and ALL arguments matter (not just the first one).
-                std::string text = "G" + atom(m_printer.getTypeName(d.templateTypeId)) + "(";
+                std::string text = "G" + atom(m_printer.typeNameOf(d.templateTypeId)) + "(";
                 for (std::size_t i = 0; i < d.args.size(); ++i) {
                     if (i) {
                         text += ",";
@@ -161,13 +165,14 @@ std::string FunctionIdentity::computeTypeCode(TypeId id, const TemplateBinders& 
                 }
                 return text + ")";
             } else if constexpr (std::is_same_v<D, RecordTypeData>) {
-                if (d.templateOf != INVALID_TYPE_ID) {
-                    std::string text = "R" + atom(m_printer.getTypeName(d.templateOf)) + "(";
-                    for (std::size_t i = 0; i < d.templateArgs.size(); ++i) {
+                if (RecordTypeAccess::templateOf(d) != INVALID_TYPE_ID) {
+                    const auto& templateArgs = RecordTypeAccess::templateArgsOf(d);
+                    std::string text = "R" + atom(m_printer.typeNameOf(RecordTypeAccess::templateOf(d))) + "(";
+                    for (std::size_t i = 0; i < templateArgs.size(); ++i) {
                         if (i) {
                             text += ",";
                         }
-                        text += typeCode(d.templateArgs[i], binders, depth + 1, scope);
+                        text += typeCode(templateArgs[i], binders, depth + 1, scope);
                     }
                     return text + ")";
                 }

@@ -1,6 +1,4 @@
-// src/solver/impl/smt_vcgen.cpp
 // Символьное исполнение тела функции по MIR (единая производная форма = CFG поверх HIR).
-//
 // Архитектура:
 //   * состояние — значения МЕСТ (`flow::PlaceId`) + условие достижимости (path);
 //   * блок исполняется один раз в RPO-порядке, входные состояния сливаются (ite по path);
@@ -638,7 +636,7 @@ std::vector<TrustToSmt::BodyEncoder::ExitState> TrustToSmt::BodyEncoder::runLoop
             break;
         case analysis::SolverLoopMode::kWarning:
         default:
-            self.m_ctx.diag().report(Severity::Warning, loop.node->range(),
+            self.m_services.diag().report(Severity::Warning, loop.node->range(),
                                      "loop without an invariant is not verified by the solver; add an invariant or enable unrolling");
             break;
         }
@@ -887,7 +885,7 @@ bool TrustToSmt::BodyEncoder::applyElement(const MirInstruction& element, State&
     case MirOp::Declare: {
         if (element.place != nullptr && element.place->kind() == ParserToken::Kind::VarDecl) {
             const auto& decl = static_cast<const VarDecl&>(*element.place);
-            if (decl.m_initializer && !isNoneMarker(decl.m_initializer.get())) {
+            if (decl.initKind() == VarInitKind::Initialized) {
                 auto value = self.toTerm(decl.m_initializer.get(), std::nullopt, &state.values);
                 if (!value) {
                     return false;

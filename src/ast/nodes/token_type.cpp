@@ -1,4 +1,4 @@
-// token_type.cpp - реализация IdentType (терм-конструктор + dump)
+// Реализация IdentType: терм-конструктор + dump.
 
 #include "ast/token_type.hpp"
 #include "ast/term_to_ast.hpp"
@@ -6,15 +6,13 @@
 
 namespace trust {
 
-// ----------------------------------------------------------------------------
 // IdentType: терм-конструктор (kind всегда TypeName)
 // Единственный владелец раскладки детей TYPE-терма:
 //   m_dims   - из term->m_type (ARGS-терм размерностей `[...]`)
 //   m_params - из term->m_args (call-аргументы `(...)`)
 // Рекурсивная конвертация детей - через convertChild (при ctx != nullptr).
-// ----------------------------------------------------------------------------
 
-IdentType::IdentType(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
+IdentType::IdentType(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* ctx)
 : IdentType(term, std::nullopt, std::nullopt, ctx ? &ctx->attrs() : nullptr) {
     if (!ctx || !term) {
         return;
@@ -44,10 +42,6 @@ IdentType::IdentType(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
         m_params = std::move(params);
     }
 }
-
-// ----------------------------------------------------------------------------
-// IdentType::dump
-// ----------------------------------------------------------------------------
 
 std::string IdentType::dump(size_t indent) const {
     std::string result = detail::dumpQuotedName(kind(), text(), indent, ":");

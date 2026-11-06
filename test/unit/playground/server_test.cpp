@@ -19,7 +19,7 @@ class PlaygroundServerTest : public ::testing::Test {
     LspOptions opts;
 };
 
-constexpr const char* kHelloSrc = "@main():={\n"
+constexpr const char* kHelloSrc = "\\std(); @main():={\n"
                                   "    msg := \"hello playground\";\n"
                                   "    print(msg);\n"
                                   "}\n";

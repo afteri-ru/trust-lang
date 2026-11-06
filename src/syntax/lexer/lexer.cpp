@@ -2,7 +2,7 @@
 
 namespace trust {
 
-Scanner::Scanner(trust::Context& ctx, trust::MapperFile src, std::size_t skipPrefix)
+Scanner::Scanner(trust::ParserServices ctx, trust::MapperFile src, std::size_t skipPrefix)
 : NewLangFlexLexer(nullptr, &std::cout)
 , m_ctx(ctx)
 , m_srcIdx(src)
@@ -10,7 +10,6 @@ Scanner::Scanner(trust::Context& ctx, trust::MapperFile src, std::size_t skipPre
 , m_current_pos(static_cast<int>(skipPrefix))
 , m_macro_count(0)
 , m_macro_del(0) {
-    //        yy_flex_debug = true;
 }
 
 Scanner::~Scanner() {
@@ -151,7 +150,7 @@ void Scanner::braceMismatchError(TermID expected, TermID got) {
     m_ctx.diag().report(trust::Severity::Error, trust::MapperRange(loc, loc), "{}", msg);
 }
 
-SequenceType Scanner::ParseLexem(trust::Context& ctx, const std::string str) {
+SequenceType Scanner::ParseLexem(trust::ParserServices ctx, const std::string str) {
     SequenceType result;
     trust::MapperFile src = ctx.source().add_source("parselexem", str);
     Scanner lexer(ctx, src);

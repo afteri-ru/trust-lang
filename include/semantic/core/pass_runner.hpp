@@ -1,9 +1,7 @@
 #pragma once
 
-// include/semantic/core/pass_runner.hpp
 // Оркестратор проходов семантики (pass-менеджер).
 // Выполняет обязательное ядро всегда; опциональные проходы - по feature-флагам.
-//
 // Граница фаз: runner выполняет ТОЛЬКО семантику над неизменяемой AST. Производные
 // представления и их потребители (HIR, flow-анализы DA/borrow) принадлежат `Pipeline`
 // (semantic → buildHir → verify(HIR) → flow → codegen).
@@ -17,16 +15,21 @@
 
 namespace trust {
 
+class TypeSystem;
+
+class DiagnosticEngine;
+
 /// Политика внутренней ошибки анализатора (ICE).
 /// recover=true (LSP: allow_semantic_on_errors) - Severity::Error и продолжение с частичным AST;
 /// recover=false (CLI) - Severity::Fatal + backtrace (report(Fatal) бросает FatalError,
 /// который ловится в composition root и даёт код возврата 1).
-void reportInternalError(Context& ctx, bool recover, std::string_view what);
+void reportInternalError(DiagnosticEngine& diag, bool recover, std::string_view what);
 
 class SemanticPassRunner {
   public:
     /// recoverOnInternalError - см. reportInternalError (передаётся из PipelineOpts::allow_semantic_on_errors).
-    explicit SemanticPassRunner(Context& ctx, bool recoverOnInternalError = false);
+    /// `registry` — WRITER-ссылка реестра типов (владелец — `Pipeline`); единственный канал записи (E1).
+    SemanticPassRunner(Context& ctx, TypeSystem& registry, bool recoverOnInternalError = false);
 
     /// Запускает проходы семантики над неизменяемой AST. HIR и flow-анализы здесь НЕ
     /// выполняются: их запускает `Pipeline` после семантики (см. контракт фаз в заголовке).
@@ -55,6 +58,7 @@ class SemanticPassRunner {
 
   private:
     Context& m_ctx;
+    TypeSystem& m_registry;
     bool m_recoverOnInternalError = false;
     std::unique_ptr<AnalysisContext> m_analysis;
     bool m_crashed = false;

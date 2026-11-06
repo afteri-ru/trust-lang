@@ -1,0 +1,6 @@
+# RUN: %trust -q --no-stdlib --emit-ast %s > %t.out && %FileCheck %s <%t.out
+
+# provider-gate действует ТОЛЬКО для C++-кодогена: без --emit-cpp реализация builtin
+# (Array) не требуется - интерфейс доступен без реализации.
+a := [1, 2, 3,];
+# CHECK: ArrayInit

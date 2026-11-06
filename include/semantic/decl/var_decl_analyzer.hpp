@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/decl/var_decl_analyzer.hpp
 // Анализатор объявлений переменных: аннотация/вывод типа, инициализатор, атрибуты ref-вида,
 // trust-условия и регистрация символа. Выделен из DeclAnalyzer.
 

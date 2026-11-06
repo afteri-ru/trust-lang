@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/type_inference.hpp
 // Языковая семантика типов выражений: типизация литералов и вывод типа результата
 // бинарных операций по семантике C++ (обычные арифметические преобразования:
 // Int16+Int16 → Int32, '//'/'//=' → Int64, Compare/Logical → Bool, std::any-операнды).
@@ -24,13 +23,11 @@
 
 namespace trust {
 
-// -- Диапазоны целых литералов -----------------------------
 // Границы целых типов и соответствие ширина↔тип заданы единым источником
 // `types/int_literal.hpp` (fitsSignedIntMagnitude / intTypeForSignedMagnitude / intTypeForWidth /
 // intTypeForLiteral / intLiteralType); здесь остаётся только операторная семантика
 // (литералы, Compare/Logical, any, //).
 
-// -- Тип литерала -----------------------------------------
 // IntLiteral → единый конвертер intLiteralType: минимальный конкретный знаковый Int,
 // вмещающий значение (Int8/16/32/64); 0 и 1 → Int8 (цифры НЕ выводятся как Bool; Bool —
 // только явная аннотация `0 :Bool`); сверхразрядный (модуль > INT64_MAX) → BigInteger.
@@ -61,7 +58,6 @@ inline TypeId literalType(const Literal& lit, const TypeReadModel& reg) {
     TRUST_PARTIAL_ENUM_SWITCH_END
 }
 
-// -- Тип результата бинарной операции ---------------------
 // По обычным арифметическим преобразованиям C++:
 //   * Compare/Logical → Bool;
 //   * BigInteger/Rational (kArbitraryPrecision) - отдельная ветка (кастомные runtime-типы):
@@ -82,8 +78,8 @@ inline TypeId resultTypeBinary(ParserToken::Kind kind, BinaryOp op, TypeId lhs, 
 
     const TypeId lc = reg.store().desugaredTypeId(lhs);
     const TypeId rc = reg.store().desugaredTypeId(rhs);
-    const Group lg = getGroup(getTypeKind(lc));
-    const Group rg = getGroup(getTypeKind(rc));
+    const Group lg = typeGroupOf(lc);
+    const Group rg = typeGroupOf(rc);
 
     // BigInteger/Rational: отдельная ветка (см. arbitraryPrecisionArithmeticType). Целочисленное
     // деление `//` для них недоступно (нет int64-каста); смешивание с float - ошибка.

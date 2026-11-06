@@ -5,5 +5,5 @@
 
 r : Int32 := identity(41:Int32);
 
-# CHECK: template <typename T> T c_identity{{_[A-Za-z0-9_]+}}(T c_x)
-# CHECK: c_identity{{_[A-Za-z0-9_]+}}<int32_t>(41)
+# CHECK: template <typename T> T identity{{_[A-Za-z0-9_]+}}(T x)
+# CHECK: identity{{_[A-Za-z0-9_]+}}<int32_t>(41)

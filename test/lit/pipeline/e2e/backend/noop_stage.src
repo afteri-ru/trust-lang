@@ -1,0 +1,19 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %trust -q --noop-backend -o $TD/p %s && $TD/p | %FileCheck %s --check-prefix=OUT
+#
+# R37: стаб-стадия бэкенда подключена СТРОКОЙ `BACKEND_STAGE_LIST` и потребляет
+# `BackendRequest` (HIR) данными; её TU (`src/pipeline/backend/backend_noop.cpp`) не зависит от
+# `transpiler`/`stdlib`. Прогон на тестовой программе с `--noop-backend` не ломает конвейер и
+# по-прежнему собирает/исполняет артефакт (C++-стадия работает штатно).
+# OUT: noop-ok
+
+\std();
+@[export("run")@]
+run():Void := {
+    print("noop-ok");
+};
+{% int noop_stage__main__() {
+    run();
+    return 0;
+}
+%}

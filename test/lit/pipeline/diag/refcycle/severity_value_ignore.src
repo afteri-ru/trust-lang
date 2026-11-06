@@ -4,4 +4,4 @@
 # Управление severity: -Wrecursive-value=ignore подавляет value-цикл.
 :Node ::= :Class{ next : Node := _; };
 @main():Int32 := { return 0; };
-# CHECK: struct c_Node
+# CHECK: struct Node

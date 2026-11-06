@@ -1,0 +1,7 @@
+\\builtin\any;
+# builtin/any.src - implementation of the built-in Any type (std::any, RTTI-backed top type).
+# Loaded explicitly by the umbrella `\std();` (or `\\builtin\any();`). Required whenever Any is
+# MATERIALIZED (a value/parameter/field actually has type Any); the compiler-internal inference
+# sentinel is `Auto` (Group::kAuto) and never requires this module.
+@[include("any")@]
+Any = %std::any { };

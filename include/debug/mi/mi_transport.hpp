@@ -1,6 +1,5 @@
 #pragma once
 
-// include/debug/mi/mi_transport.hpp
 // Транспорт GDB/MI: запуск gdb --interpreter=mi2, запись команд с токенами и
 // построчное чтение ответов. Не знает ни о DAP, ни о trust-lang.
 

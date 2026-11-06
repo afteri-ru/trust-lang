@@ -3,6 +3,7 @@
 # Операторы сравнения типов: `<~` (номинальная is-a), `~~` (утиная), `~~~` (строгая).
 # Все операнды статически известны → результат свёрнут в константу true/false.
 # Наследование классов учитывается через реестр (baseClasses).
+\std();
 :Animal ::= :Class{
   age:Int32 := _;
 };
@@ -17,10 +18,10 @@ d4 := x <~ :Animal;
 d5 := x ~~ (age=_,);
 d6 := x ~~ (nope=_,);
 d7 := x ~~~ (age=_, breed=_,);
-# CHECK: bool c_d1 = (true);
-# CHECK: bool c_d2 = (false);
-# CHECK: bool c_d3 = (true);
-# CHECK: bool c_d4 = (true);
-# CHECK: bool c_d5 = (true);
-# CHECK: bool c_d6 = (false);
-# CHECK: bool c_d7 = (true);
+# CHECK: bool d1 = (true);
+# CHECK: bool d2 = (false);
+# CHECK: bool d3 = (true);
+# CHECK: bool d4 = (true);
+# CHECK: bool d5 = (true);
+# CHECK: bool d6 = (false);
+# CHECK: bool d7 = (true);

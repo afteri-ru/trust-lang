@@ -4,17 +4,16 @@
 # RUN: $TD/app && echo "PASS"
 # RUN: %trust -q --emit-cpp $TD/main.src > %t.cpp 2>&1
 # RUN: %FileCheck %s --check-prefix=CPP <%t.cpp
-# RUN: %FileCheck %s --check-prefix=HDR <$TD/b/lib.hpp
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/b/lib.hppt
 # CHECK: PASS
-# CPP: #include "lib.hpp"
+# CPP: #include "lib.hppt"
 #
 # Forward-тип в интерфейсе: клиент получает только предварительное объявление
-# (`struct c_Handle;`), полное определение остаётся в единице трансляции владельца.
+# (`struct Handle;`), полное определение остаётся в единице трансляции владельца.
 # Клиент вправе использовать такой тип только за невладеющей ссылкой.
 # HDR: #pragma once
-# HDR: namespace lib {
-# HDR: struct c_Handle;
-# HDR-NOT: c_Handle {
+# HDR: struct Handle;
+# HDR-NOT: Handle {
 
 //--- main.src
 \lib(Handle);

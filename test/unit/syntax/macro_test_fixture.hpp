@@ -9,6 +9,7 @@
 #include "syntax/macro.h"
 #include "syntax/lexer.h"
 #include "syntax/parser.h"
+#include "session/context.hpp"
 #include "transpiler/emit/diag.hpp"
 #include "utils/strings.hpp"
 

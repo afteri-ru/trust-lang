@@ -19,7 +19,6 @@
 namespace trust {
 namespace transport {
 
-// -- Базовый абстрактный интерфейс транспорта (общий для DAP и LSP) --
 class Transport {
   public:
     virtual ~Transport() = default;
@@ -48,8 +47,6 @@ class Transport {
     }
 };
 
-// -- Content-Length чтение (общий для LSP и DAP) --
-//
 // Максимальный размер одного LSP/DAP-пакета (байт). Защита от атаки
 // «Content-Length: <огромное>», которая иначе приводит к аллокации всего
 // объявленного объёма прямо из заголовка (OOM / memory DoS).
@@ -132,7 +129,6 @@ inline std::string readContentLengthPacket(int fd) {
     return body;
 }
 
-// -- StdioTransport (stdin/stdout) --
 // Читает пакеты НАПРЯМУЮ из fd 0 (без std::cin), чтобы poll на fd 0 был надёжным -
 // смешивание iostreams-буфера std::cin и poll(fd0) приводило к пропуску пакетов.
 class StdioTransport : public Transport {
@@ -146,7 +142,6 @@ class StdioTransport : public Transport {
     int pollFd() const override { return 0; }
 };
 
-// -- TcpTransport --
 class TcpTransport : public Transport {
   public:
     explicit TcpTransport(int fd)
@@ -193,8 +188,6 @@ class TcpTransport : public Transport {
   private:
     int fd_ = -1;
 };
-
-// -- TCP server helpers --
 
 inline int createTcpServer(int port) {
     int fd = ::socket(AF_INET, SOCK_STREAM, 0);

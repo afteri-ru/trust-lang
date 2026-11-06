@@ -3,6 +3,7 @@
 // interning key slot layout (variadic/pack/pack-position), C++ identity (deep aliases,
 // positional template binders, pack binders) and the deterministic C++ suffix.
 
+#include "support/cpp_facts_test_util.hpp"
 #include "types/call.hpp"
 #include "type_flag_test_utils.hpp"
 #include "types/group.hpp"
@@ -25,13 +26,15 @@ class FnIdentityFixture : public ::testing::Test {
     void SetUp() override {
         m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
+        test::installTargetFacts(m_ctx, m_target);
     }
     Context m_ctx;
     std::unique_ptr<TypeSystem> m_types;
+    TargetContract m_target;
 };
 
 TEST_F(FnIdentityFixture, SlotLayoutSeparatesVariadicFromFixedParameter) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId any = reg.read().getType(type_generic::Any);
     // f(a:Int32, b:Any) and f(a:Int32, ...) have the same flat children list.
@@ -42,7 +45,7 @@ TEST_F(FnIdentityFixture, SlotLayoutSeparatesVariadicFromFixedParameter) {
 }
 
 TEST_F(FnIdentityFixture, SlotLayoutSeparatesPackFromFixedParameter) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId fixed = reg.interner().getOrCreateFunctionType(i32, {t});
@@ -52,20 +55,23 @@ TEST_F(FnIdentityFixture, SlotLayoutSeparatesPackFromFixedParameter) {
     EXPECT_NE(pack, reg.interner().getOrCreateFunctionType(i32, {}, INVALID_TYPE_ID, false, t, 2));
 }
 
-TEST_F(FnIdentityFixture, NativeTemplateCppNameDistinguishesInstantiations) {
-    TypeSystem& reg = m_ctx.types();
+TEST_F(FnIdentityFixture, NativeTemplateIdentityUsesAbstractTemplate) {
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
-    const TypeId pair = reg.interner().getOrCreateNativeTemplateType("std::pair", {i32, i32});
-    const TypeId tuple = reg.interner().getOrCreateNativeTemplateType("std::tuple", {i32, i32});
+    const TypeId pairTpl = test::registerNativeTemplateFacts(reg, m_target, "PairTpl", "std::pair", {});
+    const TypeId tupleTpl = test::registerNativeTemplateFacts(reg, m_target, "TupleTpl", "std::tuple", {});
+    const TypeId pair = reg.interner().getOrCreateNativeTemplateType(pairTpl, {i32, i32});
+    const TypeId tuple = reg.interner().getOrCreateNativeTemplateType(tupleTpl, {i32, i32});
     ASSERT_NE(pair, INVALID_TYPE_ID);
     ASSERT_NE(tuple, INVALID_TYPE_ID);
     EXPECT_NE(pair, tuple);
-    EXPECT_EQ(reg.read().store().nativeTemplateCppName(pair), "std::pair");
-    EXPECT_EQ(reg.read().store().nativeTemplateCppName(tuple), "std::tuple");
+    // C++-имя — целевой факт (читается через абстрактный шаблон), НЕ часть языковой identity (R37).
+    EXPECT_EQ(test::cppFactsViewOf(m_ctx).nativeTemplateCppName(pair), "std::pair");
+    EXPECT_EQ(test::cppFactsViewOf(m_ctx).nativeTemplateCppName(tuple), "std::tuple");
 }
 
 TEST_F(FnIdentityFixture, UserAliasIsNominalButBuiltinAliasIsTransparent) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId alias = reg.registrar().registerType("MyInt", i32);
     ASSERT_NE(alias, INVALID_TYPE_ID);
@@ -89,7 +95,7 @@ TEST_F(FnIdentityFixture, UserAliasIsNominalButBuiltinAliasIsTransparent) {
 }
 
 TEST_F(FnIdentityFixture, TemplateBindersAreCanonicalizedByPosition) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId u = reg.interner().getOrCreateTemplateParamType("U");
@@ -115,7 +121,7 @@ TEST_F(FnIdentityFixture, TemplateBindersAreCanonicalizedByPosition) {
 }
 
 TEST_F(FnIdentityFixture, SameCppTypeUsesBinderPositions) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId u = reg.interner().getOrCreateTemplateParamType("U");
     const FunctionIdentity& identity = reg.identity();
@@ -128,7 +134,7 @@ TEST_F(FnIdentityFixture, SameCppTypeUsesBinderPositions) {
 }
 
 TEST_F(FnIdentityFixture, SuffixFormatAndStability) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId noParams = reg.interner().getOrCreateFunctionType(i32, {});
     const TypeId oneParam = reg.interner().getOrCreateFunctionType(i32, {i32});
@@ -139,7 +145,7 @@ TEST_F(FnIdentityFixture, SuffixFormatAndStability) {
 }
 
 TEST_F(FnIdentityFixture, CppIdentityIgnoresReturnTypeAndTrust) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const FunctionIdentity& identity = reg.identity();
@@ -157,7 +163,7 @@ TEST_F(FnIdentityFixture, CppIdentityIgnoresReturnTypeAndTrust) {
 TEST_F(FnIdentityFixture, RefOverTemplateParamIsNotThePlainParameter) {
     // Trap: applyRefType(T, shared) is a fast-path bit that keeps T's registry index, so the
     // TypeData of the reference is T's data. Identity must read the RefType kind FIRST.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId sharedT = reg.interner().applyRefType(t, RefType::kShared);
@@ -175,7 +181,7 @@ TEST_F(FnIdentityFixture, RefOverTemplateParamIsNotThePlainParameter) {
 TEST_F(FnIdentityFixture, OverloadIdentityIsPositionalForPermutedBinders) {
     // `<T,U> f(T,U)` and `<U,T> f(T,U)` share the same declared signature TypeId but are
     // DIFFERENT C++ templates (the used positions are (0,1) vs (1,0)).
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId u = reg.interner().getOrCreateTemplateParamType("U");
@@ -193,11 +199,11 @@ TEST_F(FnIdentityFixture, OverloadIdentityIsPositionalForPermutedBinders) {
 TEST_F(FnIdentityFixture, ParameterizedTypeIdentityIncludesTemplateMarker) {
     // TemplateTypeData identity = (template marker, ALL args). Interning knows the marker
     // (structuralKeyTag); the C++ code must know it too.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId range = reg.interner().getOrCreateRangeType(i32);
     const TypeId other =
-        reg.interner().getOrCreateStructuralType("", makeTypeKind(Group::kRanges, 1), {i32}, TypeData{TemplateTypeData{reg.read().getType(type_category::TemplateParam), {i32}}});
+        reg.interner().getOrCreateStructuralType("", makeTypeKind(Group::kRanges, 1), {TypeKeyChild{i32}}, TypeData{TemplateTypeData{reg.read().getType(type_category::TemplateParam), {i32}}});
     ASSERT_NE(other, INVALID_TYPE_ID);
     const FunctionIdentity& identity = reg.identity();
     EXPECT_FALSE(identity.sameSemanticType(range, other));
@@ -206,7 +212,7 @@ TEST_F(FnIdentityFixture, ParameterizedTypeIdentityIncludesTemplateMarker) {
 TEST_F(FnIdentityFixture, SuffixMatchesOverloadIdentity) {
     // The C++ suffix is a PROJECTION of the same segment list as the overload identity:
     // equal names <=> equal overload identity (one source, no drift).
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId str = reg.read().getType(type::StrChar);
@@ -245,7 +251,7 @@ TEST_F(FnIdentityFixture, SuffixMatchesOverloadIdentity) {
 TEST_F(FnIdentityFixture, PackPositionRequiresPackSlot) {
     // The pack position is meaningful only together with a pack type; a garbage position is
     // invalid input (EXPECT), never a silent part of the identity.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     EXPECT_THROW(reg.interner().getOrCreateFunctionType(i32, {}, INVALID_TYPE_ID, false, INVALID_TYPE_ID, 1), std::runtime_error);
@@ -256,7 +262,7 @@ TEST_F(FnIdentityFixture, PackPositionRequiresPackSlot) {
 TEST_F(FnIdentityFixture, SameTypeListDifferentSlotsHasDistinctNames) {
     // f(Int32, Any), f(Int32, ...) and f(Int32, Any...) share the flat type list {Int32, Any}
     // but are different signatures - the slot tags must keep both identity and names apart.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId any = reg.read().getType(type_generic::Any);
     const FunctionIdentity& identity = reg.identity();
@@ -273,7 +279,7 @@ TEST_F(FnIdentityFixture, SameTypeListDifferentSlotsHasDistinctNames) {
 }
 
 TEST_F(FnIdentityFixture, PolicyMatrixDistinguishesTrustAndInterop) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId alias = reg.registrar().registerType("MyInt", i32);
@@ -300,7 +306,7 @@ TEST_F(FnIdentityFixture, PolicyMatrixDistinguishesTrustAndInterop) {
 TEST_F(FnIdentityFixture, NestedFunctionTrustIsNotPartOfCppIdentity) {
     // C++ has no trust: a parameter whose type is a function WITH conditions is the same C++
     // type as one without. Interning still keeps them apart (the nested TypeId is a child).
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId plainCb = reg.interner().getOrCreateFunctionType(i32, {i32});
     const TypeId trustedCb = reg.interner().getOrCreateFunctionType(i32, {i32}, INVALID_TYPE_ID, /*hasTrust=*/true);
@@ -317,7 +323,7 @@ TEST_F(FnIdentityFixture, ParameterFlagsAreNotStoredInFunctionType) {
     // Behavioral flags (const/inferred/uninit) are occurrence qualifiers (QualType), NOT type
     // identity and NOT part of FunctionTypeData: `f(x^: Int32)` and `f(x: Int32)` share one
     // function TypeId whose parameter types are stored structurally.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const FunctionIdentity& identity = reg.identity();
     const TypeId withConstFirst = reg.interner().getOrCreateFunctionType(i32, {setFlag(i32, TypeFlag::Const)});
@@ -334,7 +340,7 @@ TEST_F(FnIdentityFixture, ParameterFlagsAreNotStoredInFunctionType) {
 TEST_F(FnIdentityFixture, TypeCodeCacheIsTransparentAcrossReset) {
     // The canonical-code cache is not observable state: recomputing after reset() yields the
     // same suffix. Builtin-only types are used because reset() drops user aliases.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId any = reg.read().getType(type_generic::Any);
     const FunctionIdentity& identity = reg.identity();
@@ -349,7 +355,7 @@ TEST_F(FnIdentityFixture, TypeCodeCacheIsTransparentAcrossReset) {
 TEST_F(FnIdentityFixture, ReturnAndTrustComparesAliasedReturn) {
     // Хвост контракта объявления: return type сравнивается по C++-identity (встроенный
     // representation-алиас прозрачен), trust-бит — отдельная часть контракта.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const auto integer = reg.read().findType("Integer");
@@ -365,21 +371,21 @@ TEST_F(FnIdentityFixture, ReturnAndTrustComparesAliasedReturn) {
 TEST_F(FnIdentityFixture, InternKeyMatchesStructuralTagDerivation) {
     // ОДИН источник layout слотов: путь getOrCreateStructuralType (tag выводится из TypeData)
     // и путь getOrCreateFunctionType (tag из аргументов) обязаны давать один и тот же TypeId.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId any = reg.read().getType(type_generic::Any);
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
 
     const TypeKind callable = makeTypeKind(Group::kCallable, 1);
-    const TypeId directVariadic = reg.interner().getOrCreateStructuralType("", callable, {i32, i32, any}, FunctionTypeData{i32, {i32}, any, INVALID_TYPE_ID, 0});
+    const TypeId directVariadic = reg.interner().getOrCreateStructuralType("", callable, {TypeKeyChild{i32}, TypeKeyChild{i32}, TypeKeyChild{any}}, FunctionTypeData{i32, {i32}, any, INVALID_TYPE_ID, 0});
     EXPECT_EQ(directVariadic, reg.interner().getOrCreateFunctionType(i32, {i32}, any));
 
-    const TypeId directPack = reg.interner().getOrCreateStructuralType("", callable, {i32, t}, FunctionTypeData{i32, {}, INVALID_TYPE_ID, t, 1});
+    const TypeId directPack = reg.interner().getOrCreateStructuralType("", callable, {TypeKeyChild{i32}, TypeKeyChild{t}}, FunctionTypeData{i32, {}, INVALID_TYPE_ID, t, 1});
     EXPECT_EQ(directPack, reg.interner().getOrCreateFunctionType(i32, {}, INVALID_TYPE_ID, false, t, 1));
 
     const TypeKind trustedCallable = setTrustFlag(makeTypeKind(Group::kCallable, 1));
     const TypeId directTrusted =
-        reg.interner().getOrCreateStructuralType("", trustedCallable, {i32, i32}, FunctionTypeData{i32, {i32}, INVALID_TYPE_ID, INVALID_TYPE_ID, 0});
+        reg.interner().getOrCreateStructuralType("", trustedCallable, {TypeKeyChild{i32}, TypeKeyChild{i32}}, FunctionTypeData{i32, {i32}, INVALID_TYPE_ID, INVALID_TYPE_ID, 0});
     EXPECT_EQ(directTrusted, reg.interner().getOrCreateFunctionType(i32, {i32}, INVALID_TYPE_ID, /*hasTrust=*/true));
 }
 
@@ -387,7 +393,7 @@ TEST_F(FnIdentityFixture, VoidReturnSpellingsAreOneCppType) {
     // Позиция ВОЗВРАТА: нет аннотации (INVALID), `Void` и `None` кодогенер эмитит как `void`,
     // поэтому для C++-идентичности это ОДИН тип (иначе forward/definition даёт ложный
     // SignatureMismatch). В позиции ПАРАМЕТРА правило другое: INVALID = нетипизированный Any.
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId voidType = reg.read().getType(type::Void);
     const TypeId noneType = reg.read().getType(type::None);
@@ -416,7 +422,7 @@ TEST_F(FnIdentityFixture, VoidReturnSpellingsAreOneCppType) {
 }
 
 TEST_F(FnIdentityFixture, CompareScopesDistinguishOverloadAndDeclaration) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType(type::Int32);
     const TypeId i64 = reg.read().getType(type::Int64);
     const TypeId sigRet32 = reg.interner().getOrCreateFunctionType(i32, {i32});
@@ -434,6 +440,34 @@ TEST_F(FnIdentityFixture, CompareScopesDistinguishOverloadAndDeclaration) {
     const TypeId sigAlias = reg.interner().getOrCreateFunctionType(i32, {alias});
     EXPECT_EQ(identity.compare(sigAlias, {}, sigRet32, {}, IdentityScope::kOverload), SignatureRelation::kDifferent);
     EXPECT_EQ(identity.compare(sigAlias, {}, sigRet32, {}, IdentityScope::kInterop), SignatureRelation::kEquivalent);
+}
+
+// R2/E6: одно вычисление на факт. `identityOf` идемпотентен (повтор по уже
+// канонизированному id даёт тот же id — единственный путь канонизации).
+TEST_F(FnIdentityFixture, IdentityOfIsIdempotentSinglePath) {
+    TypeSystem& reg = *m_types;
+    const TypeId i32 = reg.read().getType(type::Int32);
+    const TypeId arr = reg.interner().getOrCreateArrayType(i32);
+    const TypeStore& store = reg.read().store();
+    const TypeId once = store.identityOf(arr, TypeIdentityScope::kCanonical);
+    const TypeId twice = store.identityOf(once, TypeIdentityScope::kCanonical);
+    EXPECT_EQ(once, twice);
+}
+
+// R2/E6/R5: отношения идентичности детерминированы и идут единственным путём
+// (внутренний канонический код недоступен извне — проверяется через публичные `compare`/
+// `sameCppOverload`).
+TEST_F(FnIdentityFixture, IdentityRelationsAreDeterministicSinglePath) {
+    TypeSystem& reg = *m_types;
+    const TypeId i32 = reg.read().getType(type::Int32);
+    const TypeId sig1 = reg.interner().getOrCreateFunctionType(i32, {i32});
+    const TypeId sig2 = reg.interner().getOrCreateFunctionType(i32, {i32});
+    const FunctionIdentity& id = reg.identity();
+    const SignatureRelation r1 = id.compare(sig1, {}, sig2, {}, IdentityScope::kOverload);
+    const SignatureRelation r2 = id.compare(sig1, {}, sig2, {}, IdentityScope::kOverload);
+    EXPECT_EQ(r1, r2);
+    EXPECT_EQ(r1, SignatureRelation::kEquivalent);
+    EXPECT_TRUE(id.sameCppOverload(sig1, {}, sig2, {}));
 }
 
 } // namespace

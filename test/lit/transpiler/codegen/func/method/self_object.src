@@ -1,0 +1,11 @@
+# RUN: %trust -q --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Системное имя текущего объекта `$0` в теле метода: тип = сам record-тип, кодоген эмитит
+# приёмник метода `(*this)`. Вне метода `$0` недопустим.
+:Point ::= :Class{
+    x: Int32 := _;
+    samex(o: Point): Bool := { @return $0.x == o.x; };
+};
+@main():Int32 := { @return 0; }
+# CHECK: struct Point {
+# CHECK: return (((*this)).x == (o).x);

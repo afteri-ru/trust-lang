@@ -6,6 +6,7 @@
 
 # Перегрузка СВОБОДНОГО оператора: top-level `operator==`/`operator!=` выбирается
 # анализатором для выражений `a == b` / `a != b` с пользовательским типом.
+\std();
 :Point ::= :Class{ x: Int32 := _; };
 __eq__(a: Point, b: Point): Bool := { return true; };
 __ne__(a: Point, b: Point): Bool := { return false; };

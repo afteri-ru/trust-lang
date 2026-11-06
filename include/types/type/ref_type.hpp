@@ -1,8 +1,7 @@
 #pragma once
 
-// include/types/type/ref_type.hpp
 // Единый источник C++-представления ВИДА ССЫЛКИ (RefType) для кодогенерации.
-// Оба потребителя (TypeSystem::getCppTypeName и TypeEmitter::wrapRefKind) обязаны
+// Оба потребителя (CppTypeRenderer и TypeEmitter::wrapRefKind) обязаны
 // строить обёртку/суффикс только здесь, иначе при добавлении вида/backend'а они разойдутся.
 // Имена классов-обёрток берутся из X-macro refTypeCppTemplateName (types/typekind.hpp).
 
@@ -20,14 +19,14 @@ namespace trust {
 /// @param pointeeCpp  уже готовое C++-имя базового (pointee) типа.
 /// @param deleterCpp  C++-имя deleter'а внешнего ресурса - только для `unique` (D - часть типа);
 ///                    пусто - без deleter. Для прочих видов игнорируется.
-/// Sync-backend (trust::AccessShared<T,Policy>) композируется в TypeSystem::getCppTypeName:
+/// Sync-backend (trust::AccessShared<T,Policy>) композируется в CppTypeRenderer:
 /// там доступны РЕАЛЬНЫЕ типы обёртки/политики из реестра (строки имён сюда не передаются).
 /// kMptr не комбинируется с ref-видами (указатель на член рендерится отдельно) - возвращает pointee.
 [[nodiscard]] std::string refTypeCppName(RefType kind, std::string_view pointeeCpp, std::string_view deleterCpp = {});
 
 /// Рантайм-заголовки (в форме `@trust/...`), требуемые видом ссылки с учётом backend'а - ЕДИНЫЙ
-/// источник выбора инклюда для кодогенерации: shared/weak/unique -> `@trust/trusted-cpp.hpp`;
-/// при sync дополнительно `@trust/trusted-cpp-sync.hpp`; прочие виды (value/ptr/ref/...) -> пусто.
+/// источник выбора инклюда для кодогенерации: shared/weak/unique -> `@stdlib/trusted-cpp.hpp`;
+/// при sync дополнительно `@stdlib/trusted-cpp-sync.hpp`; прочие виды (value/ptr/ref/...) -> пусто.
 [[nodiscard]] std::vector<std::string_view> refTypeRuntimeIncludes(RefType kind, bool sync = false);
 
 /// Отображаемое имя вида ссылки (мнемоника `refTypeName`) для диагностик/дампов:

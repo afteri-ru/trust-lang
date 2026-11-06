@@ -1,4 +1,3 @@
-// src/semantic/core/pass.cpp
 // Агрегат прогона семантики: владение зонами ответственности и доступ к ним.
 // Вычислительной логики нет - каждая зона живёт в своём TU.
 #include "semantic/core/pass.hpp"
@@ -7,13 +6,14 @@
 
 namespace trust {
 
-AnalysisContext::AnalysisContext(Context& ctx)
+AnalysisContext::AnalysisContext(Context& ctx, TypeSystem& registry)
 : m_ctx(ctx)
+, m_registry(registry)
 , m_namespaces(ctx, m_symbols)
-, m_types(ctx, m_symbols, m_namespaces)
+, m_types(ctx, m_registry, m_symbols, m_namespaces)
 , m_facts(ctx, m_types) {
     // SymbolTable использует FunctionIdentity для C++-идентичности шаблонных сигнатур.
-    m_symbols.setTypes(ctx.types());
+    m_symbols.setTypes(m_registry);
 }
 
 bool AnalysisContext::hasErrors() const {

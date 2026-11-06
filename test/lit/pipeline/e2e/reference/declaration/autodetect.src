@@ -9,6 +9,7 @@
 #   `&& u := 10` → trust::Unique<T>;
 #   `&? w := & x` → trust::Weak<...> (weak из shared через address-of).
 
+\std();
 @main():Int32 := {
     &* x := 5;
     && u := 10;

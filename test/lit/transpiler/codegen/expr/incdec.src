@@ -4,12 +4,12 @@
 #   префикс (`++x`/`--x`) -> новое значение  => `(x += 1)` / `(x -= 1)`;
 #   постфикс (`x++`/`x--`) -> старое значение => материализуется низкоуровневой C++-лямбдой.
 x:Int32 := 10;
-# CHECK: int32_t c_x = 10;
+# CHECK: int32_t x = 10;
 y := x++;
-# CHECK-NEXT: int32_t c_y = (([&]{ auto __t = c_x; c_x += 1; return __t; }()));
+# CHECK-NEXT: int32_t y = (([&]{ auto __t = x; x += 1; return __t; }()));
 z := ++x;
-# CHECK-NEXT: int32_t c_z = ((c_x += 1));
+# CHECK-NEXT: int32_t z = ((x += 1));
 x--;
-# CHECK-NEXT: ([&]{ auto __t = c_x; c_x -= 1; return __t; }());
+# CHECK-NEXT: ([&]{ auto __t = x; x -= 1; return __t; }());
 --x;
-# CHECK-NEXT: (c_x -= 1);
+# CHECK-NEXT: (x -= 1);

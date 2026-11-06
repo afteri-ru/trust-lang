@@ -16,8 +16,8 @@
     d := p[4:Int64];
     @return 0;
 }
-# CHECK: bool operator==(int32_t c_o)
-# CHECK: bool operator==(int64_t c_o)
+# CHECK: bool operator==(int32_t o)
+# CHECK: bool operator==(int64_t o)
 # CHECK: .operator==(static_cast<int32_t>(1)
 # CHECK: .operator==(static_cast<int64_t>(2)
 # CHECK: [static_cast<int32_t>(3)]

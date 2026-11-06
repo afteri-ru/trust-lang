@@ -2,7 +2,14 @@ import os
 import lit.formats
 
 config.name = "trust-lit"
-config.test_format = lit.formats.ShTest(True)
+# Внешний shell обязателен: RUN-строки используют shell-присваивания и `$VAR`.
+# lit >= 23 deprecated execute_external; версии <= 22 принимают только позиционный True,
+# а >= 23 требуют явного force_execute_external. Выбор — по возможностям установленного lit,
+# чтобы смена номера версии LLVM не требовала правки конфигурации.
+try:
+    config.test_format = lit.formats.ShTest(execute_external=True, force_execute_external=True)
+except TypeError:
+    config.test_format = lit.formats.ShTest(True)
 config.test_source_root = os.path.normpath('@CMAKE_SOURCE_DIR@/test/lit')
 config.test_exec_root = os.path.normpath('@CMAKE_BINARY_DIR@/test/lit/Output')
 
@@ -25,6 +32,16 @@ _torch_cxx_flags = f'-I{_libtorch_include} -I{_libtorch_include}/torch/csrc/api/
 if os.path.exists(_pch_file):
     _torch_cxx_flags += f' -include-pch {_pch_file}'
 config.substitutions.append(('%cxx_torch_pch', '@CMAKE_CXX_COMPILER@ ' + _torch_cxx_flags))
+
+# -- Второй компилятор целевой матрицы (R47) --
+# Основной компилятор — @CMAKE_CXX_COMPILER@; второй выбирается на configure
+# (TRUST_SECOND_CXX). Отсутствие компилятора — ошибка конфигурации, а не пропуск теста;
+# `-DTRUST_SECOND_CXX=none` — единственный явный способ отключить ось.
+# ВАЖНО: определяется ПЕРЕД %cxx — иначе lit подставит короткий префикс `%cxx`.
+_second_cxx = '@TRUST_SECOND_CXX@'
+if _second_cxx and _second_cxx != 'none':
+    config.substitutions.append(('%cxx_gcc', os.path.normpath(_second_cxx)))
+    config.available_features.add('with-gxx')
 
 config.substitutions.append(('%cxx', '@CMAKE_CXX_COMPILER@ -std=c++@CMAKE_CXX_STANDARD@'))
 # Чистый путь к бинарю trust (без флагов) - для случаев, где %trust используется как путь (dirname).
@@ -50,6 +67,7 @@ config.excludes = [
     'variadic_error.src',
     'lexeme_next_error.src',
     r'/\.trust/',
+    '.trust',
 ]
 
 # -- Build-mode feature for debug-output tests --

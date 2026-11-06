@@ -1,5 +1,4 @@
 #pragma once
-// include/transpiler/emit/expr_emit_util.hpp
 // Внутренние строковые helper'ы эмиттеров выражений (общие для нескольких TU).
 
 #include <string>

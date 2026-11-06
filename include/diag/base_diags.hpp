@@ -1,6 +1,5 @@
 #pragma once
 
-// include/diag/base_diags.hpp
 // Базовые (diag-владение) диагностики, общие для нескольких компонентов:
 //   - Deprecated - диагностика использования устаревших возможностей;
 //   - ParseError - "синтаксическая"/ошибка определения, используется и transpiler, и types.
@@ -13,7 +12,9 @@
     M(Deprecated, "deprecated", Warning, "Use of a deprecated feature", WG_Wall | WG_Wextra | WG_Wdeprecated) \
     M(ParseError, "parse-error", Error, "Syntax error in the source", WG_None)                               \
     M(UnknownAttribute, "unknown-attributes", Error,                                                          \
-      "Unknown attribute name in @[...] (severity; silence with -Wunknown-attributes=ignore)", WG_None)
+      "Unknown attribute name in @[...] (severity; silence with -Wunknown-attributes=ignore)", WG_None)         \
+    M(StackCheckFnSymbol, "stack-check-fn-symbol", Warning,                                                    \
+      "Function name in --stack-check-functions / stack-check list is not declared in this translation unit; assuming an external linker symbol", WG_None)
 
 TRUST_DIAG_SET(trust::diag, DiagId, DIAG_BASE_LIST)
 

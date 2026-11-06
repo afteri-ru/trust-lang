@@ -15,7 +15,6 @@
 
 using json = nlohmann::json;
 
-// -- DAP handler --
 class DapHandler {
   public:
     DapHandler(trust::transport::Transport& transport, const DapOptions& opts);

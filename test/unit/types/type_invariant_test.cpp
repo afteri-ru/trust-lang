@@ -2,6 +2,7 @@
 // Инвариант identity/state: TypeId не несёт type-state-флагов в identity-операциях,
 // хеш структурный, точки входа реестра отвергают флаговые TypeId.
 
+#include "support/cpp_facts_test_util.hpp"
 #include "types/type_system.hpp"
 #include "type_flag_test_utils.hpp"
 #include "types/type_id.hpp"
@@ -21,9 +22,11 @@ class TypeInvariantFixture : public ::testing::Test {
   protected:
     Context m_ctx;
     std::unique_ptr<TypeSystem> m_types;
+    TargetContract m_target;
     void SetUp() override {
         m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
+        test::installTargetFacts(m_ctx, m_target);
     }
 };
 
@@ -64,10 +67,10 @@ TEST_F(TypeInvariantFixture, RecordFieldKeepsDeclaredConst) {
     const TypeId rec = m_types->registrar().defineRecord("ConstHolder", Group::kClassDefs, {{"x", cnst}});
     ASSERT_NE(rec, INVALID_TYPE_ID);
 
-    const auto* rd = m_types->read().store().recordData(rec);
-    ASSERT_NE(rd, nullptr);
-    ASSERT_EQ(rd->fields.size(), 1u);
-    EXPECT_TRUE(rd->fields[0].type.isConst());
+    const auto* fields = m_types->read().store().fieldsOf(rec);
+    ASSERT_NE(fields, nullptr);
+    ASSERT_EQ(fields->size(), 1u);
+    EXPECT_TRUE((*fields)[0].type.isConst());
 
     const QualType found = m_types->read().store().findField(rec, "x");
     EXPECT_TRUE(found.isValid());
@@ -134,7 +137,7 @@ TEST_F(TypeInvariantFixture, RegistryRejectsFlaggedMethodSignature) {
     const TypeId int32 = m_types->read().getType("Int32");
     const TypeId signature = m_types->interner().getOrCreateFunctionType(int32, {int32});
     const TypeId flagged = setFlag(signature, TypeFlag::Const);
-    EXPECT_THROW(m_types->methods().addMethod(int32, "%bad", flagged), std::runtime_error);
+    EXPECT_THROW(m_types->methods().addMethod(int32, "bad", flagged), std::runtime_error);
 }
 
 TEST_F(TypeInvariantFixture, QualTypeFromIdentityStripsFlags) {
@@ -173,7 +176,8 @@ TEST_F(TypeInvariantFixture, RegistryRejectsFlaggedRangeElement) {
 TEST_F(TypeInvariantFixture, RegistryRejectsFlaggedNativeTemplateArg) {
     const TypeId int32 = m_types->read().getType("Int32");
     const TypeId flagged = setFlag(int32, TypeFlag::Inferred);
-    EXPECT_THROW(m_types->interner().getOrCreateNativeTemplateType("%std::vector", {flagged}), std::runtime_error);
+    const TypeId vecTpl = test::registerNativeTemplateFacts(*m_types, m_target, "VecTpl", "%std::vector", {});
+    EXPECT_THROW(m_types->interner().getOrCreateNativeTemplateType(vecTpl, {flagged}), std::runtime_error);
 }
 
 TEST_F(TypeInvariantFixture, ByteAlignedLayout) {

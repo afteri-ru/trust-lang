@@ -1,6 +1,5 @@
 #pragma once
 
-// include/lsp/catalog/lsp_utils.hpp
 // Общие вспомогательные функции LSP, используемые сервисами hover/navigation
 // и TrustLsp. Не имеют состояния.
 

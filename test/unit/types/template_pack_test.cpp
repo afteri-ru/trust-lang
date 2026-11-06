@@ -2,6 +2,7 @@
 // Type-packs: PackExpansionTypeData, TemplateBindings, унификация trailing pack,
 // подстановка в одиночную позицию и splice в списковые аргументы.
 
+#include "support/cpp_facts_test_util.hpp"
 #include "types/type_system.hpp"
 #include "types/subst/template_subst.hpp"
 #include "types/call.hpp"
@@ -20,14 +21,16 @@ class TemplatePackFixture : public ::testing::Test {
   protected:
     Context m_ctx;
     std::unique_ptr<TypeSystem> m_types;
+    TargetContract m_target;
     void SetUp() override {
         m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
+        test::installTargetFacts(m_ctx, m_target);
     }
 };
 
 TEST_F(TemplatePackFixture, PackExpansionIsDistinctFromTemplateParam) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId pack = reg.interner().getOrCreatePackExpansionType(t);
     ASSERT_NE(pack, INVALID_TYPE_ID);
@@ -42,7 +45,7 @@ TEST_F(TemplatePackFixture, PackExpansionIsDistinctFromTemplateParam) {
 }
 
 TEST_F(TemplatePackFixture, FunctionTypeDistinguishesPackParam) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId plain = reg.interner().getOrCreateFunctionType(int32, {int32});
@@ -55,7 +58,7 @@ TEST_F(TemplatePackFixture, FunctionTypeDistinguishesPackParam) {
 }
 
 TEST_F(TemplatePackFixture, SubstitutionAndSplice) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId int64 = reg.read().getType(type::Int64);
@@ -74,11 +77,12 @@ TEST_F(TemplatePackFixture, SubstitutionAndSplice) {
 }
 
 TEST_F(TemplatePackFixture, UnifyNativeTemplateParameter) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
-    const TypeId taskT = reg.interner().getOrCreateNativeTemplateType("trust::Task", {t}, "");
+    const TypeId taskTpl = test::registerNativeTemplateFacts(reg, m_target, "TaskTpl", "trust::Task", {});
+    const TypeId taskT = reg.interner().getOrCreateNativeTemplateType(taskTpl, {t});
     const TypeId int32 = reg.read().getType(type::Int32);
-    const TypeId taskInt = reg.interner().getOrCreateNativeTemplateType("trust::Task", {int32}, "");
+    const TypeId taskInt = reg.interner().getOrCreateNativeTemplateType(taskTpl, {int32});
 
     TemplateDeduction ded;
     ASSERT_TRUE(unifyTemplateType(reg, taskT, taskInt, ded));
@@ -90,11 +94,12 @@ TEST_F(TemplatePackFixture, UnifyNativeTemplateParameter) {
 }
 
 TEST_F(TemplatePackFixture, UnifySignatureDeducesReturn) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
-    const TypeId taskT = reg.interner().getOrCreateNativeTemplateType("trust::Task", {t}, "");
+    const TypeId taskTpl = test::registerNativeTemplateFacts(reg, m_target, "TaskTpl", "trust::Task", {});
+    const TypeId taskT = reg.interner().getOrCreateNativeTemplateType(taskTpl, {t});
     const TypeId int32 = reg.read().getType(type::Int32);
-    const TypeId taskInt = reg.interner().getOrCreateNativeTemplateType("trust::Task", {int32}, "");
+    const TypeId taskInt = reg.interner().getOrCreateNativeTemplateType(taskTpl, {int32});
     const TypeId sig = reg.interner().getOrCreateFunctionType(t, {taskT});
 
     TemplateDeduction ded;
@@ -106,7 +111,7 @@ TEST_F(TemplatePackFixture, UnifySignatureDeducesReturn) {
 }
 
 TEST_F(TemplatePackFixture, UnboundReturnParameter) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId sig = reg.interner().getOrCreateFunctionType(t, {});
     TemplateDeduction ded;
@@ -116,7 +121,7 @@ TEST_F(TemplatePackFixture, UnboundReturnParameter) {
 }
 
 TEST_F(TemplatePackFixture, UnifyTrailingPackZeroOneMany) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId int64 = reg.read().getType(type::Int64);
@@ -152,7 +157,7 @@ TEST_F(TemplatePackFixture, UnifyTrailingPackZeroOneMany) {
 }
 
 TEST_F(TemplatePackFixture, VariadicAndPackIncompatible) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId sig = reg.interner().getOrCreateFunctionType(int32, {}, int32, false, t, 1);
@@ -163,18 +168,19 @@ TEST_F(TemplatePackFixture, VariadicAndPackIncompatible) {
 }
 
 TEST_F(TemplatePackFixture, SubstituteNativeTemplateSplice) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId int64 = reg.read().getType(type::Int64);
     const TypeId pack = reg.interner().getOrCreatePackExpansionType(t);
-    const TypeId tuple = reg.interner().getOrCreateNativeTemplateType("std::tuple", {pack}, "#include <tuple>");
+    const TypeId tupleTpl = test::registerNativeTemplateFacts(reg, m_target, "TupleTpl", "std::tuple", {}, "#include <tuple>");
+    const TypeId tuple = reg.interner().getOrCreateNativeTemplateType(tupleTpl, {pack});
 
     TemplateBindings bindings;
     bindings.push_back(TemplateBinding{t, true, {int32, int64}});
     const TypeId sub = substituteTemplateParams({reg.read(), reg.interner()}, bindings, tuple);
     ASSERT_TRUE(reg.read().store().isNativeTemplateType(sub));
-    EXPECT_EQ(reg.read().store().nativeTemplateCppName(sub), "std::tuple");
+    EXPECT_EQ(test::cppFactsViewOf(m_ctx).nativeTemplateCppName(sub), "std::tuple");
     const auto& args = reg.read().store().nativeTemplateArgs(sub);
     ASSERT_EQ(args.size(), 2u);
     EXPECT_EQ(args[0], int32);
@@ -188,7 +194,7 @@ TEST_F(TemplatePackFixture, SubstituteNativeTemplateSplice) {
 }
 
 TEST_F(TemplatePackFixture, SubstituteStructuralTupleElement) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId t = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId tuple = reg.interner().getOrCreateTupleType({{"", QualType::fromTypeId(t)}});

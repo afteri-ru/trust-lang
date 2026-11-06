@@ -1,6 +1,6 @@
-// src/pipeline/modules/modules.cpp
 // Модульные единицы трансляции: корневой узел, прогон модуля, выводы и файлы.
 #include "pipeline/pipeline.hpp"
+#include "ast/declaration_ids.hpp"
 #include "pipeline/backend/stages.hpp"
 #include "pipeline/paths/paths.hpp"
 #include "ast/ast_nodes.hpp"
@@ -8,16 +8,18 @@
 #include "module_loader/import_exports.hpp"
 #include "module_loader/module_export.hpp"
 #include "module_loader/module_loader.hpp"
+#include "semantic/analysis_api.hpp"
 #include "session/context.hpp"
 #include "syntax/term/term.h"
+#include "transpiler/transpiler.hpp"
 #include "utils/utils.hpp"
 #include "diag/diag.hpp"
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 namespace trust {
-// -- checkExportedGenericDeclarations: declaration-only форма не выражает шаблоны --
 
 void Pipeline::checkExportedGenericDeclarations(ModuleIndex mainModuleIndex) {
     for (std::size_t i = 0; i < loader().moduleCount(); ++i) {
@@ -32,15 +34,16 @@ void Pipeline::checkExportedGenericDeclarations(ModuleIndex mainModuleIndex) {
             }
             const FuncDecl& fn = *entry.node->as<FuncDecl>();
             const bool generic = fn.m_templateParams.has_value() && !fn.m_templateParams->empty();
-            if (!generic || fn.m_body.has_value()) {
+            if (!generic || fn.hasBody()) {
                 continue;
             }
-            // Native-импорты (`%name`) не эмитят C++-функцию: тела не требуется.
-            if (fn.m_isNativeImport || fn.m_isNativeTemplateImport || fn.m_isNativeTemplateCtor) {
+            // Native-импорты (`:= %cpp ...`) не эмитят C++-функцию: тела не требуется.
+            if (fn.isNativeImport()) {
                 continue;
             }
             // H-модель: определение обязано быть в ЭТОМ ЖЕ модуле, иначе заголовок невыразим.
-            const AstNodePtr definition = facts.findFunctionDefinition(entry.qualifiedName, fn.m_cppSuffix);
+            const AstNodePtr definition = facts.findFunctionDefinition(entry.qualifiedName, m_ctx.declCppFacts().cppSuffixOf(fn.declId()),
+                                                                       [this](const FuncDecl& f) { return m_ctx.declCppFacts().cppSuffixOf(f.declId()); });
             if (definition) {
                 continue;
             }
@@ -52,24 +55,81 @@ void Pipeline::checkExportedGenericDeclarations(ModuleIndex mainModuleIndex) {
     }
 }
 
-std::vector<AstNodePtr> Pipeline::buildModuleRoot(const std::string& moduleName, ModuleIndex idx) {
+namespace {
+
+/// C++-ключ определения (для детекции коллизий) либо пусто для «не определение».
+/// multiple definition дают только определения; для функций ключ включает identity-суффикс —
+/// перегрузки одной функции имеют разные C++-имена и коллизией не являются.
+[[nodiscard]] std::optional<std::string> cppDefinitionKey(const AstNodePtr& node, std::string_view qualifiedName, const DeclCppFacts& facts) {
+    if (node->is<FuncDecl>()) {
+        const auto& fn = *node->as<FuncDecl>();
+        if (!fn.hasBody() || fn.aliasKind() != AliasKind::None || fn.bindsNativeCpp()) {
+            return std::nullopt;
+        }
+        return std::string(qualifiedName) + std::string(facts.cppSuffixOf(fn.declId()));
+    }
+    if (node->is<VarDecl>()) {
+        return node->as<VarDecl>()->m_initializer != nullptr ? std::optional<std::string>(qualifiedName) : std::nullopt;
+    }
+    // struct/class с телом (не forward): повторное определение в C++ — ODR-нарушение.
+    if (node->kind() == ParserToken::Kind::TypeDecl && isRecordTypeDecl(node, /*wantBody=*/true)) {
+        return std::string(qualifiedName);
+    }
+    return std::nullopt;
+}
+
+} // namespace
+
+void Pipeline::checkCrossModuleCollisions() {
+    std::unordered_map<std::string, ModuleIndex> ownerOf;
+    for (std::size_t i = 0; i < loader().moduleCount(); ++i) {
+        const ModuleIndex idx{i};
+        if (!loader().isLoaded(idx)) {
+            continue;
+        }
+        for (const ExportEntry& entry : loader().interfaceFacts(idx).entries) {
+            if (!entry.node) {
+                continue;
+            }
+            const std::optional<std::string> key = cppDefinitionKey(entry.node, entry.qualifiedName, m_ctx.declCppFacts());
+            if (!key.has_value()) {
+                continue;
+            }
+            // Владелец объявления, а не модуль-фасад: реэкспорт не должен считаться вторым определением.
+            const ModuleIndex owner = entry.node->module.isValid() ? entry.node->module : idx;
+            const auto [it, inserted] = ownerOf.emplace(*key, owner);
+            if (inserted || it->second == owner) {
+                continue;
+            }
+            m_ctx.diag().report(Severity::Error, entry.node->range(),
+                                "exported name '{}' is defined in multiple modules ({} and {}): generated C++ names are module-independent, "
+                                "so the definitions collide; move one into a namespace ('ns:: {{ ... }}')",
+                                entry.qualifiedName, loader().moduleLogicalName(it->second), loader().moduleLogicalName(owner));
+        }
+    }
+}
+
+std::vector<AstNodePtr> Pipeline::buildModuleRoot(ModuleIndex idx) {
     // Root node of the module is a ModuleNode wrapping the module body. Тело модуля уже
     // сконвертировано загрузчиком (одна AST на модуль) - берём те же узлы.
-    auto modTerm = Term::Create(TermID::MODULE, moduleName);
+    // Имя корня — ЛОГИЧЕСКАЯ идентичность модуля (заголовок/stem), НЕ путь ФС: путь зависит от
+    // cwd и сделал бы dump/диагностики нестабильными (относительные каталоги запрещены).
+    auto modTerm = Term::Create(TermID::MODULE, std::string(loader().moduleLogicalName(idx)));
     auto mn = std::make_shared<ModuleNode>(idx, std::move(modTerm));
     EXPECT(loader().isLoaded(idx) && "module body must be converted by the loader");
     mn->m_body = loader().bodyAst(idx);
     std::vector<AstNodePtr> roots;
     roots.push_back(std::move(mn));
+    // Идентичность объявлений (R23): назначает владелец представления — детерминированно, в порядке
+    // объявлений модуля-владельца (идемпотентно; порядок загрузки независимых модулей на id не влияет).
+    assignDeclarationIds(roots, loader().moduleLogicalName(idx), &m_ctx.declCppFacts());
     return roots;
 }
-
-// -- runFrontend: ParseAST -> AST -> error-gate -> Semantic -> symbols --
 
 Pipeline::ModuleUnitLowering Pipeline::lowerModuleUnit(ModuleIndex moduleIdx) {
     ModuleUnitLowering unit;
     // Корневой узел модуля с полным телом (определения) - отдельная единица трансляции.
-    unit.astNodes = buildModuleRoot(std::string(loader().modulePath(moduleIdx)), moduleIdx);
+    unit.astNodes = buildModuleRoot(moduleIdx);
     resolveImportExports(m_ctx, loader(), unit.astNodes); // вложенные импорты внутри модуля
 
     if (m_ctx.diag().errorCount() > 0) {
@@ -78,9 +138,9 @@ Pipeline::ModuleUnitLowering Pipeline::lowerModuleUnit(ModuleIndex moduleIdx) {
     // Семантика уже выполнена в главном юните над ТЕМИ ЖЕ (разделяемыми) узлами AST:
     // модульный юнит - codegen-проекция. Повторный semantic/flow-прогон не выполняется,
     // поэтому повторной регистрации типов/символов и дублей диагностик нет.
-    LoweredUnit lowered = lowerAndAnalyze(unit.astNodes, /*verify=*/true, /*runFlow=*/false);
-    unit.hir = std::move(lowered.hir);
-    // Ошибки верификатора HIR тоже останавливают кодогенерацию.
+    // ЕДИНСТВЕННАЯ точка построения HIR — `buildLoweredHir` (та же, что у LowerHir-фазы).
+    unit.hir = buildLoweredHir(unit.astNodes, /*verify=*/true);
+    // Ошибки верификатора HIR тоже останавливают кодогенерацию (hir остаётся пустым).
     if (m_ctx.diag().errorCount() > 0) {
         return unit;
     }
@@ -107,7 +167,9 @@ std::optional<PipelineResult> Pipeline::runCppToFile(MapperFile inputFile) {
     return result;
 }
 
-// -- generateModuleOutputs: артефакты исходных модулей (`.hpp` + `.cppt`) --
+std::string Pipeline::moduleLogicalName(ModuleIndex idx) const {
+    return std::string(loader().moduleLogicalName(idx));
+}
 
 Pipeline::ModuleOutputs Pipeline::generateModuleOutputs(ModuleIndex mainModuleIndex) {
     namespace fs = std::filesystem;
@@ -153,9 +215,10 @@ Pipeline::ModuleOutputs Pipeline::generateModuleOutputs(ModuleIndex mainModuleIn
         }
         // Единый C++-бэкенд с главным юнитом: модульный `.cppt` — проекция готовых фактов.
         // `&*header` передаёт `#include` своего заголовка и набор опубликованных им объявлений.
-        backend::BackendServices services{m_ctx, m_opts, loader()};
+        backend::BackendServices services{m_ctx.runServices(), m_opts, loader()};
         backend::CppArtifact artifact = backend::emitCppArtifact(
-            services, backend::CodegenRequest{*unit.hir, backend::CppTarget{outputIdx, modPath}, /*entryFunctionName=*/std::nullopt, /*programRecord=*/{}, &*header});
+            services, backend::CodegenRequest{*unit.hir, backend::CppTarget{outputIdx, modPath}, /*entryFunctionName=*/std::nullopt,
+                                              /*programRecord=*/{}, &*header, codegenModes(semantic::behavioralModesFromOptions(m_ctx.opts()), m_ctx.opts())});
         if (!artifact.saved) {
             out.ok = false; // диагностика уже выдана (codegen/запись)
             return out;

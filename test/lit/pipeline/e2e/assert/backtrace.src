@@ -6,7 +6,9 @@
 
 # assert(cond) при -Wassert -Wbacktrace: после сообщения печатается стек вызовов.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     assert( 1 == 0 );
 };
 {% int backtrace__main__() {

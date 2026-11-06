@@ -1,10 +1,8 @@
 #pragma once
 
-// include/ir/cfg.hpp
 // CFG поверх HIR: граф базовых блоков ПОВЕРХ понижённой формы (сахар уже развёрнут).
 // Форма графа параметризована типом элемента (BasicBlockT<Element>/CfgT<Element>);
 // MIR-адаптер задаётся алиасами FlowBlock/ControlFlowGraph.
-//
 // Контракт:
 //   * Вход — функция из HIR (`hir::buildHir`): `SemicolonStmt`, goto-метки и временные
 //     анализатора уже материализованы. Исходная AST (pre-lowering) в CFG не подаётся.

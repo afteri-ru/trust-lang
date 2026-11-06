@@ -1,5 +1,6 @@
 #include "types/type_read.hpp"
 #include "semantic/typer/access_resolver.hpp"
+#include "semantic/typer/member_access.hpp"
 #include "semantic/core/name_resolution.hpp"
 #include "semantic/typer/ellipsis.hpp"
 #include "semantic/typer/overload_call.hpp"
@@ -44,7 +45,7 @@ void AccessResolver::analyzeAccess(Binary& n) {
         handleMethodCall(n);
         return;
     }
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     const TypeId leftT = n.m_left ? reg.store().desugaredTypeId(m_actx.facts().exprType(*n.m_left)) : INVALID_TYPE_ID;
     if (resolveObjectAccess(n, leftT)) {
         return;
@@ -54,7 +55,7 @@ void AccessResolver::analyzeAccess(Binary& n) {
 
 // Кортеж/массив/тензор/enum/native-поле/record-поле: true — узел обработан.
 bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
-    const TypeReadModel& treg = m_actx.ctx().types();
+    const TypeReadModel& treg = m_actx.registry();
     if (leftT != INVALID_TYPE_ID && treg.store().isTypeDataKind(leftT, TypeDataKind::kTuple)) {
         resolveTupleAccess(n, leftT);
         return true;
@@ -74,7 +75,7 @@ bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
     // native-класса контейнерной семантики нет, поэтому без этой ветки `a[i]` уходил бы в словарь.
     if (n.kind() == ParserToken::Kind::ArrayAccess && leftT != INVALID_TYPE_ID &&
         (treg.store().isRecordType(leftT) || treg.store().isNativeClassType(leftT) || treg.store().isNativeTemplateType(leftT)) &&
-        treg.methods().findMethodInfo(leftT, op::functionNameOfSymbol("[]")).has_value()) {
+        treg.methods().findMethodInfo(leftT, op::indexFunctionName()).has_value()) {
         resolveSubscriptOperatorAccess(n, leftT);
         return true;
     }
@@ -82,7 +83,7 @@ bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
     // (не уходим в словарный путь `.at()`, который для такого типа невалиден).
     if (n.kind() == ParserToken::Kind::ArrayAccess && leftT != INVALID_TYPE_ID &&
         (treg.store().isRecordType(leftT) || treg.store().isNativeClassType(leftT) || treg.store().isNativeTemplateType(leftT))) {
-        m_actx.ctx().diag().report(Severity::Error, n.range(), "type '{}' has no operator '[]'", treg.printer().getTypeName(leftT));
+        m_actx.ctx().diag().report(Severity::Error, n.range(), "type '{}' has no operator '[]'", treg.printer().typeNameOf(leftT));
         n.resultType = n.commonType = QualType{};
         m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
         if (n.m_right) {
@@ -106,7 +107,7 @@ bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
                 }
             }
             if (!found) {
-                m_actx.ctx().diag().report(Severity::Error, n.range(), "enum '{}' has no member '{}'", treg.printer().getTypeName(leftT), mname);
+                m_actx.ctx().diag().report(Severity::Error, n.range(), "enum '{}' has no member '{}'", treg.printer().typeNameOf(leftT), mname);
                 n.resultType = n.commonType = QualType{};
                 m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
             } else {
@@ -131,7 +132,7 @@ bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
                 }
             }
             if (mtype == INVALID_TYPE_ID) {
-                m_actx.ctx().diag().report(Severity::Error, n.range(), "variant '{}' has no member '{}'", treg.printer().getTypeName(leftT), mname);
+                m_actx.ctx().diag().report(Severity::Error, n.range(), "variant '{}' has no member '{}'", treg.printer().typeNameOf(leftT), mname);
                 n.resultType = n.commonType = QualType{};
                 m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
             } else {
@@ -157,7 +158,7 @@ bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
                 const auto* sfd = treg.store().getTypeDataAs<FunctionTypeData>(statics.front());
                 const TypeId rtype = sfd ? sfd->returnType : INVALID_TYPE_ID;
                 if (rtype != INVALID_TYPE_ID) {
-                    const std::string tname = std::string(treg.printer().getTypeName(declaredType));
+                    const std::string tname = std::string(treg.printer().typeNameOf(declaredType));
                     m_actx.ctx().report(n.range(), semantic::DiagId::StaticMemberAsField, "static member '{}' accessed as an instance field; use '{}::{}'",
                                         name, tname, name);
                     n.resultType = n.commonType = QualType::fromTypeId(rtype);
@@ -178,7 +179,8 @@ bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
         // Поле как член типа: ключ `%field` (как у метода); тип поля - returnType члена.
         // Поле однозначно: ровно одна сигнатура (перегруженное имя полем не является).
         if (const auto mi = treg.methods().findMethodInfo(leftT, requiredText(*n.m_right)); mi && mi->entries.size() == 1) {
-            const std::vector<TypeId> memberSigs = effectiveMethodSignatures(m_actx.ctx().types(), leftT, *mi);
+            checkMemberAccess(m_actx, n.range(), mi->owner, leftT, mi->entries.front().access, requiredText(*n.m_right));
+            const std::vector<TypeId> memberSigs = effectiveMethodSignatures(m_actx.registry(), leftT, *mi);
             const TypeId memberSig = memberSigs.front();
             if (const auto* fd = treg.store().getTypeDataAs<FunctionTypeData>(memberSig)) {
                 ftype = fd->returnType;
@@ -187,7 +189,7 @@ bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
         // У нативного поля тип не может быть неопределённым: не найден член или тип INVALID -
         // явная ошибка, а НЕ тихий `Any` (см. правило «нет fallback для невалидных данных»).
         if (ftype == INVALID_TYPE_ID) {
-            const std::string tname = std::string(treg.printer().getTypeName(leftT));
+            const std::string tname = std::string(treg.printer().typeNameOf(leftT));
             m_actx.ctx().diag().report(Severity::Error, n.range(), "type '{}' has no field '{}'", tname, requiredText(*n.m_right));
             n.resultType = n.commonType = QualType{};
             m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
@@ -198,13 +200,13 @@ bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
         return true;
     }
     // Доступ к ПОЛЮ пользовательского Record-типа (Struct/Class): `obj.field` → `(obj).c_field`.
-    // Тип поля - из RecordTypeData с обходом базовых классов (наследование). Тип объекта
+    // Тип поля даёт аксессор формы владельца (обход базовых классов — внутри `types`). Тип объекта
     // сохраняем в lhsType (кодген эмитит прямое `.`-обращение к члену struct). Не найдено - ошибка.
     if (n.kind() == ParserToken::Kind::MemberAccess && n.m_right && leftT != INVALID_TYPE_ID && treg.store().isRecordType(leftT)) {
         n.lhsType = QualType::fromTypeId(leftT);
         const QualType ftype = treg.store().findField(leftT, requiredText(*n.m_right));
         if (!ftype.isValid()) {
-            const std::string tname = std::string(treg.printer().getTypeName(leftT));
+            const std::string tname = std::string(treg.printer().typeNameOf(leftT));
             m_actx.ctx().diag().report(Severity::Error, n.range(), "type '{}' has no field '{}'", tname, requiredText(*n.m_right));
             n.resultType = n.commonType = QualType{};
             m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
@@ -212,6 +214,11 @@ bool AccessResolver::resolveObjectAccess(Binary& n, TypeId leftT) {
         }
         n.resultType = n.commonType = ftype;
         m_actx.facts().setExprState(&n, ftype);
+        // C++-доступ: private/protected член доступен только из тела владельца (protected — и его
+        // наследников). Уровень берётся из реестра (поставлен семантикой из объявления поля).
+        if (const auto acc = treg.store().findFieldAccess(leftT, requiredText(*n.m_right))) {
+            checkMemberAccess(m_actx, n.range(), acc->owner, leftT, acc->access, requiredText(*n.m_right));
+        }
         return true;
     }
     return false;
@@ -246,12 +253,11 @@ void AccessResolver::resolveDictAccess(Binary& n) {
     m_actx.facts().setExprType(&n, t);
 }
 
-// -- Доступ к элементу кортежа: t.name / t.0 / t[idx] --
 // Левый операнд - структурный Tuple-тип (TupleTypeData). Резолвим имя/статический индекс в
 // списке элементов; тип результата = тип элемента. Для динамического индекса `t[expr]`
 // (без константы) - статически нерезолвимо (std::get требует константу) → диагностика.
 void AccessResolver::resolveTupleAccess(Binary& n, TypeId tupleType) {
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     const auto* td = reg.store().getTypeDataAs<TupleTypeData>(tupleType);
     EXPECT(td && "resolveTupleAccess: not a structural tuple type");
     int64_t index = -1;
@@ -294,7 +300,7 @@ void AccessResolver::resolveTupleAccess(Binary& n, TypeId tupleType) {
 // Тип результата = элементный тип массива (ArrayTypeData::elementType). Статический индекс
 // (литерал) проверяется по известной размерности массива. Индекс-выражение анализируется.
 void AccessResolver::resolveArrayAccess(Binary& n, TypeId arrayType) {
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     const TypeId et = reg.store().arrayElementType(arrayType);
     // Индекс - выражение: анализируем/типизируем (для `a[expr]`).
     if (n.m_right) {
@@ -319,7 +325,7 @@ void AccessResolver::resolveArrayAccess(Binary& n, TypeId arrayType) {
 // Индексация тензора: `t[i]`, `t[i,j]`, `t[1..3]`. Полный список индексов - n.m_indices
 // (для одиночного - m_right). Результат: элемент (все индексы) либо тензор-срез (Range).
 void AccessResolver::resolveTensorAccess(Binary& n, TypeId tensorType) {
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     const TypeId elem = reg.read().store().tensorElementType(tensorType);
     const auto& dims = reg.read().store().tensorDimensions(tensorType);
     std::vector<AstNodePtr> indices = n.m_indices;
@@ -404,9 +410,6 @@ void AccessResolver::resolveTensorAccess(Binary& n, TypeId tensorType) {
 bool AccessResolver::resolveTensorMethodCall(Binary& n, TypeId tensorType) {
     auto& call = static_cast<CallExpr&>(*n.m_right);
     std::string name = call.m_callee ? std::string(requiredText(*call.m_callee)) : std::string();
-    if (!name.empty() && name.front() == '%') {
-        name.erase(0, 1);
-    }
     const bool isSum = name == "sum";
     const bool isMatmul = name == "matmul";
     const bool isReshape = name == "reshape";
@@ -421,7 +424,7 @@ bool AccessResolver::resolveTensorMethodCall(Binary& n, TypeId tensorType) {
             }
         }
     }
-    TypeSystem& reg = m_actx.ctx().types();
+    TypeSystem& reg = m_actx.registry();
     const TypeId elem = reg.read().store().tensorElementType(tensorType);
     n.lhsType = QualType::fromTypeId(tensorType);
     auto finish = [&](TypeId result) {
@@ -511,8 +514,8 @@ void AccessResolver::resolveSubscriptOperatorAccess(Binary& n, TypeId objType) {
     if (n.m_right) {
         m_core.analyzeNode(n.m_right);
     }
-    TypeSystem& reg = m_actx.ctx().types();
-    const auto method = reg.read().methods().findMethodInfo(objType, op::functionNameOfSymbol("[]"));
+    TypeSystem& reg = m_actx.registry();
+    const auto method = reg.read().methods().findMethodInfo(objType, op::indexFunctionName());
     EXPECT(method.has_value() && "resolveSubscriptOperatorAccess: '__getitem__' must be declared on the type");
     // `[]`: ВСЕГДА через единый конвейер (включая native single-signature): арность/тип индекса
     // проверяет анализатор, C++-делегации без проверки нет. Разрешение - общий вход
@@ -522,10 +525,10 @@ void AccessResolver::resolveSubscriptOperatorAccess(Binary& n, TypeId objType) {
         argTypes.push_back(m_actx.facts().exprType(*n.m_right));
     }
     const std::vector<TypeId> sigs = effectiveMethodSignatures(reg, objType, *method);
-    const CallFailureText failure{std::format("call to overloaded operator '[]' of '{}' is ambiguous", reg.read().printer().getTypeName(objType)),
-                                  std::format("no matching overload for operator '[]' of '{}'", reg.read().printer().getTypeName(objType)),
+    const CallFailureText failure{std::format("call to overloaded operator '[]' of '{}' is ambiguous", reg.read().printer().typeNameOf(objType)),
+                                  std::format("no matching overload for operator '[]' of '{}'", reg.read().printer().typeNameOf(objType)),
                                   std::format("operator '[]' of native template '{}' cannot be instantiated: multiple type parameters are not supported",
-                                              reg.read().printer().getTypeName(objType))};
+                                              reg.read().printer().typeNameOf(objType))};
     const auto resolved = resolveCallablePositional(m_actx, sigs, argTypes, n.range(), failure);
     if (!resolved.has_value()) {
         n.resultType = n.commonType = QualType{};
@@ -538,7 +541,7 @@ void AccessResolver::resolveSubscriptOperatorAccess(Binary& n, TypeId objType) {
     const TypeId ret = fd->returnType;
     if (ret == INVALID_TYPE_ID) {
         // void operator[] не даёт значения в выражении - явная ошибка (без тихого Any).
-        m_actx.ctx().diag().report(Severity::Error, n.range(), "operator '[]' of '{}' must return a value", reg.read().printer().getTypeName(objType));
+        m_actx.ctx().diag().report(Severity::Error, n.range(), "operator '[]' of '{}' must return a value", reg.read().printer().typeNameOf(objType));
         n.resultType = n.commonType = QualType{};
         m_actx.facts().setExprType(&n, INVALID_TYPE_ID);
         return;

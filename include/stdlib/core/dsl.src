@@ -1,4 +1,4 @@
-\\\stdlib\stdlib\dsl;
+\dsl;
 @__OPTION_PUSH__;
 @__OPTION__("macro-redefined", "ignore");
 
@@ -43,13 +43,13 @@
 @__OPTION_FALSE__("assert" ( @$cond ))
 @@@@;
 
-## Контроль переполнения стека - ОТДЕЛЬНЫЕ ФУНКЦИИ (реальные C++-функции рантайма, `%`-префикс):
-##   %trust_stack_check(N)              - свободно >= N + reserve         (check_overflow(N))
-##   %trust_stack_check()               - свободно >= m_stack_limit + reserve (check_stack_limit())
-##   %trust_stack_check_set_reserve(N)  - установить минимальный резерв reserve (set_reserve(N))
-##   %trust_stack_check_get_reserve()   - текущий резерв (get_reserve())
-##   %trust_stack_check_get_limit()     - текущий m_stack_limit (get_limit())
-##   %trust_stack_check_set_limit(f1,..)- ограничить m_stack_limit перечисленными функциями (set_limit)
+## Контроль переполнения стека - ОТДЕЛЬНЫЕ ФУНКЦИИ (реальные C++-функции рантайма):
+##   trust_stack_check(N)              - свободно >= N + reserve         (check_overflow(N))
+##   trust_stack_check()               - свободно >= m_stack_limit + reserve (check_stack_limit())
+##   trust_stack_check_set_reserve(N)  - установить минимальный резерв reserve (set_reserve(N))
+##   trust_stack_check_get_reserve()   - текущий резерв (get_reserve())
+##   trust_stack_check_get_limit()     - текущий m_stack_limit (get_limit())
+##   trust_stack_check_set_limit(f1,..)- ограничить m_stack_limit перечисленными функциями (set_limit)
 ## Атрибуты функции `@[stack_check@]`/`@[stack_check(N)@]` вставляют проверку автоматически перед
 ## каждым вызовом помеченной функции. Управление: --stack-check=<off|explicit|recursion|auto>.
 ## 
@@ -108,21 +108,16 @@
 @@ func_sync $... { @@ @attr(sync) @$... := { @@@@;
 @@ func_thread $... { @@ @attr(thread) @$... := { @@@@;
 
-## Импорт нативного имени (связывание trust-имени с нативным символом):
-##   @extern abs(x:Int32):Int32  →  abs(x:Int32):Int32 := %abs ...
-## trust-имя = нативное имя (без префикса '%'); сигнатура - после имени.
-@macro extern $name $... @macro_body @$name @$... := % @$name ... @macro_end;
-
 ## Предварительное объявление (forward-declaration):
 ##   @forward open(path:StrChar, flags:Int32):Int32  →  open(path:StrChar, flags:Int32):Int32 := ...
 ##   @forward x :Int32                               →  x :Int32 := ...
 ## Имя указывается ПЕРВЫМ, тип/сигнатура - после него; тело - многоточие.
 @macro forward $name $... @macro_body @$name @$... := ... @macro_end;
 ## Зависимый C++-заголовок (атрибут @[include(...)@]) для следующего объявления:
-##   @include("cstdlib")  %abort(x:Int32):Void := ...;   →  @[include("cstdlib")@] %abort(...) := ...;
-##   @include("vector")   <T> %std::vector() := ...;     →  @[include("vector")@] <T> %std::vector() := ...;
-## БЕЗ завершающей ';' - атрибут привязывается к следующему объявлению нативного типа/функции
-## (как @extern/@forward). Заголовок эмитится в C++-код только вместе с этим объявлением.
+##   @include("cstdlib")  abort(x:Int32):Void := %abort...;   →  @[include("cstdlib")@] abort(...) := %abort...;
+##   @include("vector")   <T> vector ::= %std::vector { };    →  @[include("vector")@] <T> vector ::= %std::vector { };
+## БЕЗ завершающей ';' - атрибут привязывается к следующему объявлению нативного типа/функции.
+## Заголовок эмитится в C++-код только вместе с этим объявлением.
 @macro include( $name ) @macro_body @[ include( @$name ) @] @macro_end;
 
 
@@ -193,6 +188,13 @@
 @@ latter @@ $^ @@@@;             ##< Result of the last operation;
 @@ class_name @@ @__CLASS__ @@@@; ##< Имя текущего класса
 
+## Вариант наследования в списке баз (аналог указания области видимости в C++).
+## Маркер действует на ВСЕ последующие родительские классы до нового переключения;
+## первый базис — дефолт владельца (record → public, генерируемый/нативный класс → private).
+@@ public    @@ ::   @@@@;   ##< публичное наследование
+@@ protected @@ _::  @@@@;   ##< защищённое наследование
+@@ private   @@ __:: @@@@;   ##< приватное наследование
+
 ## Обмен/перемещение значений (оператор :=: - обмен двух ссылок/переменных).
 @@ swap( $arg1, $arg2 ) @@ @$arg1 :=: @$arg2 @@@@;
 @@ move( $arg ) @@ @$arg :=: _ @@@@;
@@ -206,7 +208,7 @@
 
 ## Вывод в stdout (trust::outs) в стиле std::format: `print(fmt, args...)`.
 ## Форматная строка должна быть строковым литералом (компиляционная проверка std::format).
-@@ print( ... ) @@ ( %trust::trust__print__( @$... ) ) @@@@;
+@@ print( ... ) @@ ( trust__print__( @$... ) ) @@@@;
 
 
 @__OPTION_POP__;
@@ -214,4 +216,4 @@
 ## Дефолтный список макросов, допустимых без сигила '@' (keywords). Ставим ПОСЛЕ @__OPTION_POP__,
 ## чтобы значение пережило PUSH/POP (иначе сбросилось бы). Переопределяется .trust-format
 ## `Keywords:` и CLI `--keywords=` (приоритет: CLI > .trust-format > этот дефолт).
-@__OPTION__("keywords", "func,extern,forward,if,elif,else,while,dowhile,loop,module,return,break,continue,match,case,default,try,catch,try_error,try_return,namespace,with,func_const,func_pure,func_constexpr,func_sync,func_thread,using,alias,static,this,self,super,latter");
+@__OPTION__("keywords", "func,extern,forward,if,elif,else,while,dowhile,loop,module,return,break,continue,match,case,default,try,catch,try_error,try_return,namespace,with,func_const,func_pure,func_constexpr,func_sync,func_thread,using,alias,static,this,self,super,latter,public,protected,private");

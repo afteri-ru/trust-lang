@@ -4,7 +4,7 @@
 # чистые диагностики/опции не зависели от хранения исходников и AST-атрибутов.
 
 trust_component(session
-    PUBLIC_HEADERS context.hpp module_resolver.hpp
+    PUBLIC_HEADERS context.hpp run_services.hpp
     SOURCES context.cpp
-    LINK_PUBLIC trust_include_dirs diag_lib sourcemap_lib attrs_lib utils_lib types_lib
+    LINK_PUBLIC trust_include_dirs diag_lib sourcemap_lib attrs_lib utils_lib types_lib target_lib module_api_lib
 )

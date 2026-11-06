@@ -28,11 +28,75 @@ Dog ::= :Animal{ age:Int32 := _; };                    # inheritance (Class)
 Iface ::= :Class ...;                                  # forward declaration (form without a body)
 ```
 
-Both types are generated as a C++ `struct` (all members are public); `:Struct` additionally gets a
-`static_assert` for POD (`std::is_trivial_v && std::is_standard_layout_v`). Fields/methods with a leading `_`
-(protected) and `__` (private) are supported at the level of a naming convention — they affect only
-autocompletion; in C++ they are generated without changing access. A bare member name (`obj.field`, `obj.method()`)
-is transferred into a direct access to the `struct` member.
+Both types are generated as a C++ `struct` (members are public by default); `:Struct` additionally gets a
+`static_assert` for POD (`std::is_trivial_v && std::is_standard_layout_v`). The C++ access of
+methods and fields is set by **standalone markers** in the class body (see
+[Member access](#member-visibility)). A leading `_`/`__` in a member NAME stays a naming
+convention (it affects autocompletion) and no longer restricts access. A bare member name (`obj.field`,
+`obj.method()`) is transferred into a direct access to the `struct` member.
+
+### Inheritance access {#inheritance-access}
+
+In the parent class list, the inheritance access is specified by a **standalone marker** — an ordinary
+list element that applies to ALL subsequent bases until the next switch (the enumeration order is kept):
+
+| Marker | C++ | Macro |
+|---|---|---|
+| `::` | `public` | `public` |
+| `_::` | `protected` | `protected` |
+| `__::` | `private` | `private` |
+
+The markers coincide with the namespace-area visibility markers
+(see [Hierarchy](../syntax/hierarchy/#visibility)).
+
+```python
+:A ::= :Class{ a:Int32 := _; };
+:B ::= :Class{ b:Int32 := _; };
+:D ::= __::, :A, ::, :B{ };    # struct D : private A, public B
+:E ::= protected, :A{ };       # struct E : protected A
+```
+
+The default without a marker is **`public` for all types**; `private`/`protected` are set only by an
+explicit marker. Therefore built-in type implementations state a public base explicitly
+(`StrChar = %trust::StrChar, ::, %std::string { ... }`). Any other area name in the marker position
+(`foo::`) is a compilation error.
+
+### Member access {#member-visibility}
+
+The C++ access of **methods and fields** is set in the class body by the same **standalone marker** — a
+separate member that applies to ALL subsequent methods/fields until the next switch:
+
+| Marker | C++ | Macro |
+|---|---|---|
+| `::` | `public` | `public` |
+| `_::` | `protected` | `protected` |
+| `__::` | `private` | `private` |
+
+The markers are the same as those of namespace areas and inheritance access. A marker is an ordinary body
+member, so it ends with `;`. The default is **`public`**. Members are emitted in C++ **in declaration order**
+(a method may precede a field): when the level changes the codegen prints a
+`public:`/`protected:`/`private:` section.
+
+```python
+Animal ::= :Class{
+    name:Int32 := 1;
+    speak():Int32 := { return name; };   # public (default)
+    __::;                                # from here — private
+    secret:Int32 := 2;
+    hidden():Int32 := { return secret; };
+    _::;                                 # from here — protected
+    prot():Int32 := { return 3; };
+    ::;                                  # public again
+    open():Int32 := { return 4; };
+};
+```
+
+Any other area name in the marker position (`foo::;`) is a compilation error.
+
+**Access checking.** Accessing a `private` member outside its class, or a `protected` member outside the
+class and its descendants, is a compilation error (as in C++), not a deferred C++ error. Inside the class any
+own member is accessible; a base class's `protected` member is accessible from a descendant only through an
+object of the descendant type (`o.prot()` where `o` has the descendant type).
 
 Rules of values and declarations:
 
@@ -50,6 +114,8 @@ Rules of values and declarations:
   References (`shared`/`weak`/`unique`-pointer) to an incomplete type are allowed; a value field of itself is
   an infinite-size error (see below).
 - `field := ...` is not allowed: in C++ a data member cannot be forward-declared (it exists only in a definition).
+  The general difference between declaration forms and aliases is in the table
+  [Declaration, definition and alias](../operators/create/#declaration-vs-alias).
 
 **Recursive/cyclic references in fields** are forbidden statically (the analyzer `RefCycleHook`) so as not to
 allow leaks and inexpressible types: `-Wrecursive-shared` — a cycle with a `shared` edge (refcount leak;

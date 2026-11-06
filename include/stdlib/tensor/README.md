@@ -3,11 +3,11 @@
 Stable tensor API for generated programs.
 
 - `tensor.src` — implementation of the pre-declared Core type `Tensor` (`Tensor = %trust::Tensor { };`),
-  carrying `@[include("@trust/tensor.hpp")]` and `@[link("tensor")]`.
+  carrying `@[include("@stdlib/tensor.hpp")]` and `@[link("tensor")]`.
 - `trust.toml` — `[[artifact]] provides=["tensor"] kind="toolchain" libs=["tensor_cpu"]`,
-  `capabilities=["with-torch"]`; `[[link.headers]] trust/tensor.hpp -> tensor`.
-- Public header `trust/tensor.hpp` (`trust::Tensor<Elem>`, `TensorHandle`) is self-contained (no
-  libtorch types) and is delivered by `stdlib.trust`; the C ABI lives in `trust/tensor_backend.hpp`.
+  `capabilities=["with-torch"]`; `[[link.headers]] stdlib/tensor.hpp -> tensor`.
+- Public header `stdlib/tensor.hpp` (`trust::Tensor<Elem>`, `TensorHandle`) is self-contained (no
+  libtorch types) and is delivered by THIS package; the C ABI lives in `stdlib/tensor_backend.hpp`.
 - The `tensor_cpu` toolchain plugin (built with `-DWITH_TORCH=ON`) encapsulates libtorch; generated
   programs link only the plugin.
 

@@ -1,0 +1,12 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Complex32/64 - реализации встроенных типов из stdlib/builtin/complex.src:
+#   Complex32 = %std::complex<float> { };   Complex64 = %std::complex<double> { };
+# RHS-форма `%std::complex<float>` - ЯВНЫЙ C++-аргумент шаблона реализации (не trust-параметр):
+# C++-имя содержит аргумент, include <complex> подтягивается on-use.
+\std();
+f32(z : Complex32) : Complex32 := { @return z; };
+f64(z : Complex64) : Complex64 := { @return z; };
+# CHECK: #include <complex>
+# CHECK: std::complex<float>
+# CHECK: std::complex<double>

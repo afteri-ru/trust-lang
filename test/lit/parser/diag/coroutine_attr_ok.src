@@ -5,4 +5,4 @@
 # -Wunhandled-attr=error и default-error -Wunknown-attributes делают запуск неуспешным.
 @[coroutine@] f():Int32 := { 42 };
 @main():Int32 := { 0 };
-# CHECK: c_f{{_[A-Za-z0-9_]+}}(
+# CHECK: f{{_[A-Za-z0-9_]+}}(

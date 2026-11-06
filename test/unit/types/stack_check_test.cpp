@@ -2,6 +2,7 @@
 // Тесты контроля переполнения стека: интринсики (types/intrinsics.hpp) и режим
 // --stack-check (semantic/ref/stack_check.hpp).
 #include "types/intrinsics.hpp"
+#include "analysis/modes.hpp"
 #include "semantic/ref/stack_check.hpp"
 #include "gtest/gtest.h"
 
@@ -27,6 +28,19 @@ TEST(StackCheckIntrinsicsTest, NamesAndHeadersResolve) {
         ASSERT_FALSE(headers.empty());
         EXPECT_EQ(headers[0], "@trust/stack_check.hpp");
     }
+}
+
+TEST(StackCheckIntrinsicsTest, ExplicitFunctionNamesAreIntrinsics) {
+    // Явные функции контроля стека — записи единого реестра интринсиков (имена без '%').
+    EXPECT_EQ(analysis::stack_check_fn::kCheck, "trust_stack_check");
+    EXPECT_EQ(analysis::stack_check_fn::kSetReserve, "trust_stack_check_set_reserve");
+    EXPECT_EQ(analysis::stack_check_fn::kGetReserve, "trust_stack_check_get_reserve");
+    EXPECT_EQ(analysis::stack_check_fn::kGetLimit, "trust_stack_check_get_limit");
+    EXPECT_EQ(analysis::stack_check_fn::kSetLimit, "trust_stack_check_set_limit");
+    for (const std::string_view name : analysis::stack_check_fn::kAll) {
+        EXPECT_TRUE(findIntrinsicByName(name).has_value()) << name;
+    }
+    EXPECT_FALSE(findIntrinsicByName("%trust_stack_check").has_value());
 }
 
 TEST(StackCheckModeTest, ParseAndNamesAreTotal) {

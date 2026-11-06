@@ -13,11 +13,13 @@
 #include "diag/diag.hpp"
 #include "diag/options.hpp"
 #include "diag/registry.hpp"
+#include "location/module_name.hpp"
 #include "semantic/diag.hpp"
 #include "types/call.hpp"
 #include "types/type_system.hpp"
 #include "types/type_id.hpp"
 #include "types/names.hpp"
+#include "target/target.hpp"
 #include "utils/strings.hpp"
 #include <algorithm>
 #include <format>
@@ -45,26 +47,33 @@ std::optional<TypeId> resolveClassFieldType(AnalysisContext& actx, VarDecl& vd, 
 /// Регистрация сигнатуры метода/оператора класса: дубль по параметрам — диагностика,
 /// иначе addMethod. `binders` — типовые параметры КЛАССА (позиционная идентичность).
 /// nullopt — объявление пропускается.
-std::optional<TypeId> registerClassMethodSignature(AnalysisContext& actx, TypeId cls, std::string_view key, FuncDecl& f, const TemplateBinders& binders,
+std::optional<TypeId> registerClassMethodSignature(AnalysisContext& actx, TypeId cls, const MethodKey& key, FuncDecl& f, const TemplateBinders& binders,
                                                    std::string_view what, std::string_view displayName) {
     const TypeId ft = actx.types().buildFuncType(f);
     if (ft == INVALID_TYPE_ID) {
         return std::nullopt;
     }
-    TypeSystem& reg = actx.ctx().types();
+    TypeSystem& reg = actx.registry();
     if (reg.read().methods().hasOwnMethodSignature(cls, key, ft, binders)) {
         actx.ctx().diag().report(Severity::Error, f.range(), "{} '{}' with the same parameter types is already declared in this type", what, displayName);
         return std::nullopt;
     }
-    reg.methods().addMethod(cls, key, ft, {}, callableParamInfo(f), binders);
+    reg.methods().addMethod(cls, key, ft, {}, callableParamInfo(f), binders, f.visibility, f.m_isOperator ? DeclId{} : f.declId());
     return ft;
 }
 
 } // namespace
-void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
+void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd, ModuleIndex ownerModule) {
     MapperRange range = ncd.range();
     const std::string trustName{ncd.text()};
-    const std::string cppName = ncd.m_nativeName; // "std::string" / "std::pair" (без '%')
+    const std::string cppName{m_actx.ctx().declCppFacts().cppNameOf(ncd.declId())};
+
+    // `@[borrowed]` на классе помечает ВСЕ его производные типы (см. borrow_flow). Метка
+    // регистрируется в TypeSystem, чтобы borrow-анализ видел классы, пришедшие ИМПОРТОМ
+    // (их AST не входит в корневой AST программы).
+    if (ncd.has_attr(m_actx.ctx().attrs(), attr::Borrowed)) {
+        m_actx.registry().markBorrowedClass(trustName);
+    }
 
     // Обобщённая форма `<T1,T2> Pair ::= <T1,T2> %std::pair { ... }` и явная регистрируются
     // одинаково (cppName `std::pair`); маппинг `Pair<A,B>`→`std::pair<A,B>` происходит при
@@ -114,18 +123,58 @@ void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
         }
     }
 
+    validateClassBases(ncd, trustName);
+
     // Регистрация типа: нативный класс (kNativeClass) или нативный шаблон-класс (kNativeTemplate).
     const auto native_keys = m_actx.types().typeStorageKeys(trustName);
     TypeId cls = INVALID_TYPE_ID;
+    // (B): C++-имя генерируемого класса-обёртки = trust-имя класса (namespace — как в коде).
+    // Обёртка создаётся, когда C++-имя класса ОТЛИЧАЕТСЯ от RHS (`MyStr ::= %std::string`).
+    // Совпадение (`CountDel ::= %CountDel`) — чистый алиас на существующий C++-класс (обёртки нет).
+    // Шаблоны `std::vector`/`std::array` — ИСКЛЮЧЕНИЕ: они унифицируются с `:Array` (спец-случай
+    // в type_resolver), поэтому остаются проекцией (класс-обёртка сломала бы Array-семантику).
+    const bool arrayUnifiedTemplate = trust::type::isBuiltinContainerCppName(cppName);
+    const bool wrapperize = trustName != cppName && !arrayUnifiedTemplate;
+    const std::string ownCppName = wrapperize ? trustName : cppName;
+    // ГЕНЕРИРУЕМЫЙ класс-обёртка публикуется заголовком СВОЕГО модуля (заголовок модуля = интерфейс):
+    // on-use include типа — этот заголовок. `@[include]` при этом остаётся инклудом БАЗИСА и
+    // собирается кодогеном при эмиссии самой обёртки (collectInclude на объявлении).
+    if (wrapperize) {
+        if (ModuleResolver* resolver = m_actx.ctx().moduleResolver(); resolver != nullptr && ownerModule.isValid()) {
+            const std::string encoded = moduleEncodedName(resolver->moduleLogicalName(ownerModule));
+            if (!encoded.empty()) {
+                preprocInclude = "#include \"" + moduleHeaderFileName(encoded) + "\"";
+            }
+        }
+    }
     if (!ncd.m_templateParams.has_value()) {
-        cls = m_actx.ctx().types().registrar().registerNativeClass(trustName, cppName, range, preprocInclude, std::move(linkLibs), native_keys.front());
+        cls = m_actx.registry().registrar().registerNativeClass(trustName, range, native_keys.front());
     } else {
-        cls = m_actx.ctx().types().registrar().registerNativeTemplate(trustName, cppName, range, preprocInclude, std::move(linkLibs), native_keys.front());
+        cls = m_actx.registry().registrar().registerNativeTemplate(trustName, range, native_keys.front());
     }
     if (cls == INVALID_TYPE_ID) {
         return; // дубликат - диагностика сформирована реестром
     }
+    // Целевые C++-факты типа (C++-имя/шаблон/include/libs) — в контракт цели (`target`), НЕ в
+    // языковую модель (R1/R37). Ключ — канонический (`TypeStore::cppFactsKeyOf`).
+    {
+        CppTypeFacts facts;
+        if (ncd.m_templateParams.has_value()) {
+            facts.cppTemplate = ownCppName; // нативный шаблон: C++-имя шаблона (cppName пуст).
+        } else {
+            facts.cppName = ownCppName; // нативный класс: C++-имя класса.
+        }
+        if (!preprocInclude.empty()) {
+            facts.preprocIncludes.push_back(preprocInclude);
+        }
+        facts.libs = std::move(linkLibs);
+        const TypeId factsKey = m_actx.ctx().readTypes().store().cppFactsKeyOf(m_actx.ctx().readTypes().store().desugaredTypeId(cls));
+        m_actx.ctx().target().typeCppFacts().set(factsKey, std::move(facts));
+    }
     m_actx.types().aliasTypeKeys(cls, native_keys);
+    // Идентичность типа на УЗЛЕ-объявлении (ClassDecl) — для проверки доступа к членам из
+    // контекста тела класса (`NamespaceScope::currentTypeBodyId`).
+    ncd.resolvedTypeId = cls;
 
     // Биндинг trust-имени класса в скоупе.
     Symbol as;
@@ -156,14 +205,16 @@ void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
         }
     }
 
-    // Ключ члена: статический = ПОЛНОЕ имя `ns::Class::name` (содержит '::'); экземплярный = bare
-    // (последний сегмент после '::', срез ведущего '.' и маркеров '%'/'^' через utils::bareName).
-    const auto memberKey = [](const std::string& expanded) -> std::string {
+    // Ключ члена: статический = ПОЛНОЕ имя `ns::Class::name` (содержит '::'); экземплярный = последний
+    // сегмент после '::'. Flags (native/static/const) — ПОЛЯ MethodKey; `^` разбирается из spelling.
+    const auto memberKey = [](const std::string& expanded) -> MethodKey {
         std::string seg(utils::shortNameOf(expanded));
         if (!seg.empty() && seg.front() == '.') {
             seg.erase(0, 1);
         }
-        return utils::bareName(seg);
+        MethodKey key = methodKeyFromSpelling(seg);
+        key.isStatic = false;
+        return key;
     };
 
     // Binder-контекст класса: методы/статические члены native-шаблона используют типовые
@@ -191,7 +242,42 @@ void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
             continue;
         }
         const bool isStatic = mname.find("::") != std::string::npos;
-        const std::string bare = memberKey(mname);
+        const MethodKey memberKeyValue = memberKey(mname);
+        const std::string bare = memberKeyValue.name;
+        // Экспорт нативного имени — только для свободных функций/переменных: член класса
+        // публикуется через проекцию владельца, отдельный C/C++-символ ему не задаётся.
+        const Decl* memberDecl = member->is<FuncDecl>() ? static_cast<const Decl*>(member->as<FuncDecl>())
+                                                        : (member->is<VarDecl>() ? static_cast<const Decl*>(member->as<VarDecl>()) : nullptr);
+        if (memberDecl != nullptr && memberDecl->bindsNativeCpp()) {
+            m_actx.ctx().diag().report(Severity::Error, member->range(),
+                                       "native export is not applicable to class members ('{}'): use the owner type projection", bare);
+            continue;
+        }
+        // Нативный класс `::=` описывает ИНТЕРФЕЙС: тело класса находится в C++-заголовке, поэтому
+        // каждый член обязан быть предварительным объявлением. Тело/делегат метода и значение
+        // поля не эмитятся и были бы молча потеряны.
+        if (member->kind() == ParserToken::Kind::FuncDecl) {
+            if (!static_cast<const FuncDecl&>(*member).isForwardDeclaration()) {
+                m_actx.ctx().diag().report(Severity::Error, member->range(),
+                                           "native class member '{}' must be a forward declaration (':= ...'): the class body is defined in the C++ header",
+                                           bare);
+                continue;
+            }
+        } else if (member->kind() == ParserToken::Kind::VarDecl) {
+            if (static_cast<const VarDecl&>(*member).initKind() != VarInitKind::Forward) {
+                m_actx.ctx().diag().report(Severity::Error, member->range(),
+                                           "native class field '{}' must be a forward declaration (':= ...'): the class body is defined in the C++ header",
+                                           bare);
+                continue;
+            }
+        }
+        MethodKey staticKey = methodKeyFromSpelling(mname);
+        // '^' нормализуется AST в attr::ReadOnly — константность читаем из атрибута.
+        const AstNodeAttr* memberAttr = member->as_attr();
+        const bool memberIsConst = memberAttr != nullptr && memberAttr->has_attr(m_actx.ctx().attrs(), attr::ReadOnly);
+        staticKey.isConst = memberIsConst;
+        MethodKey instanceKey = memberKeyValue;
+        instanceKey.isConst = memberIsConst;
         if (bare.empty()) {
             continue;
         }
@@ -205,19 +291,17 @@ void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
         const bool isOperatorMember = member->kind() == ParserToken::Kind::FuncDecl && static_cast<const FuncDecl&>(*member).m_isOperator;
 
         if (isStatic) {
-            // Статический член: КЛЮЧ = ПОЛНОЕ имя `ns::Class::name` (содержит '::' — isStaticName
-            // проверяет по зарегистрированному ключу). C++-имя = последний сегмент (bare). Регистрируем
+            // Статический член: СТРУКТУРНЫЙ ключ с полным `ns::Class::name` (isStatic=true).
+            // C++-имя = последний сегмент (bare). Регистрируем
             // как член типа (доступ Cls.field / Cls::field → cppName::name) и как статическую переменную
             // в скоупе (анализатор имён).
-            const std::string& skey = mname;
             if (member->kind() == ParserToken::Kind::FuncDecl) {
                 auto& f = static_cast<FuncDecl&>(*member);
-                const std::string& skey = mname;
-                // Статический член нативного класса: C++-объявление не эмитится (m_isNativeImport),
-                // а C++-имя и `@[include]` кодоген берёт из типа-владельца.
-                f.m_isNativeImport = true;
+                // Статический член нативного класса: C++-объявление не эмитится, а C++-имя и
+                // `@[include]` кодоген берёт из типа-владельца (`m_nativeOwner`). Отдельной
+                // нативной привязки у члена НЕТ: проекция владельца — единственный источник.
                 f.m_nativeOwner = cls;
-                const auto ft = registerClassMethodSignature(m_actx, cls, skey, f, classBinders, "static member", bare);
+                const auto ft = registerClassMethodSignature(m_actx, cls, staticKey, f, classBinders, "static member", bare);
                 if (!ft) {
                     continue;
                 }
@@ -242,12 +326,12 @@ void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
                 if (!ftype) {
                     continue;
                 }
-                const TypeId memberFn = m_actx.ctx().types().interner().getOrCreateFunctionType(*ftype, {});
-                if (m_actx.ctx().readTypes().methods().hasOwnMemberName(cls, skey)) {
+                const TypeId memberFn = m_actx.registry().interner().getOrCreateFunctionType(*ftype, {});
+                if (m_actx.ctx().readTypes().methods().hasOwnMemberName(cls, staticKey)) {
                     m_actx.ctx().diag().report(Severity::Error, vd.range(), "static member '{}' is already declared in this type", bare);
                     continue;
                 }
-                m_actx.ctx().types().methods().addMethod(cls, skey, memberFn);
+                m_actx.registry().methods().addMethod(cls, staticKey, memberFn);
                 Symbol ss;
                 ss.name = stableSymbolName(mname);
                 ss.type = QualType::fromTypeId(*ftype);
@@ -266,7 +350,7 @@ void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
             m_actx.ctx().report(member->range(), semantic::DiagId::ClassMemberDot, "class member '{}' should be registered with a leading '.' (use '.{}')",
                                 mname, bare);
         }
-        const std::string& ikey = bare;
+        const MethodKey& ikey = instanceKey;
         if (member->kind() == ParserToken::Kind::FuncDecl) {
             auto& f = static_cast<FuncDecl&>(*member);
             // Оператор-метод нативного класса: та же валидация, что и у user-record (символ/арность/
@@ -274,7 +358,7 @@ void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
             if (f.m_isOperator && !semantic::validateOperatorDecl(m_actx.ctx(), f, /*isMember=*/true)) {
                 continue;
             }
-            if (!f.m_body.has_value() && !f.m_type) {
+            if (!f.hasBody() && !f.m_type) {
                 m_actx.ctx().diag().report(Severity::Error, f.range(), "native method '{}' must have a return type in a forward declaration", bare);
                 continue;
             }
@@ -289,80 +373,47 @@ void DeclAnalyzer::analyzeClassDecl(ClassDecl& ncd) {
             if (!ftype) {
                 continue;
             }
-            const TypeId memberFn = m_actx.ctx().types().interner().getOrCreateFunctionType(*ftype, {});
+            const TypeId memberFn = m_actx.registry().interner().getOrCreateFunctionType(*ftype, {});
             if (m_actx.ctx().readTypes().methods().hasOwnMemberName(cls, ikey)) {
                 m_actx.ctx().diag().report(Severity::Error, vd.range(), "member '{}' is already declared in this type", bare);
                 continue;
             }
-            m_actx.ctx().types().methods().addMethod(cls, ikey, memberFn);
+            m_actx.registry().methods().addMethod(cls, ikey, memberFn, {}, {}, {}, vd.visibility);
         }
     }
 
     m_core.exitScope();
 }
 
-// Объявление нативного шаблона-ТИПА `<T> %std::vector() := ...;` - регистрирует абстрактный
-// нативный шаблон (Group::kNativeTemplate) в реестре типов. trust-имя = последний компонент
-// C++-имени (`std::vector` → "vector"), чтобы `vector<Int32>` резолвилось. preprocIncludes типа -
-// из `@[include]` (мнемоника `@include`); инклуд подтягивается on-use при использовании типа.
-// C++-имена встроенных контейнеров: `:Array` (mutable) → std::vector, `:Array^` (const) → std::array.
-void DeclAnalyzer::analyzeNativeTemplateDecl(FuncDecl& func_node) {
-    MapperRange func_range = func_node.range();
-    std::string cppTemplate = func_node.m_nativeName; // "std::vector" (без '%')
-
-    // Pack-параметры в этой форме (`<T...> %std::tuple() := ...;`) не поддержаны:
-    // C++-tuple задаётся native class template `<T...> StdTuple ::= %std::tuple<T...> { };`.
-    if (func_node.m_templateParams) {
-        for (const auto& p : *func_node.m_templateParams) {
-            if (p && p->is<ArgNode>() && p->as<ArgNode>()->isTypePack) {
-                m_actx.ctx().diag().report(
-                    Severity::Error, p->range(),
-                    "type parameter packs in native template type declarations are not implemented; use '<T...> Name ::= %Cpp<T...> {{ }};'");
-                return;
-            }
+void DeclAnalyzer::validateClassBases(ClassDecl& ncd, std::string_view typeName) {
+    // Базисы ГЕНЕРИРУЕМОГО класса (СИНТАКСИС объявления): НАТИВНЫЕ (`%std::string` — готовое
+    // C++-имя) либо ОБЫЧНЫЕ типы (`:Base` — резолвятся как record-классы). Смешивать нельзя:
+    // порядок и правила разных доменов имён несовместимы.
+    // Ошибки базисов НЕ прерывают анализ объявления: члены тела обязаны быть материализованы
+    // (иначе HIR verify даёт ICE); кодоген на ошибках не запускается (errorCount > 0).
+    if (!ncd.m_nativeBaseCppNames.empty() && !ncd.m_baseTypes.empty()) {
+        m_actx.ctx().diag().report(Severity::Error, ncd.range(), "native class '{}' cannot mix native ('%name') and type (':Name') bases", typeName);
+    }
+    for (const NativeBase& nativeBase : ncd.m_nativeBaseCppNames) {
+        if (nativeBase.cppName.empty()) {
+            m_actx.ctx().diag().report(Severity::Error, ncd.range(), "native base class of '{}' must have a C++ name after '%'", typeName);
         }
     }
-
-    // trust-имя шаблона: последний компонент после '::'.
-    std::string trustName(utils::shortNameOf(cppTemplate));
-    if (trustName.empty()) {
-        m_actx.ctx().diag().report(Severity::Error, func_range, "native template must have a non-empty C++ name");
-        return;
-    }
-
-    // preprocInclude из `@[include("header")@]` - форма директивы задана контрактом attr::Include
-    // (единый attrs::includeDirective), включая пакетный '@'-префикс.
-    std::string preprocInclude;
-    {
-        const AttrPool& attrs = m_actx.ctx().attrs();
-        if (const std::string* header = firstAttrArg(attrs, func_node, attr::Include)) {
-            preprocInclude = includeDirective(*header);
+    for (const auto& base : ncd.m_baseTypes) {
+        if (!base.type) {
+            continue;
         }
-    }
-
-    // Дубликат по C++-имени со встроенным контейнером (`std::vector`/`std::array` от `:Array`):
-    // мягкая диагностика, тип инстанцируется через встроенный Array (повторной регистрации
-    // дублирующего типа нет, `vector<Int32>` резолвится через `:Array`).
-    if (type::isBuiltinContainerCppName(cppTemplate)) {
-        m_actx.ctx().diag().report(Severity::Warning, func_range, "native template '{}' is a builtin container (use ':Array' / ':Array^' without declaration)",
-                                   cppTemplate);
-    }
-
-    // Регистрация абстрактного нативного шаблона (дубликат имени - диагностика реестра).
-    const auto tpl_keys = m_actx.types().typeStorageKeys(trustName);
-    TypeId tpl = m_actx.ctx().types().registrar().registerNativeTemplate(trustName, cppTemplate, func_range, preprocInclude, {}, tpl_keys.front());
-    if (tpl == INVALID_TYPE_ID) {
-        return; // дубликат - диагностика сформирована реестром
-    }
-    m_actx.types().aliasTypeKeys(tpl, tpl_keys);
-    // Биндинг имени в скоуп (shadowing/резолв имён; тип доступен и через реестр findType).
-    Symbol as;
-    as.name = stableSymbolName(trustName);
-    as.type = QualType::fromTypeId(tpl);
-    as.decl = &func_node;
-    if (m_actx.symbols().declare(as) == DeclResult::Inserted) {
-        for (auto& hook : m_core.hooks()) {
-            hook->onDeclare(as);
+        std::string baseText(requiredText(*base.type));
+        if (!baseText.empty() && baseText.front() == ':') {
+            baseText.erase(0, 1);
+        }
+        const auto tid = m_actx.types().resolveTypeRef(*base.type);
+        if (!tid.has_value() || *tid == INVALID_TYPE_ID) {
+            m_actx.ctx().diag().report(Severity::Error, base.type->range(), "unknown base type '{}'", baseText);
+            continue;
+        }
+        if (!m_actx.ctx().readTypes().store().isRecordType(*tid)) {
+            m_actx.ctx().diag().report(Severity::Error, base.type->range(), "base type '{}' of native class '{}' must be a Struct/Class", baseText, typeName);
         }
     }
 }

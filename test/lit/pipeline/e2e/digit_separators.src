@@ -9,7 +9,9 @@
 # stripDigitSeparators в parseDecimalUInt), кодогенерация выдаёт значение
 # (C++14+ допускает '_' в числовых литералах).
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     a :Int16 := 10_000;
     b :Int32 := 2_147_483_647;
     c :Int64 := 2_147_483_648;

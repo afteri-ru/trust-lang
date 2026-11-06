@@ -1,15 +1,16 @@
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
-# Нативный метод StrChar.%c_str(): CString - явная конверсия строки в const char*.
-# Кодогенерация: s.c_str() / s.%c_str() → (c_s).c_str(); результат типизируется как CString.
+# Нативный метод StrChar.c_str(): CString - явная конверсия строки в const char*.
+# Кодогенерация: s.c_str() → (s).c_str(); результат типизируется как CString.
 # Оба синтаксиса вызова допустимы: обычный и нативный (с '%').
 
+\std();
 @main() := {
     s: StrChar := "abc";
     p := s.c_str();
-    q := s.%c_str();
+    q := s.c_str();
 }
-# CHECK: std::string c_s = "abc";
-# CHECK: const char* c_p = (c_s).c_str();
-# CHECK: const char* c_q = (c_s).c_str();
+# CHECK: trust::StrChar s = "abc";
+# CHECK: const char* p = (s).c_str();
+# CHECK: const char* q = (s).c_str();
 

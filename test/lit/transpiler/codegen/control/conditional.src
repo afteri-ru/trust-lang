@@ -11,10 +11,10 @@ x:Int32 := 10;
 [...] --> {
     c := 0;
 };
-# CHECK: if ((c_x > 0)) {
-# CHECK-NEXT:     int8_t c_a = 1;
-# CHECK-NEXT: } else if ((c_x < 0)) {
-# CHECK-NEXT:     int8_t c_b = -1;
+# CHECK: if ((x > 0)) {
+# CHECK-NEXT:     int8_t a = 1;
+# CHECK-NEXT: } else if ((x < 0)) {
+# CHECK-NEXT:     int8_t b = -1;
 # CHECK-NEXT: } else {
-# CHECK-NEXT:     int8_t c_c = 0;
+# CHECK-NEXT:     int8_t c = 0;
 # CHECK-NEXT: }

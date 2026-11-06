@@ -2,15 +2,14 @@
 
 > scope: test
 > role: persistent-memory
-> last_reviewed: 2026-11-06
+> last_reviewed: 2026-11-11
 > review_period: 30
-> max_size: 4000
 
 ## Architecture
 
 `test/unit` — GTest-библиотека `unit_tests`; `test/lit` — lit/FileCheck-тесты компилятора;
-`test/integration`, `test/package`, `test/vscode` — сквозные наборы; `test/hooks` — selftest hook-системы.
-`test/tools/structure_budget.py` — warn-only отчёт по «бюджету структуры», не входит в CTest.
+`test/integration`, `test/package`, `test/vscode` — сквозные наборы; `test/hooks` — selftest hook-системы;
+`test/build_status` — контракт обёртки сборки (каталог файлов статуса сеанса).
 
 ## Facts and invariants
 

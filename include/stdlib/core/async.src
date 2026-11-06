@@ -1,8 +1,8 @@
-\\\stdlib\stdlib\async;
+\async;
 # async.src - coroutine/async library types (standard library).
 #
-# Loaded as stdlib prelude (same mechanism as iterator.src): the types are available
-# unless --no-stdlib is used. Includes and link requirements are applied ON-USE only:
+# Loaded explicitly by the umbrella `\std();` (re-exported interface); --no-stdlib removes the
+# stdlib search root. Includes and link requirements are applied ON-USE only:
 # a program that never mentions an async type gets neither the headers nor -lpthread.
 #
 # The C++ implementation lives in @stdlib/async/*.hpp and uses only the standard C++

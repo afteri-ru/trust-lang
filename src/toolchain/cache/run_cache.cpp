@@ -1,17 +1,16 @@
-// src/toolchain/cache/run_cache.cpp
-// Запись кеша `--run` (`.debug_trust_hash`): композиция строки и валидация по md5.
+// Валидация записи кеша `--run` (`.debug_trust_hash`) по md5. Формат — `utils/build_record.hpp`.
 #include "toolchain/cache.hpp"
 
-#include "toolchain/hash.hpp"
 #include "trust/version.h"
+#include "utils/build_record.hpp"
+#include "utils/hash.hpp"
 #include "utils/utils.hpp"
-#include "utils/error.hpp"
 
-#include <algorithm>
 #include <charconv>
 #include <filesystem>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 
 namespace trust {
@@ -19,54 +18,16 @@ namespace toolchain {
 
 namespace {
 
-/// Путь относительно CWD (запись кеша переносима между каталогами).
-std::string cwdRelative(const std::filesystem::path& p) {
-    return std::filesystem::relative(p, std::filesystem::current_path()).generic_string();
+/// Совпадает ли md5 файла с ожидаемым: нечитаемый/отсутствующий файл — кеш невалиден (пересборка).
+bool fileHashMatches(const std::filesystem::path& p, std::string_view expected) {
+    const auto hash = utils::md5HexFile(p);
+    return hash.has_value() && *hash == expected;
 }
 
 } // namespace
 
-std::string codegenArgsRecord(const PipelineOpts& opts) {
-    std::vector<std::string> args = opts.codegen_args;
-    std::sort(args.begin(), args.end());
-    std::string out;
-    for (const auto& a : args) {
-        if (!out.empty()) {
-            out += ' ';
-        }
-        for (const char c : a) {
-            out += (c == '\n' || c == '\t') ? ' ' : c;
-        }
-    }
-    return out;
-}
-
-std::string composeRunCacheRecord(std::string_view version, std::string_view optionsRecord, const std::vector<CacheDependency>& dependencies,
-                                  const std::vector<CacheDependency>& files) {
-    std::string record;
-    record += kRunCacheVersionPrefix;
-    record += version;
-    record += '\n';
-    // Список фактически заданных codegen-опций: смена любой из них делает кеш невалидным.
-    record += "@opts\t";
-    record += optionsRecord;
-    record += '\n';
-
-    // Замыкание зависимостей, НЕ покрытых хешами модулей: пакеты ресурсов и явный DSL-файл.
-    // Хеши `.src` перекрывают исходники модулей, но НЕ C++-заголовки пакетов.
-    record += "@deps\t" + std::to_string(dependencies.size()) + '\n';
-    for (const CacheDependency& dep : dependencies) {
-        record += "@dep\t" + dep.path + '\t' + dep.md5 + '\n';
-    }
-
-    for (const CacheDependency& file : files) {
-        record += file.path + '\t' + file.md5 + '\n';
-    }
-    return record;
-}
-
 bool runCacheValid(const std::filesystem::path& executable, const std::filesystem::path& expectedMain, std::string_view optionsRecord) {
-    auto sec = trust::utils::readElfSection(executable.string(), std::string(kRunCacheSection));
+    auto sec = trust::utils::readElfSection(executable.string(), std::string(utils::kRunCacheSection));
     if (!sec) {
         return false;
     }
@@ -83,7 +44,7 @@ bool runCacheValid(const std::filesystem::path& executable, const std::filesyste
     std::size_t depsExpected = 0;
     std::size_t depsChecked = 0;
     bool isMain = true;
-    const std::string expected_main = cwdRelative(expectedMain);
+    const std::string expected_main = utils::cachePathOf(expectedMain);
     while (std::getline(iss, line)) {
         if (line.empty()) {
             continue;
@@ -115,7 +76,7 @@ bool runCacheValid(const std::filesystem::path& executable, const std::filesyste
             if (path_end == std::string::npos) {
                 return false;
             }
-            if (fileHash(std::filesystem::path(line.substr(5, path_end - 5))) != line.substr(path_end + 1)) {
+            if (!fileHashMatches(std::filesystem::path(line.substr(5, path_end - 5)), line.substr(path_end + 1))) {
                 return false;
             }
             ++depsChecked;
@@ -123,7 +84,7 @@ bool runCacheValid(const std::filesystem::path& executable, const std::filesyste
         }
         if (!versionSeen) {
             versionSeen = true;
-            if (line != std::string(kRunCacheVersionPrefix) + TRUST_VERSION) {
+            if (line != std::string(utils::kRunCacheVersionPrefix) + TRUST_VERSION) {
                 return false;
             }
             continue;
@@ -134,7 +95,7 @@ bool runCacheValid(const std::filesystem::path& executable, const std::filesyste
                 return false;
             }
         }
-        if (fileHash(std::filesystem::path(line.substr(0, tab))) != line.substr(tab + 1)) {
+        if (!fileHashMatches(std::filesystem::path(line.substr(0, tab)), line.substr(tab + 1))) {
             return false;
         }
         any = true;
@@ -144,3 +105,4 @@ bool runCacheValid(const std::filesystem::path& executable, const std::filesyste
 
 } // namespace toolchain
 } // namespace trust
+

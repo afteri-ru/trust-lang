@@ -6,7 +6,7 @@
 #include <string_view>
 
 namespace trust {
-class Context;
+struct RunServices;
 } // namespace trust
 
 namespace trust {
@@ -34,7 +34,7 @@ class SmtPrinter {
     /// Строит текстовый .smt2.map: маппинг SMT-символов и (assert ...) на trust-источник
     /// (файл/диапазон/имя). smt2_text - уже напечатанный .smt2 (для диапазонов в .smt2).
     /// По аналогии с .src_map/.cppt.map, но в человекочитаемом текстовом формате.
-    static std::string buildSmt2Map(const Context& ctx, const SmtScript& script, std::string_view smt2_text);
+    static std::string buildSmt2Map(const RunServices& services, const SmtScript& script, std::string_view smt2_text);
 };
 
 } // namespace solver

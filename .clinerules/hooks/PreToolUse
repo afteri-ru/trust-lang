@@ -316,7 +316,7 @@ if [ -n "$TASK_ID" ]; then
     fi
     printf '%s %s\n' "$CMD_HASH" "$REPEAT" > "$STATE_FILE"
     if [ "$REPEAT" -ge 2 ]; then
-      add_ctx "Та же команда повторяется ${REPEAT}-й раз. Для ожидания фоновой сборки/тестов используйте ОДИН вызов: _build/trust-build.sh --wait <pidfile> <log> (внутри разные интервалы)."
+      add_ctx "Та же команда повторяется ${REPEAT}-й раз. Для ожидания фоновой сборки/тестов используйте ОДИН вызов: _build/trust-build.sh --wait <name> (внутри разные интервалы)."
     fi
   done
 fi

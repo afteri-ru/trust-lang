@@ -1,0 +1,20 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/field_default_value.o %s && test -f $TD/field_default_value.o
+
+# Default-значение поля Class эмитится ТЕМ ЖЕ путём, что default-аргумент функции
+# (единый рендер выражения): строковый/дробный/отрицательный литерал и арифметическое
+# выражение доезжают до C++ NSDMI. Никакой свёртки «только Int/Float, иначе `{}`».
+# Поле без значения (`:= _`) остаётся без инициализатора.
+
+\std();
+:Holder ::= :Class{ s:String := "hello"; f:Float32 := 1.5; n:Int32 := -5; x:Int32 := 1 + 2; z:Int32 := _; };
+# CHECK: struct Holder {
+# CHECK-NEXT:     trust::StrChar s{"hello"};
+# CHECK-NEXT:     float f{1.5};
+# CHECK-NEXT:     int32_t n{-5};
+# CHECK-NEXT:     int32_t x{(1 + 2)};
+# CHECK-NEXT:     int32_t z;
+# CHECK-NEXT: };
+
+h:Holder := Holder();
+@print("{} {} {} {} {}", h.s, h.f, h.n, h.x, h.z);

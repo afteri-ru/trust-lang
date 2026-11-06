@@ -68,6 +68,9 @@ function(guard_files out_var)
         endforeach()
     endforeach()
     list(REMOVE_DUPLICATES _found)
+    # Генерируемые каталоги не являются исходниками: `.trust`/`Output` — временные каталоги
+    # тестов, `_build` — дерево сборки, `node_modules` — зависимости расширения VS Code.
+    list(FILTER _found EXCLUDE REGEX "/(\\.trust|Output|_build|node_modules)/")
     list(SORT _found)
     set(${out_var} "${_found}" PARENT_SCOPE)
 endfunction()

@@ -6,7 +6,9 @@
 # assert(cond, 'fmt', args...): при провале печатается отформатированное сообщение (std::format)
 # вместо текста условия по умолчанию.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     assert( 1 == 0, "Error {}", 40 );
 };
 {% int macro_msg__main__() {

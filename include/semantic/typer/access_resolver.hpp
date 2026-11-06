@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/access_resolver.hpp
 // Компонент семантики: AccessResolver. Разделяет AnalysisContext с драйвером NameResolutionPass;
 // рекурсия/вызовы других компонентов и драйвера идут через NameResolutionPass (friend).
 

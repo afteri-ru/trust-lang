@@ -1,7 +1,7 @@
 # RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
-# Pack в native template type declaration (`<T...> %Cpp() := ...;`) не поддержан:
-# используйте native class template `<T...> Name ::= %Cpp<T...> { };`.
-<T...> %std::tuple() := ...;
+# Pack в native template type declaration: допустим ТОЛЬКО как пустой type-synonym
+# (`<T...> Name ::= %Cpp<T...> { };`); члены, зависящие от пакета, не инстанцируются.
+<T...> tuple ::= %std::tuple<T...> { f(): Int32 := ...; };
 
-# CHECK: error: type parameter packs in native template type declarations are not implemented
+# CHECK: error: type parameter packs in native template classes are supported only for empty-body type synonyms

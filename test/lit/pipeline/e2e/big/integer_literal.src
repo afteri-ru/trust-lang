@@ -10,7 +10,9 @@
 #   - каст `:BigInteger(<huge>)`.
 # Эмитится `trust::BigInteger("...")`; значение печатается как десятичная строка.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     x:BigInteger := 9223372036854775808;
     y := :BigInteger(9223372036854775810);
     print("x={} y={}", x, y);

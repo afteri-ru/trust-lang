@@ -11,7 +11,9 @@
 #   * BigInteger*Rational → Rational (m=16\1);
 #   * standalone сверхразрядный литерал `big := <huge>` → BigInteger (без ошибки переполнения).
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     x:BigInteger := 3; y:BigInteger := 4;
     z := x * y;
     a:BigInteger := 9; b:BigInteger := 3;

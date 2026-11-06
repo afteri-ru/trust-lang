@@ -1,8 +1,8 @@
 #pragma once
 
 #include "pipeline/run/types.hpp"
+#include "pipeline/run/phases.hpp"
 // Umbrella: детали сгруппированы в internal-подкаталогах, потребитель включает ОДИН заголовок.
-#include "pipeline/archive/archive.hpp"
 #include "pipeline/dsl/dsl.hpp"
 #include "pipeline/modules/symbols.hpp"
 #include "pipeline/paths/paths.hpp"
@@ -15,25 +15,23 @@
 #include <string>
 #include <vector>
 
+#include "utils/string_interner.hpp"
+
 namespace trust {
 
 class Context;
 class ModuleLoader;
 class SemanticPassRunner;
 class TypeSystem;
-
-// -- Pipeline --
+class TargetContract;
 
 class Pipeline {
   public:
     Pipeline(Context& ctx, const PipelineOpts& opts);
     ~Pipeline();
 
-    /// Компиляция/сборка главного файла (--run, -c/-a/--shared-lib, --emit-build-dir).
-    /// CLI-диспетчеризация и выбор режима — вне Pipeline (см. pipeline/commands.hpp).
-    int compileProgram(MapperFile inputFile);
-
-    /// Транспиляция в build-каталог и вывод .cppt в stdout (--emit-cpp).
+    /// Компиляция/сборка главного файла вынесена в драйвер (`builddriver`): `Pipeline` производит
+    /// артефакты, сборку/линковку вызывает нижестоящий слой (E20/R34).
     int emitCppToStdout(MapperFile inputFile);
 
     /// Граф файловых зависимостей в stdout (--emit-module-deps): правила make
@@ -61,19 +59,32 @@ class Pipeline {
     };
     ModuleOutputs generateModuleOutputs(ModuleIndex mainModuleIndex);
 
+    /// Прогон с C++-бэкендом в build-каталог: `.cppt` + `.src_map` пишет сам Pipeline
+    /// (backend::CppTarget::path). nullopt - ошибка фронтенда/записи. Атрибуты — в PipelineResult::cpp.
+    /// Вход драйвера сборки (`builddriver`): артефакты производит конвейер, сборку вызывает нижестоящий слой.
+    std::optional<PipelineResult> runCppToFile(MapperFile inputFile);
+
+    /// Логическое имя модуля (read-model): нужно драйверу для entry-идентификатора
+    /// (`moduleEntryIdent`) и заголовков модулей — без раскрытия загрузчика.
+    [[nodiscard]] std::string moduleLogicalName(ModuleIndex idx) const;
+
+    /// Целевой контракт прогона (read-model): целевая платформа, стандарт C++, целевые C++-факты.
+    /// Единственный путь чтения значений, которые нужны сборке (`--std=`) и будущим бэкендам (R37/E20).
+    [[nodiscard]] const TargetContract& targetContract() const noexcept;
+
   private:
     Context& m_ctx;
+    /// Пул строк прогона активен на ВСЁ время жизни Pipeline (включая конструктор и загрузку DSL
+    /// вне run): тексты/доки прогона принадлежат владельцу прогона, процессный пул не задействован (E9).
+    StringInternerScope m_stringsScope;
     const PipelineOpts m_opts;
+    /// Один Pipeline — одна компиляция: повторный run() смешал бы per-run владельцев
+    /// (TargetContract, SourceMapWriter, ModuleLoader) с уже сброшенным реестром типов.
+    bool m_hasRun = false;
     std::unique_ptr<ModuleLoader> m_loader; ///< Владение загрузчиком модулей (внедряется в m_ctx)
-    std::shared_ptr<TypeSystem> m_types;  ///< Разделяемое владение типовой системой (внедряется в m_ctx)
-
-    /// Результат общего фронтенда: ParseAST → AST → error-gate → Semantic → symbols.
-    struct FrontendResult {
-        PipelineResult result;                ///< astNodes + symbols
-        std::vector<AstNodePtr> preludeNodes; ///< stdlib prelude (участвует только в семантике)
-        ModuleIndex mainModuleIndex{};        ///< индекс главного модуля (модуль входного файла)
-        bool stopped = false;                 ///< фронтенд остановлен на ошибках (бэкенды не запускаются)
-    };
+    std::shared_ptr<TypeSystem> m_types;    ///< Разделяемое владение типовой системой (внедряется в m_ctx)
+    /// Владение целевым контрактом прогона (внедряется в m_ctx как порт `Context::target()`).
+    std::unique_ptr<TargetContract> m_target;
 
     /// Единственный владелец загрузчика модулей (верхний слой); `Context` получает только
     /// невладеющий `ModuleResolver*` для парсера.
@@ -81,32 +92,35 @@ class Pipeline {
     [[nodiscard]] const ModuleLoader& loader() const { return *m_loader; }
 
     /// Корневой узел модуля (ModuleNode с телом, конвертированным загрузчиком).
-    std::vector<AstNodePtr> buildModuleRoot(const std::string& moduleName, ModuleIndex idx);
+    std::vector<AstNodePtr> buildModuleRoot(ModuleIndex idx);
 
-    /// S4c: exported generic-функции без определения в компиляции (declaration-only форма
+    /// Экспортированные generic-функции без определения в компиляции (declaration-only форма
     /// не выражает шаблоны: C++ требует тело). Проверяются ТОЛЬКО модули (не главный юнит).
-    /// `roots` - корни семантики (prelude + главный юнит): определения ищутся везде.
     void checkExportedGenericDeclarations(ModuleIndex mainModuleIndex);
 
-    /// Единственная реализация фронтенда прогона. `runner` передаётся снаружи: он обязан жить
-    /// до конца прогона, если после семантики запрошена кодогенерация (TypeId из анализа).
-    FrontendResult runFrontend(FrontendSteps steps, MapperFile inputFile, RunMode mode, SemanticPassRunner& runner);
+    /// Коллизии одноимённых ОПРЕДЕЛЕНИЙ разных модулей: C++-имя модуль-независимо (ABI прозрачен
+    /// относительно C++), поэтому два модуля, определяющие одно и то же имя в одной области,
+    /// дают multiple definition. Диагностируем раньше линкера; изоляция — область имён `ns::`.
+    void checkCrossModuleCollisions();
 
-    /// Фаза производного представления: HIR (клон AST + lowering) → verify → MIR → verify →
-    /// flow-анализы (DA → borrow). Вход — AST после семантики (включая prelude главного юнита);
-    /// AST не изменяется. Единственная точка, где строится HIR/MIR и запускаются их потребители.
-    /// `verify` — гейт верификаторов: включается только на успешном прогоне семантики
-    /// (частичный AST в LSP даёт законные «дыры», это не ICE). `mir` отсутствует, если гейт
-    /// нарушен (потребители не запускаются на недостоверном представлении).
-    struct LoweredUnit {
-        HirModule hir;
-        std::optional<flow::MirModule> mir;
-    };
-    LoweredUnit lowerAndAnalyze(const std::vector<AstNodePtr>& roots, bool verify, bool runFlow = true);
+    /// Единственный оркестратор прогона: исполняет запрошенные фазы в порядке таблицы
+    /// PIPELINE_PHASE_LIST. Условий реализации не содержит: фазы сами решают NoWork/остановку.
+    void runPhases(SemanticPassRunner& runner, MapperFile inputFile, PhaseRun& run);
 
-    /// Запускает запрошенные бэкенды после фронтенда (SMT → C++). Ошибка SMT-генерации
-    /// останавливает прогон до кодогенерации (диагностика уже выдана).
-    void runBackends(PipelineResult& result, const RunRequest& req);
+    /// HIR из корней семантики (buildHir + verifyHir-гейт). ЕДИНСТВЕННАЯ точка построения HIR:
+    /// LowerHir-фаза и модульные юниты (`lowerModuleUnit`) используют одну реализацию.
+    /// nullopt — гейт verifyHir нарушен (ошибка уже диагностирована, ICE-политика).
+    std::optional<HirModule> buildLoweredHir(const std::vector<AstNodePtr>& roots, bool verify);
+
+    // Реализации фаз: единая сигнатура (runner/inputFile фаза игнорирует, если не нужны);
+    // порядок исполнения — таблица PIPELINE_PHASE_LIST, не эти объявления.
+    backend::StageOutcome runReadParsePhase(SemanticPassRunner& runner, MapperFile inputFile, PhaseRun& run);
+    backend::StageOutcome runSemanticPhase(SemanticPassRunner& runner, MapperFile inputFile, PhaseRun& run);
+    backend::StageOutcome runLowerHirPhase(SemanticPassRunner& runner, MapperFile inputFile, PhaseRun& run);
+    backend::StageOutcome runBuildMirPhase(SemanticPassRunner& runner, MapperFile inputFile, PhaseRun& run);
+    backend::StageOutcome runFlowAnalysesPhase(SemanticPassRunner& runner, MapperFile inputFile, PhaseRun& run);
+    backend::StageOutcome runFinalizePhase(SemanticPassRunner& runner, MapperFile inputFile, PhaseRun& run);
+    backend::StageOutcome runBackendsPhase(SemanticPassRunner& runner, MapperFile inputFile, PhaseRun& run);
 
     /// Понижение тела загруженного модуля: корневой `ModuleNode` + экспорт-интерфейс импортов →
     /// HIR (verify, без flow). ЕДИНСТВЕННАЯ точка, из которой строятся артефакты модуля:
@@ -127,9 +141,9 @@ class Pipeline {
     // nested Parser through Context.
     void loadDslMacros();
 
-    // Прогон с C++-бэкендом в build-каталог: `.cppt` + `.src_map` пишет сам Pipeline
-    // (backend::CppTarget::path). nullopt - ошибка фронтенда/записи. Атрибуты — в PipelineResult::cpp.
-    std::optional<PipelineResult> runCppToFile(MapperFile inputFile);
+    /// Seed целевых C++-фактов встроенных интринсиков из статической таблицы `target::builtinCppSeed()`
+    /// (привязка «trust-имя → TypeId»). Единственный источник C++-имени/include этих типов (R1/R37).
+    void seedIntrinsicCppFacts();
 };
 
 } // namespace trust

@@ -1,6 +1,5 @@
 #pragma once
 
-// include/sourcemap/protocol.hpp
 // Общие конверсии диагностик/диапазонов в протокольные координаты (LSP/DAP).
 // Вынесены в diag, т.к. используются и LSP-сервером (publishDiagnostics/codeAction),
 // и могут понадобиться DAP. Header-only (inline), без новых зависимостей diag_lib.

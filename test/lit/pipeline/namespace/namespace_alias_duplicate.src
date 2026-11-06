@@ -1,0 +1,15 @@
+# RUN: %not %trust -q --temp-dir %t.dir -o %t.app %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: namespace alias 'a::' is already bound in this scope
+#
+# Повторная привязка ТОГО ЖЕ префикса `a` к ДРУГОЙ цели в одном скоупе — ошибка.
+# Идемпотентная повторная привязка к ТОЙ ЖЕ цели ошибкой НЕ является.
+
+ns:: {
+    g():Int32 := { @return 1; };
+};
+ns2:: {
+    h():Int32 := { @return 2; };
+};
+a :- ns::;
+a :- ns2::;
+@main():Int32 := { @return 0; };

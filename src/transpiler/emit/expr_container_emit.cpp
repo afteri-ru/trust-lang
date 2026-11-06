@@ -1,4 +1,3 @@
-// src/transpiler/emit/expr_container_emit.cpp
 // ExprEmitter: Контейнерные литералы (массив/словарь/кортеж/тензор), доступ по индексу и
 // типизированные конструкции.
 
@@ -10,13 +9,12 @@
 #include "ast/ident_name.hpp"
 #include "ast/kind_dispatch.hpp"
 #include "ast/token_type.hpp"
-#include "session/context.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
 #include "syntax/term/term.h"
 #include "types/type_system.hpp"
 #include "types/call.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/type_id.hpp"
 #include "types/names.hpp"
@@ -38,7 +36,7 @@ void ExprEmitter::visit_ArrayAccess(const Binary& n) {
         return;
     }
     // Тензор `t[i]`, `t[i,j]`, `t[a..b]`: `(obj)(idx...)` / `(obj).slice(a,b,step)`.
-    if (n.lhsType.getTypeId() != INVALID_TYPE_ID && m_ectx.m_ctx.readTypes().store().isTensorType(n.lhsType.getTypeId())) {
+    if (n.lhsType.getTypeId() != INVALID_TYPE_ID && m_ectx.m_services.readTypes().store().isTensorType(n.lhsType.getTypeId())) {
         std::vector<const AstNodeBase*> indices;
         for (const auto& idx : n.m_indices) {
             if (idx) {
@@ -51,70 +49,70 @@ void ExprEmitter::visit_ArrayAccess(const Binary& n) {
         if (indices.size() == 1 && indices.front()->kind() == ParserToken::Kind::RangeExpr) {
             const auto& range = static_cast<const RangeExpr&>(*indices.front());
             if (n.m_left) {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
                 m_driver.emitExpr(n.m_left.get());
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ").slice(");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, ").slice(");
             }
             m_driver.emitExpr(range.start().get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
             m_driver.emitExpr(range.stop().get());
             if (range.hasStep()) {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
                 m_driver.emitExpr(range.step().get());
             }
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
             return;
         }
         if (n.m_left) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
             m_driver.emitExpr(n.m_left.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")(");
         }
         bool first = true;
         for (const AstNodeBase* idx : indices) {
             if (!first) {
-                m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+                m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
             }
             first = false;
             m_driver.emitExpr(idx);
         }
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
         return;
     }
     // Оператор индексации пользовательского типа (`__getitem__`): `(obj)[idx]`. При наборе
     // перегрузок индекс приводится к объявленному типу параметра (C++ не выбирает).
-    if (n.lhsType.getTypeId() != INVALID_TYPE_ID && m_ectx.m_ctx.readTypes().store().isRecordType(n.lhsType.getTypeId()) &&
-        m_ectx.m_ctx.readTypes().methods().findMethodInfo(n.lhsType.getTypeId(), op::functionNameOfSymbol("[]")).has_value()) {
+    if (n.lhsType.getTypeId() != INVALID_TYPE_ID && m_ectx.m_services.readTypes().store().isRecordType(n.lhsType.getTypeId()) &&
+        m_ectx.m_services.readTypes().methods().findMethodInfo(n.lhsType.getTypeId(), op::indexFunctionName()).has_value()) {
         if (n.m_left) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
             m_driver.emitExpr(n.m_left.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")[");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")[");
         }
         if (n.m_right) {
             if (n.resolvedOperatorSignature != INVALID_TYPE_ID) {
-                const auto* fd = m_ectx.m_ctx.readTypes().store().getTypeDataAs<FunctionTypeData>(n.resolvedOperatorSignature);
+                const auto* fd = m_ectx.m_services.readTypes().store().getTypeDataAs<FunctionTypeData>(n.resolvedOperatorSignature);
                 EXPECT(fd != nullptr && !fd->paramTypes.empty() && "operator [] dispatch: expected one parameter");
                 emitCastOperand(n.m_right.get(), fd->paramTypes[0]);
             } else {
                 m_driver.emitExpr(n.m_right.get());
             }
         }
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "]");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "]");
         return;
     }
     // Доступ к элементу массива `a[i]` (структурный Array-тип): `(obj).at(idx)` -
     // безопасный (bounds-check) доступ, как для словаря. lhsType ставит семантика
     // (resolveArrayAccess).
-    if (n.lhsType.getTypeId() != INVALID_TYPE_ID && m_ectx.m_ctx.readTypes().store().isArrayType(n.lhsType.getTypeId())) {
+    if (n.lhsType.getTypeId() != INVALID_TYPE_ID && m_ectx.m_services.readTypes().store().isArrayType(n.lhsType.getTypeId())) {
         if (n.m_left) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "(");
             m_driver.emitExpr(n.m_left.get());
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ").at(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ").at(");
         }
         if (n.m_right) {
             m_driver.emitExpr(n.m_right.get());
         }
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
         return;
     }
     emitDictElementAccess(n);
@@ -124,13 +122,13 @@ void ExprEmitter::visit_ArrayAccess(const Binary& n) {
 // (Binary::tupleIndex). std::get возвращает ссылку на конкретный элемент std::tuple.
 void ExprEmitter::emitTupleElementAccess(const Binary& n) {
     m_driver.m_type.recordRequiredInclude("#include <tuple>");
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "std::get<");
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, std::to_string(n.tupleIndex));
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ">(");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "std::get<");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, std::to_string(n.tupleIndex));
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ">(");
     if (n.m_left) {
         m_driver.emitExpr(n.m_left.get());
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
 }
 
 // namespace
@@ -157,8 +155,8 @@ void ExprEmitter::emitArrayLiteral(const DictLiteralNode& n, QualType arrayType)
     const TypeId arrayId = arrayType.getTypeId();
     // Многомерный массив (несколько размерностей или вложенные литералы): генерация тензора
     // не реализована → диагностика (анализ/регистрация типа при этом работают).
-    if (isMultiDimArray(arrayId, m_ectx.m_ctx.readTypes())) {
-        m_ectx.m_ctx.report(n.range(), diag::DiagId::ParseError, "многомерные массивы пока не реализованы: транслируются как тензоры (LibTorch)");
+    if (isMultiDimArray(arrayId, m_ectx.m_services.readTypes())) {
+        m_ectx.m_services.report(n.range(), diag::DiagId::ParseError, "многомерные массивы пока не реализованы: транслируются как тензоры (LibTorch)");
         m_driver.emitPlaceholderExpr(m_ectx.m_output.out);
         return;
     }
@@ -168,7 +166,7 @@ void ExprEmitter::emitArrayLiteral(const DictLiteralNode& n, QualType arrayType)
         return;
     }
     // Элементы: семейство многоточия уже раскрыто (МАТЕРИАЛИЗОВАНО) семантикой - обычный список.
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, *container + "{");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, *container + "{");
     std::vector<const AstNodeBase*> values;
     for (const auto& el : dictElements(n)) {
         if (el.value) {
@@ -176,7 +174,7 @@ void ExprEmitter::emitArrayLiteral(const DictLiteralNode& n, QualType arrayType)
         }
     }
     emitCommaSeparatedExprs(values);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "}");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "}");
 }
 
 // Тензорный литерал/конструкция: `trust::Tensor<Elem>({d1,d2}, {v1,v2,...})`.
@@ -187,15 +185,15 @@ void ExprEmitter::emitTensorLiteral(const DictLiteralNode& n, QualType tensorTyp
         m_driver.emitPlaceholderExpr(m_ectx.m_output.out);
         return;
     }
-    const auto& dims = m_ectx.m_ctx.readTypes().store().tensorDimensions(tensorType.getTypeId());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, *typeName + "({");
+    const auto& dims = m_ectx.m_services.readTypes().store().tensorDimensions(tensorType.getTypeId());
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, *typeName + "({");
     for (size_t i = 0; i < dims.size(); ++i) {
         if (i > 0) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
         }
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, std::to_string(dims[i]));
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, std::to_string(dims[i]));
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "}, {");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "}, {");
     std::vector<const AstNodeBase*> values;
     const auto collectLeaves = [&](const auto& self, const DictLiteralNode& node) -> void {
         for (const auto& el : dictElements(node)) {
@@ -211,7 +209,7 @@ void ExprEmitter::emitTensorLiteral(const DictLiteralNode& n, QualType tensorTyp
     };
     collectLeaves(collectLeaves, n);
     emitCommaSeparatedExprs(values);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "})");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "})");
 }
 
 // Литерал словаря/кортежа: `(1, two="2", name=3,)` → trust::Dict{ {"", expr}, {"two", expr}, ... }.
@@ -238,7 +236,7 @@ void ExprEmitter::visit_DictLiteral(const DictLiteralNode& n) {
 // → std::tuple (именованные элементы конвертируются в индексы по порядку; имена в C++ не попадают).
 void ExprEmitter::visit_Tuple(const DictLiteralNode& n) {
     m_driver.m_type.recordRequiredInclude("#include <tuple>");
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "std::make_tuple(");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "std::make_tuple(");
     std::vector<const AstNodeBase*> values;
     for (const auto& el : dictElements(n)) {
         if (el.value) {
@@ -246,48 +244,48 @@ void ExprEmitter::visit_Tuple(const DictLiteralNode& n) {
         }
     }
     emitCommaSeparatedExprs(values);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
 }
 
 // Литерал диапазона `start..stop` / `start..stop..step` → `trust::Range<Elem>(start, stop[, step])`.
 // Универсальный тип `:Range` (как `:Dict`): элементный тип Elem - join типов start/stop/step,
 // вычисленный семантикой (RangeExpr::elementType из analyzeRangeExpr) и параметризующий шаблон
 // trust::Range<T> при кодогенерации. Рациональные значения оборачиваются trust::Rational(...)
-// самим visit_RationalLiteral. Записывает @trust/range.hpp (механизм как у visit_Tuple/<tuple>).
+// самим visit_RationalLiteral. Записывает @stdlib/builtin/range.hpp (механизм как у visit_Tuple/<tuple>).
 void ExprEmitter::visit_RangeExpr(const RangeExpr& node) {
     // range.hpp самодостаточен, но для toDict/элементов нужны dict.hpp и rational.hpp - их
     // пайплайн извлекает из рантайма ТОЛЬКО по прямому запросу (транзитивные инклуды не
     // отслеживаются), поэтому перечисляем весь транзитивный набор (как у Dict-типа).
-    m_driver.m_type.recordRequiredInclude("@trust/range.hpp");
-    m_driver.m_type.recordRequiredInclude("@trust/dict.hpp");
-    m_driver.m_type.recordRequiredInclude("@trust/rational.hpp");
+    m_driver.m_type.recordRequiredInclude("@stdlib/builtin/range.hpp");
+    m_driver.m_type.recordRequiredInclude("@stdlib/builtin/dict.hpp");
+    m_driver.m_type.recordRequiredInclude("@stdlib/builtin/rational.hpp");
     // Элементный C++-тип - из семантики (join start/stop/step). INVALID → универсальный Any.
     TypeId elemTid = node.elementType.getTypeId();
     if (elemTid == INVALID_TYPE_ID) {
-        elemTid = m_ectx.m_ctx.readTypes().getType(type_generic::Any);
+        elemTid = m_ectx.m_services.readTypes().getType(type_generic::Any);
     }
     std::string elemCpp;
     if (auto n = m_driver.m_type.emitTypeName(elemTid)) {
         elemCpp = std::move(*n);
     } else {
-        elemCpp = "std::any";
+        elemCpp = m_driver.m_type.anyTypeName();
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "trust::Range<" + elemCpp + ">(");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "trust::Range<" + elemCpp + ">(");
     m_driver.emitExpr(node.start().get());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
     m_driver.emitExpr(node.stop().get());
     if (node.hasStep()) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
         m_driver.emitExpr(node.step().get());
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
 }
 
 // Тело словаря trust::Dict{ {"name", TypedValue}, ... } - для голого `(...)` и для типизированного
 // с аннотацией, резолвящейся в сам Dict.
 void ExprEmitter::emitDictLiteralBody(const DictLiteralNode& n) {
     // Имя и заголовки Dict-типа - через emitTypeName (единая точка сбора; без хардкода пути).
-    auto dictId = m_ectx.m_ctx.readTypes().findType(type::Dict);
+    auto dictId = m_ectx.m_services.readTypes().findType(type::Dict);
     if (!dictId) {
         m_driver.emitPlaceholderExpr(m_ectx.m_output.out);
         return;
@@ -297,23 +295,23 @@ void ExprEmitter::emitDictLiteralBody(const DictLiteralNode& n) {
         m_driver.emitPlaceholderExpr(m_ectx.m_output.out);
         return;
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, *dictName + "{");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, *dictName + "{");
     bool first = true;
     for (const auto& el : dictElements(n)) {
         if (!el.value) {
             continue;
         }
         if (!first) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
         }
         first = false;
         // Имя поля (у безымянного - пустая строка). Экранируем для C++-строки.
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "{\"" + utils::escapeCppString(el.name) + "\", ");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "{\"" + utils::escapeCppString(el.name) + "\", ");
         // Элемент: TypedValue{kind, значение} - конструктор размещает в быструю ветку variant.
         emitTypedDictValue(el.value, el.resultType);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "}");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "}");
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "}");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "}");
 }
 
 // Типизированная конструкция/каст `:Type(...)`/`(...):Type` (не Tuple). Решение по типу из реестра:
@@ -337,8 +335,8 @@ void ExprEmitter::emitTypedConstruction(const DictLiteralNode& n) {
     const auto* typeIdent = typeNode->as<IdentType>();
     const TypeId annotationId = typeIdent != nullptr ? typeIdent->resolvedTypeId : INVALID_TYPE_ID;
     if (annotationId != INVALID_TYPE_ID) {
-        if (auto dictId = m_ectx.m_ctx.readTypes().findType(type::Dict);
-            dictId && m_ectx.m_ctx.readTypes().store().desugaredTypeId(annotationId) == m_ectx.m_ctx.readTypes().store().desugaredTypeId(*dictId)) {
+        if (auto dictId = m_ectx.m_services.readTypes().findType(type::Dict);
+            dictId && m_ectx.m_services.readTypes().store().desugaredTypeId(annotationId) == m_ectx.m_services.readTypes().store().desugaredTypeId(*dictId)) {
             emitDictLiteralBody(n);
             return;
         }
@@ -365,9 +363,9 @@ void ExprEmitter::emitTypedConstruction(const DictLiteralNode& n) {
     // Явная конструкция record-шаблона `:Box<Int32>(...)`: эмитим `typeCpp(args...)` напрямую -
     // в т.ч. ПУСТОЙ список (default-инициализация), а не каст/placeholder.
     if (m_driver.m_type.isRecordTemplateAnnotation(typeNode)) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, typeCpp + "(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, typeCpp + "(");
         emitCommaSeparatedExprs(values);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
         return;
     }
     if (values.empty()) {
@@ -380,7 +378,7 @@ void ExprEmitter::emitTypedConstruction(const DictLiteralNode& n) {
         //     (runtime-проверка, без silent fallback; `:Any(expr)` — identity/toAny);
         //   - иначе → `trust::checked_cast<T>` (numeric range check / static_cast).
         const AstNodeBase* operand = values[0];
-        const TypeReadModel& reg = m_ectx.m_ctx.readTypes();
+        const TypeReadModel& reg = m_ectx.m_services.readTypes();
         bool operandIsAny = false;
         if (n.castSourceType.getTypeId() != INVALID_TYPE_ID) {
             // Тип операнда вычислила семантика (analyzeDictLiteral) - единственный надёжный путь
@@ -397,21 +395,21 @@ void ExprEmitter::emitTypedConstruction(const DictLiteralNode& n) {
         }
         if (operandIsAny) {
             m_driver.m_type.recordRuntimeSymbolHeaders(RuntimeSymbolId::kAnyTo);
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "trust::any_to<" + typeCpp + ">(");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, "trust::any_to<" + typeCpp + ">(");
             m_driver.emitExpr(operand);
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
             return;
         }
         m_driver.m_type.recordRuntimeSymbolHeaders(RuntimeSymbolId::kCheckedCast);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "trust::checked_cast<" + typeCpp + ">(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "trust::checked_cast<" + typeCpp + ">(");
         m_driver.emitExpr(operand);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
         return;
     }
     // Конструктор нескольких значений: Type(v1, ..., vN).
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, typeCpp + "(");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, typeCpp + "(");
     emitCommaSeparatedExprs(values);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
 }
 
 // Эмитит trust::TypedValue{QualType, значение} для элемента словаря. Тип значения (identity +
@@ -430,17 +428,17 @@ void ExprEmitter::emitTypedDictValue(const AstNodeBase* valueNode, QualType stat
     // входит в ABI-identity: рантайм строит TypeId как TypeId::fromKind). Печатаем полный raw
     // в hex (0x…), чтобы были наглядны разряды.
     const QualType tag = m_driver.m_type.toRuntimeType(state);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, std::format("trust::TypedValue{{trust::QualType::fromRaw(0x{:x}), ", tag.raw()));
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, std::format("trust::TypedValue{{trust::QualType::fromRaw(0x{:x}), ", tag.raw()));
     // Точный C++-тип значения из реестра для литералов. RationalLiteral уже эмитится как
     // trust::Rational(...) - не оборачиваем. Не-литералы (вложенный Dict, переменная, вызов) - как есть.
     if (cpp && !cpp->empty() && is_literal_kind(valueNode->kind()) && valueNode->kind() != ParserToken::Kind::RationalLiteral) {
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, *cpp + "(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, *cpp + "(");
         m_driver.emitExpr(valueNode);
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
     } else {
         m_driver.emitExpr(valueNode);
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "}");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "}");
 }
 
 } // namespace trust

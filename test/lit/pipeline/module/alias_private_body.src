@@ -18,6 +18,6 @@ g(x:Int32):Int32 := { @return x + 1; };
 \facade {
     api():Int32 := ...;
 };
-api():Int32 := { @return g(1); };
 \lib(g);
-f :- \lib::g;
+api():Int32 := { @return g(1); };
+f :- g;

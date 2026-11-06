@@ -1,17 +1,15 @@
 #pragma once
 
-// include/semantic/ref/stack_check.hpp
 // Режим контроля переполнения стека (`--stack-check=<mode>`, FlagKind::StackCheck).
 // Поведенческий value-флаг по аналогии с `--solver-mode`: монотонная шкала
 //   off < explicit < recursion < auto
 //   - off       - контроль выключен (атрибуты/макросы - no-op, рекурсия не анализируется);
 //   - explicit  - проверки только явно размеченных функций (@[stack_check@]/@[stack_check(N)@])
-//                 и явных вызовов %trust_stack_check / %trust_stack_check_set_limit;
+//                 и явных вызовов trust_stack_check / trust_stack_check_set_limit;
 //   - recursion - как explicit + диагностика (-Wstack-check-infer) незащищённых рекурсивных функций;
 //   - auto      - как explicit + авто-маркировка рекурсивных функций stack_guard-маркером.
 // Значение по умолчанию - explicit. Владелец флага - semantic; VALUE-тип режима и чистые хелперы —
 // в `analysis/modes.hpp` (разделяются анализом и кодогеном как данные).
-//
 // Защитный запас (reserve) задаётся value-флагом FlagKind::StackCheckReserve (`--stack-check-reserve=<bytes>`);
 // значение - целое число байт; по умолчанию (пусто) используется рантайм-дефолт STACK_RESERVE (8192).
 

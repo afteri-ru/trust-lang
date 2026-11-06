@@ -1,0 +1,18 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+# RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -c -o $TD/class_wrapper_pack.o %s && test -f $TD/class_wrapper_pack.o
+
+# Обёртка НАТИВНОГО шаблон-класса с type-pack: `<T...> Tpl ::= %std::tuple {...}` →
+# `template <typename... T> class Tpl : public std::tuple<T...>` + `using Base::Base` +
+# конвертирующий ctor. Проверяется и текст, и КОМПИЛЯЦИЯ (инстанциация через тип параметра).
+
+\std();
+@include("tuple")
+<T...> Tpl ::= %std::tuple { };
+
+# CHECK: template <typename... T>
+# CHECK-NEXT: class Tpl : public std::tuple<T...> {
+# CHECK:     using std::tuple<T...>::tuple;
+# CHECK: requires std::is_same_v<std::remove_cvref_t<U>, std::tuple<T...>>
+
+f(x: Tpl<Int32>):Int32 := { @return 0; };
+@main():Int32 := { @return 0; }

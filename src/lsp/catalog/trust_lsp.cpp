@@ -17,7 +17,6 @@ namespace completion = trust::lsp::completion;
 namespace codeaction = trust::lsp::codeaction;
 namespace formatting = trust::lsp::formatting;
 
-// -- Конструктор --
 TrustLsp::TrustLsp(trust::transport::Transport& transport, const LspOptions& opts)
 : transport_(transport)
 , opts_(opts)
@@ -27,7 +26,6 @@ TrustLsp::TrustLsp(trust::transport::Transport& transport, const LspOptions& opt
                             [this](const std::string& uri) { analysis_.publishDiagnostics(uri); }, [this](const std::string& msg) { log(msg); });
 }
 
-// -- Локальный stderr-лог --
 // trace - только если включён флаг --trace
 void TrustLsp::log(const std::string& msg) const {
     if (opts_.trace) {
@@ -35,7 +33,6 @@ void TrustLsp::log(const std::string& msg) const {
     }
 }
 
-// -- Проверка jsonrpc: "2.0" --
 static bool validateJsonRpc(const json& msg) {
     if (!msg.contains("jsonrpc")) {
         return false;
@@ -44,7 +41,6 @@ static bool validateJsonRpc(const json& msg) {
     return v.is_string() && v.get<std::string>() == "2.0";
 }
 
-// -- LSP Request handlers --
 void TrustLsp::handleRequest(const json& req) {
     if (!validateJsonRpc(req)) {
         json id = req.value("id", json());
@@ -148,12 +144,10 @@ void TrustLsp::handleShutdown(const json& req) {
     documents_.pendingTranspile().clear();
 }
 
-// -- Debounce-флаш: транспилируем документы, чей период тишины истёк --
 void TrustLsp::flushPendingTranspile() {
     documents_.flushPendingTranspile();
 }
 
-// -- Обработка workspace/executeCommand (заглушка - не используется) --
 void TrustLsp::handleExecuteCommand(const json& req) {
     json id = req.value("id", json());
     json params = req.value("params", json());
@@ -162,7 +156,6 @@ void TrustLsp::handleExecuteCommand(const json& req) {
     sendLspError(transport_, id, -32601, "Command not implemented: " + command);
 }
 
-// -- Обработка workspace/didChangeConfiguration --
 void TrustLsp::handleDidChangeConfiguration(const json& req) {
     json params = req.value("params", json());
     json settings = params.value("settings", json());
@@ -185,4 +178,3 @@ void TrustLsp::handleDidChangeConfiguration(const json& req) {
         }
     }
 }
-

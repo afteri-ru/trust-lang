@@ -29,7 +29,7 @@ TEST_F(MacroTest, NestedParserInheritsMacroFromContext) {
 
 // ══════════════════════════════════════════════════════════════
 //  Source-map маппинг макросов (addMacroMapping при раскрытии)
-//  Проверяет, что bodyRange вызова макроса покрывает ровно токены
+//  Проверяет, что useRange вызова макроса покрывает ровно токены
 //  вызова (а не следующий за ним токен), а defRange указывает на
 //  тело макроса.
 // ══════════════════════════════════════════════════════════════
@@ -64,7 +64,7 @@ TEST_F(MacroTest, MacroMapping_SimpleCall_MapsToBody) {
     ASSERT_NE(callIdx, std::string::npos);
     ASSERT_GT(callIdx, defIdx); // определение макроса расположено до вызова
 
-    auto atCall = reader->getMacroDefRange(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(callIdx))));
+    auto atCall = reader->macroDefinitionAt(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(callIdx))));
     ASSERT_TRUE(atCall.has_value());
 
     // defRange указывает на ВЕСЬ макрос (имя + тело): `@@alias@@ replace`
@@ -72,7 +72,7 @@ TEST_F(MacroTest, MacroMapping_SimpleCall_MapsToBody) {
     EXPECT_EQ(atCall->begin.fileIdx(), rFile);
 
     // Позиция внутри последнего символа вызова тоже отображается (delta-проекция)
-    auto inCall = reader->getMacroDefRange(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(callIdx + 4))));
+    auto inCall = reader->macroDefinitionAt(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(callIdx + 4))));
     ASSERT_TRUE(inCall.has_value());
 }
 
@@ -95,18 +95,18 @@ TEST_F(MacroTest, MacroMapping_CallWithArgs_MapsWholeCall) {
     size_t callIdx = src.find("foo(1)");
     ASSERT_NE(callIdx, std::string::npos);
 
-    auto atCall = reader->getMacroDefRange(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(callIdx))));
+    auto atCall = reader->macroDefinitionAt(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(callIdx))));
     ASSERT_TRUE(atCall.has_value());
     EXPECT_EQ(reader->getText(*atCall), "@@foo($a)@@ bar(@$a)");
 
     // Позиция внутри аргументов вызова (открывающая скобка) тоже в пределах вызова
     size_t argIdx = src.find('(', callIdx);
     ASSERT_NE(argIdx, std::string::npos);
-    auto inArgs = reader->getMacroDefRange(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(argIdx))));
+    auto inArgs = reader->macroDefinitionAt(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(argIdx))));
     ASSERT_TRUE(inArgs.has_value());
 }
 
-// Регрессия на off-by-one: раньше bodyRange захватывал следующий за вызовом
+// Регрессия на off-by-one: раньше useRange захватывал следующий за вызовом
 // токен. При inline-вызове `alias + 1` позиция оператора `+` (строго за концом
 // вызова) НЕ должна отображаться в определение макроса.
 TEST_F(MacroTest, MacroMapping_DoesNotSwallowNextToken) {
@@ -126,7 +126,7 @@ TEST_F(MacroTest, MacroMapping_DoesNotSwallowNextToken) {
     ASSERT_NE(plusIdx, std::string::npos);
 
     // Позиция на операторе '+' находится после конца вызова `alias` - маппинга быть не должно
-    auto atPlus = reader->getMacroDefRange(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(plusIdx))));
+    auto atPlus = reader->macroDefinitionAt(static_cast<ReaderLocation>(m_ctx.source().makeLoc(mFile, off1(plusIdx))));
     EXPECT_FALSE(atPlus.has_value());
 }
 

@@ -1,4 +1,3 @@
-// src/semantic/core/name_resolution_nodes.cpp
 // Группы узлов обхода `NameResolutionPass`: скоуп-контейнеры, with, объявления функций/лямбд,
 // catch-ветки, термины trust-контрактов и пост-обработка (типизация + синтетические временные).
 #include "semantic/core/name_resolution.hpp"
@@ -121,13 +120,11 @@ void NameResolutionPass::doModuleDecl(AstNodePtr& self, bool) {
             m_actx.ctx().report(mn.range(), semantic::DiagId::UnmatchedMask, "import mask '{}' does not match any exported declaration of module '{}'", mask,
                                 mn.importSpelling());
         }
-        // Пустой результат импорта: модуль ничего не экспортирует. Namespace-алиас — публичная
-        // привязка префикса, поэтому импорт, принёсший только её, не считается пустым.
+        // Пустой результат импорта: модуль ничего не экспортирует.
         bool anyExport = false;
         for (const auto& part : mn.parts()) {
             EXPECT(part.projection && "module part must carry a site projection");
-            if (!part.projection->exports->empty() || !part.projection->namespaceAliases->empty() ||
-                (anyProtectedAccessible && part.projection->hasProtectedExports)) {
+            if (!part.projection->exports->empty() || (anyProtectedAccessible && part.projection->hasProtectedExports)) {
                 anyExport = true;
                 break;
             }
@@ -153,20 +150,6 @@ void NameResolutionPass::doModuleDecl(AstNodePtr& self, bool) {
                 continue;
             }
             EXPECT(part.body && "module part must carry a shared body");
-            // Экспортируемые namespace-алиасы модуля — факт интерфейса из ЗАГРУЗЧИКА (единый
-            // источник); семантика только проецирует их (квалифицированная ссылка, LSP).
-
-            m_actx.symbols().aliases().recordExportedFacts(part.index, *part.projection->namespaceAliases);
-            // Экспортированные namespace-алиасы — привязка ПРЕФИКСА в скоупе сайта импорта
-            // (одна запись в AliasRegistry: и привязка, и проекция для LSP).
-            for (const ModuleNamespaceAlias& alias : *part.projection->namespaceAliases) {
-                const NamespaceAliasRecord record{m_actx.symbols().currentModule(), internText(alias.alias), alias.targetModule,
-                                                  internText(alias.path), m_actx.symbols().currentScopeRange(), AliasOrigin::Local};
-                if (!m_actx.symbols().aliases().recordAlias(m_actx.symbols().current(), record)) {
-                    m_actx.ctx().diag().report(Severity::Error, mn.range(), "namespace alias '{}::' is already bound in this scope", alias.alias);
-                    continue;
-                }
-            }
             // Тело анализируется ОДИН раз; поверхность (собственный экспорт + реэкспорт)
             // связывается ОДНИМ путём для первого и повторного сайта. Конфликт плоского имени с
             // другим модулем здесь не диагностируется — он станет `ambiguous name` на месте
@@ -257,15 +240,9 @@ void NameResolutionPass::analyzeWithStmt(AstNodePtr& self) {
     }
 }
 
-// Объявление функции/лямбды/нативного шаблона-типа.
+// Объявление функции/лямбды.
 void NameResolutionPass::analyzeFuncDeclNode(AstNodePtr& self) {
-    // Объявление нативного шаблона-ТИПА `<T> %std::vector() := ...;` - регистрирует
-    // параметризованный тип (а НЕ функцию): никакого скоупа функции и тела нет.
     auto& f = *self->as<FuncDecl>();
-    if (f.m_isNativeTemplateCtor) {
-        m_decl.analyzeNativeTemplateDecl(f);
-        return;
-    }
     // Лямбда-выражение: имя НЕ регистрируется в объёмлющем скоупе. Захваты резолвятся в
     // ОБЪЁМЛЮЩЕМ скоупе (до входа в скоуп лямбды), затем открывается скоуп с параметрами.
     if (f.isLambda()) {
@@ -281,11 +258,10 @@ void NameResolutionPass::analyzeFuncDeclNode(AstNodePtr& self) {
     }
     // Имя функции регистрируется в ТЕКУЩЕМ (внешнем) скоупе, затем открывается
     // скоуп функции, в котором видны параметры и тело.
-    //
     // Generic-функция (`<T> f(...)`) и шаблонный native-import: типовые параметры
     // активируются в AnalysisContext ДО анализа сигнатуры (resolveTypeRef должен видеть T),
     // но НЕ через SymbolTable, чтобы имя функции не попало в собственный шаблонный скоуп.
-    const bool generic = f.m_templateParams.has_value() && !f.m_isNativeTemplateCtor;
+    const bool generic = f.m_templateParams.has_value();
     if (generic) {
         std::vector<std::pair<std::string, TypeId>> tparams;
         tparams.reserve(f.m_templateParams->size());
@@ -294,14 +270,15 @@ void NameResolutionPass::analyzeFuncDeclNode(AstNodePtr& self) {
                 continue;
             }
             const std::string pname(requiredText(*p));
-            tparams.emplace_back(pname, m_actx.ctx().types().interner().getOrCreateTemplateParamType(pname));
+            tparams.emplace_back(pname, m_actx.registry().interner().getOrCreateTemplateParamType(pname));
         }
         m_actx.types().pushTemplateParamScope(std::move(tparams));
     }
     m_decl.analyzeFuncDecl(f);
-    // Namespace-алиас (`ns:: :- \lib::ns::;`): цель - ПРЕФИКС области модуля, а не ссылка на
-    // значение. Резолвить её как имя нельзя (объявлений с таким именем нет), скоупа/тела нет.
-    if (f.aliasKind() == AliasKind::Namespace || f.aliasKind() == AliasKind::Module) {
+    // Alias-объявление (`f :- <цель>`, `ns:: :- <префикс>`, `\m :- <модуль>`): цель резолвит
+    // FuncDeclAnalyzer (декларационная привязка, не разрешение идентификатора); скоупа/тела нет —
+    // обход детей пропускаем, чтобы цель не трактовалась как value/type-ссылка.
+    if (f.aliasKind() != AliasKind::None) {
         return;
     }
     enterScope(f);

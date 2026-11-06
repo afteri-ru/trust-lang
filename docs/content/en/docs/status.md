@@ -19,15 +19,14 @@ tags: [overview, development, verification]
 - [x] Files, groups and packages: file import (`\path(...)`) and group import (`\\group()`, `\\group\dir()`),
   first-level group import of a package (`\\\pkg()`), import masks (glob visibility filter)
 - [x] File header (`\path;`), matching against the logical path, project and package search roots
-- [x] Qualified references `\path::name` (call/value/type): the module must already be loaded by an
-  import (a reference never loads), visibility follows the site masks and the file export set; the
-  module is part of a name's identity (`\a::f` and `\b::f` coexist; a bare name with two imports is
-  `ambiguous name`)
+- [x] Qualified name of an entity is a programmer namespace (`ns::name`, call/value/type); an import
+  brings the owner's names into the current scope; a qualified name is not shadowed by a local one;
+  the module is NOT a name prefix (the `\path::name` reference form is removed)
 - [x] `.trust` packages: `trust.toml` manifest, `[[layout.layers]]` layout, `[[artifact]]` artifacts,
   demand-driven linking `[[link.headers]]`, `[files]` integrity (MD5)
 - [ ] Package dependency declarations (`dependencies`), version resolution and signing — not implemented
 - [ ] Precompiled (binary) files — not implemented: the file interface is source text only
-- [x] Module header (`.hpp`): the file's export set inside the automatic `namespace <enc>`,
+- [x] Module header (`.hpp`): the file's export set (without an automatic module namespace),
   a self-contained TU; also generated for declaration-only files (which have no `.cppt`); a rule in
   `--emit-module-deps`; the client TU includes the header (`#include "<enc>.hpp"`)
 - [x] Bodies of exported **generic** functions and `@[constexpr]` free functions are published in
@@ -45,25 +44,22 @@ tags: [overview, development, verification]
   set without modifying the original declarations; the facade header is an umbrella (`#include` of
   the owner headers), and the client sees the names both short and via the facade qualification;
   re-export is transitive (a chain of facades)
-- [x] C++ name isolation for modules: all entities of an importable unit live in the automatic
-  `namespace <encoded name>` (entry and `{% %}` stay outside); a headerless root program is not
-  isolated (same-named exports of different modules link together)
-- [x] Name aliases (`f :- \path::name;`, facade curation): functions and values/constants; the alias
+- [x] C++ names of entities come from programmer namespaces (`ns::`); the module does not enter the
+  C++ symbol (the ABI is transparent w.r.t. C++). Same-named DEFINITIONS of different modules in one
+  namespace — a collision diagnosed before the linker
+- [x] Name aliases (`f :- name;` / `f :- ns::name;`): functions and values/constants; the alias
   name joins the file's export set and binds the target's overload set/storage; no C++ entity is
   emitted (calls/reads use the target's C++ name and suffix); the file header includes the owner's header
-- [x] Type aliases (`:A ::- T;` / `:A ::- \lib::T;`): a second name of the same `TypeId`; the C++
+- [x] Type aliases (`:A ::- T;` / `:A ::- ns::T;`): a second name of the same `TypeId`; the C++
   type name is the target's name
-- [x] Namespace aliases (`ns:: :- \lib::ns::;`): the prefix is bound to a namespace and expanded
-  through the owner's export set; inside an exported namespace block it is hoisted with a qualified
-  prefix; inside the interface block it is exported, including a nested one (`\facade::outer::ns::f`)
-- [x] Module aliases (`\m :- \pkg\deep\mod;`): a spelling of an already loaded module; visible only in
-  the declaring module (not exported), the same spelling is allowed in different modules; `\m::name`
-  is normalized to the target, no new identity
-- [ ] A namespace alias of the file's own namespace (`a:: :- b::`) is not supported: the target must be
-  module-qualified (use `... = ns` for short-name lookup)
-- [ ] Alias chains and module-alias export are not supported: a namespace alias of another alias is an
-  error, and a module alias only works in the declaring module (see [Alias and import limits](syntax/hierarchy/#alias-limits))
+- [x] Namespace aliases by area (`a :- ns::;`): the target is a visible namespace area (module
+  qualification is not required); the binding is expanded during name lookup, creates no C++ entity,
+  and is not exported to importers (a warning is emitted inside an interface block). An ambiguous
+  area (the name exists in several modules) — deferred resolution: the name is resolved by the
+  ordinary lookup
+- [ ] Alias chains are not supported: a namespace alias of another alias is an error (see
+  [Alias and import limits](syntax/hierarchy/#alias-limits))
 - [ ] Negating import masks (`!name`) are not supported: a mask only selects visible names
-- [x] Extended name lookup (`... = ns, ns::sub;` / `... = \lib::ns;`): scope-bound, overload sets
+- [x] Extended name lookup (`... = ns, ns::sub;`): scope-bound, overload sets
   merge, no cancellation statement (`... = _;` is an error)
 - [ ] Full-fledged OOP (classes/methods) — not implemented; see [Classes](types/class/)

@@ -30,7 +30,7 @@
 |---|---|---|
 | `@[borrowed]` / `-Wborrowed` | контракт «объект держит view в чужие данные»; запрет мутации источника при живых зависимых. Ставится на класс/тип, метод или переменную; БЕЗ атрибута авто-трекинга нет | `semantic/borrow_flow.hpp` (`BorrowFlowPass`) |
 | `-Wborrow-*` | тот же механизм инвалидации, но для представлений, полученных из **умных ссылок** (`&?` из `shared`) | `semantic/borrow_flow.hpp` (`BorrowFlowPass`) |
-| `Shared::borrow()` / `SharedBorrowedRef` | **runtime**-наблюдатель над `weak_ptr`; истечение проверяется в рантайме (`valid()`/`access()`); к статическому анализу не относится | `runtime/trust/trusted-cpp.hpp` |
+| `Shared::borrow()` / `SharedBorrowedRef` | **runtime**-наблюдатель над `weak_ptr`; истечение проверяется в рантайме (`valid()`/`access()`); к статическому анализу не относится | `stdlib/core/trusted-cpp.hpp` |
 
 `unique` — монопольное владение: alias/заёма/наблюдателя у него НЕТ (`& u` — ошибка,
 `types/type/REFType.md` §15.2), поэтому правила R4/R6 к `unique`-представлениям неприменимы.

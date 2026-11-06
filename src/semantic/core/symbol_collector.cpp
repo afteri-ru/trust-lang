@@ -68,7 +68,7 @@ void SymbolCollectorHook::finalize() {
             }
         }
         si.type = t;
-        si.typeName = m_actx.ctx().readTypes().printer().getTypeName(t);
+        si.typeName = m_actx.ctx().readTypes().printer().typeNameOf(t);
 
         // Поля словаря/кортежа из инициализатора-литерала `x := (a=1, b=2,)` - для
         // member-завершения `x.`. Тип такого литерала - универсальный Dict (поля в нём

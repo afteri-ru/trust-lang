@@ -3,10 +3,10 @@
 # Форма директивы @[include] на объявлении нативного шаблона-ТИПА подчиняется единому контракту
 # attr::Include (attrs::includeDirective): аргумент с ведущим '<' задаёт директиву целиком.
 @[include("<opt.hpp>")@]
-<T> %std::optional() := ...;
+<T> optional ::= %std::optional { };
 
 o: optional<Int32> := _;
 
 # CHECK-NOT: <<opt.hpp>>
 # CHECK: #include <opt.hpp>
-# CHECK: std::optional<int32_t> c_o;
+# CHECK: optional<int32_t> o;

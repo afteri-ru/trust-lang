@@ -1,0 +1,11 @@
+\\builtin\complex;
+# builtin/complex.src - auto implementation of the built-in Complex32/64 types backed by the C++
+# standard library. C++-имя содержит КОНКРЕТНЫЙ аргумент шаблона (`std::complex<float>`), поэтому
+# RHS-форма `%std::complex<float>` (см. class_item: native LT template_params GT).
+# Loaded explicitly by the umbrella `\std();` (or `\\builtin\complex();`).
+
+@[include("complex")@]
+Complex32 = %std::complex<float> { };
+
+@[include("complex")@]
+Complex64 = %std::complex<double> { };

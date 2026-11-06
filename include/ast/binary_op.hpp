@@ -1,6 +1,5 @@
 #pragma once
 
-// include/ast/binary_op.hpp
 // BinaryOp - enum-opcode КОНКРЕТНОЙ бинарной операции (аналог BinaryOperatorKind в clang,
 // tree codes в GCC, BinOp/AssignOp в Rust). ParserToken::Kind задаёт КЛАСС операции
 // (MathOp/AssignOp/CompareOp/...), а BinaryOp - сам оператор (+ - * // += ...). Заполняется
@@ -9,18 +8,18 @@
 #include <cstdint>
 #include <string_view>
 
+#include "utils/operator_spelling.hpp"
+
 namespace trust {
 
 enum class BinaryOp : uint8_t {
     None = 0, // оператор вне покрытия (сравнение/битовые/не-арифметика)
-    // -- Арифметика (value): + - * / // % --
     Add,
     Sub,
     Mul,
     Div,
     IntDiv,
     Mod,
-    // -- Составные присваивания (непрерывный диапазон): += -= *= /= //= %= <<= >>= &= |= ^= --
     AddAssign,
     SubAssign,
     MulAssign,
@@ -32,32 +31,26 @@ enum class BinaryOp : uint8_t {
     AndAssign,
     OrAssign,
     XorAssign,
-    // -- Инкремент/декремент (++ / --, непрерывный диапазон) --
     // Префикс возвращает НОВОЕ значение, постфикс - СТАРОЕ. Операнд: префикс - m_right,
     // постфикс - m_left (слот кодирует позицию; глиф оператора - только в m_op, текста у Binary нет).
     PreIncrement,  // ++x
     PostIncrement, // x++
     PreDecrement,  // --x
     PostDecrement, // x--
-    // -- Специальные --
     PlainAssign, // =
     Swap,        // :=:
-    // -- Операторы сравнения типов (результат Bool) --
     TypeIsA,    // <~  : номинальная проверка (value/type LHS; с наследованием)
     TypeDuck,   // ~~  : утиная (нестрогая) / структурная
     TypeStrict, // ~~~ : строгая (тождество типа / строгое структурное)
-    // -- Логические (результат Bool) --
     LogicalAnd, // &&
     LogicalOr,  // ||
     LogicalXor, // ^^
-    // -- Объявление/определение, доступ, append --
     Declare,    // :=   (NameDecl)
     TypeCreate, // ::=  (TypeDecl)
     TypeAlias,  // ::-  (TypeDecl: второе имя существующего типа, новый TypeId не создаётся)
     Append,     // []=  (AppendStmt)
     Member,     // .    (MemberAccess)
     Index,      // [    (ArrayAccess)
-    // -- Сравнение значений --
     Eq,       // ==
     EqExact,  // ===
     Ne,       // !=
@@ -67,7 +60,6 @@ enum class BinaryOp : uint8_t {
     Gt,       // >
     Le,       // <=
     Ge,       // >=
-    // -- Битовые (trust-глифы с точками; кодоген пока выводит глиф как есть) --
     BitAnd, // .&.
     BitOr,  // .|.
     BitXor, // .^.
@@ -121,53 +113,53 @@ constexpr bool isPostfixIncDecOp(BinaryOp op) noexcept {
 // ЕДИНЫЙ источник соответствия «enum-opcode <-> trust-глиф» (обе стороны: parse/spelling).
 // O(enum_name, spelling). Намеренно не #undef: переиспользуется round-trip тестами/реестром.
 #define TRUST_BINARY_OP_SPELLINGS(O) \
-    O(Add, "+")                      \
-    O(Sub, "-")                      \
-    O(Mul, "*")                      \
-    O(Div, "/")                      \
-    O(IntDiv, "//")                  \
-    O(Mod, "%")                      \
-    O(AddAssign, "+=")               \
-    O(SubAssign, "-=")               \
-    O(MulAssign, "*=")               \
-    O(DivAssign, "/=")               \
-    O(IntDivAssign, "//=")           \
-    O(ModAssign, "%=")               \
-    O(ShlAssign, "<<=")              \
-    O(ShrAssign, ">>=")              \
-    O(AndAssign, "&=")               \
-    O(OrAssign, "|=")                \
-    O(XorAssign, "^=")               \
-    O(PlainAssign, "=")              \
-    O(Swap, ":=:")                   \
-    O(TypeIsA, "<~")                 \
-    O(TypeDuck, "~~")                \
-    O(TypeStrict, "~~~")             \
-    O(LogicalAnd, "&&")              \
-    O(LogicalOr, "||")               \
-    O(LogicalXor, "^^")              \
-    O(Declare, ":=")                 \
-    O(TypeCreate, "::=")             \
-    O(TypeAlias, "::-")              \
-    O(Append, "[]=")                 \
-    O(Member, ".")                   \
-    O(Index, "[")                    \
-    O(Eq, "==")                      \
-    O(EqExact, "===")                \
-    O(Ne, "!=")                      \
-    O(NeExact, "!==")                \
-    O(NeNoCast, "=/=")               \
-    O(Lt, "<")                       \
-    O(Gt, ">")                       \
-    O(Le, "<=")                      \
-    O(Ge, ">=")                      \
-    O(BitAnd, ".&.")                 \
-    O(BitOr, ".|.")                  \
-    O(BitXor, ".^.")                 \
-    O(BitNot, ".~.")                 \
-    O(Shl, ".<.")                    \
-    O(Shr, ".>>.")                   \
-    O(ShrAlt, ".>.")
+    O(Add, spell::kAdd)                      \
+    O(Sub, spell::kSub)                      \
+    O(Mul, spell::kMul)                      \
+    O(Div, spell::kDiv)                      \
+    O(IntDiv, spell::kIntDiv)                \
+    O(Mod, spell::kMod)                      \
+    O(AddAssign, spell::kAddAssign)          \
+    O(SubAssign, spell::kSubAssign)          \
+    O(MulAssign, spell::kMulAssign)          \
+    O(DivAssign, spell::kDivAssign)          \
+    O(IntDivAssign, spell::kIntDivAssign)    \
+    O(ModAssign, spell::kModAssign)          \
+    O(ShlAssign, spell::kShlAssign)          \
+    O(ShrAssign, spell::kShrAssign)          \
+    O(AndAssign, spell::kAndAssign)          \
+    O(OrAssign, spell::kOrAssign)            \
+    O(XorAssign, spell::kXorAssign)          \
+    O(PlainAssign, spell::kAssign)           \
+    O(Swap, spell::kSwap)                    \
+    O(TypeIsA, spell::kTypeIsA)              \
+    O(TypeDuck, spell::kTypeDuck)            \
+    O(TypeStrict, spell::kTypeStrict)        \
+    O(LogicalAnd, spell::kLogicalAnd)        \
+    O(LogicalOr, spell::kLogicalOr)          \
+    O(LogicalXor, spell::kLogicalXor)        \
+    O(Declare, spell::kDeclare)              \
+    O(TypeCreate, spell::kTypeCreate)        \
+    O(TypeAlias, spell::kTypeAlias)          \
+    O(Append, spell::kAppend)                \
+    O(Member, spell::kMember)                \
+    O(Index, spell::kIndexOpen)              \
+    O(Eq, spell::kEq)                        \
+    O(EqExact, spell::kEqExact)              \
+    O(Ne, spell::kNe)                        \
+    O(NeExact, spell::kNeExact)              \
+    O(NeNoCast, spell::kNeNoCast)            \
+    O(Lt, spell::kLt)                        \
+    O(Gt, spell::kGt)                        \
+    O(Le, spell::kLe)                        \
+    O(Ge, spell::kGe)                        \
+    O(BitAnd, spell::kBitAnd)                \
+    O(BitOr, spell::kBitOr)                  \
+    O(BitXor, spell::kBitXor)                \
+    O(BitNot, spell::kBitNot)                \
+    O(Shl, spell::kShl)                      \
+    O(Shr, spell::kShr)                      \
+    O(ShrAlt, spell::kShrAlt)
 
 // Текст оператора -> BinaryOp. Непокрытый глиф -> None (вызывающий обязан диагностировать:
 // терм-backed Binary не имеет права молча остаться без opcode).
@@ -190,10 +182,10 @@ constexpr bool isPostfixIncDecOp(BinaryOp op) noexcept {
     switch (op) {
     case BinaryOp::PreIncrement:
     case BinaryOp::PostIncrement:
-        return "++";
+        return spell::kInc;
     case BinaryOp::PreDecrement:
     case BinaryOp::PostDecrement:
-        return "--";
+        return spell::kDec;
         TRUST_BINARY_OP_SPELLINGS(TRUST_BINARY_OP_SPELLING)
     case BinaryOp::None:
         return {};

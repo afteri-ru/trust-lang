@@ -4,12 +4,12 @@
 # -fno-overflow-check отключает детекцию: обычная арифметика и составные присваивания.
 
 x:Int32 := 100;
-# CHECK: int32_t c_x = 100;
+# CHECK: int32_t x = 100;
 
 x += 5;
-# CHECK: c_x += 5;
+# CHECK: x += 5;
 
 y := x + 1;
-# CHECK: int32_t c_y = (c_x + 1);
+# CHECK: int32_t y = (x + 1);
 # CHECK-NOT: __builtin_
 # CHECK-NOT: integer overflow

@@ -1,12 +1,12 @@
 #pragma once
 
-// include/semantic/typer/call_binding.hpp
 // Привязка аргументов вызова к параметрам: позиционные, именованные (`.name=`) и
 // опциональные (default). Метаданные (`CallableParamInfo`) НЕ входят в TypeKey/суффикс;
 // значения по умолчанию остаются в C++-объявлении (вызов опускает только ХВОСТОВЫЕ
 // опциональные параметры). Пропуск default перед явно переданным аргументом запрещён.
 
 #include "types/type_read.hpp"
+#include "target/decl_cpp_facts.hpp"
 #include "symbols/decl_binders.hpp"
 #include "symbols/symbol_table.hpp"
 #include "ast/ast_nodes.hpp"
@@ -22,10 +22,25 @@
 
 namespace trust {
 
-struct BoundCallArguments {
-    std::vector<const AstNodeBase*> values;
-    std::vector<TypeId> types;
+/// Привязанные аргументы вызова: записи `узел + тип` одного набора.
+struct BoundArg {
+    const AstNodeBase* node = nullptr;
+    TypeId type{INVALID_TYPE_ID};
 };
+
+struct BoundCallArguments {
+    std::vector<BoundArg> args;
+};
+
+/// Узлы связанных аргументов (проекция для AST-факта `CallExpr::boundArgs`).
+[[nodiscard]] inline std::vector<const AstNodeBase*> boundArgumentNodes(const BoundCallArguments& bound) {
+    std::vector<const AstNodeBase*> nodes;
+    nodes.reserve(bound.args.size());
+    for (const BoundArg& arg : bound.args) {
+        nodes.push_back(arg.node);
+    }
+    return nodes;
+}
 
 [[nodiscard]] inline CallableParamInfo callableParamInfo(const FuncDecl& f) {
     CallableParamInfo info;
@@ -40,8 +55,7 @@ struct BoundCallArguments {
         if (a.isTypePack) {
             continue;
         }
-        info.names.emplace_back(a.text());
-        info.hasDefault.push_back(a.m_value != nullptr);
+        info.slots.push_back(ParamSlot{std::string(a.text()), a.m_value != nullptr});
     }
     return info;
 }
@@ -79,9 +93,9 @@ struct BoundCallArguments {
     return index < method.entries.size() ? &method.entries[index].params : nullptr;
 }
 
-/// C++-суффикс объявления-перегрузки по индексу набора (заполняется семантикой ВСЕГДА из
-/// идентичности объявления). Индекс обязан принадлежать набору - иначе это внутренняя ошибка.
-[[nodiscard]] inline std::string declCppSuffix(const Symbol& sym, std::size_t index) {
+/// C++-суффикс объявления-перегрузки по индексу набора (`DeclCppFacts::cppSuffixOf` — целевой факт
+/// объявления, R1). Индекс обязан принадлежать набору - иначе это внутренняя ошибка.
+[[nodiscard]] inline std::string declCppSuffix(const Symbol& sym, std::size_t index, const DeclCppFacts& facts) {
     const AstNodeBase* decl = nullptr;
     if (index < sym.overloads.size()) {
         decl = sym.overloads[index].decl;
@@ -90,13 +104,15 @@ struct BoundCallArguments {
         decl = sym.decl;
     }
     EXPECT(decl != nullptr && decl->is<FuncDecl>() && "declCppSuffix: a function declaration is required");
-    return decl->as<FuncDecl>()->m_cppSuffix;
+    return std::string(facts.cppSuffixOf(decl->as<FuncDecl>()->declId()));
 }
 
-/// C++-суффикс метода по индексу набора (`CallableSignature::cppSuffix`).
-[[nodiscard]] inline std::string methodCppSuffix(const ::trust::MethodRef& method, std::size_t index) {
+/// C++-суффикс метода по индексу набора: единственный владелец факта — контракт `target`
+/// (`DeclCppFacts::cppSuffixOf` по идентичности объявления метода). Пусто — суффикс не назначался
+/// (native/builtin/синтетический метод без объявления).
+[[nodiscard]] inline std::string methodCppSuffix(const ::trust::MethodRef& method, std::size_t index, const DeclCppFacts& facts) {
     EXPECT(index < method.entries.size() && "methodCppSuffix: suffix index is out of range");
-    return method.entries[index].cppSuffix;
+    return std::string(facts.cppSuffixOf(method.entries[index].decl));
 }
 
 /// Привязать сырые аргументы вызова к слотам параметров. nullopt - ошибка (error заполнен).
@@ -109,18 +125,15 @@ struct BoundCallArguments {
         }
         return std::nullopt;
     };
-    if (!info.valid()) {
-        return fail("parameter metadata is inconsistent");
-    }
     bool seenDefault = false;
-    for (const bool d : info.hasDefault) {
-        if (d) {
+    for (const ParamSlot& slot : info.slots) {
+        if (slot.hasDefault) {
             seenDefault = true;
         } else if (seenDefault) {
             return fail("optional parameter before a required parameter");
         }
     }
-    const std::size_t n = info.names.size();
+    const std::size_t n = info.slots.size();
     std::vector<const AstNodeBase*> slots(n);
     std::vector<bool> bound(n, false);
     std::vector<const AstNodeBase*> extras;
@@ -142,7 +155,7 @@ struct BoundCallArguments {
         if (!name.empty()) {
             std::size_t idx = n;
             for (std::size_t i = 0; i < n; ++i) {
-                if (info.names[i] == name) {
+                if (info.slots[i].name == name) {
                     idx = i;
                     break;
                 }
@@ -180,17 +193,17 @@ struct BoundCallArguments {
     const std::size_t required = info.requiredCount();
     for (std::size_t i = 0; i < required; ++i) {
         if (!bound[i]) {
-            return fail("missing required argument '" + info.names[i] + "' for " + std::string(what));
+            return fail("missing required argument '" + info.slots[i].name + "' for " + std::string(what));
         }
     }
     if (any) {
         for (std::size_t i = 0; i < last; ++i) {
             if (!bound[i]) {
-                if (info.hasDefault[i]) {
-                    return fail("cannot omit default parameter '" + info.names[i] + "' before a provided argument for " + std::string(what) +
+                if (info.slots[i].hasDefault) {
+                    return fail("cannot omit default parameter '" + info.slots[i].name + "' before a provided argument for " + std::string(what) +
                                 " (C++ default arguments can only be omitted at the tail)");
                 }
-                return fail("missing required argument '" + info.names[i] + "' for " + std::string(what));
+                return fail("missing required argument '" + info.slots[i].name + "' for " + std::string(what));
             }
         }
     }
@@ -199,15 +212,12 @@ struct BoundCallArguments {
     }
 
     BoundCallArguments out;
-    out.values.reserve(last + extras.size());
-    out.types.reserve(last + extras.size());
+    out.args.reserve(last + extras.size());
     for (std::size_t i = 0; i < last; ++i) {
-        out.values.push_back(slots[i]);
-        out.types.push_back(actx.facts().exprType(*slots[i]));
+        out.args.push_back(BoundArg{slots[i], actx.facts().exprType(*slots[i])});
     }
     for (const auto& extra : extras) {
-        out.values.push_back(extra);
-        out.types.push_back(actx.facts().exprType(*extra));
+        out.args.push_back(BoundArg{extra, actx.facts().exprType(*extra)});
     }
     return out;
 }
@@ -223,7 +233,7 @@ template <typename InfoFor>
 [[nodiscard]] inline BoundCandidateSet gatherBoundCandidates(AnalysisContext& actx, const std::vector<AstNodePtr>& raw, std::span<const TypeId> signatures,
                                                              InfoFor infoFor, std::string_view what) {
     BoundCandidateSet out;
-    const TypeReadModel& reg = actx.ctx().types();
+    const TypeReadModel& reg = actx.registry();
     // A candidate without CallableParamInfo (native/builtin) cannot be named/default-bound, but it
     // MUST stay in the set: dropping it silently would let a metadata-bearing overload win against
     // a viable native one. It participates with positional arguments only.
@@ -259,8 +269,7 @@ template <typename InfoFor>
                 continue;
             }
             BoundCallArguments bound;
-            bound.values.reserve(raw.size());
-            bound.types.reserve(raw.size());
+            bound.args.reserve(raw.size());
             bool ok = true;
             for (const auto& arg : raw) {
                 if (!arg) {
@@ -276,8 +285,7 @@ template <typename InfoFor>
                         break;
                     }
                 }
-                bound.values.push_back(value);
-                bound.types.push_back(actx.facts().exprType(*value));
+                bound.args.push_back(BoundArg{value, actx.facts().exprType(*value)});
             }
             if (!ok) {
                 if (out.firstError.empty()) {
@@ -285,7 +293,12 @@ template <typename InfoFor>
                 }
                 continue;
             }
-            out.candidates.push_back(OverloadCandidate{sig, bound.types, fixed, false, true});
+            std::vector<TypeId> argumentTypes;
+            argumentTypes.reserve(bound.args.size());
+            for (const BoundArg& arg : bound.args) {
+                argumentTypes.push_back(arg.type);
+            }
+            out.candidates.push_back(OverloadCandidate{sig, std::move(argumentTypes), fixed, false, true});
             out.bound.push_back(std::move(bound));
             continue;
         }
@@ -297,7 +310,12 @@ template <typename InfoFor>
             }
             continue;
         }
-        out.candidates.push_back(OverloadCandidate{sig, bound->types, info->requiredCount(), false, true});
+        std::vector<TypeId> argumentTypes;
+        argumentTypes.reserve(bound->args.size());
+        for (const BoundArg& arg : bound->args) {
+            argumentTypes.push_back(arg.type);
+        }
+        out.candidates.push_back(OverloadCandidate{sig, std::move(argumentTypes), info->requiredCount(), false, true});
         out.bound.push_back(std::move(*bound));
     }
     return out;

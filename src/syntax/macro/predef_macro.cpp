@@ -5,11 +5,12 @@
 #include "syntax/macro/pragma_evaluator.hpp"
 #include "syntax/term/term.h"
 
-#include "session/context.hpp"
+#include "syntax/parser_services.hpp"
 #include "sourcemap/mapper.hpp"
 #include "diag/severity.hpp"
 #include "trust/version.h"
 #include "utils/strings.hpp"
+#include "utils/utils.hpp"
 
 #include "syntax/util/warning_push.h"
 #include <sys/stat.h>
@@ -26,17 +27,20 @@ namespace syntax {
 
 namespace {
 
-// Реестры (имя -> описание), строятся ОДИН раз из x-macro TRUST_VALUE_MACROS / TRUST_CONTEXT_MACROS;
-// там же сидируются доки в Context::macroDocs. Все макросы известны на этапе компиляции -
-// ручная регистрация не нужна. Разделение: значение-макросы (парсер) vs контекст-макросы
-// (информация анализатора, разрешение в NameResolutionPass).
+// In-memory источник (`@...`, playground/LSP) не имеет файла на диске: MD5 не определён.
+// Контракт макроса — строка фиксированной длины; диагностика здесь недопустима (анализ идёт).
+constexpr std::string_view kUnavailableFileHash = "?????????????????????????????????";
+
+// Реестры (имя -> описание), строятся ОДИН раз из x-macro TRUST_VALUE_MACROS / TRUST_CONTEXT_MACROS.
+// Доки макросов сидируются в ctor резолвера (нужен порт, см. PredefMacroResolver). Все макросы
+// известны на этапе компиляции - ручная регистрация не нужна. Разделение: значение-макросы
+// (парсер) vs контекст-макросы (информация анализатора, разрешение в NameResolutionPass).
 std::map<std::string, std::string>& valueRegistry() {
     static std::map<std::string, std::string> reg = [] {
         std::map<std::string, std::string> m;
         for (int i = 0; i < static_cast<int>(PredefMacroId::Count); ++i) {
             const auto id = static_cast<PredefMacroId>(i);
             m.emplace(predefMacroName(id), predefMacroDesc(id));
-            Context::addMacroDoc(predefMacroName(id), predefMacroDesc(id));
         }
         return m;
     }();
@@ -49,7 +53,6 @@ std::map<std::string, std::string>& contextRegistry() {
         for (int i = 0; i < static_cast<int>(ContextMacroId::Count); ++i) {
             const auto id = static_cast<ContextMacroId>(i);
             m.emplace(contextMacroName(id), contextMacroDesc(id));
-            Context::addMacroDoc(contextMacroName(id), contextMacroDesc(id));
         }
         return m;
     }();
@@ -62,34 +65,9 @@ int& counter() {
     return c;
 }
 
-// Хелперы даты/времени.
-std::string currentDate(time_t ts) {
-    std::string buf("Jul 27 2012");
-    strftime(buf.data(), buf.size(), "%b %e %Y", localtime(&ts));
-    return buf;
-}
-
-std::string currentTime(time_t ts) {
-    std::string buf("07:07:09");
-    strftime(buf.data(), buf.size(), "%T", localtime(&ts));
-    return buf;
-}
-
-std::string currentTimeStamp(time_t ts) {
-    std::string result = asctime(localtime(&ts));
-    result = result.substr(0, 24); // Remove \n on the end line
-    return result;
-}
-
-std::string currentTimeStampISO(time_t ts) {
-    std::string buf("2011-10-08T07:07:09Z");
-    strftime(buf.data(), buf.size(), "%FT%TZ", localtime(&ts));
-    return buf;
-}
-
 } // namespace
 
-PredefMacroResolver::PredefMacroResolver(trust::Context& ctx)
+PredefMacroResolver::PredefMacroResolver(trust::ParserServices ctx)
 : m_ctx(ctx) {
     char* source_date_epoch = std::getenv("SOURCE_DATE_EPOCH");
     if (source_date_epoch) {
@@ -100,6 +78,16 @@ PredefMacroResolver::PredefMacroResolver(trust::Context& ctx)
         }
     } else {
         m_timestamp = std::time(NULL);
+    }
+    // Доки value/context-макросов: единственный источник описаний — x-macro-реестры. Сидируются
+    // при создании резолвера (idempotent addMacroDoc); прагм-доки — при использовании прагмы.
+    for (int i = 0; i < static_cast<int>(PredefMacroId::Count); ++i) {
+        const auto id = static_cast<PredefMacroId>(i);
+        m_ctx.addMacroDoc(predefMacroName(id), predefMacroDesc(id));
+    }
+    for (int i = 0; i < static_cast<int>(ContextMacroId::Count); ++i) {
+        const auto id = static_cast<ContextMacroId>(i);
+        m_ctx.addMacroDoc(contextMacroName(id), contextMacroDesc(id));
     }
 }
 const std::vector<std::string>& PredefMacroResolver::pragmaMacroNames() {
@@ -331,10 +319,7 @@ parser::token_type PredefMacroResolver::expandValueMacro(TermPtr& term) {
             std::string fname = std::string(m_ctx.source().filename(term->m_mapperRange.begin));
             struct stat st;
             if (stat(fname.c_str(), &st) == 0) {
-                char time_str[64];
-                struct tm* timeinfo = localtime(&st.st_mtime);
-                strftime(time_str, sizeof(time_str), "%a %b %d %H:%M:%S %Y", timeinfo);
-                term->setTextOwned(std::string(time_str, 24));
+                term->setTextOwned(utils::formatTimestamp(st.st_mtime, "%a %b %d %H:%M:%S %Y"));
             } else {
                 term->setTextOwned("??? ??? ?? ??:??:?? ????");
             }
@@ -352,33 +337,32 @@ parser::token_type PredefMacroResolver::expandValueMacro(TermPtr& term) {
                 snprintf(hex, sizeof(hex), "%016llx", static_cast<unsigned long long>(hash));
                 term->setTextOwned(std::string(hex));
             } else {
-                term->setTextOwned("?????????????????????????????????");
+                term->setTextOwned(std::string(kUnavailableFileHash));
             }
         }
         term->m_lexer_type = str_token;
         return term->m_lexer_type;
 
     case PredefMacroId::Date:
-        term->setTextOwned(currentDate(m_timestamp));
+        term->setTextOwned(utils::formatTimestamp(m_timestamp, "%b %e %Y"));
         term->m_id = str_type;
         term->m_lexer_type = str_token;
         return term->m_lexer_type;
 
     case PredefMacroId::Time:
-        term->setTextOwned(currentTime(m_timestamp));
+        term->setTextOwned(utils::formatTimestamp(m_timestamp, "%T"));
         term->m_id = str_type;
         term->m_lexer_type = str_token;
         return term->m_lexer_type;
 
     case PredefMacroId::Timestamp:
-        term->setTextOwned(currentTimeStamp(m_timestamp));
-        term->setTextOwned(std::string(term->getText().substr(0, 24))); // Remove trailing newline
+        term->setTextOwned(utils::formatTimestamp(m_timestamp, "%a %b %e %T %Y"));
         term->m_id = str_type;
         term->m_lexer_type = str_token;
         return term->m_lexer_type;
 
     case PredefMacroId::TimestampISO:
-        term->setTextOwned(currentTimeStampISO(m_timestamp));
+        term->setTextOwned(utils::formatTimestamp(m_timestamp, "%FT%TZ"));
         term->m_id = str_type;
         term->m_lexer_type = str_token;
         return term->m_lexer_type;

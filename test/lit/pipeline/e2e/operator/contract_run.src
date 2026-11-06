@@ -6,6 +6,7 @@
 
 # Оператор-метод С КОНТРАКТАМИ (trust_pre/trust_post) компилируется и исполняется; использование
 # `a == b` резолвится в сгенерированный operator==.
+\std();
 :V ::= :Class{
     v: Int32 := _;
     __eq__(o: V): Bool trust_pre(true) trust_post(true) := { return true; };

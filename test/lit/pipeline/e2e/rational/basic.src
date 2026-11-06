@@ -7,9 +7,10 @@
 # executable depends on trust-runtime.so, resolved at run time via LD_LIBRARY_PATH.
 
 # Rational runtime-backed type: `x : Rational := 0;` makes the transpiler emit
-# `#include "trust/rational.hpp"`; the header is available from the extracted
+# `#include "stdlib/builtin/rational.hpp"`; the header is available from the extracted
 # `stdlib.trust` package via -Istdlib/include, and the runtime library is linked into
 # the executable, which must then run the Rational arithmetic correctly.
+\std();
 x : Rational := 0;
 
 {% int basic__main__() {

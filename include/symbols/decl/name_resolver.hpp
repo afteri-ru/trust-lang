@@ -1,6 +1,5 @@
 #pragma once
 
-// include/symbols/decl/name_resolver.hpp
 // Зона резолва имён таблицы символов: единственная точка ответа на вопрос «что означает имя в
 // этой позиции» (namespace-алиасы → модульный уровень → плоский ключ; видимость сайта импорта).
 // Скоупы зона НЕ мутирует: единственная запись — материализация «символа как значения»
@@ -38,7 +37,6 @@ struct ResolveOptions {
 struct UsingResolveResult {
     Symbol* symbol = nullptr;
     std::string qualifiedText; ///< квалифицированное trust-имя попадания (пусто при слиянии наборов)
-    std::optional<ModuleIndex> module;
     bool ambiguous = false; ///< несколько не-callable целей в одном скоупе
 };
 
@@ -86,6 +84,8 @@ class NameResolver {
     [[nodiscard]] Symbol* findKeyWithDecl(const StorageKey& key, const AstNodeBase* decl) const;
     /// Резолв с mutable-доступом: `materialize` включает материализацию перегрузок.
     [[nodiscard]] Symbol* resolveImpl(std::string_view name, bool materialize) const;
+    /// Плоский/квалифицированный поиск БЕЗ раскрытия namespace-алиасов (для отложенного алиаса).
+    [[nodiscard]] Symbol* resolveImplNoAlias(std::string_view name, bool materialize) const;
     /// Доступен ли protected-символ (`_::`) с активного сайта (правило владельца, не сайта фасада).
     [[nodiscard]] bool protectedAccessible(const Symbol& sym, ModuleIndex module, std::string_view qualifiedName) const;
 

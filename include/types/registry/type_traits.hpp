@@ -1,8 +1,6 @@
 #pragma once
 
-// include/types/registry/type_traits.hpp
 // Compile-time связь «альтернатива TypeData <-> TypeDataKind».
-//
 // Единственный источник порядка — `std::variant TypeData`: индекс альтернативы В САМОМ variant
 // и есть значение `TypeDataKind` (static_assert ниже). Поэтому `isTypeDataKind` — сравнение
 // индексов варианта (O(1)), а не switch по всем видам. Новый вариант `TypeData` без нового

@@ -18,7 +18,7 @@ namespace {
 
 std::shared_ptr<FuncDecl> func(std::string name, std::vector<AstNodePtr> body = {}) {
     auto node = std::make_shared<FuncDecl>(std::move(name));
-    node->m_body = std::move(body);
+    node->m_definition = Definition::fromBody(std::move(body));
     return node;
 }
 

@@ -2,7 +2,6 @@
 /// @file zstd_compress.hpp
 /// Zstd compression helpers with per-buffer trained dictionary.
 /// Replaces the previous zlib-based compression in serialization.
-///
 /// Format: [orig_size:LE4][dict_size:LE4][dictionary][zstd_compressed][md5_checksum:LE8]
 
 #include <vector>

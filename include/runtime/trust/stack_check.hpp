@@ -1,11 +1,8 @@
 // trust/stack_check.hpp - защита стека от переполнения (runtime primitives).
-//
 // Delivery: package file `include/trust/stack_check.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
-//
 // Основная идея: перед вызовом защищаемой функции проверяется свободное место на стеке, и если
 // его недостаточно - выбрасывается программное исключение `stack_overflow`, которое можно
 // перехватить и обработать внутри приложения, не дожидаясь segmentation fault.
-//
 // Семантика проверок (резерв `reserve` нужен как минимальный запас на обработку возможного
 // прерывания/исключения во время вызова):
 //   check_overflow(N)      - throw, если свободно < N + reserve   (free >= N + reserve)
@@ -16,10 +13,8 @@
 //   set_reserve(N)         - установить минимальный резерв `reserve` для ВСЕХ функций (thread_local)
 //   set_limit(A)           - ограничить m_stack_limit перечисленными функциями (по адресам); пусто = все
 //   get_limit()            - текущий m_stack_limit (вычисляется один раз и кешируется)
-//
 // Для работы `check_stack_limit()` программа должна быть скомпилирована с -fstack-size-section
 // (секция .stack_sizes). Границы стека потока определяются через pthread_getattr_np (Linux).
-//
 // TLS-переменная `info` определяется в сгенерированном entry `_main.cppt`:
 //   const thread_local trust::stack_check trust::stack_check::info;
 // (единственная TU программы; `reserve`/`m_stack_limit` - header-only inline thread_local).
@@ -36,7 +31,7 @@
 #include <utility>
 #include <vector>
 
-#include "trust/interrupt.hpp" // IntMinus: переполнение стека - встроенная ошибка языка, ловится {- ... -}
+#include "interrupts.hpp" // IntMinus: переполнение стека - встроенная ошибка языка, ловится {- ... -}
 
 #ifndef STACK_RESERVE
 #define STACK_RESERVE 8192
@@ -87,8 +82,6 @@ struct stack_check {
 
     stack_check() { get_stack_info(top, bottom); }
 
-    // --- Проверки свободного места на стеке ---
-
     /// throw, если свободно < N + reserve. Используется атрибутом `@[stack_check(N)@]`
     /// и макросом `@stack_check(N)` (явный размер свободного места).
     /// ВАЖНО: free_space() меряет от текущего кадра до дна стека и НЕ включает кадр вызываемой
@@ -103,7 +96,7 @@ struct stack_check {
 
     /// throw, если свободно < m_stack_limit + reserve. m_stack_limit (максимальный размер стека
     /// функции из секции .stack_sizes) вычисляется ОДИН раз при первом limit-проверке и кешируется.
-    /// Используется атрибутом `@[stack_check@]` (без аргумента) и функцией `%trust_stack_check`.
+    /// Используется атрибутом `@[stack_check@]` (без аргумента) и функцией `trust_stack_check`.
     static inline void check_stack_limit() {
         // Считаем лимит один раз (stackLimit() кешируется; не вызывать дважды на проверку).
         const size_t need = stackLimit() + reserve;
@@ -135,7 +128,7 @@ struct stack_check {
 
     /// Ограничить m_stack_limit для limit-проверок перечисленными функциями (адреса). Пустой список -
     /// используются все функции секции .stack_sizes. Сброс кеша m_stack_limit (пересчёт при следующей
-    /// limit-проверке). Реальная функция `%trust_stack_check_set_limit` / set_limit({&f1, &f2}).
+    /// limit-проверке). Реальная функция `trust_stack_check_set_limit` / set_limit({&f1, &f2}).
     static inline void set_limit(std::vector<void*> addrs) {
         include_functions = std::move(addrs);
         m_stack_limit_ready = false;
@@ -143,7 +136,7 @@ struct stack_check {
 
     /// Текущий общий лимит (m_stack_limit): максимальный размер стека функции по заданному перечню
     /// (или по всем функциям .stack_sizes), вычисляется один раз и кешируется. Реальная функция
-    /// `%trust_stack_check_get_limit` / get_limit().
+    /// `trust_stack_check_get_limit` / get_limit().
     static inline size_t get_limit() { return stackLimit(); }
 
     /// Свободное место на стеке текущего потока (текущий кадр - начало стека).

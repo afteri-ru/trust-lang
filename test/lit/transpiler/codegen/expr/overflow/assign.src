@@ -4,15 +4,15 @@
 # (__builtin_*_overflow(lhs, rhs, &lhs) ? throw ... : lhs) - без лямбды и временных.
 
 x:Int32 := 100;
-# CHECK: int32_t c_x = 100;
+# CHECK: int32_t x = 100;
 
 x += 5;
-# CHECK: (__builtin_add_overflow(c_x, 5, &c_x) ? throw trust::IntMinus(trust::formatMessage("{{[^\"]*}}", 9, "integer overflow in '+='")) : c_x);
+# CHECK: (__builtin_add_overflow(x, 5, &x) ? throw trust::IntMinus(trust::formatMessage("{{[^\"]*}}", 9, "integer overflow in '+='")) : x);
 
 x -= 2;
-# CHECK: __builtin_sub_overflow(c_x, 2, &c_x)
+# CHECK: __builtin_sub_overflow(x, 2, &x)
 # CHECK: integer overflow in '-='
 
 x *= 3;
-# CHECK: __builtin_mul_overflow(c_x, 3, &c_x)
+# CHECK: __builtin_mul_overflow(x, 3, &x)
 # CHECK: integer overflow in '*='

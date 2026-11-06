@@ -14,8 +14,8 @@ TEST_F(SemanticTest, VerifyHirAcceptsMaterializedTypes) {
     auto name = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(name), std::make_shared<IdentType>("Int32"), std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5"));
     std::vector<AstNodePtr> seq{std::move(var)};
-    ASSERT_TRUE(SemanticPassRunner(m_ctx).run(seq));
-    const HirModule hir = buildHir(seq, m_ctx);
+    ASSERT_TRUE(SemanticPassRunner(m_ctx, *m_types).run(seq));
+    const HirModule hir = buildHir(seq, m_ctx, *m_types);
     EXPECT_FALSE(verifyHir(hir).has_value());
 }
 
@@ -24,7 +24,7 @@ TEST_F(SemanticTest, VerifyHirRejectsUnmaterializedAnnotation) {
     auto name = Term::Create(TermID::NAME, "x", {}, parser::token_type::NAME);
     auto var = std::make_shared<VarDecl>(std::move(name), std::make_shared<IdentType>("Int32"), std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5"));
     std::vector<AstNodePtr> seq{std::move(var)};
-    const HirModule hir = buildHir(seq, m_ctx);
+    const HirModule hir = buildHir(seq, m_ctx, *m_types);
     const auto violation = verifyHir(hir);
     ASSERT_TRUE(violation.has_value());
     EXPECT_NE(violation->find("not materialized"), std::string::npos) << *violation;
@@ -34,9 +34,9 @@ TEST_F(SemanticTest, VerifyHirRejectsRecoveryNode) {
     auto fn = std::make_shared<FuncDecl>("f");
     std::vector<AstNodePtr> body;
     body.push_back(std::make_shared<ErrorExpr>(std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1")));
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
     std::vector<AstNodePtr> seq{std::move(fn)};
-    const HirModule hir = buildHir(seq, m_ctx);
+    const HirModule hir = buildHir(seq, m_ctx, *m_types);
     const auto violation = verifyHir(hir);
     ASSERT_TRUE(violation.has_value());
     EXPECT_NE(violation->find("ErrorExpr"), std::string::npos) << *violation;
@@ -49,10 +49,10 @@ TEST_F(SemanticTest, VerifyHirRejectsUnresolvedMemberAccessObject) {
     auto fn = std::make_shared<FuncDecl>("f");
     std::vector<AstNodePtr> body;
     body.push_back(access);
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
     std::vector<AstNodePtr> seq{std::move(fn)};
 
-    const HirModule hir = buildHir(seq, m_ctx);
+    const HirModule hir = buildHir(seq, m_ctx, *m_types);
     const auto violation = verifyHir(hir);
     ASSERT_TRUE(violation.has_value());
     EXPECT_NE(violation->find("member access object 'obj'"), std::string::npos) << *violation;
@@ -71,10 +71,10 @@ TEST_F(SemanticTest, VerifyHirAcceptsResolvedMemberAccessObject) {
     std::vector<AstNodePtr> body;
     body.push_back(decl);
     body.push_back(access);
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
     std::vector<AstNodePtr> seq{std::move(fn)};
 
-    const HirModule hir = buildHir(seq, m_ctx);
+    const HirModule hir = buildHir(seq, m_ctx, *m_types);
     EXPECT_FALSE(verifyHir(hir).has_value());
 }
 
@@ -84,7 +84,7 @@ TEST_F(SemanticTest, VerifyHirRejectsNamedBreak) {
     auto fn = std::make_shared<FuncDecl>("f");
     std::vector<AstNodePtr> body;
     body.push_back(brk);
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
 
     std::vector<AstNodePtr> roots{fn};
     const HirModule hir(std::move(roots));
@@ -99,7 +99,7 @@ TEST_F(SemanticTest, VerifyHirRejectsNestedSemicolon) {
     auto fn = std::make_shared<FuncDecl>("f");
     std::vector<AstNodePtr> body;
     body.push_back(outer);
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
 
     std::vector<AstNodePtr> roots{fn};
     const HirModule hir(std::move(roots));
@@ -154,7 +154,7 @@ TEST_F(SemanticTest, VerifyHirRejectsDuplicateSyntheticTemp) {
     std::vector<AstNodePtr> body;
     body.push_back(first);
     body.push_back(second);
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
 
     std::vector<AstNodePtr> roots{fn};
     const HirModule hir(std::move(roots));
@@ -168,7 +168,7 @@ TEST_F(SemanticTest, VerifyHirRejectsDuplicateLabel) {
     std::vector<AstNodePtr> body;
     body.push_back(std::make_shared<LabelRef>(ParserToken::Kind::LabelStmt, "L"));
     body.push_back(std::make_shared<LabelRef>(ParserToken::Kind::LabelStmt, "L"));
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
 
     std::vector<AstNodePtr> roots{fn};
     const HirModule hir(std::move(roots));
@@ -184,7 +184,7 @@ TEST_F(SemanticTest, VerifyHirReportsOriginForSyntheticNode) {
     auto fn = std::make_shared<FuncDecl>("f");
     std::vector<AstNodePtr> body;
     body.push_back(gotoStmt);
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
 
     std::vector<AstNodePtr> roots{fn};
     const HirModule hir(std::move(roots));
@@ -197,9 +197,9 @@ TEST_F(SemanticTest, VerifyHirChecksGotoLabelsPerFunction) {
     auto fn = std::make_shared<FuncDecl>("f");
     std::vector<AstNodePtr> body;
     body.push_back(std::make_shared<LabelRef>(ParserToken::Kind::GotoStmt, "missing"));
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
     std::vector<AstNodePtr> seq{std::move(fn)};
-    const HirModule hir = buildHir(seq, m_ctx);
+    const HirModule hir = buildHir(seq, m_ctx, *m_types);
     const auto violation = verifyHir(hir);
     ASSERT_TRUE(violation.has_value());
     EXPECT_NE(violation->find("goto 'missing'"), std::string::npos) << *violation;
@@ -210,9 +210,9 @@ TEST_F(SemanticTest, VerifyHirAcceptsMatchedGotoLabel) {
     std::vector<AstNodePtr> body;
     body.push_back(std::make_shared<LabelRef>(ParserToken::Kind::GotoStmt, "L"));
     body.push_back(std::make_shared<LabelRef>(ParserToken::Kind::LabelStmt, "L"));
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
     std::vector<AstNodePtr> seq{std::move(fn)};
-    const HirModule hir = buildHir(seq, m_ctx);
+    const HirModule hir = buildHir(seq, m_ctx, *m_types);
     EXPECT_FALSE(verifyHir(hir).has_value());
 }
 

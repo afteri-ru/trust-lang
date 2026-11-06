@@ -3,11 +3,11 @@
 using namespace trust;
 TEST_F(ParserTest, DocCommentAnywhereInSequence) {
     // Док перед объявлением, standalone док, док внутри блока функции.
-    ASSERT_TRUE(Parse("/// перед переменной\nx := 42;\n/// после\n%f():Void := {\n/// внутри функции\n|+ 1 +|;\n};"));
-    // Доки, привязанные к объявлениям (`x`, `%f`), лежат в m_docs терма-идентификатора и
+    ASSERT_TRUE(Parse("/// перед переменной\nx := 42;\n/// после\nf():Void := {\n/// внутри функции\n|+ 1 +|;\n};"));
+    // Доки, привязанные к объявлениям (`x`, `f`), лежат в m_docs терма-идентификатора и
     // НЕ являются отдельными DOCUMENT-термами. Док перед не-объявлением (`/// внутри функции`
     // перед `|+ 1 +|;`) остаётся sibling-узлом DOCUMENT. Без ошибок синтаксиса.
-    ASSERT_EQ(countDeclDocs(ast), 2) << "x and %f must carry their leading docs in m_docs";
+    ASSERT_EQ(countDeclDocs(ast), 2) << "x and f must carry their leading docs in m_docs";
     ASSERT_EQ(countDocTerms(ast), 1) << "only the non-decl doc remains a DOCUMENT term";
 }
 
@@ -49,7 +49,7 @@ TEST_F(ParserTest, DocCommentFullTextInTerm) {
 // (в :=/::=) и автономным оператором (с ';'). Конд-термы привязываются к терму-имени (m_sequence).
 
 TEST_F(ParserTest, TrustCondPrePostOnFunc) {
-    ASSERT_TRUE(Parse("%f(x:Int):Int @{ pre --> a > 0 @} @{ post --> c >= 0 @} := { r := x; };"));
+    ASSERT_TRUE(Parse("f(x:Int):Int @{ pre --> a > 0 @} @{ post --> c >= 0 @} := { r := x; };"));
     ASSERT_EQ(0, m_ctx.diag().errorCount());
     ASSERT_EQ(TermID::CREATE_NAME, ast->getTermID());
     ASSERT_TRUE(ast->m_left);
@@ -65,7 +65,7 @@ TEST_F(ParserTest, TrustCondPrePostOnFunc) {
 
 TEST_F(ParserTest, TrustCondAdjacencyNoSeparators) {
     // Несколько trust-контрактов подряд, без разделителей, вперемешку.
-    ASSERT_TRUE(Parse("%f(x:Int):Int @{ pre --> a > 0 @} @{ pre --> b > 1 @} @{ post --> c >= 0 @} := { r := x; };"));
+    ASSERT_TRUE(Parse("f(x:Int):Int @{ pre --> a > 0 @} @{ pre --> b > 1 @} @{ post --> c >= 0 @} := { r := x; };"));
     ASSERT_EQ(0, m_ctx.diag().errorCount());
     ASSERT_EQ(TermID::CREATE_NAME, ast->getTermID());
     ASSERT_TRUE(ast->m_left);

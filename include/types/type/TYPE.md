@@ -245,7 +245,7 @@ AST-узел `RangeExpr`; элементный тип (Int→Int64, Float→Doub
 
 - **Data=0 → абстрактный тип (группа); Data≠0 → конкретный тип.** `Data` — группо-зависимый код:
   для встроенных это размер, для реестровых — вид/вариант (Tuple/Range/Array/Tensor/record).
-  `isBuiltinConcrete(k) == (getData(k) != 0)` означает «есть конкретные данные», но НЕ «встроенный»:
+  `isBuiltinConcrete(k) == (typeDataOf(k) != 0)` означает «есть конкретные данные», но НЕ «встроенный»:
   встроенность — `isBuiltinType` по `registry_index`.
 - **TypeId** (8-байтовый класс) = { TypeKind (верхние 32) | registry_index (нижние 24 бита) }. Байт 24–31
   младшей половины — **qualifierы** (`kConstFlag` bit 30, `kInferredFlag` bit 31, остальные
@@ -279,4 +279,5 @@ AST-узел `RangeExpr`; элементный тип (Int→Int64, Float→Doub
 - **Разные категории:** ошибка компиляции
 - **Narrowing (с потерей точности):** запрещён, только явный каст
 
-Детали реализации TypeKind (битовая структура, Group, Data, RefType, TypeClass) - в [MEMORY.md](MEMORY.md).
+Детали реализации TypeKind (битовая структура, Group, Data, RefType, TypeClass) - в общем ABI-заголовке
+[`runtime/trust/type_state.hpp`](../../runtime/trust/type_state.hpp) (константы сдвигов/масок и `Group`).

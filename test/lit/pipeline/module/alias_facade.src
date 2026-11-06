@@ -1,23 +1,23 @@
 # RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
 # RUN: %split-file %s $TD
 # RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
-# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/facade.hpp
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/facade.hppt
 # RUN: %FileCheck %s --check-prefix=CALL <$TD/build/main.cppt
 # RUN: $TD/app
 #
-# C: Алиас функции В БЛОКЕ ИНТЕРФЕЙСА (`f :- \lib::g;`) - новое имя существующей функции:
+# C: Алиас функции В БЛОКЕ ИНТЕРФЕЙСА (`f :- g;`) - новое имя существующей функции:
 # имя-алиас входит в экспорт-набор фасада (курирование), C++-функция для него не эмитится,
 # а вызов клиента через алиас нормализуется на объявление-цель: печатается C++-имя и
 # identity-суффикс ЦЕЛИ, а не имя-алиас.
 # Алиас связывается с НАБОРОМ перегрузок цели: `f(1)` выбирает одноместную.
 # HDR: #pragma once
-# HDR: #include "lib.hpp"
+# HDR: #include "lib.hppt"
 # HDR-NOT: namespace facade
-# CALL: lib::c_g_P10N5_3AInt32_(1)
+# CALL: g_P10N5_3AInt32_(1)
 
 //--- main.src
 \facade(f);
-@main():Int32 := { @return f(1) + \facade::f(2) - 5; };
+@main():Int32 := { @return f(1) + f(2) - 5; };
 
 //--- lib.src
 \lib;
@@ -27,5 +27,5 @@ g(x:Int32, y:Int32):Int32 := { @return x + y; };
 //--- facade.src
 \facade {
     \lib(g);
-    f :- \lib::g;
+    f :- g;
 };

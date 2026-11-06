@@ -1,8 +1,7 @@
 #pragma once
 
-// include/formatter/impl/emitter.hpp
 // Класс Emitter — один проход по токенам: вывод зазоров/комментариев, правила перевода строки
-// (computeNewline) и пробела (computeSpace), отступы. Реализация — src/formatter/emitter.cpp.
+// (computeNewline) и пробела (computeSpace), отступы. Реализация — src/formatter/impl/emitter.cpp.
 // Внутренний заголовок зоны форматтера: включается только собственной реализацией.
 
 #include "formatter/format.hpp"

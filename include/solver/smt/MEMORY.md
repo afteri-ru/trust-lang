@@ -2,9 +2,8 @@
 
 > scope: include/solver/smt (+ src/solver/smt)
 > role: persistent-memory
-> last_reviewed: 2026-11-05
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 3000
 
 ## Architecture
 

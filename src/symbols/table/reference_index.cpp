@@ -1,4 +1,3 @@
-// src/symbols/reference_index.cpp
 // Проекция ссылок имя→объявление для LSP: один обход AST после семантики.
 #include "types/type_read.hpp"
 #include "symbols/reference_index.hpp"

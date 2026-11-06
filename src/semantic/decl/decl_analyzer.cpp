@@ -1,4 +1,3 @@
-// src/semantic/decl/decl_analyzer.cpp
 // Фасад анализа объявлений: делегирование профильным анализаторам.
 #include "semantic/decl/decl_analyzer.hpp"
 #include "semantic/decl/var_decl_analyzer.hpp"

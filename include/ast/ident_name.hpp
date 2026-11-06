@@ -1,4 +1,3 @@
-// include/ast/ident_name.hpp
 // IdentName - AST-узел для идентификатора с методами проверки, нормализации, манглинга.
 
 #pragma once
@@ -28,7 +27,6 @@ void assignNameFromRaw(AstNodeAttr& node, HasText& text, ParserToken::Kind kind,
 /// Имя хранится в mixin HasText (интернированный view) и доступно через text().
 class IdentName : public WithText<AstNodeAttr> {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_IdentName)
     IdentName()
     : WithText<AstNodeAttr>() {
@@ -43,7 +41,7 @@ class IdentName : public WithText<AstNodeAttr> {
     /// Uniform term-constructor for the generated factory (kind всегда Ident).
     /// Дети не строятся (Ident→CallExpr решается в override visit_NAME).
     /// ctx не используется: ReadOnly для этого пути применяет convertAttrsToNode (idempotent).
-    IdentName(ParserToken::Kind /*k*/, TermPtr term, Context* /*ctx*/ = nullptr)
+    IdentName(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* /*ctx*/ = nullptr)
     : IdentName(term) {}
 
     /// Объявленный узел, к которому разрешилась ссылка (VarDecl/ArgNode/цель DestructureDecl).
@@ -66,9 +64,9 @@ class IdentName : public WithText<AstNodeAttr> {
     /// Идентификатор обозначает тип (а не значение).
     [[nodiscard]] bool isTypeName() const noexcept { return resolvedTypeId.isValid(); }
 
-    /// Модуль ссылочной формы `\path::name` — индекс УЖЕ загруженного модуля (загрузки нет).
-    /// `text()` при этом хранит полный spelling (`\a::f`); семантика нормализует его на
-    /// найденное trust-имя (как `$x`/`%x`). `nullopt` — обычное имя.
+    /// Внутренний факт: имя пришло из объявления другого модуля (модуль-владелец), нужен кодогену
+    /// для `#include` заголовка владельца. НЕ синтаксис (модуль не является префиксом разрешения);
+    /// заполняет семантика (импорт/алиас). `nullopt` — имя своего модуля или локальное.
     std::optional<ModuleIndex> moduleRef;
 
     /// text() — интернированный view из HasText.
@@ -83,53 +81,39 @@ class IdentName : public WithText<AstNodeAttr> {
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
-    // -- Тип имени --
     [[nodiscard]] bool is_simple() const noexcept;
     [[nodiscard]] bool is_qualified() const noexcept;
     [[nodiscard]] bool is_special() const noexcept;
     [[nodiscard]] bool is_internal() const noexcept;
 
-    // -- Квалификаторные признаки --
     [[nodiscard]] bool is_macro() const noexcept;           // начинается с '@'
     [[nodiscard]] bool is_local() const noexcept;           // начинается с '$' (одиночный, не $$)
     [[nodiscard]] bool is_static() const noexcept;          // содержит '::'
     [[nodiscard]] bool is_field() const noexcept;           // начинается с '.'
     [[nodiscard]] bool is_module() const noexcept;          // начинается с '\'
     [[nodiscard]] bool is_type() const noexcept;            // начинается с ':'
-    [[nodiscard]] bool is_native() const noexcept;          // начинается с '%'
     [[nodiscard]] bool is_absolute_module() const noexcept; // '\\' в начале
     [[nodiscard]] bool is_relative_module() const noexcept; // '\' в начале (одинарный)
 
-    // -- Специальные имена --
     [[nodiscard]] bool is_arg_ref() const noexcept;     // $1..$N
     [[nodiscard]] bool is_self() const noexcept;        // $0
     [[nodiscard]] bool is_parent() const noexcept;      // $$
     [[nodiscard]] bool is_args_dict() const noexcept;   // $*
     [[nodiscard]] bool is_last_result() const noexcept; // $^
 
-    // -- Имя без квалификатора --
     [[nodiscard]] std::string_view bareName() const noexcept;
 
-    // -- Валидация --
     static constexpr size_t max_name_length = 64;
     static bool is_valid_simple_name(std::string_view s) noexcept;
     static bool is_valid_module_name(std::string_view s) noexcept;
 
-    // -- Разбивка квалифицированного имени на фрагменты --
     [[nodiscard]] std::vector<std::string_view> parts() const;
 
-    // -- Манглинг / деманглинг --
-    [[nodiscard]] IdentName mangle(std::string_view module_name) const;
-    static IdentName demangle(std::string_view mangled);
-
-    // -- Преобразование имени модуля в файловый путь --
     static std::filesystem::path module_name_to_path(std::string_view module_name, const std::filesystem::path& base_dir,
                                                      const std::filesystem::path& sys_dir = "/");
 
-    // -- Преобразование файлового пути в имя модуля --
     static IdentName path_to_module_name(const std::filesystem::path& path, const std::filesystem::path& base_dir);
 
-    // -- Сравнение по тексту (для замены std::string) --
     friend bool operator==(const IdentName& a, const IdentName& b) noexcept { return a.text() == b.text(); }
     friend bool operator!=(const IdentName& a, const IdentName& b) noexcept { return a.text() != b.text(); }
     friend bool operator==(const IdentName& a, std::string_view b) noexcept { return a.text() == b; }

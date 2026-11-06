@@ -1,6 +1,5 @@
 #pragma once
 
-// include/lsp/services/completion.h
 // Логика автодополнения (textDocument/completion) LSP.
 // ЕДИНЫЕ источники имён (без текстовых проходов по документу и пер-файловых копий
 // реестра):

@@ -1,4 +1,3 @@
-// src/semantic/ref/definite_assignment.cpp
 // Definite assignment: CFG + forward must-dataflow по стабильным местам (узлы объявлений).
 
 #include "semantic/ref/definite_assignment.hpp"
@@ -51,7 +50,7 @@ void addPlace(Places& places, const AstNodeBase* node, bool preInitialized = fal
 }
 
 bool isUntypedUnderscore(const VarDecl& var) {
-    return var.m_type == nullptr && var.m_initializer && isNoneMarker(var.m_initializer.get());
+    return var.initKind() == VarInitKind::DeferredInit;
 }
 
 void collectPlacesInNode(AstNodeBase& node, Places& places) {
@@ -70,9 +69,9 @@ void collectPlacesInNode(AstNodeBase& node, Places& places) {
     if (node.is<DestructureDecl>()) {
         const auto& destructure = *node.as<DestructureDecl>();
         if (!destructure.m_isAssign) {
-            for (const AstNodePtr& target : destructure.m_targets) {
-                if (target && !isNoneMarker(target.get())) {
-                    addPlace(places, target.get());
+            for (const DestructureDecl::Target& target : destructure.m_targets) {
+                if (target.name && !isNoneMarker(target.name.get())) {
+                    addPlace(places, target.name.get());
                 }
             }
         }
@@ -145,14 +144,14 @@ Places collectPlaces(const FuncDecl& func) {
             }
         }
     }
-    if (func.m_body) {
-        for (const AstNodePtr& stmt : *func.m_body) {
+    if (func.hasBody()) {
+        for (const AstNodePtr& stmt : *func.body()) {
             if (stmt) {
                 collectPlacesInNode(*stmt, places);
             }
         }
         if (func.isLambda()) {
-            for (const AstNodePtr& stmt : *func.m_body) {
+            for (const AstNodePtr& stmt : *func.body()) {
                 if (stmt) {
                     collectExternalRefs(*stmt, places);
                 }
@@ -376,7 +375,7 @@ void DaAnalysis::reportRead(const AstNodeBase& site, const AstNodeBase* decl, St
 }
 
 void analyzeFunction(Context& ctx, const FuncDecl& func, const ControlFlowGraph& cfg) {
-    if (!func.m_body) {
+    if (!func.hasBody()) {
         return;
     }
     Places places = collectPlaces(func);
@@ -404,7 +403,7 @@ void analyzeFunction(Context& ctx, const FuncDecl& func, const ControlFlowGraph&
     }
 
     for (const VarDecl* var : places.untyped) {
-        if (!var || var->m_type || !var->m_initializer || !isNoneMarker(var->m_initializer.get())) {
+        if (!var || var->initKind() != VarInitKind::DeferredInit) {
             continue;
         }
         if (var->inferredType.getTypeId() != INVALID_TYPE_ID) {

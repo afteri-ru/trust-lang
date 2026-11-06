@@ -21,7 +21,7 @@ const std::string kDenyChars = ";"
                                "()[]<>";
 } // namespace
 
-SequenceType makeMacroId(trust::Context& ctx, const SequenceType& seq) {
+SequenceType makeMacroId(trust::ParserServices& ctx, const SequenceType& seq) {
 
     SequenceType result;
     size_t pos = 0;
@@ -101,7 +101,7 @@ SequenceType makeMacroId(trust::Context& ctx, const SequenceType& seq) {
     return result;
 }
 
-SequenceType getMacroId(trust::Context& ctx, TermPtr& term) {
+SequenceType getMacroId(trust::ParserServices& ctx, TermPtr& term) {
     if (!term->isMacro()) {
         ctx.diag().report(Severity::Error, term->m_mapperRange, "Term '{}' as {} not a macro!", term->toString(), trust::toString(term->m_id));
         return {}; // не продолжать обработку не-макроса (иначе ASSERT/UB)
@@ -177,7 +177,7 @@ SequenceType symbolSeparateArg(const SequenceType& buffer, size_t pos, std::vect
     return result;
 }
 
-size_t extractArgs(trust::Context& ctx, SequenceType& buffer, TermPtr& term, MacroArgsType& args) {
+size_t extractArgs(trust::ParserServices& ctx, SequenceType& buffer, TermPtr& term, MacroArgsType& args) {
 
     ASSERT(term);
 

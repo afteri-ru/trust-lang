@@ -4,6 +4,7 @@
 # сигнатуры callee для вызова; операнд ПЕРЕВЫЧИСЛЯЕТСЯ на каждую оставшуюся позицию (эмитится
 # повторно - `next()` вызывается столько раз, сколько позиций заполняется).
 
+\std();
 n := 0;
 @func next():Int32 {
     n += 1;
@@ -19,6 +20,6 @@ n := 0;
     @return 0;
 }
 
-# CHECK: std::vector<int32_t> c_v = std::vector<int32_t>{1, 2, 7, 7, 7};
-# CHECK: std::vector<int32_t> c_b = std::vector<int32_t>{9, c_next{{_[A-Za-z0-9_]+}}(), c_next{{_[A-Za-z0-9_]+}}()};
-# CHECK: c_f{{_[A-Za-z0-9_]+}}(1, 7, 7, 7);
+# CHECK: std::vector<int32_t> v = std::vector<int32_t>{1, 2, 7, 7, 7};
+# CHECK: std::vector<int32_t> b = std::vector<int32_t>{9, next{{_[A-Za-z0-9_]+}}(), next{{_[A-Za-z0-9_]+}}()};
+# CHECK: f{{_[A-Za-z0-9_]+}}(1, 7, 7, 7);

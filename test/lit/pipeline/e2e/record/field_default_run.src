@@ -1,0 +1,16 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --run --temp-dir $TD %s > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+
+# Class-поля с default-значениями (строка, дробное, отрицательное, выражение) и доступ к
+# полю временного значения: программа собирается и запускается, значения реально применяются.
+
+# CHECK: def=hello 1.5 -5 3 0
+# CHECK: temp=hello 7
+
+\std();
+:Holder ::= :Class{ s:String := "hello"; f:Float32 := 1.5; n:Int32 := -5; x:Int32 := 1 + 2; z:Int32 := _; };
+
+h:Holder := Holder();
+@print("def={} {} {} {} {}\n", h.s, h.f, h.n, h.x, h.z);
+@print("temp={} {}\n", Holder().s, Holder().x + 4);

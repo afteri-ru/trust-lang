@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/decl/exported_signature_check.hpp
 // Видимость типов в ЭКСПОРТИРУЕМЫХ объявлениях модуля: file-private тип в сигнатуре/полях/
 // базах/enum-variant/алиасе экспортируемого объявления делает C++-имя недоступным в TU
 // импортёра (private эмитится в anonymous namespace) - это ошибка компиляции, а не warning.

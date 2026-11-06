@@ -1,3 +1,4 @@
+\exceptions();
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # try_error/try_return (классический синтаксис): try_error { } → {- ... -} (IntMinus),
@@ -14,18 +15,18 @@ try_return {
 } catch(:IntPlus) {
     e := 5;
 };
-# CHECK: #include "trust/interrupt.hpp"
+# CHECK: #include "stdlib/interrupts.hpp"
 # CHECK: try {
-# CHECK:     int8_t c_a = 1;
+# CHECK:     int8_t a = 1;
 # CHECK:     // else
-# CHECK:     int8_t c_c = 3;
+# CHECK:     int8_t c = 3;
 # CHECK: }
 # CHECK-NEXT: catch (trust::IntMinus&) {
-# CHECK-NEXT:     int8_t c_b = 2;
+# CHECK-NEXT:     int8_t b = 2;
 # CHECK-NEXT: }
 # CHECK: try {
-# CHECK:     int8_t c_d = 4;
+# CHECK:     int8_t d = 4;
 # CHECK: }
 # CHECK-NEXT: catch (trust::IntPlus&) {
-# CHECK-NEXT:     int8_t c_e = 5;
+# CHECK-NEXT:     int8_t e = 5;
 # CHECK-NEXT: }

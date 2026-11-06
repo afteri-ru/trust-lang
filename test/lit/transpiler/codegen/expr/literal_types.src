@@ -2,13 +2,14 @@
 
 # Литералы 0/1 → минимальный знаковый Int (Int8); 'w' (одинарные кавычки) → StrWide (L"w");
 # 'hi' (одинарные) → StrChar ("hi").
+\std();
 t := 1;
 f := 0;
-# CHECK: int8_t c_t = 1;
-# CHECK-NEXT: int8_t c_f = 0;
+# CHECK: int8_t t = 1;
+# CHECK-NEXT: int8_t f = 0;
 
 c := 'w';
-# CHECK-NEXT: std::wstring c_c = L"w";
+# CHECK-NEXT: trust::StrWide c = L"w";
 
 s := "hi";
-# CHECK-NEXT: std::string c_s = "hi";
+# CHECK-NEXT: trust::StrChar s = "hi";

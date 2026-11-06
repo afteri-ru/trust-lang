@@ -6,9 +6,12 @@
 #include "sourcemap/mapper.hpp"
 #include "syntax/util/diag.hpp"
 #include "utils/strings.hpp"
+#include "diag/diag.hpp"
 
 #include <algorithm>
+#include <format>
 #include <set>
+#include <string>
 #include <vector>
 
 namespace trust {
@@ -18,7 +21,7 @@ namespace {
 // Подавление -Wsigil для макроса, вызванного без '@'. Возвращает true, если bare-имя есть в
 // значении флага "keywords" (cli-имя, запятая-разделение) как запись БЕЗ ведущего '@'
 // (макрос «как ключевое слово»). Записи с '@' суппресс НЕ дают (односторонняя логика).
-bool isKeywordSigilSuppressed(const trust::Context& ctx, std::string_view bareName) {
+bool isKeywordSigilSuppressed(const trust::ParserServices& ctx, std::string_view bareName) {
     const auto kw = ctx.opts().flagValueByName("keywords");
     if (!kw || kw->empty()) {
         return false;
@@ -44,8 +47,8 @@ bool isKeywordSigilSuppressed(const trust::Context& ctx, std::string_view bareNa
 // сигнатуры/граница блока тела (`@@ func $name ( ... ): $... { @@`), `@` - префикс имени
 // другого макроса в сигнатуре (`@@ @foo func $name ... @@`).
 
-Macro::Macro(trust::Context& ctx)
-: m_ctx(ctx) {
+Macro::Macro(trust::ParserServices ctx)
+: m_ctx(std::move(ctx)) {
     // Базовый скоуп (например, для макросов встроенного dsl).
     m_scopes.emplace_back();
 }
@@ -562,10 +565,6 @@ TermPtr Macro::GetMacro(std::vector<std::string> list) {
     return syntax::getMacro(*this, list);
 }
 
-// ════════════════════════════════════════════════════════════════
-//  Классификация макросов для форматтера (MacroKind)
-// ════════════════════════════════════════════════════════════════
-
 // Рекурсивно проверяет, является ли терм (или его поддерево) контрактом:
 // содержит raw-маркер @{ (TRUST_BEGIN) или ссылку на макрос, УЖЕ зарегистрированный как
 // Contract (транзитивно — без хардкода имени: trust_contract → trust_pre → trust_assert...).
@@ -794,6 +793,9 @@ ExpandMacroResult ExpandTermMacro(Parser& parser) {
             }
 
             parser.m_macro_analisys_buff.erase(parser.m_macro_analisys_buff.begin(), parser.m_macro_analisys_buff.begin() + size_remove);
+
+            // Цепочка раскрытия (R50) — не RAII-стек: диагностики тела выдаются после раскрытия, а пара
+            // `use → definition` (`addMacroMapping`) читается в DiagnosticEngine::output().
 
             SequenceType macro_block;
             if (macro_done->m_right->getTermID() == TermID::MACRO_STR) {

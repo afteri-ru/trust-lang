@@ -5,9 +5,9 @@
 @include("string")
 MyStr ::= %std::string {
     @::count: Int32 := ...;
-    %size(): UInt64 := ...;
+    size(): UInt64  := ...;
 };
 c: Int32 := MyStr.count;
 
 # CHECK: warning: static member 'count' accessed as an instance field; use 'MyStr::count'
-# CHECK: int32_t c_c = std::string::count;
+# CHECK: int32_t c = MyStr::count;

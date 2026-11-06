@@ -2,6 +2,7 @@
 
 # Статические перегрузки native-класса: набор сигнатур сохраняется, вызов разрешается по типам,
 # C++-имя фиксировано внешней библиотекой (без trust-суффикса/манглинга).
+\std();
 @include("string")
 MyStr ::= %std::string {
     @::pick(x:Int32):Int32 := ...;
@@ -11,6 +12,6 @@ MyStr ::= %std::string {
     @print("{} {}\n", MyStr::pick(1), MyStr::pick("a"));
     @return 0;
 }
-# CHECK: std::string::pick(static_cast<int32_t>(1))
-# CHECK: std::string::pick(static_cast<std::string>("a"))
-# CHECK-NOT: c_pick
+# CHECK: MyStr::pick(static_cast<int32_t>(1))
+# CHECK: MyStr::pick(static_cast<trust::StrChar>("a"))
+# CHECK-NOT: pick

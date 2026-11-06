@@ -1,5 +1,5 @@
 #include "runtime/torch/tensor.hpp"
-#include "runtime/trust/tensor.hpp"
+#include "stdlib/tensor/tensor.hpp"
 
 #include <gtest/gtest.h>
 

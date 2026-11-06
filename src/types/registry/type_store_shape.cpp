@@ -1,12 +1,15 @@
-// src/types/registry/type_store_shape.cpp
 // Зона хранения: СТРУКТУРНЫЕ ВИДЫ типа (Range/Array/Tensor/native/template/pack/access/deleter).
 // Единственное место, читающее дескрипторы видов; состояния не меняет.
 #include "types/registry/type_store.hpp"
 
 #include "types/group.hpp"
 #include "types/names/type_names.hpp"
+#include "types/type/data_record_access.hpp"
+#include "types/typekind.hpp"
 
 #include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace trust {
@@ -54,7 +57,7 @@ bool TypeStore::isTensorType(TypeId id) const noexcept {
 
 bool TypeStore::isSparseTensorType(TypeId id) const noexcept {
     const TypeId canonical = desugaredTypeId(id);
-    return getTypeDataAs<TensorTypeData>(canonical) != nullptr && getGroup(getTypeKind(canonical)) == Group::kTensors && getData(getTypeKind(canonical)) == 2;
+    return getTypeDataAs<TensorTypeData>(canonical) != nullptr && typeGroupOf(canonical) == Group::kTensors && typeDataOf(canonical) == 2;
 }
 
 TypeId TypeStore::tensorElementType(TypeId id) const noexcept {
@@ -69,12 +72,7 @@ const std::vector<uint64_t>& TypeStore::tensorDimensions(TypeId id) const noexce
 }
 
 bool TypeStore::isNativeTemplateType(TypeId id) const noexcept {
-    return getGroup(getTypeKind(desugaredTypeId(id))) == Group::kNativeTemplate;
-}
-
-std::string_view TypeStore::nativeTemplateCppName(TypeId id) const noexcept {
-    const auto* td = getTypeDataAs<NativeTemplateTypeData>(desugaredTypeId(id));
-    return td != nullptr ? std::string_view(td->cppTemplate) : std::string_view{};
+    return typeGroupOf(desugaredTypeId(id)) == Group::kNativeTemplate;
 }
 
 const std::vector<TypeId>& TypeStore::nativeTemplateArgs(TypeId id) const noexcept {
@@ -83,34 +81,48 @@ const std::vector<TypeId>& TypeStore::nativeTemplateArgs(TypeId id) const noexce
     return td != nullptr ? td->args : kEmpty;
 }
 
-bool TypeStore::isNativeClassType(TypeId id) const noexcept {
-    return getGroup(getTypeKind(desugaredTypeId(id))) == Group::kNativeClass;
+TypeId TypeStore::nativeTemplateOwner(TypeId id) const noexcept {
+    const TypeId canonical = desugaredTypeId(id);
+    const auto* td = getTypeDataAs<NativeTemplateTypeData>(canonical);
+    return (td != nullptr && td->templateOf != INVALID_TYPE_ID) ? desugaredTypeId(td->templateOf) : canonical;
 }
 
-std::string_view TypeStore::nativeClassCppName(TypeId id) const noexcept {
-    const auto* td = getTypeDataAs<NativeClassTypeData>(desugaredTypeId(id));
-    return td != nullptr ? std::string_view(td->cppName) : std::string_view{};
+bool TypeStore::isNativeClassType(TypeId id) const noexcept {
+    return typeGroupOf(desugaredTypeId(id)) == Group::kNativeClass;
+}
+
+TypeId TypeStore::cppFactsKeyOf(TypeId id) const noexcept {
+    // Снять qualifier-биты и FAST-PATH биты вида ссылки: C++-имя базового типа принадлежит самому
+    // типу (`shared<Int32>` как бит на Int32 → факты Int32). Структурный ref-узел своих фактов не
+    // несёт — его имя строит рендерер.
+    TypeId base = getUnqualifiedType(id);
+    if (getTypeDataAs<RefTypeData>(base) == nullptr && typeRefOf(base) != RefType::kValue) {
+        base = QualType::fromTypeId(base).withKind(withRefType(getTypeKind(base), RefType::kValue)).getTypeId();
+    }
+    // Встроенный алиас прозрачен (String→StrChar): факты живут на каноническом типе.
+    // Пользовательский алиас номинален: факты берутся по самому алиасу.
+    return isBuiltinType(base) ? desugaredTypeId(base) : base;
 }
 
 bool TypeStore::isRecordType(TypeId id) const noexcept {
-    const Group group = getGroup(getTypeKind(desugaredTypeId(id)));
+    const Group group = typeGroupOf(desugaredTypeId(id));
     return group == Group::kStructs || group == Group::kClassDefs;
 }
 
 bool TypeStore::isRecordTemplate(TypeId id) const noexcept {
     const auto* rd = getTypeDataAs<RecordTypeData>(desugaredTypeId(id));
     if (rd != nullptr) {
-        return !rd->templateParams.empty();
+        return !RecordTypeAccess::templateParamsOf(*rd).empty();
     }
     // Объявленный, но не определённый шаблон: параметры живут в declaredRecords.
     const std::vector<TypeId>* declared = declaredRecordParams(id);
     return declared != nullptr && !declared->empty();
 }
 
-const std::vector<TypeId>& TypeStore::recordTemplateParams(TypeId id) const noexcept {
+const std::vector<TypeId>& TypeStore::templateParamsOf(TypeId id) const noexcept {
     static const std::vector<TypeId> kEmpty;
     if (const auto* rd = getTypeDataAs<RecordTypeData>(desugaredTypeId(id))) {
-        return rd->templateParams;
+        return RecordTypeAccess::templateParamsOf(*rd);
     }
     if (const std::vector<TypeId>* declared = declaredRecordParams(id)) {
         return *declared;
@@ -119,15 +131,15 @@ const std::vector<TypeId>& TypeStore::recordTemplateParams(TypeId id) const noex
 }
 
 bool TypeStore::isStructType(TypeId id) const noexcept {
-    return getGroup(getTypeKind(desugaredTypeId(id))) == Group::kStructs;
+    return typeGroupOf(desugaredTypeId(id)) == Group::kStructs;
 }
 
 bool TypeStore::isClassType(TypeId id) const noexcept {
-    return getGroup(getTypeKind(desugaredTypeId(id))) == Group::kClassDefs;
+    return typeGroupOf(desugaredTypeId(id)) == Group::kClassDefs;
 }
 
 bool TypeStore::isTemplateParamType(TypeId id) const noexcept {
-    return getGroup(getTypeKind(desugaredTypeId(id))) == Group::kTemplateParam;
+    return typeGroupOf(desugaredTypeId(id)) == Group::kTemplateParam;
 }
 
 std::string_view TypeStore::templateParamName(TypeId id) const noexcept {
@@ -136,7 +148,7 @@ std::string_view TypeStore::templateParamName(TypeId id) const noexcept {
 }
 
 bool TypeStore::isPackExpansionType(TypeId id) const noexcept {
-    return getGroup(getTypeKind(desugaredTypeId(id))) == Group::kPackExpansion;
+    return typeGroupOf(desugaredTypeId(id)) == Group::kPackExpansion;
 }
 
 TypeId TypeStore::packExpansionPattern(TypeId id) const noexcept {
@@ -148,8 +160,8 @@ bool TypeStore::isAccessPolicyType(TypeId id) const noexcept {
     // Встроенная политика доступа: группа kAccessPolicy, Data=1..3 (политики shared/weak;
     // Data=4 - обёртка AccessShared). См. BuiltinCoreBuilder::registerBuiltinTypes.
     const TypeKind kind = getTypeKind(desugaredTypeId(id));
-    const uint8_t data = getData(kind);
-    return getGroup(kind) == Group::kAccessPolicy && data >= 1 && data <= 3;
+    const uint8_t data = typeDataOf(kind);
+    return typeGroupOf(kind) == Group::kAccessPolicy && data >= 1 && data <= 3;
 }
 
 bool TypeStore::isAccessPolicyTypeFor(RefType kind, TypeId id) const noexcept {
@@ -163,7 +175,7 @@ bool TypeStore::isAccessPolicyTypeFor(RefType kind, TypeId id) const noexcept {
 bool TypeStore::isDeleterPolicyType(TypeId id) const noexcept {
     // Встроенный deleter-тип ресурса: группа kDeleterPolicy, Data>=1 (напр. trust::FreeDeleter).
     const TypeKind kind = getTypeKind(desugaredTypeId(id));
-    return getGroup(kind) == Group::kDeleterPolicy && getData(kind) >= 1;
+    return typeGroupOf(kind) == Group::kDeleterPolicy && typeDataOf(kind) >= 1;
 }
 
 } // namespace trust

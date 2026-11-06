@@ -12,7 +12,9 @@
 # CHK: divzero-caught
 # CHK: modzero-caught
 
-%check():Void := {
+\std();
+@[export("check")@]
+check():Void := {
     a:Int32 := 2000000000;
     b:Int32 := 2000000000;
     {-

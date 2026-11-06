@@ -8,6 +8,7 @@
 # Adding elements - `[]=` operator (append/push_back).
 #
 # Command-line arguments
+\std();
 @main(argv^: Dict, args^: Dict) := {
 
     @print("argv.size()={}\n", $argv.size());

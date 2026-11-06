@@ -30,8 +30,6 @@ class Options {
   public:
     explicit Options(DiagnosticEngine& diag);
 
-    // -- Регистрация (шаблоны; ADL-доступы из namespace компоненты) --
-
     /// Регистрирует severity-диагностику. Метаданные через ADL: diagName/diagHelp/
     /// diagDefaultSeverity/diagWarnGroups/diagCategory (id - пер-компонентный enum).
     template <typename T>
@@ -57,8 +55,6 @@ class Options {
     void add_flag_nonw(T id, std::string_view default_value = {}) {
         add_flag_nonw_impl(flagName(id), flagHelp(id), flagCategory(id), default_value);
     }
-
-    // -- Severity-опции: шаблоны (пер-компонентный id) и name-методы (cli-имя) --
 
     /// Текущий уровень severity (учитывает -Werror). Severity::Ignore = диагностика выключена.
     template <typename T>
@@ -90,8 +86,6 @@ class Options {
     }
     /// Группы-агрегаты, к которым привязана диагностика (из зарегистрированной записи).
     [[nodiscard]] WarnGroup warnGroupsByName(std::string_view name) const;
-
-    // -- Feature-флаги: шаблоны (пер-компонентный id) и name-методы (cli-имя) --
 
     /// true, если cli-имя является флагом (а не severity-опцией).
     [[nodiscard]] bool isFlagByName(std::string_view name) const;
@@ -137,8 +131,6 @@ class Options {
         return setFlagValidatorByName(flagName(id), std::move(validator));
     }
     bool setFlagValidatorByName(std::string_view name, FlagValidator validator);
-
-    // -- CLI-парсинг и справка --
 
     std::span<char*> parse_argv(std::span<char*> argv);
 

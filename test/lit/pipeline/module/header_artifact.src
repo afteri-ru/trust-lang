@@ -1,20 +1,19 @@
 # RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
 # RUN: %split-file %s $TD
 # RUN: cd $TD && %trust -q --temp-dir $TD/build -o $TD/app main.src
-# RUN: test -f $TD/build/lib.hpp
-# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/lib.hpp
-# RUN: %cxx -fsyntax-only -x c++ $TD/build/lib.hpp
+# RUN: test -f $TD/build/lib.hppt
+# RUN: %FileCheck %s --check-prefix=HDR <$TD/build/lib.hppt
+# RUN: %cxx -fsyntax-only -x c++ $TD/build/lib.hppt
 # RUN: $TD/app
 #
 # Заголовок модуля — самостоятельный артефакт. Содержимое = экспорт-набор файла
 # (в примере — полное определение типа из блока интерфейса и прототип функции) в
 # `namespace <enc>`; имя файла — тот же encoder, что namespace. Заголовок компилируется как
-# отдельный TU. Клиентский TU получает `#include "<enc>.hpp"`; тела не-шаблонных методов
+# отдельный TU. Клиентский TU получает `#include "<enc>.hppt"`; тела не-шаблонных методов
 # публикуемого типа живут в `.cppt` модуля (out-of-line).
 # HDR: #pragma once
-# HDR: namespace lib {
-# HDR: struct c_Point {
-# HDR: c_make
+# HDR: struct Point {
+# HDR: make
 
 //--- main.src
 \lib(Point, make);

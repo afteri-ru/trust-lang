@@ -4,8 +4,11 @@
 
 #include "lsp/catalog/builtin_catalog.h"
 
+#include "pipeline/dsl/dsl.hpp"
+#include "session/context.hpp"
 #include "syntax/macro.h"
 #include "syntax/parser.h"
+#include "syntax/predef_macro.hpp"
 
 #include <gtest/gtest.h>
 
@@ -70,10 +73,12 @@ TEST_F(BuiltinCatalogTest, HasPredefMacros) {
     EXPECT_NE(std::find(cat.predefMacros().begin(), cat.predefMacros().end(), "@__FILE__"), cat.predefMacros().end());
 }
 
-// Документирующие комментарии предопределённых @__...__ макросов доступны для hover/доков.
-// Единое хранилище macroDocs(): ключ = первый терм без '@' (__FILE__, __LINE__, ...).
+// Документирующие комментарии предопределённых @__...__ макросов — в хранилище прогона
+// (ключ = первый терм без '@': __FILE__, __LINE__, ...).
 TEST_F(BuiltinCatalogTest, HasPredefMacroDocs) {
-    const auto& docs = cat.macroDocs();
+    Context ctx(".");
+    const trust::syntax::PredefMacroResolver resolver(ctx);
+    const auto& docs = ctx.macroDocs();
     ASSERT_FALSE(docs.empty());
     for (const char* name : {"__FILE__", "__LINE__", "__COUNTER__", "__TRUST_VERSION_MAJOR__"}) {
         auto it = docs.find(name);
@@ -103,8 +108,10 @@ TEST_F(BuiltinCatalogTest, HasPragmaMacroDocs) {
         "@__PRAGMA_EXPECTED__(\"foo\");",
         "@__PRAGMA_DOC__(\"@__LINE__\",\"d\");",
     };
+    std::set<std::string> documented;
     for (const char* src : kPragmas) {
         trust::Context ctx(".");
+        trust::StringInternerScope stringsScope(ctx.strings());
         auto macro = std::make_shared<Macro>(ctx);
         ctx.setMacro(macro);
         Parser p(ctx);
@@ -113,12 +120,15 @@ TEST_F(BuiltinCatalogTest, HasPragmaMacroDocs) {
         } catch (const trust::ParserError&) {
             // Диагностика по аргументам прагмы не должна мешать сидированию дока.
         }
+        for (const auto& [key, doc] : ctx.macroDocs()) {
+            if (!doc.empty()) {
+                documented.insert(key);
+            }
+        }
     }
-    const auto& docs = Context::macroDocs();
     for (const char* name : {"__OPTION__", "__OPTION_PUSH__", "__OPTION_POP__", "__OPTION_TRUE__", "__OPTION_FALSE__", "__OPTION_IIF__", "__HYGIENIC__",
                              "__PRAGMA_MESSAGE__", "__PRAGMA_WARNING__", "__PRAGMA_ERROR__", "__PRAGMA_EXPECTED__", "__PRAGMA_DOC__"}) {
-        auto it = docs.find(name);
-        EXPECT_TRUE(it != docs.end() && !it->second.empty()) << "missing pragma macro doc: " << name;
+        EXPECT_TRUE(documented.count(name) != 0) << "missing pragma macro doc: " << name;
         EXPECT_NE(std::find(cat.predefMacros().begin(), cat.predefMacros().end(), std::string("@").append(name)), cat.predefMacros().end())
             << "pragma macro missing from completion names: @__" << name << "__";
     }
@@ -132,9 +142,11 @@ TEST_F(BuiltinCatalogTest, HasDslMacros) {
 }
 
 // Документирующие комментарии DSL-макросов доступны для подсказки в IDE: `macro`/`func`
-// несут непустой док (из единого хранилища macroDocs()).
+// несут непустой док в хранилище прогона.
 TEST_F(BuiltinCatalogTest, HasDslMacroDocs) {
-    const auto& docs = cat.macroDocs();
+    Context ctx(".");
+    trust::loadDslMacros(ctx, trust::PipelineOpts{});
+    const auto& docs = ctx.macroDocs();
     ASSERT_FALSE(docs.empty());
     for (const char* name : {"macro", "func"}) {
         auto it = docs.find(name);
@@ -142,24 +154,25 @@ TEST_F(BuiltinCatalogTest, HasDslMacroDocs) {
     }
 }
 
-// Прагма @__PRAGMA_DOC__ переопределяет док СУЩЕСТВУЮЩЕГО макроса в едином хранилище
+// Прагма @__PRAGMA_DOC__ переопределяет док СУЩЕСТВУЮЩЕГО макроса в хранилище доков прогона
 // (ключ нормализуется - с '@' и без). Неизвестный макрос -> error, не записывается.
 TEST_F(BuiltinCatalogTest, PragmaDocOverridesExistingAndErrorsUnknown) {
     trust::Context ctx(".");
+    trust::StringInternerScope stringsScope(ctx.strings());
     auto macro = std::make_shared<Macro>(ctx);
     ctx.setMacro(macro);
     Parser p(ctx);
     // Существующий предdef-дефолт переопределяется (с '@' и без - ключ один).
     // Неизвестный макрос -> error. Оба в одном ParseText (см. заметку про повторный ParseText).
     ASSERT_NO_THROW(p.ParseText("@__PRAGMA_DOC__(\"@__LINE__\", \"Номер строки в текущем файле\"); @__PRAGMA_DOC__(\"no_such_macro\", \"текст\");", "@t"));
-    const std::string_view* line = Context::macroDoc("__LINE__");   // без '@'
-    const std::string_view* line2 = Context::macroDoc("@__LINE__"); // с '@' - тот же ключ
+    const std::string_view* line = ctx.macroDoc("__LINE__");   // без '@'
+    const std::string_view* line2 = ctx.macroDoc("@__LINE__"); // с '@' - тот же ключ
     ASSERT_TRUE(line != nullptr);
     ASSERT_TRUE(line2 != nullptr);
     EXPECT_EQ(line, line2);
     EXPECT_EQ("Номер строки в текущем файле", *line);
     // Неизвестный макрос: дока нет, диагностика error выдана.
-    EXPECT_EQ(nullptr, Context::macroDoc("no_such_macro"));
+    EXPECT_EQ(nullptr, ctx.macroDoc("no_such_macro"));
     EXPECT_GT(ctx.diag().errorCount(), 0);
 }
 

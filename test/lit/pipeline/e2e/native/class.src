@@ -6,16 +6,17 @@
 
 # Forward-объявление нативного класса `MyStr ::= %std::string { ... };`: trust-класс MyStr ↔ C++
 # std::string (инклуд из @include, on-use); конструирование через имя класса `MyStr('hello')` →
-# std::string("hello"); методы `%size/%empty` → (c_s).size()/(c_s).empty(). Реальная программа
+# std::string("hello"); методы size/empty → (s).size()/(s).empty(). Реальная программа
 # компилируется и линкуется с рантаймом.
+\std();
 @include("string")
 MyStr ::= %std::string {
-    %size(): UInt64 := ...;
-    %empty(): Bool := ...;
+    size(): UInt64  := ...;
+    empty(): Bool  := ...;
 };
 
 @main() := {
     s: MyStr := MyStr("hello");
-    @print("size={} empty={}\n", s.%size(), s.%empty());
+    @print("size={} empty={}\n", s.size(), s.empty());
     @return 0;
 }

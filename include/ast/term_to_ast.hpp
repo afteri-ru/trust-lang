@@ -1,7 +1,6 @@
 #pragma once
 
-// term_to_ast.hpp - TermID-visitor конвертации Term -> AstNode.
-//
+// TermID-visitor конвертации Term -> AstNode.
 // Единственный вход конвертации - класс TermToAstConverter (никаких свободных функций).
 // Диспетчеризация - по TermID через dispatchTerm (X-макрос TERMS); класс узла для
 // generic-узлов берётся из PARSER_TOKEN_KINDS (node_type_for_kind_t<Kind>).
@@ -11,8 +10,10 @@
 // узлов (категорийные ast_*.cpp, тот же ast_lib) через этот класс.
 
 #include "ast/convert/term_visitor.hpp"
+#include "ast/convert_services.hpp"
 
 #include <memory>
+#include <type_traits>
 #include <vector>
 
 namespace trust {
@@ -20,8 +21,13 @@ namespace trust {
 /// TermID-visitor конвертации Term -> AstNode (вход по TermID из TERMS).
 class TermToAstConverter : public TermVisitorDefault {
   public:
-    explicit TermToAstConverter(Context& ctx)
+    explicit TermToAstConverter(ConvertServices ctx)
     : m_ctx(ctx) {}
+
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, ConvertServices>)
+    explicit TermToAstConverter(Ctx& ctx)
+    : TermToAstConverter(makeConvertServices(ctx)) {}
 
     /// Преобразовать один Term в AstNode (рекурсивно). nullptr для null/END.
     AstNodePtr convert(const trust::TermPtr& term);
@@ -35,61 +41,67 @@ class TermToAstConverter : public TermVisitorDefault {
     void flattenInto(const trust::TermPtr& term, std::vector<AstNodePtr>& out);
 
     /// Вход конвертации: вектор корневых узлов.
-    static std::vector<AstNodePtr> termToAst(const trust::TermPtr& term, Context& ctx);
+    static std::vector<AstNodePtr> termToAst(const trust::TermPtr& term, ConvertServices& ctx);
+
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, ConvertServices>)
+    static std::vector<AstNodePtr> termToAst(const trust::TermPtr& term, Ctx& ctx) {
+        ConvertServices services = makeConvertServices(ctx);
+        return termToAst(term, services);
+    }
 
   private:
-    // -- Спец-термы (остальные visit_<NAME> генерируются из x-macro) --
-    AstNodePtr visit_MODULE(const trust::TermPtr& term, Context& ctx) override;
-    AstNodePtr visit_CREATE_NAME(const trust::TermPtr& term, Context&) override;
+    AstNodePtr visit_MODULE(const trust::TermPtr& term, ConvertServices& ctx) override;
+    AstNodePtr visit_CREATE_NAME(const trust::TermPtr& term, ConvertServices&) override;
     /// `::=` тип-определение. RHS может быть forward-объявлением (нативного) класса
     /// (`Pair ::= %std::pair<T1,T2>{...};`): RHS-терм CLASS с m_left = ИМЯ (native/голое), а не
     /// type_class (`:Base`) пользовательского класса → right = ClassDecl; иначе generic.
-    AstNodePtr visit_CREATE_TYPE(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_CREATE_TYPE(const trust::TermPtr& term, ConvertServices& ctx) override;
     /// `=` - ОПРЕДЕЛЕНИЕ ранее объявленного типа (`Rational = %trust::Rational { ... };`).
     /// RHS - native class/template или пользовательская record-форма; узел TypeDecl, отличие
     /// от `::=` - TermID оператора (семантика различает объявление и определение).
-    AstNodePtr visit_TYPE_DEFINE(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_TYPE_DEFINE(const trust::TermPtr& term, ConvertServices& ctx) override;
     /// `:A ::- T;` - ВТОРОЕ имя существующего типа (тот же TypeId): узел TypeDecl с кэшем
     /// `Binary::m_isTypeAlias`; грамматика допускает только типовой RHS.
-    AstNodePtr visit_ALIAS_TYPE(const trust::TermPtr& term, Context& ctx) override;
-    /// `f :- \lib::g;` - АЛИАС ИМЕНИ: FuncDecl-узел с `aliasTarget()` (новая сущность не
-    /// создаётся, C++-функция не эмитится). Цель: модульная ссылка либо qualified-имя.
-    AstNodePtr visit_ALIAS_NAME(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_ALIAS_TYPE(const trust::TermPtr& term, ConvertServices& ctx) override;
+    /// `f :- ns::g;` - АЛИАС ИМЕНИ: FuncDecl-узел с `aliasTarget()` (новая сущность не
+    /// создаётся, C++-функция не эмитится). Цель — имя, введённое импортом.
+    AstNodePtr visit_ALIAS_NAME(const trust::TermPtr& term, ConvertServices& ctx) override;
     /// `a, b = ... source;` - деструктуризация-присваивание (многоимённый LHS + `=`): построить
     /// DestructureDecl(m_isAssign=true); одиночный `a = expr` - обычный AssignOp (generic).
-    AstNodePtr visit_ASSIGN(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_ASSIGN(const trust::TermPtr& term, ConvertServices& ctx) override;
     /// `x :=: y` - swap двух переменных/ссылок → единый узел Binary(AssignOp) с оператором ":=":;
     /// семантика проверяет ссылочный контракт (typeBinaryResult), транспилятор эмитит std::swap.
-    AstNodePtr visit_SWAP(const trust::TermPtr& term, Context& ctx) override;
-    AstNodePtr visit_ARGUMENT(const trust::TermPtr& term, Context&) override;
+    AstNodePtr visit_SWAP(const trust::TermPtr& term, ConvertServices& ctx) override;
+    AstNodePtr visit_ARGUMENT(const trust::TermPtr& term, ConvertServices&) override;
     /// `:Type(...)`/`(...):Type` - единый узел DictLiteralNode с аннотацией типа (m_type);
     /// класс (кортеж/каст/конструктор) определяет анализатор по типу из реестра. `:Type` без
     /// аргументов - обычный тип (TypeName), делегирует в default.
-    AstNodePtr visit_TYPE(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_TYPE(const trust::TermPtr& term, ConvertServices& ctx) override;
     /// `"fmt"(args)` / `'fmt'(args)` - строка как формат-строка (правило `string: strtype call`):
     /// с аргументами → CallExpr(callee=Literal StrWide|StrChar), без - обычный литерал.
-    AstNodePtr visit_STRWIDE(const trust::TermPtr& term, Context& ctx) override;
-    AstNodePtr visit_STRCHAR(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_STRWIDE(const trust::TermPtr& term, ConvertServices& ctx) override;
+    AstNodePtr visit_STRCHAR(const trust::TermPtr& term, ConvertServices& ctx) override;
     /// `(...)` - литерал словаря → Sequence(DictLiteral). Элементы строятся из канонических пар
     /// (name, term) грамматики `args` (argName из parser.y) и нормализуются к ЕДИНОЙ форме
     /// Binary(AssignOp): left=Ident-метка (или пустой), right=значение.
-    AstNodePtr visit_DICT(const trust::TermPtr& term, Context&) override;
+    AstNodePtr visit_DICT(const trust::TermPtr& term, ConvertServices&) override;
     /// `[1,2,3,]` / `[1,2,3,]:Int32` - литерал массива → DictLiteralNode(kind=ArrayInit).
     /// Аннотация `]:Type` сохраняется в m_type; элементы - из канонических пар (как visit_DICT).
-    AstNodePtr visit_TENSOR(const trust::TermPtr& term, Context& ctx) override;
-    AstNodePtr visit_INDEX(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_TENSOR(const trust::TermPtr& term, ConvertServices& ctx) override;
+    AstNodePtr visit_INDEX(const trust::TermPtr& term, ConvertServices& ctx) override;
     /// `start..stop[..step]` - литерал диапазона → RangeExpr. Помимо generic-построения (m_body из
     /// m_args), переносит явные аннотации типа операндов (`start:Type`, `stop:Type`) из m_type
     /// терма-операнда в RangeExpr::operandTypes (для учёта в analyzeRangeExpr, напр. `0..100:Rational`).
-    AstNodePtr visit_RANGE(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_RANGE(const trust::TermPtr& term, ConvertServices& ctx) override;
 
     /// `&` в позиции типа (`x : &&Int32`/`&*Int32`/`&?Int32`): RefMakeExpr + `m_sigilKind`
     /// из маркера.
-    AstNodePtr visit_OPERATOR_PTR(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_OPERATOR_PTR(const trust::TermPtr& term, ConvertServices& ctx) override;
 
     /// Немедленный вызов лямбды `( lambda )(args)` (TermID::LAMBDA_CALL): callee - не идентификатор,
     /// а лямбда-терм (m_left), поэтому generic-путь (callee=IdentName) не подходит. Аргументы - m_args.
-    AstNodePtr visit_LAMBDA_CALL(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_LAMBDA_CALL(const trust::TermPtr& term, ConvertServices& ctx) override;
 
     /// `&`/`&&`/`&*`/`&?` (умные маркеры) → RefMakeExpr (см. TermVisitorDefault).
     /// `*`/`*^` → RefTakeExpr (см. TermVisitorDefault).
@@ -97,26 +109,47 @@ class TermToAstConverter : public TermVisitorDefault {
     /// Блоки перехвата прерываний `{+ ... +}`/`{- ... -}`/`{* ... *}` (BLOCK_PLUS/BLOCK_MINUS/
     /// BLOCK_TRY) → TryCatchStmt (Sequence). Класс перехватываемого прерывания закодирован в
     /// text() узла ('{+'/'{-'/'{*'); НЕ ScopeBlock (как обычный { ... }).
-    AstNodePtr visit_BLOCK_PLUS(const trust::TermPtr& term, Context& ctx) override;
-    AstNodePtr visit_BLOCK_MINUS(const trust::TermPtr& term, Context& ctx) override;
-    AstNodePtr visit_BLOCK_TRY(const trust::TermPtr& term, Context& ctx) override;
+    AstNodePtr visit_BLOCK_PLUS(const trust::TermPtr& term, ConvertServices& ctx) override;
+    AstNodePtr visit_BLOCK_MINUS(const trust::TermPtr& term, ConvertServices& ctx) override;
+    AstNodePtr visit_BLOCK_TRY(const trust::TermPtr& term, ConvertServices& ctx) override;
 
-    Context& m_ctx;
+    ConvertServices m_ctx;
 };
 
 /// Сконвертировать один Term в AstNode (рекурсивно) через свежий конвертер.
 /// Устраняет повторяющийся паттерн `TermToAstConverter conv{ctx}; return conv.convert(t);`
 /// в терм-конструкторах узлов (категорийные ast_*.cpp). nullptr для null/END.
-AstNodePtr convertChild(Context& ctx, const trust::TermPtr& term);
+AstNodePtr convertChild(ConvertServices& ctx, const trust::TermPtr& term);
 
 /// Сконвертировать детей Term (m_sequence, m_args, m_left, m_right) и добавить в out.
 /// Устраняет повторяющийся паттерн `TermToAstConverter conv{ctx}; conv.convertSeq(...)`.
-void convertChildren(Context& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out);
+void convertChildren(ConvertServices& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out);
 
 /// Сконвертировать тело модуля в out: SEQUENCE-терм (контейнер тела модуля) разворачивается
 /// в своих детей (ScopeBlock-обёртка НЕ создаётся - модуль сам является глобальным скоупом),
 /// а пользовательские `{ ... }` (BLOCK-термы) сохраняются как ScopeBlock-узлы. Иначе блок
 /// верхнего уровня неотличим от контейнера тела модуля и его граница теряется.
-void convertModuleBody(Context& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out);
+void convertModuleBody(ConvertServices& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out);
+
+template <class Ctx>
+    requires(!std::is_same_v<std::remove_cvref_t<Ctx>, ConvertServices>)
+AstNodePtr convertChild(Ctx& ctx, const trust::TermPtr& term) {
+    ConvertServices services = makeConvertServices(ctx);
+    return convertChild(services, term);
+}
+
+template <class Ctx>
+    requires(!std::is_same_v<std::remove_cvref_t<Ctx>, ConvertServices>)
+void convertChildren(Ctx& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out) {
+    ConvertServices services = makeConvertServices(ctx);
+    convertChildren(services, term, out);
+}
+
+template <class Ctx>
+    requires(!std::is_same_v<std::remove_cvref_t<Ctx>, ConvertServices>)
+void convertModuleBody(Ctx& ctx, const trust::TermPtr& term, std::vector<AstNodePtr>& out) {
+    ConvertServices services = makeConvertServices(ctx);
+    convertModuleBody(services, term, out);
+}
 
 } // namespace trust

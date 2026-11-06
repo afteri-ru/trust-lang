@@ -1,10 +1,8 @@
 // stdlib/async/task.hpp - lazy coroutine task for the Trust standard library.
-//
 // Self-contained header of a library type ("stdlib/async/task.hpp").
 // Uses ONLY standard C++20 (<coroutine>, <condition_variable>, <mutex>): the default
 // compiler of generated programs (c++ = GCC 13) has no std::execution and no
 // std::generator, so the async layer is implemented on the coroutine machinery directly.
-//
 // Design:
 //   - `Task<T>` is a lazy, move-only coroutine handle: it starts when awaited or when
 //     passed to `sync_wait`.
@@ -284,4 +282,3 @@ T sync_wait(Task<T> task) {
 }
 
 } // namespace trust
-

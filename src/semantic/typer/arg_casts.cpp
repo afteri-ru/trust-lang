@@ -15,13 +15,15 @@ namespace trust {
 namespace {
 
 /// Цель приведения аргумента вызова: Any/INVALID-параметр не приводится (контракт
-/// `emitCastCallArgs`).
+/// `emitCastCallArgs`). Auto (внутренний sentinel «не выведен») - тоже без приведения.
 TypeId callCastTarget(const TypeReadModel& reg, TypeId param) {
     if (param == INVALID_TYPE_ID) {
         return INVALID_TYPE_ID;
     }
+    const TypeId c = reg.store().desugaredTypeId(param);
     const TypeId anyId = reg.store().desugaredTypeId(reg.getType(type_generic::Any));
-    return reg.store().desugaredTypeId(param) == anyId ? INVALID_TYPE_ID : param;
+    const TypeId autoId = reg.store().desugaredTypeId(reg.getType(type_generic::Auto));
+    return (c == anyId || c == autoId) ? INVALID_TYPE_ID : param;
 }
 
 void fillCall(CallExpr& call, const TypeReadModel& reg) {

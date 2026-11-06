@@ -26,7 +26,7 @@ class AnalysisZonesTest : public ::testing::Test {
 };
 
 TEST_F(AnalysisZonesTest, NamespaceScopeReportsEmptyStack) {
-    AnalysisContext actx(m_ctx);
+    AnalysisContext actx(m_ctx, *m_types);
     const NamespaceScope& namespaces = actx.namespaces();
     EXPECT_TRUE(namespaces.namespacePath().empty());
     EXPECT_EQ(namespaces.namespaceFull(), "::");
@@ -38,7 +38,7 @@ TEST_F(AnalysisZonesTest, NamespaceScopeReportsEmptyStack) {
 }
 
 TEST_F(AnalysisZonesTest, AnalysisStateCountersAreStrictlyIncreasing) {
-    AnalysisContext actx(m_ctx);
+    AnalysisContext actx(m_ctx, *m_types);
     AnalysisState& state = actx.state();
     EXPECT_LT(state.nextMatchTempId(), state.nextMatchTempId());
     EXPECT_LT(state.nextResultTempId(), state.nextResultTempId());
@@ -48,7 +48,7 @@ TEST_F(AnalysisZonesTest, AnalysisStateCountersAreStrictlyIncreasing) {
 }
 
 TEST_F(AnalysisZonesTest, ExprFactsRoundTripsStateInNodeField) {
-    AnalysisContext actx(m_ctx);
+    AnalysisContext actx(m_ctx, *m_types);
     VarDecl var;
     const TypeId int32 = m_ctx.readTypes().getType(type::Int32);
     actx.facts().setExprState(&var, QualType::fromTypeId(int32).withInferred());

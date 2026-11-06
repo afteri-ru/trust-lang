@@ -1,7 +1,4 @@
 #pragma once
-// include/ast/nodes/stmt_nodes.hpp
-// Statement/control-flow AST nodes: JumpStmt, control-flow constructs, MatchStmt,
-// WithStmt, try/catch, synthetic lowering nodes and ErrorExpr.
 
 #include "ast/token_base.hpp"
 #include "ast/slots/slot_engine.hpp"
@@ -27,7 +24,7 @@
 
 namespace trust {
 
-class Context;
+struct ConvertServices;
 
 /// JumpStmt - инструкция перехода (return / throw).
 /// kind = ReturnStmt | ThrowStmt.
@@ -38,14 +35,13 @@ class Context;
 /// Диапазон (range()) берётся из исходного Term; собственного текста узел не хранит.
 class JumpStmt : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_JumpStmt)
     JumpStmt() = default;
 
     /// range() читается из term (конструктор требует валидный Term); текста узел не хранит.
     /// Роль (return/break/continue/throw) и метка определяются по TermID/тексту;
     /// при `ctx != nullptr` строит m_value из детей. Объявлен здесь, определён в ast_stmt.cpp.
-    JumpStmt(ParserToken::Kind k, TermPtr term, Context* ctx = nullptr);
+    JumpStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx = nullptr);
 
     explicit JumpStmt(ParserToken::Kind k)
     : AstNodeAttr(k) {}
@@ -79,7 +75,6 @@ class JumpStmt : public AstNodeAttr {
 /// Производные добавляют специфичные поля (IfStmt::m_elseifs) и переопределяют dump().
 class ControlFlowStmt : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_ControlFlowStmt)
     ControlFlowStmt() = default;
 
@@ -101,7 +96,6 @@ class ControlFlowStmt : public AstNodeAttr {
 /// Здесь хранятся сконвертированные AST-дети: m_cond, m_body(=then), m_elseifs, m_else.
 class IfStmt : public ControlFlowStmt {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(ControlFlowStmt, SLOTS_IfStmt)
     IfStmt() = default;
 
@@ -110,7 +104,7 @@ class IfStmt : public ControlFlowStmt {
 
     /// Терм-конструктор: при `ctx != nullptr` сам строит детей (m_cond/m_body/m_elseifs/m_else)
     /// через TermToAstConverter (единая раскладка из parser.y). Объявлен здесь, определён в ast_stmt.cpp.
-    IfStmt(ParserToken::Kind k, TermPtr term, Context* ctx);
+    IfStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx);
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
@@ -121,7 +115,6 @@ class IfStmt : public ControlFlowStmt {
 /// kind = WhileStmt.
 class WhileStmt : public ControlFlowStmt {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(ControlFlowStmt, SLOTS_WhileStmt)
     WhileStmt() = default;
 
@@ -130,7 +123,7 @@ class WhileStmt : public ControlFlowStmt {
 
     /// Терм-конструктор: при `ctx != nullptr` сам строит детей (m_cond/m_body/m_else)
     /// через TermToAstConverter. Объявлен здесь, определён в ast_stmt.cpp.
-    WhileStmt(ParserToken::Kind k, TermPtr term, Context* ctx);
+    WhileStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx);
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
@@ -150,7 +143,6 @@ class WhileStmt : public ControlFlowStmt {
 /// kind = DoWhileStmt.
 class DoWhileStmt : public ControlFlowStmt {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(ControlFlowStmt, SLOTS_DoWhileStmt)
     DoWhileStmt() = default;
 
@@ -160,7 +152,7 @@ class DoWhileStmt : public ControlFlowStmt {
     /// Терм-конструктор: при `ctx != nullptr` сам строит детей (m_body/m_cond)
     /// через TermToAstConverter (do-while: m_left=cond, m_sequence=[body]).
     /// Объявлен здесь, определён в ast_stmt.cpp.
-    DoWhileStmt(ParserToken::Kind k, TermPtr term, Context* ctx);
+    DoWhileStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx);
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
@@ -223,7 +215,6 @@ enum class MatchOp : uint8_t {
 /// (m_sequence = список паттернов), m_right=тело; else: m_left = ELLIPSIS.
 class MatchStmt : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_MatchStmt)
     struct MatchCase {
         std::vector<AstNodePtr> patterns; ///< Шаблоны ветки (объединяются через ||)
@@ -237,7 +228,7 @@ class MatchStmt : public AstNodeAttr {
     /// Терм-конструктор: при `ctx != nullptr` сам строит детей (m_value/m_cases/m_default)
     /// через TermToAstConverter (раскладка MATCHING-терма из parser.y).
     /// Объявлен здесь, определён в ast_stmt.cpp.
-    MatchStmt(ParserToken::Kind k, TermPtr term, Context* ctx);
+    MatchStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx);
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
@@ -253,6 +244,11 @@ class MatchStmt : public AstNodeAttr {
     /// Оператор сопоставления (enum-opcode из текста MATCHING-терма). Терм-конструктор
     /// заполняет через matchOpFromSpelling; manual-конструкторы оставляют ValueDefault (==).
     MatchOp m_op{MatchOp::ValueDefault};
+
+    /// Разрешённое объявление функции-предиката `@[matcher("fn")]` — невладеющая ссылка,
+    /// заполняет семантика (`analyzeMatchMatcher`); кодоген читает её вместо повторного
+    /// резолва по тексту (R53). nullptr — атрибута нет / имя не разрешено.
+    const AstNodeBase* m_matcherDecl = nullptr;
 };
 
 /// WithStmt - менеджер контекста `with(name=expr, ...){ body } else { ... };` (RAII).
@@ -264,7 +260,6 @@ class MatchStmt : public AstNodeAttr {
 /// видит биндинги. При исключении в любом инициализаторе выполняется else (объекты уже
 /// уничтожены); исключение в теле пробрасывается (else НЕ выполняется). RAII: объекты
 /// автоуничтожаются при выходе из блока.
-///
 /// m_locks - ЕДИНЫЙ список пар `(lock, binding)`:
 ///   - `lock`   = RefLockExpr (источник захвата) или nullptr (обычный value-биндинг);
 ///   - `binding`= VarDecl, удерживающий значение до конца тела, или nullptr.
@@ -273,7 +268,6 @@ class MatchStmt : public AstNodeAttr {
 ///   `with(a = 1)` → (nullptr, VarDecl a).
 class WithStmt : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_WithStmt)
     WithStmt() = default;
 
@@ -283,7 +277,7 @@ class WithStmt : public AstNodeAttr {
     /// Терм-конструктор: при `ctx != nullptr` сам строит детей (m_locks/m_body/m_else)
     /// из WITH-терма (раскладка parser.y). Форма `WITH lval` (блокировка ссылки) вне скоупа -
     /// диагностика «not implemented».
-    WithStmt(ParserToken::Kind k, TermPtr term, Context* ctx);
+    WithStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx);
 
     [[nodiscard]] std::string dump(size_t indent = 0) const override;
 
@@ -307,7 +301,6 @@ class WithStmt : public AstNodeAttr {
 /// кодогенерация диспетчеризует: VarDecl → `catch (T& e)`, IdentType → `catch (T&)`, nullptr → `catch (trust::IntAny&)`.
 class CatchBlock : public Sequence {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(Sequence, SLOTS_CatchBlock)
     using Sequence::Sequence;
 
@@ -330,14 +323,13 @@ enum class TryKind : std::uint8_t {
 /// Текст не хранится: вид перехвата - `TryKind`, имена - в дочерних узлах.
 class TryCatchStmt : public Sequence {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(Sequence, SLOTS_TryCatchStmt)
     TryCatchStmt() = default;
     /// Терм-конструктор: вид перехвата из TermID блока; дети не строятся.
     TryCatchStmt(ParserToken::Kind k, TermPtr term);
     /// Терм-конструктор: при ctx != nullptr сам строит m_body (тело try), m_catches и m_else
     /// из BLOCK_TRY-терма (m_sequence[0] = тело, m_sequence[1..] = ветки catch, m_right = else).
-    TryCatchStmt(ParserToken::Kind k, TermPtr term, Context* ctx);
+    TryCatchStmt(ParserToken::Kind k, TermPtr term, ConvertServices* ctx);
 
     /// Вид перехвата (из TermID блока); по нему кодоген выбирает тип дефолтного catch.
     TryKind m_tryKind{TryKind::Any};
@@ -377,7 +369,6 @@ class LabelRef : public WithText<AstNodeAttr> {
 /// транспилятором из контекста. kind = SemicolonStmt.
 class SemicolonStmt : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_SemicolonStmt)
     SemicolonStmt() = default;
 
@@ -404,7 +395,6 @@ class SemicolonStmt : public AstNodeAttr {
 /// невалидный range). kind = LastResultCapture.
 class LastResultCapture : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_LastResultCapture)
     LastResultCapture() { m_kind = ParserToken::Kind::LastResultCapture; }
 
@@ -436,7 +426,6 @@ class LastResultCapture : public AstNodeAttr {
 /// тащить причину в следующий пасс. kind = ErrorExpr; парсер узел НЕ создаёт.
 class ErrorExpr : public AstNodeAttr {
   public:
-    /// Слоты узла (единственный источник — ast/slots/node_slots_x.hpp).
     AST_SLOT_METHOD(AstNodeAttr, SLOTS_ErrorExpr)
     ErrorExpr() { m_kind = ParserToken::Kind::ErrorExpr; }
 

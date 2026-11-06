@@ -8,7 +8,7 @@
 
 //--- main.src
 \lib(counter);
-@main():Int32 := { @return \lib::counter - 5; };
+@main():Int32 := { @return counter - 5; };
 
 //--- lib.src
 \lib;

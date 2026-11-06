@@ -31,9 +31,9 @@ TEST_F(ParserTest, EnumTypeDecl) {
 TEST_F(ParserTest, NativeClassForwardDecl) {
     // Forward-объявление нативного класса / шаблон-класса через `::=`.
     EXPECT_TRUE(Parse("@include(\"string\") String ::= %std::string { };"));
-    EXPECT_TRUE(Parse("String ::= %std::string { %size(): UInt64 := ...; @::st(): Void := ...; };"));
+    EXPECT_TRUE(Parse("String ::= %std::string { size(): UInt64 := ...; @::st(): Void := ...; };"));
     // Явная реализация шаблон-класса `<T1,T2> Pair ::= %std::pair<T1,T2> { ... };`.
-    EXPECT_TRUE(Parse("@include(\"utility\") <T1,T2> Pair ::= %std::pair<T1,T2> { %first(): T1 := ...; };"));
+    EXPECT_TRUE(Parse("@include(\"utility\") <T1,T2> Pair ::= %std::pair<T1,T2> { first(): T1 := ...; };"));
     // Обобщённая форма (сахар) парсится; диагностика «not implemented» - в семантике.
     EXPECT_TRUE(Parse("<T1,T2> Pair ::= <T1,T2> %std::pair { };"));
     // RHS - ЛЮБОЕ имя (native - с ведущим '%'; обычное имя тоже допустимо).
@@ -601,7 +601,7 @@ TEST_F(ParserTest, ConverterDoesNotMutateTerm) {
     auto* vd = dynamic_cast<VarDecl*>(nodes[0].get());
     ASSERT_TRUE(vd);
 
-    // Термы НЕ мутированы (прежний код расширял term->m_mapperRange оператора до [имя, expr]).
+    // Термы не мутированы: диапазоны имени и литерала остаются собственными.
     ASSERT_EQ(nameBefore.begin.offset(), name->m_mapperRange.begin.offset());
     ASSERT_EQ(nameBefore.end.offset(), name->m_mapperRange.end.offset());
     ASSERT_EQ(litBefore.begin.offset(), lit->m_mapperRange.begin.offset());

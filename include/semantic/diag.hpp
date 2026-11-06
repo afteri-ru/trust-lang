@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/diag.hpp
 // Диагностики и feature-флаги компонента semantic (единый источник данных для них).
 // TRUST_DIAG_SET/TRUST_FLAG_SET генерируют trust::semantic::DiagId/FlagKind + ADL-доступы.
 
@@ -19,6 +18,9 @@
     M(StackCheckInfer, "stack-check-infer", Warning, "Recursive function not protected by stack guard (with --stack-check=recursion|auto)", WG_None)           \
     M(WidenAny, "widen-any", Warning, "Implicit widening numeric conversion", WG_Wextra | WG_Wconversion)                                                      \
     M(Solver, "solver", Warning, "Trust condition(s) present (severity of the presence diagnostic; silence with -Wsolver=ignore)", WG_None)                    \
+    M(BuiltinOverride, "builtin-override", Warning,                                                                                                            \
+      "Explicit implementation of a built-in type replaces the default standard library implementation (severity; silence with -Wbuiltin-override=ignore)",    \
+      WG_None)                                                                                                                                                 \
     M(Shadow, "shadow", Warning, "Declaration shadows an outer name (variable/parameter)", WG_Wextra)                                                          \
     M(WithRefWithoutCapture, "with-ref-without-capture", Warning, "with binding copies a reference without '*'; use '*ref' to lock access", WG_Wextra)         \
     M(DoubleCapture, "double-capture", Warning,                                                                                                                \
@@ -77,7 +79,7 @@ TRUST_DIAG_SET(trust::semantic, DiagId, SEMANTIC_DIAG_LIST)
     M(StackCheckReserve, diag::flag_id::kStackCheckReserve, "", DiagGroup::Analysis,                                                                    \
       "Minimum stack reserve (bytes) for exception handling, added to all stack checks; empty = runtime default (8192)")                                \
     M(StackCheckFunctions, diag::flag_id::kStackCheckFunctions, "", DiagGroup::Analysis,                                                                \
-      "Comma-separated function names limiting the automatic stack limit (m_stack_limit from .stack_sizes); empty = all functions")
+      "Comma-separated function names limiting the automatic stack limit (m_stack_limit from .stack_sizes); empty = all functions; a name not declared in this unit is emitted verbatim as an external linker symbol (-Wstack-check-fn-symbol)")
 
 TRUST_FLAG_SET(trust::semantic, FlagKind, SEMANTIC_FLAG_LIST)
 

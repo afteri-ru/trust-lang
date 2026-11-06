@@ -1,4 +1,3 @@
-// include/package/package.hpp
 // Пакет trust (`.trust`) — архив исходников tar.gz с манифестом `trust.toml`:
 // определение/извлечение/проверка целостности, создание и распаковка (режимы CLI --package/--extract),
 // упаковка каталога в tar.gz (createTarGz) и доступ к пакетам ресурсов toolchain.
@@ -34,7 +33,7 @@ bool readPackageEntry(const std::filesystem::path& archive, std::string_view rel
 /// `version` — semver ПАКЕТА: сохраняется авторское значение, а при отсутствии подставляется
 /// версия компилятора (`TRUST_VERSION_SHORT`) как provenance; версия toolchain — `[build].toolchain`.
 /// В архив кладётся КОПИЯ манифеста с добавленными таблицами `[build]`
-/// (formatVersion/toolchain/created) и `[files]` (MD5 каждого файла — контроль целостности);
+/// (formatVersion/toolchain/runtime-abi/created) и `[files]` (MD5 каждого файла — контроль целостности);
 /// исходный `trust.toml` НЕ изменяется. Собираются все файлы каталога (включая `*.src`,
 /// C++-заголовки пакета и вложенные `*.trust`); исключаются build-артефакты
 /// (`.trust/`, `*.cppt`, `*.src_map`, `*.o`, `*.so`, `app`).
@@ -65,7 +64,7 @@ bool extractAndVerifyPackage(const std::filesystem::path& archive, const std::fi
 /// (fallback ~/.cache), LRU-чистка по last-used (записи старше 30 суток удаляются).
 /// Гарантирует наличие валидной записи: при промахе распаковывает и проверяет архив
 /// (extractAndVerifyPackage) с атомарным rename. Используется сборкой (копия дерева
-/// в build-каталог) и чтением stdlib-модулей prelude (readResourcePackageEntry).
+/// в build-каталог) и чтением stdlib-исходников (readResourcePackageEntry).
 /// nullopt БЕЗ out_error — кэш недоступен (нет XDG/HOME/не создался): вызывающий
 /// продолжает прямой распаковкой; nullopt С out_error — ошибка распаковки архива.
 [[nodiscard]] std::optional<std::filesystem::path> ensureStdlibCacheEntry(std::string& out_error);

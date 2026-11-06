@@ -1,6 +1,5 @@
 #pragma once
 
-// include/formatter/impl/format_model.hpp
 // Модель токена и зазора форматтера и классификация токенов/зазоров. Внутренний заголовок
 // зоны форматтера: публичный путь — formatter/format.hpp; включается только собственной
 // реализацией (token_gap.cpp/emitter.cpp/format.cpp).

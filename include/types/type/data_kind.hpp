@@ -1,5 +1,4 @@
 #pragma once
-// include/types/type/data_kind.hpp
 // TypeData-variant, TypeDataKind и типизированные дискриминаторы идентичности (StructuralTag).
 // Часть модели данных типов: самостоятельным контрактом НЕ является (umbrella —
 // types/type_data.hpp). Набор include повторяет umbrella, чтобы часть компилировалась
@@ -23,12 +22,10 @@
 
 namespace trust {
 
-// -- Объединение вариантов --
 using TypeData =
     std::variant<SimpleTypeData, FunctionTypeData, TemplateTypeData, ArrayTypeData, TensorTypeData, MemberPointerTypeData, RefTypeData, PackExpansionTypeData,
                  TupleTypeData, EnumTypeData, VariantTypeData, NativeTemplateTypeData, NativeClassTypeData, RecordTypeData, TemplateParamTypeData>;
 
-// -- TypeDataKind - идентификатор варианта TypeData ----------
 enum class TypeDataKind : uint8_t {
     kSimple,
     kFunction,
@@ -47,7 +44,6 @@ enum class TypeDataKind : uint8_t {
     kTemplateParam,
 };
 
-// -- Non-type identity discriminator (TypeKey::tag) --------
 /// Slot layout of a function signature: parameter count, C-variadic slot, pack position.
 /// Return type and the trust bit are identity parts OUTSIDE the layout (see FunctionTypeData).
 struct SlotLayoutTag {
@@ -58,16 +54,18 @@ struct SlotLayoutTag {
     friend bool operator==(const SlotLayoutTag&, const SlotLayoutTag&) = default;
 };
 
-/// C++ template name of a native-template instantiation (`std::pair` != `std::tuple`).
+/// Language key of a native-template instantiation: the abstract template it instantiates
+/// (`std::pair<T>` != `std::tuple<T>` by their abstract template, NOT by a C++ name — the C++ name
+/// is a target fact, not part of language identity: R37, §4 ARCHITECTURE.md).
 struct NativeTemplateTag {
-    std::string cppTemplate;
+    TypeId templateOf{INVALID_TYPE_ID};
 
     friend bool operator==(const NativeTemplateTag&, const NativeTemplateTag&) = default;
 };
 
 /// Fixed/open array shape: dimensions + slice marker. `ArrayTypeData` fields are NOT TypeIds, so
 /// they cannot travel in `TypeKey::children`; they are part of identity and live in this typed tag
-/// (a string encoding in `TypeKey::names` would be a second, serialized representation).
+/// (a string encoding in `TypeKeyChild::name` would be a second, serialized representation).
 struct ArrayShapeTag {
     std::vector<uint64_t> dimensions;
     bool isVariadic{false};
@@ -93,7 +91,7 @@ struct TemplateMarkerTag {
 /// TemplateTypeParmDecl. Уникальность даёт ПРИНАДЛЕЖНОСТЬ параметра своему шаблону (`owner`), а не
 /// только имя: `A<T>` и `B<T>` имеют разные `owner`, поэтому их `T` — разные TypeId. Имя — только
 /// для диагностик; для не-scoped параметров (owner=INVALID, generic-функции) продолжает жить в
-/// TypeKey::names, поэтому интернирование по имени сохраняется.
+/// TypeKeyChild::name, поэтому интернирование по имени сохраняется.
 struct TemplateParamTag {
     TypeId owner{INVALID_TYPE_ID};
     uint32_t depth{0};
@@ -103,7 +101,7 @@ struct TemplateParamTag {
 };
 
 /// Typed identity discriminator DERIVED from TypeData (never a caller responsibility).
-/// `std::monostate` - identity is fully expressed by kind/children/names.
+/// `std::monostate` - identity is fully expressed by kind/children.
 using StructuralTag = std::variant<std::monostate, SlotLayoutTag, NativeTemplateTag, ArrayShapeTag, TensorShapeTag, TemplateMarkerTag, TemplateParamTag>;
 
 } // namespace trust

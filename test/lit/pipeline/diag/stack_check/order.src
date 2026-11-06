@@ -1,0 +1,9 @@
+# RUN: %not %trust --emit-cpp --stack-check=recursion -Wstack-check-infer=error %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Диагностики незащищённых рекурсивных функций выдаются в порядке исходника, а не в порядке
+# обхода pointer-keyed контейнера (R42).
+f1():Int32 := { @return f1(); };
+f2():Int32 := { @return f2(); };
+
+# CHECK: recursive function 'f1' is not protected against stack overflow
+# CHECK: recursive function 'f2' is not protected against stack overflow

@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Нативный импорт: return-тип задаёт C++-сигнатуру внешнего символа, выводить его не из чего.
+f() := %abs...;
+@main():Int32 := { @return 0; };
+# CHECK: error: native import of 'f' must declare an explicit return type

@@ -6,23 +6,34 @@ set(TEST_SOURCES
     diag/basic_test.cpp
     diag/error_limit_test.cpp
     diag/options_test.cpp
+    diag/flag_values_test.cpp
+    diag/diag_format_test.cpp
+    diag/diagnostic_location_test.cpp
+    diag/context_stack_test.cpp
+    diag/expansion_chain_test.cpp
+    diag/one_entry_all_formats_test.cpp
     session/context_test.cpp
     session/context_bitpack_test.cpp
     sourcemap/mapping_test.cpp
     sourcemap/mapping_reader_test.cpp
     sourcemap/mapping_extended_test.cpp
     sourcemap/save_and_read_test.cpp
+    sourcemap/mapping_completeness_test.cpp
+    sourcemap/range_order_test.cpp
     transpiler/src_map_cli_test.cpp
     attrs/parse_test.cpp
     attrs/attr_args_test.cpp
     ast/kind_dispatch_test.cpp
     ast/type_access_test.cpp
     ast/clone_test.cpp
+    ast/decl_id_test.cpp
     ast/text_storage_test.cpp
     ast/text_model_test.cpp
     ast/binary_op_test.cpp
     ast/alias_kind_test.cpp
+    ast/definitions_content_test.cpp
     ast/slots_test.cpp
+    ast/destructure_target_test.cpp
     ir/hir/hir_verify_test.cpp
     pipeline/module_registry_test.cpp
     pipeline/module_loader_test.cpp
@@ -37,6 +48,8 @@ set(TEST_SOURCES
     pipeline/stdlib_package_test.cpp
     pipeline/compile_test.cpp
     pipeline/backend_stage_test.cpp
+    pipeline/target_info_test.cpp
+    target/target_contract_test.cpp
     verify/report_test.cpp
     verify/certificate_test.cpp
     driver/parse_test.cpp
@@ -49,6 +62,7 @@ set(TEST_SOURCES
     semantic/hook_registry_test.cpp
     semantic/semantic_table_test.cpp
     semantic/semantic_funcdecl_test.cpp
+    semantic/delegation_check_test.cpp
     semantic/symbol_collector_test.cpp
     symbols/scope_test.cpp
     symbols/scope_stack_test.cpp
@@ -75,19 +89,24 @@ set(TEST_SOURCES
     semantic/multilevel_var_test.cpp
     semantic/format_check_test.cpp
     semantic/type_set_test.cpp
+    semantic/pod_predicate_test.cpp
     semantic/internal_error_policy_test.cpp
     semantic/arg_casts_test.cpp
     semantic/verify_typed_ast_test.cpp
     transpiler/codegen_literal_test.cpp
     transpiler/codegen_stmt_test.cpp
     transpiler/codegen_func_test.cpp
+    transpiler/codegen_modes_test.cpp
     transpiler/type_name_render_test.cpp
     transpiler/cpp_name_test.cpp
+    transpiler/cpp_template_params_test.cpp
     transpiler/runtime_type_tag_test.cpp
     transpiler/transpile_lsp_test.cpp
     transpiler/transpile_lsp_mapping_test.cpp
     # pipeline/pipelineopt_test.cpp
     types/type_alias_test.cpp
+    types/type_names_test.cpp
+    types/type_kind_layout_test.cpp
     types/type_storage_key_test.cpp
     types/storage_key_test.cpp
     types/builtin_definition_test.cpp
@@ -97,6 +116,7 @@ set(TEST_SOURCES
     types/type_traits_test.cpp
     types/reftype_test.cpp
     types/type_method_test.cpp
+    types/method_key_test.cpp
     types/call_signature_test.cpp
     types/fn_identity_test.cpp
     types/overload_resolve_test.cpp
@@ -127,6 +147,7 @@ set(TEST_SOURCES
     runtime/range_test.cpp
     runtime/checked_cast_test.cpp
     runtime/any_convert_test.cpp
+    runtime/enum_test.cpp
     runtime/stack_check_runtime_test.cpp
     runtime/trusted_cpp_test.cpp
     runtime/trusted_cpp_shared_test.cpp
@@ -136,8 +157,6 @@ set(TEST_SOURCES
     runtime/trusted_cpp_concepts_test.cpp
     runtime/trusted_cpp_selfref_test.cpp
     runtime/trusted_cpp_api_test.cpp
-    ${TRUST_SRC_DIR}/runtime/rational.cpp
-    ${TRUST_SRC_DIR}/runtime/big_integer.cpp
     lsp/lsp_handler_test.cpp
     lsp/lsp_hover_test.cpp
     lsp/lsp_completion_test.cpp
@@ -153,11 +172,13 @@ set(TEST_SOURCES
     utils/cache_test.cpp
     utils/file_io_test.cpp
     utils/strings_test.cpp
+    utils/time_test.cpp
     utils/transport_test.cpp
     utils/error_test.cpp
     utils/io_test.cpp
     utils/trace_test.cpp
     utils/text_interner_test.cpp
+    utils/ident_codec_test.cpp
     solver/smt_printer_test.cpp
     solver/smt_printer_z3_test.cpp
     solver/smt_op_test.cpp
@@ -180,6 +201,7 @@ set(TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/predef_pragma_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/debug_macro_test.cpp
     ${CMAKE_SOURCE_DIR}/test/unit/syntax/module_name_test.cpp
+    ${CMAKE_SOURCE_DIR}/test/unit/syntax/module_header_test.cpp
     # Formatter tests
     formatter/format_test.cpp
     formatter/format_comments_test.cpp
@@ -214,6 +236,7 @@ target_link_libraries(unit_tests PRIVATE
     transpiler_lib
     types_lib
     pipeline_lib
+    builddriver_lib
     module_loader_lib
     debug_lib
     lsp_lib
@@ -238,6 +261,7 @@ target_include_directories(unit_tests PRIVATE
     ${CMAKE_BINARY_DIR}/syntax
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include/runtime
+    ${CMAKE_SOURCE_DIR}/include/stdlib/core
 )
 
 target_compile_definitions(unit_tests PRIVATE
@@ -245,7 +269,7 @@ target_compile_definitions(unit_tests PRIVATE
     TRUST_BINARY_PATH="${CMAKE_BINARY_DIR}/trust"
     TRUST_RUNTIME_STATIC_PATH="${CMAKE_BINARY_DIR}/trust-runtime.a"
     TRUST_RUNTIME_SHARED_PATH="${CMAKE_BINARY_DIR}/trust-runtime.so"
-    TRUST_RATIONAL_HPP_PATH="${PROJECT_INCLUDE_DIR}/runtime/trust/rational.hpp"
+    TRUST_RATIONAL_HPP_PATH="${PROJECT_INCLUDE_DIR}/stdlib/core/builtin/rational.hpp"
 )
 
 # -- Attach trust module --

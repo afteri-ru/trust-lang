@@ -1,4 +1,3 @@
-// src/utils/io/zstd_compress.cpp
 // Zstd compression helpers with per-buffer trained dictionary.
 
 #include "utils/utils.hpp"
@@ -14,7 +13,6 @@
 
 namespace trust::detail {
 
-// -- Format constants --
 // (not in anonymous namespace so static functions in the same TU can see them)
 static constexpr size_t kOrigSizeBytes = 4;
 static constexpr size_t kDictSizeBytes = 4;

@@ -2,12 +2,13 @@
 
 # Деструктуризация `item, dictionary... := ... dictionary` (rest-цель == источнику → мутация на месте)
 # + истинность словаря в @while:
-#  - `while (c_dictionary)` - trust::Dict::operator bool (непустой словарь истинен);
-#  - pop'ы идут прямо в c_dictionary (мутация): `std::any c_item = c_dictionary.pop_front();`;
-#  - `c_dictionary` уже является «остатком» - отдельное присвоение rest не генерируется;
-#  - `c_summa += c_item` (any→int64) инструментируется как
-#    `__builtin_add_overflow(c_summa, c_item, &c_summa)` (default -foverflow-check).
+#  - `while (dictionary)` - trust::Dict::operator bool (непустой словарь истинен);
+#  - pop'ы идут прямо в dictionary (мутация): `std::any item = dictionary.pop_front();`;
+#  - `dictionary` уже является «остатком» - отдельное присвоение rest не генерируется;
+#  - `summa += item` (any→int64) инструментируется как
+#    `__builtin_add_overflow(summa, item, &summa)` (default -foverflow-check).
 
+\std();
 @main() := {
     summa := 0;
     dictionary := (1,2,3,4,5,);
@@ -17,7 +18,7 @@
     };
     @print("{}", summa);
 }
-# CHECK: while (c_dictionary) {
-# CHECK-NEXT: if (c_dictionary.size() < 1) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
-# CHECK-NEXT: int64_t c_item = trust::detail::anyToInt64(c_dictionary.pop_front());
-# CHECK-NEXT: (__builtin_add_overflow(c_summa, c_item, &c_summa) ? throw trust::IntMinus(trust::formatMessage("{{[^\"]*}}", 16, "integer overflow in '+='")) : c_summa);
+# CHECK: while (dictionary) {
+# CHECK-NEXT: if (dictionary.size() < 1) trust::trust__abort__("{{[^"]*}}", {{[0-9]+}}, "destructuring: not enough elements in source");
+# CHECK-NEXT: int64_t item = trust::detail::anyToInt64(dictionary.pop_front());
+# CHECK-NEXT: (__builtin_add_overflow(summa, item, &summa) ? throw trust::IntMinus(trust::formatMessage("{{[^\"]*}}", 17, "integer overflow in '+='")) : summa);

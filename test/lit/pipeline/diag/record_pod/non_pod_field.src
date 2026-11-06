@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Struct — строго POD: поле с заведомо не-POD типом (класс-инстанс) отвергается СЕМАНТИКОЙ
+# в точке объявления (R13), а не ошибкой C++ static_assert. Частичный предикат (R4).
+
+:Animal ::= :Class{ name:Int32 := 1; };
+:Bad ::= :Struct{ a:Animal := _; };
+# CHECK: error: Struct field 'a' has a non-POD type; a POD Struct requires trivial standard-layout fields (use a Class)

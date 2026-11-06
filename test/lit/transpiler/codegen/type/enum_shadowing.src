@@ -1,12 +1,13 @@
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 
 # Тип-операнд определяется РЕЗОЛВНУТЫМ символом, а не реестром по имени: локальная переменная,
-# затеняющая имя enum-типа, даёт доступ к полю словаря, а не статический член `c_Color::RED`.
+# затеняющая имя enum-типа, даёт доступ к полю словаря, а не статический член `Color::RED`.
+\std();
 Color ::= (RED=1, GREEN=2,):Enum;
 
 f():Int32 := {
     Color := (RED=5,);
-    # CHECK: trust::Dict c_Color = trust::Dict
+    # CHECK: trust::Dict Color = trust::Dict
     Color.RED
-    # CHECK: c_Color.at("RED").getAs<int8_t>();
+    # CHECK: Color.at("RED").getAs<int8_t>();
 };

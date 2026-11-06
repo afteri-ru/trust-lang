@@ -3,15 +3,15 @@
 # Псевдопеременная `$^` = результат последней операции (простой случай): предыдущий
 # оператор-выражение `a + 3;` -> временная `__trust_last_1 := a + 3;`, в `r := $^` лист `$^`
 # заменён ссылкой на временную. Тип выведен из источника (Int32), значение один раз.
-%f():Int32 := {
+f():Int32 := {
     a := 5;
     a + 3;
     r := $^;
     return r;
 };
-# CHECK: int32_t f() {
-# CHECK-NEXT:     int8_t c_a = 5;
-# CHECK-NEXT:     int32_t c___trust_last_1 = (c_a + 3);
-# CHECK-NEXT:     int32_t c_r = c___trust_last_1;
-# CHECK-NEXT:     return c_r;
+# CHECK: int32_t f_P0_() {
+# CHECK-NEXT:     int8_t a = 5;
+# CHECK-NEXT:     int32_t __trust_last_1 = (a + 3);
+# CHECK-NEXT:     int32_t r = __trust_last_1;
+# CHECK-NEXT:     return r;
 # CHECK-NEXT: }

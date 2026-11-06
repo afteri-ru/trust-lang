@@ -1,6 +1,6 @@
 // Test file: trust::Generator - lazy coroutine generator.
 #include "stdlib/core/async/generator.hpp"
-#include "trust/range.hpp"
+#include "stdlib/core/builtin/range.hpp"
 
 #include <cstdint>
 #include <stdexcept>

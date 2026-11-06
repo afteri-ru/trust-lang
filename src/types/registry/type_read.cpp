@@ -1,4 +1,3 @@
-// src/types/registry/type_read.cpp
 // View над зонами существующего корня: только снятие возможностей записи (не новый путь).
 #include "types/type_read.hpp"
 

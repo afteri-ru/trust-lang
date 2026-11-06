@@ -1,6 +1,6 @@
 // test/unit/pipeline/pipeline_test.cpp - unit-тесты конвейера (emitBuildDirArchive и пр.).
 #include "pipeline/pipeline.hpp"
-#include "pipeline/archive/archive.hpp"
+#include "builddriver/build.hpp"
 #include "driver/cli.hpp"
 #include <gtest/gtest.h>
 
@@ -37,7 +37,7 @@ TEST(PipelineTest, EmitBuildDirArchiveCleansTempFiles) {
     const fs::path emit_dir = trust::test::makeTestDataDir("pipeline_emit_archive");
 
     std::string err;
-    const fs::path archive = trust::emitBuildDirArchive("print(\"hello\");\n", emit_dir, err);
+    const fs::path archive = trust::emitBuildDirArchive("\\std(); print(\"hello\");\n", emit_dir, err);
     EXPECT_TRUE(!archive.empty()) << "err: " << err;
     if (!archive.empty()) {
         EXPECT_TRUE(fs::is_regular_file(archive));
@@ -58,8 +58,7 @@ TEST(PipelineTest, EmitBuildDirArchiveModuleScriptIsSingleFile) {
 
     // top-level «модуль-скрипт» без явной entry (@main отсутствует).
     const std::string script = "@func triple(x:Int32):Int32 { return x * 3; };\n"
-                               "v := triple(4);\n"
-                               "@print('v={}\\n', v);\n";
+                               "v := triple(4);\n";
 
     std::string err;
     const fs::path archive = trust::emitBuildDirArchive(script, emit_dir, err);

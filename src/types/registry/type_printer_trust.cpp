@@ -1,4 +1,3 @@
-// src/types/registry/type_printer_trust.cpp
 // Зона печати: номинальное Trust-имя (kTrust/kDiagnostic).
 #include "types/registry/type_printer.hpp"
 
@@ -22,7 +21,7 @@ namespace trust {
 /// `Array<Elem>`): ВИД ссылки показывается, а не только базовый тип. Структурные типы без
 /// собственного имени (сигнатуры) дают пустую строку - это их номинальное имя.
 std::expected<std::string, std::string> printTrustName(const TypePrinter& reg, TypeId id, TypePrintScope scope) {
-    const RefType rt = getRefType(getTypeKind(id));
+    const RefType rt = typeRefOf(id);
     if (rt != RefType::kValue) {
         if (rt == RefType::kMptr) {
             const auto* mp = reg.store().getTypeDataAs<MemberPointerTypeData>(id);
@@ -65,35 +64,37 @@ std::expected<std::string, std::string> printTrustName(const TypePrinter& reg, T
         }
         return refTypeDisplayName(rt, *pointee, deleter);
     }
-    if (const TypeDescriptor* desc = reg.store().descriptorOf(id)) {
-        // Параметризованные контейнеры: имя строится из элементного типа (структурный тип
-        // собственного имени не имеет).
-        if (reg.store().isRangeType(id)) {
-            auto elem = printTrustName(reg, reg.store().rangeElementType(id), scope);
-            if (!elem) {
-                return elem;
-            }
-            return "Range<" + *elem + ">";
-        }
-        if (reg.store().isArrayType(id)) {
-            auto elem = printTrustName(reg, reg.store().arrayElementType(id), scope);
-            if (!elem) {
-                return elem;
-            }
-            return "Array<" + *elem + ">";
-        }
-        if (desc->name.empty()) {
-            // Структурные типы (кортеж, сигнатура функции) НОМИНАЛЬНОГО имени не имеют: в
-            // диагностике такое имя было бы пустой строкой. Печатаем явную метку отсутствия
-            // имени (отличается от «нет типа» и от «неизвестный тип id»).
-            return std::format("<unnamed type #{}>", id.raw());
-        }
-        if (scope == TypePrintScope::kQualified && !desc->filePrivate && !desc->namespacePath.empty()) {
-            return utils::qualifyTrustName(desc->namespacePath, desc->name);
-        }
-        return desc->name;
+    if (!reg.store().hasDescriptor(id)) {
+        return std::unexpected(std::format("printType: no descriptor for type id {}", id.raw()));
     }
-    return std::unexpected(std::format("printType: no descriptor for type id {}", id.raw()));
+    // Параметризованные контейнеры: имя строится из элементного типа (структурный тип
+    // собственного имени не имеет).
+    if (reg.store().isRangeType(id)) {
+        auto elem = printTrustName(reg, reg.store().rangeElementType(id), scope);
+        if (!elem) {
+            return elem;
+        }
+        return "Range<" + *elem + ">";
+    }
+    if (reg.store().isArrayType(id)) {
+        auto elem = printTrustName(reg, reg.store().arrayElementType(id), scope);
+        if (!elem) {
+            return elem;
+        }
+        return "Array<" + *elem + ">";
+    }
+    const std::string_view name = reg.store().nameOf(id);
+    if (name.empty()) {
+        // Структурные типы (кортеж, сигнатура функции) НОМИНАЛЬНОГО имени не имеют: в
+        // диагностике такое имя было бы пустой строкой. Печатаем явную метку отсутствия
+        // имени (отличается от «нет типа» и от «неизвестный тип id»).
+        return std::format("<unnamed type #{}>", id.raw());
+    }
+    const std::string_view namespacePath = reg.store().namespacePath(id);
+    if (scope == TypePrintScope::kQualified && !reg.store().isFilePrivate(id) && !namespacePath.empty()) {
+        return utils::qualifyTrustName(namespacePath, name);
+    }
+    return std::string(name);
 }
 
 } // namespace trust

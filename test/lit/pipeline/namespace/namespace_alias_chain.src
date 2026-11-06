@@ -1,0 +1,13 @@
+# RUN: %not %trust -q --temp-dir %t.dir -o %t.app %s > %t.out 2>&1 && %FileCheck %s <%t.out
+# CHECK: error: namespace 'b' not found
+#
+# Цепочки алиасов не поддерживаются: цель-область `b::` ищется среди РЕАЛЬНЫХ областей видимых
+# модулей, а не среди других алиасов (см. hierarchy#alias-limits). Значит `a :- b::;`, где `b` —
+# сам алиас, отвергается как ненайденная область.
+
+ns:: {
+    g():Int32 := { @return 1; };
+};
+b :- ns::;
+a :- b::;
+@main():Int32 := { @return 0; };

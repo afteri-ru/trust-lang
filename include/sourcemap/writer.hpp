@@ -1,8 +1,8 @@
 #pragma once
 
-// include/sourcemap/writer.hpp
 // SourceMapWriter: mutable-сторона (builder space): файлы, выходные буферы, маппинги.
 
+#include "diag/diagnostic_provenance.hpp"
 #include "sourcemap/store/file_entry.hpp"
 #include "sourcemap/store/output_buffer.hpp"
 #include "sourcemap/store/source_map.hpp"
@@ -36,8 +36,6 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     /// Определён в writer_to_reader.cpp: владеет неполным SourceMapReader (unique_ptr).
     ~SourceMapWriter();
 
-    // -- Входные файлы --
-
     // Добавляет содержимое источника из памяти.
     // Если normalize == true: path нормализуется (приводится к относительному от baseDir).
     // Если normalize == false: filename проверяется - должен содержать только [a-zA-Z0-9_].
@@ -48,8 +46,6 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     [[nodiscard]] MapperFile load_file(std::string path);
 
     uint32_t file_count() const { return static_cast<uint32_t>(m_inputs.size()); }
-
-    // -- Выходные файлы --
 
     // add_output: регистрирует выходной файл.
     [[nodiscard]] MapperFile add_output(std::string filename, bool normalize = true);
@@ -63,31 +59,32 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     [[nodiscard]] bool save_output(std::string_view outputDir);
     uint32_t output_count() const { return static_cast<uint32_t>(m_outputs.size()); }
 
-    // -- Создание и валидация Location / Range --
     [[nodiscard]] MapperRange makeRange(MapperLocation begin, MapperLocation end) const;
     [[nodiscard]] bool isValid(MapperLocation loc) const;
     [[nodiscard]] bool isValid(MapperRange range) const;
 
-    // -- Методы маппинга (SourceMapWriter) --
-    bool addRangeMapping(MapperRange trustRange, MapperRange cppRange);
-    bool addNameMapping(MapperRange trustRange, MapperRange cppRange, std::string_view trustName, std::string_view cppName);
-    bool addMacroMapping(MapperRange bodyRange, MapperRange defRange);
+    bool addRangeMapping(MapperRange trustRange, MapperRange outRange);
+    bool addNameMapping(MapperRange trustRange, MapperRange outRange, std::string_view trustName, std::string_view outName);
+    bool addMacroMapping(MapperRange useRange, MapperRange definitionRange);
 
-    // -- Стек для mapStart/mapStop --
+    /// Цепочка раскрытий макросов, содержащих диапазон (внутренний кадр → внешний).
+    /// Проекция пар `use → definition`; имя — слово текста по точке использования.
+    [[nodiscard]] std::vector<ExpansionFrame> macroExpansionChain(MapperRange useRange) const;
+
     struct MapStartEntry {
         MapperRange inputRange;
         MapperLocation outputBegin;
+        /// false — запись создана только для позиции имени (name-mapping), диапазон НЕ попадает в
+        /// карту: range-mapping объявления принадлежит заголовочному артефакту (R40).
+        bool recordRange = true;
     };
 
-    MapperRange mapStart(MapperFile from, uint32_t from_begin, uint32_t from_end, MapperFile to);
-    MapperRange mapStart(MapperRange from, MapperFile to);
+    MapperRange mapStart(MapperRange from, MapperFile to, bool recordRange = true);
     MapperRange mapStop(MapperRange from);
     const MapStartEntry& mapStackTop() const;
 
-    // -- toReader --
     const SourceMapReader* toReader() const;
 
-    // -- Информация об источнике --
     [[nodiscard]] std::string_view filename(MapperLocation loc) const;
     [[nodiscard]] std::string_view source(MapperLocation loc) const;
     using SourceMap::column;
@@ -103,13 +100,11 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     using SourceMap::makeLoc;
     using SourceMap::source;
 
-    // -- Поиск FileIdx по пути с нормализацией --
     MapperFile findFileIdx(std::string_view filePath) const;
 
     void setBaseDirectory(std::string_view path);
     [[nodiscard]] const std::string& baseDirectory() const noexcept { return m_baseDirectory; }
 
-    // -- Главный (корневой) файл модуля --
     /// Устанавливает путь главного файла программы/модуля. Имя модуля любого файла
     /// (см. moduleName) вычисляется относительно каталога главного файла.
     void setMainModuleFile(MapperFile mainFile);
@@ -118,7 +113,6 @@ class SourceMapWriter : public SourceMap<MapperFile> {
     /// Если главный файл не задан - используется baseDirectory.
     [[nodiscard]] std::string moduleName(MapperFile idx) const;
 
-    // -- Подавление маппинга (для синтетических узлов, напр. forward-decl на сайте импорта) --
     // Пока счётчик > 0, addRangeMapping/addNameMapping/mapStart/mapStop/addMacroMapping - no-op.
     void suppressMapping() { ++m_mappingSuppressed; }
     void resumeMapping() {

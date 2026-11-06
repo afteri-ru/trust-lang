@@ -5,7 +5,9 @@
 
 # verify(cond) при -Wassert: провал печатает `file:line: <выражение>` и завершает процесс.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     verify( 1 == 0 );
 };
 {% int macro__main__() {

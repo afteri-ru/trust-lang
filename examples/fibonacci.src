@@ -6,9 +6,10 @@
 # Before a stack overflow occurs, a software interrupt is generated instead of a segfault;
 # this interrupt is caught using the try ... catch.
 
+\std();
 @func parse_bigint(s:StrChar):BigInteger {
     try {
-        {% return trust::BigInteger(c_s); %};
+        {% return trust::BigInteger($s); %};
     } catch(:StdException) {
         return :BigInteger(-1);
     };
@@ -16,7 +17,7 @@
 };
 
 @[ stack_check @]
-%fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {
+fib(n:BigInteger):Tuple(sum:BigInteger, fib:BigInteger) := {
     if (n < 3) {
         $one:BigInteger := 1;
         return :Tuple($one, $one);
@@ -25,7 +26,7 @@
     return (p.0 + p.1, p.sum,):Tuple;
 };
 
-%calc(n:BigInteger):Void := {
+calc(n:BigInteger):Void := {
     result := fib(n);
     $value := "{0}"(result.fib);
     @print("{}: {}\n{}\n", n, $value.size(), $value);

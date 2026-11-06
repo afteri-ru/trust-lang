@@ -1,9 +1,7 @@
 #pragma once
 
-// include/package/archive/archive_io.hpp
 // Внутренний контракт tar-примитивов пакета: используется частями tar / resources / packing.
 // Публичный API пакета - package/package.hpp.
-//
 // Контракт доставки: смена раскладки/сжатия ломает чтение уже опубликованных пакетов;
 // версия формата хранится в манифесте (`formatVersion`, package/manifest.hpp).
 

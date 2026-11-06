@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/core/pass.hpp
 // Агрегат одного прогона семантики. СОБСТВЕННОЙ ВЫЧИСЛИТЕЛЬНОЙ ЛОГИКИ НЕ СОДЕРЖИТ:
 // только владение зонами ответственности и доступ к ним. Зоны:
 //   symbols()    - SymbolTable (стек лексических скоупов, единственный владелец объявлений);
@@ -19,12 +18,22 @@
 
 namespace trust {
 
+class TypeSystem;
+
 class AnalysisContext {
   public:
-    explicit AnalysisContext(Context& ctx);
+    /// `registry` — WRITER-ссылка владельца (`Pipeline`): единственный канал записи в реестр `types`
+    /// (E1). Передаётся явно (не через фасад `Context`), поэтому мутабельный реестр недостижим
+    /// потребителям без права записи (R12).
+    AnalysisContext(Context& ctx, TypeSystem& registry);
 
     Context& ctx() { return m_ctx; }
     const Context& ctx() const { return m_ctx; }
+
+    /// WRITE-зона реестра типов (E1): мутабельный доступ к `types` есть ТОЛЬКО у зоны записи
+    /// (семантика/Pipeline). Потребители без права записи читают через `Context::readTypes()`
+    /// (R12). Второго пути записи нет.
+    [[nodiscard]] TypeSystem& registry() { return m_registry; }
 
     SymbolTable& symbols() { return m_symbols; }
     const SymbolTable& symbols() const { return m_symbols; }
@@ -46,6 +55,7 @@ class AnalysisContext {
 
   private:
     Context& m_ctx;
+    TypeSystem& m_registry;
     SymbolTable m_symbols;
     NamespaceScope m_namespaces;
     TypeResolution m_types;

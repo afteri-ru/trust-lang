@@ -1,8 +1,6 @@
 #pragma once
 
-// include/ir/analysis_manager.hpp
 // Менеджер flow-анализов над MIR: ЕДИНСТВЕННАЯ точка запуска анализов.
-//
 // Контракт:
 //   * Анализ объявляет имя и зависимости (имена других анализов); менеджер строит
 //     топологический порядок, сохраняя порядок регистрации для независимых анализов.
@@ -55,6 +53,8 @@ class AnalysisManager {
     enum class VisitState : std::uint8_t { Unvisited, Visiting, Done };
 
     [[nodiscard]] std::vector<std::size_t> topologicalOrder() const {
+        // Имя анализа — ПУБЛИЧНЫЙ контракт плагина (ключ зависимостей), а не identity факта
+        // компилятора: дубли/циклы отвергаются ниже, порядок независимых — регистрация (R42).
         std::unordered_map<std::string_view, std::size_t> byName;
         byName.reserve(m_analyses.size());
         for (std::size_t i = 0; i < m_analyses.size(); ++i) {

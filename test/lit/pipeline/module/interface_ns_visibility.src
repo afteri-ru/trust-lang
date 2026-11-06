@@ -3,12 +3,12 @@
 # RUN: %not %trust -q --temp-dir $TD/build --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
 #
 # Экспорт-поверхность модуля ключуется КВАЛИФИЦИРОВАННЫМ именем: объявление из
-# namespace-блока (`ns::f`) не становится именем модуля (`\lib::f` не резолвится).
-# CHECK: error: module '\lib' has no exported name 'f'
+# namespace-блока (`ns::f`) не становится коротким именем (`f` не видно).
+# CHECK: error: undefined name 'f'
 
 //--- main.src
 \lib();
-@main():Int32 := { @return \lib::f() - 7; };
+@main():Int32 := { @return f() - 7; };
 
 //--- lib.src
 \lib;

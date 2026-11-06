@@ -62,6 +62,11 @@ The backslash is used as the fraction separator: `1\1` — one, `-55\3` — the 
 \\( \\frac{-55}{3} \\). The arithmetic of rational numbers is built on `:BigInteger` (GMP) and does not lose precision;
 mixing with floating-point numbers requires an explicit conversion.
 
+The default implementation is the standard-library module `stdlib/builtin/rational.src` (GMP), loaded
+by the umbrella `\std();`. An alternative provider (OpenSSL BIGNUM) is loaded as an explicit module
+instead of `\std();` and replaces only `:Rational`/`:BigInteger` themselves. Containers (`:Dict`, ranges) and formatted output use the
+default `trust::Rational` — a deliberate C++ ABI limitation.
+
 ### Displaying long numbers {#bigint-display}
 
 The full value of a number of arbitrary precision can be very long. For **display** (in logs,

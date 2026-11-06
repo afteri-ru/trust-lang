@@ -11,6 +11,7 @@
 #include "formatter/format.hpp"
 #include "pipeline/pipeline.hpp"
 #include "syntax/parser.h"
+#include "syntax/parser_services.hpp"
 #include "utils/utils.hpp"
 
 #include <filesystem>
@@ -95,12 +96,14 @@ void handleFormatting(trust::transport::Transport& transport, DocumentManager& d
     if (macroCtx) {
         // Форматтер подписывается на Macro::on_macro_kind, прогоняет парсинг (в т.ч. модули).
         macroCtx->diag().setMinSeverity(trust::Severity::Fatal);
-        trust::Parser parser(*macroCtx);
+        trust::ParserServices parseServices = trust::makeParserServices(*macroCtx);
+        trust::Parser parser(parseServices);
         fres = trust::formatter::format(text, filePath, fopts, parser);
     } else {
         // Нет контекста/DSL — форматируем с пустым парсером (только raw-@{...@}).
         trust::Context bareCtx;
-        trust::Parser bareParser(bareCtx);
+        trust::ParserServices bareServices = trust::makeParserServices(bareCtx);
+        trust::Parser bareParser(bareServices);
         fres = trust::formatter::format(text, filePath, fopts, bareParser);
     }
     if (!fres.ok) {

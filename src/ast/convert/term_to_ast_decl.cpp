@@ -1,10 +1,9 @@
-// src/ast/convert/term_to_ast_decl.cpp
 // Term->AST conversion (declaration conversions).
 
 #include "ast/term_to_ast.hpp"
 #include "ast/convert/term_to_ast_internal.hpp"
 #include "ast/ast_nodes.hpp"
-#include "session/context.hpp"
+#include "ast/convert_services.hpp"
 #include "attrs/attr_builtin.hpp"
 #include "ast/nodes/attr_parser.hpp"
 #include "syntax/check_area.hpp"
@@ -14,6 +13,7 @@
 #include "syntax/term/term.h"
 #include "syntax/term/term_types.h"
 #include "types/typekind.hpp"
+#include "types/visibility.hpp"
 #include "utils/error.hpp"
 
 #include <memory>
@@ -23,44 +23,9 @@
 
 namespace trust {
 
-AstNodePtr TermToAstConverter::visit_MODULE(const trust::TermPtr& term, Context& ctx) {
-    // Ссылочная форма `\path::name` (в т.ч. вызов `\path::name(...)`): модуль уже загружен
-    // (индекс в терме), загрузки НЕТ. Текст узла - trust-имя ВНУТРИ модуля (`f`, `ns::f`):
-    // модульная часть живёт в `moduleRef`, поэтому резолв/манглинг/типы не требуют спец-кода.
-    if (term->m_right) {
-        std::string spelling(term->m_right->toString());
-        if (spelling.starts_with("::")) {
-            spelling.erase(0, 2);
-        }
-        auto ident = std::make_shared<IdentName>(ParserToken::Kind::Ident, term, &ctx);
-        ident->set_text_interned(spelling);
-        if (!term->m_moduleIndices.empty()) {
-            ident->moduleRef = term->m_moduleIndices.front();
-        }
-        if (!term->isCall()) {
-            return ident;
-        }
-        // Вызов `\path::name(args)`: аргументы берутся ТОЛЬКО из m_args. Терм-конструктор
-        // CallExpr с ctx конвертировал бы и `m_right` (часть имени) как аргумент.
-        auto call = std::make_shared<CallExpr>(ParserToken::Kind::CallExpr, term);
-        call->m_callee = ident;
-        if (term->m_args) {
-            std::vector<AstNodePtr> args;
-            for (const auto& [name, argTerm] : *term->m_args) {
-                (void)name;
-                if (!argTerm || argTerm->getTermID() == trust::TermID::END) {
-                    continue;
-                }
-                if (AstNodePtr an = convertChild(ctx, argTerm)) {
-                    args.push_back(std::move(an));
-                }
-            }
-            if (!args.empty()) {
-                call->m_args = std::move(args);
-            }
-        }
-        return call;
-    }
+AstNodePtr TermToAstConverter::visit_MODULE(const trust::TermPtr& term, ConvertServices& ctx) {
+    // MODULE-терм — только сайт импорта `\path(...)` (`m_right` на MODULE-терме не производится:
+    // модуль не является префиксом разрешения имён).
     if (!term->isCall()) {
         auto ident = std::make_shared<IdentName>(ParserToken::Kind::Ident, term, &ctx);
         if (!term->m_moduleIndices.empty()) {
@@ -69,7 +34,7 @@ AstNodePtr TermToAstConverter::visit_MODULE(const trust::TermPtr& term, Context&
         return ident;
     }
     if (term->m_moduleIndices.empty()) {
-        reportModuleNotLoaded(ctx, term->m_mapperRange, term->getText());
+        reportModuleNotLoaded(ctx.diag(), term->m_mapperRange, term->getText());
         // Узел-заглушка для имени модуля: kind Ident ⇒ класс IdentName (инвариант kind→класс).
         return std::make_shared<IdentName>(ParserToken::Kind::Ident, term, &ctx);
     }
@@ -96,17 +61,28 @@ AstNodePtr TermToAstConverter::visit_MODULE(const trust::TermPtr& term, Context&
 // True, если RHS-терм `::=` - forward-объявление (нативного) класса: CLASS-терм, чей текст -
 // ИМЯ (native `%std::pair` или голое имя), а НЕ type_class (`:Base`, начинается с ':')
 // пользовательского класса (class_type_def). Нативный класс: `%`-имя → C++-имя без '%'.
-static bool isNativeClassFwdTerm(const trust::TermPtr& rhs) {
-    return rhs && rhs->getTermID() == trust::TermID::CLASS && !rhs->getText().empty() && rhs->getText().front() != ':';
-}
-
-// True, если RHS-терм `::=` - объявление пользовательского Record-типа (Struct/Class):
-// CLASS-терм, чей текст - БАЗА-тип (`:Struct`/`:Class`/`:Base`, начинается с ':').
+// CLASS-терм пользовательского Record-типа: голова цепочки — БАЗА-тип (`:Struct`/`:Class`/`:Base`)
+// либо маркер варианта наследования (`::`/`_::`/`__::`; class_type_def допускает его первым).
+// Маркер-голова: известный маркер ИЛИ текст, оканчивающийся на `::` (невалидный маркер `foo::` —
+// тоже форма списка баз record-типа, чтобы диагностику выдал RecordDecl, а не «нативный класс»).
 static bool isUserRecordTerm(const trust::TermPtr& rhs) {
-    return rhs && rhs->getTermID() == trust::TermID::CLASS && !rhs->getText().empty() && rhs->getText().front() == ':';
+    if (!rhs || rhs->getTermID() != trust::TermID::CLASS) {
+        return false;
+    }
+    const std::string_view text = rhs->getText();
+    if (visibilityOf(text).has_value() || (text.size() >= 2 && text.ends_with("::"))) {
+        return true;
+    }
+    return !text.empty() && text.front() == ':';
 }
 
-AstNodePtr TermToAstConverter::visit_CREATE_TYPE(const trust::TermPtr& term, Context& ctx) {
+// Класс-терм forward-объявления (нативного) класса: голова цепочки — ИМЯ (native `%std::pair`
+// либо голое имя), а НЕ тип-ссылка (`:`), см. isUserRecordTerm (class_type_def).
+static bool isNativeClassFwdTerm(const trust::TermPtr& rhs) {
+    return rhs && rhs->getTermID() == trust::TermID::CLASS && !isUserRecordTerm(rhs);
+}
+
+AstNodePtr TermToAstConverter::visit_CREATE_TYPE(const trust::TermPtr& term, ConvertServices& ctx) {
     // `::=` тип-определение. Forward-объявление (нативного) класса:
     // `Pair ::= %std::pair<T1,T2> { ... };` / `String ::= %std::string { };` - RHS CLASS-терм с
     // m_left = имя (native/голое) → right = ClassDecl (trust-имя слева, C++-имя из RHS,
@@ -140,7 +116,7 @@ AstNodePtr TermToAstConverter::visit_CREATE_TYPE(const trust::TermPtr& term, Con
     return convertForKind<ParserToken::Kind::TypeDecl>(term, ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_ALIAS_TYPE(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_ALIAS_TYPE(const trust::TermPtr& term, ConvertServices& ctx) {
     // `:A ::- T;` - ВТОРОЕ имя существующего типа: новый TypeId НЕ создаётся (тот же TypeId, что
     // у цели). Узел - TypeDecl (как у `::=`), различает формы кэш `Binary::m_isTypeAlias`.
     // Грамматика (`alias_type_rhs`) допускает только типовой RHS, поэтому определение
@@ -152,7 +128,7 @@ AstNodePtr TermToAstConverter::visit_ALIAS_TYPE(const trust::TermPtr& term, Cont
     return convertForKind<ParserToken::Kind::TypeDecl>(term, ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_TYPE_DEFINE(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_TYPE_DEFINE(const trust::TermPtr& term, ConvertServices& ctx) {
     // `=` - ОПРЕДЕЛЕНИЕ ранее объявленного типа. Форма RHS та же, что у `::=`, но узел
     // помечается TermID::TYPE_DEFINE: семантика различает объявление (создать тип) и
     // определение (привязать реализацию к существующему предобъявлению).
@@ -179,7 +155,7 @@ AstNodePtr TermToAstConverter::visit_TYPE_DEFINE(const trust::TermPtr& term, Con
     return convertForKind<ParserToken::Kind::TypeDecl>(term, ctx);
 }
 
-AstNodePtr TermToAstConverter::visit_CREATE_NAME(const trust::TermPtr& term, Context& ctx) {
+AstNodePtr TermToAstConverter::visit_CREATE_NAME(const trust::TermPtr& term, ConvertServices& ctx) {
     // CREATE_NAME (`:=`) - оператор объявления функции И переменной (единый синтаксический узел).
     // Класс-селекция по форме m_left: сигнатура функции (m_left->isCall()) → FuncDecl;
     // иначе переменная → VarDecl. Раскладка детей - в FuncDecl/VarDecl конструкторах.
@@ -205,24 +181,17 @@ AstNodePtr TermToAstConverter::visit_CREATE_NAME(const trust::TermPtr& term, Con
             }
             fd->m_templateParams = std::move(params);
 
-            std::string_view lhsName = term->m_left ? term->m_left->getText() : std::string_view{};
-            const bool nativeName = !lhsName.empty() && lhsName.front() == '%';
-            const bool rhsNative = term->m_right && term->m_right->getTermID() == trust::TermID::NATIVE;
-            if (rhsNative && !nativeName) {
-                // Шаблонный native-import: ctor FuncDecl уже выставил m_isNativeImport/m_nativeName.
-                fd->m_isNativeTemplateImport = true;
-                return fd;
-            }
-            if (nativeName) {
-                // Нативный шаблон-ТИП: C++-имя шаблона из нативного имени (`%std::vector` → "std::vector").
-                fd->m_isNativeTemplateCtor = true;
-                std::string_view t = lhsName;
-                if (t.size() > 1 && t.front() == '%') {
-                    t.remove_prefix(1);
-                }
-                fd->m_nativeName = std::string(t);
-            }
-            // Иначе - пользовательская generic-функция (флаги нативного типа не ставим).
+            // Нативная привязка шаблонного объявления задаётся ТОЛЬКО справа: ctor уже
+            // выставил временный носитель C++-имени (`Decl::m_pendingNativeCppName`) для `:= %cpp ...;`.
+            // Форма `<T> %cpp() := ...;`
+            // (нативное имя в левой части) запрещена: нативный шаблон-ТИП объявляется оператором
+            // типа (`<T> Name ::= %cpp { };`), диагностику выдаёт rejectNativeDeclaredName.
+        }
+        // `name(...):T := target ...;` — реализация делегированием к другой функции (нативный `%target ...`
+        // сохранён в m_body (делегат из ast_decl.cpp ctor); trust-делегат сохраняем ниже.
+        if (term->m_right && term->m_right->m_right && term->m_right->m_right->getTermID() == trust::TermID::ELLIPSIS &&
+            term->m_right->getTermID() != trust::TermID::NATIVE) {
+            fd->m_definition = Definition::forwardTo(std::string(term->m_right->getText()));
         }
         return fd;
     }
@@ -236,9 +205,8 @@ AstNodePtr TermToAstConverter::visit_CREATE_NAME(const trust::TermPtr& term, Con
     // В visit_ASSIGN (`*x = 7`) - это разыменование-мутация, НЕ сигл (обрабатывается отдельно).
     if (term->m_left && (term->m_left->getTermID() == trust::TermID::OPERATOR_PTR || term->m_left->getTermID() == trust::TermID::TAKE) &&
         term->m_left->m_right) {
-        // Вид из сигла (refTypeFromTypeSigil). Константность НЕ разбирается здесь: нативные
-        // const-варианты удалены, константность - атрибут @[readonly@] (`^` на имени), применяется
-        // стандартно (convertAttrsToNode / applyRefAttrs).
+        // Вид из сигла (refTypeFromTypeSigil). Константность задаётся атрибутом @[readonly@]
+        // (`^` на имени) и применяется стандартно (convertAttrsToNode / applyRefAttrs).
         const auto kind = refTypeFromTypeSigil(term->m_left->getText());
         if (kind) {
             const TermPtr nameTerm = term->m_left->m_right;

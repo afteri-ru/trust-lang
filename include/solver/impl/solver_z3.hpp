@@ -16,7 +16,6 @@ class SolverZ3 final : public SolverInterface {
     SolverZ3();
     ~SolverZ3() override;
 
-    // Non-copyable
     SolverZ3(const SolverZ3&) = delete;
     SolverZ3& operator=(const SolverZ3&) = delete;
     SolverZ3(SolverZ3&&) = delete;

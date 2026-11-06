@@ -1,6 +1,5 @@
 #pragma once
 
-// include/lsp/services/document_manager.hpp
 // Владение кэшами и жизненным циклом документов LSP (didOpen/didChange/didClose, debounce,
 // reverse-кэш). Вынесен из монолита TrustLsp (src/lsp/catalog/trust_lsp.cpp). TrustLsp делегирует
 // сюда документ-операции; кэши доступны через accessor'ы (для transpile/publishDiagnostics).
@@ -42,7 +41,6 @@ struct CachedSource {
 /// Реестр открытых документов и их кэшей + жизненный цикл (didOpen/Change/Close, debounce).
 class DocumentManager {
   public:
-    // -- Обратные вызовы (настраивает TrustLsp/AnalysisService) --
     using TranspileFn = std::function<std::string(const std::string& trustFilePath, const std::string& code)>;
     using PublishFn = std::function<void(const std::string& uri)>;
     using LogFn = std::function<void(const std::string& msg)>;
@@ -53,7 +51,6 @@ class DocumentManager {
         log_ = std::move(log);
     }
 
-    // -- Доступ к кэшам (для transpile/publishDiagnostics/hover/navigation/completion) --
     std::unordered_map<std::string, CachedSource>& sourceCache() { return sourceCache_; }
     const std::unordered_map<std::string, CachedSource>& sourceCache() const { return sourceCache_; }
     std::unordered_map<std::string, std::string>& cppToTrustCache() { return cppToTrustCache_; }
@@ -62,7 +59,6 @@ class DocumentManager {
     const std::unordered_map<std::string, std::string>& openDocuments() const { return openDocuments_; }
     std::unordered_map<std::string, std::chrono::steady_clock::time_point>& pendingTranspile() { return pendingTranspile_; }
 
-    // -- Жизненный цикл документов --
     void didOpen(const nlohmann::json& req);
     void didClose(const nlohmann::json& req);
     void didChange(const nlohmann::json& req);

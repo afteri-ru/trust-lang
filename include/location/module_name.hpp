@@ -1,4 +1,3 @@
-// include/location/module_name.hpp
 // ЕДИНАЯ формула имени модуля в C++-идентификаторах. Один encoder обслуживает:
 //   * предопределённый макрос `@__MODULE_NAME__`;
 //   * имя entry-функции (`moduleEntryIdent`);
@@ -86,15 +85,20 @@ class ModuleNameLookup {
     return !logicalPath.empty() && logicalPath.front() == '\\';
 }
 
-/// C++-namespace модуля (`<enc>`, без префикса `c_`): ЕДИНСТВЕННЫЙ механизм модульной изоляции
-/// (именованные сущности, типы и свободные операторы). Не конфликтует с trust-namespace
-/// (`c_<ns>`), с идентификаторами (`c_<name>`) и с entry-функцией. Пусто — без изоляции
-/// (неимпортируемый headerless root).
-[[nodiscard]] inline std::string moduleCppNamespace(std::string_view logicalPath) {
+/// Кодированное имя модуля в C++-идентификаторах (`<enc>`): база имени заголовка модуля и
+/// entry-функции. Символы ABI модуля это имя НЕ содержит (модуль вне ABI) — оно служит только
+/// структурной согласованности артефактов сборки. Пусто — неимпортируемый headerless root.
+[[nodiscard]] inline std::string moduleEncodedName(std::string_view logicalPath) {
     if (!isImportableModuleName(logicalPath)) {
         return {};
     }
     return encodeModuleNameForIdent(logicalPath);
+}
+
+/// ЕДИНСТВЕННАЯ формула имени сгенерированного заголовка модуля: `<enc>.hppt` (суффикс `t` отличает
+/// сгенерированные артефакты от настоящих C++-файлов). Повторять формулу в других компонентах запрещено.
+[[nodiscard]] inline std::string moduleHeaderFileName(std::string_view encodedModule) {
+    return std::string(encodedModule) + ".hppt";
 }
 
 /// Проверяет логическое имя модуля: 1–3 ведущих '\' (корни), затем компоненты через '\'.

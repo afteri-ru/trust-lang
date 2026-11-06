@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/core/namespace_scope.hpp
 // Query-сервис «текущая позиция в скоуп-стеке»: путь области имён, текущая функция/класс,
 // признаки тела типа/цикла/локального скоупа. Собственного состояния не добавляет: всё
 // выводится из SymbolTable, кэшируется только namespace-путь (ключ: глубина стека +
@@ -9,6 +8,7 @@
 #include "ast/ast_nodes.hpp"
 #include "ast/trust_prop.hpp"
 #include "symbols/symbol_table.hpp"
+#include "types/type_id.hpp"
 
 #include <cstddef>
 #include <string>
@@ -31,6 +31,10 @@ class NamespaceScope {
     [[nodiscard]] const ClassDecl* currentClass() const;
     /// Анализ идёт ВНУТРИ тела типа (Record/Class) - член-объявление, а не top-level функция.
     [[nodiscard]] bool insideTypeBody() const;
+    /// TypeId ближайшего тела типа (Record/Class) в стеке скоупов; INVALID_TYPE_ID - вне тела типа.
+    /// Идентичность материализует семантика на узле-объявлении (`IdentName::resolvedTypeId`);
+    /// используется проверкой C++-доступа к членам класса.
+    [[nodiscard]] TypeId currentTypeBodyId() const;
     /// Краткое имя текущей функции (без native-префикса '%').
     [[nodiscard]] std::string funcShortName() const;
     /// Полное имя функции: "ns::name" (квалифицированное областью имён).

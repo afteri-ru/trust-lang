@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/verify/lint.hpp
 // Опциональный анализатор (InlineAnalysisHook), подключаемый параллельно к ядру
 // разрешения имён. Сообщает о неиспользуемых переменных (semantic::DiagId::UnusedVariable)
 // и параметрах функций (semantic::DiagId::UnusedParameter). Режим задаётся строковым

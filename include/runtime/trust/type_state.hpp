@@ -1,14 +1,11 @@
 #pragma once
 
-// include/runtime/trust/type_state.hpp
 // Общее определение TypeId/QualType для компилятора (`types/type_id.hpp`) и рантайма
-// (`trust/dict.hpp`, `trust/args.hpp`, `trust/range.hpp`): одно определение, один layout.
-//
+// (`stdlib/builtin/dict.hpp`, `trust/args.hpp`, `stdlib/builtin/range.hpp`): одно определение, один layout.
 // Заголовок самодостаточен: рантайм-типы значений не зависят от дерева компилятора
 // (utils/diag/registry). Компилятор подключает этот же файл как `runtime/trust/type_state.hpp`,
 // поэтому include-путь компилятора не расширяется, а прочие переопределяемые runtime-заголовки
 // остаются ему не видны.
-//
 // Одно 64-битное значение имеет ДВЕ интерпретации:
 //   TypeId    — identity-value: TypeKind (upper 32) | registry_index (lower 24 bits);
 //   QualType — qualifier-view ТОГО ЖЕ raw: identity + qualifier-байт (bits 24..31: const/inferred).
@@ -26,19 +23,22 @@
 
 namespace trust {
 
+/// Версия ABI-контракта рантайма (E14/R48): раскладка и семантика TypeId/QualType/TypeKind
+/// и поставляемых рантайм-заголовков. Меняется только при несовместимом изменении контракта;
+/// упаковщик фиксирует её в пакете, компилятор сверяет с ней.
+inline constexpr std::uint32_t kRuntimeAbiVersion = 1;
+
 /// TypeKind — упакованные характеристики типа (битовая структура — types/type/TYPE.md).
 /// Единственный источник алиаса: `types/typekind.hpp` включает этот заголовок, а не объявляет
 /// собственный `TypeKind` (иначе layout мог бы разойтись между компилятором и рантаймом).
 using TypeKind = std::uint32_t;
 
-// -- Group (0..255): единый источник числовых кодов для компилятора и рантайма --
 // Рантайм-заголовки (dict/range/args) используют эти же значения; отдельного дублирования
 // числовых кодов в runtime/trust/*.hpp нет.
 enum class Group : std::uint8_t {
-    kAny = 0,  // Корень всех типов (Data=0, registry)
+    kAuto = 0, // Sentinel «тип не выведен» / default решётки (Data=0, registry)
     kVoid = 1, // Void(Data=1), None(Data=2)
 
-    // -- Встроенные группы (Data≠0 для конкретных) ------
     kLogical,  // Bool(Data=1)
     kIntegers, // 8,16,32,64
     kUnsigned, // 8,16,32,64
@@ -51,7 +51,6 @@ enum class Group : std::uint8_t {
     kStrWide, // 1
     kDicts,   // 1
 
-    // -- Группы для реестра (Data=0) ---------------------
     kTensors,
     kContainers,
     kStructured,
@@ -76,10 +75,10 @@ enum class Group : std::uint8_t {
     kDeleterPolicy,
     kStructs,
     kClassDefs,
-    kPackExpansion
+    kPackExpansion,
+    kAny // Верхний тип (std::any), Data=0. Реализуется `builtin/any.src`, грузится ЯВНО.
 };
 
-// -- Биты TypeKind (единый layout для компилятора и рантайма) --
 constexpr std::uint32_t kTypeKindGroupShift = 0;
 constexpr std::uint32_t kTypeKindGroupMask = 0x000000FFu;
 constexpr std::uint32_t kTypeKindDataShift = 8;
@@ -103,7 +102,6 @@ constexpr TypeKind makeGroupTypeKind(Group group, std::uint8_t data) noexcept {
     return static_cast<TypeKind>((static_cast<std::uint32_t>(group) << kTypeKindGroupShift) | (static_cast<std::uint32_t>(data) << kTypeKindDataShift));
 }
 
-// -- Биты TypeId/QualType ---------------------------------
 /// registry_index занимает lower bits 0..23 (24 бита); байт 24–31 — qualifier-байт (const/inferred) QualType.
 constexpr std::uint32_t kTypeIndexBits = 24;
 constexpr std::uint32_t kTypeIndexMask = (1u << kTypeIndexBits) - 1;
@@ -128,7 +126,6 @@ static_assert((kConstFlag & kInferredFlag) == 0, "TypeId: kConstFlag and kInferr
 static_assert((kConstFlag & kQualifierMask) == kConstFlag, "TypeId: kConstFlag must live in the qualifier byte");
 static_assert((kInferredFlag & kQualifierMask) == kInferredFlag, "TypeId: kInferredFlag must live in the qualifier byte");
 
-// -- TypeId -----------------------------------------------
 // Класс с приватным raw-представлением: снаружи доступны fromRaw()/fromParts()/raw()/isValid()
 // и сравнения. Это не даёт случайно смешать TypeId с uint64_t/индексом и централизует разбор бит.
 class TypeId {
@@ -183,7 +180,6 @@ constexpr std::uint32_t getRegistryIndex(TypeId id) noexcept {
     return static_cast<std::uint32_t>(id.raw() & kTypeIndexMask);
 }
 
-// -- QualType --------------------------------------------
 /// Тип-состояние типизированного места/выражения (type-state).
 /// qualifier-view того же raw: kind (32) | registry_index (24) | state (bits 24–31).
 /// Это НЕ статический тип и НЕ ключ: identity — `getTypeId()` (снимает qualifier-байт).

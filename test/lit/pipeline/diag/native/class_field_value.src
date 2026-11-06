@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Поле нативного класса не имеет trust-места хранения: значение не эмитится и недопустимо.
+@include("string")
+MyStr ::= %std::string {
+    data: CString := "x";
+};
+@main():Int32 := { @return 0; };
+# CHECK: error: native class field 'data' must be a forward declaration

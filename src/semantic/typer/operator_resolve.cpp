@@ -1,4 +1,3 @@
-// src/semantic/typer/operator_resolve.cpp
 // Разрешение объявленных (пользовательских) операторов (см. operator_resolve.hpp).
 #include "types/type_read.hpp"
 #include "semantic/typer/operator_resolve.hpp"
@@ -23,11 +22,11 @@ namespace {
 void reportNoMatch(AnalysisContext& actx, TypeSystem& reg, std::string_view symbol, std::span<const TypeId> operands, MapperRange range) {
     EXPECT(operands.size() <= 2 && "resolveUserOperator: no-match diagnostic supports one or two operands");
     if (operands.size() == 1) {
-        actx.ctx().diag().report(Severity::Error, range, "no matching operator '{}' for type '{}'", symbol, reg.read().printer().getTypeName(operands.front()));
+        actx.ctx().diag().report(Severity::Error, range, "no matching operator '{}' for type '{}'", symbol, reg.read().printer().typeNameOf(operands.front()));
         return;
     }
-    actx.ctx().diag().report(Severity::Error, range, "no matching operator '{}' for types '{}' and '{}'", symbol, reg.read().printer().getTypeName(operands[0]),
-                             reg.read().printer().getTypeName(operands[1]));
+    actx.ctx().diag().report(Severity::Error, range, "no matching operator '{}' for types '{}' and '{}'", symbol, reg.read().printer().typeNameOf(operands[0]),
+                             reg.read().printer().typeNameOf(operands[1]));
 }
 
 // Несравнимые лучшие кандидаты: конфликт ФОРМ (member и free одновременно) - особая
@@ -47,17 +46,17 @@ void reportAmbiguous(AnalysisContext& actx, TypeSystem& reg, std::string_view sy
     }
     if (memberAmbiguous && freeAmbiguous) {
         actx.ctx().diag().report(Severity::Error, range, "operator '{}' is ambiguous: declared both as a member of '{}' and as a free function", symbol,
-                                 reg.read().printer().getTypeName(receiver));
+                                 reg.read().printer().typeNameOf(receiver));
         return;
     }
     EXPECT(operands.size() <= 2 && "resolveUserOperator: ambiguous diagnostic supports one or two operands");
     if (operands.size() == 1) {
         actx.ctx().diag().report(Severity::Error, range, "operator '{}' is ambiguous for type '{}'", symbol,
-                                 reg.read().printer().getTypeName(operands.front()));
+                                 reg.read().printer().typeNameOf(operands.front()));
         return;
     }
     actx.ctx().diag().report(Severity::Error, range, "operator '{}' is ambiguous for types '{}' and '{}'", symbol,
-                             reg.read().printer().getTypeName(operands[0]), reg.read().printer().getTypeName(operands[1]));
+                             reg.read().printer().typeNameOf(operands[0]), reg.read().printer().typeNameOf(operands[1]));
 }
 
 } // namespace
@@ -74,7 +73,7 @@ bool isUserOperatorType(const TypeReadModel& reg, TypeId type) {
 std::optional<ResolvedUserOperator> resolveUserOperator(AnalysisContext& actx, std::string_view symbol, std::span<const TypeId> operands, bool postfix,
                                                         MapperRange range) {
     EXPECT(!operands.empty() && "resolveUserOperator: at least one operand is required");
-    TypeSystem& reg = actx.ctx().types();
+    TypeSystem& reg = actx.registry();
     // Пользовательским может быть ЛЮБОЙ операнд: свободный оператор ищется по всем типам
     // аргументов (`5 == p` законен, если объявлен `__eq__(i:Int32, p:P)`).
     bool anyUserType = false;
@@ -118,7 +117,7 @@ std::optional<ResolvedUserOperator> resolveUserOperator(AnalysisContext& actx, s
         if (std::find(memberSigs.begin(), memberSigs.end(), INVALID_TYPE_ID) != memberSigs.end()) {
             actx.ctx().diag().report(Severity::Error, range,
                                      "operator '{}' of native template '{}' cannot be instantiated: multiple type parameters are not supported", symbol,
-                                     reg.read().printer().getTypeName(receiver));
+                                     reg.read().printer().typeNameOf(receiver));
             return std::nullopt;
         }
         for (const TypeId sig : memberSigs) {

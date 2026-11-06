@@ -17,10 +17,13 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 using namespace trust;
@@ -71,20 +74,20 @@ TEST(SrcMapCliReadback, EmitCppProducesReadableMap) {
     EXPECT_EQ(inName.find("home/"), std::string::npos) << "input filename leaked absolute home path: '" << inName << "'";
 
     // 5. Mappings must be present in both directions.
-    EXPECT_FALSE(reader->getForwardMappings().empty());
-    EXPECT_FALSE(reader->getBackwardMappings().empty());
+    EXPECT_FALSE(reader->forwardMappings().empty());
+    EXPECT_FALSE(reader->backwardMappings().empty());
 
     // 5b. The forward mappings must be attached to the REAL source file
     //     (input[0] = prog.src), so LSP navigation (findRangeMap on the cursor
     //     position of the actual .src) can resolve trust -> cpp.
-    EXPECT_FALSE(reader->getTrustFileMappings(ReaderFile::make_input(0)).empty()) << "no mappings on the real source file (prog.src)";
+    EXPECT_FALSE(reader->trustFileMappings(ReaderFile::make_input(0)).empty()) << "no mappings on the real source file (prog.src)";
 
     // 6. Serialize -> deserialize round-trip must preserve the mappings.
     auto repacked = reader->packToMsgpack();
     ASSERT_FALSE(repacked.empty());
     auto reader2 = SourceMapReader::fromMsgpack(repacked.data(), repacked.size());
     ASSERT_NE(reader2, nullptr);
-    EXPECT_EQ(reader2->getForwardMappings().size(), reader->getForwardMappings().size());
+    EXPECT_EQ(reader2->forwardMappings().size(), reader->forwardMappings().size());
 
     // 6b. In-memory (fictitious) sources are marked with the '@' prefix, so
     //     consumers know there is no file on disk (DSL -> "@stdlib/dsl", macro bodies
@@ -111,6 +114,67 @@ TEST(SrcMapCliReadback, EmitCppProducesReadableMap) {
         ASSERT_FALSE(srcFile.isInvalid()) << "source file not found in map by path";
         EXPECT_TRUE(reader->verifyHash(srcFile)) << "source file hash mismatch (stale map?)";
     }
+}
+
+// R40: range-mapping объявления принадлежит заголовку модуля — из заголовка навигация в `.src`
+// работает, а `.cppt` объявлений не мапит (там name-mapping идентификаторов и диапазоны тел).
+TEST(SrcMapCliReadback, ModuleHeaderOwnsDeclarationMapping) {
+    fs::path dir = fs::path(TEST_DATA_DIR) / "src_map_cli_module_header";
+    fs::remove_all(dir);
+    ASSERT_TRUE(fs::create_directories(dir));
+    {
+        std::ofstream lib(dir / "lib.src");
+        lib << "\\lib;\nanswer:Int32 := 42;\n";
+        std::ofstream mainSrc(dir / "main.src");
+        mainSrc << "\\lib(answer);\n{% int main__main__() { return answer == 42 ? 0 : 1; } %}\n";
+    }
+
+    std::string cmd = std::string(TRUST_BINARY_PATH) + " --quiet --temp-dir \"" + dir.string() + "\" -o \"" + (dir / "app").string() + "\" \"" +
+                      (dir / "main.src").string() + "\" >/dev/null";
+    int rc = std::system(cmd.c_str());
+    ASSERT_EQ(rc, 0) << "trust exited with code " << rc;
+
+    // Генерируемые артефакты отличаются от настоящих C++-файлов суффиксом `t`.
+    fs::path header;
+    for (const auto& entry : fs::directory_iterator(dir)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".hppt") {
+            header = entry.path();
+        }
+    }
+    ASSERT_FALSE(header.empty()) << "module header (*.hppt) was not generated";
+
+    bool headerMapped = false;
+    for (const auto& entry : fs::directory_iterator(dir)) {
+        if (!entry.is_regular_file() || entry.path().extension() != ".src_map") {
+            continue;
+        }
+        std::ifstream ifs(entry.path(), std::ios::binary);
+        std::vector<unsigned char> data((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+        auto reader = SourceMapReader::fromMsgpack(data.data(), data.size());
+        if (!reader) {
+            continue;
+        }
+        std::optional<uint32_t> headerIdx;
+        for (uint32_t i = 0; i < reader->output_count(); ++i) {
+            const std::string name(reader->filename(ReaderFile::make_output(i)));
+            constexpr std::string_view kHeaderSuffix = ".hppt";
+            if (name.size() >= kHeaderSuffix.size() && name.compare(name.size() - kHeaderSuffix.size(), kHeaderSuffix.size(), kHeaderSuffix) == 0) {
+                headerIdx = i;
+            }
+        }
+        if (!headerIdx.has_value()) {
+            continue;
+        }
+        const ReaderFile srcFile = reader->findFile((dir / "lib.src").string());
+        ASSERT_FALSE(srcFile.isInvalid()) << "module source file not found in map";
+        for (const auto& mapping : reader->trustFileMappings(srcFile)) {
+            const auto target = mapping.to.begin.fileIdx();
+            if (target.isOutput() && target.as_index() == *headerIdx) {
+                headerMapped = true;
+            }
+        }
+    }
+    EXPECT_TRUE(headerMapped) << "declaration range of the module is not mapped into the module header";
 }
 
 // `--temp-dir` указывает на ещё не существующий каталог: компилятор обязан его создать

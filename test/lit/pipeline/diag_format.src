@@ -1,0 +1,26 @@
+# RUN: %not %trust --diagnostics-format=json -q %s > %t.out 2>&1 && %FileCheck %s <%t.out --check-prefix=JSON
+# RUN: %not %trust --diagnostics-format=sarif -q %s > %t.out 2>&1 && %FileCheck %s <%t.out --check-prefix=SARIF
+# RUN: %not %trust --diagnostics-format=text -q %s > %t.out 2>&1 && %FileCheck %s <%t.out --check-prefix=TEXT
+# RUN: %not %trust --diagnostics-format=yaml -q %s > %t.out 2>&1 && %FileCheck %s <%t.out --check-prefix=BAD
+
+# Машиночитаемый формат диагностик: json/sarif — проекции той же записи, text — формат по
+# умолчанию (явное =text возвращает его же). Невалидное значение — ошибка, не тихий fallback.
+@main() := {
+    @print("{}", undefined_name);
+};
+# JSON: "severity": "error"
+# JSON: "code":
+# JSON: "message":
+# JSON: "file":
+# JSON: "line":
+# JSON: "column":
+# JSON: "endLine":
+# JSON: "endColumn":
+# JSON: ]
+# SARIF: "$schema": "https://json.schemastore.org/sarif-2.1.0.json"
+# SARIF: "version": "2.1.0"
+# SARIF: "ruleId":
+# SARIF: "level": "error"
+# SARIF: "message": {"text":
+# TEXT: error: undefined name
+# BAD: error: invalid value for --diagnostics-format: 'yaml'

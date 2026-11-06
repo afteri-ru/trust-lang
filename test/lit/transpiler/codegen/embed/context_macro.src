@@ -7,6 +7,7 @@
 #   @__FUNCDNAME__                         → C++-имя по единой проекции (qualifiedCppName/operator)
 #   @__FUNCTION__ как метка |+|/|-|      → имя функции (break → return)
 #   @:: foo (квалификатор)                 → полное имя следующего идентификатора
+\std();
 ns:: {
     foo():Void := {
         x := @# @::;
@@ -18,14 +19,14 @@ ns:: {
     @:: st := 1;
     ref := @:: st;
 };
-# CHECK: namespace c_ns {
-# CHECK-NEXT:     void c_foo{{_[A-Za-z0-9_]+}}() {
-# CHECK-NEXT:         std::string c_x = "::ns::";
-# CHECK-NEXT:         std::string c_fn = "foo";
-# CHECK-NEXT:         std::string c_sig = "ns::foo():Void";
-# CHECK-NEXT:         std::string c_d = "c_ns::c_foo";
+# CHECK: namespace ns {
+# CHECK-NEXT:     void foo{{_[A-Za-z0-9_]+}}() {
+# CHECK-NEXT:         trust::StrChar x = "::ns::";
+# CHECK-NEXT:         trust::StrChar fn = "foo";
+# CHECK-NEXT:         trust::StrChar sig = "ns::foo():Void";
+# CHECK-NEXT:         trust::StrChar d = "ns::foo";
 # CHECK-NEXT:         return;
 # CHECK-NEXT:     }
-# CHECK-NEXT:     int8_t c_st = 1;
-# CHECK-NEXT:     int8_t c_ref = c_ns::c_st;
+# CHECK-NEXT:     int8_t st = 1;
+# CHECK-NEXT:     int8_t ref = ns::st;
 # CHECK-NEXT: }

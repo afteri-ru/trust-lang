@@ -1,0 +1,5 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# try/catch без \exceptions(); -> provider-gate: реализация IntAny не загружена.
+try_error { a := 1; } catch(e:IntMinus) { b := e; };
+# CHECK: error: implementation of built-in type 'IntAny' is not defined

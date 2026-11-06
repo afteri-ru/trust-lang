@@ -1,8 +1,8 @@
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
 # RUN: TD=%t.dir && mkdir -p $TD && %trust -q --single-file --temp-dir $TD -o $TD/qualified_type %s && $TD/qualified_type
 #
-# C++-имя namespace-типа квалифицировано на use-site (`c_ns::c_Point`), включая
-# параметры/возврат/локали; alias в namespace - `c_ns::c_MyInt`.
+# C++-имя namespace-типа квалифицировано на use-site (`ns::Point`), включая
+# параметры/возврат/локали; alias в namespace - `ns::MyInt`.
 
 ns:: {
     :Point ::= :Struct{ x:Int32 := _; };
@@ -10,10 +10,10 @@ ns:: {
 };
 
 take(p:ns::Point):Int32 := { @return p.x; };
-# CHECK: int32_t c_take{{_[A-Za-z0-9_]+}}(c_ns::c_Point c_p)
+# CHECK: int32_t take{{_[A-Za-z0-9_]+}}(ns::Point p)
 
 widen(x:ns::MyInt):Int32 := { @return x; };
-# CHECK: int32_t c_widen{{_[A-Za-z0-9_]+}}(c_ns::c_MyInt c_x)
+# CHECK: int32_t widen{{_[A-Za-z0-9_]+}}(ns::MyInt x)
 
 @main():Int32 := {
     p:ns::Point := ns::Point(1);

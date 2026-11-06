@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/core/behavioral_modes.hpp
 // Единая точка РАЗРЕШЕНИЯ поведенческих режимов из diag::Options (владелец флагов — semantic)
 // для передачи в кодоген как ДАННЫЕ (`analysis::BehavioralModes`). Так кодоген не зависит от
 // diag::Options/FlagKind и от самого анализатора.

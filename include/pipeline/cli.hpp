@@ -1,4 +1,3 @@
-// include/pipeline/cli.hpp
 // Разбор и валидация командной строки драйвера `trust`.
 #pragma once
 

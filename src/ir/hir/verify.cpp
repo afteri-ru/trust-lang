@@ -1,4 +1,3 @@
-// src/ir/hir/verify.cpp
 // Структурный верификатор HIR (см. include/ir/hir_verify.hpp).
 #include "ir/hir_verify.hpp"
 
@@ -116,8 +115,8 @@ void checkFunction(Walk& walk, FuncDecl& fn) {
         return;
     }
     FunctionScan scan;
-    if (fn.m_body) {
-        for (AstNodePtr& stmt : *fn.m_body) {
+    if (fn.hasBody()) {
+        for (AstNodePtr& stmt : *fn.body()) {
             if (stmt) {
                 scanFunction(*stmt, scan);
             }
@@ -164,8 +163,8 @@ void checkVarDecl(Walk& walk, const VarDecl& var) {
     // Пользовательская нетипизированная переменная обязана иметь выведенный тип: кодоген в этой
     // ветке не имеет другого источника. Исключения: `_` (тип выводится по истории записей в DA,
     // который идёт ПОСЛЕ гейта) и синтетические временные (`__cap_` эмитится как auto).
-    const bool deferredToDa = isNoneMarker(var.m_initializer.get());
-    if (var.m_type == nullptr && var.m_initializer != nullptr && !deferredToDa && !isSyntheticTempName(var.text()) && !var.inferredType.isValid()) {
+    const VarInitKind init = var.initKind();
+    if (var.m_type == nullptr && init == VarInitKind::Initialized && !isSyntheticTempName(var.text()) && !var.inferredType.isValid()) {
         walk.violation = std::format("HIR verify: inferred type of variable '{}' is not materialized by semantic analysis{}", var.text(), originNote(var));
     }
 }

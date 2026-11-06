@@ -8,9 +8,9 @@
 MyInt trust_assert( MyInt > 0 ) ::= :Int32;
 x :MyInt := 5;
 
-# CHECK: using c_MyInt = int32_t;
-# CHECK: c_MyInt c_x = 5;
+# CHECK: using MyInt = int32_t;
+# CHECK: MyInt x = 5;
 
-# ASSERT: using c_MyInt = int32_t;
-# ASSERT: c_MyInt c_x = 5;
-# ASSERT: if (!((c_x > 0))) trust::trust__abort__("{{.*}}type_explicit.src", {{[0-9]+}}, "MyInt > 0", 1);
+# ASSERT: using MyInt = int32_t;
+# ASSERT: MyInt x = 5;
+# ASSERT: if (!((x > 0))) trust::trust__abort__("{{.*}}type_explicit.src", {{[0-9]+}}, "MyInt > 0", 1);

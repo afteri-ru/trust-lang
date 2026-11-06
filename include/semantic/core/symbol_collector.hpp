@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/core/symbol_collector.hpp
 // Сборщик имён и типов объявлений (VarDecl/FuncDecl/TypeDecl/ArgNode) для LSP.
 // Подключается параллельно к ядру NameResolutionPass через InlineAnalysisHook
 // и пишет результат в AnalysisContext::state().symbolIndex().

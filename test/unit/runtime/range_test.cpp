@@ -1,5 +1,5 @@
 // Test file: Range runtime type (universal arithmetic range, inclusive semantics).
-#include "trust/range.hpp"
+#include "stdlib/core/builtin/range.hpp"
 
 #include <any>
 #include <cstdint>

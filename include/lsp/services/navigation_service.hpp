@@ -1,6 +1,5 @@
 #pragma once
 
-// include/lsp/services/navigation_service.hpp
 // Навигация LSP: Go to Definition (textDocument/definition) и кликабельные ссылки
 // (textDocument/documentLink). Вынесены из монолита TrustLsp; stateless - принимают
 // transport/documents/opts и сами отправляют ответ.

@@ -1,6 +1,5 @@
 #pragma once
 
-// include/debug/gdb/stack_frame.hpp
 // Кадр стека, возвращаемый GDB/MI (-stack-list-frames).
 
 #include <string>

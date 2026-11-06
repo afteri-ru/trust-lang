@@ -9,7 +9,9 @@
 # Вложенный try через МАКРОСЫ (стек кадров @__PRAGMA_TRY_CLOSE__). Внутренний try_error
 # перехватывает IntMinus; внешний try_error завершается нормально → срабатывает его else.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     try_error {
         try_error {
             |- 1 -|;

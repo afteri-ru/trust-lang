@@ -4,8 +4,8 @@
 
 trust_component(package
     PUBLIC_HEADERS manifest.hpp package.hpp
-    INTERNAL_DIRS archive
-    SOURCES manifest.cpp tar.cpp resource.cpp package.cpp
+    INTERNAL_DIRS archive manifest
+    SOURCES manifest/manifest.cpp archive/tar.cpp archive/resource.cpp archive/package.cpp
     # manifest.hpp (публичный заголовок) включает <toml++/toml.hpp> - include-путь обязан
     # распространяться на потребителей (pipeline_lib, unit_tests и др.).
     LINK_PUBLIC trust_include_dirs tomlplusplus::tomlplusplus

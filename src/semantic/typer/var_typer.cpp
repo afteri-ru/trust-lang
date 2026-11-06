@@ -1,4 +1,3 @@
-// src/semantic/typer/var_typer.cpp
 // Типизация объявлений переменных и лямбд (фасад - `ExprTyper`).
 #include "types/type_read.hpp"
 #include "semantic/typer/var_typer.hpp"
@@ -87,7 +86,7 @@ void VarTyper::typeInferredVarDecl(VarDecl& v) {
                     // входит в тип (backend shared/weak). 3-й аргумент - реализация.
                     const TypeId accessPolicy = resolveAccessPolicy(m_actx.ctx(), rargs, *rk, v.range());
                     const TypeId impl = resolveImpl(m_actx.ctx(), rargs, *rk, accessPolicy, v.range());
-                    tstate = applyDeclaredRefKind(m_actx.ctx(), tstate, *rk, v.range(), v.text(), "deduced type", RefNameStyle::Full, accessPolicy, impl);
+                    tstate = applyDeclaredRefKind(m_actx.registry(), m_actx.ctx(), tstate, *rk, v.range(), v.text(), "deduced type", RefNameStyle::Full, accessPolicy, impl);
                     t = tstate.getTypeId();
                 }
             }
@@ -96,8 +95,8 @@ void VarTyper::typeInferredVarDecl(VarDecl& v) {
         // автоматически - только явная аннотация типа (`x :MyInt := ...`). Признак -
         // бит trust в TypeId (isTrustedType). См. types/MEMORY.md.
         if (isTrustedType(t)) {
-            const TypeReadModel& treg = m_actx.ctx().types();
-            const std::string tn = treg.printer().getTypeName(t);
+            const TypeReadModel& treg = m_actx.registry();
+            const std::string tn = treg.printer().typeNameOf(t);
             m_actx.ctx().diag().report(
                 Severity::Error, v.range(),
                 "type '{}' carries trust conditions and cannot be auto-deduced; annotate the variable type explicitly (e.g. '{} :{} := ...')", tn, v.text(),
@@ -108,9 +107,9 @@ void VarTyper::typeInferredVarDecl(VarDecl& v) {
         // trust::Unique - move-only. Создание владельца ИЗ ЗНАЧЕНИЯ (`&* u := 10`) валидно
         // (обёртка, обработано выше); перенос между существующими владельцами - только
         // swap `a :=: b` / discard `a :=: _`.
-        if (refAxisOf(getRefType(getTypeKind(t))) == RefAxis::Unique) {
+        if (refAxisOf(t) == RefAxis::Unique) {
             const TypeId initType = m_actx.facts().exprType(*v.m_initializer);
-            if (initType != INVALID_TYPE_ID && refAxisOf(getRefType(getTypeKind(initType))) == RefAxis::Unique) {
+            if (initType != INVALID_TYPE_ID && refAxisOf(initType) == RefAxis::Unique) {
                 std::string varName(v.text());
                 if (!varName.empty() && varName.front() == '$') {
                     varName.erase(0, 1);
@@ -191,8 +190,8 @@ void VarTyper::typeExplicitVarDecl(VarDecl& v) {
         // Абстрактная контейнерная аннотация (`:Tuple`/`:Range`/`:Array` без const/ref) не имеет
         // единого C++-имени: конкретный структурный тип выводится из инициализатора (как dtype
         // тензора ниже). Фиксируем его в inferredType - кодоген эмитит конкретное имя, а не `auto`.
-        if (v.m_initializer && getRefType(getTypeKind(m_actx.ctx().readTypes().store().desugaredTypeId(*targetOpt))) == RefType::kValue) {
-            TypeSystem& treg = m_actx.ctx().types();
+        if (v.m_initializer && typeRefOf(m_actx.ctx().readTypes().store().desugaredTypeId(*targetOpt)) == RefType::kValue) {
+            TypeSystem& treg = m_actx.registry();
             const TypeId targetCanon = treg.read().store().desugaredTypeId(*targetOpt);
             const TypeId initType = m_actx.facts().exprType(*v.m_initializer);
             const bool concreteMatch =
@@ -222,10 +221,10 @@ void VarTyper::typeExplicitVarDecl(VarDecl& v) {
         // `:Tensor[dims]` без dtype и инициализатор-НЕ-литерал (`:= existingTensor`): dtype
         // выводится из типа выражения; форма (если известна в обоих) обязана совпадать.
         {
-            TypeSystem& reg = m_actx.ctx().types();
+            TypeSystem& reg = m_actx.registry();
             const TypeId target = *targetOpt;
             const bool targetNeedsDtype =
-                reg.read().store().isTensorType(target) && reg.read().store().tensorElementType(target) == reg.read().getType(type_generic::Any);
+                reg.read().store().isTensorType(target) && reg.read().store().tensorElementType(target) == reg.read().getType(type_generic::Auto);
             if (targetNeedsDtype && v.m_initializer && v.m_initializer->kind() != ParserToken::Kind::ArrayInit) {
                 const TypeId initType = m_actx.facts().exprType(*v.m_initializer);
                 if (!reg.read().store().isTensorType(initType)) {
@@ -290,7 +289,7 @@ void VarTyper::checkWithBindingCapture(const VarDecl& v) {
     if (v.m_inWith && v.m_initializer && v.m_initializer->kind() != ParserToken::Kind::RefTakeExpr) {
         const TypeId it = m_actx.facts().exprType(*v.m_initializer);
         if (it != INVALID_TYPE_ID) {
-            const RefType rt = getRefType(getTypeKind(it));
+            const RefType rt = typeRefOf(it);
             if (rt == RefType::kShared || rt == RefType::kWeak) {
                 // -Wwith-ref-without-capture (default: warning; управляется -W/-Wno).
                 const Severity sev = m_actx.ctx().opts().get(semantic::DiagId::WithRefWithoutCapture);

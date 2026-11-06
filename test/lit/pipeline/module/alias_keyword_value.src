@@ -7,7 +7,7 @@
 # `alias <цель> as <имя>` для значения — тот же оператор `:-`.
 //--- main.src
 \lib(K);
-alias \lib::K as kk;
+alias K as kk;
 @main():Int32 := { @return kk - 5; };
 
 //--- lib.src

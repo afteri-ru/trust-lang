@@ -4,9 +4,9 @@
 # Runtime-заголовки: `runtime/trust/` — намеренно публикуемый ABI-каталог
 # (include/trust/*.hpp в пакете), поэтому он в PUBLIC_DIRS, а не в INTERNAL_DIRS.
 # `runtime/torch/` — compiler-side torch-адаптер (`TorchTensor`), в пакет не входит и
-# другими компонентами не включается (internal-зона). Реализации (rational/big_integer/tensor)
-# собираются не в компонентную библиотеку, а в флейворы trust-runtime и плагин tensor_cpu —
-# их TU помечаются явно.
+# другими компонентами не включается (internal-зона). Rational/BigInteger — header-only в
+# stdlib (`stdlib/builtin/*.hpp`), TU рантайма они больше не содержат. Компилируемая
+# реализация tensor собирается в плагин tensor_cpu; её TU помечается явно.
 trust_component(runtime
     INTERFACE
     INTERNAL_DIRS torch
@@ -14,7 +14,7 @@ trust_component(runtime
     LINK_PUBLIC trust_include_dirs
 )
 
-trust_claim_sources(runtime/rational.cpp runtime/big_integer.cpp runtime/tensor.cpp)
+trust_claim_sources(runtime/tensor.cpp)
 
 # -- PCM build configuration --
 set(RUNTIME_PCM_DIR "${CMAKE_CURRENT_BINARY_DIR}")
@@ -66,14 +66,12 @@ add_custom_target(runtime_pcm_target_all ALL DEPENDS ${RUNTIME_PCM_OBJ})
 # -- Library: trust-runtime (shared trust-runtime.so + static trust-runtime.a) --
 # One runtime implementation built in two flavours: the dynamic library and the static library.
 # The shared one is produced as trust-runtime.so, the static one as trust-runtime.a (both under the
-# same OUTPUT_NAME 'trust-runtime', PREFIX ""). Public runtime headers (e.g. trust/rational.hpp)
+# same OUTPUT_NAME 'trust-runtime', PREFIX ""). Public runtime headers (e.g. trust/assert.hpp)
 # are NOT embedded into the libraries: they are delivered by the standard library package
 # (share/trust/stdlib.trust, include/trust/). Generated programs link against the static library
 # by default (the executable carries the runtime code and needs no trust-runtime.so at run time).
 function(trust_add_runtime_flavour _variant)
     set(_srcs
-        ${TRUST_SRC_DIR}/runtime/rational.cpp
-        ${TRUST_SRC_DIR}/runtime/big_integer.cpp
         ${TRUST_SRC_DIR}/utils/io/io.cpp
         ${TRUST_SRC_DIR}/utils/proc/backtrace.cpp
     )

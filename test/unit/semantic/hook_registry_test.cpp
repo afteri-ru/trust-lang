@@ -33,7 +33,7 @@ class HookRegistryTest : public ::testing::Test {
 
     /// Прогон семантики на пустом AST: интересует только состав реестра хуков.
     std::vector<std::string> activeHooks() {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         std::vector<AstNodePtr> nodes;
         (void)runner.run(nodes);
         std::vector<std::string> names;

@@ -6,7 +6,9 @@
 
 # Унарный минус на INT_MIN переполняет -> trust::IntMinus, ловится {- ... -}.
 
-%chk():Void := {
+\std();
+@[export("chk")@]
+chk():Void := {
     x:Int32 := -2147483648;
     {-
         y := -x;

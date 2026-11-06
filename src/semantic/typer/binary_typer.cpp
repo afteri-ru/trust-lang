@@ -1,4 +1,3 @@
-// src/semantic/typer/binary_typer.cpp
 // Типизация бинарных узлов, append-присваивания и trust-check выражений; фасад - `ExprTyper`.
 #include "types/type_read.hpp"
 #include "semantic/core/type_predicates.hpp"
@@ -14,6 +13,7 @@
 #include "types/group.hpp"
 #include "types/call.hpp"
 #include "types/type_system.hpp"
+#include "types/type_data.hpp"
 #include "types/type_id.hpp"
 #include "types/names.hpp"
 #include "types/typekind.hpp"
@@ -55,7 +55,7 @@ bool isSignedMachineInt(const TypeReadModel& reg, TypeId t) {
     if (t == INVALID_TYPE_ID) {
         return false;
     }
-    return getGroup(getTypeKind(reg.store().desugaredTypeId(t))) == Group::kIntegers;
+    return typeGroupOf(reg.store().desugaredTypeId(t)) == Group::kIntegers;
 }
 
 } // namespace
@@ -113,7 +113,7 @@ TypeId BinaryTyper::typeBinaryResult(Binary& b) {
         lt = m_actx.facts().exprType(*b.m_left);
     }
     const TypeId rt = m_actx.facts().exprType(*b.m_right);
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
 
     // Операторы сравнения типов (`<~`/`~~`/`~~~`) - отдельная зона: результат Bool,
     // статическая свёртка по реестру (наследование/поля), без арифметики/enum/ref-правил.
@@ -206,8 +206,8 @@ TypeId BinaryTyper::typeBinaryResult(Binary& b) {
     if (arithmetic) {
         const TypeId lc = (lt != INVALID_TYPE_ID) ? reg.store().desugaredTypeId(lt) : INVALID_TYPE_ID;
         const TypeId rc = (rt != INVALID_TYPE_ID) ? reg.store().desugaredTypeId(rt) : INVALID_TYPE_ID;
-        const Group lg = (lc != INVALID_TYPE_ID) ? getGroup(getTypeKind(lc)) : Group::kAny;
-        const Group rg = (rc != INVALID_TYPE_ID) ? getGroup(getTypeKind(rc)) : Group::kAny;
+        const Group lg = (lc != INVALID_TYPE_ID) ? typeGroupOf(lc) : Group::kAuto;
+        const Group rg = (rc != INVALID_TYPE_ID) ? typeGroupOf(rc) : Group::kAuto;
         const bool lAP = lg == Group::kArbitraryPrecision;
         const bool rAP = rg == Group::kArbitraryPrecision;
         if (lAP || rAP) {
@@ -253,8 +253,6 @@ TypeId BinaryTyper::typeBinaryResult(Binary& b) {
     return result;
 }
 
-// -- Обработчики семейств typeBinaryResult ------------------------------------
-
 // Сравнение с объявленным operator==/... для record/native class. Guard (наличие
 // пользовательского операнда) - в диспетчере; разрешение объявленного оператора и
 // диагностика - в semantic::resolveUserOperator. Здесь только применение к узлу.
@@ -270,7 +268,7 @@ TypeId BinaryTyper::typeUserComparison(Binary& b, TypeId lt, TypeId rt) {
         b.resolvedOperatorSignature = resolved->signature;
         b.resolvedOperatorIsMember = resolved->member;
     }
-    b.resolvedOperatorModule = resolved->module;
+    b.resolvedOperatorIsFree = resolved->module.isValid();
     b.resolvedOperatorNamespace = resolved->namespacePath;
     b.lhsType = QualType::fromTypeId(lt);
     b.rhsType = QualType::fromTypeId(rt);
@@ -316,7 +314,7 @@ TypeId BinaryTyper::typeTensorBinary(Binary& b, TypeId lt, TypeId rt, const Type
                 }
             } else {
                 const TypeId scalar = lTensor ? rt : lt;
-                const Group sg = getGroup(getTypeKind(reg.store().desugaredTypeId(scalar)));
+                const Group sg = typeGroupOf(reg.store().desugaredTypeId(scalar));
                 if (scalar == INVALID_TYPE_ID || (!isArithmeticGroup(sg) && sg != Group::kArbitraryPrecision)) {
                     m_actx.ctx().diag().report(Severity::Error, b.range(), "tensor arithmetic requires a numeric scalar operand");
                     b.lhsType = b.rhsType = b.resultType = b.commonType = QualType{};
@@ -345,42 +343,6 @@ TypeId BinaryTyper::typeTensorBinary(Binary& b, TypeId lt, TypeId rt, const Type
     return INVALID_TYPE_ID;
 }
 
-// -- Операторы сравнения типов (<~ / ~~ / ~~~) --------------------------------
-// Транзитивное «подтип-или-равно» по базовым классам реестра (с защитой от циклов).
-// Абстрактная группа-цель (Data==0, кроме Any) сравнивается по совпадению группы.
-bool isSubtypeOrEqual(const TypeReadModel& reg, TypeId type, TypeId target) {
-    const TypeId t = (type == INVALID_TYPE_ID) ? INVALID_TYPE_ID : reg.store().identityOf(type, TypeIdentityScope::kCanonical);
-    const TypeId g = (target == INVALID_TYPE_ID) ? INVALID_TYPE_ID : reg.store().identityOf(target, TypeIdentityScope::kCanonical);
-    if (t == INVALID_TYPE_ID || g == INVALID_TYPE_ID) {
-        return false;
-    }
-    if (t == g) {
-        return true;
-    }
-    const TypeKind tk = getTypeKind(g);
-    if (getData(tk) == 0 && getGroup(tk) != Group::kAny) {
-        return getGroup(getTypeKind(t)) == getGroup(tk);
-    }
-    std::vector<TypeId> stack(reg.store().baseClasses(t).begin(), reg.store().baseClasses(t).end());
-    std::vector<TypeId> seen;
-    while (!stack.empty()) {
-        const TypeId b = stack.back();
-        stack.pop_back();
-        const TypeId bc = (b == INVALID_TYPE_ID) ? INVALID_TYPE_ID : reg.store().identityOf(b, TypeIdentityScope::kCanonical);
-        if (bc == INVALID_TYPE_ID || std::find(seen.begin(), seen.end(), bc) != seen.end()) {
-            continue;
-        }
-        if (bc == g) {
-            return true;
-        }
-        seen.push_back(bc);
-        for (const TypeId nb : reg.store().baseClasses(bc)) {
-            stack.push_back(nb);
-        }
-    }
-    return false;
-}
-
 // Суммарное число полей record-типа с учётом наследования (для строгого образца).
 size_t countRecordFields(const TypeReadModel& reg, TypeId type) {
     const TypeId t = (type == INVALID_TYPE_ID) ? INVALID_TYPE_ID : reg.store().identityOf(type, TypeIdentityScope::kCanonical);
@@ -388,11 +350,11 @@ size_t countRecordFields(const TypeReadModel& reg, TypeId type) {
         return 0;
     }
     size_t n = 0;
-    if (const auto* rd = reg.store().getTypeDataAs<RecordTypeData>(t)) {
-        n += rd->fields.size();
+    if (const std::vector<TupleElementData>* fields = reg.store().fieldsOf(t)) {
+        n += fields->size();
     }
-    for (const TypeId base : reg.store().baseClasses(t)) {
-        const TypeId bc = (base == INVALID_TYPE_ID) ? INVALID_TYPE_ID : reg.store().identityOf(base, TypeIdentityScope::kCanonical);
+    for (const BaseClass& base : reg.store().basesOf(t)) {
+        const TypeId bc = (base.type == INVALID_TYPE_ID) ? INVALID_TYPE_ID : reg.store().identityOf(base.type, TypeIdentityScope::kCanonical);
         if (bc != INVALID_TYPE_ID && bc != t) {
             n += countRecordFields(reg, bc);
         }
@@ -401,7 +363,7 @@ size_t countRecordFields(const TypeReadModel& reg, TypeId type) {
 }
 
 TypeId BinaryTyper::typeCheckBinaryResult(Binary& b, TypeId lt, TypeId rt) {
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     const TypeId boolT = reg.getType(type::Bool);
     b.lhsType = QualType::fromTypeId(lt);
     b.rhsType = QualType::fromTypeId(rt);
@@ -423,7 +385,6 @@ TypeId BinaryTyper::typeCheckBinaryResult(Binary& b, TypeId lt, TypeId rt) {
     const bool rhsPattern = rhs != nullptr && rhs->kind() == ParserToken::Kind::DictLiteral;
     const bool rhsIdent = rhs != nullptr && rhs->kind() == ParserToken::Kind::Ident;
 
-    // -- Разрешение типа-цели (RHS). --
     TypeId target = INVALID_TYPE_ID;
     if (rhsTypeName) {
         if (auto r = m_actx.types().resolveTypeRef(*rhs)) {
@@ -445,7 +406,6 @@ TypeId BinaryTyper::typeCheckBinaryResult(Binary& b, TypeId lt, TypeId rt) {
                                    binaryOpSpelling(b.m_op));
     }
 
-    // -- Статика по типу-цели. --
     if (target != INVALID_TYPE_ID) {
         const bool lhsKnown = lhsType != INVALID_TYPE_ID && !isAnyType(lhsType, reg);
         if (!lhsKnown) {
@@ -466,7 +426,6 @@ TypeId BinaryTyper::typeCheckBinaryResult(Binary& b, TypeId lt, TypeId rt) {
         return boolT;
     }
 
-    // -- Статика по образцу (Dict-паттерн) для record-LHS. --
     if (rhsPattern) {
         if (lhsType == INVALID_TYPE_ID || isAnyType(lhsType, reg)) {
             // Тип LHS не выведен/стёрт: динамическая структурная проверка не реализована.
@@ -494,11 +453,10 @@ TypeId BinaryTyper::typeCheckBinaryResult(Binary& b, TypeId lt, TypeId rt) {
                 patternNames.push_back(name);
             }
         }
-        const auto* rd = reg.store().getTypeDataAs<RecordTypeData>(lc);
-        if (rd == nullptr) {
+        if (reg.store().fieldsOf(lc) == nullptr) {
             // LHS - не record (нет полей). Пустой образец `(,)` истинен только для словаря;
             // непустой образец полей у не-record не находит → ложь.
-            const bool isDict = getGroup(getTypeKind(lc)) == Group::kDicts;
+            const bool isDict = typeGroupOf(lc) == Group::kDicts;
             b.m_typeCheckConst = patternNames.empty() && isDict;
             m_actx.facts().setExprType(&b, boolT);
             return boolT;
@@ -536,7 +494,7 @@ void BinaryTyper::typeAppendStmt(Binary& b) {
     // контейнера (StrChar ↔ std::string, StrWide ↔ std::wstring). Потерянное сужение
     // (широкая строка в узкий контейнер) - ошибка; обратное (char→wide) кодогенерация
     // сама расширяет узкий литерал в wide.
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     const TypeId strChar = reg.getType(type::StrChar);
     const TypeId strWide = reg.getType(type::StrWide);
     const TypeId ltC = (lt != INVALID_TYPE_ID) ? reg.store().desugaredTypeId(lt) : INVALID_TYPE_ID;
@@ -600,7 +558,7 @@ void BinaryTyper::typeBinaryNode(Binary& b) {
             // запрет копирования unique не зависят от «выведенности» типа. Числовые inferred-цели
             // расширяет widenInferredTarget. Swap `:=:` - НЕ присваивание
             // (обмен/перемещение владения), проверяется отдельно в ветке swap.
-            const bool targetIsRef = s->type.getTypeId() != INVALID_TYPE_ID && refAxisOf(getRefType(getTypeKind(s->type.getTypeId()))) != RefAxis::Value;
+            const bool targetIsRef = s->type.getTypeId() != INVALID_TYPE_ID && refAxisOf(s->type.getTypeId()) != RefAxis::Value;
             if (!isSwapOp(b.m_op) && (!s->type.isInferred() || (isPlainAssignOp(b.m_op) && targetIsRef)) && (isAssignOp || compound)) {
                 const TypeId assigned = isPlainAssignOp(b.m_op) ? b.rhsType.getTypeId() : result;
                 checkAssignmentNarrowing(b.m_right.get(), assigned, s->type.getTypeId(), s->name);
@@ -640,7 +598,7 @@ void BinaryTyper::typeBinaryNode(Binary& b) {
 
 TypeId BinaryTyper::typeUnaryMinus(Binary& b) {
     const TypeId rt = m_actx.facts().exprType(*b.m_right);
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     const TypeId promo = (rt == INVALID_TYPE_ID) ? INVALID_TYPE_ID : promoteSingleNumeric(reg, rt);
     if (promo == INVALID_TYPE_ID) {
         m_actx.ctx().diag().report(Severity::Error, b.range(), "unary '-' requires a numeric operand");
@@ -660,7 +618,7 @@ TypeId BinaryTyper::typeUnaryMinus(Binary& b) {
 
 TypeId BinaryTyper::typeIncDec(Binary& b) {
     const AstNodeBase* opnd = b.m_left ? b.m_left.get() : b.m_right.get();
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     const TypeId ot = m_actx.facts().exprType(*opnd);
     if (ot == INVALID_TYPE_ID) {
         b.lhsType = b.rhsType = b.resultType = b.commonType = QualType{};
@@ -686,14 +644,14 @@ TypeId BinaryTyper::typeIncDec(Binary& b) {
             b.resolvedOperatorSignature = resolved->signature;
             b.resolvedOperatorIsMember = resolved->member;
         }
-        b.resolvedOperatorModule = resolved->module;
+        b.resolvedOperatorIsFree = resolved->module.isValid();
         b.resolvedOperatorNamespace = resolved->namespacePath;
         m_actx.facts().setExprType(&b, resolved->returnType);
         return resolved->returnType;
     }
     // Bool в арифметике запрещён (как и у `+=`/`-=`): `++`/`--` над Bool - ошибка компиляции.
     const bool isBool = (reg.store().desugaredTypeId(ot) == reg.store().desugaredTypeId(reg.getType(type::Bool)));
-    const Group g = getGroup(getTypeKind(reg.store().desugaredTypeId(ot)));
+    const Group g = typeGroupOf(reg.store().desugaredTypeId(ot));
     const bool numeric = isArithmeticGroup(g) || g == Group::kArbitraryPrecision;
     if (isBool || !numeric) {
         if (isBool) {
@@ -730,13 +688,13 @@ TypeId BinaryTyper::typeSwap(Binary& b, TypeId lt, TypeId rt, const TypeReadMode
         const TypeId lc = (lt != INVALID_TYPE_ID) ? reg.store().desugaredTypeId(lt) : INVALID_TYPE_ID;
         const TypeId rc = (rt != INVALID_TYPE_ID) ? reg.store().desugaredTypeId(rt) : INVALID_TYPE_ID;
         if (lc == INVALID_TYPE_ID || rc == INVALID_TYPE_ID || lc != rc) {
-            // getTypeName даёт имя С ВИДОМ ссылки (`unique<Int32>`, `shared<Int32>`) -
+            // typeNameOf даёт имя С ВИДОМ ссылки (`unique<Int32>`, `shared<Int32>`) -
             // различает unique/shared/weak/value в диагностике (`a :=: b` для unique и shared).
             const auto typeDisplay = [&](TypeId tid) {
                 if (tid == INVALID_TYPE_ID) {
                     return std::string("?");
                 }
-                return std::string(reg.printer().getTypeName(tid));
+                return std::string(reg.printer().typeNameOf(tid));
             };
             m_actx.ctx().diag().report(Severity::Error, b.range(),
                                        "swap ':=:' requires operands of compatible types, got '{}' and '{}' (values can be swapped via '*lhs :=: *rhs')",

@@ -1,0 +1,20 @@
+# RUN: TD=%t.dir && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/p %s
+# RUN: $TD/p > %t.out
+# RUN: %FileCheck %s <%t.out
+
+# Итератор строки из модуля `iterator` (borrowed, type-erased): полный обход байтов.
+\std();
+@main():Int32 := {
+    s: StrChar := "abc";
+    it : Iterator<Int8> := s.chars();
+    n := 0;
+    @while( it.hasNext() ) {
+        ch := *it;
+        n += 1;
+        ++it;
+    };
+    @print("n={}\n", n);
+    @return 0;
+}
+# CHECK: n=3

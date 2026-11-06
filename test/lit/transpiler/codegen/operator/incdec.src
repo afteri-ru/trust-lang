@@ -2,6 +2,7 @@
 
 # Пользовательские *, ++, -- (prefix/postfix): C++ operator*, operator++(), operator++(int),
 # operator--(), operator--(int). Postfix dummy эмитится как int.
+\std();
 :Counter ::= :Class{
     x: Int32 := 0;
     __deref__(): Int32 := { return x; };
@@ -26,8 +27,8 @@
 # CHECK: int32_t operator++(int)
 # CHECK: int32_t operator--()
 # CHECK: int32_t operator--(int)
-# CHECK: (*c_c)
-# CHECK: ++c_c;
-# CHECK: c_c++;
-# CHECK: --c_c;
-# CHECK: c_c--;
+# CHECK: (*c)
+# CHECK: ++c;
+# CHECK: c++;
+# CHECK: --c;
+# CHECK: c--;

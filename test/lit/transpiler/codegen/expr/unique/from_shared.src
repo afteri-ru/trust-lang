@@ -1,3 +1,4 @@
+\mem();
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # unique с инициализатором-вставкой `{% %}` (конверсия shared→unique через
@@ -9,5 +10,5 @@
     b : @[reftype("unique")@] Int32 := {% std::move($s).to_unique() %};
     return *b;
 };
-# CHECK: trust::StaticUnique<int32_t> c_b =
+# CHECK: trust::StaticUnique<int32_t> b =
 # CHECK: to_unique()

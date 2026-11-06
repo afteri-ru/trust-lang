@@ -1,4 +1,3 @@
-// src/types/storage_key.cpp
 // Реализация структурного ключа имени (см. types/storage_key.hpp).
 #include "types/names/storage_key.hpp"
 

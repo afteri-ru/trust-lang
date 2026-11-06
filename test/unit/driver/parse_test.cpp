@@ -1,7 +1,7 @@
 // test/unit/driver/parse_test.cpp - unit-тесты arity-aware парсера драйвера (parseCommandLine).
 #include "pipeline/cli.hpp"
-#include "pipeline/makefile_build.hpp"
 #include "driver/cli.hpp"
+#include "trust/default_compiler.h"
 #include <gtest/gtest.h>
 
 #include <cstdio>

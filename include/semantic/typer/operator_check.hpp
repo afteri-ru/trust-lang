@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/operator_check.hpp
 // Валидация объявления ПЕРЕГРУЖАЕМОГО ОПЕРАТОРА (FuncDecl с m_isOperator): символ из реестра
 // (types/operator_registry.hpp), допустимость member/free-формы, обязательный тип возврата,
 // арность. Общая точка для пользовательских Record-типов, нативных Class-ов и свободных

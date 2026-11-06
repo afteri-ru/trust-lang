@@ -1,10 +1,9 @@
 # MEMORY.md
 
-> scope: include/debug/dap (+ src/debug)
+> scope: include/debug/dap (+ src/debug/dap)
 > role: persistent-memory
-> last_reviewed: 2026-11-05
+> last_reviewed: 2026-11-13
 > review_period: 30
-> max_size: 3000
 
 ## Architecture
 
@@ -19,7 +18,7 @@ DAP-слой отладчика: `DapHandler` (обработка DAP-коман
 - **⚠ Source-aware обработка (setBreakpoints/stackTrace):** тип файла — по расширению; `.src`-
   брейкпоинты транслируются через `SourceMapReader`, `.cppt` — напрямую в GDB; `sourceKind: "src"`
   (default) показывает trust-файлы с трансляцией, `"cpp"` — C++ `.cppt` с оригинальными номерами.
-  Имена переменных от GDB (C++) транслируются в trust через `getTrustName`.
+  Имена переменных от GDB (C++) транслируются в trust через `trustNameOf`.
 - **DAP-совместимая трансляция stop reason:** `breakpoint-hit`→`"breakpoint"`,
   `end-stepping-range`→`"step"`, `signal-received`→`"exception"`.
 

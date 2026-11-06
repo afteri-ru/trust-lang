@@ -1,4 +1,3 @@
-// src/ast/nodes/ast_expr.cpp
 // Выражения AST: Literal, ContextMacro, Binary, CallExpr, RangeExpr. Единый разбор синтаксиса
 // вида ссылки (ast/ref_syntax.hpp) - в этом же TU (общая зона "выражения/виды ссылок").
 #include "ast/ast_nodes.hpp"
@@ -12,7 +11,7 @@
 #include <string>
 namespace trust {
 
-Binary::Binary(ParserToken::Kind k, TermPtr term, Context* ctx)
+Binary::Binary(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : AstNodeAttr(k, term, ctx) {
     EXPECT(term && "Binary term-constructor requires a source Term");
     m_isTypeDefine = (term->getTermID() == TermID::TYPE_DEFINE);
@@ -45,7 +44,7 @@ Binary::Binary(ParserToken::Kind k, TermPtr term, Context* ctx)
     }
 }
 
-CallExpr::CallExpr(ParserToken::Kind k, TermPtr term, Context* ctx)
+CallExpr::CallExpr(ParserToken::Kind k, TermPtr term, ConvertServices* ctx)
 : AstNodeAttr(k, term) {
     EXPECT(term && "CallExpr term-constructor requires a source Term");
     if (ctx) {
@@ -57,8 +56,6 @@ CallExpr::CallExpr(ParserToken::Kind k, TermPtr term, Context* ctx)
         }
     }
 }
-
-// -- Literal::dump --
 
 std::string Literal::dump(size_t indent) const {
     std::string result = std::string(indent, ' ');
@@ -76,8 +73,6 @@ std::string Literal::dump(size_t indent) const {
     return result;
 }
 
-// -- ContextMacro::dump --
-
 std::string ContextMacro::dump(size_t indent) const {
     std::string result = std::string(indent, ' ');
     result += ParserToken::name(kind());
@@ -88,8 +83,6 @@ std::string ContextMacro::dump(size_t indent) const {
     }
     return result;
 }
-
-// -- CheckAreaStmt::dump --
 
 std::string CheckAreaStmt::dump(size_t indent) const {
     std::string result = std::string(indent, ' ');
@@ -107,8 +100,6 @@ std::string CheckAreaStmt::dump(size_t indent) const {
     return result;
 }
 
-// -- DebugStmt::dump --
-
 std::string DebugStmt::dump(size_t indent) const {
     std::string result = std::string(indent, ' ');
     result += ParserToken::name(kind());
@@ -121,16 +112,12 @@ std::string DebugStmt::dump(size_t indent) const {
     return result;
 }
 
-// -- Binary::dump --
-
 std::string Binary::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
     dumpLabeled(result, indent, "left", m_left);
     dumpLabeled(result, indent, "right", m_right);
     return result;
 }
-
-// -- CallExpr::dump --
 
 std::string CallExpr::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);
@@ -151,8 +138,6 @@ std::string CallExpr::dump(size_t indent) const {
     }
     return result;
 }
-
-// -- RangeExpr::dump --
 
 std::string RangeExpr::dump(size_t indent) const {
     std::string result = AstNodeAttr::dump(indent);

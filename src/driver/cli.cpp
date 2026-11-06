@@ -9,8 +9,7 @@
 
 namespace trust {
 
-// Enum id опций драйвера trust. Каждый драйверный бинарник объявляет СВОЙ enum; значения
-// int передаются в общий parseDriverArgs. Таблица DriverOption - ниже в buildTrustTable().
+// id передаются в общий parseDriverArgs как int; таблица - buildTrustTable().
 enum class DriverOptId {
     Help,
     Version,
@@ -31,6 +30,7 @@ enum class DriverOptId {
     Comments,
     OverflowCheck,
     ErrorLimit,
+    DiagnosticsFormat,
     SourceMap,
     SingleFile,
     ObjectFile,
@@ -52,6 +52,7 @@ enum class DriverOptId {
     StackCheckReserve,
     StackCheckFunctions,
     Verify,
+    NoopBackend,
     SyncDeadlock,
     Format,
     FormatCheck,
@@ -68,17 +69,13 @@ enum class DriverOptId {
 
 namespace {
 
-// -- Применение опции драйвера к PipelineOpts (единое связывание; для Flag value пуст). --
-// Одна таблица-switch: каждый DriverOptId привязан к полям PipelineOpts здесь. «Добавить
-// опцию» = строка в buildTrustTable + строка-связывание в этом switch.
-// Возвращает false при невалидном значении поведенческого флага (parseDriverArgs → «invalid value»).
+// Единое связывание DriverOptId -> PipelineOpts; false при невалидном значении флага
+// (parseDriverArgs -> «invalid value»). Новая опция = строка в buildTrustTable + ветка здесь.
 bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
-    // Каноничная форма РЕАЛЬНО заданной codegen-опции (для кеша --run): пишутся только
-    // фактически переданные опции, в нормализованном виде; нерелевантные (-v/-q/-W/--temp-dir)
-    // не попадают. Порядок нормализуется сортировкой при записи/сравнении.
+    // Каноничная форма ФАКТИЧЕСКИ заданной codegen-опции (кеш --run); порядок нормализуется
+    // сортировкой.
     auto note = [&opts](std::string s) { opts.codegen_args.push_back(std::move(s)); };
     switch (id) {
-    // -- General --
     case DriverOptId::Help:
         opts.help_requested = true;
         break;
@@ -91,7 +88,6 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
     case DriverOptId::Quiet:
         opts.quiet = true;
         break;
-    // -- Input & Output --
     case DriverOptId::Output:
         opts.output_file = value;
         break;
@@ -110,7 +106,6 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         opts.package_paths.push_back(value);
         note("--package-path=" + value);
         break;
-    // -- Compilation model --
     case DriverOptId::EmitTokens:
         opts.emit_flags = opts.emit_flags | EmitFlags::Tokens;
         break;
@@ -130,9 +125,6 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         opts.emit_module_deps = true;
         break;
     case DriverOptId::Comments:
-        // Поведенческий флаг (не severity): `-fcomments`/`--comments` включает,
-        // `-fno-comments`/`--no-comments` выключает вставку док-комментариев в C++-код.
-        // Допустимые значения (гарантированы парсером -f/--): ""/on (вкл), off (выкл).
         if (const auto v = parseBoolFlagValue(value)) {
             opts.comments = *v;
             note(*v ? "-fcomments" : "-fno-comments");
@@ -141,9 +133,6 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         }
         break;
     case DriverOptId::OverflowCheck:
-        // Поведенческий флаг (не severity): `-foverflow-check`/`--overflow-check` включает,
-        // `-fno-overflow-check`/`--no-overflow-check` выключает детекцию знакового
-        // целочисленного переполнения в арифметике (default: on).
         if (const auto v = parseBoolFlagValue(value)) {
             opts.overflow_check = *v;
             note(*v ? "-foverflow-check" : "-fno-overflow-check");
@@ -152,16 +141,17 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         }
         break;
     case DriverOptId::ErrorLimit:
-        // Поведенческая опция (не severity): предел ошибок; 0 = без лимита.
         if (std::size_t limit = 0; parseSizeValue(value, limit)) {
             opts.error_limit = limit;
         } else {
             return false; // no silent fallback: невалидное значение - ошибка
         }
         break;
+    case DriverOptId::DiagnosticsFormat:
+        // Сырое значение; валидация - в parseCommandLine (нужен exit_code).
+        opts.diagnostics_format = value;
+        break;
     case DriverOptId::SourceMap:
-        // Поведенческий флаг (не severity): `-fsourcemap`/`--sourcemap` добавляет маппинг и
-        // экспорт-таблицу в C++-код, `-fno-sourcemap`/`--no-sourcemap` — нет (.src_map всё равно пишется).
         if (const auto v = parseBoolFlagValue(value)) {
             opts.embed_source_map = *v;
             note(*v ? "-fsourcemap" : "-fno-sourcemap");
@@ -170,9 +160,6 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         }
         break;
     case DriverOptId::SingleFile:
-        // Поведенческий флаг (не severity): `-fsingle-file`/`--single-file` включает
-        // однофайловый режим генерации (main-обёртка в том же .cppt), `-fno-single-file`
-        // выключает (многофайловый путь с _main.cppt). Допустимые значения: ""/on (вкл), off.
         if (const auto v = parseBoolFlagValue(value)) {
             opts.single_file = *v;
             note(*v ? "-fsingle-file" : "-fno-single-file");
@@ -194,7 +181,6 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         opts.compile_mode = CompileMode::Executable;
         opts.run = true;
         break;
-    // -- Linking --
     case DriverOptId::LinkLib:
         opts.link_libs_cli.push_back(value);
         note("-l" + value);
@@ -209,7 +195,10 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
             note("--link-runtime=shared");
         }
         break;
-    // -- Toolchain --
+    case DriverOptId::NoopBackend:
+        opts.noop_backend = true;
+        note("--noop-backend");
+        break;
     case DriverOptId::Compiler:
         opts.compiler = value;
         note("--compiler=" + value);
@@ -218,7 +207,6 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         opts.compiler_options = value;
         note("--options=" + value);
         break;
-    // -- Project-specific --
     case DriverOptId::NoStdlib:
         opts.use_stdlib = false;
         note("--no-stdlib");
@@ -235,14 +223,11 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         opts.allow_semantic_on_errors = true;
         break;
     case DriverOptId::SolverMode:
-        // Поведенческий режим trust-условий (assert/export/calculate). Валидация значения
-        // выполняется в parseCommandLine (нужен exit_code); здесь - только сохранение сырого.
+        // Сырое значение; валидация - в parseCommandLine (нужен exit_code).
         opts.solver_mode = value;
         note("--solver-mode=" + value);
         break;
     case DriverOptId::SolverLoopUnroll:
-        // Поведенческий флаг (не severity): `-fsolver-loop-unroll` / `--solver-loop-unroll` включает,
-        // `-fno-solver-loop-unroll` выключает (глобальное разворачивание циклов без инварианта).
         if (const auto v = parseBoolFlagValue(value)) {
             opts.solver_loop_unroll = *v;
             note(*v ? "-fsolver-loop-unroll" : "-fno-solver-loop-unroll");
@@ -251,31 +236,26 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         }
         break;
     case DriverOptId::StackCheck:
-        // Поведенческий режим контроля переполнения стека (off|explicit|recursion|auto). Сырое
-        // значение; валидация - в applyBehavioralFlags (set_flag_value с валидатором флага).
+        // Сырое значение; валидация - в applyBehavioralFlags.
         opts.stack_check_mode = value;
         note("--stack-check=" + value);
         break;
     case DriverOptId::StackCheckReserve:
-        // Минимальный резерв стека (reserve) в байтах. Сырое значение; валидация в applyBehavioralFlags.
+        // Сырое значение; валидация в applyBehavioralFlags.
         opts.stack_check_reserve = value;
         note("--stack-check-reserve=" + value);
         break;
     case DriverOptId::StackCheckFunctions:
-        // Перечень функций (comma-separated), ограничивающих m_stack_limit. Сырое значение.
         opts.stack_check_functions = value;
         note("--stack-check-functions=" + value);
         break;
     case DriverOptId::Verify:
-        // Гейт доказательств (сейчас: all). Сырое значение; валидация - в applyBehavioralFlags
-        // (валидатор флага verify отклоняет всё, кроме all).
+        // Сырое значение; валидация - в applyBehavioralFlags (отклоняет всё, кроме all).
         opts.verify = value;
         note("--verify=" + value);
         break;
     case DriverOptId::SyncDeadlock:
-        // Compile-time дефолт таймаута детектора взаимной блокировки для синхронизированных ссылок:
-        // -fsync-deadlock=<ms|s|us|ns|nano> (без суффикса = секунды). Сырое значение; встраивается
-        // в начало main через trust::runtime::setSyncDeadlockFromString (если программа использует sync).
+        // Сырое значение; встраивается в начало main (trust::runtime::setSyncDeadlockFromString).
         opts.sync_deadlock_timeout = value;
         note("-fsync-deadlock=" + value);
         break;
@@ -299,14 +279,13 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
         opts.keywords = value;
         break;
     case DriverOptId::KeywordSigil:
-        // --keyword-sigil=<mode>: remove|add|none — обработка '@' у ключевых слов в форматтере.
         opts.keyword_sigil = value;
         break;
     case DriverOptId::FormatConfig:
         opts.format_config = value;
         break;
     case DriverOptId::FormatStyle:
-        // --format-style=none отключает поиск .trust-format; иных стилей нет.
+        // none -> не искать .trust-format; иных стилей нет.
         opts.format_no_config = (value == "none");
         break;
     case DriverOptId::CompleteOptions:
@@ -324,16 +303,15 @@ bool applyOption(DriverOptId id, const std::string& value, PipelineOpts& opts) {
 } // namespace
 
 namespace {
-// -- Таблица опций драйвера trust (enum + vector<DriverOption> + switch-связывание выше).
-//    Единый источник данных для общего парсера (parseDriverArgs) и справки (driverHelp). --
+// Таблица опций trust: единый источник для parseDriverArgs и driverHelp.
 std::vector<DriverOption> buildTrustTable() {
     std::vector<DriverOption> out = {
-        // General
         {int(DriverOptId::Help), "help", "h", CliOpt::Flag, "", "Show this help message", CliCategory::General},
         {int(DriverOptId::Version), "version", "", CliOpt::Flag, "", "Show version information", CliCategory::General},
         {int(DriverOptId::Verbose), "verbose", "v", CliOpt::Flag, "", "Verbose output", CliCategory::General},
         {int(DriverOptId::Quiet), "quiet", "q", CliOpt::Flag, "", "Quiet mode (suppress warnings)", CliCategory::General},
-        // Input & Output
+        {int(DriverOptId::DiagnosticsFormat), "diagnostics-format", "", CliOpt::Value, "format",
+         "Diagnostic output format: text | json | sarif (default: text); json/sarif — machine-readable output for CI/LSP", CliCategory::General},
         {int(DriverOptId::Input), "input", "", CliOpt::Value, "file", "Input source file", CliCategory::InputOutput},
         {int(DriverOptId::Output), "output", "o", CliOpt::Value, "file", "Output file (default: stdout)", CliCategory::InputOutput},
         {int(DriverOptId::TempDir), "temp-dir", "", CliOpt::Value, "dir", "Temporary directory for intermediate files", CliCategory::InputOutput},
@@ -342,7 +320,6 @@ std::vector<DriverOption> buildTrustTable() {
         {int(DriverOptId::ModulePath), "I", "", CliOpt::ValueList, "dir", "Add directory to the module search path (repeatable)", CliCategory::InputOutput},
         {int(DriverOptId::PackagePath), "package-path", "", CliOpt::ValueList, "dir", "Add directory to the package search path (repeatable)",
          CliCategory::InputOutput},
-        // Compilation model / pipeline
         {int(DriverOptId::EmitTokens), "emit-tokens", "", CliOpt::Flag, "", "Print tokens after lexing", CliCategory::CompileModel},
         {int(DriverOptId::EmitAst), "emit-ast", "", CliOpt::Flag, "", "Print AST after parsing", CliCategory::CompileModel},
         {int(DriverOptId::EmitCpp), "emit-cpp", "", CliOpt::Flag, "", "Emit C++ source file", CliCategory::CompileModel},
@@ -371,7 +348,7 @@ std::vector<DriverOption> buildTrustTable() {
 
         {int(DriverOptId::SourceMap), "sourcemap", "", CliOpt::Flag, "",
          "Embed source map in the generated C++ (default: on). The .src_map file is always "
-         "written; this flag only controls the #embed block. Behavioral flag, not a "
+         "written; this flag only controls the embedded source-map byte array. Behavioral flag, not a "
          "diagnostic: -fsourcemap/-fno-sourcemap",
          CliCategory::CompileModel},
         {int(DriverOptId::ObjectFile), "c", "", CliOpt::Flag, "", "Compile to object file (.o)", CliCategory::CompileModel},
@@ -382,23 +359,21 @@ std::vector<DriverOption> buildTrustTable() {
          CliCategory::CompileModel},
         {int(DriverOptId::Extract), "extract", "", CliOpt::Flag, "",
          "Unpack a .trust source package (tar.gz) into a directory (default: <name>/ in cwd; use -o <dir> to override)", CliCategory::CompileModel},
-        // Linking
         {int(DriverOptId::LinkLib), "l", "", CliOpt::ValueList, "lib", "Additional library to link (repeatable; merged with @[link(...)])",
          CliCategory::Linking},
         {int(DriverOptId::LinkDir), "L", "", CliOpt::ValueList, "dir", "Add directory to the library search path (repeatable)", CliCategory::Linking},
         {int(DriverOptId::LinkRuntime), "link-runtime", "", CliOpt::Value, "mode", "How to link the trust runtime: static (default) or shared",
          CliCategory::Linking},
-        // Toolchain
         {int(DriverOptId::Compiler), "compiler", "", CliOpt::Value, "path", "Compiler path", CliCategory::Toolchain},
+        {int(DriverOptId::NoopBackend), "noop-backend", "", CliOpt::Flag, "", "Internal: run the stub backend stage (R37 pluggability proof)",
+         CliCategory::ProjectSpecific},
         {int(DriverOptId::CompilerOptions), "options", "", CliOpt::Value, "opts", "Additional compiler options (quoted)", CliCategory::Toolchain},
-        // Project-specific
         {int(DriverOptId::NoStdlib), "no-stdlib", "", CliOpt::Flag, "", "Disable standard library types", CliCategory::ProjectSpecific},
         {int(DriverOptId::Dsl), "dsl", "", CliOpt::Value, "file", "Load DSL macros from file instead of stdlib/dsl.src from the stdlib package",
          CliCategory::ProjectSpecific},
         {int(DriverOptId::NoDsl), "no-dsl", "", CliOpt::Flag, "", "Disable loading DSL macros", CliCategory::ProjectSpecific},
         {int(DriverOptId::SemanticOnErrors), "semantic-on-errors", "", CliOpt::Flag, "", "Run the semantic analyzer even when the lexer/parser produced errors",
          CliCategory::ProjectSpecific},
-        // Formatting
         {int(DriverOptId::Format), "format", "", CliOpt::Flag, "", "Format the input Trust source file and print the result to stdout",
          CliCategory::Formatting},
         {int(DriverOptId::FormatCheck), "format-check", "", CliOpt::Flag, "",
@@ -422,9 +397,8 @@ std::vector<DriverOption> buildTrustTable() {
          "program start by the system option --trust:fsync-deadlock=<ms|s|nano>.",
          CliCategory::ProjectSpecific},
     };
-    // Общие опции анализа (--solver-mode, --keywords, -fsolver-loop-unroll) - ЕДИНЫЙ источник
-    // commonAnalysisOptions (include/driver/cli.hpp), используемый и trust, и trust-lsp.
-    // Здесь задаются только id из DriverOptId; имя/арность/help/категория централизованы.
+    // Общие опции анализа - ЕДИНЫЙ источник commonAnalysisOptions (cli.hpp); здесь задаются
+    // только id из DriverOptId.
     auto common =
         commonAnalysisOptions(int(DriverOptId::SolverMode), int(DriverOptId::Keywords), int(DriverOptId::SolverLoopUnroll), int(DriverOptId::StackCheck),
                               int(DriverOptId::StackCheckReserve), int(DriverOptId::StackCheckFunctions), int(DriverOptId::Verify));
@@ -433,17 +407,13 @@ std::vector<DriverOption> buildTrustTable() {
 }
 } // namespace
 
-// -- Обёртка для trust (ParseResult + таблица trust). --
-// Возвращает сообщение об ошибке (пусто = успех). ParseResult заполняется частично даже при
-// ошибке (то, что успело разобраться). Печать - обязанность вызывающего (trust.cpp через
-// parseCommandLine, applyAnalysisArgs). Это позволяет LSP отчитываться об ошибках опций
-// анализа как диагностиках, а не печатать в errs().
+// Обёртка trust: возвращает ошибку (пусто = успех); ParseResult заполняется частично даже при
+// ошибке. Печать - обязанность вызывающего (trust.cpp/applyAnalysisArgs; LSP сообщает диагностикой).
 std::string parseDriverArgs(ParseResult& result, std::span<std::string> args) {
     static const std::vector<DriverOption> table = buildTrustTable();
     auto apply = [&](int id, const std::string& value) -> bool { return applyOption(static_cast<DriverOptId>(id), value, result.opts); };
     std::string err = parseDriverArgs(args, table, apply, result.diag_args, result.opts.input_file, result.diag_help_requested, nullptr, &result.opts.run_args);
-    // Лишние позиционные аргументы допустимы только с --run (аргументы запускаемой программы).
-    // Без --run возвращаем ошибку «unexpected extra argument».
+    // Лишние позиционные допустимы только с --run.
     if (err.empty() && !result.opts.run && !result.opts.run_args.empty()) {
         return "unexpected extra argument '" + result.opts.run_args.front() + "'";
     }
@@ -469,9 +439,7 @@ std::vector<std::string> driverOptionTokens() {
     return out;
 }
 
-// Имена driver-опций со значением-файлом/путём (type ∈ {file,dir,path}) для
-// shell-completion (`--complete-files`). Источник — та же таблица buildTrustTable,
-// поэтому список не дублируется и не «дрейфует» при изменении опций.
+// Имена driver-опций со значением-файлом/путём (type ∈ {file,dir,path}) для `--complete-files`.
 std::vector<std::string> driverFileValueTokens() {
     static const std::vector<DriverOption> table = buildTrustTable();
     std::vector<std::string> out;
@@ -489,10 +457,8 @@ std::vector<std::string> driverFileValueTokens() {
 }
 
 std::span<char*> applyDiagnostics(Options& opts, std::span<char*> args) {
-    // args уже содержит только `-W...`-токены (собраны арity-aware парсером parseDriverArgs
-    // в ParseResult::diag_args). Здесь - единая точка применения -W-диагностик:
-    // Options::parse_argv. При `-Whelp` parse_argv устанавливает opts.helpRequested() == true
-    // (флаг справки диагностик, см. diag/OPTIONS.md §5).
+    // args уже содержит только `-W...`-токены (собраны parseDriverArgs в ParseResult::diag_args):
+    // единая точка применения -W-диагностик. При `-Whelp` parse_argv ставит opts.helpRequested().
     if (!args.empty()) {
         opts.parse_argv(args);
     }

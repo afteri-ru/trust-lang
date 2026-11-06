@@ -1,3 +1,5 @@
+\std();
+
 # RUN: %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 #
 # Loop-область находится внешним поиском из ВЛОЖЕННОГО блока внутри цикла (тот же принцип,
@@ -7,4 +9,4 @@ i:Int32 := 0;
     { @__CHECK_AREA__(loop, error); @__CHECK_AREA__(block, error); j := i; };
     i := i + 1;
 };
-# CHECK: while ((c_i < 3)) {
+# CHECK: while ((i < 3)) {

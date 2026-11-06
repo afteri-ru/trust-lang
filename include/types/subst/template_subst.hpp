@@ -1,6 +1,5 @@
 #pragma once
 
-// include/types/subst/template_subst.hpp
 // Подстановка типовых параметров (engine) отдельно от хранилища типов TypeSystem.
 // Симметрично types/call/template_unify.hpp: алгоритм - свободные функции над реестром,
 // интернирование результата выполняет StructuralInterner (см. TypeWriteContext).

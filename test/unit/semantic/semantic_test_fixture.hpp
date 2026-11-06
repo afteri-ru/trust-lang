@@ -14,6 +14,8 @@
 #include "ast/token_type.hpp"
 #include "session/context.hpp"
 #include "diag/diag.hpp"
+#include "support/cpp_facts_test_util.hpp"
+#include "target/target.hpp"
 #include "types/type_system.hpp"
 #include "types/names.hpp"
 #include "syntax/term/term.h"
@@ -36,14 +38,22 @@ class ErrsFixture : public ::testing::Test {
         m_prev_err = setErrs(&m_stream);
         m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
+        m_target = std::make_unique<TargetContract>();
+        m_ctx.setTarget(m_target.get());
+        test::seedIntrinsicCppFacts(*m_target, m_ctx.readTypes());
     }
 
     void TearDown() override { setErrs(m_prev_err); }
+
+    /// WRITER-доступ к реестру типов прогона (зона записи, E1): фасад `Context` мутабельный
+    /// реестр не отдаёт — тесты зоны записи берут его у владельца фикстуры.
+    [[nodiscard]] TypeSystem& types() { return *m_types; }
 
     std::ostream* m_prev_err = nullptr;
     std::ostringstream m_stream;
     Context m_ctx;
     std::unique_ptr<TypeSystem> m_types;
+    std::unique_ptr<TargetContract> m_target;
 };
 
 class SemanticTest : public ErrsFixture {};

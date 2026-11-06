@@ -7,6 +7,6 @@
     y := f(5);
 }
 # CHECK: #include <functional>
-# CHECK: std::function<int32_t(int32_t)> c_f = [](int32_t c_x) -> int32_t {
+# CHECK: std::function<int32_t(int32_t)> f = [](int32_t x) -> int32_t {
 # CHECK: return
-# CHECK: int32_t c_y = c_f(5);
+# CHECK: int32_t y = f(5);

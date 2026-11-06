@@ -1,12 +1,9 @@
 // stdlib/async/thread_pool.hpp - fixed-size thread pool for the Trust standard library.
-//
 // Self-contained header of a library type ("stdlib/async/thread_pool.hpp").
 // Uses ONLY standard C++ (<thread>, <mutex>, <condition_variable>, <coroutine>).
-//
 // Precondition: the pool must outlive every coroutine scheduled on it. Destruction drains the
 // queue and joins the workers; coroutines that try to schedule after shutdown get an explicit
 // exception at the `co_await` point.
-//
 // Design:
 //   - `ThreadPool(n)` starts `n` worker threads with a FIFO task queue.
 //   - `co_await pool.schedule()` suspends the current coroutine and resumes it on a pool

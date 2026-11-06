@@ -6,12 +6,11 @@
 #include "ast/ident_name.hpp"
 #include "ast/kind_dispatch.hpp"
 #include "ast/token_type.hpp"
-#include "session/context.hpp"
 #include "diag/registry.hpp"
 #include "diag/base_diags.hpp"
 #include "syntax/term/term.h"
 #include "types/type_system.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include "types/type_id.hpp"
 #include "types/names.hpp"
@@ -32,7 +31,7 @@ void ContractEmitter::emitRuntimeAssertCheck(const CallExpr& call) {
     const std::optional<std::vector<AstNodePtr>>& args = call.m_args;
     const AstNodeBase* cond = (args && !args->empty()) ? (*args)[0].get() : nullptr;
     if (!cond) {
-        m_ectx.m_ctx.report(call.range(), diag::DiagId::ParseError, "assert/verify requires a condition argument");
+        m_ectx.m_services.report(call.range(), diag::DiagId::ParseError, "assert/verify requires a condition argument");
         return;
     }
     std::string_view message;
@@ -47,8 +46,8 @@ void ContractEmitter::emitRuntimeAssertCheck(const CallExpr& call) {
     if (args->size() >= 3) {
         const AstNodeBase* fmt = (*args)[2].get();
         if (!fmt || fmt->kind() != ParserToken::Kind::StrChar) {
-            m_ectx.m_ctx.report(fmt ? fmt->range() : call.range(), diag::DiagId::ParseError,
-                                "assert/verify format message must be a double-quoted string literal");
+            m_ectx.m_services.report(fmt ? fmt->range() : call.range(), diag::DiagId::ParseError,
+                                     "assert/verify format message must be a double-quoted string literal");
             return;
         }
         fmtArgs = &*args;
@@ -63,24 +62,24 @@ void ContractEmitter::emitRuntimeAssert(const AstNodeBase* cond, MapperRange ran
     }
     m_driver.m_type.recordRequiredInclude("@trust/assert.hpp");
     // Имя файла и строку берём из ИСХОДНОГО .src (единый источник sourceLocation).
-    const SourceLocation loc = sourceLocation(m_ectx.m_ctx.source(), range);
-    const bool backtrace = m_ectx.m_ctx.opts().is_enabled(transpiler::FlagKind::Backtrace);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "if (!(");
+    const SourceLocation loc = sourceLocation(m_ectx.m_services.source(), range);
+    const bool backtrace = m_ectx.m_behavioral.backtrace;
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, m_ectx.m_output.indentPrefix());
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "if (!(");
     m_driver.emitExpr(cond);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")) trust::trust__abort__(\"");
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, utils::escapeCppString(loc.file));
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "\", " + std::to_string(loc.line) + ", ");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")) trust::trust__abort__(\"");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, utils::escapeCppString(loc.file));
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "\", " + std::to_string(loc.line) + ", ");
     if (fmtArgs && fmtArgs->size() > fmtOffset) {
         // Форматная строка + значения → std::format(...); trust__abort__ добавит префикс "file:line:".
         m_driver.m_type.recordRequiredInclude("#include <format>");
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "std::format(");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "std::format(");
         m_driver.emitExpr((*fmtArgs)[fmtOffset].get());
         for (size_t i = fmtOffset + 1; i < fmtArgs->size(); ++i) {
-            m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", ");
+            m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", ");
             m_driver.emitExpr((*fmtArgs)[i].get());
         }
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ")");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, ")");
     } else {
         // Текст сообщения - явный (строкифицированное условие) либо из исходника условия.
         std::string condText;
@@ -89,16 +88,16 @@ void ContractEmitter::emitRuntimeAssert(const AstNodeBase* cond, MapperRange ran
         } else {
             const MapperRange crange = cond->range();
             if (!crange.isInvalid()) {
-                condText = std::string(m_ectx.m_ctx.source().getText(crange));
+                condText = std::string(m_ectx.m_services.source().getText(crange));
             } else {
                 condText = std::string(requiredText(*cond));
             }
         }
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "\"");
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, utils::escapeCppString(condText));
-        m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "\"");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "\"");
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, utils::escapeCppString(condText));
+        m_ectx.m_services.source().output_append(m_ectx.m_output.out, "\"");
     }
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, ", " + std::to_string(backtrace ? 1 : 0) + ");\n");
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, ", " + std::to_string(backtrace ? 1 : 0) + ");\n");
 }
 
 void ContractEmitter::emitTrustCheck(const TrustContract& tc) {
@@ -135,7 +134,7 @@ void ContractEmitter::emitTypeTrustChecks(const std::vector<AstNodePtr>& conds, 
     // (visit_Ident: text()==m_ectx.m_result.name → эмитит m_ectx.m_result.cpp).
     m_ectx.m_result.name = std::string(trustName);
     m_ectx.m_result.cpp = std::string(varCpp);
-    m_ectx.m_ctx.source().output_append(m_ectx.m_output.out, "\n"); // проверка - на отдельной строке после ';'
+    m_ectx.m_services.source().output_append(m_ectx.m_output.out, "\n"); // проверка - на отдельной строке после ';'
     emitTrustChecks(conds);
     m_ectx.m_result.name.clear();
     m_ectx.m_result.cpp.clear();
@@ -160,14 +159,12 @@ void ContractEmitter::emitTypeChecksAfterAssignment(const AstNodeBase* expr) {
     if (!assign.m_typeDecl || assign.m_typeDecl->m_trust.empty()) {
         return; // цель не доверенного типа (или тип без trust-условий)
     }
-    const TypeDescriptor* d = m_ectx.m_ctx.readTypes().store().descriptorOf(typeId);
-    if (!d) {
+    const std::string_view typeName = m_ectx.m_services.readTypes().store().nameOf(typeId);
+    if (typeName.empty()) {
         return;
     }
     // Значение переменной изменилось - проверяем тип-утверждение заново (имя типа → переменная).
-    const ModuleIndex owner =
-        left->is<IdentName>() && left->as<IdentName>()->resolvedDecl != nullptr ? left->as<IdentName>()->resolvedDecl->module : ModuleIndex::invalid();
-    emitTypeTrustChecks(assign.m_typeDecl->m_trust, d->name, m_ectx.cppName(requiredText(*left), CppEntityKind::kValue, owner));
+    emitTypeTrustChecks(assign.m_typeDecl->m_trust, typeName, m_ectx.cppName(requiredText(*left), CppEntityKind::kValue));
 }
 
 // Автономные trust-узлы в последовательности (`@{ [kind:] expr @};` - контракт в теле).

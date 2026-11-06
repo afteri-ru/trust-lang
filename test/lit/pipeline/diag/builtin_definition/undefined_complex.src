@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --no-stdlib --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Без загруженной реализации stdlib Complex32 (модуль builtin/complex) provider-gate
+# выдаёт ошибку: реализация встроенного типа не определена.
+f(z : Complex32) : Complex32 := { @return z; };
+# CHECK: error: implementation of built-in type 'Complex32' is not defined

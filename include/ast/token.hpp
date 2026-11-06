@@ -1,9 +1,7 @@
-// token.hpp - public header for the token library.
 // Provides ParserToken::Kind enum for AST nodes only.
 // Kind is generated from PARSER_TOKEN_KINDS X-macro.
 // To add a new token kind, add an entry to PARSER_TOKEN_KINDS.
 // Do NOT modify the enum, name() manually.
-//
 // Format: T(name, node_type, category)
 //   name     - enumerator name (CamelCase)
 //   node_type - C++ class that represents this Kind (e.g. Binary, Scope, IdentName)
@@ -70,9 +68,7 @@ class TrustElem;
 class CheckAreaStmt;
 class DebugStmt;
 
-// ============================================================================
 // X-macro: all ParserToken kinds.
-//
 // Format: T(name, node_type, category)
 //   name      - enumerator name (CamelCase)
 //   node_type - C++ class that stores data for this token kind.
@@ -80,9 +76,7 @@ class DebugStmt;
 //   category  - KindCategory: где узел допустим в кодогене.
 //               Any - statement и expression; StmtOnly - только statement-контекст;
 //               ExprOnly - только expression-контекст.
-//
 // Grouped by node_type for readability.
-// ============================================================================
 
 /// Контекстная категория kind для кодогена (ast/kind_dispatch.hpp::kindCategory).
 enum class KindCategory { Any, StmtOnly, ExprOnly };
@@ -217,7 +211,6 @@ inline constexpr std::size_t kParserKindSlotCount = 1 /* END */ +
     return static_cast<std::size_t>(k);
 }
 
-// -- Kind → C++ type mapping --
 // Each ParserToken::Kind maps to the concrete C++ class that stores its data.
 
 template <ParserToken::Kind K>
@@ -273,21 +266,17 @@ template <class T>
     return false;
 }
 
-// ============================================================================
 // Канонический реестр классов AST-узлов (R8).
-//
 // Архитектурный инвариант (trap из include/ast/MEMORY.md): класс AST - это ФОРМАТ ХРАНЕНИЯ
 // данных, а не идентичность узла. РАЗНЫЕ kinds могут отображаться на ОДИН класс (Binary,
 // Sequence, ...); отношение kind->класс задаётся полем node_type PARSER_TOKEN_KINDS (третье поле - category).
 // ЗАПРЕЩЕНО заводить новый класс под новый kind - нужно переиспользовать существующий.
-//
 // Канонический перечень классов AST — ПРОИЗВОДНЫЙ: его задаёт класс-таблица слотов
 // `AST_SLOT_CLASSES` (ast/slots/node_slots_x.hpp, ключ — класс). Отдельного списка классов нет:
 //   - каждый kind маппится на класс ИЗ этого перечня (иначе — ошибка компиляции);
 //   - каждый класс перечня используется хотя бы одним kind (нет «мёртвых» классов).
 // Расширение перечня допустимо только вместе с настоящей новой сущностью AST-узла (структурой
 // данных), а не «на новый kind».
-// ============================================================================
 // Канонический перечень классов AST — ПРОИЗВОДНЫЙ: его задаёт класс-таблица слотов
 // `AST_SLOT_CLASSES` (ast/slots/node_slots_x.hpp, ключ — класс). Отдельного списка классов нет:
 // потребители используют `AST_SLOT_CLASSES(M)` с макросом `M(cls, rows)`.

@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/ref_typer.hpp
 // Типизатор ссылочных выражений: `& expr` (borrow), `*ref`/`*^ref` (take),
 // нативные `%&`/`%*`. Выделен из ExprTyper как отдельная зона ответственности.
 

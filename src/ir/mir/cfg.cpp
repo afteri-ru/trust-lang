@@ -1,4 +1,3 @@
-// src/ir/cfg.cpp
 // Построение CFG поверх HIR (понижённой формы). См. include/ir/cfg.hpp.
 
 #include "ir/cfg.hpp"
@@ -51,7 +50,7 @@ class Builder {
 
         BuildCtx ctx;
 
-        if (!m_func.m_body.has_value() || m_func.m_body->empty()) {
+        if (m_func.definitionKind() != DefinitionKind::Body || m_func.body()->empty()) {
             addEdge(m_cfg.entry, m_cfg.exit, EdgeKind::Normal);
             markUnreachable();
             return std::move(m_cfg);
@@ -62,7 +61,7 @@ class Builder {
         const std::size_t bodyEntry = newBlock();
         addEdge(m_cfg.entry, bodyEntry, EdgeKind::Normal);
         m_current = bodyEntry;
-        buildStatements(*m_func.m_body, ctx);
+        buildStatements(*m_func.body(), ctx);
         finishPath(m_cfg.exit);
 
         resolveGotos();
@@ -116,8 +115,9 @@ class Builder {
                 }
             }
         };
-        if (m_func.m_body) {
-            for (const auto& stmt : *m_func.m_body) {
+        if (m_func.hasBody()) {
+            const auto& body_ = *m_func.body();
+            for (const auto& stmt : body_) {
                 if (stmt) {
                     visit(visit, *stmt);
                 }
@@ -184,7 +184,6 @@ class Builder {
         return attrNode && attrNode->has_attr(m_attrs, attr::ReadOnly);
     }
 
-    // -- Линеаризация AST в эффекты (семантический порядок) --
     void appendNode(const AstNodeBase& node);
     void appendExpr(const AstNodeBase& node);
     void appendBinary(const Binary& binary);
@@ -352,7 +351,7 @@ void Builder::handleElement(const AstNodePtr& node, BuildCtx&) {
 void Builder::appendNode(const AstNodeBase& node) {
     if (node.is<VarDecl>()) {
         const auto& var = *node.as<VarDecl>();
-        const bool initialized = var.m_initializer && !isNoneMarker(var.m_initializer.get());
+        const bool initialized = var.initKind() == VarInitKind::Initialized;
         // Место инициализировано ДО чтения своего инициализатора (shadowing self-reference).
         emitDeclare(&node, initialized);
         if (var.m_initializer) {
@@ -365,14 +364,14 @@ void Builder::appendNode(const AstNodeBase& node) {
         if (destructure.m_source) {
             appendExpr(*destructure.m_source);
         }
-        for (const AstNodePtr& target : destructure.m_targets) {
-            if (!target) {
+        for (const DestructureDecl::Target& target : destructure.m_targets) {
+            if (!target.name) {
                 continue;
             }
             if (destructure.m_isAssign) {
-                appendWriteLValue(*target, true, false, target.get());
-            } else if (!isNoneMarker(target.get())) {
-                emitDeclare(target.get(), true);
+                appendWriteLValue(*target.name, true, false, target.name.get());
+            } else if (!isNoneMarker(target.name.get())) {
+                emitDeclare(target.name.get(), true);
             }
         }
         return;
@@ -1092,7 +1091,7 @@ void collectFunctions(const AstNodePtr& node, std::vector<const FuncDecl*>& out)
     }
     if (node->is<FuncDecl>()) {
         const auto& func = *node->as<FuncDecl>();
-        if (func.m_body) {
+        if (func.hasBody()) {
             out.push_back(&func);
         }
     }

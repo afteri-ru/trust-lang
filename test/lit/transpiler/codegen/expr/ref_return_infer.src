@@ -9,5 +9,5 @@ raw():@[reftype(ptr)@] Int32 := %test_raw...;
     p := raw();
     return *p;
 };
-# CHECK: int32_t* c_p = test_raw();
-# CHECK: return trust::checked_deref(c_p);
+# CHECK: int32_t* p = test_raw();
+# CHECK: return trust::checked_deref(p);

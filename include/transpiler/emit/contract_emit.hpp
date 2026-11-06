@@ -1,6 +1,5 @@
 #pragma once
 
-// include/transpiler/emit/contract_emit.hpp
 // Компонент кодогенерации: ContractEmitter. Разделяет CppEmitContext с драйвером CppTranspiler;
 // рекурсия/вызовы других компонентов идут через драйвер (friend).
 
@@ -8,7 +7,7 @@
 #include "ast/ast_nodes.hpp"
 #include "location/location.hpp"
 #include "types/type_id.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
 #include "types/intrinsics.hpp"
 #include <optional>
 #include <string>

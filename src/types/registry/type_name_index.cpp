@@ -1,4 +1,3 @@
-// src/types/registry/type_name_index.cpp
 // Зона имён типов: привязки ключей, встроенный домен, дубликат-диагностика.
 #include "types/registry/type_name_index.hpp"
 

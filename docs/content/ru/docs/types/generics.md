@@ -48,7 +48,7 @@ Type-packs (`<T...>`, `xs:T...`) поддерживаются только ка�
 
 ```trust
 @include("vector")
-<T> %std::vector() := ...;    # объявляет тип vector<T> с C++-именем std::vector
+<T> vector ::= %std::vector { };    # объявляет тип vector<T> с C++-именем std::vector
 
 v: vector<Int32> := [1, 2, 3,];
 # → #include <vector>
@@ -81,18 +81,16 @@ x:copy := [1, 2, 3,];
 ```trust
 @include("utility")
 <T1,T2> Pair ::= %std::pair<T1,T2> {   # trust-шаблон Pair ↔ std::pair
-    %first(): T1 := ...;               # Pair<A,B>.first
-    %second(): T2 := ...;              # Pair<A,B>.second
+    first(): T1 := ...;                # Pair<A,B>.first
+    second(): T2 := ...;               # Pair<A,B>.second
 };
 
 p: Pair<Int32, StrChar> := ...;
 # → std::pair<int32_t, std::string> + #include <utility>
 ```
 
-Обобщённая форма `<T1,T2> Pair ::= <T1,T2> %std::pair { ... }` (шаблон привязывается без явного списка
-аргументов в RHS) — сахар, реализация **отложена** (диагностика «not implemented»); используйте явную
-`%std::pair<T1,T2>`. Формат записи одинаков для нативного и не-нативного имени (отличается только `%`).
-Подробнее — [Нативные типы](../types/native/).
+Поддерживаются явная форма (`Pair ::= %std::pair<T1,T2> { ... };`) и обобщённая
+(`<T1,T2> Pair ::= <T1,T2> %std::pair { ... };`). Подробнее — [Нативные типы](../types/native/).
 
 ## Пользовательские шаблон-классы {#class-template}
 
@@ -111,20 +109,20 @@ b : Box<Int32> := Box();     # → template <typename T> struct c_Box { T c_valu
 b.set(42);                   # → c_Box<int32_t> c_b = c_Box<int32_t>();
 ```
 
-Шаблон-класс можно наследовать: `<T> :Derived ::= :Base<:T>{ ... }` → `struct c_Derived : public c_Base<T>`.
+Шаблон-класс можно наследовать: `<T> :Derived ::= :Base<:T>{ ... }` → `struct Derived : public Base<T>`.
 Типовые аргументы обязательны (`:Box` без `<...>` — ошибка). Поддерживаются только типовые параметры;
 value-параметры и ограничения — нет.
 
 ### Struct-шаблоны (POD)
 
 `:Struct` тоже может быть шаблонным (`<T> :Point ::= :Struct{ x: T := _; y: T := _; }`). Определение
-эмитится как `template <typename T> struct c_Point` **без** `static_assert`: проверка POD над шаблоном
+эмитится как `template <typename T> struct Point` **без** `static_assert`: проверка POD над шаблоном
 невыразима и зависит от `T`. Проверка эмитится для **конкретной инстанциации**:
 
 ```cpp
-template <typename T> struct c_Point { T c_x; T c_y; };
-c_Point<int32_t> c_p = c_Point<int32_t>(1, 2);
-static_assert(std::is_trivial_v<c_Point<int32_t>> && std::is_standard_layout_v<c_Point<int32_t>>,
+template <typename T> struct Point { T x; T y; };
+Point<int32_t> p = Point<int32_t>(1, 2);
+static_assert(std::is_trivial_v<Point<int32_t>> && std::is_standard_layout_v<Point<int32_t>>,
               "trust: Struct 'Point' must be POD");
 ```
 

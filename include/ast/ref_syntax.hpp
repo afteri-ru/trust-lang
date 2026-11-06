@@ -1,6 +1,5 @@
 #pragma once
 
-// include/ast/ref_syntax.hpp
 // Единый разбор СИНТАКСИСА вида ссылки (RefType):
 //   - атрибут `@[reftype(<kind>[, <policy>[, <timeout>]])]`;
 //   - символический маркер в аннотации типа (`&&`/`&*`/`&?`).

@@ -1,0 +1,12 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
+
+# R42: порядок POD-проверок инстанциаций Struct-шаблонов — порядок ПЕРВОГО использования типа
+# (обход HIR = порядок объявлений), а не порядок индексной identity `TypeId`.
+
+<T> :Box ::= :Struct{ v: T := _; };
+a : Box<Float32> := Box(1);
+# CHECK: Box<float> a = Box<float>(1);
+b : Box<Int32> := Box(2);
+# CHECK: Box<int32_t> b = Box<int32_t>(2);
+# CHECK-NEXT: static_assert(std::is_trivial_v<Box<float>> && std::is_standard_layout_v<Box<float>>, "trust: Struct 'Box' must be POD");
+# CHECK-NEXT: static_assert(std::is_trivial_v<Box<int32_t>> && std::is_standard_layout_v<Box<int32_t>>, "trust: Struct 'Box' must be POD");

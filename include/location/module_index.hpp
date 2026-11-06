@@ -1,7 +1,5 @@
-// include/location/module_index.hpp
 // Идентичность модуля в пределах ОДНОЙ компиляции - индекс записи в ModuleRegistry
 // (in-process, не ABI-идентичность и не межпрогонный ключ).
-//
 // Strong type: модульный индекс нельзя перепутать с любым другим std::size_t
 // (размер, позиция, registry_index типа). Размещён в нижнем слое `location`, потому что
 // его используют и `syntax`/`ast` (Term/ModuleNode), и `types` (storage-ключ), а прямых
@@ -19,7 +17,7 @@ struct ModuleIndex {
     /// отсутствие модуля выразить нельзя.
     static constexpr std::size_t kInvalidValue = static_cast<std::size_t>(-1);
 
-    /// Индекс отсутствующего модуля (прелюдия/DSL, native-сущности, root без заголовка).
+    /// Индекс отсутствующего модуля (stdlib DSL, native-сущности, root без заголовка).
     [[nodiscard]] static constexpr ModuleIndex invalid() noexcept { return ModuleIndex{kInvalidValue}; }
 
     std::size_t value{0};

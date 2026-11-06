@@ -1,30 +1,5 @@
 #pragma once
 
-// include/driver/cli.hpp
-// Единая инфраструктура определения и применения опций командной строки для
-// драйверных бинарников (trust, trust-lsp, trust-dap).
-//
-// Принцип: опции драйвера и диагностики - ДВЕ РАЗНЫЕ таблицы (pipeline/PipelineOpts
-// vs diag/Options). Объединяет их только инфраструктура: единый арity-aware парсер
-// (собственная реализация, как драйверы gcc/clang), единая сгруппированная справка
-// и единая точка применения -W-диагностик. Парсер управляется таблицей `DriverOption`
-// (каждая опция объявляет точную арность `CliOpt::Flag/Value/ValueList/OptionalValue`),
-// позиционные аргументы собираются отдельно - повторяемые опции не «доедают» их.
-// Каждый драйверный бинарник объявляет СВОЮ таблицу DriverOption
-// (enum + vector<DriverOption> + switch-связывание) и передаёт её в общий парсер/справку.
-//
-// ДВУХСПРАВОЧНАЯ МОДЕЛЬ (см. также diag/OPTIONS.md):
-//   - `--help`  - верхнеуровневая справка с программно-специфичными опциями драйвера
-//                 (группировка `CliCategory`, генерируется `driverHelp()`).
-//   - `-Whelp` - единая справка по диагностикам, выводимая отдельной командой, чтобы
-//                 не засорять общий вывод CLI (группировка `DiagGroup` в diag/Options,
-//                 генерируется `Options::printHelp()`).
-// Обе строятся из центральных таблиц опций, но показывают разные срезы.
-//
-// Нейминг привязан к назначению (без пересекающихся имён): `CliOpt` - вид значения опции
-// CLI (арность). Символы этого файла лежат прямо в `namespace trust` (без отдельного
-// `namespace cli`). Пер-компонентные id диагностик - см. diag/diag_set.hpp и OPTIONS.md.
-
 #include <cstddef>
 #include <functional>
 #include <span>
@@ -36,18 +11,9 @@ namespace trust {
 class Options;
 struct ParseResult;
 
-// -- Категории опций (фиксированная классификация, конвенция clang/gcc/rustc) --
-enum class CliCategory {
-    General,         ///< -h/--help, --version, -v/--verbose, -q/--quiet
-    InputOutput,     ///< входной файл, -o, --temp-dir, -I, -L
-    CompileModel,    ///< CompileMode, EmitFlags, --run, --semantic-on-errors
-    Linking,         ///< -l<lib>, -L<dir>, --link-runtime, --linker
-    Toolchain,       ///< --compiler, --ar, --std, -O, -g
-    ProjectSpecific, ///< --dsl, --no-dsl, --no-stdlib
-    Formatting       ///< --format, --format-check, --keywords, --format-config, ...
-};
+enum class CliCategory { General, InputOutput, CompileModel, Linking, Toolchain, ProjectSpecific, Formatting };
 
-/// Человекочитаемое имя категории (для заголовков grouped-help).
+/// Заголовок группы в grouped-help.
 inline std::string_view cliCategoryName(CliCategory c) {
     switch (c) {
     case CliCategory::General:
@@ -68,34 +34,30 @@ inline std::string_view cliCategoryName(CliCategory c) {
     return {};
 }
 
-/// Вид значения опции драйвера.
 enum class CliOpt {
-    Flag,          ///< булев флаг (--flag)
-    Value,         ///< одно значение (--opt <val>)
-    ValueList,     ///< повторяемая опция списка (-l a -l b)
-    OptionalValue, ///< необязательное значение, ТОЛЬКО через = (--opt / --opt=val);
-                   ///< следующий токен не потребляется (значение только через =)
+    Flag,
+    Value,
+    ValueList,
+    /// Необязательное значение, ТОЛЬКО через `=`; следующий токен не потребляется.
+    OptionalValue,
 };
 
-// -- Общая таблица опций для арity-aware парсера драйвера.
-//    Используется trust, trust-lsp, trust-dap (реестр диагностик сюда НЕ входит -
-//    он отдельно, для анализа кода). Каждый потребитель строит свою таблицу DriverOption
-//    и передаёт колбэк применения значения к своим данным. --
+// Таблица опций arity-aware парсера драйвера; реестр диагностик сюда НЕ входит (он отдельно).
 struct DriverOption {
-    int id;                 ///< идентификатор опции у потребителя (enum → int)
+    int id;                 ///< значение enum потребителя
     std::string name;       ///< длинное имя без "--"
     std::string short_name; ///< короткая форма без "-" ("" если нет)
-    CliOpt kind;            ///< Flag / Value / ValueList
-    std::string type;       ///< плейсхолдер значения для справки ("" для Flag)
-    std::string help;       ///< описание
-    CliCategory category;   ///< категория (группировка справки)
+    CliOpt kind;
+    std::string type; ///< плейсхолдер значения для справки ("" для Flag)
+    std::string help;
+    CliCategory category;
 };
 
 /// Колбэк применения опции: id, value (для Flag value пуст; для Value/ValueList - значение).
 /// Должен вернуть true при успехе, false при ошибке (сообщение печатает потребитель).
 using ApplyOptionFn = std::function<bool(int id, const std::string& value)>;
 
-/// Общий арity-aware парсер драйвера: разбирает args по table, вызывает apply.
+/// Общий arity-aware парсер драйвера: разбирает args по table, вызывает apply.
 /// Возвращает сообщение об ошибке (пусто = успех). Позиционные -> input_file (первый).
 /// -W<diagnostics> -> diag_args (применяются позже через applyDiagnostics).
 inline std::string parseDriverArgs(std::span<std::string> args, std::span<const DriverOption> table, const ApplyOptionFn& apply,
@@ -305,9 +267,8 @@ inline std::string driverHelp(std::span<const DriverOption> table) {
     return out;
 }
 
-// -- Подкоманда `server[=<port>]` (trust-lsp / trust-dap): НЕ опция драйвера, а подкоманда
-//    режима TCP-сервера. Находит и удаляет её из args; пишет порт (default_port при отсутствии
-//    `=`). Возвращает false, если подкоманда не задана (args при этом не изменяется). --
+// Подкоманда `server[=<port>]` (trust-lsp / trust-dap): не опция драйвера. Находит и удаляет её из
+// args; порт = default_port при отсутствии `=`. false, если подкоманда не задана (args не изменяется).
 inline bool extractServerCommand(std::vector<std::string>& args, int& out_port, int default_port) {
     for (std::size_t i = 1; i < args.size(); ++i) {
         if (args[i].rfind("server", 0) == 0) {
@@ -320,17 +281,8 @@ inline bool extractServerCommand(std::vector<std::string>& args, int& out_port, 
     return false;
 }
 
-// Каждый драйверный бинарник объявляет СВОЮ таблицу DriverOption (enum + vector<DriverOption>
-// + switch-связывание) и передаёт её в общий parseDriverArgs/driverHelp. Пример для trust
-// (таблица trust в cli.cpp: enum DriverOptId + buildTrustTable) и для lsp/dap/playground - в их исходниках.
-
-/// Общие опции АНАЛИЗА (обрабатываются централизованно через applyAnalysisOptions/
-/// applyAnalysisArgs, см. analysis_options.hpp): `--solver-mode`, `--keywords`,
-/// `-fsolver-loop-unroll`. ЕДИНЫЙ источник имён/арности/help/категорий; id каждой опции
-/// передаёт бинарник (значение из своего enum). Используется таблицей trust
-/// (`buildTrustTable`); trust-lsp принимает общие опции ЧЕРЕЗ analysis_passthrough
-/// (см. parseDriverArgs) и разбирает их тем же applyAnalysisArgs - общие опции не
-/// дублируются ни в одной таблице драйвера LSP.
+/// Общие опции АНАЛИЗА: ЕДИНЫЙ источник имён/арности/help/категорий; id каждой опции передаёт
+/// бинарник (значение своего enum). Обрабатываются центрально (analysis_options.hpp).
 inline std::vector<DriverOption> commonAnalysisOptions(int solverModeId, int keywordsId, int solverLoopUnrollId, int stackCheckId = -1,
                                                        int stackCheckReserveId = -1, int stackCheckFunctionsId = -1, int verifyId = -1) {
     std::vector<DriverOption> opts = {
@@ -355,7 +307,7 @@ inline std::vector<DriverOption> commonAnalysisOptions(int solverModeId, int key
                         "Stack overflow protection mode: off | explicit | recursion | auto (default: explicit). "
                         "Not a diagnostic; toggled also via -Wstack-check=<mode> and @__OPTION__(\"stack-check\", ...).\n"
                         "  off       - disabled (attributes/macros are no-ops)\n"
-                        "  explicit  - checks only for functions marked @[stack_check@]/@[stack_check(N)@] and %trust_stack_check functions\n"
+                        "  explicit  - checks only for functions marked @[stack_check@]/@[stack_check(N)@] and trust_stack_check functions\n"
                         "  recursion - like explicit + -Wstack-check-infer diagnostic for unguarded recursive functions\n"
                         "  auto      - like explicit + auto-mark recursive functions",
                         CliCategory::ProjectSpecific});
@@ -375,33 +327,29 @@ inline std::vector<DriverOption> commonAnalysisOptions(int solverModeId, int key
     if (stackCheckFunctionsId >= 0) {
         opts.push_back({stackCheckFunctionsId, "stack-check-functions", "", CliOpt::Value, "names",
                         "Comma-separated function names limiting the automatic stack limit (m_stack_limit from "
-                        ".stack_sizes); empty = all functions. Also settable via @__OPTION__(\"stack-check-functions\", ...).",
+                        ".stack_sizes); empty = all functions; a name not declared in this unit is emitted verbatim "
+                        "as an external linker symbol (-Wstack-check-fn-symbol). "
+                        "Also settable via @__OPTION__(\"stack-check-functions\", ...).",
                         CliCategory::ProjectSpecific});
     }
     return opts;
 }
 
-/// Разбирает CLI-аргументы по таблице DriverOption (арity-aware, как драйвер gcc/clang):
-/// каждый токен распознаётся как длинная/короткая опция с явной арностью, либо позиционный.
-/// -W<diagnostics> собираются в result.diag_args (применяются позже через applyDiagnostics).
-/// Позиционные аргументы накапливаются отдельно (первый - входной файл) и НЕ поглощаются
-/// опциями-списками. Возвращает сообщение об ошибке (пусто = успех); при ошибке result
-/// заполнен частично (что успело разобраться), печать - обязанность вызывающего.
+/// Разбирает CLI-аргументы по таблице DriverOption (arity-aware). -W<diagnostics> собираются в
+/// result.diag_args (применяются позже через applyDiagnostics). Позиционные накапливаются отдельно
+/// (первый - входной файл) и НЕ поглощаются опциями-списками; при ошибке result заполнен частично,
+/// печать - обязанность вызывающего.
 std::string parseDriverArgs(trust::ParseResult& result, std::span<std::string> args);
 
-/// Сгруппированная по категориям справка по опциям драйвера (генерируется из таблицы).
 std::string driverHelp();
 
 /// Имена driver-опций (--<long>, -<short>) для shell-completion (`trust --complete-options`).
 std::vector<std::string> driverOptionTokens();
 
-/// Имена driver-опций, значение которых — файл/путь (type ∈ {file,dir,path}),
-/// для shell-completion (`trust --complete-files`).
+/// Имена driver-опций со значением-файлом/путём (type ∈ {file,dir,path}) для `--complete-files`.
 std::vector<std::string> driverFileValueTokens();
 
-/// Единая точка применения CLI-диагностик: -Whelp, -Wall/-Wextra, -W<name>,
-/// -Wno-<name>, -W<name>=<severity>. Останавливается на первом не -W аргументе.
-/// Возвращает span оставшихся аргументов (начиная с первого не -W).
+/// Единая точка применения CLI-диагностик; останавливается на первом не -W аргументе.
 /// При `-Whelp` устанавливает opts.helpRequested() == true.
 std::span<char*> applyDiagnostics(Options& opts, std::span<char*> args);
 

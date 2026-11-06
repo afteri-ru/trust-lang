@@ -2,9 +2,8 @@
 
 > scope: include/module_loader/registry
 > role: persistent-memory
-> last_reviewed: 2026-11-04
+> last_reviewed: 2026-11-13
 > review_period: 30
-> max_size: 4000
 
 ## Architecture
 
@@ -15,9 +14,12 @@
 - **⚠ Одна AST на файл, Term НЕ удерживается:** тело конвертируется сразу; сайты импорта и модульный TU
   делят узлы и РАЗДЕЛЯЮТ вектор тела (`shared_ptr`).
 - **⚠ Единая формула C++-имени модуля — `location/module_name.hpp`:** `encodeModuleNameForIdent`,
-  `moduleEntryIdent`, `moduleCppNamespace` (пусто для root). Второй формулы нет.
+  `moduleEntryIdent`, `moduleEncodedName` (пусто для root). Второй формулы нет.
 - **⚠ Загрузка/импорт:** файл парсится один раз; duplicate-import — Error только при том же файле +
-  scope + масках; ссылка `\path::name` НЕ загружает (`findLoaded`).
+  scope + масках; `findLoaded` загрузку НЕ инициирует (только уже загруженные модули).
+- **⚠ `m_modules` — `std::deque<ModuleRecord>`:** аксессоры возвращают ссылки внутрь записей
+  (`interfaceFacts`/`bodyAst`/`scopeRoot`); `vector` запрещён — загрузка следующего модуля инвалидировала бы
+  выданные ссылки (R1: невладеющая ссылка действительна в объявленном scope).
 
 ## Relations
 

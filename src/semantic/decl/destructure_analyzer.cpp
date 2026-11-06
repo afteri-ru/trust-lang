@@ -1,4 +1,3 @@
-// src/semantic/decl/destructure_analyzer.cpp
 // Анализ деструктуризации.
 #include "types/type_read.hpp"
 #include "semantic/core/type_predicates.hpp"
@@ -40,15 +39,14 @@ bool DestructureAnalyzer::collectDestructureSlots(const DestructureDecl& node, s
     hasRest = false;
     const size_t cnt = node.m_targets.size();
     for (size_t i = 0; i < cnt; ++i) {
-        auto* t = node.m_targets[i].get();
-        if (!t || t->kind() != ParserToken::Kind::Ident) {
+        const DestructureDecl::Target& target = node.m_targets[i];
+        if (!target.name || target.name->kind() != ParserToken::Kind::Ident) {
             continue;
         }
-        const bool isRest = i < node.m_targetIsRest.size() && node.m_targetIsRest[i];
-        if (isRest) {
+        if (target.isRest) {
             hasRest = true;
             if (i + 1 != cnt) {
-                m_actx.ctx().diag().report(Severity::Error, t->range(), "rest target '...' must be the last destructuring target");
+                m_actx.ctx().diag().report(Severity::Error, target.name->range(), "rest target '...' must be the last destructuring target");
                 return false; // фатально: rest не последняя - цели не разбираем
             }
         } else {
@@ -85,7 +83,7 @@ void DestructureAnalyzer::analyzeDestructure(DestructureDecl& node) {
     }
     // spread (коллекция Dict). Проверка типа источника: допустим только словарь (Dict) - иначе
     // pop_front на не-коллекции упал бы лишь на этапе C++-компиляции (тихий fallback в семантике).
-    const TypeReadModel& reg = m_actx.ctx().types();
+    const TypeReadModel& reg = m_actx.registry();
     const TypeId srcType = node.m_source ? m_actx.facts().exprType(*node.m_source) : INVALID_TYPE_ID;
     if (!isDictTypeId(reg, srcType)) {
         m_actx.ctx().diag().report(Severity::Error, node.m_source ? node.m_source->range() : node.range(),
@@ -96,7 +94,6 @@ void DestructureAnalyzer::analyzeDestructure(DestructureDecl& node) {
     // (после семантики), и кодоген обязан эмитить конкретный тип, а не `auto`. Храним тип на узле
     // деструктуризации (сама временная появляется только в lowering).
     node.m_sourceType = QualType::fromTypeId(srcType).withoutInferred();
-    const size_t cnt = node.m_targets.size();
     // Число целей-элементов (НЕ rest) и наличие rest-маркера (`rest...` / `_...`).
     size_t elementTargets = 0;
     bool hasRest = false;
@@ -125,8 +122,6 @@ void DestructureAnalyzer::analyzeDestructure(DestructureDecl& node) {
     // элемента (Int8..Int64 → Int64, Float → Double, Bool, StrChar...). ВНУТРИ ЦИКЛА тип расширяется
     // до МАКСИМАЛЬНОГО среди элементов (Bool/Int8 → Integer, float → Double) - элемент перечитывается
     // и может меняться; Any - только если тип не выводим (внешний источник / несовместимые категории).
-    node.m_targetTypes.assign(cnt, INVALID_TYPE_ID);
-    node.m_targetDeclaredTypes.assign(cnt, INVALID_TYPE_ID);
     node.m_inLoop = m_actx.namespaces().isInLoop();
     const std::vector<QualType> elemTypes = m_core.typer().dictElementTypes(node.m_source.get());
     std::vector<TypeId> naturalized;
@@ -150,12 +145,12 @@ void DestructureAnalyzer::analyzeDestructure(DestructureDecl& node) {
         }
     }
     size_t elemIdx = 0;
-    for (size_t i = 0; i < cnt; ++i) {
-        auto* t = node.m_targets[i].get();
+    for (DestructureDecl::Target& target : node.m_targets) {
+        auto* t = target.name.get();
         if (!t || t->kind() != ParserToken::Kind::Ident) {
             continue;
         }
-        const bool isRest = i < node.m_targetIsRest.size() && node.m_targetIsRest[i];
+        const bool isRest = target.isRest;
         if (node.m_isAssign) {
             // Присваивание в существующие цели: резолв + проверка const. Тип any_cast - natural
             // runtime тип ЭЛЕМЕНТА (соответствует хранению Dict), а не цель; значение присваивается
@@ -165,10 +160,10 @@ void DestructureAnalyzer::analyzeDestructure(DestructureDecl& node) {
             if (isRest && !restTargetNameAllowed(static_cast<IdentName&>(*t), /*isSpreadDict=*/true, node.m_source.get())) {
                 continue;
             }
-            node.m_targetTypes[i] = isRest ? INVALID_TYPE_ID : (elemIdx < naturalized.size() ? naturalized[elemIdx] : INVALID_TYPE_ID);
-            assignDestructureTarget(node, i, static_cast<IdentName&>(*t), isRest);
+            target.anyCastType = isRest ? INVALID_TYPE_ID : (elemIdx < naturalized.size() ? naturalized[elemIdx] : INVALID_TYPE_ID);
+            assignDestructureTarget(static_cast<IdentName&>(*t), isRest);
         } else {
-            // Объявление: m_targetTypes[i] - тип any_cast = natural runtime тип ЭЛЕМЕНТА (как хранит
+            // Объявление: anyCastType - тип any_cast = natural runtime тип ЭЛЕМЕНТА (как хранит
             // Dict); declaredType - тип объявляемой переменной (явная аннотация `a:Int32` фиксирует
             // его, иначе - тот же выведенный). Разделение важно: Dict хранит int как int64_t, поэтому
             // any_cast<int32_t> по аннотации Int32 упал бы на элементе, хранимом как int64_t.
@@ -181,7 +176,7 @@ void DestructureAnalyzer::analyzeDestructure(DestructureDecl& node) {
                 }
                 // Шаг 2: аннотация типа на rest-цели запрещена - кодген фиксирует rest как Dict и
                 // аннотацию молча игнорировал бы. Явная диагностика вместо тихого игнора.
-                if (i < node.m_targetTypeNodes.size() && node.m_targetTypeNodes[i]) {
+                if (target.typeNode) {
                     m_actx.ctx().diag().report(Severity::Error, t->range(), "type annotation on a rest target '{}...' is not supported; rest type is inferred",
                                                requiredText(*t));
                     continue;
@@ -197,9 +192,9 @@ void DestructureAnalyzer::analyzeDestructure(DestructureDecl& node) {
                 m_actx.ctx().report(t->range(), semantic::DiagId::WidenAny,
                                     "destructured element type for target '{}' is not inferable; widened to the generic type (Any)", requiredText(*t));
             }
-            const TypeId declaredType = explicitTargetType(node, i, inferred);
-            node.m_targetTypes[i] = inferred;                                        // any_cast<T> = как хранит Dict
-            node.m_targetDeclaredTypes[i] = isRest ? INVALID_TYPE_ID : declaredType; // тип переменной
+            const TypeId declaredType = explicitTargetType(target, inferred);
+            target.anyCastType = inferred;                                 // any_cast<T> = как хранит Dict
+            target.declaredType = isRest ? INVALID_TYPE_ID : declaredType; // тип переменной
             declareDestructureTarget(static_cast<IdentName&>(*t), isRest, declaredType);
         }
         if (!isRest) {
@@ -212,7 +207,6 @@ void DestructureAnalyzer::analyzeDestructureTuple(DestructureDecl& node, TypeId 
     const auto* td = m_actx.ctx().readTypes().store().getTypeDataAs<TupleTypeData>(tupleType);
     const size_t elemCount = td ? td->elements.size() : 0;
     node.m_sourceArity = elemCount; // для кортеж-rest в кодогенерации (скоуп сброшен к моменту codegen)
-    const size_t cnt = node.m_targets.size();
     // Слоты-элементы (связывание + skip `_`) и наличие rest-цели (`rest...` / `_...`).
     size_t slots = 0;
     bool hasRest = false;
@@ -230,22 +224,21 @@ void DestructureAnalyzer::analyzeDestructureTuple(DestructureDecl& node, TypeId 
         m_actx.ctx().diag().report(Severity::Error, node.range(), "destructuring arity mismatch: {} target(s) but tuple has {} element(s)", slots, elemCount);
         return;
     }
-    node.m_targetTypes.assign(cnt, INVALID_TYPE_ID);
     size_t idx = 0;
-    for (size_t i = 0; i < cnt; ++i) {
-        auto& t = node.m_targets[i];
+    for (DestructureDecl::Target& target : node.m_targets) {
+        auto* t = target.name.get();
         if (!t || t->kind() != ParserToken::Kind::Ident) {
             continue;
         }
-        const bool isRest = i < node.m_targetIsRest.size() && node.m_targetIsRest[i];
+        const bool isRest = target.isRest;
         auto& h = static_cast<IdentName&>(*t);
-        if (isNoneMarker(t.get()) && !isRest) {
+        if (isNoneMarker(t) && !isRest) {
             ++idx; // skip-элемент занимает индекс, но не связывается
             continue;
         }
         if (node.m_isAssign) {
             // Присваивание в существующие цели (std::get): резолв + проверка const.
-            assignDestructureTarget(node, i, h, isRest);
+            assignDestructureTarget(h, isRest);
             if (!isRest) {
                 ++idx;
             }
@@ -254,7 +247,7 @@ void DestructureAnalyzer::analyzeDestructureTuple(DestructureDecl& node, TypeId 
         if (isRest) {
             // rest: `_...` - отброс (ничего не связываем); именованный `rest...` - остаток кортежа
             // как `std::tuple<Elem...>` (конкретный тип вычисляет семантика из оставшихся элементов).
-            if (isNoneMarker(t.get())) {
+            if (isNoneMarker(t)) {
                 continue;
             }
             // Шаг 1: rest кортежа не может переиспользовать существующую переменную (в т.ч. сам
@@ -265,7 +258,7 @@ void DestructureAnalyzer::analyzeDestructureTuple(DestructureDecl& node, TypeId 
             }
             // Шаг 2: аннотация типа на rest-цели запрещена - тип rest выводится из оставшихся
             // элементов кортежа. Явная диагностика вместо тихого игнора.
-            if (i < node.m_targetTypeNodes.size() && node.m_targetTypeNodes[i]) {
+            if (target.typeNode) {
                 m_actx.ctx().diag().report(Severity::Error, t->range(), "type annotation on a rest target '{}...' is not supported; rest type is inferred",
                                            requiredText(*t));
                 continue;
@@ -276,17 +269,17 @@ void DestructureAnalyzer::analyzeDestructureTuple(DestructureDecl& node, TypeId 
                     tail.emplace_back(td->elements[k].name, td->elements[k].type);
                 }
             }
-            const TypeId restType = m_actx.ctx().types().interner().getOrCreateTupleType(std::move(tail));
-            node.m_targetTypes[i] = restType;
+            const TypeId restType = m_actx.registry().interner().getOrCreateTupleType(std::move(tail));
+            target.anyCastType = restType;
             declareDestructureTarget(h, /*isRest=*/true, restType);
             continue;
         }
         const TypeId elemType = (td && idx < td->elements.size()) ? td->elements[idx].type.getTypeId() : INVALID_TYPE_ID;
-        const TypeId explicitType = explicitTargetType(node, i, INVALID_TYPE_ID);
+        const TypeId explicitType = explicitTargetType(target, INVALID_TYPE_ID);
         // Без явной аннотации тип цели - конкретный тип элемента кортежа (известен семантике):
         // кодоген эмитит его явно, а не `auto`.
         const TypeId targetType = (explicitType != INVALID_TYPE_ID) ? explicitType : elemType;
-        node.m_targetTypes[i] = targetType;
+        target.anyCastType = targetType;
         declareDestructureTarget(h, /*isRest=*/false, targetType);
         ++idx;
     }
@@ -358,15 +351,15 @@ void DestructureAnalyzer::declareDestructureTarget(IdentName& t, bool isRest, Ty
     }
 }
 
-// Явный тип цели из аннотации (`a:Int32`, node.m_targetTypeNodes[i]); INVALID - аннотации нет
+// Явный тип цели из аннотации (`a:Int32`, target.typeNode); INVALID - аннотации нет
 // (возвращается fallback) или тип не резолвится (диагностируется).
-TypeId DestructureAnalyzer::explicitTargetType(const DestructureDecl& node, size_t i, TypeId fallback) {
-    if (i >= node.m_targetTypeNodes.size() || !node.m_targetTypeNodes[i]) {
+TypeId DestructureAnalyzer::explicitTargetType(const DestructureDecl::Target& target, TypeId fallback) {
+    if (!target.typeNode) {
         return fallback;
     }
-    auto resolved = m_actx.types().resolveTypeRef(*node.m_targetTypeNodes[i]);
+    auto resolved = m_actx.types().resolveTypeRef(*target.typeNode);
     if (!resolved) {
-        m_actx.ctx().diag().report(Severity::Error, node.m_targetTypeNodes[i]->range(), "unknown type '{}'", requiredText(*node.m_targetTypeNodes[i]));
+        m_actx.ctx().diag().report(Severity::Error, target.typeNode->range(), "unknown type '{}'", requiredText(*target.typeNode));
         return INVALID_TYPE_ID;
     }
     return *resolved;
@@ -374,11 +367,9 @@ TypeId DestructureAnalyzer::explicitTargetType(const DestructureDecl& node, size
 
 // Цель деструктуризации-ПРИСВАИВАНИЯ (`a, b = ... source`): резолв существующей переменной,
 // проверка на константность; объявление не создаётся. Тип any_cast задаёт вызывающий (цикл кладёт
-// natural runtime тип элемента в node.m_targetTypes[i]). `_` - skip; rest == источник - мутация
+// natural runtime тип элемента в target.anyCastType). `_` - skip; rest == источник - мутация
 // pop_front (присвоения нет).
-void DestructureAnalyzer::assignDestructureTarget(DestructureDecl& node, size_t i, IdentName& t, bool isRest) {
-    (void)node;
-    (void)i;
+void DestructureAnalyzer::assignDestructureTarget(IdentName& t, bool isRest) {
     std::string name{t.text()};
     if (name == "_") {
         return; // skip: элемент потребляется, переменная не связывается

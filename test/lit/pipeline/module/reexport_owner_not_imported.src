@@ -1,18 +1,18 @@
 # RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
 # RUN: %split-file %s $TD
-# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %trust -q --temp-dir $TD/build --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
 #
-# Фасад реэкспортирует имя владельца, но прямой сайт импорта есть только у фасада:
-# `\lib::g` из главного файла — ошибка (модуль `\lib` не загружен в main: импорт не транзитивен),
-# `\facade::g` — корректная квалифицированная форма.
-# CHECK: error: Module '\lib' is not loaded
+# Фасад реэкспортирует имя владельца; прямой сайт импорта у main — только фасад, но имя
+# доступно коротко (`g`), т.к. реэкспорт делает его видимым на сайте импорта фасада.
+# CHECK: g_P10N5_3AInt32_(
+
 //--- main.src
 \facade(g);
-@main():Int32 := { @return \facade::g() + \lib::g(); };
+@main():Int32 := { @return g(1); };
 
 //--- lib.src
 \lib;
-g():Int32 := { @return 1; };
+g(x:Int32):Int32 := { @return x; };
 
 //--- facade.src
 \facade {

@@ -1,4 +1,3 @@
-// include/pipeline/backend/emit.hpp
 // Вывод результата emit-режимов (tokens/ast/macros) в stdout.
 #pragma once
 

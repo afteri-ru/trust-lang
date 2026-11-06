@@ -1,11 +1,10 @@
-// module_loader.hpp - единый загрузчик модулей
 #pragma once
 
 #include "module_loader/registry/module_registry.hpp"
 #include "module_loader/package/package_store.hpp"
 #include "location/location.hpp"
 #include "location/module_path.hpp"
-#include "session/module_resolver.hpp"
+#include "module_api/module_resolver.hpp"
 #include "syntax/module_header.hpp"
 #include <cstdint>
 #include <filesystem>
@@ -29,7 +28,6 @@ class ModuleLoader : public ModuleResolver {
     ModuleLoader(ModuleLoader&&) noexcept = delete;
     ModuleLoader& operator=(ModuleLoader&&) noexcept = delete;
 
-    // -- Метод A: загрузка модуля из уже зарегистрированного source-файла --
     // Регистрирует модуль, рекурсивно вызывает Parser (expand_module=true) и СРАЗУ конвертирует
     // Term→AST (Term не удерживается; одна AST на модуль). src - реальный source-файл
     // (главный файл или загруженный import); парсинг выполняется из него,
@@ -39,26 +37,20 @@ class ModuleLoader : public ModuleResolver {
     [[nodiscard]] ModuleIndex parseSourceModule(std::string_view moduleId, MapperFile src, MapperRange range = {}, std::filesystem::path scopeRoot = {},
                                                 std::string packageName = {}, bool allowNoHeader = true);
 
-    // -- ModuleResolver: узкий интерфейс для парсера (загрузка + проверка загруженности) --
     [[nodiscard]] std::vector<ModuleIndex> resolveModules(std::string_view moduleId, MapperRange range) override;
     [[nodiscard]] std::optional<ModuleIndex> findLoaded(std::string_view moduleId) const override;
     [[nodiscard]] bool isModuleLoaded(std::string_view moduleId) const override;
     [[nodiscard]] std::string_view moduleLogicalName(ModuleIndex index) const override;
-    bool registerModuleAlias(std::string_view alias, ModuleIndex target, ModuleIndex owner) override;
-    [[nodiscard]] bool hasModuleAlias(ModuleIndex owner, std::string_view alias, ModuleIndex target) const override;
     [[nodiscard]] bool canAccessProtected(ModuleIndex importer, ModuleIndex owner) const override;
 
-    // -- Проверка загруженности модуля --
     [[nodiscard]] bool isLoaded(ModuleIndex index) const;
 
-    // -- Доступ к данным загруженного модуля --
     /// Канонический путь (идентификатор) модуля по индексу (view в хранилище реестра).
     [[nodiscard]] std::string_view modulePath(ModuleIndex index) const;
 
     /// Количество зарегистрированных модулей (включая главный).
-    [[nodiscard]] std::size_t moduleCount() const noexcept { return registry().count(); }
+    [[nodiscard]] std::size_t moduleCount() const noexcept override { return registry().count(); }
 
-    // -- Факты интерфейса модуля, считаются один раз на модуль --
     void setInterfaceFacts(ModuleIndex index, ModuleInterfaceFacts facts);
     /// Факты интерфейса, посчитанные загрузчиком ОДИН раз. Наличие гарантируется загрузкой
     /// (при ранней ошибке интерфейса факты всё равно фиксируются); иначе — EXPECT.
@@ -71,18 +63,12 @@ class ModuleLoader : public ModuleResolver {
     /// сайтами с теми же масками (`shared_ptr` переживает `Pipeline`).
     [[nodiscard]] std::shared_ptr<const SiteProjection> siteProjection(ModuleIndex index, const utils::ImportMasks& masks);
 
-    /// Module-алиасы, объявленные @p owner (spelling → индекс), детерминированный снимок для LSP.
-    [[nodiscard]] std::vector<std::pair<std::string, ModuleIndex>> moduleAliases(ModuleIndex owner) const;
-
-    // -- Сконвертированное тело модуля (AST), хранимое один раз и разделяемое сайтами --
     [[nodiscard]] const std::vector<AstNodePtr>& bodyAst(ModuleIndex index) const;
     /// Разделяемое тело: тот же вектор, что у реестра (копий списка нет; lifetime — компиляция).
     [[nodiscard]] std::shared_ptr<std::vector<AstNodePtr>> bodyAstShared(ModuleIndex index) const;
 
-    // -- Текущий индекс модуля (верх стека) --
     [[nodiscard]] ModuleIndex currentModuleIndex() const override;
 
-    // -- Каталог извлечения пакетов (.trust) - задаёт владелец (Pipeline): build/temp-каталог.
     // Должен быть задан до первого импорта из пакета; иначе импорт пакета - ошибка.
     void setPackageCacheDir(std::filesystem::path dir) { m_packages.setCacheDir(std::move(dir)); }
 
@@ -120,7 +106,7 @@ class ModuleLoader : public ModuleResolver {
     /// Spelling, однозначно встречающийся у всех владельцев (иначе nullptr: нет или конфликт).
     /// Только для вызовов ВНЕ загрузки (диагностика/тесты); резолв модулей — по активному модулю.
     [[nodiscard]] const std::vector<ModuleIndex>* findImportSpellingUnique(std::string_view spelling) const;
-    /// Импортировал ли ЭТОТ владелец такой spelling (уникальность module-алиаса — в его модуле).
+    /// Импортировал ли ЭТОТ владелец такой spelling.
     [[nodiscard]] bool hasImportSpelling(ModuleIndex owner, std::string_view spelling) const;
     /// Все ли файлы кэшированного импорта загружены.
     [[nodiscard]] bool allImportsLoaded(const std::vector<ModuleIndex>& indices) const;
@@ -130,16 +116,14 @@ class ModuleLoader : public ModuleResolver {
     void inheritPackageNameOfCaller(ModuleIndex caller, const std::filesystem::path& foundScope, std::string& packageName) const;
     /// Диапазон заголовка модуля для диагностик.
     [[nodiscard]] MapperRange moduleHeaderRange(MapperFile src, const ModuleHeaderScan& header) const;
-    /// Алиас модуля, объявленный @p owner (`spelling → цель`); `nullopt` — не объявлен.
-    [[nodiscard]] std::optional<ModuleIndex> findModuleAlias(ModuleIndex owner, std::string_view alias) const;
-    /// Результат поиска spelling (алиас модуля либо сайт импорта) БЕЗ загрузки.
+    /// Результат поиска spelling (сайт импорта) БЕЗ загрузки.
     struct SpellingLookup {
-        enum class Kind : uint8_t { NotFound, ModuleAlias, Import };
+        enum class Kind : uint8_t { NotFound, Import };
         Kind kind = Kind::NotFound;
-        std::vector<ModuleIndex> indices; ///< alias: 1 индекс; import: 1..N (группа).
+        std::vector<ModuleIndex> indices; ///< import: 1..N (группа).
         [[nodiscard]] bool found() const noexcept { return kind != Kind::NotFound; }
     };
-    /// ЕДИНСТВЕННАЯ лестница поиска spelling: module-алиас активного модуля → карта импортов
+    /// ЕДИНСТВЕННАЯ лестница поиска spelling: карта импортов активного модуля
     /// (scope активного модуля; вне загрузки — однозначный поиск по всем scope). Канонический
     /// путь ФС — ДРУГОЙ домен: в ссылках/проверке загруженности не участвует (только cycle-детект).
     [[nodiscard]] SpellingLookup lookupSpelling(std::string_view spelling) const;
@@ -176,9 +160,6 @@ class ModuleLoader : public ModuleResolver {
     /// spelling у разных владельцев адресует разные файлы (их scope-корни различны) — глобальной
     /// таблицы нет. Канонические пути живут ТОЛЬКО в реестре (`ModuleRegistry::findIndex`).
     std::unordered_map<ModuleIndex, std::unordered_map<std::string, std::vector<ModuleIndex>, StringViewHash, std::equal_to<>>> m_importSpellings;
-    /// Алиасы МОДУЛЕЙ (`\m :- \pkg\deep\mod;`): владелец spelling → (spelling → загруженный модуль).
-    /// Алиас действует только в модуле объявления и не экспортируется.
-    std::unordered_map<ModuleIndex, std::unordered_map<std::string, ModuleIndex, StringViewHash, std::equal_to<>>> m_moduleAliases;
     PackageStore m_packages;                           ///< поиск/извлечение пакетов (чистая зона без Context)
     std::vector<std::filesystem::path> m_modulePaths;  ///< дополнительные корни модулей (`-I`)
     std::vector<std::filesystem::path> m_packagePaths; ///< дополнительные корни пакетов (`--package-path`)

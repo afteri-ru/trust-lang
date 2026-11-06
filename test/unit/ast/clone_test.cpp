@@ -25,17 +25,17 @@ TEST(CloneTest, SetsOriginAndPreservesSharedSubtrees) {
     std::vector<AstNodePtr> body;
     body.push_back(sharedLiteral);
     body.push_back(sharedLiteral); // один и тот же объект дважды: клон — DAG, не копия
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
 
     const std::vector<AstNodePtr> clones = cloneTrees({fn});
     ASSERT_EQ(clones.size(), 1u);
     const auto& fnClone = static_cast<const FuncDecl&>(*clones[0]);
     EXPECT_EQ(fnClone.origin, fn.get());
-    ASSERT_TRUE(fnClone.m_body.has_value());
-    ASSERT_EQ(fnClone.m_body->size(), 2u);
-    const AstNodeBase* first = (*fnClone.m_body)[0].get();
+    ASSERT_TRUE(fnClone.hasBody());
+    ASSERT_EQ((*fnClone.body()).size(), 2u);
+    const AstNodeBase* first = (*fnClone.body())[0].get();
     EXPECT_NE(first, sharedLiteral.get());
-    EXPECT_EQ(first, (*fnClone.m_body)[1].get()) << "shared subtree must be cloned once";
+    EXPECT_EQ(first, (*fnClone.body())[1].get()) << "shared subtree must be cloned once";
     EXPECT_EQ(first->origin, sharedLiteral.get());
 }
 
@@ -62,14 +62,14 @@ TEST(CloneTest, RemapsAllDeclaredNonOwningSlots) {
     body.push_back(ret);
     body.push_back(call);
     body.push_back(arg);
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
     static_cast<JumpStmt&>(*ret).m_funcDecl = fn.get();
 
     const std::vector<AstNodePtr> clones = cloneTrees({fn});
     ASSERT_EQ(clones.size(), 1u);
     const auto& fnClone = static_cast<const FuncDecl&>(*clones[0]);
-    ASSERT_TRUE(fnClone.m_body.has_value());
-    const std::vector<AstNodePtr>& out = *fnClone.m_body;
+    ASSERT_TRUE(fnClone.hasBody());
+    const std::vector<AstNodePtr>& out = (*fnClone.body());
     ASSERT_EQ(out.size(), 6u);
     const AstNodeBase* declClone = out[0].get();
     EXPECT_NE(declClone, decl.get());
@@ -103,16 +103,16 @@ TEST(CloneTest, LoweredWrapperHasNoOrigin) {
     auto fn = std::make_shared<FuncDecl>("f");
     std::vector<AstNodePtr> body;
     body.push_back(expr);
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
 
     std::vector<AstNodePtr> roots = cloneTrees({fn});
     LowerCtx ctx;
     lowerBody(roots, ctx);
 
     const auto& fnClone = static_cast<const FuncDecl&>(*roots[0]);
-    ASSERT_TRUE(fnClone.m_body.has_value());
-    ASSERT_EQ(fnClone.m_body->size(), 1u);
-    const AstNodeBase* wrapper = (*fnClone.m_body)[0].get();
+    ASSERT_TRUE(fnClone.hasBody());
+    ASSERT_EQ((*fnClone.body()).size(), 1u);
+    const AstNodeBase* wrapper = (*fnClone.body())[0].get();
     ASSERT_EQ(wrapper->kind(), ParserToken::Kind::SemicolonStmt);
     EXPECT_EQ(wrapper->origin, nullptr) << "lowering-created node has no source AST node";
     const auto& semi = static_cast<const SemicolonStmt&>(*wrapper);

@@ -1,4 +1,3 @@
-// include/location/module_path.hpp
 // ЕДИНСТВЕННЫЙ парсер/сборщик написания пути модуля (`\file`, `\\group\file`,
 // `\\\pkg\group\file`). Домены: spelling пути (этот тип) ≠ логическое имя (заголовок) ≠
 // путь ФС (`ModuleRegistry::modulePath`) ≠ `ModuleIndex`.

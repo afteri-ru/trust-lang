@@ -1,4 +1,3 @@
-// src/types/site_visibility.cpp
 #include "types/names/site_visibility.hpp"
 
 namespace trust {

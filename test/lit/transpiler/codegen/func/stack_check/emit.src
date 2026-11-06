@@ -7,6 +7,7 @@
 # Резерв `reserve` (мин. размер стека для исключения) всегда добавляется к проверкам.
 # При -Wno-stack-check (режим off) вставки не производятся, заголовок не подключается.
 
+\std();
 @[stack_check@]
 @func guard_limit(x:Int32):Int32 { x };
 
@@ -17,7 +18,7 @@
     @print("{} {}\n", guard_limit(1), guard_size(2));
 }
 # CHECK: #include "trust/stack_check.hpp"
-# CHECK: (trust::stack_check::check_stack_limit(), c_guard_limit{{_[A-Za-z0-9_]+}}(1))
-# CHECK: (trust::stack_check::check_overflow(4096), c_guard_size{{_[A-Za-z0-9_]+}}(2))
+# CHECK: (trust::stack_check::check_stack_limit(), guard_limit{{_[A-Za-z0-9_]+}}(1))
+# CHECK: (trust::stack_check::check_overflow(4096), guard_size{{_[A-Za-z0-9_]+}}(2))
 # NO-NOT: trust::stack_check::check_
 # NO-NOT: trust/stack_check.hpp

@@ -1,7 +1,14 @@
 #include <gtest/gtest.h>
 
+#include "utils/string_interner.hpp"
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
+
+    // Юнит-тесты создают синтетические AST-узлы/символы вне компиляции (нет Pipeline::run).
+    // Это явное объявление: интернирование идёт в процессный пул; внутри прогона активный
+    // StringInternerScope (Parser/Pipeline) перекрывает его.
+    trust::ManualInternerScope manualInternerScope;
 
 #ifdef BUILD_USING_MODULE
     const char* build_mode = " as module";

@@ -13,7 +13,7 @@
 //--- pkg/trust.toml
 name = 'mod_import_mod'
 //--- pkg/mod_import_mod.src
-\\\mod_import_mod\mod_import_mod;
+\mod_import_mod;
 x:Int32 := 42;
 //--- main.src
 \\\mod_import_mod\mod_import_mod(x);

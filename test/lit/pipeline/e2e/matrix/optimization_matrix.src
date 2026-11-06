@@ -1,0 +1,27 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD/o0 --options "-O0" -o $TD/o0/prog %s && $TD/o0/prog | %FileCheck %s --check-prefix=OUT
+# RUN: %trust -q --temp-dir $TD/o2 --options "-O2" -o $TD/o2/prog %s && $TD/o2/prog | %FileCheck %s --check-prefix=OUT
+# RUN: %trust -q --temp-dir $TD/o3 --options "-O3" -o $TD/o3/prog %s && $TD/o3/prog | %FileCheck %s --check-prefix=OUT
+# RUN: %trust -q --temp-dir $TD/werror --options "-Werror" -o $TD/werror/prog %s && $TD/werror/prog | %FileCheck %s --check-prefix=OUT
+#
+# R47 (целевая матрица): сгенерированный код собирается, линкуется и исполняется в целевой
+# матрице. Данные матрицы — список RUN-строк (не `if`):
+#   MATRIX = clang (default) × c++23 (стандарт контракта) × {-O0, -O2, -O3}
+#   + проверка «нет новых предупреждений компилятора» (`-Werror` на -O0).
+# Ось «второй компилятор» — отдельный кейс `matrix/portability_gxx.src` (g++, стандарт из
+# целевого контракта): артефакт не использует `#embed` (карта встраивается байтовым массивом).
+# Стандарты != c++23 вне контракта (R9: стандарт — из `TargetContract`).
+# Safety-проверки на -O2/-O3 (R52) — отдельный кейс `optimization/safety_checks.src`.
+# ODR двух модулей — `matrix/odr_two_modules.src`.
+# OUT: matrix-ok
+
+\std();
+@[export("run")@]
+run():Void := {
+    print("matrix-ok");
+};
+{% int optimization_matrix__main__() {
+    run();
+    return 0;
+}
+%}

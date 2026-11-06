@@ -4,11 +4,14 @@
 #include "ast/ast_nodes.hpp"
 #include "session/context.hpp"
 #include "syntax/term/term.h"
+#include "utils/string_interner.hpp"
 
 #include <cstdio>
 #include <memory>
 
 int main() {
+    // Guard строит синтетический AST-узел вне компиляции — явный процессный пул (E9).
+    trust::ManualInternerScope manualInternerScope;
     trust::Context ctx;
     auto term = trust::Term::Create(trust::TermID::SEQUENCE, "guard");
     auto node = std::make_shared<trust::IdentName>("guard_name");

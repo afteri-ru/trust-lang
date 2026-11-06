@@ -1,13 +1,15 @@
+\std();
+
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp -fno-overflow-check %s > %t.out && %FileCheck %s <%t.out
 
 # Операции со std::any-операндом: any-операнд конвертируется универсальным trust::anyToInt64
 # (а не строгим std::any_cast<int32_t> - тот ломается на гетерогенных значениях словаря).
 # (литералы 0/1 - Bool, поэтому для числовой операции берём 2).
 x:Any := 5;
-# CHECK: std::any c_x = 5;
+# CHECK: std::any x = 5;
 
 y := x + 2;
-# CHECK-NEXT: int32_t c_y = (trust::detail::anyToInt64(c_x) + 2);
+# CHECK-NEXT: int32_t y = (trust::detail::anyToInt64(x) + 2);
 
 b := x > 2;
-# CHECK-NEXT: bool c_b = (trust::detail::anyToInt64(c_x) > 2);
+# CHECK-NEXT: bool b = (trust::detail::anyToInt64(x) > 2);

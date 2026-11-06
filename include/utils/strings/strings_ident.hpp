@@ -1,4 +1,3 @@
-// include/utils/strings/strings_ident.hpp
 #pragma once
 
 #include "utils/error.hpp"
@@ -15,10 +14,6 @@
 #include "utils/strings/strings_utf8.hpp"
 
 namespace trust::utils {
-
-// -----------------------------------------------------------------------
-//  Работа с идентификаторами
-// -----------------------------------------------------------------------
 
 inline std::string_view extractName(std::string_view s, size_t offset) {
     if (s.empty() || offset >= s.size()) {
@@ -118,10 +113,6 @@ inline std::string_view extractName(std::string_view s, size_t offset) {
     return std::string_view(s.data() + begin, end - begin);
 }
 
-// -----------------------------------------------------------------------
-//  Конвертация имени в C++ идентификатор и обратно
-// -----------------------------------------------------------------------
-
 /// Срезает ведущий '%' (native-маркер) у trust-имени. Нативные имена (%add, %std::max)
 /// - уже C++-символы рантайма; '%' используется для маркировки и при кодогенерации
 /// срезается, а имя остаётся как есть. Единый источник среза для транспилятора
@@ -162,10 +153,6 @@ inline std::string bareName(std::string_view name) {
         s.pop_back();
     }
     return s;
-}
-/// Имя нативное (ведущий '%') - то же, что IdentName::is_native().
-inline bool isNativeName(std::string_view name) {
-    return !name.empty() && name.front() == '%';
 }
 /// Имя константное (хвостовой '^') - квалификатор ключа-идентичности.
 inline bool isConstName(std::string_view name) {

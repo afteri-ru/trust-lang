@@ -2,14 +2,15 @@
 # RUN: %split-file %s $TD
 # RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
 #
-# Импорт внутри блока НЕ виден после выхода из блока — ни коротким именем, ни `\lib::f`.
+# Импорт внутри блока НЕ виден после выхода из блока: имя не введено во внешний скоуп.
 # CHECK: error:
+
 //--- main.src
 @main():Int32 := {
     {
         \lib(f);
     };
-    @return f() + \lib::f();
+    @return f();
 };
 
 //--- lib.src

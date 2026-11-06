@@ -1,8 +1,11 @@
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp -fno-sourcemap %s >/dev/null && test -f %t.dir/noembed_map.src_map && echo "PASS map-exists"
-# RUN: ! grep -q "#embed" %t.dir/noembed_map.cppt && echo "PASS no-embed"
+# RUN: ! grep -q "__debug_trust_source_map" %t.dir/noembed_map.cppt && echo "PASS no-embed"
+# RUN: ! grep -q "#embed" %t.dir/noembed_map.cppt && echo "PASS no-preprocessor-embed"
 # CHECK: PASS map-exists
 # CHECK: PASS no-embed
+# CHECK: PASS no-preprocessor-embed
 
-# Флаг -fno-sourcemap: файл .src_map генерируется ВСЕГДА, но `#embed "<name>.src_map"` в C++-код
-# НЕ встраивается.
+# Флаг -fno-sourcemap: файл .src_map генерируется ВСЕГДА, но карта в C++-код НЕ встраивается.
+# Встраивание — байтовый массив `__debug_trust_source_map` (ELF-секция), а не `#embed`:
+# директива `#embed` запрещена в артефакте (R47, второй компилятор целевой матрицы).
 x := 42;

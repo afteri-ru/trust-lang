@@ -2,13 +2,16 @@
 // Модель семантики — продукт шага Semantic: строится без флагов и сохраняет ЛОКАЛЬНЫЕ
 // объявления в persistent-дереве скоупов (после выхода из блока).
 #include "pipeline/pipeline.hpp"
+#include "semantic/core/pass_runner.hpp"
 #include "semantic/semantic_model.hpp"
 #include "session/context.hpp"
 #include "types/type_system.hpp"
 #include "gtest/gtest.h"
 
 #include <cstddef>
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace trust {
 namespace {
@@ -84,6 +87,38 @@ TEST(SemanticModel, LocalScopeSurvivesBlockExit) {
         EXPECT_NE(scope, 0u);
         EXPECT_TRUE(scopes.node(scope).closed);
     }
+}
+
+// Снимок реестра (`SemanticModel`) действителен, пока реестр не сброшен: `TypeSystem::reset()`
+// — единственная точка инвалидации (R7), после неё обращение к типовой системе снимка обязано
+// дать диагностику, а не молчаливые устаревшие данные.
+TEST(SemanticModel, StaleSnapshotAfterRegistryResetIsDiagnosed) {
+    Context ctx;
+    TypeSystem reg(ctx.diag(), ctx.opts());
+    ctx.setTypes(&reg);
+
+    SemanticPassRunner runner(ctx, reg);
+    std::vector<AstNodePtr> empty;
+    ASSERT_TRUE(runner.run(empty));
+    auto model = std::make_shared<SemanticModel>(runner.takeAnalysis(), ctx.stringsPool(), std::shared_ptr<const TypeSystem>(&reg, [](const TypeSystem*) {}),
+                                                 ModuleProjection{}, ReferenceIndex{});
+    EXPECT_NO_THROW((void)model->typeSystem());
+
+    reg.reset();
+    EXPECT_ANY_THROW((void)model->typeSystem());
+}
+
+// Один Pipeline — одна компиляция: повторный run() запрещён, иначе per-run владельцы
+// (TargetContract/SourceMapWriter/ModuleLoader) смешаются с уже сброшенным реестром типов.
+TEST(SemanticModel, PipelineRejectsSecondRun) {
+    Context ctx;
+    PipelineOpts opts;
+    Pipeline pipeline(ctx, opts);
+    const MapperFile src1 = ctx.source().add_source("a.src", "x := 1;\n");
+    EXPECT_TRUE(pipeline.run(RunRequest::analysis(), src1).isValid());
+
+    const MapperFile src2 = ctx.source().add_source("b.src", "y := 2;\n");
+    EXPECT_ANY_THROW((void)pipeline.run(RunRequest::analysis(), src2));
 }
 
 } // namespace

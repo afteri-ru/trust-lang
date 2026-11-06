@@ -4,22 +4,25 @@
 # RUN: $TD/cross_type && echo "PASS" >> %t.out
 # RUN: %FileCheck %s <%t.out
 #
-# Одноимённые ТИПЫ разных модулей сосуществуют (модуль в идентичности типа): квалифицированные
-# аннотации `\lib_a::Point` / `\lib_b::Point` разрешаются в РАЗНЫЕ TypeId, без дубля объявления.
-# C++-имена типов получают модульный префикс (Этап B), поэтому обе единицы трансляции линкуются.
+# Одноимённые ТИПЫ разных модулей сосуществуют, если разведены ОБЛАСТЯМИ ИМЁН (`a::Point` /
+# `b::Point`): C++-имя типа выводится из namespace-пути программиста, модуль в него не входит.
 # CHECK: PASS
 # CHECK-NOT: error:
 
 //--- main.src
 \lib_a();
 \lib_b();
-take(a: \lib_a::Point, b: \lib_b::Point):Int32 := { @return 0; };
+take(a: a::Point, b: b::Point):Int32 := { @return 0; };
 @main():Int32 := { @return 0; };
 
 //--- lib_a.src
 \lib_a;
-:Point ::= :Struct{ x:Int32 := _; };
+a:: {
+    :Point ::= :Struct{ x:Int32 := _; };
+};
 
 //--- lib_b.src
 \lib_b;
-:Point ::= :Struct{ y:Int32 := _; };
+b:: {
+    :Point ::= :Struct{ y:Int32 := _; };
+};

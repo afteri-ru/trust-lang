@@ -51,7 +51,8 @@ TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt);
  * контракте он стоит после NAME внутри `@{}` — единственная такая позиция, поэтому с `[...] --> body`
  * (FOLLOW после `]`) состояния не сливаются. NAME внутри `@{` не конфликтует с расширением имени.
  *
- * ── shift/reduce-конфликты (2): оба — `type_class • LT` (токен LT), разрешение shift→шаблон ─
+ * ── shift/reduce-конфликты (4): три — `type_class • LT` (токен LT), один — `native • LT`;
+ * всё разрешается shift'ом ─
  * Нативный шаблон-тип (`vector<Int32>`) вводится ИНВЕРТИРОВАННО: базовый `type_name` шаблона НЕ
  * содержит (путь типизированного литерала `digits_literal type_item` и голый тип `lval_var: type_item`
  * остаются БЕЗ шаблона → `1:Bool < var` парсится как СРАВНЕНИЕ канонического bool-литерала, а не
@@ -77,10 +78,12 @@ TermPtr attachLeadingDoc(TermPtr docs, TermPtr stmt);
  * `:Type < expr` (тип-литерал левым операндом сравнения — не используется); обычные сравнения
  * `a < b`, `x:Int32 < 5` идут через `name`/`name types` и НЕ затрагиваются. Разрешение — shift.
  *
- * Конфликт 4 — `MODULE • ALIAS_NAME` (алиас модуля `\m :- \lib;`): `name` включает MODULE,
- * поэтому после MODULE перед ALIAS_NAME возможен сдвиг в `module_alias_rhs` либо свёртка
- * MODULE в `assign_items`. Разрешение — shift (module alias): LHS-модуль без `::` иначе
- * бессмыслен; namespace-алиас (`\lib::ns:: :- ...`) идёт другим путём (после MODULE стоит `::`).
+ * Конфликт 4 — `native • LT` (C++-аргумент шаблона реализации builtin-типа):
+ * `Complex32 = %std::complex<float> { };` — `class_item: native LT template_params GT`.
+ * После `native` в RHS `=` токен LT двоится: shift → аргументы реализации (наш случай) либо
+ * reduce `native` как операнд СРАВНЕНИЯ (`X = %native_name < expr`). Разрешение — shift: значение
+ * нативного имени слева от `<` — вырожденная конструкция (нативные имена не сравниваются),
+ * тогда как аргумент реализации нужен всегда. Форма `::=` (без expression-контекста) не конфликтует.
  *
  * ── Набор допустимых типов (конфликтов НЕ добавляет) ──
  * `type_set_expr: types | type_set_expr PLUS types | type_set_expr MINUS types` даёт узел TYPE_SET
@@ -234,35 +237,15 @@ ns_start:  NAMESPACE
                 $$ = $1;
             }
 
-/* Ссылочная форма имени модуля: `\path::name` (модуль обязан быть уже загружен). Терм несёт
- * полный trust-spelling внутри модуля (m_right, напр. `::ns::f`) и индекс модуля
- * (`m_moduleIndices`, ставит ResolveModuleReference). Используется и в `name`, и в типовых
- * позициях (`: \path::T`), чтобы форма была выразима везде. */
-module_ref:  MODULE  ns_start  ns_part
-            {
-                $$ = $1;
-                TERM($3)->AppendLeft(TERM($2));
-                TERM($3)->FinalizeAndTest(TermID::STATIC);
-                TERM($$)->AppendRight(TERM($3));
-                $$ = driver.ResolveModuleReference(TERM($$));
-            }
-/*        | MACRO_CONTEXT
-            {
-                $$ = $1;
-                $$->m_id = TermID::TermID::NAMESPACE;
-            }
-*/
-
 name_no_attr:  ns_part
             {
                 $$ = $1;
             }
-        | ns_start
-            {
-                $$ = $1;
-                TERM($$)->m_id = TermID::STATIC;
-                // У переменных namespace собирается в m_text через FinalizeAndTest
-            }
+        /* Голый `::` как ИМЯ (альтернатива `| ns_start`) удалён: он делал `::` неотличимым от
+         * маркера наследования `class_type_base: ns_start` (reduce/reduce на lookahead LBRACE —
+         * `native_class_fwd: name LBRACE` vs `class_type_def: class_type_bases LBRACE`).
+         * Квалифицированные формы `::name`/`::a::T` сохраняются (`ns_start ns_part`,
+         * `ns_start ns_part NAMESPACE type_class`), блок `:: { ... }` — `block_all: ns_start ...`. */
         | ns_start  ns_part
             {
                 $$ = $2;
@@ -345,11 +328,6 @@ name:   name_attr
             {
                 $$ = $1;
                 TERM($$)->m_id = TermID::MODULE;
-            }
-        |  module_ref
-            {
-                // Ссылочная форма `\path::name` (значение/вызов) - обработка в module_ref.
-                $$ = $1;
             }
         |  native
             {
@@ -441,21 +419,6 @@ type_class:  COLON  name_no_attr
                 $$ = $2;
                 TERM($$)->AppendLeft(TERM($1));
                 TERM($$)->FinalizeAndTest(TermID::TYPE);
-            }
-        | COLON  module_ref
-            {
-                // Тип-ссылка `: \path::T`: терм TYPE с trust-именем внутри модуля; индекс модуля
-                // переносится в m_moduleIndices (маркер ссылки для конвертера).
-                std::string ref = TERM($2)->m_right ? TERM($2)->m_right->toString() : std::string();
-                if (ref.rfind("::", 0) == 0) {
-                    ref.erase(0, 2);
-                }
-                trust::MapperRange range = TERM($2)->m_mapperRange;
-                if (TERM($2)->m_right) {
-                    range.end = TERM($2)->m_right->m_mapperRange.end;
-                }
-                $$ = Term::Create(TermID::TYPE, ":" + ref, range);
-                TERM($$)->m_moduleIndices = TERM($2)->m_moduleIndices;
             }
         | COLON  attr  name_no_attr
             {
@@ -586,7 +549,7 @@ types:  type_name_tmpl
  * базовый `type_name` шаблона НЕ содержит (путь типизированного литерала `digits_literal type_item`
  * и голый тип `lval_var: type_item` остаются без шаблона → `1:Bool < var` парсится как сравнение,
  * а не `:Bool<var>`). type_name_tmpl ПЕРЕИСПОЛЬЗУЕТ type_name (нет дублирования type_class →
- * нет reduce/reduce) и добавляет `type_class LT template_args GT`. %expect 0 сохраняется. */
+ * нет reduce/reduce) и добавляет `type_class LT template_args GT`. */
 type_name_tmpl:  type_name
             {
                 $$ = $1;
@@ -611,7 +574,7 @@ type_call_tmpl:  type_name_tmpl   call
 
 /* Явная конструкция значения шаблон-типа в позиции значения (RHS `:=`/`=`): `:Box<Int32>(...)`.
  * ОТДЕЛЬНОЕ правило (не переиспользование type_call_tmpl): даёт РОВНО один дополнительный
- * S/R-конфликт `type_class • LT` (см. %expect 3). Затрагивает только `:`-формы: `type_class`
+ * S/R-конфликт `type_class • LT` (см. %expect 4). Затрагивает только `:`-формы: `type_class`
  * требует ведущего COLON, поэтому обычные сравнения `a < b` / `x:Int32 < 5` НЕ затрагиваются
  * (конфликтует исключительно `:Type < expr` - тип-литерал левым операндом, не используется). */
 tmpl_ctor:  type_class  LT  template_args  GT  call
@@ -1550,6 +1513,23 @@ class_member:  member_name  trust_cond_seq  assign_op  assign_expr
                 TERM($$)->AppendLeft(dtor);
                 TERM($$)->AppendRight(TERM($5));         // тело { }
             }
+        /* Маркер видимости членов тела класса (аналог маркеров наследования и видимости области
+         * имён): public `::`, protected `_::`, private `__::`. Standalone-строка тела, действует
+         * на ВСЕ последующие методы/поля до нового маркера; дефолт — public.
+         * `::` — `ns_start`; `_::`/`__::` — ОДНА продукция `ns_part NAMESPACE` (текст = имя
+         * области + `::`); `_` приходит токеном NONE, но `ns_part: NAME | NONE` нормализует его в
+         * обычный идентификатор `_`. Текст нормализуем к полному маркеру: NAMESPACE-токен мог бы
+         * иметь пустой текст — уровень читается по ТЕКСТУ терма (visibilityOf). Иное имя области
+         * (`foo::`) диагностирует AST-конвертер. Новый нетерминал не вводится. */
+        |  ns_start
+            {
+                $$ = Term::Create(TermID::NAMESPACE, "::", TERM($1)->m_mapperRange);
+            }
+        |  ns_part  NAMESPACE
+            {
+                $$ = Term::Create(TermID::NAMESPACE, std::string(TERM($1)->getText()) + "::",
+                                  trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($2)->m_mapperRange.end});
+            }
 
 class_item:  type_call
             {
@@ -1560,6 +1540,14 @@ class_item:  type_call
                 // Голое нативное имя как class_base: RHS `Name = %cpp { ... };` -
                 // ОПРЕДЕЛЕНИЕ (конвертер переинтерпретирует ASSIGN+CLASS в TYPE_DEFINE).
                 $$ = $1;
+            }
+        |  native  LT  template_params  GT
+            {
+                // C++-аргумент шаблона РЕАЛИЗАЦИИ builtin-типа: аргументы в m_template; ClassDecl
+                // дописывает их к C++-имени, если trust-класс не шаблонный.
+                $$ = $1;
+                TERM($$)->m_template = TERM($template_params)->m_template;
+                TERM($$)->m_mapperRange.end = TERM($4)->m_mapperRange.end;
             }
         | name  call
             {
@@ -1586,6 +1574,15 @@ class_base: class_item
                 $$ = $1;
                 TERM($$)->AppendRight(TERM($3));
             }
+        | class_base   COMMA   class_type_base
+            {
+                // Базис ОБЫЧНЫМ именем типа-класса (`:Base`/`:Base<:T>`): у него нет вызова,
+                // поэтому class_item (name call) не подходит. Здесь же — маркеры варианта
+                // наследования (`::`/`_::`/`__::`), см. class_type_base.
+                $$ = $1;
+                TERM($$)->AppendRight(TERM($3));
+            }
+
 
 
 class_def:  class_base  LBRACE  RBRACE
@@ -1635,9 +1632,28 @@ class_type_bases:  class_type_base
                 $$ = $1;
                 TERM($$)->AppendRight(TERM($3));
             }
+/* class_type_base — базис record-типа ИЛИ маркер варианта наследования (аналог маркеров видимости
+ * области имён): public `::`, protected `_::`, private `__::`. Действует на ВСЕ последующие базы
+ * до нового маркера; дефолт для ВСЕХ типов — public.
+ * `::` — `ns_start`; `_::`/`__::` — ОДНА продукция `ns_part NAMESPACE` (текст = `<ns_part> + "::"`):
+ * иной разбор добавляет S/R-конфликты (`NONE •`/`NAME •` против `ns_part`). Иное имя области
+ * диагностирует AST. */
 class_type_base:  type_name_tmpl
             {
                 $$ = $1;
+            }
+        | ns_start
+            {
+                // `::` — публичное наследование (текст нормализуем к полному маркеру: голый
+                // NAMESPACE-токен мог бы иметь пустой текст, а `class_type_def` перезаписывает
+                // `m_id` головного терма на CLASS — признак маркера читается по ТЕКСТУ).
+                $$ = Term::Create(TermID::NAMESPACE, "::", TERM($1)->m_mapperRange);
+            }
+        | ns_part  NAMESPACE
+            {
+                // `_::` (protected) / `__::` (private) — текст = имя области + `::`.
+                $$ = Term::Create(TermID::NAMESPACE, std::string(TERM($1)->getText()) + "::",
+                                  trust::MapperRange{TERM($1)->m_mapperRange.begin, TERM($2)->m_mapperRange.end});
             }
         
 /* Forward-объявление класса / шаблона-класса через `::=`:
@@ -1740,6 +1756,15 @@ assign_expr:  body
                 }
             |  native  ELLIPSIS
                 {
+                    $$ = $1;
+                    TERM($$)->AppendRight(TERM($2));
+                    TERM($$)->m_mapperRange.end = TERM($2)->m_mapperRange.end;
+                }
+            | NAME  ELLIPSIS
+                {
+                    // Делегирование реализации функции/метода к ДРУГОЙ (не нативной) функции/имени:
+                    // `name(...):T := other ...;` (напр. `length(): UInt64 := size ...;`). Как нативный
+                    // `native ELLIPSIS`, но цель — ОБЫЧНОЕ имя (без маркера NATIVE); m_right = ELLIPSIS.
                     $$ = $1;
                     TERM($$)->AppendRight(TERM($2));
                     TERM($$)->m_mapperRange.end = TERM($2)->m_mapperRange.end;
@@ -1855,7 +1880,7 @@ trust_elem: TRUST_ELEM_BEGIN  name_no_attr  TRUST_ELEM_END
 /* Последовательность trust-контрактов после имени объявления (без разделителей).
  * Единая правая рекурсия от пустого: голова - первый контракт (если есть), остальные - в m_sequence.
  * НЕЛЬЗЯ добавлять отдельную альтернативу `trust_contract` (единственный путь от ε) - иначе
- * shift/reduce-конфликт после assign_items (см. %expect 0). */
+ * shift/reduce-конфликт после assign_items. */
 trust_cond_seq: %empty
             {
                 $$ = nullptr;
@@ -1912,30 +1937,11 @@ assign_seq:  assign_items  trust_cond_seq  assign_op  assign_expr
             }
         | assign_items  ALIAS_NAME  alias_target
             {
-                // `f :- \lib::g;` - АЛИАС ИМЕНИ: новое имя существующей сущности (набора перегрузок).
-                // Новая сущность/C++-символ не создаются; цель - модульная ссылка либо
-                // qualified-имя своего модуля (`f :- ns::g;`).
+                // `f :- g;` / `f :- ns::g;` - АЛИАС ИМЕНИ: новое имя существующей сущности.
+                // Новая сущность/C++-символ не создаются; цель - имя в текущей области видимости.
                 $$ = $2;
                 TERM($$)->AppendLeft(TERM($1));
                 TERM($$)->AppendRight(TERM($3));
-            }
-        | ns_alias_lhs  ALIAS_NAME  module_prefix
-            {
-                // `ns:: :- \lib::ns::;` - namespace-алиас: LHS - ПРЕФИКС области (`ns::`/`::ns::`),
-                // цель - префикс области в модуле. Отдельная LHS-форма (не `assign_items`), иначе
-                // `ns::` конфликтует с объявлением блока `ns:: { ... }`.
-                $$ = $2;
-                TERM($$)->AppendLeft(TERM($1));
-                TERM($$)->AppendRight(TERM($3));
-            }
-        | MODULE  ALIAS_NAME  module_alias_rhs
-            {
-                // `\m :- \pkg\deep\mod;` - алиас МОДУЛЯ: LHS - spelling, цель - уже загруженный
-                // модуль. Загрузки нет; ссылки `\m::name` нормализуются на цель.
-                $$ = $2;
-                TERM($$)->AppendLeft(TERM($1));
-                TERM($$)->AppendRight(TERM($3));
-                driver.RegisterModuleAlias(TERM($1), TERM($3));
             }
         | assign_items  ALIAS_TYPE  alias_type_rhs
             {
@@ -1958,53 +1964,22 @@ assign_seq:  assign_items  trust_cond_seq  assign_op  assign_expr
                 $$ = ProcessMacro(driver, TERM($1));
             }
 
-/* Цель алиаса имени (`:-`): модульная ссылка `\path::name` либо qualified-имя (`ns::name`,
- * `name`). Резолв и проверки (существует/не private/не алиас-цикл) - в семантике. */
-/* LHS namespace-алиаса: ТОЛЬКО префикс области (`ns::` / `::ns::`) - маркер завершающего `::`. */
-ns_alias_lhs:  ns_part  NAMESPACE
-            {
-                $$ = $1;
-                TERM($$)->AppendRight(TERM($2));
-                TERM($$)->FinalizeAndTest(TermID::NAMESPACE);
-            }
-        |  ns_start  ns_part  NAMESPACE
-            {
-                $$ = $2;
-                TERM($$)->AppendRight(TERM($3));
-                TERM($2)->AppendLeft(TERM($1));
-                TERM($2)->FinalizeAndTest(TermID::NAMESPACE);
-            }
-
+/* Цель алиаса имени (`:-`): qualified-имя (`ns::name`, `name`). Модуль как префикс не
+ * используется — цель вводится импортом. Резолв/проверки (существует/не private/не цикл) — в семантике. */
 alias_target:  name
             {
                 $$ = $1;
             }
-        |  module_prefix
+        |  ns_part  NAMESPACE
             {
-                $$ = $1;
+                // Цель с завершающим `::` — ОБЛАСТЬ имён (`a :- ns::;`, `a :- long::ns::;`).
+                $$ = $2;
+                TERM($$)->AppendLeft(TERM($1));
+                TERM($$)->FinalizeAndTest(TERM($$)->m_id);
             }
 
-/* Префикс-ссылка на область имён модуля: `\lib::ns::` (завершающий `::` обязателен -
- * маркер «это область, а не имя»). Используется целью namespace-алиаса (`ns:: :- \lib::ns::;`). */
-/* RHS алиаса модуля (`\m :- \pkg\deep\mod;`): загруженный модуль, без загрузки. */
-module_alias_rhs:  MODULE
-            {
-                $$ = driver.ResolveModuleReference(TERM($1));
-            }
-
-module_prefix:  MODULE  ns_start  ns_part  NAMESPACE
-            {
-                $$ = $1;
-                TERM($3)->AppendLeft(TERM($2));
-                TERM($3)->AppendRight(TERM($4));
-                TERM($3)->FinalizeAndTest(TermID::NAMESPACE);
-                TERM($$)->AppendRight(TERM($3));
-                TERM($$)->FinalizeAndTest(TermID::MODULE);
-                $$ = driver.ResolveModuleReference(TERM($$));
-            }
-
-/* RHS алиаса типа (`::-`): только тип - имя (`T`, `ns::T`, `\lib::T`) либо сигнальная форма
- * (`:T`, `: \lib::T`). Record/native-определение тут недопустимо (это `=`/`::=`). */
+/* RHS алиаса типа (`::-`): только тип - имя (`T`, `ns::T`) либо сигнальная форма (`:T`).
+ * Record/native-определение тут недопустимо (это `=`/`::=`). */
 alias_type_rhs:  types
             {
                 $$ = $1;
@@ -2991,13 +2966,8 @@ lambda:  lambda_op  LPAREN  RPAREN   block_any
         }
 
 
-/* Цель `... = X`: область имён своего модуля (`ns::`, `ns::sub`) либо МОДУЛЬНО-квалифицированная
- * область (`\lib::ns` — путь ищется в экспорт-наборе указанного модуля). */
+/* Цель `... = X`: область имён СВОЕГО модуля (`ns::`, `ns::sub`). */
 using_target: exit_prefix
-            {
-                $$ = $1;
-            }
-        | module_ref
             {
                 $$ = $1;
             }

@@ -1,4 +1,3 @@
-// src/semantic/core/expr_facts.cpp
 // Единственный читатель/писатель type-state выражения в полях узлов AST.
 #include "types/type_read.hpp"
 #include "semantic/typer/literal_annotation.hpp"

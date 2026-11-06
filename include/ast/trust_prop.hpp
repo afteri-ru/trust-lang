@@ -1,6 +1,5 @@
 #pragma once
 
-// include/ast/trust_prop.hpp
 // Типы trust-контрактов (единая форма `@{ kind --> expr @}`, kind — одиночное имя после `@{`,
 // разделитель -->). Единый источник: один список порождает enum PropertyKind, имя (propertyKindName)
 // и обратный разбор (parsePropertyKind) - по образцу SOLVER_OPERATOR_LIST (solver/smt_op.hpp) и
@@ -10,7 +9,6 @@
 #include <optional>
 #include <string_view>
 
-// -- Единый список типов trust-контрактов: имя (enum) + строковый вид (в маркере) --
 #define TRUST_PROP_KIND(M)    \
     M(Pre, "pre")             \
     M(Post, "post")           \

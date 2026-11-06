@@ -3,23 +3,24 @@
 
 # Core-тип Tensor через провайдер tensor.trust: объявление, литерал, индексация, арифметика.
 
+\std();
 \\\tensor();
 
 m :Float32[2,2] := [1,2,3,4,];
-# CHECK: #include "trust/tensor.hpp"
-# CHECK: trust::Tensor<float> c_m = trust::Tensor<float>({2, 2}, {1, 2, 3, 4});
+# CHECK: #include "stdlib/tensor.hpp"
+# CHECK: trust::Tensor<float> m = trust::Tensor<float>({2, 2}, {1, 2, 3, 4});
 
 x := m[1, -1];
-# CHECK: float c_x = (c_m)(1, -1);
+# CHECK: float x = (m)(1, -1);
 
 n := m * 2;
-# CHECK: trust::Tensor<float> c_n = (c_m * 2);
+# CHECK: trust::Tensor<float> n = (m * 2);
 
 mi :Tensor[2,2] := [1:Float32,2,3,4,];
-# CHECK: trust::Tensor<float> c_mi = trust::Tensor<float>({2, 2}, {1, 2, 3, 4});
+# CHECK: trust::Tensor<float> mi = trust::Tensor<float>({2, 2}, {1, 2, 3, 4});
 
 c := :Float32[2,2]( 1,2,3,4);
-# CHECK: trust::Tensor<float> c_c = trust::Tensor<float>({2, 2}, {1, 2, 3, 4});
+# CHECK: trust::Tensor<float> c = trust::Tensor<float>({2, 2}, {1, 2, 3, 4});
 
 d :Tensor[2,2] := [1,2,3,4,]: Float32;
-# CHECK: trust::Tensor<float> c_d = trust::Tensor<float>({2, 2}, {1, 2, 3, 4});
+# CHECK: trust::Tensor<float> d = trust::Tensor<float>({2, 2}, {1, 2, 3, 4});

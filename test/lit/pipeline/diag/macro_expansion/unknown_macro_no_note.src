@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s < %t.out
+
+# R50: диагностика о самом вызове (неизвестный макрос) не несёт макро-цепочки — пара
+# `use → definition` для него не записана (раскрытия не было), ложных Notes быть не должно.
+
+@nosuch;
+
+# CHECK: error: undefined name '@nosuch'
+# CHECK-NOT: note: in expansion of macro

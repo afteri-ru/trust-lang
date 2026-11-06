@@ -1,0 +1,6 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Импорт переменной: тип задаёт C++-представление внешнего символа.
+x := %errno...;
+@main():Int32 := { @return 0; };
+# CHECK: error: native import of variable 'x' must declare an explicit type

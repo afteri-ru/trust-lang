@@ -8,7 +8,7 @@
 
 <T...> count(xs: T...): Int32 := { @return 0; };
 
-# CHECK: ClassDecl 'StdTuple' -> std::tuple <T...>
+# CHECK: ClassDecl 'StdTuple' -> (native) <T...>
 # CHECK: FuncDecl 'count'
 # CHECK: TypeName ':Int32' <T...>
 # CHECK: ArgNode 'xs'...

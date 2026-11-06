@@ -11,7 +11,7 @@ g(a:Int64):None := { @return; };
 
 @main() := { @return 0; };
 
-# CHECK: void c_f{{_[A-Za-z0-9_]+}}(int32_t c_a);
-# CHECK: void c_f{{_[A-Za-z0-9_]+}}(int32_t c_a) {
-# CHECK: void c_g{{_[A-Za-z0-9_]+}}(int64_t c_a);
-# CHECK: void c_g{{_[A-Za-z0-9_]+}}(int64_t c_a) {
+# CHECK: void f{{_[A-Za-z0-9_]+}}(int32_t a);
+# CHECK: void f{{_[A-Za-z0-9_]+}}(int32_t a) {
+# CHECK: void g{{_[A-Za-z0-9_]+}}(int64_t a);
+# CHECK: void g{{_[A-Za-z0-9_]+}}(int64_t a) {

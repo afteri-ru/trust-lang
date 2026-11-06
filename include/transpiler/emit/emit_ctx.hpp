@@ -1,6 +1,5 @@
 #pragma once
 
-// include/transpiler/emit/emit_ctx.hpp
 // Общий контекст кодогенерации (CppEmitContext): всё mutable-состояние транспилятора и
 // низкоуровневые операции вывода/маппинга/отступа. Вынесено из монолитного CppTranspiler
 // в отдельный, независимо тестируемый контейнер. Эмиттеры (TypeEmitter/DeclEmitter/...) и
@@ -9,24 +8,34 @@
 #include "ast/ast_nodes.hpp"
 #include "analysis/modes.hpp"
 #include "attrs/attr_pool.hpp"
+#include "diag/diag.hpp"
+#include "diag/options.hpp"
+#include "diag/report.hpp"
+#include "location/decl_id.hpp"
 #include "location/location.hpp"
 #include "location/module_index.hpp"
+#include "session/run_services.hpp"
 #include "transpiler/emit/emit_common.hpp"
-#include "types/runtime_symbols.hpp"
+#include "target/runtime_symbols.hpp"
+#include "target/target.hpp"
 #include "types/type_id.hpp"
 
 #include <cstddef>
+#include <format>
+#include <map>
 #include <optional>
 #include <set>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace trust {
 
-class Context;
 class CppEmitContext;
+class ModuleResolver;
 
 /// Вид защиты стека вызова функции (из атрибута @[stack_check@]),
 /// собираемый при эмиссии объявления/определения функции (см. DeclEmitter).
@@ -42,11 +51,11 @@ struct StackCheckGuard {
 /// Индекс «текст trust-имени → объявление» для источников без узла-ссылки (атрибуты, CLI):
 /// второй кандидат с тем же текстом делает запись неоднозначной (диагностика в точке использования).
 struct TextDeclarationIndex {
-    const AstNodeBase* decl = nullptr;
+    DeclId decl{};
     bool ambiguous = false;
 
-    void add(const AstNodeBase* identity) noexcept {
-        if (decl == nullptr) {
+    void add(DeclId identity) noexcept {
+        if (!decl.isValid()) {
             decl = identity;
             return;
         }
@@ -114,6 +123,12 @@ struct OutputState {
     int hiddenNamespaceDepth = 0;
     ModuleIndex currentModule = ModuleIndex::invalid();
     std::string selfHeaderInclude;
+    /// Директива `#include "<own>.hpp"` собственного заголовка модуля: при генерации
+    /// заголовка/`.cppt` include типа из ТОГО ЖЕ модуля не эмитится (self-include бессмыслен).
+    std::string ownHeaderInclude;
+    /// Выражение приёмника для системного имени `$0` (текущий объект): `(*this)` внутри
+    /// метода-члена; вне метода пусто (`$0` недопустим).
+    std::string selfExpr;
 
     [[nodiscard]] int indentLevel() const noexcept { return scopeStack.empty() ? 0 : scopeStack.back().indent; }
     [[nodiscard]] std::string indentPrefix() const { return std::string(static_cast<std::size_t>(indentLevel()) * 4, ' '); }
@@ -129,27 +144,24 @@ struct EmitModeState {
     bool forwardDeclOnly = false;
 };
 
-/// Факты объявлений: identity объявления → значение/индекс по тексту.
+/// Факты объявлений: identity объявления (`DeclId`, R23) → значение/индекс по тексту.
+/// Адресная идентичность узлов не используется: `DeclId` переживает клонирование AST→HIR.
 struct DeclFacts {
-    std::set<const AstNodeBase*> publishedByHeader;
-    std::set<const AstNodeBase*> headerPublishedDecls;
-    std::unordered_map<const AstNodeBase*, std::string> nativeImports;
-    std::unordered_map<std::string, TextDeclarationIndex> nativeImportsByText;
-    std::unordered_map<const AstNodeBase*, StackCheckGuard> stackCheck;
-    std::unordered_map<const AstNodeBase*, std::string> functionNames;
-    std::unordered_map<std::string, TextDeclarationIndex> functionNamesByText;
+    /// Опубликовано заголовком текущей единицы трансляции — идентичности объявлений (`DeclId`).
+    /// `TypeDecl`-обёртка alias-объявления несёт собственный id (`assignDeclarationIds`), для типа
+    /// с телом id принадлежит `ClassDecl`/`RecordDecl` (одна идентичность на объявление).
+    std::set<DeclId> publishedByHeader;
+    std::set<DeclId> headerPublishedDecls;
+    std::map<DeclId, StackCheckGuard> stackCheck;
+    std::map<DeclId, std::string> functionNames;
+    /// Поиск по spelling, введённому пользователем (`--stack-check-functions`), — не identity
+    /// объявления: второй кандидат с тем же текстом делает запись неоднозначной.
+    std::unordered_map<std::string, TextDeclarationIndex> userNamesByText;
     std::set<std::string> forwardFunctionDefaults;
 
-    [[nodiscard]] static const AstNodeBase* declIdentity(const AstNodeBase* node) noexcept {
-        return (node != nullptr && node->origin != nullptr) ? node->origin : node;
-    }
-
-    void registerNativeImport(const AstNodeBase* decl, std::string nativeName, std::string_view trustText);
-    void registerStackCheck(const AstNodeBase* decl, StackCheckGuard guard);
-    void registerFunctionName(const AstNodeBase* decl, std::string cppName, std::string_view trustText);
-    [[nodiscard]] const std::string* findNativeImport(const AstNodeBase* decl) const noexcept;
-    [[nodiscard]] const StackCheckGuard* findStackCheck(const AstNodeBase* decl) const noexcept;
-    [[nodiscard]] TextLookup lookupNativeImportByText(std::string_view text) const;
+    void registerStackCheck(const AstNodeBase& decl, StackCheckGuard guard);
+    void registerFunctionName(const AstNodeBase& decl, std::string cppName, std::string_view trustText);
+    [[nodiscard]] const StackCheckGuard* findStackCheck(DeclId decl) const noexcept;
     [[nodiscard]] TextLookup lookupFunctionCppNameByText(std::string_view text) const;
     [[nodiscard]] bool isPublishedByHeader(const AstNodeBase* node) const;
 };
@@ -177,31 +189,38 @@ struct ResultBinding {
     std::string cpp;
 };
 
+/// Кодоген получает ЕДИНЫЙ read-model порт прогона (`RunServices`, R12/E4) — тот же, что стадии
+/// бэкенда; мутабельного `Context` кодоген НЕ видит. Псевдоним документирует назначение порта
+/// у кодогена; определение — `session/run_services.hpp` (единственный источник, AGENTS §4).
+using CodegenServices = RunServices;
+
 /// Общий контекст кодогенерации: зависимости и именованные зоны mutable-состояния.
 class CppEmitContext {
   public:
-    explicit CppEmitContext(Context& ctx, analysis::BehavioralModes behavioral = {});
+    explicit CppEmitContext(CodegenServices services, analysis::BehavioralModes behavioral = {});
 
     /// Резолв имён функций в C++-адреса (`reinterpret_cast<void*>(&c_name)`) для ограничения
     /// `m_stack_limit`. Неизвестное или неоднозначное имя — диагностика; возвращаются адреса
     /// только разрешённых функций (порядок сохраняется).
     std::vector<std::string> resolveStackCheckAddresses(const std::vector<std::string>& names);
 
-    /// C++-namespace модуля (`<enc>`) — единственный механизм изоляции; пусто для `kInvalid`
-    /// и неимпортируемого юнита. FAULT, если провайдер не внедрён.
-    [[nodiscard]] std::string moduleNamespace(ModuleIndex owner) const;
+    /// C++-имя сущности (единая точка для значений/функций). Модуль в имя не входит.
+    [[nodiscard]] std::string cppName(std::string_view trustName, CppEntityKind kind) const;
 
-    /// C++-имя сущности с модульной изоляцией (единая точка для значений/функций).
-    [[nodiscard]] std::string cppName(std::string_view trustName, CppEntityKind kind, ModuleIndex owner) const;
-    [[nodiscard]] std::string cppFuncName(std::string_view trustName, bool isOperator, bool isEntry, ModuleIndex owner) const;
+    /// C++-имя свободного оператора: `<ns>::operator<sym>` (модуль в имя не входит).
+    [[nodiscard]] std::string operatorCppName(std::string_view symbol, std::string_view trustNamespacePath) const;
 
-    /// C++-имя свободного оператора: `<enc>::<ns>::operator<sym>`.
-    [[nodiscard]] std::string operatorCppName(std::string_view symbol, std::string_view trustNamespacePath, ModuleIndex owner) const;
+    /// Порт целевых C++-фактов типа: карта фактов (`target`) + языковые предикаты адресации `types`.
+    [[nodiscard]] TypeCppFactsView cppFactsView() const;
 
-    Context& m_ctx;
+    /// C/C++-имя нативной привязки объявления — ЧТЕНИЕ у владельца (`target::DeclCppFacts`, R1/R12),
+    /// без локальной копии. Пусто — привязки нет (объявление не нативное/не экспортное).
+    [[nodiscard]] std::string_view nativeCppNameOf(const AstNodeBase* decl) const noexcept;
 
-    /// Поведенческие режимы кодогена (значения, разрешённые владельцем флагов — semantic).
-    /// Кодоген НЕ читает diag::Options/FlagKind напрямую (снята зависимость transpiler → semantic).
+    CodegenServices m_services;
+
+    /// Поведенческие режимы кодогена — ДАННЫЕ, разрешённые владельцем флагов (`transpiler`,
+    /// `codegenModes`) один раз за прогон. Кодоген НЕ читает `diag::Options`/`FlagKind` (R39).
     analysis::BehavioralModes m_behavioral;
 
     OutputState m_output;
@@ -215,22 +234,6 @@ class CppEmitContext {
 
     /// Активные имена типовых параметров шаблон-класса (стек времени эмиссии).
     std::vector<std::string> m_activeTemplateParams;
-};
-
-/// RAII-обёртка автоматического namespace модуля: открывает `namespace <enc> {` (если имя
-/// непусто) и гарантированно закрывает при любом выходе. Используется для тела модульного юнита
-/// и для объявлений заголовка модуля.
-class ModuleNamespaceGuard {
-  public:
-    ModuleNamespaceGuard(CppEmitContext& ectx, MapperFile out, std::string_view ns) noexcept;
-    ~ModuleNamespaceGuard();
-    ModuleNamespaceGuard(const ModuleNamespaceGuard&) = delete;
-    ModuleNamespaceGuard& operator=(const ModuleNamespaceGuard&) = delete;
-
-  private:
-    CppEmitContext& m_ectx;
-    MapperFile m_out;
-    bool m_open = false;
 };
 
 } // namespace trust

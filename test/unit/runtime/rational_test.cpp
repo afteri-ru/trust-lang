@@ -1,5 +1,5 @@
 // Test file: Rational runtime type.
-#include "trust/rational.hpp"
+#include "stdlib/core/builtin/rational.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
 #include <limits>

@@ -1,0 +1,8 @@
+# RUN: %not %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Переадресация `name ...` — только алиас имени функции/значения через `:-`,
+# у переменной это недопустимая форма (C.1).
+@main() := {
+    x:Int32 := f ...;
+}
+# CHECK: error: variable 'x' cannot forward an alias with '...'; use ':-' for a name alias

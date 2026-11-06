@@ -1,4 +1,3 @@
-// src/toolchain/runtime/runtime_locator.cpp
 #include "toolchain/runtime/runtime_locator.hpp"
 #include "utils/utils.hpp"
 #include <cstdlib>

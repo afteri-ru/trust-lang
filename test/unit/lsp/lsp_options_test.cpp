@@ -30,7 +30,7 @@ TEST(ExtractShebangOptions, SpaceSeparatedValue) {
 }
 
 TEST(ExtractShebangOptions, NoShebang) {
-    EXPECT_TRUE(extractShebangOptions("%add(x:Int32):Int32\n").empty());
+    EXPECT_TRUE(extractShebangOptions("add(x:Int32):Int32\n").empty());
     EXPECT_TRUE(extractShebangOptions("").empty());
     EXPECT_TRUE(extractShebangOptions("x").empty());
 }

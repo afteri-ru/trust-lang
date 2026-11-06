@@ -1,0 +1,7 @@
+# RUN: %not %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Экспорт на объявлении типа недопустим: тип не публикует C/C++-символ.
+@[export("X")@]
+A ::= :Int32;
+@main():Int32 := { @return 0; };
+# CHECK: error: native export is applicable only to a free function or variable

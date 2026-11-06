@@ -47,7 +47,7 @@
 ## 2. Кодирование
 
 `RefType` - 4 бита (биты 16–19) в `TypeKind` (uint32). Значения 0–8 заняты, 9–15 зарезервированы.
-Хелперы: `getRefType`/`withRefType` (`types/typekind.hpp`), строковые имена
+Хелперы: `typeRefOf`/`withRefType` (`types/typekind.hpp`), строковые имена
 `refTypeName`/`refTypeFromString` (для атрибута `@[reftype("...")]` и диагностики).
 
 Применение признака к типу:
@@ -148,7 +148,7 @@
 
 - `RefType` (плоский, 10 значений: `kValue`..`kLocker`) + `refTypeName`/`refTypeFromString`/`refTypeCppTemplateName`
   (`types/typekind.hpp`, X-macro `TRUST_REF_TYPE_TYPES`).
-- `withRefType`/`getRefType` (fast-path бит); `replaceKind(TypeId, TypeKind)` (`types/type_id.hpp`) —
+- `withRefType`/`typeRefOf` (fast-path бит); `replaceKind(TypeId, TypeKind)` (`types/type_id.hpp`) —
   перенос вида с сохранением низких 32 бит raw (registry_index + qualifier-байт).
 - **Классификаторы вида (единый источник):** `isNativeRefKind`/`isSmartRefKind`/`refKindCompatible`,
   `RefAxis`+`refAxisOf` (оси Value/Shared/Unique/Native/Locker), `isSupportedRefKind`
@@ -156,7 +156,7 @@
 - **C++-имя и рантайм-заголовки ссылки — единый источник `types/ref_type.hpp`:** `refTypeCppName(kind,
   pointee[, deleter])` и `refTypeRuntimeIncludes(kind, sync)`. **Sync-backend использует РЕАЛЬНЫЕ типы
   реестра** (обёртка `type::AccessShared` + политика `RefTypeData::accessPolicyType`) и композируется в
-  `TypeSystem::getCppTypeName` (`AccessShared<T,Policy>` / `Weak<AccessShared<T,Policy>>`); строки C++-имён
+  `CppTypeRenderer` (`AccessShared<T,Policy>` / `Weak<AccessShared<T,Policy>>`); строки C++-имён
   через API не передаются.
 - `RefTypeData{pointeeType, deleterType, accessPolicyType}` + `TypeDataKind::kRefType` + `TypeSystem::getOrCreateRefType`
   (`types/type_system.hpp`, `types/registry.cpp`), группа `Group::kReftype`. `deleterType` (unique) и
@@ -168,19 +168,19 @@
   Допустим только на владеющих видах `unique`/`shared`; для `unique` `D` входит в ТИП
   (`RefTypeData::deleterType`, `unique<T,D1> != unique<T,D2>`), для `shared` стирается.
   Валидация и применение - `NameResolutionPass::applyRefAttrs`; встроенные deleter'ы -
-  `trust/resource.hpp` (`Group::kDeleterPolicy`, `isDeleterPolicyType`).
+  `stdlib/resource.hpp` (`Group::kDeleterPolicy`, `isDeleterPolicyType`).
 - Трансляция в `NameResolutionPass::analyzeVarDecl`: fast-path бит / узел для вложенности,
   диагностика неизвестного вида (`semantic/core/name_resolution.cpp`).
-- Кодогенерация C++-имени: `TypeSystem::getCppTypeName` эмитит `T*`/`T&`/`T&&`/`T**`,
+- Кодогенерация C++-имени: `CppTypeRenderer` эмитит `T*`/`T&`/`T&&`/`T**`,
   `trust::Shared<T>` (kShared)/`trust::Weak<trust::Shared<T>>` (kWeak)/`trust::Unique<T>`
   или `trust::Unique<T, D>` при deleter (kUnique)/`trust::Locker<T>` (kLocker),
   `MemberType Class::*` (mptr) и рекурсивно для вложенных
-  `RefTypeData`-узлов; `CppTranspiler::collectTypeIncludes` добавляет `@trust/trusted-cpp.hpp`
+  `RefTypeData`-узлов; `CppTranspiler::collectTypeIncludes` добавляет `@stdlib/trusted-cpp.hpp`
   для shared/weak/unique и рекурсивно обходит детей `RefTypeData` (pointee + deleter,
-  напр. `@trust/resource.hpp`) (`types/registry.cpp`,
+  напр. `@stdlib/resource.hpp`) (`types/registry.cpp`,
   `transpiler/type/type_emit.cpp`). Создание ресурса с deleter - `<Wrapper>::adopt(handle, D{})`
   (`decl_emit.cpp`). Человекочитаемое представление типа для диагностики/hover -
-  `TypeSystem::getTypeName`: ссылочные виды показываются с видом (`shared<Int32>`,
+  `TypePrinter::typeNameOf`: ссылочные виды показываются с видом (`shared<Int32>`,
   `unique<Int32, FileDeleter>`, `ptr<Int32>`), а не только базовым типом.
 - **Спецслучай C-строки**: `StrChar + ptr + const` (`fmt: @[reftype(ptr)@] StrChar^`) - это
   `const char*` (а не `const std::string*`): `TypeSystem::applyRefType` (единый источник
@@ -188,13 +188,12 @@
   (`types/registry.cpp`, `transpiler/transpiler.cpp`).
 - **Тип `CString`** (`const char*`): встроенный невладеющий тип C-строки (`types/type_names.hpp`,
   `registerBuiltinType(type::CString, ..., "const char*")`). Результат нативного метода
-  `StrChar.%c_str(): CString` - явная конверсия `s.c_str()` → `(c_s).c_str()`.
+  `StrChar.c_str(): CString` - явная конверсия `s.c_str()` → `(c_s).c_str()`.
 - **Методы типов**: реестр нативных методов на встроенных типах в `TypeSystem`
   (`TypeDescriptor::methods` - `std::map<std::string, TypeId>` имя → функциональный тип,
   `addMethod`/`findMethod`); метод и функция - одно и то же (сигнатура = `FunctionTypeData`);
-  нативность метода - по `%` в имени (`%c_str`), при генерации вставляется идентификатор без `%`;
-  поиск ОДНОСТОРОННИЙ (обычное имя `c_str` находит и нативный `%c_str`; нативное - только
-  точное). `addMethod` обеспечивает инвариант «одна форма имени» (вторая форма/точный дубль -
+  нативность метода — свойство записи `MethodInfo::isNative`, а не `%` в имени; при генерации вставляется C++-имя члена;
+  поиск ОДНОСТОРОННИЙ (обычное имя `c_str` находит и нативный метод; отдельной `%`-формы имени нет). `addMethod` обеспечивает инвариант «одна форма имени» (вторая форма/точный дубль -
   EXPECT). Семантика проверяет наличие метода, число аргументов и тип возврата ДО генерации
   (`NameResolutionPass::handleMethodCall`).
 - Тесты: `test/unit/types/reftype_test.cpp`, `test/unit/types/type_method_test.cpp`.
@@ -233,7 +232,7 @@
     `trust::Weak<...>(c_x)` (`ExprEmitter::visit_RefMakeExpr`).
   - `* expr` - доступ к ДАННЫМ ссылочного операнда (семантика std::reference_wrapper<T>::get() -
     ссылка на данные). Для shared/weak - `*(ref.lock())` (под защитой/через weak; lock() бросает на
-    истёкшей ссылке); для unique/ptr - `trust::checked_deref(c_u.get())` / `trust::checked_deref(c_p)`
+    истёкшей ссылке); для unique/ptr - `trust::checked_deref(u.get())` / `trust::checked_deref(p)`
     (БЕЗ UB на nullptr: `trust::checked_deref` бросает `trust::IntMinus` на нулевом указателе).
     Вид операнда (m_opRefKind) ставит семантика в `RefTakeExpr`, кодоген - `ExprEmitter::visit_RefTakeExpr`.
   - `a :=: b` - swap (интринсик `std::swap`), возвращает `&a`; типы должны быть совместимы
@@ -702,7 +701,7 @@ b := & u;                                # ОШИБКА: заём монопол
 - Правило границы API проверяется в `DeclAnalyzer`: не-локальная переменная (`!isInLocalScope`),
   тип параметра функции и возвращаемый тип функции при коротком УМНОМ маркере выдают
   `Severity::Error`. Локальный скоуп правило не затрагивает.
-- **Lowering `unique`** (`TypeSystem::getCppTypeName`, единый источник `types/ref_type.hpp`):
+- **Lowering `unique`** (`CppTypeRenderer`, единый источник `types/ref_type.hpp`):
   без deleter'а → `trust::StaticUnique<T>` (значение INLINE: без heap/refcount, `sizeof == sizeof(T)`,
   move-only; уникальность/перемещение обеспечивает АНАЛИЗАТОР); с `@[deleter(D)]` → `trust::Unique<T, D>`
   (указательная обёртка, RAII-деструктор). Дереференс `*u`: StaticUnique → `(u.get())`; с deleter'ом →

@@ -1,5 +1,6 @@
 #!../_build/trust --run -Wsigil=ignore -Wembed=ignore
 
+\std();
 $fact := 1\1;	# Autotyping 
 $mult:Int32 := 1; # Fixed type
 

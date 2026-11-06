@@ -1,4 +1,3 @@
-// include/pipeline/run/types.hpp
 // Value-типы конвейера: запрос прогона и его результат. Не зависит от оркестратора
 // (Pipeline) и тяжёлых компонентов (semantic/transpiler/types): потребителям build/run
 // достаточно этих определений.
@@ -61,7 +60,7 @@ struct PipelineResult : backend::StageOutputs {
     std::optional<std::vector<AstNodePtr>> astNodes;
     /// HIR (клон AST + lowering) — единственный структурный вход C++-бэкенда. `astNodes` при
     /// этом остаётся НЕИЗМЕНЁННОЙ (pre-lowering) и используется solver'ом/диагностиками/LSP.
-    /// Порядок узлов соответствует `astNodes` (prelude-часть в результат не попадает).
+    /// Порядок узлов соответствует `astNodes`.
     std::optional<HirModule> hirNodes;
     /// MIR (CFG поверх HIR) — единственная производная форма для flow-анализов и верификатора.
     /// Заполняется только если гейты HIR/MIR пройдены. Ссылается на узлы HIR; время жизни

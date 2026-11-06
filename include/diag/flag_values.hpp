@@ -1,6 +1,5 @@
 #pragma once
 
-// include/diag/flag_values.hpp
 // Единый разбор значений поведенческих опций (`-f<name>`/`-fno-<name>` и value-опций
 // `-f<name>=<value>`/`--<name>=<value>`). Драйвер передаёт boolean-значение как
 // ""/"on" (включено) или "off" (выключено); иное значение - ошибка (no silent fallback).

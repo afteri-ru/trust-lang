@@ -9,7 +9,8 @@
 # CHECK: type_assert_runtime.src:[[#]]: MyInt > 10
 
 MyInt trust_assert( MyInt > 10 ) ::= :Int32;
-%chk():Void := {
+@[export("chk")@]
+chk():Void := {
     x :MyInt := 5;
 };
 {% int type_assert_runtime__main__() {

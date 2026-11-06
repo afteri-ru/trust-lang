@@ -1,31 +1,29 @@
-// src/utils/proc/time.cpp
 #include "utils/utils.hpp"
 
-#include <chrono>
 #include <ctime>
-#include <iomanip>
-#include <sstream>
+#include <string>
 
 namespace trust::utils {
 
-namespace {
-std::string formatNow(const char* fmt) {
-    auto now = std::chrono::system_clock::now();
-    auto time_t_now = std::chrono::system_clock::to_time_t(now);
-    std::tm tm{};
-    localtime_r(&time_t_now, &tm);
-    std::ostringstream oss;
-    oss << std::put_time(&tm, fmt);
-    return oss.str();
-}
-} // namespace
-
-std::string currentTimestamp() {
-    return formatNow("%Y-%m-%d %H:%M:%S %z");
+std::string formatTimestamp(std::time_t timestamp, std::string_view format) {
+    std::tm local_time{};
+    localtime_r(&timestamp, &local_time);
+    const std::string fmt(format);
+    std::size_t capacity = 64;
+    while (capacity <= 4096) {
+        std::string buffer(capacity, '\0');
+        const std::size_t written = std::strftime(buffer.data(), buffer.size(), fmt.c_str(), &local_time);
+        if (written != 0) {
+            buffer.resize(written);
+            return buffer;
+        }
+        capacity *= 2;
+    }
+    FAULT("formatTimestamp: format '{}' does not fit a 4096-byte buffer", format);
 }
 
 std::string currentDate() {
-    return formatNow("%Y-%m-%d");
+    return formatTimestamp(std::time(nullptr), "%Y-%m-%d");
 }
 
 } // namespace trust::utils

@@ -4,7 +4,9 @@
 #include "syntax/term/term.h"
 #include "syntax/parser.h"
 
-#include "session/context.hpp"
+#include "syntax/parser_services.hpp"
+
+#include <type_traits>
 
 // #define YY_FATAL_ERROR(msg) trust::Scanner::FatalError(msg, lineno(), yyleng, *source_string)
 //  Flex expects the signature of yylex to be defined in the macro YY_DECL, and
@@ -28,7 +30,12 @@ namespace trust {
 class Scanner : public NewLangFlexLexer {
   public:
     /** Create a new scanner object. Uses Context and SourceMapper to read input. */
-    Scanner(trust::Context& ctx, trust::MapperFile src, std::size_t skipPrefix = 0);
+    Scanner(trust::ParserServices ctx, trust::MapperFile src, std::size_t skipPrefix = 0);
+
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, trust::ParserServices>)
+    Scanner(Ctx& ctx, trust::MapperFile src, std::size_t skipPrefix = 0)
+    : Scanner(trust::makeParserServices(ctx), src, skipPrefix) {}
 
     /** Required for virtual functions */
     virtual ~Scanner();
@@ -38,7 +45,7 @@ class Scanner : public NewLangFlexLexer {
      *  предупреждения). При переносе литерала с меньшим числом цифр выдаётся Warning. */
     static constexpr int kMinContinuedDigits = 9;
 
-    trust::Context& m_ctx;
+    trust::ParserServices m_ctx;
     trust::MapperFile m_srcIdx;
     int m_offset;
 
@@ -81,7 +88,13 @@ class Scanner : public NewLangFlexLexer {
     /// поэтому его паритет ненадёжен для определения «внутри макроса». Тумблится в правиле `@@`.
     bool m_inMacroSeq{false};
 
-    static SequenceType ParseLexem(trust::Context& ctx, const std::string str);
+    static SequenceType ParseLexem(trust::ParserServices ctx, const std::string str);
+
+    template <class Ctx>
+        requires(!std::is_same_v<std::remove_cvref_t<Ctx>, trust::ParserServices>)
+    static SequenceType ParseLexem(Ctx& ctx, const std::string str) {
+        return ParseLexem(trust::makeParserServices(ctx), str);
+    }
 
     std::vector<TermID> m_braceStack;
 

@@ -1,5 +1,4 @@
 #pragma once
-// include/playground/server/worker.h
 // trust-playground: исполнительный VPS (режим по умолчанию). Подключается к
 // балансировщику (reverse long-poll), забирает задачи, выполняет транспиляцию
 // через субпроцесс trust-lsp --json с лимитами ресурсов и возвращает результат.

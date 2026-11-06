@@ -20,31 +20,31 @@
 
 namespace trust {
 
-void reportInternalError(Context& ctx, bool recover, std::string_view what) {
+void reportInternalError(DiagnosticEngine& diag, bool recover, std::string_view what) {
     if (!recover) {
         // Fatal печатает диагностику и бросает FatalError (composition root -> код 1).
-        ctx.diag().report(Severity::Fatal, MapperRange{}, "internal compiler error during semantic analysis: {}\n{}", what, utils::backtrace_string());
+        diag.report(Severity::Fatal, MapperRange{}, "internal compiler error during semantic analysis: {}\n{}", what, utils::backtrace_string());
     }
-    ctx.diag().report(Severity::Error, MapperRange{}, "internal error during semantic analysis: {}", what);
+    diag.report(Severity::Error, MapperRange{}, "internal error during semantic analysis: {}", what);
 }
 
-SemanticPassRunner::SemanticPassRunner(Context& ctx, bool recoverOnInternalError)
+SemanticPassRunner::SemanticPassRunner(Context& ctx, TypeSystem& registry, bool recoverOnInternalError)
 : m_ctx(ctx)
+, m_registry(registry)
 , m_recoverOnInternalError(recoverOnInternalError)
-, m_analysis(std::make_unique<AnalysisContext>(ctx)) {
+, m_analysis(std::make_unique<AnalysisContext>(ctx, registry)) {
 }
 
 bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
     // Свежий контекст на каждый запуск (чистая таблица символов и скоуп-стек).
-    m_analysis = std::make_unique<AnalysisContext>(m_ctx);
+    m_analysis = std::make_unique<AnalysisContext>(m_ctx, m_registry);
     m_crashed = false;
 
     // Упорядоченный жизненный цикл типов: реестр на каждый запуск сбрасывается к
     // builtin-состоянию, чтобы пользовательские алиасы и функциональные сигнатуры
     // не накапливались между run() (SymbolTable пер-ран; типы должны быть согласованы).
-    m_ctx.types().reset();
+    m_registry.reset();
 
-    // -- Единое ядро разрешения имён (однопроходный NameResolutionPass). --
     // Реестр хуков: порядок в списке = порядок колбэков ядра. Условие подключения объявляет
     // сам хук (`isEnabled`) - раннер условий реализации не содержит.
     NameResolutionPass core(*m_analysis);
@@ -69,10 +69,9 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
         core.addHook(std::move(hook));
     }
 
-    // -- Capture «$^ = результат последней операции» (простой случай): ПРЕ-семантическое
-    //    структурное переписывание пары [оператор-выражение E / декларация x:=E; sink с $^] -> обычный
-    //    код. Неподдержанные обращения `$^` проход сообщает САМ (в момент выявления, здесь известен
-    //    предыдущий сиблинг) и заменяет лист `$^` на ErrorExpr-заглушку (семантика не дублирует ошибку).
+    // captureLastResult: структурное переписывание пары [оператор-выражение E / декларация x:=E;
+    // sink с $^] -> обычный код. Неподдержанные обращения `$^` проход сообщает САМ (в момент
+    // выявления, здесь известен предыдущий сиблинг) и заменяет лист `$^` на ErrorExpr-заглушку.
     {
         CaptureLastResultContext capture_ctx;
         capture_ctx.ctx = &m_ctx; // AttrPool/diagnostics for the pre-semantic rewrite
@@ -87,10 +86,10 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
     try {
         core.run(ast_nodes);
     } catch (const std::exception& e) {
-        reportInternalError(m_ctx, m_recoverOnInternalError, e.what());
+        reportInternalError(m_ctx.diag(), m_recoverOnInternalError, e.what());
         crashed = true;
     } catch (...) {
-        reportInternalError(m_ctx, m_recoverOnInternalError, "unknown exception");
+        reportInternalError(m_ctx.diag(), m_recoverOnInternalError, "unknown exception");
         crashed = true;
     }
     if (!crashed) {
@@ -103,8 +102,8 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
     // Согласованность модели семантики с типизированным AST проверяется только на УСПЕШНОМ
     // прогоне: в LSP (recover=true) частичный AST даёт законные «дыры» в фактах, это не ICE.
     if (!crashed && !m_analysis->hasErrors()) {
-        if (const auto violation = verifyTypedAst(m_ctx.types(), ast_nodes)) {
-            reportInternalError(m_ctx, m_recoverOnInternalError, *violation);
+        if (const auto violation = verifyTypedAst(m_registry, ast_nodes)) {
+            reportInternalError(m_ctx.diag(), m_recoverOnInternalError, *violation);
         }
     }
 
@@ -115,6 +114,8 @@ bool SemanticPassRunner::run(std::vector<AstNodePtr>& ast_nodes) {
     return !crashed && !m_analysis->hasErrors();
 }
 
-std::unique_ptr<AnalysisContext> SemanticPassRunner::takeAnalysis() { return std::move(m_analysis); }
+std::unique_ptr<AnalysisContext> SemanticPassRunner::takeAnalysis() {
+    return std::move(m_analysis);
+}
 
 } // namespace trust

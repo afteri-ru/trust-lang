@@ -190,25 +190,12 @@ TEST_F(SiteVisibilityBehaviorTest, NamespaceAliasResolvesQualifiedName) {
 TEST_F(SiteVisibilityBehaviorTest, UsingScopeResolvesBareNameAndNormalizesText) {
     enterFileScope(kImporter);
     const Symbol f = declareInBody("inner::f", kImporter, utils::ImportMasks{});
-    m_table.aliases().recordUsing(m_table.current(), UsingScopeRecord{kImporter, "inner", std::nullopt, MapperRange{}, MapperRange{}});
+    m_table.aliases().recordUsing(m_table.current(), UsingScopeRecord{kImporter, "inner", MapperRange{}, MapperRange{}});
 
     const UsingResolveResult resolved = m_table.names().resolveUsing("f");
     ASSERT_NE(resolved.symbol, nullptr);
     EXPECT_EQ(resolved.symbol->decl, f.decl);
     EXPECT_EQ(resolved.qualifiedText, "inner::f") << "текст ссылки НОРМАЛИЗУЕТСЯ на квалифицированное имя";
-    EXPECT_FALSE(resolved.ambiguous);
-}
-
-TEST_F(SiteVisibilityBehaviorTest, UsingScopeWithModuleTargetUsesSiteVisibility) {
-    enterFileScope(kImporter);
-    const Symbol f = declareInBody("inner::f", kOwner, utils::ImportMasks{});
-    m_table.bindImportedModule(kOwner, utils::ImportMasks{}, /*includeProtected=*/false);
-    m_table.aliases().recordUsing(m_table.current(), UsingScopeRecord{kImporter, "inner", kOwner, MapperRange{}, MapperRange{}});
-
-    const UsingResolveResult resolved = m_table.names().resolveUsing("f");
-    ASSERT_NE(resolved.symbol, nullptr) << "`... = \\owner::inner` ищет в экспорт-наборе указанного модуля";
-    EXPECT_EQ(resolved.symbol->decl, f.decl);
-    EXPECT_EQ(resolved.qualifiedText, "inner::f") << "кодоген печатает путь ВЫБРАННОЙ перегрузки: текст квалифицирован";
     EXPECT_FALSE(resolved.ambiguous);
 }
 

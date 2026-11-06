@@ -145,7 +145,7 @@ TEST(PipelineSymbol, RecordsFunctionAliasDeclaration) {
     const std::filesystem::path dir = trust::test::makeTestDataDir("pipeline_function_alias");
     {
         std::ofstream(dir / "lib.src") << "\\lib;\ng(x:Int32):Int32 := { @return x; };\n";
-        std::ofstream(dir / "facade.src") << "\\facade {\n    \\lib(g);\n    f :- \\lib::g;\n};\n";
+        std::ofstream(dir / "facade.src") << "\\facade {\n    \\lib(g);\n    f :- g;\n};\n";
         std::ofstream(dir / "main.src") << "\\facade(f);\nh(a:Int32):Int32 := { @return f(a); };\n";
     }
     const std::string mainPath = (dir / "main.src").string();
@@ -250,10 +250,10 @@ TEST(PipelineSymbol, ProjectsImportedReference) {
     const std::filesystem::path dir = trust::test::makeTestDataDir("pipeline_imported_reference");
     {
         std::ofstream(dir / "lib.src") << "\\lib;\nlf():Int32 := { @return 1; };\n";
-        std::ofstream(dir / "main.src") << "\\lib(lf);\ny := \\lib::lf();\n";
+        std::ofstream(dir / "main.src") << "\\lib(lf);\ny := lf();\n";
     }
     const std::string mainPath = (dir / "main.src").string();
-    const std::string text = "\\lib(lf);\ny := \\lib::lf();\n";
+    const std::string text = "\\lib(lf);\ny := lf();\n";
 
     Context ctx;
     TypeSystem reg(ctx.diag(), ctx.opts());
@@ -280,7 +280,7 @@ TEST(PipelineSymbol, ProjectsImportedReference) {
     }
     const trust::SourceMapReader* reader = ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
-    const auto loc = reader->lspToLocation(trust::ReaderFile::from(src), 1, 12);
+    const auto loc = reader->lspToLocation(trust::ReaderFile::from(src), 1, 5);
     std::optional<trust::MapperRange> target;
     for (const SymbolReference& ref : result.semantics->references()) {
         if (ref.ref.begin.fileIdx().as_index() != loc.fileIdx().as_index()) {
@@ -290,6 +290,6 @@ TEST(PipelineSymbol, ProjectsImportedReference) {
             target = ref.decl;
         }
     }
-    EXPECT_TRUE(target.has_value()) << "cursor lookup failed; line1 char12 loc=" << loc.offset() << "\n" << dump;
+    EXPECT_TRUE(target.has_value()) << "cursor lookup failed; line1 char5 loc=" << loc.offset() << "\n" << dump;
     EXPECT_TRUE(crossed) << dump;
 }

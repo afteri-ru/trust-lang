@@ -1,0 +1,25 @@
+\mem;
+# mem.src - implementations of the built-in memory/reference wrapper types
+# (access policies, synchronized shared reference, static unique ownership, resource deleters).
+# Loaded explicitly via `\mem();` (or the umbrella `\std();`).
+
+@[include("@stdlib/trusted-cpp-sync.hpp")@]
+AccessMutex = %trust::AccessMutex { };
+
+@[include("@stdlib/trusted-cpp-sync.hpp")@]
+AccessRwMutex = %trust::AccessRwMutex { };
+
+@[include("@stdlib/trusted-cpp-sync.hpp")@]
+AccessSingleThread = %trust::AccessSingleThread { };
+
+@[include("@stdlib/trusted-cpp-sync.hpp")@]
+AccessShared = %trust::AccessShared { };
+
+@[include("@stdlib/trusted-cpp.hpp")@]
+StaticUnique = %trust::StaticUnique { };
+
+@[include("@stdlib/resource.hpp")@]
+FreeDeleter = %trust::FreeDeleter { };
+
+@[include("@stdlib/resource.hpp")@]
+FileDeleter = %trust::FileDeleter { };

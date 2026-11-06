@@ -1,3 +1,4 @@
+\mem();
 # RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.cppt && cat %t.cppt | %FileCheck %s
 
 # with(_ = *^ref){...} - read-only захват-блокировка ПОНИЖАЕТСЯ анализатором (WithStmt::lower):
@@ -12,5 +13,5 @@
     };
     return *x;
 }
-# CHECK: trust::Shared<int32_t> c_x(5);
-# CHECK: auto c___cap_1 = c_x.lock_const();
+# CHECK: trust::Shared<int32_t> x(5);
+# CHECK: auto __cap_1 = x.lock_const();

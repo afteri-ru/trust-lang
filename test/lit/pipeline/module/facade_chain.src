@@ -8,7 +8,7 @@
 # квалифицированно (`\outer::f`). Владельцем C++-символа остаётся исходный файл.
 //--- main.src
 \outer(f);
-@main():Int32 := { @return f(1) + \outer::f(2) - 5; };
+@main():Int32 := { @return f(1) + f(2) - 5; };
 
 //--- outer.src
 \outer {

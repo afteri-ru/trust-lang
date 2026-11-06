@@ -12,7 +12,6 @@ namespace trust::utils {
 
 // ══════════════════════════════════════════════════════════════
 //  FileIO - утилитарный класс для работы с файлами
-//
 //  read<std::vector<char>>(path)    - читает файл целиком в std::vector<char>
 //  read<std::string>(path)          - читает файл целиком в std::string
 //  write(path, data)                - записывает данные в файл (создаёт или
@@ -34,8 +33,6 @@ class FileIO {
     static std::optional<std::vector<char>> readImpl(const std::string& path);
 };
 
-// -- read --
-
 template <typename T>
 std::optional<T> FileIO::read(const std::string& path) {
     static_assert(std::is_same_v<T, std::vector<char>> || std::is_same_v<T, std::string>, "FileIO::read: only std::vector<char> or std::string are supported");
@@ -49,8 +46,6 @@ std::optional<T> FileIO::read(const std::string& path) {
         return data;
     }
 }
-
-// -- write --
 
 template <typename Container>
 bool FileIO::write(const std::string& path, const Container& data) {

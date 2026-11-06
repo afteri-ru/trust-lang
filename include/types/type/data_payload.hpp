@@ -1,5 +1,4 @@
 #pragma once
-// include/types/type/data_payload.hpp
 // Payload-структуры TypeData (простые/функция/шаблон/массив/тензор/член/ссылка/pack/кортеж/enum/variant/native/record/типовой параметр).
 // Часть модели данных типов: самостоятельным контрактом НЕ является (umbrella —
 // types/type_data.hpp). Набор include повторяет umbrella, чтобы часть компилировалась
@@ -10,20 +9,21 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
 #include "attrs/attr.hpp"
+#include "location/decl_id.hpp"
 #include "location/location.hpp"
 #include "location/module_index.hpp"
 #include "types/call/callable_info.hpp"
 #include "types/group.hpp"
 #include "types/type/ref_type.hpp"
 #include "types/type_id.hpp"
+#include "types/visibility.hpp"
 
 namespace trust {
-
-// -- TypeData - дополнительные данные для разных категорий типов --
 
 // 1. Простой тип (примитив/алиас) - дополнительных данных не нужно
 struct SimpleTypeData {};
@@ -100,7 +100,6 @@ struct PackExpansionTypeData {
     TypeId pattern; // тип, который повторяется
 };
 
-// -- Элементные данные членов живут в РЕЕСТРЕ, а не в AST ---------------------
 // Tuple/Enum/Variant хранят СИНТАКСИЧЕСКУЮ форму членов в AST: DictLiteralNode.m_body =
 // std::vector<ArgNode> (имя в text(), явный тип в m_type, значение в m_value; строится
 // term_to_ast::appendDictElementsFromArgs). Здесь - КАНОНИЧЕСКИЕ, нормализованные семантические
@@ -111,9 +110,8 @@ struct PackExpansionTypeData {
 // ссылаются TypeId/символы/методы. Чтение члена (имя/тип/значение) - напрямую из ArgNode.
 
 // 8. Кортеж (структурный тип): упорядоченные элементы (имя, тип). Имя "" - позиционный
-// элемент. Имена входят в структурную идентичность (см. getOrCreateTupleType / TypeKey::names).
+// элемент. Имена входят в структурную идентичность (см. getOrCreateTupleType / TypeKeyChild::name).
 // Значения-выражения элементов - в AST (dict.m_body), как у Dict; здесь только разрешённый тип.
-//
 // `type` - ОБЪЯВЛЕННЫЙ тип элемента/поля: QualType (identity + const/inferred), поэтому
 // квалификатор объявленного члена (например `x:Int32^`) доезжает до типизации доступа и
 // кодогенерации. Identity-проекция - `type.getTypeId()`; в TypeKey входит только она
@@ -121,6 +119,14 @@ struct PackExpansionTypeData {
 struct TupleElementData {
     std::string name;
     QualType type;
+    /// C++-доступ ЧЛЕНА класса (`class`/`struct` тела класса; Public по умолчанию). Для
+    /// структурных кортежей/словарей/проекций всегда Public. Ставит семантика из
+    /// `AstNodeBase::visibility` объявления поля; читает проверка доступа.
+    Visibility access{Visibility::Public};
+    /// Ключ связи формы с ОБЪЯВЛЕНИЕМ поля (R14/R23): `DeclId` члена AST. Ставит семантика при
+    /// `defineRecord`; связывает запись формы с членом дерева ПО КЛЮЧУ, а не по индексу.
+    /// Невалиден у структурных кортежей/словарей (у них объявления-члена нет).
+    DeclId declId{};
 };
 struct TupleTypeData {
     std::vector<TupleElementData> elements;
@@ -129,7 +135,7 @@ struct TupleTypeData {
 // 8b. Параметризованный диапазон Range<Elem>: структурный тип, интернируемый по элементному
 // типу Elem (TypeKey children = [Elem]), данные - TemplateTypeData{templateTypeId=:Range,
 // args=[Elem]}. Элементный тип читается из args[0] (единый механизм параметризованных типов).
-// Методы Range объявлены ОДИН раз на абстрактном `:Range` (ключ с '%'/'^', напр. "%count^") и
+// Методы Range объявлены ОДИН раз на абстрактном `:Range` (структурный ключ метода, напр. {count, const, native}) и
 // подставляются (T→Elem) при резолве для конкретного Range<Elem> (C++-модель шаблонов).
 
 // 9. Типобезопасное перечисление (enum): единый тип значений + упорядоченный список членов.
@@ -165,22 +171,27 @@ struct VariantTypeData {
 };
 
 // 11. Пользовательский нативный шаблон-тип (объявление `<T> %std::vector() := ...;` и его
-//     инстанциация `vector<Int32>`). cppTemplate - C++-имя шаблона ("std::vector"), args - типовые
-//     аргументы (типы). Значение-аргументы (value-параметры, `array<Int32, 4>`) - в Этапе B2
-//     (кодируются в TypeKey::names, как размерности у Array). Абстрактный шаблон (объявление) -
-//     args пуст; конкретная инстанциация - args непусто. Инклуд - из `@[include]` в preprocIncludes.
+//     инстанциация `vector<Int32>`). Идентичность — языковая: абстрактный шаблон (`templateOf`) +
+//     типовые аргументы. C++-имя шаблона ("std::vector") — целевой факт (`CppTypeFacts`), в identity
+//     НЕ входит (R37). Значение-аргументы (`array<Int32, 4>`) — в Этапе B2. Абстрактный шаблон
+//     (объявление) — `templateOf == INVALID` и `args` пуст; конкретная инстанциация — валидный
+//     `templateOf` и непустой `args`.
 struct NativeTemplateTypeData {
-    std::string cppTemplate;  // C++-имя шаблона, напр. "std::vector" / "std::pair"
-    std::vector<TypeId> args; // типовые аргументы (TypeId); пусто = абстрактный шаблон
+    // Идентичность нативного шаблона — ЯЗЫКОВОЙ ключ: абстрактный шаблон (`templateOf`) + типовые
+    // аргументы. C++-имя шаблона (`cppTemplate`) — целевой факт (`CppTypeFacts`), в identity НЕ входит
+    // (R37, §4 ARCHITECTURE.md). `INVALID_TYPE_ID` — сам абстрактный шаблон (маркер `args.empty()`).
+    TypeId templateOf{INVALID_TYPE_ID}; // абстрактный нативный шаблон; INVALID — этот узел и есть шаблон
+    std::vector<TypeId> args;           // типовые аргументы (TypeId); пусто = абстрактный шаблон
 };
 
 // 12. Forward-объявление НАТИВНОГО класса (`String ::= %std::string { ... };`) - тип, отображаемый
-//     на существующее C++-имя (cppName). Класс определён в C++-заголовке (инклуд из @[include] в
-//     preprocIncludes); C++-struct НЕ генерируется. Члены-интерфейс (методы/поля/конструкторы/
-//     статич-члены) - в TypeDescriptor::methods (как у встроенных типов). trust-имя класса - в
-//     TypeDescriptor::name; отображается на cppName при использовании типа (resolveCppTypeId).
+//     на существующее C++-имя (cppName). Класс определён в C++-заголовке (инклуд из @[include],
+//     хранится в `CppTypeFacts`); C++-struct НЕ генерируется. Члены-интерфейс (методы/поля/
+//     конструкторы/статич-члены) - в TypeDescriptor::methods (как у встроенных типов). trust-имя
+//     класса - в TypeDescriptor::name; отображается на cppName при использовании типа.
 struct NativeClassTypeData {
-    std::string cppName; // C++-имя класса, напр. "std::string" / "std::pair"
+    // Целевые C++-факты (cppName/include/libs) нативного класса — в `CppTypeFacts` (компонент `target`).
+    // Здесь только маркер вида данных: C++-struct НЕ генерируется, класс определён в заголовке.
 };
 
 // 13. Пользовательский структурный тип (`Name ::= :Struct{...}` / `Name ::= :Class{...}`) -
@@ -191,6 +202,18 @@ struct NativeClassTypeData {
 //     TypeDescriptor::baseClasses. C++-имя - манглинг trust-имени (nameToCpp), struct
 //     эмитится провайдером-кодогенератором.
 struct RecordTypeData {
+    RecordTypeData(std::vector<TupleElementData> declaredFields, std::vector<TypeId> declaredTemplateParams = {}, TypeId instanceOfTemplate = INVALID_TYPE_ID,
+                   std::vector<TypeId> instanceArgs = {})
+    : fields(std::move(declaredFields))
+    , templateParams(std::move(declaredTemplateParams))
+    , templateOf(instanceOfTemplate)
+    , templateArgs(std::move(instanceArgs)) {}
+
+  private:
+    /// Хранилище формы: читается ТОЛЬКО аксессорами владельца (`TypeStore::fieldsOf`/`basesOf`/
+    /// `templateParamsOf`/`instanceOf`) снаружи `types` и `RecordTypeAccess` внутри зоны (E1/R1).
+    friend struct RecordTypeAccess;
+
     std::vector<TupleElementData> fields; // поля в порядке объявления
     // Типовые параметры абстрактного шаблон-класса (`<T> :Box ::= :Class{...}`); пусто - НЕ шаблон.
     std::vector<TypeId> templateParams;
@@ -205,9 +228,9 @@ struct RecordTypeData {
 //     эти типы, при инстанциации они подставляются конкретными аргументами (getOrCreateRecordTemplateInstance).
 //     `owner` — TypeId владельца-шаблона (record/класс; INVALID = не-scoped, напр. generic-функция);
 //     `depth`/`index` — позиция по C++-модели TemplateTypeParmDecl. Имя — ТОЛЬКО для диагностик;
-//     identity = kind + child(anchor) + name(TypeKey::names) + TemplateParamTag{owner, depth, index}.
+//     identity = kind + child(anchor) + name(TypeKeyChild::name) + TemplateParamTag{owner, depth, index}.
 struct TemplateParamTypeData {
-    std::string name; // имя типового параметра (T/U/…) — только для диагностик
+    std::string name;              // имя типового параметра (T/U/…) — только для диагностик
     TypeId owner{INVALID_TYPE_ID}; // владелец-шаблон; INVALID = не-scoped (интернируется по имени)
     uint32_t depth{0};             // глубина вложенных шаблонов (C++-модель)
     uint32_t index{0};             // позиция в списке параметров своего шаблона (C++-модель)

@@ -10,7 +10,7 @@
 namespace trust {
 namespace syntax {
 
-bool checkMacro(trust::Context& ctx, const TermPtr& term) {
+bool checkMacro(trust::ParserServices& ctx, const TermPtr& term) {
     const int err_before = ctx.diag().errorCount(); // мягкие ошибки валидации не должны допускать регистрацию
     // Некорректный (повреждённый) терм макроса НЕ должен валить процесс (ASSERT/abort):
     // сообщаем диагностику и не регистрируем макрос (см. EvalOpMacros: `if (!checkMacro) return`).

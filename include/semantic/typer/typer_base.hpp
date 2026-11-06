@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/typer/typer_base.hpp
 // Общая база типизаторов выражений: доступ к AnalysisContext и сервисам драйвера
 // NameResolutionPass (дружба объявлена только для базы; наследники используют
 // protected-обёртки), плюс общие проверки присваивания, разделяемые семействами типизаторов.
@@ -20,7 +19,6 @@ class TyperBase {
     TyperBase(AnalysisContext& actx, NameResolutionPass& core);
     ~TyperBase() = default;
 
-    // -- Общие проверки присваивания --
     void widenInferredTarget(const AstNodeBase* lhs, TypeId result);
     void checkAssignmentNarrowing(const AstNodeBase* valueNode, TypeId sourceType, TypeId targetType, std::string_view targetName);
 

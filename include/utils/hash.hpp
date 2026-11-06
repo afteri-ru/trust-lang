@@ -1,4 +1,3 @@
-// include/utils/hash.hpp
 // Хеширование содержимого (MD5 hex) — единая точка для пакетов (integrity), кеша --run и build.conf.
 #pragma once
 

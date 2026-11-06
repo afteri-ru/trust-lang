@@ -1,13 +1,13 @@
 # RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
 # RUN: %split-file %s $TD
-# RUN: %not %trust -q --temp-dir $TD --emit-cpp main.src > %t.out 2>&1 && %FileCheck %s <%t.out
+# RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
 #
-# `__::` — private: имя не видно даже файлу той же группы.
+# `__::` — private: имя не экспортируется, импорт его не вводит (короткое имя не видно).
 # CHECK: error:
 
 //--- main.src
 \lib(h);
-@main():Int32 := { @return \lib::h(); };
+@main():Int32 := { @return h(); };
 
 //--- lib.src
 \lib;

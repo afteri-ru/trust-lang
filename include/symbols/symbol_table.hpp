@@ -1,6 +1,5 @@
 #pragma once
 
-// include/symbols/symbol_table.hpp
 // Фасад таблицы символов: маршруты к зонам ответственности (см. symbols/README.md).
 // Владение: Symbol-ы скоупов — ScopeStack; долгоживущие копии — SymbolArena (адреса стабильны);
 // lookup/resolve невладеющие и валидны, пока жив соответствующий скоуп/арена.
@@ -82,7 +81,7 @@ class SymbolTable {
     void exitFilePrivate() noexcept { m_module.leaveFilePrivate(); }
 
     /// Текущий скоуп — уровень идентичности модуля (ScopeKind::ModuleRoot). Без ModuleNode
-    /// (прелюдия/тесты) им становится первый вложенный скоуп.
+    /// (stdlib DSL/тесты) им становится первый вложенный скоуп.
     [[nodiscard]] bool atModuleLevel() const noexcept { return m_scopes.current().kind == ScopeKind::ModuleRoot; }
 
     /// Текущий контекст — private область (`__::`/`__{...}` на top-level модуля).
@@ -170,7 +169,7 @@ class SymbolTable {
     /// true, если под префиксом есть ХОТЬ ОДНО зарегистрированное имя (`prefix::name`) в стеке
     /// скоупов. Проверка `... = X` на выходе из скоупа (опечатка/несуществующая область).
     [[nodiscard]] bool hasNamespaceInScopes(std::string_view prefix) const;
-    /// Существует ли область `path` в экспорт-наборе указанного модуля (для `... = \lib::ns;`).
+    /// Существует ли область `path` в экспорт-наборе указанного модуля.
     [[nodiscard]] bool hasNamespaceInModule(ModuleIndex module, std::string_view path) const;
 
     /// Поиск имени от текущего скоупа вверх (учитывает вложенность и shadowing).
@@ -192,12 +191,9 @@ class SymbolTable {
     const Scope& global() const { return m_scopes.front(); }
     std::size_t globalSize() const { return m_scopes.front().symbols.size(); }
 
-    // -- Видимость импортированных имён (маски) ------------------------------------------
-    //
     // Объявления импортируемого модуля регистрируются ПОЛНОСТЬЮ, но под file-local ключом,
     // если маска сайта импорта их скрывает (или импорт транзитивный). Ключ хранит ВИДИМОСТЬ,
     // поэтому поиск фильтруется выбором ключа, а не удалением объявлений.
-    //
     /// Войти в тело импортируемого модуля: owner - модуль, в чьём скоупе регистрируются имена
     /// (текущий до переключения), imported - модуль тела, masks - маски сайта (пусто = все).
     /// `includeProtected` — сайт вправе видеть `_::`-имена модуля (та же группа/пакет); правило

@@ -1,0 +1,26 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app %s && $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# R30 (поведенческий гейт): если анализ не выдал ошибок, сгенерированный C++ обязан собраться. Гейт —
+# поведенческий (компиляция/линковка/исполнение существующим путём toolchain) на наборе
+# инстанциаций: record-шаблон с двумя разными аргументами и generic-функция.
+# Классификация C++-ошибки по `.src_map` не используется: error-gate конвейера делает её избыточной,
+# сырой `{% %}` маппится на trust-диапазон, при падении сборки ELF нет, точки раскрытия шаблонов 1:N.
+
+<T> :Box ::= :Class{
+    value: T := _;
+    get(): T := { return value; };
+    set(v: T) := { value = v; };
+};
+
+<T> identity(x: T): T := { @return x; };
+
+@main():Int32 := {
+    a : Box<Int32> := Box();
+    a.set(5);
+    b : Box<Bool> := Box();
+    b.set(true);
+    r : Int32 := identity(a.get());
+    if (r == 5) { @return 0; } else { @return 1; };
+};

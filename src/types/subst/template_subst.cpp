@@ -1,4 +1,3 @@
-// src/types/subst/template_subst.cpp
 // Реализация подстановки типовых параметров (engine), см. types/subst/template_subst.hpp.
 #include "types/subst/template_subst.hpp"
 
@@ -6,6 +5,7 @@
 #include "types/type_read.hpp"
 #include "types/type_system.hpp"
 #include "types/type_data.hpp"
+#include "types/type/data_record_access.hpp"
 #include "types/typekind.hpp"
 #include "utils/error.hpp"
 
@@ -54,7 +54,7 @@ TypeId substituteTemplateParams(TypeWriteContext ctx, const TemplateBindings& bi
     }
     // Pack-splice в списковом контексте native-шаблона. Только НЕ-ссылочные узлы: ссылочный
     // вид обрабатывает pair-механизм ниже (иначе потерялся бы ref-бит/узел).
-    if (getRefType(getTypeKind(canonical)) == RefType::kValue) {
+    if (typeRefOf(canonical) == RefType::kValue) {
         // Нативный шаблон: splice нужен ТОЛЬКО при наличии PackExpansion-аргумента; обычная
         // подстановка уходит в pair-механизм (единая реализация, без дублирования).
         if (const auto* nt = ctx.read.store().getTypeDataAs<NativeTemplateTypeData>(canonical)) {
@@ -67,7 +67,7 @@ TypeId substituteTemplateParams(TypeWriteContext ctx, const TemplateBindings& bi
                 }
             }
             if (hasPack) {
-                const std::string cppTpl = nt->cppTemplate;
+                const TypeId templateOf = nt->templateOf;
                 std::vector<TypeId> args;
                 args.reserve(a0.size());
                 for (const TypeId a : a0) {
@@ -93,7 +93,7 @@ TypeId substituteTemplateParams(TypeWriteContext ctx, const TemplateBindings& bi
                     }
                     args.push_back(sub);
                 }
-                return ctx.interner.getOrCreateNativeTemplateType(cppTpl, std::move(args), ctx.read.builtins().preprocIncludeOf(canonical));
+                return ctx.interner.getOrCreateNativeTemplateType(templateOf, std::move(args));
             }
         }
         // Структурный кортеж: pair-механизм его не покрывает. Элементы - одиночные контексты
@@ -235,10 +235,14 @@ TypeId substituteTypeParamsImpl(TypeWriteContext ctx, const SubstArgMap& byId, T
     // TypeData отсутствует, поэтому ветки ниже не сработали бы и `shared<T>` в шаблоне НЕ
     // подставился бы. Снимаем вид, подставляем pointee, применяем вид заново.
     {
-        const RefType fastKind = getRefType(getTypeKind(canonical));
+        const RefType fastKind = typeRefOf(canonical);
         if (fastKind != RefType::kValue && ctx.read.store().getTypeDataAs<RefTypeData>(canonical) == nullptr) {
             const TypeId pointee = ctx.read.store().getPointeeType(canonical);
-            return ctx.interner.applyRefType(substituteTypeParamsImpl(ctx, byId, pointee), fastKind);
+            const TypeId substitutedPointee = substituteTypeParamsImpl(ctx, byId, pointee);
+            if (substitutedPointee == INVALID_TYPE_ID) {
+                return INVALID_TYPE_ID; // диагностику выдал вложенный запрос инстанциации (R9)
+            }
+            return ctx.interner.applyRefType(substitutedPointee, fastKind);
         }
     }
     // ВАЖНО: рекурсивные подстановки добавляют дескрипторы в TypeStore; дескрипторы хранятся в
@@ -266,13 +270,20 @@ TypeId substituteTypeParamsImpl(TypeWriteContext ctx, const SubstArgMap& byId, T
     }
     // Ссылочный узел (shared<T>/unique<T,...> и пр.).
     if (const auto* rd = ctx.read.store().getTypeDataAs<RefTypeData>(canonical)) {
-        const RefType rk = getRefType(getTypeKind(canonical));
+        const RefType rk = typeRefOf(canonical);
         const TypeId pointee0 = rd->pointeeType;
         const TypeId deleter0 = rd->deleterType;
         const TypeId policy0 = rd->accessPolicyType;
         const TypeId impl0 = rd->implType;
-        return ctx.interner.getOrCreateRefType(rk, substituteTypeParamsImpl(ctx, byId, pointee0), substituteTypeParamsImpl(ctx, byId, deleter0),
-                                               substituteTypeParamsImpl(ctx, byId, policy0), substituteTypeParamsImpl(ctx, byId, impl0));
+        // pointee обязателен у ссылки; INVALID означает, что вложенная инстанциация уже выдала
+        // диагностику (цикл/лимит глубины R26) — не вызываем applyRefType с INVALID (R9).
+        const TypeId pointee = substituteTypeParamsImpl(ctx, byId, pointee0);
+        if (pointee == INVALID_TYPE_ID) {
+            return INVALID_TYPE_ID;
+        }
+        // deleter/policy/impl — ОПЦИОНАЛЬНЫ (INVALID у них легитимен), поэтому передаются как есть.
+        return ctx.interner.getOrCreateRefType(rk, pointee, substituteTypeParamsImpl(ctx, byId, deleter0), substituteTypeParamsImpl(ctx, byId, policy0),
+                                               substituteTypeParamsImpl(ctx, byId, impl0));
     }
     // Array<Elem> (размерности не зависят от параметра).
     if (const auto* ad = ctx.read.store().getTypeDataAs<ArrayTypeData>(canonical)) {
@@ -305,20 +316,20 @@ TypeId substituteTypeParamsImpl(TypeWriteContext ctx, const SubstArgMap& byId, T
     }
     // Нативный шаблон-тип (`std::pair<T,U>`).
     if (const auto* nt = ctx.read.store().getTypeDataAs<NativeTemplateTypeData>(canonical)) {
-        const std::string cppTpl = nt->cppTemplate;
+        const TypeId templateOf = nt->templateOf;
         const std::vector<TypeId> a0 = nt->args;
         std::vector<TypeId> args;
         args.reserve(a0.size());
         for (const TypeId a : a0) {
             args.push_back(substituteTypeParamsImpl(ctx, byId, a));
         }
-        return ctx.interner.getOrCreateNativeTemplateType(cppTpl, std::move(args), ctx.read.builtins().preprocIncludeOf(canonical));
+        return ctx.interner.getOrCreateNativeTemplateType(templateOf, std::move(args));
     }
     // Вложенная инстанциация record-шаблона (напр. база `Base<:T>`).
     if (const auto* rec = ctx.read.store().getTypeDataAs<RecordTypeData>(canonical)) {
-        if (rec->templateOf != INVALID_TYPE_ID) {
-            const TypeId tmplOf0 = rec->templateOf;
-            const std::vector<TypeId> a0 = rec->templateArgs;
+        if (RecordTypeAccess::templateOf(*rec) != INVALID_TYPE_ID) {
+            const TypeId tmplOf0 = RecordTypeAccess::templateOf(*rec);
+            const std::vector<TypeId> a0 = RecordTypeAccess::templateArgsOf(*rec);
             std::vector<TypeId> args;
             args.reserve(a0.size());
             for (const TypeId a : a0) {

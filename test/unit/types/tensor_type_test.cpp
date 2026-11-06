@@ -2,6 +2,7 @@
 // Юнит-тесты Core-типа Tensor: предобъявление :Tensor/:SparseTensor, интернирование
 // Tensor<Elem, shape>, аксессоры и алиас DenseTensor.
 
+#include "support/cpp_facts_test_util.hpp"
 #include "session/context.hpp"
 #include "types/type_system.hpp"
 #include "types/type_id.hpp"
@@ -18,21 +19,23 @@ class TensorTypeFixture : public ::testing::Test {
   protected:
     Context m_ctx;
     std::unique_ptr<TypeSystem> m_types;
+    TargetContract m_target;
     void SetUp() override {
         m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
+        test::installTargetFacts(m_ctx, m_target);
     }
 };
 
 TEST_F(TensorTypeFixture, AbstractTypesRegistered) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     EXPECT_NE(reg.read().findType(type::Tensor), std::nullopt);
     EXPECT_NE(reg.read().findType(type::SparseTensor), std::nullopt);
     EXPECT_EQ(reg.read().store().desugaredTypeId(reg.read().getType(type::DenseTensor)), reg.read().getType(type::Tensor));
 }
 
 TEST_F(TensorTypeFixture, InterningByElementAndShape) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId int32 = reg.read().getType(type::Int32);
     const TypeId f64 = reg.read().getType(type::Float64);
 
@@ -45,7 +48,7 @@ TEST_F(TensorTypeFixture, InterningByElementAndShape) {
 }
 
 TEST_F(TensorTypeFixture, Accessors) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId int64 = reg.read().getType(type::Int64);
     const TypeId dense = reg.interner().getOrCreateTensorType(int64, {4});
     ASSERT_NE(dense, INVALID_TYPE_ID);
@@ -66,18 +69,21 @@ TEST_F(TensorTypeFixture, Accessors) {
 }
 
 TEST_F(TensorTypeFixture, DynamicShapeAndProviderIncludes) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId elem = reg.read().getType(type::Float32);
     const TypeId dyn = reg.interner().getOrCreateTensorType(elem, {});
     ASSERT_NE(dyn, INVALID_TYPE_ID);
     EXPECT_TRUE(reg.read().store().tensorDimensions(dyn).empty());
-    EXPECT_FALSE(reg.read().builtins().preprocIncludeOf(dyn).empty());
+    // Заголовок принадлежит провайдеру tensor.trust, а не структурному узлу.
+    EXPECT_TRUE(test::cppFactsViewOf(m_ctx).preprocIncludeOf(dyn).empty());
+    ASSERT_NE(test::defineBuiltinImplChecked(reg.read(), m_target, type::Tensor, "trust::Tensor", {"@stdlib/tensor.hpp"}, {"tensor"}), INVALID_TYPE_ID);
+    EXPECT_FALSE(test::cppFactsViewOf(m_ctx).preprocIncludeOf(dyn).empty());
 }
 
 // Форма тензора входит в identity (TensorShapeTag): порядок размерностей значим,
 // sparse/dense и динамическая форма - отдельные типы.
 TEST_F(TensorTypeFixture, ShapeIsPartOfIdentity) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId elem = reg.read().getType(type::Float32);
     const TypeId dense = reg.interner().getOrCreateTensorType(elem, {2, 3});
     EXPECT_EQ(reg.interner().getOrCreateTensorType(elem, {2, 3}), dense);

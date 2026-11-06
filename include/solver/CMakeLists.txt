@@ -7,7 +7,7 @@ trust_component(solver
     INTERNAL_DIRS impl smt vc
     PUBLIC_HEADERS smt_ast.hpp smt_printer.hpp solver.hpp trust_to_smt.hpp
     SOURCES
-        smt/smt_printer.cpp vc/sort_mapper.cpp solver.cpp trust_to_smt.cpp
+        smt/smt_printer.cpp vc/sort_mapper.cpp impl/solver.cpp impl/trust_to_smt.cpp
         impl/smt_expr_enc.cpp impl/smt_vcgen.cpp impl/smt_assembler.cpp
     LINK_PUBLIC diag_lib ir_lib analysis_lib types_lib ast_lib session_lib
     LINK_PRIVATE sourcemap_lib

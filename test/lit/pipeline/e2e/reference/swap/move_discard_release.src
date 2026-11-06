@@ -7,6 +7,7 @@
 
 # `@move(h)` (→ `h :=: _`) перемещает владение в discard: временное материализуется и сразу
 # разрушается, поэтому deleter вызывается СРАЗУ (до конца области видимости): freed=1.
+\std();
 @include("countdel.hpp")
 CountDel ::= %CountDel { };
 alloc_handle():@[reftype(ptr)@] Int32 := %test_alloc...;

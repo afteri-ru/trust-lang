@@ -1,4 +1,3 @@
-// src/verify/flags.cpp
 // Пер-компонентная регистрация флагов `verify` (см. diag/registry.hpp) + разбор режима гейта.
 #include "verify/verify.hpp"
 

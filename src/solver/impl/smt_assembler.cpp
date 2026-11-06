@@ -1,4 +1,3 @@
-// src/solver/impl/smt_assembler.cpp
 // Сборка SMT-LIB 2 скрипта из плана проверки (см. include/solver/impl/smt_assembler.hpp).
 
 #include "solver/impl/smt_assembler.hpp"

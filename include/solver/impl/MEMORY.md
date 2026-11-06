@@ -2,14 +2,14 @@
 
 > scope: include/solver/impl
 > role: persistent-memory
-> last_reviewed: 2026-11-04
+> last_reviewed: 2026-11-13
 > review_period: 30
-> max_size: 4000
 
 ## Architecture
 
 Реализация бэкенда: `smt_assembler.hpp` (печать SMT-LIB), `solver_z3.hpp`/`solver_stub.hpp` (Z3 или
-stub), `diag.hpp` (диагностики solver).
+stub), `diag.hpp` (диагностики solver), `impl/solver.cpp` (фасад `createSolver`/`runScript`) и
+`impl/trust_to_smt.cpp` (мост AST→SMT-LIB).
 
 ## Facts and invariants
 

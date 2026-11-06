@@ -1,0 +1,24 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust --temp-dir $TD/build -o $TD/app $TD/main.src > %t.out 2>&1
+# RUN: %FileCheck %s <%t.out
+# CHECK: warning: namespace alias 'a' targets a namespace area and is not exported to importers
+#
+# Namespace-алиас с ЦЕЛЬЮ-ОБЛАСТЬЮ в блоке интерфейса НЕ экспортируется импортёрам (цель без
+# модульной квалификации, реэкспорт невыразим) — вместо тихого пропуска выдаётся предупреждение.
+
+//--- main.src
+\facade();
+@main():Int32 := { @return 0; };
+
+//--- facade.src
+\facade {
+    \lib();
+    a :- ns::;
+};
+
+//--- lib.src
+\lib;
+ns:: {
+    g():Int32 := { @return 1; };
+};

@@ -2,8 +2,10 @@
 // Юнит-тесты вынесенных алгоритмов types: подстановка типовых параметров
 // (types/subst/template_subst.hpp) и рендеринг C++-имени (types/registry/type_printer.hpp).
 
+#include "support/cpp_facts_test_util.hpp"
 #include "session/context.hpp"
 #include "types/registry/type_printer.hpp"
+#include "transpiler/type/cpp_type_renderer.hpp"
 #include "types/type_system.hpp"
 #include "types/subst/template_subst.hpp"
 #include "types/type_data.hpp"
@@ -22,15 +24,17 @@ class TypesAlgorithmsFixture : public ::testing::Test {
   protected:
     Context m_ctx;
     std::unique_ptr<TypeSystem> m_types;
+    TargetContract m_target;
 
     void SetUp() override {
         m_types = std::make_unique<TypeSystem>(m_ctx.diag(), m_ctx.opts());
         m_ctx.setTypes(m_types.get());
+        test::installTargetFacts(m_ctx, m_target);
     }
 };
 
 TEST_F(TypesAlgorithmsFixture, SubstituteTemplateParamInArray) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId param = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId i32 = reg.read().getType("Int32");
     const TypeId arr = reg.interner().getOrCreateArrayType(param);
@@ -40,7 +44,7 @@ TEST_F(TypesAlgorithmsFixture, SubstituteTemplateParamInArray) {
 }
 
 TEST_F(TypesAlgorithmsFixture, PackInSinglePositionIsInvalid) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId param = reg.interner().getOrCreateTemplateParamType("T");
     const TemplateBindings pack{{param, true, {reg.read().getType("Int32"), reg.read().getType("Int64")}}};
 
@@ -48,7 +52,7 @@ TEST_F(TypesAlgorithmsFixture, PackInSinglePositionIsInvalid) {
 }
 
 TEST_F(TypesAlgorithmsFixture, SubstituteTemplateArgListSplicesPack) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId param = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId i32 = reg.read().getType("Int32");
     const TypeId i64 = reg.read().getType("Int64");
@@ -62,7 +66,7 @@ TEST_F(TypesAlgorithmsFixture, SubstituteTemplateArgListSplicesPack) {
 }
 
 TEST_F(TypesAlgorithmsFixture, InstantiateCallSignatureSubstitutesParam) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId param = reg.interner().getOrCreateTemplateParamType("T");
     const TypeId i32 = reg.read().getType("Int32");
     const TypeId declared = reg.interner().getOrCreateFunctionType(param, {param});
@@ -79,33 +83,33 @@ TEST_F(TypesAlgorithmsFixture, InstantiateCallSignatureSubstitutesParam) {
 }
 
 TEST_F(TypesAlgorithmsFixture, RenderBuiltinCppName) {
-    TypeSystem& reg = m_ctx.types();
-    const auto name = printType(reg.printer(), reg.read().getType("Int32"), TypePrintPolicy{TypePrintTarget::kCpp});
+    TypeSystem& reg = *m_types;
+    const auto name = CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(reg.read().getType("Int32"));
     ASSERT_TRUE(name.has_value());
     EXPECT_EQ(*name, "int32_t");
 }
 
 TEST_F(TypesAlgorithmsFixture, RenderUserAliasKeepsTrustName) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId alias = reg.registrar().registerType("MyInt", reg.read().getType("Int32"));
     ASSERT_NE(alias, INVALID_TYPE_ID);
-    const auto name = printType(reg.printer(), alias, TypePrintPolicy{TypePrintTarget::kCpp});
+    const auto name = CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(alias);
     ASSERT_TRUE(name.has_value());
-    EXPECT_EQ(*name, "c_MyInt");
+    EXPECT_EQ(*name, "MyInt");
 }
 
 TEST_F(TypesAlgorithmsFixture, RenderFunctionType) {
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = *m_types;
     const TypeId i32 = reg.read().getType("Int32");
     const TypeId fn = reg.interner().getOrCreateFunctionType(i32, {i32});
-    const auto name = printType(reg.printer(), fn, TypePrintPolicy{TypePrintTarget::kCpp});
+    const auto name = CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(fn);
     ASSERT_TRUE(name.has_value());
     EXPECT_EQ(*name, "std::function<int32_t(int32_t)>");
 }
 
 TEST_F(TypesAlgorithmsFixture, RenderAbsentTypeHasNoCppName) {
-    TypeSystem& reg = m_ctx.types();
-    const auto name = printType(reg.printer(), INVALID_TYPE_ID, TypePrintPolicy{TypePrintTarget::kCpp});
+    TypeSystem& reg = *m_types;
+    const auto name = CppTypeRenderer(reg.read(), test::cppFactsViewOf(m_ctx)).render(INVALID_TYPE_ID);
     EXPECT_FALSE(name.has_value());
 }
 

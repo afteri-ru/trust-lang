@@ -1,14 +1,11 @@
 #pragma once
 
-// include/pipeline/backend/stages.hpp
 // Backend-конвейер: упорядоченная таблица стадий, которые читают HIR/MIR после семантики.
-//
 // Инварианты:
 //   * порядок стадий = порядок в BACKEND_STAGE_LIST (Solver → Cpp);
 //   * имена стадий производятся из того же списка (не хранятся в таблице);
 //   * StageOutcome::NoWork («нечего делать») НЕ останавливает конвейер;
 //   * StageOutcome::Error останавливает конвейер, если у стадии stopOnFailure == true.
-//
 // Реализации стадий и `runBackendStages` живут у владельцев (pipeline); компонент `backend`
 // — только контракт (INTERFACE-библиотека), поэтому новых link-рёбер не появляется.
 
@@ -22,7 +19,7 @@
 namespace trust::backend {
 
 /// Идентичность стадии. Порядок значений совпадает с порядком строк BACKEND_STAGE_LIST.
-enum class BackendKind { Solver, Cpp, Verify, kCount };
+enum class BackendKind { Solver, Cpp, Verify, Noop, kCount };
 
 struct BackendStage {
     bool needsHir = true;
@@ -36,7 +33,8 @@ struct BackendStage {
 #define BACKEND_STAGE_LIST(M)                                                                                               \
     M(Solver, "solver", /*needsHir=*/true, /*needsMir=*/true, /*stopOnFailure=*/true, solverStageRequested, runSolverStage) \
     M(Cpp, "cpp", /*needsHir=*/true, /*needsMir=*/false, /*stopOnFailure=*/true, cppStageRequested, runCppStage)            \
-    M(Verify, "verify", /*needsHir=*/true, /*needsMir=*/true, /*stopOnFailure=*/true, verifyStageRequested, runVerifyStage)
+    M(Verify, "verify", /*needsHir=*/true, /*needsMir=*/true, /*stopOnFailure=*/true, verifyStageRequested, runVerifyStage) \
+    M(Noop, "noop", /*needsHir=*/true, /*needsMir=*/false, /*stopOnFailure=*/true, noopStageRequested, runNoopStage)
 
 bool solverStageRequested(const BackendRequest& req) noexcept;
 bool cppStageRequested(const BackendRequest& req) noexcept;
@@ -44,6 +42,9 @@ StageOutcome runSolverStage(BackendServices& services, const BackendRequest& req
 StageOutcome runCppStage(BackendServices& services, const BackendRequest& req, StageOutputs& out);
 bool verifyStageRequested(const BackendRequest& req) noexcept;
 StageOutcome runVerifyStage(BackendServices& services, const BackendRequest& req, StageOutputs& out);
+/// Стаб-стадия бэкенда (R37): подключается строкой таблицы, потребляет `BackendRequest` данными.
+bool noopStageRequested(const BackendRequest& req) noexcept;
+StageOutcome runNoopStage(BackendServices& services, const BackendRequest& req, StageOutputs& out);
 
 inline constexpr std::array<BackendStage, static_cast<std::size_t>(BackendKind::kCount)> kBackendStages = {{
 #define BACKEND_STAGE_ROW(Name, label, needsHir, needsMir, stopOnFailure, requestedFn, runFn) {needsHir, needsMir, stopOnFailure, requestedFn, runFn},

@@ -5,7 +5,7 @@
 #  - `a, b, c := t` - связывание конкретным типом элемента кортежа (int8_t);
 #  - `x, y, rest... := u` - rest = под-кортеж std::make_tuple(std::get<2>, std::get<3>);
 #  - `v, _... := u` - отброс остатка;
-#  - `t1:Int32, t2 := w` - аннотация типа цели: int32_t c_t1 вместо auto;
+#  - `t1:Int32, t2 := w` - аннотация типа цели: int32_t t1 вместо auto;
 #  - `p, _, r := s` - пропуск `_` (занимает индекс, std::get<1> не связывается).
 
 @main() := {
@@ -19,18 +19,18 @@
     s := (1, 2, 3,):Tuple;
     p, _, r := s;
 };
-# CHECK: std::tuple<int8_t, int8_t, int8_t> c_t = std::make_tuple(10, 20, 30);
-# CHECK-NEXT: int8_t c_a = std::get<0>(c_t);
-# CHECK-NEXT: int8_t c_b = std::get<1>(c_t);
-# CHECK-NEXT: int8_t c_c = std::get<2>(c_t);
-# CHECK-NEXT: std::tuple<int8_t, int8_t, int8_t, int8_t> c_u = std::make_tuple(10, 20, 30, 40);
-# CHECK-NEXT: int8_t c_x = std::get<0>(c_u);
-# CHECK-NEXT: int8_t c_y = std::get<1>(c_u);
-# CHECK-NEXT: std::tuple<int8_t, int8_t> c_rest = std::make_tuple(std::get<2>(c_u), std::get<3>(c_u));
-# CHECK-NEXT: int8_t c_v = std::get<0>(c_u);
-# CHECK-NEXT: std::tuple<int8_t, int8_t> c_w = std::make_tuple(10, 20);
-# CHECK-NEXT: int32_t c_t1 = std::get<0>(c_w);
-# CHECK-NEXT: int8_t c_t2 = std::get<1>(c_w);
-# CHECK-NEXT: std::tuple<int8_t, int8_t, int8_t> c_s = std::make_tuple(1, 2, 3);
-# CHECK-NEXT: int8_t c_p = std::get<0>(c_s);
-# CHECK-NEXT: int8_t c_r = std::get<2>(c_s);
+# CHECK: std::tuple<int8_t, int8_t, int8_t> t = std::make_tuple(10, 20, 30);
+# CHECK-NEXT: int8_t a = std::get<0>(t);
+# CHECK-NEXT: int8_t b = std::get<1>(t);
+# CHECK-NEXT: int8_t c = std::get<2>(t);
+# CHECK-NEXT: std::tuple<int8_t, int8_t, int8_t, int8_t> u = std::make_tuple(10, 20, 30, 40);
+# CHECK-NEXT: int8_t x = std::get<0>(u);
+# CHECK-NEXT: int8_t y = std::get<1>(u);
+# CHECK-NEXT: std::tuple<int8_t, int8_t> rest = std::make_tuple(std::get<2>(u), std::get<3>(u));
+# CHECK-NEXT: int8_t v = std::get<0>(u);
+# CHECK-NEXT: std::tuple<int8_t, int8_t> w = std::make_tuple(10, 20);
+# CHECK-NEXT: int32_t t1 = std::get<0>(w);
+# CHECK-NEXT: int8_t t2 = std::get<1>(w);
+# CHECK-NEXT: std::tuple<int8_t, int8_t, int8_t> s = std::make_tuple(1, 2, 3);
+# CHECK-NEXT: int8_t p = std::get<0>(s);
+# CHECK-NEXT: int8_t r = std::get<2>(s);

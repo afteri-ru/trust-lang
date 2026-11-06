@@ -1,0 +1,19 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# Namespace-алиас области из ИМПОРТИРОВАННОГО модуля: `a :- ns::;` -> `a::g()` -> `ns::g()`
+# (область резолвится по видимым модулям без модульной квалификации в синтаксисе).
+
+//--- main.src
+\lib();
+a :- ns::;
+@main():Int32 := { @return a::g() - 5; };
+
+//--- lib.src
+\lib;
+ns:: {
+    g():Int32 := { @return 5; };
+};

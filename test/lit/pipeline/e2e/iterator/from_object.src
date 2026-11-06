@@ -1,11 +1,11 @@
 # RUN: %trust -q --emit-cpp %s > %t.out 2>&1 && %FileCheck %s <%t.out
 
-# Iterator<T> из Trust-объекта: range-конструктор trust::Iterator<T>, без c_Iterator.
+# Iterator<T> из Trust-объекта: range-конструктор trust::Iterator<T>, без Iterator.
+\std();
 @main():Int32 := {
     a := [1, 2, 3,];
     it : Iterator<Int32> := Iterator(a);
     @return 0;
 }
-# CHECK: #include "stdlib/iterator.hpp"
-# CHECK: trust::Iterator<int32_t> c_it = trust::Iterator<int32_t>(c_a);
-# CHECK-NOT: c_Iterator
+# CHECK: #include "iterator.hppt"
+# CHECK: Iterator<int32_t> it = Iterator<int32_t>(a);

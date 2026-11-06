@@ -1,10 +1,9 @@
 # MEMORY.md
 
-> scope: include/playground/server (+ src/playground)
+> scope: include/playground/server (+ src/playground/server)
 > role: persistent-memory
-> last_reviewed: 2026-11-05
+> last_reviewed: 2026-11-13
 > review_period: 30
-> max_size: 4000
 
 ## Architecture
 

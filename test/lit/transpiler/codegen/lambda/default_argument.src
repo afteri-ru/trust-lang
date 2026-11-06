@@ -1,0 +1,11 @@
+# RUN: %trust -q --temp-dir %t.dir --emit-cpp %s > %t.out && %FileCheck %s <%t.out
+
+# Default-аргумент лямбды эмитится ТЕМ ЖЕ путём, что и default-аргумент функции
+# (`renderExprToString`): значение — обычное выражение, overflow-обёртка НЕ добавляется
+# (default не является телом функции).
+@main() := {
+    f := [](x : Int32 = 1 + 2) : Int32 { @return x; };
+    y := f();
+}
+# CHECK: std::function<int32_t(int32_t)> f = [](int32_t x = (1 + 2)) -> int32_t {
+# CHECK-NOT: __builtin_add_overflow

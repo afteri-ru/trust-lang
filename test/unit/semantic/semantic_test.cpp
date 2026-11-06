@@ -1,3 +1,4 @@
+#include "target/runtime_symbols.hpp"
 #include "semantic/semantic_test_fixture.hpp"
 #include "ir/hir_module.hpp"
 #include "semantic/ref/definite_assignment.hpp"
@@ -14,7 +15,7 @@ TEST_F(SemanticTest, VarDeclSimple) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_TRUE(ok);
@@ -39,14 +40,14 @@ TEST_F(SemanticTest, AnnotationTypeMaterializedForBackend) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     ASSERT_TRUE(typePtr->resolvedTypeId.isValid()) << "semantic analysis must materialize the annotation type on the node";
     const auto int32 = m_ctx.readTypes().findType("Int32");
     ASSERT_TRUE(int32.has_value());
     EXPECT_EQ(typePtr->resolvedTypeId, *int32);
 
-    HirModule hir = buildHir(seq, m_ctx);
+    HirModule hir = buildHir(seq, m_ctx, *m_types);
     ASSERT_EQ(hir.size(), 1u);
     const auto& hirVar = static_cast<const VarDecl&>(*hir.nodes()[0]);
     ASSERT_NE(hirVar.m_type, nullptr);
@@ -70,7 +71,7 @@ TEST_F(SemanticTest, TypeNameIdentMaterializedForBackend) {
     seq.push_back(decl);
     seq.push_back(alias);
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     const auto myInt = m_ctx.readTypes().findType("MyInt");
     ASSERT_TRUE(myInt.has_value());
@@ -96,7 +97,7 @@ TEST_F(SemanticTest, ExprStateKeepsInferredQualifier) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     const QualType st = runner.analysis().facts().exprState(*initPtr);
@@ -126,13 +127,13 @@ TEST_F(SemanticTest, VarDeclReftypeSetsRefType) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
     ASSERT_NE(sym->type.getTypeId(), INVALID_TYPE_ID);
-    EXPECT_EQ(getRefType(getTypeKind(sym->type.getTypeId())), RefType::kShared);
+    EXPECT_EQ(typeRefOf(sym->type.getTypeId()), RefType::kShared);
 }
 
 // Проверка утверждений: runtime-символы (trust::trust__abort__ / trust::formatMessage)
@@ -140,7 +141,7 @@ TEST_F(SemanticTest, VarDeclReftypeSetsRefType) {
 // (%trust::trust__abort__ и т.п.) как известных нативных функций (не «undefined name»).
 TEST_F(SemanticTest, RuntimeSymbolsRegistered) {
     std::set<std::string> names;
-    for (const auto& rs : m_ctx.readTypes().builtins().runtimeSymbols()) {
+    for (const auto& rs : runtimeSymbols()) {
         names.insert(rs.symbol);
     }
     EXPECT_NE(names.find("trust::trust__abort__"), names.end());
@@ -157,7 +158,7 @@ TEST_F(SemanticTest, RangeExprElementTypeJoin) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     // Элементный тип диапазона - Int64 (join двух Int-литералов).
@@ -165,7 +166,7 @@ TEST_F(SemanticTest, RangeExprElementTypeJoin) {
     // Тип переменной - структурный Range<Int64> (не абстрактный :Range).
     auto* sym = runner.analysis().symbols().resolve("r");
     ASSERT_NE(sym, nullptr);
-    const TypeId expected = m_ctx.types().interner().getOrCreateRangeType(m_ctx.readTypes().getType(type::Int64));
+    const TypeId expected = m_types->interner().getOrCreateRangeType(m_ctx.readTypes().getType(type::Int64));
     EXPECT_EQ(m_ctx.readTypes().store().desugaredTypeId(sym->type.getTypeId()), expected);
     EXPECT_TRUE(m_ctx.readTypes().store().isRangeType(expected));
     EXPECT_EQ(m_ctx.readTypes().store().rangeElementType(expected), m_ctx.readTypes().getType(type::Int64));
@@ -185,7 +186,7 @@ TEST_F(SemanticTest, DupDeclError) {
     seq.push_back(std::move(a1));
     seq.push_back(std::move(a2));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_FALSE(ok);
@@ -206,7 +207,7 @@ TEST_F(SemanticTest, UndefinedNameRef) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_FALSE(ok);
@@ -227,7 +228,7 @@ TEST_F(SemanticTest, UseAfterDecl) {
     seq.push_back(std::move(a1));
     seq.push_back(std::move(a2));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_TRUE(ok);
@@ -240,7 +241,7 @@ TEST_F(SemanticTest, LiteralStandalone) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::make_shared<Literal>(ParserToken::Kind::IntLiteral, std::move(litTerm)));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_TRUE(ok);
@@ -268,7 +269,7 @@ TEST_F(SemanticTest, EnumDeclRegistersType) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(enumDecl));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
     EXPECT_TRUE(ok);
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
@@ -310,7 +311,7 @@ TEST_F(SemanticTest, EnumMemberAccessResolvesToEnumType) {
         auto tname = std::make_shared<IdentType>(std::string("Color"));
         seq.push_back(std::make_shared<VarDecl>("b", std::move(tname), memberRef("RED")));
         m_ctx.diag().clear();
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         EXPECT_TRUE(runner.run(seq));
         EXPECT_EQ(m_ctx.diag().errorCount(), 0);
     }
@@ -321,7 +322,7 @@ TEST_F(SemanticTest, EnumMemberAccessResolvesToEnumType) {
         seq.push_back(std::make_shared<Binary>(*enumDecl));
         auto tname = std::make_shared<IdentType>(std::string("Color"));
         seq.push_back(std::make_shared<VarDecl>("b", std::move(tname), memberRef("BLUE")));
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         EXPECT_FALSE(runner.run(seq));
         EXPECT_GT(m_ctx.diag().errorCount(), 0);
     }
@@ -339,7 +340,7 @@ TEST_F(SemanticTest, VariantDeclRegistersType) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(variantDecl));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -368,7 +369,7 @@ TEST_F(SemanticTest, VariantUnknownMemberTypeReportsError) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(variantDecl));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -392,11 +393,12 @@ static AstNodePtr makeFieldInit(FieldInit init) {
 static std::shared_ptr<Binary> makeRecordTypeDecl(const char* name, const char* base, std::initializer_list<std::pair<const char*, const char*>> fields,
                                                   FieldInit init = FieldInit::Default) {
     auto rec = std::make_shared<RecordDecl>(std::string(name));
-    rec->m_baseTypes.push_back(std::make_shared<IdentType>(std::string(base)));
-    rec->m_body.emplace();
+    rec->m_baseTypes.push_back(TypeBase{std::make_shared<IdentType>(std::string(base)), Visibility::Public});
+    std::vector<AstNodePtr> members;
     for (const auto& [fname, ftype] : fields) {
-        rec->m_body->push_back(std::make_shared<VarDecl>(std::string(fname), std::make_shared<IdentType>(std::string(ftype)), makeFieldInit(init)));
+        members.push_back(std::make_shared<VarDecl>(std::string(fname), std::make_shared<IdentType>(std::string(ftype)), makeFieldInit(init)));
     }
+    rec->m_definition = Definition::fromBody(std::move(members));
     return std::make_shared<Binary>(ParserToken::Kind::TypeDecl, std::make_shared<IdentName>(std::string(name)), std::move(rec));
 }
 
@@ -407,7 +409,7 @@ TEST_F(SemanticTest, StructDeclRegistersPodRecord) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(d));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -415,12 +417,12 @@ TEST_F(SemanticTest, StructDeclRegistersPodRecord) {
     ASSERT_TRUE(tid.has_value());
     EXPECT_TRUE(m_types->read().store().isStructType(*tid));
     EXPECT_FALSE(m_types->read().store().isClassType(*tid));
-    const auto* rd = m_types->read().store().recordData(*tid);
-    ASSERT_NE(rd, nullptr);
-    ASSERT_EQ(rd->fields.size(), 2u);
-    EXPECT_EQ(rd->fields[0].name, "x");
-    EXPECT_EQ(m_types->read().store().desugaredTypeId(rd->fields[0].type.getTypeId()), m_types->read().getType(type::Int32));
-    EXPECT_TRUE(m_types->read().store().baseClasses(*tid).empty());
+    const auto* fields = m_types->read().store().fieldsOf(*tid);
+    ASSERT_NE(fields, nullptr);
+    ASSERT_EQ(fields->size(), 2u);
+    EXPECT_EQ((*fields)[0].name, "x");
+    EXPECT_EQ(m_types->read().store().desugaredTypeId((*fields)[0].type.getTypeId()), m_types->read().getType(type::Int32));
+    EXPECT_TRUE(m_types->read().store().basesOf(*tid).empty());
 }
 
 TEST_F(SemanticTest, StructFieldWithDefaultIsError) {
@@ -428,7 +430,7 @@ TEST_F(SemanticTest, StructFieldWithDefaultIsError) {
     auto d = makeRecordTypeDecl("Point", "Struct", {{"x", "Int32"}}, FieldInit::Default);
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(d));
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -439,7 +441,7 @@ TEST_F(SemanticTest, ClassDeclRegistersAndInherits) {
     seq.push_back(makeRecordTypeDecl("Animal", "Class", {{"name", "Int32"}}));
     seq.push_back(makeRecordTypeDecl("Dog", "Animal", {{"age", "Int32"}}));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -449,8 +451,8 @@ TEST_F(SemanticTest, ClassDeclRegistersAndInherits) {
     ASSERT_TRUE(dog.has_value());
     EXPECT_TRUE(m_types->read().store().isClassType(*dog));
     EXPECT_FALSE(m_types->read().store().isStructType(*dog));
-    ASSERT_EQ(m_types->read().store().baseClasses(*dog).size(), 1u);
-    EXPECT_EQ(m_types->read().store().desugaredTypeId(m_types->read().store().baseClasses(*dog)[0]), m_types->read().store().desugaredTypeId(*animal));
+    ASSERT_EQ(m_types->read().store().basesOf(*dog).size(), 1u);
+    EXPECT_EQ(m_types->read().store().desugaredTypeId(m_types->read().store().basesOf(*dog)[0].type), m_types->read().store().desugaredTypeId(*animal));
     EXPECT_TRUE(m_types->read().store().findField(*dog, "name").isValid()); // унаследованное поле
     EXPECT_TRUE(m_types->read().store().findField(*dog, "age").isValid());
     EXPECT_FALSE(m_types->read().store().findField(*dog, "missing").isValid());
@@ -462,7 +464,7 @@ TEST_F(SemanticTest, ClassFieldMayBeUninitialized) {
     seq.push_back(makeRecordTypeDecl("A", "Class", {{"x", "Int32"}}, FieldInit::None));
     seq.push_back(makeRecordTypeDecl("B", "Class", {{"y", "Int32"}}, FieldInit::Default));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 }
@@ -473,7 +475,7 @@ TEST_F(SemanticTest, StructCannotInherit) {
     seq.push_back(makeRecordTypeDecl("Base", "Struct", {{"a", "Int32"}}, FieldInit::None));
     seq.push_back(makeRecordTypeDecl("Derived", "Base", {{"b", "Int32"}}, FieldInit::None));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -493,7 +495,7 @@ TEST_F(SemanticTest, EnumTypedAndBareMembersViaArgNode) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(enumDecl));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -515,7 +517,7 @@ TEST_F(SemanticTest, ForwardVarDecl) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
@@ -532,21 +534,21 @@ TEST_F(SemanticTest, ForwardVarDeclNoType) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     auto* sym = runner.analysis().symbols().resolve("y");
     ASSERT_NE(sym, nullptr);
 }
 
-// Forward-объявление нативной переменной `%x := ...;` без типа → ошибка (нативные имена
-// транслируются в C++ напрямую, поэтому тип обязателен).
-TEST_F(SemanticTest, NativeForwardVarNoTypeError) {
-    auto var = std::make_shared<VarDecl>("%x", nullptr, nullptr);
+// Нативный импорт переменной без типа → ошибка (тип задаёт C++-представление символа).
+TEST_F(SemanticTest, NativeImportVarNoTypeError) {
+    auto var = std::make_shared<VarDecl>("x", nullptr, nullptr);
+    var->m_bindsNativeCpp = true;
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -561,7 +563,7 @@ TEST_F(SemanticTest, ForwardVarCompletedByDefinition) {
     seq.push_back(std::move(fwd));
     seq.push_back(std::move(def));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     auto* sym = runner.analysis().symbols().resolve("x");
     ASSERT_NE(sym, nullptr);
@@ -579,7 +581,7 @@ TEST_F(SemanticTest, TwoVarDefinitionsError) {
     seq.push_back(std::move(v1));
     seq.push_back(std::move(v2));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -593,7 +595,7 @@ TEST_F(SemanticTest, DefinitionThenForwardError) {
     seq.push_back(std::move(def));
     seq.push_back(std::move(fwd));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -611,7 +613,7 @@ TEST_F(SemanticTest, TypeAliasBoundInScopeAndResolvable) {
     seq.push_back(std::move(typeDecl));
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     // Алиас зарегистрирован в реестре и связан в скоуп-стеке.
@@ -641,7 +643,7 @@ TEST_F(SemanticTest, TypeAliasCollidesWithVar) {
     seq.push_back(std::move(typeDecl));
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -656,12 +658,12 @@ TEST_F(SemanticTest, TypeSystemResetPerRun) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(typeDecl));
 
-    SemanticPassRunner r1(m_ctx);
+    SemanticPassRunner r1(m_ctx, *m_types);
     ASSERT_TRUE(r1.run(seq));
     ASSERT_TRUE(m_ctx.readTypes().findType("y").has_value());
 
     // Второй run сбрасывает реестр к builtin-состоянию (упорядоченный жизненный цикл).
-    SemanticPassRunner r2(m_ctx);
+    SemanticPassRunner r2(m_ctx, *m_types);
     std::vector<AstNodePtr> empty;
     ASSERT_TRUE(r2.run(empty));
     EXPECT_FALSE(m_ctx.readTypes().findType("y").has_value());
@@ -686,12 +688,12 @@ TEST_F(SemanticTest, LoweringWrapsSemicolonStmt) {
     seq.push_back(std::move(xVar));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     // Lowering выполняется при построении HIR (клон AST + lowering): сама AST остаётся неизменённой,
     // производная форма строится отдельно.
-    HirModule hir = buildHir(seq, m_ctx);
+    HirModule hir = buildHir(seq, m_ctx, *m_types);
     ASSERT_EQ(hir.size(), 2u);
     const auto& out = hir.nodes();
     ASSERT_EQ(out[0]->kind(), ParserToken::Kind::VarDecl);
@@ -717,7 +719,7 @@ TEST_F(SemanticTest, DictLiteralNamedElementsNotRegistered) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     // Никаких ошибок (в т.ч. «undefined name 'two'/'name'»).
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
@@ -757,7 +759,7 @@ TEST_F(SemanticTest, DictFieldTypeInference) {
     seq.push_back(std::move(xVar));
     seq.push_back(std::move(yVar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -768,10 +770,10 @@ TEST_F(SemanticTest, DictFieldTypeInference) {
     // На символе d: размерность и типы полей.
     const Symbol* dSym = runner.analysis().symbols().resolve("d");
     ASSERT_NE(dSym, nullptr);
-    EXPECT_EQ(dSym->dims, 3);
-    ASSERT_EQ(dSym->dictFieldTypes.size(), 3u);
-    EXPECT_EQ(dSym->dictFieldTypes[1].first, "two");
-    EXPECT_EQ(clearFlag(dSym->dictFieldTypes[1].second.getTypeId(), TypeFlag::Inferred), int8);
+    ASSERT_TRUE(dSym->dictElements.has_value());
+    EXPECT_EQ(dSym->dictElements->size(), 3u);
+    EXPECT_EQ((*dSym->dictElements)[1].name, "two");
+    EXPECT_EQ(clearFlag((*dSym->dictElements)[1].type.getTypeId(), TypeFlag::Inferred), int8);
 }
 
 TEST_F(SemanticTest, DictAppendSpreadLiteral) {
@@ -802,19 +804,19 @@ TEST_F(SemanticTest, DictAppendSpreadLiteral) {
     seq.push_back(std::move(dVar));
     seq.push_back(std::move(append));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
     const TypeId int8 = m_types->read().findType(type::Int8).value_or(INVALID_TYPE_ID);
     const Symbol* dSym = runner.analysis().symbols().resolve("d");
     ASSERT_NE(dSym, nullptr);
-    EXPECT_EQ(dSym->dims, 4);
-    ASSERT_EQ(dSym->dictFieldTypes.size(), 4u);
-    EXPECT_EQ(dSym->dictFieldTypes[2].first, "three");
-    EXPECT_EQ(clearFlag(dSym->dictFieldTypes[2].second.getTypeId(), TypeFlag::Inferred), int8);
-    EXPECT_EQ(dSym->dictFieldTypes[3].first, "");
-    EXPECT_EQ(clearFlag(dSym->dictFieldTypes[3].second.getTypeId(), TypeFlag::Inferred), int8);
+    ASSERT_TRUE(dSym->dictElements.has_value());
+    EXPECT_EQ(dSym->dictElements->size(), 4u);
+    EXPECT_EQ((*dSym->dictElements)[2].name, "three");
+    EXPECT_EQ(clearFlag((*dSym->dictElements)[2].type.getTypeId(), TypeFlag::Inferred), int8);
+    EXPECT_EQ((*dSym->dictElements)[3].name, "");
+    EXPECT_EQ(clearFlag((*dSym->dictElements)[3].type.getTypeId(), TypeFlag::Inferred), int8);
 }
 
 TEST_F(SemanticTest, DictAppendSpreadVar) {
@@ -846,44 +848,44 @@ TEST_F(SemanticTest, DictAppendSpreadVar) {
     seq.push_back(std::move(d2Var));
     seq.push_back(std::move(append));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
     const Symbol* dSym = runner.analysis().symbols().resolve("d");
     ASSERT_NE(dSym, nullptr);
-    EXPECT_EQ(dSym->dims, 3);
-    ASSERT_EQ(dSym->dictFieldTypes.size(), 3u);
-    EXPECT_EQ(dSym->dictFieldTypes[1].first, "a");
-    EXPECT_EQ(dSym->dictFieldTypes[2].first, "b");
+    ASSERT_TRUE(dSym->dictElements.has_value());
+    EXPECT_EQ(dSym->dictElements->size(), 3u);
+    EXPECT_EQ((*dSym->dictElements)[1].name, "a");
+    EXPECT_EQ((*dSym->dictElements)[2].name, "b");
 }
 
 TEST_F(SemanticTest, LoweringRewritesNamedBreakToGoto) {
 
     // Строим тело функции с безымянным while и именованным break на цикл (label "L").
-    auto funcTerm = Term::Create(TermID::NAME, "%f", {}, parser::token_type::NAME);
+    auto funcTerm = Term::Create(TermID::NAME, "f", {}, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
 
     // Именованный break: L:: |>| (BreakStmt с label L).
     auto breakTerm = Term::Create(TermID::INT_BREAK, "L::");
     auto breakStmt = std::make_shared<JumpStmt>(ParserToken::Kind::BreakStmt, std::move(breakTerm));
 
-    func->m_body = std::vector<AstNodePtr>{std::move(breakStmt)};
+    func->m_definition = Definition::fromBody({std::move(breakStmt)});
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     // Тело функции в HIR: [BreakStmt] → именованный break стал GotoStmt (LabelRef).
-    HirModule hir = buildHir(seq, m_ctx);
+    HirModule hir = buildHir(seq, m_ctx, *m_types);
     ASSERT_EQ(hir.size(), 1u);
     auto* fd = static_cast<FuncDecl*>(hir.nodes()[0].get());
-    ASSERT_TRUE(fd->m_body.has_value());
-    ASSERT_EQ(fd->m_body->size(), 1u);
-    ASSERT_EQ((*fd->m_body)[0]->kind(), ParserToken::Kind::GotoStmt);
-    auto* gs = static_cast<LabelRef*>((*fd->m_body)[0].get());
+    ASSERT_TRUE(fd->hasBody());
+    ASSERT_EQ((*fd->body()).size(), 1u);
+    ASSERT_EQ((*fd->body())[0]->kind(), ParserToken::Kind::GotoStmt);
+    auto* gs = static_cast<LabelRef*>((*fd->body())[0].get());
     EXPECT_EQ(requiredText(*gs), "L_break");
 }
 
@@ -896,7 +898,7 @@ TEST_F(SemanticTest, LintDisabledByDefault) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().warningCount(), 0);
 }
@@ -909,7 +911,7 @@ TEST_F(SemanticTest, LintUnusedVarWarning) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().warningCount(), 0);
 }
@@ -927,7 +929,7 @@ TEST_F(SemanticTest, LintUsedVarNoWarning) {
     seq.push_back(std::move(a));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
 
     // Ровно одно unused-variable (b); a используется в инициализаторе b.
@@ -952,7 +954,7 @@ TEST_F(SemanticTest, LintUnusedVarInModule) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(mod));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().warningCount(), 0);
 }
@@ -971,7 +973,7 @@ TEST_F(SemanticTest, LintUnusedParameterWarning) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     int paramWarnings = 0;
@@ -992,7 +994,7 @@ TEST_F(SemanticTest, ContextMacroNamespaceStringified) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(ns));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
 
     const auto& v = static_cast<const VarDecl&>(*seq[0]->as_sequence()->m_body[0]);
@@ -1003,20 +1005,20 @@ TEST_F(SemanticTest, ContextMacroNamespaceStringified) {
 
 TEST_F(SemanticTest, ContextMacroFuncSigAlwaysString) {
     // @__FUNCSIG__ внутри функции → сразу StrChar с сигнатурой.
-    auto fn = std::make_shared<FuncDecl>("%f");
+    auto fn = std::make_shared<FuncDecl>("f");
     fn->m_type = std::make_shared<IdentType>("Void");
-    fn->m_body =
-        std::vector<AstNodePtr>{std::make_shared<VarDecl>("s", nullptr, std::make_shared<ContextMacro>(ParserToken::Kind::ContextMacro, "@__FUNCSIG__"))};
+    fn->m_definition =
+        Definition::fromBody({std::make_shared<VarDecl>("s", nullptr, std::make_shared<ContextMacro>(ParserToken::Kind::ContextMacro, "@__FUNCSIG__"))});
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(fn));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
 
     auto& fd = static_cast<FuncDecl&>(*seq[0]);
-    ASSERT_TRUE(fd.m_body.has_value());
-    const auto& v = static_cast<const VarDecl&>(*fd.m_body->at(0));
+    ASSERT_TRUE(fd.hasBody());
+    const auto& v = static_cast<const VarDecl&>(*(*fd.body()).at(0));
     ASSERT_NE(v.m_initializer, nullptr);
     EXPECT_EQ(v.m_initializer->kind(), ParserToken::Kind::StrChar);
     EXPECT_EQ(requiredText(*v.m_initializer), "f():Void");
@@ -1028,7 +1030,7 @@ TEST_F(SemanticTest, ContextMacroFuncOutsideFunctionError) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -1037,16 +1039,16 @@ TEST_F(SemanticTest, ContextMacroFuncOutsideFunctionError) {
 
 TEST_F(SemanticTest, CheckAreaOkInsideFunction) {
     // Маркер area=Function ВНУТРИ функции -> проходит, маркер удаляется, ошибок нет.
-    auto fn = std::make_shared<FuncDecl>("%f");
+    auto fn = std::make_shared<FuncDecl>("f");
     fn->m_type = std::make_shared<IdentType>("Void");
     auto marker = std::make_shared<CheckAreaStmt>(ParserToken::Kind::CheckAreaStmt, "@__CHECK_AREA__");
     marker->area = AreaKind::Function;
-    fn->m_body = std::vector<AstNodePtr>{std::move(marker)};
+    fn->m_definition = Definition::fromBody({std::move(marker)});
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(fn));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 }
@@ -1059,7 +1061,7 @@ TEST_F(SemanticTest, CheckAreaViolationTopLevelDefaultWarning) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(marker));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
     bool found = false;
@@ -1080,27 +1082,27 @@ TEST_F(SemanticTest, CheckAreaViolationTopLevelError) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(marker));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
 
 TEST_F(SemanticTest, CheckAreaMissingAttributeError) {
     // Требуемый атрибут (лежит в attrs() самого маркера) отсутствует у текущей области -> error.
-    auto fn = std::make_shared<FuncDecl>("%g");
+    auto fn = std::make_shared<FuncDecl>("g");
     fn->m_type = std::make_shared<IdentType>("Void");
     auto marker = std::make_shared<CheckAreaStmt>(ParserToken::Kind::CheckAreaStmt, "@__CHECK_AREA__");
     marker->area = AreaKind::Function;
     marker->behavior = Severity::Error;
     const auto ro = m_ctx.attrs().lookup(attr::ReadOnly);
     ASSERT_TRUE(ro.has_value());
-    marker->add_attr(*ro); // требование: у текущей области должен быть @[readonly]; у %g его нет
-    fn->m_body = std::vector<AstNodePtr>{std::move(marker)};
+    marker->add_attr(*ro); // требование: у текущей области должен быть @[readonly]; у g его нет
+    fn->m_definition = Definition::fromBody({std::move(marker)});
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(fn));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -1114,7 +1116,7 @@ TEST_F(SemanticTest, InferredLiteralType) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     const TypeId int8 = m_types->read().findType(type::Int8).value_or(INVALID_TYPE_ID);
@@ -1140,7 +1142,7 @@ TEST_F(SemanticTest, InferredWideningByAssignment) {
     seq.push_back(std::move(var));
     seq.push_back(std::move(assign));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     const TypeId int16 = m_types->read().findType(type::Int16).value_or(INVALID_TYPE_ID);
@@ -1165,7 +1167,7 @@ TEST_F(SemanticTest, InferredIntWidenedByCompoundArith) {
     seq.push_back(std::move(var));
     seq.push_back(std::move(assign));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     const TypeId int32 = m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID);
@@ -1189,7 +1191,7 @@ TEST_F(SemanticTest, ExplicitBoolNotWidenedByCompoundArith) {
     seq.push_back(std::move(var));
     seq.push_back(std::move(assign));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     bool ok = runner.run(seq);
 
     EXPECT_FALSE(ok);
@@ -1212,7 +1214,7 @@ TEST_F(SemanticTest, ExpressionResultTypeCppPromotion) {
     seq.push_back(std::move(xvar));
     seq.push_back(std::move(yvar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType.getTypeId(), m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID));
@@ -1232,7 +1234,7 @@ TEST_F(SemanticTest, ExplicitTypeNotWidened) {
     seq.push_back(std::move(xvar));
     seq.push_back(std::move(assign));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     const TypeId int32 = m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID);
@@ -1252,7 +1254,7 @@ TEST_F(SemanticTest, ReadOnlyVarSetsConstBitTyped) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     const TypeId int32 = m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID);
@@ -1271,7 +1273,7 @@ TEST_F(SemanticTest, ReadOnlyVarSetsConstBitUntyped) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     const TypeId int8 = m_types->read().findType(type::Int8).value_or(INVALID_TYPE_ID);
@@ -1310,7 +1312,7 @@ TEST_F(SemanticTest, BecomeConstViaCaretAssignment) {
     seq.push_back(std::move(var));
     seq.push_back(std::move(assign));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 
@@ -1335,7 +1337,7 @@ TEST_F(SemanticTest, WriteToConstDeclarationIsError) {
     seq.push_back(std::move(var));
     seq.push_back(std::move(assign));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -1364,16 +1366,16 @@ TEST_F(SemanticTest, WriteToBecomeConstIsError) {
     body.push_back(std::move(assignConst));
 
     auto fn = std::make_shared<FuncDecl>("f");
-    fn->m_body = std::move(body);
+    fn->m_definition = Definition::fromBody(std::move(body));
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(fn));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     // Семантика проходит: запись в ставшую константной переменную ловит flow-анализ DA, который
     // выполняется в HIR-фазе Pipeline (semantic → buildHir → verify → flow), а не в runner'е.
     ASSERT_TRUE(runner.run(seq));
-    HirModule hir = buildHir(seq, m_ctx);
+    HirModule hir = buildHir(seq, m_ctx, *m_types);
     flow::MirModule mir = flow::buildMir(hir.nodes(), m_ctx.attrs());
     semantic::DefiniteAssignmentPass(m_ctx).run(mir);
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
@@ -1392,7 +1394,7 @@ TEST_F(SemanticTest, NarrowingVariableErrorWithFixit) {
     seq.push_back(std::move(avar));
     seq.push_back(std::move(bvar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -1404,7 +1406,7 @@ TEST_F(SemanticTest, NarrowingLiteralFitsNoError) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(yvar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 }
@@ -1416,7 +1418,7 @@ TEST_F(SemanticTest, NarrowingLiteralTooWideError) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(xvar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -1436,7 +1438,7 @@ TEST_F(SemanticTest, AnyOperandResultPromotion) {
     seq.push_back(std::move(xvar));
     seq.push_back(std::move(yvar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType.getTypeId(), m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID));
 }
@@ -1456,7 +1458,7 @@ TEST_F(SemanticTest, LiteralBoolAndStringWidthTyping) {
     seq.push_back(std::move(cvar));
     seq.push_back(std::move(svar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType.getTypeId(), m_types->read().findType(type::Int8).value_or(INVALID_TYPE_ID));
@@ -1492,7 +1494,7 @@ TEST_F(SemanticTest, DictIntElementArithmeticIsInt32) {
     seq.push_back(std::move(dVar));
     seq.push_back(std::move(xVar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
     EXPECT_EQ(static_cast<VarDecl&>(*seq[1]).inferredType.getTypeId(), m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID));
@@ -1509,7 +1511,7 @@ TEST_F(SemanticTest, LiteralIntArithmeticIsInt32) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
     EXPECT_EQ(static_cast<VarDecl&>(*seq[0]).inferredType.getTypeId(), m_types->read().findType(type::Int32).value_or(INVALID_TYPE_ID));
@@ -1529,7 +1531,7 @@ TEST_F(SemanticTest, ExplicitBoolInArithmeticError) {
     seq.push_back(std::move(xvar));
     seq.push_back(std::move(yvar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -1555,7 +1557,7 @@ TEST_F(SemanticTest, StorageGlobalIsGlobal) {
     auto var = std::make_shared<VarDecl>("g", nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1"));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
     auto* sym = runner.analysis().symbols().resolve("g");
     ASSERT_NE(sym, nullptr);
@@ -1565,7 +1567,7 @@ TEST_F(SemanticTest, StorageGlobalIsGlobal) {
 
 TEST_F(SemanticTest, StorageLocalNormalizedToSigil) {
     // f() { x := 1; } - локальная переменная без сигила нормализуется в $x, Storage::Local.
-    AnalysisContext actx(m_ctx);
+    AnalysisContext actx(m_ctx, *m_types);
     NameResolutionPass core(actx);
     auto probe = std::make_unique<StorageProbe>();
     StorageProbe* probePtr = probe.get();
@@ -1574,8 +1576,8 @@ TEST_F(SemanticTest, StorageLocalNormalizedToSigil) {
     auto funcTerm = Term::Create(TermID::NAME, "f", {}, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
     func->m_params = std::vector<AstNodePtr>{};
-    func->m_body = std::vector<AstNodePtr>{};
-    func->m_body->push_back(std::make_shared<VarDecl>("x", nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1")));
+    func->m_definition = Definition::fromBody({});
+    (*func->body()).push_back(std::make_shared<VarDecl>("x", nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1")));
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
@@ -1588,7 +1590,7 @@ TEST_F(SemanticTest, StorageLocalNormalizedToSigil) {
 
 TEST_F(SemanticTest, StorageNamespaceIsStatic) {
     // ns::x := 1; - имя с областью имён (::) → Storage::Static, без нормализации в $.
-    AnalysisContext actx(m_ctx);
+    AnalysisContext actx(m_ctx, *m_types);
     NameResolutionPass core(actx);
     auto probe = std::make_unique<StorageProbe>();
     StorageProbe* probePtr = probe.get();
@@ -1607,14 +1609,14 @@ TEST_F(SemanticTest, StorageNamespaceIsStatic) {
 TEST_F(SemanticTest, NoSigilLocalResolution) {
     // f() { x := 1; y := x; } - x/y нормализуются в $x/$y; ссылка x резолвится в $x
     // (без «undefined name»), единый алгоритм разрешения простых имён.
-    AnalysisContext actx(m_ctx);
+    AnalysisContext actx(m_ctx, *m_types);
     NameResolutionPass core(actx);
     auto funcTerm = Term::Create(TermID::NAME, "f", {}, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
     func->m_params = std::vector<AstNodePtr>{};
-    func->m_body = std::vector<AstNodePtr>{};
-    func->m_body->push_back(std::make_shared<VarDecl>("x", nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1")));
-    func->m_body->push_back(std::make_shared<VarDecl>("y", nullptr, std::make_shared<IdentName>("x")));
+    func->m_definition = Definition::fromBody({});
+    (*func->body()).push_back(std::make_shared<VarDecl>("x", nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "1")));
+    (*func->body()).push_back(std::make_shared<VarDecl>("y", nullptr, std::make_shared<IdentName>("x")));
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
@@ -1624,28 +1626,28 @@ TEST_F(SemanticTest, NoSigilLocalResolution) {
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 }
 
-TEST_F(SemanticTest, BareNameInfersSigilForFunctionAndParam) {
-    // %f(n:Int32):Void := { x := f($n); }; - bare `f` в вызове резолвится в нативную `%f`,
+TEST_F(SemanticTest, BareNameResolvesDeclarationAndParam) {
+    // f(n:Int32):Void := { x := f($n); }; - bare `f` резолвится в объявление `f`,
     // а `$n` - в параметр `n` (правила вывода сигилов). Никаких «undefined name».
-    AnalysisContext actx(m_ctx);
+    AnalysisContext actx(m_ctx, *m_types);
     NameResolutionPass core(actx);
 
-    auto funcTerm = Term::Create(TermID::NAME, "%f", {}, parser::token_type::NAME);
+    auto funcTerm = Term::Create(TermID::NAME, "f", {}, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
     auto pTerm = Term::Create(TermID::NAME, "n", {}, parser::token_type::NAME);
     func->m_params = std::vector<AstNodePtr>{};
     func->m_params->push_back(std::make_shared<ArgNode>(std::move(pTerm), std::make_shared<IdentType>("Int32")));
-    func->m_body = std::vector<AstNodePtr>{};
+    func->m_definition = Definition::fromBody({});
     auto call = std::make_shared<CallExpr>(ParserToken::Kind::CallExpr, std::make_shared<IdentName>("f"));
     call->m_args = std::vector<AstNodePtr>{std::make_shared<IdentName>("$n")};
-    func->m_body->push_back(std::make_shared<VarDecl>("x", nullptr, std::move(call)));
+    (*func->body()).push_back(std::make_shared<VarDecl>("x", nullptr, std::move(call)));
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
     core.run(seq);
     core.finalize();
 
-    // Ни «undefined name 'f'» (bare f → %f), ни «undefined name '$n'» ($n → параметр n).
+    // Ни «undefined name 'f'», ни «undefined name '$n'» ($n → параметр n).
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
 }
 
@@ -1655,7 +1657,7 @@ TEST_F(SemanticTest, EmbedUsageOptionDefaultWarns) {
     auto embed = std::make_shared<RawText>(ParserToken::Kind::EmbedExpr, std::move(embedTerm));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(embed));
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     const int before = m_ctx.diag().warningCount();
     ASSERT_TRUE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().warningCount(), before);
@@ -1668,7 +1670,7 @@ TEST_F(SemanticTest, EmbedUsageOptionIgnore) {
     auto embed = std::make_shared<RawText>(ParserToken::Kind::EmbedExpr, std::move(embedTerm));
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(embed));
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     const int before = m_ctx.diag().warningCount();
     ASSERT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().warningCount(), before);
@@ -1684,7 +1686,7 @@ TEST_F(SemanticTest, CheckAreaOverrideBehaviorIgnore) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(marker));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_TRUE(runner.run(seq));
     EXPECT_EQ(m_ctx.diag().errorCount(), 0);
     for (const auto& d : m_ctx.diag().diagnostics()) {

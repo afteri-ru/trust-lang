@@ -4,10 +4,14 @@
 #include "analysis/modes.hpp"
 #include "module_loader/module_loader.hpp"
 #include "session/context.hpp"
+#include "target/target.hpp"
+#include "types/type_system.hpp"
 
 #include <gtest/gtest.h>
 
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace trust {
@@ -18,6 +22,12 @@ using backend::BackendServices;
 using backend::BackendStage;
 using backend::StageOutcome;
 using backend::StageOutputs;
+
+// R12: стадия получает read-model порт прогона, а не мутабельный агрегат `Context`.
+static_assert(std::is_same_v<std::remove_cvref_t<decltype(std::declval<BackendServices>().services)>, RunServices>,
+              "BackendServices must expose the run read-model port (R12)");
+static_assert(!std::is_constructible_v<BackendServices, Context&, const Options&, ModuleLoader&>,
+              "BackendServices must not be constructible from the mutable Context (R12)");
 
 std::vector<std::string> g_calls;
 
@@ -53,13 +63,17 @@ class BackendStageTest : public ::testing::Test {
   protected:
     void SetUp() override {
         g_calls.clear();
+        m_ctx.setTypes(&m_types);
+        m_ctx.setTarget(&m_target);
         m_loader = std::make_unique<ModuleLoader>(m_ctx);
         m_opts.allow_semantic_on_errors = true;
     }
 
-    BackendServices services() { return BackendServices{m_ctx, m_opts, *m_loader}; }
+    BackendServices services() { return BackendServices{m_ctx.runServices(), m_opts, *m_loader}; }
 
     Context m_ctx;
+    TypeSystem m_types{m_ctx.diag(), m_ctx.opts()};
+    TargetContract m_target;
     PipelineOpts m_opts;
     std::unique_ptr<ModuleLoader> m_loader;
     HirModule m_hir{std::vector<AstNodePtr>{}};
@@ -144,6 +158,7 @@ TEST_F(BackendStageTest, MissingPrerequisiteReportsErrorAndStops) {
 TEST(BackendStageMetadataTest, NamesAreDerivedFromKind) {
     EXPECT_EQ(backend::backendStageName(backend::BackendKind::Solver), "solver");
     EXPECT_EQ(backend::backendStageName(backend::BackendKind::Cpp), "cpp");
+    EXPECT_EQ(backend::backendStageName(backend::BackendKind::Noop), "noop");
     EXPECT_EQ(backend::kBackendStages.size(), static_cast<std::size_t>(backend::BackendKind::kCount));
 }
 

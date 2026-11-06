@@ -2,16 +2,15 @@
 
 > scope: include/stdlib
 > role: persistent-memory
-> last_reviewed: 2026-10-20
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 2000
 
 ## Architecture
 
 `include/stdlib` — КОНТЕЙНЕР стандартной библиотеки, не пакет: собственного `trust.toml` нет.
 Он держит `stdlib_lib` (header-only interface) и самодостаточные пакеты-подкаталоги:
 
-- `core/` — `stdlib.trust`: prelude/модули `.src`, `builtin/*.src`, C++-заголовки библиотечных
+- `core/` — `stdlib.trust`: модули `.src`, `builtin/*.src`, C++-заголовки библиотечных
   типов; архивный namespace остаётся `stdlib/` и `include/stdlib/` (публичный `@stdlib/…`);
 - `tensor/` — `tensor.trust`: Trust API и link-контракт с toolchain-плагином `tensor_cpu`.
 

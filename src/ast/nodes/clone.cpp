@@ -1,6 +1,4 @@
-// src/ast/clone.cpp
 // Граница «неизменяемая AST → производная форма»: глубокий клон (cloneTree/cloneTrees).
-//
 // Реализация двухфазная:
 //   1) структура: shallow-copy узла по kind (x-macro) + клон ВСЕХ владеемых слотов;
 //   2) ссылки: ремап невладеющих указателей по карте «оригинал → клон».
@@ -129,7 +127,7 @@ std::vector<AstNodePtr> cloneTrees(const std::vector<AstNodePtr>& nodes) {
     clones.reserve(nodes.size());
     for (const AstNodePtr& node : nodes) {
         // Позиция сохраняется: пустой корень (удалённая директива/recovery-заглушка) остаётся
-        // пустым, чтобы индексы клона совпадали с индексами входа (prelude-срез и счётчики).
+        // пустым, чтобы индексы клона совпадали с индексами входа (срез stdlib DSL и счётчики).
         clones.push_back(node ? cloneRec(node, map) : nullptr);
     }
     for (AstNodePtr& clone : clones) {

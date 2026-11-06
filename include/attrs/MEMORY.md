@@ -2,9 +2,8 @@
 
 > scope: include/attrs
 > role: persistent-memory
-> last_reviewed: 2026-11-02
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 5000
 
 ## Architecture
 

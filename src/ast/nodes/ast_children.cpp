@@ -1,4 +1,3 @@
-// src/ast/nodes/ast_children.cpp
 // Generic-потребители обхода AST: состав узла берётся из класс-таблицы слотов
 // (`ast/slots/node_slots_x.hpp`) через `forEachSlot` класса (генерируется `AST_SLOT_METHOD`,
 // см. ast/slots/slot_engine.hpp). Обход идёт по слотам класса.

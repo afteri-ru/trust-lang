@@ -5,7 +5,6 @@
 #include "package/package.hpp"
 #include "types/type_system.hpp"
 #include "utils/error.hpp"
-#include "utils/strings.hpp"
 #include "syntax/macro.h"
 #include "syntax/parser.h"
 #include "syntax/predef_macro.hpp"
@@ -15,8 +14,8 @@
 namespace trust {
 
 // DSL-макросы читаются из пакета ресурсов `share/trust/stdlib.trust`
-// (package::readResourcePackageEntry): локального #embed здесь нет, иначе содержимое
-// дублировалось бы с pipeline.cpp.
+// (package::readResourcePackageEntry): локального встраивания здесь нет, иначе содержимое
+// дублировалось бы с pipeline.
 
 BuiltinCatalog::BuiltinCatalog() {
     // 1) Встроенные типы и их методы - из общего иммутабельного ядра. Один лёгкий
@@ -35,18 +34,20 @@ BuiltinCatalog::BuiltinCatalog() {
             if (!tid) {
                 return;
             }
-            const std::string canon = reg.printer().getTypeName(*tid);
+            const std::string canon = reg.printer().typeNameOf(*tid);
             auto& t = m_types[canon];
             t.userDefined = false;
-            if (const auto* desc = reg.store().descriptorOf(*tid)) {
-                for (const auto& [mname, funcType] : desc->methods) {
+            if (const auto* methods = reg.store().methodsOf(*tid)) {
+                for (const auto& [mname, funcType] : *methods) {
                     (void)funcType;
-                    t.methods[utils::bareName(mname)] = true; // bare-имя (без '%'/'^') для LSP
+                    t.methods[mname.name] = true; // trust-имя (структурный ключ → поле name) для LSP
                 }
                 // Алиасы методов (доверенные имена) - тоже в списке имён.
-                for (const auto& [alias, target] : desc->methodAliases) {
-                    (void)target;
-                    t.methods[alias] = true;
+                if (const auto* aliases = reg.store().methodAliasesOf(*tid)) {
+                    for (const auto& [alias, target] : *aliases) {
+                        (void)target;
+                        t.methods[alias] = true;
+                    }
                 }
                 // Члены классов/типов (TupleTypeData): имя → поле/метод. Методом считаем
                 // элемент, чей тип - функциональный (FunctionTypeData).
@@ -62,30 +63,29 @@ BuiltinCatalog::BuiltinCatalog() {
     }
 
     // 2) Предопределённые макросы (@__...__ и др.) - из статического реестра резолвера.
-    //    predefMacroNames строит реестры из x-macro TRUST_VALUE_MACROS / TRUST_CONTEXT_MACROS
-    //    (плюс прагмы) и сидирует дефолты доков в ЕДИНОЕ хранилище Context::macroDocs().
+    //    predefMacroNames строит реестры из x-macro TRUST_VALUE_MACROS / TRUST_CONTEXT_MACROS (плюс прагмы).
     m_predefMacros = trust::syntax::PredefMacroResolver::predefMacroNames();
 
     // 3) DSL-макросы стандартной библиотеки: один раз грузим dsl.src из пакета stdlib и собираем имена
     //    (повторяет pipeline::loadDslMacros: Context + Macro + ParseText "@stdlib/dsl").
-    //    Доки DSL-макросов (##-комментарии) и переопределения прагмой @__PRAGMA_DOC__
-    //    записываются в ЕДИНОЕ хранилище Context::macroDocs() через recordMacro/прагму.
     {
         Context ctx(".");
-        auto macro = std::make_shared<Macro>(ctx);
+        auto macro = std::make_shared<Macro>(makeParserServices(ctx));
         ctx.setMacro(macro);
-        Parser parser(ctx);
+        ParserServices parseServices = makeParserServices(ctx);
+        Parser parser(parseServices);
         // dsl.src — файл пакета `share/trust/stdlib.trust`. Отсутствие пакета или файла —
         // ошибка (без тихого fallback на пустой набор DSL-макросов).
-        const std::optional<std::string> dsl = readResourcePackageEntry("stdlib", "stdlib/dsl.src");
+        const std::optional<std::string> dsl = readResourcePackageEntry("stdlib", "dsl.src");
         if (!dsl || dsl->empty()) {
-            FAULT("dsl source '{}' is not available in the standard library package", "stdlib/dsl.src");
+            FAULT("dsl source '{}' is not available in the standard library package", "dsl.src");
         }
         TermPtr term = parser.ParseText(*dsl, "@stdlib/dsl");
-        if (term) {
-            for (const auto& n : macro->MacroNames()) {
-                m_dslMacros.insert(n);
-            }
+        if (!term || ctx.diag().errorCount() > 0) {
+            FAULT("failed to parse DSL source '{}'", "dsl.src");
+        }
+        for (const auto& n : macro->MacroNames()) {
+            m_dslMacros.insert(n);
         }
     }
 }

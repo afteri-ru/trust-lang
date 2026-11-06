@@ -6,6 +6,7 @@
 # Rational runtime-backed type linked statically (the default `--link-runtime static`):
 # the executable must be self-contained and run with no trust-runtime.so present
 # (no LD_LIBRARY_PATH, and the launch directory contains no .so).
+\std();
 x : Rational := 0;
 
 {% int static__main__() {

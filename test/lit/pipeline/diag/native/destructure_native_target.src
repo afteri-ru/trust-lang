@@ -1,0 +1,9 @@
+# RUN: %not %trust -q --emit-cpp -Wsigil=ignore %s > %t.out 2>&1 && %FileCheck %s <%t.out
+
+# Деструктуризация создаёт trust-идентификаторы; `%` слева запрещён.
+@main():Int32 := {
+    t := (1, 2,):Tuple;
+    %a, b := t;
+    @return 0;
+};
+# CHECK: error: native name '%a' cannot be declared

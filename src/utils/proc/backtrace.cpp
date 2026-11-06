@@ -1,4 +1,3 @@
-// src/utils/proc/backtrace.cpp
 // Формирование стека вызовов (backtrace) в std::string и установка
 // обработчиков аварийного завершения.
 
@@ -15,16 +14,10 @@
 
 namespace trust::utils {
 
-// -----------------------------------------------------------------------
-// backtrace_string  -  возвращает стек вызовов в std::string
-// -----------------------------------------------------------------------
-//
 // Использует glibc backtrace()/backtrace_symbols() и demangling через
 // __cxxabiv1::__cxa_demangle для C++ имён.
-//
 // Формат строки (после деманга):
 //   #<num> <demangled_symbol> + <offset>
-// -----------------------------------------------------------------------
 
 std::string backtrace_string(int max_frames) {
     // Вычисляем размер буфера:
@@ -111,10 +104,6 @@ std::string backtrace_string(int max_frames) {
     return result;
 }
 
-// -----------------------------------------------------------------------
-// Обработчики
-// -----------------------------------------------------------------------
-
 namespace {
 
 // SIGABRT handler - выводит backtrace и завершает процесс
@@ -138,10 +127,6 @@ extern "C" void sigabrt_handler(int signum) {
 }
 
 } // anonymous namespace
-
-// -----------------------------------------------------------------------
-// install_fault_handler
-// -----------------------------------------------------------------------
 
 void install_fault_handler() {
     std::signal(SIGABRT, sigabrt_handler);

@@ -8,7 +8,7 @@
 
 //--- main.src
 \lib(Pt);
-alias \lib::Pt as kk;
+alias Pt as kk;
 @main():Int32 := { @return 0; };
 
 //--- lib.src

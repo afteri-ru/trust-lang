@@ -35,7 +35,7 @@ class InternalErrorPolicyTest : public ::testing::Test {
 } // namespace
 
 TEST_F(InternalErrorPolicyTest, CliReportsFatalAndThrows) {
-    EXPECT_THROW(reportInternalError(m_ctx, /*recover=*/false, "boom"), FatalError);
+    EXPECT_THROW(reportInternalError(m_ctx.diag(), /*recover=*/false, "boom"), FatalError);
     ASSERT_FALSE(m_ctx.diag().diagnostics().empty());
     const auto& d = m_ctx.diag().diagnostics().back();
     EXPECT_EQ(d.severity, Severity::Fatal);
@@ -44,7 +44,7 @@ TEST_F(InternalErrorPolicyTest, CliReportsFatalAndThrows) {
 }
 
 TEST_F(InternalErrorPolicyTest, LspRecoversWithErrorOnly) {
-    EXPECT_NO_THROW(reportInternalError(m_ctx, /*recover=*/true, "partial AST"));
+    EXPECT_NO_THROW(reportInternalError(m_ctx.diag(), /*recover=*/true, "partial AST"));
     ASSERT_FALSE(m_ctx.diag().diagnostics().empty());
     const auto& d = m_ctx.diag().diagnostics().back();
     EXPECT_EQ(d.severity, Severity::Error);

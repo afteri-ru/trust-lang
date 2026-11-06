@@ -9,8 +9,8 @@
 
 //--- main.src
 \lib(Pt, g);
-alias \lib::g as f;
-alias \lib::Pt as :MyPt;
+alias g as f;
+alias Pt as :MyPt;
 @main():Int32 := { p:MyPt := MyPt(7); @return f(1) + p.x - 9; };
 
 //--- lib.src

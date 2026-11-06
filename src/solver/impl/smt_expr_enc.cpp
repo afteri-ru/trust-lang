@@ -346,7 +346,7 @@ std::optional<SmtTerm> TrustToSmt::encodeCallTerm(const AstNodeBase* node, const
     // Нативный вызов: модели (аксиомы) нативной функции в этом цикле нет, поэтому тело,
     // зависящее от её результата, недоказуемо. Явная граница области проверки вместо
     // молчаливого uninterpreted-символа (который давал ложный «контрпример»).
-    if (fd->m_isNativeImport || fd->m_isNativeTemplateImport) {
+    if (fd->isNativeImport()) {
         reportOutsideEnvelope(*node, "native call '{}' has no model", callee);
         return std::nullopt;
     }
@@ -375,7 +375,7 @@ std::optional<SmtTerm> TrustToSmt::encodeCallTerm(const AstNodeBase* node, const
             paramSorts.push_back(*ps);
         }
     }
-    const auto resSort = m_sorts.sortOf(resolvedTypeOf(fd->m_type.get()));
+    const auto resSort = m_sorts.sortOf(resolvedTypeOf(fd->m_type.get(), INVALID_TYPE_ID));
     if (!resSort) {
         reportOutsideEnvelope(*node, "called function '{}' result sort unknown", callee);
         return std::nullopt;

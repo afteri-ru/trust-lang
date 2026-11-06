@@ -9,23 +9,21 @@ namespace trust {
 namespace {
 
 TEST(CppNameTest, QualifiedTypeFunctionAndValue) {
-    EXPECT_EQ(cppName("Point", CppEntityKind::kType), "c_Point");
-    EXPECT_EQ(cppName("ns::Point", CppEntityKind::kType), "c_ns::c_Point");
-    EXPECT_EQ(cppName("ns::sub::Point", CppEntityKind::kType), "c_ns::c_sub::c_Point");
-    EXPECT_EQ(cppName("ns::f", CppEntityKind::kFunction), "c_ns::c_f");
-    EXPECT_EQ(cppName("ns::x", CppEntityKind::kValue), "c_ns::c_x");
-    EXPECT_EQ(cppName("ns::Class::field", CppEntityKind::kValue), "c_ns::c_Class::c_field");
-    EXPECT_EQ(cppName("::f", CppEntityKind::kFunction), "c_f");
+    EXPECT_EQ(cppName("Point", CppEntityKind::kType), "Point");
+    EXPECT_EQ(cppName("ns::Point", CppEntityKind::kType), "ns::Point");
+    EXPECT_EQ(cppName("ns::sub::Point", CppEntityKind::kType), "ns::sub::Point");
+    EXPECT_EQ(cppName("ns::f", CppEntityKind::kFunction), "ns::f");
+    EXPECT_EQ(cppName("ns::x", CppEntityKind::kValue), "ns::x");
+    EXPECT_EQ(cppName("ns::Class::field", CppEntityKind::kValue), "ns::Class::field");
+    EXPECT_EQ(cppName("::f", CppEntityKind::kFunction), "f");
 }
 
 TEST(CppNameTest, FieldNeverQualified) {
-    EXPECT_EQ(cppName("field", CppEntityKind::kField), "c_field");
+    EXPECT_EQ(cppName("field", CppEntityKind::kField), "field");
 }
 
-TEST(CppNameTest, OperatorAndNativeAndEntry) {
+TEST(CppNameTest, OperatorAndEntry) {
     EXPECT_EQ(cppName("__eq__", CppEntityKind::kOperator), "operator==");
-    EXPECT_EQ(cppName("%std::max", CppEntityKind::kFunction), "std::max");
-    EXPECT_EQ(cppName("%lib::f", CppEntityKind::kFunction), "lib::f");
     EXPECT_EQ(cppName("mod__main__", CppEntityKind::kEntry), "mod__main__");
 }
 

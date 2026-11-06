@@ -2,14 +2,13 @@
 # RUN: %split-file %s $TD
 # RUN: %not %trust -q --temp-dir $TD --emit-cpp $TD/main.src > %t.out 2>&1 && %FileCheck %s <%t.out
 #
-# M1: маски импорта применяются к САМОЙ ссылке. `\lib(f)` скрывает `g`, поэтому `\lib::g()`
-# — ошибка (маски = контракт видимости, второго источника «что видно» нет).
-
-# CHECK: error: name 'g' is hidden by the import masks of module '\lib'
+# M1: маски импорта — контракт видимости. `\lib(f)` скрывает `g`, поэтому неквалифицированное
+# `g()` не разрешается (второго источника «что видно» нет).
+# CHECK: error: undefined name 'g'
 
 //--- main.src
 \lib(f);
-@main():Int32 := { @return \lib::g(); };
+@main():Int32 := { @return g(); };
 
 //--- lib.src
 \lib;

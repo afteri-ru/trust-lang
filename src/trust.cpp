@@ -2,14 +2,18 @@
 #include "pipeline/pipeline.hpp"
 #include "pipeline/cli.hpp"
 #include "pipeline/commands.hpp"
+#include "builddriver/build.hpp"
 #include "driver/cli.hpp"
 #include "driver/analysis_options.hpp"
+#include "diag/diag_formatter.hpp"
 #include "formatter/command.hpp"
 #include "formatter/format.hpp"
 #include "package/package.hpp"
 #include "semantic/solver.hpp"
 #include "session/context.hpp"
 #include "diag/diag.hpp"
+#include "trust/version.h"
+#include "utils/error.hpp"
 #include "utils/utils.hpp"
 
 #include <algorithm>
@@ -130,7 +134,7 @@ int printDslMacroHelp(trust::Context& ctx, const trust::PipelineOpts& opts) {
     trust::Pipeline pipeline(ctx, opts);
     // effectiveKeywords() — публичный метод, который первым делом вызывает приватный
     // loadDslMacros() (уважает --dsl <file> / --no-dsl). Используем его как способ
-    // «загрузить DSL в Context», чтобы не дублировать #embed/логику загрузки.
+    // «загрузить DSL в Context», чтобы не дублировать встраивание/логику загрузки.
     pipeline.effectiveKeywords();
     std::ostream& os = trust::outs();
     if (!ctx.macro()) {
@@ -226,6 +230,14 @@ int main(int argc, char* argv[], char* envp[]) {
 
     // Создаём контекст и передаём его в Pipeline
     trust::Context ctx;
+    // Формат диагностик: text по умолчанию; json/sarif — машиночитаемый вывод для CI/LSP.
+    // Форматтер выбирается ДО первой диагностики (applyAnalysisOptions может отчитываться).
+    // Значение `--diagnostics-format` провалидировано в parseCommandLine: невалидное здесь —
+    // внутренняя ошибка (ICE), а не тихий fallback на text.
+    const std::string_view fmt_name = result.opts.diagnostics_format.empty() ? std::string_view("text") : std::string_view(result.opts.diagnostics_format);
+    const auto fmt = trust::diagnosticsFormatFromName(fmt_name);
+    EXPECT(fmt.has_value() && "CLI validated --diagnostics-format before Context was created");
+    ctx.diag().setFormatter(trust::makeDiagnosticFormatter(*fmt, trust::ToolInfo{std::string_view("TrustLang"), std::string_view(TRUST_VERSION)}));
     // Единая точка применения опций анализа: -W<option> (severity и feature-флаги) +
     // поведенческие флаги (--solver-mode, --keywords, -fsolver-loop-unroll). Реализация -
     // applyAnalysisOptions (include/driver/analysis_options.hpp), общая для trust и trust-lsp.
@@ -260,7 +272,6 @@ int main(int argc, char* argv[], char* envp[]) {
     }
     const trust::PipelineOpts& opts = result.opts;
 
-    // -- CLI-команды, не требующие конвейера ------------------------------------------------
     if (opts.format_dump_config) {
         trust::outs() << trust::formatter::dumpConfig({});
         return 0;
@@ -298,7 +309,6 @@ int main(int argc, char* argv[], char* envp[]) {
         return trust::extractTrustPackage(opts.input_file, opts.output_file);
     }
 
-    // -- Конвейер --------------------------------------------------------------------------
     if (!std::filesystem::exists(opts.input_file)) {
         trust::errs() << "error: input file not found: " << opts.input_file << "\n";
         return 1;
@@ -323,7 +333,7 @@ int main(int argc, char* argv[], char* envp[]) {
             if (opts.emit_module_deps) {
                 return pipeline.emitModuleDepsToStdout(inputFile);
             }
-            return pipeline.compileProgram(inputFile);
+            return trust::compileProgram(pipeline, opts, inputFile);
         }
         if ((opts.emit_flags & trust::EmitFlags::Cpp) != trust::EmitFlags::None) {
             return pipeline.emitCppToStdout(inputFile);

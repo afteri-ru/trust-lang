@@ -4,9 +4,7 @@
 
 #include <functional>
 
-// include/diag/registry.hpp
 // Пер-компонентная регистрация диагностик/флагов.
-//
 // Каждый компонент регистрирует СВОИ severity-диагностики и feature-флаги (Options::add(DiagId)
 // / Options::add(FlagKind)) на static-init рядом со своим кодом, через registerDiagnostics().
 // Метаданные (имя/подсказка/severity/группы) берутся из пер-компонентного набора

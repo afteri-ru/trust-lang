@@ -1,6 +1,5 @@
 #pragma once
 
-// include/analysis/modes.hpp
 // Поведенческие режимы компилятора, разделяемые АНАЛИЗОМ, КОДОГЕНЕРАЦИЕЙ и ВЕРИФИКАТОРОМ как
 // ДАННЫЕ:
 //   * режим trust-контрактов `--solver-mode` (assert/export/calculate);
@@ -8,11 +7,13 @@
 //   * режим контроля переполнения стека `--stack-check` (off/explicit/recursion/auto);
 //   * резерв и перечень функций контроля стека;
 //   * имена нативных функций контроля стека (общие для распознавания семантикой и эмиссии кодогеном).
-//
-// Владелец ФЛАГОВ (`FlagKind`) — `semantic`: он разрешает значения из `diag::Options`
-// (`semantic::behavioralModesFromOptions`) и передаёт их потребителям структурой
-// `BehavioralModes`. Ни кодоген, ни верификатор НЕ обращаются к `diag::Options`/`FlagKind` —
-// это снимает зависимости transpiler → semantic и solver → semantic.
+// Владельцы флагов — компоненты, объявившие их (`semantic` — solver/stack-check, `transpiler` —
+// кодоген-флаги); каждый разрешает свои значения из `diag::Options` единственной именованной
+// функцией и передаёт их потребителям структурой `BehavioralModes`. Ни кодоген, ни верификатор
+// НЕ обращаются к `diag::Options`/`FlagKind` — это снимает зависимости transpiler → semantic
+// и solver → semantic.
+
+#include "types/intrinsics.hpp"
 
 #include <cstddef>
 #include <optional>
@@ -23,7 +24,6 @@
 namespace trust {
 namespace analysis {
 
-// -- Единый источник значений поведенческого флага `--solver-mode` (X-macro) --
 #define ANALYSIS_SOLVER_MODE_LIST(M) \
     M(kAssert, "assert")             \
     M(kExport, "export")             \
@@ -56,7 +56,6 @@ inline constexpr std::size_t kSolverModeCount = sizeof(kSolverModeNames) / sizeo
     return std::nullopt;
 }
 
-// -- Единый источник значений опции `-Wsolver-loop` (диагностика циклов без инварианта) ------
 // Значения нужны валидатору флага (`semantic`) и верификатору (severity сообщения о цикле);
 // верификатор получает их ДАННЫМИ через `BehavioralModes`.
 #define ANALYSIS_SOLVER_LOOP_MODE_LIST(M) \
@@ -85,7 +84,6 @@ inline constexpr std::size_t kSolverLoopModeCount = sizeof(kSolverLoopModeNames)
     return std::nullopt;
 }
 
-// -- Единый источник значений поведенческого флага `--stack-check` (X-macro) --
 #define ANALYSIS_STACK_CHECK_MODE_LIST(M) \
     M(kOff, "off")                        \
     M(kExplicit, "explicit")              \
@@ -119,16 +117,15 @@ inline constexpr std::size_t kStackCheckModeCount = sizeof(kStackCheckModeNames)
     return std::nullopt;
 }
 
-// -- Единый источник имён нативных функций контроля стека ---------------------
 // Имена сопоставляются ДОСЛОВНО и семантикой (распознавание известного имени), и транспилятором
-// (эмиссия вызова), поэтому хранятся в одном месте - опечатка в одном из двух мест невозможна.
+// (эмиссия вызова), поэтому берутся из `types/intrinsics.hpp`; отдельного списка строк нет.
 namespace stack_check_fn {
 
-inline constexpr std::string_view kCheck = "%trust_stack_check";
-inline constexpr std::string_view kSetReserve = "%trust_stack_check_set_reserve";
-inline constexpr std::string_view kGetReserve = "%trust_stack_check_get_reserve";
-inline constexpr std::string_view kGetLimit = "%trust_stack_check_get_limit";
-inline constexpr std::string_view kSetLimit = "%trust_stack_check_set_limit";
+inline constexpr std::string_view kCheck = intrinsicName(IntrinsicId::kStackCheckCall);
+inline constexpr std::string_view kSetReserve = intrinsicName(IntrinsicId::kStackCheckSetReserve);
+inline constexpr std::string_view kGetReserve = intrinsicName(IntrinsicId::kStackCheckGetReserve);
+inline constexpr std::string_view kGetLimit = intrinsicName(IntrinsicId::kStackCheckGetLimit);
+inline constexpr std::string_view kSetLimit = intrinsicName(IntrinsicId::kStackCheckSetLimit);
 
 inline constexpr std::string_view kAll[] = {kCheck, kSetReserve, kGetReserve, kGetLimit, kSetLimit};
 
@@ -144,7 +141,6 @@ inline constexpr std::string_view kAll[] = {kCheck, kSetReserve, kGetReserve, kG
 
 } // namespace stack_check_fn
 
-// -- Разрешённые поведенческие режимы (данные для кодогена) -------------------
 /// Значения, разрешённые владельцем флагов (`semantic`) из `diag::Options` и переданные
 /// потребителям (кодоген, верификатор) как ДАННЫЕ.
 struct BehavioralModes {
@@ -154,6 +150,9 @@ struct BehavioralModes {
     std::vector<std::string> stackCheckFunctions;          ///< `--stack-check-functions` (trust-имена).
     SolverLoopMode solverLoop = SolverLoopMode::kWarning;  ///< `-Wsolver-loop`: цикл без инварианта.
     bool solverLoopUnroll = false;                         ///< `-fsolver-loop-unroll`: глобальный unroll.
+    bool overflowCheck = true;                             ///< `-foverflow-check` (владелец флага — transpiler).
+    bool comments = true;                                  ///< `-fcomments` (владелец флага — transpiler).
+    bool backtrace = true;                                 ///< `-Wbacktrace` (владелец флага — transpiler).
 };
 
 /// Включены ли рантайм-проверки trust-условий (`--solver-mode=assert`).

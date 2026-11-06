@@ -1,7 +1,5 @@
 // trust/io.hpp - I/O helpers for the Trust runtime.
-//
 // Delivery: package file `include/trust/io.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
-//
 // The backing symbol trust::outs() is provided by the linked trust-runtime
 // library (src/utils/io/io.cpp), which is why it is only forward-declared here.
 

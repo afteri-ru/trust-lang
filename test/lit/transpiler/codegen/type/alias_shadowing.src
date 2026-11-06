@@ -5,14 +5,14 @@
 # рендерится по решению анализа (shadowing учитывается), а не по имени в реестре.
 
 GlobalT ::= :Int32;
-# CHECK: using c_GlobalT = int32_t;
+# CHECK: using GlobalT = int32_t;
 
 f():Int32 := {
     LocalT ::= :Float64;
-    # CHECK: using c_LocalT = double;
+    # CHECK: using LocalT = double;
     a:GlobalT := 1;
-    # CHECK: c_GlobalT c_a = 1;
+    # CHECK: GlobalT a = 1;
     b:LocalT := 1.5;
-    # CHECK: c_LocalT c_b = 1.5;
+    # CHECK: LocalT b = 1.5;
     b
 };

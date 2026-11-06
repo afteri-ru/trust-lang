@@ -1,12 +1,14 @@
-// src/ast/nodes/ast_decl.cpp
 // Объявления AST: Decl, VarDecl, FuncDecl, DestructureDecl.
 #include "ast/ast_nodes.hpp"
 #include "ast/nodes/ast_helpers.hpp"
 #include "ast/term_to_ast.hpp"
 #include "ast/token_type.hpp"
+#include "ast/convert_services.hpp"
 #include "syntax/term/term.h"
 #include "types/call.hpp"
+#include "types/visibility.hpp"
 #include "utils/error.hpp"
+#include "utils/strings.hpp"
 #include <string>
 #include <vector>
 namespace trust {
@@ -26,16 +28,33 @@ static bool isNativeImportTerm(const TermPtr& term) {
     return term && term->getTermID() == trust::TermID::NATIVE;
 }
 
-// C++-имя нативного импорта: убираем ведущий '%' (`%abs`→"abs", `%std::sqrt`→"std::sqrt").
-static std::string nativeImportName(const TermPtr& term) {
-    std::string_view t = term ? term->getText() : std::string_view{};
-    if (t.size() > 1 && t[0] == '%') {
-        t.remove_prefix(1);
-    }
-    return std::string(t);
+// C/C++-имя нативной цели без ведущего '%' (`%abs`→"abs", `%std::sqrt`→"std::sqrt").
+static std::string nativeTargetName(const TermPtr& term) {
+    EXPECT(term && "native target requires a source Term");
+    const std::string name(utils::stripNativePrefix(term->getText()));
+    EXPECT(!name.empty() && "native target requires a non-empty C/C++ symbol name");
+    return name;
 }
 
-// -- VarDecl/FuncDecl/ArgNode: терм-конструкторы - имя из m_left (fallback term->getText()).
+// Нативная привязка-импорт: ABI выводится из имени (cppLinkageOf) в точке кодогена.
+
+// True, если инициализатор переменной — форма псевдонима-переадресации `f ...`
+// (CallExpr с единственным аргументом Ellipsis): для переменной недопустима, алиас имени — `:-`.
+static bool isEllipsisAliasInitializer(const AstNodePtr& init) {
+    if (!init || init->kind() != ParserToken::Kind::CallExpr) {
+        return false;
+    }
+    const auto* call = init->as<CallExpr>();
+    if (call == nullptr || !call->m_callee || call->m_callee->kind() != ParserToken::Kind::Ident) {
+        return false;
+    }
+    if (!call->m_args || call->m_args->size() != 1) {
+        return false;
+    }
+    const auto& arg = (*call->m_args)[0];
+    return arg && arg->kind() == ParserToken::Kind::Ellipsis;
+}
+
 VarDecl::VarDecl(TermPtr term, AstNodePtr type, AstNodePtr initializer, AttrPool* pool)
 : Decl(ParserToken::Kind::VarDecl, term, declNameFromTerm(term), pool)
 , m_initializer(std::move(initializer)) {
@@ -45,8 +64,7 @@ VarDecl::VarDecl(TermPtr term, AstNodePtr type, AstNodePtr initializer, AttrPool
     m_nameRange = term->m_left ? term->m_left->m_mapperRange : MapperRange{};
 }
 
-// -- VarDecl: uniform терм-конструктор (kind = VarDecl). --
-VarDecl::VarDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
+VarDecl::VarDecl(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* ctx)
 : VarDecl(term, nullptr, nullptr, ctx ? &ctx->attrs() : nullptr) {
     if (ctx && term) {
         if (term->m_left && term->m_left->m_type) {
@@ -55,6 +73,14 @@ VarDecl::VarDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
         // Предварительное (forward) объявление `x:Type := ...;`: m_right - чистое многоточие
         // вместо инициализатора. m_initializer остаётся nullptr (forward declaration).
         if (isForwardEllipsisTerm(term->m_right)) {
+            return;
+        }
+        // Нативная привязка-импорт переменной: `x:Type := %cpp ...;` (многоточие = цель,
+        // как у функций). Реализация/символ — внешний, значения в trust-коде нет.
+        if (term->m_right && term->m_right->getTermID() == trust::TermID::NATIVE && term->m_right->m_right &&
+            term->m_right->m_right->getTermID() == trust::TermID::ELLIPSIS) {
+            m_pendingNativeCppName = nativeTargetName(term->m_right);
+            m_bindsNativeCpp = true;
             return;
         }
         if (term->m_right) {
@@ -66,6 +92,10 @@ VarDecl::VarDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
                 m_initializer = std::move(body[0]);
             }
         }
+        if (isEllipsisAliasInitializer(m_initializer)) {
+            ctx->diag().report(Severity::Error, m_initializer->range(), "variable '{}' cannot forward an alias with '...'; use ':-' for a name alias", text());
+            m_initializer.reset();
+        }
         if (m_initializer) {
             const MapperRange n = nameRange();
             const MapperRange init = m_initializer->range();
@@ -76,8 +106,7 @@ VarDecl::VarDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
     }
 }
 
-// -- DestructureDecl: `t1, ..., tN := [... ]source;` --
-DestructureDecl::DestructureDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
+DestructureDecl::DestructureDecl(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* ctx)
 : AstNodeAttr(ParserToken::Kind::DestructureDecl, term) {
     EXPECT(term && "DestructureDecl term-constructor requires a source Term");
     if (!ctx || !term) {
@@ -93,9 +122,16 @@ DestructureDecl::DestructureDecl(ParserToken::Kind /*k*/, TermPtr term, Context*
             // цели (`a:Int32`) хранится в lval->m_type (грамматика `lval_var: name type_item`
             // → m_type = type_item); конвертируем её в узел типа для семантики/кодгена.
             const bool isRest = (*t)->m_right && (*t)->m_right->getTermID() == trust::TermID::ELLIPSIS;
-            m_targets.push_back(std::make_shared<IdentName>(std::string((*t)->getText()), &ctx->attrs()));
-            m_targetIsRest.push_back(isRest);
-            m_targetTypeNodes.push_back((*t)->m_type ? convertChild(*ctx, (*t)->m_type) : AstNodePtr{});
+            auto target = std::make_shared<IdentName>(std::string((*t)->getText()), &ctx->attrs());
+            if (!target->text().empty() && target->text().front() == '%') {
+                ctx->diag().report(Severity::Error, target->range(),
+                                   "native name '{}' cannot be declared: a destructuring declaration creates trust identifiers only", target->text());
+            }
+            Target entry;
+            entry.name = std::move(target);
+            entry.typeNode = (*t)->m_type ? convertChild(*ctx, (*t)->m_type) : AstNodePtr{};
+            entry.isRest = isRest;
+            m_targets.push_back(std::move(entry));
         }
     }
     TermPtr src;
@@ -124,10 +160,9 @@ std::string DestructureDecl::dump(size_t indent) const {
         result += " (assign)";
     }
     result += "\n";
-    for (size_t i = 0; i < m_targets.size(); ++i) {
-        const auto& t = m_targets[i];
-        const bool isRest = i < m_targetIsRest.size() && m_targetIsRest[i];
-        result += std::string(indent + 2, ' ') + "target: " + (t ? std::string(requiredText(*t)) : std::string{}) + (isRest ? "..." : "") + "\n";
+    for (const Target& target : m_targets) {
+        result += std::string(indent + 2, ' ') + "target: " + (target.name ? std::string(requiredText(*target.name)) : std::string{}) +
+                  (target.isRest ? "..." : "") + "\n";
     }
     if (m_source) {
         result += m_source->dump(indent + 2);
@@ -150,8 +185,7 @@ FuncDecl::FuncDecl(TermPtr term, AttrPool* pool)
     m_isOperator = op::isOperatorFunctionName(text());
 }
 
-// -- FuncDecl: uniform терм-конструктор (kind = FuncDecl). --
-FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
+FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* ctx)
 : FuncDecl(term, ctx ? &ctx->attrs() : nullptr) {
     if (!ctx || !term) {
         return;
@@ -206,7 +240,7 @@ FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
         if (term->m_right) {
             std::vector<AstNodePtr> fnBody;
             convertChildren(*ctx, term->m_right, fnBody);
-            m_body = std::move(fnBody);
+            m_definition = Definition::fromBody(std::move(fnBody));
         }
         return;
     }
@@ -228,14 +262,15 @@ FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
                 m_params->push_back(std::make_shared<ArgNode>(ParserToken::Kind::ArgNode, argTerm, ctx));
             }
         }
-        // Нативный импорт `<name>(...) := %sym...;` - АЛИАС на нативную функцию: C++-функция
-        // НЕ эмитится, вызовы name(...) переписываются в прямой вызов %sym(...). m_body пуст.
+        // Нативная привязка-импорт `<name>(...) := %cpp ...;` - АЛИАС имени на внешний
+        // C/C++-символ: C++-функция НЕ эмитится, вызовы переписываются на цель.
+        // Нативное имя (без '%') - целевой факт хранилища `DeclCppFacts` (R1).
         if (isNativeImportTerm(term->m_right)) {
-            m_isNativeImport = true;
-            m_nativeName = nativeImportName(term->m_right);
+            m_pendingNativeCppName = nativeTargetName(term->m_right);
+            m_bindsNativeCpp = true;
             return;
         }
-        // Тело: m_right - block. Предварительное объявление `%func():Type := ...;` -
+        // Тело: m_right - block. Предварительное объявление `f():Type := ...;` -
         // m_right - чистое многоточие вместо тела → m_body = nullopt (forward declaration).
         if (isForwardEllipsisTerm(term->m_right)) {
             return;
@@ -243,7 +278,7 @@ FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
         if (term->m_right) {
             std::vector<AstNodePtr> fnBody;
             convertChildren(*ctx, term->m_right, fnBody);
-            m_body = std::move(fnBody);
+            m_definition = Definition::fromBody(std::move(fnBody));
         }
     } else {
         // Lambda/iterator: split params (ArgNode) / body из convertChildren.
@@ -264,12 +299,10 @@ FuncDecl::FuncDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
             m_params = std::move(params);
         }
         if (!fnBody.empty()) {
-            m_body = std::move(fnBody);
+            m_definition = Definition::fromBody(std::move(fnBody));
         }
     }
 }
-
-// -- Decl::dump --
 
 std::string Decl::dump(size_t indent) const {
     // Имя выводится один раз (ident_name/dump даёт "Kind 'text'").
@@ -294,13 +327,11 @@ std::string Decl::dump(size_t indent) const {
     return result;
 }
 
-// -- FuncDecl::dump --
-
 std::string FuncDecl::dump(size_t indent) const {
     std::string result = Decl::dump(indent);
     if (m_aliasKind != AliasKind::None) {
         result += " alias:";
-        result += m_aliasKind == AliasKind::Name ? "Name" : m_aliasKind == AliasKind::Namespace ? "Namespace" : "Module";
+        result += m_aliasKind == AliasKind::Name ? "Name" : "Namespace";
     }
     if (m_templateParams) {
         result += " <";
@@ -334,26 +365,30 @@ std::string FuncDecl::dump(size_t indent) const {
             }
         }
     }
-    if (m_body) {
+    if (const auto* fb = body()) {
         result += "\n";
         result += std::string(indent, ' ');
         result += "body:";
-        for (size_t i = 0; i < m_body->size(); ++i) {
+        for (size_t i = 0; i < fb->size(); ++i) {
             result += "\n";
-            const auto& stmt = (*m_body)[i];
+            const auto& stmt = (*fb)[i];
             if (stmt) {
                 result += stmt->dump(indent + 2);
             } else {
                 result += std::string(indent + 2, ' ') + "(null)";
             }
         }
-    } else if (m_aliasKind == AliasKind::None) {
+    } else if (m_aliasKind != AliasKind::None) {
+        result += " (alias)";
+    } else if (const std::string* fwd = forwardingTarget()) {
+        result += " (forwarding to " + *fwd + ")";
+    } else if (bindsNativeCpp()) {
+        result += " (native)";
+    } else {
         result += " (forward)";
     }
     return result;
 }
-
-// -- FuncDecl::signature - строка сигнатуры для контекст-макроса @__FUNCSIG__ --
 
 void FuncDecl::setAlias(AliasKind kind, AstNodePtr target, MapperRange range) {
     EXPECT(((kind == AliasKind::None) == (target == nullptr)) && "alias kind and target must agree");
@@ -364,9 +399,6 @@ void FuncDecl::setAlias(AliasKind kind, AstNodePtr target, MapperRange range) {
 
 std::string FuncDecl::signature(std::string_view namespace_path) const {
     std::string name(text());
-    if (!name.empty() && name.front() == '%') {
-        name.erase(0, 1);
-    }
     std::string sig;
     if (!namespace_path.empty()) {
         sig.assign(namespace_path);
@@ -400,21 +432,79 @@ std::string FuncDecl::signature(std::string_view namespace_path) const {
     return sig;
 }
 
-// -- VarDecl::dump --
-
 std::string VarDecl::dump(size_t indent) const {
     std::string result = Decl::dump(indent);
     if (m_initializer) {
         dumpLabeled(result, indent, "init", m_initializer);
-    } else {
+        return result;
+    }
+    switch (initKind()) {
+    case VarInitKind::Forward:
         result += " (forward)";
+        break;
+    case VarInitKind::Bound:
+        result += " (bound)";
+        break;
+    default:
+        result += " (no init)";
+        break;
     }
     return result;
 }
 
-// -- ClassDecl: forward-объявление (нативного) класса `Pair ::= %std::pair<T1,T2>{...};` --
+// Маркер варианта наследования в списке баз — терм, оканчивающийся на `::` (`::`/`_::`/`__::`);
+// базис всегда начинается с `:` или `%`, поэтому любое иное `...::` — НЕВАЛИДНЫЙ маркер.
+// Признак читается по ТЕКСТУ (не по TermID): `class_type_def` перезаписывает `m_id` ГОЛОВНОГО
+// терма на CLASS, поэтому у маркера-головы TermID теряется, а текст сохраняется.
+static bool applyVisibilityMarker(const TermPtr& baseTerm, Visibility& access, ConvertServices* ctx) {
+    if (!baseTerm) {
+        return false;
+    }
+    const std::string_view text = baseTerm->getText();
+    if (text.size() < 2 || !text.ends_with("::")) {
+        return false;
+    }
+    if (const auto marker = visibilityOf(text)) {
+        access = *marker;
+        return true;
+    }
+    if (ctx != nullptr) {
+        ctx->diag().report(Severity::Error, baseTerm->m_mapperRange,
+                           "invalid inheritance access marker '{}' (expected '::' (public), '_::' (protected), '__::' (private))", text);
+    }
+    return true;
+}
 
-ClassDecl::ClassDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
+// Члены тела класса с трекингом маркера видимости. Standalone-терм `::`/`_::`/`__::`
+// (TermID::NAMESPACE) задаёт уровень для ВСЕХ последующих членов и в тело класса не попадает;
+// каждый реальный член конвертируется и получает текущий уровень на узле
+// (`AstNodeBase::visibility` - тот же `Visibility`, что у маркеров области имён и наследования).
+// Дефолт — Public. Иное имя-область (`foo::`) — явная ошибка (как у маркеров наследования).
+static std::vector<AstNodePtr> convertClassMembers(const std::vector<TermPtr>& members, ConvertServices& ctx) {
+    std::vector<AstNodePtr> result;
+    Visibility access = Visibility::Public;
+    for (const TermPtr& term : members) {
+        if (!term || term->getTermID() == trust::TermID::END) {
+            continue;
+        }
+        if (term->getTermID() == trust::TermID::NAMESPACE) {
+            if (const auto level = visibilityOf(term->getText())) {
+                access = *level;
+                continue;
+            }
+            ctx.diag().report(Severity::Error, term->m_mapperRange,
+                              "invalid member access marker '{}' (expected '::' (public), '_::' (protected), '__::' (private))", term->getText());
+            continue;
+        }
+        if (AstNodePtr node = convertChild(ctx, term)) {
+            node->visibility = access;
+            result.push_back(std::move(node));
+        }
+    }
+    return result;
+}
+
+ClassDecl::ClassDecl(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* ctx)
 : Decl(ParserToken::Kind::ClassDecl) {
     EXPECT(term && "ClassDecl term-constructor requires a source Term");
     m_kind = ParserToken::Kind::ClassDecl;
@@ -437,11 +527,7 @@ ClassDecl::ClassDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
     if (rhs) {
         setRange(rhs->m_mapperRange); // охват RHS (связывание/члены), Term не удерживается
         // RHS-терм САМ является именем (native_class_fwd: `$$ = $1` = имя), текст - связывание.
-        std::string binding = std::string(rhs->getText());
-        if (!binding.empty() && binding.front() == '%') {
-            binding.erase(0, 1); // `%std::pair` → "std::pair" (нативное C++-имя)
-        }
-        m_nativeName = std::move(binding);
+        std::string binding(utils::stripNativePrefix(rhs->getText()));
         // Шаблонность и generic-признак ВЫВОДЯТСЯ из m_template (см. isGenericTemplate()).
         // Здесь - аргументы реализации из явной формы `имя<T1,T2>`; обобщённая форма
         // `<T1,T2> имя ::= <T1,T2> %std::pair` m_templateArgs НЕ заполняет (остаётся nullopt).
@@ -452,17 +538,66 @@ ClassDecl::ClassDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
                 m_templateArgs->push_back(aname);
             }
         }
+        // НЕшаблонный native-класс с явными C++-аргументами: аргументы - часть C++-имени.
+        // В шаблонной форме (m_templateParams задан) они применяются при инстанциации.
+        if (!m_templateParams.has_value() && m_templateArgs.has_value() && !binding.empty()) {
+            binding += '<';
+            for (size_t i = 0; i < m_templateArgs->size(); ++i) {
+                if (i != 0) {
+                    binding += ',';
+                }
+                binding += (*m_templateArgs)[i];
+            }
+            binding += '>';
+        }
+        if (!rhs->getText().empty() && rhs->getText().front() == '%' && !binding.empty()) {
+            m_pendingNativeCppName = std::move(binding);
+            m_bindsNativeCpp = true;
+        } else if (ctx != nullptr) {
+            // Без `%` RHS — не нативное имя; форма неотличима от обычного, поэтому ошибка в точке разбора.
+            ctx->diag().report(Severity::Error, rhs->m_mapperRange,
+                               "native class '{}' requires a '%'-prefixed C++ name on the right: 'Name ::= %cpp {{ ... }};'", text());
+        }
+        // БАЗИСЫ генерируемого класса: RHS-цепочка после C++-имени (`Name = %cpp, %base, :Base`).
+        // Нативное имя (`%std::string`) — готовый C++-базис (НЕ тип-ссылка, не резолвится);
+        // обычный тип (`:Base`) — IdentType (резолвится семантикой). ЧЛЕНЫ тела — только m_sequence
+        // (цепочку m_right как дети НЕ конвертируем: там базисы, а не члены).
+        // Вариант наследования действует на все последующие базы до нового маркера.
+        // Дефолт для ВСЕХ типов (record и класс) — public; private/protected задаются явным маркером.
+        Visibility baseAccess = Visibility::Public;
+        for (TermPtr baseTerm = rhs->m_right; baseTerm && baseTerm->getTermID() != trust::TermID::END; baseTerm = baseTerm->m_right) {
+            if (applyVisibilityMarker(baseTerm, baseAccess, ctx)) {
+                continue;
+            }
+            const std::string_view baseText = baseTerm->getText();
+            if (!baseText.empty() && baseText.front() == '%') {
+                m_nativeBaseCppNames.push_back(NativeBase{std::string(baseText.substr(1)), baseAccess});
+                continue;
+            }
+            auto baseNode = std::make_shared<IdentType>(baseTerm, std::nullopt, std::nullopt, ctx ? &ctx->attrs() : nullptr);
+            if (baseTerm->m_template.has_value()) {
+                std::vector<TemplateArg> targs;
+                for (const auto& [aname, argTerm] : *baseTerm->m_template) {
+                    (void)aname;
+                    if (argTerm && ctx) {
+                        targs.push_back(TemplateArg{convertChild(*ctx, argTerm), false});
+                    }
+                }
+                baseNode->setTemplateArgs(std::move(targs));
+            }
+            m_baseTypes.push_back(TypeBase{std::move(baseNode), baseAccess});
+        }
         if (ctx) {
-            convertChildren(*ctx, rhs, m_body);
+            // Члены тела — ТОЛЬКО m_sequence (базы в m_right выше уже прочитаны).
+            m_body = convertClassMembers(rhs->m_sequence, *ctx);
         }
     }
 }
 
 std::string ClassDecl::dump(size_t indent) const {
     std::string result = Decl::dump(indent);
-    if (!m_nativeName.empty()) {
-        result += " -> ";
-        result += m_nativeName;
+    if (bindsNativeCpp()) {
+        result += " -> (native)";
     }
     if (isGenericTemplate()) {
         result += " (generic-template)";
@@ -489,9 +624,8 @@ std::string ClassDecl::dump(size_t indent) const {
     return result;
 }
 
-// -- RecordDecl: пользовательский Struct/Class `:Name ::= :Base{, :Base}{ ... };` --
 // Единый узел: Struct (`:Struct`-база) и Class (`:Class`/user-база) отличаются только базой.
-RecordDecl::RecordDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
+RecordDecl::RecordDecl(ParserToken::Kind /*k*/, TermPtr term, ConvertServices* ctx)
 : Decl(ParserToken::Kind::StructDecl) {
     EXPECT(term && "RecordDecl term-constructor requires a source Term");
     m_kind = ParserToken::Kind::StructDecl;
@@ -528,19 +662,25 @@ RecordDecl::RecordDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
     // Базы: CLASS-терм = первая база (текст `:Struct`/`:Class`/`:Base`), её m_right - остальные.
     // База-тип с типовыми аргументами (`:Base<:T>`) обязана сохранить m_template: manual-конструктор
     // IdentType(term) его не читает, поэтому типовые аргументы переносим явно (как visit_TYPE).
+    // Маркер варианта наследования (standalone-элемент списка) действует на все последующие базы
+    // до нового маркера; дефолт для ВСЕХ типов — public (private/protected — явным маркером).
+    Visibility baseAccess = Visibility::Public;
     for (TermPtr base = rhs; base && base->getTermID() != trust::TermID::END; base = base->m_right) {
+        if (applyVisibilityMarker(base, baseAccess, ctx)) {
+            continue;
+        }
         auto baseNode = std::make_shared<IdentType>(base, std::nullopt, std::nullopt, ctx ? &ctx->attrs() : nullptr);
         if (base->m_template.has_value()) {
-            std::vector<AstNodePtr> targs;
+            std::vector<TemplateArg> targs;
             for (const auto& [aname, argTerm] : *base->m_template) {
                 (void)aname;
                 if (argTerm && ctx) {
-                    targs.push_back(convertChild(*ctx, argTerm));
+                    targs.push_back(TemplateArg{convertChild(*ctx, argTerm), false});
                 }
             }
             baseNode->setTemplateArgs(std::move(targs));
         }
-        m_baseTypes.push_back(std::move(baseNode));
+        m_baseTypes.push_back(TypeBase{std::move(baseNode), baseAccess});
     }
 
     // Предварительное (forward) объявление - форма БЕЗ тела `:Name ::= :Base ...;`: грамматика
@@ -550,17 +690,11 @@ RecordDecl::RecordDecl(ParserToken::Kind /*k*/, TermPtr term, Context* ctx)
 
     // Члены: class_props разложены в m_sequence (поля/методы). Для forward-объявления членов нет.
     if (!forward) {
-        m_body.emplace();
+        std::vector<AstNodePtr> members;
         if (ctx) {
-            for (const auto& m : rhs->m_sequence) {
-                if (!m || m->getTermID() == trust::TermID::END) {
-                    continue;
-                }
-                if (AstNodePtr n = convertChild(*ctx, m)) {
-                    m_body->push_back(std::move(n));
-                }
-            }
+            members = convertClassMembers(rhs->m_sequence, *ctx);
         }
+        m_definition = Definition::fromBody(std::move(members));
     }
 }
 
@@ -587,18 +721,20 @@ std::string RecordDecl::dump(size_t indent) const {
     if (!m_baseTypes.empty()) {
         result += " :";
         for (const auto& b : m_baseTypes) {
-            if (!b) {
+            if (!b.type) {
                 continue;
             }
             result += " ";
-            result += std::string(requiredText(*b));
+            result += std::string(visibilityKeyword(b.access));
+            result += " ";
+            result += std::string(requiredText(*b.type));
         }
     }
-    if (!m_body.has_value()) {
+    if (!m_definition.hasBody()) {
         result += " (forward)";
         return result;
     }
-    Sequence::dumpBody(result, *m_body, indent, indent + 2);
+    Sequence::dumpBody(result, *m_definition.body(), indent, indent + 2);
     return result;
 }
 } // namespace trust

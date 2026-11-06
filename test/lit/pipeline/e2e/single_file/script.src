@@ -12,6 +12,7 @@
 
 # CHECK: triple_ok=12
 
+\std();
 @func triple(x:Int32):Int32 {
     return x * 3;
 };

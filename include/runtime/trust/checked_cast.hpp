@@ -1,5 +1,4 @@
 // trust/checked_cast.hpp - checked numeric cast with a range check.
-//
 // Delivery: package file `include/trust/checked_cast.hpp` inside share/trust/stdlib.trust (available via -Istdlib/include).
 
 #pragma once

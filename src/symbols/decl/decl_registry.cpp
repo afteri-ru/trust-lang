@@ -24,7 +24,7 @@ bool isNativeFuncDecl(const AstNodeBase* decl) {
         return false;
     }
     const auto& f = *decl->as<FuncDecl>();
-    return f.m_isNativeImport || f.m_isNativeTemplateImport || f.m_isNativeTemplateCtor || (!f.text().empty() && f.text().front() == '%');
+    return f.bindsNativeCpp();
 }
 
 /// В наборе есть перегрузка, объявленная нативным C++-символом.
@@ -64,10 +64,11 @@ Symbol* bestDeclaringSymbolInScope(Scope& scope, const AstNodeBase* decl, Symbol
 
 bool isForwardDeclaration(const AstNodeBase& decl) {
     if (decl.is<VarDecl>()) {
-        return decl.as<VarDecl>()->m_initializer == nullptr;
+        // Нативный импорт — реализация предоставлена внешним символом, не forward.
+        return decl.as<VarDecl>()->isForwardDeclaration();
     }
     if (decl.is<FuncDecl>()) {
-        return !decl.as<FuncDecl>()->m_body.has_value();
+        return decl.as<FuncDecl>()->isForwardDeclaration();
     }
     return false; // TypeDecl и прочие - всегда определение
 }
@@ -168,10 +169,10 @@ DeclResult declareOrCompleteInScope(Scope& scope, const Symbol& sym, const Stora
                 // повторять — переносим их в completing-символ.
                 SymbolOverload completed = incoming;
                 const CallableParamInfo& oldInfo = entries[found].params;
-                if (oldInfo.valid() && completed.params.valid() && oldInfo.hasDefault.size() == completed.params.hasDefault.size()) {
-                    for (std::size_t i = 0; i < completed.params.hasDefault.size(); ++i) {
-                        if (oldInfo.hasDefault[i]) {
-                            completed.params.hasDefault[i] = true;
+                if (oldInfo.slots.size() == completed.params.slots.size()) {
+                    for (std::size_t i = 0; i < completed.params.slots.size(); ++i) {
+                        if (oldInfo.slots[i].hasDefault) {
+                            completed.params.slots[i].hasDefault = true;
                         }
                     }
                 }

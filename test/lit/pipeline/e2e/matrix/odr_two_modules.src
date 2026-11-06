@@ -1,0 +1,28 @@
+# RUN: TD=%t.dir && rm -rf $TD && mkdir -p $TD
+# RUN: %split-file %s $TD
+# RUN: %trust -q --temp-dir $TD/build --options "-O2" -o $TD/app $TD/main.src
+# RUN: $TD/app && echo "PASS"
+# CHECK: PASS
+#
+# R47 (целевая матрица): кейс ODR — одна и та же инстанциация шаблона (`Box<Int32>`) в ДВУХ
+# единицах трансляции линкуется без дублей определений (проверяет R47 «без дублей определений», R21).
+# Отдельно от `module/template_two_modules.src` (R21/R40, без явных опций): здесь сборка в целевом
+# контракте матрицы (-O2).
+# Возвращает: a.get()+b.get()-6 = 5+1-6 = 0.
+
+//--- main.src
+\lib(Box, mk);
+@main():Int32 := {
+    a : Box<Int32> := Box();
+    a.set(5);
+    b : Box<Int32> := mk();
+    @return a.get() + b.get() - 6;
+};
+//--- lib.src
+\lib;
+<T> :Box ::= :Class{
+    value: T := _;
+    set(v: T) := { value = v; };
+    get(): T := { return value; };
+};
+mk():Box<Int32> := { b : Box<Int32> := Box(); b.set(1); @return b; };

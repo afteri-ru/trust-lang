@@ -54,7 +54,7 @@ TEST_F(UninitInferTest, UntypedUnderscoreTypedByWrite_Ok) {
     const std::string src = "@main() := {\n"
                             "    x := _;\n"
                             "    x = 5;\n"
-                            "    @print(\"{}\", x);\n"
+                            "    if (x) { @return; };\n"
                             "};\n";
     EXPECT_EQ(runSemantic(src), 0) << msgs();
 }
@@ -63,7 +63,7 @@ TEST_F(UninitInferTest, UntypedUnderscoreTypedByWrite_Ok) {
 TEST_F(UninitInferTest, ReadBeforeWrite_Error) {
     const std::string src = "@main() := {\n"
                             "    x := _;\n"
-                            "    @print(\"{}\", x);\n"
+                            "    if (x) { @return; };\n"
                             "};\n";
     EXPECT_GT(runSemantic(src), 0);
     EXPECT_NE(msgs().find("read before it is initialized"), std::string::npos) << msgs();
@@ -74,7 +74,7 @@ TEST_F(UninitInferTest, ResetThenRead_Error) {
     const std::string src = "@main() := {\n"
                             "    x := 5;\n"
                             "    x = _;\n"
-                            "    @print(\"{}\", x);\n"
+                            "    if (x) { @return; };\n"
                             "};\n";
     EXPECT_GT(runSemantic(src), 0);
     EXPECT_NE(msgs().find("read before it is initialized"), std::string::npos) << msgs();
@@ -102,7 +102,7 @@ TEST_F(UninitInferTest, IncompatibleCategories_Error) {
                             "    x := _;\n"
                             "    x = 5;\n"
                             "    x = \"s\";\n"
-                            "    @print(\"{}\", x);\n"
+                            "    if (x) { @return; };\n"
                             "};\n";
     EXPECT_GT(runSemantic(src), 0);
     EXPECT_NE(msgs().find("cannot assign type 'StrChar'"), std::string::npos) << msgs();
@@ -116,7 +116,7 @@ TEST_F(UninitInferTest, BranchMissingWrite_Error) {
                             "    if (1) {\n"
                             "        x = 5;\n"
                             "    };\n"
-                            "    @print(\"{}\", x);\n"
+                            "    if (x) { @return; };\n"
                             "};\n";
     EXPECT_GT(runSemantic(src), 0);
     EXPECT_NE(msgs().find("read before it is initialized"), std::string::npos) << msgs();
@@ -131,7 +131,7 @@ TEST_F(UninitInferTest, LoopReadAfter_Error) {
                             "        x = 5;\n"
                             "        $i += 1;\n"
                             "    };\n"
-                            "    @print(\"{}\", x);\n"
+                            "    if (x) { @return; };\n"
                             "};\n";
     EXPECT_GT(runSemantic(src), 0);
     EXPECT_NE(msgs().find("read before it is initialized"), std::string::npos) << msgs();
@@ -146,7 +146,7 @@ TEST_F(UninitInferTest, EarlyReturnElse_Ok) {
                             "    } else {\n"
                             "        @return;\n"
                             "    };\n"
-                            "    @print(\"{}\", x);\n"
+                            "    if (x) { @return; };\n"
                             "};\n";
     EXPECT_EQ(runSemantic(src), 0) << msgs();
 }
@@ -156,7 +156,7 @@ TEST_F(UninitInferTest, ReadAfterReturnUnreachable_Ok) {
     const std::string src = "@main() := {\n"
                             "    x:Int32 := _;\n"
                             "    @return;\n"
-                            "    @print(\"{}\", x);\n"
+                            "    if (x) { @return; };\n"
                             "};\n";
     EXPECT_EQ(runSemantic(src), 0) << msgs();
 }
@@ -168,7 +168,7 @@ TEST_F(UninitInferTest, TryCatchPreTryInit_Ok) {
                             "    try_error {\n"
                             "        a := 1;\n"
                             "    } catch(e:IntMinus) {\n"
-                            "        @print(\"{}\", x);\n"
+                            "        if (x) { @return; };\n"
                             "    };\n"
                             "};\n";
     EXPECT_EQ(runSemantic(src), 0) << msgs();
@@ -181,7 +181,7 @@ TEST_F(UninitInferTest, TryCatchReadBeforeInit_Error) {
                             "    try_error {\n"
                             "        a := 1;\n"
                             "    } catch(e:IntMinus) {\n"
-                            "        @print(\"{}\", x);\n"
+                            "        if (x) { @return; };\n"
                             "    };\n"
                             "};\n";
     EXPECT_GT(runSemantic(src), 0);
@@ -192,7 +192,7 @@ TEST_F(UninitInferTest, TryCatchReadBeforeInit_Error) {
 TEST_F(UninitInferTest, ReadBeforeInitDoesNotDuplicateCannotInfer) {
     const std::string src = "@main() := {\n"
                             "    x := _;\n"
-                            "    @print(\"{}\", x);\n"
+                            "    if (x) { @return; };\n"
                             "};\n";
     EXPECT_EQ(runSemantic(src), 1) << msgs();
     EXPECT_NE(msgs().find("read before it is initialized"), std::string::npos) << msgs();

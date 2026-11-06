@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/core/name_resolution.hpp
 // Единый однопроходный проход разрешения имён (обязательное ядро семантики).
 // NameResolutionPass - ДРАЙВЕР (издатель событий): владеет обходом AST, скоуп-стеком и
 // подключёнными InlineAnalysisHook. Тяжёлая анализ-логика - в компонентах
@@ -45,12 +44,13 @@ class NameResolutionPass {
     /// Финальный проход по подключённым хукам (после завершения обхода).
     void finalize();
 
-    // -- Traversal API для анализаторов (контракт драйвера; дружба не нужна) --
     void analyzeNode(AstNodePtr& self);
     void enterScope(const AstNodeBase& node);
     void exitScope();
     Symbol* resolveSimple(AstNodeBase* node, std::string_view name);
-    QualType applyRefAttrs(QualType base, const AstNodeAttr& node, MapperRange range);
+    /// Применение квалификаторов объявления/аннотации (const/reftype/deleter/…) единым резолвером.
+    /// `deleterOutsideType` (необязательный выход) — тип deleter'а, не входящий в тип (`shared`).
+    QualType applyRefAttrs(QualType base, const AstNodeAttr& node, MapperRange range, TypeId* deleterOutsideType = nullptr);
     std::vector<std::unique_ptr<InlineAnalysisHook>>& hooks() noexcept { return m_hooks; }
     ExprTyper& typer() noexcept { return m_typer; }
     TrustAnalyzer& trust() noexcept { return m_trust; }
@@ -61,7 +61,6 @@ class NameResolutionPass {
     /// это делает analyzeNode.
     void analyzeChildren(AstNodePtr& self);
 
-    // -- Kind-диспетчеризация partial pass (ast/kind_dispatch.hpp) --
     // ОДНА таблица: default doTraverse (обход детей + пост-обработка), override-ы - полное
     // действие фазы для группы kinds. `consumed` - узел заменён хуком: leaf-действие
     // пропускается, обход детей сохраняется. `END` - reject, а не default-обход.
@@ -117,7 +116,6 @@ class NameResolutionPass {
     /// Стандартное завершение обработчика: обход детей + пост-порядковая обработка.
     void finishTraverse(AstNodePtr& self);
 
-    // -- Обработчики групп узлов обхода (name_resolution_nodes.cpp) --
     /// Скоуп-контейнеры (ModuleDecl/sequence/ScopeBlock/TryCatchStmt): вложенный скоуп на тело.
     void analyzeScopeContainer(AstNodePtr& self);
     /// Оператор with(...){...}else{...} (RAII-менеджер контекста): биндинги, тело, ветка else.
@@ -199,7 +197,6 @@ class NameResolutionPass {
     ExprTyper m_typer;
     AccessResolver m_access;
     TrustAnalyzer m_trust;
-
 };
 
 } // namespace trust

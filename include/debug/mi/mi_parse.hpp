@@ -1,6 +1,5 @@
 #pragma once
 
-// include/debug/mi/mi_parse.hpp
 // Чистый разбор строк GDB/MI (без процессов и состояния сессии): записи ^/*/~/,
 // кадры стека (-stack-list-frames) и маппинг stop reason в DAP-совместимые значения.
 

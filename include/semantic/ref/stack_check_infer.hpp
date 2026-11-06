@@ -1,6 +1,5 @@
 #pragma once
 
-// include/semantic/ref/stack_check_infer.hpp
 // Опциональный анализатор (InlineAnalysisHook) контроля переполнения стека для рекурсивных
 // функций (режимы --stack-check=recursion|auto). Строит граф вызовов по разрешённым CallExpr
 // (текущая функция -> callee) и на этапе finalize (после полного обхода) находит рекурсивные

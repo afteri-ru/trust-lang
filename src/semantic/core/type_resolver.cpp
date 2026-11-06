@@ -1,4 +1,3 @@
-// src/semantic/core/type_resolver.cpp
 // Резолв типов, ключей их регистрации, модульных ссылок и runtime-символов.
 #include "types/type_read.hpp"
 #include "semantic/core/type_resolver.hpp"
@@ -9,13 +8,15 @@
 #include "attrs/attr.hpp"
 #include "attrs/attr_builtin.hpp"
 #include "session/context.hpp"
-#include "session/module_resolver.hpp"
+#include "module_api/module_resolver.hpp"
+#include "target/target.hpp"
 #include "ast/ref_syntax.hpp"
 #include "ast/token_type.hpp"
 #include "diag/diag.hpp"
 #include "types/intrinsics.hpp"
 #include "types/type_system.hpp"
 #include "types/names.hpp"
+#include "target/runtime_symbols.hpp"
 #include "utils/strings.hpp"
 
 #include <optional>
@@ -26,8 +27,9 @@
 
 namespace trust {
 
-TypeResolution::TypeResolution(Context& ctx, const SymbolTable& symbols, const NamespaceScope& namespaces)
+TypeResolution::TypeResolution(Context& ctx, TypeSystem& registry, const SymbolTable& symbols, const NamespaceScope& namespaces)
 : m_ctx(ctx)
+, m_registry(registry)
 , m_symbols(symbols)
 , m_namespaces(namespaces) {
 }
@@ -132,7 +134,7 @@ std::optional<TypeId> TypeResolution::resolveTupleAnnotation(const IdentType& it
     if (!it.params() || it.params()->empty()) {
         return std::nullopt;
     }
-    auto& reg = m_ctx.types();
+    auto& reg = m_registry;
     // Резолв имени — единым путём semantic (`lookupTypeName`: скоуп-стек -> ключи реестра).
     if (auto tid = lookupTypeName(name); tid.has_value() && reg.read().store().desugaredTypeId(*tid) == reg.read().getType(type_category::Tuple)) {
         std::vector<std::pair<std::string, QualType>> elems;
@@ -178,10 +180,10 @@ std::optional<TypeId> TypeResolution::resolveRefAnnotation(const AstNodeBase& ty
     if (!pointee.has_value() || *pointee == INVALID_TYPE_ID) {
         return INVALID_TYPE_ID;
     }
-    return m_ctx.types().interner().applyRefType(*pointee, *kind);
+    return m_registry.interner().applyRefType(*pointee, *kind);
 }
 
-std::optional<TypeId> TypeResolution::resolveTypeRef(const AstNodeBase& type_node) const {
+std::optional<TypeId> TypeResolution::resolveTypeRef(const AstNodeBase& type_node, TypeId* deleterOutsideType) const {
     // Материализованный результат (кэш): повторный резолв того же узла не переприменяет
     // квалификаторы и не дублирует диагностику.
     if (type_node.kind() == ParserToken::Kind::TypeName) {
@@ -201,7 +203,7 @@ std::optional<TypeId> TypeResolution::resolveTypeRef(const AstNodeBase& type_nod
         const AttrPool& attrs = m_ctx.attrs();
         if (hasDeclarationQualifiers(attrs, attrNode)) {
             const auto& it = static_cast<const IdentType&>(type_node);
-            it.resolvedState = applyAnnotationQualifiers(QualType::fromTypeId(*resolved), *attrNode, type_node.range());
+            it.resolvedState = applyAnnotationQualifiers(QualType::fromTypeId(*resolved), *attrNode, type_node.range(), deleterOutsideType);
         }
     }
     // Материализация факта: кодоген рендерит разрешённый тип узла и не резолвит имя заново.
@@ -209,8 +211,8 @@ std::optional<TypeId> TypeResolution::resolveTypeRef(const AstNodeBase& type_nod
     return resolved;
 }
 
-QualType TypeResolution::applyAnnotationQualifiers(QualType base, const AstNodeAttr& node, MapperRange range) const {
-    return applyDeclarationQualifiers(m_ctx, *this, base, node, range);
+QualType TypeResolution::applyAnnotationQualifiers(QualType base, const AstNodeAttr& node, MapperRange range, TypeId* deleterOutsideType) const {
+    return applyDeclarationQualifiers(m_ctx, *this, base, node, range, deleterOutsideType);
 }
 
 void TypeResolution::reportAmbiguousName(const AstNodeBase& node, std::string_view name, const std::vector<ModuleIndex>& candidates,
@@ -240,15 +242,15 @@ TypeId TypeResolution::typeNameOfSymbol(const Symbol& sym) const {
     if (sym.decl == nullptr) {
         return INVALID_TYPE_ID;
     }
-    // Нативный шаблон-ТИП объявляется через FuncDecl с `m_isNativeTemplateCtor` (остальные
-    // FuncDecl — функции, не типы). Struct/Class — RecordDecl/ClassDecl, алиасы — TypeDecl.
-    const bool denotesType = isTypeDeclKind(sym.decl->kind()) || (sym.decl->is<FuncDecl>() && sym.decl->as<FuncDecl>()->m_isNativeTemplateCtor);
+    // Нативный шаблон-ТИП объявляется оператором типа (`<T> Name ::= %cpp { };`), а не FuncDecl
+    // (остальные FuncDecl — функции, не типы). Struct/Class — RecordDecl/ClassDecl, алиасы — TypeDecl.
+    const bool denotesType = isTypeDeclKind(sym.decl->kind());
     return denotesType ? sym.type.getTypeId() : INVALID_TYPE_ID;
 }
 
 void TypeResolution::aliasTypeKeys(TypeId id, const std::vector<StorageKey>& keys) const {
     for (std::size_t i = 1; i < keys.size(); ++i) {
-        m_ctx.types().names().aliasKey(id, keys[i]);
+        m_registry.names().aliasKey(id, keys[i]);
     }
 }
 
@@ -274,65 +276,13 @@ std::optional<TypeId> TypeResolution::lookupTypeName(std::string_view name) cons
     return std::nullopt;
 }
 
-const Symbol* TypeResolution::resolveModuleRef(const IdentName& node) const {
-    EXPECT(node.moduleRef.has_value() && "resolveModuleRef: node is not a module reference");
-    // Имя проверяется как экспорт ИМЕННО этого модуля, видимый на текущем сайте (M1).
-    const Symbol* sym = m_symbols.findVisibleFromModule(*node.moduleRef, node.text());
-    if (sym != nullptr && sym->decl != nullptr && sym->decl->visibility == AstNodeBase::Visibility::Protected) {
-        const ModuleResolver* resolver = m_ctx.moduleResolver();
-        EXPECT(resolver != nullptr && "resolveModuleRef: module resolver is not set");
-        if (!resolver->canAccessProtected(m_symbols.currentModule(), *node.moduleRef)) {
-            return nullptr;
-        }
-    }
-    return sym;
-}
-
 std::string TypeResolution::moduleLabel(ModuleIndex index) const {
     const ModuleResolver* resolver = m_ctx.moduleResolver();
     EXPECT(resolver != nullptr && "moduleLabel: Pipeline must inject ModuleLoader into Context");
     return std::string(resolver->moduleLogicalName(index));
 }
 
-void TypeResolution::reportModuleRefError(const IdentName& node) const {
-    EXPECT(node.moduleRef.has_value() && "reportModuleRefError: node is not a module reference");
-    const std::string module = moduleLabel(*node.moduleRef);
-    const Symbol* hidden = m_symbols.findVisibleFromModule(*node.moduleRef, node.text(), /*maskBypass=*/true);
-    if (hidden != nullptr && hidden->decl != nullptr && hidden->decl->visibility == AstNodeBase::Visibility::Protected) {
-        const ModuleResolver* resolver = m_ctx.moduleResolver();
-        if (resolver == nullptr || !resolver->canAccessProtected(m_symbols.currentModule(), *node.moduleRef)) {
-            m_ctx.diag().report(Severity::Error, node.range(), "protected name '{}' of module '{}' is not accessible outside its group/package", node.text(),
-                                module);
-            return;
-        }
-    }
-    if (hidden != nullptr) {
-        m_ctx.diag().report(Severity::Error, node.range(), "name '{}' is hidden by the import masks of module '{}'", node.text(), module);
-    } else {
-        m_ctx.diag().report(Severity::Error, node.range(), "module '{}' has no exported name '{}'", module, node.text());
-    }
-}
-
 std::optional<TypeId> TypeResolution::resolveTypeRefImpl(const AstNodeBase& type_node) const {
-    // Модульная ссылка `\path::T`: резолв ограничен экспорт-набором указанного модуля
-    // (иначе `\b::T` молча связал бы одноимённый тип другого модуля плоского пространства).
-    if (type_node.is<IdentName>()) {
-        const IdentName& ident = static_cast<const IdentName&>(type_node);
-        if (ident.moduleRef.has_value()) {
-            const Symbol* sym = resolveModuleRef(ident);
-            if (sym == nullptr) {
-                // Диагностика ОБЯЗАТЕЛЬНА: иначе аннотация останется без типа (ICE в HIR).
-                reportModuleRefError(ident);
-                return INVALID_TYPE_ID;
-            }
-            // Тип берётся из РАЗРЕШЁННОГО символа: плоский текстовый резолв потерял бы модуль
-            // (одноимённые типы разных модулей — разные типы).
-            const TypeId moduleType = typeNameOfSymbol(*sym);
-            if (moduleType != INVALID_TYPE_ID) {
-                return moduleType;
-            }
-        }
-    }
     if (type_node.kind() == ParserToken::Kind::RefMakeExpr || type_node.kind() == ParserToken::Kind::RefTakeExpr) {
         return resolveRefAnnotation(type_node);
     }
@@ -353,17 +303,17 @@ std::optional<TypeId> TypeResolution::resolveTypeRefImpl(const AstNodeBase& type
     // NativeTemplateTypeData. Если базы-шаблона нет - это ошибка (в т.ч. shift→template
     // переработал сравнение `:Int8 < 5` в `:Int8<5>`, где Int8 не шаблон).
     if (it.isTemplate()) {
-        auto& reg = m_ctx.types();
+        auto& reg = m_registry;
         auto base = lookupTypeName(name);
         // Резолв типовых аргументов (общий для record- и native-шаблонов): `:Int32`, `:MyClass<:Int8>`
         // либо голое имя `Int32`.
         const auto resolveArgs = [&]() {
             std::vector<TypeId> args;
             if (it.templateArgs()) {
-                const auto& packs = it.templateArgPacks();
+                const auto& targs = *it.templateArgs();
                 size_t packCount = 0;
-                for (size_t idx = 0; idx < it.templateArgs()->size(); ++idx) {
-                    const auto& a = (*it.templateArgs())[idx];
+                for (size_t idx = 0; idx < targs.size(); ++idx) {
+                    const auto& a = targs[idx].node;
                     if (!a) {
                         continue;
                     }
@@ -395,7 +345,7 @@ std::optional<TypeId> TypeResolution::resolveTypeRefImpl(const AstNodeBase& type
                         continue;
                     }
                     at = getUnqualifiedType(at);
-                    const bool isPackArg = packs.has_value() && idx < packs->size() && (*packs)[idx];
+                    const bool isPackArg = targs[idx].isPack;
                     if (isPackArg) {
                         ++packCount;
                         if (!reg.read().store().isTemplateParamType(reg.read().store().desugaredTypeId(at))) {
@@ -414,7 +364,7 @@ std::optional<TypeId> TypeResolution::resolveTypeRefImpl(const AstNodeBase& type
         };
         // Пользовательский шаблон-класс (`<T> :Box ::= :Class{...}`): инстанциация record-шаблона.
         if (base.has_value() && reg.read().store().isRecordTemplate(*base)) {
-            const std::size_t expected = reg.read().store().recordTemplateParams(*base).size();
+            const std::size_t expected = reg.read().store().templateParamsOf(*base).size();
             std::vector<TypeId> args = resolveArgs();
             for (const TypeId a : args) {
                 if (reg.read().store().isPackExpansionType(a)) {
@@ -426,6 +376,10 @@ std::optional<TypeId> TypeResolution::resolveTypeRefImpl(const AstNodeBase& type
                 m_ctx.diag().report(Severity::Error, it.range(), "template '{}' expects {} type argument(s), but {} provided", name, expected, args.size());
                 return INVALID_TYPE_ID;
             }
+            // Контекст инстанциации (R30/R50): диагностики внутри (лимит глубины, цикл, подстановка
+            // полей) идут с цепочкой Notes «in instantiation of …» + точкой запроса. Стек — у
+            // владельца диагностики (`diag`), а не в AST/узле.
+            DiagnosticEngine::ContextScope instantiationScope(m_ctx.diag(), it.range(), std::format("in instantiation of template '{}'", name));
             return reg.interner().getOrCreateRecordTemplateInstance(*base, std::move(args));
         }
         // Имя не найдено либо найдено, но не является шаблоном (record-шаблоны обработаны выше).
@@ -433,7 +387,9 @@ std::optional<TypeId> TypeResolution::resolveTypeRefImpl(const AstNodeBase& type
             m_ctx.diag().report(Severity::Error, it.range(), "type '{}' is not a template", name);
             return INVALID_TYPE_ID;
         }
-        const std::string cppTpl = std::string(reg.read().store().nativeTemplateCppName(*base));
+        const TypeReadModel trend = m_ctx.readTypes();
+        const CppTypeFacts* baseFacts = m_ctx.target().typeCppFacts().factsOf(trend.store().cppFactsKeyOf(trend.store().desugaredTypeId(*base)));
+        const std::string cppTpl = baseFacts != nullptr ? baseFacts->cppTemplate : std::string{};
         std::vector<TypeId> args = resolveArgs();
         // Встроенные контейнеры: `std::vector` → `:Array` (mutable, std::vector<Elem>); `std::array`
         // → константный `:Array^` (B2, std::array<Elem,N>). Инстанциация объединяется с `:Array`.
@@ -444,9 +400,9 @@ std::optional<TypeId> TypeResolution::resolveTypeRefImpl(const AstNodeBase& type
             }
             return reg.interner().getOrCreateArrayType(args[0]);
         }
-        // Общий нативный шаблон (`std::pair` и т.п.): инклуд из абстрактного шаблона (on-use).
-        std::string_view inc = reg.read().builtins().preprocIncludeOf(*base);
-        return reg.interner().getOrCreateNativeTemplateType(cppTpl, std::move(args), inc);
+        // Общий нативный шаблон (`std::pair` и т.п.): идентичность — языковой ключ (абстрактный
+        // шаблон `*base`); C++-имя/include — целевые факты абстрактного шаблона (on-use).
+        return reg.interner().getOrCreateNativeTemplateType(*base, std::move(args));
     }
     if (auto tuple = resolveTupleAnnotation(it, name); tuple.has_value()) {
         return tuple;
@@ -508,20 +464,20 @@ std::optional<TypeId> TypeResolution::resolveTypeRefImpl(const AstNodeBase& type
         }
         // dtype неизвестен: временный тип с Any; coerceArrayInitToTarget заменит его конкретным
         // по аннотации элемента/инициализатору. Без инициализатора кодогенерация даст диагностику.
-        return m_ctx.types().interner().getOrCreateTensorType(m_ctx.readTypes().getType(type_generic::Any), std::move(shape), sparse);
+        return m_registry.interner().getOrCreateTensorType(m_ctx.readTypes().getType(type_generic::Auto), std::move(shape), sparse);
     }
     // `:Elem[d1,d2,...]` (более одной размерности) - тензор с элементным типом Elem.
     // Одномерное `:Elem[n]` остаётся массивом (фиксированный std::array).
     if (it.dims() && it.dims()->size() > 1) {
         const TypeId baseCanon = m_ctx.readTypes().store().desugaredTypeId(*base);
-        const Group elemGroup = getGroup(getTypeKind(baseCanon));
+        const Group elemGroup = typeGroupOf(baseCanon);
         const bool scalarElem = elemGroup == Group::kLogical || elemGroup == Group::kIntegers || elemGroup == Group::kUnsigned || elemGroup == Group::kNumbers;
         if (scalarElem) {
             auto parsed = parseDimensions(it, m_ctx.diag(), "tensor shape dimensions must be integer literals", "tensor dimension");
             if (!parsed) {
                 return INVALID_TYPE_ID;
             }
-            return m_ctx.types().interner().getOrCreateTensorType(*base, std::move(*parsed));
+            return m_registry.interner().getOrCreateTensorType(*base, std::move(*parsed));
         }
     }
     // Тип-определение массива `:Elem[3]` / `:Elem[3,4]`: размерности из `[...]` (без финальной
@@ -539,7 +495,7 @@ std::optional<TypeId> TypeResolution::resolveTypeRefImpl(const AstNodeBase& type
             // Определение типа массива `:Elem[3]`: изменяемый массив (std::vector) с известной
             // размерностью (для проверки границ при доступе). N-D определения работают без
             // кодогенерации (при генерации - диагностика «не реализовано»).
-            return m_ctx.types().interner().getOrCreateArrayType(*base, std::move(dims));
+            return m_registry.interner().getOrCreateArrayType(*base, std::move(dims));
         }
     }
     return base;
@@ -586,11 +542,11 @@ TypeId TypeResolution::buildFuncType(const FuncDecl& func_node) const {
     if (func_node.m_type) {
         returnType = annotationIdentity(func_node.m_type.get(), resolveTypeRef(*func_node.m_type).value_or(INVALID_TYPE_ID));
     }
-    const TypeId variadicType = variadic ? m_ctx.readTypes().getType(type_generic::Any) : INVALID_TYPE_ID;
+    const TypeId variadicType = variadic ? m_ctx.readTypes().getType(type_generic::Auto) : INVALID_TYPE_ID;
 
     // Функция с trust-условиями (пред/пост, m_trust) получает ОТДЕЛЬНЫЙ функциональный TypeId
     // от идентичной сигнатуры без условий (бит kTrustFlag в TypeKind, см. registry.hpp).
-    return m_ctx.types().interner().getOrCreateFunctionType(returnType, paramTypes, variadicType, !func_node.m_trust.empty(), paramPackType, paramPackPosition);
+    return m_registry.interner().getOrCreateFunctionType(returnType, paramTypes, variadicType, !func_node.m_trust.empty(), paramPackType, paramPackPosition);
 }
 
 void TypeResolution::coerceTemplateCtor(AstNodeBase* init, TypeId target) const {
@@ -601,7 +557,7 @@ void TypeResolution::coerceTemplateCtor(AstNodeBase* init, TypeId target) const 
     if (!call.m_callee || call.m_callee->kind() != ParserToken::Kind::Ident) {
         return;
     }
-    TypeSystem& reg = m_ctx.types();
+    TypeSystem& reg = m_registry;
     // Callee обозначает тип? Предпочтителен материализованный `resolvedTypeId`; если обход ещё
     // не записал его, резолвим символ в скоупе (учитывает shadowing) и записываем факт.
     TypeId calleeType = call.m_callee->as<IdentName>()->resolvedTypeId;
@@ -618,11 +574,11 @@ void TypeResolution::coerceTemplateCtor(AstNodeBase* init, TypeId target) const 
     }
     // Record-шаблон: тип-цель обязан быть инстанциацией ИМЕННО этого шаблона.
     if (reg.read().store().isRecordTemplate(calleeType)) {
-        const auto* rd = reg.read().store().recordData(target);
-        if (rd == nullptr || rd->templateOf == INVALID_TYPE_ID) {
+        const auto inst = reg.read().store().instanceOf(target);
+        if (!inst) {
             return;
         }
-        if (reg.read().store().desugaredTypeId(rd->templateOf) != reg.read().store().desugaredTypeId(calleeType)) {
+        if (reg.read().store().desugaredTypeId(inst->templateOf) != reg.read().store().desugaredTypeId(calleeType)) {
             return;
         }
         call.resultType = target;
@@ -631,7 +587,8 @@ void TypeResolution::coerceTemplateCtor(AstNodeBase* init, TypeId target) const 
     }
     // Native-шаблон (Iterator<T>): цель - его инстанциация с тем же C++-шаблоном.
     if (reg.read().store().isNativeTemplateType(calleeType) && reg.read().store().isNativeTemplateType(target)) {
-        if (reg.read().store().nativeTemplateCppName(target) != reg.read().store().nativeTemplateCppName(calleeType)) {
+        // Языковая идентичность (абстрактный шаблон `templateOf`, R37): совпадение abstract-шаблонов.
+        if (reg.read().store().nativeTemplateOwner(target) != reg.read().store().nativeTemplateOwner(calleeType)) {
             return;
         }
         call.resultType = target;
@@ -640,28 +597,15 @@ void TypeResolution::coerceTemplateCtor(AstNodeBase* init, TypeId target) const 
 }
 
 bool TypeResolution::isRegisteredRuntimeSymbol(std::string_view name) const {
-    if (!name.empty() && name[0] == '%') {
-        name.remove_prefix(1);
-    }
-    const std::string target(name);
-    for (const auto& rs : m_ctx.readTypes().builtins().runtimeSymbols()) {
-        if (rs.symbol == target) {
-            return true;
-        }
-    }
-    return false;
+    // Имя в trust-коде сопоставляется с ИСТОЧНИК-именем реестра (C++-символ отличается
+    // пространством имён, напр. `trust__print__` ↔ `trust::trust__print__`).
+    return findRuntimeSymbolBySourceName(name).has_value();
 }
 
 bool TypeResolution::isRegisteredIntrinsic(std::string_view name) const {
-    // Интринсик - НЕ нативная функция (без префикса '%'); имя сопоставляется дословно.
-    if (findIntrinsicByName(name).has_value()) {
-        return true;
-    }
-    // Отдельные функции контроля стека (%trust_stack_check, %trust_stack_check_set_reserve,
-    // %trust_stack_check_get_reserve, %trust_stack_check_get_limit, %trust_stack_check_set_limit) -
-    // реальные C++-функции рантайма (transpiler: ExprEmitter::handleStackCheckNative); не должны
-    // давать «undefined name». Единый список имён - analysis::stack_check_fn.
-    return analysis::stack_check_fn::isStackCheckNativeFunc(name);
+    // Интринсик - не нативная функция: имя сопоставляется дословно (без '%').
+    // Функции контроля стека (`trust_stack_check*`) — тоже записи реестра интринсиков.
+    return findIntrinsicByName(name).has_value();
 }
 
 const AstNodeBase* TypeResolution::trustTypeDeclOf(TypeId typeId) const {
@@ -669,11 +613,11 @@ const AstNodeBase* TypeResolution::trustTypeDeclOf(TypeId typeId) const {
         return nullptr;
     }
     const TypeReadModel trend = m_ctx.readTypes();
-    const TypeDescriptor* d = trend.store().descriptorOf(getUnqualifiedType(typeId));
-    if (d == nullptr) {
+    const std::string_view typeName = trend.store().nameOf(getUnqualifiedType(typeId));
+    if (typeName.empty()) {
         return nullptr;
     }
-    const Symbol* s = m_symbols.resolve(d->name);
+    const Symbol* s = m_symbols.resolve(typeName);
     if (s == nullptr || s->decl == nullptr || s->decl->kind() != ParserToken::Kind::TypeDecl) {
         return nullptr;
     }

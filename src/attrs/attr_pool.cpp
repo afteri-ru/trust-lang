@@ -1,5 +1,3 @@
-// attr_pool.cpp - AttrPool implementation
-
 #include "attrs/attr_pool.hpp"
 #include "attrs/attr_builtin.hpp"
 
@@ -8,44 +6,31 @@
 
 namespace trust {
 
-// ----------------------------------------------------------------------------
-// AttrPool constructor - reserves slot 0
-// ----------------------------------------------------------------------------
-
 AttrPool::AttrPool()
 : m_name_to_id() {
-    // Reserve slot 0 as invalid AttrId (placeholder).
-    // All real attributes start from ID 1.
+    // Slot 0 = invalid AttrId (placeholder); real attributes start from ID 1.
     Attr placeholder;
     placeholder.m_id = 0;
     placeholder.m_name = std::string_view{};
     m_attrs.push_back(std::move(placeholder));
 
-    // Register all built-in attributes
     registerBuiltinAttrs(*this);
 }
 
-// ----------------------------------------------------------------------------
-// AttrPool::register_attr_impl - shared registration (FAULT on duplicate name)
-// ----------------------------------------------------------------------------
-
-AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range,
-                                    bool analyzer_supported, bool codegen_supported) {
+AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range, bool analyzer_supported,
+                                    bool codegen_supported) {
     std::string_view interned_name = intern(name);
 
-    // Intern string params
     for (auto& p : default_params) {
         p = intern(p);
     }
 
-    // FAULT if duplicate name (use transparent hash - no std::string copy)
+    // FAULT on duplicate name (transparent hash: no std::string copy).
     if (m_name_to_id.find(interned_name) != m_name_to_id.end()) {
         FAULT("AttrPool::register_attr: attribute '{}' already registered", interned_name);
     }
 
-    // Create new attribute
-    // The built-in bit is derived from the validity of the definition range:
-    // built-in attributes have no source range (invalid), user-defined have a valid one.
+    // builtin: no source range (invalid) = built-in; valid range = user-defined.
     bool builtin = def_range.isInvalid();
     Attr attr;
     attr.m_id = detail::with_builtin(static_cast<AttrId>(m_attrs.size()), builtin);
@@ -63,27 +48,14 @@ AttrId AttrPool::register_attr_impl(std::string_view name, std::vector<std::stri
     return new_id;
 }
 
-// ----------------------------------------------------------------------------
-// AttrPool::register_attr - user-defined attribute
-// ----------------------------------------------------------------------------
-
-AttrId AttrPool::register_attr(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range,
-                               bool analyzer_supported, bool codegen_supported) {
+AttrId AttrPool::register_attr(std::string_view name, std::vector<std::string_view> default_params, MapperRange def_range, bool analyzer_supported,
+                               bool codegen_supported) {
     return register_attr_impl(name, std::move(default_params), def_range, analyzer_supported, codegen_supported);
 }
 
-// ----------------------------------------------------------------------------
-// AttrPool::register_builtin_attr - built-in attribute
-// ----------------------------------------------------------------------------
-
-AttrId AttrPool::register_builtin_attr(std::string_view name, std::vector<std::string_view> default_params,
-                                       bool analyzer_supported, bool codegen_supported) {
+AttrId AttrPool::register_builtin_attr(std::string_view name, std::vector<std::string_view> default_params, bool analyzer_supported, bool codegen_supported) {
     return register_attr_impl(name, std::move(default_params), MapperRange{}, analyzer_supported, codegen_supported);
 }
-
-// ----------------------------------------------------------------------------
-// Attr::to_string - human-readable representation
-// ----------------------------------------------------------------------------
 
 std::string Attr::to_string() const {
     std::string result(m_name);
@@ -104,10 +76,6 @@ std::string Attr::to_string() const {
     return result;
 }
 
-// ----------------------------------------------------------------------------
-// AttrPool::lookup (transparent hash - no std::string copy)
-// ----------------------------------------------------------------------------
-
 std::optional<AttrId> AttrPool::lookup(std::string_view name) const noexcept {
     auto it = m_name_to_id.find(name);
     if (it != m_name_to_id.end()) {
@@ -116,19 +84,11 @@ std::optional<AttrId> AttrPool::lookup(std::string_view name) const noexcept {
     return std::nullopt;
 }
 
-// ----------------------------------------------------------------------------
-// AttrPool::get_name
-// ----------------------------------------------------------------------------
-
 std::string_view AttrPool::get_name(AttrId id) const {
     auto idx = id & detail::kAttrIndexMask;
     EXPECT(idx < m_attrs.size());
     return m_attrs[idx].m_name;
 }
-
-// ----------------------------------------------------------------------------
-// AttrPool::has_attr (by name, transparent hash)
-// ----------------------------------------------------------------------------
 
 bool AttrPool::has_attr(std::string_view name) const noexcept {
     return m_name_to_id.find(name) != m_name_to_id.end();

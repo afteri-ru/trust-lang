@@ -2,9 +2,8 @@
 
 > scope: include/utils/proc (+ src/utils)
 > role: persistent-memory
-> last_reviewed: 2026-11-05
+> last_reviewed: 2026-11-13
 > review_period: 30
-> max_size: 3000
 
 ## Architecture
 
@@ -18,6 +17,9 @@
   `CMakeLists.txt`); без него имена функций в стеке будут пустыми.
 - **⚠ Отсутствие ELF-секции — `nullopt`, не ошибка:** решение «кеш невалиден» принимает
   потребитель (`toolchain/cache`), а не `readElfSection`.
+- **⚠ Время форматируется ОДНИМ кодеком `formatTimestamp`:** буфер подбирается по фактическому
+  результату `strftime` (не по длине ожидаемой строки — иначе `strftime` возвращает 0 и оставляет
+  неопределённое содержимое); непоместившийся формат — `FAULT`, не обрезанная строка.
 
 ## Decisions
 

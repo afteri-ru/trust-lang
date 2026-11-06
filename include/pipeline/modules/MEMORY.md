@@ -2,9 +2,8 @@
 
 > scope: include/pipeline/modules
 > role: persistent-memory
-> last_reviewed: 2026-11-04
+> last_reviewed: 2026-11-10
 > review_period: 30
-> max_size: 6000
 
 ## Architecture
 
@@ -22,10 +21,10 @@
   не повторяет (иначе redefinition), и `.cppt` начинается с `#include` своего заголовка.
 - **⚠ `emitModuleHeader` пропускает ЧУЖИЕ узлы** (`entry.node->module != idx` — реэкспорт): они живут в
   заголовке владельца, а в `.hpp` фасада попадают umbrella-`#include` заголовков владельцев.
-- **⚠ Имя `.hpp` = `moduleCppNamespace(moduleLogicalName(idx))`;** `modulePath()` — путь ФС, для формулы
+- **⚠ Имя `.hppt` = `moduleHeaderFileName(moduleEncodedName(moduleLogicalName(idx)))`;** `modulePath()` — путь ФС, для формулы
   не годится (encoder вернёт пусто ⇒ EXPECT). `generateModuleOutputs` — публичный: его вызывают
-  `compileProgram`, `--emit-cpp` и LSP (иначе `#include` клиента не разрешается). Семантику повторно не
-  запускаем: тело конвертирует ЗАГРУЗЧИК, `lowerAndAnalyze` идёт по готовым фактам главного прогона.
+  драйвер `builddriver`, `--emit-cpp` и LSP (иначе `#include` клиента не разрешается). Семантику повторно не
+  запускаем: тело конвертирует ЗАГРУЗЧИК, `buildLoweredHir` идёт по готовым фактам главного прогона.
 
 ## Relations
 

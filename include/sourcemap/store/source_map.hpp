@@ -1,6 +1,5 @@
 #pragma once
 
-// include/sourcemap/store/source_map.hpp
 // SourceMap<FileIdx>: шаблонная база хранения файлов и маппингов в tagged-пространстве позиций.
 
 #include "sourcemap/store/file_entry.hpp"
@@ -18,10 +17,6 @@
 #include <vector>
 
 namespace trust {
-
-// ══════════════════════════════════════════════════════════════
-//  SourceMap<FileIdx>: шаблонный базовый класс
-// ══════════════════════════════════════════════════════════════
 
 template <typename FileIdx>
 struct SourceMap {
@@ -64,51 +59,42 @@ struct SourceMap {
     std::map<LocationPack::RawType, RangeMap> m_forward;
     std::map<LocationPack::RawType, RangeMap> m_backward;
 
-    // m_macroForward: маппинг тела макроса → его определения (input → input)
+    // m_macroForward: маппинг «точка использования → определение макроса» (input → input)
     std::map<LocationPack::RawType, RangeMap> m_macroForward;
 
     std::vector<NameMap> m_nameMappings;
 
-    // -- Файловая информация --
     // Неперемещаемый контейнер: на буферы FileEntry ссылаются std::string_view в Term/AST.
     // deque не перемещает элементы при росте (в отличие от vector, где SSO-строки меняют адрес).
     std::deque<FileEntry> m_inputs;
     std::deque<FileEntry> m_outputs;
 
-    // -- Доступ к файловым записям (по FileIdx) --
     FileEntry& get_file(FileIdx idx);
     const FileEntry& get_file(FileIdx idx) const { return const_cast<SourceMap*>(this)->get_file(idx); }
 
-    // -- Поиск FileIdx по точному совпадению имени файла --
     FileIdx findFileIdx(std::string_view name) const;
 
-    // -- Поиск FileIdx по basename (без пути) --
     // Ищет среди input и output файлов, сравнивая filename() с name или
     // std::filesystem::path(filename()).filename() с name.
     FileIdx findFileIdxByBasename(std::string_view name) const;
 
-    // -- filename/source по FileIdx --
     [[nodiscard]] std::string_view filename(FileIdx idx) const;
     [[nodiscard]] std::string_view source(FileIdx idx) const;
 
-    // -- line_column/loc_from_line с LRU-кешем --
     // Работают с Location (= TaggedLocation<FileIdx>)
     [[nodiscard]] FileEntry::LineColumn line_column(Location loc) const;
     [[nodiscard]] uint32_t line(Location loc) const { return line_column(loc).line; }
     [[nodiscard]] uint32_t column(Location loc) const { return line_column(loc).column; }
     [[nodiscard]] Location loc_from_line(FileIdx idx, size_t line) const;
 
-    // -- Количество строк в файле по FileIdx --
     [[nodiscard]] uint32_t lineCount(FileIdx idx) const { return static_cast<uint32_t>(get_file(idx).calc_line_count()); }
 
-    // -- Контрольная сумма файла по FileIdx --
     [[nodiscard]] uint64_t getFileHash(FileIdx idx) const;
 
     uint32_t input_count() const { return static_cast<uint32_t>(m_inputs.size()); }
     uint32_t output_count() const { return static_cast<uint32_t>(m_outputs.size()); }
     uint32_t file_count() const { return static_cast<uint32_t>(m_inputs.size()); }
 
-    // -- Создание Location (доступно через friend location.hpp) --
     [[nodiscard]] Location makeLoc(FileIdx idx, uint32_t offset) const;
 
     RangeMap makeMap(Range from, Range to) {
@@ -148,9 +134,6 @@ struct SourceMap {
     static_assert(sizeof(LocCacheKey) == sizeof(LocationPack::RawType) * 2);
     mutable LruCache<LocCacheKey, Location> m_loc_cache;
 };
-// ══════════════════════════════════════════════════════════════
-//      SourceMap template implementations (inline)
-// ══════════════════════════════════════════════════════════════
 
 template <typename FileIdx>
 FileEntry& SourceMap<FileIdx>::get_file(FileIdx idx) {

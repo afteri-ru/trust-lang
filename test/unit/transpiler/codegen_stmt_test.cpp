@@ -16,13 +16,13 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtSimpleAssign) {
     seq.push_back(std::make_shared<VarDecl>(std::move(xTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "0")));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     MapperFile out_idx = m_ctx.source().add_output("test_assign.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
@@ -58,13 +58,13 @@ TEST_F(TranspilerTest, GenerateCallExprInInitializer) {
     seq.push_back(std::move(fooVar));
     seq.push_back(std::move(xVar));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     MapperFile out_idx = m_ctx.source().add_output("test_call.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
@@ -88,17 +88,17 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundAdd) {
     seq.push_back(std::make_shared<VarDecl>(std::move(xTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "0")));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     MapperFile out_idx = m_ctx.source().add_output("test_add.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("__builtin_add_overflow(c_x, 3, &c_x)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("__builtin_add_overflow(x, 3, &x)") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -120,17 +120,17 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundSub) {
     seq.push_back(std::make_shared<VarDecl>(std::move(xTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "0")));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     MapperFile out_idx = m_ctx.source().add_output("test_sub.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("__builtin_sub_overflow(c_x, 3, &c_x)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("__builtin_sub_overflow(x, 3, &x)") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -152,17 +152,17 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundMul) {
     seq.push_back(std::make_shared<VarDecl>(std::move(xTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "0")));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     MapperFile out_idx = m_ctx.source().add_output("test_mul.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("__builtin_mul_overflow(c_x, 3, &c_x)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("__builtin_mul_overflow(x, 3, &x)") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -184,13 +184,13 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundDiv) {
     seq.push_back(std::make_shared<VarDecl>(std::move(xTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "0")));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     MapperFile out_idx = m_ctx.source().add_output("test_div.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
@@ -216,19 +216,19 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundRem) {
     seq.push_back(std::make_shared<VarDecl>(std::move(xTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "0")));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     MapperFile out_idx = m_ctx.source().add_output("test_rem.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     // `%=` защищён от нулевого делителя (единый классификатор `runtimeCheckOf`) — форма та же,
     // что у `//=`; сообщение различает остаток от деления.
-    EXPECT_TRUE(result.find("c_x = ([&]{ int64_t __l = static_cast<int64_t>(c_x);") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("x = ([&]{ int64_t __l = static_cast<int64_t>(x);") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("integer remainder by zero") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("return __l % __r; }())") != std::string::npos) << "result: " << result;
 
@@ -252,17 +252,17 @@ TEST_F(TranspilerTest, GenerateExprIntDiv) {
     seq.push_back(std::make_shared<VarDecl>(std::move(xTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "0")));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     MapperFile out_idx = m_ctx.source().add_output("test_intdiv.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("int64_t __l = static_cast<int64_t>(c_x)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("int64_t __l = static_cast<int64_t>(x)") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("return __l / __r;") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
@@ -285,17 +285,17 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundIntDiv) {
     seq.push_back(std::make_shared<VarDecl>(std::move(xTerm), nullptr, std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "0")));
     seq.push_back(std::move(b));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     ASSERT_TRUE(runner.run(seq));
 
     MapperFile out_idx = m_ctx.source().add_output("test_intdiv_assign.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("c_x = ([&]{ int64_t __l = static_cast<int64_t>(c_x)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("x = ([&]{ int64_t __l = static_cast<int64_t>(x)") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("return __l / __r;") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
@@ -305,10 +305,10 @@ TEST_F(TranspilerTest, GenerateSemicolonStmtCompoundIntDiv) {
 /// Test: function declaration with Int8 param, Void return
 TEST_F(TranspilerTest, GenerateFuncDeclInt8Param) {
 
-    MapperFile input_file = m_ctx.source().add_source("test.src", "%func(arg:Int8):Void := { };", true);
+    MapperFile input_file = m_ctx.source().add_source("test.src", "func(arg:Int8):Void := { };", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 5));
 
-    auto funcTerm = Term::Create(TermID::NAME, "%func", range, parser::token_type::NAME);
+    auto funcTerm = Term::Create(TermID::NAME, "func", range, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
     func->m_params = std::vector<AstNodePtr>{};
     MapperRange param_range(m_ctx.source().makeLoc(input_file, 6), m_ctx.source().makeLoc(input_file, 9));
@@ -316,24 +316,24 @@ TEST_F(TranspilerTest, GenerateFuncDeclInt8Param) {
     auto param = std::make_shared<ArgNode>(std::move(paramTerm), std::make_shared<IdentType>("Int8"));
     func->m_params->push_back(param);
     func->m_type = std::make_shared<IdentType>("None");
-    func->m_body = std::vector<AstNodePtr>{};
+    func->m_definition = Definition::fromBody({});
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq); // register function name, result ignored for codegen test
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_func.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("void func(int8_t c_arg)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("void func(int8_t arg)") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("{\n}") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
@@ -343,11 +343,11 @@ TEST_F(TranspilerTest, GenerateFuncDeclInt8Param) {
 /// Test: function declaration with multiple params and return type
 TEST_F(TranspilerTest, GenerateFuncDeclTyped) {
 
-    MapperFile input_file = m_ctx.source().add_source("test.src", "%func(a:Int32, b:Byte):Int64 := { ++ 0.0. ++; };", true);
+    MapperFile input_file = m_ctx.source().add_source("test.src", "func(a:Int32, b:Byte):Int64 := { ++ 0.0. ++; };", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 5));
     MapperRange ret_range(m_ctx.source().makeLoc(input_file, 30), m_ctx.source().makeLoc(input_file, 45));
 
-    auto funcTerm = Term::Create(TermID::NAME, "%func", range, parser::token_type::NAME);
+    auto funcTerm = Term::Create(TermID::NAME, "func", range, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
     func->m_params = std::vector<AstNodePtr>{};
     MapperRange p1_range(m_ctx.source().makeLoc(input_file, 7), m_ctx.source().makeLoc(input_file, 8));
@@ -366,26 +366,26 @@ TEST_F(TranspilerTest, GenerateFuncDeclTyped) {
     ret->m_value = std::move(val_ptr);
     // Именованный return (func ++ 0 ++) - обычный return; неименованный `++ 0 ++` - прерывание.
     ret->m_label = std::make_shared<IdentName>("func");
-    func->m_body = std::vector<AstNodePtr>{};
-    func->m_body->push_back(ret);
+    func->m_definition = Definition::fromBody({});
+    (*func->body()).push_back(ret);
 
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(func));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq); // register function name, result ignored for codegen test
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_func2.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     // Возврат - зарегистрированный тип Int64 → каноническое C++-имя int64_t.
-    EXPECT_TRUE(result.find("int64_t func(int32_t c_a, uint8_t c_b)") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("int64_t func(int32_t a, uint8_t b)") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("return 0;") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
@@ -395,10 +395,10 @@ TEST_F(TranspilerTest, GenerateFuncDeclTyped) {
 /// Test: forward function declaration (no body)
 TEST_F(TranspilerTest, GenerateFuncDeclForward) {
 
-    MapperFile input_file = m_ctx.source().add_source("test.src", "%forward_func():Void := ;", true);
+    MapperFile input_file = m_ctx.source().add_source("test.src", "forward_func():Void := ;", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 13));
 
-    auto funcTerm = Term::Create(TermID::NAME, "%forward_func", range, parser::token_type::NAME);
+    auto funcTerm = Term::Create(TermID::NAME, "forward_func", range, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
     func->m_type = std::make_shared<IdentType>("Void");
     // no m_body = forward decl
@@ -407,14 +407,14 @@ TEST_F(TranspilerTest, GenerateFuncDeclForward) {
     seq.push_back(std::move(func));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq); // register function name, result ignored for codegen test
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_forward.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
@@ -427,10 +427,10 @@ TEST_F(TranspilerTest, GenerateFuncDeclForward) {
 
 /// Test: forward function declaration with Int32 return and params → декларация + #include <cstdint>
 TEST_F(TranspilerTest, GenerateForwardFuncDeclInt32) {
-    MapperFile input_file = m_ctx.source().add_source("test.src", "%add(a:Int32, b:Int32):Int32 := ...;", true);
+    MapperFile input_file = m_ctx.source().add_source("test.src", "add(a:Int32, b:Int32):Int32 := ...;", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 5));
 
-    auto funcTerm = Term::Create(TermID::NAME, "%add", range, parser::token_type::NAME);
+    auto funcTerm = Term::Create(TermID::NAME, "add", range, parser::token_type::NAME);
     auto func = std::make_shared<FuncDecl>(std::move(funcTerm));
     func->m_params = std::vector<AstNodePtr>{};
     MapperRange p1(m_ctx.source().makeLoc(input_file, 7), m_ctx.source().makeLoc(input_file, 8));
@@ -446,25 +446,25 @@ TEST_F(TranspilerTest, GenerateForwardFuncDeclInt32) {
     seq.push_back(std::move(func));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         ASSERT_TRUE(runner.run(seq));
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_forward_int32.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("int32_t add(int32_t c_a, int32_t c_b);") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("int32_t add(int32_t a, int32_t b);") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("#include <cstdint>") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
 }
 
-/// Test: forward variable declaration (x:Int32 := ...; → extern int32_t c_x;)
+/// Test: forward variable declaration (x:Int32 := ...; → extern int32_t x;)
 TEST_F(TranspilerTest, GenerateForwardVarDecl) {
     MapperFile input_file = m_ctx.source().add_source("test.src", "x:Int32 := ...;", true);
     MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 2));
@@ -475,48 +475,18 @@ TEST_F(TranspilerTest, GenerateForwardVarDecl) {
     seq.push_back(std::move(var));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         ASSERT_TRUE(runner.run(seq));
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_fwdvar.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("extern int32_t c_x;") != std::string::npos) << "result: " << result;
-
-    auto* reader = m_ctx.source().toReader();
-    ASSERT_NE(reader, nullptr);
-}
-
-/// Test: native variable `%x:Int32 := 5;` → манглинг `%` в C++-имя `int32_t x = 5;`.
-TEST_F(TranspilerTest, GenerateNativeVarManglesPercent) {
-    MapperFile input_file = m_ctx.source().add_source("test.src", "%x:Int32 := 5;", true);
-    MapperRange range(m_ctx.source().makeLoc(input_file, 1), m_ctx.source().makeLoc(input_file, 2));
-
-    auto nameTerm = Term::Create(TermID::NAME, "%x", range, parser::token_type::NAME);
-    auto var =
-        std::make_shared<VarDecl>(std::move(nameTerm), std::make_shared<IdentType>("Int32"), std::make_shared<Literal>(ParserToken::Kind::IntLiteral, "5"));
-    std::vector<AstNodePtr> seq;
-    seq.push_back(std::move(var));
-
-    {
-        SemanticPassRunner runner(m_ctx);
-        ASSERT_TRUE(runner.run(seq));
-    }
-
-    MapperFile out_idx = m_ctx.source().add_output("test_nativevar.cpp", true);
-    ASSERT_FALSE(out_idx.isInvalid());
-
-    CppTranspiler gen(m_ctx);
-    gen.generateToFile(hirOf(seq), out_idx);
-
-    std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("int32_t x = 5;") != std::string::npos) << "result: " << result;
-    EXPECT_EQ(result.find("%x"), std::string::npos) << "нативное '%' не должно попадать в C++: " << result;
+    EXPECT_TRUE(result.find("extern int32_t x;") != std::string::npos) << "result: " << result;
 
     auto* reader = m_ctx.source().toReader();
     ASSERT_NE(reader, nullptr);
@@ -534,18 +504,18 @@ TEST_F(TranspilerTest, GenerateThrowStmt) {
     seq.push_back(std::move(stmt));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq);
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_throw.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("throw trust::IntMinus(c_value);") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("throw trust::IntMinus(value);") != std::string::npos) << "result: " << result;
 }
 
 /// Test: throw void (-- -- → throw;)
@@ -559,14 +529,14 @@ TEST_F(TranspilerTest, GenerateThrowVoid) {
     seq.push_back(std::move(stmt));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq);
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_throw_void.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
@@ -594,21 +564,21 @@ TEST_F(TranspilerTest, GenerateTryCatchStmt) {
     seq.push_back(std::move(block));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq);
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_trycatch.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
     EXPECT_TRUE(result.find("try {") != std::string::npos) << "result: " << result;
     EXPECT_TRUE(result.find("catch (trust::IntMinus&)") != std::string::npos) << "result: " << result;
-    EXPECT_TRUE(result.find("throw trust::IntMinus(c_err);") != std::string::npos) << "result: " << result;
-    EXPECT_TRUE(result.find("#include \"trust/interrupt.hpp\"") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("throw trust::IntMinus(err);") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("#include \"stdlib/interrupts.hpp\"") != std::string::npos) << "result: " << result;
 }
 
 /// Test: standalone literal in sequence (42 → 42;)
@@ -621,14 +591,14 @@ TEST_F(TranspilerTest, GenerateStandaloneLiteral) {
     seq.push_back(std::make_shared<Literal>(ParserToken::Kind::IntLiteral, std::move(litTerm)));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq);
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_literal.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
@@ -645,14 +615,14 @@ TEST_F(TranspilerTest, GenerateStandaloneStringLiteral) {
     seq.push_back(std::make_shared<Literal>(ParserToken::Kind::StrChar, std::move(litTerm)));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq);
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_str_literal.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
@@ -670,7 +640,7 @@ TEST_F(TranspilerTest, UnproducibleKindIsExplicitError) {
     seq.push_back(std::make_shared<AstNodeAttr>(ParserToken::Kind::Program, std::move(term)));
 
     MapperFile out_idx = m_ctx.source().add_output("program_out.cpp", true);
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     EXPECT_THROW(gen.generateToFile(hirOf(seq), out_idx), std::exception);
 }
 
@@ -696,19 +666,19 @@ TEST_F(TranspilerTest, GenerateSequenceWalk) {
     seq.push_back(std::move(seq_node));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq);
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_seq.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("int8_t c_x = 1;") != std::string::npos) << "result: " << result;
-    EXPECT_TRUE(result.find("int8_t c_y = 2;") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("int8_t x = 1;") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("int8_t y = 2;") != std::string::npos) << "result: " << result;
 }
 
 /// Test: narrow string literal with embedded quote is escaped ("a\"b" → "a\"b")
@@ -723,18 +693,18 @@ TEST_F(TranspilerTest, GenerateStringWithEscapedQuote) {
     seq.push_back(std::move(var));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq);
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_esc.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("std::string c_s = \"a\\\"b\";") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("std::string s = \"a\\\"b\";") != std::string::npos) << "result: " << result;
 }
 
 /// Test: атрибут иммутабельности (attr::ReadOnly) не меняет генерируемый код (current behaviour).
@@ -750,18 +720,18 @@ TEST_F(TranspilerTest, GenerateReadOnlyAttrUnchanged) {
     seq.push_back(std::move(var));
 
     {
-        SemanticPassRunner runner(m_ctx);
+        SemanticPassRunner runner(m_ctx, *m_types);
         runner.run(seq);
     }
 
     MapperFile out_idx = m_ctx.source().add_output("test_mut.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
 
-    CppTranspiler gen(m_ctx);
+    CppTranspiler gen(codegenServices(m_ctx));
     gen.generateToFile(hirOf(seq), out_idx);
 
     std::string result = m_ctx.source().output_result(out_idx);
-    EXPECT_TRUE(result.find("const int8_t c_x = 42;") != std::string::npos) << "result: " << result;
+    EXPECT_TRUE(result.find("const int8_t x = 42;") != std::string::npos) << "result: " << result;
 }
 
 /// Test: `x := :Int32` невалидно - в `:=` справа должно быть значение, а не тип-имя
@@ -776,7 +746,7 @@ TEST_F(TranspilerTest, GenerateTypeNameExprIsError) {
     std::vector<AstNodePtr> seq;
     seq.push_back(std::move(var));
 
-    SemanticPassRunner runner(m_ctx);
+    SemanticPassRunner runner(m_ctx, *m_types);
     EXPECT_FALSE(runner.run(seq));
     EXPECT_GT(m_ctx.diag().errorCount(), 0);
 }
@@ -795,7 +765,7 @@ TEST_F(TranspilerTest, GenerateUntypedVarUnknownTypeIsErrorNoFallback) {
 
     MapperFile out_idx = m_ctx.source().add_output("test_err.cpp", true);
     ASSERT_FALSE(out_idx.isInvalid());
-    CppTranspiler gen(m_ctx); // без разрешённой таблицы символов
+    CppTranspiler gen(codegenServices(m_ctx)); // без разрешённой таблицы символов
     gen.generateToFile(hirOf(seq), out_idx);
 
     // Диагностика ошибки вывода (нет тихого std::any).
@@ -804,6 +774,6 @@ TEST_F(TranspilerTest, GenerateUntypedVarUnknownTypeIsErrorNoFallback) {
     EXPECT_EQ(result.find("std::any"), std::string::npos) << "no silent std::any fallback: " << result;
 }
 
-/// Test: addNameMapping for variable name is queryable via getCppName.
+/// Test: addNameMapping for variable name is queryable via outNameOf.
 
 } // namespace trust

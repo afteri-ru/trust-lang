@@ -2,9 +2,8 @@
 
 > scope: include/types/subst
 > role: persistent-memory
-> last_reviewed: 2026-11-05
+> last_reviewed: 2026-11-13
 > review_period: 30
-> max_size: 4000
 
 ## Architecture
 
@@ -22,15 +21,11 @@
   splice — `substituteTemplateArgList`. `paramPackType/paramPackPosition` — отдельные слоты, НЕ элементы
   `paramTypes`.
 - **⚠ Идентичность типового параметра = (owner, depth, index) через `TemplateParamTag`; имя — только
-  диагностика.** `owner==INVALID` → не-scoped (generic-функции), интернируется по имени — прежнее
-  поведение. Record-шаблоны объявляют параметры с owner = TypeId записи (`declareRecord` → params →
+  диагностика.** `owner==INVALID` → не-scoped (generic-функции), интернируется по имени. Record-шаблоны
+  объявляют параметры с owner = TypeId записи (`declareRecord` → params →
   `setRecordTemplateParams`): одинаковые имена в РАЗНЫХ шаблонах — разные TypeId (owner-scoping,
   C++-модель TemplateTypeParmDecl); подстановка/унификация работают по равенству TypeId внутри шаблона.
 - **⚠ подстановка ветки FunctionTypeData ОБЯЗАНА сохранять pack-слот/позицию и `kTrustFlag`.**
-
-## Relations
-
-- `types/template_unify` (публичная унификация), `types/registry` (TypeData/TypeKey), `types/type_traversal`.
 
 - **⚠ Унификация типовых параметров — строгая:** завершённые поддеревья сравниваются через
   `sameSemanticType`; числовые конверсии — ПОЗЖЕ (по инстанцированной сигнатуре). `collectTemplateParams`
@@ -42,3 +37,7 @@
   identity-only (state снимается), QualType-перегрузки сохраняют state. В `collectTemplateParams` и
   `unifyTemplateType` ref-вид и `kMptr` проверяются ДО template-param — иначе `T` не выводится (или
   выводится в ключ `shared<T>` вместо `T`).
+
+## Relations
+
+- `types/template_unify` (публичная унификация), `types/registry` (TypeData/TypeKey), `types/type_traversal`.
