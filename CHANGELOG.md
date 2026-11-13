@@ -1,5 +1,6 @@
 # Version history
 
+<<<<<<< HEAD
 ## [Unreleased]
 
 - Removed the precompiled `*.pcp` package: no `-m`/`--module` mode, no `--module-info`, and no
@@ -7,6 +8,24 @@
 - Added a local build cache: each generated `.cppt` (main, imported modules, `_main.cppt`) carries a
   `// trust-src-hash:` marker (compiler version + codegen options + md5 of all program sources).
   When sources are unchanged the file is not rewritten, so `make` skips recompilation by timestamp.
+=======
+## Unreleased — унификация ABI модулей с C++
+
+- **Модуль больше не входит в бинарный ABI.** C++-имя выводится только из области имён
+  (`ns::f` → `ns::f`); кодированное имя модуля (``<enc>``) — лишь имя заголовка `<enc>.hpp` и база
+  entry-функции `<enc>__main__`.
+- **`\path::name` удалён полностью** (значение/тип/цель алиаса/using; грамматика не принимает):
+  единственный механизм ввода имён — импорт + область имён. Module-алиас и module-цель `using` удалены.
+- **Алиасы (единый синтаксис, LHS — только имя):** алиас идентификатора `f :- g;` / `f :- ns::g;`
+  и **алиас области имён** `a :- ns::;` (цель с завершающим `::`, использование `a::name()`; область
+  резолвится по видимым модулям — модульная квалификация в синтаксисе не требуется).
+- **Изоляция одноимённых экспортов — область имён программиста** (`ns:: { ... }`). Одноимённые
+  ОПРЕДЕЛЕНИЯ разных модулей в одной области — коллизия, диагностируемая до линкера.
+- **Единый обратимый кодек trust-имени в C++-идентификатор** (`utils::encodeIdent`/`decodeIdent`)
+  вместо префиксов `c_`/`cpp_`/`ru_`/`u8_`: безопасное ASCII — тождественно, прочее — маркер `_u_`;
+  ключевые слова C++ экранируются. Кодек инъективен.
+- `@[export("…")]` по-прежнему задаёт явное C/C++-ABI-имя (в т.ч. `extern "C"`).
+>>>>>>> release/0.7.x
 
 ## [Release v0.6.0](https://github.com/afteri/trust-lang/releases/tag/v0.6.0)
 

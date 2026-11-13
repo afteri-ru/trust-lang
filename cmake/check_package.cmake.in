@@ -1,21 +1,18 @@
 # cmake/check_package.cmake.in
-# CTest script for the `package` target: builds the package (incrementally),
-# then verifies the archive name and that it contains the expected artifacts.
+# CTest script for the `package` target: verifies the archive name and that it contains the
+# expected artifacts.
+#
+# Проект здесь НЕ пересобирается: `package` входит в обычную сборку (ALL), артефакт обязан быть
+# готов к моменту теста. Иначе политика параллелизма (cmake/parallelism.cmake) применялась бы
+# дважды, а второй раз — последовательно.
 
 set(_stem "trust-lang-@TRUST_VERSION@-@TRUST_PKG_OS@-@TRUST_PKG_ARCH@")
 set(_archive "@CMAKE_BINARY_DIR@/dist/${_stem}.tar.gz")
 
-# Ensure the package is built (incremental when binaries already exist).
-execute_process(
-    COMMAND "@CMAKE_COMMAND@" --build "@CMAKE_BINARY_DIR@" --target package
-    RESULT_VARIABLE _build_res
-)
-if(NOT _build_res EQUAL 0)
-    message(FATAL_ERROR "package target failed to build")
-endif()
-
 if(NOT EXISTS "${_archive}")
-    message(FATAL_ERROR "distribution archive not found: ${_archive}")
+    message(FATAL_ERROR
+        "distribution archive not found: ${_archive}\n"
+        "Build it first:  make build   (or: _build/trust-build.sh --target package)")
 endif()
 
 # List archive members via cmake's tar.
@@ -42,9 +39,48 @@ foreach(_need IN LISTS _required)
         message(FATAL_ERROR "archive missing member: ${_stem}/${_need}")
     endif()
 endforeach()
+if(NOT _list MATCHES "${_stem}/share/trust/[^/]+\\.trust")
+    message(FATAL_ERROR "archive has no toolchain packages under share/trust")
+endif()
 
-# Headers/stdlib are embedded in the libraries/compiler, so the archive
-# intentionally does not carry separate copies (no absence check required).
+# All toolchain packages are shipped uniformly: every share/trust/*.trust must contain
+# a trust.toml and the generated [files] integrity table. No package names are hardcoded.
+file(GLOB _packages "@CMAKE_BINARY_DIR@/share/trust/*.trust")
+if(NOT _packages)
+    message(FATAL_ERROR "no .trust packages found in @CMAKE_BINARY_DIR@/share/trust")
+endif()
+foreach(_pkg IN LISTS _packages)
+    execute_process(
+        COMMAND "@CMAKE_COMMAND@" -E tar tf "${_pkg}"
+        OUTPUT_VARIABLE _pkg_list
+        RESULT_VARIABLE _pkg_res
+    )
+    if(NOT _pkg_res EQUAL 0)
+        message(FATAL_ERROR "cannot list package: ${_pkg}")
+    endif()
+    string(FIND "${_pkg_list}" "./trust.toml" _pos)
+    if(_pos EQUAL -1)
+        message(FATAL_ERROR "package missing trust.toml: ${_pkg}")
+    endif()
+    set(_pkg_tmp "@CMAKE_BINARY_DIR@/pkg-check-tmp")
+    file(REMOVE_RECURSE "${_pkg_tmp}")
+    file(MAKE_DIRECTORY "${_pkg_tmp}")
+    execute_process(
+        COMMAND "@CMAKE_COMMAND@" -E tar xzf "${_pkg}"
+        WORKING_DIRECTORY "${_pkg_tmp}"
+        RESULT_VARIABLE _mf_res
+    )
+    if(NOT _mf_res EQUAL 0 OR NOT EXISTS "${_pkg_tmp}/trust.toml")
+        message(FATAL_ERROR "package missing trust.toml: ${_pkg}")
+    endif()
+    file(READ "${_pkg_tmp}/trust.toml" _pkg_manifest)
+    file(REMOVE_RECURSE "${_pkg_tmp}")
+    if(NOT _pkg_manifest MATCHES "\\[files\\]")
+        message(FATAL_ERROR "package missing [files] integrity table: ${_pkg}")
+    endif()
+endforeach()
+
+# C++ standard library headers are provided by the host C++ compiler.
 
 # The name must carry the OS/arch/version identifier.
 foreach(_tok IN LISTS "@TRUST_PKG_OS@" "@TRUST_PKG_ARCH@" "@TRUST_VERSION@")

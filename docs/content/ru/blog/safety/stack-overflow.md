@@ -220,12 +220,12 @@ Difference in execution time: 1.68788 %
     (свободно ≥ `m_stack_limit` из секции `.stack_sizes` + резерв);
   - `@[stack_check(N)@]` — целое `N`: `check_overflow(N)` (явный размер свободного места).
 - **Отдельные функции** (реальные C++-функции рантайма, явные вызовы в коде, `%`-префикс):
-  - `%trust_stack_check(N)` — `check_overflow(N)` (free ≥ N + reserve);
-  - `%trust_stack_check()` — `check_stack_limit()` (free ≥ m_stack_limit + reserve);
-  - `%trust_stack_check_set_reserve(N)` — `set_reserve(N)` (мин. резерв для всех функций);
-  - `%trust_stack_check_get_reserve()` — `get_reserve()`;
-  - `%trust_stack_check_get_limit()` — `get_limit()` (текущий `m_stack_limit`);
-  - `%trust_stack_check_set_limit(f1, f2, ...)` — `set_limit({&c_f1, &c_f2})` (ограничить `m_stack_limit`
+  - `trust_stack_check(N)` — `check_overflow(N)` (free ≥ N + reserve);
+  - `trust_stack_check()` — `check_stack_limit()` (free ≥ m_stack_limit + reserve);
+  - `trust_stack_check_set_reserve(N)` — `set_reserve(N)` (мин. резерв для всех функций);
+  - `trust_stack_check_get_reserve()` — `get_reserve()`;
+  - `trust_stack_check_get_limit()` — `get_limit()` (текущий `m_stack_limit`);
+  - `trust_stack_check_set_limit(f1, f2, ...)` — `set_limit({&c_f1, &c_f2})` (ограничить `m_stack_limit`
     перечисленными функциями; пусто = все функции `.stack_sizes`).
 - **Резерв `reserve`** (мин. размер стека для создания исключения, default 8192) ВСЕГДА добавляется
   к проверкам: `stack_check` = `N + reserve`, `stack_check_limit` = `m_stack_limit + reserve`.

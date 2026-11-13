@@ -25,7 +25,7 @@ their source is the tool's help (`trust --help`, `trust -Whelp`, LSP hovers).
 | Range checks of numbers | An error when leaving the type range, instead of silent overflow | [Numbers](../types/numbers/) |
 | Integer overflow control | Built in and **enabled by default**: overflow of signed arithmetic (UB in C++) → catchable `IntMinus` | [Numbers](../types/numbers/#overflow) |
 | Stack overflow protection (stack check) | Stack overflow → catchable `stack_overflow` exception, not a segfault | [stack_check](stack_check/) |
-| Control of reference invalidation (borrowed) | Prohibition of using dependent references after mutation of the source (dangling references) | [invalidation](invalidation/) |
+| Control of derived-view invalidation (`@[borrowed]`, `-Wborrow-*`) | Prohibition of source mutation/move while views are alive (dangling references); this is not the Rust borrowing model | [borrowing](borrowing/) |
 
 > The safe memory model has been ported to C++ in a separate project
 > [memsafe](https://github.com/rsashka/memsafe).
@@ -34,6 +34,6 @@ their source is the tool's help (`trust --help`, `trust -Whelp`, LSP hovers).
 
 - **Multithreading and asynchrony** (coroutines, `:AsyncTask`/`:AsyncPool`) is a
   functional language capability, not a safety feature; it is described in
-  [Expressions and control flow](../operators/concurrency/). Only the
+  [Multithreading and asynchrony](concurrency/). Only the
   race protection provided by the reference model from [Memory](memory/) is related to safety.
 - [Implementation status](../status/) — the boundaries of the implementation of the features of this section.

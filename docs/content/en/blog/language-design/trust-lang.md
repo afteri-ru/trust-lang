@@ -88,10 +88,10 @@ But the very structure of the program and the logic of the executed algorithm wi
     #!./nlc --eval 
     # Definition of the hello function
     hello(str) := { 
-    printf := @import('printf(format:Format, ...):Int');  # Import of a standard C function
-    printf('%s\n', $str);  # Calling a C function with type checking of the arguments against the format string
+    printf := @import("printf(format:Format, ...):Int");  # Import of a standard C function
+    printf("%s\n", $str);  # Calling a C function with type checking of the arguments against the format string
     };
-    hello('Hello, world!'); # Call the function
+    hello("Hello, world!"); # Call the function
 ~~~
 Output: Hello, world!
 
@@ -118,7 +118,7 @@ and the return operator from a function is optional, since the result will be th
     [1, 2, 3, 4, 5,]:Char
 ~~~
 ~~~bash
-    str := '$1 string'
+    str := "$1 string"
     $1 string
 ~~~
 
@@ -218,7 +218,7 @@ Using three different operators for creating/changing objects makes it possible 
 ~~~cpp
     var ::= 1.0; # Create a new variable var without specifying a type
     var = 100; # Assign a new value to an already existing variable
-    printf := @import('printf(format:Format, ...):Int'); /* Create a new or redefine
+    printf := @import("printf(format:Format, ...):Int"); /* Create a new or redefine
     the object printf, which will be
     the result of executing the global function @import */
 ~~~
@@ -317,7 +317,7 @@ Examples:
 ### String data types:
 Two types of strings are supported: StrWide — character (wide) and StrChar — byte. The difference between them lies in the type of the single element.
 For character strings the single element is the wide character wchar_t, and for a byte string the single element is one byte (more precisely char, i.e. a signed byte).
-Character string literals in the source text are written in "double quotes", and byte strings in 'single quotes'.
+Character string literals in the source text are written in single quotes `'…'`, and byte strings in double quotes `"…"`.
 
 The number of elements of a character string is returned in wide characters, and the size of a byte string in bytes, therefore access to a string element by index occurs respectively either to a character or to a byte.
 
@@ -394,15 +394,20 @@ print(str) := {
 
 #### Pure functions
 A pure function is also an ordinary function, only in the sense that functional programming puts into it.
-The creation of a pure function occurs with the help of the operator ":-". A pure function has no access to the context and global objects,
-therefore it can process only the data that were passed to it as arguments.
+Purity of a function is expressed in the current implementation by declaration attributes
+(`@[func_pure@]`, `@[func_const@]`, `@[constexpr@]`), not by a dedicated operator. A pure function has
+no access to the context and global objects, therefore it can process only the data that were passed
+to it as arguments.
 
 Program inserts in the implementation language inside pure functions are not forbidden and can be used, for example, for debugging.
 But this is done at the developer's own risk. It is he who is responsible for their "purity", for example when calling functions from external libraries.
 
 ~~~bash
-    Sum(arg1, arg2) :- {$arg1+$arg2;}; # Return the sum of the arguments
+    @[func_pure@] Sum(arg1, arg2) := {$arg1+$arg2;}; # Pure function (attribute)
 ~~~
+
+In the current language version the `:-` operator declares a **name alias** (`f :- \lib::g;` — a new
+name for an existing function) and `::-` declares a **type alias** (`:A ::- T;`).
 
 Since the language has no operator for returning data from the current execution block (an analog of the return <data> operator),
 the returned value of a function / code block is always the result of the execution of the last operation.
@@ -500,10 +505,10 @@ Examples:
 >[[(1,2,3)]]  # A tensor from a dictionary
 [1, 2, 3,]:Char
 
->[['first second']]  # A byte string into a tensor
+>[["first second"]]  # A byte string into a tensor
 [102, 105, 114, 115, 116, 32, 115, 101, 99, 111, 110, 100,]:Char
 
-> [[(first='first', space=32, second='second')]]  # We get a tensor from a dictionary with the same data
+> [[(first="first", space=32, second="second")]]  # We get a tensor from a dictionary with the same data
 [102, 105, 114, 115, 116, 32, 115, 101, 99, 111, 110, 100,]:Char
 
 >[[ 0 ... ]]:Double[10,2]   # A tensor of the given format with zeros

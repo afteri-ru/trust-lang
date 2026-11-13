@@ -8,48 +8,49 @@
 # Adding elements - `[]=` operator (append/push_back).
 #
 # Command-line arguments
+\std();
 @main(argv^: Dict, args^: Dict) := {
 
-    @print('argv.size()={}\n', $argv.size());
-    @print('args.size()={}\n', $args.size());
-    @print('argv={}\n', argv);
-    @print('args={}\n', args);
+    @print("argv.size()={}\n", $argv.size());
+    @print("args.size()={}\n", $args.size());
+    @print("argv={}\n", argv);
+    @print("args={}\n", args);
 
-    d := (1, two=2, name='3',);
+    d := (1, two=2, name="3",);
 
-    @print('size={}\n', :Int32( {% $d.size() %} ));
-    @print('first={}\n', :Int32( d[0] ));
-    @print('one={}\n',   :Int32( d.1 ));
-    @print('two={}\n',   :Int32( d.two ));
-    @print('name={}\n',  d.name);
+    @print("size={}\n", :Int32( {% $d.size() %} ));
+    @print("first={}\n", :Int32( d[0] ));
+    @print("one={}\n",   :Int32( d.1 ));
+    @print("two={}\n",   :Int32( d.two ));
+    @print("name={}\n",  d.name);
 
     # Static index d.4 is missing (compilation error):
     # print('one={}\n',    d.4);
 
     # Adding elements using the `[]=` operator
     d []= 999;
-    d []= 'строка';
+    d []= "строка";
 
     # Dictionary size increased by 2. (static check)
-    @print('size_after_append={}\n', $d.size());
+    @print("size_after_append={}\n", $d.size());
     
-    @print('appended_int={}\n', d[3]);
+    @print("appended_int={}\n", d[3]);
     # Static index d.4 is now allowed (size increased to 5).
-    @print('appended_str={}\n', d.4);
+    @print("appended_str={}\n", d.4);
 
     # Dictionary merging via `...` unpacking: `d[] = ...dict` adds ALL elements of the operand
     extra := (e=6, 7,);
     d []= ... extra;          # add full dictionary
     d []= ... (последний=8,); # add a single named element to the dictionary
 
-    @print('size_final={}\n', $d.size());  # 5 + 2 + 1 = 8
-    @print('e={}, {}\n', d.e, d.6);    # access to the merged dictionary by name and index
+    @print("size_final={}\n", $d.size());  # 5 + 2 + 1 = 8
+    @print("e={}, {}\n", d.e, d.6);    # access to the merged dictionary by name and index
 
     # The same element at static index d.7 (8th element)
-    @print('последний={}\n', d.7);
+    @print("последний={}\n", d.7);
 
     # Print the entire dictionary
-    @print('{}\n', d);
+    @print("{}\n", d);
 
     @return 0;
 }

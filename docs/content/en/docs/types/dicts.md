@@ -48,6 +48,12 @@ Access to a member — through the type name: `Status.OK`. Classic methods (thro
 Access to a member (`Status.OK`, `Data.i`) and the methods `count()`/`fromName()`/`fromValue()` are **implemented**
 (example — [enumeration and variant](/en/playground/?file=enum_variant)).
 
+> **Current version limitation.** An enumeration value cannot be printed with a format string
+> (`@print("{}", c)`): the generated type has no C++ `std::formatter`. Comparison of members
+> (`==`, `!=`, `<`, `>`, `<=`, `>=` — always **by value**), `count()`, `fromName()` and `fromValue()`
+> are available. You can print the results of those operations (for example `c == Color.GREEN` or
+> `Color.count()`).
+
 ## Variant (:Variant) {#variant}
 
 *Variant* is a heterogeneous type: each member has its **own** data type (an analog of `std::variant`). The type of a member
@@ -55,9 +61,14 @@ is set by an explicit annotation (`name:Type`) or inferred from its value; for a
 the minimal signed integer by position is taken.
 
 ```python
-Data ::= (i=42, s='text', r=1\2,):Variant;  # member types: Int8, StrChar, Rational
+Data ::= (i=42, s="text", r=1\2,):Variant;  # member types: Int8, StrChar, Rational
 V    ::= (X:Int64=7, Y:Rational,):Variant;  # explicit member types
 ```
 
 Access to a member — through the type name: `Data.i` (the type is the type of the concrete member). A classic method:
 `count()` (the number of members).
+
+> **Current version limitation.** Variant members are typed **type-level constants** (`Data.i`),
+> not a `std::variant` value wrapper. The alias `Variant` (`using Variant = std::variant<...>`) is
+> published for C++ code, but **constructing a variant value in the language is not implemented yet**:
+> a value of such a type follows dictionary (`:Dictionary`) rules.

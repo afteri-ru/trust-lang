@@ -13,32 +13,33 @@
 # `with(l1 = *r1, l2 = *r2) { ... }` - simultaneous acquisition (locking) of multiple
 # references for the duration of the block.
 
+\std();
 @main():Int32 := {
     &* s := 5:Int32;              # shared
     &? w := & s;                  # weak (из shared через address-of `& s`)
     && u := 10:Int32;             # unique
 
-    @print('s={} w={} u={}\n', *s, *w, *u);
+    @print("s={} w={} u={}\n", *s, *w, *u);
 
     *s = 7;
-    @print('s=7 -> w={} (weak видит тот же объект)\n', *w);
+    @print("s=7 -> w={} (weak видит тот же объект)\n", *w);
 
     *u = 11;
-    @print('unique={}\n', *u);
+    @print("unique={}\n", *u);
 
     &* a := 1:Int32;
     &* b := 2:Int32;
     a :=: b;
-    @print('swap refs (a<->b): a={} b={}\n', *a, *b);
+    @print("swap refs (a<->b): a={} b={}\n", *a, *b);
 
     &? c := & a;
-    @print('weak c={}\n', *c);
+    @print("weak c={}\n", *c);
 
     &* p := 100:Int32;            # shared
     && q := 200:Int32;            # unique
-    @print('value-swap before: *p={} *q={}\n', *p, *q);
+    @print("value-swap before: *p={} *q={}\n", *p, *q);
     *p :=: *q;                    # std::swap data (not reference)
-    @print('value-swap after : *p={} *q={}\n', *p, *q);
+    @print("value-swap after : *p={} *q={}\n", *p, *q);
 
     # with: simultaneous acquisition (locking) of multiple references
     &* m := 1:Int32;
@@ -47,9 +48,9 @@
         lm = lm + 10;
         ln = ln + 20;
     } else {
-        @print('capture failed\n');
+        @print("capture failed\n");
     };
-    @print('after with: m={} n={}\n', *m, *n);
+    @print("after with: m={} n={}\n", *m, *n);
 
     return 0;
 }

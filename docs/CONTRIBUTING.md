@@ -22,6 +22,22 @@ use GitHub pull requests for this purpose. Consult
 [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
 
+## Building and testing
+
+Build options and the invocation limits (parallelism / OOM protection) are documented in the root
+[`CMakeLists.txt`](../CMakeLists.txt) (`Build System Rules`, item 13). The job count is computed
+from the memory budget by `cmake/parallelism.cmake`; never pass `-j` by hand.
+
+```bash
+cmake -B _build
+make build                                                # builds with the computed -j
+timeout 900 make test                                     # all suites
+```
+
+Run one build at a time. A memory-limited cgroup is optional: when present, the computed job
+count accounts for its limit (`systemd-run --user --scope -p MemoryMax=9G …`, the 9G example is
+for a 16 GiB host).
+
 ## Community Guidelines
 
 This project follows

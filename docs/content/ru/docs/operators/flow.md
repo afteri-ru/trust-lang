@@ -104,7 +104,7 @@ dict := (1,2,3,4,5,);
 сопоставление с образцом по полям (пример приведён на форме `@match`):
 
 ```python
-$value := (f1=1, f2='2',);
+$value := (f1=1, f2="2",);
 @match( $value ) ~~> {
     @case((f1=_,), (f1=_, f2=0,)) { ... }; # поле f2 отсутствует или является числом
     @case((f1=_, f2="",), (f1=_, f2='',)) { ... }; # поле f2 — строка
@@ -126,10 +126,10 @@ $value := (f1=1, f2='2',);
 
 ```python
 @func matches_regex(value:StrChar, pattern:StrChar):Bool { ... };
-$s := 'foobar';
+$s := "foobar";
 [ $s ] @[matcher("matches_regex")@] ==> {
-    @case('^foo') { ... };
-    @case('bar$', 'baz') { ... };
+    @case("^foo") { ... };
+    @case("bar$", "baz") { ... };
     @default { ... };
 };
 ```

@@ -10,10 +10,36 @@ work with different types, regardless of their concrete form. Different language
 in their own way; a comparative analysis of the approaches in other languages is published in a separate
 [blog article](/en/blog/comparison/generics/).
 
+This is type-level metaprogramming in *TrustLang*. [Macros](../syntax/macros/) are a syntactic
+extension: they are expanded before the AST and the type system, do not see data types, and do not
+replace generic programming.
+
 In *TrustLang*, generics are implemented in the current version through **type parameters** and their substitution in
 declarations of native template types and methods of collections/ranges. The "generic
 dispatcher function" model with runtime dispatch by types and a separate template syntax is not yet
-implemented (see the "What is not implemented" section below).
+implemented (see the "What is not implemented" section below). Static generic functions (`<T> f(...)`)
+**are** implemented — see the "Generic functions" section.
+
+## Generic functions {#generic-functions}
+
+A function with type parameters (`<T>`, `<T,U>`) deduces them from the argument types at a call site.
+In C++ it is emitted as `template <typename T>`, and the call is instantiated with explicit type arguments:
+
+```trust
+<T> id(x: T): T := { @return x; };
+
+a  : Int32 := 5;
+r  : Int32 := id(a);      # T := Int32 -> c_id<int32_t>(c_a)
+v0 : Any := 5;
+v  : Any := id(v0);       # T := Any   -> c_id<std::any>(c_v0)  (:Any is a concrete type)
+```
+
+If nothing can be deduced (e.g. `T` appears only in the return type) it is an explicit error
+(`cannot deduce template parameter ...`); a structural mismatch is `no matching overload`.
+Type packs (`<T...>`, `xs:T...`) are supported only as a trailing function parameter.
+Not supported: named/default arguments for generic functions, generic methods/operators/lambdas,
+explicit template arguments at a call site (deduction is always automatic). See
+[Functions](funcs/#overload) for overload resolution details.
 
 ## Native template types {#native-template}
 
@@ -22,7 +48,7 @@ A native C++ template type is declared with a prefix of type parameters and a na
 
 ```trust
 @include("vector")
-<T> %std::vector() := ...;    # declares the type vector<T> with the C++ name std::vector
+<T> vector ::= %std::vector { };    # declares the type vector<T> with the C++ name std::vector
 
 v: vector<Int32> := [1, 2, 3,];
 # → #include <vector>
@@ -55,18 +81,16 @@ and an **explicit implementation** `%std::pair<T1,T2>` on the right:
 ```trust
 @include("utility")
 <T1,T2> Pair ::= %std::pair<T1,T2> {   # trust-template Pair ↔ std::pair
-    %first(): T1 := ...;               # Pair<A,B>.first
-    %second(): T2 := ...;              # Pair<A,B>.second
+    first(): T1 := ...;                # Pair<A,B>.first
+    second(): T2 := ...;               # Pair<A,B>.second
 };
 
 p: Pair<Int32, StrChar> := ...;
 # → std::pair<int32_t, std::string> + #include <utility>
 ```
 
-The generalized form `<T1,T2> Pair ::= <T1,T2> %std::pair { ... }` (the template is bound without an explicit list
-of arguments in the RHS) — sugar, the implementation is **deferred** (a "not implemented" diagnostic); use the explicit
-`%std::pair<T1,T2>`. The notation format is the same for a native and a non-native name (only the `%` differs).
-More — [Native types](../types/native/).
+Both the explicit form (`Pair ::= %std::pair<T1,T2> { ... };`) and the generalized one
+(`<T1,T2> Pair ::= <T1,T2> %std::pair { ... };`) are supported. More — [Native types](../types/native/).
 
 ## User template classes {#class-template}
 
@@ -85,20 +109,20 @@ b : Box<Int32> := Box();     # → template <typename T> struct c_Box { T c_valu
 b.set(42);                   # → c_Box<int32_t> c_b = c_Box<int32_t>();
 ```
 
-A template class can be inherited: `<T> :Derived ::= :Base<:T>{ ... }` → `struct c_Derived : public c_Base<T>`.
+A template class can be inherited: `<T> :Derived ::= :Base<:T>{ ... }` → `struct Derived : public Base<T>`.
 Type arguments are mandatory (`:Box` without `<...>` is an error). Only type parameters are supported;
 value parameters and constraints — no.
 
 ### Struct templates (POD)
 
 `:Struct` can also be templated (`<T> :Point ::= :Struct{ x: T := _; y: T := _; }`). The definition
-is emitted as `template <typename T> struct c_Point` **without** `static_assert`: a POD check over a template
+is emitted as `template <typename T> struct Point` **without** `static_assert`: a POD check over a template
 is inexpressible and depends on `T`. The check is emitted for a **concrete instantiation**:
 
 ```cpp
-template <typename T> struct c_Point { T c_x; T c_y; };
-c_Point<int32_t> c_p = c_Point<int32_t>(1, 2);
-static_assert(std::is_trivial_v<c_Point<int32_t>> && std::is_standard_layout_v<c_Point<int32_t>>,
+template <typename T> struct Point { T x; T y; };
+Point<int32_t> p = Point<int32_t>(1, 2);
+static_assert(std::is_trivial_v<Point<int32_t>> && std::is_standard_layout_v<Point<int32_t>>,
               "trust: Struct 'Point' must be POD");
 ```
 
@@ -118,16 +142,16 @@ v := :vector<Int32>(1, 2, 3);     # → std::vector<int32_t> c_v = std::vector<i
 
 ## Restrictions of the `::=` operator
 
-A non-type in the RHS of `::=` (`func(...) ::= { }`, `name ::= '123'`, `term ::= term2(arg)`) is an error: `::=`
+A non-type in the RHS of `::=` (`func(...) ::= { }`, `name ::= "123"`, `term ::= term2(arg)`) is an error: `::=`
 creates a type, it has no arithmetic/expressions. The "class-with-body" form (`func(arg) ::= Class(){...}`)
 is not implemented in the current version (planned).
 
 ## Sets of allowed types {#type-sets}
 
-A special case of type variability is implemented as a **set of allowed types** — sugar over explicit
-overloading: `Name ::= :A + :B;` (named) or `:(:A + :B)` (inline). A function with a set parameter
-is expanded into N definitions with a common body. Details and restrictions — in
-[Functions](funcs/#type-sets).
+> ⚠ **Not implemented in the current version** (the diagnostic is “type set definitions are not
+> implemented yet”). The target model is sugar over explicit overloading: `Name ::= :A + :B;`
+> (named) or `:(:A + :B)` (inline); a function with a set parameter expands into N definitions with
+> a common body. Details and restrictions — see [Functions](funcs/#type-sets).
 
 ## What is not implemented
 

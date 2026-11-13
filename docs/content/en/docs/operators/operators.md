@@ -23,6 +23,31 @@ There is no separate exponentiation operator (the power is computed by a functio
 Arithmetic of rational numbers and `:BigInteger` is a separate strict branch: mixing with floating-point
 numbers requires an explicit conversion (see [Numbers and tensors](../types/numbers/)).
 
+### Increment and decrement {#incdec}
+
+The `++` (increment) and `--` (decrement) operators increase or decrease the value of the target by one.
+Both forms are supported:
+
+| Form | Notation | Expression result |
+|---|---|---|
+| prefix | `++x`, `--x` | the **new** value of the target |
+| postfix | `x++`, `x--` | the **old** value of the target |
+
+```python
+i := 0;
+a := i++;   # a == 0, i == 1  (postfix — old value)
+b := ++i;   # b == 2, i == 2  (prefix — new value)
+i--;        # i == 1
+```
+
+The operand must be a modifiable lvalue of a numeric type (a variable, field or element). The operators
+are equivalent to `x += 1` / `x -= 1` and are subject to the same [integer overflow
+checking](../types/numbers/): for signed machine integer arithmetic, an overflow raises `IntMinus`.
+Applying them to constants or non-numeric values is a compilation error.
+
+> **Note:** `++` and `--` are two-character tokens, so an unspaced notation like `a--b` is recognized
+> as `a--` and `b`. To subtract a negative number, separate the signs with a space: `a - -b`.
+
 ### Bitwise operators {#bitwise}
 
 The notations `.<.` (shift left), `.>.`/`.>>.` (shift right), `.&.`, `.|.`, `.^.`, `.~.`

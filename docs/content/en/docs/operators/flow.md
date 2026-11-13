@@ -104,7 +104,7 @@ If duck typing is used as the comparison operator, the evaluation turns into cla
 pattern matching by fields (the example is given in the `@match` form):
 
 ```python
-$value := (f1=1, f2='2',);
+$value := (f1=1, f2="2",);
 @match( $value ) ~~> {
     @case((f1=_,), (f1=_, f2=0,)) { ... }; # the field f2 is absent or is a number
     @case((f1=_, f2="",), (f1=_, f2='',)) { ... }; # the field f2 is a string
@@ -126,10 +126,10 @@ immediately after itself):
 
 ```python
 @func matches_regex(value:StrChar, pattern:StrChar):Bool { ... };
-$s := 'foobar';
+$s := "foobar";
 [ $s ] @[matcher("matches_regex")@] ==> {
-    @case('^foo') { ... };
-    @case('bar$', 'baz') { ... };
+    @case("^foo") { ... };
+    @case("bar$", "baz") { ... };
     @default { ... };
 };
 ```

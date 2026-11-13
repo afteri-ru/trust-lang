@@ -72,9 +72,10 @@ title: TrustLang
     <div class="col-lg-4 mb-4" style="opacity: 0.5;">
         <h4>Automatic protection from&nbsp;dangling references</h4>
         <p>
-            Static analysis of dangling references (analogous to ownership and borrowing in&nbsp;Rust),
-            but&nbsp;for <nobr>C++</nobr> without <i>UB</i> and <i>segfault</i> at&nbsp;runtime.
-            <a href="/en/docs/safety/invalidation/">Ownership control<b>*</b>&nbsp;&rarr;</a>
+            Static analysis of dangling references: control of derived-view invalidation
+            (views/iterators/observers) on source mutation — without <i>UB</i> and <i>segfault</i>
+            at&nbsp;runtime. This is not the Rust borrowing model.
+            <a href="/en/docs/safety/borrowing/">Derived-view invalidation control<b>*</b>&nbsp;&rarr;</a>
         </p>
     </div>
 </div>
